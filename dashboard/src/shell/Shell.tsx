@@ -28,10 +28,13 @@ import { activityFrom, notificationsFrom, toActionSummary, toPaletteApp } from '
 import { ActionJobs, jobsStackStyle } from './ActionJobs';
 import { useHub } from '../data/hub';
 import { useAppRequest } from './useAppRequest';
+import { useRecordVisit } from '../data/homeRecent';
 import { homeLayoutStore, personList } from '../data/prefs';
 import { useKeymap } from './keys/useKeymap';
 import { DesktopShell, type DockApp } from './DesktopShell';
 import { useLayoutMode, type LayoutMode } from './layoutMode';
+import { QuickSettings } from './quick/QuickSettings';
+import { effectiveView, useViewChoice } from './quick/viewPref';
 import { brand } from '../brand.generated';
 import { useSignedIn } from '../session';
 import { navItems } from '../screens/registry';
@@ -84,7 +87,10 @@ export function Shell({ children }: { children: ReactNode }) {
   const me = usePoll(() => (principal ? Promise.resolve(null) : client.me()), 0);
   const displayName = useDisplayName();
   const role = roleOf(principal, me.data ?? undefined);
-  const view = viewFor(role === undefined && me.error ? null : role);
+  // The role decides Pro; the person may narrow it to Simple (quick settings), never widen it.
+  const [viewChoice, setViewChoice] = useViewChoice(person);
+  const view = effectiveView(viewFor(role === undefined && me.error ? null : role), viewChoice);
+  const recordVisit = useRecordVisit(view, role);
   // A failed lookup is retried with backoff, then slowly, so a network hiccup does not leave an
   // owner in the Simple view until a reload. Stops once /v1/me answers.
   const meTries = useRef(0);
@@ -100,7 +106,10 @@ export function Shell({ children }: { children: ReactNode }) {
 
   const go = (link: string) => {
     const to = toRoute(link);
-    if (to) navigate(to);
+    if (!to) return false;
+    recordVisit(to);
+    navigate(to);
+    return true;
   };
 
 
@@ -171,10 +180,7 @@ export function Shell({ children }: { children: ReactNode }) {
     if (!a || a.target || a.hasAttribute('download')) return;
     const raw = a.getAttribute('href') ?? '';
     if (raw === '#om-main' || raw.startsWith('#om')) return;
-    const to = toRoute(raw);
-    if (!to) return;
-    e.preventDefault();
-    navigate(to);
+    if (go(raw)) e.preventDefault();
   };
 
   const status =
@@ -191,6 +197,8 @@ export function Shell({ children }: { children: ReactNode }) {
   const idle = useIdleLockPreference(knownPerson?.kind === 'person' ? knownPerson.id : undefined, role === 'owner');
   useIdleLock(canLock && knownPerson ? idle : 0, lockNow);
   const bell = (
+    <>
+    <QuickSettings role={role} view={view} viewChoice={viewChoice} onViewChoice={setViewChoice} />
     <NotificationBell
       items={notifications}
       now={hub.now}
@@ -206,6 +214,7 @@ export function Shell({ children }: { children: ReactNode }) {
       allHref={href.activity}
       settingsHref={href.setting('notifications')}
     />
+    </>
   );
   const account = (
     <>

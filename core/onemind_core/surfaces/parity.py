@@ -4,7 +4,7 @@
 Three lists, and CI (tests/test_surfaces.py) fails on any route that is in none of them:
 - a tool: the `route` of a ToolSurface in surfaces/core.py (the MCP catalogue is generated from it);
 - HUMAN_ONLY: routes no agent tool may stand for, each with its reason (REASONS);
-- AWAITING_TOOL: read routes that are to get a generated read tool (#632 and the area issues). It is a
+- AWAITING_TOOL: read routes that are to get a generated read tool (the area issues; #632 landed the first). It is a
   ratchet: a new route never goes here, and an entry leaves it when its tool lands.
 
 A route is one "METHOD /path" with the path as FastAPI declares it. HEAD follows GET and OPTIONS is the
@@ -22,9 +22,12 @@ from starlette.routing import Route, WebSocketRoute
 OVERSIGHT = "oversight"
 CREDENTIAL = "credential"
 PERSON = "person"
+SITE_MAP = "site-map"
 BYTES = "bytes"
 DOOR = "door"
 WRITE = "write"
+FLEET = "fleet"
+CONSOLE = "console"
 
 REASONS: dict[str, str] = {
     OVERSIGHT: "Approving, denying, approval policies, the motion lockout, confirming what a found radio is and "
@@ -32,12 +35,19 @@ REASONS: dict[str, str] = {
     CREDENTIAL: "Sign-in, sessions, tokens, passkeys, keys, secrets, join tickets and device trust never pass "
                 "through an agent.",
     PERSON: "The signed-in person's own record (profile, Home, inbox, windows); an agent has no such record.",
+    SITE_MAP: "Shared site map configuration and surveyed anchors have no agent tool.",
     BYTES: "File bytes, uploads, event streams, consoles, Prometheus text or the restic repository protocol, "
            "not a JSON tool result.",
     DOOR: "A door of its own (the MCP endpoint, installed-app tool calls, sign-in page, health probe, OpenAPI "
-          "document, surface registry, sync feed and file transfer, dashboard files); a tool over it adds nothing.",
+          "document, surface registry, sync feed and file transfer, the Send to menu, dashboard files, the data commons, the agent browser, an outsider's "
+          "share link); a tool over it adds nothing.",
     WRITE: "Changes the box directly. An agent never writes: it files a request (request_action or a "
            "request_<type> tool) that a person approves.",
+    FLEET: "Fleet OS versions and staged rollouts (#156): a rollout starts only as an owner-approved action "
+           "(os.rollout.start), which an agent follows through get_action; this is the owner's update console.",
+    CONSOLE: "The owner's system console: host service logs (which can hold secrets until a redacted read tool "
+             "exists), the message-bus monitor (#619), bridge status (#610) and the UPS battery (#244). Agents read the world through the "
+             "data commons doors and request changes as actions.",
 }
 
 SKIP_METHODS = frozenset({"HEAD", "OPTIONS"})
@@ -80,6 +90,10 @@ def problems(keys: Iterable[str], tool_routes: dict[str, str]) -> list[str]:
 
 
 HUMAN_ONLY: dict[str, str] = {
+    "POST /v1/work/projects": WRITE,
+    "POST /v1/work/capture": WRITE,
+    "PATCH /v1/work/projects/{project_id}/tasks/{task_id}": WRITE,
+    "DELETE /v1/work/projects/{project_id}/tasks/{task_id}": WRITE,
     # ---- oversight: deciding requests and controlling agents
     "POST /v1/actions/{action_id}/approve": OVERSIGHT,
     "POST /v1/actions/{action_id}/approve-options": OVERSIGHT,
@@ -89,15 +103,26 @@ HUMAN_ONLY: dict[str, str] = {
     "PUT /v1/agents/{name}/budget": OVERSIGHT,
     "POST /v1/agents/{name}/cancel": OVERSIGHT,
     "POST /v1/agents/{name}/resume": OVERSIGHT,
+    # an agent never gets a tool that issues, reads or revokes its own NATS key
+    "GET /v1/agents/{name}/nats-key": CREDENTIAL,
+    "PUT /v1/agents/{name}/nats-key": CREDENTIAL,
+    "DELETE /v1/agents/{name}/nats-key": CREDENTIAL,
     "GET /v1/approval-policies": OVERSIGHT,
     "POST /v1/approval-policies": OVERSIGHT,
     "DELETE /v1/approval-policies/{policy_id}": OVERSIGHT,
+    # FD-08 is an owner-only report for assessing the box before deciding on maintenance.
+    "GET /v1/care/checkup": OVERSIGHT,
     "POST /v1/domains/hosts/{hostname}/approve": OVERSIGHT,
     "POST /v1/files/requests/{request_id}/approve": OVERSIGHT,
     "POST /v1/files/requests/{request_id}/deny": OVERSIGHT,
     # #690: the USB devices and GPUs an owner may grant a machine, and why one is refused; the owner
     # decides a grant from it (an agent only files machine.attach_device, which the owner approves)
     "GET /v1/machines/{name}/devices": OVERSIGHT,
+    # host grants (#186 E2): the owner alone decides what reaches the host; an agent may file the request
+    # over REST (it stays pending until the owner approves), but no agent tool stands for it
+    "GET /v1/host-grants": OVERSIGHT,
+    "POST /v1/host-grants/requests": OVERSIGHT,
+    "POST /v1/host-grants/{grant_id}/revoke": OVERSIGHT,
     "PUT /v1/physical/lockout": OVERSIGHT,
     "POST /v1/radios/{radio_id}/confirm": OVERSIGHT,
     # ---- credential: sign-in, tokens, keys, secrets, pairing
@@ -150,6 +175,10 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/tls/ca.crt": CREDENTIAL,
     "GET /v1/tls/onemind.mobileconfig": CREDENTIAL,
     "GET /v1/tokens": CREDENTIAL,
+    # share links (#237): each link secret is a bearer credential handed to someone outside the household
+    "GET /v1/files/shares": CREDENTIAL,
+    "POST /v1/files/shares": CREDENTIAL,
+    "DELETE /v1/files/shares/{share_id}": CREDENTIAL,
     "POST /v1/tokens": CREDENTIAL,
     "DELETE /v1/tokens/{token_id}": CREDENTIAL,
     "POST /v1/tokens/{token_id}/rotate": CREDENTIAL,
@@ -158,6 +187,9 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/files/downloads": PERSON,
     "GET /v1/me": PERSON,
     "PATCH /v1/me": PERSON,
+    "GET /v1/me/dashboard-card": PERSON,
+    "PUT /v1/me/dashboard-card": PERSON,
+    "GET /v1/me/dashboard-card/events": BYTES,
     "GET /v1/me/home": PERSON,
     "PUT /v1/me/home": PERSON,
     "GET /v1/notifications": PERSON,
@@ -176,11 +208,14 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/tips/whats-new": PERSON,
     "GET /v1/tips/{tip_id}": PERSON,
     "POST /v1/tips/{tip_id}/state": PERSON,
+    # ---- shared map configuration
+    "GET /v1/sites": SITE_MAP,
     # ---- bytes: files, uploads, streams and repository protocols
     "GET /v1/backups/snapshots/{snapshot_id}/file": BYTES,
     "GET /v1/events": BYTES,
     "GET /v1/files/download": BYTES,
     "GET /v1/files/preview": BYTES,
+    "GET /v1/share/{token}/items/{index}": BYTES,
     "POST /v1/files/uploads": BYTES,
     "DELETE /v1/files/uploads/{upload_id}": BYTES,
     "GET /v1/files/uploads/{upload_id}": BYTES,
@@ -214,6 +249,9 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /signin": DOOR,
     "POST /v1/plugins/{plugin_id}/tools/{tool_name}": DOOR,
     "GET /v1/protocol": DOOR,
+    "GET /v1/share/{token}": DOOR,
+    "GET /v1/share/targets": DOOR,
+    "GET /v1/share/types": DOOR,
     "GET /v1/surfaces": DOOR,
     "GET /v1/sync/changes": DOOR,
     "POST /v1/sync/chunks/missing": DOOR,
@@ -252,6 +290,7 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/files/grants": WRITE,
     "DELETE /v1/files/grants/{grant_id}": WRITE,
     "POST /v1/files/ops": WRITE,
+    "POST /v1/os/rollouts/{rollout_id}/cancel": WRITE,
     "PUT /v1/files/quotas/{person_id}": WRITE,
     "POST /v1/files/requests/{request_id}/cancel": WRITE,
     "POST /v1/files/trash/empty": WRITE,
@@ -277,7 +316,9 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/photos/sources/{source_id}/check": WRITE,
     "POST /v1/plugins/{plugin_id}/settings": WRITE,
     "POST /v1/restores": WRITE,
+    "POST /v1/share": WRITE,
     "POST /v1/shares/smb/{share_id}/stop": WRITE,
+    "POST /v1/sites": WRITE,
     "POST /v1/storage/actions": WRITE,
     "POST /v1/storage/plans": WRITE,
     "POST /v1/system/actions": WRITE,
@@ -286,6 +327,46 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/users": WRITE,
     "PATCH /v1/users/{user_id}": WRITE,
     "POST /v1/users/{user_id}/disable": WRITE,
+    # ---- fleet: OS versions and staged rollouts
+    "GET /v1/os/fleet": FLEET,
+    "GET /v1/os/rollouts": FLEET,
+    "GET /v1/os/rollouts/{rollout_id}": FLEET,
+    # ---- classified 2026-11-23 (hand-off gate): routes that landed without an entry
+    "GET /v1/auth/approver-keys": CREDENTIAL,
+    "POST /v1/auth/approver-keys": CREDENTIAL,
+    "DELETE /v1/auth/approver-keys/{key_id}": CREDENTIAL,
+    "GET /v1/me/devices": PERSON,
+    "DELETE /v1/me/devices/{device_id}": PERSON,
+    "GET /v1/sync/locks": DOOR,
+    "POST /v1/sync/locks": DOOR,
+    "POST /v1/sync/locks/{lock_id}/refresh": DOOR,
+    "DELETE /v1/sync/locks/{lock_id}": DOOR,
+    "POST /v1/bridges/{bridge_id}/events": DOOR,
+    "GET /v1/bridges": CONSOLE,
+    "GET /v1/bridges/{bridge_id}": CONSOLE,
+    "GET /v1/bridges/{bridge_id}/latest": CONSOLE,
+    "GET /v1/engine": CONSOLE,
+    "GET /v1/system/services/{unit}/logs": CONSOLE,
+    "GET /v1/system/ups": CONSOLE,
+    "POST /v1/bridges/{bridge_id}/resume": WRITE,
+    "POST /v1/system/services/{unit}/restart": WRITE,
+    "PUT /v1/mesh/settings": WRITE,
+    # ---- data commons (#615): the commons is itself the grant-checked door; grants are the owner's oversight
+    "GET /v1/data/classes": DOOR,
+    "GET /v1/data/classes/{data_class}": DOOR,
+    "GET /v1/data/classes/{data_class}/records": DOOR,
+    "POST /v1/data/classes/{data_class}/records": DOOR,
+    "GET /v1/data/classes/{data_class}/stream": DOOR,
+    "GET /v1/data/grants": OVERSIGHT,
+    "DELETE /v1/data/grants/{grant_id}": OVERSIGHT,
+    # ---- agent browser (#694): its own door with a per-site and per-step owner approval; removing a site is oversight
+    "GET /v1/agent-browser/sites": DOOR,
+    "POST /v1/agent-browser/sites": DOOR,
+    "DELETE /v1/agent-browser/sites/{site_id}": OVERSIGHT,
+    "GET /v1/agent-browser/sessions": DOOR,
+    "POST /v1/agent-browser/sessions": DOOR,
+    "DELETE /v1/agent-browser/sessions/{session_id}": DOOR,
+    "POST /v1/agent-browser/sessions/{session_id}/visit": DOOR,
 }
 
 # Routes that are to get a generated tool (#632 and the area issues). A ratchet: it may only shrink, and
@@ -293,14 +374,11 @@ HUMAN_ONLY: dict[str, str] = {
 AWAITING_TOOL: frozenset[str] = frozenset({
     "GET /v1/agents",
     "GET /v1/agents/{name}",
-    "GET /v1/alerts",
-    "GET /v1/alerts/{alert_id}",
     "GET /v1/apps/{app_id}",
     "GET /v1/apps/{app_id}/access",
     "GET /v1/apps/{app_id}/dependencies",
     "GET /v1/apps/{app_id}/exposure",
     "GET /v1/apps/{app_id}/host-ports",
-    "GET /v1/apps/{app_id}/logs",
     "GET /v1/apps/{app_id}/metrics",
     "GET /v1/apps/{app_id}/owner-override",
     "GET /v1/apps/{app_id}/placement",
@@ -315,12 +393,9 @@ AWAITING_TOOL: frozenset[str] = frozenset({
     "GET /v1/automation/state",
     "GET /v1/backups/content",
     "GET /v1/backups/destinations",
-    "GET /v1/backups/runs",
     "GET /v1/backups/runs/{run_id}",
-    "GET /v1/backups/snapshots",
     "GET /v1/backups/snapshots/{snapshot_id}",
     "GET /v1/backups/snapshots/{snapshot_id}/tree",
-    "GET /v1/backups/status",
     "GET /v1/backups/verifications",
     "GET /v1/builtins",
     "GET /v1/databases",
@@ -334,13 +409,10 @@ AWAITING_TOOL: frozenset[str] = frozenset({
     "GET /v1/files/requests",
     "GET /v1/files/requests/{request_id}",
     "GET /v1/files/roots",
-    "GET /v1/files/stat",
     "GET /v1/files/trash",
     "GET /v1/instance/kiosk",
     "GET /v1/instance/name",
-    "GET /v1/machines",
     "GET /v1/machines/capabilities",
-    "GET /v1/machines/{name}",
     "GET /v1/machines/{name}/snapshots",
     "GET /v1/mesh",
     "GET /v1/migrate/plans",
@@ -356,8 +428,6 @@ AWAITING_TOOL: frozenset[str] = frozenset({
     "GET /v1/onboarding/settings",
     "GET /v1/onboarding/state",
     "GET /v1/os/about",
-    "GET /v1/os/updates",
-    "GET /v1/os/updates/history",
     "GET /v1/photos/library",
     "GET /v1/photos/sources/{source_id}/coverage",
     "GET /v1/photos/sources/{source_id}/receipts",
@@ -376,7 +446,6 @@ AWAITING_TOOL: frozenset[str] = frozenset({
     "GET /v1/sources",
     "GET /v1/sources/{source_id}",
     "GET /v1/status",
-    "GET /v1/storage",
     "GET /v1/storage/devices",
     "GET /v1/storage/operations/{action_id}",
     "GET /v1/subjects",
@@ -386,8 +455,24 @@ AWAITING_TOOL: frozenset[str] = frozenset({
     "GET /v1/system/diagnostics",
     "GET /v1/system/services",
     "GET /v1/tls",
-    "GET /v1/update-policy",
     "GET /v1/update-policy/dry-run",
     "GET /v1/usage",
     "GET /v1/users",
 })
+
+# The read areas #632 names, each with the routes that read it. tests/test_mcp_read_tools.py fails when an area
+# has no tool, or when one of its routes is neither a tool nor listed above with its reason.
+READ_AREAS: dict[str, tuple[str, ...]] = {
+    "backups": ("GET /v1/backups/status", "GET /v1/backups/runs", "GET /v1/backups/runs/{run_id}",
+                "GET /v1/backups/snapshots", "GET /v1/backups/snapshots/{snapshot_id}",
+                "GET /v1/backups/snapshots/{snapshot_id}/tree", "GET /v1/backups/verifications",
+                "GET /v1/backups/destinations", "GET /v1/backups/content"),
+    "os_updates": ("GET /v1/os/updates", "GET /v1/os/updates/history", "GET /v1/os/about"),
+    "files_metadata": ("GET /v1/files/stat", "GET /v1/files/list", "GET /v1/files/roots"),
+    "machines": ("GET /v1/machines", "GET /v1/machines/{name}", "GET /v1/machines/{name}/snapshots",
+                 "GET /v1/machines/capabilities"),
+    "storage": ("GET /v1/storage", "GET /v1/storage/devices", "GET /v1/storage/operations/{action_id}"),
+    "alerts": ("GET /v1/alerts", "GET /v1/alerts/{alert_id}"),
+    "settings": ("GET /v1/update-policy", "GET /v1/update-policy/dry-run", "GET /v1/onboarding/settings"),
+    "logs": ("GET /v1/apps/{app_id}/logs", "GET /v1/system/diagnostics"),
+}

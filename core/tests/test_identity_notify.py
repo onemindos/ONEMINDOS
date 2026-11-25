@@ -105,6 +105,8 @@ def test_app_store_reads_follow_sharing(hc):
     """§12.22 reads use the same visibility check as /plan: 404 for an app not shared with the caller."""
     setup_owner(hc)
     guest, child = enrol(hc, "guest", "gus"), enrol(hc, "child", "kid")
+    # A new child starts with a default age rating (FAM-01); classify the app so this test stays about sharing.
+    assert hc.put("/v1/family/apps/whoami", json={"min_age": 0, "tags": []}, headers=csrf(hc)).status_code == 200
     paths = [f"/v1/apps/whoami/{leaf}" for leaf in ("settings", "dependencies", "host-ports", "exposure")]
     for who in (guest, child):
         for path in paths + ["/v1/apps/whoami/plan"]:
