@@ -3,6 +3,7 @@
 # from os/rootfs/Containerfile; Mac setup and native tests: docs/learning/mac-dev-loop.md.
 #
 #   make rootfs  BOARD=x86_64-efi [LEG=debian|ubuntu]   -> out/rootfs-<leg>-<board>.tar
+#   make repro-check BOARD=x86_64-efi                   -> builds the rootfs twice and compares (reproducible build)
 #   make image   BOARD=x86_64-efi [VERSION=...]         -> out/image-<board>/ (disk .img, .raucb, SHA256SUMS)
 #   make fixtures BOARD=x86_64-efi [UPTO=T5] [HW=1]     -> out/fx-<board>/ (battery inputs; HW=1 for founder kits)
 #   make fixtures ... DATA_FS=luks2                      -> data partition left blank, encrypted on first boot
@@ -33,10 +34,16 @@ FIRMWARE   ?= yes
 LEG_ARGS    = $(shell sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/$(LEG).args)
 TOOLS      ?= onemind-tools:$(ARCH_OF)
 ROOTFS      = $(OUT)/rootfs-$(LEG)-$(BOARD).tar
+# Reproducible build: the epoch is the pinned snapshot's own timestamp (os/rootfs/source-date-epoch.py), empty on a
+# leg without a snapshot. Build args, tar timestamps and the assembler's mke2fs all take it.
+SOURCE_DATE_EPOCH ?= $(shell python3 -I os/rootfs/source-date-epoch.py "$$(sed -n 's/^SNAPSHOT=//p' os/rootfs/$(LEG).args)")
+SDE_ARG     = $(if $(SOURCE_DATE_EPOCH),--build-arg SOURCE_DATE_EPOCH=$(SOURCE_DATE_EPOCH))
+SDE_TAR     = $(if $(SOURCE_DATE_EPOCH),$(comma)rewrite-timestamp=true)
+comma       = ,
 DOCKER_RUN  = docker run --rm --platform $(PLATFORM) -v "$(CURDIR)":/src:ro -v "$(CURDIR)/$(OUT)":/out
 KVM         = $(shell [ -w /dev/kvm ] && echo --device /dev/kvm)
 
-.PHONY: help tools rootfs image fixtures battery firstboot bootlock sysextguard dataenc convert hygiene hygiene-selftest lint test kit clean secureboot-image secureboot-test
+.PHONY: help tools rootfs repro-check image fixtures battery firstboot bootlock sysextguard dataenc convert hygiene hygiene-selftest lint test kit clean secureboot-image secureboot-test
 
 help:
 	@sed -n 's/^#   make/make/p' Makefile
@@ -50,13 +57,18 @@ tools: | $(OUT)
 
 rootfs: | $(OUT)
 	docker buildx build -f os/rootfs/Containerfile --target rootfs --platform $(PLATFORM) \
-	  --build-arg BOARD=$(BOARD) --build-arg FIRMWARE=$(FIRMWARE) $(LEG_ARGS) --output type=tar,dest=$(ROOTFS) .
+	  --build-arg BOARD=$(BOARD) --build-arg FIRMWARE=$(FIRMWARE) $(LEG_ARGS) $(SDE_ARG) --output type=tar,dest=$(ROOTFS)$(SDE_TAR) .
 	@ls -la $(ROOTFS)
+
+# Reproducible build (Step 2 PR 8): two from-scratch rootfs builds must give the same tar and the same rootfs.ext4.
+#   make repro-check BOARD=x86_64-efi   -> out/repro-<board>/ (no KVM needed; two full builds, about 15 minutes)
+repro-check: tools
+	BOARD=$(BOARD) LEG=$(LEG) OUT=$(OUT) TOOLS=$(TOOLS) sh os/rootfs/repro-check.sh
 
 # A development image, signed with a throwaway CA made here and deleted after use (SB-10).
 image: tools
 	@test -f $(ROOTFS) || $(MAKE) rootfs BOARD=$(BOARD) LEG=$(LEG)
-	$(DOCKER_RUN) -e VERSION=$(VERSION) -e BOARD=$(BOARD) -e ROOTFS=/out/$(notdir $(ROOTFS)) $(TOOLS) \
+	$(DOCKER_RUN) -e VERSION=$(VERSION) -e BOARD=$(BOARD) -e ROOTFS=/out/$(notdir $(ROOTFS)) -e SOURCE_DATE_EPOCH=$(SOURCE_DATE_EPOCH) $(TOOLS) \
 	  /src/os/assemble/dev-image.sh /out/image-$(BOARD)
 
 fixtures: tools
