@@ -122,3 +122,5 @@ F14 runs on the slot-A boot from F1, after F13 and before the F3 reboot, from th
 | F15 | The zone survives a reboot | After the F3 reboot `readlink -f /etc/localtime` still ends in `zoneinfo/Pacific/Auckland`, `date +%z` is `+1300`, and `GET /v1/time` reports `Pacific/Auckland` | Any of them is back to UTC or missing |
 
 Required for this task's "done": F14 and F15 PASS on x86_64-efi (F15 needs a run with `FUPTO=F3` or higher).
+
+**Amendment (2026-11-25, after the first run):** the first run of F14 passed; the F3 reboot step then waited for a gate line that had already scrolled past (on a fast KVM host the health gate prints `RESULT committed-boot` before the harness has consumed the `already configured` line, the same race F1 already handles by resetting its search position). The harness now searches the boot's own buffer from the start of the reboot. This changes what is searched, not what passes, and is the one allowed re-run.

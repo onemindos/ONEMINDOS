@@ -622,6 +622,7 @@ def main():
             vm.mark("F3 reboot keeps state")
             seg = vm.here(); vm.send("systemctl reboot")
             al = vm.expect(ALREADY, 900).group(0)
+            vm.pos = seg    # on a fast host the gate line comes before ALREADY; search this boot's buffer from its start
             g3 = vm.wait_gate(); vm.shell_ready()
             new_toks = TOKEN.findall(vm.since(seg))
             ids3 = ident(vm)
