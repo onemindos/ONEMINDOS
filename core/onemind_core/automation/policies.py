@@ -3,7 +3,7 @@
 
 A standing approval is the owner's "yes, in advance" for a narrow set of requests:
 
-    {"allow": {"types": ["app.remove"], "requested_by": ["automation:*"],
+    {"allow": {"types": ["app.remove"], "requested_by": ["automation:update-policy"],
                "params": {"app_id": {"enum": ["whoami"]}}},
      "limits": {"per_day": 3}, "window_id": "win_nightly", "expires_at": "..."}
 
