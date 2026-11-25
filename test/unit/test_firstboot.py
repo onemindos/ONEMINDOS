@@ -46,7 +46,9 @@ class Box(unittest.TestCase):
                    mock.patch.object(fb, "find_seed_device", lambda: None),
                    mock.patch.object(fb.socket, "gethostname", lambda: "Home_Box"),
                    mock.patch.object(fb, "lan_addr", lambda: LAN),
-                   mock.patch.object(fb.time, "sleep", lambda s: None)]
+                   mock.patch.object(fb.time, "sleep", lambda s: None),
+                   # The fake box has its own data disk, independent of the runner's temp filesystem.
+                   mock.patch("shutil.disk_usage", return_value=shutil._ntuple_diskusage(24 << 30, 0, 24 << 30))]
         for pt in patches:
             pt.start()
             self.addCleanup(pt.stop)
@@ -219,11 +221,21 @@ class Files(unittest.TestCase):
             self.assertIn(f"ONEMIND_FABRIC_JETSTREAM_MAX_BYTES={cap}\n", env)
             with usage(2000 * GIB):
                 self.assertEqual(fb.jetstream_max_bytes(p), 64 * GIB)       # the ceiling
-            with usage(1 * GIB), self.assertRaises(ValueError):
-                fb.jetstream_max_bytes(p)                                  # too small: refused, not uncapped
         for bad in (0, -1):
             with self.assertRaises(ValueError):
                 fb.hub_nats_conf(None, bad)                                # JetStream without a cap is refused
+
+    def test_jetstream_refuses_a_data_disk_below_its_minimum(self):
+        from onemind_core.jetstream import JetStreamCapError
+
+        total = 2 << 30  # 10% of 2 GiB is below the 256 MiB floor
+        with tempfile.TemporaryDirectory() as root:
+            path = os.path.join(root, "data")
+            os.mkdir(path)
+            with mock.patch("shutil.disk_usage", return_value=shutil._ntuple_diskusage(total, 0, total)) as disk:
+                with self.assertRaisesRegex(JetStreamCapError, "too small for JetStream"):
+                    fb.jetstream_max_bytes(fb.Paths(root))
+            disk.assert_called_once_with(path)
 
     def test_hub_nats_refuses_to_start_jetstream_without_a_cap(self):
         # #601: onemind-nats-files runs the check before every start and reload, after the copies (it reads
@@ -459,6 +471,36 @@ class Hub(Box):
         fb.apply(self.p)
         self.assertEqual(self.etc("gateway.env").count("ONEMIND_BACKUPS_ENABLED=1"), 1)
         self.assertEqual(json.load(open(self.p.backup_conf))["node_id"], st["node_id"])
+
+    def test_built_in_data_is_in_the_system_unit_on_a_new_hub(self):
+        # #616: the gateway writes the built-ins' table export into backup-export before each run, and the
+        # agent's system unit copies it with the files root, so photos and files reach restic.
+        st = self.first_boot()
+        system = json.load(open(self.p.backup_conf))["units"]["system"]
+        self.assertEqual(system["paths"][-2:], [self.p.backup_export, self.p.files])
+        self.assertEqual(self.mode(self.p.backup_export), 0o700)
+        for gw in (self.etc("gateway.env"), fb.gateway_env(self.p, st, MESH_IP)):
+            self.assertIn(f"ONEMIND_BACKUPS_EXPORT_DIR={self.p.backup_export}\n", gw)
+            self.assertIn("ONEMIND_BACKUPS_AGENT_DIRS=ONEMIND_FILES_ROOT\n", gw)
+        self.assertEqual(self.etc("gateway.env").count("ONEMIND_BACKUPS_EXPORT_DIR="), 1)
+
+    def test_a_hub_set_up_before_616_gets_the_built_in_paths_and_keeps_the_rest(self):
+        self.first_boot()
+        conf = json.load(open(self.p.backup_conf))
+        conf["units"]["system"]["paths"] = [self.p.etc, self.p.tls, self.p.nats_keys]  # the old agent.json
+        conf["retention"]["daily"] = 9                                               # an owner's own change
+        open(self.p.backup_conf, "w").write(json.dumps(conf))
+        text = "".join(l for l in self.etc("gateway.env").splitlines(True)
+                       if "EXPORT_DIR" not in l and "AGENT_DIRS" not in l and "#616" not in l)
+        open(os.path.join(self.p.etc, "gateway.env"), "w").write(text)
+        fb.apply(self.p)                                    # the reboot after the update
+        fb.apply(self.p)
+        got = json.load(open(self.p.backup_conf))
+        self.assertEqual(got["units"]["system"]["paths"], fb.backup_system_paths(self.p))
+        self.assertEqual(got["retention"]["daily"], 9)
+        self.assertEqual({k: v for k, v in got.items() if k != "units"}, {k: v for k, v in conf.items() if k != "units"})
+        self.assertEqual(self.etc("gateway.env").count("ONEMIND_BACKUPS_EXPORT_DIR="), 1)
+        self.assertEqual(self.etc("gateway.env").count("ONEMIND_BACKUPS_ENABLED=1"), 1)
 
     def test_a_failed_job_key_leaves_backups_off_but_the_box_boots(self):
         with mock.patch("onemind_core.backups.jobs.load_or_create_job_key", side_effect=OSError("disk full")):
@@ -914,6 +956,94 @@ class WizardUnit(unittest.TestCase):
         # --threshold is on the 0..100 exposure scale: 49 = under 5.0 on the 0..10 scale of the table
         r = subprocess.run(["systemd-analyze", "security", "--offline=true", "--threshold=49",
                             "--no-pager", self.UNIT], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+
+FIRSTBOOT_SRC = os.path.join(LIB, "onemind_firstboot.py")
+
+
+class NoSharedSecret(unittest.TestCase):
+    """CORE-SEC-5 (#274): the first-boot code holds no shared NATS password, no passwordless user, no
+    `nats_tls` switch and no all-interfaces client port, anywhere, not only in the confs it writes."""
+
+    def test_source_has_none_of_the_old_nats_config(self):
+        src = open(FIRSTBOOT_SRC).read()
+        self.assertNotIn("def nats_conf", src)               # the old password writer
+        for needle in ("nats_tls", "join_token", "0.0.0.0:4222", "0.0.0.0:7422", 'user: "node"',
+                       "authorization {", "authorization{"):
+            self.assertNotIn(needle, src, needle)
+        self.assertNotRegex(src, r"nats://(gateway|onemindd|node):")   # no password in a URL
+
+    @needs_core
+    def test_conf_never_lists_a_user_or_a_password(self):
+        for conf in (fb.hub_nats_conf(None), fb.hub_nats_conf(MESH_IP)):
+            self.assertNotRegex(conf, r"(?mi)^\s*(users?|password|pass|token|authorization)\b")
+            self.assertNotIn("0.0.0.0", conf)
+        # the client port is the loopback one, and it is the only non-leaf listener
+        self.assertRegex(fb.hub_nats_conf(MESH_IP), r"(?m)^listen: 127\.0\.0\.1:4222$")
+
+
+@needs_core
+class LegacyHubAfterUpdate(Box):
+    """A hub that ran the pre-mesh first boot (state.json has no "mesh", its own nats.conf with the old
+    config) must keep running after an image update: first boot leaves its files alone, starts the units
+    it had, and `mesh` does not rewrite its NATS config (the reinstall note says how to move it)."""
+    LEGACY_CONF = LEGACY = ("server_name: hub\nlisten: 0.0.0.0:4222\n"
+                            'leafnodes { listen: 0.0.0.0:7422, authorization { user: "node", password: "x" } }\n')
+
+    def test_old_hub_is_left_as_it_is(self):
+        os.makedirs(self.p.etc)
+        self.put("data/onemind/etc/nats.conf", self.LEGACY_CONF)
+        os.makedirs(os.path.dirname(self.p.state), exist_ok=True)
+        open(self.p.state, "w").write(json.dumps({"schema": fb.SCHEMA, "role": "hub", "node_id": "abc"}))
+        self.assertEqual(fb.apply(self.p), 0)
+        self.assertEqual(self.etc("nats.conf"), self.LEGACY_CONF)
+        self.assertIn("reinstall", self.console())
+        # Assert the four legacy units as a subset, so other hub units main adds later
+        # (rescue console, host serve) do not break this test.
+        started = self.started[-1]
+        self.assertEqual(started[:2], ("start", "--no-block"))
+        for unit in ("onemind-nats.service", "onemindd.service",
+                     "onemind-gateway.service", "onemind-gateway-kube.service"):
+            self.assertIn(unit, started)
+        self.assertEqual(fb.mesh(self.p), 0)
+        self.assertEqual(self.etc("nats.conf"), self.LEGACY_CONF)    # `mesh` is a no-op for it too
+
+
+@needs_core
+class HubAccounts(Box):
+    """The hub's first boot makes the pieces the image battery relies on: real service keys that the
+    accounts file names, and a nats.conf that nats-server itself accepts."""
+
+    def test_accounts_file_has_service_keys_and_per_node_accounts_are_separate(self):
+        from pathlib import Path
+
+        from onemind_core import natsconf
+        self.put("boot/efi/onemind.conf", "role = hub\nname = Home\n")
+        fb.apply(self.p)
+        acc = self.read(self.p.accounts)
+        for name in ("gateway", "onemindd"):
+            self.assertIn(self.read(os.path.join(self.p.nats_keys, f"{name}.pub")).strip(), acc)
+        # adding two node accounts gives each its own account (no shared node user)
+        a, b = natsconf.new_user_key()[1], natsconf.new_user_key()[1]
+        out = natsconf.render_accounts([natsconf.NodeAccount("n1", a), natsconf.NodeAccount("n2", b)],
+                                       natsconf.load_service_keys(Path(self.p.nats_keys)))
+        self.assertIn(a, out)
+        self.assertIn(b, out)
+        self.assertIn("NODE_n1", out)
+        self.assertIn("NODE_n2", out)                          # one account per node
+        self.assertNotIn("password", out)
+
+    @unittest.skipUnless(__import__("shutil").which("nats-server"), "needs nats-server")
+    def test_nats_server_accepts_the_hub_conf(self):
+        import subprocess
+        self.put("boot/efi/onemind.conf", "role = hub\nname = Home\n")
+        fb.apply(self.p)
+        d = os.path.join(self.tmp.name, "natsrun")
+        os.makedirs(d)
+        open(os.path.join(d, "nats.conf"), "w").write(self.etc("nats.conf"))
+        open(os.path.join(d, "nats-accounts.conf"), "w").write(self.read(self.p.accounts))
+        r = subprocess.run(["nats-server", "-t", "-c", os.path.join(d, "nats.conf")], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
 

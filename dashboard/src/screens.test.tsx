@@ -3,7 +3,7 @@
 // request → approval → live progress → installed loop, roles, honest stale and "coming" states.
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { renderApp, seriousViolations } from './test/helpers';
 
 const T = { timeout: 4000 };
@@ -28,6 +28,42 @@ describe('Home', () => {
     expect((await screen.findAllByText(/install ollama/i, {}, T)).length).toBeGreaterThan(0);
     expect(await screen.findByRole('link', { name: /Uptime Kuma/ }, T)).toBeInTheDocument();
     expect(await seriousViolations(container)).toEqual([]);
+  });
+
+  it('records an explicit keyboard launch across clients and keeps a directly loaded screen read-only', async () => {
+    let recent: string[] = [];
+    const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
+      const path = new URL(String(input)).pathname;
+      if (path === '/v1/status') {
+        return Response.json({ backups: { state: 'critical', observed_at: '2026-11-21T01:00:00Z', summary: 'Last backup failed' } });
+      }
+      if (path === '/v1/me/home') {
+        if (init?.method === 'PUT') recent = JSON.parse(String(init.body)).recent;
+        return Response.json({ version: 3, layout: 'desktop', recent }, { headers: { etag: '"v1"' } });
+      }
+      return Response.json({ error: 'not_found', message: 'Unavailable' }, { status: 404 });
+    });
+    vi.stubGlobal('fetch', fetch);
+    try {
+      const firstClient = renderApp({ token: 'owner-demo', route: '/installed', mock: false });
+      const dock = within(await screen.findByRole('navigation', { name: 'Main' }, T));
+      const market = dock.getByRole('link', { name: 'Market' });
+      expect(fetch.mock.calls.some(([url]) => new URL(String(url)).pathname === '/v1/me/home')).toBe(false);
+      market.focus();
+      await userEvent.setup().keyboard('{Enter}');
+      await waitFor(() => expect(recent).toEqual(['sys:market']), T);
+      firstClient.unmount();
+      // The second browser shares the hub history and starts with its own empty window store.
+      window.localStorage.clear();
+      renderApp({ token: 'owner-demo', mock: false });
+      const health = await screen.findByRole('region', { name: 'Box health' }, T);
+      expect(await within(health).findByText('Last backup failed')).toBeInTheDocument();
+      const history = within(await screen.findByRole('region', { name: 'Recent' }));
+      expect(await history.findByRole('link', { name: 'Market' })).toHaveAttribute('href', '/market');
+      expect(await screen.findByText('Backups: Last backup failed')).toBeInTheDocument();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('greets the person by the display name /v1/me gives, and by no name when there is none', async () => {
@@ -227,12 +263,12 @@ describe('one notification centre', () => {
     await waitFor(async () => expect((await api.notifications({ unread: true })).length).toBe(0), T);
   });
 
-  it('Home shows the health card, and says "Not reported" where the hub gives no answer', async () => {
+  it('Home shows an unknown verdict for every source when the box status is unavailable', async () => {
     renderApp({ token: 'owner-demo' });
     const card = await screen.findByRole('region', { name: 'Box health' }, T);
-    // The demo gateway has no backup or update service: those rows say so; alerts are real.
-    expect(within(card).getAllByText('Not reported').length).toBe(2);
-    expect(within(card).getByText(/critical alert|No critical alerts/)).toBeInTheDocument();
+    // Other services can answer while the aggregate status source is unavailable.
+    expect(within(card).getAllByText('Unknown')).toHaveLength(7);
+    expect(card.querySelector('.om-tone-ok')).toBeNull();
   });
 });
 

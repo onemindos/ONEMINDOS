@@ -29,6 +29,7 @@ import onemind_core.routers.net as net_router
 from onemind_core.app import create_app
 from onemind_core.netconf import NetSettings
 from onemind_core.netpath import path_of_peer
+from onemind_core.serve import pinned_path_app
 from conftest import OWNER
 from test_identity import PASSWORD, csrf, enrol, id_settings, setup_owner
 
@@ -338,3 +339,49 @@ def test_trusted_proxies_must_be_networks(settings):
     with pytest.raises(ValueError, match="TRUSTED_PROXIES"):
         NetSettings(trusted_proxies="not-an-ip").validate()
     NetSettings(trusted_proxies="127.0.0.0/8,::1").validate()
+
+
+# ---- the Tor listener pins the path (#284, §12.22) ------------------------------------------------------
+
+POD_PEER = LAN_PEER  # a pod or masqueraded peer: inside a private range, so by its socket alone it reads as the LAN
+
+
+def from_tor_listener(box: TestClient, peer: str = POD_PEER) -> TestClient:
+    return TestClient(pinned_path_app(box.app, "tor"), client=(peer, 50000))
+
+
+def test_a_private_peer_alone_reads_as_the_lan_so_only_the_listener_can_say_tor():
+    assert path_of_peer(POD_PEER) == "lan"
+
+
+@pytest.mark.parametrize("tier,code", [("private", 404), ("mesh", 404), ("public", 200)])
+@pytest.mark.parametrize("host", [LAN, MESH])
+def test_a_request_on_the_tor_listener_opens_only_a_public_app(box, clock, tier, code, host):
+    set_tier(box, clock, tier)
+    token = session_token(box, "zeus")
+    r = open_app(from_tor_listener(box), token, host)
+    opened = r.status_code == 200
+    assert opened == (code == 200), (tier, host, r.status_code)
+    # the same peer on the ordinary listener is the LAN: this is the bypass the listener closes
+    if tier == "private" and host == LAN:
+        assert open_app(from_peer(box, POD_PEER), token, host).status_code == 200
+
+
+def test_the_tor_listener_ignores_a_path_header_and_the_app_path_route_obeys_it_too(box, clock, monkeypatch):
+    proxy = next(m for m in box.app.user_middleware if m.cls is net_router.AppProxyMiddleware).kwargs["proxy"]
+    monkeypatch.setattr(proxy, "path_routes", True)
+    token = session_token(box, "zeus")
+    c = from_tor_listener(box)
+    for tier in ("private", "mesh"):
+        set_tier(box, clock, tier)
+        r = c.get(f"/apps/{APP}/", headers={"Authorization": f"Bearer {token}", "X-OneMind-Path": "lan"})
+        assert r.status_code == 404, tier
+    set_tier(box, clock, "public")
+    assert c.get(f"/apps/{APP}/", headers={"Authorization": f"Bearer {token}"}).status_code == 200
+
+
+def test_a_websocket_on_the_tor_listener_is_refused_for_a_private_app(box):
+    token = session_token(box, "zeus")
+    with pytest.raises(WebSocketDisconnect):
+        with from_tor_listener(box).websocket_connect("/ws", headers={"Host": LAN, "Authorization": f"Bearer {token}"}):
+            pass

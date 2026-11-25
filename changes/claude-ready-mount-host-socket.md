@@ -1,0 +1,5 @@
+---
+pr: 951
+branch: claude/ready-mount-host-socket
+---
+The gateway now says whether it can reach the host helper (the root service behind restart, shut down and OS install): `GET /v1/status` has a `host` part with `helper` set to reachable or missing and the box's hostname as the helper reported it. Missing is never `ok`, the reason is logged and never sent, and a silent socket costs at most two seconds. No host action starts while the helper is missing; an approved install ends with a plain sentence. The host helper's own status now names the box, which is the one harmless read the new first-boot battery step F12 makes through the gateway: it checks reachable, stops the helper and removes its socket, checks missing and the plain refusal, then starts it again. The health gate logs a HOST-HELPER line (reachable or missing) after its k3s verdict, report only. No pod or host path changed: the gateway is a systemd unit, not a k3s pod, so it opens the socket directly, and a new test fails if any shipped Kubernetes manifest mounts the socket or a host path.

@@ -7,7 +7,7 @@ import pytest
 from conftest import ADULT, AGENT, GUEST, OWNER
 from onemind_core import status as S
 
-SOURCES = ("alerts", "approvals", "apps", "storage", "backups", "updates", "mesh")
+SOURCES = ("alerts", "approvals", "apps", "storage", "backups", "updates", "mesh", "host")
 STATES = {"ok", "attention", "critical", "unknown"}
 
 
@@ -122,3 +122,13 @@ def test_storage_mapping():
     assert read({"enabled": True, "available": True, "state": "protected"}) == "ok"
     assert read({"enabled": True, "available": True, "state": "unprotected"}) == "attention"
     assert read({"enabled": True, "available": True, "state": "degraded"}) == "critical"
+
+
+def test_a_host_reader_that_fails_says_missing_never_reachable(client, monkeypatch):
+    def boom(gw, st):
+        raise RuntimeError("socket gone at /run/x")
+
+    monkeypatch.setitem(S.SOURCES, "host", boom)
+    h = get(client).json()["host"]
+    assert h["state"] == "unknown" and h["helper"] == "missing" and h["hostname"] is None
+    assert "/run/" not in h["summary"]

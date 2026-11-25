@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""OneMind QEMU battery, first boot (F0-F11). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
+"""OneMind QEMU battery, first boot (F0-F12). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
 (pre-registered; never edited to make a result pass). Reuses run-tests.py's VM driver.
 
 Input: the battery's fixtures (`make fixtures`: disk.img = slot A v1 + test overlay, bundles.img with
@@ -112,7 +112,11 @@ def ident(vm):
 def f0(vm, board):
     import yaml
     lock = yaml.safe_load(open(os.path.join(SRC, "os", "versions.lock.yaml")))
-    want = lock["onemind_layer"]["nats_server"][ARCH[board]]["binary"]
+    nats = lock["onemind_layer"]["nats_server"]
+    want = nats[ARCH[board]]["binary"]
+    # The version comes from the same lock the image build reads (fetch-onemind.sh), so a pin bump cannot
+    # leave a stale hard-coded string here.
+    nats_ver = re.escape(str(nats["version"]))
     _, out = vm.run("onemindd -version; onemind version; nats-server --version; "
                     "echo NATSSHA=$(sha256sum /usr/bin/nats-server | cut -c1-64); "
                     f"{PY} -I -c 'import onemind_core; print(\"GATEWAY-IMPORT ok\")'; "
@@ -121,7 +125,7 @@ def f0(vm, board):
     c = {
         "onemindd": re.search(r"^onemindd \S+", out, re.M) is not None,
         "onemind_cli": re.search(r"^onemind \S+", out, re.M) is not None,
-        "nats_server_runs": re.search(r"nats-server: v2\.15\.2", out) is not None,
+        "nats_server_runs": re.search(rf"nats-server: {nats_ver}\s*$", out, re.M) is not None,
         "nats_sha256_pinned": f"NATSSHA={want}" in out,
         "gateway_imports": "GATEWAY-IMPORT ok" in out,
         "dashboard": "DASH ok" in out,
@@ -373,7 +377,11 @@ def f10(vm, token):
                     f"echo JSONOK=$({PY} -I -c 'import json; json.load(open(\"/run/f10.json\")); print(\"yes\")' 2>/dev/null || echo no); "
                     "rm -f /run/f10.json; systemctl start k3s; echo AFTER=$(systemctl is-active onemind-rescue)", 400)
     g = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or [""])[-1]
-    c = {"enabled": g("ENABLED") == "enabled", "active": g("ACTIVE") == "active", "k3s_stopped": g("K3S") != "active",
+    # The image's root is read-only: first boot starts the unit at runtime on every boot, never enables it in
+    # /etc (F0 holds only onemind-firstboot enabled). So "not enabled, yet active" is the expected state here;
+    # deploy/install.sh is the path that enables it.
+    c = {"runtime_started": g("ENABLED") not in ("", "enabled", "not-found", "masked") and g("ACTIVE") == "active",
+         "active": g("ACTIVE") == "active", "k3s_stopped": g("K3S") != "active",
          "noauth_401": g("NOAUTH") == "401", "token_200": g("WITH") == "200", "json_200": g("JSON") == "200",
          "json_valid": g("JSONOK") == "yes", "still_active": g("AFTER") == "active"}
     record("F10", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" out={out.strip()[-200:]!r}")
@@ -431,6 +439,63 @@ def f11(vm, results_dir):
                       f"probes={r.get('n')} bad={r.get('bad')} gateway_order={order.strip()!r}")
 
 
+
+# F12's reader, run in the guest (section 8): the gateway's GET /v1/status (and, with the helper gone, GET /v1/os/updates).
+F12_PY = r"""
+import json, sys, time, urllib.error, urllib.request
+phase, token, wait = sys.argv[1], sys.argv[2], float(sys.argv[3])
+def get(path):
+    req = urllib.request.Request("http://127.0.0.1:8080" + path, headers={"Authorization": "Bearer " + token})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return r.status, json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        return e.code, None
+    except (OSError, ValueError):
+        return None, None
+t0 = time.time()
+while True:
+    code, body = get("/v1/status")
+    host = (body or {}).get("host") or {}
+    if phase == "down" or (code == 200 and host.get("helper") == "reachable") or time.time() - t0 >= wait:
+        break
+    time.sleep(3)
+out = {"code": code, "helper": host.get("helper"), "state": host.get("state"), "hostname": host.get("hostname"),
+       "summary": host.get("summary"), "seconds": round(time.time() - t0, 1)}
+if phase == "down":
+    c2, upd = get("/v1/os/updates")
+    out.update({"updates_code": c2, "install": (upd or {}).get("install")})
+print("RESULT " + phase + " " + json.dumps(out))
+"""
+
+
+def f12(vm, token):
+    """The gateway reaches the host helper over /run/onemind/host.sock; without it, it says missing and the
+    install is refused with a plain sentence; started again, it is reachable (section 8)."""
+    read = lambda phase, wait: f"{PY} -I /run/f12.py {phase} '{token}' {wait}; "
+    _, out = vm.run("cat > /run/f12.py <<'PYEOF'\n" + F12_PY + "\nPYEOF\n"
+                    "echo BOX=$(hostname); " + read("up", 120) +
+                    "systemctl stop onemind-host.service onemind-host.socket; rm -f /run/onemind/host.sock; "
+                    "echo SOCK=$(test -e /run/onemind/host.sock && echo present || echo gone); " + read("down", 0) +
+                    "systemctl start onemind-host.socket; " + read("again", 60) + "rm -f /run/f12.py", 400)
+    box = (re.findall(r"^BOX=(\S+)\s*$", out, re.M) or [""])[-1]
+    res = {m[0]: json.loads(m[1]) for m in re.findall(r"^RESULT (up|down|again) (\{.*\})\s*$", out, re.M)}
+    up, down, again = res.get("up", {}), res.get("down", {}), res.get("again", {})
+    inst = down.get("install") or {}
+    msg = inst.get("message") if isinstance(inst.get("message"), str) else ""
+    summary = down.get("summary") if isinstance(down.get("summary"), str) else ""
+    c = {"up_reachable": up.get("code") == 200 and up.get("helper") == "reachable" and up.get("state") == "ok",
+         "hostname_matches": bool(box) and up.get("hostname") == box,
+         "socket_gone": "SOCK=gone" in out,
+         "down_missing": down.get("code") == 200 and down.get("helper") == "missing" and down.get("state") != "ok"
+         and down.get("hostname") is None and summary.startswith("host helper: missing") and "/run/" not in summary,
+         "install_refused": down.get("updates_code") == 200 and inst.get("available") is False
+         and inst.get("reason") == "engine_unreachable" and bool(msg)
+         and not any(x in msg for x in ("Traceback", "Errno", "/run/")),
+         "again_reachable": again.get("code") == 200 and again.get("helper") == "reachable"}
+    record("F12", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
+           + f" box={box!r} up={up} down_summary={summary[:80]!r} engine_unreachable={inst.get('reason')}")
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=sorted(battery.BOARDS))
@@ -486,6 +551,7 @@ def main():
         vm.mark("F9 one box CA"); f9(vm)
         vm.mark("F10 rescue console with k3s stopped (CORE-UPDATE-9)"); f10(vm, token)
         vm.mark("F11 starting page, then the gateway, never a refused connection"); f11(vm, (os.path.dirname(a.results) or ".") if a.results else None)
+        vm.mark("F12 the gateway reaches the host helper, and says missing without it (#875)"); f12(vm, token)
 
         if a.upto in ("F3", "F4"):
             vm.mark("F3 reboot keeps state")

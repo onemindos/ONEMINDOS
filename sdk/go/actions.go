@@ -143,6 +143,24 @@ func (s *ActionsService) ApproveAcceptingLicence(ctx context.Context, id, appID 
 	return s.decide(ctx, id, "approve", map[string]string{"accept_licence": appID})
 }
 
+// ApproveBound approves with the plan fingerprint the approver was shown (Action.PlanSha256), and the
+// typed licence confirmation when one is needed (#173). The gateway refuses an approval without the
+// fingerprint for a tainted agent's request (AIG-04) or a physical action (#723), so a client that shows
+// the plan should always pass it. Either argument may be empty. Same read-back rule as Approve.
+func (s *ActionsService) ApproveBound(ctx context.Context, id, planSHA256, acceptLicence string) (*Action, error) {
+	body := map[string]string{}
+	if planSHA256 != "" {
+		body["plan_sha256"] = planSHA256
+	}
+	if acceptLicence != "" {
+		body["accept_licence"] = acceptLicence
+	}
+	if len(body) == 0 {
+		return s.decide(ctx, id, "approve", nil)
+	}
+	return s.decide(ctx, id, "approve", body)
+}
+
 // Deny is operation actions.deny (owner only), with the same read-back rule as Approve.
 func (s *ActionsService) Deny(ctx context.Context, id string) (*Action, error) {
 	return s.decide(ctx, id, "deny", nil)

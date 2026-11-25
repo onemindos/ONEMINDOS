@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -29,6 +30,16 @@ class BackupsSettings:
     job_timeout_s: float = 21600.0
     # How long a restored app has to come back with fresh, ready pods before the restore is undone.
     health_deadline_s: int = 300
+    # The built-ins' units (#616). Before each box run the gateway writes their table export
+    # (units.py, builtin-units.tar) into this folder; the agent's `system` unit lists it (agent.json,
+    # written by onemind-firstboot). Unset: no export, and no built-in is shown as in a snapshot.
+    export_dir: Path | None = None
+    # The built-in folder settings (ONEMIND_<SECTION>_<FIELD>) whose folders the agent's `system` unit
+    # also copies, separated by spaces or commas (onemind-firstboot writes the ones it adds).
+    agent_dirs: str = ""
+
+    def agent_dir_names(self) -> frozenset[str]:
+        return frozenset(n for n in self.agent_dirs.replace(",", " ").split() if n)
 
     def validate(self) -> None:
         u = urlsplit(self.agent_url)
@@ -36,5 +47,9 @@ class BackupsSettings:
             raise ValueError("ONEMIND_BACKUPS_AGENT_URL must be http://127.0.0.1:<port> (the agent is loopback-only)")
         if not -1 <= self.minute <= 59:
             raise ValueError("ONEMIND_BACKUPS_MINUTE must be -1..59")
+        if self.export_dir is not None and not Path(self.export_dir).is_absolute():
+            raise ValueError("ONEMIND_BACKUPS_EXPORT_DIR must be an absolute path")
+        if bad := sorted(n for n in self.agent_dir_names() if not re.fullmatch(r"ONEMIND_[A-Z0-9_]+", n)):
+            raise ValueError(f"ONEMIND_BACKUPS_AGENT_DIRS names settings, not {bad}")
         if self.job_timeout_s <= 0 or self.health_deadline_s <= 0:
             raise ValueError("ONEMIND_BACKUPS_JOB_TIMEOUT_S and _HEALTH_DEADLINE_S must be positive")

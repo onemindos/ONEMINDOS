@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import Response
 
@@ -10,12 +12,17 @@ from ..auth import Principal
 from ..context import Gateway
 from ..guard import reads_body
 from ..errors import error_responses
+from ..identity import ctx_of
+from ..identity.scopes import has_any
 from .. import __version__
 from ..auditread import AuditReader
 from ..mcp import Catalogue, Limits, McpEndpoint, McpSettings, Services
+from ..mcp.read_tools import AreaReads
 from ..surfaces.core import CORE_TOOLS
+from ..work.access import work_reader_context
 from .apps import app_rows
 from .audit import owned_action_ids
+from .notifications import _can_see as can_see_alert
 
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
@@ -42,9 +49,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
         request=lambda p, req, reason: actions.create(p, req, reason=reason),
         audit_list=reader.list,
         clock=gw.clock,
+        mark_tainted=lambda p, source: actions.taint.mark(p.id, source),
         # Request-only tools of switched-on built-ins, from the surface registry (#605): read on every
         # call, so a switched-off app's tools leave tools/list at once; refused declarations never appear.
         builtin_actions=app.state.surfaces.mcp_actions,
+        area_reads=AreaReads(app.state, gw, lambda: app_rows(gw), can_see_alert),  # backups, logs, ... (#632)
     )
     limits = Limits(gw.settings.section(McpSettings), gw.clock)
     mcp = McpEndpoint(Catalogue(services, limits), limits, refuse=lambda p, what: actions._deny(p, what))
@@ -64,7 +73,16 @@ def register(app: FastAPI, gw: Gateway) -> None:
     )
     @reads_body
     async def mcp_post(request: Request, p: Principal = Depends(principal)):
-        return await mcp.handle(request, p)
+        with work_reader_context(request, p):
+            ctx = ctx_of(request)
+            if p.kind == "agent" and ctx is not None and has_any(ctx.scopes, ("work:read",)):
+                # An identity credential may not inherit the static-token v0 action bundle.
+                from ..auth import ALWAYS_GRANTED, MCP_SCOPES
+
+                p = replace(p, scopes=ALWAYS_GRANTED | frozenset(
+                    scope for scope in MCP_SCOPES if has_any(ctx.scopes, (scope,))
+                ))
+            return await mcp.handle(request, p)
 
     @app.api_route("/mcp", methods=["GET", "DELETE"], include_in_schema=False)
     def mcp_other(_: Principal = Depends(principal)):

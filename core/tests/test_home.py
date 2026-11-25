@@ -88,7 +88,7 @@ def test_unknown_app_is_refused_and_limits_hold(client):
     bad = put(client, ADULT, {**base, "dock": ["app:no-such-app"]}, etag)
     assert bad.status_code == 422 and bad.json()["reason"] == "unknown_item"
     assert put(client, ADULT, {**base, "dock": [f"sys:s{i}" for i in range(9)]}, etag).status_code == 422
-    assert put(client, ADULT, {**base, "widgets": [{"id": f"sys:w{i}"} for i in range(7)]}, etag).status_code == 422
+    assert put(client, ADULT, {**base, "widgets": [{"id": f"sys:w{i}"} for i in range(13)]}, etag).status_code == 422
     assert put(client, ADULT, {**base, "dock": ["javascript:alert(1)"]}, etag).status_code == 422
     assert put(client, ADULT, {**base, "shortcuts": []}, etag).status_code == 422  # not supported yet
     assert put(client, ADULT, {**base, "appearance": {**base["appearance"], "wallpaper": "../x"}}, etag).status_code == 422
@@ -169,3 +169,50 @@ def test_removing_a_link_drops_it_from_a_stored_dock(client):
     assert one.status_code == 200
     two = put(client, ADULT, {**one.json(), "links": [], "dock": []}, one.headers["etag"])
     assert two.status_code == 200 and two.json()["links"] == [] and two.json()["dock"] == []
+
+
+def test_recent_is_shared_only_by_the_same_person_and_survives_old_clients(client, settings, clock):
+    old = client.get(PATH, headers=ADULT).json()
+    old.pop("recent", None)  # A client built before FD-03 knows nothing about that field.
+    first = client.get(PATH, headers=ADULT)
+    assert first.json()["recent"] == []
+    app_id = client.get("/v1/apps", headers=ADULT).json()[0]["id"]
+    recent = [f"app:{app_id}", "sys:files"]
+    saved = put(client, ADULT, {**old, "recent": recent + recent}, first.headers["etag"])
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["recent"] == recent
+    assert put(client, ADULT, old, first.headers["etag"]).status_code == 412
+    with TestClient(create_app(settings, clock=clock)) as other:
+        latest = other.get(PATH, headers=ADULT)
+        assert latest.json()["recent"] == recent
+        assert other.get(PATH, headers=OWNER).json()["recent"] == []
+        old["appearance"]["theme"] = "dark"
+        rewritten = put(other, ADULT, old, latest.headers["etag"])
+        assert rewritten.status_code == 200 and rewritten.json()["recent"] == recent
+        bad = put(other, ADULT, {**rewritten.json(), "recent": ["app:no-such-app"]}, rewritten.headers["etag"])
+        assert bad.status_code == 422 and bad.json()["reason"] == "unknown_item"
+        other.app.state.gateway.app_filters.append(lambda request, principal, item: item != app_id)
+        filtered = other.get(PATH, headers=ADULT)
+        assert filtered.json()["recent"] == ["sys:files"]
+        refused = put(other, ADULT, {**filtered.json(), "recent": recent}, filtered.headers["etag"])
+        assert refused.status_code == 422 and refused.json()["reason"] == "unknown_item"
+
+
+def test_home_accepts_twelve_widgets_and_rejects_thirteen(client):
+    first = client.get(PATH, headers=ADULT)
+    widgets = [{"id": f"sys:widget{i}", "size": "regular"} for i in range(13)]
+    saved = put(client, ADULT, {**first.json(), "widgets": widgets[:12]}, first.headers["etag"])
+    assert saved.status_code == 200 and saved.json()["widgets"] == widgets[:12]
+    assert put(client, ADULT, {**saved.json(), "widgets": widgets}, saved.headers["etag"]).status_code == 422
+
+
+def test_two_devices_cannot_commit_different_edits_to_one_home_revision(client, clock):
+    service = client.app.state.home
+    home = client.get(PATH, headers=ADULT).json()
+    assert service.save("two-devices", home, clock(), None)
+    revision = service.stored("two-devices")["updated_at"]
+    first = service.save("two-devices", {**home, "recent": ["sys:files"]}, clock(), revision)
+    assert first is not None
+    # Both handlers passed their initial HTTP precondition before either committed.
+    assert service.save("two-devices", home, clock(), revision) is None
+    assert service.stored("two-devices")["recent"] == ["sys:files"]
