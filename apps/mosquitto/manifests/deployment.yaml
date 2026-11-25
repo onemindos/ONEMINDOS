@@ -36,6 +36,17 @@ spec:
       containers:
       - name: mosquitto
         image: docker.io/library/eclipse-mosquitto:2.1.2-alpine@sha256:75d6662dee52c947dc9dd9c29f1d8d7ffef78ddaf38001caa09755681e8bbc98
+        # start.sh (ConfigMap) writes /mosquitto/run/mosquitto.conf, adding the optional bridge to
+        # NATS from the settings and the owner's secret, then execs mosquitto. It replaces the image
+        # entrypoint, which only chowns /mosquitto/data when run as root (it is not, here).
+        command: ["/bin/sh", "/mosquitto/config/start.sh"]
+        envFrom:
+        - configMapRef:
+            name: onemind-settings   # spec.settings, written by the gateway (contract §12.18)
+            optional: true
+        - secretRef:
+            name: mosquitto-nats-bridge   # spec.secrets: NATS_MQTT_PASSWORD, entered by the owner
+            optional: true
         ports:
         - name: mqtt
           containerPort: 1883
@@ -76,7 +87,14 @@ spec:
           readOnly: true
         - name: data
           mountPath: /mosquitto/data
+        - name: run
+          mountPath: /mosquitto/run
       volumes:
+      # Runtime config, rebuilt on every start. In memory, so the bridge password never lands on disk.
+      - name: run
+        emptyDir:
+          medium: Memory
+          sizeLimit: 1Mi
       - name: config
         configMap:
           name: mosquitto-config

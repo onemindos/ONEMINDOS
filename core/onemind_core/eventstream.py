@@ -40,8 +40,10 @@ from pathlib import Path
 
 from .auditread import can_read_all, glob_any, iter_records
 from .auth import Principal
+from .events import SEVERITIES, matches
 from .fanout import AssetState, AssetValue, AssetView, AuditPump, Subscriber
 from .identity.scopes import has_any, role_scopes
+from .work.service import WORK_EVENTS
 
 
 SCHEMA = "onemind.event/v1"
@@ -119,6 +121,10 @@ def events_for_record(rec: dict) -> list[dict]:
             mapped = (event, subject, {k: payload[k] for k in ("status", "data_kept") if k in payload})
         else:
             mapped = (event, subject, {})
+    if event in WORK_EVENTS and data.get("event_id"):
+        ids = {key: payload.get(key) for key in ("project_id", "task_id")}
+        if all(isinstance(value, str) for value in ids.values()):
+            mapped = (event, {}, ids)
     if mapped:
         ev = _envelope(seq, mapped[0], ts, mapped[1], mapped[2], actor)
         ev["severity"] = data.get("severity", "info")
@@ -272,6 +278,7 @@ class EventStream:
         kinds: frozenset[str] | None = None,
         bbox: tuple[float, float, float, float] | None = None,
         asset_allowed: Callable[[AssetValue], bool] | None = None,
+        subject_card: tuple[str, Callable[[], bool]] | None = None,
     ) -> AsyncIterator[bytes]:
         """resource_allowed judges each envelope (scopes, audiences); asset_allowed also judges each
         asset value itself (class, id, field and datapoint: the gateway asset filters), before the
@@ -279,9 +286,21 @@ class EventStream:
         allowed = self._allowed(p, resource_allowed)
 
         def wanted(ev: dict) -> bool:
-            return glob_any(types, ev["type"]) and allowed(ev)
+            return subject_card is None and glob_any(types, ev["type"]) and allowed(ev)
 
         def selected(rec: dict) -> dict | None:
+            if subject_card is not None:
+                event = rec.get("event", "")
+                data = rec.get("data") or {}
+                if not data.get("event_id") or not matches(subject_card[0], event):
+                    return None
+                # Show only the occurrence of an EventHub fact. Audit payloads can carry
+                # resource ids and details that require additional resource-specific checks.
+                envelope = _envelope(str(rec["seq"]), event, rec["ts"], {}, {})
+                severity = data.get("severity")
+                if severity in SEVERITIES:
+                    envelope["severity"] = severity
+                return envelope
             candidates = events_for_record(rec)
             domain = candidates[:-1]
             # Generic audit envelopes must not reveal even the existence of a hidden resource.
@@ -290,13 +309,21 @@ class EventStream:
             return next((ev for ev in candidates if wanted(ev)), None)
 
         # Asset values are many and carry values: only a stream that names them gets them.
-        assets_on = self.assets is not None and bool(types) and glob_any(types, "asset.value")
-        view = AssetView(kinds, bbox, self.assets.position if self.assets is not None else lambda c, i: None)
+        assets_on = subject_card is None and self.assets is not None and bool(types) and glob_any(types, "asset.value")
+        state = self.assets
+
+        def position(asset_class: str, asset_id: str) -> tuple[float, float] | None:
+            # Per stream, and only from values this caller may see: a hidden location must not
+            # leak through ?bbox= (a caller narrowing the box and watching what shows up).
+            return state.position(asset_class, asset_id, asset_allowed) if state is not None else None
+
+        view = AssetView(kinds, bbox, position)
 
         def asset_out(v: AssetValue, *, snapshot: bool = False, removed: bool = False) -> bytes | None:
-            if not view.passes(v, removed):
-                return None
+            # The caller's asset filters first, so a hidden value never moves this stream's box state.
             if asset_allowed is not None and not asset_allowed(v):
+                return None
+            if not view.passes(v, removed):
                 return None
             ev = asset_event(v, self._now(), snapshot=snapshot, removed=removed)
             return sse(ev, with_id=False) if wanted(ev) else None
@@ -312,6 +339,24 @@ class EventStream:
             if records:
                 head = records[-1][1]["seq"]
             yield b"retry: 3000\n\n"
+
+            def revoked() -> bytes | None:
+                if subject_card is not None and not subject_card[1]():
+                    return sse(_envelope(str(head), "stream.reset", self._now(), {},
+                                         {"reason": "subject_unavailable"}), with_id=False)
+                return None
+
+            if reset := revoked():
+                yield reset
+                return
+            if since_id is None and subject_card is not None:
+                for _, rec in reversed(records[-REPLAY_MAX:]):
+                    if ev := selected(rec):
+                        if reset := revoked():
+                            yield reset
+                            return
+                        yield sse(ev)
+                        break
             if since_id is not None:
                 oldest_kept = max(1, head - REPLAY_MAX + 1)
                 if since_id + 1 < oldest_kept or since_id > head:
@@ -322,6 +367,9 @@ class EventStream:
                         if rec["seq"] > since_id:
                             ev = selected(rec)
                             if ev is not None:
+                                if reset := revoked():
+                                    yield reset
+                                    return
                                 yield sse(ev)
             del records
             last_seq = head
@@ -336,11 +384,14 @@ class EventStream:
                 done = _envelope(str(head), "stream.snapshot", self._now(), {},
                                  {"count": count, "state": self.assets.state})
                 yield sse(done, with_id=False)
-            nodes = node_states(self.list_nodes())
-            roots = self._roots(p)
+            nodes = node_states(self.list_nodes()) if subject_card is None else {}
+            roots = self._roots(p) if subject_card is None else {}
             last_out = last_roots = loop.time()
             while True:
                 if await is_disconnected():
+                    return
+                if reset := revoked():
+                    yield reset
                     return
                 sent = False
                 for _ in range(DRAIN_MAX):
@@ -361,13 +412,16 @@ class EventStream:
                     else:
                         chunk = asset_out(obj, removed=op == "removed")
                     if chunk is not None:
+                        if reset := revoked():
+                            yield reset
+                            return
                         yield chunk
                         sent = True
                 self.pump.poll()
                 now = loop.time()
                 # nodes are in memory and cheap: looked at on every wake-up (a heartbeat, a departure,
                 # a node ageing into a new status, or a fact)
-                current = node_states(self.list_nodes())
+                current = node_states(self.list_nodes()) if subject_card is None else {}
                 for node_id, (status, presence) in sorted(current.items()):
                     previous = nodes.get(node_id)
                     if previous != (status, presence):
@@ -379,7 +433,7 @@ class EventStream:
                             yield sse(ev, with_id=False)
                             sent = True
                 nodes = current
-                if now - last_roots >= ROOT_POLL_S - NODE_SLACK_S:
+                if subject_card is None and now - last_roots >= ROOT_POLL_S - NODE_SLACK_S:
                     last_roots = now
                     current_roots = self._roots(p)
                     for root, revision in sorted(current_roots.items()):
@@ -398,7 +452,7 @@ class EventStream:
                 if sub.waiting():
                     continue  # more than DRAIN_MAX was waiting: go on without sleeping
                 wait = min(poll_s, max(0.01, keepalive_s - (loop.time() - last_out)))
-                if self.next_node_change is not None:
+                if subject_card is None and self.next_node_change is not None:
                     ahead = self.next_node_change()
                     if ahead is not None:
                         wait = min(wait, max(0.01, ahead + NODE_SLACK_S))

@@ -84,7 +84,7 @@ export function WindowFrame({ item, z, active, narrow, here, tile, onSend, onPos
       {up && <button className="dsk-wbtn" aria-label="Back" onClick={() => navigate(up)}><Icon name="chevron" className="dsk-flip" size={18} /></button>}
       {!narrow && <button className="wm-move" aria-label={`Move ${title}`} title="Drag or use arrow keys to move. Double-click to maximise." {...interaction('move')} onDoubleClick={onMax} />}
       <button className="dsk-wbtn" aria-label={`Minimise ${title}`} onClick={onMinimise}>−</button>
-      {!narrow && <button className="dsk-wbtn wm-send" aria-label={`Send ${title} to workspace ${(ws + 1) % WORKSPACES + 1}`} title={`On workspace ${ws + 1}. Send to the next one (Alt Shift 1 to 4 picks directly)`} onClick={() => onSend((ws + 1) % WORKSPACES)}>{ws + 1}</button>}
+      {!narrow && <button className="dsk-wbtn wm-send" aria-label={`Workspace ${ws + 1}: Send ${title} to workspace ${(ws + 1) % WORKSPACES + 1}`} title={`On workspace ${ws + 1}. Send to the next one (Alt Shift 1 to 4 picks directly)`} onClick={() => onSend((ws + 1) % WORKSPACES)}>{ws + 1}</button>}
       {!narrow && <button className="dsk-wbtn" aria-label={`${maximised ? 'Restore' : 'Maximise'} ${title}`} onClick={onMax}>□</button>}
       <button className="dsk-wbtn dsk-close" aria-label={`Close ${title}`} onClick={onClose}><Icon name="x" size={18} /></button>
     </div>

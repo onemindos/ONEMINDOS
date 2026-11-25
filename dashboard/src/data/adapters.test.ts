@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { makeActions, makeApps, makeNodes } from '../api/fixtures';
 import type { Action } from '../api/types';
 import { toRoute } from '../shell/routes';
-import { activityFrom, categorySlug, deployClass, NO_APP_NAME_NOTE, iconOf, jobState, notificationsFrom, openUrl, runState, toActionSummary, toInstalled, toJob, toStoreApp } from './adapters';
+import { activityFrom, categorySlug, deployClass, NO_APP_NAME_NOTE, iconOf, jobState, notificationsFrom, openUrl, runState, toActionPlan, toActionSummary, toInstalled, toJob, toStoreApp } from './adapters';
 import { personKey, personStorage } from './prefs';
 
 const NOW = Date.parse('2026-11-12T12:00:00Z');
@@ -213,5 +213,20 @@ describe('per-person storage', () => {
     expect(personKey(undefined, t1)).toBe(personKey(undefined, t1));
     expect(personKey(undefined, t1)).toMatch(/^token-[0-9a-f]{8}$/);
     expect(personKey('owner', t1)).toBe('owner');
+  });
+});
+
+describe('tainted agent request (AIG-04, #168)', () => {
+  const base = { id: 'a1', type: 'app.remove', params: { app_id: 'whoami' }, idempotency_key: 'k', expires_at: '', state: 'awaiting_approval', plan_sha256: 'h' };
+  it('puts the gateway taint note first on the approval card, high risk, naming what the agent read', () => {
+    const plan = { summary: 'Remove whoami.', warnings: [], taint: { sources: ['mcp:get_app', 'mcp:resource:catalog'], since: '2026-11-22T10:00:00Z', message: 'This agent read text written by third parties before asking. Check the request against what you wanted, not against what the agent says.' } };
+    const p = toActionPlan({ ...base, plan } as unknown as Action)!;
+    expect(p.effects[0]).toMatchObject({ kind: 'note', risk: 'high' });
+    expect(p.effects[0]!.label).toMatch(/third parties/);
+    expect(p.effects[0]!.detail).toContain('mcp:get_app, mcp:resource:catalog');
+  });
+  it('adds nothing when the requester read nothing from outside', () => {
+    const p = toActionPlan({ ...base, plan: { summary: 'Remove whoami.', warnings: [] } } as unknown as Action)!;
+    expect(p.effects.map((e) => e.label)).toEqual(['Remove whoami.']);
   });
 });
