@@ -95,13 +95,16 @@ jobs:
         uses: ./.github/actions/sdk-gen
         with:
           langs: go py
-      - name: nats-server for the real-bus tests (pinned, checksum from deploy/pins.env)
+      - name: nats-server for the real-bus tests (pinned, checksum from deploy/pins.env; amd64 or arm64)
         run: |
           . deploy/pins.env
-          curl -fsSL -o /tmp/nats.tgz "https://github.com/nats-io/nats-server/releases/download/${NATS_VERSION}/nats-server-${NATS_VERSION}-linux-amd64.tar.gz"
-          echo "${NATS_SHA256_amd64}  /tmp/nats.tgz" | sha256sum -c -
-          mkdir -p "$HOME/bin" && tar -xzf /tmp/nats.tgz -C /tmp "nats-server-${NATS_VERSION}-linux-amd64/nats-server"
-          install -m 0755 "/tmp/nats-server-${NATS_VERSION}-linux-amd64/nats-server" "$HOME/bin/nats-server"
+          case "$(uname -m)" in x86_64) arch=amd64 ;; *) arch=arm64 ;; esac
+          sum_var="NATS_SHA256_${arch}"
+          pkg="nats-server-${NATS_VERSION}-linux-${arch}"
+          curl -fsSL -o /tmp/nats.tgz "https://github.com/nats-io/nats-server/releases/download/${NATS_VERSION}/${pkg}.tar.gz"
+          echo "${!sum_var}  /tmp/nats.tgz" | sha256sum -c -
+          mkdir -p "$HOME/bin" && tar -xzf /tmp/nats.tgz -C /tmp "${pkg}/nats-server"
+          install -m 0755 "/tmp/${pkg}/nats-server" "$HOME/bin/nats-server"
           echo "$HOME/bin" >> "$GITHUB_PATH"
       - name: Core suite (${{ matrix.backend }}, shard ${{ matrix.shard }})
         env:
@@ -164,13 +167,16 @@ jobs:
             -c "ALTER SYSTEM SET synchronous_commit = off" \
             -c "ALTER SYSTEM SET full_page_writes = off" \
             -c "SELECT pg_reload_conf()"
-      - name: nats-server for the real-bus tests (pinned, checksum from deploy/pins.env)
+      - name: nats-server for the real-bus tests (pinned, checksum from deploy/pins.env; amd64 or arm64)
         run: |
           . deploy/pins.env
-          curl -fsSL -o /tmp/nats.tgz "https://github.com/nats-io/nats-server/releases/download/${NATS_VERSION}/nats-server-${NATS_VERSION}-linux-amd64.tar.gz"
-          echo "${NATS_SHA256_amd64}  /tmp/nats.tgz" | sha256sum -c -
-          mkdir -p "$HOME/bin" && tar -xzf /tmp/nats.tgz -C /tmp "nats-server-${NATS_VERSION}-linux-amd64/nats-server"
-          install -m 0755 "/tmp/nats-server-${NATS_VERSION}-linux-amd64/nats-server" "$HOME/bin/nats-server"
+          case "$(uname -m)" in x86_64) arch=amd64 ;; *) arch=arm64 ;; esac
+          sum_var="NATS_SHA256_${arch}"
+          pkg="nats-server-${NATS_VERSION}-linux-${arch}"
+          curl -fsSL -o /tmp/nats.tgz "https://github.com/nats-io/nats-server/releases/download/${NATS_VERSION}/${pkg}.tar.gz"
+          echo "${!sum_var}  /tmp/nats.tgz" | sha256sum -c -
+          mkdir -p "$HOME/bin" && tar -xzf /tmp/nats.tgz -C /tmp "${pkg}/nats-server"
+          install -m 0755 "/tmp/${pkg}/nats-server" "$HOME/bin/nats-server"
           echo "$HOME/bin" >> "$GITHUB_PATH"
       - name: Core suite (${{ matrix.backend }}, shard ${{ matrix.shard }})
         env:
