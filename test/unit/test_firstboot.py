@@ -1039,6 +1039,19 @@ class HubAccounts(Box):
         self.assertIn("NODE_n2", out)                          # one account per node
         self.assertNotIn("password", out)
 
+    def test_a_hub_set_up_before_the_observer_gets_its_key_at_the_next_boot(self):
+        # #620: a box updated through RAUC never ran the first-boot key step again
+        self.put("boot/efi/onemind.conf", "role = hub\nname = Home\n")
+        fb.apply(self.p)
+        seed, pub = (os.path.join(self.p.nats_keys, f"observer.{x}") for x in ("nk", "pub"))
+        os.remove(seed)
+        os.remove(pub)
+        fb.apply(self.p)                       # an ordinary later boot
+        self.assertTrue(os.path.isfile(seed) and os.path.isfile(pub))
+        kept = self.read(pub)
+        fb.apply(self.p)                       # and a third boot keeps it
+        self.assertEqual(self.read(pub), kept)
+
     @unittest.skipUnless(__import__("shutil").which("nats-server"), "needs nats-server")
     def test_nats_server_accepts_the_hub_conf(self):
         import subprocess

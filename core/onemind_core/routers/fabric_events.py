@@ -3,9 +3,9 @@
 
 Read-only. The observer (fabricwatch.py) listens to the hub NATS server's own system-account events and
 writes `fabric.connect`, `fabric.disconnect` and `fabric.auth_failed` audit lines; this route reads the
-newest of them back, for Settings > Engine ("Security events") and `onemind fabric events`. It needs
+newest of them back, for Settings > About ("Security events") and `onemind fabric events`. It needs
 `audit:read` (owner and adult), the same as the audit log it reads. Alerts for an unknown key, a removed
-key that keeps retrying and a flapping machine go to the notification inbox under the `security` topic,
+key that keeps retrying, a refused sign-in that claims a live key and a flapping machine go to the notification inbox under the `security` topic,
 which every person already switches on or off in their notification preferences.
 
 `observer` says whether the box is watching: `watching`, `connecting` (NATS not reachable yet) or `off`
@@ -14,7 +14,6 @@ which every person already switches on or off in their notification preferences.
 
 from __future__ import annotations
 
-from collections import deque
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Query
@@ -84,13 +83,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
         """The newest bus connections, disconnections and refused sign-ins, newest first."""
         if not can_read_all(p):
             raise gw.actions._deny(p, "read the bus security events")
-        newest: deque[dict] = deque(maxlen=count)
         pattern = ",".join(EVENTS)
-        for rec in iter_all_records(gw.settings.audit_path):
-            if glob_any(pattern, rec.get("event")):
-                newest.append(rec)
+        # Read from memory: the audit log is scanned once, the first time, not on every poll.
+        newest = watch.recent(count, lambda: (r for r in iter_all_records(gw.settings.audit_path)
+                                              if glob_any(pattern, r.get("event"))))
         rows = []
-        for rec in reversed(newest):
+        for rec in newest:
             d = rec.get("data") or {}
             rows.append(FabricEvent(seq=rec["seq"], ts=rec["ts"], event=rec["event"], **{
                 k: d.get(k) for k in ("account", "key", "identity", "client", "name", "cause", "reason", "repeats")}))

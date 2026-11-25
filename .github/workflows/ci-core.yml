@@ -95,6 +95,14 @@ jobs:
         uses: ./.github/actions/sdk-gen
         with:
           langs: go py
+      - name: nats-server for the real-bus tests (pinned, checksum from deploy/pins.env)
+        run: |
+          . deploy/pins.env
+          curl -fsSL -o /tmp/nats.tgz "https://github.com/nats-io/nats-server/releases/download/${NATS_VERSION}/nats-server-${NATS_VERSION}-linux-amd64.tar.gz"
+          echo "${NATS_SHA256_amd64}  /tmp/nats.tgz" | sha256sum -c -
+          mkdir -p "$HOME/bin" && tar -xzf /tmp/nats.tgz -C /tmp "nats-server-${NATS_VERSION}-linux-amd64/nats-server"
+          install -m 0755 "/tmp/nats-server-${NATS_VERSION}-linux-amd64/nats-server" "$HOME/bin/nats-server"
+          echo "$HOME/bin" >> "$GITHUB_PATH"
       - name: Core suite (${{ matrix.backend }}, shard ${{ matrix.shard }})
         env:
           ONEMIND_TEST_SHARD: ${{ matrix.shard }}
@@ -156,6 +164,14 @@ jobs:
             -c "ALTER SYSTEM SET synchronous_commit = off" \
             -c "ALTER SYSTEM SET full_page_writes = off" \
             -c "SELECT pg_reload_conf()"
+      - name: nats-server for the real-bus tests (pinned, checksum from deploy/pins.env)
+        run: |
+          . deploy/pins.env
+          curl -fsSL -o /tmp/nats.tgz "https://github.com/nats-io/nats-server/releases/download/${NATS_VERSION}/nats-server-${NATS_VERSION}-linux-amd64.tar.gz"
+          echo "${NATS_SHA256_amd64}  /tmp/nats.tgz" | sha256sum -c -
+          mkdir -p "$HOME/bin" && tar -xzf /tmp/nats.tgz -C /tmp "nats-server-${NATS_VERSION}-linux-amd64/nats-server"
+          install -m 0755 "/tmp/nats-server-${NATS_VERSION}-linux-amd64/nats-server" "$HOME/bin/nats-server"
+          echo "$HOME/bin" >> "$GITHUB_PATH"
       - name: Core suite (${{ matrix.backend }}, shard ${{ matrix.shard }})
         env:
           ONEMIND_TEST_SHARD: ${{ matrix.shard }}

@@ -12,7 +12,9 @@ one into an audit line, and raises an alert when it means something:
   - `unknown_key`: a key this box never issued (or no key at all). Alert `fabric.unknown_key`;
   - `revoked_key`: a key that signed in here before and is not on the list any more (a removed machine
     or agent still retrying). Alert `fabric.revoked_retry`;
-  - `known_key`: a key that is on the list, refused anyway (wrong kind of connection). Audit only.
+  - `known_key`: a key that is on the list, refused anyway. nats-server reports the key the client
+    *claimed*, whether or not its signature checked out, so this is also what someone presenting another
+    live identity's public key (public keys are readable on the box) looks like. Alert `fabric.key_refused`.
 - A key that connects five times in two minutes is flapping: alert `fabric.flapping`, cleared by
   `fabric.flap_cleared` once it has been quiet for ten minutes.
 
@@ -32,8 +34,9 @@ import contextlib
 import json
 import logging
 import re
+import threading
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import datetime
 
 from sqlalchemy import DateTime, String, select
@@ -54,9 +57,10 @@ FLAP_WINDOW_S = 120.0      # ... within this many seconds is flapping
 FLAP_QUIET_S = 600.0       # ... and it clears after this long with no connect
 MIN_GAP_S = {"fabric.connect": 5.0, "fabric.disconnect": 5.0, "fabric.auth_failed": 60.0}
 AUTH_LINES_PER_MIN = 30    # across all keys: a spoofer inventing keys cannot flood the audit log
-ALERTS_PER_WINDOW = 5      # new unknown-key or revoked-key alerts per ALERT_WINDOW_S
+ALERTS_PER_WINDOW = 5      # new unknown-key, revoked-key or key-refused alerts per ALERT_WINDOW_S
 ALERT_WINDOW_S = 600.0
 OPEN_FOR_S = 86400.0
+RECENT = 200               # newest events kept in memory for GET /v1/fabric/events (its largest `count`)
 RETRY_S = 5.0
 TICK_S = 30.0
 _NAME_RE = re.compile(r"[^A-Za-z0-9_.:@ -]")
@@ -138,6 +142,11 @@ class FabricWatch:
         self.url, self.seed = url, seed
         self.audit, self.publish_event, self.identities, self.seen, self.clock = audit, publish_event, identities, seen, clock
         self.state = "off" if not (url and seed) else "connecting"   # off | connecting | watching
+        # handle() and tick() run on worker threads (asyncio.to_thread), so every shared dict and deque below
+        # is touched under this one lock.
+        self._lock = threading.Lock()
+        self._recent: deque[dict] = deque(maxlen=RECENT)   # newest audit records this watch wrote
+        self._backfilled = False
         self._task: asyncio.Task | None = None
         self._stop = asyncio.Event()
         self._last: dict[tuple[str, str], float] = {}
@@ -151,7 +160,13 @@ class FabricWatch:
     # ---- the pure part: one announcement in, audit lines and alerts out ---------------------------
     def handle(self, subject: str, data: bytes) -> dict | None:
         ev = parse(subject, data)
-        if ev is None or ev["account"] == SYS_ACCOUNT:   # the observer's own sign-in is not news
+        if ev is None:
+            return None
+        with self._lock:
+            return self._handle(ev)
+
+    def _handle(self, ev: dict) -> dict | None:
+        if ev["account"] == SYS_ACCOUNT:   # the observer's own sign-in is not news
             return None
         if ev["event"] == "fabric.disconnect" and ev["reason"].startswith("Authentication"):
             return None   # a refusal also sends a DISCONNECT (account $G); auth_failed already says it
@@ -205,15 +220,18 @@ class FabricWatch:
             data["repeats"] = out
         if event == "fabric.auth_failed":
             self._auth_times.append(now)
-        self.audit.append(event, None, None, data)
+        rec = self.audit.append(event, None, None, data)
+        if isinstance(rec, dict) and isinstance(rec.get("seq"), int):
+            self._recent.append(rec)
         return data
 
     def _alert(self, ev: dict, label: str | None, now: float) -> None:
         cause, key = ev["cause"], ev["key"]
-        if cause not in ("unknown_key", "revoked_key"):
-            return
-        name, dedupe = ("unknown_key", f"fabric:unknown:{key or 'none'}") if cause == "unknown_key" \
-            else ("revoked_retry", f"fabric:revoked:{key}")
+        name, dedupe = {
+            "unknown_key": ("unknown_key", f"fabric:unknown:{key or 'none'}"),
+            "revoked_key": ("revoked_retry", f"fabric:revoked:{key}"),
+            "known_key": ("key_refused", f"fabric:refused:{key}"),
+        }[cause]
         if now - self._open.get(dedupe, -OPEN_FOR_S) < OPEN_FOR_S:
             return
         while self._alert_times and now - self._alert_times[0] > ALERT_WINDOW_S:
@@ -246,11 +264,24 @@ class FabricWatch:
     def tick(self) -> None:
         """Clear flapping alerts for keys that have been quiet long enough."""
         now = self.clock().timestamp()
-        for key, last in list(self._flapping.items()):
-            if now - last >= FLAP_QUIET_S:
-                del self._flapping[key]
-                self._connects.pop(key, None)
-                self._raise("flap_cleared", {"key": key, "key_short": key[:8] + "…"}, "info", f"fabric:flap:{key}")
+        with self._lock:
+            for key, last in list(self._flapping.items()):
+                if now - last >= FLAP_QUIET_S:
+                    del self._flapping[key]
+                    self._connects.pop(key, None)
+                    self._raise("flap_cleared", {"key": key, "key_short": key[:8] + "…"}, "info", f"fabric:flap:{key}")
+
+    def recent(self, count: int, load: Callable[[], Iterable[dict]]) -> list[dict]:
+        """The newest `count` fabric audit records, newest first. The audit log is read once (`load`, the
+        first time anyone asks); after that the answer comes from memory, so a card that polls does not
+        re-read every audit segment each time."""
+        with self._lock:   # handle() appends under this lock, so nothing is missed between the read and the ring
+            if not self._backfilled:
+                known = {r["seq"] for r in self._recent}
+                older = deque((r for r in load() if r["seq"] not in known), maxlen=RECENT)
+                self._recent = deque(sorted([*older, *self._recent], key=lambda r: r["seq"])[-RECENT:], maxlen=RECENT)
+                self._backfilled = True
+            return list(reversed(self._recent))[:count]
 
     def _raise(self, name: str, payload: dict, severity: str, dedupe: str) -> None:
         try:
@@ -272,6 +303,12 @@ class FabricWatch:
         except Exception:  # one bad announcement never stops the watch
             log.exception("fabric announcement failed")
 
+    async def _down(self) -> None:
+        self.state = "connecting"
+
+    async def _up(self) -> None:
+        self.state = "watching"
+
     async def _run(self) -> None:
         ticker = asyncio.create_task(self._ticker())
         try:
@@ -279,8 +316,10 @@ class FabricWatch:
                 nc = None
                 try:
                     nc = SeedClient()
+                    # nats-py reconnects by itself; the callbacks keep `state` honest while it does.
                     await nc.connect(self.url, nkeys_seed=str(self.seed), connect_timeout=2, allow_reconnect=True,
-                                     max_reconnect_attempts=-1, reconnect_time_wait=2, name="onemind-observer")
+                                     max_reconnect_attempts=-1, reconnect_time_wait=2, name="onemind-observer",
+                                     disconnected_cb=self._down, reconnected_cb=self._up, closed_cb=self._down)
                     for subject in OBSERVER_SUBJECTS:
                         await nc.subscribe(subject, cb=self._on_msg)
                     self.state = "watching"
@@ -294,9 +333,11 @@ class FabricWatch:
                     with contextlib.suppress(asyncio.TimeoutError):
                         await asyncio.wait_for(self._stop.wait(), timeout=RETRY_S)
                 finally:
-                    if nc is not None and self._stop.is_set():
+                    # Always close this attempt's connection: a failed subscribe must not leave a client that
+                    # keeps reconnecting while the loop makes another one.
+                    if nc is not None:
                         with contextlib.suppress(Exception):
-                            await nc.drain()
+                            await (nc.drain() if self._stop.is_set() else nc.close())
         finally:
             ticker.cancel()
 

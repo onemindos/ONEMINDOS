@@ -11,8 +11,7 @@ import json
 import shutil
 import subprocess
 import time
-from collections import deque
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -165,9 +164,80 @@ class TestWatch:
         assert [a[0] for a in watch.alerts] == ["fabric.revoked_retry"]
         assert watch.alerts[0][1]["who"] == "node:gone"
 
-    def test_a_listed_key_that_is_refused_is_audited_without_an_alert(self, watch):
+    def test_a_listed_key_that_is_refused_is_audited_and_alerts(self, watch):
+        # nats-server reports the key the client CLAIMED, signature checked or not: a process that presents
+        # another live identity's public key (public keys are readable on the box) looks exactly like this
         watch.handle(AUTH, body(NODE_KEY, "Client"))
-        assert watch.audit_lines[0][1]["cause"] == "known_key" and watch.alerts == []
+        assert watch.audit_lines[0][1]["cause"] == "known_key"
+        assert [a[0] for a in watch.alerts] == ["fabric.key_refused"]
+        assert watch.alerts[0][1]["who"] == "node:a1" and watch.alerts[0][2]["dedupe_key"] == f"fabric:refused:{NODE_KEY}"
+        watch.clock_obj.advance(120)
+        watch.handle(AUTH, body(NODE_KEY, "Client"))
+        assert len(watch.alerts) == 1   # one open alert per key, not one per retry
+
+    def test_concurrent_announcements_do_not_corrupt_the_bookkeeping(self, watch):
+        import threading
+
+        keys = [new_user_key()[1] for _ in range(40)]
+        errors: list[BaseException] = []
+
+        def hammer(offset: int):
+            try:
+                for i in range(300):
+                    watch.handle(AUTH, body(keys[(i + offset) % 40]))
+                    watch.handle("$SYS.ACCOUNT.NODE_a1.CONNECT", body(keys[(i * 7 + offset) % 40], "Leafnode"))
+                    watch.tick()
+            except BaseException as exc:
+                errors.append(exc)
+
+        threads = [threading.Thread(target=hammer, args=(n,)) for n in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        assert errors == []
+        assert len(watch._recent) <= fabricwatch.RECENT
+
+    def test_a_failed_subscribe_closes_that_connection_and_keeps_the_state_honest(self, watch, monkeypatch):
+        made = []
+
+        class Fake:
+            closed = 0
+
+            def __init__(self):
+                made.append(self)
+
+            async def connect(self, *a, **kw):
+                self.kw = kw
+
+            async def subscribe(self, *a, **kw):
+                raise RuntimeError("no permission")
+
+            async def close(self):
+                Fake.closed += 1
+
+            async def drain(self):
+                Fake.closed += 1
+
+        monkeypatch.setattr(fabricwatch, "SeedClient", Fake)
+        monkeypatch.setattr(fabricwatch, "RETRY_S", 0.01)
+        watch.url, watch.seed = "nats://x", "seed"
+
+        async def go():
+            watch._stop = asyncio.Event()
+            task = asyncio.create_task(watch._run())
+            await asyncio.sleep(0.15)
+            assert watch.state == "connecting"
+            watch._stop.set()
+            await task
+
+        asyncio.run(go())
+        assert len(made) >= 2 and Fake.closed == len(made)   # every attempt's client was closed
+        assert {"disconnected_cb", "reconnected_cb"} <= set(made[0].kw)
+        asyncio.run(watch._up())
+        assert watch.state == "watching"
+        asyncio.run(watch._down())
+        assert watch.state == "connecting"
 
     def test_a_retry_every_second_writes_one_line_a_minute_and_counts_the_rest(self, watch):
         for _ in range(61):
@@ -208,10 +278,10 @@ class TestWatch:
 
 
 # ---- the alerts reach the inbox ------------------------------------------------------------------
-def test_the_catalogue_knows_the_four_fabric_events():
+def test_the_catalogue_knows_the_fabric_events():
     from onemind_core.notify import catalogue
 
-    for t in ("fabric.unknown_key", "fabric.revoked_retry", "fabric.flapping"):
+    for t in ("fabric.unknown_key", "fabric.revoked_retry", "fabric.key_refused", "fabric.flapping"):
         spec = catalogue.lookup(t)
         assert spec.kind == "open" and spec.topic == "security" and spec.severity == "warning"
     assert catalogue.lookup("fabric.flap_cleared").resolves == ("fabric:flap:{key}",)
@@ -239,6 +309,20 @@ class TestRoute:
         assert [e["event"] for e in j["events"]] == ["fabric.auth_failed", "fabric.connect", "fabric.connect"]
         assert j["events"][0]["cause"] == "unknown_key" and j["events"][1]["identity"] == "node:a1"
         assert j["events"][0]["seq"] > j["events"][1]["seq"]
+
+    def test_the_audit_log_is_read_once_then_new_events_come_from_memory(self, client, monkeypatch):
+        from onemind_core.routers import fabric_events
+
+        self.lines(client, 2)
+        reads = []
+        real = fabric_events.iter_all_records
+        monkeypatch.setattr(fabric_events, "iter_all_records", lambda *a, **k: reads.append(1) or real(*a, **k))
+        first = client.get("/v1/fabric/events", headers=OWNER).json()["events"]
+        client.app.state.fabric_watch.handle("$SYS.ACCOUNT.NODE_a1.DISCONNECT", body(NODE_KEY, "Leafnode", reason="Client Closed"))
+        again = client.get("/v1/fabric/events", headers=OWNER).json()["events"]
+        client.get("/v1/fabric/events", headers=OWNER)
+        assert len(reads) == 1
+        assert again[0]["event"] == "fabric.disconnect" and again[1:] == first and len({e["seq"] for e in again}) == len(again)
 
     def test_only_fabric_bus_events_are_listed(self, client):
         self.lines(client, 1)
