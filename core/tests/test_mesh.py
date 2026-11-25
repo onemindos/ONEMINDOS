@@ -336,3 +336,253 @@ def test_push_policy_checks_first(service, hs, tmp_path):
     assert hs.policy == before
     log = audit_text(tmp_path)
     assert '"event":"mesh.policy.applied"' in log and '"event":"mesh.policy_rejected"' in log
+
+
+# ---- the mesh mounted in the gateway (CORE-NET-8, #876) -------------------------------------------------
+# The owner's mesh state lives in the settings store (table mesh_state). The fake Headscale stands in
+# for the coordinator; the box CA lives in the test's tls directory.
+from dataclasses import replace  # noqa: E402
+
+from fastapi.testclient import TestClient  # noqa: E402
+
+import onemind_core.routers.net as net_router  # noqa: E402
+from onemind_core.app import create_app  # noqa: E402
+from onemind_core.netconf import MeshSettings, NetSettings  # noqa: E402
+from conftest import ADULT, AGENT, OWNER, ScriptedExecutor  # noqa: E402
+
+
+def _events(settings, name: str) -> list[dict]:
+    if not settings.audit_path.exists():
+        return []
+    rows = [json.loads(line) for line in settings.audit_path.read_text().splitlines() if line.strip()]
+    return [r for r in rows if r["event"] == name]
+
+
+@pytest.fixture
+def mesh_box(settings, tmp_path, hs, monkeypatch):
+    """Build a gateway app. installed=True: Headscale's key file and the hub mesh IP are on the box
+    (deploy/install.sh writes them); enabled is ONEMIND_MESH_ENABLED."""
+    keyfile = tmp_path / "headscale.key"
+    keyfile.write_text(hs.api_key)
+    keyfile.chmod(0o600)
+    real = HeadscaleClient.from_key_file
+    monkeypatch.setattr(net_router.HeadscaleClient, "from_key_file",
+                        classmethod(lambda cls, url, kf, **kw: real.__func__(cls, url, kf, transport=hs)))
+
+    def build(*, installed: bool, enabled: bool = False, relay: str | None = None):
+        mesh_cfg = MeshSettings(enabled=enabled, relay_addr=relay,
+                                **({"headscale_key_file": keyfile, "hub_ip": "100.64.0.1"} if installed else {}))
+        sections = {**settings.sections, "mesh": mesh_cfg,
+                    "net": NetSettings(box_name="box1", lan_addr="192.0.2.10", tls_dir=tmp_path / "tls")}
+        s = replace(settings, sections=sections)
+        return s, TestClient(create_app(s, clock=lambda: NOW, executor=ScriptedExecutor()))
+
+    return build
+
+
+def test_mesh_routes_are_mounted_and_documented(mesh_box):
+    _, c = mesh_box(installed=False)
+    routes = {(m, r.path) for r in c.app.routes for m in getattr(r, "methods", ())}
+    assert {("GET", "/v1/mesh"), ("PUT", "/v1/mesh/settings")} <= routes
+    op = c.get("/openapi.json").json()["paths"]["/v1/mesh/settings"]["put"]
+    assert op["operationId"] == "mesh.settings_update" and op["tags"] == ["mesh"]
+    assert {"200", "401", "403", "409", "422"} <= set(op["responses"])
+
+
+def test_no_provider_answers_not_set_up_with_a_next_step(mesh_box):
+    _, c = mesh_box(installed=False)
+    view = c.get("/v1/mesh", headers=OWNER).json()
+    assert view["mode"] == "off" and view["control"]["state"] == "off"
+    assert view["settings"] == {"enabled": False, "provider": None,
+                                "control_url": "https://control.onemind.internal:8444", "saved": False,
+                                "updated_at": None, "updated_by": None}
+    setup = view["setup"]
+    assert setup["state"] == "not_set_up" and setup["reason"] == "no_provider"
+    assert "onemind mesh settings --provider headscale" in setup["next_step"]
+    r = c.put("/v1/mesh/settings", json={"enabled": True}, headers=OWNER)
+    assert r.status_code == 409 and r.json()["reason"] == "mesh_no_provider"
+    assert "onemind mesh settings --provider headscale" in r.json()["message"]
+
+
+def test_mesh_state_change_is_owner_only_and_audited(mesh_box):
+    s, c = mesh_box(installed=False)
+    for who in (ADULT, AGENT):
+        r = c.put("/v1/mesh/settings", json={"provider": "headscale"}, headers=who)
+        assert r.status_code == 403, r.text
+    assert len(_events(s, "authz.denied")) == 2 and not _events(s, "mesh.settings.changed")
+    assert c.put("/v1/mesh/settings", json={"provider": "headscale"}).status_code == 401
+    r = c.put("/v1/mesh/settings", json={"provider": "headscale", "enabled": True,
+                                         "control_url": "https://control.onemind.internal:9444"}, headers=OWNER)
+    assert r.status_code == 200, r.text
+    out = r.json()
+    assert out["settings"]["enabled"] is True and out["settings"]["provider"] == "headscale" and out["settings"]["saved"]
+    # chosen but not installed on this box: still 'not set up', and the next step says how to install it
+    assert out["setup"]["state"] == "not_set_up" and out["setup"]["reason"] == "provider_not_installed"
+    assert "install" in out["setup"]["next_step"].lower()
+    (ev,) = _events(s, "mesh.settings.changed")
+    assert ev["principal"]["role"] == "owner"
+    assert ev["data"]["before"] == {"enabled": False, "provider": None, "control_url": "https://control.onemind.internal:8444"}
+    assert ev["data"]["after"] == {"enabled": True, "provider": "headscale", "control_url": "https://control.onemind.internal:9444"}
+    # the same values again change nothing and write no second entry
+    assert c.put("/v1/mesh/settings", json={"provider": "headscale"}, headers=OWNER).status_code == 200
+    assert len(_events(s, "mesh.settings.changed")) == 1
+    # stored, not in memory: a new gateway on the same database reads it back
+    _, c2 = mesh_box(installed=False)
+    assert c2.get("/v1/mesh", headers=OWNER).json()["settings"]["provider"] == "headscale"
+
+
+@pytest.mark.parametrize("body", [{"provider": "tailscale-saas"}, {"control_url": "http://control.onemind.internal"},
+                                  {"control_url": "https://"}, {"enabled": "yes"}, {"extra": 1}])
+def test_bad_mesh_settings_are_refused(mesh_box, body):
+    s, c = mesh_box(installed=False)
+    assert c.put("/v1/mesh/settings", json=body, headers=OWNER).status_code == 422
+    assert not _events(s, "mesh.settings.changed")
+
+
+def test_owner_turns_the_installed_mesh_off_and_on_live(mesh_box, hs):
+    hs.users["9"] = {"id": "9", "name": "onemind-machines"}
+    s, c = mesh_box(installed=True, enabled=True)
+    view = c.get("/v1/mesh", headers=OWNER).json()
+    assert view["mode"] == "lan" and view["setup"]["state"] == "ready" and view["settings"]["provider"] == "headscale"
+    assert c.app.state.mesh is not None
+    off = c.put("/v1/mesh/settings", json={"enabled": False}, headers=OWNER).json()
+    assert off["setup"]["state"] == "off" and "onemind mesh settings --enable" in off["setup"]["next_step"]
+    # honest about what off does: Headscale keeps running and members who already joined stay connected
+    assert "Headscale keeps running" in off["setup"]["detail"] and "stay connected" in off["setup"]["detail"]
+    assert c.app.state.mesh is None  # GET /v1/status reads this: the mesh is not enabled
+    view = c.get("/v1/mesh", headers=OWNER).json()
+    assert view["mode"] == "off" and view["control"]["state"] == "off" and view["names"]["mesh"] == []
+    on = c.put("/v1/mesh/settings", json={"enabled": True}, headers=OWNER).json()
+    assert on["setup"]["state"] == "ready" and c.app.state.mesh is not None
+    assert c.get("/v1/mesh", headers=OWNER).json()["control"]["state"] == "up"
+    assert [e["data"]["after"]["enabled"] for e in _events(s, "mesh.settings.changed")] == [False, True]
+
+
+def test_box_ca_starts_only_when_the_mesh_is_enabled(mesh_box, tmp_path):
+    _, c = mesh_box(installed=True, enabled=False)
+    view = c.get("/v1/mesh", headers=OWNER).json()
+    assert view["setup"]["state"] == "off" and view["ca_sha256"] == ""
+    assert not (tmp_path / "tls" / "ca.crt").exists()  # reading the mesh view does not create a CA
+    c.put("/v1/mesh/settings", json={"enabled": True}, headers=OWNER)
+    assert (tmp_path / "tls" / "ca.crt").exists()
+    fp = c.get("/v1/mesh", headers=OWNER).json()["ca_sha256"]
+    assert len(fp) == 64 and fp == c.get("/v1/tls", headers=OWNER).json()["ca_sha256"]
+
+
+def _join(c, node_id="n1a2b3c4d5e6"):
+    """One worker join through the real routes; returns the delivered credentials (the join bundle)."""
+    from test_net import Node  # imported late: test_net imports this module
+
+    t = c.post("/v1/fabric/join-tickets", json={"role": "worker"}, headers=OWNER).json()
+    node = Node(node_id=node_id)
+    jr = c.post("/v1/fabric/join-requests", json=node.body(t["one_time"]["join_code"])).json()
+    assert c.post(f"/v1/actions/{jr['action']['id']}/approve", headers=OWNER).status_code == 200
+    return node.poll(c, jr["join_request_id"], t["one_time"]["join_code"]).json()["credentials"]
+
+
+# Keys a node of the previous release reads from the bundle's mesh block (internal/fabric MeshBlock). New
+# fields are only ever added beside them (#697: N and N-1 both work), so none of these may go.
+BUNDLE_V1_MESH_KEYS = {"control_url", "control_addrs", "relay_addrs", "ca_sha256", "auth_key", "hostname",
+                       "hub_mesh_ip", "tags", "shields_up"}
+
+
+def test_join_bundle_carries_mesh_fields_beside_the_relay_fields(mesh_box, hs):
+    hs.users["9"] = {"id": "9", "name": "onemind-machines"}
+    _, c = mesh_box(installed=True, enabled=True, relay="203.0.113.7")
+    m = _join(c)["mesh"]
+    assert BUNDLE_V1_MESH_KEYS <= set(m)
+    assert m["provider"] == "headscale" and m["relay_addrs"] == ["203.0.113.7"] and m["control_addrs"] == ["192.0.2.10"]
+    assert m["control_url"] == "https://control.onemind.internal:8444"
+
+
+def test_join_bundle_has_no_mesh_block_when_the_owner_turned_it_off(mesh_box, hs):
+    hs.users["9"] = {"id": "9", "name": "onemind-machines"}
+    _, c = mesh_box(installed=True, enabled=True)
+    c.put("/v1/mesh/settings", json={"enabled": False}, headers=OWNER)
+    creds = _join(c)
+    assert "mesh" not in creds and not hs.keys  # no key minted for a mesh that is off
+    assert {"role", "node_cert", "ca_cert", "nats"} <= set(creds)  # the rest of the bundle is unchanged
+
+
+# ---- turning the mesh off while a join waits for its §5.1 bind check ----------------------------------
+def _mesh_join(mesh_box, hs):
+    """A gateway with the mesh on and the fabric handler; the machines user exists in Headscale."""
+    hs.users["9"] = {"id": "9", "name": "onemind-machines"}
+    s, c = mesh_box(installed=True, enabled=True)
+    return s, c, c.app.state.gateway.actions.handlers["node.join"]
+
+
+def _action(c, action_id) -> dict:
+    return c.get(f"/v1/actions/{action_id}", headers=OWNER).json()
+
+
+def test_turning_the_mesh_off_fails_a_join_awaiting_its_mesh_check(mesh_box, hs):
+    """Review blocker (PR #946): a join delivered with a mesh key must never succeed without the bind
+    check. Here an impostor used the key, then the owner turned the mesh off before the first heartbeat."""
+    from test_net import heartbeat
+
+    s, c, fab = _mesh_join(mesh_box, hs)
+    creds = _join(c)
+    (req,) = fab.repo.requests(("delivered",))
+    key = next(k for k in hs.keys.values() if k["key"] == creds["mesh"]["auth_key"])
+    hs.add_node("node-impostor", key_id=key["id"], tags=["tag:onemind-worker", "tag:onemind-k3s"])
+    assert c.put("/v1/mesh/settings", json={"enabled": False}, headers=OWNER).status_code == 200
+    # failed at once, with the old client: the key expired and the unchecked machine is off the mesh
+    assert _action(c, req["action_id"])["state"] == "failed"
+    assert "mesh was turned off" in json.dumps(_action(c, req["action_id"]))
+    assert not [n for n in hs.nodes.values() if n["name"] == "node-impostor"]
+    assert hs.keys[key["id"]]["expiration"].startswith("1970")
+    assert fab.repo.node(req["node_id"]) is None
+    assert [e["data"]["key_id"] for e in _events(s, "mesh.key.expired")] == [key["id"]]
+    assert len(_events(s, "mesh.node.removed")) == 1
+    # the heartbeat that arrives afterwards changes nothing, and neither does turning the mesh back on
+    heartbeat(c, req["node_id"])
+    fab.tick()
+    assert c.put("/v1/mesh/settings", json={"enabled": True}, headers=OWNER).status_code == 200
+    fab.tick()
+    assert _action(c, req["action_id"])["state"] == "failed"
+    assert not _events(s, "mesh.node.bound")
+
+
+def test_a_delivery_that_lands_after_the_switch_off_still_never_joins(mesh_box, hs, monkeypatch):
+    """The race the sweep cannot see: the key was minted with the old client, the owner turned the mesh
+    off while the delivery ran, and the request reached 'delivered' after the sweep. The tick fails it."""
+    from test_net import heartbeat
+
+    s, c, fab = _mesh_join(mesh_box, hs)
+    svc = c.app.state.mesh
+    real_mint = svc.mint_join_key
+
+    def mint_then_switch_off(action):
+        minted = real_mint(action)
+        assert c.put("/v1/mesh/settings", json={"enabled": False}, headers=OWNER).status_code == 200
+        return minted
+
+    monkeypatch.setattr(svc, "mint_join_key", mint_then_switch_off)
+    creds = _join(c)
+    assert c.app.state.mesh is None and "mesh" in creds  # the bundle was built from the snapshot it read
+    (req,) = fab.repo.requests(("delivered",))
+    key = next(k for k in hs.keys.values() if k["key"] == creds["mesh"]["auth_key"])
+    hs.add_node("node-impostor", key_id=key["id"], tags=["tag:onemind-worker", "tag:onemind-k3s"])
+    heartbeat(c, req["node_id"])
+    fab.tick()
+    assert _action(c, req["action_id"])["state"] == "failed"
+    assert not [n for n in hs.nodes.values() if n["name"] == "node-impostor"]  # cleaned up by the retired client
+    assert hs.keys[key["id"]]["expiration"].startswith("1970")
+
+
+def test_switch_off_with_headscale_down_still_fails_the_join(mesh_box, hs):
+    from test_net import heartbeat
+
+    s, c, fab = _mesh_join(mesh_box, hs)
+    _join(c)
+    (req,) = fab.repo.requests(("delivered",))
+    hs.down = True
+    assert c.put("/v1/mesh/settings", json={"enabled": False}, headers=OWNER).status_code == 200
+    assert _action(c, req["action_id"])["state"] == "failed"  # never joined, even though cleanup could not run
+    (ev,) = _events(s, "mesh.join.cleanup_failed")
+    assert ev["data"]["key_id"] == req["mesh_key_id"] and ev["data"]["node_id"] == req["node_id"]
+    hs.down = False
+    heartbeat(c, req["node_id"])
+    fab.tick()
+    assert _action(c, req["action_id"])["state"] == "failed"

@@ -8,12 +8,14 @@ from fastapi import Depends, FastAPI, Request, Response
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 from ..actions import FeatureActionRequest
+from ..ai_policy import actions_for_agent, app_data_to_agent, app_policy, is_agent
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError, error_responses
 from ..identity import ctx_of
 from ..identity.scopes import has_any, register_route_scope
 from ..plugins.tools import Tools
+from .apps import app_rows
 
 ORDER = 275
 _SCOPE = "actions:request:plugin.invoke"
@@ -78,6 +80,13 @@ def register(app: FastAPI, gw: Gateway):
                 # agent or rule may run one only with the exact grant its owner issued for tools.
                 raise ApiError(403, "permission_denied",
                                "agents and automations need the exact plugin.invoke grant to run any plugin tool")
+            if is_agent(p):
+                # aiPolicy (#165): a read tool returns the app's own data at once, so an agent may run
+                # it only when the app lets app data go to an AI. Checked before the backend is called.
+                decision = app_data_to_agent(app_policy(app_rows(gw), plugin_id))
+                if not decision.allowed:
+                    raise ApiError(403, "permission_denied",
+                                   f"this app's data may not go to an AI: {decision.reason}", reason="ai_policy")
             return {"output": tools.read(p, plugin_id, tool_name, body.arguments)}
         if ctx and not has_any(ctx.scopes, (_SCOPE,)):
             raise ApiError(403, "permission_denied", "mutating tools require an exact action request grant")
@@ -87,4 +96,5 @@ def register(app: FastAPI, gw: Gateway):
             expires_at=body.expires_at or gw.clock() + timedelta(minutes=10),
         ))
         response.status_code = 201 if created else 200
-        return action
+        # An idempotent replay returns the stored action, a finished tool's output included.
+        return actions_for_agent([action], lambda: app_rows(gw))[0] if is_agent(p) else action

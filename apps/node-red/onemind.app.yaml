@@ -10,8 +10,11 @@ metadata:
   version: "5.0.10"
   description: "Low-code programming for event-driven applications"
   category: automation
+  age_rating: 18   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Builds automations that act on devices and services."
   icon: icon.svg
   license: "Apache-2.0"
+  licenceClass: L1
   source: https://github.com/node-red/node-red
   links:
     docs: "https://nodered.org/docs/"

@@ -21,7 +21,7 @@ import { useThisPhone } from './src/lib/install';
 import { disablePush, installField, loadPushRecord, parsePing, platformTransport } from './src/lib/push';
 import type { RootParams, TabParams } from './src/nav';
 import { setBadge, setupNotifications, showAlert } from './src/notify';
-import { photoTour, PhotoBackupProvider } from './src/photos/controller';
+import { PhotoBackupProvider } from './src/photos/controller';
 import { PhotoAlbumsScreen } from './src/photos/PhotoAlbumsScreen';
 import { PhotoBackupScreen } from './src/photos/PhotoBackupScreen';
 import { usePushPings } from './src/pushPings';
@@ -46,7 +46,6 @@ import { SettingsScreen } from './src/screens/SettingsScreen';
 import { useUpdateNeeded } from './src/lib/protocol';
 import { UpdateNeededScreen } from './src/screens/UpdateNeededScreen';
 import { onForgetHub, SessionProvider, useSession, useSignedIn, type SessionDeps } from './src/session';
-import { TOUR, TOUR_ROLE, TOUR_STEP_MS } from './src/tour';
 import { PrefsProvider } from './src/prefs';
 import { font, useIsDark, useTheme } from './src/ui/theme';
 
@@ -149,7 +148,7 @@ function PushPings() {
   // The same name and install id as this phone's sign-in and passkey, so a rotated endpoint stays on its device (#715).
   const phone = useThisPhone();
   const install = useMemo(() => installField(features, phone?.installId), [features, phone?.installId]);
-  usePushPings({ api, hubUrl: connection.mode === 'live' ? connection.hubUrl : undefined, label: phone?.name ?? deviceInfo('').name, install, reload });
+  usePushPings({ api, hubUrl: connection.hubUrl, label: phone?.name ?? deviceInfo('').name, install, reload });
   return null;
 }
 
@@ -165,27 +164,6 @@ function SignedIn() {
   }, []);
 
   useEffect(() => {
-    if (!TOUR_ROLE) return;
-    let i = 0;
-    const id = setInterval(() => {
-      i += 1;
-      const step = TOUR[i];
-      if (!step || !navRef.isReady()) return clearInterval(id);
-      if ('tab' in step) navRef.navigate('Tabs', { screen: step.tab });
-      else if ('screen' in step) navRef.navigate(step.screen);
-      else if ('app' in step) navRef.navigate('AppDetail', { id: step.app });
-      else if ('photos' in step) {
-        if (step.photos === 'albums') navRef.navigate('PhotoAlbums');
-        else navRef.navigate('PhotoBackup');
-        if (step.photos === 'enable') void photoTour.enable?.();
-        if (step.photos === 'cellular' || step.photos === 'wifi') photoTour.network?.(step.photos);
-      } else navRef.navigate('Settings');
-    }, TOUR_STEP_MS);
-    return () => clearInterval(id);
-  }, []);
-
-  useEffect(() => {
-    if (TOUR_ROLE) return; // the permission prompt would cover the screenshots
     void setupNotifications().catch(() => false);
     const sub = Notifications.addNotificationResponseReceivedListener((r) => routeTo(r.notification.request.content.data));
     return () => sub.remove();
@@ -227,11 +205,8 @@ function SignedIn() {
 
 function Root() {
   const t = useTheme();
-  const { ready, session, connect } = useSession();
+  const { ready, session } = useSession();
   const update = useUpdateNeeded();
-  useEffect(() => {
-    if (ready && !session && TOUR_ROLE) void connect({ mode: 'mock', token: `${TOUR_ROLE}-demo` });
-  }, [ready, session, connect]);
   if (!ready)
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: t.bg }}>
@@ -240,16 +215,21 @@ function Root() {
     );
   if (update) return <UpdateNeededScreen state={update} />;
   // Keyed by the hub, so switching hubs starts with fresh state and no stale data (a renewed token keeps the screen).
-  return session ? <SignedIn key={session.connection.mode === 'live' ? session.connection.hubUrl : session.connection.token} /> : <ConnectScreen />;
+  return session ? <SignedIn key={session.connection.hubUrl} /> : <ConnectScreen />;
 }
 
-export default function App() {
+/** The whole app. It always talks HTTP to the owner's hub; tests hand in a fake gateway through `deps`. */
+export function AppRoot({ deps = SESSION_DEPS }: { deps?: SessionDeps }) {
   return (
     <SafeAreaProvider>
-      <SessionProvider deps={SESSION_DEPS}>
+      <SessionProvider deps={deps}>
         <Root />
         <StatusBar style="auto" />
       </SessionProvider>
     </SafeAreaProvider>
   );
+}
+
+export default function App() {
+  return <AppRoot />;
 }

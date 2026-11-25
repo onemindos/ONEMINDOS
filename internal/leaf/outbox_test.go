@@ -271,6 +271,10 @@ func TestHubSourceStream(t *testing.T) {
 	if err != nil || cfg.Name != "NODE_node_n1_OUTBOX" || cfg.Sources[0].External.APIPrefix != "$JS.node-n1.API" {
 		t.Fatalf("%+v %v", cfg, err)
 	}
+	// #747: the hub's copy is bounded like the registry's node events, and a full one drops its oldest.
+	if cfg.MaxBytes != 256<<20 || cfg.MaxAge != 7*24*time.Hour || cfg.Discard != jetstream.DiscardOld {
+		t.Fatalf("hub copy limits: max_bytes %d max_age %s discard %s", cfg.MaxBytes, cfg.MaxAge, cfg.Discard)
+	}
 	for _, bad := range []string{"", "hub", "a b", "x.y"} {
 		if _, err := HubSourceStream(bad); err == nil {
 			t.Errorf("domain %q accepted", bad)

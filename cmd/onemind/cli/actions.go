@@ -95,6 +95,7 @@ func actionsCommands(a *App) []*cobra.Command {
 		},
 	}
 	var yes bool
+	var acceptLicence string
 	decide := func(verb string) *cobra.Command {
 		cmd := &cobra.Command{
 			Use:   verb + " ACTION_ID",
@@ -132,7 +133,7 @@ func actionsCommands(a *App) []*cobra.Command {
 				}
 				var got *onemind.Action
 				if verb == "approve" {
-					got, err = c.Actions.Approve(bg(), args[0])
+					got, err = a.approveOrConfirmLicence(c, x, acceptLicence, yes)
 				} else {
 					got, err = c.Actions.Deny(bg(), args[0])
 				}
@@ -147,6 +148,9 @@ func actionsCommands(a *App) []*cobra.Command {
 			},
 		}
 		cmd.Flags().BoolVar(&yes, "yes", false, "do not ask (v0 owner tokens; passkey step-up replaces this, §12.3)")
+		if verb == "approve" {
+			cmd.Flags().StringVar(&acceptLicence, "accept-licence", "", "APP_ID: accept a blocked or unknown licence class for this install (the owner, in person)")
+		}
 		return cmd
 	}
 	watch := &cobra.Command{
@@ -260,4 +264,37 @@ func (a *App) pollActions(ctx context.Context, c *onemind.Client, emit func(stri
 		case <-time.After(2 * time.Second):
 		}
 	}
+}
+
+// approveOrConfirmLicence approves; when the gateway answers licence_unconfirmed (#173: a blocked or
+// unknown licence class needs the owner to type the app id) it asks for that confirmation and
+// approves again with accept_licence. A script passes --accept-licence APP_ID instead.
+func (a *App) approveOrConfirmLicence(c *onemind.Client, x *onemind.Action, accept string, yes bool) (*onemind.Action, error) {
+	appID, _ := x.Params["app_id"].(string)
+	// Bind the approval to the plan this command showed (AIG-04 tainted requests and physical actions
+	// refuse an approval without it); an action without a fingerprint approves as before.
+	plan := ""
+	if x.PlanSha256 != nil {
+		plan = *x.PlanSha256
+	}
+	if accept != "" {
+		return c.Actions.ApproveBound(bg(), x.Id, plan, accept)
+	}
+	got, err := c.Actions.ApproveBound(bg(), x.Id, plan, "")
+	var e *onemind.Error
+	if err == nil || !errors.As(err, &e) || e.Reason != "licence_unconfirmed" || appID == "" {
+		return got, err
+	}
+	fmt.Fprintf(a.Stderr, "%s\n", e.Message)
+	if yes && !a.Interactive() {
+		return nil, exitWith(ExitUsage, "usage", "this licence needs your own confirmation: pass --accept-licence "+appID)
+	}
+	ok, cerr := a.confirmTyped("Accept this licence?", appID, "--accept-licence")
+	if cerr != nil {
+		return nil, cerr
+	}
+	if !ok {
+		return nil, exitWith(ExitPending, "pending", "licence not accepted; the action still waits")
+	}
+	return c.Actions.ApproveBound(bg(), x.Id, plan, appID)
 }

@@ -152,6 +152,16 @@ invalid:
       - {op: remove, path: /spec/terms/providers/1/maxCacheSeconds}
       - {op: set, path: /spec/terms/providers/1/redistribute/mesh, value: false}
       - {op: set, path: /spec/extensions/videoSource/record, value: true}
+  # A map or list where a name belongs is the schema's error alone: the cross-field rules never use it as a
+  # key, so one malformed manifest is refused by name instead of stopping the catalog (Python and Go alike).
+  - {name: a host that is a map, ops: [{op: set, path: /spec/extensions/bridge/hosts/0, value: {name: earthquake.usgs.gov}}]}
+  - {name: a provider id that is a list, ops: [{op: set, path: /spec/terms/providers/0/id, value: [usgs]}]}
+  - {name: a block provider that is a list, ops: [{op: set, path: /spec/extensions/bridge/provider, value: [usgs]}]}
+  - {name: a job tool that is a map, ops: [{op: set, path: /spec/jobs/0/tool, value: {name: recent}}]}
+  - {name: an emit name that is a list, ops: [{op: set, path: /spec/extensions/bridge/emits/0/name, value: [quakes]}]}
+  - {name: a notification action tool that is a list, ops: [{op: set, path: /spec/notifications/topics/0/actions/0/tool, value: [recent]}]}
+  - {name: a tool name that is a map, ops: [{op: set, path: /spec/extensions/tools/0/name, value: {name: recent}}]}
+  - {name: a map layer id that is a list, ops: [{op: set, path: /spec/mapLayers/0/id, value: [quakes]}]}
   - {name: an Approve button, ops: [{op: set, path: /spec/notifications/topics/0/actions/0/label, value: Approve now}]}
   - {name: an approve action id, ops: [{op: set, path: /spec/notifications/topics/0/actions/0/id, value: approve}]}
   - {name: notification above the app ceiling, ops: [{op: set, path: /spec/notifications/topics/0/level, value: critical}]}

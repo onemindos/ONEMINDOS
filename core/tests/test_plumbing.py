@@ -89,8 +89,10 @@ def test_routers_register_themselves_in_their_declared_order():
     with_routes = {n: m for n, m in modules.items() if hasattr(m, "register")}
     order = [r.__module__.rsplit(".", 1)[1] for r in ROUTERS]
     assert order == sorted(with_routes, key=lambda n: (with_routes[n].ORDER, n))
-    # The order rules the old hand-kept list encoded.
-    assert order[0] == "guard" and order[-1] == "static"
+    # The order rules the old hand-kept list encoded, plus #697: the protocol gate registers just before
+    # guard, so guard's middleware (added later, so outside it) wraps its upgrade_required refusals too
+    # (security headers, rate limit; test_protocol.py checks that on the wire).
+    assert order[:2] == ["protocol", "guard"] and order[-1] == "static"
     assert order.index("databases") < order.index("backups")
 
 

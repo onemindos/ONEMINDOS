@@ -28,6 +28,7 @@ from fastapi.responses import JSONResponse
 from pydantic import AwareDatetime, BaseModel, BeforeValidator, ConfigDict, Field, ValidationError
 
 from ..actions import ActionRequest
+from ..agent_stop import is_agent
 from ..auth import Principal
 from ..context import Gateway
 from ..guard import reads_body
@@ -47,6 +48,7 @@ from ..notify.store import (
 )
 from ..identity.scopes import ALL, has_any, register_route_scope
 from ..jsonbody import JsonBody
+from ..taint import agent_answer, answer_source
 
 def _rfc3339_text(v):
     # pydantic reads "0.5" or 17 as a Unix time; the published schema says an RFC 3339 date-time string.
@@ -156,6 +158,22 @@ class PushIn(BaseModel):
     keys: dict | None = None
     label: str = Field(default="device", min_length=1, max_length=120)
     install_id: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{16,64}$")  # My devices (#715)
+
+
+class NotificationSeverityCounts(BaseModel):
+    info: int
+    warning: int
+    critical: int
+
+
+class NotificationSummary(BaseModel):
+    """GET /v1/notifications/summary: the caller's unread state, kept on the hub (#682)."""
+    unread: int = Field(description="unread items in the caller's inbox")
+    by_severity: NotificationSeverityCounts
+    latest_created_at: str | None = Field(json_schema_extra={"format": "date-time"},
+                                          description="newest item; moves when one arrives")
+    last_read_at: str | None = Field(json_schema_extra={"format": "date-time"},
+                                     description="latest read on any device; moves when one is read")
 
 
 class FixIn(JsonBody):
@@ -270,6 +288,15 @@ def register(app: FastAPI, gw: Gateway) -> None:
             row = svc._resolve(row, by=p.id)
         return alert_json(row)
 
+    def answer(request: Request, p: Principal, action: dict) -> dict:
+        """AIG-04: an agent's fix is answered without plan or result text, as POST /v1/actions is (taint.py)."""
+        if not is_agent(p):
+            return action
+        action = agent_answer(action)
+        if source := answer_source(request.scope, action):
+            gw.actions.taint.mark(p.id, source)
+        return action
+
     @app.post("/v1/alerts/{alert_id}/fix", operation_id="alerts.fix", tags=["alerts"], status_code=202,
               responses=error_responses(401, 403, 404, 409, 422))
     def fix_alert(alert_id: str, request: Request, body: FixIn | None = None, p: Principal = Depends(principal)):
@@ -298,7 +325,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             if existing is None:
                 break
             if existing.state not in TERMINAL:
-                return JSONResponse(status_code=202, content=gw.actions.get(existing.id),
+                return JSONResponse(status_code=202, content=answer(request, p, gw.actions.get(existing.id)),
                                     headers={"Location": f"/v1/actions/{existing.id}"})
         else:
             raise ApiError(409, "conflict", "this alert's fix was already tried too many times")
@@ -315,7 +342,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             for guard in gw.approval_guards:
                 guard(p, action["id"], {}, request)
             action = gw.actions.approve(p, action["id"])
-        return JSONResponse(status_code=202, content=action, headers={"Location": f"/v1/actions/{action['id']}"})
+        return JSONResponse(status_code=202, content=answer(request, p, action), headers={"Location": f"/v1/actions/{action['id']}"})
 
     # ---- channels (before /v1/notifications/{id}) ----------------------------------------
     @app.get("/v1/notifications/channels", operation_id="notifications.channels.list", tags=[TAG], responses=error_responses(401, 403))
@@ -515,10 +542,23 @@ def register(app: FastAPI, gw: Gateway) -> None:
             response.headers["Link"] = f'</v1/notifications?limit={n}&cursor={nxt}>; rel="next"'
         return [notification_json(r) for r in rows]
 
+    @app.get("/v1/notifications/summary", operation_id="notifications.summary", tags=[TAG],
+             response_model=NotificationSummary, responses=error_responses(401, 403))
+    def summary(p: Principal = Depends(principal)):
+        """One call for a badge: every client reads it again on a notification.* stream event."""
+        _person(p)
+        return repo.unread_summary(p.id)
+
+    # A read is private: these events reach only the reader's own streams (routers/events.py), so
+    # the person's other devices refresh their bell without waiting for a poll.
     @app.post("/v1/notifications/read-all", operation_id="notifications.read_all", tags=[TAG], responses=error_responses(401, 403))
     def read_all(p: Principal = Depends(principal)):
         _person(p)
-        return {"marked": repo.mark_read(p.id, None, gw.clock())}
+        marked = repo.mark_read(p.id, None, gw.clock())
+        if marked:
+            gw.events.publish_event("notification", "read_all", {"person_id": p.id, "marked": marked},
+                                    principal=p.as_dict(), resource={"kind": "person", "id": p.id})
+        return {"marked": marked}
 
     @app.get("/v1/notifications/{notification_id}", operation_id="notifications.get", tags=[TAG], responses=error_responses(401, 403, 404))
     def get_notification(notification_id: str, p: Principal = Depends(principal)):
@@ -534,7 +574,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
         row = repo.get_notification(notification_id)
         if row is None or row.person_id != p.id:
             raise ApiError(404, "not_found", "no such notification")
-        repo.mark_read(p.id, row.id, gw.clock())
+        if repo.mark_read(p.id, row.id, gw.clock()):
+            gw.events.publish_event("notification", "read", {"notification_id": row.id},
+                                    principal=p.as_dict(), resource={"kind": "notification", "id": row.id})
         return notification_json(repo.get_notification(row.id))
 
     # ---- push registrations -------------------------------------------------------------

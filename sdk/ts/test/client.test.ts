@@ -233,6 +233,26 @@ describe("me.home (UMB-P07)", () => {
   });
 });
 
+describe("notifications.preferences (#841)", () => {
+  const doc = { quiet_hours: null, routes: [], digest: { enabled: false, at: "08:00" } };
+
+  it("reads the document with its ETag and saves with If-Match", async () => {
+    const { om, calls } = client((_url, init) => init.method === "PUT" ? json(200, doc, { etag: '"b"' }) : json(200, doc, { etag: '"a"' }));
+    const got = await om.notifications.preferences.get();
+    expect(got.etag).toBe('"a"');
+    const saved = await om.notifications.preferences.save(got.prefs, got.etag);
+    expect(saved.etag).toBe('"b"');
+    expect(calls[1]!.url).toBe("http://localhost:8080/v1/notifications/preferences");
+    expect((calls[1]!.init.headers as Record<string, string>)["If-Match"]).toBe('"a"');
+  });
+
+  it("a stale ETag is a typed error and is not retried", async () => {
+    const { om, calls } = client(() => json(409, { error: "conflict", message: "preferences changed since you read them (ETag mismatch)" }));
+    await expect(om.notifications.preferences.save(doc, '"old"')).rejects.toBeInstanceOf(OneMindError);
+    expect(calls).toHaveLength(1);
+  });
+});
+
 describe("network.view", () => {
   it("reads GET /v1/network", async () => {
     const view = { available: true, interfaces: [], gateways: [], dns: ["192.0.2.53"], ports: [], dropped: 0 };

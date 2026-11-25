@@ -8,7 +8,13 @@ Wants=rauc.service onemind-local-api.service
 RequiresMountsFor=/data /boot/efi
 
 [Service]
-Type=oneshot
+# Type=notify: units ordered After= the gate (onemind-host.service, onemind-update.service) wait for the
+# slot decision only, not for the report-only k3s watch after it. The script sends READY=1 once the booted
+# slot is committed (or, on a trial, marked good); on a committed boot the watch then runs for up to
+# ONEMIND_GATE_TIMEOUT more seconds without holding up restart, shut down and OS install (#875, F12).
+# NotifyAccess=all: systemd-notify runs as a child of the script.
+Type=notify
+NotifyAccess=all
 RemainAfterExit=yes
 ExecStart=/usr/lib/onemind/onemind-health-gate
 TimeoutStartSec=infinity
