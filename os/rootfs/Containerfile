@@ -285,6 +285,12 @@ RUN set -eu; \
     systemctl enable onemind-ups.service onemind-ups-monitor.service >/dev/null; \
     systemctl mask smartmontools.service >/dev/null; \
     systemctl disable rpcbind.service rpcbind.socket nfs-client.target nfs-blkmap.service >/dev/null 2>&1; \
+    if [ "${LEG}" = debian ]; then \
+      systemctl enable snapper-timeline.timer snapper-cleanup.timer btrfs-scrub.timer >/dev/null; \
+      systemctl disable snapperd.service >/dev/null 2>&1 || true; \
+      systemctl mask snapper-boot.timer snapper-boot.service btrfs-balance.timer btrfs-defrag.timer btrfs-trim.timer \
+        btrfsmaintenance-refresh.path btrfsmaintenance-refresh.service >/dev/null; \
+    fi; \
     for db in passwd group shadow; do \
       grep -Eq "^$db:.*extrausers" /etc/nsswitch.conf || sed -i -E "s/^($db:.*)$/\\1 extrausers/" /etc/nsswitch.conf; \
     done; \
@@ -321,7 +327,7 @@ RUN set -eu; \
     ln -sf "vmlinuz-$kver" /boot/vmlinuz; ln -sf "initrd.img-$kver" /boot/initrd.img; \
     update-initramfs -u -k "$kver"; \
     mkdir -p /data /boot/efi /etc/rancher/node /var/lib/rancher /var/lib/kubelet /var/lib/cni \
-      /var/lib/tailscale /var/lib/onemind-headscale /var/lib/onemind-nats-leaf /var/lib/onemind-nats; \
+      /var/lib/tailscale /var/lib/onemind-headscale /var/lib/onemind-nats-leaf /var/lib/onemind-nats /var/lib/btrfs; \
     grep -q '^SYSEXT_LEVEL=' /usr/lib/os-release || grep -E '^[A-Z_]+=' /usr/lib/onemind/os-release.sysext >> /usr/lib/os-release; \
     test -L /var/lib/extensions && test -L /var/lib/confexts; \
     dpkg-query -W -f='${Package} ${Version} ${Architecture} ${Installed-Size}\n' | sort > /usr/lib/onemind/packages.txt; \

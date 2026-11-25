@@ -85,9 +85,9 @@ def make_work(fx, work):
     os.symlink(os.path.abspath(os.path.join(fx, "bundles.img")), dst)
 
 
-def guest_vals(vm, cmd):
+def guest_vals(vm, cmd, timeout=180):
     """Run a shell snippet that prints K=V lines; return {K: V} (last value of each key)."""
-    _, out = vm.run(cmd)
+    _, out = vm.run(cmd, timeout)
     return dict(re.findall(r"^([A-Z0-9_]+)=(.*?)\s*$", out, re.M))
 
 
@@ -318,6 +318,64 @@ def main():
                f"installs_rc={rc_up},{rc_bad} update={g_up} rollback={g_bad}->{g_back} markers_kept_after_update={kept(up)} "
                f"markers_kept_after_rollback={kept(back)} tpm2_unlock_in_both={'unlocked (tpm2)' in s_up and 'unlocked (tpm2)' in s_bad} "
                f"prompted={bool(re.search(PROMPT, s_up) or re.search(PROMPT, s_bad))} storage_mount_kept={up.get('STOR')},{back.get('STOR')}")
+        power_off(vm)
+
+        # E8: snapper timeline snapshot of @storage, restore, scrub, and survival of an A/B update (CRITERIA-SNAPPER.md).
+        vm.mark("E8 snapshots of the owner's files (swtpm #1)")
+        boot(vm, tpm1, "E8 boot")
+        vm.expect(r"ONEMIND-DATA-CRYPT: data disk unlocked \((\w[\w-]*)\)", 900)
+        vm.wait_gate(); vm.shell_ready()
+        u = guest_vals(vm, "echo ENABLED=$(systemctl is-enabled snapper-timeline.timer snapper-cleanup.timer btrfs-scrub.timer | tr '\\n' ,); "
+                           "echo ACTIVE=$(systemctl is-active snapper-timeline.timer snapper-cleanup.timer btrfs-scrub.timer | tr '\\n' ,); "
+                           "echo MASKED=$(systemctl is-enabled snapper-boot.timer btrfs-balance.timer btrfs-defrag.timer btrfs-trim.timer "
+                           "btrfsmaintenance-refresh.path 2>&1 | tr '\\n' ,); "
+                           "echo CONFIGS=$(snapper --no-dbus list-configs 2>&1 | grep -c '^storage *| /data/storage *$'); "
+                           "echo ONECONFIG=$(snapper --no-dbus list-configs 2>&1 | grep -c '|'); "
+                           "echo MONTHLY=$(systemctl cat btrfs-scrub.timer | grep -c '^OnCalendar=monthly'); "
+                           "echo SNAPSV=$(btrfs subvolume show /data/storage/.snapshots >/dev/null 2>&1 && echo yes || echo no)")
+        units_ok = (u.get("ENABLED") == "enabled,enabled,enabled," and u.get("ACTIVE") == "active,active,active,"
+                    and u.get("MASKED") == "masked,masked,masked,masked,masked," and u.get("CONFIGS") == "1"
+                    and u.get("ONECONFIG") == "2" and u.get("MONTHLY") == "1" and u.get("SNAPSV") == "yes")
+        w = guest_vals(vm, "head -c 1048576 /dev/urandom > /data/storage/payload.bin; sync; echo H0=$(sha256sum /data/storage/payload.bin | cut -c1-64); "
+                           "echo BEFORE=$(ls /data/storage/.snapshots | grep -cE '^[0-9]+$')")
+        h0 = w.get("H0", "")
+        guest_vals(vm, "systemctl start snapper-timeline.service; for i in $(seq 1 60); do systemctl is-active -q snapper-timeline.service || break; sleep 1; done")
+        t = guest_vals(vm, "echo RES=$(systemctl show -p Result --value snapper-timeline.service); "
+                           "echo AFTER=$(ls /data/storage/.snapshots | grep -cE '^[0-9]+$'); "
+                           "N=$(ls /data/storage/.snapshots | grep -E '^[0-9]+$' | sort -n | tail -1); echo N=$N; "
+                           "echo TYPE=$(grep -c '<type>single</type>' /data/storage/.snapshots/$N/info.xml); "
+                           "echo CLEAN=$(grep -c '<cleanup>timeline</cleanup>' /data/storage/.snapshots/$N/info.xml); "
+                           "echo RO=$(btrfs property get -ts /data/storage/.snapshots/$N/snapshot ro); "
+                           "echo SNAPSHOTS_OF_DATA=$(ls /data/.snapshots 2>&1 | grep -c '^[0-9]'); "
+                           "echo CONFIGS_DIR=$(ls /etc/snapper/configs | tr '\\n' ,)")
+        n = t.get("N", "")
+        timeline_ok = (t.get("RES") == "success" and n.isdigit() and int(t.get("AFTER", 0)) == int(w.get("BEFORE", 0)) + 1
+                       and t.get("TYPE") == "1" and t.get("CLEAN") == "1" and t.get("RO") == "ro=true"
+                       and t.get("SNAPSHOTS_OF_DATA") == "0" and t.get("CONFIGS_DIR") == "storage,")
+        r = guest_vals(vm, f"echo hello >> /data/storage/payload.bin; sync; cp /data/storage/.snapshots/{n}/snapshot/payload.bin /data/storage/restored.bin; "
+                           "echo HR=$(sha256sum /data/storage/restored.bin | cut -c1-64); echo HL=$(sha256sum /data/storage/payload.bin | cut -c1-64)")
+        restore_ok = len(h0) == 64 and r.get("HR") == h0 and r.get("HL") != h0
+        guest_vals(vm, "systemctl start btrfs-scrub.service; for i in $(seq 1 300); do systemctl is-active -q btrfs-scrub.service || break; sleep 1; done", 420)
+        sc = guest_vals(vm, "echo RES=$(systemctl show -p Result --value btrfs-scrub.service); "
+                            "echo STATUS=$(btrfs scrub status /data 2>&1 | tr -s ' \\n' ' '); "
+                            "echo LOG=$(journalctl -b --no-pager -u btrfs-scrub.service | tail -6 | cut -d' ' -f5- | tr -s ' \\n' ' ' | cut -c1-500)")
+        scrub_ok = (sc.get("RES") == "success" and re.search(r"(?i)status: +finished", sc.get("STATUS", "")) is not None
+                    and re.search(r"(?i)error summary: +no errors found", sc.get("STATUS", "")) is not None)
+        info0 = guest_vals(vm, f"echo INFO=$(sha256sum /data/storage/.snapshots/{n}/info.xml | cut -c1-64)").get("INFO", "")
+        rc_up, seg = battery.update_and_reboot(vm, "good.raucb")
+        vm.pos = seg
+        g_up = vm.wait_gate(); s_up = vm.since(seg); vm.shell_ready()
+        post = guest_vals(vm, f"echo INFO=$(sha256sum /data/storage/.snapshots/{n}/info.xml | cut -c1-64); "
+                           f"cp /data/storage/.snapshots/{n}/snapshot/payload.bin /data/storage/restored2.bin; "
+                           "echo H2=$(sha256sum /data/storage/restored2.bin | cut -c1-64); "
+                           f"echo LISTED=$(snapper --no-dbus -c storage list 2>&1 | grep -cE '^ *{n} *\\|'); "
+                           "echo FAILED=$(systemctl --failed --no-legend | wc -l)")
+        survive_ok = (rc_up == 0 and g_up == ("mark-good", "A", "2") and post.get("INFO") == info0 and len(info0) == 64
+                      and post.get("H2") == h0 and post.get("LISTED") == "1" and post.get("FAILED") == "0"
+                      and "unlocked (tpm2)" in s_up and not re.search(PROMPT, s_up))
+        record("E8", units_ok and timeline_ok and restore_ok and scrub_ok and survive_ok,
+               f"units_ok={units_ok} {u} timeline_ok={timeline_ok} {t} restore_ok={restore_ok} scrub_ok={scrub_ok} {sc} "
+               f"update_survived={survive_ok} install_rc={rc_up} result={g_up} snapshot={n} {post}")
         power_off(vm)
 
         # E3: the disk moved to another machine (a different TPM): it must ask, and the recovery key must work.
