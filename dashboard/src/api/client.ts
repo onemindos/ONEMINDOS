@@ -2,6 +2,7 @@
 import type { WiringApi } from './wiring';
 import { getPasskey } from '../lib/webauthn';
 import { withProtocol } from '../lib/protocol';
+import { uuidv4 } from '../lib/uuid';
 import type * as W from './wiring';
 import { OneMind, OneMindError, type components, type operations } from '@onemind/sdk';
 import type { FabricSummary, JoinTicket, MeshView } from '@onemind/ui';
@@ -59,6 +60,8 @@ export interface OneMindApi extends WiringApi {
   instance(): Promise<Instance>;
   /** GET /v1/instance/name: open, so the sign-in page can say which box this is. Absent on test doubles. */
   instanceName?(): Promise<{ name: string }>;
+  /** PUT /v1/instance/name (P-05): asks to rename the box. Files an action an owner approves; absent on test doubles. */
+  renameInstance?(name: string): Promise<Action>;
   nodes(): Promise<NodeRecord[]>;
   node(nodeId: string): Promise<NodeRecord>;
   apps(): Promise<CatalogApp[]>;
@@ -276,6 +279,10 @@ export class HttpApi implements OneMindApi {
   instance() {
     return this.req<Instance>('GET', '/v1/instance');
   }
+  /** One PUT, never retried; the key makes an unseen retry by the person replay the same action. */
+  renameInstance(name: string) {
+    return this.sdkCall<Action>('PUT', '/v1/instance/name', { name, idempotency_key: uuidv4() });
+  }
   nodes() {
     return this.req<NodeRecord[]>('GET', '/v1/nodes', undefined, 'array');
   }
@@ -313,7 +320,7 @@ export class HttpApi implements OneMindApi {
       return !req.plan_sha256 || action.plan_sha256 === req.plan_sha256;
     });
   }
-  private async sdkCall<T>(method: 'GET' | 'POST', path: string, body?: unknown, array = false, headers?: Record<string, string>, retry?: boolean): Promise<T> {
+  private async sdkCall<T>(method: 'GET' | 'POST' | 'PUT', path: string, body?: unknown, array = false, headers?: Record<string, string>, retry?: boolean): Promise<T> {
     try {
       const value = await this.sdk.call<T>({ method, path, body, ...(headers ? { headers } : {}), ...(retry !== undefined ? { retry } : {}) });
       if (!value || typeof value !== 'object' || Array.isArray(value) !== array) throw new ApiError(200, 'unknown', 'Unexpected response from the hub');

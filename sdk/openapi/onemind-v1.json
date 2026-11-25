@@ -10607,6 +10607,50 @@
         "title": "RenameOp",
         "type": "object"
       },
+      "RenameRequest": {
+        "additionalProperties": false,
+        "description": "PUT /v1/instance/name.",
+        "properties": {
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "name": {
+            "description": "One lower-case DNS label: a-z, 0-9 and -, not starting or ending with -. The box answers as <name>.local.",
+            "maxLength": 63,
+            "minLength": 1,
+            "pattern": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+            "title": "Name",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "RenameRequest",
+        "type": "object"
+      },
       "RestoreAppBody": {
         "additionalProperties": false,
         "description": "Put one app's data back from another box's backup. The app is installed first, then this restores its data.",
@@ -30428,6 +30472,133 @@
           }
         },
         "summary": "Instance Name",
+        "tags": [
+          "instance"
+        ]
+      },
+      "put": {
+        "description": "Ask to rename the box. It waits for the owner to approve; the response is the action, whose id is\nthe approval to look for. An agent may ask, never approve. When the host has done it, the box answers as\n`<name>.local` (the gateway restarts a few seconds later to pick the name up) and GET /v1/instance/name says the new name.\n\n409 `setup_needed` before the first-run settings are saved; 409 `host_unavailable` while the host service\ncannot rename the box (nothing is filed). The `Idempotency-Key` header (or the body's `idempotency_key`)\nmakes a retry replay the same action.",
+        "operationId": "instance.rename",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Idempotent replay"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "actions:request"
+            ]
+          }
+        ],
+        "summary": "Rename",
         "tags": [
           "instance"
         ]

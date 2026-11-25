@@ -82,7 +82,7 @@ def diagnose(vm, why):
     try:
         # The fatal sign can come before the console has logged in; a command sent then is lost.
         vm.send("")
-        vm.expect(r"root@onemind:~# ", 120)
+        vm.expect(r"root@[a-z0-9-]+:~# ", 120)  # any name: F21 renames the box
     except (TimeoutError, RuntimeError, OSError) as e:
         vm.mark(f"DIAGNOSE: no shell prompt ({e}); trying anyway")
     for unit in units:
@@ -906,6 +906,41 @@ def f20(vm, token):
          "no_new_token": not new_toks, "healthz": hz == "200", "succeeded": after.get("state") == "succeeded"}
     record("F20", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" '{al[:60]}' gate={g} ledger={after.get('state')}")
 
+NEW_NAME = "omtest-new"
+
+
+def f21(vm):
+    """P-05: a set-hostname request to the host helper renames the running system and avahi answers <name>.local."""
+    sock = "curl -s --unix-socket /run/onemind/host.sock -w ' CODE=%{http_code}'"
+    post = lambda body: f"{sock} -X POST -H 'Content-Type: application/json' -d '{body}' http://host/v1/operations"
+    good = json.dumps({"action_id": "f21-rename", "kind": "set-hostname", "hostname": NEW_NAME})
+    bad = json.dumps({"action_id": "f21-bad", "kind": "set-hostname", "hostname": "Bad Name"})
+    _, out = vm.run(f"echo POST=$({post(good)}); "
+                    f"for i in $(seq 1 30); do s=$({sock} http://host/v1/operations/f21-rename | grep -o '\"state\":\"[a-z_]*\"'); "
+                    "case \"$s\" in *succeeded*|*failed*) break;; esac; sleep 2; done; echo STATE=$s; "
+                    "echo HOST=$(cat /proc/sys/kernel/hostname); echo FILE=$(cat /data/onemind/etc/hostname); "
+                    "echo HOSTS=$(grep '^127.0.1.1' /etc/hosts | tr -s ' \\t' ' '); "
+                    f"echo STATUS=$({sock} http://host/v1/status | grep -o '\"hostname\":\"[^\"]*\"'); "
+                    f"for i in $(seq 1 30); do r=$(avahi-resolve -n {NEW_NAME}.local 2>/dev/null); [ -n \"$r\" ] && break; sleep 2; done; echo MDNS=$r; "
+                    f"echo BAD=$({post(bad)}); echo AFTER=$(cat /proc/sys/kernel/hostname)", 400)
+    g = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or [""])[-1]
+    c = {"accepted": g("POST").endswith(("CODE=202", "CODE=200")), "succeeded": "succeeded" in g("STATE"),
+         "running_name": g("HOST") == NEW_NAME, "saved_on_data": g("FILE") == NEW_NAME,
+         "hosts_line": g("HOSTS") == f"127.0.1.1 {NEW_NAME}", "status_name": g("STATUS") == f'"hostname":"{NEW_NAME}"',
+         "mdns_answers": g("MDNS").startswith(f"{NEW_NAME}.local"), "bad_name_400": g("BAD").endswith("CODE=400"),
+         "name_kept": g("AFTER") == NEW_NAME}
+    record("F21", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" out={out.strip()[-400:]!r}")
+
+
+def f22(vm):
+    """P-05: the new name is still the box's name after a reboot, and avahi still answers it."""
+    _, out = vm.run(f"for i in $(seq 1 60); do r=$(avahi-resolve -n {NEW_NAME}.local 2>/dev/null); [ -n \"$r\" ] && break; sleep 2; done; "
+                    "echo HOST=$(cat /proc/sys/kernel/hostname); echo FILE=$(cat /data/onemind/etc/hostname); echo MDNS=$r", 300)
+    g = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or [""])[-1]
+    c = {"running_name": g("HOST") == NEW_NAME, "saved_on_data": g("FILE") == NEW_NAME, "mdns_answers": g("MDNS").startswith(f"{NEW_NAME}.local")}
+    record("F22", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" out={out.strip()[-300:]!r}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=sorted(battery.BOARDS))
@@ -962,6 +997,7 @@ def main():
         vm.mark("F10 rescue console with k3s stopped (CORE-UPDATE-9)"); f10(vm, token)
         vm.mark("F11 starting page, then the gateway, never a refused connection"); f11(vm, (os.path.dirname(a.results) or ".") if a.results else None)
         vm.mark("F12 the gateway reaches the host helper, and says missing without it (#875)"); f12(vm, token)
+        vm.mark("F21 renaming the box: hostnamed, the data partition and avahi (P-05)"); f21(vm)
         vm.mark("F17 the clock: timesyncd, tzdata, C.UTF-8"); f17(vm)
         vm.mark("F18 the host applies a time zone (P-04)"); f18(vm)
         vm.mark("F13 disk and admin tools run, smartd masked (Step 2)"); f13(vm)
@@ -990,6 +1026,7 @@ def main():
             vm.mark("F19 the zone survives the reboot (P-04)"); f19(vm)
             record("F3", not new_toks and ids3 == ids and hz3 == "200" and bool(same) and bool(token),
                    f"'{al[:70]}' new_tokens={len(new_toks)} same_ids={ids3 == ids} healthz={hz3} listed={listed3} gate={g3}")
+            vm.mark("F22 the new name survives the reboot (P-05)"); f22(vm)
             netcheck.nw4_after(vm, record, nw4)
             if btmark:
                 f16_after(vm, "F16r", btmark)

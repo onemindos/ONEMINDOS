@@ -3,7 +3,7 @@
 
 `onemindd host serve` runs as root on the box and listens on /run/onemind/host.sock (mode 0660,
 root:onemind). It does what an owner already approved, from the id of the approved action, and
-nothing else: restart, shut down, factory reset, install an OS update, restart one service (#636). This module is the gateway's
+nothing else: restart, shut down, factory reset, install an OS update, restart one service (#636), rename the box (P-05). This module is the gateway's
 half of that contract:
 
 - `HostLink.problem(type)`: can this box do it now? (`GET /v1/status`)
@@ -53,12 +53,14 @@ KINDS = {
     "os.rollback": "os-rollback",  # P-16: back to the previous A/B slot
     "service.restart": "service-restart",  # #636: one registry unit; the host checks it is restartable
     "system.set_timezone": "set-timezone",  # P-04: one IANA zone; the host keeps it on /data
+    "instance.rename": "set-hostname",  # P-05: the box's DNS label; avahi then answers <name>.local
 }
 ACTION_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 # RFC 1123 labels: what the host helper may call the box (H-06: the answer is checked, not trusted).
 HOSTNAME = re.compile(r"(?=.{1,253}\Z)[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*")
 PROBE_TIMEOUT_S = 2.0  # GET /v1/status reads the helper on every call: a silent socket must not hold it up
 PLAN_SHA = re.compile(r"^[0-9a-f]{64}$")  # internal/host: the hash of the factory-reset plan the owner approved
+LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")  # the box name: one lower-case DNS label
 UNIT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.@-]{0,90}\.(service|socket|timer|path)$")
 ZONE = re.compile(r"^[A-Za-z][A-Za-z0-9_+-]*(/[A-Za-z0-9_+-]+){0,2}$")  # same shape as internal/host ZoneName
 NOT_ZONES = frozenset({"localtime", "posixrules", "Factory"})  # tzdata helper entries; localtime loops (host list)
@@ -204,6 +206,11 @@ class HostLink:
             if not isinstance(zone, str) or not ZONE.fullmatch(zone) or zone in NOT_ZONES:
                 return ExecResult("failed", "the change has no approved time zone", steps=[{"step": "host", "result": "bad_request"}])
             body["zone"] = zone
+        if kind == "set-hostname":
+            name = (a.params or {}).get("name")
+            if not isinstance(name, str) or not LABEL.fullmatch(name):
+                return ExecResult("failed", "the rename has no approved name", steps=[{"step": "host", "result": "bad_request"}])
+            body["hostname"] = name
         with self._lock:
             self._inflight.add(a.id)
         try:

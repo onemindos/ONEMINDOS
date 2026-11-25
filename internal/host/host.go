@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package host runs owner-approved host actions (#146, #142): restart,
-// shutdown, OS install, factory reset and restarting one service (#636). It is `onemindd host serve`, its own
+// shutdown, OS install, factory reset, restarting one service (#636) and renaming the box (P-05). It is `onemindd host serve`, its own
 // privileged unit, reached by the gateway over a Unix socket
 // (docs/leap/core/HOST-ACTIONS.md).
 //
@@ -24,7 +24,7 @@ import (
 
 // Kinds of host action. The gateway's action types map onto them:
 // system.restart, system.shutdown, system.factory_reset, os.update.install,
-// os.rollback, service.restart, system.set_timezone.
+// os.rollback, service.restart, system.set_timezone, instance.rename.
 const (
 	KindRestart        = "restart"
 	KindShutdown       = "shutdown"
@@ -33,10 +33,11 @@ const (
 	KindOSRollback     = "os-rollback"
 	KindServiceRestart = "service-restart"
 	KindSetTimezone    = "set-timezone"
+	KindSetHostname    = "set-hostname"
 )
 
 // Kinds lists every kind in a stable order (GET /v1/status).
-var Kinds = []string{KindRestart, KindShutdown, KindFactoryReset, KindOSInstall, KindOSRollback, KindServiceRestart, KindSetTimezone}
+var Kinds = []string{KindRestart, KindShutdown, KindFactoryReset, KindOSInstall, KindOSRollback, KindServiceRestart, KindSetTimezone, KindSetHostname}
 
 // Operation states. going_down: the box was told to reboot or power off; the
 // next boot turns it into succeeded.
@@ -55,6 +56,8 @@ var (
 	actionIDRe = regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,128}$`)
 	planHashRe = regexp.MustCompile(`^[0-9a-f]{64}$`)
 	versionRe  = regexp.MustCompile(`^[0-9A-Za-z.+-]{1,64}$`) // the gateway's InstallParams.version
+	// One lower-case DNS label: the name avahi publishes as <name>.local (the gateway derives it from the box name).
+	hostnameRe = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 	unitRe     = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.@-]{0,90}\.(service|socket|timer|path)$`)
 )
 
@@ -81,6 +84,8 @@ type Request struct {
 	Unit string `json:"unit,omitempty"`
 	// Zone (set-timezone only, required) is the IANA zone name the owner approved, e.g. Europe/Berlin.
 	Zone string `json:"zone,omitempty"`
+	// Hostname (set-hostname only, required) is the DNS label the owner approved for the box.
+	Hostname string `json:"hostname,omitempty"`
 }
 
 // Validate refuses a malformed request (HTTP 400).
@@ -93,6 +98,9 @@ func (r Request) Validate() error {
 	}
 	if (r.Kind == KindSetTimezone) != (r.Zone != "") {
 		return fmt.Errorf("zone is required for %s and only for it", KindSetTimezone)
+	}
+	if (r.Kind == KindSetHostname) != (r.Hostname != "") {
+		return fmt.Errorf("hostname is required for %s and only for it", KindSetHostname)
 	}
 	switch r.Kind {
 	case KindSetTimezone:
@@ -133,8 +141,15 @@ func (r Request) Validate() error {
 		if !unitRe.MatchString(r.Unit) {
 			return errors.New("unit must be a systemd unit name")
 		}
+	case KindSetHostname:
+		if r.Version != "" || r.PlanSHA256 != "" {
+			return errors.New("set-hostname takes only a hostname")
+		}
+		if !hostnameRe.MatchString(r.Hostname) {
+			return errors.New("hostname must be one lower-case DNS label (a-z, 0-9 and -, at most 63 characters)")
+		}
 	default:
-		return fmt.Errorf("unknown kind %q (restart, shutdown, factory-reset, os-install, os-rollback, service-restart, set-timezone)", r.Kind)
+		return fmt.Errorf("unknown kind %q (restart, shutdown, factory-reset, os-install, os-rollback, service-restart, set-timezone, set-hostname)", r.Kind)
 	}
 	return nil
 }
@@ -147,6 +162,7 @@ type Op struct {
 	PlanSHA256 string     `json:"plan_sha256,omitempty"` // factory-reset: the approved plan
 	Unit       string     `json:"unit,omitempty"`        // service-restart: the approved unit
 	Zone       string     `json:"zone,omitempty"`        // set-timezone: the approved zone
+	Hostname   string     `json:"hostname,omitempty"`    // set-hostname: the approved name
 	State      string     `json:"state"`
 	Reason     string     `json:"reason,omitempty"` // failed: a stable code
 	Message    string     `json:"message,omitempty"`
@@ -201,6 +217,14 @@ type Zones interface {
 	Set(ctx context.Context, zone string) error
 }
 
+// Hostnamer gives the box a new name (SystemHostname in production, rename.go).
+type Hostnamer interface {
+	Set(ctx context.Context, name string) error
+	// Reload runs after the answer is journaled and Delay has passed: it restarts what only reads the name at start
+	// (the gateway's box certificate and join QR). A failure is logged; the box is already renamed.
+	Reload(ctx context.Context) error
+}
+
 // Service runs the actions. Power, OS and Reset may be nil: that kind is then
 // reported unavailable and refused.
 type Service struct {
@@ -212,6 +236,7 @@ type Service struct {
 	SMB    SMBManager    // file sharing (smb.go); nil: not on this box
 	Units  Units         // service-restart; nil: refused
 	Zones  Zones         // set-timezone; nil: refused
+	Names  Hostnamer     // set-hostname; nil: refused
 	BootID string        // /proc/sys/kernel/random/boot_id
 	Delay  time.Duration // before the box goes down, so the gateway records "accepted" first
 	Now    func() time.Time
@@ -264,6 +289,10 @@ func (s *Service) Unavailable(kind string) string {
 		if s.Zones == nil {
 			return "this host service cannot set the time zone"
 		}
+	case KindSetHostname:
+		if s.Names == nil {
+			return "this host service cannot rename the box"
+		}
 	case KindFactoryReset:
 		if s.Reset == nil {
 			return "factory reset is not in this OneMind version yet: the early-boot wipe ships separately (HOST-ACTIONS.md §4)"
@@ -297,7 +326,7 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if old, err := s.Store.Get(req.ActionID); err == nil {
-		if old.Kind != req.Kind || old.Version != req.Version || old.PlanSHA256 != req.PlanSHA256 || old.Unit != req.Unit || old.Zone != req.Zone {
+		if old.Kind != req.Kind || old.Version != req.Version || old.PlanSHA256 != req.PlanSHA256 || old.Unit != req.Unit || old.Zone != req.Zone || old.Hostname != req.Hostname {
 			return Op{}, false, &Refusal{"action_id_reused", "action " + req.ActionID + " was already sent as a different request"}
 		}
 		if s.active != nil && s.active.ID == old.ID {
@@ -339,7 +368,7 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 		}
 	}
 	now := s.now()
-	op = Op{ID: req.ActionID, Kind: req.Kind, Version: req.Version, PlanSHA256: req.PlanSHA256, Unit: req.Unit, Zone: req.Zone, State: StateAccepted, BootID: s.BootID,
+	op = Op{ID: req.ActionID, Kind: req.Kind, Version: req.Version, PlanSHA256: req.PlanSHA256, Unit: req.Unit, Zone: req.Zone, Hostname: req.Hostname, State: StateAccepted, BootID: s.BootID,
 		AcceptedAt: now, UpdatedAt: now, Message: "accepted"}
 	if err := s.Store.Put(op); err != nil {
 		return Op{}, false, err
@@ -351,7 +380,7 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 		defer s.wg.Done()
 		s.run(ctx, cp)
 	}()
-	s.log().Info("host action accepted", "action_id", op.ID, "kind", op.Kind, "version", op.Version, "unit", op.Unit)
+	s.log().Info("host action accepted", "action_id", op.ID, "kind", op.Kind, "version", op.Version, "unit", op.Unit, "hostname", op.Hostname)
 	return op, true, nil
 }
 
@@ -469,6 +498,21 @@ func (s *Service) run(ctx context.Context, op Op) {
 			return
 		}
 		s.set(&op, StateSucceeded, "", "time zone set to "+op.Zone)
+	case KindSetHostname:
+		s.set(&op, StateRunning, "", "renaming the box to "+op.Hostname)
+		if err := s.Names.Set(ctx, op.Hostname); err != nil {
+			s.set(&op, StateFailed, "host_error", "renaming the box failed: "+err.Error())
+			return
+		}
+		s.set(&op, StateSucceeded, "", "the box is now called "+op.Hostname+" (reachable as "+op.Hostname+".local)")
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(s.Delay): // the gateway records the answer first: it is restarted next
+		}
+		if err := s.Names.Reload(ctx); err != nil {
+			s.log().Warn("restarting the gateway after a rename failed", "err", err)
+		}
 	case KindFactoryReset:
 		s.set(&op, StateRunning, "", "arming the factory reset")
 		if err := s.Reset.Arm(ctx, op); err != nil {

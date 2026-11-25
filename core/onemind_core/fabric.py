@@ -639,7 +639,9 @@ class FabricService:
         return ApiError(403, "permission_denied", f"{principal.kind}/{principal.role} may not {what}")
 
     def hub_url(self) -> str:
-        return self.d.fabric.hub_url or f"https://{self.d.net.box()}.local"
+        # The default names the CA's box, not the host name: after a rename that name stays in the certificate
+        # (and avahi keeps answering for it), while <new>.local is outside the CA's name constraints.
+        return self.d.fabric.hub_url or f"https://{self.d.box_ca.box}.local"
 
     def nats_url(self) -> str | None:
         host = self.d.mesh_settings.hub_ip if self.d.mesh_settings.enabled else self.d.net.lan_addr

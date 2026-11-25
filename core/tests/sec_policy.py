@@ -1016,6 +1016,16 @@ POLICY |= {
                                        f"{_KIOSK}: only the owner changes the screen; an agent can never switch it"),
 }
 
+# ---- rename the box (P-05: core/onemind_core/routers/instance_name.py) ---------------------------------------------
+POLICY |= {
+    # The owner and agents pass authorization and get 409 (first-run setup not saved in this world, so nothing is
+    # filed); with a host the request waits for the owner's approval (tests/test_instance_rename.py).
+    ("PUT", "/v1/instance/name"): Row(
+        cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        lambda _w: w.Req("/v1/instance/name", json={"name": "kitchen"}),
+        "core/onemind_core/routers/instance_name.py: an owner or agent asks to rename the box; only an owner approves it"),
+}
+
 # ---- bridge intake (#610: core/onemind_core/routers/bridges.py) --------------------------------------------
 # Only the bridge's own installation token posts events (plugins/auth.allows_bridge_intake); every person and
 # agent is refused. Owners and adults read status; the probe names a bridge that is not installed (404).
