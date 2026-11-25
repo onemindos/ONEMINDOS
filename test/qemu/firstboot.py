@@ -16,6 +16,9 @@ SRC = os.path.dirname(os.path.dirname(HERE))
 _spec = importlib.util.spec_from_file_location("battery", os.path.join(HERE, "run-tests.py"))
 battery = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(battery)
+_spec = importlib.util.spec_from_file_location("netcheck", os.path.join(HERE, "netcheck.py"))
+netcheck = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(netcheck)       # NW1-NW4, CRITERIA-NETWORK.md
 
 PY = "/usr/lib/onemind/gateway/venv/bin/python3"
 GW = "http://127.0.0.1:8080"
@@ -579,6 +582,9 @@ def main():
         vm.mark("F11 starting page, then the gateway, never a refused connection"); f11(vm, (os.path.dirname(a.results) or ".") if a.results else None)
         vm.mark("F12 the gateway reaches the host helper, and says missing without it (#875)"); f12(vm, token)
         vm.mark("F13 disk and admin tools run, smartd masked (Step 2)"); f13(vm)
+        vm.mark("NW1-NW4 NetworkManager: wired DHCP, k3s order, unmanaged k3s links, saved profile")
+        netcheck.nw1(vm, record); netcheck.nw2(vm, record); netcheck.nw3(vm, record)
+        nw4 = netcheck.nw4_before(vm)
 
         if a.upto in ("F3", "F4"):
             vm.mark("F3 reboot keeps state")
@@ -594,6 +600,9 @@ def main():
             same = [n for n in listed3 if n[0] == ids["node_id"]]
             record("F3", not new_toks and ids3 == ids and hz3 == "200" and bool(same) and bool(token),
                    f"'{al[:70]}' new_tokens={len(new_toks)} same_ids={ids3 == ids} healthz={hz3} listed={listed3} gate={g3}")
+            netcheck.nw4_after(vm, record, nw4)
+        else:
+            netcheck.nw4_after(vm, record, nw4, rebooted=False)
 
         if a.upto == "F4":
             vm.mark("F4 A/B update keeps /data")
