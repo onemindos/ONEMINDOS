@@ -9,7 +9,7 @@ from hashlib import sha256
 from itertools import groupby
 from typing import Annotated, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, field_validator
 from sqlalchemy import delete, or_, select, update
 from sqlalchemy.orm import Session
 
@@ -74,6 +74,15 @@ class Repeat(BaseModel):
 
     every: Literal["day", "weekday", "week", "month", "year"]
     interval: int = Field(default=1, ge=1, le=365, strict=True)
+    tz: str | None = Field(default=None, max_length=64, description="IANA zone the repeat days are counted in (default UTC)")
+
+    @field_validator("tz")
+    @classmethod
+    def _known_zone(cls, value: str | None) -> str | None:
+        if value is not None:
+            from .parse import zone
+            zone(value)
+        return value
 
 
 class SectionFields(BaseModel):
@@ -191,7 +200,7 @@ def _task_values(fields: TaskFields) -> dict:
         "assignee_id": fields.assignee.id if fields.assignee else None,
         "due_at": utc(fields.due_at) if fields.due_at else None,
         "section_id": fields.section_id,
-        "repeat": fields.repeat.model_dump() if fields.repeat else None,
+        "repeat": fields.repeat.model_dump(exclude_none=True) if fields.repeat else None,
     }
 
 
@@ -394,6 +403,14 @@ class WorkService(SqlRepository):
                     for r in rows]
 
     @staticmethod
+    def _section_writer(person: Principal) -> None:
+        """Sections are shared by everyone in the project, so a child or teen cannot change them: deleting
+        one rewrites tasks they are not allowed to see."""
+        _writer(person)
+        if person.role in OWN_TASK_ONLY_ROLES:
+            raise ApiError(403, "permission_denied", "Only adults can change a project's sections")
+
+    @staticmethod
     def _section_row(session: Session, project_id: str, section_id: str) -> SectionRow:
         row = session.get(SectionRow, section_id)
         if row is None or row.project_id != project_id:
@@ -409,7 +426,7 @@ class WorkService(SqlRepository):
                                              .order_by(SectionRow.position, SectionRow.id))]
 
     def create_section(self, person: Principal, project_id: str, fields: SectionFields, key: str) -> Section:
-        _writer(person)
+        self._section_writer(person)
         with self.db.session.begin() as session:
             _project(session, person, project_id, write=True)
             receipt, fresh = self._create_receipt(session, person, "section", key,
@@ -426,7 +443,7 @@ class WorkService(SqlRepository):
             return Section(id=row.id, project_id=project_id, name=row.name, position=row.position)
 
     def rename_section(self, person: Principal, project_id: str, section_id: str, fields: SectionFields) -> Section:
-        _writer(person)
+        self._section_writer(person)
         with self.db.session.begin() as session:
             _project(session, person, project_id, write=True)
             row = self._section_row(session, project_id, section_id)
@@ -435,7 +452,7 @@ class WorkService(SqlRepository):
 
     def delete_section(self, person: Principal, project_id: str, section_id: str) -> None:
         """Its tasks stay in the project, outside any section."""
-        _writer(person)
+        self._section_writer(person)
         with self.db.session.begin() as session:
             _project(session, person, project_id, write=True)
             row = self._section_row(session, project_id, section_id)

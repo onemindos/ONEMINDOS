@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 """Work project management, the task activity log and the quick-add preview (part 2 of the #798 port)."""
+import pytest
 from conftest import AGENT, GUEST, OWNER
 from onemind_core.auth import Principal
-from onemind_core.work.service import ProjectFields, TaskFields
+from onemind_core.errors import ApiError
+from onemind_core.work.service import ProjectFields, SectionFields, TaskFields
 
 
 def _project(client, name="Home", **extra):
@@ -140,7 +142,7 @@ def test_completing_a_repeating_task_moves_it_to_the_next_occurrence(client, clo
     assert done.status_code == 200, done.text
     got = done.json()
     assert got["status"] == "todo" and got["due_at"].startswith("2026-12-02T09:00:00") and got["repeat"] == {
-        "every": "week", "interval": 1}
+        "every": "week", "interval": 1, "tz": None}
     log = client.get(path + "/activity", headers=OWNER).json()
     assert [row["kind"] for row in log] == ["completed", "created"] and log[0]["fields"] == ["due_at"]
     stop = client.patch(path, json={"repeat": None}, headers={**OWNER, "If-Match": "2"})
@@ -160,3 +162,45 @@ def test_quick_add_reads_repeat_rules():
     jan31 = datetime(2027, 1, 31, 9, 0, tzinfo=UTC)
     assert next_due(jan31, {"every": "month", "interval": 1}, now).date().isoformat() == "2027-02-28"
     assert next_due(datetime(2026, 1, 1, 9, 0, tzinfo=UTC), {"every": "day", "interval": 1}, now).date().isoformat() == "2026-11-26"
+
+
+@pytest.mark.parametrize("role", ["child", "teen"])
+def test_a_child_or_teen_cannot_change_sections(client, role):
+    service = client.app.state.work
+    owner, kid = Principal("p-owner", "person", "owner"), Principal("p-kid", "person", role)
+    project = service.create_project(owner, ProjectFields(name="Family"))
+    service.add_member(owner, project.id, kid)
+    section = service.create_section(owner, project.id, SectionFields(name="Chores"), "s1")
+    for call in (lambda: service.create_section(kid, project.id, SectionFields(name="Mine"), "s2"),
+                 lambda: service.rename_section(kid, project.id, section.id, SectionFields(name="x")),
+                 lambda: service.delete_section(kid, project.id, section.id)):
+        with pytest.raises(ApiError) as failure:
+            call()
+        assert failure.value.status == 403
+    assert [s.name for s in service.sections(kid, project.id)] == ["Chores"]
+
+
+def test_repeat_days_are_counted_in_the_rule_zone():
+    from datetime import UTC, datetime
+    from zoneinfo import ZoneInfo
+    from onemind_core.work.parse import next_due, parse_quick_add
+    ny = ZoneInfo("America/New_York")
+    now = datetime(2026, 11, 25, 15, 0, tzinfo=UTC)
+    parsed = parse_quick_add("standup every weekday 2026-11-26", now, "America/New_York")
+    assert parsed["repeat"] == {"every": "weekday", "interval": 1, "tz": "America/New_York"}
+    thursday = parsed["due_at"]
+    assert thursday.astimezone(ny).isoformat() == "2026-11-26T23:59:59-05:00"
+    friday = next_due(thursday, parsed["repeat"], now)
+    assert friday.astimezone(ny).isoformat() == "2026-11-27T23:59:59-05:00"
+    monday = next_due(friday, parsed["repeat"], now)
+    assert monday.astimezone(ny).isoformat() == "2026-11-30T23:59:59-05:00"
+    # Across the spring DST change the local time of day holds and no day is skipped.
+    daily = parse_quick_add("water every day 2027-03-13", now, "America/New_York")
+    sat = daily["due_at"]
+    sun = next_due(sat, daily["repeat"], now)
+    assert sun.astimezone(ny).isoformat() == "2027-03-14T23:59:59-04:00"
+    assert next_due(sun, daily["repeat"], now).astimezone(ny).isoformat() == "2027-03-15T23:59:59-04:00"
+    # A rule with no zone still counts in UTC, and an unknown zone is refused.
+    assert next_due(datetime(2026, 11, 27, 9, 0, tzinfo=UTC), {"every": "weekday"}, now).date().isoformat() == "2026-11-30"
+    with pytest.raises(ValueError):
+        next_due(sat, {"every": "day", "tz": "Mars/Base"}, now)

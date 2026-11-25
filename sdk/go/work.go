@@ -30,6 +30,8 @@ type WorkTask struct {
 type WorkRepeat struct {
 	Every    string `json:"every"`
 	Interval int    `json:"interval"`
+	// Tz is the IANA zone the repeat days are counted in; empty means UTC.
+	Tz string `json:"tz,omitempty"`
 }
 
 // WorkSection groups the tasks of one project.
