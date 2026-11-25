@@ -134,6 +134,7 @@ def main():
         seg = vm.here()
         vm.send("systemctl reboot")
         al = vm.expect(fb.ALREADY, 900).group(0)
+        vm.pos = seg             # first boot's line and the gate's result come in either order (fast KVM hosts: gate first)
         g2 = vm.wait_gate()
         vm.shell_ready()
         _, out = vm.run(f"echo SHA=$(sha256sum {ESP}/user.cfg | cut -c1-64)")
