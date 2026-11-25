@@ -142,3 +142,17 @@ class CommentRow(Base):
     author_id: Mapped[str] = mapped_column(String(128))
     body: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ReminderRow(Base):
+    """A reminder already sent for one task and one due date, so a sweep never repeats it."""
+
+    __tablename__ = "work_reminders"
+    __table_args__ = (
+        ForeignKeyConstraint(["project_id", "task_id"], ["work_tasks.project_id", "work_tasks.id"], ondelete="CASCADE"),
+    )
+
+    project_id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    task_id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    kind: Mapped[str] = mapped_column(String(16), primary_key=True)
+    due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)

@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Work project management, the task activity log and the quick-add preview (part 2 of the #798 port)."""
-from conftest import AGENT, GUEST, OWNER
+from datetime import timedelta
+
+from conftest import ADULT, AGENT, GUEST, OWNER
 from onemind_core.auth import Principal
 from onemind_core.work.service import ProjectFields, TaskFields
 
@@ -160,3 +162,39 @@ def test_quick_add_reads_repeat_rules():
     jan31 = datetime(2027, 1, 31, 9, 0, tzinfo=UTC)
     assert next_due(jan31, {"every": "month", "interval": 1}, now).date().isoformat() == "2027-02-28"
     assert next_due(datetime(2026, 1, 1, 9, 0, tzinfo=UTC), {"every": "day", "interval": 1}, now).date().isoformat() == "2026-11-26"
+
+
+def _shared_project(client):
+    home = _project(client, "Shared")
+    client.app.state.work.add_member(Principal("owner", "person", "owner"), home["id"], Principal("adult", "person", "adult"))
+    return home["id"]
+
+
+def test_sweep_reminds_the_assignee_once_per_due_date(client, clock):
+    due = (clock() + timedelta(hours=3)).isoformat().replace("+00:00", "Z")
+    body = {"title": "Pay the bill", "assignee": {"id": "adult"}, "due_at": due, "project_id": _shared_project(client)}
+    task = client.post("/v1/work/capture", json=body, headers={**OWNER, "Idempotency-Key": "w1"}).json()
+    client.post("/v1/work/capture", json={"title": "No owner of this", "due_at": due},
+                headers={**OWNER, "Idempotency-Key": "w2"})
+    work = client.app.state.work
+    first = work.sweep()
+    assert [(n, who, t) for n, who, _, t, _ in first] == [("task.due_soon", "adult", task["id"])]
+    assert work.sweep() == []
+    clock.advance(4 * 3600)
+    assert [n for n, *_ in work.sweep()] == ["task.overdue"]
+    assert work.sweep() == []
+    path = f"/v1/work/projects/{task['project_id']}/tasks/{task['id']}"
+    client.patch(path, json={"status": "done"}, headers={**OWNER, "If-Match": "1"})
+    clock.advance(86400)
+    assert work.sweep() == []
+
+
+def test_assigning_a_task_tells_only_the_assignee_with_the_title_added_at_render_time(client):
+    body = {"title": "Mow the lawn", "assignee": {"id": "adult"}, "project_id": _shared_project(client)}
+    task = client.post("/v1/work/capture", json=body, headers={**OWNER, "Idempotency-Key": "n1"}).json()
+    assert task["assignee"]["id"] == "adult"
+    items = client.get("/v1/notifications", headers=ADULT).json()
+    assert [i["title"] for i in items] == ["Assigned to you: Mow the lawn"]
+    assert client.get("/v1/notifications", headers=OWNER).json() == []
+    audit = client.app.state.gateway.settings.audit_path.read_text()
+    assert "Mow the lawn" not in audit

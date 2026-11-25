@@ -20,8 +20,8 @@ from ..identity.crypto import new_id
 from ..ledger import utc
 from ..store import Database, SqlRepository
 from .access import OWN_TASK_ONLY_ROLES, WORK_ROLES
-from .db import (ActivityRow, CommentRow, DependencyRow, InboxRow, ProjectMemberRow, ProjectRow, SectionRow, TaskRow,
-                 WorkCreateRow)
+from .db import (ActivityRow, CommentRow, DependencyRow, InboxRow, ProjectMemberRow, ProjectRow, ReminderRow, SectionRow,
+                 TaskRow, WorkCreateRow)
 from .parse import next_due
 
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=160)]
@@ -29,6 +29,7 @@ Label = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, ma
 PersonID = Annotated[str, StringConstraints(min_length=1, max_length=128)]
 AIAccess = Literal["none", "read", "work"]
 TaskView = Literal["all", "today", "upcoming", "inbox"]
+DUE_SOON = timedelta(hours=24)
 WORK_EVENTS = frozenset({"work.task_created", "work.task_updated", "work.task_completed", "work.task_deleted"})
 
 
@@ -357,7 +358,7 @@ class WorkService(SqlRepository):
         with self.db.session.begin() as session:
             self._owned_project(session, person, project_id)
             # Explicit deletes: the guarantee must not depend on the database enforcing foreign keys.
-            for table in (ActivityRow, CommentRow, DependencyRow, TaskRow, SectionRow):
+            for table in (ActivityRow, CommentRow, ReminderRow, DependencyRow, TaskRow, SectionRow):
                 session.execute(delete(table).where(table.project_id == project_id))
             session.execute(delete(ProjectMemberRow).where(ProjectMemberRow.project_id == project_id))
             session.execute(delete(ProjectRow).where(ProjectRow.id == project_id))
@@ -609,6 +610,39 @@ class WorkService(SqlRepository):
                 rows, (rows.c.project_id == TaskRow.project_id) & (rows.c.id == TaskRow.id),
             ))
 
+    def notification_fields(self, data: dict) -> dict:
+        """The title the notifier shows in the assignee's inbox. Events carry ids only; this looks the task up."""
+        project_id, task_id = data.get("project_id"), data.get("task_id")
+        if not isinstance(project_id, str) or not isinstance(task_id, str):
+            return {}
+        with self.db.session() as session:
+            row = session.get(TaskRow, (project_id, task_id))
+            return {"title": row.title[:80]} if row is not None else {}
+
+    def sweep(self) -> list[tuple[str, str, str, str, datetime]]:
+        """Reminders due now: (name, person, project, task, due). Open assigned tasks due within a day or late.
+
+        Each task and due date is reminded once per kind (a late task gets only `overdue`), so a sweep that
+        runs every few minutes never repeats itself, and a repeating task is reminded again for its next date.
+        """
+        now, found = self.clock(), []
+        with self.db.session.begin() as session:
+            rows = session.scalars(select(TaskRow).where(
+                TaskRow.status != "done", TaskRow.assignee_id.is_not(None), TaskRow.due_at.is_not(None),
+                TaskRow.due_at <= now + DUE_SOON,
+            ).order_by(TaskRow.project_id, TaskRow.id)).all()
+            for row in rows:
+                due = utc(row.due_at)
+                kind = "overdue" if due < now else "due_soon"
+                fresh = session.scalar(self.db.insert()(ReminderRow).values(
+                    project_id=row.project_id, task_id=row.id, kind=kind, due_at=due,
+                ).on_conflict_do_nothing(index_elements=[
+                    ReminderRow.project_id, ReminderRow.task_id, ReminderRow.kind, ReminderRow.due_at,
+                ]).returning(ReminderRow.task_id))
+                if fresh is not None:
+                    found.append((f"task.{kind}", row.assignee_id, row.project_id, row.id, due))
+        return found
+
     def event_visible(self, actor: Principal, event: dict, *, delegated: Principal | None = None) -> bool:
         """Filter ids-only events by current task visibility. Deleted and missing tasks fail closed."""
         if event.get("type") not in WORK_EVENTS or not isinstance(event.get("data"), dict):
@@ -703,6 +737,6 @@ class WorkService(SqlRepository):
                 DependencyRow.project_id == project_id,
                 or_(DependencyRow.task_id == task_id, DependencyRow.required_id == task_id),
             ))
-            for table in (ActivityRow, CommentRow):
+            for table in (ActivityRow, CommentRow, ReminderRow):
                 session.execute(delete(table).where(table.project_id == project_id, table.task_id == task_id))
             session.delete(row)

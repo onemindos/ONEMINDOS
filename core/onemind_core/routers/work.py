@@ -1,8 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 """The Work gateway. Task edits stay inside Work and never run actions."""
+import asyncio
+import contextlib
+import logging
 from typing import Annotated, Literal
 from urllib.parse import urlencode
 
+from fastapi.concurrency import run_in_threadpool
 from fastapi import Depends, FastAPI, Header, Query, Request, Response
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, ValidationError
 
@@ -18,6 +22,8 @@ from ..work.service import (Activity, CaptureFields, Comment, CommentFields, Rep
                             TaskFields, TaskView, WorkService)
 
 ORDER = 260
+SWEEP_EVERY_S = 300
+log = logging.getLogger("onemind.work")
 BASE = "/v1/work"
 TASK = BASE + "/projects/{project_id}/tasks/{task_id}"
 register_route_scope("GET,HEAD", r"/v1/work(/.*)?", ("work:read",))
@@ -89,6 +95,7 @@ def _revision(value: str) -> int:
 def register(app: FastAPI, gw: Gateway) -> None:
     service = WorkService(gw.db, clock=gw.clock)
     app.state.work = service
+    gw.notify_enrichers["work"] = service.notification_fields
 
     def scope(request: Request, required: str) -> bool:
         ctx = ctx_of(request)
@@ -119,6 +126,41 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     def emit(name: str, p: Principal, project_id: str, task_id: str) -> None:
         gw.events.publish_event("work", name, {"task_id": task_id, "project_id": project_id}, principal=p.as_dict())
+
+    def tell_assignee(p: Principal, task: Task, previous: Task | None = None) -> None:
+        """An inbox item for the person a task was just given to (never for assigning to yourself)."""
+        who = task.assignee.id if task.assignee else None
+        if who and who != p.id and (previous is None or previous.assignee is None or previous.assignee.id != who):
+            gw.events.publish_event("work", "task.assigned", {"person_id": who, "task_id": task.id,
+                                    "project_id": task.project_id}, principal=p.as_dict())
+
+    def remind() -> int:
+        sent = service.sweep()
+        for name, person, project_id, task_id, due in sent:
+            gw.events.publish_event("work", name, {"person_id": person, "task_id": task_id, "project_id": project_id,
+                                                   "due_at": due.isoformat().replace("+00:00", "Z")})
+        return len(sent)
+
+    sweeper: list[asyncio.Task] = []
+
+    async def sweep_loop() -> None:
+        while True:
+            try:
+                await run_in_threadpool(remind)
+            except Exception:
+                log.exception("work reminder sweep failed")
+            await asyncio.sleep(SWEEP_EVERY_S)
+
+    @gw.on_startup
+    async def start_reminders() -> None:
+        sweeper.append(asyncio.ensure_future(sweep_loop()))
+
+    @gw.on_shutdown
+    async def stop_reminders() -> None:
+        for task in sweeper:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
 
     @app.get(BASE + "/tasks", tags=["work"], operation_id="work.tasks_list",
              responses={200: {"headers": {"Link": {"description": 'Next page; rel="next"', "schema": {"type": "string"}}}},
@@ -156,6 +198,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         task, fresh = service.capture(p, body, key)
         if fresh:
             emit("task_created", p, task.project_id, task.id)
+            tell_assignee(p, task)
         else:
             response.status_code = 200
         return task
@@ -184,6 +227,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         task, fresh = service.capture(p, fields, key, request=request)
         if fresh:
             emit("task_created", p, task.project_id, task.id)
+            tell_assignee(p, task)
         else:
             response.status_code = 200
         return task
@@ -307,6 +351,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
                                     fields=proposed, dependencies=body.dependencies)
         event = "task_completed" if proposed.status == "done" and previous.status != "done" else "task_updated"
         emit(event, p, project_id, task_id)
+        tell_assignee(p, task, previous)
         return task
 
     @app.delete(TASK, tags=["work"], operation_id="work.task_delete", status_code=204,
