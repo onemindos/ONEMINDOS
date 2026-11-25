@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Daily app rescan (sdk/contracts/poc-v0.md §10.2, §11.1): every app's images are rescanned with the
 # latest Trivy database and ClamAV signatures, and the smoke test runs again on a throwaway k3d cluster.
-# The refreshed apps/<id>/scan.json, tier and README go into one pull request (branch bot/apps-rescan),
-# opened or updated by this workflow. The gateway refuses installs whose scan is older than 7 days
+# The refreshed apps/<id>/scan.json, tier and README go into one pull request (branch bot/apps-rescan, based on release/next),
+# opened or updated by this workflow against release/next (where all work lands; main only moves through the
+# release/next landing PR). Every job checks out release/next, since a scheduled run starts on main. The gateway refuses installs whose scan is older than 7 days
 # (§10.3), so this PR has to be merged at least weekly.
 # A new CRITICAL with a fix or a ClamAV hit sets the app's tier to blocked (app-gate --tier write) and,
 # if the repository secret ONEMIND_NTFY_URL (a full ntfy topic URL) is set, posts an alert there.
@@ -40,6 +41,7 @@ jobs:
       - name: Check out
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
+          ref: release/next
           persist-credentials: false
 
       - name: List the apps
@@ -70,6 +72,7 @@ jobs:
       - name: Check out
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
+          ref: release/next
           persist-credentials: false
 
       - name: Set up Python
@@ -152,6 +155,7 @@ jobs:
       - name: Check out
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
+          ref: release/next
           persist-credentials: false
 
       - name: Download every app's result
@@ -222,10 +226,14 @@ jobs:
           [ -n "$BLOCKED" ] && body="$body
 
           **Newly blocked:** $BLOCKED (a CRITICAL with a fix or a ClamAV hit; see the run's reports)."
-          if [ -n "$(gh pr list --head "$branch" --state open --json number --jq '.[].number')" ]; then
+          # Work lands on release/next first; close a leftover rescan PR that still targets another base.
+          for n in $(gh pr list --head "$branch" --state open --json number,baseRefName --jq '.[] | select(.baseRefName != "release/next") | .number'); do
+            gh pr close "$n" --comment "The rescan PR now targets release/next; the next run opens a replacement." || true
+          done
+          if [ -n "$(gh pr list --head "$branch" --base release/next --state open --json number --jq '.[].number')" ]; then
             gh pr edit "$branch" --body "$body"
           else
-            gh pr create --head "$branch" --base main --title "apps: daily rescan" --body "$body"
+            gh pr create --head "$branch" --base release/next --title "apps: daily rescan" --body "$body"
             gh pr edit "$branch" --add-label apps || echo "label 'apps' not added (does it exist?)"
           fi
 

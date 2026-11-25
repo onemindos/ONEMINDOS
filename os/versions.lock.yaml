@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# OneMind OS pins (brief 30 §2 rule 2). Machine-readable twin of handbook/versions.md.
+# Build pins (research-output/30-NEXT-ULTRACODE-BUILD-BRIEF.md §2 rule 2); handbook/versions.md is not in this repo.
 # Every entry: version + digest/commit/sha256 + where it came from. Never "latest", never a branch.
 # The build reads these values; CI (test/unit/test_versions_lock.py) fails if a file uses a pin
 # that is not listed here.
@@ -17,7 +17,7 @@ base:
     image: docker.io/library/ubuntu:26.04
     digest: sha256:065aa8626841f16057b78b027b464cd59c4fac36c204c72dcbf48d66f5fa8a96
     source: registry-1.docker.io manifest index HEAD, read 2026-11-11 (C-BUILD-001)
-    snapshot: none                   # UNVERIFIED: no Ubuntu snapshot service verified (handbook/findings.md F-03)
+    snapshot: none                   # UNVERIFIED for this build; brief 30 §2 rule 2 records the live-archive gap.
     role: nightly CI hedge only, never published (Z-01)
 
 image_firmware:
