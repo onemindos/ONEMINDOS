@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 1164
 branch: claude/dell-install-kit
 ---
 Dell all-in-one install kit for the founder's daily hub (x86_64-efi), docs and a script only, no image change: a first-time-owner install guide (download the installer from a green build, verify the checksum, write the USB stick, BIOS settings with Secure Boot off for now and the TPM on, install, first boot, owner setup, rescue console, printing the recovery kit), a hardware checklist with scripts/hw-check.sh (a read-only report over SSH: Wi-Fi, firmware devices, sensors, USB stick not mounted, watchdog, sound, Bluetooth, printers, VA-API, console keyboard, TPM 2.0, disk health, btrfs /data and snapper, boot slot; it changes nothing and masks serials and addresses), and nine file-system conditions to pass before real files go on the box, restated from repo sources because the founder's own list is not in the repo. Tests check the script for write commands, run it against stub tools with an allowlist of read-only calls, and confirm the report and the masking. Nothing has run on the real Dell.
