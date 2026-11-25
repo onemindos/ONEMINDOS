@@ -17,6 +17,7 @@ from ..appstore.service import AppStore
 from ..auth import Principal
 from ..catalog import APP_ID_RE
 from ..context import Gateway
+from ..jsonbody import JsonBody
 from ..errors import ApiError, error_responses
 from ..identity.scopes import register_route_scope
 from .apps import app_visible
@@ -29,13 +30,13 @@ class ComposeBody(BaseModel):
     compose: str = Field(min_length=1, max_length=MAX_COMPOSE_BYTES)
 
 
-class CustomPlanBody(BaseModel):
+class CustomPlanBody(JsonBody):
     model_config = ConfigDict(extra="forbid")
     url: str = Field(min_length=9, max_length=500)
     ref: str = Field(min_length=1, max_length=100)
 
 
-class CustomRollbackBody(BaseModel):
+class CustomRollbackBody(JsonBody):
     model_config = ConfigDict(extra="forbid")
     revision: int | None = Field(default=None, ge=1)
 
@@ -63,12 +64,12 @@ register_route_scope("GET,HEAD", r"/v1/system-apps", ("apps:read",))
 
 # PLG-GIT-01: reading custom apps is the app list's scope; planning one fetches a repository and a
 # rollback moves what the catalog serves, so both need the approver's scope (the handler also checks owner).
-register_route_scope("GET,HEAD", r"/v1/custom-apps(/.*)?", ("apps:read",))
+register_route_scope("GET,HEAD", r"/v1/custom-apps(/.*)?", ("actions:approve",))  # repository URLs: the owner's
 register_route_scope("POST", r"/v1/custom-apps/plan", ("actions:approve",))
 register_route_scope("POST", r"/v1/custom-apps/[^/]+/rollback", ("actions:approve",))
 
 _BEARER = HTTPBearer(scheme_name="bearer", auto_error=False, description="A gateway token or a signed-in session (contract §3)")
-CUSTOM_READ = [Security(_BEARER, scopes=["apps:read"])]
+CUSTOM_READ = [Security(_BEARER, scopes=["actions:approve"])]
 CUSTOM_WRITE = [Security(_BEARER, scopes=["actions:approve"])]
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
@@ -131,20 +132,22 @@ def register(app: FastAPI, gw: Gateway) -> None:
             gw.audit.append("authz.denied", p.as_dict(), None, {"attempted": what, "reason": "permission_denied"})
             raise ApiError(403, "permission_denied", f"{p.kind}/{p.role} may not {what}")
 
-    @app.get("/v1/custom-apps", operation_id="custom_apps.list", tags=["custom-apps"], dependencies=CUSTOM_READ,
+    @app.get("/v1/custom-apps", operation_id="customapps.list", tags=["custom-apps"], dependencies=CUSTOM_READ,
              responses=error_responses(401))
-    def list_custom_apps(_: Principal = Depends(principal)):
+    def list_custom_apps(p: Principal = Depends(principal)):
         """Apps linked from a Git repository, each with its revisions and what a rollback would go back to."""
+        owner_only(p, "read custom apps")
         return store.custom.view()
 
-    @app.get("/v1/custom-apps/{app_id}", operation_id="custom_apps.get", tags=["custom-apps"], dependencies=CUSTOM_READ,
+    @app.get("/v1/custom-apps/{app_id}", operation_id="customapps.get", tags=["custom-apps"], dependencies=CUSTOM_READ,
              responses=error_responses(401, 404))
-    def get_custom_app(app_id: str, _: Principal = Depends(principal)):
+    def get_custom_app(app_id: str, p: Principal = Depends(principal)):
+        owner_only(p, "read a custom app")
         if not APP_ID_RE.match(app_id):
             raise ApiError(404, "not_found", "no such custom app")
         return store.custom.view_one(app_id)
 
-    @app.post("/v1/custom-apps/plan", operation_id="custom_apps.plan", tags=["custom-apps"], dependencies=CUSTOM_WRITE,
+    @app.post("/v1/custom-apps/plan", operation_id="customapps.plan", tags=["custom-apps"], dependencies=CUSTOM_WRITE,
               responses=error_responses(401, 403, 409, 422))
     def plan_custom_app(body: CustomPlanBody, p: Principal = Depends(principal)):
         """Fetch a repository at a ref in a sandbox, check it like a Market app and record a revision.
@@ -152,7 +155,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         owner_only(p, "plan a custom app")
         return store.custom.plan(p, body.url, body.ref)
 
-    @app.post("/v1/custom-apps/{app_id}/rollback", operation_id="custom_apps.rollback", tags=["custom-apps"],
+    @app.post("/v1/custom-apps/{app_id}/rollback", operation_id="customapps.rollback", tags=["custom-apps"],
               dependencies=CUSTOM_WRITE, responses=error_responses(401, 403, 404, 409, 422))
     def rollback_custom_app(app_id: str, body: CustomRollbackBody, p: Principal = Depends(principal)):
         """Point the catalog at the previously deployed revision. The app.update that applies it waits for an owner."""

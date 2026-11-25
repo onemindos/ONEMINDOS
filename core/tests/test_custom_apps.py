@@ -105,7 +105,7 @@ def test_agents_and_guests_cannot_plan_or_roll_back(world):
     c, *_ = world
     assert plan(c, headers=AGENT).status_code == 403
     assert c.post("/v1/custom-apps/notes/rollback", json={}, headers=AGENT).status_code == 403
-    assert c.get("/v1/custom-apps", headers=AGENT).status_code in (200, 403)  # reads follow the app list scope
+    assert c.get("/v1/custom-apps", headers=AGENT).status_code == 403
 
 
 @pytest.mark.parametrize("url,ref", [

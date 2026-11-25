@@ -23716,7 +23716,7 @@
     "/v1/custom-apps": {
       "get": {
         "description": "Apps linked from a Git repository, each with its revisions and what a rollback would go back to.",
-        "operationId": "custom_apps.list",
+        "operationId": "customapps.list",
         "responses": {
           "200": {
             "content": {
@@ -23740,7 +23740,7 @@
         "security": [
           {
             "bearer": [
-              "apps:read"
+              "actions:approve"
             ]
           }
         ],
@@ -23753,7 +23753,7 @@
     "/v1/custom-apps/plan": {
       "post": {
         "description": "Fetch a repository at a ref in a sandbox, check it like a Market app and record a revision.\nInstalls nothing: the install or update that follows is an ordinary action an owner approves.",
-        "operationId": "custom_apps.plan",
+        "operationId": "customapps.plan",
         "requestBody": {
           "content": {
             "application/json": {
@@ -23839,7 +23839,7 @@
     },
     "/v1/custom-apps/{app_id}": {
       "get": {
-        "operationId": "custom_apps.get",
+        "operationId": "customapps.get",
         "parameters": [
           {
             "in": "path",
@@ -23894,7 +23894,7 @@
         "security": [
           {
             "bearer": [
-              "apps:read"
+              "actions:approve"
             ]
           }
         ],
@@ -23907,7 +23907,7 @@
     "/v1/custom-apps/{app_id}/rollback": {
       "post": {
         "description": "Point the catalog at the previously deployed revision. The app.update that applies it waits for an owner.",
-        "operationId": "custom_apps.rollback",
+        "operationId": "customapps.rollback",
         "parameters": [
           {
             "in": "path",
