@@ -136,6 +136,25 @@ class T(unittest.TestCase):
         self.git("update-ref", "refs/remotes/origin/main", "HEAD")
         self.assertEqual(changes.main(["changes.py", "preview"]), 1)
 
+    def test_preview_keeps_agreeing_slices_in_one_landing(self):
+        self.snapshot()
+        self.put("feat-x.md", GOOD.replace("note here", "first slice"))
+        self.put("feat-y.md", GOOD.replace("feat/x", "feat/y").replace("pr: 12", "pr: 13")
+                 .replace("note here", "second slice"))
+        self.git("add", ".")
+        self.git("commit", "-s", "-m", "land two slices with the same state")
+        self.git("update-ref", "refs/remotes/origin/main", "HEAD")
+
+        data = changes.main_preview()
+        self.assertEqual(data["counts"], {"in-review": 2})
+        row = next(line for line in data["status"].splitlines() if line.startswith("| EPIC-1 |"))
+        self.assertIn("(first slice) (second slice)", row)
+        self.assertIn("`feat/x`, `feat/y`", row)
+        self.assertIn("[#12]", row)
+        self.assertIn("[#13]", row)
+        findings = changes.audit_rows(data["status"], {12: "OPEN", 13: "MERGED"})
+        self.assertEqual(findings, [("EPIC-1", "row says in-review but PR #13 is merged")] * 2)
+
     def test_generate_retains_fragments_and_is_idempotent(self):
         self.snapshot()
         fragments = {p: p.read_bytes() for p in (self.r / "changes").glob("*.md")}
@@ -216,7 +235,7 @@ class T(unittest.TestCase):
         rows = "".join("| %s | t | %s | `b` | %s |\n" % (i, st, c) for i, st, c in [
             ("A", "in-review", pr(1)), ("B", "in-progress (merged in #2; rest unverified)", pr(2)),
             ("C", "done", pr(3)), ("D", "todo", "–"), ("E", "in-review", pr(4)),
-            ("F", "done", pr(5)), ("G", "review", pr(9))])
+            ("F", "done", pr(5)), ("G", "review", "[#9]")])
         text = "## Every epic\n\n| Id | T | State | Branch | PR |\n|---|---|---|---|---|\n" + rows
         states = {1: "MERGED", 2: "MERGED", 3: "MERGED", 4: "CLOSED", 5: "OPEN"}
         got = dict(changes.audit_rows(text, states))

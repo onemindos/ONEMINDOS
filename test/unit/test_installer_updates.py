@@ -139,8 +139,13 @@ class Wiring(unittest.TestCase):
     def test_battery_covers_the_image_the_installer_writes(self):
         target = read_board("installer-x86_64")["target_board"]
         wf = yaml.safe_load(read(".github", "workflows", "image.yml"))
-        rows = [m for j in wf["jobs"].values() for m in j.get("strategy", {}).get("matrix", {}).get("include", []) if "upto" in m]
-        self.assertTrue(any(m["board"] == target and m["upto"] == "T5" for m in rows), (target, rows))
+        # matrix.include is a fromJSON(...) expression with one JSON list per case (ordinary run, full dispatch).
+        # The installer target must reach T5 in every case, so tier 1 and 2 runs cover it too.
+        expr = wf["jobs"]["battery"]["strategy"]["matrix"]["include"]
+        lists = [json.loads(m) for m in re.findall(r"\[\{.*?\}\]", expr)]
+        self.assertTrue(lists, expr)
+        for rows in lists:
+            self.assertTrue(any(m["board"] == target and m["upto"] == "T5" for m in rows), (target, rows))
 
     def test_the_channel_already_signs_the_installer_target_with_release_keys(self):
         self.assertIn(read_board("installer-x86_64")["target_board"], json.loads(read("os", "update", "channel.json"))["boards"])
