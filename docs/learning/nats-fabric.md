@@ -37,7 +37,7 @@ NATS is one small server program that carries messages between programs. A progr
 | `onemind.node.<node_id>.jobresult.<job_id>` | that node | progress and result of a job |
 | `onemind.event.<type>`, `onemind.alert.<source>.<kind>`, `onemind.audit`, `onemind.plugin.<app-id>.<event>` | gateway only | the checked, re-published versions |
 
-The gateway subscribes to `onemind.node.*.status` today ([`core/onemind_core/bus.py`](../../core/onemind_core/bus.py), `HEARTBEAT_SUBJECT`). App event streams declared in a manifest are placed under `onemind.app.<app_id>.` ([`core/onemind_core/streams.py`](../../core/onemind_core/streams.py), `SUBJECT_ROOT`), so an app can never name another app's or a node's subjects.
+The gateway subscribes to `onemind.node.*.status` today ([`core/onemind_core/bus.py`](../../core/onemind_core/bus.py), `HEARTBEAT_SUBJECT`). App event streams declared in a manifest are placed under `onemind.plugin.<app_id>.` ([`core/onemind_core/streams.py`](../../core/onemind_core/streams.py), `SUBJECT_ROOT`), so an app can never name another app's or a node's subjects.
 
 **Open point (not a decision):** more than one subject grammar exists across the repo and drafts (§12.9's `onemind.node/event/alert/audit/plugin`, `onemind.app.<id>.` in `streams.py`, and the older app grammar `evt.`, `cmd.`, `tel.`, `svc.` that §12.9 mentions). One later slice reconciles them. Build on the §12.9 names until then.
 

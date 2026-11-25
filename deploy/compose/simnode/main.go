@@ -40,6 +40,7 @@ func main() {
 	arch := flag.String("arch", "arm64", "architecture the simulated machine reports (amd64 or arm64)")
 	hostname := flag.String("hostname", "", "hostname to report (default: the fixture's etc/hostname)")
 	natsURL := flag.String("nats", os.Getenv("ONEMIND_NATS_URL"), "hub NATS URL (empty = local API only)")
+	natsSeed := flag.String("nats-nkey", os.Getenv("ONEMIND_NATS_NKEY_SEED"), "NATS user seed file (the compose hub refuses keyless clients)")
 	role := flag.String("role", env("ONEMIND_NODE_ROLE", "node"), "hub or node")
 	listen := flag.String("listen", env("ONEMIND_AGENT_ADDR", agent.DefaultListen), "local API listen address")
 	interval := flag.Duration("interval", agent.DefaultInterval, "heartbeat interval")
@@ -58,7 +59,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	log.Info("simnode starting", "root", *root, "node_id", col.ID(), "board", col.Board(), "arch", *arch)
-	a := agent.New(agent.Config{Listen: *listen, NATSURL: *natsURL, Interval: *interval, Collector: col, Logger: log})
+	a := agent.New(agent.Config{Listen: *listen, NATSURL: *natsURL, NATSNkeySeed: *natsSeed, Interval: *interval, Collector: col, Logger: log})
 	if err := a.Run(ctx); err != nil {
 		log.Error("simnode stopped", "err", err)
 		os.Exit(1)
