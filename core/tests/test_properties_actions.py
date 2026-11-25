@@ -419,7 +419,7 @@ def test_any_expiry_gets_an_answer_not_a_crash(property_resources, expires, who)
         try:
             action, _ = gw.svc.create(who, req)
         except ApiError as e:
-            assert e.status in (404, 409), e
+            assert e.status in (404, 409, 422), e  # 422: expiry past the 72 h agent / 7 day person limit
         else:
             assert action["expires_at"].endswith("Z")
     finally:
