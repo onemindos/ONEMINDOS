@@ -32,14 +32,14 @@ agent once the answer is built (`answer_source`): the request itself is filed cl
 is not. Owner-set approval policies therefore keep working for an agent that reads nothing.
 
 Taint expires after `TTL` without a new read. Each read renews it. It is written through to the
-database (`taint_marks`, taint_store.py) on every mark and read back at start, so a restart no
+database (`agents_taint_marks`, taint_store.py) on every mark and read back at start, so a restart no
 longer forgets who was tainted, and the TTL runs on across the restart. Nothing an agent sends
 can lower its own taint; an agent may only add to it.
 
 An *exposed* agent is tainted all the time (gateway permissions PR 6, F-11 = a). The gateway sees only
 the text an agent reads through the gateway; a web page, an email or a file the agent opens with
-its own tools is invisible to it. So an agent that declares such inputs, an app's agent and a
-plugin are treated as permanently tainted (`exposure`, taint_store.py): `get` answers a taint that
+its own tools is invisible to it. So every agent and plugin is treated as permanently tainted until the owner
+declares what it reads (D-028; including "nothing") (`exposure`, taint_store.py): `get` answers a taint that
 never expires, with a source per input. Only the owner can change that declaration.
 """
 
@@ -70,7 +70,7 @@ REST_READ_POSTS = frozenset({"/v1/plans", "/v1/storage/plans"})
 class Exposure:
     """What an agent is declared (or defaults) to read outside the gateway's sight."""
 
-    inputs: tuple[str, ...]  # "web", "email", "files", "chat", "app", "plugin"
+    inputs: tuple[str, ...]  # "web", "email", "files", "chat", "app", "plugin", "agent"
     since: datetime
 
 
@@ -105,10 +105,10 @@ class TaintLedger:
         self._by_principal: dict[str, Taint] = {}
         # Set by attach(): durable storage for the transient marks, exposure lookup, audit hook.
         self._store = None
-        self._exposure: Callable[[str], Exposure | None] = lambda _pid: None
+        self._exposure: Callable[..., Exposure | None] = lambda _pid, _kind=None: None
         self._on_event: Callable[[str, str, dict], None] | None = None
 
-    def attach(self, store, exposure: Callable[[str], Exposure | None],
+    def attach(self, store, exposure: Callable[..., Exposure | None],
                on_event: Callable[[str, str, dict], None] | None = None) -> None:
         """Back the ledger with the database and an exposure lookup; reload marks still alive."""
         now = self._clock()
@@ -141,17 +141,19 @@ class TaintLedger:
             self._by_principal[principal_id] = t
             if len(self._by_principal) > 1024:  # drop expired entries; live ones are never dropped
                 self._by_principal = {k: v for k, v in self._by_principal.items() if v.until > now}
-            if self._store is not None:
-                try:
-                    self._store.save(principal_id, t)
-                except Exception:  # the in-memory mark still holds; never fail a read for storage
-                    log.exception("taint store write failed")
+            store = self._store
+        if store is not None:  # the database write stays outside the process-wide lock
+            try:
+                store.save(principal_id, t)
+            except Exception:  # the in-memory mark still holds; never fail a read for storage
+                log.exception("taint store write failed")
         if fresh:
             self._emit("taint.set", principal_id, {"source": source})
 
-    def get(self, principal_id: str) -> Taint | None:
+    def get(self, principal_id: str, kind: str | None = None) -> Taint | None:
+        """The taint of a caller. Pass the principal's kind: an unknown kind counts as exposed."""
         now = self._clock()
-        exposed = self._exposure(principal_id)  # an Exposure, or None
+        exposed = self._exposure(principal_id, kind)  # an Exposure, or None
         expired = False
         with self._lock:
             t = self._by_principal.get(principal_id)

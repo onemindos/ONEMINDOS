@@ -231,6 +231,28 @@ def settings(tmp_path: Path, clock) -> Settings:
     )
 
 
+@pytest.fixture(autouse=True)
+def test_agent_reads_nothing(request):
+    """The scripted test agent ("hermes") is one whose owner declared it reads no outside text.
+
+    D-028: every agent is exposed (tainted all the time) until the owner declares otherwise, so a
+    standing approval never accepts its requests. Tests of standing approvals, rate limits and the
+    like need the declared-none case; tests of the default itself carry
+    `@pytest.mark.default_exposure` and see the real lookup.
+    """
+    if request.node.get_closest_marker("default_exposure"):
+        yield
+        return
+    from onemind_core.taint_store import AgentInputs
+
+    real = AgentInputs._default
+    # Its own MonkeyPatch: a test's `monkeypatch.undo()` must not undo this too.
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(AgentInputs, "_default",
+                   lambda self, pid, kind: () if pid == "hermes" else real(self, pid, kind))
+        yield
+
+
 @pytest.fixture
 def executor() -> ScriptedExecutor:
     return ScriptedExecutor()

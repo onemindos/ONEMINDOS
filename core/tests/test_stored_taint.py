@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from conftest import ADULT, AGENT, OWNER, make_client
 from onemind_core.taint import FOREVER, TTL
 from test_mcp import call
@@ -70,11 +72,17 @@ def test_exposure_survives_a_restart(settings, clock, executor):
         assert again.app.state.gateway.actions.taint.get("hermes").permanent
 
 
-def test_apps_and_plugins_are_exposed_by_default_and_other_agents_are_not(tclient):
+@pytest.mark.default_exposure
+def test_every_agent_and_plugin_is_exposed_by_default_and_people_are_not(tclient):
     ins = tclient.app.state.agent_inputs
     assert ins.inputs("agent:whoami") == ("app",)  # an installed app's agent
     assert ins.inputs("plugin:whoami") == ("plugin",)
-    assert ins.inputs("agent:hermes") == () and ins.inputs("hermes") == ()
+    # D-028: any other agent (identity token, MCP client, the v0 token) is exposed until declared
+    assert ins.inputs("agent:hermes", "agent") == ("agent",) and ins.inputs("hermes", "agent") == ("agent",)
+    assert ins.inputs("hermes") == ("agent",)  # an unknown kind fails closed
+    assert ins.inputs("owner", "person") == () and ins.inputs("automation:r1", "automation") == ()
+    assert tclient.app.state.gateway.actions.taint.get("hermes", "agent").permanent
+    assert tclient.app.state.gateway.actions.taint.get("owner", "person") is None
     v = tclient.get("/v1/agents/agent:whoami/inputs", headers=OWNER).json()
     assert v["exposed"] is True and v["declared"] is False
     assert tclient.app.state.gateway.actions.taint.get("agent:whoami").permanent
@@ -114,3 +122,59 @@ def test_accept_injection_risk_is_owner_only_one_write_type_and_not_yet_in_effec
     install_whoami(tclient, clock)
     owner_allows_removals(tclient)
     assert agent_removes_whoami(tclient, clock, "still-waits").json()["state"] == "awaiting_approval"
+
+
+@pytest.mark.default_exposure
+def test_an_identity_token_agent_and_the_v0_token_are_tainted_until_the_owner_declares_none(tclient, clock):
+    # D-028: a token the gateway knows nothing about (hermes here is the v0 agent token) reads outside
+    # text on its own, so it is exposed from the first request; declaring "none" is the owner's act.
+    install_whoami(tclient, clock)
+    owner_allows_removals(tclient)
+    t = tclient.app.state.gateway.actions.taint
+    assert t.get("hermes", "agent").permanent and t.get("agent:claude-code", "agent").permanent
+    assert t.get("plugin:x", "plugin").permanent
+    assert t.get("owner", "person") is None and t.get("automation:r1", "automation") is None
+    assert agent_removes_whoami(tclient, clock, "default").json()["state"] == "awaiting_approval"
+    assert tclient.put(INPUTS, json={"external_inputs": []}, headers=OWNER).status_code == 200
+    assert agent_removes_whoami(tclient, clock, "declared-none").json()["state"] == "succeeded"
+
+
+def test_only_loosening_an_agents_inputs_needs_the_passkey(tclient):
+    ident = tclient.app.state.identity
+    ident.passkeys_active = lambda: True
+    # tightening is L0: adding an input, or none -> web, needs no step-up
+    assert tclient.put(INPUTS, json={"external_inputs": ["web"]}, headers=OWNER).status_code == 200
+    assert tclient.put(INPUTS, json={"external_inputs": ["web", "email"]}, headers=OWNER).status_code == 200
+    # loosening needs it: removing an input, declaring none, accepting a risk
+    for body in ({"external_inputs": ["web"]}, {"external_inputs": []},
+                 {"external_inputs": ["web", "email"], "accept_injection_risk": ["app.restart"]}):
+        r = tclient.put(INPUTS, json=body, headers=OWNER)
+        assert r.status_code == 401 and r.json()["reason"] == "step_up_required", (body, r.text)
+    assert tclient.get(INPUTS, headers=OWNER).json()["external_inputs"] == ["web", "email"]
+    ident.passkeys_active = lambda: False
+    ok = {"external_inputs": ["web", "email"], "accept_injection_risk": ["app.restart"]}
+    assert tclient.put(INPUTS, json=ok, headers=OWNER).status_code == 200
+    ident.passkeys_active = lambda: True
+    # removing an accepted risk (same inputs) tightens again
+    assert tclient.put(INPUTS, json={"external_inputs": ["web", "email"]}, headers=OWNER).status_code == 200
+
+
+def test_a_mark_writes_the_database_outside_the_ledger_lock(clock):
+    from onemind_core.taint import TaintLedger
+
+    ledger = TaintLedger(clock)
+    seen = {}
+
+    class Store:
+        def load(self):
+            return {}
+
+        def save(self, pid, t):
+            seen["locked"] = ledger._lock.locked()
+
+        def delete(self, pid):
+            pass
+
+    ledger.attach(Store(), lambda _pid, _kind=None: None)
+    ledger.mark("hermes", "mcp:get_app")
+    assert seen == {"locked": False}

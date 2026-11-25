@@ -25,7 +25,7 @@ from ..errors import ApiError, error_responses
 from ..identity import ctx_of
 from ..identity.scopes import register_route_scope
 from ..jsonbody import JsonBody
-from ..taint_store import INPUT_KINDS, MAX_ACCEPT, AgentInputs, TaintStore
+from ..taint_store import INPUT_KINDS, MAX_ACCEPT, NAME_RE, AgentInputs, TaintStore
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
 ORDER = 155  # right after actions: its approval guard must see the actions it refuses
@@ -105,8 +105,8 @@ class AgentInputsView(BaseModel):
     """What an agent can read that the gateway cannot see, and the taint that follows from it."""
 
     id: str
-    external_inputs: list[str] = Field(description="web, email, files, chat (a host with many chats), app or plugin")
-    declared: bool = Field(description="false: the list is the default for this kind of principal")
+    external_inputs: list[str] = Field(description="web, email, files, chat (a host with many chats), app, plugin or agent")
+    declared: bool = Field(description="false: the list is the default for this kind of principal (every agent and plugin is exposed until the owner declares otherwise)")
     exposed: bool = Field(description="true when external_inputs is not empty")
     permanently_tainted: bool = Field(description="an exposed agent is tainted all the time: no standing approval accepts its requests")
     accept_injection_risk: list[str] = Field(description="write types the owner accepted the risk for; recorded, not yet in effect")
@@ -184,11 +184,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
              responses={200: {"model": AgentInputsView}, **error_responses(401, 403, 422)})
     def set_inputs(name: str, body: AgentInputsBody, request: Request, p: Principal = Depends(principal)):
         # Declaring fewer inputs loosens an agent, and accepting a risk does too: owner only, and a
-        # fresh passkey sign-in once passkeys are active, like a standing approval (F-2).
+        # fresh passkey sign-in once passkeys are active, like a standing approval (F-2). Adding an
+        # input or removing an accepted risk only tightens, which stays at L0 (D-028).
+        pid = AgentPrincipals.principal_id(name)
         ident = getattr(request.app.state, "identity", None)
-        if ident is not None and p.is_owner:
+        if (ident is not None and p.is_owner and NAME_RE.fullmatch(pid)
+                and inputs.loosens(pid, body.external_inputs, body.accept_injection_risk)):
             ident.require_step_up(ctx_of(request), p, "declare what an agent reads")
-        return inputs.set(p, AgentPrincipals.principal_id(name), body.external_inputs, body.accept_injection_risk)
+        return inputs.set(p, pid, body.external_inputs, body.accept_injection_risk)
 
     @app.put("/v1/agents/{name}/budget", operation_id="agents.budget.set", tags=TAGS,
              responses={200: {"model": AgentView}, **error_responses(401, 403, 422)})

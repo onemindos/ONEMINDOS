@@ -851,7 +851,7 @@
             "type": "boolean"
           },
           "declared": {
-            "description": "false: the list is the default for this kind of principal",
+            "description": "false: the list is the default for this kind of principal (every agent and plugin is exposed until the owner declares otherwise)",
             "title": "Declared",
             "type": "boolean"
           },
@@ -861,7 +861,7 @@
             "type": "boolean"
           },
           "external_inputs": {
-            "description": "web, email, files, chat (a host with many chats), app or plugin",
+            "description": "web, email, files, chat (a host with many chats), app, plugin or agent",
             "items": {
               "type": "string"
             },

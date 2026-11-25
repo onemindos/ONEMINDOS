@@ -832,7 +832,7 @@ class ActionService:
                 409, "stale_precondition", "the plan changed since you read it; read it again",
                 reason="plan_changed",
             )
-        taint = self.taint.get(principal.id)
+        taint = self.taint.get(principal.id, principal.kind)
         if taint is not None:
             self._tainted_target_check(principal, app)
         action = Action(
@@ -1503,7 +1503,7 @@ class ActionService:
         if spec.physical:
             self._refuse_if_locked()
             plan, plan_sha = self._physical_plan(action_type, spec, params, risk)
-        taint = self.taint.get(principal.id)
+        taint = self.taint.get(principal.id, principal.kind)
         if taint is not None:
             # AIG-04: the same rules as an app action. The app it names must be visible to AI, the
             # card carries the note (beside the plan, outside the fingerprint), and the plan is
