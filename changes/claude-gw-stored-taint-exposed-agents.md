@@ -1,0 +1,5 @@
+---
+pr: pending
+branch: claude/gw-stored-taint-exposed-agents
+---
+Taint is now kept in the database, so a restart no longer forgets which agents read outside text and the one-hour expiry keeps running. An agent that can read text the gateway cannot see (web, email, files, a chat host) is exposed and tainted permanently, so no standing approval accepts its requests: every agent and plugin is exposed by default (an installed app's agent, a plugin, an identity-token agent, an MCP client, the v0 token; D-028) until the owner declares what it reads, including nothing, with PUT /v1/agents/id/inputs or onemind agents inputs set. Only the owner can change the declaration (an agent never lowers its own taint), the change is audited, and a change that loosens (fewer inputs, a risk accepted) needs a fresh passkey while adding an input stays at L0. The table is agents_taint_marks. A per-type accept-injection-risk flag is recorded for one write type at a time, owner only; it loosens nothing yet. Gateway permissions design PR 6, F-11, D-027.

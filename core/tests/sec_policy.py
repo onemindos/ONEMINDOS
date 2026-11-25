@@ -364,6 +364,8 @@ POLICY |= {
                                            f"{_AUTOMATION}: only the owner grants a standing approval"),
     ("DELETE", "/v1/approval-policies/{policy_id}"): Row(OWNER_ONLY_404, w.p_missing("/v1/approval-policies/{policy}"),
                                                          f"{_AUTOMATION}: only the owner revokes one"),
+    ("POST", "/v1/approval-policies/{policy_id}/confirm"): Row(OWNER_ONLY_404, w.p_missing("/v1/approval-policies/{policy}/confirm"),
+                                                              f"{_AUTOMATION}: only the owner confirms a paused one"),
     ("GET", "/v1/automation/rules"): Row(READ_ANY, w.p_static("/v1/automation/rules"), f"{_AUTOMATION}: any reader"),
     ("POST", "/v1/automation/rules"): Row(grid(201, 403, 403, 403, 403), w.p_rule_create,
                                           f"{_AUTOMATION}: only the owner writes rules (an agent is refused)"),
@@ -396,6 +398,11 @@ POLICY |= {
     ("POST", "/v1/agents/{name}/resume"): Row(ONLY_OWNER, w.p_missing("/v1/agents/hermes/resume", json={}),
                                               "AIG-03: an agent never resumes itself"),
     # #627: an agent's NATS user (account AGENTS) is the owner's to add or remove; an agent never keys itself
+    ("GET", "/v1/agents/{name}/inputs"): Row(ONLY_OWNER, w.p_static("/v1/agents/agent:probe/inputs"),
+                                             "PR 6: only the owner reads what an agent can read outside"),
+    ("PUT", "/v1/agents/{name}/inputs"): Row(ONLY_OWNER, w.p_missing("/v1/agents/agent:probe/inputs",
+                                                                     json={"external_inputs": ["web"]}),
+                                             "PR 6: only the owner changes it (an agent never lowers its own taint)"),
     ("GET", "/v1/agents/{name}/nats-key"): Row(ONLY_OWNER, w.p_static("/v1/agents/agent:probe/nats-key"),
                                                "#627: only the owner reads an agent's NATS key"),
     ("PUT", "/v1/agents/{name}/nats-key"): Row(ONLY_OWNER, w.p_missing("/v1/agents/agent:probe/nats-key", json={

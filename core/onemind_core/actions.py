@@ -479,6 +479,9 @@ class ActionService:
         self.requester_checks: list[Callable[[Principal], None]] = []
         # AIG-04: who read third-party text lately. Fed by the MCP layer; read when a request is filed.
         self.taint = TaintLedger(clock)
+        # fn(principal_id): an agent identity ended (app removed, failed install); what the owner
+        # declared about it (agents_inputs) must not carry over to a new agent with the same id.
+        self.agent_forgotten: Callable[[str], None] | None = None
         self.handlers: dict[str, ActionHandler] = {}
         # How a background feature action's run() is started after approval; tests make it synchronous.
         self.spawn: Callable[[Callable[[], None]], None] = _worker
@@ -832,7 +835,7 @@ class ActionService:
                 409, "stale_precondition", "the plan changed since you read it; read it again",
                 reason="plan_changed",
             )
-        taint = self.taint.get(principal.id)
+        taint = self.taint.get(principal.id, principal.kind)
         if taint is not None:
             self._tainted_target_check(principal, app)
         action = Action(
@@ -1351,6 +1354,11 @@ class ActionService:
 
     def _revoke_agent(self, a: Action, reason: str) -> None:
         principal_id = f"agent:{a.params['app_id']}"
+        if self.agent_forgotten is not None:
+            try:
+                self.agent_forgotten(principal_id)
+            except Exception:  # best effort: the token is revoked either way
+                log.exception("forgetting the declared inputs of %s failed", principal_id)
         if self.repo.revoke_agent_token(principal_id, self.clock()):
             self.audit.append(
                 "agent.principal.revoked", None, a.id, {"principal_id": principal_id, "reason": reason}
@@ -1503,7 +1511,7 @@ class ActionService:
         if spec.physical:
             self._refuse_if_locked()
             plan, plan_sha = self._physical_plan(action_type, spec, params, risk)
-        taint = self.taint.get(principal.id)
+        taint = self.taint.get(principal.id, principal.kind)
         if taint is not None:
             # AIG-04: the same rules as an app action. The app it names must be visible to AI, the
             # card carries the note (beside the plan, outside the fingerprint), and the plan is
