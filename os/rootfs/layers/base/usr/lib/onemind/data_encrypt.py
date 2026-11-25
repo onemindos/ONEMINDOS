@@ -22,8 +22,8 @@ What it does, by what it finds on the onemind-data partition:
     every later boot, so a wrong 'plain' would be unencrypted for good. A TPM 1.2 does not count (it can never unlock
     the disk by itself), so that box follows the no-TPM rule. The unit
     also waits for tpm2.target (systemd-tpm2-generator), so a slow TPM driver normally gets there first.
-    The btrfs gets three subvolumes: @ (the default, which /etc/fstab mounts at /data), @storage (files) and
-    @snapshots (snapshots of @storage, made by a later step).
+    The btrfs gets two subvolumes: @ (the default, which /etc/fstab mounts at /data) and @storage (the owner's files,
+    mounted at /data/storage), with @storage/.snapshots inside it for snapper (see SUBVOLS).
   - LUKS2: unlock it. First with the TPM (no prompt), else by asking on the console (passphrase or recovery key).
   - ext4 (every box installed before this change) or btrfs (a box without a TPM): do NOTHING. Existing data is
     never touched or converted here; migrating a live box needs its own design (backup, re-create, restore).
@@ -46,7 +46,15 @@ STATE = RUN + "/data-crypt.json"           # no secrets: what happened, for the 
 KEYFILE = "/run/onemind-data-crypt.key"    # random volume key, RAM only, removed before this exits
 RECOVERY_FILE = RUN + "/data-recovery-key"
 MKFS_MNT = "/run/onemind-data-mkfs"        # where the new btrfs is mounted (top level) to make its subvolumes
-SUBVOLS = ("@", "@storage", "@snapshots")  # @ first: it becomes the default subvolume, which /data mounts
+# Two subvolumes (D-020 follow-up, plan PR 5):
+#   @        the default one, which /etc/fstab mounts at /data: k3s, the databases, the gateway state. Never snapshotted
+#            (a database snapshot taken mid-write is not a backup; restic and the app dumps are the backups).
+#   @storage the owner's files, mounted at /data/storage by data-storage.mount. snapper keeps its snapshots of it in the
+#            nested subvolume @storage/.snapshots, so a snapshot of @storage never contains its own snapshots, and
+#            snapshots cannot be taken of @ by accident.
+SUBVOLS = ("@", "@storage")                # @ first: it becomes the default subvolume, which /data mounts
+SNAPSHOTS_SUBVOL = "@storage/.snapshots"   # where snapper expects them (SUBVOLUME/.snapshots)
+STORAGE_DIR = "@/storage"                  # the (empty) mount point of @storage, inside @
 OPT_IN = "onemind.data_encrypt=passphrase"
 MIN_PASSPHRASE = 8
 CRYPTSETUP = "/usr/lib/systemd/systemd-cryptsetup"
@@ -217,6 +225,8 @@ def make_btrfs(dev, runner=run, force=False):
     try:
         for sv in SUBVOLS:
             runner(["btrfs", "subvolume", "create", f"{MKFS_MNT}/{sv}"])
+        runner(["btrfs", "subvolume", "create", f"{MKFS_MNT}/{SNAPSHOTS_SUBVOL}"])
+        os.makedirs(f"{MKFS_MNT}/{STORAGE_DIR}", mode=0o755, exist_ok=True)   # data-storage.mount runs only if this exists
         runner(["btrfs", "subvolume", "set-default", f"{MKFS_MNT}/{SUBVOLS[0]}"])
     finally:
         runner(["umount", MKFS_MNT], check=False)

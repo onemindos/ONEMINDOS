@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""IMG-LUKS-01 / IMG-05 (#152): /data as btrfs (subvolumes @, @storage, @snapshots), inside LUKS2 when the box has a TPM,
+"""IMG-LUKS-01 / IMG-05 (#152): /data as btrfs (subvolumes @ and @storage, with @storage/.snapshots for snapper), inside LUKS2 when the box has a TPM,
 TPM2 + recovery-key unlock, and the founder's rule of 2026-11-22: no TPM means unencrypted unless the owner opts in to a
 passphrase. data_encrypt.py decides everything; these tests run it with a fake command runner and check the command
 sequence, the secrets handling and the 'never touch data that is already there' rules. The real boot (swtpm) is
@@ -172,6 +172,7 @@ class FirstBoot(unittest.TestCase):
         self.assertEqual([self.step(l) for l in L],
                          ["luksFormat", "cryptsetup open", "mkfs.btrfs", "mount", "subvolume create", "subvolume create",
                           "subvolume create", "set-default", "umount", "--recovery-key", "--tpm2-device=auto", "luksKillSlot"])
+        self.assertEqual(len([l for l in L if "subvolume create" in l]), 3)      # @, @storage, @storage/.snapshots
         fmt = L[0]
         self.assertIn("--type luks2", fmt)
         self.assertIn("aes-xts-plain64", fmt)
@@ -182,13 +183,17 @@ class FirstBoot(unittest.TestCase):
         self.assertFalse(any("mkfs.ext4" in l for l in L))
         self.assertEqual(res, {"recovery_key": RECOVERY, "tpm2": True, "passphrase": False})
 
-    def test_btrfs_gets_the_three_subvolumes_and_at_is_what_data_mounts(self):
+    def test_btrfs_gets_at_and_storage_with_snapshots_inside_storage_and_at_is_what_data_mounts(self):
         r, _ = self.go(True)
         mnt = de.MKFS_MNT
         L = r.lines()
         self.assertIn(f"mount -t btrfs -o subvolid=5 /dev/mapper/onemind-data {mnt}", L)
         self.assertEqual([l.split()[-1] for l in L if "subvolume create" in l],
-                         [f"{mnt}/@", f"{mnt}/@storage", f"{mnt}/@snapshots"])
+                         [f"{mnt}/@", f"{mnt}/@storage", f"{mnt}/@storage/.snapshots"])
+        # never a top-level snapshots subvolume (it would be a sibling snapper does not look in), and @ is never a
+        # place snapper could snapshot: the k3s data and the databases live in @
+        self.assertFalse(any("@snapshots" in l for l in L))
+        self.assertTrue(os.path.isdir(os.path.join(mnt, "@", "storage")))        # the mount point of data-storage.mount
         self.assertIn(f"btrfs subvolume set-default {mnt}/@", L)     # fstab mounts /data with no subvol= option
         self.assertIn(f"umount {mnt}", L)
 
@@ -317,7 +322,7 @@ class Plain(unittest.TestCase):
         mk = next(l for l in L if l.startswith("mkfs.btrfs"))
         self.assertTrue(mk.endswith(" /dev/vda7"))
         self.assertNotIn(" -f", mk)          # the raw partition: mkfs must refuse if anything appeared on it
-        self.assertEqual(len([l for l in L if "subvolume create" in l]), 3)
+        self.assertEqual(len([l for l in L if "subvolume create" in l]), 3)      # @, @storage, @storage/.snapshots
         self.assertTrue(any("set-default" in l for l in L))
 
     def test_a_failure_puts_the_partition_back_to_blank(self):
@@ -517,6 +522,23 @@ class Wiring(unittest.TestCase):
         self.assertEqual(line.split()[1:3], ["/data", "auto"])
         self.assertNotIn("subvol", line)                              # ext4 would refuse the option
 
+    def test_storage_is_its_own_mount_unit_that_only_a_btrfs_box_runs(self):
+        """@storage is mounted by a unit, not an fstab line: ext4 would refuse subvol=, and a failed mount must not fail
+        local-fs.target. The unit is skipped unless data_encrypt.py made its mount point inside @."""
+        unit = rd("os/rootfs/layers/base/usr/lib/systemd/system/data-storage.mount")
+        self.assertIn("Where=/data/storage", unit)
+        self.assertIn("subvol=@storage", unit)
+        self.assertIn("ConditionPathExists=/data/storage", unit)
+        self.assertIn("RequiresMountsFor=/data", unit)
+        self.assertIn("WantedBy=local-fs.target", unit)
+        self.assertNotIn("RequiredBy", unit)
+        link = os.path.join(ROOT, "os/rootfs/layers/base/usr/lib/systemd/system/local-fs.target.wants/data-storage.mount")
+        self.assertEqual(os.readlink(link), "../data-storage.mount")
+        fstab_lines = [l for l in rd("os/rootfs/layers/base/etc/fstab").splitlines() if not l.lstrip().startswith("#")]
+        self.assertFalse(any("/data/storage" in l for l in fstab_lines))
+        # nothing but data_encrypt.py makes /data/storage, so an ext4 box never gets the mount
+        self.assertNotIn("/data/storage", rd("os/rootfs/layers/base/usr/lib/systemd/system/onemind-data-layout.service"))
+
     def test_packages_for_every_tool_it_runs_are_in_the_debian_list(self):
         words = {w for line in rd("os/rootfs/packages/debian-common.txt").splitlines() for w in line.split("#")[0].split()}
         for pkg in ("cryptsetup-bin", "systemd-cryptsetup", "btrfs-progs", "util-linux",
@@ -528,9 +550,12 @@ class Wiring(unittest.TestCase):
             self.assertIn(f'"{tool}"', src)
         self.assertNotIn('"mkfs.ext4"', src)
 
-    def test_the_grow_service_skips_an_encrypted_volume(self):
+    def test_the_grow_service_knows_the_encrypted_volume(self):
+        """It used to skip an encrypted volume ("not grown yet"); now it grows partition, LUKS2 and btrfs (E7)."""
         src = rd("os/rootfs/layers/base/usr/lib/onemind/data_extend.py")
         self.assertIn('startswith("dm-")', src)
+        self.assertIn('"cryptsetup", "resize"', src)
+        self.assertNotIn("not grown yet", src)
 
     def test_tools_image_has_swtpm_for_the_battery(self):
         self.assertRegex(rd("os/rootfs/Containerfile"), r"qemu-system-x86[^\n]*swtpm")
@@ -549,16 +574,44 @@ class Assembler(unittest.TestCase):
                 with self.assertRaises(AssertionError):
                     assemble.validate_layout(l)
 
-    def test_every_shipped_layout_is_still_ext4_until_the_battery_passes(self):
+    def test_x86_64_efi_and_cloud_proxmox_ship_the_data_partition_blank_and_the_rest_stay_ext4(self):
+        """D-020: the boards of plan PR 5 ship it blank (the box makes LUKS2 + btrfs, or plain btrfs without a TPM);
+        every other board keeps ext4 until its own change, and only those two carry OneMind's own type GUID."""
         import yaml
         boards = os.path.join(ROOT, "os", "boards")
+        blank = {"x86_64-efi", "x86_64-efi-nvidia", "cloud-proxmox"}   # nvidia is x86_64-efi with a GPU: the same layout
+        seen = set()
         for b in sorted(os.listdir(boards)):
             f = os.path.join(boards, b, "layout.yaml")
             if os.path.exists(f):
-                parts = yaml.safe_load(open(f))["partitions"]
-                data = [p for p in parts if p.get("label") == "onemind-data"]
-                for p in data:
-                    self.assertIn(p.get("fs", "ext4"), ("ext4", "luks2"), b)
+                for p in yaml.safe_load(open(f))["partitions"]:
+                    if p.get("label") != "onemind-data":
+                        continue
+                    seen.add(b)
+                    self.assertEqual(p.get("fs", "ext4"), "luks2" if b in blank else "ext4", b)
+                    self.assertEqual(p["type"], "data" if b in blank else p["type"], b)
+                    if b not in blank:
+                        self.assertNotEqual(p["type"], "data", b)
+        self.assertTrue(blank <= seen)
+
+    def test_the_data_partition_has_its_own_type_guid_not_the_generic_linux_one(self):
+        import assemble, uuid
+        self.assertNotEqual(assemble.GPT_TYPES["data"].upper(), "0FC63DAF-8483-4772-8E79-3D69D8477DE4")
+        self.assertNotEqual(assemble.GPT_TYPES["data"], assemble.GPT_TYPES["linux"])
+        self.assertEqual(assemble.GPT_TYPES["data"], str(uuid.uuid5(assemble.PU_NS, "onemind-data-partition-type")))
+        # not a Discoverable Partitions Spec type: systemd-gpt-auto-generator must not mount it by itself
+        dps = {"3b8f8425-20e0-4f3b-907f-1a25a76f98e8",   # /srv
+               "773f91ef-66d4-49b5-bd83-d683bf40ad16",   # /var/tmp
+               "4d21b016-b534-45c2-a9fb-5c16e091fd2d",   # /var
+               "933ac7e1-2eb4-4f13-b844-0e14e2aef915",   # /home
+               "0fc63daf-8483-4772-8e79-3d69d8477de4"}   # generic Linux data
+        self.assertNotIn(assemble.GPT_TYPES["data"].lower(), dps)
+
+    def test_sgdisk_accepts_the_guid_and_the_layout_validates(self):
+        import assemble
+        lay = assemble.load_board("x86_64-efi")["layout_data"]
+        self.assertEqual(assemble.part(lay, "onemind-data")["type"], "data")
+        self.assertEqual(assemble.part(lay, "onemind-data")["fs"], "luks2")
 
     def test_the_criteria_file_matches_its_preregistered_hash(self):
         want = [l.split()[0] for l in rd("test/qemu/PREREGISTRATION.sha256").splitlines() if "CRITERIA-DATAENC.md" in l]
