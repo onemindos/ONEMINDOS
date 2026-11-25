@@ -175,6 +175,9 @@ class PolicyService:
         # NMD-07 (#132): the owner's update policy (cool-off, same major, back-off) may hold an
         # update back; fn(params, at) -> reason or None. It never approves anything.
         self.update_gate: Callable[[dict, datetime], str | None] = lambda _params, _at: None
+        # Whether the gateway files requests of a type (ActionService.can_file); a rule that names
+        # a type nothing files could never fire, so it is refused when made.
+        self.can_file: Callable[[str], bool] = lambda _type: True
 
     # ---- windows -------------------------------------------------------------------------------
     def window_is_open(self, window_id: str | None, at: datetime) -> bool:
@@ -204,6 +207,8 @@ class PolicyService:
                 problem = registry.policy_may_cover(t)
                 if problem:
                     raise ValueError(problem)
+                if not self.can_file(t):
+                    raise ValueError(f"{t} is not a request type this gateway files, so a standing approval could never fire")
             if len(set(body.allow.types)) != len(body.allow.types):
                 raise ValueError("allow.types lists a type twice")
             for r in body.allow.requested_by:

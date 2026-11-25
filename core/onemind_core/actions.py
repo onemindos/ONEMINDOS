@@ -524,6 +524,10 @@ class ActionService:
         registry.register_feature(action_type, spec.risk, automation="automation" in spec.requesters)
         self.feature_types[action_type] = spec
 
+    def can_file(self, action_type: str) -> bool:
+        """True when a request of this type can be filed here (so a standing approval can fire on it)."""
+        return action_type in APP_CLAIMS or action_type in self.handlers or action_type in self.feature_types
+
     def is_physical(self, action_type: str) -> bool:
         spec = self.feature_types.get(action_type)
         return spec is not None and spec.physical
@@ -586,23 +590,35 @@ class ActionService:
         from .automation import registry  # imported late: the registry imports ActionType from here
 
         now = self.clock()
+        risk = registry.risk_of(action_type, params) if registry.known(action_type) else None
+        # A requester that read third-party text is tainted here as on every other path, and a request
+        # a standing approval could cover carries a plan, so an approval is bound to these parameters.
+        taint = self.taint.get(str(requested_by.get("id") or ""))
+        plan, plan_sha = None, None
+        if taint is not None or registry.policy_may_cover(action_type, params, risk) is None:
+            plan, plan_sha = feature_plan(action_type, params)
+            if taint is not None:
+                plan = {**plan, PLAN_KEY: taint.note()}
         action = Action(
             id=new_action_id(), type=action_type, params=params, state="requested",
             requested_by=requested_by, idempotency_key=idempotency_key,
             created_at=now, updated_at=now, expires_at=utc(expires_at),
             # #723: the §12.5 risk class, so the approval card asks for hold on a destructive type.
-            risk=registry.risk_of(action_type, params) if registry.known(action_type) else None,
+            risk=risk, plan=plan, plan_sha256=plan_sha,
         )
         stored, created = self.repo.create(action)
         if not created:
             raise ApiError(409, "conflict", "this request was already filed")
         self.audit.append("action.requested", audit_principal, stored.id, {
             "type": stored.type, "params": stored.params, "expires_at": iso(stored.expires_at),
-            "requested_by": requested_by.get("id"),
+            "requested_by": requested_by.get("id"), **({"tainted_by": list(taint.sources)} if taint else {}),
         })
         moved = self.repo.transition(stored.id, {"requested"}, "awaiting_approval", self.clock())
         self.audit.append("action.awaiting_approval", None, stored.id, {})
-        return moved or stored
+        filed = moved or stored
+        if self._standing_approve(filed) is not None:  # an owner-set rule accepted it: return the decided row
+            return self.repo.get(stored.id) or filed
+        return filed
 
     def finish(self, action_id: str, outcome: str, message: str, result: dict | None = None, *,
                from_states: frozenset[str] = frozenset({"dispatched"})) -> Action | None:
@@ -1021,7 +1037,9 @@ class ActionService:
             return self._approve_feature(principal, a, spec, standing, facts)
         handler = self.handlers.get(a.type)
         if handler is not None:
-            return self._approve_handled(principal, a, handler)
+            if plan_taint(a.plan):
+                self._check_tainted_approval(a, plan_sha256, standing, feature_plan(a.type, a.params)[1])
+            return self._approve_handled(principal, a, handler, standing)
         if a.type not in APP_CLAIMS:
             raise ApiError(409, "conflict", f"no handler for action type {a.type!r} is running")
 
@@ -1140,7 +1158,8 @@ class ActionService:
             )
         self.audit.append("app.licence_accepted", principal.as_dict(), a.id, {"app_id": app.id, "licence_class": cls})
 
-    def _approve_handled(self, principal: Principal, a: Action, handler: ActionHandler) -> dict:
+    def _approve_handled(self, principal: Principal, a: Action, handler: ActionHandler,
+                         standing: dict | None = None) -> dict:
         problem = handler.recheck(a)
         if problem:
             raise ApiError(409, "stale_precondition", problem)
@@ -1150,7 +1169,7 @@ class ActionService:
         )
         if accepted is None:
             raise ApiError(409, "conflict", "action was decided concurrently")
-        ids = {"requested_by": a.requested_by.get("id"), "approved_by": principal.id}
+        ids = {"requested_by": a.requested_by.get("id"), "approved_by": principal.id, **(standing or {})}
         self.audit.append("action.approved", principal.as_dict(), a.id, {"type": a.type, "params": a.params, **ids})
         dispatched = self.repo.transition(a.id, {"accepted"}, "dispatched", self.clock())
         if dispatched is None:
@@ -1517,6 +1536,8 @@ class ActionService:
             if plan is None:
                 plan, plan_sha = feature_plan(action_type, params)
             plan = {**plan, PLAN_KEY: taint.note()}
+        if plan is None and self._rule_could_cover(action_type, params, risk):
+            plan, plan_sha = feature_plan(action_type, params)  # an approval by rule is bound to these params
         action = Action(
             id=new_action_id(), type=action_type, params=params, state="requested",
             requested_by={"id": principal.id, "kind": principal.kind}, idempotency_key=idempotency_key,
@@ -1534,7 +1555,13 @@ class ActionService:
         })
         moved = self.repo.transition(stored.id, {"requested"}, "awaiting_approval", self.clock())
         self.audit.append("action.awaiting_approval", None, stored.id, {})
-        return (moved or stored).to_json(), True
+        return self._standing_approve(moved or stored) or (moved or stored).to_json(), True
+
+    @staticmethod
+    def _rule_could_cover(action_type: str, params: dict, risk: str) -> bool:
+        from .automation import registry  # imported late: the registry imports ActionType from here
+
+        return registry.policy_may_cover(action_type, params, risk) is None
 
     def _approve_feature(
         self, principal: Principal, a: Action, spec: FeatureAction, standing: dict | None = None,

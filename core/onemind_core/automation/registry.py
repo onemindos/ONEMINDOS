@@ -23,9 +23,6 @@ POLICY_MAX_RISK = "write"  # §12.3: a standing approval covers only read and wr
 class TypeInfo:
     risk: str
     automation: bool  # §12.5 "Requested by" includes Au
-    # False for a type a feature module registered at runtime (register_feature): its risk is
-    # known, but no standing approval fires on its path yet, so a rule may not name it.
-    fireable: bool = True
 
 
 # §12.5, in table order. Types an automation may never request still appear, so a standing
@@ -85,7 +82,7 @@ def register_feature(action_type: str, risk: str, *, automation: bool = False) -
         raise ValueError(f"{action_type}: unknown risk class {risk!r}")
     have = TYPES.get(action_type)
     if have is None:
-        TYPES[action_type] = TypeInfo(risk, automation, fireable=False)
+        TYPES[action_type] = TypeInfo(risk, automation)
     elif have.risk != risk:
         raise ValueError(f"{action_type}: registered as {risk} but the risk table says {have.risk}")
 
@@ -149,8 +146,6 @@ def policy_may_cover(action_type: str, params: dict | None = None, stored_risk: 
         return f"unknown action type {action_type!r}"
     if action_type in NEVER_BY_POLICY:
         return f"{action_type} always waits for the owner; a standing approval never covers it"
-    if not TYPES[action_type].fireable:
-        return f"{action_type} is a feature type that no standing approval covers yet"
     risk = effective_risk(action_type, params, stored_risk)
     if risk is None:
         return f"{action_type} has no valid risk class; a standing approval never covers it"
