@@ -19,6 +19,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/onemindos/onemindos/internal/update"
+	onemind "github.com/onemindos/onemindos/sdk/go"
 )
 
 // Env is what a command gets besides its arguments.
@@ -51,6 +52,8 @@ type App struct {
 	G Global
 	// in is one buffered reader over Stdin, so two questions in a row do not lose the second answer.
 	in *bufio.Reader
+	// gw is the client the gateway-call commands share, so --token-stdin is read once per run.
+	gw *onemind.Client
 }
 
 // groups is the registry, in help order. One line per command group.
@@ -79,6 +82,9 @@ var groups = []func(a *App) []*cobra.Command{
 	mcpCommands,
 	migrateCommands,
 	kioskCommands,
+	usersCommands,
+	backupCommands,
+	careCommands,
 	pluginCommands,
 	extCommands,
 	tipsCommands,

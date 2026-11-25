@@ -18,7 +18,7 @@ import (
 )
 
 func updateCommands(a *App) []*cobra.Command {
-	upd := &cobra.Command{Use: "update", Short: "OS updates on this box (local engine; needs root except status)"}
+	upd := &cobra.Command{Use: "update", Short: "OS updates: status and check run the local engine; apply files an approval; policy shows and sets the app update rules"}
 	var conf string
 	var noReboot bool
 	var mirror string
@@ -41,8 +41,11 @@ func updateCommands(a *App) []*cobra.Command {
 		c.Flags().StringVar(&mirror, "mirror", "", "read the channel from this directory (USB stick or mounted LAN share) instead of the network; "+
 			"signatures and hashes are checked exactly as online, only expiry gets the offline_grace allowance")
 	}
-	apply.Flags().BoolVar(&noReboot, "no-reboot", false, "install but leave the reboot to the maintenance window")
-	upd.AddCommand(status, check, apply)
+	apply.Flags().BoolVar(&noReboot, "no-reboot", false, "install but leave the reboot to the maintenance window (--local only)")
+	gatewayApply(a, apply, func() error {
+		return updateCmd(&a.Env, "apply", apply.Flag("config").Value.String(), apply.Flag("mirror").Value.String(), a.G.JSON, noReboot, a.Stdout, a.Stderr)
+	})
+	upd.AddCommand(status, check, apply, updatePolicyCommand(a))
 	return []*cobra.Command{upd}
 }
 

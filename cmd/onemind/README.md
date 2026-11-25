@@ -58,6 +58,14 @@ NODE_ID       HOSTNAME  ROLE  BOARD       ARCH   OS         K3S    STATUS  LAST_
 ```
 Gateway errors are printed with the contract's error code, e.g. `HTTP 401 unauthenticated: …`.
 
+## Settings over the gateway (users, backup, care, update policy)
+Each of these calls an existing gateway route with your token, takes `--json` (the gateway's JSON, unchanged) and never approves anything:
+- `onemind users list|invite NAME [--role R]|disable ID --yes`: owner only. `invite` prints the one-time sign-up link once. A box with passkeys asks for a passkey sign-in on these writes, which the CLI cannot do, so it says to use the dashboard.
+- `onemind backup status|snapshots|run [--app ID]|verify [--mode check]|restore SNAPSHOT --app ID [--path P]`: `run`, `verify` and `restore` file a request that waits for an owner (`onemind actions approve ID`).
+- `onemind care checkup`: the box check-up; reads only.
+- `onemind update policy show|set`: the app update rules; `set` keeps every value you do not pass.
+- `onemind update apply`: files an `os.update.install` request for the hub (or `--node`), which an owner approves; the box's host service then installs with the health gate and rollback. `--local` is the break-glass path that runs the engine on this machine as root with no approval, and it says so each time. With no box selected (`onemind login`, `--hub`) it is the only path.
+
 ## Build and test
 `make -C cmd/onemindd build` builds this tool too (`dist/onemind-linux-{amd64,arm64}`). Tests: `go test ./cmd/onemind/...` (a fake gateway: tables, `--json`, contexts and file modes, the approval flow, exit codes, the bridge); end to end against a live gateway in `core/tests/test_sdk_conformance.py`.
 
