@@ -5873,6 +5873,224 @@
         "title": "KeyRequest",
         "type": "object"
       },
+      "KeyboardLayout": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "variants": {
+            "items": {
+              "$ref": "#/components/schemas/KeyboardVariant"
+            },
+            "title": "Variants",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "variants"
+        ],
+        "title": "KeyboardLayout",
+        "type": "object"
+      },
+      "KeyboardRequest": {
+        "additionalProperties": false,
+        "description": "POST /v1/system/keyboard.",
+        "properties": {
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "layout": {
+            "description": "A layout id from GET /v1/system/keyboard, e.g. de.",
+            "pattern": "^[A-Za-z0-9_]{1,24}$",
+            "title": "Layout",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "variant": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_-]{1,32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "One of that layout's variant ids.",
+            "title": "Variant"
+          }
+        },
+        "required": [
+          "layout"
+        ],
+        "title": "KeyboardRequest",
+        "type": "object"
+      },
+      "KeyboardSetting": {
+        "additionalProperties": false,
+        "properties": {
+          "layout": {
+            "description": "The layout id, e.g. us, de, fr.",
+            "title": "Layout",
+            "type": "string"
+          },
+          "model": {
+            "description": "The keyboard model, as in /etc/default/keyboard (pc105 unless changed).",
+            "title": "Model",
+            "type": "string"
+          },
+          "options": {
+            "description": "xkb options, e.g. ctrl:nocaps; empty for none.",
+            "title": "Options",
+            "type": "string"
+          },
+          "variant": {
+            "description": "The variant id of that layout, empty for the plain layout.",
+            "title": "Variant",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model",
+          "layout",
+          "variant",
+          "options"
+        ],
+        "title": "KeyboardSetting",
+        "type": "object"
+      },
+      "KeyboardVariant": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "KeyboardVariant",
+        "type": "object"
+      },
+      "KeyboardView": {
+        "additionalProperties": false,
+        "description": "The keyboard layout of the text console and the box's own screen, and every layout this image offers.",
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "current": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KeyboardSetting"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dropped": {
+            "default": 0,
+            "description": "Entries the gateway refused because a field failed its checks.",
+            "title": "Dropped",
+            "type": "integer"
+          },
+          "layouts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/KeyboardLayout"
+            },
+            "title": "Layouts",
+            "type": "array"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "host_service_unreachable",
+                  "host_service_error",
+                  "bad_response"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "seeded": {
+            "default": false,
+            "description": "True while nothing is chosen yet: the box then runs the US layout.",
+            "title": "Seeded",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "available"
+        ],
+        "title": "KeyboardView",
+        "type": "object"
+      },
       "KillSwitch": {
         "additionalProperties": true,
         "description": "The agent kill switch. `on: true` means every AI agent is refused until the owner turns it off.",
@@ -39001,6 +39219,192 @@
           }
         },
         "summary": "System Diagnostics",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/v1/system/keyboard": {
+      "get": {
+        "description": "The keyboard layout of the text console and the box's own screen, and every layout this image offers\nwith its variants (read only). `seeded` is true while nothing is chosen and the box runs the US layout.\n`available` is false, with a reason, when the host service cannot be reached.",
+        "operationId": "system.keyboard.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeyboardView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "system:admin"
+            ]
+          }
+        ],
+        "summary": "System Keyboard",
+        "tags": [
+          "system"
+        ]
+      },
+      "post": {
+        "description": "Ask to change the keyboard layout. It waits for the owner, who approves it on the Approvals screen; the\nresponse is the action, whose id is the approval to look for. An agent may ask, never approve. Once approved\nthe layout is saved on the data disk and loaded into the text console and the box's screen.\n\n404 for a layout or variant this image does not offer; 409 host_unavailable while the host service cannot\nchange the layout (nothing is filed). The `Idempotency-Key` header (or the body's `idempotency_key`) makes a\nretry replay the same action.",
+        "operationId": "system.keyboard.set",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KeyboardRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Idempotent replay"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "actions:request"
+            ]
+          }
+        ],
+        "summary": "System Keyboard Set",
         "tags": [
           "system"
         ]

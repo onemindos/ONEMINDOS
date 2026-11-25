@@ -20,4 +20,6 @@ cifs-utils nfs-common
 # Ubuntu 26.04 defaults to dracut; we name initramfs-tools explicitly [C-LAB-ubuntu-2604-leg-001]
 initramfs-tools
 grub-common
+# Console keyboard and charmap for the tty2 login (Step 3); see debian-common.txt. Proof: first-boot checks F21 and F22.
+console-setup keyboard-configuration
 libglib2.0-0t64 libssl3t64 libcurl4t64 libjson-glib-1.0-0 libfdisk1 libnl-genl-3-200
