@@ -19,6 +19,7 @@
 #   make convert BOARD=vm                               -> qcow2 / vhdx / vmdk / vdi / ova next to the image
 #   make jetson-layer [VERSION=...]                     -> out/onemind-layer-jetson-orin-<version>.tar.gz
 #   make hygiene | hygiene-selftest | lint | test | kit LT=LT-X86-01
+#   make image ... BUILDX_CACHE=$HOME/.cache/onemind-buildx   -> reuse a layer cache for the tools, rootfs and installer builds
 SHELL      := /bin/bash
 BOARD      ?= x86_64-efi
 LEG        ?= debian
@@ -48,6 +49,11 @@ SDE_TAR     = $(if $(SOURCE_DATE_EPOCH),$(comma)rewrite-timestamp=true)
 comma       = ,
 DOCKER_RUN  = docker run --rm --platform $(PLATFORM) -v "$(CURDIR)":/src:ro -v "$(CURDIR)/$(OUT)":/out
 KVM         = $(shell [ -w /dev/kvm ] && echo --device /dev/kvm)
+# Optional BuildKit layer cache (os/rootfs/buildx-cache.sh): a directory with one cache per target, so a build machine
+# reuses layers across worktrees, runs and `docker builder prune`. Empty (the default) adds no cache flags. On a build
+# machine: BUILDX_CACHE=$HOME/.cache/onemind-buildx (or export it in the shell profile). CI uses the GitHub cache instead.
+BUILDX_CACHE ?=
+CACHED      = BUILDX_CACHE="$(BUILDX_CACHE)" sh os/rootfs/buildx-cache.sh
 
 .PHONY: help tools rootfs repro-check image fixtures battery firstboot bootlock rollback sysextguard dataenc convert hygiene hygiene-selftest lint test kit clean secureboot-image secureboot-test
 
@@ -58,11 +64,11 @@ $(OUT):
 	mkdir -p $(OUT)
 
 tools: | $(OUT)
-	docker image inspect $(TOOLS) >/dev/null 2>&1 || docker buildx build -f os/rootfs/Containerfile --target tools --platform $(PLATFORM) \
+	docker image inspect $(TOOLS) >/dev/null 2>&1 || $(CACHED) tools-$(ARCH_OF) -- docker buildx build -f os/rootfs/Containerfile --target tools --platform $(PLATFORM) \
 	  $(shell sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/debian.args) --load -t $(TOOLS) .
 
 rootfs: | $(OUT)
-	docker buildx build -f os/rootfs/Containerfile --target rootfs --platform $(PLATFORM) \
+	$(CACHED) rootfs-$(LEG)-$(BOARD) -- docker buildx build -f os/rootfs/Containerfile --target rootfs --platform $(PLATFORM) \
 	  --build-arg BOARD=$(BOARD) --build-arg FIRMWARE=$(FIRMWARE) --build-arg MAN_DATE_EPOCH=$(EPOCH) $(LEG_ARGS) $(SDE_ARG) --output type=tar,dest=$(ROOTFS)$(SDE_TAR) .
 	@ls -la $(ROOTFS)
 
@@ -233,7 +239,7 @@ TARGET_OF   = $(shell sed -n 's/^target_board: *\([^ #]*\).*/\1/p' os/boards/$(B
 installer: tools
 	@test -n "$(TARGET_OF)" || { echo "usage: make installer BOARD=installer-x86_64"; exit 1; }
 	@test -f $(OUT)/image-$(TARGET_OF)/SHA256SUMS || $(MAKE) image BOARD=$(TARGET_OF)
-	docker buildx build -f os/boards/$(BOARD)/Containerfile --platform $(PLATFORM) $(LEG_ARGS) \
+	$(CACHED) installer-$(LEG)-$(BOARD) -- docker buildx build -f os/boards/$(BOARD)/Containerfile --platform $(PLATFORM) $(LEG_ARGS) \
 	  --output type=tar,dest=$(OUT)/rootfs-$(BOARD).tar .
 	$(DOCKER_RUN) $(TOOLS) /src/os/boards/$(BOARD)/build.sh /out/rootfs-$(BOARD).tar /out/image-$(TARGET_OF) /out/$(BOARD)
 
