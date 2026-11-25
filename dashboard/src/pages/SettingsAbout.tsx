@@ -10,6 +10,7 @@ import { SpatialStatus } from '../screens/spatial/SpatialStatus';
 import { AboutBox } from './AboutBox';
 import { DeviceCard } from './DeviceCard';
 import { SettingsEngine } from './SettingsEngine';
+import { UpsCard } from './UpsCard';
 
 export function SettingsAbout() {
   const hub = useHub();
@@ -26,6 +27,7 @@ export function SettingsAbout() {
       ) : (
         <p className="om-hint">{hub.instance.error ? `Could not read this box: ${hub.instance.error.message}` : 'Loading…'}</p>
       )}
+      <UpsCard />
       <details className="dash-tech">
         <summary>Technical details</summary>
         <dl className="om-facts">

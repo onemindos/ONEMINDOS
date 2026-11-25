@@ -26,6 +26,12 @@ export interface HomeWithEtag {
   etag: string;
 }
 
+/** A person's notification routing document (GET /v1/notifications/preferences) with the ETag to send back. */
+export interface NotificationPreferencesWithEtag {
+  prefs: Record<string, unknown>;
+  etag: string;
+}
+
 export const SDK_VERSION = "0.1.0";
 export const TERMINAL_STATES = new Set(["succeeded", "failed", "cancelled", "expired", "outcome_unknown"]);
 
@@ -235,6 +241,21 @@ export class OneMind {
       save: async (doc: HomeBody, etag: string): Promise<HomeWithEtag> => {
         const { body, headers } = await this.raw<HomeView>({ method: "PUT", path: "/v1/me/home", body: doc, headers: { "If-Match": etag } });
         return { home: body, etag: headers.get("etag") ?? "" };
+      },
+    },
+  };
+
+  readonly notifications = {
+    preferences: {
+      /** The caller's routing document (quiet hours, routes, digest) and its ETag. */
+      get: async (): Promise<NotificationPreferencesWithEtag> => {
+        const { body, headers } = await this.raw<Record<string, unknown>>({ method: "GET", path: "/v1/notifications/preferences", retry: true });
+        return { prefs: body, etag: headers.get("etag") ?? "" };
+      },
+      /** Replace the whole document; a stale `etag` answers 409 (never retried). */
+      save: async (doc: Record<string, unknown>, etag: string): Promise<NotificationPreferencesWithEtag> => {
+        const { body, headers } = await this.raw<Record<string, unknown>>({ method: "PUT", path: "/v1/notifications/preferences", body: doc, headers: { "If-Match": etag } });
+        return { prefs: body, etag: headers.get("etag") ?? "" };
       },
     },
   };
