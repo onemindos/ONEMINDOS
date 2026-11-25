@@ -6,6 +6,7 @@ from __future__ import annotations
 import copy
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -14,7 +15,7 @@ import yaml
 REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO / "core"))
 from onemind_core.catalog import Catalog  # noqa: E402
-from onemind_core.manifest_rules import ManifestRules  # noqa: E402
+from onemind_core.manifest_rules import ManifestRules, block_errors  # noqa: E402
 from onemind_core import systemlist  # noqa: E402
 
 SCHEMA_PATH = REPO / "sdk" / "schema" / "onemind.app.schema.json"
@@ -117,6 +118,52 @@ class ManifestBlocksTests(unittest.TestCase):
         self.assertIn("vaultwarden", found)
         self.assertTrue(found)
         self.assertEqual(self.catalog.errors, {})
+
+    # A map or list where the cross-field rules expect a name: before the fix each raised TypeError
+    # (unhashable type) out of Catalog.validate instead of returning an error.
+    UNHASHABLE = (
+        ("a host that is a map", "/spec/extensions/bridge/hosts/0", {"name": "earthquake.usgs.gov"}),
+        ("a provider id that is a list", "/spec/terms/providers/0/id", ["usgs"]),
+        ("a block provider that is a list", "/spec/extensions/bridge/provider", ["usgs"]),
+        ("a job tool that is a map", "/spec/jobs/0/tool", {"name": "recent"}),
+        ("an emit name that is a list", "/spec/extensions/bridge/emits/0/name", ["quakes"]),
+        ("a notification action tool that is a list", "/spec/notifications/topics/0/actions/0/tool", ["recent"]),
+        ("a tool name that is a map", "/spec/extensions/tools/0/name", {"name": "recent"}),
+        ("a map layer id that is a list", "/spec/mapLayers/0/id", ["quakes"]),
+    )
+
+    def _bad(self, path, value):
+        return apply(BASE, [{"op": "set", "path": path, "value": value}])
+
+    def test_a_map_or_list_where_a_name_belongs_is_an_error_not_a_crash(self):
+        for name, path, value in self.UNHASHABLE:
+            with self.subTest(name):
+                self.assertTrue(self.catalog.validate(self._bad(path, value)))
+                self.assertTrue(self.catalog.check_manifest(self._bad(path, value)))
+                # They are golden cases too, so the Go validator is held to the same verdict.
+                self.assertIn(name, {c["name"] for c in CASES["invalid"]})
+
+    def test_the_cross_field_rules_never_hash_an_unchecked_value(self):
+        # block_errors is public: called on a spec the schema never saw, it names the bad field.
+        for name, path, value in self.UNHASHABLE:
+            with self.subTest(name):
+                spec = self._bad(path, value)["spec"]
+                self.assertTrue(block_errors(spec), name)
+
+    def test_one_malformed_manifest_names_its_folder_and_the_catalog_still_loads(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            good = copy.deepcopy(BASE)
+            (root / good["metadata"]["id"]).mkdir()
+            (root / good["metadata"]["id"] / "onemind.app.yaml").write_text(yaml.safe_dump(good))
+            bad = self._bad("/spec/extensions/bridge/hosts/0", {"name": "earthquake.usgs.gov"})
+            bad["metadata"]["id"] = "broken-app"
+            (root / "broken-app").mkdir()
+            (root / "broken-app" / "onemind.app.yaml").write_text(yaml.safe_dump(bad))
+            catalog = Catalog(root, SCHEMA_PATH)
+            found = catalog.load()
+            self.assertIn(good["metadata"]["id"], found)
+            self.assertIn("broken-app", catalog.errors)
 
     def test_v1_rules_run_for_the_app_schema_and_skip_a_schema_without_its_patterns(self):
         # The real schema always carries the credential patterns, so the v1 rules are on in CI and on the box;

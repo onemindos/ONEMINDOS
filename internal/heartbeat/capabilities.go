@@ -27,6 +27,28 @@ type Capabilities struct {
 	Cameras      []Camera       `json:"cameras"`
 	Power        PowerProfile   `json:"power"`
 	Thermal      ThermalProfile `json:"thermal"`
+	// Passthrough is absent unless the kernel has an IOMMU switched on (VT-d or AMD-Vi), which
+	// every device grant to a virtual machine needs (#690). Absent means "no grant is possible
+	// here", never "no devices".
+	Passthrough *Passthrough `json:"passthrough,omitempty"`
+}
+
+// Passthrough is what an owner-approved device grant (#690) reads. IOMMUGroups lists only the
+// groups that hold an accelerator: a GPU can be handed to a machine only when its group holds
+// nothing but that card's own functions. A group with any member that is not a PCI address (an
+// ACPI or platform device) is left out whole, so its card is in no listed group and every grant of
+// it is refused. USBDrivers maps a USB port to the sorted kernel drivers
+// bound to its interfaces (usbhid, usb-storage, cdc_acm); a port that is not a key has none bound,
+// so the host is not using it. A port with a driver is busy until the owner confirms.
+type Passthrough struct {
+	IOMMUGroups []IOMMUGroup        `json:"iommu_groups"`
+	USBDrivers  map[string][]string `json:"usb_drivers"`
+}
+
+// IOMMUGroup is one kernel IOMMU group (/sys/kernel/iommu_groups/N) and the PCI addresses in it.
+type IOMMUGroup struct {
+	Group   int      `json:"group"`
+	Devices []string `json:"devices"`
 }
 
 // Disk kinds (DataDisk.Kind).

@@ -7,7 +7,7 @@ Criteria: test/qemu/CRITERIA.md (pre-registered; never edited to make a result p
 Boots the board's test disk under QEMU with user-mode networking (restrict=on: no route out; one
 forwarded port to the guest's :8080 for the off-box check) and an i6300esb watchdog, drives the
 serial console, runs T1..T11 (+ TC1 on cloud boards), then TD1..TD3 (test/qemu/CRITERIA-DATAFAIL.md)
-when --upto is T5 or later.
+when --upto is T5 or later; with the same condition TN0..TN2 (CRITERIA-NAS.md, nasmount.py) right after T1.
 Power cut = SIGKILL of the QEMU process. Runs in the tools container (QEMU + firmware pinned):
 
   python3 -I run-tests.py --board x86_64-efi --fixtures DIR --log serial.log [--upto T5] [--results r.json]
@@ -18,6 +18,9 @@ import urllib.error, urllib.request
 _ff = importlib.util.spec_from_file_location("failfast", os.path.join(os.path.dirname(os.path.abspath(__file__)), "failfast.py"))
 failfast = importlib.util.module_from_spec(_ff)
 _ff.loader.exec_module(failfast)
+_nas = importlib.util.spec_from_file_location("nasmount", os.path.join(os.path.dirname(os.path.abspath(__file__)), "nasmount.py"))
+nasmount = importlib.util.module_from_spec(_nas)
+_nas.loader.exec_module(nasmount)
 
 ANSI = re.compile(rb"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b\[[0-9;?]*[A-Za-z]|\x1b[()][0-9A-B]|\r")
 # Escape sequences that can sit in front of a command's first output line on the serial console.
@@ -154,20 +157,27 @@ class VM:
         # Escape fragments split across serial reads survive ANSI stripping (lab deviation 4).
         return int(m.group(1)), strip_escapes(out)
 
-    def wait_gate(self, timeout=1800):
-        m = self.expect(GATE, timeout)
-        # The match can fire while the serial line is still arriving (the reader hands over whatever
-        # the pipe holds), which cut "verdict=environment-bad" short and made TD3 read verdict=None
-        # (#324). Wait for the line's newline, then re-read the whole line. The check itself is unchanged.
-        end = time.time() + 30
+    def expect_line(self, pattern, timeout, eol_timeout=30):
+        """expect(), but only once the matched serial line is complete (#324).
+
+        The reader hands over whatever the pipe holds, so a match can fire while its line is still
+        arriving and a trailing group such as decision=(\\S+) is cut short ('fell-back' read as 'f').
+        Wait for the newline after the match, then match the same pattern again from the same start."""
+        m = self.expect(pattern, timeout)
+        rx, end = re.compile(pattern), time.time() + eol_timeout
         while time.time() < end:
             with self.lock:
                 if "\n" in self.buf[m.end():]:
                     break
             time.sleep(0.05)
         with self.lock:
-            whole = re.compile(GATE).match(self.buf, m.start())
-        m = whole or m
+            whole = rx.match(self.buf, m.start())
+            if whole:
+                self.pos = max(self.pos, whole.end())
+        return whole or m
+
+    def wait_gate(self, timeout=1800):
+        m = self.expect_line(GATE, timeout)
         self.last_gate = m.group(0)
         return m.group(1), m.group(2), m.group(3)
 
@@ -266,7 +276,7 @@ def tag(out, name):
 
 def recovery_check(vm, full=True):
     """One recovery boot: the console line, then (full) the recovery state and reachability (§1)."""
-    m = vm.expect(RECOV, 600)
+    m = vm.expect_line(RECOV, 600)
     slot, ver, reason, decision = m.groups()
     vm.shell_ready()
     d = {"slot": slot, "version": ver, "reason": reason, "decision": decision}
@@ -419,6 +429,12 @@ def main():
         hostkeys = "/data/onemind/ssh/ssh_host_ed25519_key" in hk and "SLOTKEYS=0" in hk
         record("TC1", done and key and active and hostkeys,
                f"cloud_init_done={done} key_installed={key} sshd_active={active} hostkeys_on_data_only={hostkeys}")
+
+    if upto >= ORDER.index("T5"):   # NAS client step, TN0-TN2 (CRITERIA-NAS.md, #871)
+        try:
+            nasmount.run(vm, record, tag, a.board)
+        except (TimeoutError, RuntimeError, ValueError, OSError) as e:
+            record("TN", False, f"NAS client step aborted: {e}")
 
     if want("T2"):
         vm.mark("T2 wrong-key bundle")

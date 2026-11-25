@@ -14,7 +14,9 @@ Type=simple
 User=onemind
 Group=onemind
 EnvironmentFile=/etc/onemind/gateway.env
-Environment=HOME=/var/lib/onemind PYTHONUNBUFFERED=1
+# MALLOC_ARENA_MAX=2: at most two glibc malloc arenas (private heaps) instead of one per allocating thread;
+# keeps the idle gateway under its 100 MiB budget (test/perf/budget.json, issue #849). Same in the image unit.
+Environment=HOME=/var/lib/onemind PYTHONUNBUFFERED=1 MALLOC_ARENA_MAX=2
 WorkingDirectory=/var/lib/onemind
 ExecStart=/opt/onemind/venv/bin/python -m onemind_core
 Restart=always

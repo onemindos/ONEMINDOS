@@ -15,6 +15,9 @@ export type SystemAppRow = components['schemas']['SystemAppRow'];
 
 /** `GET /v1/os/about` (UMB-P14): device facts per node; never a serial number or an address. */
 export type AboutBox = components['schemas']['About'];
+
+/** `GET /v1/system/ups` (IMG-06): the UPS on the box, read only; present=false when it has none. */
+export type UpsStatus = components['schemas']['UpsStatus'];
 import {
   ApiError,
   type Action,
@@ -38,7 +41,12 @@ export type PluginKeyInfo = components["schemas"]["SigningKey"];
 export type PluginKeyInput = components["schemas"]["KeyRequest"];
 export type PluginKeyRevokeInput = components["schemas"]["RevokeRequest"];
 
+/** GET /v1/notifications/summary (#682): the caller's unread state, kept on the hub. */
+export type NotificationSummary = components["schemas"]["NotificationSummary"];
+
 export interface OneMindApi extends WiringApi {
+  /** One call for the bell's unread state. Absent on the mock gateway and test doubles. */
+  notificationSummary?(): Promise<NotificationSummary>;
   pluginSigningKeys?(): Promise<components["schemas"]["SigningKeys"]>;
   requestPluginSigningKey?(body: PluginKeyInput): Promise<components["schemas"]["Action"]>;
   revokePluginSigningKey?(keyId: string, body: PluginKeyRevokeInput): Promise<components["schemas"]["Action"]>;
@@ -59,6 +67,8 @@ export interface OneMindApi extends WiringApi {
   apps(): Promise<CatalogApp[]>;
   /** UMB-P14: absent on the mock gateway, which has no device facts. */
   about?(): Promise<AboutBox>;
+  /** IMG-06: absent on the mock gateway, which has no UPS. */
+  ups?(): Promise<UpsStatus>;
   /** MACH-01: absent on the mock gateway, which has no machines. */
   machines?(): Promise<MachineRecord[]>;
   machineCapabilities?(): Promise<MachineCapabilities>;
@@ -334,6 +344,7 @@ export class HttpApi implements OneMindApi {
   osUpdates() { return this.sdkCall<Record<string, unknown>>('GET', '/v1/os/updates'); }
   systemApps() { return this.sdkCall<SystemAppRow[]>('GET', '/v1/system-apps', undefined, true); }
   about() { return this.req<AboutBox>('GET', '/v1/os/about'); }
+  ups() { return this.sdkCall<UpsStatus>('GET', '/v1/system/ups'); }
   pluginSigningKeys() { return this.sdkCall<components["schemas"]["SigningKeys"]>('GET', '/v1/plugin-trust/keys'); }
   requestPluginSigningKey(body: PluginKeyInput) { return this.sdkCall<components["schemas"]["Action"]>('POST', '/v1/plugin-trust/keys/requests', body); }
   revokePluginSigningKey(keyId: string, body: PluginKeyRevokeInput) { return this.sdkCall<components["schemas"]["Action"]>('POST', `/v1/plugin-trust/keys/${encodeURIComponent(keyId)}/revoke`, body); }
@@ -491,6 +502,9 @@ export class HttpApi implements OneMindApi {
   disableUser(id: string) {
     return this.req<W.UserInfo>('POST', `/v1/users/${encodeURIComponent(id)}/disable`, {});
   }
+  familyProfile(id: string) {
+    return this.req<W.FamilyProfile>('GET', `/v1/family/profiles/${encodeURIComponent(id)}`);
+  }
   tokens() {
     return this.req<W.TokenInfo[]>('GET', '/v1/tokens', undefined, 'array');
   }
@@ -515,6 +529,7 @@ export class HttpApi implements OneMindApi {
   markAllRead() {
     return this.req<{ marked: number }>('POST', '/v1/notifications/read-all', {});
   }
+  notificationSummary() { return this.sdkCall<NotificationSummary>('GET', '/v1/notifications/summary'); }
   channels() {
     return this.req<W.ChannelInfo[]>('GET', '/v1/notifications/channels', undefined, 'array');
   }
@@ -525,7 +540,7 @@ export class HttpApi implements OneMindApi {
     await this.req<void>('DELETE', `/v1/notifications/channels/${encodeURIComponent(id)}`);
   }
   testChannel(id: string) {
-    return this.req<{ ok?: boolean; error?: string | null }>('POST', `/v1/notifications/channels/${encodeURIComponent(id)}/test`, {});
+    return this.req<W.ChannelTestResult>('POST', `/v1/notifications/channels/${encodeURIComponent(id)}/test`, {});
   }
   monitoring() {
     return this.req<W.MonitoringSummary>('GET', '/v1/monitoring/summary');
