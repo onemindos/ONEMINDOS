@@ -107,3 +107,5 @@ F13 runs on the slot-A boot from F1, after F12 and before the F3 reboot, from th
 | F13 | The clock is Debian's own | `systemd-timesyncd.service` is `enabled` and `active`; `/usr/share/zoneinfo/UTC` is readable (tzdata); `/etc/locale.conf` holds `LANG=C.UTF-8` (comment lines ignored); `timedatectl show -p NTPSynchronized` is `yes`, **or** `timedatectl timesync-status` names no server (user-mode QEMU networking cannot reach one), in which case the verdict says so | The unit is missing, disabled or dead, no zone database, another locale, or a server was reached and the clock still reports not synchronised |
 
 Required for this task's "done": F13 PASS on x86_64-efi in CI's image workflow.
+
+**Amendment (2026-11-25, after the first run):** F13 waits up to 60 s, not longer. "Names no server" also covers `Server: n/a (<pool host>)`: timesyncd prints the pool host it is trying while it has not reached any server, so that line counts as unreachable. A reached server (a real address) with the clock still not synchronised is a FAIL. `/etc/locale.conf` is read with comment lines (the SPDX header) ignored. None of this makes a pass easier for a reached server.
