@@ -88,5 +88,143 @@ class F10RescueRuntimeStarted(unittest.TestCase):
                 self.assertEqual(self.run_f10(state)["verdict"], "FAIL")
 
 
+GOOD_F15 = (
+    "PKG=libpam-systemd openssh-server sudo\nADMIN=admin:x:1000:1000:OneMind admin:/home/admin:/bin/bash\n"
+    "SHADOWLINE=0\nEXTRASH=0\nSLOTKEYS0=0\nSSH0=inactive\nLISTEN0=0\nNFT0=0\n"
+    "ADDRC=0\nSSH1=active\nLISTEN1=2\nNFT1=1\nHK=/data/onemind/ssh/ssh_host_ed25519_key\nSLOTKEYS1=0\nKEYLOGIN=admin\n"
+    "PWRC=0\nPWRC2=255\nPWOUT=admin@127.0.0.1: Permission denied (publickey).\n"
+    "permitrootlogin no\npasswordauthentication no\nkbdinteractiveauthentication no\nauthenticationmethods publickey\n"
+    "allowusers admin\nTTY2=enabled\nF15LOGIN good_who=admin good_sudo=0 bad_denied=True bad_shell=False\n"
+    "KIOSK=active\nSESS=1\n")
+
+
+class F15OwnerShell(unittest.TestCase):
+    """F15 (CRITERIA-FIRSTBOOT.md section 11): every sub-check must be able to fail on its own."""
+
+    def setUp(self):
+        self.fb = load_firstboot()
+
+    def verdict(self, out):
+        return self.fb.f15_judge(out)
+
+    def test_good_output_passes_every_check(self):
+        c = self.verdict(GOOD_F15)
+        self.assertTrue(all(c.values()), c)
+
+    def mutate(self, old, new):
+        self.assertIn(old, GOOD_F15)
+        return self.verdict(GOOD_F15.replace(old, new))
+
+    def test_each_failure_is_caught(self):
+        for old, new, key in (
+            ("SHADOWLINE=0", "SHADOWLINE=1", "no_baked_password"),            # a hash baked into /etc/shadow
+            ("EXTRASH=0", "EXTRASH=1", "no_baked_password"),
+            ("SLOTKEYS0=0", "SLOTKEYS0=2", "no_slot_hostkeys"),               # shared host keys in the image
+            ("SSH0=inactive", "SSH0=active", "no_key_sshd_inactive"),         # sshd up with no owner key
+            ("LISTEN0=0", "LISTEN0=1", "no_key_nothing_listens"),
+            ("SSH1=active", "SSH1=inactive", "key_starts_sshd"),              # the first key did not start sshd
+            ("NFT1=1", "NFT1=0", "firewall_opens_22"),
+            ("KEYLOGIN=admin", "KEYLOGIN=Permission denied", "key_login"),
+            ("PWRC2=255", "PWRC2=0", "password_refused"),                     # password login accepted
+            ("Permission denied (publickey)", "Welcome", "password_refused"),
+            ("passwordauthentication no", "passwordauthentication yes", "sshd_config"),
+            ("allowusers admin", "allowusers admin root", "sshd_config"),
+            ("TTY2=enabled", "TTY2=disabled", "tty2_enabled"),
+            ("good_sudo=0", "good_sudo=None", "tty2_login"),
+            ("good_who=admin", "good_who=None", "tty2_login"),
+            ("bad_denied=True", "bad_denied=False", "tty2_wrong_password_refused"),
+            ("bad_shell=False", "bad_shell=True", "tty2_wrong_password_refused"),  # a wrong password reached a shell
+            ("KIOSK=active", "KIOSK=failed", "kiosk_starts"),
+            ("SESS=1", "SESS=0", "kiosk_starts"),                             # no logind session: libpam-systemd missing
+            ("PKG=libpam-systemd openssh-server sudo", "PKG=openssh-server sudo", "packages"),
+            ("/bin/bash", "/usr/sbin/nologin", "admin_uid1000_bash"),
+        ):
+            with self.subTest(change=new):
+                self.assertFalse(self.mutate(old, new)[key], key)
+
+    def test_f15_never_prints_the_password_or_key(self):
+        src = open(os.path.join(ROOT, "test", "qemu", "firstboot.py")).read()
+        body = src[src.index("def f15("):src.index("def main(")]
+        self.assertNotIn("echo $F15_PW", body)
+        self.assertNotIn("cat /run/f15/k\n", body)
+        self.assertIn("F15_PW=$(head -c 18 /dev/urandom", body)         # generated in the guest, never baked
+
+
+GOOD_F20 = (
+    "F20 noauth=401\nF20 get=200\nF20 available=True\nF20 password_login=False\nF20 port=22\nF20 user=admin\n"
+    "F20 b_code=202\nF20 b_state=awaiting_approval\nF20 b_type=ssh.key.add\nF20 b_pre_login=Permission denied (publickey).\n"
+    "F20 c_state=succeeded\nF20 c_login=admin\nF20 c_listed=True\n"
+    "F20 d_add_code=202\nF20 d_add_state=succeeded\nF20 d_k2_login=admin\n"
+    "F20 d_del_code=202\nF20 d_del_state0=awaiting_approval\nF20 d_k2_before_approval=admin\nF20 d_del_state=succeeded\n"
+    "F20 d_k2_after_rc=255\nF20 d_k2_after_denied=True\nF20 d_k1_still=admin\nF20 d_k2_listed=False\nF20 d_k1_listed=True\n"
+    "F20 e_limit_first=True\n"
+    "F20 f_code=202\nF20 f_state0=awaiting_approval\nF20 f_listen_before=2\nF20 f_state=succeeded\nF20 f_active=inactive\n"
+    "F20 f_listen=0\nF20 f_nft=0\nF20 f_flag=True\nF20 f_login_rc=255\nF20 f_restart_active=inactive\n"
+    "F20 g_state=succeeded\nF20 g_active=active\nF20 g_listen=2\nF20 g_flag=False\nF20 g_login=admin\n"
+    "F20 e_limit_after_on=True\nF20 e_limit_after_fw=True\nF20 e_fw_login=admin\n"
+    "F20 i_code=422\nF20 i_filed=0\n")
+
+
+class F20SshKeysAndSwitch(unittest.TestCase):
+    """F20 (CRITERIA-FIRSTBOOT.md section 12): every sub-check must be able to fail on its own."""
+
+    def setUp(self):
+        self.fb = load_firstboot()
+        self.fb.RESULTS.clear()
+
+    def mutate(self, old, new):
+        self.assertIn(old, GOOD_F20)
+        return self.fb.f20_judge(GOOD_F20.replace(old, new))
+
+    def test_good_output_passes_every_check(self):
+        c = self.fb.f20_judge(GOOD_F20)
+        self.assertTrue(all(c.values()), c)
+
+    def test_each_failure_is_caught(self):
+        for old, new, key in (
+            ("noauth=401", "noauth=200", "reads"),                                  # the API answered without a token
+            ("password_login=False", "password_login=True", "reads"),
+            ("b_state=awaiting_approval", "b_state=succeeded", "request_waits"),    # a request ran before approval
+            ("b_pre_login=Permission denied (publickey).", "b_pre_login=admin", "request_waits"),
+            ("c_login=admin", "c_login=Permission denied", "approval_adds"),
+            ("c_listed=True", "c_listed=False", "approval_adds"),
+            ("d_k2_login=admin", "d_k2_login=", "second_key"),
+            ("d_k2_before_approval=admin", "d_k2_before_approval=", "removal_waits"),  # removed before approval
+            ("d_k2_after_rc=255", "d_k2_after_rc=0", "removal_refuses"),            # the removed key still logs in
+            ("d_k2_after_denied=True", "d_k2_after_denied=False", "removal_refuses"),
+            ("d_k1_still=admin", "d_k1_still=", "removal_refuses"),                 # removal took the other key too
+            ("d_k2_listed=False", "d_k2_listed=True", "removal_refuses"),
+            ("e_limit_first=True", "e_limit_first=False", "rate_limit_rule"),
+            ("e_limit_after_on=True", "e_limit_after_on=False", "rate_limit_rule"),   # lost on the second start of sshd
+            ("e_limit_after_fw=True", "e_limit_after_fw=False", "rate_limit_rule"),   # lost after a firewall restart
+            ("e_fw_login=admin", "e_fw_login=", "rate_limit_rule"),
+            ("f_listen_before=2", "f_listen_before=0", "off_waits"),
+            ("f_listen=0", "f_listen=1", "off_closes_port"),                        # the port is still open
+            ("f_active=inactive", "f_active=active", "off_closes_port"),
+            ("f_nft=0", "f_nft=1", "off_closes_port"),
+            ("f_flag=True", "f_flag=False", "off_closes_port"),
+            ("f_restart_active=inactive", "f_restart_active=active", "off_holds"),  # systemctl start undid the switch
+            ("g_active=active", "g_active=inactive", "on_opens_it"),
+            ("g_flag=False", "g_flag=True", "on_opens_it"),
+            ("g_login=admin", "g_login=", "on_opens_it"),
+            ("i_code=422", "i_code=202", "bad_key_refused"),
+            ("i_filed=0", "i_filed=1", "bad_key_refused"),
+        ):
+            with self.subTest(change=new):
+                self.assertFalse(self.mutate(old, new)[key], key)
+
+    def test_missing_output_is_a_failure_not_a_pass(self):
+        self.assertFalse(any(self.fb.f20_judge("").values()))
+
+    def test_f20_runs_after_f15_and_prints_no_secret(self):
+        src = open(os.path.join(ROOT, "test", "qemu", "firstboot.py")).read()
+        main = src[src.index("def main("):]
+        self.assertLess(main.index("f15(vm)"), main.index("f20(vm, token)"))
+        script = src[src.index("F20_PY = "):src.index("def f20_judge(")]
+        self.assertNotIn("print(TOKEN", script)
+        self.assertNotRegex(script, r"out\([^)]*open\(K[12]\)(?!\.pub)")      # never the private key
+        self.assertIn("ssh-keygen -q -t ed25519 -N ''", script)                   # keys are made in the guest
+
+
 if __name__ == "__main__":
     unittest.main()

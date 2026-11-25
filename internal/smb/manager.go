@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -212,6 +213,18 @@ func (m *Manager) writeUsers(users []string) error {
 		}
 		f.Close()
 	}
+	// The owner's console password (admin, onemind-owner password) lives in this same shadow file; only the SMB
+	// accounts are ours to rewrite. Every shadow line for a name that was not an SMB account is kept as it is.
+	var keep bytes.Buffer
+	if b, err := os.ReadFile(m.extra("shadow")); err == nil {
+		for _, l := range strings.Split(string(b), "\n") {
+			if name, _, ok := strings.Cut(l, ":"); ok && name != "" {
+				if _, smbAccount := have[name]; !smbAccount {
+					keep.WriteString(l + "\n")
+				}
+			}
+		}
+	}
 	next := firstUID
 	for _, n := range have {
 		if n >= next {
@@ -219,6 +232,7 @@ func (m *Manager) writeUsers(users []string) error {
 		}
 	}
 	var pw, sh bytes.Buffer
+	sh.Write(keep.Bytes())
 	for _, u := range users {
 		id, ok := have[u]
 		if !ok {
@@ -232,6 +246,12 @@ func (m *Manager) writeUsers(users []string) error {
 	}
 	if err := writeAtomic(m.extra("shadow"), sh.Bytes(), 0o640); err != nil {
 		return err
+	}
+	// unix_chkpwd (sudo, su) runs as group shadow; best effort, a dev machine may have no such group.
+	if g, err := user.LookupGroup("shadow"); err == nil {
+		if gid, err := strconv.Atoi(g.Gid); err == nil {
+			_ = os.Chown(m.extra("shadow"), -1, gid)
+		}
 	}
 	return writeAtomic(m.extra("group"), []byte(fmt.Sprintf("onemind-smb:x:%d:\n", smbGID)), 0o644)
 }

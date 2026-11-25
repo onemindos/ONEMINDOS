@@ -76,11 +76,27 @@ class HostFirewall(unittest.TestCase):
         for b in ("cloud", "vm-do"):   # a cloud box never offers SMB to the internet
             self.assertNotRegex(rd(f"os/boards/{b}/rootfs/etc/onemind/host.d/10-cloud.nft"), r"\b445\b")
 
+    def test_ssh_port_is_opened_only_by_sshd_and_only_from_the_lan_and_the_mesh(self):
+        # Owner shell (Step 2): 22/tcp while sshd runs (it starts only once an owner key exists), never public.
+        r = rd(RULES)
+        self.assertIn("jump ssh", lan_chain())
+        self.assertIn('iifname "tailscale0" jump ssh', r)
+        self.assertRegex(r, r"chain ssh \{\s*\}")             # empty in the ruleset: closed by default
+        for line in r.splitlines():
+            if re.search(r"\b22\b", line):
+                self.assertTrue(line.lstrip().startswith("#"), line)   # no rule in host.nft names 22
+        self.assertNotIn("jump ssh", re.search(r"chain input \{(.*?)\n  \}", r, re.S).group(1).replace('iifname "tailscale0" jump ssh', ""))
+        d = rd("os/rootfs/layers/onemind/usr/lib/systemd/system/ssh.service.d/30-onemind-firewall.conf")
+        self.assertIn("nft add rule inet onemind_host ssh tcp dport 22 accept", d)
+        self.assertIn("ExecStopPost=-+/usr/sbin/nft flush chain inet onemind_host ssh", d)
+        self.assertIn("PartOf=onemind-firewall.service", d)
+
     def test_cloud_boards_open_ssh_and_https_and_keep_the_wizard_local(self):
         for b in ("cloud", "vm-do"):
             d = f"os/boards/{b}/rootfs/etc/onemind"
             rules = [l for l in rd(f"{d}/host.d/10-cloud.nft").splitlines() if l.strip() and not l.startswith("#")]
-            self.assertEqual(rules, ["add rule inet onemind_host input tcp dport { 22, 443, 8443 } accept",
+            self.assertEqual(rules, ["add rule inet onemind_host input tcp dport 22 jump ssh",
+                                     "add rule inet onemind_host input tcp dport { 443, 8443 } accept",
                                      "add rule inet onemind_host input udp dport 41641 accept"])
             self.assertTrue(os.path.exists(os.path.join(ROOT, d, "wizard-local-only")))
         self.assertIn("/etc/onemind/host.d/*.nft", rd(UNIT))

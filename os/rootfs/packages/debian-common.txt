@@ -34,3 +34,6 @@ cryptsetup-bin systemd-cryptsetup libtss2-esys-3.0.2-0t64 libtss2-rc0t64 libtss2
 # UPS support (IMG-06, #244): NUT's client (upsmon, upsc) and server (upsd, upsdrvctl, nut-scanner, the USB drivers
 # and the udev rule that gives the nut group the UPS). The Debian nut-* units are masked; onemind-ups*.service run it.
 nut-client nut-server
+# Owner shell (Step 2): SSH (key-only, starts once the owner adds a key), sudo with the console password, and the
+# PAM module that gives every login (SSH, tty2, the kiosk user) a logind session. Recommends are off, so listed here.
+openssh-server sudo libpam-systemd

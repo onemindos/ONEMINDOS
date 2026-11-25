@@ -298,3 +298,16 @@ describe("protocol generation (sdk/contracts/protocol-versions.md)", () => {
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(proto.current - 1);
   });
 });
+
+describe("call with DELETE (P-06)", () => {
+  it("sends the verb and the token, never retries a DELETE, and returns the filed action", async () => {
+    const { om, calls } = client(() => json(202, { id: "a9", type: "ssh.key.remove", state: "awaiting_approval" }));
+    const got = await om.call<{ id: string }>({ method: "DELETE", path: "/v1/ssh/keys/abc-_def" });
+    expect(got.id).toBe("a9");
+    expect(calls[0]!.init.method).toBe("DELETE");
+    expect(calls[0]!.url).toBe("http://localhost:8080/v1/ssh/keys/abc-_def");
+    const { om: down, calls: n } = client(() => json(503, { error: "unavailable", message: "later" }));
+    await expect(down.call({ method: "DELETE", path: "/v1/ssh/keys/x" })).rejects.toBeInstanceOf(OneMindError);
+    expect(n).toHaveLength(1);
+  });
+});
