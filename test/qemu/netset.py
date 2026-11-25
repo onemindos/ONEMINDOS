@@ -42,6 +42,16 @@ SNAP = ("echo ADDRS=$(ip -4 -o addr show dev $DEV scope global | awk '{print $4}
         "echo METHOD=$(nmcli -g ipv4.method connection show \"$CON\"); ")
 
 
+def diagnose(vm):
+    """What a person would ask for first when a change was refused: the answer, the host service's log, and whether
+    nmcli runs under the host unit's own sandbox settings."""
+    _, out = sh(vm, "echo PBODY=$(head -c 400 /tmp/ns-P.json 2>&1); echo ---; journalctl -u onemind-host.service --no-pager -o cat | tail -12; echo ---; "
+                "systemd-run --wait --pipe -q -p MemoryDenyWriteExecute=yes -p NoNewPrivileges=yes -p CapabilityBoundingSet=CAP_DAC_READ_SEARCH "
+                "-p SystemCallFilter=@system-service -p SystemCallFilter=~@privileged -p RestrictAddressFamilies='AF_INET AF_INET6 AF_UNIX AF_NETLINK' "
+                "nmcli -t -g RUNNING general 2>&1 | tail -3; echo ---; nmcli -t -g RUNNING general 2>&1 | tail -2", 120)
+    return " DIAG=" + out.replace("\n", " | ")[-1500:]
+
+
 def static_body(addr, gw, seconds=20):
     return '{"mode":"static","address":"%s","gateway":"%s","dns":["%s"],"rollback_seconds":%d}' % (addr, gw, DNS, seconds)
 
@@ -77,7 +87,8 @@ def ns1(vm, record):
          "rolled_back_address": after["static_left"] == "0" and after["addrs"] == a0 + ",",
          "method_auto": after["method"] == "auto" and after["conaddrs"] == "",
          "nothing_pending": after["pending"] == "none", "last_rolled_back": after["last"] == "rolled_back"}
-    record("NS1", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" dev={dev} a0={a0} during={during} after={after}")
+    detail = " ".join(f"{k}={v}" for k, v in c.items()) + f" dev={dev} a0={a0} during={during} after={after}"
+    record("NS1", all(c.values()), detail + ("" if during["put"] == "200" else diagnose(vm)))
 
 
 def ns2_before(vm, record):
