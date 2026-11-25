@@ -91,6 +91,7 @@ class Settings(unittest.TestCase):
 
     def test_owner_mounts_land_on_the_run_tmpfs_not_the_read_only_root(self):
         self.assertRegex(rd(BASE + "/usr/lib/tmpfiles.d/onemind-udisks-media.conf"), r"(?m)^d /run/media 0755 root root -$")
+        self.assertIn("rmdir /media && ln -s /run/media /media", rd("os/rootfs/Containerfile"))
 
     def test_watchdog_is_set_on_x86_and_rpi5(self):
         self.assertIn("RuntimeWatchdogSec=30s", rd(BASE + "/etc/systemd/system.conf.d/onemind-watchdog.conf"))

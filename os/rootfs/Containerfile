@@ -232,6 +232,7 @@ RUN set -eu; \
     systemctl enable onemind-ups.service onemind-ups-monitor.service >/dev/null; \
     systemctl mask fwupd-refresh.timer fwupd-refresh.service >/dev/null; \
     systemctl enable fstrim.timer >/dev/null; \
+    rmdir /media && ln -s /run/media /media; \
     for t in fwupdmgr sensors ras-mc-ctl udisksctl; do command -v $t >/dev/null || { echo "missing $t"; exit 1; }; done; \
     if [ "${TARGETARCH}" = amd64 ]; then command -v thermald >/dev/null || { echo "missing thermald"; exit 1; }; fi; \
     systemctl disable rpcbind.service rpcbind.socket nfs-client.target nfs-blkmap.service >/dev/null 2>&1; \
