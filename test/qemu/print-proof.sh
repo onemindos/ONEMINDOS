@@ -27,7 +27,7 @@ echo "BINS=$(for f in /usr/sbin/cupsd /usr/sbin/ipp-usb /usr/lib/cups/filter/pdf
 echo "ACTIVE=$(systemctl is-active cups.service)"
 echo "LISTEN=$(ss -H -ltn | awk '$4 ~ /:631$/ {print $4}' | tr '\n' ,)"
 for m in etc/cups var/spool/cups var/cache/cups var/lib/ipp-usb; do
-  echo "MNT_$(echo "$m" | tr / _)=$(findmnt -n -o SOURCE "/$m" | head -1)"
+  echo "MNT_$(echo "$m" | tr '/-' '__')=$(findmnt -n -o SOURCE "/$m" | head -1)"
 done
 echo "CTL=$(cupsctl | grep -E '^_(remote_admin|remote_any|share_printers|user_cancel_any)=' | sort | tr '\n' ' ')"
 echo "HTTP_ROOT=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://127.0.0.1:631/)"
