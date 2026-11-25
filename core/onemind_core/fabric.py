@@ -44,12 +44,14 @@ from cryptography import x509
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import JSON, DateTime, String, Text, delete, func, select, update
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .agents_nats import agent_users
 from .auth import Principal
+from .backups.jobs import job_kid, public_pem
 from .ca import MESH_DOMAIN, BoxCA
 from .errors import ApiError
 from .executors import ExecResult
@@ -613,6 +615,9 @@ class FabricDeps:
     mesh: MeshService | None = None
     k3s: K3sBootstrapTokens | None = None
     hub_node_id: str | None = None
+    # The gateway's job key (backups/jobs.py gateway_job_key_path), loaded on first use. Its public half
+    # goes into the join reply so the machine pins it and can check every job the gateway signs (D-029).
+    job_key: Callable[[], Ed25519PrivateKey] | None = None
 
 
 class FabricService:
@@ -811,6 +816,15 @@ class FabricService:
 
     def _deliver(self, req: dict) -> dict | None:
         """Mint the one-time secrets and hand them over exactly once."""
+        job_key = None
+        if self.d.job_key is not None:
+            # Read before the request moves on or any one-time secret is minted: a failure changes nothing.
+            try:
+                job_key = self.d.job_key()
+            except (OSError, ValueError) as exc:
+                log.warning("join %s: the gateway job key could not be read: %s", req["id"], exc.__class__.__name__)
+                raise ApiError(503, "unavailable", "the box could not read its job key right now; retrying is safe",
+                               reason="job_key_unavailable", retry_after_s=10) from None
         now = self.d.clock()
         if not self.repo.move(req["id"], ("approved",), "delivering", now):
             return None  # a concurrent poll is delivering
@@ -836,7 +850,11 @@ class FabricService:
             "node_cert": req["node_cert_pem"],
             "ca_cert": self.d.box_ca.ca_pem().decode(),
             "nats": {"url": self.nats_url(), "account": f"NODE_{req['node_id']}", "user_pubkey": req["nats_pubkey"]},
-            "job_pubkey": None,  # signed jobs (§12.11) are a later step
+            # The gateway's job public key (§12.11), sent over the box-CA-pinned channel the node already
+            # trusts: the node pins it and refuses any job not signed by it for its own node id. None only
+            # on a gateway built without one (tests); such a node refuses every machine job.
+            "job_pubkey": public_pem(job_key).decode() if job_key is not None else None,
+            "job_kid": job_kid(job_key.public_key()) if job_key is not None else None,
         }
         if mesh_key is not None and mesh_svc is not None:
             creds["mesh"] = {

@@ -31,6 +31,7 @@ from fastapi.responses import JSONResponse
 from pydantic import ConfigDict, Field, field_validator
 
 from ..auth import Principal
+from ..backups.jobs import gateway_job_key_path, lazy_job_key
 from ..ca import BoxCA, box_name_from_hostname
 from ..context import Gateway
 from ..errors import ApiError, error_responses
@@ -183,6 +184,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         box_ca=box_ca, net=net, mesh_settings=mesh_cfg, fabric=fab_cfg, mesh=mesh,
         k3s=K3sBootstrapTokens(settings.kubectl, fab_cfg.k3s_ca_hash) if fab_cfg.k3s else None,
         hub_node_id=settings.node_id,
+        job_key=lazy_job_key(gateway_job_key_path(settings)),
     ))
     gw.actions.register_handler("node.join", fabric)
 
