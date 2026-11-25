@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/onemindos/onemindos/internal/host"
+	"github.com/onemindos/onemindos/internal/netset"
 	"github.com/onemindos/onemindos/internal/netview"
 	"github.com/onemindos/onemindos/internal/smb"
 	"github.com/onemindos/onemindos/internal/storage/ops"
@@ -59,12 +60,14 @@ func runHost(args []string) int {
 	log := newLogger()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	units := &svcregistry.Reader{Version: version.Version} // service cards, logs and approved restarts (#623, #636)
+	nm := &netset.Manager{Run: netset.ExecRunner{}, BootID: host.BootID(), Log: log} // wired address changes with rollback (P-08)
+	units := &svcregistry.Reader{Version: version.Version}                           // service cards, logs and approved restarts (#623, #636)
 	svc := &host.Service{Power: host.Systemd{}, OS: &host.UpdateEngine{ConfigPath: *conf, Log: log},
 		BootID: host.BootID(), Delay: *delay, Log: log,
 		Reset: &host.FactoryReset{},
 		Units: units,
-		SMB:   &smb.Manager{P: smb.DefaultPaths(), Run: smb.ExecRunner{}}}
+		SMB:   &smb.Manager{P: smb.DefaultPaths(), Run: smb.ExecRunner{}},
+		Net:   nm}
 	if st, err := host.OpenStore(*journal); err != nil {
 		log.Error("host journal unavailable: status only, every action refused", "dir", *journal, "err", err)
 	} else {
@@ -75,6 +78,7 @@ func runHost(args []string) int {
 		log.Error("host journal unreadable: status only, every action refused", "err", err)
 		svc.Store = nil
 	}
+	nm.Recover(ctx) // a change that was waiting for confirmation when the box went down
 	uid := -1
 	if u, err := user.Lookup(*gwUser); err == nil {
 		uid, _ = strconv.Atoi(u.Uid)

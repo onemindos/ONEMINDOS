@@ -7076,6 +7076,143 @@
         "title": "NatsKeyBody",
         "type": "object"
       },
+      "NetChange": {
+        "additionalProperties": false,
+        "description": "One wired-address change (netconf of an interface, P-08) and what became of it.",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "deadline": {
+            "description": "When NetworkManager puts the old settings back unless the owner confirms.",
+            "format": "date-time",
+            "title": "Deadline",
+            "type": "string"
+          },
+          "dns": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Dns",
+            "type": "array"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "gateway": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gateway"
+          },
+          "interface": {
+            "title": "Interface",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "static",
+              "dhcp"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "result": {
+            "description": "pending: applied, waiting for the owner to confirm before `deadline`; confirmed: kept; rolled_back: not confirmed in time (or it failed), the old settings are back",
+            "enum": [
+              "pending",
+              "confirmed",
+              "rolled_back"
+            ],
+            "title": "Result",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "interface",
+          "mode",
+          "result",
+          "started_at",
+          "deadline"
+        ],
+        "title": "NetChange",
+        "type": "object"
+      },
+      "NetChanges": {
+        "additionalProperties": false,
+        "description": "Whether this box can change its wired network, and the change waiting for confirmation.",
+        "properties": {
+          "can_change": {
+            "title": "Can Change",
+            "type": "boolean"
+          },
+          "last": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NetChange"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The most recent change that finished."
+          },
+          "pending": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NetChange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "can_change"
+        ],
+        "title": "NetChanges",
+        "type": "object"
+      },
       "NetGateway": {
         "additionalProperties": false,
         "properties": {
@@ -7210,6 +7347,113 @@
         "title": "NetPort",
         "type": "object"
       },
+      "NetworkConfigBody": {
+        "additionalProperties": false,
+        "description": "The wanted IPv4 setup of one wired interface. `dhcp` takes no address, gateway or DNS.",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "maxLength": 18,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "static: IPv4 address with prefix, like 192.0.2.20/24",
+            "title": "Address"
+          },
+          "dns": {
+            "description": "static: up to three DNS servers",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 3,
+            "title": "Dns",
+            "type": "array"
+          },
+          "gateway": {
+            "anyOf": [
+              {
+                "maxLength": 15,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "static: the router, inside the address's subnet",
+            "title": "Gateway"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "mode": {
+            "enum": [
+              "static",
+              "dhcp"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "shown to the owner on the approval card",
+            "title": "Reason"
+          },
+          "rollback_seconds": {
+            "default": 120,
+            "description": "how long the owner has to confirm from the new address before the old settings return",
+            "maximum": 600.0,
+            "minimum": 10.0,
+            "title": "Rollback Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "title": "NetworkConfigBody",
+        "type": "object"
+      },
+      "NetworkConfirm": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "interface": {
+            "title": "Interface",
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirmed",
+          "interface"
+        ],
+        "title": "NetworkConfirm",
+        "type": "object"
+      },
       "NetworkView": {
         "additionalProperties": false,
         "description": "What the box listens on and how it is connected. It does not include firewall rules.",
@@ -7229,6 +7473,17 @@
           "available": {
             "title": "Available",
             "type": "boolean"
+          },
+          "changes": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NetChanges"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Wired address changes: whether they are possible, and the one waiting for confirmation."
           },
           "dns": {
             "default": [],
@@ -31420,6 +31675,212 @@
           }
         },
         "summary": "Network View",
+        "tags": [
+          "net"
+        ]
+      }
+    },
+    "/v1/network/{iface}": {
+      "put": {
+        "description": "Ask to give a wired interface a fixed IPv4 address and DNS, or to go back to DHCP. Nothing changes yet.\n\nThe request waits for an owner, who approves it with a passkey. After approval the box applies it\nand the owner has `rollback_seconds` (default 120) to open the box at the new address and confirm\n(`POST /v1/network/{iface}/confirm`); without that the old settings come back by themselves.\n\n409 `host_unavailable` while the box cannot change its network, `unknown_interface` / `not_wired` for an\ninterface that is not a cable, `change_pending` while an earlier change waits for confirmation (nothing\nis filed in these cases); 422 for an address, gateway or DNS no network can use.",
+        "operationId": "network.configure",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "iface",
+            "required": true,
+            "schema": {
+              "title": "Iface",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NetworkConfigBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Idempotent replay"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "summary": "Network Configure",
+        "tags": [
+          "net"
+        ]
+      }
+    },
+    "/v1/network/{iface}/confirm": {
+      "post": {
+        "description": "Keep the pending change on this interface: you reached the box at its new address.\n\n409 `no_pending_change` when nothing waits for confirmation (it may have rolled back already).",
+        "operationId": "network.confirm",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "iface",
+            "required": true,
+            "schema": {
+              "title": "Iface",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NetworkConfirm"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Network Confirm",
         "tags": [
           "net"
         ]

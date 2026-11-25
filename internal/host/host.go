@@ -180,6 +180,7 @@ type Service struct {
 	OS     OSInstaller
 	Reset  Resetter
 	SMB    SMBManager    // file sharing (smb.go); nil: not on this box
+	Net    NetManager    // wired network changes with rollback (netset.go); nil: not on this box
 	Units  Units         // service-restart; nil: refused
 	BootID string        // /proc/sys/kernel/random/boot_id
 	Delay  time.Duration // before the box goes down, so the gateway records "accepted" first

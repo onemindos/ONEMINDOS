@@ -19,6 +19,9 @@ _spec.loader.exec_module(battery)
 _spec = importlib.util.spec_from_file_location("netcheck", os.path.join(HERE, "netcheck.py"))
 netcheck = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(netcheck)       # NW1-NW4, CRITERIA-NETWORK.md
+_spec = importlib.util.spec_from_file_location("netset", os.path.join(HERE, "netset.py"))
+netset = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(netset)         # NS1-NS3, CRITERIA-NETWORK-SET.md
 
 PY = "/usr/lib/onemind/gateway/venv/bin/python3"
 GW = "http://127.0.0.1:8080"
@@ -558,6 +561,9 @@ def main():
         vm.mark("NW1-NW4 NetworkManager: wired DHCP, k3s order, unmanaged k3s links, saved profile")
         netcheck.nw1(vm, record); netcheck.nw2(vm, record); netcheck.nw3(vm, record)
         nw4 = netcheck.nw4_before(vm)
+        vm.mark("NS1-NS3 a wired address change rolls back by itself, a confirmed one sticks (P-08)")
+        netset.ns3(vm, record); netset.ns1(vm, record)
+        ns2 = netset.ns2_before(vm, record)
 
         if a.upto in ("F3", "F4"):
             vm.mark("F3 reboot keeps state")
@@ -574,8 +580,10 @@ def main():
             record("F3", not new_toks and ids3 == ids and hz3 == "200" and bool(same) and bool(token),
                    f"'{al[:70]}' new_tokens={len(new_toks)} same_ids={ids3 == ids} healthz={hz3} listed={listed3} gate={g3}")
             netcheck.nw4_after(vm, record, nw4)
+            netset.ns2_after(vm, record, ns2)
         else:
             netcheck.nw4_after(vm, record, nw4, rebooted=False)
+            netset.ns2_after(vm, record, ns2, rebooted=False)
 
         if a.upto == "F4":
             vm.mark("F4 A/B update keeps /data")
