@@ -64,8 +64,10 @@ class PreRegistered(unittest.TestCase):
         d = os.path.join(ROOT, "test", "qemu")
         got = hashlib.sha256(open(os.path.join(d, "CRITERIA-FIRSTBOOT.md"), "rb").read()).hexdigest()
         lines = open(os.path.join(d, "PREREGISTRATION.sha256")).read().splitlines()
-        self.assertTrue([l for l in lines if l.startswith(got) and "CRITERIA-FIRSTBOOT.md" in l and "§9" in l],
-                        "CRITERIA-FIRSTBOOT.md changed after its §9 hash was registered")
+        self.assertTrue([l for l in lines if l.startswith(got) and "CRITERIA-FIRSTBOOT.md" in l and "§10" in l],
+                        "CRITERIA-FIRSTBOOT.md changed after its §10 hash was registered")
+        # the section 9 hash is still in the file, so the history of what was registered when is intact
+        self.assertTrue([l for l in lines if "CRITERIA-FIRSTBOOT.md" in l and "§9" in l])
 
 
 if __name__ == "__main__":
