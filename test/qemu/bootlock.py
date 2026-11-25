@@ -31,6 +31,15 @@ DENIED = r"access denied"
 BOOTED = r"Welcome to |onemind login:|HEALTH-GATE"       # the kernel and systemd are up: the keystroke did not stop the boot
 RESULTS = []
 ESP = "/boot/efi/EFI/BOOT"
+# B1 "grub.cfg has no password_pbkdf2 line of its own" / "a hash baked into the image's grub.cfg" (CRITERIA-BOOTLOCK.md):
+# a line that runs the password or password_pbkdf2 command, or any grub.pbkdf2 hash. grub.cfg.in's
+# `insmod password_pbkdf2` only loads the module that command lives in; it sets no password, so it must not count.
+CFG_PASSWORD_ERE = r"^[[:space:]]*password(_pbkdf2)?[[:space:]]|grub\.pbkdf2\."
+# GRUB sleeps before it refuses a login, and the sleep doubles after every refusal until a login succeeds
+# (grub-core/normal/auth.c, grub_auth_check_authentication: punishment_delay 1 s, 2 s, 4 s ...). B4 is the first
+# refusal (1 s), B5 the second (2 s), so a fixed wait after the password misses B5's answer. Wait for the answer
+# instead, within the criteria's 60 s per GRUB prompt.
+ANSWER_TIMEOUT = 60
 
 
 def record(tid, ok, detail):
@@ -62,10 +71,24 @@ def poke(vm, key, want, timeout=60):
     return False, False
 
 
-def login(vm, user, password):
+def answered(vm, start, pattern, timeout=ANSWER_TIMEOUT):
+    """True once `pattern` shows up after `start`; False if `timeout` seconds pass first."""
+    end = time.time() + timeout
+    while True:
+        if seen(vm, start, pattern):
+            return True
+        if time.time() >= end:
+            return False
+        time.sleep(0.2)
+
+
+def login(vm, user, password, answer):
+    """Type the login, then wait until GRUB answers with a match of `answer` (see ANSWER_TIMEOUT)."""
+    start = vm.here()
     raw(vm, "\x15")                  # Ctrl-U: drop any extra keystroke typed before the prompt came up
     raw(vm, user + "\r"); time.sleep(0.5)
-    raw(vm, password + "\r"); time.sleep(1.5)
+    raw(vm, password + "\r")
+    answered(vm, start, answer)
 
 
 def main():
@@ -97,7 +120,7 @@ def main():
         _, out = vm.run(f"echo USERCFG=$(cat {ESP}/user.cfg 2>/dev/null | tr -d '\\r' | head -c 400); "
                         f"echo USERLINES=$(wc -l < {ESP}/user.cfg); "
                         f"echo PWINFILES=$(grep -c -F '{pw}' {ESP}/user.cfg {ESP}/grub.cfg | tr '\\n' ' '); "
-                        f"echo CFGHASH=$(grep -c password_pbkdf2 {ESP}/grub.cfg); "
+                        f"echo CFGHASH=$(grep -c -E '{CFG_PASSWORD_ERE}' {ESP}/grub.cfg); "
                         f"echo SHA=$(sha256sum {ESP}/user.cfg | cut -c1-64)")
         get = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or [""])[-1]
         sha1 = get("SHA")
@@ -129,14 +152,14 @@ def main():
             raise RuntimeError("no GRUB login prompt: B4-B6 cannot run")
 
         s4 = vm.here()
-        login(vm, "onemind", "wrong-password")
+        login(vm, "onemind", "wrong-password", f"{DENIED}|{EDITOR}")
         denied4, editor4 = seen(vm, s4, DENIED), seen(vm, s4, EDITOR)
         record("B4", denied4 and not editor4, f"access_denied={denied4} editor_opened={editor4}")
         raw(vm, " "); time.sleep(1)      # "press any key": back to the menu
 
         s5 = vm.here()
         ok5, _ = poke(vm, "c", USER_PROMPT)
-        login(vm, "onemind", "wrong-password") if ok5 else None
+        login(vm, "onemind", "wrong-password", f"{DENIED}|grub> ") if ok5 else None
         shell5 = seen(vm, s5, r"grub> ")
         record("B5", ok5 and seen(vm, s5, DENIED) and not shell5, f"login_prompt={ok5} access_denied={seen(vm, s5, DENIED)} grub_shell={shell5}")
         raw(vm, " "); time.sleep(1)
@@ -144,7 +167,7 @@ def main():
         s6 = vm.here()
         ok6, _ = poke(vm, "e", USER_PROMPT)
         if ok6:
-            login(vm, "onemind", pw)
+            login(vm, "onemind", pw, f"{EDITOR}|{DENIED}")
         editor6 = seen(vm, s6, EDITOR)
         record("B6", ok6 and editor6 and bool(pw), f"login_prompt={ok6} editor_opened={editor6}")
         rc = 0
