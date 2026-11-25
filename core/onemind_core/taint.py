@@ -13,6 +13,24 @@ suspect:
   exact parameters they were shown, not "whatever this action id means now";
 - the app it targets must be visible to AI under the app's own aiPolicy (ai_policy.require, #165).
 
+Where taint comes from: an MCP tool or resource result that carries `onemind/untrusted` text
+(mcp/tools.py, and MCP tasks/get, mcp/tasks.py), and every REST read an agent makes (`rest_source`
+below). The REST routes an agent may read (apps, nodes, actions, audit, events ...) return the same
+third-party text MCP marks, so a REST read taints exactly like an MCP read. It is deny by default: a
+read taints unless its route is in `REST_CLEAN_READS`, which serve only what the gateway or the owner
+wrote. A read is GET, HEAD, a WebSocket, or a POST that only previews (`REST_READ_POSTS`: POST
+/v1/plans returns a plan built from the app's manifest and files nothing; POST /v1/storage/plans
+returns a storage plan that carries disk text, a firmware model and filesystem labels, and files nothing).
+
+An agent's own request (POST /v1/actions, POST /v1/alerts/{id}/fix) is answered without
+third-party text (`agent_answer`), as MCP request_action answers with only the id and the state:
+the plan carries manifest text (the app's name, its tool and stream names) and the result carries
+the executor's output, so the answer keeps the id, the state, the risk and the plan fingerprint and
+leaves the plan and result out. An agent that wants them reads the action (GET /v1/actions/{id})
+and is tainted by that read. Should an answer ever carry plan or result text, the route taints the
+agent once the answer is built (`answer_source`): the request itself is filed clean, the next one
+is not. Owner-set approval policies therefore keep working for an agent that reads nothing.
+
 Taint is held in memory for the gateway process and expires after `TTL` without a new read. Each
 read renews it. A restart forgets who was tainted, but the plan note on an action already filed
 survives in the ledger, so a pending tainted request stays tainted. Nothing an agent sends can
@@ -30,6 +48,12 @@ TTL = timedelta(hours=1)
 MAX_SOURCES = 8
 PLAN_KEY = "taint"  # where the note sits in Action.plan (outside the fingerprint, see actions.py)
 MAX_SOURCE_LEN = 80
+# Agent-readable REST routes that carry no third-party text: the box's own name, version and node id
+# (MCP get_instance, which never taints, serves the same), and the owner's agent kill switch.
+REST_CLEAN_READS = frozenset({"/v1/instance", "/v1/agents/kill-switch"})
+READ_METHODS = frozenset({"GET", "HEAD"})
+# POST routes an agent may call that only read: they file nothing and answer with third-party text.
+REST_READ_POSTS = frozenset({"/v1/plans", "/v1/storage/plans"})
 
 
 @dataclass(frozen=True)
@@ -84,3 +108,66 @@ def plan_taint(plan: dict | None) -> dict | None:
     """The taint note on a filed action's plan, or None."""
     note = (plan or {}).get(PLAN_KEY)
     return note if isinstance(note, dict) and note else None
+
+
+def rest_source(scope: dict) -> str | None:
+    """The taint source of a REST request (an ASGI scope), or None when it reads nothing third-party.
+
+    A read is GET or HEAD, any WebSocket (event streams), or a POST in `REST_READ_POSTS`. The route
+    template, not the raw path, names the source: "rest:GET /v1/apps/{app_id}", so the card never
+    repeats text from the URL.
+    """
+    kind = scope.get("type")
+    path = _route(scope)
+    if kind == "websocket":
+        method = "WS"
+    elif kind == "http" and (scope.get("method") in READ_METHODS
+                             or (scope.get("method") == "POST" and path in REST_READ_POSTS)):
+        method = scope["method"]
+    else:
+        return None
+    if path in REST_CLEAN_READS:
+        return None
+    return f"rest:{method} {path}"
+
+
+# What an agent's own request answer keeps (deny by default): the agent's own words and what the
+# gateway wrote. Left out: the plan text, the result, progress and the approval card's limits and
+# preview, which can name apps or devices.
+ANSWER_KEEPS = frozenset({
+    "id", "type", "params", "state", "requested_by", "idempotency_key", "created_at", "updated_at",
+    "expires_at", "decided_by", "decided_at", "approved_by", "version", "risk", "plan_sha256", "reason",
+})
+CARD_KEEPS = ("physical", "hold", "hold_ms")
+
+
+def agent_answer(action: dict) -> dict:
+    """An agent's own request as it is answered to the agent: no plan text, no result.
+
+    The taint note stays, so the agent can tell its request waits for a person and why.
+    """
+    out = {k: v for k, v in action.items() if k in ANSWER_KEEPS}
+    note = plan_taint(action.get("plan"))
+    out["plan"] = {PLAN_KEY: note} if note else None
+    out["result"] = None
+    if isinstance(action.get("approval"), dict):
+        out["approval"] = {k: action["approval"][k] for k in CARD_KEEPS if k in action["approval"]}
+    return out
+
+
+def answer_source(scope: dict, action: dict) -> str | None:
+    """The taint source of an agent write that answers with `action`, or None when it carries no text.
+
+    Called by the route once it has built the response (POST /v1/actions, POST
+    /v1/alerts/{alert_id}/fix), so the request that produced the answer is not tainted by it. The
+    answer carries text when it holds a plan (beyond a taint note the gateway wrote) or a result
+    message; a feature request that is still waiting has neither.
+    """
+    plan = {k: v for k, v in (action.get("plan") or {}).items() if k != PLAN_KEY}
+    if not plan and not (action.get("result") or {}).get("message"):
+        return None
+    return f"rest:{scope.get('method') or 'POST'} {_route(scope)}"
+
+
+def _route(scope: dict) -> str:
+    return getattr(scope.get("route"), "path", None) or scope.get("path") or ""

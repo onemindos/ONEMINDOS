@@ -157,20 +157,27 @@ class VM:
         # Escape fragments split across serial reads survive ANSI stripping (lab deviation 4).
         return int(m.group(1)), strip_escapes(out)
 
-    def wait_gate(self, timeout=1800):
-        m = self.expect(GATE, timeout)
-        # The match can fire while the serial line is still arriving (the reader hands over whatever
-        # the pipe holds), which cut "verdict=environment-bad" short and made TD3 read verdict=None
-        # (#324). Wait for the line's newline, then re-read the whole line. The check itself is unchanged.
-        end = time.time() + 30
+    def expect_line(self, pattern, timeout, eol_timeout=30):
+        """expect(), but only once the matched serial line is complete (#324).
+
+        The reader hands over whatever the pipe holds, so a match can fire while its line is still
+        arriving and a trailing group such as decision=(\\S+) is cut short ('fell-back' read as 'f').
+        Wait for the newline after the match, then match the same pattern again from the same start."""
+        m = self.expect(pattern, timeout)
+        rx, end = re.compile(pattern), time.time() + eol_timeout
         while time.time() < end:
             with self.lock:
                 if "\n" in self.buf[m.end():]:
                     break
             time.sleep(0.05)
         with self.lock:
-            whole = re.compile(GATE).match(self.buf, m.start())
-        m = whole or m
+            whole = rx.match(self.buf, m.start())
+            if whole:
+                self.pos = max(self.pos, whole.end())
+        return whole or m
+
+    def wait_gate(self, timeout=1800):
+        m = self.expect_line(GATE, timeout)
         self.last_gate = m.group(0)
         return m.group(1), m.group(2), m.group(3)
 
@@ -269,7 +276,7 @@ def tag(out, name):
 
 def recovery_check(vm, full=True):
     """One recovery boot: the console line, then (full) the recovery state and reachability (§1)."""
-    m = vm.expect(RECOV, 600)
+    m = vm.expect_line(RECOV, 600)
     slot, ver, reason, decision = m.groups()
     vm.shell_ready()
     d = {"slot": slot, "version": ver, "reason": reason, "decision": decision}
