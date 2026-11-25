@@ -25,4 +25,9 @@ RestrictNamespaces=yes
 SystemCallArchitectures=native
 NoNewPrivileges=yes
 PrivateTmp=yes
-ProtectHome=read-only
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/data
+# root needs to rename files inside folders other users own (the gateway's kubeconfig); nothing else.
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH CAP_FOWNER
+RestrictAddressFamilies=AF_UNIX
