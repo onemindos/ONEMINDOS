@@ -1,0 +1,93 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind OS printing (Step 3): the seed for /etc/cups/cupsd.conf. The image keeps a copy of /etc/cups in
+# /usr/lib/onemind/cups-default; the first boot copies it to /data/state/etc-cups, which is bind-mounted on
+# /etc/cups (onemind-data-layout drop-in print.conf), so printers and settings live on /data and survive reboots
+# and A/B updates. Owner changes (cupsctl, the web admin) edit the /data copy; an image update never overwrites it.
+#
+# Defaults, all off until the owner decides: remote administration, printer sharing, DNS-SD advertising, browsing
+# for network printers (cups-browsed is not installed: a printer is added by the owner, never by itself).
+# cupsd listens on every address for IPP and the web page; host.nft decides who can reach 631 (LAN and mesh only,
+# never a public address) and the Location blocks below decide what a LAN client may do: print to a shared
+# queue, nothing else. @LOCAL leaves out point-to-point interfaces, so the mesh device is named with @IF(tailscale0)
+# (UNVERIFIED in a VM: prove it from a mesh peer on the Dell). /admin never gets it:
+# it is for localhost and a member of lpadmin (or root) only.
+LogLevel warn
+MaxLogSize 1m
+PageLogFormat
+ErrorPolicy retry-job
+Listen /run/cups/cups.sock
+Listen *:631
+Browsing No
+BrowseLocalProtocols none
+DefaultShared No
+DefaultAuthType Basic
+WebInterface Yes
+# The service stays up: the firewall opens 631, so a daemon that exits when idle would leave the port closed.
+IdleExitTimeout 0
+
+<Location />
+  Order allow,deny
+  Allow localhost
+  Allow @LOCAL
+  Allow @IF(tailscale0)
+</Location>
+<Location /admin>
+  AuthType Default
+  Require user @SYSTEM
+  Order allow,deny
+  Allow localhost
+</Location>
+<Location /admin/conf>
+  AuthType Default
+  Require user @SYSTEM
+  Order allow,deny
+  Allow localhost
+</Location>
+<Location /admin/log>
+  AuthType Default
+  Require user @SYSTEM
+  Order allow,deny
+  Allow localhost
+</Location>
+
+<Policy default>
+  JobPrivateAccess default
+  JobPrivateValues default
+  SubscriptionPrivateAccess default
+  SubscriptionPrivateValues default
+  <Limit Create-Job Print-Job Print-URI Validate-Job>
+    Order deny,allow
+  </Limit>
+  <Limit Send-Document Send-URI Hold-Job Release-Job Restart-Job Purge-Jobs Set-Job-Attributes Create-Job-Subscription Renew-Subscription Cancel-Subscription Get-Notifications Reprocess-Job Cancel-Current-Job Suspend-Current-Job Resume-Job Cancel-My-Jobs Close-Job CUPS-Move-Job>
+    Require user @OWNER @SYSTEM
+    Order deny,allow
+  </Limit>
+  <Limit CUPS-Get-Document>
+    AuthType Default
+    Require user @OWNER @SYSTEM
+    Order deny,allow
+  </Limit>
+  # Adding, changing or removing a printer or a class is an owner (administrator) action.
+  <Limit CUPS-Add-Modify-Printer CUPS-Delete-Printer CUPS-Add-Modify-Class CUPS-Delete-Class CUPS-Set-Default CUPS-Get-Devices>
+    AuthType Default
+    Require user @SYSTEM
+    Order deny,allow
+  </Limit>
+  <Limit Pause-Printer Resume-Printer Enable-Printer Disable-Printer Pause-Printer-After-Current-Job Hold-New-Jobs Release-Held-New-Jobs Deactivate-Printer Activate-Printer Restart-Printer Shutdown-Printer Startup-Printer Promote-Job Schedule-Job-After Cancel-Jobs CUPS-Accept-Jobs CUPS-Reject-Jobs>
+    AuthType Default
+    Require user @SYSTEM
+    Order deny,allow
+  </Limit>
+  <Limit Cancel-Job>
+    Require user @OWNER @SYSTEM
+    Order deny,allow
+  </Limit>
+  <Limit CUPS-Authenticate-Job>
+    AuthType Default
+    Require user @OWNER @SYSTEM
+    Order deny,allow
+  </Limit>
+  <Limit All>
+    Order deny,allow
+  </Limit>
+</Policy>

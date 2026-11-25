@@ -21,3 +21,7 @@ cifs-utils nfs-common
 initramfs-tools
 grub-common
 libglib2.0-0t64 libssl3t64 libcurl4t64 libjson-glib-1.0-0 libfdisk1 libnl-genl-3-200
+# Printing (Step 3): CUPS with driverless (IPP Everywhere) printing. No cups-browsed: it would add queues by itself,
+# and adding a printer is an owner action. ipp-usb lets a USB printer speak IPP; avahi (above) announces it. "cups" brings
+# the web admin (the CGI programs) and cups-ppdc (the generic PPDs); the rest are named so a dependency change shows.
+cups cups-client cups-daemon cups-filters cups-ipp-utils ipp-usb
