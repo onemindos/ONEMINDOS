@@ -335,6 +335,122 @@ class Plain(unittest.TestCase):
         z.assert_called_once_with("/dev/vda7")
 
 
+class Consoles(unittest.TestCase):
+    """The recovery key and the prompts must reach a person during early boot, while the boot splash (plymouth) runs and
+    swallows /dev/console (found booting E1: the key was in the journal's absence AND on no console)."""
+    def test_the_active_consoles_come_from_sysfs(self):
+        with tempfile.TemporaryDirectory() as t:
+            f = os.path.join(t, "active")
+            open(f, "w").write("tty0 ttyS0\n")
+            with mock.patch.object(de, "ACTIVE_CONSOLES", f):
+                self.assertEqual(de.console_devices(), ["/dev/tty0", "/dev/ttyS0"])
+                self.assertEqual(de.serial_consoles(), ["/dev/ttyS0"])        # the screen is not a serial port
+            with mock.patch.object(de, "ACTIVE_CONSOLES", os.path.join(t, "missing")):
+                self.assertEqual(de.console_devices(), [])
+
+    def test_serial_ports_are_recognised_by_name(self):
+        self.assertEqual(de.serial_consoles(["tty0", "ttyS0", "ttyS1", "ttyAMA0", "ttyUSB0", "tty1", "hvc0"]),
+                         ["/dev/ttyS0", "/dev/ttyS1", "/dev/ttyAMA0", "/dev/ttyUSB0"])
+
+    def test_a_line_goes_to_every_console_terminal_and_not_twice_to_dev_console(self):
+        with tempfile.TemporaryDirectory() as t:
+            a, b = os.path.join(t, "tty0"), os.path.join(t, "ttyS0")
+            for p in (a, b):
+                open(p, "w").close()
+            self.assertEqual(de.to_consoles("hello", [a, b]), 2)
+            self.assertEqual(open(a, "rb").read(), b"hello\r\n")
+            self.assertEqual(open(b, "rb").read(), b"hello\r\n")
+
+    def test_dev_console_is_only_the_fallback(self):
+        with tempfile.TemporaryDirectory() as t:
+            fallback = os.path.join(t, "console")
+            open(fallback, "w").close()
+            real_open = os.open
+            with mock.patch.object(de.os, "open", lambda path, *a, **k: real_open(fallback if path == "/dev/console" else path, *a, **k)):
+                self.assertEqual(de.to_consoles("x", [os.path.join(t, "nope")]), 1)      # none took it: /dev/console did
+                self.assertEqual(open(fallback, "rb").read(), b"x\r\n")
+                open(fallback, "w").close()
+                ok = os.path.join(t, "ttyS0")
+                open(ok, "w").close()
+                self.assertEqual(de.to_consoles("y", [ok]), 1)
+                self.assertEqual(open(fallback, "rb").read(), b"")                           # a terminal took it: no second copy
+
+    def test_writing_never_raises_and_never_takes_a_terminal(self):
+        self.assertEqual(de.to_consoles("x", ["/nonexistent/tty"]) in (0, 1), True)      # missing devices are skipped
+        flags = []
+        real_open = os.open
+        with tempfile.TemporaryDirectory() as t:
+            f = os.path.join(t, "tty")
+            open(f, "w").close()
+            with mock.patch.object(de.os, "open", lambda path, fl, *a: (flags.append(fl), real_open(path, fl, *a))[1]):
+                de.to_consoles("x", [f])
+        self.assertTrue(flags[0] & os.O_NOCTTY and flags[0] & os.O_NONBLOCK)
+
+    def test_the_recovery_key_goes_to_the_consoles_and_never_to_stdout_or_the_journal(self):
+        sent = []
+        out = []
+        with mock.patch.object(de, "to_consoles", lambda line, devices=None: sent.append(line) or 1), \
+                mock.patch("builtins.print", lambda *a, **k: out.append(a)):
+            de.say("RECOVERY KEY: " + RECOVERY, journal=False)
+            de.say("something harmless")
+        self.assertEqual(len(sent), 2)
+        self.assertIn(RECOVERY, sent[0])
+        self.assertEqual(out, [("ONEMIND-DATA-CRYPT: something harmless",)])
+
+    def test_the_serial_agent_is_started_per_serial_port_and_always_stopped(self):
+        started, killed = [], []
+
+        class P:
+            def __init__(self, cmd, **kw):
+                started.append((cmd, kw))
+                self.pid = 4242 + len(started)
+
+            def wait(self, t=None):
+                return 0
+        with mock.patch.object(de.os, "killpg", lambda pid, sig: killed.append((pid, sig))):
+            with de.serial_prompt_agent(["/dev/ttyS0", "/dev/ttyS1"], popen=P) as n:
+                self.assertEqual(n, 2)
+                self.assertEqual([c for c, _ in started],
+                                 [[de.AGENT, "--watch", "--console=/dev/ttyS0"], [de.AGENT, "--watch", "--console=/dev/ttyS1"]])
+                self.assertTrue(all(kw["start_new_session"] for _, kw in started))
+            self.assertEqual(len(killed), 2)
+            killed.clear()
+            with self.assertRaises(RuntimeError), de.serial_prompt_agent(["/dev/ttyS0"], popen=P):
+                raise RuntimeError("boom")
+            self.assertEqual(len(killed), 1)                                              # stopped on failure too
+
+    def test_no_serial_console_means_no_agent(self):
+        with mock.patch.object(de, "serial_consoles", lambda names=None: []):
+            with de.serial_prompt_agent(popen=lambda *a, **k: self.fail("started an agent")) as n:
+                self.assertEqual(n, 0)
+
+    def test_the_prompts_run_inside_the_agent(self):
+        order = []
+
+        class Ctx:
+            def __enter__(self):
+                order.append("agent on")
+
+            def __exit__(self, *a):
+                order.append("agent off")
+
+        def runner(cmd, input=None, check=True):
+            order.append(cmd[0].split("/")[-1] if "attach" not in cmd else "attach")
+            return subprocess.CompletedProcess(cmd, 1 if "attach" in cmd else 0, stdout="longenoughpass\n", stderr="")
+        with mock.patch.object(de, "serial_prompt_agent", lambda *a, **k: Ctx()), mock.patch.object(de, "say", lambda *a, **k: None):
+            de.unlock("/dev/vda7", False, runner)
+            self.assertEqual(order, ["agent on", "attach", "agent off"])
+            order.clear()
+            de.ask_passphrase(runner, tries=1)
+            self.assertEqual(order[0], "agent on")
+            self.assertEqual(order[-1], "agent off")
+            self.assertIn("systemd-ask-password", order)
+
+    def test_the_service_waits_for_the_serial_agent_tools(self):
+        """The agent binary is in the systemd package (always installed); its path is the one the stock unit uses."""
+        self.assertEqual(de.AGENT, "/usr/bin/systemd-tty-ask-password-agent")
+
+
 class Unlock(unittest.TestCase):
     def test_tpm_first_and_headless(self):
         r = FakeRunner()
