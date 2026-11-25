@@ -5,12 +5,13 @@
 #   make rootfs  BOARD=x86_64-efi [LEG=debian|ubuntu]   -> out/rootfs-<leg>-<board>.tar
 #   make repro-check BOARD=x86_64-efi                   -> builds the rootfs twice and compares (reproducible build)
 #   make image   BOARD=x86_64-efi [VERSION=...]         -> out/image-<board>/ (disk .img, .raucb, SHA256SUMS)
+#   make image   BOARD=x86_64-efi SECUREBOOT=1          -> the Secure Boot route (efi backend, signed UKI per slot, dev key; off by default)
 #   make fixtures BOARD=x86_64-efi [UPTO=T5] [HW=1]     -> out/fx-<board>/ (battery inputs; HW=1 for founder kits)
 #   make fixtures ... DATA_FS=luks2                      -> data partition left blank, encrypted on first boot
 #   make dataenc BOARD=x86_64-efi                       -> out/dataenc-<board>/ (E1-E4, CRITERIA-DATAENC.md; needs DATA_FS=luks2 fixtures)
 #   make battery BOARD=x86_64-efi [UPTO=T5]             -> out/battery-<board>/ (serial log, results.json)
 #   make firstboot BOARD=x86_64-efi [FUPTO=F4]          -> out/firstboot-<board>/ (F0-F4, CRITERIA-FIRSTBOOT.md)
-#   make secureboot-test                                -> out/secureboot-x86_64-efi/ (SB1-SB4, CRITERIA-SECUREBOOT.md)
+#   make secureboot-test                                -> out/secureboot-x86_64-efi/ (SB1-SB7, CRITERIA-SECUREBOOT.md)
 #   make bootlock  BOARD=x86_64-efi                     -> out/bootlock-<board>/ (B1-B6, CRITERIA-BOOTLOCK.md)
 #   make edge      BOARD=x86_64-efi                     -> out/edge-<board>/ (EG1-EG7, CRITERIA-EDGE.md; fixtures with EDGE=1)
 #   make sysextguard BOARD=x86_64-efi                   -> out/sysextguard-<board>/ (T-W19-01 X0-X7, CRITERIA-SYSEXT.md)
@@ -23,6 +24,7 @@ LEG        ?= debian
 UPTO       ?= T5
 HW         ?= 0
 DATA_FS    ?=
+SECUREBOOT ?= 0
 EDGE       ?= 0
 FUPTO      ?= F4
 VERSION    ?= 0.1.0-dev
@@ -68,7 +70,7 @@ repro-check: tools
 # A development image, signed with a throwaway CA made here and deleted after use (SB-10).
 image: tools
 	@test -f $(ROOTFS) || $(MAKE) rootfs BOARD=$(BOARD) LEG=$(LEG)
-	$(DOCKER_RUN) -e VERSION=$(VERSION) -e BOARD=$(BOARD) -e ROOTFS=/out/$(notdir $(ROOTFS)) -e SOURCE_DATE_EPOCH=$(SOURCE_DATE_EPOCH) $(TOOLS) \
+	$(DOCKER_RUN) -e VERSION=$(VERSION) -e BOARD=$(BOARD) -e SECUREBOOT=$(SECUREBOOT) -e ROOTFS=/out/$(notdir $(ROOTFS)) -e SOURCE_DATE_EPOCH=$(SOURCE_DATE_EPOCH) $(TOOLS) \
 	  /src/os/assemble/dev-image.sh /out/image-$(BOARD)
 
 fixtures: tools
@@ -174,7 +176,7 @@ dataenc:
 local-firstboot:
 	test/qemu/local-firstboot.sh BOARD=$(BOARD) FUPTO=$(FUPTO)
 
-# Secure Boot + signed UKI (S-13, os/secureboot/README.md): a test image with signed GRUB and UKIs, then SB1-SB4
+# Secure Boot + signed UKI (S-13, os/secureboot/README.md): a test image on the efi route with signed UKIs, then SB1-SB7
 # under OVMF Secure Boot with throwaway keys. KVM host (CI image workflow) for the SB1 gate; TCG is BLOCKED-slow.
 secureboot-image: tools
 	@test -f $(OUT)/rootfs-$(LEG)-x86_64-efi.tar || $(MAKE) rootfs BOARD=x86_64-efi LEG=$(LEG)

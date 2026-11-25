@@ -40,3 +40,16 @@
 - Timeouts (wall clock): each gate line 1500 s from the boot that prints it; the install 2400 s; the Secure Boot line 600 s.
 - SB5 without the bundles disk is **BLOCKED**, never PASS.
 - **Still not covered (listed, not hidden):** rollback under Secure Boot (slot B fails the gate and the firmware returns to A: issue #881, wave E), anti-downgrade of an older signed UKI, owner-held keys ("sovereign mode", founder decision 2026-11-22), dm-verity on the booted root, TPM measurement, the real signing ceremony.
+
+## 5. Amendment 2026-11-25: SB6 and SB7, a bad update rolls back under Secure Boot (#148, rollback slice)
+
+**Written before SB6 or SB7 was booted.** SB1-SB5 and their PASS/FAIL text are unchanged. The starting state is SB5's (efi route image, throwaway keys, Secure Boot on, the bundles disk attached), except that the bundles disk now also carries two bad bundles signed by the same throwaway keys, each with its own signed UKI per slot: `bad-k3s.raucb` (version 3, k3s exits at start, the same fixture as T4) and `bad-boot.raucb` (version 5, PID 1 exits so the kernel panics, the same fixture as T6). Each test starts from a fresh copy of the disk, boots slot A, installs the bundle and reboots.
+
+| ID | Test | PASS if | FAIL if |
+|---|---|---|---|
+| SB6 | The health gate rejects a bad slot B and the box returns to A | A commits first (`committed-boot slot=A version=1`) and `rauc install` exits 0 with `BootNext` = the entry labelled `B`. After the reboot the console shows `EFI stub: UEFI Secure Boot is enabled.` and the gate logs `RESULT mark-bad slot=B version=3`. The gate reboots; the console shows the Secure Boot line again and the gate logs `RESULT committed-boot slot=A version=1`. Then `efibootmgr` shows `BootCurrent` = the `A` entry and the `A` entry first in `BootOrder` | A does not commit first, the install fails, `BootNext` is not `B`, a firmware refusal, a missing Secure Boot line in any boot, any other gate line, or `BootCurrent`/`BootOrder` not `A` at the end |
+| SB7 | A slot B that panics gets one try and the box returns to A | Same start. After the reboot the console shows the Secure Boot line and the marker `BAD-BOOT: broken init exiting` **exactly once** (the firmware used `BootNext` up, so there is no second try). The next boot shows the Secure Boot line and the gate logs `RESULT fell-back slot=A version=1`. `BootCurrent` = the `A` entry and `A` leads `BootOrder` | The marker appears more than once or never, no `fell-back` line, a firmware refusal, a missing Secure Boot line, or `BootCurrent`/`BootOrder` not `A` |
+
+- Timeouts (wall clock): each gate line 1500 s from the boot that prints it (3000 s for the `mark-bad` line, which waits out the gate's k3s checks); the install 2400 s; each Secure Boot line 600 s (900 s after a reset).
+- SB6 and SB7 without the bundles disk are **BLOCKED**, never PASS.
+- **Still not covered (listed, not hidden):** anti-downgrade of an older signed UKI, owner-held keys ("sovereign mode"), dm-verity on the booted root, TPM measurement and the PCR 7 re-seal on the switch-over (policy written in `os/secureboot/README.md`; the data-encryption lane tests the unlock), the real signing ceremony.
