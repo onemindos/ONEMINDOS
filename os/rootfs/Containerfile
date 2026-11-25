@@ -82,6 +82,21 @@ RUN for b in onemindd onemind; do \
         -ldflags "-s -w -buildid= -X github.com/onemindos/onemindos/internal/version.Version=$ONEMIND_VERSION" \
         -o "/out/$b" "./cmd/$b" || exit 1; \
     done; ls -la /out
+# Shell completions and man pages for `onemind`, made from the same Cobra command tree as the binary so they
+# cannot drift from it. They are text, so they are generated with a build-machine-arch copy of the CLI (the
+# target-arch binary may not run here). SOURCE_DATE_EPOCH keeps the pages reproducible.
+RUN set -eu; \
+    GOOS=linux GOARCH="$BUILDARCH" go build -trimpath -buildvcs=false -o /tmp/gen/onemind ./cmd/onemind; \
+    GOOS=linux GOARCH="$BUILDARCH" go build -trimpath -buildvcs=false -o /tmp/gen/onemind-mangen ./cmd/onemind-mangen; \
+    mkdir -p /out/completions /out/man1; \
+    /tmp/gen/onemind completion bash > /out/completions/onemind.bash; \
+    /tmp/gen/onemind completion zsh > /out/completions/_onemind; \
+    /tmp/gen/onemind completion fish > /out/completions/onemind.fish; \
+    test -s /out/completions/onemind.bash
+# The man pages carry a date: the commit time (make passes it as SOURCE_DATE_EPOCH), 0 only when built outside git.
+ARG SOURCE_DATE_EPOCH=0
+RUN set -eu; SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" /tmp/gen/onemind-mangen /out/man1 "$ONEMIND_VERSION"; \
+    gzip -9n /out/man1/*.1; ls /out/man1 | head -3
 
 FROM onemind-buildbase AS onemind-dashboard
 ARG BUILDARCH
@@ -195,6 +210,10 @@ COPY os/rootfs/layers/base/ /
 # OneMind layer (docs/leap/core/IMAGES.md): agent + CLI, NATS, gateway venv, dashboard, catalog,
 # first boot. Every role unit ships disabled; onemind-firstboot starts them once the box has a role.
 COPY --from=onemind-go /out/onemindd /out/onemind /usr/bin/
+COPY --from=onemind-go /out/completions/onemind.bash /usr/share/bash-completion/completions/onemind
+COPY --from=onemind-go /out/completions/_onemind /usr/share/zsh/vendor-completions/_onemind
+COPY --from=onemind-go /out/completions/onemind.fish /usr/share/fish/vendor_completions.d/onemind.fish
+COPY --from=onemind-go /out/man1/ /usr/share/man/man1/
 COPY --from=onemind-fetch /opt/nats/nats-server /usr/bin/nats-server
 COPY --from=onemind-fetch /opt/tailscale/tailscale /usr/bin/tailscale
 COPY --from=onemind-fetch /opt/tailscale/tailscaled /usr/sbin/tailscaled
@@ -243,6 +262,8 @@ RUN set -eu; \
       k3s.service onemind-local-api.service onemind-health-gate.service onemind-data-check.service \
       onemind-factory-reset.service systemd-sysext.service systemd-confext.service >/dev/null; \
     systemctl mask systemd-firstboot.service >/dev/null 2>&1 || true; \
+    mandb -q; \
+    systemctl mask man-db.timer man-db.service >/dev/null; \
     passwd -l root >/dev/null; \
     if command -v plymouth-set-default-theme >/dev/null; then plymouth-set-default-theme onemind; \
     else update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth \

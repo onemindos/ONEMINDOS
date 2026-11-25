@@ -21,3 +21,5 @@ cifs-utils nfs-common
 initramfs-tools
 grub-common
 libglib2.0-0t64 libssl3t64 libcurl4t64 libjson-glib-1.0-0 libfdisk1 libnl-genl-3-200
+# Man pages: `man onemind` (the pages are generated from the CLI at image build; proof: first-boot check F14).
+man-db

@@ -1,0 +1,75 @@
+# SPDX-License-Identifier: Apache-2.0
+name: cli-packages
+# The onemind CLI for laptops (#882): .tar.gz for linux amd64/arm64 and macOS arm64/amd64, a .deb per Linux arch and
+# a Homebrew formula, with shell completions and man pages made from the Cobra command tree. ARTIFACTS ONLY: nothing is
+# published, no tokens are used. Signing and attaching them to a release stays in release.yml, behind founder item F-27.
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths: ["cmd/onemind/**", "cmd/onemind-mangen/**", "internal/**", "sdk/go/**", "sdk/openapi/**", "sdk/scripts/**", ".github/actions/sdk-gen/**", "LICENSE", "go.mod", "go.sum", "scripts/release/cli-packages.py", "scripts/release/build-cli-packages.sh", "test/unit/test_cli_packages.py", ".github/workflows/cli-packages.yml"]
+permissions:
+  contents: read
+concurrency:
+  group: cli-packages-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  packages:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+      - name: Generate the SDK code from the committed spec (CI-16, not committed)
+        uses: ./.github/actions/sdk-gen
+        with:
+          langs: go
+      - name: Packager self-test
+        run: python3 -I -m unittest discover -s test/unit -p test_cli_packages.py
+      - name: Build the packages
+        run: scripts/release/build-cli-packages.sh "0.0.0-ci" dist/cli
+      - name: Smoke test the .deb (install, run, complete, man page)
+        run: |
+          set -e
+          sudo apt-get update -qq && sudo apt-get install -y -qq man-db bash-completion
+          dpkg-deb --info dist/cli/onemind_0.0.0-ci_amd64.deb
+          sudo dpkg -i dist/cli/onemind_0.0.0-ci_amd64.deb
+          onemind version
+          onemind __complete ap | grep -q '^apps'
+          test -s /usr/share/bash-completion/completions/onemind
+          man -w onemind | grep -q '/usr/share/man/man1/onemind.1'
+          MANPAGER=cat man onemind | grep -q SYNOPSIS
+          test -s /usr/share/doc/onemind/copyright
+          test -s /usr/share/zsh/vendor-completions/_onemind
+      - name: Smoke test the Linux archives (static, arm64 is only inspected)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir x && tar -xzf dist/cli/onemind_0.0.0-ci_linux_amd64.tar.gz -C x && x/onemind_0.0.0-ci_linux_amd64/bin/onemind version
+          tar -xzOf dist/cli/onemind_0.0.0-ci_linux_arm64.tar.gz onemind_0.0.0-ci_linux_arm64/bin/onemind > arm64-onemind
+          test -s arm64-onemind
+          file arm64-onemind | grep -q 'ARM aarch64'
+      - name: No build machine paths in the binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          n=0
+          for f in dist/cli/*.tar.gz; do
+            tar -xzOf "$f" --wildcards '*/bin/onemind' > bin.tmp
+            test -s bin.tmp   # fail loudly if the binary was not found, so the grep below never runs on nothing
+            if strings bin.tmp | grep -E '/(home|Users|runner|work)/'; then echo "path leaked in $f"; exit 1; fi
+            n=$((n+1))
+          done
+          test "$n" -eq 4
+      - name: Homebrew formula parses
+        run: ruby -c dist/cli/onemind.rb
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: onemind-cli-packages
+          path: dist/cli/
+          if-no-files-found: error
+          retention-days: 14

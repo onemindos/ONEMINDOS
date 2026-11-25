@@ -30,6 +30,8 @@ ARCH_OF     = $(shell sed -n 's/^arch: *//p' os/boards/$(BOARD)/board.yaml)
 PLATFORM    = linux/$(ARCH_OF)
 # FIRMWARE=no builds the fully open image, without closed firmware or microcode (os/rootfs/firmware/README.md)
 FIRMWARE   ?= yes
+# The man pages are dated with the commit time (reproducible per commit); 0 outside git.
+EPOCH      ?= $(shell git log -1 --format=%ct 2>/dev/null || echo 0)
 LEG_ARGS    = $(shell sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/$(LEG).args)
 TOOLS      ?= onemind-tools:$(ARCH_OF)
 ROOTFS      = $(OUT)/rootfs-$(LEG)-$(BOARD).tar
@@ -50,7 +52,7 @@ tools: | $(OUT)
 
 rootfs: | $(OUT)
 	docker buildx build -f os/rootfs/Containerfile --target rootfs --platform $(PLATFORM) \
-	  --build-arg BOARD=$(BOARD) --build-arg FIRMWARE=$(FIRMWARE) $(LEG_ARGS) --output type=tar,dest=$(ROOTFS) .
+	  --build-arg BOARD=$(BOARD) --build-arg FIRMWARE=$(FIRMWARE) --build-arg SOURCE_DATE_EPOCH=$(EPOCH) $(LEG_ARGS) --output type=tar,dest=$(ROOTFS) .
 	@ls -la $(ROOTFS)
 
 # A development image, signed with a throwaway CA made here and deleted after use (SB-10).
