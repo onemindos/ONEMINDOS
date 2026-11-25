@@ -33,3 +33,5 @@ PARTUUID=4f4d5035-07  /data      ext4  defaults,noatime,nofail,x-systemd.device-
 /data/state/var-cache-fwupd       /var/cache/fwupd      none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
 /data/state/var-lib-rasdaemon     /var/lib/rasdaemon    none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
 /data/state/var-lib-udisks2       /var/lib/udisks2      none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+# Storage housekeeping (P-10): smartd's state and the warnings feed the host service reads, kept across reboots and A/B updates.
+/data/state/var-lib-smartmontools /var/lib/smartmontools none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0

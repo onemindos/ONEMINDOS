@@ -23,7 +23,7 @@ initramfs-tools
 grub-common
 libglib2.0-0t64 libssl3t64 libcurl4t64 libjson-glib-1.0-0 libfdisk1 libnl-genl-3-200
 # Disk and admin tools (Step 2 PRs 4 and 7). smartmontools is what internal/storage/smart.go calls (smartctl); its
-# smartd daemon (smartmontools.service, alias smartd.service) is masked below (the gateway reads SMART on demand). gdisk gives sgdisk, btrfs-progs the btrfs tool
+# smartd daemon (smartmontools.service, alias smartd.service) runs with /etc/smartd.conf and feeds Notifications (P-10). gdisk gives sgdisk, btrfs-progs the btrfs tool
 # for the coming btrfs /data. The rest is what an owner expects on an SSH or rescue shell. Proof: first-boot check F13.
 smartmontools gdisk btrfs-progs
 bash-completion less nano rsync htop jq iputils-ping pciutils usbutils dmidecode ethtool

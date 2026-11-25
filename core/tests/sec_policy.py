@@ -909,6 +909,16 @@ POLICY |= {
         cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED, automation=DENIED, node=DENIED),
         lambda _w: w.Req("/v1/system/time/zone", json={"zone": "Europe/Berlin"}),
         "core/onemind_core/routers/clock.py: owner or agent asks for a time zone change; only an owner approves it"),
+    # Storage housekeeping (P-10: core/onemind_core/routers/storage_care.py). Owner only; with no host socket in this
+    # world the owner gets 200 with available=false. The eject request follows the service restart: the owner and agents
+    # pass authorization and get 409 (nothing is filed); with a host it waits for the owner's approval
+    # (tests/test_storage_care.py).
+    ("GET", "/v1/storage/housekeeping"): Row(OWNER_ONLY, w.p_static("/v1/storage/housekeeping"),
+                                             "core/onemind_core/routers/storage_care.py: last TRIM, smartd warnings and removable drives; owner only"),
+    ("POST", "/v1/storage/removable/{name}/eject"): Row(
+        cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        lambda _w: w.Req("/v1/storage/removable/sdb/eject", json={}),
+        "core/onemind_core/routers/storage_care.py: owner or agent asks to safely remove a USB drive; only an owner approves it"),
     # The UPS battery (IMG-06, #244: core/onemind_core/routers/ups.py). Read only; no upsd in this world, so a
     # reader gets 200 with present=false. Device health like /v1/os/about: a child has no nodes:read.
     ("GET", "/v1/system/ups"): Row(CHILD_CANNOT, w.p_static("/v1/system/ups"),

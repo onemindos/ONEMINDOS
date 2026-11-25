@@ -500,7 +500,7 @@ def f12(vm, token):
            + f" box={box!r} up={up} down_summary={summary[:80]!r} engine_unreachable={inst.get('reason')}")
 
 def f13(vm):
-    """Step 2 PRs 4 and 7: the disk and admin tools run on the booted image (CRITERIA-FIRSTBOOT.md section 9)."""
+    """Step 2 PRs 4 and 7: the disk and admin tools run on the booted image (CRITERIA-FIRSTBOOT.md section 9; its smartd-masked clause is replaced by F25, section 19)."""
     _, out = vm.run(
         'D=$(lsblk -no PKNAME "$(findmnt -no SOURCE /)" 2>/dev/null | head -1); '
         '[ -n "$D" ] || D=$(lsblk -dno NAME,TYPE | awk \'$2=="disk"{print $1; exit}\'); D=/dev/$D; echo DISK=$D; '
@@ -510,8 +510,7 @@ def f13(vm):
         'btrfs --version >/dev/null 2>&1; echo BTRFS_RC=$?; '
         'for t in jq htop rsync nano less ethtool dmidecode lspci lsusb; do $t --version >/dev/null 2>&1; echo TOOL $t $?; done; '
         'ping -V >/dev/null 2>&1; echo TOOL ping $?; '
-        'test -r /usr/share/bash-completion/bash_completion; echo BASHCOMP_RC=$?; '
-        'echo SMARTD=$(systemctl is-enabled smartmontools.service 2>&1 | head -1)/$(systemctl is-enabled smartd.service 2>&1 | head -1)', 120)
+        'test -r /usr/share/bash-completion/bash_completion; echo BASHCOMP_RC=$?', 120)
     get = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or ["?"])[-1]
     tools = dict((t, rc) for t, rc in re.findall(r"^TOOL (\S+) (\d+)\s*$", out, re.M))
     want = ["jq", "htop", "rsync", "nano", "less", "ethtool", "dmidecode", "lspci", "lsusb", "ping"]
@@ -520,8 +519,7 @@ def f13(vm):
          "sgdisk_p": get("SGDISK_RC") == "0" and get("SGDISK_TABLE") not in ("0", "?"),
          "btrfs": get("BTRFS_RC") == "0",
          "admin_tools": all(tools.get(t) == "0" for t in want),
-         "bash_completion": get("BASHCOMP_RC") == "0",
-         "smartd_masked": get("SMARTD") in ("masked/masked", "masked/alias")}
+         "bash_completion": get("BASHCOMP_RC") == "0"}  # smartd is no longer masked: CRITERIA-FIRSTBOOT.md section 19 (F25)
     record("F13", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" disk={get('DISK')} tools={tools}")
 
 # F15's pseudo-terminal login, run in the guest (section 11): what a getty on tty2 does, with login(1) and PAM.
@@ -1176,6 +1174,116 @@ def f24_again(vm, tid, marker):
     record(tid, all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()))
 
 
+# Runs in the guest as root: reads the host service the way the gateway does (CRITERIA-FIRSTBOOT.md section 19).
+F25_PY = r"""
+import http.client, json, socket, sys, time
+
+class U(http.client.HTTPConnection):
+    def __init__(self):
+        super().__init__("host", timeout=20)
+    def connect(self):
+        self.sock = socket.socket(socket.AF_UNIX)
+        self.sock.settimeout(20)
+        self.sock.connect("/run/onemind/host.sock")
+
+def call(method, path, body=None):
+    c = U()
+    try:
+        c.request(method, path, json.dumps(body) if body is not None else None, {"Content-Type": "application/json"})
+        r = c.getresponse()
+        raw = r.read()
+        try:
+            return r.status, json.loads(raw or b"null")
+        except ValueError:
+            return r.status, None
+    finally:
+        c.close()
+
+res = {}
+for _ in range(30):  # the socket starts the service on the first request
+    try:
+        res["hk_code"], res["hk"] = call("GET", "/v1/storage/housekeeping")
+        break
+    except OSError:
+        time.sleep(2)
+res["st_code"], st = call("GET", "/v1/status")
+res["kinds"] = [o.get("kind") for o in (st or {}).get("operations", [])]
+if sys.argv[1] == "full":
+    res["eject_code"], res["eject"] = call("POST", "/v1/operations", {"action_id": "f25-root-disk", "kind": "eject", "device": sys.argv[2]})
+    res["ops_code"], ops = call("GET", "/v1/operations/f25-root-disk")
+print("RESULT " + json.dumps(res))
+"""
+
+
+def f25(vm):
+    """P-10: storage housekeeping is on the image and the host service reports it (CRITERIA-FIRSTBOOT.md section 19)."""
+    marker = "f25-" + os.urandom(6).hex()
+    feed = "/var/lib/smartmontools/onemind-alerts.jsonl"
+    env = f"SMARTD_DEVICE=/dev/vda SMARTD_FAILTYPE=FailedHealthCheck SMARTD_MESSAGE={marker} SMARTD_TFIRSTEPOCH=1700000000"
+    _, out = vm.run(
+        "cat > /run/f25.py <<'PYEOF'\n" + F25_PY + "\nPYEOF\n"
+        f"rm -f {feed}; "
+        "echo STATE smartmontools.service $(systemctl is-enabled smartmontools.service 2>&1 | head -1); "
+        "echo STATE smartd.service $(systemctl is-enabled smartd.service 2>&1 | head -1); "
+        "echo CONF_NOMAILER=$(grep -E '^DEVICESCAN' /etc/smartd.conf | grep -c -- '-m <nomailer>'); "
+        "echo CONF_EXEC=$(grep -E '^DEVICESCAN' /etc/smartd.conf | grep -c -- '-M exec /usr/lib/onemind/smartd-notify'); "
+        "smartd -q onecheck -c /etc/smartd.conf >/run/f25.smartd 2>&1; echo SMARTD_RC=$?; "
+        "echo SMARTD_CONF_ERRORS=$(grep -ciE 'fatal syntax|Directive:|unknown directive' /run/f25.smartd); "
+        "echo NOTIFY_X=$(test -x /usr/lib/onemind/smartd-notify && echo yes || echo no); "
+        f"env {env} /usr/lib/onemind/smartd-notify; env {env} /usr/lib/onemind/smartd-notify; "
+        f"echo LINES_AFTER_TWO=$(wc -l < {feed}); echo HAS_MARKER=$(grep -c {marker} {feed}); "
+        "SMARTD_DEVICE=/dev/disk/by-id/x SMARTD_FAILTYPE=Health SMARTD_MESSAGE=bad /usr/lib/onemind/smartd-notify; "
+        f"echo LINES_AFTER_BAD=$(wc -l < {feed}); "
+        "echo BIND=$(findmnt -no SOURCE /var/lib/smartmontools | head -1 | tr -d ' '); echo DROOT=$(findmnt -no FSROOT /data | head -1); "
+        "systemctl start fstrim.service; echo FSTRIM_RC=$?; "
+        "ROOT=/dev/$(lsblk -no PKNAME \"$(findmnt -no SOURCE /)\" 2>/dev/null | head -1); echo ROOTDISK=$ROOT; "
+        f"{PY} -I /run/f25.py full $ROOT; rm -f /run/f25.py", 300)
+    get = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or ["?"])[-1]
+    state = {u: st for u, st in re.findall(r"^STATE (\S+) (\S+)", out, re.M)}
+    m = re.findall(r"^RESULT (\{.*\})\s*$", out, re.M)
+    res = json.loads(m[-1]) if m else {}
+    hk = res.get("hk") or {}
+    trim, smart = hk.get("trim") or {}, hk.get("smart") or {}
+    eject = res.get("eject") or {}
+    c = {"smartd_enabled_not_masked": state.get("smartmontools.service") == "enabled" and state.get("smartd.service") != "masked",
+         "conf_nomailer": get("CONF_NOMAILER") == "1", "conf_exec": get("CONF_EXEC") == "1",
+         "conf_parses": get("SMARTD_CONF_ERRORS") == "0", "notify_executable": get("NOTIFY_X") == "yes",
+         "one_line_for_a_reminder": get("LINES_AFTER_TWO") == "1" and get("HAS_MARKER") == "1",
+         "plain_nodes_only": get("LINES_AFTER_BAD") == "1",
+         # /data starts at "/" on ext4 and "/@" on the btrfs layout (#152): the bind's root is "<that>/state/..."
+         "bind_on_data": get("DROOT") not in ("", "?") and f"[{get('DROOT').rstrip('/')}/state/var-lib-smartmontools]" in get("BIND"),
+         "fstrim_ran": get("FSTRIM_RC") == "0",
+         "housekeeping_200": res.get("hk_code") == 200 and trim.get("enabled") is True
+         and bool(trim.get("last_run_at")) and bool(trim.get("next_run_at")),
+         "alert_listed": any(a.get("id") == "1700000000-vda-FailedHealthCheck" and marker in a.get("message", "")
+                             for a in smart.get("alerts") or []),
+         "removable_is_a_list": isinstance(hk.get("removable"), list),
+         "eject_kind_listed": "eject" in (res.get("kinds") or []),
+         "root_disk_refused": res.get("eject_code") == 409 and eject.get("reason") == "not_removable" and res.get("ops_code") == 404}
+    record("F25", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
+           + f" rootdisk={get('ROOTDISK')} trim={trim} eject={eject} smartd_rc={get('SMARTD_RC')}")
+    return marker
+
+
+def f25_again(vm, tid, marker):
+    """F25b (after the reboot) and F25c (after the A/B update): the warning and its state are still there."""
+    feed = "/var/lib/smartmontools/onemind-alerts.jsonl"
+    _, out = vm.run(
+        "cat > /run/f25.py <<'PYEOF'\n" + F25_PY + "\nPYEOF\n"
+        "echo BIND=$(findmnt -no SOURCE /var/lib/smartmontools | head -1 | tr -d ' '); echo DROOT=$(findmnt -no FSROOT /data | head -1); "
+        f"echo HAS_MARKER=$(grep -c {marker} {feed} 2>&1); "
+        "echo STATE smartmontools.service $(systemctl is-enabled smartmontools.service 2>&1 | head -1); "
+        f"{PY} -I /run/f25.py read; rm -f /run/f25.py", 200)
+    get = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or ["?"])[-1]
+    state = {u: st for u, st in re.findall(r"^STATE (\S+) (\S+)", out, re.M)}
+    m = re.findall(r"^RESULT (\{.*\})\s*$", out, re.M)
+    res = json.loads(m[-1]) if m else {}
+    alerts = ((res.get("hk") or {}).get("smart") or {}).get("alerts") or []
+    c = {"bind_mounted": get("DROOT") not in ("", "?") and f"[{get('DROOT').rstrip('/')}/state/var-lib-smartmontools]" in get("BIND"),
+         "feed_kept": get("HAS_MARKER") == "1", "host_lists_it": any(marker in a.get("message", "") for a in alerts),
+         "smartd_enabled": state.get("smartmontools.service") == "enabled"}
+    record(tid, all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()))
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=sorted(battery.BOARDS))
@@ -1232,18 +1340,20 @@ def main():
         vm.mark("F10 rescue console with k3s stopped (CORE-UPDATE-9)"); f10(vm, token)
         vm.mark("F11 starting page, then the gateway, never a refused connection"); f11(vm, (os.path.dirname(a.results) or ".") if a.results else None)
         vm.mark("F12 the gateway reaches the host helper, and says missing without it (#875)"); f12(vm, token)
-        vm.mark("F24 box care: fwupd, fstrim, sensors, rasdaemon, udisks2 without automount (Step 2b)"); box_marker = f24(vm, a.board)
-        vm.mark("F21 renaming the box: hostnamed, the data partition and avahi (P-05)"); f21(vm)
-        vm.mark("F17 the clock: timesyncd, tzdata, C.UTF-8"); f17(vm)
-        vm.mark("F18 the host applies a time zone (P-04)"); f18(vm)
-        vm.mark("F13 disk and admin tools run, smartd masked (Step 2)"); f13(vm)
+        vm.mark("F13 disk and admin tools run (Step 2; smartd is no longer masked, F25)"); f13(vm)
         vm.mark("NW1-NW4 NetworkManager: wired DHCP, k3s order, unmanaged k3s links, saved profile")
         netcheck.nw1(vm, record); netcheck.nw2(vm, record); netcheck.nw3(vm, record)
         nw4 = netcheck.nw4_before(vm)
         vm.mark("F15 the owner shell: key-only SSH, tty2 login, no baked password"); f15(vm)
-        vm.mark("F23 SSH keys and the SSH switch through the approval queue (P-06)"); f23(vm, token)
         vm.mark("F16 audio and Bluetooth on the screen boards (Step 3)"); btmark = f16(vm, a.board)
         vm.mark("F14 onemind completion and man pages (#882)"); f14(vm)
+        # round-2 integration: the checks of the skipped OS PRs, in ID order (F20 reboots the box, so it is last)
+        vm.mark("F17 the clock: timesyncd, tzdata, C.UTF-8"); f17(vm)
+        vm.mark("F18 the host applies a time zone (P-04)"); f18(vm)
+        vm.mark("F21 renaming the box: hostnamed, the data partition and avahi (P-05)"); f21(vm)
+        vm.mark("F23 SSH keys and the SSH switch through the approval queue (P-06)"); f23(vm, token)
+        vm.mark("F24 box care: fwupd, fstrim, sensors, rasdaemon, udisks2 without automount (Step 2b)"); box_marker = f24(vm, a.board)
+        vm.mark("F25 storage housekeeping: TRIM status, smartd warnings, eject refusal (P-10)"); smart_marker = f25(vm)
         # F20 reboots the box: it stays the last check before F3
         vm.mark("F20 an approved restart reboots the box and the ledger says succeeded (W1)"); f20(vm, token)
 
@@ -1252,7 +1362,7 @@ def main():
             seg = vm.here(); vm.send("systemctl reboot")
             al = vm.expect(ALREADY, 900).group(0)
             vm.pos = seg    # on a fast host the gate line comes before ALREADY; search this boot's buffer from its start
-            g3 = vm.wait_gate(); vm.shell_ready()
+            g3 = vm.wait_gate(since=seg); vm.shell_ready()
             new_toks = TOKEN.findall(vm.since(seg))
             ids3 = ident(vm)
             hz3 = http_code(vm, f"{GW}/healthz", timeout=900)
@@ -1261,6 +1371,7 @@ def main():
             listed3 = nodes(vm, token, ids["node_id"])
             same = [n for n in listed3 if n[0] == ids["node_id"]]
             vm.mark("F24b box-care state after the reboot"); f24_again(vm, "F24b", box_marker)
+            vm.mark("F25b storage-housekeeping state after the reboot"); f25_again(vm, "F25b", smart_marker)
             vm.mark("F19 the zone survives the reboot (P-04)"); f19(vm)
             record("F3", not new_toks and ids3 == ids and hz3 == "200" and bool(same) and bool(token),
                    f"'{al[:70]}' new_tokens={len(new_toks)} same_ids={ids3 == ids} healthz={hz3} listed={listed3} gate={g3}")
@@ -1290,6 +1401,7 @@ def main():
             same = [n for n in listed4 if n[0] == ids["node_id"]]
             already = re.search(ALREADY, s) is not None
             vm.mark("F24c box-care state after the A/B update"); f24_again(vm, "F24c", box_marker)
+            vm.mark("F25c storage-housekeeping state after the A/B update"); f25_again(vm, "F25c", smart_marker)
             record("F4", rc_i == 0 and g4 == ("mark-good", "B", "2") and mark == mark2 and len(mark) == 64 and ver2
                    and already and not TOKEN.search(s) and ids4 == ids and hz4 == "200" and bool(same),
                    f"install_rc={rc_i} gate={g4} marker_kept={mark == mark2} version2={ver2} already_configured={already} "

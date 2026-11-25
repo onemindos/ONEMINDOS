@@ -54,6 +54,7 @@ KINDS = {
     "service.restart": "service-restart",  # #636: one registry unit; the host checks it is restartable
     "system.set_timezone": "set-timezone",  # P-04: one IANA zone; the host keeps it on /data
     "instance.rename": "set-hostname",  # P-05: the box's DNS label; avahi then answers <name>.local
+    "storage.eject": "eject",  # P-10: unmount and power off one removable drive; the host checks it again
 }
 ACTION_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 # RFC 1123 labels: what the host helper may call the box (H-06: the answer is checked, not trusted).
@@ -61,6 +62,8 @@ HOSTNAME = re.compile(r"(?=.{1,253}\Z)[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9
 PROBE_TIMEOUT_S = 2.0  # GET /v1/status reads the helper on every call: a silent socket must not hold it up
 PLAN_SHA = re.compile(r"^[0-9a-f]{64}$")  # internal/host: the hash of the factory-reset plan the owner approved
 LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")  # the box name: one lower-case DNS label
+SERIAL = re.compile(r"^[A-Za-z0-9._:-]{1,64}$")
+DEVICE = re.compile(r"^/dev/[a-z][a-z0-9]{1,15}$")
 UNIT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.@-]{0,90}\.(service|socket|timer|path)$")
 ZONE = re.compile(r"^[A-Za-z][A-Za-z0-9_+-]*(/[A-Za-z0-9_+-]+){0,2}$")  # same shape as internal/host ZoneName
 NOT_ZONES = frozenset({"localtime", "posixrules", "Factory"})  # tzdata helper entries; localtime loops (host list)
@@ -211,6 +214,16 @@ class HostLink:
             if not isinstance(name, str) or not LABEL.fullmatch(name):
                 return ExecResult("failed", "the rename has no approved name", steps=[{"step": "host", "result": "bad_request"}])
             body["hostname"] = name
+        if kind == "eject":
+            device = (a.params or {}).get("device")
+            if not isinstance(device, str) or not DEVICE.fullmatch(device):
+                return ExecResult("failed", "the eject has no approved drive", steps=[{"step": "host", "result": "bad_request"}])
+            body["device"] = device
+            serial = (a.params or {}).get("serial")
+            if serial is not None:
+                if not isinstance(serial, str) or not SERIAL.fullmatch(serial):
+                    return ExecResult("failed", "the eject has a malformed drive serial", steps=[{"step": "host", "result": "bad_request"}])
+                body["serial"] = serial
         with self._lock:
             self._inflight.add(a.id)
         try:

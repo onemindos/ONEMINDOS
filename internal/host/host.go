@@ -24,7 +24,7 @@ import (
 
 // Kinds of host action. The gateway's action types map onto them:
 // system.restart, system.shutdown, system.factory_reset, os.update.install,
-// os.rollback, service.restart, system.set_timezone, instance.rename.
+// os.rollback, service.restart, system.set_timezone, instance.rename, storage.eject.
 const (
 	KindRestart        = "restart"
 	KindShutdown       = "shutdown"
@@ -34,10 +34,11 @@ const (
 	KindServiceRestart = "service-restart"
 	KindSetTimezone    = "set-timezone"
 	KindSetHostname    = "set-hostname"
+	KindEject          = "eject" // P-10: unmount and power off one USB drive
 )
 
 // Kinds lists every kind in a stable order (GET /v1/status).
-var Kinds = []string{KindRestart, KindShutdown, KindFactoryReset, KindOSInstall, KindOSRollback, KindServiceRestart, KindSetTimezone, KindSetHostname}
+var Kinds = []string{KindRestart, KindShutdown, KindFactoryReset, KindOSInstall, KindOSRollback, KindServiceRestart, KindSetTimezone, KindSetHostname, KindEject}
 
 // Operation states. going_down: the box was told to reboot or power off; the
 // next boot turns it into succeeded.
@@ -58,6 +59,8 @@ var (
 	versionRe  = regexp.MustCompile(`^[0-9A-Za-z.+-]{1,64}$`) // the gateway's InstallParams.version
 	// One lower-case DNS label: the name avahi publishes as <name>.local (the gateway derives it from the box name).
 	hostnameRe = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
+	serialRe   = regexp.MustCompile(`^[A-Za-z0-9._:-]{1,64}$`)
+	driveRe    = regexp.MustCompile(`^/dev/[a-z][a-z0-9]{1,15}$`)
 	unitRe     = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.@-]{0,90}\.(service|socket|timer|path)$`)
 )
 
@@ -86,6 +89,11 @@ type Request struct {
 	Zone string `json:"zone,omitempty"`
 	// Hostname (set-hostname only, required) is the DNS label the owner approved for the box.
 	Hostname string `json:"hostname,omitempty"`
+	// Device (eject only, required) is the removable disk the owner approved ejecting, e.g. /dev/sdb.
+	Device string `json:"device,omitempty"`
+	// Serial (eject only, optional) is the serial number the drive had when the owner was asked. If the stick was
+	// swapped for another one before approval, the serial differs and the host refuses. Empty: the drive reports none.
+	Serial string `json:"serial,omitempty"`
 }
 
 // Validate refuses a malformed request (HTTP 400).
@@ -102,7 +110,20 @@ func (r Request) Validate() error {
 	if (r.Kind == KindSetHostname) != (r.Hostname != "") {
 		return fmt.Errorf("hostname is required for %s and only for it", KindSetHostname)
 	}
+	if (r.Kind == KindEject) != (r.Device != "") {
+		return fmt.Errorf("device is required for %s and only for it", KindEject)
+	}
+	if r.Serial != "" && (r.Kind != KindEject || !serialRe.MatchString(r.Serial)) {
+		return errors.New("serial is only for eject and is 1-64 characters of A-Z a-z 0-9 . _ : -")
+	}
 	switch r.Kind {
+	case KindEject:
+		if r.Version != "" || r.PlanSHA256 != "" {
+			return errors.New("eject takes only a device")
+		}
+		if !driveRe.MatchString(r.Device) {
+			return errors.New("device must be a disk path such as /dev/sdb")
+		}
 	case KindSetTimezone:
 		if r.Version != "" || r.PlanSHA256 != "" {
 			return errors.New("set-timezone takes only a zone")
@@ -149,7 +170,7 @@ func (r Request) Validate() error {
 			return errors.New("hostname must be one lower-case DNS label (a-z, 0-9 and -, at most 63 characters)")
 		}
 	default:
-		return fmt.Errorf("unknown kind %q (restart, shutdown, factory-reset, os-install, os-rollback, service-restart, set-timezone, set-hostname)", r.Kind)
+		return fmt.Errorf("unknown kind %q (restart, shutdown, factory-reset, os-install, os-rollback, service-restart, set-timezone, set-hostname, eject)", r.Kind)
 	}
 	return nil
 }
@@ -163,6 +184,8 @@ type Op struct {
 	Unit       string     `json:"unit,omitempty"`        // service-restart: the approved unit
 	Zone       string     `json:"zone,omitempty"`        // set-timezone: the approved zone
 	Hostname   string     `json:"hostname,omitempty"`    // set-hostname: the approved name
+	Device     string     `json:"device,omitempty"`      // eject: the approved drive
+	Serial     string     `json:"serial,omitempty"`      // eject: its serial when approved
 	State      string     `json:"state"`
 	Reason     string     `json:"reason,omitempty"` // failed: a stable code
 	Message    string     `json:"message,omitempty"`
@@ -238,6 +261,7 @@ type Service struct {
 	Units  Units         // service-restart; nil: refused
 	Zones  Zones         // set-timezone; nil: refused
 	Names  Hostnamer     // set-hostname; nil: refused
+	Media  Media         // storage housekeeping and eject (housekeeping.go); nil: not on this box
 	BootID string        // /proc/sys/kernel/random/boot_id
 	Delay  time.Duration // before the box goes down, so the gateway records "accepted" first
 	Now    func() time.Time
@@ -294,6 +318,11 @@ func (s *Service) Unavailable(kind string) string {
 		if s.Names == nil {
 			return "this host service cannot rename the box"
 		}
+	case KindEject:
+		if s.Media == nil {
+			return "this host service cannot eject drives"
+		}
+		return s.Media.Unavailable()
 	case KindFactoryReset:
 		if s.Reset == nil {
 			return "factory reset is not in this OneMind version yet: the early-boot wipe ships separately (HOST-ACTIONS.md §4)"
@@ -327,7 +356,7 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if old, err := s.Store.Get(req.ActionID); err == nil {
-		if old.Kind != req.Kind || old.Version != req.Version || old.PlanSHA256 != req.PlanSHA256 || old.Unit != req.Unit || old.Zone != req.Zone || old.Hostname != req.Hostname {
+		if old.Kind != req.Kind || old.Version != req.Version || old.PlanSHA256 != req.PlanSHA256 || old.Unit != req.Unit || old.Zone != req.Zone || old.Hostname != req.Hostname || old.Device != req.Device || old.Serial != req.Serial {
 			return Op{}, false, &Refusal{"action_id_reused", "action " + req.ActionID + " was already sent as a different request"}
 		}
 		if s.active != nil && s.active.ID == old.ID {
@@ -361,6 +390,16 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 			return Op{}, false, &Refusal{"unknown_zone", err.Error()}
 		}
 	}
+	if req.Kind == KindEject {
+		// Checked again here, whatever the gateway said: only a removable disk the box is not using.
+		if err := s.Media.CheckEject(ctx, req.Device, req.Serial); err != nil {
+			var ref *Refusal
+			if errors.As(err, &ref) {
+				return Op{}, false, ref
+			}
+			return Op{}, false, &Refusal{"unavailable", err.Error()}
+		}
+	}
 	if req.Kind == KindFactoryReset {
 		// The owner approved one plan. If the disks changed since (a member
 		// added or pulled), nothing is armed: the owner must see the new plan.
@@ -369,7 +408,7 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 		}
 	}
 	now := s.now()
-	op = Op{ID: req.ActionID, Kind: req.Kind, Version: req.Version, PlanSHA256: req.PlanSHA256, Unit: req.Unit, Zone: req.Zone, Hostname: req.Hostname, State: StateAccepted, BootID: s.BootID,
+	op = Op{ID: req.ActionID, Kind: req.Kind, Version: req.Version, PlanSHA256: req.PlanSHA256, Unit: req.Unit, Zone: req.Zone, Hostname: req.Hostname, Device: req.Device, Serial: req.Serial, State: StateAccepted, BootID: s.BootID,
 		AcceptedAt: now, UpdatedAt: now, Message: "accepted"}
 	if err := s.Store.Put(op); err != nil {
 		return Op{}, false, err
@@ -514,6 +553,18 @@ func (s *Service) run(ctx context.Context, op Op) {
 		if err := s.Names.Reload(ctx); err != nil {
 			s.log().Warn("restarting the gateway after a rename failed", "err", err)
 		}
+	case KindEject:
+		s.set(&op, StateRunning, "", "unmounting "+op.Device)
+		if err := s.Media.Eject(ctx, op.Device, op.Serial); err != nil {
+			var ref *Refusal
+			if errors.As(err, &ref) {
+				s.set(&op, StateFailed, ref.Reason, ref.Message)
+				return
+			}
+			s.set(&op, StateFailed, "host_error", err.Error())
+			return
+		}
+		s.set(&op, StateSucceeded, "", op.Device+" is safe to remove")
 	case KindFactoryReset:
 		s.set(&op, StateRunning, "", "arming the factory reset")
 		if err := s.Reset.Arm(ctx, op); err != nil {
