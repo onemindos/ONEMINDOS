@@ -3,7 +3,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import JSON, CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, String, Text, inspect, text
+from sqlalchemy import JSON, CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, Integer, String, Text, inspect, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..ledger import Base
@@ -91,3 +91,20 @@ class WorkCreateRow(Base):
     fingerprint: Mapped[str] = mapped_column(String(64))
     project_id: Mapped[str | None] = mapped_column(String(40))
     result_id: Mapped[str | None] = mapped_column(String(40))
+
+
+class ActivityRow(Base):
+    """One line of a task's history. It records which fields changed, never their values."""
+
+    __tablename__ = "work_activity"
+    __table_args__ = (
+        ForeignKeyConstraint(["project_id", "task_id"], ["work_tasks.project_id", "work_tasks.id"], ondelete="CASCADE"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    project_id: Mapped[str] = mapped_column(String(40), index=True)
+    task_id: Mapped[str] = mapped_column(String(40))
+    actor_id: Mapped[str] = mapped_column(String(128))
+    kind: Mapped[str] = mapped_column(String(16))
+    fields: Mapped[list[str]] = mapped_column(JSON)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

@@ -72,3 +72,84 @@ func (s *WorkService) Complete(ctx context.Context, project, id string) (*WorkTa
 		headers: map[string]string{"If-Match": strconv.Itoa(t.Revision)}}, &t)
 	return &t, err
 }
+
+// WorkProject is a Work project as /v1/work/projects returns it.
+type WorkProject struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	AIAccess string `json:"ai_access"`
+}
+
+// WorkParsed is what quick-add would file for a line of text (operation work.parse). Nothing is created.
+type WorkParsed struct {
+	Title        string     `json:"title"`
+	Project      *string    `json:"project"`
+	ProjectID    *string    `json:"project_id"`
+	ProjectFound bool       `json:"project_found"`
+	Labels       []string   `json:"labels"`
+	Priority     *int       `json:"priority"`
+	Assignee     *string    `json:"assignee"`
+	DueAt        *time.Time `json:"due_at"`
+	DueAllDay    bool       `json:"due_all_day"`
+}
+
+// WorkActivity is one line of a task's history: which fields changed, never their values.
+type WorkActivity struct {
+	ID      int       `json:"id"`
+	ActorID string    `json:"actor_id"`
+	Kind    string    `json:"kind"`
+	Fields  []string  `json:"fields"`
+	At      time.Time `json:"at"`
+}
+
+func projectPath(id string) string { return "/v1/work/projects/" + url.PathEscape(id) }
+
+// Projects is operation work.projects_list.
+func (s *WorkService) Projects(ctx context.Context) ([]WorkProject, error) {
+	var v []WorkProject
+	return v, s.c.Do(ctx, http.MethodGet, "/v1/work/projects", nil, &v)
+}
+
+// UpdateProject is operation work.project_update. An empty name or access leaves that field alone.
+func (s *WorkService) UpdateProject(ctx context.Context, id, name, aiAccess string) (*WorkProject, error) {
+	body := map[string]string{}
+	if name != "" {
+		body["name"] = name
+	}
+	if aiAccess != "" {
+		body["ai_access"] = aiAccess
+	}
+	var p WorkProject
+	return &p, s.c.Do(ctx, http.MethodPatch, projectPath(id), body, &p)
+}
+
+// DeleteProject is operation work.project_delete. Its tasks go with it.
+func (s *WorkService) DeleteProject(ctx context.Context, id string) error {
+	return s.c.Do(ctx, http.MethodDelete, projectPath(id), nil, nil)
+}
+
+// AddMember is operation work.member_add (the project creator only).
+func (s *WorkService) AddMember(ctx context.Context, project, person string) error {
+	return s.c.Do(ctx, http.MethodPut, projectPath(project)+"/members/"+url.PathEscape(person), nil, nil)
+}
+
+// RemoveMember is operation work.member_remove (the project creator only).
+func (s *WorkService) RemoveMember(ctx context.Context, project, person string) error {
+	return s.c.Do(ctx, http.MethodDelete, projectPath(project)+"/members/"+url.PathEscape(person), nil, nil)
+}
+
+// Parse is operation work.parse: a preview of quick-add.
+func (s *WorkService) Parse(ctx context.Context, text, tz string) (*WorkParsed, error) {
+	body := map[string]string{"text": text}
+	if tz != "" {
+		body["tz"] = tz
+	}
+	var p WorkParsed
+	return &p, s.c.Do(ctx, http.MethodPost, "/v1/work/parse", body, &p)
+}
+
+// Activity is operation work.task_activity, newest first.
+func (s *WorkService) Activity(ctx context.Context, project, task string) ([]WorkActivity, error) {
+	var v []WorkActivity
+	return v, s.c.Do(ctx, http.MethodGet, projectPath(project)+"/tasks/"+url.PathEscape(task)+"/activity", nil, &v)
+}

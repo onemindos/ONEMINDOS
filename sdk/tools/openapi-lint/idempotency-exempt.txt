@@ -42,3 +42,8 @@ DELETE /v1/agent-browser/sessions/{session_id}  # ending a session twice is the 
 DELETE /v1/agent-browser/sites/{site_id}  # removing an approved site twice leaves the same allowlist (the second answers 404)
 PATCH /v1/work/projects/{project_id}/tasks/{task_id}  # guarded by If-Match; replay cannot change a task at a newer revision
 DELETE /v1/work/projects/{project_id}/tasks/{task_id}  # the second removal sees no task
+POST /v1/work/parse  # read only: previews quick-add text and creates nothing
+PATCH /v1/work/projects/{project_id}  # sets fields to the stated values, so a repeat changes nothing more
+DELETE /v1/work/projects/{project_id}  # the second removal sees no project
+PUT /v1/work/projects/{project_id}/members/{person_id}  # adding a member twice is the same as once
+DELETE /v1/work/projects/{project_id}/members/{person_id}  # removing a member twice is the same as once

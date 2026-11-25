@@ -4,7 +4,7 @@ from typing import Annotated, Literal
 from urllib.parse import urlencode
 
 from fastapi import Depends, FastAPI, Header, Query, Request, Response
-from pydantic import AwareDatetime, ConfigDict, Field, ValidationError
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, ValidationError
 
 from ..auth import Principal
 from ..context import Gateway
@@ -14,7 +14,8 @@ from ..identity.scopes import has_any, register_route_scope
 from ..jsonbody import JsonBody
 from ..work.access import WORK_ROLES, delegated_reader
 from ..work.parse import parse_quick_add
-from ..work.service import CaptureFields, PersonAssignee, Project, ProjectFields, Task, TaskFields, TaskView, WorkService
+from ..work.service import (Activity, CaptureFields, PersonAssignee, Project, ProjectChanges, ProjectFields, Task,
+                            TaskFields, TaskView, WorkService)
 
 ORDER = 260
 BASE = "/v1/work"
@@ -28,6 +29,24 @@ RevisionHeader = Annotated[str, Header(alias="If-Match", min_length=1, max_lengt
 
 class ProjectBody(ProjectFields, JsonBody):
     pass
+
+
+class ProjectChangeBody(ProjectChanges, JsonBody):
+    pass
+
+
+class ParsedLine(BaseModel):
+    """What quick-add would file for a line of text. Nothing is created."""
+
+    title: str
+    project: str | None
+    project_id: str | None
+    project_found: bool
+    labels: list[str]
+    priority: int | None
+    assignee: str | None
+    due_at: AwareDatetime | None
+    due_all_day: bool
 
 
 class CaptureBody(CaptureFields, JsonBody):
@@ -81,6 +100,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
             (p.kind == "person" and p.role in WORK_ROLES)
             or (p.kind == "agent" and delegated_reader(request, p) is not None)
         ):
+            raise denied(p, "read")
+        return p
+
+    def person_reader(request: Request, p: Principal = Depends(gw.principal)) -> Principal:
+        """Project lists, members and task history are a person's own view; agents read tasks instead."""
+        if p.kind != "person" or p.role not in WORK_ROLES or not scope(request, "work:read"):
             raise denied(p, "read")
         return p
 
@@ -159,6 +184,69 @@ def register(app: FastAPI, gw: Gateway) -> None:
         else:
             response.status_code = 200
         return task
+
+    @app.post(BASE + "/parse", tags=["work"], operation_id="work.parse",
+              openapi_extra={"security": [{"bearer": ["work:write"]}]}, responses=error_responses(401, 403, 422))
+    def parse(body: QuickAddBody, p: Principal = Depends(writer)) -> ParsedLine:
+        """Preview quick-add: the fields a line would become, without filing a task."""
+        try:
+            parsed = parse_quick_add(body.text, gw.clock(), body.tz)
+        except ValueError as error:
+            raise ApiError(422, "conflict", str(error), reason="bad_quick_add") from None
+        project_id, found = None, True
+        if parsed["project"]:
+            try:
+                project_id = service.project_id_named(p, parsed["project"])
+            except ApiError:
+                found = False
+        return ParsedLine(project_id=project_id, project_found=found, **{
+            key: parsed[key] for key in ("title", "project", "labels", "priority", "assignee", "due_at", "due_all_day")})
+
+    @app.get(BASE + "/projects", tags=["work"], operation_id="work.projects_list", openapi_extra={"security": [{"bearer": ["work:read"]}]}, responses=error_responses(401, 403))
+    def list_projects(p: Principal = Depends(person_reader)) -> list[Project]:
+        return service.list_projects(p)
+
+    @app.get(BASE + "/projects/{project_id}", tags=["work"], operation_id="work.project_get", openapi_extra={"security": [{"bearer": ["work:read"]}]},
+             responses=error_responses(401, 403, 404))
+    def get_project(project_id: str, p: Principal = Depends(person_reader)) -> Project:
+        return service.get_project(p, project_id)
+
+    @app.patch(BASE + "/projects/{project_id}", tags=["work"], operation_id="work.project_update", openapi_extra={"security": [{"bearer": ["work:write"]}]},
+               responses=error_responses(401, 403, 404, 409, 422))
+    def update_project(project_id: str, body: ProjectChangeBody, p: Principal = Depends(writer)) -> Project:
+        return service.update_project(p, project_id, body)
+
+    @app.delete(BASE + "/projects/{project_id}", tags=["work"], operation_id="work.project_delete", openapi_extra={"security": [{"bearer": ["work:write"]}]}, status_code=204,
+                responses=error_responses(401, 403, 404, 409))
+    def delete_project(project_id: str, p: Principal = Depends(writer)) -> Response:
+        service.delete_project(p, project_id)
+        return Response(status_code=204)
+
+    @app.get(BASE + "/projects/{project_id}/members", tags=["work"], operation_id="work.members_list", openapi_extra={"security": [{"bearer": ["work:read"]}]},
+             responses=error_responses(401, 403, 404))
+    def list_members(project_id: str, p: Principal = Depends(person_reader)) -> list[str]:
+        return service.members(p, project_id)
+
+    @app.put(BASE + "/projects/{project_id}/members/{person_id}", tags=["work"], operation_id="work.member_add", openapi_extra={"security": [{"bearer": ["work:write"]}]},
+             status_code=204, responses=error_responses(401, 403, 404))
+    def add_member(project_id: str, person_id: str, request: Request, p: Principal = Depends(writer)) -> Response:
+        user = request.app.state.identity.user(person_id)
+        if user is None or user.disabled or user.role not in WORK_ROLES:
+            raise ApiError(404, "not_found", "Work item not found")
+        service.add_member(p, project_id, Principal(id=user.id, kind="person", role=user.role))
+        return Response(status_code=204)
+
+    @app.delete(BASE + "/projects/{project_id}/members/{person_id}", tags=["work"], operation_id="work.member_remove", openapi_extra={"security": [{"bearer": ["work:write"]}]},
+                status_code=204, responses=error_responses(401, 403, 404, 409))
+    def remove_member(project_id: str, person_id: str, p: Principal = Depends(writer)) -> Response:
+        service.remove_member(p, project_id, person_id)
+        return Response(status_code=204)
+
+    @app.get(TASK + "/activity", tags=["work"], operation_id="work.task_activity", openapi_extra={"security": [{"bearer": ["work:read"]}]},
+             responses=error_responses(401, 403, 404))
+    def task_activity(project_id: str, task_id: str, p: Principal = Depends(person_reader)) -> list[Activity]:
+        """The newest 100 entries, newest first."""
+        return service.activity(p, project_id, task_id)
 
     @app.patch(TASK, tags=["work"], operation_id="work.task_update", responses=error_responses(401, 403, 404, 409, 422))
     def change_task(project_id: str, task_id: str, body: ChangeBody, revision: RevisionHeader,
