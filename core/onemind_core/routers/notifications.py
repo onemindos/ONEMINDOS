@@ -216,6 +216,14 @@ def _list_params(limit: int | None) -> int:
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
 ORDER = 240
+PREFERENCES_SCHEMA = {"type": "object", "properties": {
+    "mutes": {"type": "array", "maxItems": routing.MAX_ROUTES, "items": {"type": "object",
+              "required": ["topic", "channel"], "properties": {"topic": {"type": "string"}, "channel": {"type": "string"}},
+              "additionalProperties": False},
+              "description": "Suppress delivery to a channel, device, in_app or all (*) while keeping the inbox item."},
+    "retention_days": {"type": "integer", "minimum": 1, "maximum": routing.MAX_INBOX_DAYS,
+                       "description": "Days to keep the person's inbox, defaulting to 90."},
+}}
 
 
 def register(app: FastAPI, gw: Gateway) -> None:
@@ -448,14 +456,15 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return svc.test_target(ch.id, p.id)
 
     # ---- preferences --------------------------------------------------------------------
-    @app.get("/v1/notifications/preferences", operation_id="notifications.preferences.get", tags=[TAG], responses=error_responses(401, 403))
+    @app.get("/v1/notifications/preferences", operation_id="notifications.preferences.get", tags=[TAG],
+             responses={200: {"content": {"application/json": {"schema": PREFERENCES_SCHEMA}}}, **error_responses(401, 403)})
     def get_preferences(p: Principal = Depends(principal)):
         _person(p)
         doc, tag = svc.preferences(p.id)
         return JSONResponse(content=doc, headers={"ETag": tag})
 
     @app.put("/v1/notifications/preferences", operation_id="notifications.preferences.set", tags=[TAG], responses=error_responses(401, 403, 409, 422),
-             openapi_extra={"requestBody": {"required": True, "content": {"application/json": {"schema": {"type": "object"}}}}})
+             openapi_extra={"requestBody": {"required": True, "content": {"application/json": {"schema": PREFERENCES_SCHEMA}}}})
     @reads_body
     async def put_preferences(request: Request, if_match: str | None = Header(default=None),
                               p: Principal = Depends(principal)):
@@ -465,7 +474,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
         except (ValueError, json.JSONDecodeError) as exc:
             raise ApiError(422, "conflict", f"preferences: {exc}") from None
         mine = set(svc._targets_of(p.id))
-        unknown = sorted({c for r in doc["routes"] for c in r["channels"] if c != "*"} - mine)
+        referenced = {c for r in doc["routes"] for c in r["channels"] if c != "*"}
+        referenced.update(m["channel"] for m in doc.get("mutes", []) if m["channel"] not in ("*", routing.IN_APP))
+        unknown = sorted(referenced - mine)
         if unknown:
             raise ApiError(422, "conflict", f"preferences: not your channels or devices: {unknown}")
         _, current = svc.preferences(p.id)
