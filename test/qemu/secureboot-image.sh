@@ -29,11 +29,21 @@ SIZE=$(( ( $(du -s -B1M --apparent-size "$W/tree" | cut -f1) * 13 / 10 + 384 + 6
 $A ext4 --work "$W" --out "$W/system.ext4" --size-mib "$SIZE" >/dev/null
 $A disk --board "$BOARD" --work "$W" --system "$W/system.ext4" --out "$OUT/disk.img" \
   --sb-key "$K/db.key" --sb-cert "$K/db.crt"
-# Version 2 for SB5: the same tree one version later, its UKIs built and signed here and carried in the bundle.
-sed -i 's/^ONEMIND_VERSION=.*/ONEMIND_VERSION="2"/' "$W/tree/usr/lib/os-release"
-$A ext4 --work "$W" --out "$W/system.ext4" --size-mib "$SIZE" >/dev/null
-$A bundle --board "$BOARD" --system "$W/system.ext4" --version 2 --cert "$K/signer.pem" --key "$K/signer.key" \
-  --out "$W/bdisk/bundles/good.raucb" --sb-key "$K/db.key" --sb-cert "$K/db.crt" --work "$W" >/dev/null
+# Update bundles for SB5-SB7: the same tree one version later, UKIs built and signed here and carried in the bundle.
+T=$W/tree
+setver() { sed -i "s/^ONEMIND_VERSION=.*/ONEMIND_VERSION=\"$1\"/" "$T/usr/lib/os-release"; }
+bundle() {   # $1 version, $2 out name
+  $A ext4 --work "$W" --out "$W/system.ext4" --size-mib "$SIZE" >/dev/null
+  $A bundle --board "$BOARD" --system "$W/system.ext4" --version "$1" --cert "$K/signer.pem" --key "$K/signer.key" \
+    --out "$W/bdisk/bundles/$2.raucb" --sb-key "$K/db.key" --sb-cert "$K/db.crt" --work "$W" >/dev/null
+}
+setver 2; bundle 2 good                                                  # SB5: a good update
+# SB6: k3s exits at start, so the health gate rejects slot B and the box falls back to A (same fixture as T4).
+setver 3; printf 'K3S_EXTRA_ARGS=%s\n' "--onemind-test-unknown-flag" > "$T/etc/default/k3s"; bundle 3 bad-k3s
+printf 'K3S_EXTRA_ARGS=\n' > "$T/etc/default/k3s"
+# SB7: PID 1 exits, the kernel panics in slot B's one trial boot (same fixture as T6).
+mv "$T/sbin/init" "$T/sbin/init.real"; install -m 755 "$SRC/test/qemu/bad-boot-init" "$T/sbin/init"
+setver 5; bundle 5 bad-boot
 rauc info --keyring="$K/ca.pem" "$W/bdisk/bundles/good.raucb" 2>&1 | grep -E "Verified|Bundle Format|efi|rootfs" || true
 BSIZE=$(( $(du -s -B1M "$W/bdisk/bundles" | cut -f1) + 256 ))
 rm -f "$OUT/bundles.img"
