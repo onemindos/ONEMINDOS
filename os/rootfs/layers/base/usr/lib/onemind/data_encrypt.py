@@ -15,6 +15,7 @@ What it does, by what it finds on the onemind-data partition:
       LUKS2 with a random key that only ever exists in RAM, btrfs inside it, a recovery key, then a TPM2 key bound
       to PCR 7 (TPM) or the owner's passphrase (opt-in), and the random key's slot is wiped; the recovery key is
       printed once on the console and left in /run/onemind/data-recovery-key (RAM only) for the recovery-kit step;
+      the LUKS2 header also gets the OneMind token (id 30), which the factory reset needs to find the disk;
     or plain btrfs on the partition (no TPM, no opt-in).
     Fail closed: when the firmware announces a TPM 2.0 (the ACPI TPM2 table, or the TPM event log with a kernel-reported
     major version of 2, as systemd's efi_has_tpm2() checks) but /dev/tpmrm0 is not there (its driver probed late or
@@ -29,6 +30,9 @@ What it does, by what it finds on the onemind-data partition:
     never touched or converted here; migrating a live box needs its own design (backup, re-create, restore).
   - anything else: do nothing and say so (the data check then puts the box in recovery mode).
 
+A factory reset armed on the ESP (reset_armed) makes it do nothing at all this boot: the wipe unit runs next, erases the
+partition and restarts the box, and THAT boot finds a blank partition and formats it as above.
+
 What it will never do: format a partition that holds anything, or write the recovery key or the passphrase to disk,
 the journal or a command line (secrets go on stdin or in a 0600 file in RAM).
 Exit status is always 0: a locked disk is reported by the data check (recovery mode), not by a failed unit.
@@ -37,7 +41,7 @@ PCR 7 alone is a weak binding on a box without Secure Boot (anyone who boots ano
 firmware measures the same PCR 7). The recovery key is the strong fallback; adding the signed PCR 11 policy
 waits for UKIs (docs/leap/core/SECURITY.md).
 """
-import contextlib, json, os, re, signal, subprocess, sys, time
+import contextlib, json, os, re, signal, subprocess, sys, time, uuid
 
 LABEL = "onemind-data"
 NAME = "onemind-data"                      # /dev/mapper/onemind-data
@@ -55,6 +59,12 @@ MKFS_MNT = "/run/onemind-data-mkfs"        # where the new btrfs is mounted (top
 SUBVOLS = ("@", "@storage")                # @ first: it becomes the default subvolume, which /data mounts
 SNAPSHOTS_SUBVOL = "@storage/.snapshots"   # where snapper expects them (SUBVOLUME/.snapshots)
 STORAGE_DIR = "@/storage"                  # the (empty) mount point of @storage, inside @
+# The OneMind LUKS2 token (internal/storage/luks.go: TokenID, TokenType, Token). The factory reset
+# (internal/host/reset.go, ops.Candidates) lists a LUKS2 data partition only when it carries this token and the token's
+# partuuid is the partition's own; a box that has none refuses to reset. Plain btrfs needs no token: the reset
+# recognises it by the system disk, the GPT name and the btrfs label.
+TOKEN_ID = 30
+TOKEN_TYPE = "onemind-storage"
 OPT_IN = "onemind.data_encrypt=passphrase"
 MIN_PASSPHRASE = 8
 CRYPTSETUP = "/usr/lib/systemd/systemd-cryptsetup"
@@ -75,6 +85,9 @@ SCRUB_BYTES = 16 << 20                     # a LUKS2 header plus keyslots is up 
 
 
 ACTIVE_CONSOLES = "/sys/class/tty/console/active"
+ESP_NODE = "/dev/disk/by-partlabel/onemind-esp"   # the ESP, which /etc/fstab mounts at /boot/efi (later than this runs)
+RESET_MARKER = "onemind/factory-reset"            # armed factory reset (internal/host/reset.go MarkerName)
+ESP_PROBE = RUN + "/esp-probe"
 
 
 def console_devices():
@@ -301,11 +314,39 @@ def _ask_twice(ask, tries):
     return None
 
 
-def make_btrfs(dev, runner=run, force=False):
+def identity(node, runner=run):
+    """(LUKS UUID, GPT partition UUID) of `node`, lower case, '' for one blkid cannot read."""
+    out = runner(["blkid", "-p", "-o", "export", node], check=False).stdout
+    kv = dict(line.split("=", 1) for line in out.splitlines() if "=" in line)
+    return kv.get("UUID", "").lower(), kv.get("PART_ENTRY_UUID", "").lower()
+
+
+def onemind_token(set_uuid, member_uuid, partuuid, generation=1):
+    """The token JSON the reset and the boot assembly read (storage.Token): set, member, own partition, generation."""
+    return json.dumps({"type": TOKEN_TYPE, "keyslots": [], "set_uuid": set_uuid, "member_uuid": member_uuid,
+                       "partuuid": partuuid, "generation": generation})
+
+
+def write_token(node, set_uuid, runner=run):
+    """Give the LUKS2 header the OneMind token (header only: it needs no key). Without the partition's own GPT id
+    the token would name no partition and the reset would skip the disk, so then no token is written and the box
+    says so; it still works, it just cannot be factory-reset until the token is added."""
+    luks_uuid, partuuid = identity(node, runner)
+    if not partuuid:
+        say("the data partition has no GPT partition id; the OneMind token was not written, so a factory reset "
+            "will refuse this box")
+        return False
+    runner(["cryptsetup", "token", "import", "--token-id", str(TOKEN_ID), node],
+           input=onemind_token(set_uuid, luks_uuid, partuuid))
+    return True
+
+
+def make_btrfs(dev, runner=run, force=False, set_uuid=None):
     """btrfs on `dev` with the subvolumes in SUBVOLS, @ set as the default (so /etc/fstab needs no subvol= option and
     the same line still mounts the ext4 of older boxes). `force` only for a LUKS volume made seconds ago, whose
     content is random-looking; on a raw partition mkfs must refuse anything it recognises."""
-    runner(["mkfs.btrfs", "-q", "--nodiscard", "-L", LABEL] + (["-f"] if force else []) + [dev])
+    runner(["mkfs.btrfs", "-q", "--nodiscard", "-L", LABEL] + (["-U", set_uuid] if set_uuid else []) +
+           (["-f"] if force else []) + [dev])
     os.makedirs(MKFS_MNT, mode=0o700, exist_ok=True)
     runner(["mount", "-t", "btrfs", "-o", "subvolid=5", dev, MKFS_MNT])
     try:
@@ -334,6 +375,7 @@ def first_boot_encrypt(node, has_tpm, runner=run, rand=os.urandom, passphrase=No
     Returns {'recovery_key', 'tpm2', 'passphrase'}. On any failure the partition is wiped (signatures, then the
     first 16 MiB zeroed) back to blank (it held nothing) so the next boot retries."""
     dev = "/dev/mapper/" + NAME
+    set_uuid = str(uuid.uuid4())             # the set's id: the btrfs UUID and the OneMind token's set_uuid
     fd = os.open(KEYFILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "wb") as f:
         f.write(rand(64))
@@ -343,10 +385,11 @@ def first_boot_encrypt(node, has_tpm, runner=run, rand=os.urandom, passphrase=No
         runner(["cryptsetup", "luksFormat", "--type", "luks2", "--batch-mode", "--cipher", "aes-xts-plain64",
                 "--key-size", "512", "--pbkdf", "pbkdf2", "--pbkdf-force-iterations", "1000",
                 "--key-file", KEYFILE, node])
+        write_token(node, set_uuid, runner)
         runner(["cryptsetup", "open", "--key-file", KEYFILE, "--perf-no_read_workqueue",
                 "--perf-no_write_workqueue", "--persistent", node, NAME])
         opened = True
-        make_btrfs(dev, runner, force=True)
+        make_btrfs(dev, runner, force=True, set_uuid=set_uuid)
         out = runner(["systemd-cryptenroll", "--unlock-key-file=" + KEYFILE, "--recovery-key", node]).stdout
         key = parse_recovery_key(out)
         if not key:
@@ -403,6 +446,26 @@ def wait_for(path, seconds=30):
     return os.path.exists(path)
 
 
+def reset_armed(runner=run, node=ESP_NODE, probe=ESP_PROBE):
+    """True when an armed factory reset is waiting on the ESP. Why this unit asks: it runs before the ESP is mounted, and
+    the reset (onemind-factory-reset.service, after this) erases the data disk. Unlocking it first would ask a
+    passphrase box for the passphrase of data the owner just approved erasing, and a TPM box would open it; after the wipe
+    the keyslots are gone, so a headless box would then wait for a recovery key for ever. The ESP is mounted read-only,
+    only for this look, and any doubt answers False (a normal boot)."""
+    if not os.path.exists(node):
+        return False
+    try:
+        os.makedirs(probe, exist_ok=True)
+    except OSError:
+        return False
+    if runner(["mount", "-o", "ro,nosuid,nodev,noexec", "-t", "vfat", node, probe], check=False).returncode != 0:
+        return False
+    try:
+        return os.path.exists(os.path.join(probe, RESET_MARKER))
+    finally:
+        runner(["umount", probe], check=False)
+
+
 def main(runner=run):
     if not wait_for(f"/dev/disk/by-partlabel/{LABEL}"):
         say(f"no partition labelled {LABEL}; nothing to do")
@@ -410,6 +473,10 @@ def main(runner=run):
     node = os.path.realpath(f"/dev/disk/by-partlabel/{LABEL}")
     if os.path.exists("/dev/mapper/" + NAME):
         return 0                                     # already open (this is not the first run of the boot)
+    if reset_armed(runner):
+        write_state(state="reset-pending", reason="a factory reset is armed; the data disk is not opened")
+        say("a factory reset is armed: not opening or making the data disk; it is wiped next and the box restarts")
+        return 0
     has_tpm = os.path.exists(TPM_DEV)
     firmware_tpm = has_tpm or firmware_has_tpm()
     if firmware_tpm and not has_tpm:

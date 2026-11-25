@@ -39,7 +39,12 @@ type Candidate struct {
 	Disk     string         `json:"disk"`
 	System   bool           `json:"system_disk"`
 	Token    *storage.Token `json:"token,omitempty"`
-	Skip     string         `json:"skipped,omitempty"`
+	// Plain: an unencrypted btrfs data partition (a box without a TPM, #152).
+	// It has no LUKS header to carry a token, so Candidates describes it with
+	// a synthetic one (the btrfs UUID is the set, generation 0) and only for
+	// the factory reset, never for the boot assembly.
+	Plain bool   `json:"plain,omitempty"`
+	Skip  string `json:"skipped,omitempty"`
 }
 
 // Choose picks the set to assemble: the one with a member on the system
@@ -154,7 +159,7 @@ func Assemble(ctx context.Context, r Runner, o AssembleOptions) (AssembleResult,
 	opened := map[string]string{} // part → mapper
 	failed := map[string]bool{}   // not retried in this boot: no repeated prompts
 	for {
-		cands, blank, err := candidates(ctx, col, r)
+		cands, blank, err := candidates(ctx, col, r, false)
 		if err != nil {
 			return res, err
 		}
@@ -271,19 +276,48 @@ func mappers(opened map[string]string) []string {
 
 // Candidates lists the onemind-data partitions of this box with their tokens
 // (read-only: lsblk and `cryptsetup token export`). The factory reset plan
-// uses it to name every member it would erase.
+// uses it to name every member it would erase. It also reports the plain
+// btrfs data partition of a box without a TPM (Plain), which the boot
+// assembly never sees: a plain partition is accepted only on the system
+// disk, with the GPT name and the btrfs label onemind-data, so another
+// disk that merely looks like data is never listed.
 func Candidates(ctx context.Context, r Runner) ([]Candidate, error) {
 	sr, ok := r.(storage.Runner)
 	if !ok {
 		sr = stdoutOf{r}
 	}
-	cands, _, err := candidates(ctx, &storage.Collector{Run: sr}, r)
+	cands, _, err := candidates(ctx, &storage.Collector{Run: sr}, r, true)
 	return cands, err
+}
+
+// BlankMembers maps the PARTUUID (lower case) of every onemind-data partition
+// that holds no signature at all to its device path. The factory reset uses it
+// on a retry: a member whose signatures were cleared before the power went is
+// blank, so Candidates no longer lists it, but it is still the approved plan's
+// member and only needs its head zeroed.
+func BlankMembers(ctx context.Context, r Runner) (map[string]string, error) {
+	sr, ok := r.(storage.Runner)
+	if !ok {
+		sr = stdoutOf{r}
+	}
+	disks, err := (&storage.Collector{Run: sr}).Inventory(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]string{}
+	for _, d := range disks {
+		for _, s := range d.Holds {
+			if s.Type == "part" && s.PartLabel == "onemind-data" && s.FSType == "" && s.PartUUID != "" {
+				out[strings.ToLower(s.PartUUID)] = s.Path
+			}
+		}
+	}
+	return out, nil
 }
 
 // candidates lists onemind-data partitions with their tokens, and a blank
 // onemind-data partition on the system disk (first boot), if any.
-func candidates(ctx context.Context, col *storage.Collector, r Runner) ([]Candidate, string, error) {
+func candidates(ctx context.Context, col *storage.Collector, r Runner, plain bool) ([]Candidate, string, error) {
 	disks, err := col.Inventory(ctx, nil)
 	if err != nil {
 		return nil, "", err
@@ -298,6 +332,12 @@ func candidates(ctx context.Context, col *storage.Collector, r Runner) ([]Candid
 			sys := d.Role == storage.RoleSystem
 			if s.FSType == "" && sys {
 				blank = s.Path
+				continue
+			}
+			if plain && sys && s.FSType == "btrfs" && s.Label == "onemind-data" && s.UUID != "" && s.PartUUID != "" {
+				out = append(out, Candidate{Part: s.Path, PartUUID: s.PartUUID, Disk: d.Path, System: true, Plain: true,
+					Token: &storage.Token{Type: storage.TokenType, Keyslots: []int{}, SetUUID: strings.ToLower(s.UUID),
+						MemberUUID: strings.ToLower(s.UUID), PartUUID: s.PartUUID, Generation: 0}})
 				continue
 			}
 			if s.FSType != "crypto_LUKS" {

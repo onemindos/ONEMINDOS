@@ -4,7 +4,7 @@ TPM2 + recovery-key unlock, and the founder's rule of 2026-11-22: no TPM means u
 passphrase. data_encrypt.py decides everything; these tests run it with a fake command runner and check the command
 sequence, the secrets handling and the 'never touch data that is already there' rules. The real boot (swtpm) is
 test/qemu/dataenc.py, run in CI."""
-import copy, hashlib, importlib.util, os, re, subprocess, sys, tempfile, unittest
+import copy, hashlib, json, importlib.util, os, re, shutil, subprocess, sys, tempfile, unittest
 from unittest import mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -16,6 +16,8 @@ sys.path.insert(0, os.path.join(ROOT, "os", "assemble"))
 
 RECOVERY = "cccccccd-cccccccd-cccccccd-cccccccd-cccccccd-cccccccd-cccccccd-cccccccd"
 PASSPHRASE = "correct horse battery staple"
+PARTUUID = "6f1d0000-0000-4000-8000-0000000000aa"
+LUKS_UUID = "11110000-0000-4000-8000-00000000bbbb"
 
 
 def rd(*p):
@@ -26,8 +28,8 @@ def rd(*p):
 class FakeRunner:
     """Records every command; `fail` is a substring of a command that should fail; `answers` are what
     systemd-ask-password returns, one per call (None = the person gave up)."""
-    def __init__(self, fail=None, enroll_out=None, answers=()):
-        self.calls, self.fail, self.answers = [], fail, list(answers)
+    def __init__(self, fail=None, enroll_out=None, answers=(), partuuid=PARTUUID):
+        self.calls, self.fail, self.answers, self.partuuid = [], fail, list(answers), partuuid
         self.enroll_out = f"A secret recovery key has been generated:\n\n    {RECOVERY}\n" if enroll_out is None else enroll_out
 
     def __call__(self, cmd, input=None, check=True):
@@ -35,6 +37,8 @@ class FakeRunner:
         self.calls.append((cmd, input))
         rc = 1 if self.fail and self.fail in line else 0
         out = self.enroll_out if "--recovery-key" in line and rc == 0 else ""
+        if cmd[0] == "blkid" and "export" in cmd:
+            out = f"UUID={LUKS_UUID.upper()}\nTYPE=crypto_LUKS\n" + (f"PART_ENTRY_UUID={self.partuuid}\n" if self.partuuid else "")
         if cmd[0] == "systemd-ask-password":
             ans = self.answers.pop(0) if self.answers else None
             rc, out = (1, "") if ans is None else (0, ans + "\n")
@@ -161,7 +165,7 @@ class FirstBoot(unittest.TestCase):
         return r, de.first_boot_encrypt("/dev/vda7", tpm, r, rand=lambda n: b"\x07" * n, passphrase=passphrase)
 
     STEPS = ("luksFormat", "cryptsetup open", "mkfs.btrfs", "subvolume create", "chmod", "set-default", "umount",
-             "--recovery-key", "luksAddKey", "--tpm2-device=auto", "luksKillSlot", "mount")
+             "--recovery-key", "luksAddKey", "--tpm2-device=auto", "luksKillSlot", "mount", "blkid", "token import")
 
     def step(self, line):
         return next(w for w in self.STEPS if w in line)
@@ -170,7 +174,7 @@ class FirstBoot(unittest.TestCase):
         r, res = self.go(True)
         L = r.lines()
         self.assertEqual([self.step(l) for l in L],
-                         ["luksFormat", "cryptsetup open", "mkfs.btrfs", "mount", "subvolume create", "subvolume create",
+                         ["luksFormat", "blkid", "token import", "cryptsetup open", "mkfs.btrfs", "mount", "subvolume create", "subvolume create",
                           "subvolume create", "chmod", "set-default", "umount", "--recovery-key", "--tpm2-device=auto",
                           "luksKillSlot"])
         self.assertEqual(len([l for l in L if "subvolume create" in l]), 3)      # @, @storage, @storage/.snapshots
@@ -178,11 +182,47 @@ class FirstBoot(unittest.TestCase):
         self.assertIn("--type luks2", fmt)
         self.assertIn("aes-xts-plain64", fmt)
         self.assertTrue(fmt.endswith("/dev/vda7"))
-        self.assertIn("--tpm2-pcrs=7", L[11])
-        self.assertIn("-L onemind-data", L[2])
-        self.assertTrue(L[2].endswith(" /dev/mapper/onemind-data"))
+        self.assertIn("--tpm2-pcrs=7", next(l for l in L if "--tpm2-device=auto" in l))
+        mk = next(l for l in L if l.startswith("mkfs.btrfs"))
+        self.assertIn("-L onemind-data", mk)
+        self.assertTrue(mk.endswith(" /dev/mapper/onemind-data"))
         self.assertFalse(any("mkfs.ext4" in l for l in L))
         self.assertEqual(res, {"recovery_key": RECOVERY, "tpm2": True, "passphrase": False})
+
+    def test_the_luks2_header_gets_the_onemind_token_the_factory_reset_looks_for(self):
+        """internal/host/reset.go lists a LUKS2 data partition only with token id 30 of type onemind-storage whose
+        partuuid is the partition's own (ops.Candidates, ops.Choose); without it the reset refused every default box."""
+        r, _ = self.go(True)
+        L = r.lines()
+        i = next(i for i, l in enumerate(L) if "token import" in l)
+        cmd, stdin = r.calls[i]
+        self.assertEqual(cmd, ["cryptsetup", "token", "import", "--token-id", "30", "/dev/vda7"])
+        tok = json.loads(stdin)
+        self.assertEqual(tok["type"], "onemind-storage")
+        self.assertEqual(tok["partuuid"], PARTUUID)
+        self.assertEqual(tok["member_uuid"], LUKS_UUID)
+        self.assertEqual(tok["generation"], 1)
+        self.assertEqual(tok["keyslots"], [])
+        # the set id is also the btrfs UUID, and the token is written right after the format (before any unlock)
+        mk = next(l for l in L if l.startswith("mkfs.btrfs"))
+        self.assertIn(f"-U {tok['set_uuid']} ", mk)
+        self.assertRegex(tok["set_uuid"], r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
+        self.assertLess(i, next(i for i, l in enumerate(L) if l.startswith("cryptsetup open")))
+        self.assertNotIn(RECOVERY, json.dumps(r.calls[i]))
+
+    def test_the_token_is_the_one_the_go_side_reads(self):
+        src = rd("internal/storage/luks.go")
+        self.assertIn(f"TokenID = {de.TOKEN_ID}", src)
+        self.assertIn(f'TokenType = "{de.TOKEN_TYPE}"', src)
+        for key in json.loads(de.onemind_token("s", "m", "p")):
+            self.assertIn(f'json:"{key}"', src)
+
+    def test_a_partition_without_a_gpt_id_still_encrypts_but_says_the_reset_will_refuse(self):
+        r = FakeRunner(partuuid="")
+        with mock.patch.object(de, "say") as say:
+            de.first_boot_encrypt("/dev/vda7", False, r, rand=lambda n: b"\x07" * n, passphrase=None)
+        self.assertFalse(any("token import" in l for l in r.lines()))
+        self.assertTrue(any("refuse" in str(c.args[0]) for c in say.call_args_list))
 
     def test_btrfs_gets_at_and_storage_with_snapshots_inside_storage_and_at_is_what_data_mounts(self):
         r, _ = self.go(True)
@@ -249,7 +289,7 @@ class FirstBoot(unittest.TestCase):
         for line in r.lines():
             self.assertNotIn(RECOVERY, line)
             self.assertNotIn("0707", line)
-        self.assertTrue(all(i in (None, RECOVERY) for _, i in r.calls))
+        self.assertTrue(all(i in (None, RECOVERY) for c, i in r.calls if c[:3] != ["cryptsetup", "token", "import"]))   # the token JSON holds ids, no secret
 
     def test_a_failure_wipes_the_partition_back_to_blank_and_removes_the_key(self):
         for step in ("luksFormat", "mkfs.btrfs", "subvolume create", "--recovery-key"):
@@ -608,6 +648,17 @@ class Main(unittest.TestCase):
             de.say("RECOVERY KEY: " + RECOVERY, journal=False)
             pr.assert_not_called()
 
+    def test_an_armed_factory_reset_leaves_the_data_disk_alone(self):
+        """The wipe unit runs after this one and erases the disk: a LUKS disk must not be unlocked (a passphrase box
+        would be asked for the passphrase of data being erased), and a blank one is formatted only on the restart."""
+        for sig, zero in (("crypto_LUKS", False), ("", True), ("btrfs", False)):
+            with mock.patch.object(de, "reset_armed", return_value=True):
+                rc, r, ws, keep, fb, ul = self.run_main(sig, zero, tpm=True)
+            self.assertEqual(rc, 0)
+            fb.assert_not_called(); ul.assert_not_called(); self.plain.assert_not_called(); keep.assert_not_called()
+            self.assertEqual(ws.call_args.kwargs["state"], "reset-pending")
+
+
 
 class Wiring(unittest.TestCase):
     def test_unit_runs_before_any_mount_and_a_locked_disk_is_not_a_failed_unit(self):
@@ -738,6 +789,43 @@ class Assembler(unittest.TestCase):
         self.assertEqual(len(want), 1)
         have = hashlib.sha256(open(os.path.join(ROOT, "test", "qemu", "CRITERIA-DATAENC.md"), "rb").read()).hexdigest()
         self.assertEqual(have, want[0])
+
+    def test_the_reset_criteria_are_preregistered_and_the_harness_runs_them(self):
+        h = hashlib.sha256(open(os.path.join(ROOT, "test", "qemu", "CRITERIA-DATARESET.md"), "rb").read()).hexdigest()
+        self.assertIn(f"{h}  CRITERIA-DATARESET.md", rd("test/qemu/PREREGISTRATION.sha256"))
+        harness = rd("test/qemu/dataenc.py")
+        self.assertIn("reset_tests(a, logf)", harness)
+        for tid in ("R1", "R2"):
+            self.assertIn(f'record("{tid}"', harness)
+
+
+class ResetArmed(unittest.TestCase):
+    """reset_armed: look at the ESP read-only for the marker, any doubt means a normal boot."""
+    def probe(self, marker, mount_rc=0):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        node, probe = os.path.join(tmp, "esp-node"), os.path.join(tmp, "probe")
+        open(node, "w").close()
+        calls = []
+
+        def runner(cmd, input=None, check=True):
+            calls.append(cmd)
+            if cmd[0] == "mount" and mount_rc == 0 and marker:
+                os.makedirs(os.path.join(probe, "onemind"), exist_ok=True)
+                open(os.path.join(probe, "onemind", "factory-reset"), "w").close()
+            return subprocess.CompletedProcess(cmd, mount_rc if cmd[0] == "mount" else 0, stdout="", stderr="")
+        return de.reset_armed(runner, node, probe), calls
+
+    def test_armed_marker_is_seen_and_the_esp_is_unmounted_again(self):
+        armed, calls = self.probe(True)
+        self.assertTrue(armed)
+        self.assertIn("ro", calls[0][2].split(","))
+        self.assertEqual(calls[-1][0], "umount")
+
+    def test_no_marker_or_no_esp_or_a_failed_mount_is_a_normal_boot(self):
+        self.assertFalse(self.probe(False)[0])
+        self.assertFalse(self.probe(True, mount_rc=32)[0])
+        self.assertFalse(de.reset_armed(lambda *a, **k: self.fail("no ESP: nothing to mount"), "/nonexistent/esp", "/nonexistent/p"))
 
 
 if __name__ == "__main__":
