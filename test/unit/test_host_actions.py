@@ -163,5 +163,70 @@ class HostSocketReach(unittest.TestCase):
         self.assertIn("| F12 |", crit)
 
 
+class GateReleasesTheHostHelperAtTheDecision(unittest.TestCase):
+    """F12 root cause (image run 45537872867): onemind-host.service is ordered After= the health gate, and the
+    gate was Type=oneshot, so on a committed boot the helper did not start until the gate's report-only k3s watch
+    ended (up to ONEMIND_GATE_TIMEOUT, 300 s). The gate now says READY=1 once the slot is decided."""
+    GATE = open(os.path.join(ROOT, "os", "gate", "onemind-health-gate")).read()
+    GATE_UNIT = open(os.path.join(ROOT, "os", "gate", "onemind-health-gate.service")).read()
+
+    def case(self, mode):
+        m = re.search(r"(?ms)^%s\)\n(.*?);;" % re.escape(mode), self.GATE)
+        self.assertIsNotNone(m, mode)
+        return m.group(1)
+
+    def test_the_unit_is_notify_so_after_waits_for_ready_only(self):
+        unit = {k.strip(): v.strip() for k, v in
+                (l.split("=", 1) for l in self.GATE_UNIT.splitlines() if "=" in l and not l.startswith("#"))}
+        self.assertEqual(unit["Type"], "notify")
+        self.assertEqual(unit["NotifyAccess"], "all")      # systemd-notify is a child of the script
+        self.assertEqual(unit["RemainAfterExit"], "yes")
+        self.assertEqual(unit["TimeoutStartSec"], "infinity")   # a trial still has its own deadline
+
+    def test_the_host_helper_still_waits_for_the_gate(self):
+        # A trial boot keeps the helper (and so OS install) back until the slot is marked good.
+        after = re.search(r"(?m)^After=(.*)$", UNIT).group(1).split()
+        self.assertIn("onemind-health-gate.service", after)
+
+    def test_committed_and_fell_back_say_ready_before_the_watch(self):
+        for mode, word in (("committed", "committed"), ("fell-back", "fell-back")):
+            body = self.case(mode)
+            self.assertLess(body.index("commit &&"), body.index("notify_ready " + word), mode)
+            self.assertLess(body.index("notify_ready " + word), body.index("watch_only"), mode)
+
+    def test_a_trial_says_ready_only_after_mark_good(self):
+        body = self.case("trial")
+        self.assertEqual(body.count("notify_ready"), 1)
+        line = next(l for l in body.splitlines() if "notify_ready" in l)
+        self.assertIn("RESULT mark-good", line)
+        self.assertRegex(line, r"notify_ready mark-good; exit 0$")
+
+    def run_notify(self, sock, rc):
+        import subprocess
+        d = tempfile.mkdtemp(prefix="gn")
+        calls = os.path.join(d, "calls")
+        fn = re.search(r"(?ms)^notify_ready\(\) \{.*?^\}", self.GATE)
+        self.assertIsNotNone(fn, "the gate defines notify_ready()")
+        script = (f'systemd-notify() {{ echo "$*" >> {calls}; return {rc}; }}\n'
+                  f'log() {{ echo "LOG $*"; }}\nSLOT=A\n{fn.group(0)}\nnotify_ready committed; echo RC=$?')
+        env = {k: v for k, v in os.environ.items() if k != "NOTIFY_SOCKET"}
+        if sock:
+            env["NOTIFY_SOCKET"] = sock
+        out = subprocess.run(["bash", "-c", script], capture_output=True, text=True, env=env, check=True).stdout
+        return out, (open(calls).read() if os.path.exists(calls) else "")
+
+    def test_notify_ready_sends_ready_under_systemd_only(self):
+        out, calls = self.run_notify(None, 0)
+        self.assertEqual(calls, "")                         # run by hand or in a test: nothing to tell
+        self.assertIn("RC=0", out)
+        out, calls = self.run_notify("/run/systemd/notify", 0)
+        self.assertIn("--ready", calls)
+        self.assertIn("slot A decided: committed", calls)
+        self.assertNotIn("NOTIFY-ERROR", out)
+        out, calls = self.run_notify("/run/systemd/notify", 1)
+        self.assertIn("LOG NOTIFY-ERROR", out)              # a failed notify is logged, never silent
+        self.assertIn("RC=0", out)                          # and the gate goes on to its watch
+
+
 if __name__ == "__main__":
     unittest.main()
