@@ -1,10 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 """Work project management, the task activity log and the quick-add preview (part 2 of the #798 port)."""
 import pytest
-from conftest import AGENT, GUEST, OWNER
+from datetime import timedelta
+
+from conftest import ADULT, AGENT, GUEST, OWNER
 from onemind_core.auth import Principal
 from onemind_core.errors import ApiError
-from onemind_core.work.service import ProjectFields, SectionFields, TaskFields
+from onemind_core.work.service import PersonAssignee, ProjectFields, SectionFields, TaskFields
 
 
 def _project(client, name="Home", **extra):
@@ -166,6 +168,41 @@ def test_quick_add_reads_repeat_rules():
     assert next_due(datetime(2026, 1, 1, 9, 0, tzinfo=UTC), {"every": "day", "interval": 1}, now).date().isoformat() == "2026-11-26"
 
 
+def _shared_project(client):
+    home = _project(client, "Shared")
+    client.app.state.work.add_member(Principal("owner", "person", "owner"), home["id"], Principal("adult", "person", "adult"))
+    return home["id"]
+
+
+def test_sweep_reminds_the_assignee_once_per_due_date(client, clock):
+    due = (clock() + timedelta(hours=3)).isoformat().replace("+00:00", "Z")
+    body = {"title": "Pay the bill", "assignee": {"id": "adult"}, "due_at": due, "project_id": _shared_project(client)}
+    task = client.post("/v1/work/capture", json=body, headers={**OWNER, "Idempotency-Key": "w1"}).json()
+    client.post("/v1/work/capture", json={"title": "No owner of this", "due_at": due},
+                headers={**OWNER, "Idempotency-Key": "w2"})
+    work = client.app.state.work
+    first = work.sweep()
+    assert [(n, who, t) for n, who, _, t, _ in first] == [("task.due_soon", "adult", task["id"])]
+    assert work.sweep() == []
+    clock.advance(4 * 3600)
+    assert [n for n, *_ in work.sweep()] == ["task.overdue"]
+    assert work.sweep() == []
+    path = f"/v1/work/projects/{task['project_id']}/tasks/{task['id']}"
+    client.patch(path, json={"status": "done"}, headers={**OWNER, "If-Match": "1"})
+    clock.advance(86400)
+    assert work.sweep() == []
+
+
+def test_assigning_a_task_tells_only_the_assignee_with_the_title_added_at_render_time(client):
+    body = {"title": "Mow the lawn", "assignee": {"id": "adult"}, "project_id": _shared_project(client)}
+    task = client.post("/v1/work/capture", json=body, headers={**OWNER, "Idempotency-Key": "n1"}).json()
+    assert task["assignee"]["id"] == "adult"
+    items = client.get("/v1/notifications", headers=ADULT).json()
+    assert [i["title"] for i in items] == ["Assigned to you: Mow the lawn"]
+    assert client.get("/v1/notifications", headers=OWNER).json() == []
+    audit = client.app.state.gateway.settings.audit_path.read_text()
+    assert "Mow the lawn" not in audit
+
 @pytest.mark.parametrize("role", ["child", "teen"])
 def test_a_child_or_teen_cannot_change_sections(client, role):
     service = client.app.state.work
@@ -235,3 +272,34 @@ def test_deleting_a_project_removes_its_idempotency_receipts(client):
     assert client.delete(f"/v1/work/projects/{made['id']}", headers=OWNER).status_code == 204
     with service.db.session() as session:
         assert not session.scalars(select(WorkCreateRow).where(WorkCreateRow.project_id == made["id"])).all()
+
+
+def test_a_task_cannot_be_assigned_to_a_child_who_could_not_open_it(client):
+    work = client.app.state.work
+    project_id = _shared_project(client)
+    work.person_role = lambda person_id: "child" if person_id == "adult" else None
+    body = {"title": "Tidy room", "assignee": {"id": "adult"}, "project_id": project_id}
+    refused = client.post("/v1/work/capture", json=body, headers={**OWNER, "Idempotency-Key": "c1"})
+    assert refused.status_code == 422 and "assignee_cannot_see" in refused.text
+    assert client.get("/v1/notifications", headers=ADULT).json() == []
+    work.person_role = lambda person_id: "adult"
+    assert client.post("/v1/work/capture", json=body, headers={**OWNER, "Idempotency-Key": "c2"}).status_code == 201
+
+
+
+@pytest.mark.parametrize("role", ["child", "teen"])
+def test_an_adult_can_edit_a_task_a_child_assigned_to_themselves(client, role):
+    service = client.app.state.work
+    service.person_role = lambda person_id: role if person_id == "p-kid" else "adult"
+    owner, kid = Principal("p-owner", "person", "owner"), Principal("p-kid", "person", role)
+    project = service.create_project(owner, ProjectFields(name="Family"))
+    service.add_member(owner, project.id, kid)
+    task = service.create_task(kid, project.id, TaskFields(title="Tidy", assignee=PersonAssignee(id="p-kid")))
+    done = service.replace_task(owner, project.id, task.id, expected_revision=task.revision,
+                                fields=TaskFields(title="Tidy", status="done", assignee=PersonAssignee(id="p-kid")))
+    assert done.status == "done" and done.assignee == PersonAssignee(id="p-kid")
+    other = service.create_task(owner, project.id, TaskFields(title="Dishes"))
+    with pytest.raises(ApiError) as failure:
+        service.replace_task(owner, project.id, other.id, expected_revision=other.revision,
+                             fields=TaskFields(title="Dishes", assignee=PersonAssignee(id="p-kid")))
+    assert failure.value.status == 422

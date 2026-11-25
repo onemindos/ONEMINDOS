@@ -97,6 +97,9 @@ class Gateway:
     disabled_apps: Callable[[], frozenset[str]] = lambda: frozenset()
     people_sources: list[PeopleSource] = field(default_factory=list)
     principal_guards: list[PrincipalGuard] = field(default_factory=list)
+    # Per event domain: adds display fields (a task title) to an ids-only event when the notifier renders it.
+    # Events and the audit log carry ids only, because every adult can read the audit log.
+    notify_enrichers: dict[str, Callable[[dict], dict]] = field(default_factory=dict)
     _startup: list[Hook] = field(default_factory=list)
     _shutdown: list[Hook] = field(default_factory=list)
 
