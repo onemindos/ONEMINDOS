@@ -25,6 +25,10 @@ cifs-utils nfs-common
 initramfs-tools
 # Boot splash (brand/generated/os/plymouth): graphical console only, the serial console is untouched
 plymouth plymouth-label fontconfig fonts-dejavu-core
+# Console keyboard and charmap for the tty2 login (Step 3): console-setup gives setupcon and ckbcomp (xkb-data layouts),
+# kbd gives loadkeys and dumpkeys. Its own units are masked (they cache under the read-only /etc);
+# onemind-console-keyboard.service loads the layout kept on /data. Proof: first-boot checks F21 and F22.
+console-setup keyboard-configuration
 grub-common
 # RAUC 1.15.2 runtime libraries (RAUC itself is built from source; Debian's rauc is never installed)
 libglib2.0-0t64 libssl3t64 libcurl4t64 libjson-glib-1.0-0 libfdisk1 libnl-genl-3-200

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""OneMind QEMU battery, first boot (F0-F12). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
+"""OneMind QEMU battery, first boot (F0-F12, F20-F22). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
 (pre-registered; never edited to make a result pass). Reuses run-tests.py's VM driver.
 
 Input: the battery's fixtures (`make fixtures`: disk.img = slot A v1 + test overlay, bundles.img with
@@ -496,6 +496,67 @@ def f12(vm, token):
     record("F12", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
            + f" box={box!r} up={up} down_summary={summary[:80]!r} engine_unreachable={inst.get('reason')}")
 
+def f20(vm):
+    """Step 3: VA-API packages and drivers are on the x86 box and vainfo starts (CRITERIA-FIRSTBOOT.md section 12).
+    QEMU has no GPU with VA-API, so no decode profile is listed here; that is proven on real hardware only."""
+    d = "/usr/lib/x86_64-linux-gnu/dri"
+    _, out = vm.run(
+        'for p in vainfo intel-media-va-driver mesa-va-drivers; do echo PKG $p $(dpkg-query -W -f=\'${Status}\' $p 2>&1 | grep -c "install ok installed"); '
+        'echo LISTED $p $(grep -c "^$p " /usr/lib/onemind/packages.txt); done; '
+        f'for f in iHD radeonsi; do test -f {d}/${{f}}_drv_video.so; echo DRV $f $?; echo MISSING $f $(ldd {d}/${{f}}_drv_video.so 2>&1 | grep -c "not found"); done; '
+        'command -v vainfo >/dev/null; echo HAVE=$?; vainfo >/tmp/f20.out 2>&1; echo VAINFO_RC=$?; '
+        'echo BANNER=$(grep -c -E "^(vainfo|error):" /tmp/f20.out); head -3 /tmp/f20.out', 120)
+    get = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or ["?"])[-1]
+    pk = dict(re.findall(r"^PKG (\S+) (\d+)\s*$", out, re.M))
+    ls = dict(re.findall(r"^LISTED (\S+) (\d+)\s*$", out, re.M))
+    drv = dict(re.findall(r"^DRV (\S+) (\d+)\s*$", out, re.M))
+    miss = dict(re.findall(r"^MISSING (\S+) (\d+)\s*$", out, re.M))
+    names = ("vainfo", "intel-media-va-driver", "mesa-va-drivers")
+    c = {"packages": all(pk.get(n) == "1" for n in names), "listed": all(ls.get(n) == "1" for n in names),
+         "driver_files": drv == {"iHD": "0", "radeonsi": "0"}, "no_missing_libs": miss == {"iHD": "0", "radeonsi": "0"},
+         "vainfo_found": get("HAVE") == "0", "vainfo_exit_0_or_1": get("VAINFO_RC") in ("0", "1"),
+         "vainfo_banner": get("BANNER") not in ("0", "?")}
+    record("F20", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
+           + f" vainfo_rc={get('VAINFO_RC')} (no GPU in QEMU) out={out.strip()[-160:]!r}")
+
+
+# What the kernel maps keycode 21 to (the Y key on a US keyboard, Z on a German one): dumpkeys prints "keycode  21 = +y ...".
+CONSOLE_STATE = (r"""echo LAYOUT=$(sed -n 's/^XKBLAYOUT="\(.*\)"$/\1/p' /data/onemind/console/keyboard); """
+                 r"""echo UNIT=$(systemctl is-active onemind-console-keyboard.service); """
+                 r"""echo KEY21=$(dumpkeys -C /dev/tty0 -1 2>/dev/null | grep -m1 -E '^keycode +21 ' | sed -n 's/^keycode *21 *= *+*\([A-Za-z]\).*/\1/p')""")
+
+
+def console_state(vm):
+    _, out = vm.run(CONSOLE_STATE, 60)
+    get = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or ["?"])[-1]
+    return get("LAYOUT"), get("UNIT"), get("KEY21")
+
+
+def f21_before(vm):
+    """The seed is US and loaded; the owner's file is then changed to de and the unit re-run (judged after the F3 reboot)."""
+    _, out = vm.run("echo MASK=$(systemctl is-enabled console-setup.service 2>&1 | head -1)/$(systemctl is-enabled keyboard-setup.service 2>&1 | head -1)", 60)
+    mask = (re.findall(r"^MASK=(\S+)", out, re.M) or ["?"])[-1]
+    us = console_state(vm)
+    vm.run("sed -i 's/^XKBLAYOUT=.*/XKBLAYOUT=\"de\"/' /data/onemind/console/keyboard; sync; "
+           "systemctl restart onemind-console-keyboard.service", 60)
+    de = console_state(vm)
+    return {"masked": mask == "masked/masked", "seed_us": us == ("us", "active", "y"), "applied_de": de == ("de", "active", "z")}, f"mask={mask} us={us} de={de}"
+
+
+def f21_after(vm, pre):
+    c, note = pre
+    _, out = vm.run("echo FAILED=$(systemctl --failed --no-legend 2>/dev/null | grep -c -E 'console-setup|keyboard-setup')", 60)
+    failed = (re.findall(r"^FAILED=(\d+)", out, re.M) or ["?"])[-1]
+    st = console_state(vm)
+    c = dict(c, kept_de_after_reboot=st == ("de", "active", "z"), no_failed_setup_units=failed == "0")
+    record("F21", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" {note} after_reboot={st} failed_setup_units={failed}")
+
+
+def f22(vm):
+    st = console_state(vm)
+    record("F22", st == ("de", "active", "z"), f"after_ab_update layout/unit/keycode21={st}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=sorted(battery.BOARDS))
@@ -552,6 +613,8 @@ def main():
         vm.mark("F10 rescue console with k3s stopped (CORE-UPDATE-9)"); f10(vm, token)
         vm.mark("F11 starting page, then the gateway, never a refused connection"); f11(vm, (os.path.dirname(a.results) or ".") if a.results else None)
         vm.mark("F12 the gateway reaches the host helper, and says missing without it (#875)"); f12(vm, token)
+        vm.mark("F20 VA-API packages and vainfo (Step 3; no GPU in QEMU)"); f20(vm)
+        vm.mark("F21 console layout from /data, changed to de before the reboot"); pre21 = f21_before(vm)
 
         if a.upto in ("F3", "F4"):
             vm.mark("F3 reboot keeps state")
@@ -567,6 +630,7 @@ def main():
             same = [n for n in listed3 if n[0] == ids["node_id"]]
             record("F3", not new_toks and ids3 == ids and hz3 == "200" and bool(same) and bool(token),
                    f"'{al[:70]}' new_tokens={len(new_toks)} same_ids={ids3 == ids} healthz={hz3} listed={listed3} gate={g3}")
+            vm.mark("F21 the layout is still de after the reboot"); f21_after(vm, pre21)
 
         if a.upto == "F4":
             vm.mark("F4 A/B update keeps /data")
@@ -590,6 +654,7 @@ def main():
                    and already and not TOKEN.search(s) and ids4 == ids and hz4 == "200" and bool(same),
                    f"install_rc={rc_i} gate={g4} marker_kept={mark == mark2} version2={ver2} already_configured={already} "
                    f"new_token={bool(TOKEN.search(s))} same_ids={ids4 == ids} healthz={hz4} listed={listed4}")
+            vm.mark("F22 the layout is still de after the A/B update"); f22(vm)
         rc = 0
     except (TimeoutError, RuntimeError) as e:
         record("HARNESS", False, f"aborted: {e}")

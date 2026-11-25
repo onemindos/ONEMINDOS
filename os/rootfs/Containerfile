@@ -226,6 +226,7 @@ RUN set -eu; \
     groupadd --system --gid 964 onemind-radio; \
     systemctl enable onemind-firstboot.service onemind-firewall.service avahi-daemon.service >/dev/null; \
     systemctl mask smbd.service nmbd.service winbind.service samba-ad-dc.service >/dev/null; \
+    systemctl mask console-setup.service keyboard-setup.service console-setup.sh.service keyboard-setup.sh.service >/dev/null; \
     systemctl enable onemind-smb.service >/dev/null; \
     systemctl mask nut-server.service nut-monitor.service nut-client.service ups-monitor.service \
       nut-driver-enumerator.service nut-driver-enumerator.path nut-driver@.service >/dev/null; \
@@ -237,6 +238,8 @@ RUN set -eu; \
     /usr/bin/nats-server --version; \
     /usr/sbin/tailscaled --version | head -1; /usr/bin/tailscale --version | head -1; /usr/bin/headscale version; \
     /usr/lib/onemind/restic version | grep -q 'restic 0.19.1'; command -v sqlite3 >/dev/null; \
+    for t in loadkeys dumpkeys ckbcomp setupcon; do command -v $t >/dev/null || { echo "missing $t"; exit 1; }; done; \
+    test -f /usr/share/X11/xkb/symbols/de; \
     /usr/lib/onemind/gateway/venv/bin/python3 -I -c "import onemind_core" ; \
     if [ -x /tmp/onemind/board/post-install.sh ]; then /tmp/onemind/board/post-install.sh; fi; \
     systemctl enable systemd-networkd.service systemd-resolved.service onemind-data-layout.service \
