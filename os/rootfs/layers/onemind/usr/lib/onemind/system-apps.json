@@ -9,7 +9,6 @@
     {"id": "backups", "name": "Backups", "class": "native", "update": "os", "disable": "never"},
     {"id": "notifications", "name": "Notifications", "class": "native", "update": "os", "disable": "never"},
     {"id": "photos", "name": "Photos", "class": "native", "update": "os", "disable": "allowed"},
-    {"id": "tips", "name": "Tips", "class": "native", "update": "os", "disable": "allowed"},
-    {"id": "vaultwarden", "name": "Passwords", "class": "container", "update": "own", "disable": "allowed"}
+    {"id": "tips", "name": "Tips", "class": "native", "update": "os", "disable": "allowed"}
   ]
 }

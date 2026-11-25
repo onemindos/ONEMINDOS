@@ -43,7 +43,6 @@ describe('screen registry', () => {
       ['add-machine', '/add-machine', 'Your box'],
       ['machines', '/machines', 'Your box'],
       ['photos', '/photos', 'Your box'],
-      ['passwords', '/passwords', 'Your box'],
       ['alerts', '/alerts', 'Your box'],
       ['usage', '/usage', 'Your box'],
       ['dashboards', '/dashboards', 'Your box'],

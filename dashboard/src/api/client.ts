@@ -10,9 +10,6 @@ import type { AppSecrets, SealedInput, SecretsPublicKey } from '@onemind/ui';
 /** `POST /v1/browsers/{app_id}/session` (#692): the person's own browser host and profile. */
 export type BrowserSession = components['schemas']['BrowserSession'];
 
-/** `GET /v1/system-apps`: one built-in app from the signed list, with its switch (appstore/system.py). */
-export type SystemAppRow = components['schemas']['SystemAppRow'];
-
 /** `GET /v1/os/about` (UMB-P14): device facts per node; never a serial number or an address. */
 export type AboutBox = components['schemas']['About'];
 
@@ -122,8 +119,6 @@ export interface OneMindApi extends WiringApi {
   backupsStatus?(): Promise<Record<string, unknown>>;
   /** GET /v1/os/updates, validated to be an object. Absent on the mock gateway. */
   osUpdates?(): Promise<Record<string, unknown>>;
-  /** GET /v1/system-apps: the built-in apps and whether each is switched on. Absent on the mock gateway. */
-  systemApps?(): Promise<SystemAppRow[]>;
 }
 
 /** GET /v1/tls (core routers/net.py). */
@@ -342,7 +337,6 @@ export class HttpApi implements OneMindApi {
   }
   backupsStatus() { return this.sdkCall<Record<string, unknown>>('GET', '/v1/backups/status'); }
   osUpdates() { return this.sdkCall<Record<string, unknown>>('GET', '/v1/os/updates'); }
-  systemApps() { return this.sdkCall<SystemAppRow[]>('GET', '/v1/system-apps', undefined, true); }
   about() { return this.req<AboutBox>('GET', '/v1/os/about'); }
   ups() { return this.sdkCall<UpsStatus>('GET', '/v1/system/ups'); }
   pluginSigningKeys() { return this.sdkCall<components["schemas"]["SigningKeys"]>('GET', '/v1/plugin-trust/keys'); }

@@ -33,9 +33,6 @@ from test_appstore import request, run
 REPO = Path(__file__).resolve().parents[2]
 OPENAPI = json.loads((REPO / "sdk" / "openapi" / "onemind-v1.json").read_text())
 SIGNED = systemlist.load(systemlist.REPO_FILE)
-# A descriptor describes a built-in that ships inside the OS image (class native). A container built-in
-# (Passwords, #679) is a catalog app in apps/_system/<id>/; validate-apps rule 11 and the catalog check it.
-NATIVE = frozenset(i for i in SIGNED.ids() if SIGNED.get(i).klass == "native")
 METHODS = ("get", "post", "put", "patch", "delete")
 APP_SCHEMA = json.loads((REPO / "sdk" / "schema" / "onemind.app.schema.json").read_text())
 BUILTIN_SCHEMA = json.loads(builtins.REPO_SCHEMA.read_text())
@@ -101,14 +98,13 @@ def load_one(tmp_path: Path, app_id: str, doc: dict) -> tuple[dict, dict]:
 def test_every_signed_built_in_has_a_valid_descriptor():
     found, errors = builtins.load(SIGNED)
     assert errors == {}
-    assert set(found) == NATIVE
-    assert {i for i in SIGNED.ids() - NATIVE if (builtins.PACKAGE_DIR / i / builtins.DESCRIPTOR).exists()} == set()
+    assert set(found) == SIGNED.ids()
 
 
 def test_every_descriptor_agrees_with_the_running_gateway(c):
     tables, types = live(c)
     found = c.app.state.builtins.descriptors
-    assert set(found) == NATIVE
+    assert set(found) == SIGNED.ids()
     assert [p for d in found.values() for p in problems(d, list(found.values()), tables, types)] == []
 
 
@@ -276,7 +272,7 @@ def test_descriptors_use_the_app_manifest_api_version_kind_and_file_name():
     assert BUILTIN_SCHEMA["properties"]["apiVersion"]["const"] in APP_SCHEMA["properties"]["apiVersion"]["enum"]
     assert BUILTIN_SCHEMA["properties"]["kind"] == APP_SCHEMA["properties"]["kind"] == {"const": "App"}
     assert builtins.DESCRIPTOR == "onemind.app.yaml"
-    for app_id in sorted(NATIVE):
+    for app_id in sorted(SIGNED.ids()):
         doc = doc_of(app_id)
         assert (doc["apiVersion"], doc["kind"]) == ("onemind.app/v1", "App"), app_id
 
@@ -288,7 +284,7 @@ def test_no_descriptor_block_reuses_an_app_spec_name_with_another_shape():
     assert shared == {"backup", "search", "share", "notifications", "mapLayers", "data"}
     assert set(BUILTIN_SCHEMA["properties"]["spec"]["properties"]) - shared == {"routes", "cards", "actions",
                                                                                 "settingsPages", "phone"}
-    for app_id in sorted(NATIVE):
+    for app_id in sorted(SIGNED.ids()):
         spec = doc_of(app_id)["spec"]
         for name in sorted(shared & set(spec)):
             errs = [e.message for e in app_block_validator(name).iter_errors(spec[name])]

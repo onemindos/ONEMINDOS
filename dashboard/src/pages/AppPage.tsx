@@ -18,7 +18,6 @@ import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
 import { useShell } from '../shell/Shell';
 import { Load } from './parts';
-import { PASSWORDS_APP } from './Passwords';
 
 const TONE: Record<AppDot, Tone> = { ok: 'ok', warn: 'warn', bad: 'bad', neutral: 'neutral', unknown: 'neutral' };
 const day = (iso: string | null | undefined) => (iso && !Number.isNaN(Date.parse(iso)) ? iso.slice(0, 10) : 'Not reported');
@@ -48,7 +47,7 @@ function Page({ app, sdk }: { app: CatalogApp; sdk?: OneMind }) {
     return readAppView(sdk, app.id);
   }, 30_000);
   const name = app.name || app.id;
-  const source = safeHttpUrl(app.source); // the licence's source duty (AGPL apps such as Passwords): a real link
+  const source = safeHttpUrl(app.source); // the licence's source duty (AGPL apps such as Vaultwarden): a real link
   const health: Fact<AppHealth> = view.data ? { state: 'ok', value: { ...view.data.health, restarts: view.data.restarts } } : view.error ? { state: 'failed' } : { state: 'absent' };
   const loadingHealth = !view.data && !view.error;
   const st = appState({
@@ -83,7 +82,7 @@ function Page({ app, sdk }: { app: CatalogApp; sdk?: OneMind }) {
         <div><dt>Source</dt><dd>{source ? <a href={source} target="_blank" rel="noopener noreferrer">{app.source}</a> : (app.source ?? 'Not reported')}</dd></div>
         <div><dt>Category</dt><dd>{app.category ?? 'Not reported'}</dd></div>
       </dl>
-      <p className="om-hint">Every change is a request an owner approves. <a href={href.manage(app.id)}>Open and manage {name}</a> · <a href={href.app(app.id)}>Market page</a>{app.id === PASSWORDS_APP && <> · <a href="/passwords">Set up the Bitwarden app</a></>}</p>
+      <p className="om-hint">Every change is a request an owner approves. <a href={href.manage(app.id)}>Open and manage {name}</a> · <a href={href.app(app.id)}>Market page</a></p>
     </Card>
     <Tabs label={`${name} details`} tabs={tabs} />
   </div>;

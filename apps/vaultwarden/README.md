@@ -37,7 +37,7 @@ Images:
 <!-- onemind:notes:begin -->
 ## What it is
 
-**What it is:** Vaultwarden is a password manager server. It implements the Bitwarden client API in Rust, so the official Bitwarden apps (browser extension, phone, desktop, CLI) can sync a household's passwords, notes and files to a server the owner runs, instead of to a cloud service. It also serves a web vault. It is a much lighter alternative to the official Bitwarden server ([README](https://github.com/dani-garcia/vaultwarden/blob/1.37.5/README.md)). It started as one of the contract §8 wave-2 seed apps and is now built in as **Passwords** (#679): it lives in `apps/_system/vaultwarden/`, its id is on the signed list `/usr/lib/onemind/system-apps.json`, and it can be switched off but never removed. Switching it off scales it to zero and keeps the vault volume. It is the one labelled exception to "no second login": each person's vault is locked with their own master password, which OneMind never sees, stores or resets.
+**What it is:** Vaultwarden is a password manager server. It implements the Bitwarden client API in Rust, so the official Bitwarden apps (browser extension, phone, desktop, CLI) can sync a household's passwords, notes and files to a server the owner runs, instead of to a cloud service. It also serves a web vault. It is a much lighter alternative to the official Bitwarden server ([README](https://github.com/dani-garcia/vaultwarden/blob/1.37.5/README.md)). It is one of the contract §8 wave-2 seed apps.
 
 **Licence:** `AGPL-3.0` ([LICENSE.txt](https://github.com/dani-garcia/vaultwarden/blob/6ed6921cc2b0e03b4d74189574d2a5e71c512e97/LICENSE.txt)). Market class **L2** (copyleft): `research-output/evidence/license-matrix.csv` row "Vaultwarden (Market seed, passwords)" [C-LIC-062]. OneMind ships it unmodified as a separate program, and copies none of its code into the Apache-2.0 core.
 
@@ -57,7 +57,7 @@ Images:
 
 Source: the upstream [README](https://github.com/dani-garcia/vaultwarden/blob/1.37.5/README.md) "Usage" section, and the wiki pages [Enabling HTTPS](https://github.com/dani-garcia/vaultwarden/wiki/Enabling-HTTPS) and [Disable registration of new users](https://github.com/dani-garcia/vaultwarden/wiki/Disable-registration-of-new-users).
 
-1. Passwords is built in: an owner approves its install once (Installed, or `onemind apps install vaultwarden`). It installs into the namespace `app-vaultwarden`. The dashboard's Passwords window (`/passwords`) shows the box address as a QR code and the Bitwarden app steps, for the signed-in person only.
+1. Install Vaultwarden from the Market and approve the action. It installs into the namespace `app-vaultwarden`.
 2. The web vault needs HTTPS or `localhost`, because it uses the browser's Web Crypto API, which only works in a secure context. For a first test, forward the port and open http://localhost:8080:
    ```sh
    kubectl -n app-vaultwarden port-forward svc/vaultwarden 8080:8080
@@ -70,7 +70,6 @@ Source: the upstream [README](https://github.com/dani-garcia/vaultwarden/blob/1.
 ## Not done yet
 
 - The Bitwarden phone, desktop and browser-extension apps cannot sync through the app proxy yet: the proxy needs a OneMind sign-in on every request and removes the `Authorization` header Vaultwarden's own API uses. A door for apps with their own sign-in (home network and mesh only, owner approved, and only once open registration is off) is a separate gateway change, #994.
-- The CI app gate and the daily rescan look at `apps/<id>/` only, so this folder is not rescanned until they learn `apps/_system/` (#993). The tier stays `blocked` (the last scan failed) until a fixed image passes.
 - No HTTPS or `DOMAIN`: OneMind v0 has no ingress or certificates for apps, so the web vault works only through `localhost` until a reverse proxy exists.
 - No SMTP: email verification, invitations by email and password hints by email are off.
 - `readOnlyRootFilesystem` is not set: it has not been tested against this image.
