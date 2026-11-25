@@ -342,7 +342,7 @@ def main():
         vm.expect(r"ONEMIND-DATA-CRYPT: the data disk is locked", 600)
         vm.expect_line(battery.RECOV, 600)
         vm.send(""); vm.expect(r"root@onemind:~# ", 300)
-        _, o = vm.run("echo TYPE=$(blkid -p -o value -s TYPE $(lsblk -ndo PATH,PARTLABEL | awk '$2==\"onemind-data\"{print $1}' | head -1)); "
+        _, o = vm.run("echo TYPE=$(blkid -p -o value -s TYPE /dev/disk/by-partlabel/onemind-data); "
                       "echo DATAMNT=$(mountpoint -q /data && echo yes || echo no)")
         record("E4", g("TYPE", o) == "crypto_LUKS" and g("DATAMNT", o) == "no",
                f"raw_type={g('TYPE', o)} data_mounted={g('DATAMNT', o)}")
