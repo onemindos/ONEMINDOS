@@ -568,6 +568,7 @@ def f16(vm, board):
          "user_units_enabled": g("GLOBAL") == "enabled,enabled,enabled,",
          "bluetooth_enabled": g("BTENABLED") == "enabled", "bluetooth_active": st["bluetooth_active"],
          "bluetoothd_config": f"-f {F16_CONF}" in g("BTCMD"), "dbus_org_bluez": g("BUS_RC") == "0",
+         "no_adapter_in_vm": g("ADAPTERS") == "0",
          "adapter_off_by_default": g("AUTO_RC") == "0" and g("ETCAUTO_RC") == "1",
          "pairing_needs_agent": g("ALWAYS_RC") == "0", "timeouts": g("DISC_RC") == "0" and g("PAIR_RC") == "0",
          "pairing_dir_on_data": st["bind_of_data_dir"] and st["marker_on_data"] and st["marker"] == token,

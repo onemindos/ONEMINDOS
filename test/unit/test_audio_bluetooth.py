@@ -101,6 +101,33 @@ class BluetoothSettings(unittest.TestCase):
         self.assertTrue(os.access(os.path.join(ROOT, "os/boards/x86_64-efi/post-install.sh"), os.X_OK))
 
 
+class UbuntuHedge(unittest.TestCase):
+    """nightly.yml builds board x86_64-efi with leg ubuntu; that board has no packages-ubuntu.txt, so the
+    board's post-install step must skip its Debian-only checks there instead of failing the image build."""
+    def test_no_ubuntu_list_and_post_install_skips_other_legs(self):
+        board = os.path.join(ROOT, "os/boards/x86_64-efi")
+        self.assertFalse(os.path.exists(os.path.join(board, "packages-ubuntu.txt")))
+        import subprocess, tempfile
+        with tempfile.TemporaryDirectory() as d:
+            sh = os.path.join(d, "bin"); os.mkdir(sh)
+            for tool in ("test", "systemctl"):          # would fail or record if reached
+                open(os.path.join(sh, tool), "w").write("#!/bin/sh\necho reached >> " + os.path.join(d, "hit") + "\nexit 1\n")
+                os.chmod(os.path.join(sh, tool), 0o755)
+            env = {"PATH": sh + ":/usr/bin:/bin", "LEG": "ubuntu"}
+            r = subprocess.run(["/bin/sh", os.path.join(board, "post-install.sh")], env=env, capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertIn("skipped", r.stdout)
+            self.assertFalse(os.path.exists(os.path.join(d, "hit")))
+            env["LEG"] = "debian"                        # the Debian leg still runs (and here fails on the stub)
+            r = subprocess.run(["/bin/sh", os.path.join(board, "post-install.sh")], env=env, capture_output=True, text=True)
+            self.assertNotEqual(r.returncode, 0)
+
+    def test_leg_reaches_the_script(self):
+        text = open(os.path.join(ROOT, "os/rootfs/Containerfile")).read()
+        self.assertRegex(text, r"(?m)^ARG LEG=debian")
+        self.assertIn("/tmp/onemind/board/post-install.sh", text)
+
+
 class VirtualSink(unittest.TestCase):
     def test_always_present_and_never_preferred_over_real_hardware(self):
         t = open(os.path.join(ONEMIND, "usr/share/pipewire/pipewire.conf.d/50-onemind-stream-sink.conf")).read()
@@ -158,6 +185,12 @@ class F16Verdicts(unittest.TestCase):
         self.assertIn("systemctl start " + self.fb.F16_UNIT, vm.cmds[2])           # the session user's manager, stopped again at the end
         self.assertTrue(vm.cmds[2].rstrip().endswith("echo DONE=1"))
         self.assertIn("systemctl stop " + self.fb.F16_UNIT, vm.cmds[2])
+
+    def test_a_controller_listed_in_the_vm_fails(self):
+        _, r, _ = self.run_f16(query=QUERY.replace("ADAPTERS=0", "ADAPTERS=1"))
+        self.assertEqual(r["verdict"], "FAIL")
+        _, r, _ = self.run_f16(query=QUERY.replace("ADAPTERS=0", "ADAPTERS=?"))
+        self.assertEqual(r["verdict"], "FAIL")
 
     def test_adapter_that_powers_on_by_itself_fails(self):
         _, r, _ = self.run_f16(query=QUERY.replace("AUTO_RC=0", "AUTO_RC=1"))
