@@ -44,12 +44,20 @@ onemind completion bash|zsh|fish|powershell
 `--json` works everywhere (gateway objects unchanged; errors as one JSON line on stderr), and the exit codes follow CLI.md §4.2 (3 unauthenticated, 4 permission denied, 5 not found, 6 conflict, 7 unreachable, 8 verify failed, 9 still pending, 10 refused, 11 failed). The config (`~/.config/onemind/config.yaml`) holds no secret; tokens are in `credentials.yaml` next to it, mode 0600 (OS keychain: follow-up).
 
 ### AI agents: `onemind mcp`
+
+Use a scoped agent token issued by the box. Set `HUB_URL` to the gateway URL and run the following from the repository root with `onemind` and your MCP client on PATH. Paste the token at the hidden login prompt.
+
 ```sh
-printf %s "$AGENT_TOKEN" | onemind mcp login --hub http://hub.local:8080 --name laptop --token-stdin
-onemind mcp doctor                        # token, MCP revision, tool list
-claude mcp add onemind -- onemind mcp --context laptop    # or: onemind mcp config claude-desktop
+onemind mcp login --hub "$HUB_URL" --name workstation-agent
+scripts/register-onemind-mcp.sh claude workstation-agent
+scripts/register-onemind-mcp.sh codex workstation-agent
 ```
-The bridge forwards JSON-RPC lines from stdin to the box's `/mcp`. An agent can read and request; only an owner approves.
+
+Run the registration for each client you use. The script checks the saved credential with `onemind mcp doctor` and registers the stdio bridge in Claude Code's user configuration or Codex's user configuration (`~/.codex/config.toml` by default). The client records the command and context name. The token stays in the OneMind CLI's credential file (mode 0600). Launch the client without an exported `ONEMIND_TOKEN` or `ONEMIND_HUB` so the bridge uses the saved credential and its gateway. To generate a Claude Desktop entry, run `onemind mcp config claude-desktop --context workstation-agent`.
+
+The bridge forwards JSON-RPC lines from stdin to the box's `/mcp`. An agent can read and request changes. A person approves requests through OneMind.
+
+Under [D-018](../../docs/DECISIONS.md#d-018--the-d-016-desktop-is-the-only-front-door-backstage-is-retired), the cloud-only views from Backstage are deliberately dropped from core, including the Ops globe, OpenCost, the DigitalOcean page, GitHub cards, Tech Radar, Tech Insights, the Visualizer and DevTools. The replacement MCP server exposes the box's own gateway tools.
 
 Example table:
 ```
@@ -57,6 +65,17 @@ NODE_ID       HOSTNAME  ROLE  BOARD       ARCH   OS         K3S    STATUS  LAST_
 3f9c2a1b7d4e  beelink   hub   x86_64-efi  amd64  debian 13  ready  online  2026-11-11T22:00:00Z
 ```
 Gateway errors are printed with the contract's error code, e.g. `HTTP 401 unauthenticated: …`.
+
+### Backstage retirement plan
+
+```sh
+onemind import backstage --plan catalog-export.yaml
+onemind import backstage --plan --json < catalog-export.json
+```
+
+Use a private local catalog export, up to 16 MiB. The plan reads entity YAML, JSON arrays, or a single Backstage catalog API page. It identifies each entry by its document and item number and flags additional pages when the export has a next cursor. Absolute HTTPS metadata links without URL userinfo map to Links candidates. TechDocs references need a resolved destination. Other entries are candidates for private archiving, including app and device entries without a verified OneMind match.
+
+The command keeps export contents out of the report and works offline. The plan is read-only. Execution requires one separately approved, audited action under D-018.
 
 ## Build and test
 `make -C cmd/onemindd build` builds this tool too (`dist/onemind-linux-{amd64,arm64}`). Tests: `go test ./cmd/onemind/...` (a fake gateway: tables, `--json`, contexts and file modes, the approval flow, exit codes, the bridge); end to end against a live gateway in `core/tests/test_sdk_conformance.py`.
