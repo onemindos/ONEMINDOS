@@ -81,7 +81,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     gw.actions.register_type(ACTION, FeatureAction("actuate", run, REQUESTERS, check=recheck))
 
     @app.get("/v1/system/keyboard", tags=["system"], operation_id="system.keyboard.get", response_model=KeyboardView,
-             responses=error_responses(401, 403))
+             responses=error_responses(401, 403), openapi_extra={"security": [{"bearer": ["system:admin"]}]})
     def system_keyboard(p: Principal = Depends(gw.principal)) -> KeyboardView:
         """The keyboard layout of the text console and the box's own screen, and every layout this image offers
         with its variants (read only). `seeded` is true while nothing is chosen and the box runs the US layout.
@@ -92,7 +92,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.post("/v1/system/keyboard", tags=["system"], operation_id="system.keyboard.set", status_code=202,
               response_model=Action,
-              responses={200: {"model": Action, "description": "Idempotent replay"}, **error_responses(401, 403, 404, 409, 422, 429)})
+              responses={200: {"model": Action, "description": "Idempotent replay"}, **error_responses(401, 403, 404, 409, 422, 429)},
+              openapi_extra={"security": [{"bearer": ["actions:request"]}]})
     def system_keyboard_set(req: KeyboardRequest, p: Principal = Depends(gw.principal),
                             idem: Annotated[str | None, Header(alias="Idempotency-Key", min_length=1, max_length=200)] = None):
         """Ask to change the keyboard layout. It waits for the owner, who approves it on the Approvals screen; the
