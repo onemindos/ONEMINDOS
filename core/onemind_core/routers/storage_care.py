@@ -42,6 +42,7 @@ PATH = "/v1/storage/housekeeping"
 REQUESTERS = frozenset({"agent"})  # besides the owner; an agent asks, only an owner approves
 REQUEST_TTL = timedelta(hours=24)
 POLL_S = 60
+FIRST_S = 5  # the first pass waits a moment: the host service may still be starting
 MAX_ALERTS = 50
 MAX_DRIVES = 32
 DEVICE_RE = re.compile(r"^/dev/[a-z][a-z0-9]{1,15}$")
@@ -249,6 +250,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return told
 
     def loop() -> None:
+        stop.wait(FIRST_S)
         while not stop.is_set():
             try:
                 poll()
