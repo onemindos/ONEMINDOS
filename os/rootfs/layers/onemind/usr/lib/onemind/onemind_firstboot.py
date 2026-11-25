@@ -463,14 +463,34 @@ def nats_service_keys(p: Paths) -> None:
     os.makedirs(p.nats_keys, mode=0o755, exist_ok=True)
     os.chmod(os.path.dirname(p.nats_keys), 0o755)
     os.chmod(p.nats_keys, 0o755)
-    for name in ("gateway", "onemindd"):
+    # "observer" (#620) is the gateway's read-only reader of the server's connect and auth-error events:
+    # natsconf puts it in the SYS account, not the hub account.
+    for name in ("gateway", "onemindd", "observer"):
         natsconf.make_service_key(Path(p.nats_keys), name)
     ids = onemind_ids()
     if ids:
-        os.chown(os.path.join(p.nats_keys, "gateway.nk"), *ids)
+        for name in ("gateway", "observer"):
+            os.chown(os.path.join(p.nats_keys, f"{name}.nk"), *ids)
     # The first accounts file (hub account with the two service keys); the gateway owns and rewrites it.
     os.environ.setdefault("ONEMIND_FABRIC_JETSTREAM_MAX_BYTES", str(jetstream_max_bytes(p)))
     natsconf.main([p.accounts, p.nats_keys])
+
+
+def ensure_observer_key(p: Paths) -> None:
+    """Every boot, hub only (#620): a box set up before the observer existed and updated through RAUC has
+    no observer key, so the bus would stay unwatched for good. Make the key now, before the gateway starts:
+    the gateway rewrites the accounts file at startup and puts the key in the SYS account. A key that is
+    already there is kept."""
+    from pathlib import Path
+
+    from onemind_core import natsconf
+    if not os.path.isfile(os.path.join(p.nats_keys, "gateway.nk")) or os.path.isfile(os.path.join(p.nats_keys, "observer.nk")):
+        return
+    natsconf.make_service_key(Path(p.nats_keys), "observer")
+    ids = onemind_ids()
+    if ids:
+        os.chown(os.path.join(p.nats_keys, "observer.nk"), *ids)
+    log("NATS observer key made (the bus is watched from the next gateway start)")
 
 
 # The hub NATS reads copies of these from its runtime dir (onemind-nats.service, onemind-nats-files).
@@ -993,6 +1013,11 @@ def apply(p: Paths) -> int:
             msg = ("ONEMIND-FIRSTBOOT: this box was set up before the mesh (IMG-MESH-01) and keeps running as it is; "
                    "to put it on the mesh, reinstall it (docs/leap/core/IMAGES.md §3)")
             log(msg); console(p, msg)
+        if st.get("role") == "hub":
+            try:
+                ensure_observer_key(p)
+            except Exception as exc:   # never blocks boot: the bus stays unwatched, nothing else changes
+                log(f"observer key not made: {exc.__class__.__name__}")
         start_units(p, st)
         return 0
     try:

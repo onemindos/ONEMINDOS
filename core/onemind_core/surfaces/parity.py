@@ -367,6 +367,7 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/storage/housekeeping": CONSOLE,
     "GET /v1/system/time": CONSOLE,  # P-04: the hub's zone and clock sync state, owner only
     "GET /v1/network/firewall": CONSOLE,  # P-09: the live host firewall explained, owner only, read only
+    "GET /v1/fabric/events": CONSOLE,  # N3 (#620): the NATS system account's sign-ins and refusals, audit:read
     "POST /v1/bridges/{bridge_id}/resume": WRITE,
     "POST /v1/system/keyboard": WRITE,
     "POST /v1/system/services/{unit}/restart": WRITE,
