@@ -12,6 +12,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import re
 import secrets
 from dataclasses import dataclass
 from datetime import datetime
@@ -48,6 +49,27 @@ def check_group_ok(groups: list[str], check: str) -> bool:
     return len(text) == 52 and hmac.compare_digest(want, check.strip().upper())
 
 
+_NOT_BASE32 = re.compile(r"[^A-Z2-7]")
+
+
+def parse_typed_key(typed: str) -> str | None:
+    """The owner key as typed at the box's console: dashes, spaces and case do not matter, and the check
+    group may follow the 13 groups. Returns the password exactly as printed, or None when it is not a
+    whole kit key (wrong length, or the check group does not match: a typo, not a guess)."""
+    text = _NOT_BASE32.sub("", typed.upper())
+    if len(text) == 56:
+        text, check = text[:52], text[52:]
+        if not check_group_ok([text[i:i + 4] for i in range(0, 52, 4)], check):
+            return None
+    if len(text) != 52:
+        return None
+    return "-".join(text[i:i + 4] for i in range(0, 52, 4))
+
+
+def fingerprint_of(password: str) -> str:
+    return hashlib.sha256(password.encode()).hexdigest()[:16]
+
+
 def _h(salt: str, value: str) -> str:
     return hashlib.sha256((salt + ":" + value.strip().upper()).encode()).hexdigest()
 
@@ -68,7 +90,8 @@ def answer_ok(ch: dict, answers: dict[str, str]) -> bool:
     return ok
 
 
-def kit_text(*, box_name: str, instance_id: str, key: OwnerKey, destinations: list[dict], issued_at: datetime) -> str:
+def kit_text(*, box_name: str, instance_id: str, key: OwnerKey, destinations: list[dict], issued_at: datetime,
+             disk_key: str | None = None) -> str:
     lines = [
         "ONEMIND EMERGENCY KIT",
         "=====================",
@@ -84,8 +107,20 @@ def kit_text(*, box_name: str, instance_id: str, key: OwnerKey, destinations: li
         "Keep this page offline, somewhere safe. Anyone with it and a backup disk can read your data.",
         "OneMind does not keep this key. If you lose it and the box, your backups cannot be opened.",
         "",
-        "Where your backups are:",
     ]
+    if disk_key:
+        lines += [
+            "Disk recovery key (unlocks this box's encrypted data disk if its automatic unlock fails;",
+            "type it at the box's own console when the boot prompt asks):",
+            "",
+            "    " + disk_key,
+            "",
+            "Shown once, on this page only. The box does not keep it.",
+            "",
+        ]
+    lines += ["Owner access at the box: if you lose every passkey, open the box's rescue console on the box itself",
+              "and type the owner recovery key above. Nothing is deleted and the disk stays encrypted.", ""]
+    lines.append("Where your backups are:" if destinations else "Where your backups are: none yet (add a backup destination, then issue a new kit to cover it).")
     for d in destinations:
         cfg = d.get("config") or {}
         where = cfg.get("usb_uuid") or cfg.get("url") or "/".join(x for x in (cfg.get("endpoint"), cfg.get("bucket"), cfg.get("prefix")) if x)

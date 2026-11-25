@@ -33,6 +33,10 @@ export interface KitState {
   fingerprint: string | null;
   /** 1-based positions of the two groups the owner must type back. */
   positions: number[];
+  /** True when the printed kit holds the disk (LUKS) recovery key (D-028). */
+  disk_key_included?: boolean;
+  /** Destinations added after the kit was issued: the kit's owner key does not open them until a new kit is issued. */
+  uncovered_destinations?: string[];
 }
 
 /** The one-time part of POST /v1/backups/kit. Shown once; never stored by the UI. */
@@ -42,6 +46,8 @@ export interface KitOneTime {
   check: string;
   text: string;
   qr_payload: string;
+  /** Only when /data is encrypted and its key was still waiting. Shown once. */
+  disk_recovery_key?: string;
 }
 
 export interface BackupsStatus {

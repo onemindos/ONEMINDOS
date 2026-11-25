@@ -686,3 +686,40 @@ def test_display_name_never_changes_the_stable_identity_and_the_change_is_audite
     assert len(records) == 1
     assert records[0]["principal"]["id"] == before["id"] and records[0]["principal"]["role"] == "owner"
     assert "Totally Not Admin" not in Path(settings.audit_path).read_text()
+
+
+# ---- the printed kit at the rescue console: no dead end for an owner who lost every passkey (D-028) ----------
+def _issue_kit(idc):
+    r = idc.post("/v1/backups/kit", headers=OWNER)
+    assert r.status_code == 201, r.text
+    return r.json()["one_time"]
+
+
+def test_rescue_console_with_no_passkey_offers_the_kit_not_a_dead_end(idc, settings):
+    setup_owner(idc)
+    # nothing to step up with and no kit: still 409 (standing at the box is never enough)
+    assert idc.post("/v1/auth/rescue/options", headers=OWNER).status_code == 409
+    assert idc.post("/v1/auth/rescue/kit", headers=OWNER, json={"kit_key": "A" * 52}).status_code == 409
+    kit = _issue_kit(idc)
+    opts = idc.post("/v1/auth/rescue/options", headers=OWNER)
+    assert opts.status_code == 200 and opts.json() == {"methods": ["kit"], "kit": True}
+    assert idc.post("/v1/auth/rescue/kit", headers=AGENT, json={"kit_key": kit["owner_key"]}).status_code in (401, 403)
+    assert new_session_client(idc).post("/v1/auth/rescue/kit", json={"kit_key": kit["owner_key"]}).status_code == 401
+    wrong = idc.post("/v1/auth/rescue/kit", headers=OWNER, json={"kit_key": "-".join(["ABCD"] * 13)})
+    assert wrong.status_code == 401 and wrong.json()["reason"] == "kit_key_wrong"
+    ok = idc.post("/v1/auth/rescue/kit", headers=OWNER, json={"kit_key": kit["owner_key"]})
+    assert ok.status_code == 200 and ok.headers["cache-control"] == "no-store", ok.text
+    assert ok.json()["credential_id"].startswith("kit:") and ok.json()["user_id"]
+    assert kit["owner_key"] not in ok.text
+    ev = [e for e in audit_events(settings) if (e.get("data") or {}).get("payload", {}).get("attempted") == "rescue session"]
+    assert [e["event"] for e in ev] == ["auth.step_up.failed"] * 2 + ["auth.step_up.succeeded"]
+    assert all(kit["owner_key"] not in json.dumps(e) for e in ev)
+
+
+def test_rescue_options_with_a_passkey_also_offers_the_kit_once_issued(idc):
+    setup_owner(idc)
+    _issue_kit(idc)  # before the first passkey: from then on approvals need one
+    key = SoftAuthenticator()
+    register_passkey(idc, key)
+    opts = idc.post("/v1/auth/rescue/options", headers=OWNER).json()
+    assert opts["methods"] == ["passkey", "kit"] and opts["publicKey"]["allowCredentials"][0]["id"] == b64url(key.cred_id)

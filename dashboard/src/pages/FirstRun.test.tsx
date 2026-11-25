@@ -70,12 +70,17 @@ it('offers the recovery kit only when a destination exists, and the key goes thr
   expect(JSON.stringify({ ...window.sessionStorage })).not.toContain('AAAA');
 });
 
-it('does not offer a kit without any backup destination', async () => {
+it('offers a kit with no backup destination and passes the disk key through, once', async () => {
   h.get.mockResolvedValue({ ...values, saved: true });
   h.destinations.mockResolvedValue([]);
+  h.issue.mockResolvedValue({ kit: { ...noKit, state: 'issued', positions: [1, 3] },
+    one_time: { groups: ['AAAA'], check: 'ZZZZ', text: 'KIT TEXT', disk_recovery_key: 'cbdefghi-jklnrtuv' } });
   render(<FirstRun onDone={h.done} />);
   await screen.findByText('Existing wizard');
-  expect(h.props.kit).toBeUndefined();
+  const kit = h.props.kit as { issue: () => Promise<unknown> };
+  expect(kit).toBeDefined();
+  expect(await kit.issue()).toMatchObject({ disk_recovery_key: 'cbdefghi-jklnrtuv', positions: [1, 3] });
+  expect(JSON.stringify({ ...window.sessionStorage, ...window.localStorage })).not.toContain('cbdefghi');
 });
 
 it('previews each starter plan and files the install bound to the previewed plan hash', async () => {

@@ -68,3 +68,27 @@ it('skip for now is offered while the kit is unconfirmed', async () => {
   await u.click(screen.getByRole('button', { name: 'Skip for now' }));
   expect(skip).toHaveBeenCalled();
 });
+
+it('shows the disk recovery key beside the owner key when the box has one, and forgets both once confirmed', async () => {
+  const u = userEvent.setup();
+  URL.createObjectURL = vi.fn(() => 'blob:x');
+  URL.revokeObjectURL = vi.fn();
+  const kit = make({ issue: vi.fn().mockResolvedValue({ ...issued, disk_recovery_key: 'cbdefghi-jklnrtuv' }) });
+  render(<RecoveryKit kit={kit} onConfirmed={vi.fn()} />);
+  await u.click(screen.getByRole('button', { name: /Create my emergency kit/ }));
+  expect(await screen.findByLabelText('Disk recovery key')).toHaveTextContent('cbdefghi-jklnrtuv');
+  expect(screen.getByText(/rescue console/)).toBeInTheDocument();
+  await u.click(screen.getByRole('button', { name: /Download emergency kit/ }));
+  await u.type(screen.getByLabelText('Group 1'), 'abcd');
+  await u.type(screen.getByLabelText('Group 3'), 'jklm');
+  await u.click(screen.getByRole('button', { name: 'Confirm my kit' }));
+  await waitFor(() => expect(screen.queryByLabelText('Disk recovery key')).toBeNull());
+});
+
+it('shows no disk key block on a box whose data disk is not encrypted', async () => {
+  const u = userEvent.setup();
+  render(<RecoveryKit kit={make()} onConfirmed={vi.fn()} />);
+  await u.click(screen.getByRole('button', { name: /Create my emergency kit/ }));
+  await screen.findByLabelText('Owner recovery key');
+  expect(screen.queryByLabelText('Disk recovery key')).toBeNull();
+});

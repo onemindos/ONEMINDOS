@@ -117,6 +117,16 @@ describe('EmergencyKit', () => {
   const issued: KitState = { state: 'issued', issued_at: ago(1), confirmed_at: null, fingerprint: 'f00d', positions: [2, 10] };
   const one: KitOneTime = { owner_key: groups.join('-'), groups, check: 'QQQQ', text: 'kit', qr_payload: 'onemind-kit:v1' };
 
+  it('prints the disk recovery key beside the owner key when the hub handed one over', async () => {
+    render(
+      <EmergencyKit kit={{ ...issued, state: 'missing', positions: [] }} boxName="Home hub"
+        onIssue={async () => ({ kit: issued, one_time: { ...one, disk_recovery_key: 'cbdefghi-jklnrtuv' } })}
+        onConfirm={async () => issued} onDone={vi.fn()} />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Show my recovery key' }));
+    expect(screen.getByLabelText('Disk recovery key')).toHaveTextContent('cbdefghi-jklnrtuv');
+  });
+
   it('cannot be skipped: done only after the hub accepts two typed-back groups', async () => {
     const onDone = vi.fn();
     const onConfirm = vi.fn(async (a: Record<string, string>) => {

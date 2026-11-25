@@ -99,6 +99,12 @@ export function EmergencyKit(p: EmergencyKitProps) {
           ))}
         </ol>
         <p className="om-hint">Check group: <code>{one.check}</code> · fingerprint {kit.fingerprint}</p>
+        {one.disk_recovery_key && (
+          <>
+            <p className="om-hint">Disk recovery key, for unlocking this box's encrypted data disk at its own console. Shown once.</p>
+            <pre className="om-code" aria-label="Disk recovery key"><code>{one.disk_recovery_key}</code></pre>
+          </>
+        )}
         <div className="omb-actions">
           {href && (
             <a className="omb-link" href={href} download={kitFileName(p.boxName, kit.issued_at ?? '')}>
