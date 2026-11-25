@@ -89,6 +89,7 @@ export const OP = {
   deviceToken: 'POST /v1/devices/token',
   /** §12.41 (owner only). */
   onboardingSettings: 'GET /v1/onboarding/settings',
+  tips: 'GET /v1/tips',
   /** UMB-P07: the person's own Home (appearance, layout, dock) kept on the hub. */
   homeGet: 'GET /v1/me/home',
   /** §12.40. */

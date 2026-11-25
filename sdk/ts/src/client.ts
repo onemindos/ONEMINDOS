@@ -182,6 +182,19 @@ export class OneMind {
 
   readonly network = { view: () => this.call<NetworkView>({ method: "GET", path: "/v1/network" }) };
 
+  // Tips are served by the hub. Do not follow a redirect out to a content host.
+  readonly tips = {
+    list: () => this.call<components["schemas"]["TipList"]>({
+      method: "GET", path: "/v1/tips", redirect: "error",
+    }),
+    collections: () => this.call<components["schemas"]["TipCollections"]>({
+      method: "GET", path: "/v1/tips/collections", redirect: "error",
+    }),
+    get: (id: string) => this.call<components["schemas"]["TipView"]>({
+      method: "GET", path: `/v1/tips/${encodeURIComponent(id)}`, redirect: "error",
+    }),
+  };
+
   readonly apps = {
     list: () => this.call<CatalogApp[]>({ method: "GET", path: "/v1/apps" }),
   };
@@ -351,6 +364,7 @@ export class OneMind {
         },
         body: r.body !== undefined ? JSON.stringify(r.body) : undefined,
         signal: ctrl.signal,
+        ...(r.redirect ? { redirect: r.redirect } : {}),
       });
     } catch (e) {
       this.onTrace?.(r.method, pathOnly, 0, Date.now() - started);
