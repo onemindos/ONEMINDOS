@@ -143,6 +143,7 @@ HUMAN_ONLY: dict[str, str] = {
     "DELETE /v1/auth/passkeys/{credential_id}": CREDENTIAL,
     "POST /v1/auth/password": CREDENTIAL,
     "POST /v1/auth/refresh": CREDENTIAL,
+    "POST /v1/auth/rescue/kit": CREDENTIAL,
     "POST /v1/auth/rescue/options": CREDENTIAL,
     "POST /v1/auth/rescue/verify": CREDENTIAL,
     "GET /v1/auth/sessions": CREDENTIAL,

@@ -177,6 +177,9 @@ POLICY |= {
                                               "D-014 owner; 409 until a passkey is registered", ID),
     ("POST", "/v1/auth/rescue/verify"): Row({**OWNER_ONLY, "owner": 401}, w.p_rescue_verify,
                                              "D-014 owner; the probe's assertion does not verify", ID),
+    ("POST", "/v1/auth/rescue/kit"): Row({**OWNER_ONLY, "owner": 403}, w.p_rescue_kit,
+                                          "D-028 3.13: accepted from the box itself only; the matrix probe is a network source, "
+                                          "so even the owner is refused before the key is looked at", ID),
     ("GET", "/signin"): Row(OPEN, w.p_static("/signin"), "the sign-in page is public", ID),
 }
 

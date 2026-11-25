@@ -155,6 +155,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
     settings = gw.settings.section(BackupsSettings)
     svc = BackupService(gw, settings, pg=getattr(app.state, "databases", None))
     app.state.backups = svc
+    # The storage router registers later (ORDER 310), so the disk-key source looks the service up when asked (D-028).
+    svc.disk_key_source = lambda: getattr(app.state, "storage").peek_recovery_key_for_kit() \
+        if getattr(app.state, "storage", None) else None
+    svc.disk_key_forget = lambda: getattr(app.state, "storage").forget_recovery_key_for_kit() \
+        if getattr(app.state, "storage", None) else None
     svc.builtins = getattr(app.state, "builtins", None)  # registered earlier (ORDER 135): the backup set, #616
     gw.on_startup(svc.startup)
     gw.on_shutdown(svc.shutdown)
@@ -355,7 +360,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.post("/v1/backups/kit", operation_id="backups.kit.issue", tags=tags, status_code=201, responses=error_responses(401, 403, 409))
     def issue_kit(request: Request, p: Principal = Depends(owner), idem: IdemHeader = None):
         """Owner shortcut: files backup.kit.issue and approves it; the key is in this response only."""
-        if not svc.enabled:
+        if not svc.enabled and svc.repo.destinations():  # with no destination the kit needs no agent (D-028)
             raise Unavailable("backups are not switched on (ONEMIND_BACKUPS_ENABLED=1)", "backups_disabled")
         action, created = gw.actions.request_feature(p, "backup.kit.issue", {}, idempotency_key=key(idem),
                                                      expires_at=gw.clock() + timedelta(minutes=10))

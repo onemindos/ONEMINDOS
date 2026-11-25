@@ -158,11 +158,14 @@ export interface FirstRunState {
   settings_saved: boolean;
   backups_enabled: boolean;
   destinations: number;
-  kit: { state: 'missing' | 'issued' | 'confirmed'; confirmed_at: string | null; fingerprint: string | null; positions: number[] };
+  kit: { state: 'missing' | 'issued' | 'confirmed'; confirmed_at: string | null; fingerprint: string | null; positions: number[];
+    disk_key_included?: boolean; uncovered_destinations?: string[];
+    disk_key_kit?: { fingerprint: string; issued_at: string } | null };
 }
 export interface IssuedKitResponse {
   kit: FirstRunState['kit'];
-  one_time: { groups: string[]; check: string; text: string };
+  /** Shown once. `disk_recovery_key` is present only when /data is encrypted and its key was still waiting. */
+  one_time: { groups: string[]; check: string; text: string; disk_recovery_key?: string };
 }
 export interface SourceAddParams { name: string; url: string; commit: string }
 export interface BackupDestinationRecord { id: string; kind: string; label: string }
