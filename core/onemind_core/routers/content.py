@@ -20,6 +20,7 @@ from ..content.kiwix import FLAVOUR_RE, NAME_RE
 from ..content.service import ContentService
 from ..context import Gateway
 from ..errors import ApiError, error_responses
+from ..jsonbody import JsonBody
 from ..identity.scopes import register_route_scope
 
 # Route order in the app and in /openapi.json (routers/__init__.py): after automation (280), whose
@@ -54,13 +55,13 @@ class ContentChange(BaseModel):
     remove: list[BookRef] = Field(default_factory=list, max_length=200)
 
 
-class ContentChangeRequest(ContentChange):
+class ContentChangeRequest(ContentChange, JsonBody):
     # The download size the owner was shown (POST /v1/content/plan). A different size now is refused.
     download_bytes: int = Field(ge=0)
     idempotency_key: str = Field(min_length=1, max_length=200)
 
 
-class AutoUpdateBody(BaseModel):
+class AutoUpdateBody(JsonBody):
     model_config = ConfigDict(extra="forbid")
     enabled: bool
     window_id: str = Field(default="win_nightly", pattern=r"^win_[a-z0-9_]{1,36}$")
