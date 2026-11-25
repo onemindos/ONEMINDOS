@@ -85,6 +85,10 @@ class SshKeys(BaseModel):
     keys: list[SshKey]
 
 
+OFF_WARNING = ("Switching SSH off stops new logins and keeps it off after a reboot. Sessions already open keep running "
+               "until they end. On a cloud box this closes its only shell apart from the provider's console.")
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     svc = SshService(gw)
     svc.register()
@@ -172,4 +176,6 @@ def register(app: FastAPI, gw: Gateway) -> None:
         """Ask to switch SSH on or off. Off stops sshd and keeps it off after a reboot; on lets it listen again (once a
         key exists). It waits for the owner; switching on needs a passkey once passkeys are active."""
         owner(p, "request switching SSH")
-        return file(p, TOGGLE, {"enabled": req.enabled}, idem, req.reason, req.idempotency_key)
+        # The approval card shows the params. Off is the one change that can lock an owner out, so it says what stays.
+        params = {"enabled": req.enabled, **({} if req.enabled else {"note": OFF_WARNING})}
+        return file(p, TOGGLE, params, idem, req.reason, req.idempotency_key)

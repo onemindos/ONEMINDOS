@@ -283,6 +283,13 @@ def test_switching_off_and_on(web):
     assert web.put("/v1/ssh", headers=OWNER, json={}).status_code == 422
 
 
+def test_switching_off_says_what_it_leaves_running_on_the_approval_card(web):
+    off = web.put("/v1/ssh", headers=OWNER, json={"enabled": False}).json()
+    note = off["params"]["note"]
+    assert "already open keep running" in note and "provider" in note
+    assert "note" not in web.put("/v1/ssh", headers=OWNER, json={"enabled": True}).json()["params"]
+
+
 def test_a_retry_with_the_same_idempotency_key_files_one_request(web):
     h = {**OWNER, "Idempotency-Key": "ssh-retry-1"}
     first = web.put("/v1/ssh", headers=h, json={"enabled": False})

@@ -161,6 +161,7 @@ GOOD_F20 = (
     "F20 f_code=202\nF20 f_state0=awaiting_approval\nF20 f_listen_before=2\nF20 f_state=succeeded\nF20 f_active=inactive\n"
     "F20 f_listen=0\nF20 f_nft=0\nF20 f_flag=True\nF20 f_login_rc=255\nF20 f_restart_active=inactive\n"
     "F20 g_state=succeeded\nF20 g_active=active\nF20 g_listen=2\nF20 g_flag=False\nF20 g_login=admin\n"
+    "F20 e_limit_after_on=True\nF20 e_limit_after_fw=True\nF20 e_fw_login=admin\n"
     "F20 i_code=422\nF20 i_filed=0\n")
 
 
@@ -194,6 +195,9 @@ class F20SshKeysAndSwitch(unittest.TestCase):
             ("d_k1_still=admin", "d_k1_still=", "removal_refuses"),                 # removal took the other key too
             ("d_k2_listed=False", "d_k2_listed=True", "removal_refuses"),
             ("e_limit_first=True", "e_limit_first=False", "rate_limit_rule"),
+            ("e_limit_after_on=True", "e_limit_after_on=False", "rate_limit_rule"),   # lost on the second start of sshd
+            ("e_limit_after_fw=True", "e_limit_after_fw=False", "rate_limit_rule"),   # lost after a firewall restart
+            ("e_fw_login=admin", "e_fw_login=", "rate_limit_rule"),
             ("f_listen_before=2", "f_listen_before=0", "off_waits"),
             ("f_listen=0", "f_listen=1", "off_closes_port"),                        # the port is still open
             ("f_active=inactive", "f_active=active", "off_closes_port"),

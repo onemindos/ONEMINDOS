@@ -118,7 +118,7 @@ key-rm)
         done < "$keys"
         [ "$removed" -gt 0 ] || { echo "onemind-owner: no such key" >&2; exit 4; }
         chmod 0600 "$tmp"; mv -f "$tmp" "$keys"; trap - EXIT; rm -f "$probe"
-        grep -c . "$keys" || true
+        grep -cv "^[[:space:]]*\(#\|\$\)" "$keys" || true   # keys left; comments and blank lines do not count
     ' sh "$SSHDIR" "$KEYS" "$fp") || exit $?
     publish_keys
     # No key left: nobody can log in, so stop listening too (the path unit starts sshd again with the next key).

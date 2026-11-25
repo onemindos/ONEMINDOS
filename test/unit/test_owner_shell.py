@@ -233,6 +233,17 @@ class SshKeysAndSwitch(unittest.TestCase):
             left = open(kf).read().splitlines()
             self.assertEqual(left[0], "# my own note"); self.assertEqual(len(left), 2); self.assertIn(open(b).read().split()[1], left[1])
 
+    def test_a_file_left_with_only_comments_counts_as_no_key(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            a, fa = make_key(d, "a", "x")
+            run_owner(d, "key-add", a)
+            kf = os.path.join(d, "home", ".ssh", "authorized_keys")
+            body = open(kf).read()
+            open(kf, "w").write("# my own note\n\n" + body)
+            self.assertEqual(run_owner(d, "key-rm", fa).returncode, 0)
+            self.assertIn("stop ssh.service", open(os.path.join(d, "systemctl.log")).read())   # no key can log in: stop
+
     def test_the_switch_is_a_flag_file_on_data_and_survives(self):
         import tempfile
         with tempfile.TemporaryDirectory() as d:
@@ -300,13 +311,33 @@ class SshKeysAndSwitch(unittest.TestCase):
         self.assertIn("ProtectHome=yes", h)
         self.assertIn("ReadWritePaths=/data /boot/efi", h)       # /data is where the job and the result are filed
 
+    def test_the_apply_job_runs_with_a_read_only_root_and_few_capabilities(self):
+        a = rd(f"{SYS}/onemind-ssh-apply.service")
+        self.assertIn("ProtectSystem=strict", a)
+        self.assertIn("ReadWritePaths=/data", a)
+        self.assertRegex(a, r"CapabilityBoundingSet=CAP_")
+        self.assertNotIn("CAP_SYS_ADMIN", a)
+
     def test_rate_limit_and_accept_are_in_the_ssh_chain_in_that_order(self):
         d = rd(f"{SYS}/ssh.service.d/30-onemind-firewall.conf")
-        v4, v6, acc = (d.index(x) for x in ("meter ssh_new_v4", "meter ssh_new_v6", "tcp dport 22 accept"))
+        v4, v6, acc = (d.index(x) for x in ("add @ssh_new_v4", "add @ssh_new_v6", "tcp dport 22 accept"))
         self.assertLess(v4, acc); self.assertLess(v6, acc)
         self.assertEqual(d.count("limit rate over 6/minute burst 6 packets"), 2)
         self.assertEqual(d.count("ct state new"), 2)             # only new connections are counted
         self.assertIn("ip saddr", d); self.assertIn("ip6 saddr", d)
+
+    def test_limit_survives_a_second_start_of_sshd(self):
+        # A "meter" statement creates a named set per start; the second start (SSH off, then on) is refused and the
+        # limit is lost. The sets are declared once in host.nft and the rules only "add @set"; a limit rule that
+        # fails must show in the journal, so it has no "-" prefix.
+        d = rd(f"{SYS}/ssh.service.d/30-onemind-firewall.conf")
+        self.assertNotIn("meter", [w for l in d.splitlines() if l.startswith("ExecStartPost") for w in l.split()])
+        n = rd(f"{L}/usr/lib/onemind/host.nft")
+        for fam in ("ipv4", "ipv6"):
+            self.assertRegex(n, rf"set ssh_new_v{fam[-1]} \{{ type {fam}_addr; flags dynamic,timeout;")
+        for l in d.splitlines():
+            if l.startswith("ExecStartPost") and "limit rate over" in l:
+                self.assertTrue(l.startswith("ExecStartPost=+"), l)
 
 
 class KioskUserExistsInTheImage(unittest.TestCase):

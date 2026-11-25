@@ -18,6 +18,9 @@ flush table inet onemind_host
 table inet onemind_host {
   set lan4 { type ipv4_addr; flags interval; elements = { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, 100.64.0.0/10 } }
   set lan6 { type ipv6_addr; flags interval; elements = { fc00::/7, fe80::/10 } }
+  # Per-source counters for the port 22 rate limit (ssh.service.d/30-onemind-firewall.conf adds the rules that use them).
+  set ssh_new_v4 { type ipv4_addr; flags dynamic,timeout; size 65535; }
+  set ssh_new_v6 { type ipv6_addr; flags dynamic,timeout; size 65535; }
 
   chain input {
     type filter hook input priority filter; policy drop;

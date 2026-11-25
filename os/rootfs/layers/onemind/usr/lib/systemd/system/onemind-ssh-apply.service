@@ -16,3 +16,12 @@ NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes
+ProtectKernelTunables=yes
+# The job writes only on /data (the SSH state), in the owner's home and in the extrausers store; the rest of the
+# root is read-only to it. Root needs just these powers: write files owned by others (owner's home, shadow),
+# become the owner for the key edits (runuser), and log through PAM.
+ProtectSystem=strict
+ReadWritePaths=/data -/home/admin -/var/lib/extrausers
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH CAP_FOWNER CAP_SETUID CAP_SETGID CAP_AUDIT_WRITE
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+LockPersonality=yes

@@ -710,10 +710,13 @@ c, ks = api("GET", "/v1/ssh/keys")
 fps = [k["fingerprint"] for k in (ks or {}).get("keys", [])]
 out("d_k2_listed", fp(K2 + ".pub") in fps); out("d_k1_listed", fp(K1 + ".pub") in fps)
 
-lines = sh("nft list chain inet onemind_host ssh")[1].splitlines()
-lim = [i for i, l in enumerate(lines) if "dport 22" in l and "limit rate over 6/minute" in l]
-acc = [i for i, l in enumerate(lines) if l.strip().startswith("tcp dport 22 accept")]
-out("e_limit_first", bool(lim) and bool(acc) and lim[0] < acc[0])
+def limit_ok():
+    # Both limit rules (IPv4 and IPv6) are in the chain and come before the accept rule.
+    lines = sh("nft list chain inet onemind_host ssh")[1].splitlines()
+    lim = [i for i, l in enumerate(lines) if "dport 22" in l and "limit rate over 6/minute" in l]
+    acc = [i for i, l in enumerate(lines) if l.strip().startswith("tcp dport 22 accept")]
+    return len(lim) == 2 and bool(acc) and max(lim) < acc[0]
+out("e_limit_first", limit_ok())
 
 c, a = api("PUT", "/v1/ssh", {"enabled": False})
 out("f_code", c); out("f_state0", (a or {}).get("state")); out("f_listen_before", listening())
@@ -728,6 +731,12 @@ c, a = api("PUT", "/v1/ssh", {"enabled": True})
 out("g_state", approve(a))
 wait(lambda: active() == "active" and listening() >= 1)
 out("g_active", active()); out("g_listen", listening()); out("g_flag", os.path.exists("/data/onemind/ssh/disabled")); out("g_login", login(K1)[1])
+# (e) again after SSH went off and on (the second start of ssh.service), and after a firewall restart (host.nft reloads,
+# the ssh chain empties, sshd restarts with it). The limit must come back each time (section 12 amendment).
+out("e_limit_after_on", limit_ok())
+sh("systemctl restart onemind-firewall.service")
+wait(lambda: active() == "active" and listening() >= 1 and limit_ok())
+out("e_limit_after_fw", limit_ok()); out("e_fw_login", login(K1)[1])
 
 before = len(api("GET", "/v1/actions")[1] or [])
 c, _ = api("POST", "/v1/ssh/keys", {"public_key": 'command="id" ' + open(K1 + ".pub").read().strip()})
@@ -751,7 +760,7 @@ def f20_judge(out):
         "removal_waits": g("d_del_code") == "202" and g("d_del_state0") == "awaiting_approval" and g("d_k2_before_approval") == "admin",
         "removal_refuses": g("d_del_state") == "succeeded" and isint("d_k2_after_rc") and g("d_k2_after_rc") != "0"
         and g("d_k2_after_denied") == t and g("d_k1_still") == "admin" and g("d_k2_listed") == "False" and g("d_k1_listed") == t,
-        "rate_limit_rule": g("e_limit_first") == t,
+        "rate_limit_rule": g("e_limit_first") == t and g("e_limit_after_on") == t and g("e_limit_after_fw") == t and g("e_fw_login") == "admin",
         "off_waits": g("f_code") == "202" and g("f_state0") == "awaiting_approval" and isint("f_listen_before") and int(g("f_listen_before")) >= 1,
         "off_closes_port": g("f_state") == "succeeded" and g("f_active") != "active" and g("f_active") != "" and g("f_listen") == "0"
         and g("f_nft") == "0" and g("f_flag") == t and isint("f_login_rc") and g("f_login_rc") != "0",
