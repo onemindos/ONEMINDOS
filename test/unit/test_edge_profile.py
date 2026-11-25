@@ -222,7 +222,10 @@ class EdgeJoinedBeforeG1TakesTheUpdate(unittest.TestCase):
     def test_not_inside_onemindd(self):
         """onemindd's sandbox (ProtectSystem=strict) cannot write /data/onemind/etc; a separate unit can."""
         self.assertIn("ProtectSystem=strict", rd("os", "rootfs", "layers", "onemind", "usr", "lib", "systemd", "system", "onemindd.service"))
-        self.assertNotIn("ProtectSystem", rd(*self.UNIT).replace("(ProtectSystem=strict)", ""))
+        # It has its own sandbox instead, with exactly one writable place.
+        u = rd(*self.UNIT)
+        self.assertRegex(u, r"(?m)^ProtectSystem=strict$")
+        self.assertRegex(u, r"(?m)^ReadWritePaths=/data/onemind/etc$")
 
     def test_old_open_conf_is_what_the_gate_refuses(self):
         t = rd(LEAF_CHECK)
