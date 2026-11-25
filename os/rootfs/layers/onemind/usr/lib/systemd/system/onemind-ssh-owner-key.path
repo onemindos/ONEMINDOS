@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# Start sshd the moment the owner's first key is written (hardware boards; ssh.service skips itself without one).
+[Unit]
+Description=OneMind: start SSH once an owner key exists
+
+[Path]
+PathChanged=/home/admin/.ssh/authorized_keys
+Unit=ssh.service
+
+[Install]
+WantedBy=multi-user.target

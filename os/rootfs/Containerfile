@@ -274,6 +274,9 @@ RUN set -eu; \
       mkdir -p /etc/NetworkManager/system-connections /var/lib/NetworkManager; \
       echo networkmanager > /usr/lib/onemind/network-stack; \
     else echo networkd > /usr/lib/onemind/network-stack; fi; \
+    groupadd --system --gid 965 onemind-kiosk; \
+    useradd --system --uid 965 --gid onemind-kiosk --no-create-home --home-dir /nonexistent \
+      --shell /usr/sbin/nologin --comment "OneMind kiosk" onemind-kiosk; \
     systemctl enable onemind-firstboot.service onemind-firewall.service avahi-daemon.service >/dev/null; \
     systemctl mask smbd.service nmbd.service winbind.service samba-ad-dc.service >/dev/null; \
     systemctl enable onemind-smb.service >/dev/null; \
@@ -285,6 +288,7 @@ RUN set -eu; \
     for db in passwd group shadow; do \
       grep -Eq "^$db:.*extrausers" /etc/nsswitch.conf || sed -i -E "s/^($db:.*)$/\\1 extrausers/" /etc/nsswitch.conf; \
     done; \
+    rm -rf /var/lib/extrausers; ln -s /data/onemind/samba/extrausers /var/lib/extrausers; \
     /usr/bin/nats-server --version; \
     /usr/sbin/tailscaled --version | head -1; /usr/bin/tailscale --version | head -1; /usr/bin/headscale version; \
     /usr/lib/onemind/restic version | grep -q 'restic 0.19.1'; command -v sqlite3 >/dev/null; \
@@ -296,6 +300,14 @@ RUN set -eu; \
       if systemctl is-enabled systemd-networkd.service systemd-networkd-wait-online.service 2>/dev/null | grep -qx enabled; then \
         echo "ERROR: systemd-networkd is enabled on a NetworkManager board" >&2; exit 1; fi; \
     else systemctl enable systemd-networkd.service systemd-resolved.service >/dev/null; fi; \
+    rm -f /etc/ssh/ssh_host_*; systemctl mask ssh.socket >/dev/null 2>&1 || true; \
+    if getent passwd admin >/dev/null; then \
+      rm -f /usr/lib/systemd/system/ssh.service.d/20-onemind-owner-key.conf; \
+    else \
+      useradd --uid 1000 --user-group --no-create-home --home-dir /home/admin --shell /bin/bash --comment "OneMind admin" admin; \
+      sed -i '/^admin:/d' /etc/shadow; chmod 0440 /etc/sudoers.d/admin; \
+      systemctl enable ssh.service onemind-ssh-owner-key.path getty@tty2.service >/dev/null; \
+    fi; \
     systemctl enable onemind-data-layout.service \
       k3s.service onemind-local-api.service onemind-health-gate.service onemind-data-check.service \
       onemind-factory-reset.service systemd-sysext.service systemd-confext.service >/dev/null; \

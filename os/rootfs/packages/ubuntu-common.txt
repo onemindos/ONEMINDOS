@@ -26,3 +26,6 @@ libglib2.0-0t64 libssl3t64 libcurl4t64 libjson-glib-1.0-0 libfdisk1 libnl-genl-3
 # for the coming btrfs /data. The rest is what an owner expects on an SSH or rescue shell. Proof: first-boot check F13.
 smartmontools gdisk btrfs-progs
 bash-completion less nano rsync htop jq iputils-ping pciutils usbutils dmidecode ethtool
+# Owner shell (Step 2): SSH (key-only, starts once the owner adds a key), sudo with the console password, and the
+# PAM module that gives every login (SSH, tty2, the kiosk user) a logind session. Recommends are off, so listed here.
+openssh-server sudo libpam-systemd
