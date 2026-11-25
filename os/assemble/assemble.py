@@ -217,12 +217,57 @@ def tree_mib(tree):
     return int(out("du", "-s", "-B1M", "--apparent-size", tree).split()[0])
 
 
+def source_date_epoch(environ=None):
+    """SOURCE_DATE_EPOCH (reproducible-builds.org spec) as an int, or None when unset. A set but malformed value
+    is an error, never silently ignored: a build that thinks it is reproducible and is not is worse than a loud stop."""
+    v = (os.environ if environ is None else environ).get("SOURCE_DATE_EPOCH", "").strip()
+    if not v:
+        return None
+    if not v.isdigit():
+        sys.exit(f"ERROR: SOURCE_DATE_EPOCH must be whole seconds since 1970, got {v!r}")
+    return int(v)
+
+
+def tree_release_keys(tree):
+    """(ONEMIND_BOARD, ONEMIND_VERSION) that finalize() wrote into the tree's os-release."""
+    kv = {}
+    for l in open(os.path.join(tree, "usr", "lib", "os-release")).read().splitlines():
+        k, _, v = l.partition("=")
+        kv[k] = v.strip('"')
+    return kv.get("ONEMIND_BOARD", ""), kv.get("ONEMIND_VERSION", "")
+
+
+def root_fs_uuid(board, version, epoch):
+    """The root filesystem's UUID and directory hash seed: a function of what the image is (board, version, build
+    epoch), not of the build run. Two builds of the same commit then give the same rootfs.ext4; a different version
+    gets a different UUID, so slot A (installed) and slot B (the next bundle) never share one."""
+    return str(uuid.uuid5(PU_NS, f"onemind-root-fs:{board}:{version}:{epoch}"))
+
+
+def mke2fs_root_cmd(tree, out_path, size, epoch, fs_uuid):
+    """The mke2fs call for the root filesystem. With a build epoch every field that would otherwise vary between
+    builds is fixed: UUID (-U), directory hash seed (hash_seed), and, through E2FSPROGS_FAKE_TIME in cmd_ext4, the
+    creation and inode times. Without one (a developer's ad hoc run) the old random UUID stays."""
+    cmd = ["mke2fs", "-q", "-t", "ext4", "-L", "onemind-root"]
+    ext = ["root_owner=0:0"]
+    if epoch is not None:
+        cmd += ["-U", fs_uuid]
+        ext.append(f"hash_seed={fs_uuid}")
+    return cmd + ["-E", ",".join(ext), "-d", tree, out_path, f"{size}M"]
+
+
 def cmd_ext4(a):
     tree = os.path.join(a.work, "tree")
     size = a.size_mib or (int(tree_mib(tree) * 1.3) + 384 + 63) // 64 * 64
     if os.path.exists(a.out):
         os.remove(a.out)
-    run("mke2fs", "-q", "-t", "ext4", "-L", "onemind-root", "-E", "root_owner=0:0", "-d", tree, a.out, f"{size}M")
+    epoch = source_date_epoch()
+    board, version = tree_release_keys(tree)
+    cmd = mke2fs_root_cmd(tree, a.out, size, epoch, root_fs_uuid(board, version, epoch))
+    env = dict(os.environ)
+    if epoch is not None:
+        env["E2FSPROGS_FAKE_TIME"] = str(epoch)
+    run(*cmd, env=env)
     log(f"{a.out}: {size} MiB ext4 from a {tree_mib(tree)} MiB tree")
 
 

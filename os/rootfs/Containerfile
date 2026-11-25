@@ -118,6 +118,8 @@ RUN set -eu; case "$TARGETARCH" in amd64) T=x86_64 ;; arm64) T=aarch64 ;; esac; 
     rm -rf /tmp/uv-cache /tmp/uv-python /tmp/uv-bin; ls /out/dist
 
 FROM base AS onemind-gateway
+# Reproducible build (Step 2 PR 8): see the end of this stage.
+ARG SOURCE_DATE_EPOCH
 COPY --from=onemind-pyprep /usr/lib/onemind/gateway/python/ /usr/lib/onemind/gateway/python/
 COPY --from=onemind-pyprep /out/ /tmp/py/
 RUN set -eu; \
@@ -129,10 +131,21 @@ RUN set -eu; \
     "$V" -m pip install --no-cache-dir --disable-pip-version-check --no-deps --no-index /tmp/py/dist/*.whl; \
     "$V" -m pip check; \
     rm -rf /tmp/py; \
-    "$V" -I -c "import onemind_core, yaml, sys; print('gateway venv ok', sys.version.split()[0])"
+    "$V" -I -c "import onemind_core, yaml, sys; print('gateway venv ok', sys.version.split()[0])"; \
+    # Python stamps each .pyc with its source file's mtime, which is the build time here, so two builds differ in \
+    # thousands of .pyc files. Rebuild them all keyed to a hash of the source instead (PEP 552 checked-hash): same \
+    # bytes every build, and still rejected if a source file changes. Test and demo folders stay uncompiled. \
+    find /usr/lib/onemind/gateway -name __pycache__ -type d -prune -exec rm -rf {} +; \
+    "$py" -m compileall -q -f --invalidation-mode checked-hash \
+      -x '/(test|tests|idlelib|lib2to3|turtledemo|site-packages/pip/_vendor/.*/tests)/' \
+      "$(dirname "$(dirname "$py")")/lib" /usr/lib/onemind/gateway/venv/lib
 
 # ---------------------------------------------------------------- the OS tree
 FROM base AS rootfs
+# SOURCE_DATE_EPOCH (reproducible-builds.org): the snapshot's own timestamp, passed by `make rootfs` and
+# os/rootfs/repro-check.sh. As an ARG it is visible to every RUN below, so update-initramfs and friends clamp file
+# times to it; the tar export clamps the rest (rewrite-timestamp=true).
+ARG SOURCE_DATE_EPOCH
 ARG LEG=debian
 ARG BOARD=x86_64-efi
 ARG TARGETARCH
@@ -274,6 +287,10 @@ RUN set -eu; \
     dpkg-query -W -f='${Package} ${Version} ${Architecture} ${Installed-Size}\n' | sort > /usr/lib/onemind/packages.txt; \
     printf 'leg=%s board=%s arch=%s kernel=%s firmware=%s\n' "${LEG}" "${BOARD}" "${TARGETARCH}" "$kver" "${FIRMWARE}" > /usr/lib/onemind/build-info.txt; \
     rm -rf /tmp/onemind /var/cache/apt/*.bin /var/log/apt /var/log/dpkg.log; \
+    # Build-run leftovers that differ between two builds of one commit and that nothing reads: a random machine id \
+    # (os/assemble/assemble.py reset_machine_id empties it again per image), ldconfig's cache of directory mtimes \
+    # (rebuilt by ldconfig on demand) and update-alternatives' timestamped log. \
+    rm -f /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /var/log/alternatives.log; : > /etc/machine-id; \
     cat /usr/lib/onemind/build-info.txt
 
 # ---------------------------------------------------------------- assembler / test toolbox
