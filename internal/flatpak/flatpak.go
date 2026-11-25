@@ -156,6 +156,12 @@ type Manager struct {
 // in a unit of its own, and the dashboard polls. Install, update and remove forget it at once.
 const updateTTL = 10 * time.Minute
 
+// updateAskTimeout bounds one ask of the remote; updateFailTTL is how long a failed ask is remembered.
+const (
+	updateAskTimeout = 30 * time.Second
+	updateFailTTL    = time.Minute
+)
+
 // NewDefault is the box's manager.
 func NewDefault() *Manager {
 	const dir, files, session = "/data/onemind/flatpak", "/data/onemind/desktop-apps", "/data/onemind/desktop-session"
@@ -301,7 +307,7 @@ func (m *Manager) forgetUpdates() {
 }
 
 // updates is the set of application and runtime ids the remote has a newer build of, kept for updateTTL. A failed
-// ask is not kept (the next call asks again) and gives an empty set.
+// ask gives an empty set, kept for updateFailTTL.
 func (m *Manager) updates(ctx context.Context) map[string]bool {
 	m.umu.Lock()
 	defer m.umu.Unlock()
@@ -309,9 +315,14 @@ func (m *Manager) updates(ctx context.Context) map[string]bool {
 		return m.upd
 	}
 	// No --app: runtimes are listed too, so a security update of a runtime alone shows up.
-	o, err := m.fp(ctx, "remote-ls", "--updates", "--columns=application", Remote)
+	// A short limit of its own: with no network this must not hold every caller for the 20-minute unit timeout.
+	actx, cancel := context.WithTimeout(ctx, updateAskTimeout)
+	defer cancel()
+	o, err := m.fp(actx, "remote-ls", "--updates", "--columns=application", Remote)
 	if err != nil {
-		return map[string]bool{}
+		// Remember the failure briefly, so a box that is offline answers at once instead of waiting again.
+		m.upd, m.updAt = map[string]bool{}, m.now().Add(updateFailTTL-updateTTL)
+		return m.upd
 	}
 	upd := map[string]bool{}
 	for _, l := range strings.Fields(string(o)) {

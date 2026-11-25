@@ -6,7 +6,7 @@
 # onemind-firstboot on the hub role. The OS install runs the update engine (internal/update) in this
 # process, so the sandbox is the update service's; systemd makes the socket, so nothing here chowns.
 # Desktop apps (#1097, internal/flatpak) run `flatpak` and make each app's folder through systemd-run: this unit has
-# no CAP_CHOWN and no namespaces, so every step that needs one runs in a transient unit of its own (hardened in
+# no chown capability and no namespaces, so every step that needs one runs in a transient unit of its own (hardened in
 # SystemdRunner), with this service only starting it over D-Bus. Nothing in this process may chown (test_flatpak_image).
 [Unit]
 Description=OneMind host actions (approved restart, shutdown, OS install)

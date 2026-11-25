@@ -378,3 +378,39 @@ func TestUnusedRuntimesAreRemovedAfterARemove(t *testing.T) {
 	}
 	t.Fatal("uninstall --unused never ran")
 }
+
+func TestAFailedUpdateAskIsRememberedBrieflyAndGivesNoUpdates(t *testing.T) {
+	m, f := box(t)
+	now := time.Unix(2_000_000, 0)
+	m.Now = func() time.Time { return now }
+	ctx := context.Background()
+	if err := m.Install(ctx, "md.obsidian.Obsidian"); err != nil {
+		t.Fatal(err)
+	}
+	m.forgetUpdates()
+	f.failOn = "remote-ls"
+	f.calls = nil
+	asks := func() int {
+		n := 0
+		for _, c := range f.calls {
+			if c[1] == "remote-ls" {
+				n++
+			}
+		}
+		return n
+	}
+	for i := 0; i < 4; i++ {
+		apps, err := m.Installed(ctx)
+		if err != nil || len(apps) != 1 || apps[0].UpdateAvailable {
+			t.Fatalf("offline list: %v %+v", err, apps)
+		}
+	}
+	if asks() != 1 {
+		t.Fatalf("an offline box asked %d times for 4 polls", asks())
+	}
+	now = now.Add(updateFailTTL + time.Second)
+	_, _ = m.Installed(ctx)
+	if asks() != 2 {
+		t.Fatalf("a failed ask is never retried: %d", asks())
+	}
+}
