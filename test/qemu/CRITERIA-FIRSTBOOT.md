@@ -109,3 +109,16 @@ F13 runs on the slot-A boot from F1, after F12 and before the F3 reboot, from th
 Required for this task's "done": F13 PASS on x86_64-efi in CI's image workflow.
 
 **Amendment (2026-11-25, after the first run):** F13 waits up to 60 s, not longer. "Names no server" also covers `Server: n/a (<pool host>)`: timesyncd prints the pool host it is trying while it has not reached any server, so that line counts as unreachable. A reached server (a real address) with the clock still not synchronised is a FAIL. `/etc/locale.conf` is read with comment lines (the SPDX header) ignored. None of this makes a pass easier for a reached server.
+
+## 10. Amendment (2026-11-25): F14 and F15, the time zone (P-04)
+
+**Status:** PRE-REGISTERED before F14 and F15 were implemented in `firstboot.py` or run. F0-F13 above are unchanged. The sha256 of this file with this section is appended to `PREREGISTRATION.sha256`. **Serves:** native feature P-04 (time zone applied). The root is read-only, so the zone lives on `/data`: `/etc/localtime` is a symlink to `/data/state/localtime`, seeded as UTC by `onemind-data-layout`, and the host service (`onemind-host`, kind `set-timezone`) swaps it.
+
+F14 runs on the slot-A boot from F1, after F13 and before the F3 reboot, from the hub's shell as root. It sends a `set-timezone` operation straight to the host socket (the gateway's approval step is proven in `core/tests/test_system_time.py`; this proves the box applies it). F15 runs after the F3 reboot and only when F3 runs.
+
+| ID | Test | PASS if | FAIL if |
+|---|---|---|---|
+| F14 | The host applies a time zone now | Before the change `/etc/localtime` resolves into `/usr/share/zoneinfo` and the hub's zone is `UTC`; `POST /v1/operations` `{kind: set-timezone, zone: Pacific/Auckland}` is accepted and the operation reaches `succeeded` within 30 s; then `readlink -f /etc/localtime` ends in `zoneinfo/Pacific/Auckland`, `date +%z` is `+1300` (New Zealand daylight time in November), and `GET /v1/time` on the host socket reports `zone` `Pacific/Auckland`; a second operation for `Mars/Olympus` is refused with HTTP 409 reason `unknown_zone` and the zone is unchanged | The operation is refused or fails, the zone file or offset is wrong, `GET /v1/time` disagrees, or the unknown zone is accepted |
+| F15 | The zone survives a reboot | After the F3 reboot `readlink -f /etc/localtime` still ends in `zoneinfo/Pacific/Auckland`, `date +%z` is `+1300`, and `GET /v1/time` reports `Pacific/Auckland` | Any of them is back to UTC or missing |
+
+Required for this task's "done": F14 and F15 PASS on x86_64-efi (F15 needs a run with `FUPTO=F3` or higher).

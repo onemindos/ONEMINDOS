@@ -44,6 +44,25 @@ class Clock(unittest.TestCase):
         self.assertIn("f13(vm)", fb)
         self.assertIn("| F13 |", rd("test/qemu/CRITERIA-FIRSTBOOT.md"))
 
+    def test_zone_lives_on_data_because_the_root_is_read_only(self):
+        # P-04: /etc/localtime is a symlink to /data/state/localtime; onemind-data-layout seeds it as UTC and the
+        # host service swaps it. The host unit may write /data and nothing else on the root.
+        self.assertIn("ln -sfn /data/state/localtime /etc/localtime", rd("os/rootfs/Containerfile"))
+        layout = rd("os/rootfs/layers/base/usr/lib/systemd/system/onemind-data-layout.service")
+        self.assertIn("[ -L /data/state/localtime ] || ln -s /usr/share/zoneinfo/UTC /data/state/localtime", layout)
+        unit = rd("os/rootfs/layers/onemind/usr/lib/systemd/system/onemind-host.service")
+        self.assertIn("ReadWritePaths=/data", unit)
+        go = rd("internal/host/timezone.go")
+        self.assertIn('DefaultZoneLink = "/data/state/localtime"', go)
+
+    def test_the_booted_zone_checks_exist(self):
+        fb = rd("test/qemu/firstboot.py")
+        self.assertIn("def f14(", fb)
+        self.assertIn("def f15(", fb)
+        crit = rd("test/qemu/CRITERIA-FIRSTBOOT.md")
+        self.assertIn("| F14 |", crit)
+        self.assertIn("| F15 |", crit)
+
     def test_node_check_still_reads_ntp(self):
         self.assertIn("NTPSynchronized", rd("deploy/verify/node-check.sh"))
 
