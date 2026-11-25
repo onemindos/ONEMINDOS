@@ -194,7 +194,8 @@ report() {
         if have btrfs; then
           st=$(rro btrfs device stats /data)
           if printf '%s\n' "$st" | grep -qiE 'must be run as root|permission|denied'; then row SKIP "btrfs error counters" "needs root: HW_CHECK_SUDO=1"
-          elif printf '%s\n' "$st" | grep -E '\] +[a-z_]+errs? +[1-9]' >/dev/null; then row FAIL "btrfs error counters" "the filesystem recorded read, write or corruption errors"
+          # Real lines look like '[/dev/mapper/onemind-data].write_io_errs    3': a '.' sits between ']' and the name.
+          elif printf '%s\n' "$st" | grep -E '\]\.[a-z_]+_errs[[:space:]]+[1-9]' >/dev/null; then row FAIL "btrfs error counters" "the filesystem recorded read, write or corruption errors"
           elif [ -n "$st" ]; then row PASS "btrfs error counters" "all zero"
           else row WARN "btrfs error counters" "no answer"; fi
         fi;;
@@ -207,7 +208,10 @@ report() {
   if have rauc; then
     out=$(rro rauc status)
     booted=$(printf '%s\n' "$out" | sed -n 's/^Booted from: *//p' | head -1)
-    bstat=$(printf '%s\n' "$out" | sed -n 's/^ *boot status: *//p' | head -1)
+    # rauc lists slots in no fixed order, so take 'boot status' from the slot block whose header says 'booted',
+    # e.g. 'o [rootfs.0] (/dev/sda4, ext4, booted)'. A new '[...]' header line starts the next block.
+    bstat=$(printf '%s\n' "$out" | awk '/^[[:space:]]*[^[:space:]]*[[:space:]]*\[[^]]+\][[:space:]]*\(/ { inb = ($0 ~ /booted/) ; next }
+      inb && /^[[:space:]]*boot status:/ { sub(/^[[:space:]]*boot status:[[:space:]]*/, ""); print; exit }')
     if [ -n "$booted" ] && [ "$bstat" = good ]; then row PASS "Boot slot" "booted from ${booted%% *}, status good"
     elif [ -n "$booted" ]; then row WARN "Boot slot" "booted from ${booted%% *}, status ${bstat:-unknown} (a new update stays 'bad' or unmarked until the health gate commits it)"
     else row SKIP "Boot slot" "rauc gave no slot answer (it may need root: HW_CHECK_SUDO=1)"; fi
@@ -222,7 +226,7 @@ report() {
   printf 'This report changed nothing on the box.\n'
 }
 
-# Everything printed goes through one scrub: MAC addresses, IPv4 and IPv6 addresses, e-mail addresses, long hex strings
+# Everything printed goes through one scrub: MAC addresses, IPv4 and IPv6 addresses (full and '::' compressed), e-mail addresses, long hex strings
 # (keys, tokens, serials) and home paths are replaced before they reach the screen or a file. The report runs in a
 # subshell, so its text is captured first and the exit code is read back from the printed FAIL lines.
 out=$(report)
@@ -230,6 +234,7 @@ printf '%s\n' "$out" | sed -E \
   -e 's/([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}/<mac>/g' \
   -e 's/\b([0-9]{1,3}\.){3}[0-9]{1,3}\b/<ip>/g' \
   -e 's/\b([0-9A-Fa-f]{1,4}:){3,7}[0-9A-Fa-f]{1,4}\b/<ip6>/g' \
+  -e 's/(^|[^[:alnum:]_:.])([0-9A-Fa-f]{1,4}(:[0-9A-Fa-f]{1,4})*)?::([0-9A-Fa-f]{1,4}(:[0-9A-Fa-f]{1,4})*)?([^[:alnum:]_:]|$)/\1<ip6>\6/g' \
   -e 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/<email>/g' \
   -e 's/\b[0-9A-Fa-f]{24,}\b/<hex>/g' \
   -e 's#/(home|Users)/[A-Za-z0-9._-]+#/<home>#g'

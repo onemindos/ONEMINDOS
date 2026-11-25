@@ -85,7 +85,8 @@ esac''',
     "findmnt": '''case "$*" in *FSTYPE*) echo btrfs;; *SOURCE*) echo /dev/mapper/onemind-data;; *) exit 1;; esac''',
     "snapper": '''echo "Config | Subvolume"; echo "storage | /data/storage"''',
     "btrfs": '''printf '[/dev/mapper/onemind-data].write_io_errs    0\\n[/dev/mapper/onemind-data].corruption_errs  0\\n' ''',
-    "rauc": '''printf 'Booted from: rootfs.0 (A)\\n   slot: rootfs.0\\n    boot status: good\\n' ''',
+    # real rauc layout; the other slot is listed first and is 'bad', so reading the first 'boot status' would be wrong
+    "rauc": '''printf '=== System Info ===\\nBooted from: rootfs.0 (A)\\n=== Slot States ===\\nx [rootfs.1] (/dev/sda5, ext4, inactive)\\n      bootname: B\\n      boot status: bad\\no [rootfs.0] (/dev/sda4, ext4, booted)\\n      bootname: A\\n      mounted: /\\n      boot status: good\\n' ''',
     "sudo": '''[ "$1" = -n ] || exit 7; shift; exec "$@"''',
 }
 # What each tool may be asked: the read-only allowlist the test enforces on every recorded call.
@@ -219,6 +220,37 @@ class HwCheckTest(unittest.TestCase):
         with open(p, "w") as f:
             f.write('#!/bin/sh\necho \'NAME="sdb" TRAN="usb" TYPE="disk" MOUNTPOINTS=""\'; echo \'NAME="sdb1" TRAN="usb" TYPE="part" MOUNTPOINTS="/media/x"\'\n')
         self.assertRegex(self.run_script().stdout, r"WARN\s+USB stick\s+seen, but it is MOUNTED")
+
+    def write_stub(self, name, body):
+        p = os.path.join(self.bin, name)
+        with open(p, "w") as f:
+            f.write("#!/bin/sh\n" + body + "\n")
+
+    def test_a_nonzero_btrfs_error_counter_fails(self):
+        # the exact `btrfs device stats` layout: '[dev].name_errs' with a '.' after the ']'
+        self.write_stub("btrfs", "printf '[/dev/mapper/onemind-data].write_io_errs    3\\n"
+                                 "[/dev/mapper/onemind-data].corruption_errs  0\\n'")
+        out = self.run_script(sudo=True)
+        self.assertEqual(out.returncode, 1, out.stdout)
+        self.assertRegex(out.stdout, r"FAIL\s+btrfs error counters")
+
+    def test_zero_btrfs_counters_pass(self):
+        out = self.run_script(sudo=True)
+        self.assertRegex(out.stdout, r"PASS\s+btrfs error counters\s+all zero")
+
+    def test_boot_status_comes_from_the_booted_slot(self):
+        # booted slot listed first and unmarked, the other slot 'good': must not report 'good'
+        self.write_stub("rauc", "printf 'Booted from: rootfs.1 (B)\\no [rootfs.1] (/dev/sda5, ext4, booted)\\n"
+                                "      boot status: bad\\nx [rootfs.0] (/dev/sda4, ext4, inactive)\\n      boot status: good\\n'")
+        out = self.run_script()
+        self.assertRegex(out.stdout, r"WARN\s+Boot slot\s+booted from rootfs\.1, status bad")
+
+    def test_compressed_ipv6_is_masked_but_times_are_kept(self):
+        self.write_stub("vainfo", "echo 'vainfo: no driver near fe80::1 or 2001:db8::5 or ::1 at 10:42:07'")
+        out = self.run_script().stdout
+        for addr in ("fe80::1", "2001:db8::5", " ::1 "):
+            self.assertNotIn(addr, out)
+        self.assertIn("10:42:07", out)
 
     # layer 3: nothing on disk changes
     def test_fake_tree_and_cwd_are_unchanged(self):
