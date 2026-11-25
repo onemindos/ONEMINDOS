@@ -361,7 +361,8 @@ PHOTOS_404 = grid(404, 404, 403, 403, 403)  # owner and adult own a library; a m
 _TIPS = "issue #669; core/tests/test_tips.py"
 POLICY |= {
     # ---- automation, standing approvals and windows ------------------------------------------------------
-    ("GET", "/v1/approval-policies"): Row(READ_ANY, w.p_static("/v1/approval-policies"), f"{_AUTOMATION}: any reader"),
+    ("GET", "/v1/approval-policies"): Row(ONLY_OWNER, w.p_static("/v1/approval-policies"),
+                                          f"{_AUTOMATION}: only the owner reads the rules (gateway permissions gap 3)"),
     ("POST", "/v1/approval-policies"): Row(grid(201, 403, 403, 403, 403), w.p_policy_create,
                                            f"{_AUTOMATION}: only the owner grants a standing approval"),
     ("DELETE", "/v1/approval-policies/{policy_id}"): Row(OWNER_ONLY_404, w.p_missing("/v1/approval-policies/{policy}"),

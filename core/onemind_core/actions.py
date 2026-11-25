@@ -41,7 +41,7 @@ import logging
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal, Protocol
 
 from pydantic import (
@@ -166,6 +166,23 @@ def check_params_fit(action_type: str, p: ActionParams) -> None:
                                      "confirm_mismatch")
     elif p.confirm is not None:
         raise ValueError("params.confirm is only for app.delete_data")
+
+
+# Gateway permissions design PR 3 (gap 9, review item 15): a request nobody decides must not wait for ever.
+# Software that asks (agents, automations, nodes, plugins) gets 72 hours; a person gets 7 days.
+PENDING_MAX_AGENT = timedelta(hours=72)
+PENDING_MAX_PERSON = timedelta(days=7)
+
+
+def check_pending_lifetime(requester_kind: str | None, expires_at: datetime, now: datetime) -> None:
+    """Refuse an expires_at further ahead than the requester kind may wait (422 conflict)."""
+    person = requester_kind == "person"
+    limit = PENDING_MAX_PERSON if person else PENDING_MAX_AGENT
+    if utc(expires_at) > now + limit:
+        raise ApiError(
+            422, "conflict",
+            f"a request from {'a person' if person else 'an agent, automation or node'} expires at most "
+            f"{'7 days' if person else '72 hours'} ahead")
 
 
 TYPE_RE = r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){1,3}$"
@@ -590,6 +607,7 @@ class ActionService:
         from .automation import registry  # imported late: the registry imports ActionType from here
 
         now = self.clock()
+        check_pending_lifetime(requested_by.get("kind"), expires_at, now)
         risk = registry.risk_of(action_type, params) if registry.known(action_type) else None
         # A requester that read third-party text is tainted here as on every other path, and a request
         # a standing approval could cover carries a plan, so an approval is bound to these parameters.
@@ -758,6 +776,7 @@ class ActionService:
         expires = utc(expires_at)
         if expires <= now:
             raise ApiError(409, "expired", "expires_at is already in the past")
+        check_pending_lifetime(principal.kind, expires, now)
         app, problem = self._precondition("app.configure", params["app_id"])
         if app is None:
             raise ApiError(404, "not_found", problem or "unknown app")
@@ -835,6 +854,7 @@ class ActionService:
         expires_at = utc(req.expires_at)
         if expires_at <= now:
             raise ApiError(409, "expired", "expires_at is already in the past")
+        check_pending_lifetime(principal.kind, expires_at, now)
         self._check_pending_cap(principal)
         for check in self.id_checks:
             check(req.type, params["app_id"])
@@ -1518,6 +1538,7 @@ class ActionService:
         exp = utc(expires_at)
         if exp <= now:
             raise ApiError(409, "expired", "expires_at is already in the past")
+        check_pending_lifetime(principal.kind, exp, now)
         risk = spec.risk_for(params) if spec.risk_for else spec.risk
         if risk not in {"read", "write", "sensitive", "destructive", "actuate"}:
             raise ApiError(422, "conflict", "feature returned an invalid risk class")

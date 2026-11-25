@@ -8790,7 +8790,7 @@
           },
           "expires_s": {
             "default": 86400,
-            "maximum": 604800.0,
+            "maximum": 259200.0,
             "minimum": 60.0,
             "title": "Expires S",
             "type": "integer"
@@ -17810,6 +17810,16 @@
               }
             },
             "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
           }
         },
         "summary": "List Policies",
