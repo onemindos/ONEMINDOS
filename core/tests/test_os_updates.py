@@ -165,3 +165,87 @@ def test_rotating_node_ids_stay_bounded(box, monkeypatch):
     assert svc.repo.count() == 8 and list(svc._seen) == [f"fake{i:04d}" for i in range(26, 30)]
     newest = svc.repo.list()
     assert {e["node_id"] for e in newest} == {f"fake{i:04d}" for i in range(26, 30)}
+
+
+# ---- os.rollback (P-16): back to the previous version ---------------------------------------------------------
+def ask_rollback(c, params, who=OWNER):
+    c.n += 1
+    return c.post("/v1/actions", headers=who, json={
+        "type": "os.rollback", "params": params, "idempotency_key": f"rb{c.n}",
+        "expires_at": (c.clock.now + timedelta(hours=1)).isoformat()})
+
+
+def slots(other_status="good", other_version="0.1.0", booted="A"):
+    first = {"name": "rootfs.0", "class": "rootfs", "bootname": "A", "state": "booted" if booted == "A" else "inactive",
+             "boot_status": "good", "bundle_version": "0.1.1"}
+    second = {"name": "rootfs.1", "class": "rootfs", "bootname": "B", "state": "inactive" if booted == "A" else "booted",
+              "boot_status": other_status, "bundle_version": other_version}
+    other = {"name": "efi.0", "class": "efi", "bootname": "", "state": "inactive"}
+    if booted == "B":
+        first["boot_status"], second["boot_status"], second["bundle_version"], first["bundle_version"] = \
+            other_status, "good", "0.1.1", other_version
+    return {"present": True, "booted_slot": booted, "slots": [first, second, other]}
+
+
+def test_status_names_the_version_a_rollback_would_boot(box):
+    box.report(rauc=slots())
+    [n] = box.get("/v1/os/updates", headers=OWNER).json()["nodes"]
+    assert n["rollback"] == {"available": True, "version": "0.1.0", "slot": "B", "reason": None, "message": None}
+    box.report(rauc=slots(booted="B"))  # the other direction: B runs, A is the previous one
+    [n] = box.get("/v1/os/updates", headers=OWNER).json()["nodes"]
+    assert n["rollback"]["available"] is True and n["rollback"]["slot"] == "A" and n["rollback"]["version"] == "0.1.0"
+
+
+def test_a_slot_the_image_wrote_takes_its_version_from_the_engines_note(box):
+    """RAUC has no record for a slot the image builder wrote, so the first update's old slot has no bundle
+    version: the engine's previous_version (the version it replaced, noted at the commit) names it."""
+    bare = slots(other_version="")
+    box.report(rauc=bare)
+    [n] = box.get("/v1/os/updates", headers=OWNER).json()["nodes"]
+    assert n["rollback"]["reason"] == "previous_unknown"
+    box.report(rauc=bare, update={"previous_version": "0.1.0"})
+    [n] = box.get("/v1/os/updates", headers=OWNER).json()["nodes"]
+    assert n["rollback"] == {"available": True, "version": "0.1.0", "slot": "B", "reason": None, "message": None}
+    box.report(rauc=bare, update={"previous_version": "0.1.1"})  # the same as the running version: nothing to go back to
+    [n] = box.get("/v1/os/updates", headers=OWNER).json()["nodes"]
+    assert n["rollback"]["reason"] == "same_version"
+
+
+@pytest.mark.parametrize("rauc,reason", [
+    (slots(other_status="bad", other_version="0.1.2"), "previous_not_good"),  # the gate rejected it
+    (slots(other_status=""), "previous_not_good"),
+    (slots(other_version=""), "previous_unknown"),
+    (slots(other_version="0.1.1"), "same_version"),
+    ({"present": True, "booted_slot": "A", "slots": slots()["slots"][:1]}, "no_previous_slot"),
+    ({"present": False, "booted_slot": None, "slots": []}, "no_previous_slot"),
+])
+def test_rollback_is_refused_when_the_other_slot_is_not_known_good(box, rauc, reason):
+    box.report(rauc=rauc)
+    [n] = box.get("/v1/os/updates", headers=OWNER).json()["nodes"]
+    assert n["rollback"]["available"] is False and n["rollback"]["reason"] == reason and n["rollback"]["message"]
+    r = ask_rollback(box, {"node_id": "box0123456789", "version": "0.1.0"})
+    assert r.status_code == 409 and r.json()["reason"] == reason
+
+
+def test_rollback_request_rules(box):
+    assert ask_rollback(box, {"node_id": "box0123456789", "version": "0.1.0"}).status_code == 409  # never reported
+    box.report(rauc=slots())
+    assert ask_rollback(box, {"node_id": "ghost", "version": "0.1.0"}).json()["reason"] == "unknown_node"
+    wrong = ask_rollback(box, {"node_id": "box0123456789", "version": "9.9.9"})
+    assert wrong.status_code == 409 and wrong.json()["reason"] == "no_such_version"
+    assert ask_rollback(box, {"node_id": "box0123456789", "version": "0.1.0", "force": True}).status_code == 422
+    assert ask_rollback(box, {"node_id": "box0123456789", "version": "0.1.0"}, who=AGENT).status_code == 403
+    r = ask_rollback(box, {"node_id": "box0123456789", "version": "0.1.0"})
+    assert r.status_code == 201 and r.json()["state"] == "awaiting_approval" and r.json()["risk"] == "destructive"
+    box.report(update={"state": "trial"}, rauc=slots())
+    busy = ask_rollback(box, {"node_id": "box0123456789", "version": "0.1.0"})
+    assert busy.status_code == 409 and busy.json()["reason"] == "update_in_progress"
+
+
+def test_status_reports_the_rollback_engine_and_history_lists_requests(box):
+    box.report(rauc=slots())
+    st = box.get("/v1/os/updates", headers=OWNER).json()
+    assert st["rollback"]["available"] is False and st["rollback"]["reason"] == "engine_unreachable"
+    r = ask_rollback(box, {"node_id": "box0123456789", "version": "0.1.0"})
+    [req] = box.get("/v1/os/updates/history", headers=OWNER).json()["requests"]
+    assert req["type"] == "os.rollback" and req["version"] == "0.1.0" and req["action_id"] == r.json()["id"]

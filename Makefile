@@ -13,6 +13,7 @@
 #   make firstboot BOARD=x86_64-efi [FUPTO=F4]          -> out/firstboot-<board>/ (F0-F4, CRITERIA-FIRSTBOOT.md)
 #   make secureboot-test                                -> out/secureboot-x86_64-efi/ (SB1-SB7, CRITERIA-SECUREBOOT.md)
 #   make bootlock  BOARD=x86_64-efi                     -> out/bootlock-<board>/ (B1-B6, CRITERIA-BOOTLOCK.md)
+#   make rollback  BOARD=x86_64-efi                     -> out/rollback-<board>/ (RB0-RB4, CRITERIA-ROLLBACK.md)
 #   make edge      BOARD=x86_64-efi                     -> out/edge-<board>/ (EG1-EG7, CRITERIA-EDGE.md; fixtures with EDGE=1)
 #   make sysextguard BOARD=x86_64-efi                   -> out/sysextguard-<board>/ (T-W19-01 X0-X7, CRITERIA-SYSEXT.md)
 #   make convert BOARD=vm                               -> qcow2 / vhdx / vmdk / vdi / ova next to the image
@@ -48,7 +49,7 @@ comma       = ,
 DOCKER_RUN  = docker run --rm --platform $(PLATFORM) -v "$(CURDIR)":/src:ro -v "$(CURDIR)/$(OUT)":/out
 KVM         = $(shell [ -w /dev/kvm ] && echo --device /dev/kvm)
 
-.PHONY: help tools rootfs repro-check image fixtures battery firstboot bootlock sysextguard dataenc convert hygiene hygiene-selftest lint test kit clean secureboot-image secureboot-test
+.PHONY: help tools rootfs repro-check image fixtures battery firstboot bootlock rollback sysextguard dataenc convert hygiene hygiene-selftest lint test kit clean secureboot-image secureboot-test
 
 help:
 	@sed -n 's/^#   make/make/p' Makefile
@@ -129,6 +130,15 @@ bootlock:
 	  --log /out/bootlock-$(BOARD)/serial.log --results /out/bootlock-$(BOARD)/results.json; \
 	  rc=$$?; rm -f $(OUT)/bootlock-$(BOARD)/work/disk.img; exit $$rc
 
+# Go back to the previous OS version (test/qemu/rollback.py, CRITERIA-ROLLBACK.md, P-16): a good update, then an
+# approved os-rollback through the host service boots the old slot and the gate commits it. Copies the fixture disk.
+rollback:
+	@test -f $(OUT)/fx-$(BOARD)/disk.img || $(MAKE) fixtures BOARD=$(BOARD)
+	mkdir -p $(OUT)/rollback-$(BOARD)
+	$(DOCKER_RUN) $(KVM) $(TOOLS) python3 -I /src/test/qemu/rollback.py --board $(BOARD) \
+	  --fixtures /out/fx-$(BOARD) --work /out/rollback-$(BOARD)/work \
+	  --log /out/rollback-$(BOARD)/serial.log --results /out/rollback-$(BOARD)/results.json; \
+	  rc=$$?; rm -rf $(OUT)/rollback-$(BOARD)/work; exit $$rc
 
 # Edge profile (test/qemu/edge.py, CRITERIA-EDGE.md, #751): first boot as an edge (role leaf), no hub services,
 # the gate's leaf check, a good and a bad update. Needs fixtures made with EDGE=1 (the bad-leaf bundle), fresh:

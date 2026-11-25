@@ -187,6 +187,10 @@ jobs:
       # because `make firstboot` removes the work disk it copied, and this copies the fixture disk again.
       - name: Boot menu lock (B1-B6)
         run: make bootlock BOARD=x86_64-efi TOOLS=onemind-tools:ci
+      # Go back to the previous OS version (RB0-RB4, test/qemu/CRITERIA-ROLLBACK.md, P-16): a good update, then an
+      # approved os-rollback through the host service boots slot A again and the gate commits it. Copies the fixture disk.
+      - name: Go back to the previous version (RB0-RB4)
+        run: make rollback BOARD=x86_64-efi TOOLS=onemind-tools:ci
       - name: Summary and trimmed log
         if: always()
         run: |
@@ -202,6 +206,7 @@ jobs:
             out/firstboot-x86_64-efi/results.json
             out/firstboot-x86_64-efi/serial-trimmed.log
             out/bootlock-x86_64-efi/results.json
+            out/rollback-x86_64-efi/results.json
           retention-days: 14
   # Encrypted /data (E1-E4, test/qemu/CRITERIA-DATAENC.md): a software TPM boots a luks2 image. Manual only
   # (Actions > image > Run workflow on the branch) until the data layout default flips to luks2; CI is saturated
