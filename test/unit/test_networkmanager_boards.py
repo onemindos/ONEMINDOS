@@ -105,7 +105,11 @@ class Config(unittest.TestCase):
         self.assertEqual(k["Wants"], "NetworkManager-wait-online.service")
         text = read(LAYER, "usr", "lib", "systemd", "system", "NetworkManager-wait-online.service.d", "10-onemind.conf")
         exec_lines = [l for l in text.splitlines() if l.startswith("ExecStart=")]
-        self.assertEqual(exec_lines, ["ExecStart=", "ExecStart=/usr/bin/nm-online -q"])   # no -s: not every NIC must finish
+        self.assertEqual(exec_lines, ["ExecStart=", "ExecStart=/usr/lib/onemind/nm-wait-online"])   # one connected NIC is enough
+        script = read(LAYER, "usr", "lib", "onemind", "nm-wait-online")
+        self.assertIn("connected:(ethernet|wifi|bond|bridge|vlan)", script)
+        self.assertNotIn("nm-online", re.sub(r"#.*", "", script))
+        self.assertTrue(os.access(os.path.join(ROOT, LAYER, "usr", "lib", "onemind", "nm-wait-online"), os.X_OK))
         self.assertRegex(text, r"NM_ONLINE_TIMEOUT=\d+")
 
     def test_profiles_and_state_live_on_data(self):
@@ -164,15 +168,15 @@ class Verdicts(unittest.TestCase):
         fn(self.VM(*outs), lambda t, ok, d: got.append((t, ok, d)), **kw)
         return got[-1]
 
-    NW1_OK = ("STACK=networkmanager\nNMEN=enabled\nWOEN=enabled\nNDACT=inactive\nNMACT=active\nETH=enp0s3\nIP4=10.0.2.15/24\n"
-              "ROUTE=default via 10.0.2.2 proto dhcp metric 100\nDNSCONF=1\nRESOLVED=1\nRESOLV=../run/systemd/resolve/stub-resolv.conf\n"
+    NW1_OK = ("STACK=networkmanager\nNMEN=enabled\nWOEN=enabled\nNDACT=inactive\nNMACT=active\nETH=enp0s3\nIP4=198.51.100.15/24\n"
+              "METHOD=auto\nLEASE=1\nDNSCONF=1\nDNSMODE=systemd-resolved\nRESOLVED=active\nRESOLV=../run/systemd/resolve/stub-resolv.conf\n"
               "WPA=wpa_supplicant v2.10\nIW=iw version 6.9\nRFKILL=0\nREGDB=install ok installed\nREGDBFILE=/lib/firmware/regulatory.db\n")
 
     def test_nw1(self):
         self.assertTrue(self.verdict(self.nc.nw1, self.NW1_OK)[1])
-        for bad in ("NDACT=inactive", "STACK=networkmanager", "IP4=10.0.2.15/24", "RESOLVED=1"):
+        for bad in ("NDACT=inactive", "STACK=networkmanager", "IP4=198.51.100.15/24", "LEASE=1", "METHOD=auto", "DNSMODE=systemd-resolved"):
             key = bad.split("=")[0]
-            worse = self.NW1_OK.replace(bad, key + "=" + ("active" if key == "NDACT" else "networkd" if key == "STACK" else "" if key == "IP4" else "0"))
+            worse = self.NW1_OK.replace(bad, key + "=" + {"NDACT": "active", "STACK": "networkd", "IP4": "", "LEASE": "0", "METHOD": "manual", "DNSMODE": "none"}[key])
             self.assertFalse(self.verdict(self.nc.nw1, worse)[1], key)
 
     def test_nw2_needs_the_order_not_just_a_late_k3s(self):

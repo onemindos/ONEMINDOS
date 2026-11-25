@@ -38,9 +38,13 @@ def nw1(vm, record):
         "echo NDACT=$(systemctl is-active systemd-networkd.service); echo NMACT=$(systemctl is-active NetworkManager.service); "
         + wait_up +
         "echo ETH=$DEV; echo IP4=$(ip -4 -o addr show dev $DEV scope global | awk '{print $4}' | head -1); "
-        "echo ROUTE=$(ip -4 route show default dev $DEV | head -1); "
+        "echo METHOD=$(nmcli -g ipv4.method connection show \"$(nmcli -g GENERAL.CONNECTION device show $DEV)\"); "
+        "echo LEASE=$(( $(nmcli -t device show $DEV | grep -Ec 'DHCP4\\.OPTION\\[[0-9]+\\]:ip_address = [0-9]') + "
+        "$(grep -l '^ADDRESS=' /var/lib/NetworkManager/*.lease 2>/dev/null | wc -l) )); "
         "echo DNSCONF=$(NetworkManager --print-config | grep -c '^dns=systemd-resolved'); "
-        "echo RESOLVED=$(resolvectl status $DEV | grep -c 'DNS Servers'); echo RESOLV=$(readlink /etc/resolv.conf); "
+        "echo DNSMODE=$(busctl get-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager/DnsManager "
+        "org.freedesktop.NetworkManager.DnsManager Mode | sed 's/^s //; s/\"//g'); "
+        "echo RESOLVED=$(systemctl is-active systemd-resolved.service); echo RESOLV=$(readlink /etc/resolv.conf); "
         "echo WPA=$(wpa_supplicant -v 2>&1 | head -1); echo IW=$(iw --version 2>&1 | head -1); rfkill list >/dev/null 2>&1; echo RFKILL=$?; "
         "echo REGDB=$(dpkg-query -W -f='${Status}' wireless-regdb 2>&1); echo REGDBFILE=$(ls /lib/firmware/regulatory.db 2>&1)", 300)
     g = lambda k: kv(out, k)
@@ -49,12 +53,17 @@ def nw1(vm, record):
          "networkd_not_active": g("NDACT") != "active",
          "ethernet_connected": bool(g("ETH")),
          "ipv4": re.match(r"\d+\.\d+\.\d+\.\d+/\d+$", g("IP4")) is not None,
-         "default_route": g("ROUTE").startswith("default via "),
-         "dns_is_resolved": g("DNSCONF") == "1" and g("RESOLVED") == "1" and g("RESOLV").endswith("stub-resolv.conf"),
+         "dhcp_lease": g("METHOD") == "auto" and g("LEASE").isdigit() and int(g("LEASE")) >= 1,
+         "dns_is_resolved": g("DNSCONF") == "1" and g("DNSMODE") == "systemd-resolved" and g("RESOLVED") == "active"
+         and g("RESOLV").endswith("stub-resolv.conf"),
          "wifi_tools": g("WPA").startswith("wpa_supplicant") and g("IW").startswith("iw version") and g("RFKILL") == "0",
          "regdb": "install ok installed" in g("REGDB") and g("REGDBFILE") == "/lib/firmware/regulatory.db"}
-    record("NW1", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
-           + f" eth={g('ETH')} ip4={g('IP4')} route={g('ROUTE')!r} wpa={g('WPA')!r} iw={g('IW')!r}")
+    detail = " ".join(f"{k}={v}" for k, v in c.items()) + f" eth={g('ETH')} ip4={g('IP4')} dnsmode={g('DNSMODE')!r} wpa={g('WPA')!r} iw={g('IW')!r}"
+    if not all(c.values()):     # what a person would ask for first, so a red run explains itself
+        _, dg = vm.run("ip -4 route; echo ---; ls -l /var/lib/NetworkManager; echo ---; nmcli -t device show $(nmcli -t -f DEVICE,TYPE device | awk -F: '$2==\"ethernet\" {print $1; exit}') | grep -E 'DHCP4|IP4' | head -30; echo ---; nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device; echo ---; resolvectl status | head -30; "
+                       "echo ---; journalctl -b -u NetworkManager --no-pager -o cat | tail -25", 120)
+        detail += " DIAG=" + dg.replace("\n", " | ")[-1800:]
+    record("NW1", all(c.values()), detail)
 
 
 def nw2(vm, record):
@@ -127,4 +136,10 @@ def fw5(vm, record):
     c = {"two_ethernet_devices": kv(out, "NICS").isdigit() and int(kv(out, "NICS")) >= 2,
          "span_at_most_30s": span is not None and span <= 30,
          "k3s_within_10s_of_online": wo is not None and first is not None and first <= wo + 10}
-    record("FW5", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" nm_start={nm} online_end={wo} span={span} k3s_first={first}")
+    detail = " ".join(f"{k}={v}" for k, v in c.items()) + f" nm_start={nm} online_end={wo} span={span} k3s_first={first}"
+    if not all(c.values()):
+        _, dg = vm.run("nmcli general status; echo ---; nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device; echo ---; "
+                       "journalctl -b -u NetworkManager-wait-online --no-pager -o cat | tail -5; echo ---; "
+                       "journalctl -b -u NetworkManager --no-pager -o cat | grep -E 'state is now|dhcp4|Activation|startup' | tail -20", 120)
+        detail += " DIAG=" + dg.replace("\n", " | ")[-1800:]
+    record("FW5", all(c.values()), detail)
