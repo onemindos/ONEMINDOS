@@ -90,3 +90,4 @@ core/onemind_core/serve.py	(10\.42\.0\.0|100\.64\.0\.0)	B-FP-9
 core/tests/test_serve_bind.py	(10\.42\.0\.7|100\.64\.0\.1|192\.168\.1\.[0-9]+|10\.0\.0\.5)	B-FP-9
 # B-FP-kanidm-lab: Kanidm SPNs (name@domain) in the UMB-ACCT-1 lab output (issue 403) use the reserved .test domain idm.onemind.test (RFC 2606); they name lab accounts and groups, not e-mail addresses.
 research-output/evidence/lab/acct-kanidm/*	[A-Za-z0-9._%+-]+@idm\.onemind\.test	B-FP-kanidm-lab
+scripts/release/cli-packages.py	noreply@users\.noreply\.github\.com	B-FP-deb-maintainer
