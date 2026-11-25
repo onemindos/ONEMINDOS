@@ -477,5 +477,35 @@ class CheckPinsNatsVersion(unittest.TestCase):
         self.assertIn("deploy/compose/compose.yaml runs nats 2.15.2", r.stdout)
 
 
+class ComposeNatsClientsSignIn(unittest.TestCase):
+    """Every compose service that talks to NATS gets its own key, and the hub config has no open door.
+    (Run against a real nats-server 2.15.3: a keyless client got 'Authorization Violation', the gateway's
+    key connected. See the PR.)"""
+
+    ROOT = CheckPinsNatsVersion.ROOT
+
+    def test_each_nats_client_names_its_seed_and_the_keys_service_makes_it(self):
+        text = open(os.path.join(self.ROOT, "deploy/compose/compose.yaml"), encoding="utf-8").read()
+        services = re.split(r"\n(?=  [a-z][a-z0-9-]*:\n)", text.split("\nservices:\n", 1)[1].split("\nvolumes:\n", 1)[0])
+        clients = {}
+        for block in services:
+            if "ONEMIND_NATS_URL: nats://nats:4222" in block:
+                name = block.strip().split(":", 1)[0]
+                seed = re.search(r"ONEMIND_(?:FABRIC_)?NATS_(?:NKEY_SEED): /nats/keys/([a-z0-9-]+)\.nk", block)
+                clients[name] = seed.group(1) if seed else None
+        self.assertEqual(sorted(clients), ["gateway", "node-sim", "sim-jetson", "sim-rpi5"])
+        keyed = re.search(r"for s in ([a-z0-9 -]+); do python -m onemind_core\.natsconf service-key", text).group(1).split()
+        for name, seed in clients.items():
+            self.assertIsNotNone(seed, f"{name} has no NATS seed")
+            self.assertIn(seed, keyed, f"nats-keys does not make {name}'s key")
+        self.assertEqual(len(set(clients.values())), 4, "two clients share a key")
+
+    def test_hub_conf_has_no_open_user(self):
+        conf = open(os.path.join(self.ROOT, "deploy/compose/nats.conf"), encoding="utf-8").read()
+        for bad in ("no_auth_user", "authorization", "token", "password"):
+            self.assertNotIn(bad, conf)
+        self.assertIn('include "accounts.conf"', conf)
+
+
 if __name__ == "__main__":
     unittest.main()

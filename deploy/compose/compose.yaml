@@ -36,20 +36,22 @@ services:
         python -m onemind_core.natsconf /nats/accounts.conf $$d
         chown 10001:10001 $$d/gateway.nk
         for s in node-sim sim-rpi5 sim-jetson; do chown 65534:65534 $$d/$$s.nk; done
-        chmod 0755 /nats $$d && chmod 0644 /nats/accounts.conf
+        # nats-server resolves an include relative to the including file, so the config sits beside it.
+        cp /src/nats.conf /nats/nats.conf
+        chmod 0755 /nats $$d && chmod 0644 /nats/accounts.conf /nats/nats.conf
     volumes:
       - nats-config:/nats
+      - ./nats.conf:/src/nats.conf:ro
 
   # The pinned image's nats-server (os/versions.lock.yaml; deploy/check-pins.py compares them). A client
   # with no key, or one this stack did not make, is refused.
   nats:
     image: docker.io/library/nats:2.15.3-alpine@sha256:558394a23dd3c36f2d3a64b51865fd09908010e80a542cea5e75c2af543ed62a
-    command: ["-c", "/etc/nats/nats.conf"]
+    command: ["-c", "/nats/nats.conf"]
     depends_on:
       nats-keys: {condition: service_completed_successfully}
     ports: ["127.0.0.1:4222:4222"]
     volumes:
-      - ./nats.conf:/etc/nats/nats.conf:ro
       - nats-config:/nats:ro
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8222/healthz"]
