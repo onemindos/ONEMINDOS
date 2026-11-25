@@ -1,0 +1,9 @@
+# the passkey enrolled offline in PK-2 lives in a virtual authenticator exported to owner.cred; each sign-in below is a NEW browser given that passkey, like one phone used at home and away
++ python3 -I -c "import json,hashlib,base64; c=json.load(open('/root/aklab/secrets/owner.cred'))[0]; i=c['id']; print('owner passkey fingerprint', hashlib.sha256(base64.urlsafe_b64decode(i+'==')).hexdigest()[:16], 'rp_id', c['rp_id'])"
+owner passkey fingerprint 91bb8de03044ddc5 rp_id idm.onemind.test
+  (exit 0)
+# 2026-11-25T11:58:26Z PK-3: sign in over the MESH path (away from home), canonical name
++ W nsm signin https://idm.onemind.test:8443 owner owner.cred ok
+{"origin": "https://idm.onemind.test:8443", "page": "Kanidm idm.onemind.test | Username | Remember My Username | Begin | Powered by Kanidm", "step": "login_page"}
+{"browser_console": [], "credential_fp": "91bb8de03044ddc5", "ok": true, "origin": "https://idm.onemind.test:8443", "page": "Kanidm idm.onemind.test | Applications | Profile | Sign out | Applications | OneMind test app |  | Powered by Kanidm", "profile": "Kanidm idm.onemind.test | Applications | Profile | Sign out | Profile | Credentials | Enrol Device | RADIUS | Profile | Name | Display Name | Email addresses | ", "result": "signed-in", "sign_count_after": [11], "sign_count_before": [9], "step": "signin", "url": "https://idm.onemind.test:8443/ui/apps"}
+  (exit 0)

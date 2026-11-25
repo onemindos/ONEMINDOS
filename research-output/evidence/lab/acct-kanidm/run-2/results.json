@@ -1,0 +1,55 @@
+{
+ "spike": "acct-kanidm run-2",
+ "serves": [
+  "UMB-ACCT-1",
+  "F-33",
+  "ACCT-D1",
+  "D-015",
+  "#236"
+ ],
+ "date_utc": {
+  "start": "2026-11-25T11:28:57Z",
+  "end": "2026-11-25T12:04:02Z"
+ },
+ "environment": {
+  "hypervisor": "Proxmox VE 9 lab server; VM 502 source (left stopped), VM 503 restore (destroyed), VM 504 build (destroyed)",
+  "guest": "Debian 13 genericcloud, kernel 6.12.118+deb13-cloud-amd64",
+  "kanidm": "v1.12.0 a52b723ce8ef",
+  "packages_sha256": {
+   "kanidmd_1.12.0-202611010319+a52b723_amd64.deb": "2f64115bc56b751de7e69efd2417e95046766d7d7d9017053d8d42ba79c2c57f",
+   "kanidm_1.12.0-202611010319+a52b723_amd64.deb": "a6334593732750c63010b8321eb7dd6d37de5b5b5ead86f5559006b7ef038eb0"
+  },
+  "browser": "Chromium 156.0.8078.108 headless + Selenium 4.31.1, virtual WebAuthn authenticator (CTAP2, internal, resident key, UV)",
+  "domain_rp_id": "idm.onemind.test",
+  "paths": "network namespaces nsl (LAN) and nsm (mesh simulation), second interface and hosts file each"
+ },
+ "f33_option_a": "PASS",
+ "tests": {
+  "PK-1": "PASS",
+  "PK-2": "PASS",
+  "PK-3": "PASS",
+  "PK-4": "PASS",
+  "PK-5": "PASS (negative control: outside name refused by browser at sign-in, 403 at enrolment)",
+  "PK-6": "PASS (sub-name of RP ID works, sign-in and enrolment)",
+  "PK-7": "PASS",
+  "PK-9": "PASS (onemind.local as RP ID, resolved by hosts file)",
+  "AK-1": "PASS",
+  "AK-3": "PASS",
+  "AK-4": "PASS",
+  "AK-5": "PASS",
+  "AK-6": "PASS",
+  "AK-7": "PASS",
+  "AK-8": "FAIL (same TOTP code accepted twice, as run 1)",
+  "AK-8b": "partial (credential-type-minimum=passkey does not stop existing TOTP sign-in)",
+  "AK-8c": "partial (policy blocks new password+TOTP enrolment)",
+  "AK-9": "recorded",
+  "AK-10": "PASS"
+ },
+ "not_tested": [
+  "real phone or hardware key",
+  "hybrid sign-in from a TV browser",
+  "real mesh (WireGuard)",
+  "domain change after enrolment",
+  "Kanidm 1.12.1"
+ ]
+}
