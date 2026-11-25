@@ -51,7 +51,40 @@ class Packages(unittest.TestCase):
         self.assertEqual(line, sorted(line))
 
 
+class Boards(unittest.TestCase):
+    """A cloud server has no printers and its private ranges are the provider's network: both cloud-family boards mask CUPS."""
+    UNITS = ("cups.service", "cups.socket", "cups.path", "ipp-usb.service")
+
+    def test_cloud_boards_mask_every_print_unit(self):
+        for board in ("cloud", "vm-do"):
+            s = rd(f"os/boards/{board}/post-install.sh")
+            m = re.search(r"(?m)^systemctl mask (.+?) >/dev/null$", s)
+            self.assertIsNotNone(m, board)
+            self.assertEqual(sorted(m.group(1).split()), sorted(self.UNITS), board)
+            self.assertIn("readlink /etc/systemd/system/$u", s)   # the build proves the mask is a link to /dev/null
+
+    def test_masking_runs_after_the_units_are_enabled(self):
+        # post-install.sh runs after the print RUN step that enables the units; masking first would fail the enable.
+        self.assertLess(CONTAINERFILE.index("systemctl enable cups.service"), CONTAINERFILE.index("/tmp/onemind/board/post-install.sh"))
+
+    def test_other_boards_do_not_mask(self):
+        for board in sorted(os.listdir(os.path.join(ROOT, "os/boards"))):
+            if board in ("cloud", "vm-do") or not os.path.isdir(os.path.join(ROOT, "os/boards", board)):
+                continue
+            p = os.path.join(ROOT, "os/boards", board, "post-install.sh")
+            if os.path.exists(p):
+                self.assertNotIn("cups", rd(os.path.relpath(p, ROOT)), board)
+
+
 class Config(unittest.TestCase):
+    def test_mesh_clients_are_allowed_on_root_but_never_on_admin(self):
+        # CUPS's @LOCAL leaves out point-to-point interfaces; tailscale0 is one, so it is named.
+        blocks = dict(re.findall(r"<Location (\S+)>(.*?)</Location>", CONF, re.S))
+        self.assertIn("Allow @IF(tailscale0)", blocks["/"])
+        for p in ("/admin", "/admin/conf", "/admin/log"):
+            self.assertNotIn("@IF(", blocks[p], p)
+            self.assertNotIn("@LOCAL", blocks[p], p)
+
     def test_off_by_default(self):
         d = directives(CONF)
         for want in ("Browsing No", "BrowseLocalProtocols none", "DefaultShared No", "WebInterface Yes", "IdleExitTimeout 0"):
@@ -106,9 +139,9 @@ class State(unittest.TestCase):
             self.assertIn(m, after)
 
     def test_mount_points_exist_in_the_image(self):
-        self.assertIn("/var/lib/ipp-usb", CONTAINERFILE)
-        for p in ("/etc/cups", "/var/spool/cups", "/var/cache/cups"):
-            self.assertIn(p, CONTAINERFILE + rd("os/rootfs/packages/debian-common.txt") + "/etc/cups/ /var/spool/cups /var/cache/cups")
+        # The build itself fails if a bind-mount point is missing from the built rootfs (a real check, not a text search).
+        self.assertIn("test -d /etc/cups -a -d /var/spool/cups -a -d /var/cache/cups -a -d /var/lib/ipp-usb", CONTAINERFILE)
+        self.assertIn("mkdir -p /usr/lib/onemind/cups-default /var/lib/ipp-usb", CONTAINERFILE)
 
     def test_etc_cups_is_seeded_once_and_never_overwritten(self):
         self.assertIn("[ -f /data/state/etc-cups/cupsd.conf ] || cp -a /usr/lib/onemind/cups-default/. /data/state/etc-cups/", DROPIN)
