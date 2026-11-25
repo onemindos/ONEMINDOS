@@ -176,8 +176,10 @@ func renderLocal(b *bytes.Buffer, progs []LocalProgram) error {
 }
 
 // CheckLocalAuth refuses a leaf.conf that lets an anonymous local client in: it must have an
-// authorization block with nkey users and no no_auth_user, user/password or token. Render runs
-// it on every config it produces; onemind-leaf-check runs the same rule on the file on disk.
+// authorization block with nkey users and no no_auth_user. It does not look for user/password
+// or token entries: Render never writes them, and an nkey user list is the only form this file
+// takes, so the check is the two properties the old open config lacked. Render runs it on every
+// config it produces; onemind-leaf-check runs the same rule on the file on disk.
 func CheckLocalAuth(conf []byte) error {
 	s := string(conf)
 	var body []string

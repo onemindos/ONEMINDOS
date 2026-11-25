@@ -196,6 +196,40 @@ class GateUsesTheLeafCheck(unittest.TestCase):
             self.assertIn(g, t)
 
 
+class EdgeJoinedBeforeG1TakesTheUpdate(unittest.TestCase):
+    """An edge that joined before the local sign-in (G1) has a leaf.conf the gate refuses (G3). The update
+    that ships G1 must repair it on its own trial boot before the gate looks, or the slot rolls back and
+    the release lands on the bad-releases list. The repair itself is tested in internal/fabric
+    (TestUpgradeLocalRepairsAPreG1Join); here: the image ships it, enables it and orders it before the gate."""
+    UNIT = ("os", "rootfs", "layers", "onemind", "usr", "lib", "systemd", "system", "onemind-leaf-local.service")
+
+    def test_unit_runs_the_upgrade_before_the_gate(self):
+        u = rd(*self.UNIT)
+        self.assertRegex(u, r"(?m)^Before=[^\n]*\bonemind-health-gate\.service\b")
+        self.assertRegex(u, r"(?m)^Before=[^\n]*\bonemindd\.service\b")
+        self.assertRegex(u, r"(?m)^After=[^\n]*\bonemind-data-layout\.service\b")
+        self.assertIn("RequiresMountsFor=/data", u)
+        self.assertIn("ConditionPathExists=/data/onemind/etc/leaf-config.json", u)
+        self.assertIn("Environment=ONEMIND_ETC_DIR=/data/onemind/etc", u)
+        self.assertRegex(u, r"(?m)^Type=oneshot$")
+        self.assertRegex(u, r"(?m)^ExecStart=/usr/bin/onemind fabric upgrade-local$")
+        self.assertRegex(u, r"(?m)^WantedBy=multi-user\.target$")
+
+    def test_image_enables_it(self):
+        c = rd("os", "rootfs", "Containerfile")
+        self.assertRegex(c, r"systemctl enable [^>]*\bonemind-leaf-local\.service\b")
+
+    def test_not_inside_onemindd(self):
+        """onemindd's sandbox (ProtectSystem=strict) cannot write /data/onemind/etc; a separate unit can."""
+        self.assertIn("ProtectSystem=strict", rd("os", "rootfs", "layers", "onemind", "usr", "lib", "systemd", "system", "onemindd.service"))
+        self.assertNotIn("ProtectSystem", rd(*self.UNIT).replace("(ProtectSystem=strict)", ""))
+
+    def test_old_open_conf_is_what_the_gate_refuses(self):
+        t = rd(LEAF_CHECK)
+        self.assertIn("no local nkey users", t)
+        self.assertIn("no_auth_user", t)
+
+
 @unittest.skipUnless(LINUX, "runs the bash check with GNU date (Linux, as in CI)")
 class LeafCheckRuns(unittest.TestCase):
     """onemind-leaf-check against a fake root: stub curl, systemctl and findmnt on PATH."""
@@ -232,8 +266,9 @@ class LeafCheckRuns(unittest.TestCase):
         p = subprocess.run(["bash", LEAF_CHECK], capture_output=True, text=True, env=env, timeout=30)
         return p.returncode, p.stdout.strip()
 
+    # The nkey is a public key with no secret in it (gitleaks:allow).
     AUTH = ('# no_auth_user is gone (this comment must not trip the check)\n'
-            'authorization {\n  users: [\n    {nkey: "UBSMVUZ4GQXTXWP5H5SMM4LPEZAIBCEU54ADTY25RCHRECSM2O5KJ25J", '
+            'authorization {\n  users: [\n    {nkey: "UBSMVUZ4GQXTXWP5H5SMM4LPEZAIBCEU54ADTY25RCHRECSM2O5KJ25J", '  # gitleaks:allow
             'permissions: {publish: {allow: ["onemind.node.abc.status"]}}}  # onemindd\n  ]\n}\n')
 
     def leaf_conf(self, start, auth=None):
