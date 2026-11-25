@@ -7,15 +7,17 @@
 [Unit]
 Description=OneMind: owner files (btrfs subvolume @storage)
 Documentation=man:systemd.mount(5)
-RequiresMountsFor=/data
+# After= and a condition, not RequiresMountsFor=: with the data disk missing (recovery mode) this unit must be skipped,
+# not fail as "dependency failed".
+After=data.mount
+ConditionPathIsMountPoint=/data
 ConditionPathExists=/data/storage
-After=onemind-data-layout.service
 
 [Mount]
-What=PARTLABEL=onemind-data
+What=/dev/disk/by-partlabel/onemind-data
 Where=/data/storage
 Type=btrfs
-Options=subvol=@storage,noatime,nofail
+Options=subvol=@storage,noatime
 
 [Install]
 WantedBy=local-fs.target

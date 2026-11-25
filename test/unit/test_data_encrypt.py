@@ -160,7 +160,7 @@ class FirstBoot(unittest.TestCase):
         r = FakeRunner(**kw)
         return r, de.first_boot_encrypt("/dev/vda7", tpm, r, rand=lambda n: b"\x07" * n, passphrase=passphrase)
 
-    STEPS = ("luksFormat", "cryptsetup open", "mkfs.btrfs", "subvolume create", "set-default", "umount",
+    STEPS = ("luksFormat", "cryptsetup open", "mkfs.btrfs", "subvolume create", "chmod", "set-default", "umount",
              "--recovery-key", "luksAddKey", "--tpm2-device=auto", "luksKillSlot", "mount")
 
     def step(self, line):
@@ -171,13 +171,14 @@ class FirstBoot(unittest.TestCase):
         L = r.lines()
         self.assertEqual([self.step(l) for l in L],
                          ["luksFormat", "cryptsetup open", "mkfs.btrfs", "mount", "subvolume create", "subvolume create",
-                          "subvolume create", "set-default", "umount", "--recovery-key", "--tpm2-device=auto", "luksKillSlot"])
+                          "subvolume create", "chmod", "set-default", "umount", "--recovery-key", "--tpm2-device=auto",
+                          "luksKillSlot"])
         self.assertEqual(len([l for l in L if "subvolume create" in l]), 3)      # @, @storage, @storage/.snapshots
         fmt = L[0]
         self.assertIn("--type luks2", fmt)
         self.assertIn("aes-xts-plain64", fmt)
         self.assertTrue(fmt.endswith("/dev/vda7"))
-        self.assertIn("--tpm2-pcrs=7", L[10])
+        self.assertIn("--tpm2-pcrs=7", L[11])
         self.assertIn("-L onemind-data", L[2])
         self.assertTrue(L[2].endswith(" /dev/mapper/onemind-data"))
         self.assertFalse(any("mkfs.ext4" in l for l in L))
@@ -194,6 +195,7 @@ class FirstBoot(unittest.TestCase):
         # place snapper could snapshot: the k3s data and the databases live in @
         self.assertFalse(any("@snapshots" in l for l in L))
         self.assertTrue(os.path.isdir(os.path.join(mnt, "@", "storage")))        # the mount point of data-storage.mount
+        self.assertIn(f"chmod 0750 {mnt}/@storage/.snapshots", L)    # snapper wants its snapshot directory root-only
         self.assertIn(f"btrfs subvolume set-default {mnt}/@", L)     # fstab mounts /data with no subvol= option
         self.assertIn(f"umount {mnt}", L)
 
@@ -529,7 +531,9 @@ class Wiring(unittest.TestCase):
         self.assertIn("Where=/data/storage", unit)
         self.assertIn("subvol=@storage", unit)
         self.assertIn("ConditionPathExists=/data/storage", unit)
-        self.assertIn("RequiresMountsFor=/data", unit)
+        self.assertIn("After=data.mount", unit)
+        self.assertIn("ConditionPathIsMountPoint=/data", unit)
+        self.assertNotRegex(unit, r"(?m)^(RequiresMountsFor|Requires|BindsTo)=")   # a missing disk skips it, never fails it
         self.assertIn("WantedBy=local-fs.target", unit)
         self.assertNotIn("RequiredBy", unit)
         link = os.path.join(ROOT, "os/rootfs/layers/base/usr/lib/systemd/system/local-fs.target.wants/data-storage.mount")

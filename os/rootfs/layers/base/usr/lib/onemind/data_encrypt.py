@@ -226,6 +226,7 @@ def make_btrfs(dev, runner=run, force=False):
         for sv in SUBVOLS:
             runner(["btrfs", "subvolume", "create", f"{MKFS_MNT}/{sv}"])
         runner(["btrfs", "subvolume", "create", f"{MKFS_MNT}/{SNAPSHOTS_SUBVOL}"])
+        runner(["chmod", "0750", f"{MKFS_MNT}/{SNAPSHOTS_SUBVOL}"])   # snapper wants its snapshot directory root-only
         os.makedirs(f"{MKFS_MNT}/{STORAGE_DIR}", mode=0o755, exist_ok=True)   # data-storage.mount runs only if this exists
         runner(["btrfs", "subvolume", "set-default", f"{MKFS_MNT}/{SUBVOLS[0]}"])
     finally:
