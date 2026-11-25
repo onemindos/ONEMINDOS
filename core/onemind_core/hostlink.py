@@ -56,6 +56,7 @@ ACTION_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 # RFC 1123 labels: what the host helper may call the box (H-06: the answer is checked, not trusted).
 HOSTNAME = re.compile(r"(?=.{1,253}\Z)[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*")
 PROBE_TIMEOUT_S = 2.0  # GET /v1/status reads the helper on every call: a silent socket must not hold it up
+PLAN_SHA = re.compile(r"^[0-9a-f]{64}$")  # internal/host: the hash of the factory-reset plan the owner approved
 UNIT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.@-]{0,90}\.(service|socket|timer|path)$")
 UNREACHABLE = "engine_unreachable"  # the reason when nothing answers on the socket
 NO_HOST = ("The gateway cannot reach the host service on this box (onemind-host.socket), so the action did not run. "
@@ -152,6 +153,16 @@ class HostLink:
                 return "unavailable", _text(op.get("unavailable_reason")) or f"The host cannot {kind} now."
         return "unavailable", f"This version of the host service does not offer {kind}."
 
+    def reset_plan_hash(self) -> str | None:
+        """The hash of the factory-reset plan the host would carry out right now (GET /v1/plans/factory-reset),
+        or None when the host cannot say. The request stores it; the host refuses a wipe whose plan changed."""
+        try:
+            status, plan = self.client.call("GET", "/v1/plans/factory-reset")
+        except (StorageUnavailable, StorageTimeout):
+            return None
+        sha = plan.get("plan_sha256") if status == 200 and isinstance(plan, dict) else None
+        return sha if isinstance(sha, str) and PLAN_SHA.fullmatch(sha) else None
+
     # ---- after approval --------------------------------------------------------------------------------
     def run(self, a: Action, finish: Callable[[ExecResult], None]) -> None:
         """FeatureAction.run: send the approved action to the host. Closes now when the host refuses
@@ -174,6 +185,11 @@ class HostLink:
             if not isinstance(version, str) or not version:
                 return ExecResult("failed", "the install has no approved version", steps=[{"step": "host", "result": "bad_request"}])
             body["version"] = version
+        if kind == "factory-reset":
+            plan = (a.params or {}).get("plan_sha256")
+            if not isinstance(plan, str) or not PLAN_SHA.fullmatch(plan):
+                return ExecResult("failed", "the reset has no approved plan", steps=[{"step": "host", "result": "bad_request"}])
+            body["plan_sha256"] = plan
         if kind == "service-restart":
             unit = (a.params or {}).get("unit")
             if not isinstance(unit, str) or not UNIT.fullmatch(unit):

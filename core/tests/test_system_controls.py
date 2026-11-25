@@ -3,7 +3,7 @@
 needs the owner's passkey, and the diagnostic bundle passes the public-repo hygiene checks.
 
 Real gateway, real routes, real ledger and approval rule. The host executor is the gateway's real
-one (no host path yet: approved controls end `failed`, never `succeeded`) or a recording fake.
+one (a box with no host socket: approved controls end `failed`, never `succeeded`) or a recording fake.
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ from onemind_core.app import create_app
 from onemind_core.executors import ExecResult
 from onemind_core.identity import IdentitySettings
 from onemind_core.identity.scopes import required_scopes
+from onemind_core.hostlink import NO_HOST
 from onemind_core.system import NoHostPath, node_pseudonym, redact
 from test_identity import ORIGIN, RP_ID, SoftAuthenticator, register_passkey, setup_owner
 
@@ -103,7 +104,7 @@ def test_no_host_path_refuses_to_file_controls_it_cannot_perform(settings, clock
     with box(settings, clock) as c:
         ctl = c.get("/v1/system/controls", headers=OWNER).json()["controls"]
         assert {x["type"] for x in ctl} == {"system.restart", "system.shutdown", "system.factory_reset"}
-        assert all(x["available"] is False and x["unavailable_reason"] == NoHostPath.MESSAGE for x in ctl)
+        assert all(x["available"] is False and x["unavailable_reason"] == NO_HOST for x in ctl)
         for typ, who, extra in (("system.restart", OWNER, {}), ("system.shutdown", AGENT, {}),
                                 ("system.factory_reset", OWNER, {"confirm": "factory reset"})):
             r = ask(c, typ, headers=who, **extra)
