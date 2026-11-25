@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""OneMind QEMU battery, power cut in the first minute (F13, F14). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md §9
+"""OneMind QEMU battery, power cut in the first minute (F13-F15). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md §9
 (pre-registered; never edited to make a result pass). VM 501 bug 1 (2026-11-25): a power cut about 45 s after the
 first boot left k3s's keys, certificates, token and node password empty and k3s never came back. Refs #234.
 
 A power cut is SIGKILL of QEMU (guest memory is lost, the disk image keeps what the guest flushed).
   F13  first boot as a hub (NoCloud seed, as F1); 25 s after the "configured" console line, power cut; boot again:
        same box, no new owner token, committed boot, k3s healthy, no empty k3s file.
-  F14  on that healthy box: write owner/app/gateway markers, stop k3s, empty every k3s file, power cut, boot again:
-       the repair ran, k3s healthy, markers and token intact, the damaged files kept in the quarantine.
+  F14  on that healthy box (the fixture's test app deleted, §10): write owner/app/gateway markers, stop k3s, empty
+       every k3s file, power cut, boot again: the repair ran, k3s healthy, markers and token intact, damaged files kept.
+  F15  with an app in the cluster (the fixture's app is back): the same damage is NOT repaired by itself; the owner
+       approves "Reset k3s state" in the rescue console, then k3s is healthy and the markers are intact.
 
 Needs the battery's fixtures (`make fixtures`). Run: make powercut BOARD=x86_64-efi (Linux with KVM).
 """
@@ -65,8 +67,9 @@ def empty_k3s_files(vm):
 def diagnose(vm, why):
     vm.mark(f"DIAGNOSE ({why}): k3s journal and the repair's files")
     try:
-        _, out = vm.run("journalctl -u k3s --no-pager -n 60 -o cat | cut -c1-220; ls -la /data/k3s/server/tls /data/onemind/k3s-recovery "
-                        "2>&1 | head -40; cat /data/onemind/k3s-recovery/last.json 2>&1 | head -30", 120)
+        _, out = vm.run("journalctl -u k3s --no-pager -n 40 -o cat | cut -c1-220; ls -la /data/k3s/server/tls /data/onemind/k3s-recovery "
+                        "2>&1 | head -30; "
+                        f"{fb.PY} -I -c 'import json; d=json.load(open(\"/data/onemind/k3s-recovery/last.json\")); d.pop(\"damaged\", None); print(d)' 2>&1 | cut -c1-1500", 120)
         print(out[-6000:], flush=True)
     except (TimeoutError, RuntimeError, OSError) as e:
         vm.mark(f"DIAGNOSE failed: {e}")
@@ -80,6 +83,62 @@ def boot_again(vm, tag):
     g = vm.wait_gate()
     vm.shell_ready()
     return al, g
+
+
+def write_markers(vm):
+    """Three files of random content (owner data, an app's volume, the gateway's folder), synced. Returns sha256s."""
+    script = ""
+    for path in MARKERS.values():
+        script += f"mkdir -p $(dirname {path}); head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \\n' > {path}; "
+    script += "sync; "
+    for name, path in MARKERS.items():
+        script += f"echo MARK-{name}=$(sha256sum {path} | cut -c1-64); "
+    _, out = vm.run(script.rstrip("; "), 120)
+    return {n: (re.findall(rf"^MARK-{n}=(\w+)", out, re.M) or [""])[-1] for n in MARKERS}
+
+
+def read_markers(vm):
+    _, out = vm.run("; ".join(f"echo MARK2-{n}=$(sha256sum {p} | cut -c1-64)" for n, p in MARKERS.items()))
+    return {n: (re.findall(rf"^MARK2-{n}=(\w+)", out, re.M) or [""])[-1] for n in MARKERS}
+
+
+def empty_and_cut(vm):
+    """Stop k3s, empty every k3s file, sync, power cut. Returns how many files were emptied."""
+    _, out = vm.run(f"systemctl stop k3s; n=0; for f in {K3S_FILES}; do [ -e \"$f\" ] || continue; : > \"$f\"; n=$((n+1)); done; "
+                    "sync; echo EMPTIED=$n")
+    emptied = int((re.findall(r"^EMPTIED=(\d+)", out, re.M) or ["0"])[-1])
+    vm.kill()
+    return emptied
+
+
+def quarantine_dirs(vm):
+    _, out = vm.run("echo QDIRS=$(ls -d /data/onemind/k3s-recovery/*/ 2>/dev/null | wc -l); "
+                    "echo QEMPTY=$(find /data/onemind/k3s-recovery -mindepth 2 -type f -size 0 2>/dev/null | wc -l); "
+                    f"echo LASTACTION=$({fb.PY} -I -c 'import json; print(json.load(open(\"/data/onemind/k3s-recovery/last.json\"))[\"action\"])' 2>/dev/null || echo none)")
+    get = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or [""])[-1]
+    return int(get("QDIRS") or 0), int(get("QEMPTY") or 0), get("LASTACTION")
+
+
+RESCUE = ("curl -s --cacert /data/onemind/identity/ca.pem --resolve onemind.local:7443:127.0.0.1 "
+          "-w '\\nHTTP=%{http_code}\\n' ")
+
+
+def rescue_post(vm, token, csrf, confirm="reset k3s", with_token=True):
+    auth = f"-H 'Authorization: Bearer {token}' " if with_token else ""
+    form = (f"--data-urlencode 'csrf={csrf}' " if csrf else "") + f"--data-urlencode 'confirm={confirm}' "
+    _, out = vm.run(f"{RESCUE}{auth}{form}https://onemind.local:7443/reset-k3s")
+    return (re.findall(r"^HTTP=(\d+)", out, re.M) or ["0"])[-1]
+
+
+def rescue_status(vm, token):
+    """The rescue console's status.json for the owner: (k3s_recovery action, csrf token)."""
+    _, out = vm.run("curl -s --cacert /data/onemind/identity/ca.pem --resolve onemind.local:7443:127.0.0.1 "
+                    f"-H 'Authorization: Bearer {token}' -o /run/pc-status.json https://onemind.local:7443/status.json; "
+                    f"{fb.PY} -I -c 'import json; d=json.load(open(\"/run/pc-status.json\")); "
+                    "print(\"ACTION=\" + str((d.get(\"k3s_recovery\") or {}).get(\"action\")), \"CSRF=\" + d.get(\"csrf\", \"\"))' 2>&1; "
+                    "rm -f /run/pc-status.json")
+    m = re.search(r"^ACTION=(\S+) CSRF=(\w*)\s*$", out, re.M)
+    return (m.group(1), m.group(2)) if m else ("", "")
 
 
 def owner_ok(vm, token):
@@ -131,43 +190,72 @@ def main():
                f"empty_or_missing={bad} files_checked={checked} token_hash_in_file={tok_in_file} token_200={tok_200} "
                f"recovery_ran={recovered.group(0)[:90] if recovered else None} t={time.time() - t0:.0f}s")
 
-        # ---- F14: corrupt k3s state on a healthy box
+        # ---- F14: corrupt k3s state on a healthy box with no owner app (the fixture's test app deleted, §10)
         vm.mark("F14 corrupt k3s state, power cut, repair")
         ids = fb.ident(vm)
-        script = ""
-        for name, path in MARKERS.items():
-            script += (f"mkdir -p $(dirname {path}); head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \\n' > {path}; ")
-        script += "sync; "
-        for name, path in MARKERS.items():
-            script += f"echo MARK-{name}=$(sha256sum {path} | cut -c1-64); "
-        _, out = vm.run(script.rstrip("; "), 120)
-        marks = {n: (re.findall(rf"^MARK-{n}=(\w+)", out, re.M) or [""])[-1] for n in MARKERS}
-        _, out = vm.run(f"systemctl stop k3s; n=0; for f in {K3S_FILES}; do [ -e \"$f\" ] || continue; : > \"$f\"; n=$((n+1)); done; "
-                        "sync; echo EMPTIED=$n")
-        emptied = int((re.findall(r"^EMPTIED=(\d+)", out, re.M) or ["0"])[-1])
-        vm.kill()
+        vm.run("k3s kubectl -n apps delete deployment broken-app --wait=true --timeout=90s 2>&1 | tail -2", 150)
+        marks = write_markers(vm)
+        emptied = empty_and_cut(vm)
         al, g = boot_again(vm, "F14 boot after the corrupted k3s state")
         rec = RECOVERY.search(vm.since(0))
         healthy, last = k3s_healthy(vm)
         if not healthy:
             diagnose(vm, f"k3s not healthy after repair: {last}")
         bad, checked = empty_k3s_files(vm)
-        script = "; ".join(f"echo MARK2-{n}=$(sha256sum {p} | cut -c1-64)" for n, p in MARKERS.items())
-        _, out = vm.run(script)
-        marks2 = {n: (re.findall(rf"^MARK2-{n}=(\w+)", out, re.M) or [""])[-1] for n in MARKERS}
-        _, out = vm.run("echo QDIRS=$(ls -d /data/onemind/k3s-recovery/*/ 2>/dev/null | wc -l); "
-                        "echo QEMPTY=$(find /data/onemind/k3s-recovery -mindepth 2 -type f -size 0 2>/dev/null | wc -l); "
-                        f"echo LASTACTION=$({fb.PY} -I -c 'import json; print(json.load(open(\"/data/onemind/k3s-recovery/last.json\"))[\"action\"])' 2>/dev/null || echo none)")
-        get = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or [""])[-1]
+        marks2 = read_markers(vm)
+        qd, qe, action = quarantine_dirs(vm)
         ids2 = fb.ident(vm)
         tok_200 = bool(token) and owner_ok(vm, token)
         hz = fb.http_code(vm, f"{fb.GW}/healthz", timeout=600)
         c = {"emptied_enough": emptied >= 8, "recovery_line": rec is not None, "k3s_healthy": healthy, "none_empty": not bad and checked >= 8,
              "markers_kept": all(len(v) == 64 for v in marks.values()) and marks == marks2,
-             "token_200": tok_200, "healthz_200": hz == "200", "damaged_files_kept": int(get("QDIRS") or 0) >= 1 and int(get("QEMPTY") or 0) >= 1,
-             "last_json_repaired": get("LASTACTION") == "repaired", "ids_unchanged": ids2 == ids and bool(ids["node_id"])}
+             "token_200": tok_200, "healthz_200": hz == "200", "damaged_files_kept": qd >= 1 and qe >= 1,
+             "last_json_repaired": action == "repaired", "ids_unchanged": ids2 == ids and bool(ids["node_id"])}
         record("F14", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
                + f" emptied={emptied} recovery={rec.group(0)[:110] if rec else None} gate={g} t={time.time() - t0:.0f}s")
+
+        # ---- F15: an owner's app in the cluster: no automatic repair; the owner approves the reset (§10)
+        vm.mark("F15 owner app in the cluster: needs approval, then Reset k3s state")
+        _, out = vm.run("t0=$SECONDS; until k3s kubectl -n apps get deployment broken-app >/dev/null 2>&1; do "
+                        "[ $((SECONDS - t0)) -ge 300 ] && break; sleep 5; done; "
+                        "echo APP=$(k3s kubectl -n apps get deployment broken-app -o name 2>&1 | head -1)", 360)
+        app = (re.findall(r"^APP=(.*)$", out, re.M) or [""])[-1]
+        ids = fb.ident(vm)
+        qd0, _, _ = quarantine_dirs(vm)
+        marks = write_markers(vm)
+        emptied = empty_and_cut(vm)
+        al, g = boot_again(vm, "F15 boot after the corrupted k3s state, owner app present")
+        time.sleep(90)
+        notrep = re.search(r"ONEMIND-K3S-RECOVERY: NOT repaired[^\n]*", vm.since(0))
+        qd1, _, action = quarantine_dirs(vm)
+        still_bad, _ = empty_k3s_files(vm)
+        status_action, csrf = rescue_status(vm, token)
+        no_token = rescue_post(vm, token, csrf, with_token=False)
+        no_csrf = rescue_post(vm, token, "")
+        _, _, action_after_refused = quarantine_dirs(vm)
+        approved = rescue_post(vm, token, csrf)
+        healthy, last = k3s_healthy(vm)
+        if not healthy:
+            diagnose(vm, f"k3s not healthy after the approved reset: {last}")
+        bad, checked = empty_k3s_files(vm)
+        marks2 = read_markers(vm)
+        qd2, qe2, action2 = quarantine_dirs(vm)
+        _, out = vm.run("echo GWKUBE=$([ -s /data/onemind/gateway/kubeconfig ] && echo yes || echo no)")
+        gwkube = "GWKUBE=yes" in out
+        ids2 = fb.ident(vm)
+        tok_200 = bool(token) and owner_ok(vm, token)
+        hz = fb.http_code(vm, f"{fb.GW}/healthz", timeout=600)
+        c = {"app_present": "broken-app" in app, "emptied_enough": emptied >= 8, "not_repaired_line": notrep is not None,
+             "needs_approval_record": action == "needs-approval" and action_after_refused == "needs-approval",
+             "nothing_moved": qd1 == qd0 and len(still_bad) >= 8, "status_json_says_so": status_action == "needs-approval",
+             "no_token_401": no_token == "401", "no_csrf_403": no_csrf == "403", "approved_200": approved == "200",
+             "k3s_healthy": healthy, "none_empty": not bad and checked >= 8, "record_reset": action2 == "reset",
+             "damaged_files_kept": qd2 == qd0 + 1 and qe2 >= 1,
+             "markers_kept": all(len(v) == 64 for v in marks.values()) and marks == marks2,
+             "token_200": tok_200, "healthz_200": hz == "200", "gateway_kubeconfig": gwkube,
+             "ids_unchanged": ids2 == ids and bool(ids["node_id"])}
+        record("F15", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
+               + f" notrepaired={notrep.group(0)[:100] if notrep else None} gate={g} t={time.time() - t0:.0f}s")
         rc = 0
     except (TimeoutError, RuntimeError) as e:
         record("HARNESS", False, f"aborted: {e}")
@@ -181,7 +269,7 @@ def main():
         print(" | ".join((r["test"], r["verdict"], r["detail"])))
     logf.close()
     if a.results:
-        json.dump({"env": env, "minutes": round(total, 1), "criteria": "test/qemu/CRITERIA-FIRSTBOOT.md section 9",
+        json.dump({"env": env, "minutes": round(total, 1), "criteria": "test/qemu/CRITERIA-FIRSTBOOT.md sections 9 and 10",
                    "results": RESULTS}, open(a.results, "w"), indent=2)
     shutil.rmtree(os.path.join(a.work, "seed"), ignore_errors=True)
     return 0 if RESULTS and all(r["verdict"] == "PASS" for r in RESULTS) else 1

@@ -210,6 +210,16 @@ class Recover(Box):
         self.assertEqual(self.last()["action"], "needs-approval")
         self.assertFalse([d for d in os.listdir(self.p.recovery) if d != "last.json"])
 
+    def test_waiting_for_approval_is_said_once_not_on_every_restart(self):
+        self.db(["/registry/deployments/apps/jellyfin"])
+        self.truncate(self.everything_k3s())
+        with mock.patch.object(ks, "say") as say:
+            ks.recover(self.p, now=NOW)
+            ks.recover(self.p, now=NOW + 5)
+            ks.recover(self.p, now=NOW + 10)
+        self.assertEqual(say.call_count, 1)
+        self.assertEqual(self.last()["action"], "needs-approval")
+
     def test_deleted_and_system_workloads_do_not_count(self):
         self.db(["/registry/deployments/kube-system/coredns", "/registry/statefulsets/onemind-system/core"],
                 deleted=["/registry/deployments/apps/gone"])

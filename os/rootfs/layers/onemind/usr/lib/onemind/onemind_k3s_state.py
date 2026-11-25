@@ -247,6 +247,16 @@ def _record(p: Paths, rec: dict) -> None:
     atomic_write(p.last, json.dumps(rec, indent=2) + "\n", 0o600)
 
 
+def _already_waiting(p: Paths, reason: str) -> bool:
+    """k3s restarts every 5 s while it cannot start (Restart=always): say it once, not every time."""
+    try:
+        with open(p.last, encoding="utf-8") as f:
+            last = json.load(f)
+    except (OSError, ValueError):
+        return False
+    return isinstance(last, dict) and last.get("action") == "needs-approval" and last.get("reason") == reason
+
+
 def _recent_repairs(p: Paths, now: float) -> int:
     n = 0
     try:
@@ -287,6 +297,8 @@ def recover(p: Paths, force: bool = False, now: float | None = None) -> dict | N
     if needs_datastore and wl_state == "found":
         rec.update(action="needs-approval", reason="the datastore holds the owner's apps, so the cluster state is "
                    "not rebuilt automatically")
+        if _already_waiting(p, rec["reason"]):
+            return rec
         _record(p, rec)
         say(p, f"ONEMIND-K3S-RECOVERY: NOT repaired: {len(bad)} damaged k3s file(s) and the owner's apps are in "
                "the cluster; open the rescue console (port 7443) and approve \"Reset k3s state\"")
@@ -294,6 +306,8 @@ def recover(p: Paths, force: bool = False, now: float | None = None) -> dict | N
     if not force and _recent_repairs(p, now) >= REPEAT_LIMIT:
         rec.update(action="needs-approval", reason=f"repaired {REPEAT_LIMIT} times in the last hour; something keeps "
                    "damaging the disk, so it waits for the owner")
+        if _already_waiting(p, rec["reason"]):
+            return rec
         _record(p, rec)
         say(p, "ONEMIND-K3S-RECOVERY: NOT repaired: it was repaired several times in the last hour; check the disk, "
                "then approve \"Reset k3s state\" in the rescue console (port 7443)")
