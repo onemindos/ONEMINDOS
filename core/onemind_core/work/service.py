@@ -274,7 +274,7 @@ def _replace_dependencies(
 
 class WorkService(SqlRepository):
     def __init__(self, db: Database, *, clock: Callable[[], datetime] = lambda: datetime.now(UTC),
-                 person_role: Callable[[str], str | None] = lambda person_id: None):
+                 person_role: Callable[[str], str | None]):
         super().__init__(db)
         self.clock = clock
         self.person_role = person_role
@@ -703,13 +703,13 @@ class WorkService(SqlRepository):
                 raise ApiError(422, "conflict", "That section is not in this project", reason="bad_section")
 
     def _check_assignee(self, session: Session, person: Principal, project_id: str,
-                        assignee: PersonAssignee | None) -> None:
+                        assignee: PersonAssignee | None, *, changing: bool = True) -> None:
         if assignee is None:
             return
         if person.role in OWN_TASK_ONLY_ROLES and assignee.id != person.id \
                 or session.get(ProjectMemberRow, (project_id, assignee.id)) is None:
             raise _not_found()
-        if assignee.id != person.id and self.person_role(assignee.id) in OWN_TASK_ONLY_ROLES:
+        if changing and assignee.id != person.id and self.person_role(assignee.id) in OWN_TASK_ONLY_ROLES:
             # A child or teen sees only the tasks they create, so a task assigned to them would be one
             # they get reminders for but cannot open.
             raise ApiError(422, "conflict", "Children and teens see only their own tasks, so a task cannot be assigned to them",
@@ -727,7 +727,9 @@ class WorkService(SqlRepository):
                 raise _not_found()
             if row.revision != expected_revision:
                 raise ApiError(409, "stale_precondition", "Work task revision has changed")
-            self._check_assignee(session, person, project_id, fields.assignee)
+            # PATCH sends the current assignee back unchanged; only a new assignee must be able to see the task.
+            self._check_assignee(session, person, project_id, fields.assignee,
+                                 changing=fields.assignee is None or fields.assignee.id != row.assignee_id)
             self._check_section(session, project_id, fields.section_id)
             if dependencies is not None:
                 if len(dependencies) > 100:

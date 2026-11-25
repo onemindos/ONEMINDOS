@@ -6,7 +6,7 @@ from datetime import timedelta
 from conftest import ADULT, AGENT, GUEST, OWNER
 from onemind_core.auth import Principal
 from onemind_core.errors import ApiError
-from onemind_core.work.service import ProjectFields, SectionFields, TaskFields
+from onemind_core.work.service import PersonAssignee, ProjectFields, SectionFields, TaskFields
 
 
 def _project(client, name="Home", **extra):
@@ -285,3 +285,21 @@ def test_a_task_cannot_be_assigned_to_a_child_who_could_not_open_it(client):
     work.person_role = lambda person_id: "adult"
     assert client.post("/v1/work/capture", json=body, headers={**OWNER, "Idempotency-Key": "c2"}).status_code == 201
 
+
+
+@pytest.mark.parametrize("role", ["child", "teen"])
+def test_an_adult_can_edit_a_task_a_child_assigned_to_themselves(client, role):
+    service = client.app.state.work
+    service.person_role = lambda person_id: role if person_id == "p-kid" else "adult"
+    owner, kid = Principal("p-owner", "person", "owner"), Principal("p-kid", "person", role)
+    project = service.create_project(owner, ProjectFields(name="Family"))
+    service.add_member(owner, project.id, kid)
+    task = service.create_task(kid, project.id, TaskFields(title="Tidy", assignee=PersonAssignee(id="p-kid")))
+    done = service.replace_task(owner, project.id, task.id, expected_revision=task.revision,
+                                fields=TaskFields(title="Tidy", status="done", assignee=PersonAssignee(id="p-kid")))
+    assert done.status == "done" and done.assignee == PersonAssignee(id="p-kid")
+    other = service.create_task(owner, project.id, TaskFields(title="Dishes"))
+    with pytest.raises(ApiError) as failure:
+        service.replace_task(owner, project.id, other.id, expected_revision=other.revision,
+                             fields=TaskFields(title="Dishes", assignee=PersonAssignee(id="p-kid")))
+    assert failure.value.status == 422
