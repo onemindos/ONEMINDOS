@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# Machine-readable build pins required by research-output/30-NEXT-ULTRACODE-BUILD-BRIEF.md (§2, rule 2).
-# The historical handbook/versions.md is unavailable in this repository.
+# Build pins (research-output/30-NEXT-ULTRACODE-BUILD-BRIEF.md §2 rule 2); handbook/versions.md is not in this repo.
 # Every entry: version + digest/commit/sha256 + where it came from. Never "latest", never a branch.
 # The build reads these values; CI (test/unit/test_versions_lock.py) fails if a file uses a pin
 # that is not listed here.
