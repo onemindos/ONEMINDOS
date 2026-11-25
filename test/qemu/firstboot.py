@@ -496,6 +496,68 @@ def f12(vm, token):
     record("F12", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
            + f" box={box!r} up={up} down_summary={summary[:80]!r} engine_unreachable={inst.get('reason')}")
 
+# F13's helper, run in the guest (section 9): file a restart, approve it, and read the ledger after the reboot.
+F13_PY = r"""
+import json, sys, time, urllib.error, urllib.request
+phase, token = sys.argv[1], sys.argv[2]
+def call(method, path, body=None):
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request("http://127.0.0.1:8080" + path, data=data, method=method,
+                                 headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return r.status, json.loads(r.read() or b"null")
+    except urllib.error.HTTPError as e:
+        return e.code, None
+    except (OSError, ValueError):
+        return None, None
+boot = lambda: open("/proc/sys/kernel/random/boot_id").read().strip()
+if phase == "file":
+    b0 = boot()
+    code, a = call("POST", "/v1/system/actions", {"type": "system.restart", "reason": "F13", "idempotency_key": "f13"})
+    time.sleep(10)
+    json.dump({"id": (a or {}).get("id"), "boot": b0}, open("/data/onemind/f13-state", "w"))
+    print("RESULT file " + json.dumps({"code": code, "state": (a or {}).get("state"), "id": (a or {}).get("id"),
+                                       "same_boot": boot() == b0, "boot": b0}))
+elif phase == "approve":
+    st = json.load(open("/data/onemind/f13-state"))
+    code, _ = call("POST", "/v1/actions/" + st["id"] + "/approve", {})
+    json.dump({**st, "approve": code}, open("/data/onemind/f13-state", "w"))
+    time.sleep(600)
+else:
+    st = json.load(open("/data/onemind/f13-state"))
+    t0, state = time.time(), None
+    while time.time() - t0 < 120:
+        code, a = call("GET", "/v1/actions/" + st["id"])
+        state = (a or {}).get("state")
+        if state in ("succeeded", "failed", "outcome_unknown"):
+            break
+        time.sleep(3)
+    print("RESULT after " + json.dumps({"state": state, "approve": st.get("approve"), "was_boot": st["boot"], "boot": boot()}))
+"""
+
+
+def f13(vm, token):
+    """An approved restart reboots the box, and the ledger action ends succeeded (section 9)."""
+    _, out = vm.run("cat > /run/f13.py <<'PYEOF'\n" + F13_PY + "\nPYEOF\n" + f"{PY} -I /run/f13.py file '{token}'", 120)
+    filed = json.loads((re.findall(r"^RESULT file (\{.*\})\s*$", out, re.M) or ["{}"])[-1])
+    seg = vm.here()
+    vm.send(f"{PY} -I /run/f13.py approve '{token}'")
+    al = vm.expect(ALREADY, 900).group(0)
+    g = vm.wait_gate(); vm.shell_ready()
+    new_toks = TOKEN.findall(vm.since(seg))
+    hz = http_code(vm, f"{GW}/healthz", timeout=900)
+    if hz != "200":
+        diagnose(vm, f"healthz={hz} after the approved restart")
+    _, out = vm.run("cat > /run/f13.py <<'PYEOF'\n" + F13_PY + "\nPYEOF\n" + f"{PY} -I /run/f13.py after '{token}'; rm -f /run/f13.py /data/onemind/f13-state", 240)
+    after = json.loads((re.findall(r"^RESULT after (\{.*\})\s*$", out, re.M) or ["{}"])[-1])
+    c = {"filed": filed.get("code") == 202 and filed.get("state") == "awaiting_approval" and bool(filed.get("id")),
+         "nothing_before_approval": filed.get("same_boot") is True,
+         "approved_200": after.get("approve") == 200,
+         "rebooted": bool(after.get("boot")) and after.get("boot") != after.get("was_boot") == filed.get("boot"),
+         "no_new_token": not new_toks, "healthz": hz == "200", "succeeded": after.get("state") == "succeeded"}
+    record("F13", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" '{al[:60]}' gate={g} ledger={after.get('state')}")
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=sorted(battery.BOARDS))
@@ -552,6 +614,8 @@ def main():
         vm.mark("F10 rescue console with k3s stopped (CORE-UPDATE-9)"); f10(vm, token)
         vm.mark("F11 starting page, then the gateway, never a refused connection"); f11(vm, (os.path.dirname(a.results) or ".") if a.results else None)
         vm.mark("F12 the gateway reaches the host helper, and says missing without it (#875)"); f12(vm, token)
+
+        vm.mark("F13 an approved restart reboots the box and the ledger says succeeded (W1)"); f13(vm, token)
 
         if a.upto in ("F3", "F4"):
             vm.mark("F3 reboot keeps state")
