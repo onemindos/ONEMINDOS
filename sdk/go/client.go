@@ -78,10 +78,12 @@ type Client struct {
 	Nodes    *NodesService
 	Apps     *AppsService
 	Actions  *ActionsService
+	Work     *WorkService
 	Audit    *AuditService
 	Events   *EventsService
 	Status   *StatusService
 	Services *ServicesService
+	Domains  *DomainsService
 }
 
 // Option configures a Client.
@@ -167,10 +169,12 @@ func New(baseURL string, opts ...Option) (*Client, error) {
 	c.Nodes = &NodesService{c}
 	c.Apps = &AppsService{c}
 	c.Actions = &ActionsService{c}
+	c.Work = &WorkService{c}
 	c.Audit = &AuditService{c}
 	c.Events = &EventsService{c}
 	c.Status = &StatusService{c}
 	c.Services = &ServicesService{c}
+	c.Domains = &DomainsService{c}
 	return c, nil
 }
 
@@ -239,6 +243,14 @@ type request struct {
 // *json.RawMessage to keep the gateway's bytes). It is how the CLI's --json passes bodies through.
 func (c *Client) Do(ctx context.Context, method, path string, body, out any) error {
 	_, err := c.do(ctx, request{method: method, path: path, body: body, retry: method == http.MethodGet}, out)
+	return err
+}
+
+// DoIdempotent is Do for a write that carries an Idempotency-Key header. The gateway answers a repeat of
+// the same key and request with the original result, so a retry is safe and is made like a GET's.
+func (c *Client) DoIdempotent(ctx context.Context, method, path, key string, body, out any) error {
+	_, err := c.do(ctx, request{method: method, path: path, body: body, retry: true,
+		headers: map[string]string{"Idempotency-Key": key}}, out)
 	return err
 }
 

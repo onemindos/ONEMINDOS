@@ -123,6 +123,13 @@ class AppEntry:
         return read_scan(self.dir)
 
     @property
+    def manifest_tier(self) -> str | None:
+        """The tier this app is treated as everywhere a decision depends on it. A repository's claim
+        is capped for custom and community-source apps (their entries override this)."""
+        tier = (self.manifest.get("metadata") or {}).get("tier")
+        return tier if tier in TIERS else None
+
+    @property
     def licence_class(self) -> str:
         declared = (self.manifest.get("metadata") or {}).get("licenceClass")
         return declared if declared in LICENCE_CLASSES else "unknown"
@@ -160,11 +167,12 @@ class AppEntry:
             "browser": isinstance(spec.get("browser"), dict) and isinstance(web, dict),
             # §11.4 additions.
             "links": {k: _http_url(links.get(k)) for k in LINK_KEYS},
-            "tier": md.get("tier") if md.get("tier") in TIERS else None,
+            "tier": self.manifest_tier,
             "scan": scan.summary() if scan is not None else None,
             "build": build_summary(md.get("build")),
             # §12.22: set by a community source's entry; the official catalog has none.
             "catalog_source": None,
+            "custom_source": None,  # PLG-GIT-01: set by a custom app's entry
         }
 
 

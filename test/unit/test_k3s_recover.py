@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
-"""onemind_k3s_state recover and the owner-approved reset (VM 501 bug 1, CRITERIA-FIRSTBOOT.md section 9 F14 and
-the unsafe case, section 10 F15), against a temp root. Standard library only, no Docker or VM. The unsafe case of
-section 9 (the datastore holds the owner's apps, so rebuilding the cluster state would lose them) must repair
+"""onemind_k3s_state recover and the owner-approved reset (VM 501 bug 1, CRITERIA-FIRSTBOOT.md section 12 F18 and
+the unsafe case, section 13 F19), against a temp root. Standard library only, no Docker or VM. The unsafe case of
+section 12 (the datastore holds the owner's apps, so rebuilding the cluster state would lose them) must repair
 nothing, log and alert: test_owner_apps_in_the_datastore_wait_for_approval and the tests after it."""
 import json, os, sqlite3, subprocess, sys, unittest
 from unittest import mock

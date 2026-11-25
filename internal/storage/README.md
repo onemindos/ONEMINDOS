@@ -54,7 +54,7 @@ Tools run as separate processes (no linking); all are GPL-family packages in Deb
 
 | Plan | Use | Steps (abridged) |
 |---|---|---|
-| `create` | new set on blank disks | per disk: `sgdisk` GPT + partlabel `onemind-data` → (`--encrypt`) `cryptsetup luksFormat --type luks2` + `open` → `mkfs.btrfs -d raid1 -m raid1` (raid1c3 metadata at 3+, single/dup for 1 disk with a warning) → mount → subvolumes `@`, `@storage`, `@snapshots` |
+| `create` | new set on blank disks | per disk: `sgdisk` GPT + partlabel `onemind-data` → (`--encrypt`) `cryptsetup luksFormat --type luks2` + `open` → `mkfs.btrfs -d raid1 -m raid1` (raid1c3 metadata at 3+, single/dup for 1 disk with a warning) → mount → subvolumes `@` (the default, mounted at `/data`), `@storage` (mounted at `/data/storage`) and `@storage/.snapshots` (snapper's snapshots, nested), then `set-default @` (`LayoutSteps`, the same layout `data_encrypt.py` makes on first boot) |
 | `protect` | add a disk to the mounted set (1 → 2 is `storage.mirror.create`, n → n+1 is `storage.mirror.add`) | prepare as above (on an encrypted set: copy a member's LUKS2 header, new UUID, open with the set key, tokens) → `btrfs device add` → `btrfs balance start -dconvert=raid1,soft -mconvert=…,soft` |
 | `replace` | swap a member (failed, missing or healthy) for a blank disk | prepare → tokens → `btrfs replace start -B -f <devid>` → resize → soft-convert → demote the old member's token → optional wipe of the old disk |
 | `remove` | take a member out (below two only with `unprotect`) | convert first when needed (single/dup at one, raid1c3 → raid1 at two) → `btrfs device remove` → tokens → optional wipe |

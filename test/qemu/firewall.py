@@ -181,6 +181,7 @@ def main():
         record("FW3", k3s <= listening and not any(("tcp", p) in reach[t] for p in k3s for t in reach),
                f"k3s_listening_wildcard={sorted(k3s & listening)} reachable_lan={sorted(p for p in k3s if ('tcp', p) in reach['lan'])} "
                f"reachable_public={sorted(p for p in k3s if ('tcp', p) in reach['pub'])}")
+        fb.netcheck.fw5(box, record)
         _, w = scan.run("systemctl is-active onemind-setup; echo WIZ=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/)")
         wiz_up = "WIZ=200" in w and re.search(r"^active\s*$", w, re.M) is not None
         res = {}

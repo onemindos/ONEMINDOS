@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Appended to /etc/fstab on NetworkManager boards only (os/rootfs/Containerfile). Saved connections (Wi-Fi
+# passwords are in them, so the folder is 0700) and NetworkManager's state (its secret key, lease and
+# timestamp files) live on /data like every other writable folder; the root stays read-only.
+/data/state/etc-NetworkManager-system-connections /etc/NetworkManager/system-connections none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-lib-NetworkManager                /var/lib/NetworkManager                none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0

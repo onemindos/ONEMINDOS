@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Boards with `network: networkmanager` in board.yaml add these to the base list (Debian and Ubuntu legs, same
+# names). Wi-Fi: wpasupplicant does WPA, wireless-regdb gives the kernel the legal channels per country, iw and
+# rfkill are the tools a person reaches for when a radio misbehaves. The Wi-Fi firmware itself comes from the
+# firmware layer (os/rootfs/firmware). Cloud boards and the installer keep systemd-networkd.
+network-manager wpasupplicant wireless-regdb iw rfkill

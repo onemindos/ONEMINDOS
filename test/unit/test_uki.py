@@ -414,5 +414,83 @@ class SlotBHarness(unittest.TestCase):
         self.assertFalse(sb.sb5_verdict(installed, ("mark-good", "B", "1"), ("mark-good", "B", "2"), after))
 
 
+EFI_BACK_ON_A = ("BootCurrent: 0003\nTimeout: 0 seconds\nBootOrder: 0003,0001,0000\n"
+                 + EFI_AFTER_INSTALL.split("BootOrder: 0003,0001,0000\n")[1])
+
+
+class RollbackHarness(unittest.TestCase):
+    """SB6 and SB7: a bad update comes back to slot A (CRITERIA-SECUREBOOT.md section 5). The PASS rules must fail
+    when the box stays on B, when B was never the trial, or when the gate's decision is the wrong one."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.sb = sb_harness()
+        cls.installed = cls.sb.parse_efi(EFI_AFTER_INSTALL)
+        cls.on_a = cls.sb.parse_efi(EFI_BACK_ON_A)
+        cls.a_ok = ("committed-boot", "A", "1")
+
+    def test_sb6_passes_when_the_gate_rejects_b_and_a_commits(self):
+        self.assertTrue(self.sb.sb6_verdict(self.installed, self.a_ok, ("mark-bad", "B", "3"), self.a_ok, self.on_a))
+
+    def test_sb6_fails_when_the_box_stays_on_b(self):
+        on_b = self.sb.parse_efi(EFI_ON_B)
+        self.assertFalse(self.sb.sb6_verdict(self.installed, self.a_ok, ("mark-bad", "B", "3"), self.a_ok, on_b))
+        self.assertFalse(self.sb.sb6_verdict(self.installed, self.a_ok, ("mark-bad", "B", "3"),
+                                             ("committed-boot", "B", "3"), self.on_a))
+
+    def test_sb6_fails_on_a_wrong_decision_or_no_trial(self):
+        for g2 in (("mark-good", "B", "3"), ("fell-back", "A", "1"), ("mark-bad", "B", "2")):
+            self.assertFalse(self.sb.sb6_verdict(self.installed, self.a_ok, g2, self.a_ok, self.on_a), g2)
+        no_next = self.sb.parse_efi(EFI_AFTER_INSTALL.replace("BootNext: 0004\n", ""))
+        self.assertFalse(self.sb.sb6_verdict(no_next, self.a_ok, ("mark-bad", "B", "3"), self.a_ok, self.on_a))
+
+    def test_sb7_needs_one_panic_and_a_fell_back_decision(self):
+        fb = ("fell-back", "A", "1")
+        self.assertTrue(self.sb.sb7_verdict(self.installed, self.a_ok, fb, self.on_a, 1))
+        self.assertFalse(self.sb.sb7_verdict(self.installed, self.a_ok, fb, self.on_a, 0))   # never started B
+        self.assertFalse(self.sb.sb7_verdict(self.installed, self.a_ok, fb, self.on_a, 2))   # a second try
+        self.assertFalse(self.sb.sb7_verdict(self.installed, self.a_ok, self.a_ok, self.on_a, 1))
+        self.assertFalse(self.sb.sb7_verdict(self.installed, self.a_ok, fb, self.sb.parse_efi(EFI_ON_B), 1))
+
+    def test_criteria_amendment_is_preregistered(self):
+        import hashlib
+        crit = open(os.path.join(ROOT, "test", "qemu", "CRITERIA-SECUREBOOT.md"), "rb").read()
+        reg = open(os.path.join(ROOT, "test", "qemu", "PREREGISTRATION.sha256")).read()
+        self.assertIn(f"{hashlib.sha256(crit).hexdigest()}  CRITERIA-SECUREBOOT.md", reg)
+        self.assertIn("SB6", crit.decode()); self.assertIn("SB7", crit.decode())
+
+    def test_image_script_builds_both_bad_bundles(self):
+        t = open(os.path.join(ROOT, "test", "qemu", "secureboot-image.sh")).read()
+        for name in (self.sb.SB6_BUNDLE, self.sb.SB7_BUNDLE):
+            self.assertIn(name.replace(".raucb", ""), t)
+        self.assertIn("bad-boot-init", t)
+
+
+class BoardOption(unittest.TestCase):
+    """SECUREBOOT=1 is a board option that is off by default (make image, dev-image.sh)."""
+
+    def test_makefile_default_is_off_and_passed_to_the_script(self):
+        mk = open(os.path.join(ROOT, "Makefile")).read()
+        self.assertRegex(mk, r"(?m)^SECUREBOOT \?= 0$")
+        self.assertIn("-e SECUREBOOT=$(SECUREBOOT)", mk)
+
+    def test_script_only_adds_signing_when_asked_and_only_on_x86_efi(self):
+        t = open(os.path.join(ROOT, "os", "assemble", "dev-image.sh")).read()
+        self.assertIn('[ "${SECUREBOOT:-0}" = 1 ]', t)
+        self.assertIn('SB=""', t)
+        self.assertIn("only for BOARD=x86_64-efi", t)
+
+    def test_script_refuses_other_boards(self):
+        env = dict(os.environ, SECUREBOOT="1", BOARD="vm", ROOTFS="/nonexistent", VERSION="0")
+        out = tempfile.mkdtemp()
+        try:
+            r = subprocess.run(["sh", os.path.join(ROOT, "os", "assemble", "dev-image.sh"), out],
+                               env=env, capture_output=True, text=True)
+        finally:
+            shutil.rmtree(out, ignore_errors=True)
+        self.assertEqual(r.returncode, 2, r.stderr)
+        self.assertIn("only for BOARD=x86_64-efi", r.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()

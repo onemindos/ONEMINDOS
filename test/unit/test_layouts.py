@@ -12,6 +12,10 @@ X86 = [("onemind-esp", "1GiB", "esp"), ("onemind-boot-a", "512MiB", "esp"), ("on
        ("onemind-recovery", "1GiB", "linux"), ("onemind-data", "rest", "linux")]
 
 
+# D-020 (plan PR 5): x86_64-efi (and cloud-proxmox) carry the data partition with OneMind's own type GUID and ship it blank.
+X86_BLANK_DATA = X86[:-1] + [("onemind-data", "rest", "data")]
+
+
 def board(name):
     return assemble.load_board(name)
 
@@ -21,7 +25,7 @@ class Layouts(unittest.TestCase):
         return [(p["label"], p["size"], p["type"]) for p in board(name)["layout_data"]["partitions"]]
 
     def test_x86_64_efi_is_01_layout(self):
-        self.assertEqual(self.rows("x86_64-efi"), X86)
+        self.assertEqual(self.rows("x86_64-efi"), X86_BLANK_DATA)
 
     def test_arm64_efi_same_as_x86(self):
         self.assertEqual(self.rows("arm64-efi"), X86)

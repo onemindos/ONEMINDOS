@@ -40,6 +40,7 @@ from ..netconf import FabricSettings
 from ..sections import config_section
 from .. import systemlist
 from . import appsettings, compose, deps, exposure, hostports
+from .custom import CustomApps
 from .system import SystemApps
 from .sources import (
     COMMIT_RE, FetchError, GitFetcher, ImageScanner, NoImageScanner, SourceAppEntry, SourceCatalog,
@@ -120,6 +121,7 @@ class AppStore:
         )
         self.image_scanner: ImageScanner = image_scanner or getattr(gw, "image_scanner", None) or NoImageScanner()
         self.sources = SourceCatalog(self.repo, self.fetcher, gw.catalog.validate)
+        self.custom = CustomApps(self)  # PLG-GIT-01: apps linked from a Git repository
         self.reserved = hostports.load_reserved()
         # Built-in apps: the signed list is the only authority (systemlist.py).
         self.system = SystemApps(self, systemlist.load(cfg.system_apps_file))
@@ -368,6 +370,7 @@ class AppStore:
 
     def after_dispatch(self, a: Action, outcome: str) -> None:
         """A removal (or a fresh install) starts from private again; a configure records the typed values."""
+        self.custom.after_dispatch(a, outcome)
         if a.type == "app.configure" and outcome == "succeeded":
             self._record_settings(a)
         if a.type in ("app.install", "app.remove") and outcome == "succeeded":
@@ -573,6 +576,7 @@ class AppStore:
         actions.dependency_paths = self.dependency_paths
         actions.placement = self.app_schedule
         self.gw.catalog.providers.append(self.sources)
+        self.gw.catalog.providers.append(self.custom)
 
 
 def _manifest_sha(entry: AppEntry) -> str:

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# First boot of a hub, last step for k3s (VM 501 bug 1, CRITERIA-FIRSTBOOT.md F13): while k3s starts for the
+# First boot of a hub, last step for k3s (VM 501 bug 1, CRITERIA-FIRSTBOOT.md F17): while k3s starts for the
 # first time, force /data to the disk every few seconds, wait until k3s answers and the OS's own pods are up (their
 # images unpacked and started), sync once more and mark the
 # first setup done (/data/onemind/firstboot/k3s-settled). k3s writes its keys and certificates without fsync, so

@@ -20,7 +20,7 @@ import {
   type Action,
   type ActionRequest,
   type ActionType, type AppParams, type ApproveBody, type PlanPreview, type AppSettings,
-  type AppDependencies, type AppHostPorts, type CommunitySource, type ComposeResult,
+  type AppDependencies, type AppHostPorts, type CommunitySource, type ComposeResult, type CustomApp, type CustomPlan, type CustomRollbackPlan,
   type ApiErrorBody,
   type CatalogApp,
   type Instance,
@@ -101,6 +101,12 @@ export interface OneMindApi extends WiringApi {
   /** Files a `source.add` request; it waits in Approvals until the owner approves it. */
   requestSourceAdd?(params: SourceAddParams, key: { idempotency_key: string; expires_at: string }): Promise<Action>;
   convertCompose?(body: { app_id: string; name?: string; compose: string }): Promise<ComposeResult>;
+  /** PLG-GIT-01: apps linked from a Git repository, with their revisions. */
+  customApps?(): Promise<CustomApp[]>;
+  /** Fetches and checks a repository (owner only). Records a revision; installs nothing. */
+  planCustomApp?(body: { url: string; ref: string }): Promise<CustomPlan>;
+  /** Points the catalog at an earlier deployed revision (owner only); the update that applies it waits in Approvals. */
+  rollbackCustomApp?(appId: string, revision?: number): Promise<CustomRollbackPlan>;
   createAction(req: ActionRequest): Promise<Action>;
   actions(): Promise<Action[]>;
   action(id: string): Promise<Action>;
@@ -386,6 +392,22 @@ export class HttpApi implements OneMindApi {
       return Object.keys(got).length === 3 && got.name === params.name && got.url === params.url && got.commit === params.commit
         && Date.parse(action.expires_at) === Date.parse(key.expires_at);
     });
+  }
+  async customApps() {
+    const raw = await this.sdkCall<CustomApp[]>('GET', '/v1/custom-apps', undefined, true);
+    if (raw.some((a) => !a || typeof a.app_id !== 'string' || typeof a.url !== 'string' || typeof a.status !== 'string' || !Array.isArray(a.revisions))) throw new ApiError(200, 'unknown', 'Invalid gateway custom apps');
+    return raw;
+  }
+  /** One POST, never retried: each call fetches a repository and may record a revision. */
+  async planCustomApp(body: { url: string; ref: string }) {
+    const raw = await this.sdkCall<CustomPlan>('POST', '/v1/custom-apps/plan', body, false, undefined, false);
+    if ((raw.verdict !== 'ready' && raw.verdict !== 'blocked') || !Array.isArray(raw.problems) || !Array.isArray(raw.notes) || typeof raw.commit !== 'string' || (raw.verdict === 'ready' && (typeof raw.app_id !== 'string' || !raw.action_type))) throw new ApiError(200, 'unknown', 'Invalid gateway custom app plan');
+    return raw;
+  }
+  async rollbackCustomApp(appId: string, revision?: number) {
+    const raw = await this.sdkCall<CustomRollbackPlan>('POST', `/v1/custom-apps/${encodeURIComponent(appId)}/rollback`, revision === undefined ? {} : { revision }, false, undefined, false);
+    if (raw.app_id !== appId || !Number.isInteger(raw.to_revision) || !Number.isInteger(raw.from_revision) || raw.action_type !== 'app.update') throw new ApiError(200, 'unknown', 'Invalid gateway rollback plan');
+    return raw;
   }
   async convertCompose(body: { app_id: string; name?: string; compose: string }) {
     const raw = await this.sdkCall<ComposeResult>('POST', '/v1/deploy/compose', body);

@@ -189,6 +189,10 @@ type Update struct {
 	State            string  `json:"state"`
 	LastCheck        *string `json:"last_check"`
 	LastResult       string  `json:"last_result"`
+	// PreviousVersion is the version the box ran before the update it now runs, set when the health
+	// gate committed that update: the version the other A/B slot still holds and can boot ("go back",
+	// P-16). Empty when unknown, and cleared when a new install starts or the gate rolled one back.
+	PreviousVersion string `json:"previous_version,omitempty"`
 }
 
 // OS is parsed from /etc/os-release.

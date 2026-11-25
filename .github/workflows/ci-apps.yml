@@ -127,6 +127,12 @@ jobs:
       - name: Unit tests (sdk/tools)
         run: python3 -I -m unittest discover -s sdk/tools/tests -v
 
+      - name: Set up uv for the gateway refusal harness
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+
+      - name: Verify app refusals at the gateway
+        run: python3 -I sdk/tools/app-refusals
+
       - name: Validate apps
         run: python3 -I sdk/tools/validate-apps --plugin-validator "$ONEMIND_PLUGIN_VALIDATOR"
 

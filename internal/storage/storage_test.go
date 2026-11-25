@@ -363,7 +363,8 @@ func TestPlanCreate(t *testing.T) {
 		"cryptsetup luksFormat --type luks2 --batch-mode --uuid " + DerivedUUID("onemind-data", "/dev/vdc", "luks") + " --key-file /run/k /dev/vdc1",
 		"mkfs.btrfs --label onemind-data --data raid1 --metadata raid1 /dev/mapper/onemind-data-vdb /dev/mapper/onemind-data-vdc",
 		"mount -o noatime,compress=zstd:1,space_cache=v2,discard=async /dev/mapper/onemind-data-vdb /data",
-		"btrfs subvolume create /data/@snapshots",
+		"btrfs subvolume create /data/@storage/.snapshots",
+		"btrfs subvolume set-default /data/@",
 	} {
 		if !strings.Contains(c, want) {
 			t.Errorf("missing %q in\n%s", want, c)

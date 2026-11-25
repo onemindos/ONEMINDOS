@@ -14,6 +14,7 @@ from dataclasses import dataclass
 
 from ..actions import ActionType
 
+_UNSET: object = object()
 RISKS = ("read", "write", "sensitive", "destructive", "actuate")
 POLICY_MAX_RISK = "write"  # §12.3: a standing approval covers only read and write types
 
@@ -28,7 +29,7 @@ class TypeInfo:
 # approval covering them (for an agent or a person) is validated against the right risk.
 TYPES: dict[str, TypeInfo] = {
     "app.install": TypeInfo("sensitive", True),
-    "app.remove": TypeInfo("write", True),
+    "app.remove": TypeInfo("sensitive", True),  # moved up from write: a rule never removes an app
     "app.update": TypeInfo("write", True),
     "app.rollback": TypeInfo("write", True),
     "app.restart": TypeInfo("write", True),
@@ -71,6 +72,35 @@ def known(action_type: str) -> bool:
     return action_type in TYPES
 
 
+def register_feature(action_type: str, risk: str, *, automation: bool = False) -> None:
+    """Record a feature-registered type (ActionService.register_type) in the one risk table.
+
+    A type already in the table must agree on its risk class: two values for one type would let a
+    policy check read the lower one. An unknown risk class is refused.
+    """
+    if risk not in RISKS:
+        raise ValueError(f"{action_type}: unknown risk class {risk!r}")
+    have = TYPES.get(action_type)
+    if have is None:
+        TYPES[action_type] = TypeInfo(risk, automation)
+    elif have.risk != risk:
+        raise ValueError(f"{action_type}: registered as {risk} but the risk table says {have.risk}")
+
+
+def effective_risk(action_type: str, params: dict | None = None, stored: object = _UNSET) -> str | None:
+    """The risk class one request really has: the higher of the table's (with parameter upgrades)
+    and the class stored on the request when it was filed (a feature's risk_for). None when there
+    is no valid class to judge, which every caller treats as a refusal."""
+    found = []
+    if action_type in TYPES:
+        found.append(risk_of(action_type, params))
+    if stored is not _UNSET:
+        if stored not in RISKS:
+            return None
+        found.append(stored)
+    return max(found, key=RISKS.index) if found else None
+
+
 def risk_of(action_type: str, params: dict | None = None) -> str:
     """The risk class of one request, including §12.5's parameter-dependent upgrades."""
     params = params or {}
@@ -104,15 +134,21 @@ def mark_physical(action_type: str) -> None:
     PHYSICAL.add(action_type)
 
 
-def policy_may_cover(action_type: str, params: dict | None = None) -> str | None:
-    """Why no standing approval may accept this request, or None (§12.3: read and write only)."""
+def policy_may_cover(action_type: str, params: dict | None = None, stored_risk: object = _UNSET) -> str | None:
+    """Why no standing approval may accept this request, or None (§12.3: read and write only).
+
+    stored_risk is the class recorded on a filed request (Action.risk); pass it whenever there is
+    one, so a request a feature raised above its type's base class is judged at the raised class.
+    """
     if action_type in PHYSICAL:
         return f"{action_type} moves something physical; only a person approves it, never a standing approval"
     if action_type not in TYPES:
         return f"unknown action type {action_type!r}"
     if action_type in NEVER_BY_POLICY:
         return f"{action_type} always waits for the owner; a standing approval never covers it"
-    risk = risk_of(action_type, params)
+    risk = effective_risk(action_type, params, stored_risk)
+    if risk is None:
+        return f"{action_type} has no valid risk class; a standing approval never covers it"
     if not at_most(risk, POLICY_MAX_RISK):
         return f"{action_type} is {risk}; a standing approval covers only read and write types (§12.3)"
     return None

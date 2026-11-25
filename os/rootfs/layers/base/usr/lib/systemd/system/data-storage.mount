@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: Apache-2.0
+# The owner's files: the @storage subvolume of the btrfs /data (made by data_encrypt.py on first boot, #152). snapper
+# snapshots this one and nothing else (the k3s data and the databases in @ are never snapshotted).
+# ConditionPathExists: only a btrfs box that data_encrypt.py made has the empty /data/storage mount point inside @; an
+# ext4 box (installed before #152) has none, so this unit is skipped there instead of failing on subvol=.
+# Wanted, not required, by local-fs.target: a failed mount must not stop the boot (data-check judges /data itself).
+[Unit]
+Description=OneMind: owner files (btrfs subvolume @storage)
+Documentation=man:systemd.mount(5)
+# After= and a condition, not RequiresMountsFor=: with the data disk missing (recovery mode) this unit must be skipped,
+# not fail as "dependency failed".
+After=data.mount
+ConditionPathIsMountPoint=/data
+ConditionPathExists=/data/storage
+
+[Mount]
+What=/dev/disk/by-partlabel/onemind-data
+Where=/data/storage
+Type=btrfs
+Options=subvol=@storage,noatime
+
+[Install]
+WantedBy=local-fs.target
