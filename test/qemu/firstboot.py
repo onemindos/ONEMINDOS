@@ -598,7 +598,7 @@ def f13(vm):
     _, o = vm.run(
         "echo PKG=$(dpkg-query -W -f='${Package} ' openssh-server sudo libpam-systemd 2>&1); "
         "echo ADMIN=$(getent passwd admin); echo SHADOWLINE=$(grep -c '^admin:' /etc/shadow); "
-        "echo EXTRASH=$(grep -c '^admin:' /var/lib/extrausers/shadow 2>/dev/null); "
+        "echo EXTRASH=$(cat /var/lib/extrausers/shadow 2>/dev/null | grep -c '^admin:'); "
         "echo SLOTKEYS0=$(ls /etc/ssh/ssh_host_* 2>/dev/null | wc -l); "
         "echo SSH0=$(systemctl is-active ssh.service); "
         "echo LISTEN0=$(ss -ltn 'sport = :22' | grep -c LISTEN); "
@@ -626,11 +626,12 @@ def f13(vm):
         f"{PYL} -I /run/f13.py; unset F13_PW; rm -f /run/f13.py", 400)
     parts.append(o)
     _, o = vm.run(
-        "mkdir -p /data/onemind/kiosk; touch /data/onemind/kiosk/enabled; systemctl start onemind-kiosk.service; "
+        "mkdir -p /data/onemind/kiosk; touch /data/onemind/kiosk/enabled; systemctl start onemind-kiosk-apply.service; "
         "t0=$SECONDS; while [ \"$(systemctl is-active onemind-kiosk.service)\" != active ] && [ $((SECONDS - t0)) -lt 30 ]; do sleep 1; done; "
         "sleep 3; echo KIOSK=$(systemctl is-active onemind-kiosk.service); "
         "echo SESS=$(loginctl list-sessions --no-legend --no-pager | grep -c onemind-kiosk); "
-        "rm -f /data/onemind/kiosk/enabled; systemctl stop onemind-kiosk.service; rm -rf /run/f13; true", 180)
+        "journalctl -u onemind-kiosk.service -n 12 --no-pager -o cat | sed 's/^/KLOG /'; "
+        "rm -f /data/onemind/kiosk/enabled; systemctl start onemind-kiosk-apply.service; rm -rf /run/f13; true", 180)
     parts.append(o)
     c = f13_judge("\n".join(parts))
     record("F13", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()))

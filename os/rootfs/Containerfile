@@ -224,6 +224,8 @@ RUN set -eu; \
     useradd --system --uid 963 --gid onemind-headscale --no-create-home --home-dir /nonexistent \
       --shell /usr/sbin/nologin onemind-headscale; \
     groupadd --system --gid 964 onemind-radio; \
+    useradd --system --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin \
+      --comment "OneMind kiosk" onemind-kiosk; \
     systemctl enable onemind-firstboot.service onemind-firewall.service avahi-daemon.service >/dev/null; \
     systemctl mask smbd.service nmbd.service winbind.service samba-ad-dc.service >/dev/null; \
     systemctl enable onemind-smb.service >/dev/null; \
@@ -234,6 +236,7 @@ RUN set -eu; \
     for db in passwd group shadow; do \
       grep -Eq "^$db:.*extrausers" /etc/nsswitch.conf || sed -i -E "s/^($db:.*)$/\\1 extrausers/" /etc/nsswitch.conf; \
     done; \
+    rm -rf /var/lib/extrausers; ln -s /data/onemind/samba/extrausers /var/lib/extrausers; \
     /usr/bin/nats-server --version; \
     /usr/sbin/tailscaled --version | head -1; /usr/bin/tailscale --version | head -1; /usr/bin/headscale version; \
     /usr/lib/onemind/restic version | grep -q 'restic 0.19.1'; command -v sqlite3 >/dev/null; \

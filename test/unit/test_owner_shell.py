@@ -87,12 +87,22 @@ class NoPasswordIsBaked(unittest.TestCase):
         self.assertIn("/var/lib/extrausers", t)
         self.assertIn("openssl passwd -6 -stdin", t)          # the password is never an argument (ps would show it)
         self.assertIn("/var/lib/extrausers - - - - /data/onemind/samba/extrausers", rd(f"{L}/usr/lib/tmpfiles.d/onemind-smb.conf"))
+        # /var/lib is on the read-only root, so tmpfiles cannot link it at boot: the image carries the link (F13 root cause)
+        self.assertIn("ln -s /data/onemind/samba/extrausers /var/lib/extrausers", rd("os/rootfs/Containerfile"))
         self.assertIn("admin ALL=(ALL) ALL", rd(f"{L}/etc/sudoers.d/admin"))
         self.assertNotIn("NOPASSWD", rd(f"{L}/etc/sudoers.d/admin"))
 
     def test_key_add_refuses_options(self):
         t = rd(f"{L}/usr/lib/onemind/onemind-owner")
         self.assertIn("ssh-*|ecdsa-*|sk-*", t)
+
+
+class KioskUserExistsInTheImage(unittest.TestCase):
+    def test_kiosk_user_is_created_at_build_time(self):
+        # F13 first run: onemind-kiosk.service failed with 217/USER. The user came only from sysusers.d, which needs a
+        # writable /etc at boot; the root is read-only, so the account must be in the image like the other users.
+        c = rd("os/rootfs/Containerfile")
+        self.assertRegex(c, r"useradd --system[^\n]*\\\n[^\n]*onemind-kiosk;")
 
 
 class SmbDoesNotClobberTheOwner(unittest.TestCase):
