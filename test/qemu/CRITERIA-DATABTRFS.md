@@ -26,3 +26,7 @@
 - The cloud-proxmox board (checked by `cloudboot.py` C4, which now reads btrfs as well as ext4) and a Proxmox VM with a TPM.
 - A box installed before this change (ext4 `/data`): it is left as it is (`CRITERIA-DATAENC.md` section 3; the unit tests cover the ext4 and `data-storage.mount` skip).
 - Snapshots (snapper): plan PR 6 adds its own checks on top of this layout.
+
+## 4. Amendment (2026-11-25, written before the second growth step of E7 ran)
+
+E7 gets a second half, because the first growth happens on a boot where the volume was opened by the first-boot code, while every later boot opens it with `systemd-cryptsetup` and the TPM: with the box powered off after the checks above, the disk image is enlarged again to 80 GiB. **PASS** needs, after the next boot (unlocked by the TPM, no prompt): the data partition ends within 1 MiB of the last usable sector of the 80 GiB disk, is larger than before, the unlocked volume is at most 32 MiB smaller than the partition, the btrfs filesystem is at least 98 % of the volume, the journal of that boot's `onemind-data-extend.service` says it grew the partition, no unit is failed and the marker is kept. **FAIL**: any size still at the 64 GiB value, a prompt, a failed unit, or the marker changed. The original E7 text above stays as it was; both halves must pass for E7 to pass.

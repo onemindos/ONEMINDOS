@@ -173,11 +173,29 @@ def e57(a, logf, env):
             return (all(k in n for k in ("DISK", "PSIZE", "MAP", "FS", "TAIL"))
                     and 0 <= n["TAIL"] <= 2048 and n["PBYTES"] > 40 << 30
                     and 0 <= n["PBYTES"] - n["MAP"] <= 32 << 20 and n["FS"] >= 0.98 * n["MAP"])
-        record("E7", grown(n1) and n1.get("GREW", 0) >= 1 and failed1 == "0" and grown(n2) and after.get("M7") == m7 and len(m7) == 64
-               and after.get("FAILED") == "0" and "unlocked (tpm2)" in s7 and not re.search(PROMPT, s7)
-               and n2.get("PBYTES") == n1.get("PBYTES") and n2.get("MAP") == n1.get("MAP"),
+        first_half = (grown(n1) and n1.get("GREW", 0) >= 1 and failed1 == "0" and grown(n2) and after.get("M7") == m7 and len(m7) == 64
+                      and after.get("FAILED") == "0" and "unlocked (tpm2)" in s7 and not re.search(PROMPT, s7)
+                      and n2.get("PBYTES") == n1.get("PBYTES") and n2.get("MAP") == n1.get("MAP"))
+        # Second half (CRITERIA-DATABTRFS.md section 4): the disk grows again while the box is off; the volume is now
+        # opened by systemd-cryptsetup with the TPM, not by the first-boot code.
+        power_off(vm7)
+        with open(os.path.join(w7, "disk.img"), "r+b") as f:
+            f.truncate(80 << 30)
+        boot(vm7, tpm3, "E7 boot 3 (disk enlarged to 80 GiB)")
+        seg = vm7.here(); vm7.pos = seg
+        vm7.expect(r"ONEMIND-DATA-CRYPT: data disk unlocked \((\w[\w-]*)\)", 900)
+        vm7.wait_gate(); s7c = vm7.since(seg); vm7.shell_ready()
+        n3 = sizes(vm7)
+        again = guest_vals(vm7, "echo M7=$(sha256sum /data/onemind/e-marker 2>&1 | cut -c1-64); "
+                                "echo FAILED=$(systemctl --failed --no-legend | wc -l)")
+        second_half = (grown(n3) and n3.get("DISK", 0) >= 80 << 30 and n3.get("PBYTES", 0) > 56 << 30
+                       and n3.get("PBYTES", 0) > n2.get("PBYTES", 0) and n3.get("GREW", 0) >= 1 and again.get("M7") == m7
+                       and again.get("FAILED") == "0" and "unlocked (tpm2)" in s7c and not re.search(PROMPT, s7c))
+        record("E7", first_half and second_half,
                f"first_boot={n1} failed_units={failed1} after_reboot={n2} marker_kept={after.get('M7') == m7} "
-               f"tpm2_unlock={'unlocked (tpm2)' in s7} prompted={bool(re.search(PROMPT, s7))} failed_after={after.get('FAILED')}")
+               f"tpm2_unlock={'unlocked (tpm2)' in s7} prompted={bool(re.search(PROMPT, s7))} failed_after={after.get('FAILED')} | "
+               f"second_growth_80GiB={n3} marker_kept={again.get('M7') == m7} tpm2_unlock={'unlocked (tpm2)' in s7c} "
+               f"prompted={bool(re.search(PROMPT, s7c))} failed={again.get('FAILED')}")
     except (TimeoutError, RuntimeError, ValueError) as e:
         record("E7", False, f"aborted: {e}")
         ok = False
