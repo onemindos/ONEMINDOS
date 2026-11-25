@@ -25,3 +25,4 @@ adc1cf6619e8b6440e00da65da7ff13c2dfd0f66151facfe30bf8fdafd74c411  CRITERIA-NAS.m
 bf4882ea4f3b5eac96f0133fdb6d96a0fc07ad65339727301d9479e033a7e394  CRITERIA-FIRSTBOOT.md  2026-11-24T23:59:00Z  (with §9 amendment: F13 owner shell, Debian-bones step 2; written before F13 was implemented)
 b7993473cf8815397fb77d1f98a1a61870f40f5638f242c4578f26a072aa786a  CRITERIA-FIRSTBOOT.md  2026-11-25T07:30:00Z  (§9/F13 renumbered to §11/F15 to avoid the parallel Step 2 lanes' F13; text otherwise as pre-registered)
 0f7775d2bbf3940b070f31d8c9d2515f0c0a842862302b285cc65e673b19a195  CRITERIA-FIRSTBOOT.md  2026-11-25T08:15:00Z  (with §12 amendment: F20 SSH keys and the SSH switch, P-06; written before F20 was implemented)
+ac49907f0062ba98f9b42ecbf09f5078070293bdb0caac343582ae4cbda53872  CRITERIA-FIRSTBOOT.md  2026-11-25T10:05:00Z  (with §13 amendment: F20(e) repeated after SSH off/on and after a firewall restart; written before the fix)
