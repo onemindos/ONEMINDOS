@@ -239,6 +239,14 @@ RUN set -eu; \
     /usr/lib/onemind/restic version | grep -q 'restic 0.19.1'; command -v sqlite3 >/dev/null; \
     /usr/lib/onemind/gateway/venv/bin/python3 -I -c "import onemind_core" ; \
     if [ -x /tmp/onemind/board/post-install.sh ]; then /tmp/onemind/board/post-install.sh; fi; \
+    rm -f /etc/ssh/ssh_host_*; systemctl mask ssh.socket >/dev/null 2>&1 || true; \
+    if getent passwd admin >/dev/null; then \
+      rm -f /usr/lib/systemd/system/ssh.service.d/20-onemind-owner-key.conf; \
+    else \
+      useradd --uid 1000 --user-group --no-create-home --home-dir /home/admin --shell /bin/bash --comment "OneMind admin" admin; \
+      sed -i '/^admin:/d' /etc/shadow; chmod 0440 /etc/sudoers.d/admin; \
+      systemctl enable ssh.service onemind-ssh-owner-key.path getty@tty2.service >/dev/null; \
+    fi; \
     systemctl enable systemd-networkd.service systemd-resolved.service onemind-data-layout.service \
       k3s.service onemind-local-api.service onemind-health-gate.service onemind-data-check.service \
       onemind-factory-reset.service systemd-sysext.service systemd-confext.service >/dev/null; \

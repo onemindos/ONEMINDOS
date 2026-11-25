@@ -496,6 +496,146 @@ def f12(vm, token):
     record("F12", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
            + f" box={box!r} up={up} down_summary={summary[:80]!r} engine_unreachable={inst.get('reason')}")
 
+
+# F13's pseudo-terminal login, run in the guest (section 9): what a getty on tty2 does, with login(1) and PAM.
+# The password arrives in the environment (F13_PW) and is never printed; only the parsed results are.
+F13_PY = r"""
+import os, pty, select, sys, time
+pw = os.environ["F13_PW"]
+def login(password, shell):
+    pid, fd = pty.fork()
+    if pid == 0:
+        os.execv("/bin/login", ["login", "admin"])
+    buf = b""
+    def read_until(marks, t):
+        nonlocal buf
+        end = time.time() + t
+        while time.time() < end:
+            if any(m in buf for m in marks):
+                return True
+            r, _, _ = select.select([fd], [], [], 0.5)
+            if r:
+                try:
+                    d = os.read(fd, 4096)
+                except OSError:
+                    return any(m in buf for m in marks)
+                if not d:
+                    return any(m in buf for m in marks)
+                buf += d
+        return any(m in buf for m in marks)
+    got = {"prompt": read_until([b"assword:"], 60)}
+    os.write(fd, password.encode() + b"\n")
+    if shell:
+        got["shell"] = read_until([b"$ ", b"# "], 60)
+        os.write(fd, b"echo WHO=$(id -un) MARK$((1+1))\n")
+        got["who"] = read_until([b"MARK2"], 30)
+        os.write(fd, ("echo SUDOID=$(echo '%s' | sudo -S -p '' id -u) DONE$((2+3))\n" % password).encode())
+        got["sudo"] = read_until([b"DONE5"], 60)
+        os.write(fd, b"exit\n")
+    else:
+        got["denied"] = read_until([b"Login incorrect"], 60)
+        got["shell"] = b"MARK2" in buf
+    text = buf.decode("utf-8", "replace")
+    import re
+    who = re.search(r"WHO=(\S+) MARK2", text)
+    sud = re.search(r"SUDOID=(\S+) DONE5", text)
+    try:
+        os.kill(pid, 9)
+    except OSError:
+        pass
+    try:
+        os.waitpid(pid, 0)
+    except OSError:
+        pass
+    return {"who": who and who.group(1), "sudo": sud and sud.group(1), "denied": b"Login incorrect" in buf,
+            "reached_shell": bool(who)}
+good = login(pw, True)
+bad = login(pw + "-wrong", False)
+print("F13LOGIN good_who=%s good_sudo=%s bad_denied=%s bad_shell=%s" % (good["who"], good["sudo"], bad["denied"], bad["reached_shell"]))
+"""
+
+F13_SSHO = "-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20 -o LogLevel=ERROR"
+
+
+def f13_judge(out):
+    """F13's verdict from the guest's output (pure, so test/unit can feed it canned text)."""
+    g = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or [""])[-1]
+    cfg = {k: v for k, v in re.findall(r"^(passwordauthentication|kbdinteractiveauthentication|permitrootlogin|"
+                                        r"authenticationmethods|allowusers) (.*?)\s*$", out, re.M)}
+    login = re.findall(r"^F13LOGIN good_who=(\S+) good_sudo=(\S+) bad_denied=(\S+) bad_shell=(\S+)\s*$", out, re.M)
+    lw, ls, bd, bs = login[-1] if login else ("", "", "", "")
+    pkgs = set(g("PKG").split())
+    c = {
+        "packages": {"openssh-server", "sudo", "libpam-systemd"} <= pkgs,
+        "admin_uid1000_bash": re.fullmatch(r"admin:x:1000:\d+:[^:]*:/home/admin:/bin/bash", g("ADMIN")) is not None,
+        "no_baked_password": g("SHADOWLINE") == "0" and g("EXTRASH") == "0",
+        "no_slot_hostkeys": g("SLOTKEYS0") == "0" and g("SLOTKEYS1") == "0",
+        "no_key_sshd_inactive": g("SSH0") != "active" and g("SSH0") != "",
+        "no_key_nothing_listens": g("LISTEN0") == "0" and g("NFT0") == "0",
+        "key_added": g("ADDRC") == "0",
+        "key_starts_sshd": g("SSH1") == "active" and g("LISTEN1") != "" and int(g("LISTEN1") or 0) >= 1,
+        "firewall_opens_22": (g("NFT1") or "0").isdigit() and int(g("NFT1")) >= 1,
+        "hostkeys_on_data": g("HK") == "/data/onemind/ssh/ssh_host_ed25519_key",
+        "key_login": g("KEYLOGIN") == "admin",
+        "password_set": g("PWRC") == "0",
+        "password_refused": g("PWRC2") not in ("", "0") and "Permission denied (publickey)" in g("PWOUT"),
+        "sshd_config": cfg.get("passwordauthentication") == "no" and cfg.get("kbdinteractiveauthentication") == "no"
+        and cfg.get("permitrootlogin") == "no" and cfg.get("authenticationmethods") == "publickey"
+        and cfg.get("allowusers") == "admin",
+        "tty2_enabled": g("TTY2") == "enabled",
+        "tty2_login": lw == "admin" and ls == "0",
+        "tty2_wrong_password_refused": bd == "True" and bs == "False",
+        "kiosk_starts": g("KIOSK") == "active" and g("SESS") != "" and int(g("SESS") or 0) >= 1,
+    }
+    return c
+
+
+def f13(vm):
+    """The owner shell (section 9): no key and sshd stays down; the first key starts it; key login works, password
+    login is refused; a tty2 style login works with the console password; the kiosk still starts."""
+    PYL = PY
+    parts = []
+    _, o = vm.run(
+        "echo PKG=$(dpkg-query -W -f='${Package} ' openssh-server sudo libpam-systemd 2>&1); "
+        "echo ADMIN=$(getent passwd admin); echo SHADOWLINE=$(grep -c '^admin:' /etc/shadow); "
+        "echo EXTRASH=$(grep -c '^admin:' /var/lib/extrausers/shadow 2>/dev/null); "
+        "echo SLOTKEYS0=$(ls /etc/ssh/ssh_host_* 2>/dev/null | wc -l); "
+        "echo SSH0=$(systemctl is-active ssh.service); "
+        "echo LISTEN0=$(ss -ltn 'sport = :22' | grep -c LISTEN); "
+        "echo NFT0=$(nft list chain inet onemind_host ssh | grep -c 'dport 22'); true", 120)
+    parts.append(o)
+    _, o = vm.run(
+        "mkdir -p /run/f13 && rm -f /run/f13/k /run/f13/k.pub && ssh-keygen -q -t ed25519 -N '' -f /run/f13/k; "
+        "/usr/lib/onemind/onemind-owner key-add /run/f13/k.pub; echo ADDRC=$?; "
+        "t0=$SECONDS; while [ \"$(systemctl is-active ssh.service)\" != active ] && [ $((SECONDS - t0)) -lt 60 ]; do sleep 1; done; "
+        "echo SSH1=$(systemctl is-active ssh.service); "
+        "echo LISTEN1=$(ss -ltn 'sport = :22' | grep -c LISTEN); "
+        "echo NFT1=$(nft list chain inet onemind_host ssh | grep -c 'tcp dport 22 accept'); "
+        "echo HK=$(ls /data/onemind/ssh/ssh_host_ed25519_key); echo SLOTKEYS1=$(ls /etc/ssh/ssh_host_* 2>/dev/null | wc -l); "
+        f"echo KEYLOGIN=$(ssh {F13_SSHO} -i /run/f13/k admin@127.0.0.1 'id -un' 2>&1 | tail -1); true", 240)
+    parts.append(o)
+    _, o = vm.run(
+        "export F13_PW=$(head -c 18 /dev/urandom | base64 | tr -d '/+=\\n'); "
+        "printf '%s\\n' \"$F13_PW\" | /usr/lib/onemind/onemind-owner password >/dev/null; echo PWRC=$?; "
+        f"R=$(ssh {F13_SSHO} -o PubkeyAuthentication=no -o PreferredAuthentications=password,keyboard-interactive "
+        "admin@127.0.0.1 true 2>&1); echo PWRC2=$?; echo PWOUT=$(echo \"$R\" | tail -1); "
+        "sshd -T 2>/dev/null | grep -E '^(passwordauthentication|kbdinteractiveauthentication|permitrootlogin|"
+        "authenticationmethods|allowusers) '; "
+        "echo TTY2=$(systemctl is-enabled getty@tty2.service 2>&1 | head -1); "
+        "cat > /run/f13.py <<'PYEOF'\n" + F13_PY + "\nPYEOF\n"
+        f"{PYL} -I /run/f13.py; unset F13_PW; rm -f /run/f13.py", 400)
+    parts.append(o)
+    _, o = vm.run(
+        "mkdir -p /data/onemind/kiosk; touch /data/onemind/kiosk/enabled; systemctl start onemind-kiosk.service; "
+        "t0=$SECONDS; while [ \"$(systemctl is-active onemind-kiosk.service)\" != active ] && [ $((SECONDS - t0)) -lt 30 ]; do sleep 1; done; "
+        "sleep 3; echo KIOSK=$(systemctl is-active onemind-kiosk.service); "
+        "echo SESS=$(loginctl list-sessions --no-legend --no-pager | grep -c onemind-kiosk); "
+        "rm -f /data/onemind/kiosk/enabled; systemctl stop onemind-kiosk.service; rm -rf /run/f13; true", 180)
+    parts.append(o)
+    c = f13_judge("\n".join(parts))
+    record("F13", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=sorted(battery.BOARDS))
@@ -552,6 +692,7 @@ def main():
         vm.mark("F10 rescue console with k3s stopped (CORE-UPDATE-9)"); f10(vm, token)
         vm.mark("F11 starting page, then the gateway, never a refused connection"); f11(vm, (os.path.dirname(a.results) or ".") if a.results else None)
         vm.mark("F12 the gateway reaches the host helper, and says missing without it (#875)"); f12(vm, token)
+        vm.mark("F13 the owner shell: key-only SSH, tty2 login, no baked password"); f13(vm)
 
         if a.upto in ("F3", "F4"):
             vm.mark("F3 reboot keeps state")

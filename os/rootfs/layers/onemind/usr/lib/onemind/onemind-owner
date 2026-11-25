@@ -1,0 +1,70 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# onemind-owner: the owner's way into the box's own shell (Step 2 "owner shell"). Root only.
+#   key-add [FILE|-]   authorise one SSH public key for the owner account (starts sshd the first time)
+#   key-list           show the authorised keys
+#   password           set the console (tty2) and sudo password; read from the terminal or one line of stdin
+#   ensure             make sure the account has a shadow line (a locked one if no password is set yet)
+# The image carries no password and no key. Keys live in /home/admin and the password hash in the extrausers shadow
+# file, both on /data (/home and /var/lib/extrausers are bind or link targets there), so an A/B update keeps them.
+set -eu
+OWNER="admin"
+HOMEDIR=/home/$OWNER
+KEYS=$HOMEDIR/.ssh/authorized_keys
+EXTRA=$(readlink -m /var/lib/extrausers)
+SHADOW=$EXTRA/shadow
+umask 077
+
+[ "$(id -u)" = 0 ] || { echo "onemind-owner: run it as root" >&2; exit 1; }
+
+write_shadow() {                      # $1 = the owner's password field (a hash, or "!" for locked)
+    mkdir -p "$EXTRA"; chmod 0755 "$EXTRA"
+    tmp=$(mktemp "$EXTRA/.shadow.XXXXXX")
+    { [ -f "$SHADOW" ] && grep -v "^$OWNER:" "$SHADOW" || true; printf '%s:%s:19000:0:99999:7:::\n' "$OWNER" "$1"; } > "$tmp"
+    chown root:shadow "$tmp"; chmod 0640 "$tmp"
+    mv -f "$tmp" "$SHADOW"
+}
+
+cmd=${1:-}
+case "$cmd" in
+ensure)
+    grep -q "^$OWNER:" "$SHADOW" 2>/dev/null || write_shadow '!'
+    ;;
+key-add)
+    src=${2:--}
+    if [ "$src" = - ]; then line=$(head -n 1); else line=$(head -n 1 "$src"); fi
+    case "$line" in
+        ssh-*|ecdsa-*|sk-*) ;;                       # a bare key: options such as command= or from= are refused
+        *) echo "onemind-owner: that is not a plain SSH public key" >&2; exit 2 ;;
+    esac
+    probe=$(mktemp); printf '%s\n' "$line" > "$probe"
+    if ! ssh-keygen -l -f "$probe" >/dev/null 2>&1; then rm -f "$probe"; echo "onemind-owner: the key does not parse" >&2; exit 2; fi
+    rm -f "$probe"
+    install -d -m 0700 -o "$OWNER" -g "$OWNER" "$HOMEDIR" "$HOMEDIR/.ssh"
+    if ! grep -qxF "$line" "$KEYS" 2>/dev/null; then
+        printf '%s\n' "$line" >> "$KEYS"
+    fi
+    chown "$OWNER:$OWNER" "$KEYS"; chmod 0600 "$KEYS"
+    "$0" ensure
+    echo "onemind-owner: key added; ssh starts on its own"
+    ;;
+key-list)
+    [ -f "$KEYS" ] && ssh-keygen -l -f "$KEYS" || echo "no keys"
+    ;;
+password)
+    if [ -t 0 ]; then
+        printf 'New console password for %s: ' "$OWNER" >&2; stty -echo; read -r pw; stty echo; echo >&2
+        printf 'Again: ' >&2; stty -echo; read -r pw2; stty echo; echo >&2
+        [ "$pw" = "$pw2" ] || { echo "onemind-owner: the two did not match" >&2; exit 2; }
+    else
+        read -r pw
+    fi
+    [ "${#pw}" -ge 8 ] || { echo "onemind-owner: use at least 8 characters" >&2; exit 2; }
+    hash=$(printf '%s' "$pw" | openssl passwd -6 -stdin)
+    write_shadow "$hash"
+    echo "onemind-owner: console password set"
+    ;;
+*)
+    echo "usage: onemind-owner key-add [FILE|-] | key-list | password | ensure" >&2; exit 64
+    ;;
+esac
