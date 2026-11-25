@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 1124
 branch: claude/recovery-kit-dead-ends
 ---
 The printed emergency kit no longer leaves an owner locked out (D-028, gateway audit items 25a to 25c). The kit now also carries the disk (LUKS) recovery key when the data disk is encrypted: it is taken from the storage service once, only by the kit step, printed, and never stored (the general recovery key route stays off, which settles F-61 and F-62 for this one path). A kit can be issued with no backup destination; a destination added later is listed as not covered until a new kit is issued, and a new kit adds its key beside the old one, so older snapshots stay openable. An owner who lost every passkey no longer hits the rescue console dead end: the terminal page takes the owner recovery key from the printed kit, only from a browser on the box itself, with a timed lockout that doubles after 5 wrong tries and never deletes anything. The kit screen shows the disk key, first run offers the kit without a destination, and onemind recovery kit status and issue are added.
