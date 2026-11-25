@@ -1,0 +1,54 @@
+{
+  "scanned_at": "2026-11-25T05:02:14Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "ghcr.io/gchq/cyberchef:11.5.0@sha256:f04a39926344faf8e4cbbc8c92fb125d2b466f9be62db09aff23c7c406101a51",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 6,
+        "critical": 6,
+        "high": 29
+      },
+      "clamav": {
+        "signatures": "daily-28193",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "Apache-2.0",
+    "class": "L1"
+  },
+  "smoke": "skipped",
+  "quality": {
+    "tier": "none",
+    "evidence": {
+      "bronze": {
+        "gate_pass": false,
+        "licence_green": true,
+        "images_clean": false,
+        "upstream_alive": true,
+        "nothing_unverified": true
+      },
+      "silver": {
+        "smoke_pass": false,
+        "non_root": true,
+        "support_links": true,
+        "security_updates": false
+      },
+      "gold": {
+        "images_signed": false,
+        "no_critical": false,
+        "patch_automerge": false,
+        "backup_declared": false
+      }
+    }
+  }
+}

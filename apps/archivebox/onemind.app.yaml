@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: Apache-2.0
+# ArchiveBox: issue #129 (NMD-04, Supply Depot), written by hand from primary sources: the GitHub API
+# (repos/ArchiveBox/ArchiveBox, releases/latest; licence MIT), bin/docker_entrypoint.sh and
+# archivebox/config/common.py at tag v0.9.77, and the image config (revision 289d6a590464, the v0.9.77
+# release commit). Image digest and archs read from the Docker Hub registry API (v2 manifest endpoint,
+# anonymous token) on 2026-11-19. The research licence matrix has a v0.9.77 row.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: archivebox
+  name: "ArchiveBox"
+  version: "0.9.77"
+  description: "Self-hosted web archive: saves pages you choose as HTML, PDF, screenshots and media, so they stay readable offline."
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tag (archive) is listed in README.md until
+  # the schema has metadata.tags.
+  category: news
+  age_rating: 16   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Saves pages and media from the open internet that the person chooses, so it can show unfiltered web content."
+  icon: icon.svg
+  license: "MIT"
+  licenceClass: L1
+  source: https://github.com/ArchiveBox/ArchiveBox
+  links:
+    docs: "https://github.com/ArchiveBox/ArchiveBox/wiki"
+    github: "https://github.com/ArchiveBox/ArchiveBox"
+    website: "https://archivebox.io"
+    support: "https://github.com/ArchiveBox/ArchiveBox/issues"
+  upstream: {release: "v0.9.77", released_at: "2026-10-27T22:10:48Z", archived: false}
+  tier: blocked   # starting value written by hand, never above the gate verdict; CI (app-gate --tier write) owns it from here
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 512}   # sum of the memory requests in manifests/
+  web: {port: 5797}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

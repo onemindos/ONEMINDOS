@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: Apache-2.0
+# Collabora Online Development Edition (CODE): issue #129 (NMD-04, Supply Depot), the office suite. Written
+# by hand from primary sources: the Docker Hub registry API (digest, archs and image labels: version
+# 26.04.6.1, built from Collabora's gerrit tag cp-26.04.6-1) and the upstream Helm chart README in
+# github.com/CollaboraOnline/online (kubernetes/helm/collabora-online, commit c662f7eb883d), whose
+# "OpenShift quickstart" documents the restricted, non-root settings used in manifests/. Read 2026-11-19.
+# Licence: COPYING in CollaboraOnline/online is the MPL-2.0 notice, but GitHub's licence API reports
+# NOASSERTION and the research licence matrix has no row, so the licence gate cannot confirm it (README).
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: collabora-code
+  name: "Collabora Online (CODE)"
+  version: "26.04.6.1.1"
+  description: "Online office suite for documents, spreadsheets and presentations, opened from a file app such as Nextcloud."
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tag (office) is listed in README.md until
+  # the schema has metadata.tags.
+  category: productivity
+  age_rating: 12   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Document, spreadsheet and slide editing for files people add; collaboration, no open internet browsing."
+  icon: icon.svg
+  license: "MPL-2.0"
+  licenceClass: blocked
+  source: https://github.com/CollaboraOnline/online
+  links:
+    docs: "https://sdk.collaboraonline.com/docs/installation/CODE_Docker_image.html"
+    github: "https://github.com/CollaboraOnline/online"
+    website: "https://www.collaboraonline.com/code/"
+    support: "https://github.com/CollaboraOnline/online/issues"
+  # Collabora publishes CODE releases as Docker tags, not GitHub releases (GitHub's "latest" there is a
+  # mobile build). The date is the pinned image's creation time from its registry config.
+  upstream: {release: "26.04.6.1.1", released_at: "2026-11-07T10:25:49Z", archived: false}
+  # blocked: the licence gate cannot confirm MPL-2.0 (GitHub NOASSERTION, no matrix row); see README.md
+  tier: blocked     # starting value written by hand; CI (app-gate --tier write) never lifts blocked
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 512}   # sum of the memory requests in manifests/
+  web: {port: 9980}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}
