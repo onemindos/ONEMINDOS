@@ -60,6 +60,7 @@ export interface DesktopShellProps {
   onSearch: () => void;
   onConsoleView: () => void;
   onSignOut: () => void;
+  onLock?: () => void;
   children: ReactNode;
 }
 
@@ -142,7 +143,7 @@ export function avatarInitial(displayName?: string, id?: string): string {
   return (Array.from((displayName ?? '').trim()[0] ? displayName!.trim() : (id ?? '').trim())[0] ?? '?').toUpperCase();
 }
 
-function PersonMenu({ person, displayName, demo, onConsoleView, onSignOut }: Pick<DesktopShellProps, 'person' | 'displayName' | 'demo' | 'onConsoleView' | 'onSignOut'>) {
+function PersonMenu({ person, displayName, demo, onConsoleView, onSignOut, onLock }: Pick<DesktopShellProps, 'person' | 'displayName' | 'demo' | 'onConsoleView' | 'onSignOut' | 'onLock'>) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const menuId = useId();
@@ -195,6 +196,7 @@ function PersonMenu({ person, displayName, demo, onConsoleView, onSignOut }: Pic
           >
             <Icon name="menu" size={16} /> Console view
           </button>
+          {onLock && <button type="button" className="dsk-menu-item" onClick={onLock}>Lock now</button>}
           <button type="button" className="dsk-menu-item dsk-menu-danger" onClick={onSignOut}>
             <Icon name="lock" size={16} /> Sign out
           </button>
@@ -297,7 +299,7 @@ function Launchpad({ nav, apps, onClose, onShortcuts }: { nav: NavItem[]; apps: 
 }
 
 export function DesktopShell(props: DesktopShellProps) {
-  const { boxName, status, bell, nav, current, pinned = [], apps = [], now, timeZone, person, displayName, demo, onSearch, onConsoleView, onSignOut, children } = props;
+  const { boxName, status, bell, nav, current, pinned = [], apps = [], now, timeZone, person, displayName, demo, onSearch, onConsoleView, onSignOut, onLock, children } = props;
   const location = useLocation();
   const atHome = current === 'home';
   const wm = useWindows();
@@ -388,7 +390,7 @@ export function DesktopShell(props: DesktopShellProps) {
             </a>
           )}
           {bell}
-          <PersonMenu person={person} displayName={displayName} demo={demo} onConsoleView={onConsoleView} onSignOut={onSignOut} />
+          <PersonMenu person={person} displayName={displayName} demo={demo} onConsoleView={onConsoleView} onSignOut={onSignOut} onLock={onLock} />
         </div>
       </header>
 

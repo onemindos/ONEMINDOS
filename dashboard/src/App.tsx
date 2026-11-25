@@ -14,6 +14,7 @@ import { SignIn } from './pages/SignIn';
 import { LocaleProvider } from './i18n/LocaleProvider';
 import { useSession, useSignedIn } from './session';
 import { Shell } from './shell/Shell';
+import { LockScreen } from './shell/lock/LockScreen';
 
 function Appearance({ children }: { children: React.ReactNode }) {
   const { person, token, api } = useSignedIn();
@@ -49,12 +50,12 @@ export function SignedInApp() {
 }
 
 export function App({ mock }: { mock: boolean }) {
-  const { session } = useSession();
+  const { session, locked } = useSession();
   const update = useUpdateNeeded();
   return (
     <LocaleProvider person={session?.person ?? null}>
       <ErrorBoundary>
-        <ToastProvider>{update ? <UpdateNeeded state={update} /> : session ? <SignedInApp /> : <SignIn mock={mock} />}</ToastProvider>
+        <ToastProvider key={locked ? 'locked' : 'unlocked'}>{locked ? <LockScreen summary={locked} mock={mock} /> : update ? <UpdateNeeded state={update} /> : session ? <SignedInApp /> : <SignIn mock={mock} />}</ToastProvider>
       </ErrorBoundary>
     </LocaleProvider>
   );
