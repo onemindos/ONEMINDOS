@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 import time
 from dataclasses import dataclass
@@ -82,7 +83,7 @@ class BridgePoller:
 
 def emit(client: Client, bridge_id: str, events: list[dict]) -> list[Any]:
     if not BRIDGE_ID.fullmatch(bridge_id):
-        raise ValueError("invalid app id")
+        raise ValueError("invalid bridge id")
     reports = []
     for index in range(0, len(events), 100):
         report = client.call(Req("POST", f"/v1/bridges/{bridge_id}/events", body={"events": events[index:index + 100]}))
@@ -182,6 +183,11 @@ def replay(source: str, document: object) -> list[dict]:
             if isinstance(coordinates, list) and len(coordinates) >= 2:
                 lon, lat = coordinates[:2]
                 if all(type(value) in (int, float) for value in (lon, lat)) and -180 <= lon <= 180 and -90 <= lat <= 90:
-                    event["position"] = {"type": "Point", "coordinates": [lon, lat]}
+                    # The datapoint schema wants {lat, lon[, alt_m]}, not GeoJSON; exactly 0,0 is refused.
+                    if not (lat == 0 and lon == 0):
+                        position = {"lat": lat, "lon": lon}
+                        if len(coordinates) >= 3 and type(coordinates[2]) in (int, float) and math.isfinite(coordinates[2]):
+                            position["alt_m"] = coordinates[2]
+                        event["position"] = position
         events.append(event)
     return events
