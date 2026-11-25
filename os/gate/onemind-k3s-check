@@ -25,7 +25,9 @@ $K get --raw=/readyz >/dev/null 2>&1 || fail 1 "apiserver /readyz not ok"
 curl -fsS -m 3 http://localhost:10248/healthz >/dev/null 2>&1 || fail 2 "kubelet /healthz not answering"
 
 # G3. Node Ready with a heartbeat newer than this boot.
-read -r RS HB < <($K get node "$(hostname)" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}{" "}{.status.conditions[?(@.type=="Ready")].lastHeartbeatTime}' 2>/dev/null)
+# A renamed box keeps its node's name (P-05): k3s.service reads K3S_NODE_NAME from the same file.
+NODE=$(sed -n 's/^K3S_NODE_NAME=//p' "${ONEMIND_K3S_ENV:-/data/onemind/etc/k3s.env}" 2>/dev/null | head -n1); NODE=${NODE:-$(hostname)}
+read -r RS HB < <($K get node "$NODE" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}{" "}{.status.conditions[?(@.type=="Ready")].lastHeartbeatTime}' 2>/dev/null)
 [ "$RS" = True ] || fail 3 "node not Ready (${RS:-?})"
 fresh "$HB" || fail 3 "node heartbeat ${HB:-none} older than this boot (stale)"
 

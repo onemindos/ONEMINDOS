@@ -42,6 +42,10 @@ class NetSettings:
     # screen reads the box's interfaces and listening ports (hostnet.py). Missing socket: the screen says so.
     host_socket: Path = Path("/run/onemind/host.sock")
     host_timeout_s: float = 5.0          # ONEMIND_NET_HOST_TIMEOUT_S
+    # ONEMIND_NET_HOSTNAME_FILE (P-05): the name the owner gave the box (host kind set-hostname). The image's root is
+    # read-only, so it lives on the data partition. When it holds a DNS label it wins over ONEMIND_NET_BOX_NAME
+    # (written once at first boot), so the box certificate and the join QR follow a rename.
+    hostname_file: Path = Path("/data/onemind/etc/hostname")
     # ONEMIND_NET_TOR_PORT (#284): a plain-HTTP listener whose every request is classified as the
     # Tor path. The Tor app's onion service forwards raw TCP to it (an onion origin is http://), and
     # the socket peer is then a pod or masqueraded address that looks like the LAN, so the path is
@@ -75,6 +79,12 @@ class NetSettings:
             raise ValueError("ONEMIND_NET_TRUSTED_PROXIES must be comma-separated CIDRs") from None
 
     def box(self) -> str:
+        try:
+            renamed = self.hostname_file.read_text(encoding="utf-8").strip()
+        except (OSError, ValueError):
+            renamed = ""
+        if renamed and BOX_RE.match(renamed):
+            return renamed
         return self.box_name or box_name_from_hostname(socket.gethostname())
 
     def box_domains(self) -> tuple[str, ...]:

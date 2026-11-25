@@ -297,6 +297,7 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/files/downloads/{download_id}/release": WRITE,
     "DELETE /v1/files/downloads/{download_id}": WRITE,
     "PUT /v1/instance/kiosk": WRITE,
+    "PUT /v1/instance/name": WRITE,
     "POST /v1/machines/disable": WRITE,
     "POST /v1/machines/enable": WRITE,
     "POST /v1/migrate/plans": WRITE,

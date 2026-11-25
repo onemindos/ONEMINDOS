@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""OneMind QEMU battery, first boot (F0-F12). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
+"""OneMind QEMU battery, first boot (F0-F14). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
 (pre-registered; never edited to make a result pass). Reuses run-tests.py's VM driver.
 
 Input: the battery's fixtures (`make fixtures`: disk.img = slot A v1 + test overlay, bundles.img with
@@ -496,6 +496,41 @@ def f12(vm, token):
     record("F12", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
            + f" box={box!r} up={up} down_summary={summary[:80]!r} engine_unreachable={inst.get('reason')}")
 
+NEW_NAME = "omtest-new"
+
+
+def f13(vm):
+    """P-05: a set-hostname request to the host helper renames the running system and avahi answers <name>.local."""
+    sock = "curl -s --unix-socket /run/onemind/host.sock -w ' CODE=%{http_code}'"
+    post = lambda body: f"{sock} -X POST -H 'Content-Type: application/json' -d '{body}' http://host/v1/operations"
+    good = json.dumps({"action_id": "f13-rename", "kind": "set-hostname", "hostname": NEW_NAME})
+    bad = json.dumps({"action_id": "f13-bad", "kind": "set-hostname", "hostname": "Bad Name"})
+    _, out = vm.run(f"echo POST=$({post(good)}); "
+                    f"for i in $(seq 1 30); do s=$({sock} http://host/v1/operations/f13-rename | grep -o '\"state\":\"[a-z_]*\"'); "
+                    "case \"$s\" in *succeeded*|*failed*) break;; esac; sleep 2; done; echo STATE=$s; "
+                    "echo HOST=$(cat /proc/sys/kernel/hostname); echo FILE=$(cat /data/onemind/etc/hostname); "
+                    "echo HOSTS=$(grep '^127.0.1.1' /etc/hosts | tr -s ' \\t' ' '); "
+                    f"echo STATUS=$({sock} http://host/v1/status | grep -o '\"hostname\":\"[^\"]*\"'); "
+                    f"for i in $(seq 1 30); do r=$(avahi-resolve -n {NEW_NAME}.local 2>/dev/null); [ -n \"$r\" ] && break; sleep 2; done; echo MDNS=$r; "
+                    f"echo BAD=$({post(bad)}); echo AFTER=$(cat /proc/sys/kernel/hostname)", 400)
+    g = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or [""])[-1]
+    c = {"accepted": g("POST").endswith(("CODE=202", "CODE=200")), "succeeded": "succeeded" in g("STATE"),
+         "running_name": g("HOST") == NEW_NAME, "saved_on_data": g("FILE") == NEW_NAME,
+         "hosts_line": g("HOSTS") == f"127.0.1.1 {NEW_NAME}", "status_name": g("STATUS") == f'"hostname":"{NEW_NAME}"',
+         "mdns_answers": g("MDNS").startswith(f"{NEW_NAME}.local"), "bad_name_400": g("BAD").endswith("CODE=400"),
+         "name_kept": g("AFTER") == NEW_NAME}
+    record("F13", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" out={out.strip()[-400:]!r}")
+
+
+def f14(vm):
+    """P-05: the new name is still the box's name after a reboot, and avahi still answers it."""
+    _, out = vm.run(f"for i in $(seq 1 60); do r=$(avahi-resolve -n {NEW_NAME}.local 2>/dev/null); [ -n \"$r\" ] && break; sleep 2; done; "
+                    "echo HOST=$(cat /proc/sys/kernel/hostname); echo FILE=$(cat /data/onemind/etc/hostname); echo MDNS=$r", 300)
+    g = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or [""])[-1]
+    c = {"running_name": g("HOST") == NEW_NAME, "saved_on_data": g("FILE") == NEW_NAME, "mdns_answers": g("MDNS").startswith(f"{NEW_NAME}.local")}
+    record("F14", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" out={out.strip()[-300:]!r}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=sorted(battery.BOARDS))
@@ -552,6 +587,7 @@ def main():
         vm.mark("F10 rescue console with k3s stopped (CORE-UPDATE-9)"); f10(vm, token)
         vm.mark("F11 starting page, then the gateway, never a refused connection"); f11(vm, (os.path.dirname(a.results) or ".") if a.results else None)
         vm.mark("F12 the gateway reaches the host helper, and says missing without it (#875)"); f12(vm, token)
+        vm.mark("F13 renaming the box: hostnamed, the data partition and avahi (P-05)"); f13(vm)
 
         if a.upto in ("F3", "F4"):
             vm.mark("F3 reboot keeps state")
@@ -567,6 +603,7 @@ def main():
             same = [n for n in listed3 if n[0] == ids["node_id"]]
             record("F3", not new_toks and ids3 == ids and hz3 == "200" and bool(same) and bool(token),
                    f"'{al[:70]}' new_tokens={len(new_toks)} same_ids={ids3 == ids} healthz={hz3} listed={listed3} gate={g3}")
+            vm.mark("F14 the new name survives the reboot (P-05)"); f14(vm)
 
         if a.upto == "F4":
             vm.mark("F4 A/B update keeps /data")

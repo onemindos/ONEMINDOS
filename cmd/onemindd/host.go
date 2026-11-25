@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"os/signal"
 	"os/user"
 	"strconv"
@@ -27,6 +28,7 @@ import (
 
 const hostUsage = `usage:
   onemindd host serve [--socket PATH] [--user NAME] [--journal DIR] [--update-conf FILE] [--delay 3s]
+  onemindd host apply-hostname [--file PATH]   at boot: give the box the name the owner saved (before avahi)
   onemindd host plan factory-reset    print what a factory reset would erase and keep (JSON, read-only, root)
   onemindd factory-reset wipe [--esp DIR]   early boot only: run the armed reset (onemind-factory-reset.service)
 `
@@ -42,6 +44,9 @@ func runHost(args []string) int {
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(p)
 		return 0
+	}
+	if len(args) >= 1 && args[0] == "apply-hostname" {
+		return runApplyHostname(args[1:])
 	}
 	if len(args) == 0 || args[0] != "serve" {
 		fmt.Fprint(os.Stderr, hostUsage)
@@ -64,6 +69,7 @@ func runHost(args []string) int {
 		BootID: host.BootID(), Delay: *delay, Log: log,
 		Reset: &host.FactoryReset{},
 		Units: units,
+		Names: host.SystemHostname{},
 		SMB:   &smb.Manager{P: smb.DefaultPaths(), Run: smb.ExecRunner{}}}
 	if st, err := host.OpenStore(*journal); err != nil {
 		log.Error("host journal unavailable: status only, every action refused", "dir", *journal, "err", err)
@@ -93,7 +99,8 @@ func runHost(args []string) int {
 	}
 	log.Info("host service listening", "socket", *sock, "journal", svc.Store != nil, "boot_id", svc.BootID, "gateway_uid", uid)
 	err = (&host.Server{S: svc, AllowUID: uid, AllowGID: -1, Ctx: ctx, Network: networkView,
-		Services: serviceCards, ServiceLogs: units.Logs}).Serve(ctx, l)
+		Services: serviceCards, ServiceLogs: units.Logs,
+		Hostname: func() (string, error) { return host.CurrentHostname("") }}).Serve(ctx, l)
 	stop()
 	svc.Wait()
 	if err != nil {
@@ -156,4 +163,24 @@ func networkView() (any, error) {
 // does not list (known=false). Read-only: systemctl show and list-unit-files only.
 func serviceCards(ctx context.Context) (any, error) {
 	return (&svcregistry.Reader{Version: version.Version}).Collect(ctx)
+}
+
+// runApplyHostname is `onemindd host apply-hostname`, run at boot by a drop-in of onemind-data-layout.service
+// (before avahi). The name the owner approved lives on /data (the root is read-only), so the kernel's name is
+// set from it here. A box that was never renamed has no file and keeps the image's name.
+func runApplyHostname(args []string) int {
+	fs := flag.NewFlagSet("onemindd host apply-hostname", flag.ContinueOnError)
+	file := fs.String("file", host.DefaultHostnameFile, "the saved name")
+	if fs.Parse(args) != nil {
+		return 2
+	}
+	name, err := host.ApplyHostname(*file, "", func(n string) error { return exec.Command("hostname", n).Run() })
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "apply-hostname:", err)
+		return 1
+	}
+	if name != "" {
+		fmt.Println("host name:", name)
+	}
+	return 0
 }
