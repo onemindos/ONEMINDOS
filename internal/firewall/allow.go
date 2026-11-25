@@ -146,10 +146,36 @@ func (a *Allower) Open(ctx context.Context) error {
 	case !errors.Is(err, os.ErrNotExist):
 		a.log().Error("firewall allow state unreadable: no owner rules are applied", "err", err)
 	}
-	if err := a.apply(ctx); err != nil {
+	// No rollback at startup: the previous live.nft belongs to the old process and still holds its pending
+	// rules. load writes a file with only the confirmed rules; if the reload fails the file is still the
+	// right one, and the load is retried with backoff until it succeeds.
+	if err := a.load(ctx); err != nil {
+		a.timers[openRetryKey] = a.after(retryFirst, func() { a.retryOpen(retryFirst * 2) })
 		return err
 	}
 	return a.save()
+}
+
+// openRetryKey is the timers entry of the startup reload retry (it is not a valid rule id).
+const openRetryKey = "!open"
+
+// retryOpen loads the confirmed-only state again after a failed startup reload.
+func (a *Allower) retryOpen(next time.Duration) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	delete(a.timers, openRetryKey)
+	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Second)
+	defer cancel()
+	if err := a.load(ctx); err != nil {
+		a.log().Error("firewall owner rules: startup load failed, will retry", "retry_in", next.String(), "err", err)
+		a.timers[openRetryKey] = a.after(next, func() { a.retryOpen(min(next*2, retryMax)) })
+		return
+	}
+	a.pruneFailed()
+	if err := a.save(); err != nil {
+		a.log().Error("firewall owner rules: could not save state", "err", err)
+	}
+	a.log().Info("firewall owner rules loaded after a retry")
 }
 
 func valid(r Allow) error {
@@ -371,14 +397,17 @@ func (a *Allower) Confirm(_ context.Context, id string) (Allow, error) {
 	if a.rules[i].State == StateRevertFailed {
 		return Allow{}, &Refusal{"reverting", "this rule is being taken away (its time ran out); it cannot be confirmed any more"}
 	}
+	// Change the timer and the deadline only after the state is saved: a failed save leaves a pending
+	// rule that still has its deadline and its timer, so it still reverts.
+	prevState, prevExp := a.rules[i].State, a.rules[i].Expires
 	a.rules[i].State, a.rules[i].Expires = StateConfirmed, nil
+	if err := a.save(); err != nil {
+		a.rules[i].State, a.rules[i].Expires = prevState, prevExp
+		return Allow{}, err
+	}
 	if t := a.timers[id]; t != nil {
 		t.Stop()
 		delete(a.timers, id)
-	}
-	if err := a.save(); err != nil {
-		a.rules[i].State = StatePending
-		return Allow{}, err
 	}
 	return a.rules[i], nil
 }

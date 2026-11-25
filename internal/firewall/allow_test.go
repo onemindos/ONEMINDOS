@@ -312,3 +312,58 @@ func TestFailedRevertCanBeRemoved(t *testing.T) {
 		t.Fatalf("not removed: %+v", r.a.List())
 	}
 }
+
+func TestFailedConfirmKeepsDeadlineAndTimer(t *testing.T) {
+	r := newRig(t)
+	if _, err := r.a.Add(context.Background(), "act-1", "tcp", 8123, "lan"); err != nil {
+		t.Fatal(err)
+	}
+	// A directory where the temp file goes makes the save fail.
+	if err := os.Mkdir(filepath.Join(r.dir, "allow.json.tmp"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.a.Confirm(context.Background(), "act-1"); err == nil {
+		t.Fatal("a failed save must be an error")
+	}
+	got := r.a.List()
+	if len(got) != 1 || got[0].State != StatePending || got[0].Expires == nil {
+		t.Fatalf("the rule lost its deadline: %+v", got)
+	}
+	if r.timers[0].stopped {
+		t.Fatal("the revert timer was stopped although the confirm failed")
+	}
+	r.cbs[0]() // the deadline passes: the rule still reverts
+	if len(r.a.List()) != 0 || strings.Contains(r.liveFile(t), "dport 8123") {
+		t.Fatalf("the rule did not revert: %+v", r.a.List())
+	}
+}
+
+func TestFailedStartupLoadDoesNotRestoreOldPendingRules(t *testing.T) {
+	r := newRig(t)
+	if _, err := r.a.Add(context.Background(), "act-1", "tcp", 8123, "lan"); err != nil {
+		t.Fatal(err)
+	}
+	// The host service restarts and the first reload fails.
+	r.fail = true
+	n := len(r.cbs)
+	b := &Allower{Dir: r.dir, Reload: r.a.Reload, Now: r.a.Now, After: r.a.After}
+	if err := b.Open(context.Background()); err == nil {
+		t.Fatal("a failed startup reload must be an error")
+	}
+	if strings.Contains(r.liveFile(t), "dport 8123") {
+		t.Fatalf("live.nft holds the old process's pending rule:\n%s", r.liveFile(t))
+	}
+	if len(r.cbs) != n+1 {
+		t.Fatal("no retry was scheduled")
+	}
+	r.cbs[n]() // retry still fails: another retry is scheduled
+	if len(r.cbs) != n+2 {
+		t.Fatal("the retry did not back off to another try")
+	}
+	r.fail = false
+	loads := len(r.script)
+	r.cbs[n+1]()
+	if len(r.script) != loads+1 || strings.Contains(r.last(), "dport 8123") {
+		t.Fatalf("the retry did not load the confirmed-only state:\n%s", r.last())
+	}
+}
