@@ -156,8 +156,8 @@ def quiet(fn, *args):
         return fn(*args)
 
 
-def pairing(token, root="/state/var-lib-bluetooth", active="active", dmark=None):
-    return (f"MNT={root}\nMNTFS=/dev/vda3\nDATAFS=/dev/vda3\nMARK={token}\nDMARK={dmark if dmark is not None else token}\n"
+def pairing(token, root="/state/var-lib-bluetooth", active="active", dmark=None, droot="/"):
+    return (f"MNT={root}\nMNTFS=/dev/vda3\nDATAFS=/dev/vda3\nDROOT={droot}\nMARK={token}\nDMARK={dmark if dmark is not None else token}\n"
             f"BTACTIVE={active}\n")
 
 
@@ -205,6 +205,15 @@ class F16Verdicts(unittest.TestCase):
         _, r, _ = self.run_f16(pair=lambda t: pairing(t, root="/"))
         self.assertEqual(r["verdict"], "FAIL")
         self.assertIn("pairing_dir_on_data=False", r["detail"])
+
+    def test_btrfs_layout_passes_but_a_bind_of_the_wrong_folder_fails(self):
+        # On btrfs /data is the default subvolume @, so the bind's root is /@/state/...
+        _, r, _ = self.run_f16(pair=lambda t: pairing(t, root="/@/state/var-lib-bluetooth", droot="/@"))
+        self.assertEqual(r["verdict"], "PASS", r["detail"])
+        _, r, _ = self.run_f16(pair=lambda t: pairing(t, root="/@/state/other", droot="/@"))
+        self.assertEqual(r["verdict"], "FAIL")
+        _, r, _ = self.run_f16(pair=lambda t: pairing(t, root="/state/var-lib-bluetooth", droot="/@"))
+        self.assertEqual(r["verdict"], "FAIL")
 
     def test_marker_not_on_data_fails(self):
         _, r, _ = self.run_f16(pair=lambda t: pairing(t, dmark=""))

@@ -681,11 +681,15 @@ def f16_pairing_state(vm, token=None):
         'echo MNT=$(findmnt -no FSROOT /var/lib/bluetooth 2>/dev/null | head -1); '
         'echo MNTFS=$(findmnt -no SOURCE /var/lib/bluetooth 2>/dev/null | head -1 | sed "s/\\[.*//"); '
         'echo DATAFS=$(findmnt -no SOURCE /data 2>/dev/null | head -1 | sed "s/\\[.*//"); '
+        'echo DROOT=$(findmnt -no FSROOT /data 2>/dev/null | head -1); '
         'echo MARK=$(cat /var/lib/bluetooth/f16-marker 2>/dev/null); '
         'echo DMARK=$(cat /data/state/var-lib-bluetooth/f16-marker 2>/dev/null); '
         'echo BTACTIVE=$(systemctl is-active bluetooth.service 2>&1 | head -1)', 60)
     g = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or ["?"])[-1]
-    return {"bind_of_data_dir": g("MNT") == "/state/var-lib-bluetooth" and g("MNTFS") == g("DATAFS") != "?",
+    # FSROOT of /data is "/" on ext4 and "/@" on the btrfs layout (#152, @ is the default subvolume), so the bind's
+    # root is compared with where /data itself starts, not with a fixed path.
+    droot = g("DROOT").rstrip("/") if g("DROOT") != "?" else None
+    return {"bind_of_data_dir": droot is not None and g("MNT") == droot + "/state/var-lib-bluetooth" and g("MNTFS") == g("DATAFS") != "?",
             "marker": g("MARK"), "marker_on_data": g("DMARK") == g("MARK") != "",
             "bluetooth_active": g("BTACTIVE") == "active"}
 

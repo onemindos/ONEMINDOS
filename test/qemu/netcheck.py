@@ -102,10 +102,12 @@ def nw4_before(vm):
         f"nmcli connection add type ethernet ifname nwprobe0 con-name {PROFILE} autoconnect no "
         "ipv4.method manual ipv4.addresses 192.0.2.77/24 >/dev/null; echo ADD_RC=$?; sync; "
         f"echo MODE=$(stat -c %a {PROFILE_FILE} 2>&1); echo SHA=$(sha256sum {PROFILE_FILE} 2>&1 | cut -c1-64); "
-        "echo MNT1=$(findmnt -n -o SOURCE /etc/NetworkManager/system-connections); echo MNT2=$(findmnt -n -o SOURCE /var/lib/NetworkManager)", 120)
+        "echo MNT1=$(findmnt -n -o SOURCE /etc/NetworkManager/system-connections); echo MNT2=$(findmnt -n -o SOURCE /var/lib/NetworkManager); echo DROOT=$(findmnt -n -o FSROOT /data | head -1)", 120)
+    # /data starts at "/" on ext4 and at "/@" on the btrfs layout (#152), so the bind's root is "<where /data starts>/state/...".
+    droot = kv(out, "DROOT").rstrip("/") if kv(out, "DROOT") else None
     return {"add_rc": kv(out, "ADD_RC"), "mode": kv(out, "MODE"), "sha": kv(out, "SHA"),
-            "bind1": "[/state/etc-NetworkManager-system-connections]" in kv(out, "MNT1"),
-            "bind2": "[/state/var-lib-NetworkManager]" in kv(out, "MNT2")}
+            "bind1": droot is not None and f"[{droot}/state/etc-NetworkManager-system-connections]" in kv(out, "MNT1"),
+            "bind2": droot is not None and f"[{droot}/state/var-lib-NetworkManager]" in kv(out, "MNT2")}
 
 
 def nw4_after(vm, record, before, rebooted=True):
