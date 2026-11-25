@@ -50,7 +50,7 @@ check-stale:
 contract-lint:
 	python3 -I tools/openapi-lint --spec $(SPEC)
 
-test: test-go test-py test-ts
+test: test-go test-py test-ts test-app-refusals
 
 test-go: gen-go
 	cd go && go vet ./... && go test -race -count=1 ./...
@@ -59,4 +59,7 @@ test-py: gen-py
 	cd python && uv run --quiet --python 3.12 pytest -q
 
 test-ts: gen-ts
-	cd ts && npm run --silent typecheck && npm test --silent
+	cd ts && npm run --silent typecheck && npm test --silent && npm run --silent build && ./node_modules/.bin/tsc -p app-sdk
+
+test-app-refusals:
+	python3 -I tools/app-refusals
