@@ -141,7 +141,7 @@ def main():
             vm.send("wrong-wrong-wrong")
             time.sleep(8)
         vm.expect(r"ONEMIND-DATA-CRYPT: the data disk is locked", 600)
-        vm.expect(battery.RECOV, 600)
+        vm.expect_line(battery.RECOV, 600)
         vm.send(""); vm.expect(r"root@onemind:~# ", 300)
         _, o = vm.run("echo TYPE=$(blkid -p -o value -s TYPE $(lsblk -ndo PATH,PARTLABEL | awk '$2==\"onemind-data\"{print $1}' | head -1)); "
                       "echo DATAMNT=$(mountpoint -q /data && echo yes || echo no)")

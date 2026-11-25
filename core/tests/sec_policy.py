@@ -264,6 +264,24 @@ POLICY |= {
     ("GET", "/v1/nodes/{node_id}/metrics"): Row(CHILD_CANNOT, w.p_node_metrics, "§12.15; a child has no monitoring:read"),
     ("GET", "/v1/metrics"): Row(CHILD_CANNOT, w.p_static("/v1/metrics"),
                                 "Prometheus text of node, app and alert numbers; a child has no monitoring:read"),
+    ("GET", "/v1/map/packs"): Row(cells(503, **GONE, child=403, plugin=DECIDE, automation=DECIDE, node=DECIDE),
+                                  w.p_static("/v1/map/packs"),
+                                  "Map uses nodes:read; the pack volume is unavailable in the security fixture"),
+    ("GET", "/v1/work/tasks"): Row(cells(403, **GONE, owner=200, adult=200, child=200),
+                                    w.p_static("/v1/work/tasks"), "Work lists only visible tasks"),
+    ("GET", "/v1/work/projects/{project_id}/tasks/{task_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/tasks/missing"), "Work hides missing and other users' tasks"),
+    ("POST", "/v1/work/projects"): Row(cells(403, **GONE, owner=422, adult=422, child=422),
+                                         w.p_static("/v1/work/projects"), "Work project creation is people-only"),
+    ("POST", "/v1/work/capture"): Row(cells(403, **GONE, owner=422, adult=422, child=422),
+                                        w.p_static("/v1/work/capture"), "Work capture is people-only"),
+    ("PATCH", "/v1/work/projects/{project_id}/tasks/{task_id}"): Row(
+        cells(403, **GONE, owner=422, adult=422, child=422),
+        w.p_static("/v1/work/projects/missing/tasks/missing"), "Work revision edits are people-only"),
+    ("DELETE", "/v1/work/projects/{project_id}/tasks/{task_id}"): Row(
+        cells(403, **GONE, owner=422, adult=422, child=422),
+        w.p_static("/v1/work/projects/missing/tasks/missing"), "Work revision deletion is people-only"),
     ("GET", "/v1/series"): Row(CHILD_CANNOT, w.p_static("/v1/series?node_id=node1&metric=cpu_pct"),
                                "Node metric history, with the same monitoring:read scope as live metrics"),
     ("GET", "/v1/monitoring/summary"): Row(CHILD_CANNOT, w.p_static("/v1/monitoring/summary"),
@@ -288,6 +306,17 @@ POLICY |= {
     ("GET", "/v1/audit/verify"): Row(cells(403, **GONE, owner=200, adult=200, **PENDING_DENY), w.p_static("/v1/audit/verify"),
                                      "§12.16 full readers only: the head hash covers the whole chain"),
     ("GET", "/v1/events"): Row(CHILD_CANNOT, w.p_events, "§12.8 any principal, filtered per event; events:read not a child scope"),
+    ("GET", "/v1/me/dashboard-card"): Row(
+        cells(403, **GONE, owner=200, adult=200, guest=200, child=200), w.p_static("/v1/me/dashboard-card"),
+        "#667 each person reads only their own saved card; no card yet"),
+    ("PUT", "/v1/me/dashboard-card"): Row(
+        cells(403, **GONE, owner=200, adult=200),
+        lambda world: w.Req("/v1/me/dashboard-card", json={"source": {"kind": "subject", "subject": "onemind.event.backup.run.finished"}}),
+        "#667 save checks the domain scope; guests and children have no backups:read"),
+    ("GET", "/v1/me/dashboard-card/events"): Row(
+        cells(403, **GONE, owner=404, adult=404, guest=404, child=404),
+        w.p_static("/v1/me/dashboard-card/events"), "#667 the person's own stream requires a saved card"),
+
 }
 
 # ---- routes added after the first matrix (rows follow docs/leap/dev/API.md and main's own tests) --------

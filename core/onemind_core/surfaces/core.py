@@ -171,6 +171,13 @@ def _area(name: str, title: str, description: str, route: str, scope: str, args:
 
 
 AREA_TOOLS: tuple[ToolSurface, ...] = (
+    _area("map_packs_list", "Offline map packs", "Locally installed map packs and free disk bytes. "
+          "Same data as GET /v1/map/packs.", "GET /v1/map/packs", "nodes:read"),
+    _area("work_tasks_list", "Work tasks", "List visible Work tasks.", "GET /v1/work/tasks", "work:read"),
+    _area("work_task_get", "Work task", "Read one visible Work task.",
+          "GET /v1/work/projects/{project_id}/tasks/{task_id}", "work:read",
+          {"project_id": {"type": "string", "maxLength": 40}, "task_id": {"type": "string", "maxLength": 40}},
+          required=["project_id", "task_id"]),
     _area("get_backup_status", "Backup status", "Whether backups are on, the last run and the next one. "
           "Same data as GET /v1/backups/status.", "GET /v1/backups/status", "backups:read"),
     _area("list_backup_runs", "Backup runs", "Backup runs, newest first, with their state and size. "

@@ -225,7 +225,11 @@ class StatusIsBounded(Root):
                    mock.patch.object(setup.Wizard, "gate", setup.Gate()), mock.patch.object(setup, "is_local", return_value=False)):
             pt.start()
             self.addCleanup(pt.stop)
-        srv = setup.ThreadingHTTPServer(("127.0.0.1", 0), setup.Wizard)
+        class FloodServer(setup.ThreadingHTTPServer):
+            # Queue the whole eight-client burst even if accept has not run yet.
+            request_queue_size = 8
+
+        srv = FloodServer(("127.0.0.1", 0), setup.Wizard)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         self.addCleanup(srv.server_close)
         self.addCleanup(srv.shutdown)
@@ -233,9 +237,11 @@ class StatusIsBounded(Root):
 
     def get(self, url):
         try:
-            return urllib.request.urlopen(url).status
+            with urllib.request.urlopen(url) as response:
+                return response.status
         except urllib.error.HTTPError as e:
-            return e.code
+            with e:
+                return e.code
 
     def test_a_lan_flood_asks_the_helper_once_per_ttl(self):
         now = [100.0]
