@@ -127,6 +127,18 @@ describe('EmergencyKit', () => {
     expect(screen.getByLabelText('Disk recovery key')).toHaveTextContent('cbdefghi-jklnrtuv');
   });
 
+  it('says which earlier kit holds the disk key when a later kit does not', async () => {
+    const marker = { fingerprint: 'cafe1234cafe1234', issued_at: '2026-11-20T08:00:00Z' };
+    render(
+      <EmergencyKit kit={{ ...issued, disk_key_kit: marker }} boxName="Home hub"
+        onIssue={async () => ({ kit: { ...issued, disk_key_kit: marker }, one_time: one })}
+        onConfirm={async () => issued} onDone={vi.fn()} />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'I lost it: make a new kit' }));
+    expect(screen.queryByLabelText('Disk recovery key')).toBeNull();
+    expect(screen.getByRole('note')).toHaveTextContent(/not on this page.*2026-11-20T08:00:00Z.*cafe1234cafe1234/);
+  });
+
   it('cannot be skipped: done only after the hub accepts two typed-back groups', async () => {
     const onDone = vi.fn();
     const onConfirm = vi.fn(async (a: Record<string, string>) => {

@@ -80,6 +80,10 @@ it('offers a kit with no backup destination and passes the disk key through, onc
   const kit = h.props.kit as { issue: () => Promise<unknown> };
   expect(kit).toBeDefined();
   expect(await kit.issue()).toMatchObject({ disk_recovery_key: 'cbdefghi-jklnrtuv', positions: [1, 3] });
+  const marker = { fingerprint: 'cafe1234cafe1234', issued_at: '2026-11-20T08:00:00Z' };
+  h.issue.mockResolvedValue({ kit: { ...noKit, state: 'issued', positions: [1, 3], disk_key_kit: marker },
+    one_time: { groups: ['AAAA'], check: 'ZZZZ', text: 'KIT TEXT' } });
+  expect(await kit.issue()).toMatchObject({ disk_key_kit: marker });
   expect(JSON.stringify({ ...window.sessionStorage, ...window.localStorage })).not.toContain('cbdefghi');
 });
 

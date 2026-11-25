@@ -882,26 +882,53 @@ def test_kit_reissue_adds_a_key_and_covers_destinations(client, bk):
     assert "backup.key.remove" not in bk.agent.kinds()
 
 
-def test_disk_key_goes_into_the_kit_once_and_nowhere_else(client, bk, settings):
-    """D-028: the LUKS recovery key is handed over for the kit step only, printed, never stored."""
-    taken = []
-    disk = "MODHEX-DISK-KEY-FOR-TESTS-ONLY"
-    client.app.state.backups.disk_key_source = lambda: (taken.append(1), disk)[1] if not taken else None
+def test_disk_key_goes_into_the_kit_and_a_later_kit_names_the_page_that_holds_it(client, bk, settings):
+    """D-028: the LUKS recovery key is read for the kit step only, printed, never stored. Confirming the kit
+    destroys the node's copy; a later kit then points at the page that holds the key (no new dead end)."""
+    waiting = ["MODHEX-DISK-KEY-FOR-TESTS-ONLY"]
+    forgotten = []
+    svc = client.app.state.backups
+    svc.disk_key_source = lambda: waiting[0] if waiting else None
+    svc.disk_key_forget = lambda: (forgotten.append(1), waiting.clear())
+    disk = waiting[0]
     add_usb(client, bk)
     r = client.post("/v1/backups/kit", headers=OWNER)
     assert r.status_code == 201, r.text
     one = r.json()["one_time"]
     assert one["disk_recovery_key"] == disk and disk in one["text"]
-    assert client.get("/v1/backups/kit", headers=OWNER).json()["disk_key_included"] is True
+    kit = client.get("/v1/backups/kit", headers=OWNER).json()
+    assert kit["disk_key_included"] is True and kit["disk_key_kit"]["fingerprint"] == kit["fingerprint"]
+    assert forgotten == [], "an unconfirmed page may be lost: the node keeps the key"
     for blob in (json.dumps(client.get("/v1/actions", headers=OWNER).json()), settings.audit_path.read_text(),
                  json.dumps(client.get("/v1/backups/kit", headers=OWNER).json()),
                  json.dumps(client.get("/v1/backups/status", headers=OWNER).json())):
         assert disk not in blob
     if settings.db_url.startswith("sqlite:///"):
         assert disk.encode() not in Path(settings.db_url[len("sqlite:///"):]).read_bytes()
-    # the key was shown once: a re-issue has no disk key to print, and says so by leaving it out
-    again = client.app.state.backups._take_disk_key()
-    assert again is None
+    right = {str(p): one["groups"][p - 1] for p in kit["positions"]}
+    assert client.post("/v1/backups/kit/confirm", headers=OWNER, json={"answers": right}).json()["state"] == "confirmed"
+    assert forgotten == [1]
+    first = kit
+    # a re-issue has no disk key to print, but says which kit holds it, in its text and in the kit status
+    again = client.post("/v1/backups/kit", headers=OWNER).json()
+    assert "disk_recovery_key" not in again["one_time"] and disk not in again["one_time"]["text"]
+    assert "NOT on this page" in again["one_time"]["text"]
+    assert first["fingerprint"] in again["one_time"]["text"] and first["issued_at"] in again["one_time"]["text"]
+    now = client.get("/v1/backups/kit", headers=OWNER).json()
+    assert now["disk_key_included"] is False
+    assert now["disk_key_kit"] == {"fingerprint": first["fingerprint"], "issued_at": first["issued_at"]}
+    assert disk not in json.dumps(now)
+
+
+def test_kit_reissue_is_announced_and_kit_without_disk_key_has_no_marker(client, bk):
+    one = client.post("/v1/backups/kit", headers=OWNER).json()
+    assert "NOT on this page" not in one["one_time"]["text"] and one["kit"]["disk_key_kit"] is None
+    seen: list[dict] = []
+    client.app.state.gateway.events.subscribe("backup.>", seen.append)
+    client.post("/v1/backups/kit", headers=OWNER)
+    ev = [e for e in seen if e["type"] == "backup.kit.reissued"]
+    assert len(ev) == 1 and ev[0]["severity"] == "warning", seen  # the first issue is not a re-issue; the second is
+    assert ev[0]["data"]["old_fingerprint"] == one["kit"]["fingerprint"], ev[0]
 
 
 def test_failed_kit_issue_does_not_use_up_the_disk_key(client, bk):
@@ -910,7 +937,7 @@ def test_failed_kit_issue_does_not_use_up_the_disk_key(client, bk):
     add_usb(client, bk)
     bk.agent.fail["backup.key.add"] = "boom"
     assert client.post("/v1/backups/kit", headers=OWNER).status_code == 409
-    assert taken == [], "the disk key is taken after everything that can fail"
+    assert taken == [], "the disk key is read after everything that can fail"
 
 
 def test_console_kit_check_locks_after_five_wrong_tries_and_never_wipes(client, bk, clock):
@@ -941,6 +968,30 @@ def test_console_kit_check_locks_after_five_wrong_tries_and_never_wipes(client, 
         svc.verify_console_kit(principal, "AAAA-BBBB")
     assert e.value.status == 422 and svc.repo.kit_lock().fails == 0
     assert svc.repo.kit() is not None and "backup.restore" not in bk.agent.kinds()
+
+
+def test_console_checks_a_full_salted_hash_not_the_public_fingerprint(client, bk):
+    """The fingerprint is shown (status, event, page) and is only 64 bits, so it must never be the proof."""
+    import hashlib
+    one = client.post("/v1/backups/kit", headers=OWNER).json()["one_time"]
+    svc = client.app.state.backups
+    k = svc.repo.kit()
+    v = k.challenge["console_verify"]
+    assert len(v["hash"]) == 64 and v["salt"] and v["hash"] != hashlib.sha256(one["owner_key"].encode()).hexdigest()
+    assert k.fingerprint not in v["hash"] and one["owner_key"] not in json.dumps(k.challenge)
+    principal = type("P", (), {"as_dict": lambda self: {"id": "console", "kind": "static"}})()
+    assert svc.verify_console_kit(principal, one["owner_key"])["fingerprint"] == k.fingerprint
+    # a key that matches only the 16-hex fingerprint of the real one would not pass: the check is the hash
+    tampered = dict(k.challenge, console_verify={"salt": v["salt"], "hash": "0" * 64})
+    svc.repo.update_kit(challenge=tampered)
+    with pytest.raises(ApiError) as e:
+        svc.verify_console_kit(principal, one["owner_key"])
+    assert e.value.status == 401
+    # a kit issued before the hash was stored still opens with its key (no dead end), until a new kit replaces it
+    legacy = {kk: vv for kk, vv in k.challenge.items() if kk != "console_verify"}
+    svc.repo.update_kit(challenge=legacy)
+    svc.repo.put_kit_lock(0, None)
+    assert svc.verify_console_kit(principal, one["owner_key"])["fingerprint"] == k.fingerprint
 
 
 # ---- first-run wizard state (driven by the server, not a browser flag) --------------------------------

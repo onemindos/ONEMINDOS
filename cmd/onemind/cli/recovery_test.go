@@ -11,6 +11,9 @@ import (
 	"testing"
 )
 
+// kitDiskKeyHere is whether the stub's current kit holds the disk key itself (a later kit only points at the one that does).
+var kitDiskKeyHere = true
+
 var (
 	testKitKey  = strings.TrimSuffix(strings.Repeat("ABCD-", 13), "-")
 	testDiskKey = "disk recovery for tests only"
@@ -29,7 +32,8 @@ func kitHub(t *testing.T, issueStatus int) *int {
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/v1/backups/kit":
 			jsonOut(w, 200, map[string]any{"state": "issued", "issued_at": "2026-11-25T10:00:00Z", "confirmed_at": nil,
-				"fingerprint": "0123456789abcdef", "positions": []int{2, 9}, "disk_key_included": true,
+				"fingerprint": "0123456789abcdef", "positions": []int{2, 9}, "disk_key_included": kitDiskKeyHere,
+				"disk_key_kit":           map[string]string{"fingerprint": "fedcba9876543210", "issued_at": "2026-11-20T08:00:00Z"},
 				"uncovered_destinations": []string{"dst_usb"}})
 		case r.Method == http.MethodPost && r.URL.Path == "/v1/backups/kit":
 			*issues++
@@ -63,6 +67,16 @@ func TestRecoveryKitStatusShowsTheStateAndNoKey(t *testing.T) {
 	}
 }
 
+func TestRecoveryKitStatusNamesTheKitThatHoldsTheDiskKey(t *testing.T) {
+	kitHub(t, 201)
+	kitDiskKeyHere = false
+	t.Cleanup(func() { kitDiskKeyHere = true })
+	r := run(t, "", false, "recovery", "kit", "status")
+	if r.code != 0 || !strings.Contains(r.out, "disk key in kit: false") || !strings.Contains(r.out, "fedcba9876543210") || !strings.Contains(r.out, "keep that page") {
+		t.Fatalf("status %+v", r)
+	}
+}
+
 func TestRecoveryKitIssueWritesAPrivateFileOnceAndNeverOverwrites(t *testing.T) {
 	issues := kitHub(t, 201)
 	path := filepath.Join(t.TempDir(), "kit.txt")
@@ -78,13 +92,29 @@ func TestRecoveryKitIssueWritesAPrivateFileOnceAndNeverOverwrites(t *testing.T) 
 		t.Errorf("kit file mode %v, want 0600", st.Mode().Perm())
 	}
 	again := run(t, "", false, "recovery", "kit", "issue", "--out", path)
-	if again.code == 0 || !strings.Contains(again.errOut, "issue another kit") {
+	if again.code == 0 || !strings.Contains(again.errOut, "nothing was issued") {
 		t.Fatalf("overwrite %+v", again)
 	}
 	if b2, _ := os.ReadFile(path); string(b2) != string(b) {
 		t.Error("an existing file was overwritten")
 	}
-	if *issues != 2 {
+	// The file is opened before the POST: a second kit would replace the console fingerprint and add a restic key
+	// nobody holds, so a file that exists must stop the command with the gateway untouched.
+	if *issues != 1 {
+		t.Errorf("issues = %d, want 1: an existing --out file must not issue a kit", *issues)
+	}
+}
+
+func TestRecoveryKitIssueLeavesNoEmptyFileWhenTheGatewayRefuses(t *testing.T) {
+	issues := kitHub(t, 401)
+	path := filepath.Join(t.TempDir(), "kit.txt")
+	if r := run(t, "", false, "recovery", "kit", "issue", "--out", path); r.code == 0 {
+		t.Fatalf("a refused issue succeeded %+v", r)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("an empty kit file was left behind: %v", err)
+	}
+	if *issues != 1 {
 		t.Errorf("issues = %d", *issues)
 	}
 }

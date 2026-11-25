@@ -66,7 +66,7 @@ export function FirstRun({ onDone }: { onDone: () => void }) {
     state: state.kit.state, positions: state.kit.positions,
     issue: async () => {
       const r = await issueKit.call(api);
-      return { ...r.one_time, positions: r.kit.positions };
+      return { ...r.one_time, positions: r.kit.positions, disk_key_kit: r.kit.disk_key_kit };
     },
     confirm: (answers) => confirmKit.call(api, answers),
   } : undefined;

@@ -11,6 +11,8 @@ export interface IssuedKit {
   check: string;
   /** The disk (LUKS) recovery key, when /data is encrypted and its key was still waiting (D-028). Shown once. */
   disk_recovery_key?: string;
+  /** Non-secret: the earlier kit page that holds the disk key, when this kit does not (D-028). */
+  disk_key_kit?: { fingerprint: string; issued_at: string } | null;
   /** The printable kit page, produced by the gateway. */
   text: string;
   /** 1-based positions of the two groups to type back. */
@@ -100,6 +102,11 @@ export function RecoveryKit({ kit, onConfirmed, onSkip }: { kit: OnboardingKit; 
                 </p>
                 <pre className="om-code" aria-label="Disk recovery key"><code>{issued.disk_recovery_key}</code></pre>
               </>
+            )}
+            {!issued.disk_recovery_key && issued.disk_key_kit && (
+              <p className="om-hint" role="note">
+                <strong>The disk recovery key is not on this page.</strong> It was printed once, on the kit issued {issued.disk_key_kit.issued_at} (fingerprint {issued.disk_key_kit.fingerprint}). Keep that page: this box cannot show it again.
+              </p>
             )}
             <p className="om-hint">Lost every passkey? Stand at the box, open its rescue console and type the owner recovery key. Nothing is deleted and the disk stays encrypted.</p>
             <div className="oms-kit-actions">

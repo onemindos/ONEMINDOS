@@ -37,6 +37,13 @@ export interface KitState {
   disk_key_included?: boolean;
   /** Destinations added after the kit was issued: the kit's owner key does not open them until a new kit is issued. */
   uncovered_destinations?: string[];
+  /** Non-secret: the kit page that holds the disk key (D-028). Present on later kits too, so a thrown-away page is noticed. */
+  disk_key_kit?: DiskKeyKit | null;
+}
+
+export interface DiskKeyKit {
+  fingerprint: string;
+  issued_at: string;
 }
 
 /** The one-time part of POST /v1/backups/kit. Shown once; never stored by the UI. */

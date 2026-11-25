@@ -156,7 +156,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
     svc = BackupService(gw, settings, pg=getattr(app.state, "databases", None))
     app.state.backups = svc
     # The storage router registers later (ORDER 310), so the disk-key source looks the service up when asked (D-028).
-    svc.disk_key_source = lambda: getattr(app.state, "storage").take_recovery_key_for_kit() \
+    svc.disk_key_source = lambda: getattr(app.state, "storage").peek_recovery_key_for_kit() \
+        if getattr(app.state, "storage", None) else None
+    svc.disk_key_forget = lambda: getattr(app.state, "storage").forget_recovery_key_for_kit() \
         if getattr(app.state, "storage", None) else None
     svc.builtins = getattr(app.state, "builtins", None)  # registered earlier (ORDER 135): the backup set, #616
     gw.on_startup(svc.startup)

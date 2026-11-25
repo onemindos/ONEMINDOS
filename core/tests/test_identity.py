@@ -689,6 +689,11 @@ def test_display_name_never_changes_the_stable_identity_and_the_change_is_audite
 
 
 # ---- the printed kit at the rescue console: no dead end for an owner who lost every passkey (D-028) ----------
+def at_box(idc) -> TestClient:
+    """A caller on the box itself (the rescue console connects from loopback)."""
+    return TestClient(idc.app, client=("127.0.0.1", 40000))
+
+
 def _issue_kit(idc):
     r = idc.post("/v1/backups/kit", headers=OWNER)
     assert r.status_code == 201, r.text
@@ -699,15 +704,16 @@ def test_rescue_console_with_no_passkey_offers_the_kit_not_a_dead_end(idc, setti
     setup_owner(idc)
     # nothing to step up with and no kit: still 409 (standing at the box is never enough)
     assert idc.post("/v1/auth/rescue/options", headers=OWNER).status_code == 409
-    assert idc.post("/v1/auth/rescue/kit", headers=OWNER, json={"kit_key": "A" * 52}).status_code == 409
+    box = at_box(idc)
+    assert box.post("/v1/auth/rescue/kit", headers=OWNER, json={"kit_key": "A" * 52}).status_code == 409
     kit = _issue_kit(idc)
     opts = idc.post("/v1/auth/rescue/options", headers=OWNER)
     assert opts.status_code == 200 and opts.json() == {"methods": ["kit"], "kit": True}
-    assert idc.post("/v1/auth/rescue/kit", headers=AGENT, json={"kit_key": kit["owner_key"]}).status_code in (401, 403)
-    assert new_session_client(idc).post("/v1/auth/rescue/kit", json={"kit_key": kit["owner_key"]}).status_code == 401
-    wrong = idc.post("/v1/auth/rescue/kit", headers=OWNER, json={"kit_key": "-".join(["ABCD"] * 13)})
+    assert box.post("/v1/auth/rescue/kit", headers=AGENT, json={"kit_key": kit["owner_key"]}).status_code in (401, 403)
+    assert at_box(idc).post("/v1/auth/rescue/kit", json={"kit_key": kit["owner_key"]}).status_code == 401
+    wrong = box.post("/v1/auth/rescue/kit", headers=OWNER, json={"kit_key": "-".join(["ABCD"] * 13)})
     assert wrong.status_code == 401 and wrong.json()["reason"] == "kit_key_wrong"
-    ok = idc.post("/v1/auth/rescue/kit", headers=OWNER, json={"kit_key": kit["owner_key"]})
+    ok = box.post("/v1/auth/rescue/kit", headers=OWNER, json={"kit_key": kit["owner_key"]})
     assert ok.status_code == 200 and ok.headers["cache-control"] == "no-store", ok.text
     assert ok.json()["credential_id"].startswith("kit:") and ok.json()["user_id"]
     assert kit["owner_key"] not in ok.text
@@ -723,3 +729,20 @@ def test_rescue_options_with_a_passkey_also_offers_the_kit_once_issued(idc):
     register_passkey(idc, key)
     opts = idc.post("/v1/auth/rescue/options", headers=OWNER).json()
     assert opts["methods"] == ["passkey", "kit"] and opts["publicKey"]["allowCredentials"][0]["id"] == b64url(key.cred_id)
+
+
+def test_rescue_kit_is_refused_from_any_network_source_and_costs_no_try(idc):
+    """Design 3.13 path 2: with the owner token and the right key, a LAN source (or a proxy on the box) is
+    refused before the key is looked at: it cannot test keys and cannot use up the shared lockout."""
+    setup_owner(idc)
+    kit = _issue_kit(idc)
+    body = {"kit_key": kit["owner_key"]}
+    lan = TestClient(idc.app, client=("192.0.2.10", 40000))
+    for caller, extra in ((idc, {}), (lan, {}), (at_box(idc), {"X-Forwarded-For": "192.0.2.10"}),
+                          (at_box(idc), {"Forwarded": "for=192.0.2.10"})):
+        r = caller.post("/v1/auth/rescue/kit", headers={**OWNER, **extra}, json=body)
+        assert r.status_code == 403 and r.json()["reason"] == "kit_not_at_box", r.text
+    for _ in range(6):  # wrong keys from the LAN never reach the lockout
+        assert lan.post("/v1/auth/rescue/kit", headers=OWNER, json={"kit_key": "-".join(["ABCD"] * 13)}).status_code == 403
+    assert idc.app.state.backups.repo.kit_lock() is None
+    assert at_box(idc).post("/v1/auth/rescue/kit", headers=OWNER, json=body).status_code == 200

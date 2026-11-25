@@ -150,7 +150,8 @@ export interface FirstRunState {
   backups_enabled: boolean;
   destinations: number;
   kit: { state: 'missing' | 'issued' | 'confirmed'; confirmed_at: string | null; fingerprint: string | null; positions: number[];
-    disk_key_included?: boolean; uncovered_destinations?: string[] };
+    disk_key_included?: boolean; uncovered_destinations?: string[];
+    disk_key_kit?: { fingerprint: string; issued_at: string } | null };
 }
 export interface IssuedKitResponse {
   kit: FirstRunState['kit'];

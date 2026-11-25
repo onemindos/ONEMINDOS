@@ -85,6 +85,16 @@ it('shows the disk recovery key beside the owner key when the box has one, and f
   await waitFor(() => expect(screen.queryByLabelText('Disk recovery key')).toBeNull());
 });
 
+it('points at the earlier kit that holds the disk key when this one does not', async () => {
+  const u = userEvent.setup();
+  const kit = make({ issue: vi.fn().mockResolvedValue({ ...issued, disk_key_kit: { fingerprint: 'cafe1234cafe1234', issued_at: '2026-11-20T08:00:00Z' } }) });
+  render(<RecoveryKit kit={kit} onConfirmed={vi.fn()} />);
+  await u.click(screen.getByRole('button', { name: /Create my emergency kit/ }));
+  await screen.findByLabelText('Owner recovery key');
+  expect(screen.queryByLabelText('Disk recovery key')).toBeNull();
+  expect(screen.getByRole('note')).toHaveTextContent(/not on this page.*2026-11-20T08:00:00Z.*cafe1234cafe1234/);
+});
+
 it('shows no disk key block on a box whose data disk is not encrypted', async () => {
   const u = userEvent.setup();
   render(<RecoveryKit kit={make()} onConfirmed={vi.fn()} />);

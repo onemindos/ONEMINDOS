@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import ipaddress
 import json
 import logging
 import os
@@ -1296,12 +1297,31 @@ class IdentityService:
         b = self._backups(request)
         return b is not None and b.kit_ready()
 
+    _PROXY_HEADERS = ("x-forwarded-for", "x-forwarded-host", "x-real-ip", "forwarded")
+
+    @classmethod
+    def _from_this_box(cls, request: Request) -> bool:
+        """The TCP peer is loopback and no proxy header says the request came from further away (a reverse proxy
+        on the box would also connect from loopback)."""
+        host = request.client.host if request.client else ""
+        try:
+            loopback = ipaddress.ip_address(host).is_loopback
+        except ValueError:
+            return False
+        return loopback and not any(h in request.headers for h in cls._PROXY_HEADERS)
+
     def rescue_kit(self, request: Request, p: Principal, kit_key: str) -> dict:
         """D-028: the owner lost every passkey. The printed kit's owner key, typed at the box's console, proves
         owner access (the console only offers it to a browser on the box itself). Same answer as rescue_verify.
         It opens nothing itself, deletes nothing and never reads or shows a disk or backup key."""
         if not p.is_owner:
             raise self.deny(p, "start a rescue session")
+        # Design 3.13 path 2: the kit key is typed at the box itself. The rescue console on the box calls this from
+        # loopback; any other source, or a request that came through a proxy, is refused before the key is looked at,
+        # so a LAN client with the owner token can neither test kit keys nor use up the shared lockout.
+        if not self._from_this_box(request):
+            err = self.deny(p, "use the printed kit away from the box", reason="kit_not_at_box")
+            raise ApiError(err.status, err.error, "the printed kit is accepted at the box itself only", reason="kit_not_at_box")
         b = self._backups(request)
         if b is None:
             raise ApiError(409, "conflict", "no emergency kit has been issued on this box", reason="no_kit")

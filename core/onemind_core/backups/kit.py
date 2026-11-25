@@ -70,6 +70,19 @@ def fingerprint_of(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()[:16]
 
 
+def verifier(password: str) -> dict:
+    """What the box keeps to check a key typed at its console (D-028): a random salt and the full SHA-256 of
+    salt + key. The key has 256 random bits, so the hash cannot be searched; and unlike the 16-hex-digit
+    fingerprint (64 bits, shown on screen and in events) it is never shown anywhere."""
+    salt = secrets.token_hex(16)
+    return {"salt": salt, "hash": hashlib.sha256((salt + ":" + password).encode()).hexdigest()}
+
+
+def verifier_ok(v: dict, password: str) -> bool:
+    got = hashlib.sha256((str(v.get("salt", "")) + ":" + password).encode()).hexdigest()
+    return hmac.compare_digest(got, str(v.get("hash", "")))
+
+
 def _h(salt: str, value: str) -> str:
     return hashlib.sha256((salt + ":" + value.strip().upper()).encode()).hexdigest()
 
@@ -91,7 +104,7 @@ def answer_ok(ch: dict, answers: dict[str, str]) -> bool:
 
 
 def kit_text(*, box_name: str, instance_id: str, key: OwnerKey, destinations: list[dict], issued_at: datetime,
-             disk_key: str | None = None) -> str:
+             disk_key: str | None = None, disk_key_marker: dict | None = None) -> str:
     lines = [
         "ONEMIND EMERGENCY KIT",
         "=====================",
@@ -116,6 +129,13 @@ def kit_text(*, box_name: str, instance_id: str, key: OwnerKey, destinations: li
             "    " + disk_key,
             "",
             "Shown once, on this page only. The box does not keep it.",
+            "",
+        ]
+    elif disk_key_marker:
+        lines += [
+            "Disk recovery key: it is NOT on this page. It was printed once, on the kit issued "
+            f"{disk_key_marker.get('issued_at')} (fingerprint {disk_key_marker.get('fingerprint')}).",
+            "Keep that page: the box no longer holds the disk key and cannot show it again.",
             "",
         ]
     lines += ["Owner access at the box: if you lose every passkey, open the box's rescue console on the box itself",
