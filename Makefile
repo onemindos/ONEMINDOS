@@ -33,6 +33,9 @@ ARCH_OF     = $(shell sed -n 's/^arch: *//p' os/boards/$(BOARD)/board.yaml)
 PLATFORM    = linux/$(ARCH_OF)
 # FIRMWARE=no builds the fully open image, without closed firmware or microcode (os/rootfs/firmware/README.md)
 FIRMWARE   ?= yes
+# The man pages are dated with the commit time (reproducible per commit); 0 outside git. Not named SOURCE_DATE_EPOCH on purpose:
+# BuildKit treats that build-arg as "rewrite every file time in the image", which made the gateway recompile its Python at each start (F11).
+EPOCH      ?= $(shell git log -1 --format=%ct 2>/dev/null || echo 0)
 LEG_ARGS    = $(shell sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/$(LEG).args)
 TOOLS      ?= onemind-tools:$(ARCH_OF)
 ROOTFS      = $(OUT)/rootfs-$(LEG)-$(BOARD).tar
@@ -59,7 +62,7 @@ tools: | $(OUT)
 
 rootfs: | $(OUT)
 	docker buildx build -f os/rootfs/Containerfile --target rootfs --platform $(PLATFORM) \
-	  --build-arg BOARD=$(BOARD) --build-arg FIRMWARE=$(FIRMWARE) $(LEG_ARGS) $(SDE_ARG) --output type=tar,dest=$(ROOTFS)$(SDE_TAR) .
+	  --build-arg BOARD=$(BOARD) --build-arg FIRMWARE=$(FIRMWARE) --build-arg MAN_DATE_EPOCH=$(EPOCH) $(LEG_ARGS) $(SDE_ARG) --output type=tar,dest=$(ROOTFS)$(SDE_TAR) .
 	@ls -la $(ROOTFS)
 
 # Reproducible build (Step 2 PR 8): two from-scratch rootfs builds must give the same tar and the same rootfs.ext4.

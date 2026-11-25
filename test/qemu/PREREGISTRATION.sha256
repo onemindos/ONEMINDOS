@@ -34,3 +34,4 @@ ed91afd4312d950d009a14ff4e96cf16b1809a02347a265d4046628a2434d1be  CRITERIA-DATAB
 3e325a0076241f571c2fa1f7b258f7c1df400f4f487f452125cefb989709665a  CRITERIA-DATARESET.md  2026-11-25T08:30:00Z  (PR #1147 fix round, #146/#152; written before R1 or R2 ran on any image)
 c2573fc33d6c23cb3ddd169bc9b531ab95229351cf91749c0510ba91d3755038  CRITERIA-FIRSTBOOT.md  2026-11-25T07:25:31Z  (with §10 amendment: F16 audio and Bluetooth on the screen boards, Step 3; written before F16 was implemented)
 288cfdded72575d0de65909b0a017625c5036757a09a6e3c37ecdec28847380b  CRITERIA-FIRSTBOOT.md  2026-11-25T07:38:15Z  (with §10 amendment, wording fix only: no email-shaped unit name for the hygiene grep; F16 not yet run)
+30ba1329b6ee217357f6c005c96d1341b91c665429df5d0cb30617e2bbaab4c2  CRITERIA-FIRSTBOOT.md  2026-11-25T11:22:21Z  (with §10 amendment: F14 onemind completion and man pages, #882; committed alone, before F14 was implemented in firstboot.py)

@@ -138,3 +138,14 @@ F16 runs on the slot-A boot from F1, after F13 and before the F3 reboot, from th
 What this does not prove, stated up front: that a radio is found, powers on only when the owner asks, stays undiscoverable, refuses a pairing with no agent, or pairs a real device; that sound comes out of a speaker, a headset or the monitor's HDMI audio; that PipeWire starts inside the screen session on tty1 (the test uses another user's manager). Those need the Dell all-in-one (see the PR's hardware list).
 
 Required for this task's "done": F16, F16r and F16u PASS on x86_64-efi (F16 no-screen on arm64-efi) in CI's image workflow. The lane builds on a box with no KVM at hand: a harness bug found on the first run may be fixed and re-run once, named as such, under section 1's rule.
+## 10. Amendment (2026-11-25): F14, `onemind` tab completion and man pages (#882, CLI polish)
+
+**Status:** PRE-REGISTERED before F14 was implemented in `firstboot.py` or run: this section and its hash line are committed alone, in the commit before the code that adds F14. (Section 9 is reserved for F13, PR 1088; whichever of the two PRs merges second keeps the sections in order and appends its own hash line.) F0-F12 above are unchanged. The sha256 of this file with this section is appended to `PREREGISTRATION.sha256`. **Serves:** founder request of 2026-11-25 (CLI polish: completion and man pages in the image); issue #882 (the CLI is installed the same way everywhere). The completion files and man pages are generated at image build from the same Cobra command tree as the binary (`onemind completion`, `cmd/onemind-mangen`), so this check proves they were installed and work, not that their text is right.
+
+F14 runs on the slot-A boot from F1, after F12 and before the F3 reboot, from the hub's shell. It changes nothing on the box.
+
+| ID | Test | PASS if | FAIL if |
+|---|---|---|---|
+| F14 | `onemind` completion and man pages work on the booted image | `/usr/share/bash-completion/completions/onemind` exists and is non-empty; in a fresh bash that sources it, `complete -p onemind` names a completion function; `onemind __complete ap` (Cobra's own completion entry point, run without a token or a gateway) prints a line starting `apps` and exits 0; `man -w onemind` and `man -w onemind-apps` each print a path under `/usr/share/man/man1/`; `man onemind` with `MANPAGER=cat` renders text that contains `onemind` and a `SYNOPSIS` heading and exits 0; the zsh and fish completion files exist and are non-empty | Any file missing or empty, no completion function registered, no `apps` candidate, or a man page that does not render |
+
+Required for this task's "done": F14 PASS on x86_64-efi in CI's image workflow. It is written without having run QEMU (no KVM where it was written); a harness bug found on the first run may be fixed and re-run once, named as such, under section 1's rule.

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""OneMind QEMU battery, first boot (F0-F13, F15, F16). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
+"""OneMind QEMU battery, first boot (F0-F13, F14, F15, F16). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
 (pre-registered; never edited to make a result pass). Reuses run-tests.py's VM driver.
 
 Input: the battery's fixtures (`make fixtures`: disk.img = slot A v1 + test overlay, bundles.img with
@@ -756,6 +756,26 @@ def f16_after(vm, tid, token):
          "bluetooth_active": st["bluetooth_active"]}
     record(tid, all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()))
 
+def f14(vm):
+    """CLI polish (#882): onemind completion and man pages are installed and work (CRITERIA-FIRSTBOOT.md section 10)."""
+    _, out = vm.run(
+        'B=/usr/share/bash-completion/completions/onemind; test -s $B; echo BASHFILE_RC=$?; '
+        'test -s /usr/share/zsh/vendor-completions/_onemind; echo ZSH_RC=$?; '
+        'test -s /usr/share/fish/vendor_completions.d/onemind.fish; echo FISH_RC=$?; '
+        'bash -c ". /usr/share/bash-completion/bash_completion; . $B; complete -p onemind" 2>&1 | head -2; '
+        'echo COMPLETE_FN=$(bash -c ". /usr/share/bash-completion/bash_completion; . $B; complete -p onemind" 2>/dev/null | grep -c "_onemind"); '
+        'onemind __complete ap > /tmp/f14.c 2>&1; echo CAND_RC=$?; echo CAND_APPS=$(grep -c "^apps" /tmp/f14.c); '
+        'echo MANW1=$(man -w onemind 2>&1 | head -1); echo MANW2=$(man -w onemind-apps 2>&1 | head -1); '
+        'MANPAGER=cat MANWIDTH=80 man onemind > /tmp/f14.m 2>&1; echo MAN_RC=$?; '
+        'echo MAN_NAME=$(grep -ci onemind /tmp/f14.m); echo MAN_SYN=$(grep -c "SYNOPSIS" /tmp/f14.m); rm -f /tmp/f14.c /tmp/f14.m', 120)
+    get = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or ["?"])[-1]
+    c = {"bash_file": get("BASHFILE_RC") == "0", "zsh_file": get("ZSH_RC") == "0", "fish_file": get("FISH_RC") == "0",
+         "complete_registered": get("COMPLETE_FN") not in ("0", "?"),
+         "cobra_candidates": get("CAND_RC") == "0" and get("CAND_APPS") not in ("0", "?"),
+         "man_w_root": get("MANW1").startswith("/usr/share/man/man1/"),
+         "man_w_sub": get("MANW2").startswith("/usr/share/man/man1/"),
+         "man_renders": get("MAN_RC") == "0" and get("MAN_NAME") not in ("0", "?") and get("MAN_SYN") not in ("0", "?")}
+    record("F14", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" manw={get('MANW1')!r}")
 
 def main():
     ap = argparse.ArgumentParser()
@@ -819,6 +839,7 @@ def main():
         nw4 = netcheck.nw4_before(vm)
         vm.mark("F15 the owner shell: key-only SSH, tty2 login, no baked password"); f15(vm)
         vm.mark("F16 audio and Bluetooth on the screen boards (Step 3)"); btmark = f16(vm, a.board)
+        vm.mark("F14 onemind completion and man pages (#882)"); f14(vm)
 
         if a.upto in ("F3", "F4"):
             vm.mark("F3 reboot keeps state")
