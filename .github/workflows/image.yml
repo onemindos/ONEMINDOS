@@ -31,6 +31,7 @@ jobs:
       pull-requests: read
     outputs:
       os: ${{ steps.s.outputs.os }}
+      sb: ${{ steps.sb.outputs.sb }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - id: s
@@ -47,6 +48,16 @@ jobs:
             echo os=true | tee -a "$GITHUB_OUTPUT"; exit 0
           fi
           python3 -I scripts/ci-image-scope.py < files.txt | tee -a "$GITHUB_OUTPUT"
+      # S-13: the Secure Boot test (SB1-SB4) is slow, so on a PR it runs only when the files it covers change.
+      # Push, dispatch and any API error run it.
+      - id: sb
+        name: Secure Boot files changed?
+        run: |
+          if [ ! -s files.txt ] || grep -Eq '^(os/secureboot/|os/rootfs/|os/assemble/|test/qemu/(secureboot|uki|CRITERIA-SECUREBOOT)|Makefile$|\.github/workflows/(image|battery)\.yml$)' files.txt; then
+            echo sb=true | tee -a "$GITHUB_OUTPUT"
+          else
+            echo sb=false | tee -a "$GITHUB_OUTPUT"
+          fi
   image:
     needs: scope
     if: ${{ !github.event.pull_request.draft && needs.scope.outputs.os == 'true' }}
@@ -140,6 +151,10 @@ jobs:
         run: make fixtures BOARD=x86_64-efi UPTO=T5 TOOLS=onemind-tools:ci
       - name: First boot into OneMind (F0-F4)
         run: make firstboot BOARD=x86_64-efi FUPTO=F4 TOOLS=onemind-tools:ci
+      # Boot menu lock (B1-B6, test/qemu/CRITERIA-BOOTLOCK.md): `e` at GRUB asks for a login. Runs after firstboot
+      # because `make firstboot` removes the work disk it copied, and this copies the fixture disk again.
+      - name: Boot menu lock (B1-B6)
+        run: make bootlock BOARD=x86_64-efi TOOLS=onemind-tools:ci
       - name: Summary and trimmed log
         if: always()
         run: |
@@ -154,6 +169,52 @@ jobs:
           path: |
             out/firstboot-x86_64-efi/results.json
             out/firstboot-x86_64-efi/serial-trimmed.log
+            out/bootlock-x86_64-efi/results.json
+          retention-days: 14
+  # Encrypted /data (E1-E4, test/qemu/CRITERIA-DATAENC.md): a software TPM boots a luks2 image. Manual only
+  # (Actions > image > Run workflow on the branch) until the data layout default flips to luks2; CI is saturated
+  # and this is a 45-minute KVM job. Its first run is the first time this code boots anywhere.
+  dataenc:
+    if: ${{ github.event_name == 'workflow_dispatch' && !github.event.pull_request.draft }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: KVM
+        run: |
+          if [ -e /dev/kvm ]; then
+            echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+            sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+          fi
+      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+      - name: Build rootfs (x86_64-efi)
+        run: |
+          mkdir -p out
+          docker buildx build -f os/rootfs/Containerfile --target rootfs --progress plain \
+            --build-arg BOARD=x86_64-efi $(sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/debian.args) \
+            --output type=tar,dest=out/rootfs-debian-x86_64-efi.tar .
+      - name: Build tools image
+        run: |
+          docker buildx build -f os/rootfs/Containerfile --target tools --progress plain \
+            $(sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/debian.args) --load -t onemind-tools:ci .
+      - name: Fixtures with a blank, encrypt-on-first-boot data partition
+        run: make fixtures BOARD=x86_64-efi UPTO=T5 DATA_FS=luks2 TOOLS=onemind-tools:ci
+      - name: Encrypted data (E1-E4)
+        run: make dataenc BOARD=x86_64-efi TOOLS=onemind-tools:ci
+      - name: Summary
+        if: always()
+        run: |
+          sudo chmod -R a+r out
+          f=out/dataenc-x86_64-efi
+          if [ -f $f/results.json ]; then python3 -I test/qemu/summary.py $f/results.json >> "$GITHUB_STEP_SUMMARY"; fi
+          if [ -f $f/serial.log ]; then test/qemu/trim-log.sh $f/serial.log > $f/serial-trimmed.log; rm -f $f/serial.log; fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: dataenc-debian-x86_64-efi
+          path: |
+            out/dataenc-x86_64-efi/results.json
+            out/dataenc-x86_64-efi/serial-trimmed.log
           retention-days: 14
   battery:
     if: ${{ !github.event.pull_request.draft && needs.scope.outputs.os == 'true' }}
@@ -162,15 +223,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {board: x86_64-efi, upto: T5, runner: ubuntu-24.04, firstboot: true}
-          - {board: vm-do,      upto: T5, runner: ubuntu-24.04, firstboot: false}
-          - {board: arm64-efi,  upto: T1, runner: ubuntu-24.04-arm, firstboot: true}
+          - {board: x86_64-efi, upto: T5, runner: ubuntu-24.04, firstboot: true, firewall: true}
+          - {board: vm-do,      upto: T5, runner: ubuntu-24.04, firstboot: false, firewall: false}
+          - {board: arm64-efi,  upto: T1, runner: ubuntu-24.04-arm, firstboot: true, firewall: false}
     uses: ./.github/workflows/battery.yml
     with:
       board: ${{ matrix.board }}
       upto: ${{ matrix.upto }}
       runner: ${{ matrix.runner }}
       firstboot: ${{ matrix.firstboot }}
+      secureboot: ${{ matrix.board == 'x86_64-efi' && needs.scope.outputs.sb == 'true' }}
+      firewall: ${{ matrix.firewall }}
   # Cloud images (docs/leap/core/CLOUD-IMAGES.md): one `cloud` rootfs, one image per cloud in the format
   # that cloud imports, then the cloud test on that exact artifact (test/qemu/CRITERIA-CLOUD.md).
   # Uploading to a cloud account is never done here (os/cloud/*-import.sh, run by the owner).
@@ -227,6 +290,7 @@ jobs:
           if [ -f $d/serial.log ]; then
             test/qemu/trim-log.sh $d/serial.log > $d/serial-trimmed.log
             test/qemu/trim-log.sh --tail 400 $d/serial.log > $d/serial-tail.log
+            test/qemu/trim-log.sh --diag $d/serial.log > $d/serial-diag.log
             rm -f $d/serial.log
           fi
           rm -rf $d/work
@@ -281,6 +345,14 @@ jobs:
           make installer BOARD=installer-x86_64 TOOLS=onemind-tools:ci
       - name: Installer test (I1-I5)
         run: make installer-test BOARD=installer-x86_64 TOOLS=onemind-tools:ci
+      - name: Keep the update bundles and the dev CA of this stick's image (same throwaway CA as the stick; see os/boards/installer-x86_64/UPDATES.md)
+        if: success()
+        run: |
+          # The matrix job's x86_64-efi image has a different throwaway CA, so only the bundles built together with
+          # the image inside this stick can update a box installed from it. Public CA certificate only, no key.
+          # out/installer-x86_64 is root-owned (make installer runs in a container without --user); the next step chowns it back.
+          sudo cp out/image-x86_64-efi/onemind-x86_64-efi-*.raucb out/image-x86_64-efi/dev-ca.cert.pem out/installer-x86_64/
+          ls -l out/installer-x86_64
       - name: Summary; keep only the stick image (compressed) and the logs
         if: always()
         run: |

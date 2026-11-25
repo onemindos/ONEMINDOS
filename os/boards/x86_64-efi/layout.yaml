@@ -10,4 +10,4 @@ partitions:
   - {label: onemind-system-a, size: 10GiB,  type: linux, fs: rootfs, slot: A}           # read-only root, slot A
   - {label: onemind-system-b, size: 10GiB,  type: linux, fs: rootfs, slot: B}           # read-only root, slot B
   - {label: onemind-recovery, size: 1GiB,   type: linux, fs: none}                       # rescue system (D-B2.3), empty in v0
-  - {label: onemind-data,     size: rest,   type: linux, fs: ext4}                       # LUKS2 planned (SB-5, BM2; findings F-04)
+  - {label: onemind-data,     size: rest,   type: linux, fs: ext4}                       # ext4 today. `fs: luks2` ships it blank and the box encrypts it on first boot (data_encrypt.py); CI builds that with --data-fs luks2

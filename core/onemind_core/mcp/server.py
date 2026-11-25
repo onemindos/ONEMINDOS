@@ -171,7 +171,8 @@ class McpEndpoint:
         if method == "ping":
             return {}
         if method == "tools/list":
-            return {"tools": [t for t in TOOLS if authz.may_call(principal, t["name"])]}
+            builtin = [t for t, typ in self.catalogue.builtin_tools() if authz.may_request(principal, typ)]
+            return {"tools": [t for t in TOOLS if authz.may_call(principal, t["name"])] + builtin}
         if method == "tools/call":
             name = params.get("name")
             targs = params.get("arguments")
@@ -183,6 +184,11 @@ class McpEndpoint:
                     t = authz.request_scope(targs.get("type"))
                     need = t if t in MCP_SCOPES else "actions:request:<type>"
                 return refusal("permission_denied", f"this token's scopes do not include tool {name}", scope=need)
+            builtin = self.catalogue.builtin_type(name)
+            if builtin is not None and not authz.may_request(principal, builtin):
+                self.refuse(principal, f"call tool {name}")  # audited authz.denied
+                return refusal("permission_denied", f"this token's scopes do not include tool {name}",
+                               scope=authz.request_scope(builtin))
             if modern and name == "request_action" and versions.client_supports_tasks(params):
                 out = self.catalogue.call(principal, name, params.get("arguments") or {})
                 if out.get("isError"):

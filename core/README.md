@@ -181,6 +181,20 @@ umbrelOS-level app management, with the rule kept: every change is a request an 
 - **Host ports:** `spec.hostPorts` declarations are conflict-checked against OneMind's own ports
   (`sdk/policy/host-ports.yaml`) and other apps, in CI and at request and approval. The install
   sandbox still refuses `hostPort` itself.
+- **Event streams (hub JetStream):** `spec.streams` declares up to 4 bounded streams (`streams.py`). Subjects are
+  relative and the hub puts them under `onemind.plugin.<id>.` (subject tree, sdk/schema/onemind.subjects.json); `maxBytes` (1 MiB to 1 GiB) and `maxAgeSeconds`
+  (60 s to 30 days) are required, storage is file, oldest events go at the limit. The install plan lists the exact
+  limits (hashed). Install is refused (`invalid_stream`, `jetstream_unavailable`, `jetstream_degraded`) for a bad
+  declaration or a store that is off or low on disk. Settings: `ONEMIND_FABRIC_JETSTREAM_MAX_BYTES` (0 = off) and
+  `ONEMIND_FABRIC_JETSTREAM_PATH`. **Left:** creating the streams on the hub after approval, removal on app remove,
+  a status route and a `jetstream.degraded` event, and the same JetStream block in `deploy/install.sh`.
+- **Hub JetStream budget and core streams (#601, `jetstream.py`):** the cap is 10 % of the data disk (256 MiB to
+  64 GiB, written by onemind-firstboot into nats.conf and gateway.env); no cap means no JetStream, and the hub NATS
+  refuses to start a `jetstream` block without `max_file_store` and `max_memory_store: 0`. The gateway creates the
+  core streams named by the subject tree (`ONEMIND_AUDIT`, `_EVENTS`, `_INTEL`, `_JOBS`, `_JOBRESULTS`,
+  `_REQUESTS`) and the KV buckets `asset-state` and `layer-meta`, file storage only, inside half of the cap, again
+  after every NATS reconnect; NATS down never stops it serving. The state is on `app.state.jetstream` for the
+  Engine feed (#619).
 - **Compose import:** `POST /v1/deploy/compose` (owner) turns a Compose file into a private app
   folder and refuses, with the sandbox's rule ids, anything the sandbox would refuse (privileged,
   host network, bind mounts, unpinned images, root user, …). It writes and installs nothing.

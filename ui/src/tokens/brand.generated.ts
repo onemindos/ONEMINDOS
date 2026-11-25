@@ -11,7 +11,7 @@ export const brand = {
     name: "OneMind Red",
     seed: "#ff333a",
     light: {"accent": "#d11826", "hover": "#b4101e", "text": "#ffffff", "soft": "#fae8e9"},
-    dark: {"accent": "#fb605a", "hover": "#fd8b82", "text": "#0c1214", "soft": "#3d2728"},
+    dark: {"accent": "#fb605a", "hover": "#fd8b82", "text": "#151311", "soft": "#422421"},
   },
   logo: {
     alt: "OneMind",

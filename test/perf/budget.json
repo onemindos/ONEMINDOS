@@ -3,5 +3,6 @@
   "idle_memory_mib": {"hub-total": 1000, "k3s": 820, "k3s-addons": 80, "gateway": 100, "onemindd": 10, "nats": 8},
   "api_p95_ms": {"idle": 40, "load": 45},
   "api_read_errors": {"idle": 0, "load": 0},
-  "gateway_cold_start_s": 10
+  "gateway_cold_start_s": 10,
+  "time_to_dashboard_s": 90
 }

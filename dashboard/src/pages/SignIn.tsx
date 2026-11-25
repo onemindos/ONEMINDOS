@@ -12,6 +12,7 @@ import { brand } from '../brand.generated';
 import { t } from '../i18n';
 import { getPasskey, webauthnSupported } from '../lib/webauthn';
 import { useSession } from '../session';
+import { TrustThisBox } from './TrustThisBox';
 
 type View = 'signin' | 'setup' | 'enrol';
 
@@ -167,6 +168,7 @@ export function SignIn({ mock }: { mock: boolean }) {
                 </button>
               </p>
             )}
+            <TrustThisBox />
             {passkeyOk ? (
               <Button variant="primary" onClick={onPasskey} disabled={busy}>
                 {t('signin.passkey')}

@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Appended to /usr/lib/os-release by os/rootfs/Containerfile. systemd-sysext and systemd-confext merge an
+# extension only when its extension-release file names the same level (OneMind host extension ABI v1, socket
+# E3, frozen at v1 by Z-21). Raise it only when extensions built for the old level must stop merging.
+SYSEXT_LEVEL=1
+CONFEXT_LEVEL=1

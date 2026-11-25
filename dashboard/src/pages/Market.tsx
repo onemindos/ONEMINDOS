@@ -22,6 +22,7 @@ import { useShell } from '../shell/Shell';
 export const COLLECTIONS: Collection[] = [
   { id: 'start', title: 'Start here', blurb: 'Small, useful first apps that run on any node.', app_ids: ['vaultwarden', 'uptime-kuma', 'ntfy', 'actual-budget'] },
   { id: 'smart-home', title: 'For the smart home', blurb: 'Local control, no vendor cloud.', app_ids: ['home-assistant', 'mosquitto', 'zigbee2mqtt', 'node-red'] },
+  { id: 'browsers', title: 'Browsers', blurb: 'A full browser on your box, shown in a window. The profile stays on the box, and you sign in with the login the box made for you.', app_ids: ['firefox', 'chromium'] },
 ];
 export const FEATURED = { app_id: 'vaultwarden', headline: 'Your passwords, on your own box', blurb: 'Vaultwarden works with the Bitwarden apps you already know, and nothing leaves home.' };
 
@@ -35,7 +36,7 @@ export function loadState<T>(p: Polled<T>, hub: Pick<Hub, 'freshness' | 'asOf'>)
 /** Explains the v0 placement rule wherever a node would be chosen. */
 export const PLACEMENT_NOTE = 'The hub picks the node (Kubernetes places it). A per-node preview comes with §12 plans.';
 
-function StoreTabs({ current }: { current: 'discover' | 'installed' | 'sources' | 'compose' }) {
+function StoreTabs({ current }: { current: 'discover' | 'installed' | 'builtin' | 'sources' | 'compose' }) {
   // Community sources and Compose import are owner-only: other roles do not see the tabs.
   const { canDecide } = useSignedIn();
   const owner = canDecide !== 'no';
@@ -46,6 +47,9 @@ function StoreTabs({ current }: { current: 'discover' | 'installed' | 'sources' 
       </a>
       <a href={href.installed} aria-current={current === 'installed' ? 'page' : undefined}>
         Installed
+      </a>
+      <a href={href.builtIn} aria-current={current === 'builtin' ? 'page' : undefined}>
+        Built in
       </a>
       {owner && (
         <a href={href.sources} aria-current={current === 'sources' ? 'page' : undefined}>
@@ -73,6 +77,7 @@ export function Market() {
   const byId = (id: string) => hub.apps.data?.find((a) => a.id === id);
   const open = (id: string) => {
     const a = byId(id);
+    if (a?.browser && a.installed) return navigate(href.browser(id));  // #692: a window with the person's own profile
     const url = a ? openUrl(a) : undefined;
     if (a && url) openAppOrSay(api, a.name || a.id, url);
     else navigate(href.manage(id));

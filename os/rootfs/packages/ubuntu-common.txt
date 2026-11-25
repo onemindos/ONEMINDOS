@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Ubuntu 26.04 CI hedge only (founder override Z-38 = b): same definition, never published (Z-01).
 systemd systemd-sysv systemd-resolved udev dbus login passwd
+# Compressed RAM swap (zram) so one big app cannot push the control plane into the OOM killer
+systemd-zram-generator
 kmod iproute2 iptables nftables procps util-linux mount e2fsprogs dosfstools
 # sfdisk (data_extend.py) is in its own package on Debian 13, not in util-linux
 fdisk
@@ -10,6 +12,11 @@ ca-certificates curl socat zstd squashfs-tools
 apparmor
 avahi-daemon avahi-utils openssl
 samba samba-vfs-modules libnss-extrausers
+# NAS client tools (#871): mount an SMB or NFS share from a NAS as a Files location (#718). Clients only: no
+# nfs-kernel-server or ksmbd-tools, and the rpcbind and nfs-client units nfs-common enables are disabled below
+# (os/rootfs/Containerfile); rpc-statd still starts on demand for an NFSv3 lock. The kernel's cifs and nfs modules
+# come with linux-image-*. Battery step: test/qemu/CRITERIA-NAS.md (TN0-TN2).
+cifs-utils nfs-common
 # Ubuntu 26.04 defaults to dracut; we name initramfs-tools explicitly [C-LAB-ubuntu-2604-leg-001]
 initramfs-tools
 grub-common

@@ -43,6 +43,7 @@ core/tests/security/test_injection_traversal.py	(10\.0\.0\.1|192\.168\.1\.1|172\
 core/tests/security/test_injection_traversal.py	127\.0\.0\.1@evil\.example	B-FP-7
 research-output/evidence/lab/net-p2/*	(100\.64\.[0-9]+\.[0-9]+|10\.4[23]\.[0-9]+\.[0-9]+)	B-FP-9
 cmd/onemind/cli/mesh*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
+cmd/onemind/cli/device_join*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 core/onemind_core/netconf.py	100\.64\.0\.0	B-FP-9
 deploy/install.sh	100\.64\.0\.0	B-FP-9
 internal/fabric/*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
@@ -74,3 +75,18 @@ test/unit/test_do_runner_policy.py	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100
 internal/smb/*	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-14
 os/rootfs/layers/onemind/usr/lib/systemd/system/onemind-smb.service	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-14
 internal/smb/smb_test.go	[/]home[/]al.x	B-FP-14
+# B-FP-16: host firewall (host.nft) names the private ranges by their network address (RFC 1918, RFC 6598), as ranges, not hosts.
+os/rootfs/layers/onemind/usr/lib/onemind/host.nft	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-16
+# B-FP-17: firewall QEMU tests: the QEMU user-networking gateway (fixed by QEMU) and the private link addresses 192.168.77.x the harness gives its own two throwaway VMs; neither is a real network.
+test/qemu/firewall.py	192\.168\.77\.[0-9]+	B-FP-17
+test/qemu/CRITERIA-FIREWALL.md	192\.168\.77\.[0-9]+	B-FP-17
+test/qemu/overlay/etc/onemind/host.d/*	10\.0\.2\.2	B-FP-17
+test/unit/test_host_firewall.py	10\.0\.2\.2	B-FP-17
+# B-FP-browser: Neko browser apps (apps/firefox, apps/chromium): /home/neko is the container image's own user home, not a host path.
+apps/firefox/*	/home/neko	B-FP-browser
+apps/chromium/*	/home/neko	B-FP-browser
+scripts/hygiene-allow.tsv	/home/neko	B-FP-browser
+core/onemind_core/serve.py	(10\.42\.0\.0|100\.64\.0\.0)	B-FP-9
+core/tests/test_serve_bind.py	(10\.42\.0\.7|100\.64\.0\.1|192\.168\.1\.[0-9]+|10\.0\.0\.5)	B-FP-9
+# B-FP-kanidm-lab: Kanidm SPNs (name@domain) in the UMB-ACCT-1 lab output (issue 403) use the reserved .test domain idm.onemind.test (RFC 2606); they name lab accounts and groups, not e-mail addresses.
+research-output/evidence/lab/acct-kanidm/*	[A-Za-z0-9._%+-]+@idm\.onemind\.test	B-FP-kanidm-lab

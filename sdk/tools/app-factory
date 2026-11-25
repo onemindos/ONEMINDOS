@@ -1,0 +1,198 @@
+#!/usr/bin/env -S python3 -I
+# SPDX-License-Identifier: Apache-2.0
+"""App factory: rebuild an app's image on a patched, digest-pinned base, scan it, record provenance.
+
+  app-factory check [APP ...]            validate recipes (apps/<id>/factory.yaml); offline
+  app-factory plan [APP ...]             ask upstream what is new; prints JSON [{app, action, reason, ...}]
+  app-factory build APP --tag TAG --out DIR [--push]
+                                         build the overlay image (buildx), scan old and new with Trivy
+  app-factory apply APP --out DIR        pin the rebuilt image in the manifests, record metadata.build,
+                                         write DIR/changelog.md (what changed, which CVEs closed)
+  app-factory lift APP --report FILE     after app-gate passed on the rebuilt image, set metadata.tier to the
+                                         tier the gate computed (the PR review is the human approval)
+
+Exit codes: 0 ok, 1 a recipe is invalid or the lift was refused, 2 tool or network error.
+"""
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import json
+import re
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from applib import common  # noqa: E402
+from factorylib import factory  # noqa: E402
+
+
+def recipes(apps_dir: Path, ids: list[str]) -> list[tuple[Path, dict]]:
+    dirs = [apps_dir / i for i in ids] if ids else sorted(d for d in apps_dir.iterdir() if d.is_dir() and not d.name.startswith(("_", ".")))
+    out = []
+    for d in dirs:
+        r = factory.load_recipe(d)
+        if r is not None:
+            out.append((d, r))
+        elif ids:
+            raise common.ToolError(f"apps/{d.name}/{factory.RECIPE_NAME} not found")
+    return out
+
+
+def trivy_json(ref: str, dest: Path, source: str) -> None:
+    proc = common.run([common.which("trivy"), "image", "--quiet", "--format", "json", "--severity", "CRITICAL,HIGH",
+                       "--image-src", source, "--output", str(dest), ref], timeout=1800)
+    if proc.returncode != 0:
+        raise common.ToolError(f"trivy {ref}: {proc.stderr.strip()[-500:]}")
+
+
+def cmd_check(args) -> int:
+    bad = 0
+    for d, r in recipes(args.apps_dir, args.apps):
+        errs = factory.validate_recipe(r, d)
+        print(f"{'ok  ' if not errs else 'FAIL'} apps/{d.name}/{factory.RECIPE_NAME}")
+        for e in errs:
+            print(f"  - {e}")
+        bad += bool(errs)
+    return 1 if bad else 0
+
+
+def cmd_plan(args) -> int:
+    reg, gh, out = common.Registry(), common.GitHub(), []
+    now = dt.datetime.now(dt.timezone.utc)
+    for d, r in recipes(args.apps_dir, args.apps):
+        errs = factory.validate_recipe(r, d)
+        if errs:
+            raise common.ToolError(f"apps/{d.name}: invalid recipe: {errs[0]}")
+        manifest = common.load_manifest(d)
+        rel = gh.latest_release(r["upstream"]["github"]) or {}
+        tag = rel.get("tag_name")
+        tag = tag if tag and re.fullmatch(r["upstream"]["tag_pattern"], tag) else None
+        base = f"{factory.upstream_ref(r, tag)}" if tag else None
+        digest = reg.digest(base) if base else None
+        action, reason = factory.decide(r, manifest, tag, digest, now, args.force)
+        pin = factory.current_pin(manifest)
+        rev = pin["revision"] + 1 if tag == pin["tag"] else 1
+        out.append({"app": d.name, "action": action, "reason": reason, "tag": tag, "revision": rev,
+                    "released_at": rel.get("published_at"), "base": f"{base}@{digest}" if digest else None})
+    print(json.dumps(out, indent=2))
+    return 0
+
+
+def cmd_build(args) -> int:
+    d = args.apps_dir / args.app
+    r = factory.load_recipe(d)
+    if r is None or factory.validate_recipe(r, d):
+        raise common.ToolError("missing or invalid recipe (run: app-factory check)")
+    if not re.fullmatch(r["upstream"]["tag_pattern"], args.tag):
+        raise common.ToolError(f"tag '{args.tag}' does not match the recipe's tag_pattern")
+    manifest = common.load_manifest(d)
+    pin = factory.current_pin(manifest)
+    rev = args.revision or (pin["revision"] + 1 if args.tag == pin["tag"] else 1)
+    base_tag = factory.upstream_ref(r, args.tag)
+    reg = common.Registry()
+    digest = reg.digest(base_tag)
+    if not digest:
+        raise common.ToolError(f"{base_tag} not found in its registry")
+    base_ref = f"{base_tag}@{digest}"
+    cfg = reg.config(base_ref, "amd64") or {}
+    user = (cfg.get("config") or {}).get("User") or "root"
+    if user != r["build"]["restore_user"]:
+        raise common.ToolError(f"upstream image runs as '{user}' but the recipe restores '{r['build']['restore_user']}'")
+    out = args.out
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "Dockerfile").write_text(factory.render_dockerfile(r, base_ref), encoding="utf-8")
+    target = f"{r['target']['image']}:{factory.image_tag_for(args.tag, rev)}"
+    archs = ",".join(f"linux/{a}" for a in manifest["spec"]["archs"])
+    docker = common.which("docker")
+    if args.push:
+        meta = out / "buildx.json"
+        proc = common.run([docker, "buildx", "build", "--platform", archs, "--push", "--provenance=mode=max", "--sbom=true",
+                           "--metadata-file", str(meta), "-t", target, "-f", str(out / "Dockerfile"), str(out)], timeout=3600)
+        if proc.returncode != 0:
+            raise common.ToolError(f"docker buildx build: {proc.stderr.strip()[-800:]}")
+        built_digest = json.loads(meta.read_text())["containerimage.digest"]
+        src = "remote"
+    else:  # dry run: one arch, kept in the local docker daemon, nothing leaves the machine
+        proc = common.run([docker, "build", "--platform", "linux/amd64", "-t", target, "-f", str(out / "Dockerfile"), str(out)], timeout=3600)
+        if proc.returncode != 0:
+            raise common.ToolError(f"docker build: {proc.stderr.strip()[-800:]}")
+        built_digest, src = "sha256:" + "0" * 64, "docker"
+    built_ref = f"{target}@{built_digest}"
+    trivy_json(base_ref, out / "trivy-old.json", "remote")
+    trivy_json(target if src == "docker" else built_ref, out / "trivy-new.json", src)
+    (out / "built.json").write_text(json.dumps({
+        "app": args.app, "tag": args.tag, "revision": rev, "base": base_ref, "built": built_ref, "pushed": args.push,
+        "released_at": args.released_at, "built_at": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+    }, indent=2) + "\n", encoding="utf-8")
+    print(f"built {built_ref}")
+    return 0
+
+
+def cmd_apply(args) -> int:
+    d = args.apps_dir / args.app
+    r = factory.load_recipe(d)
+    b = json.loads((args.out / "built.json").read_text())
+    if not b["pushed"]:
+        raise common.ToolError("refusing to pin an image that was only built locally (build without --push)")
+    pin = factory.current_pin(common.load_manifest(d))
+    old = json.loads((args.out / "trivy-old.json").read_text())
+    new = json.loads((args.out / "trivy-new.json").read_text())
+    reason = args.reason or "new build"
+    factory.apply_build(d, r, upstream_tag=b["tag"], released_at=b.get("released_at"), base_ref=b["base"],
+                        built_ref=b["built"], built_at=b["built_at"], revision=b["revision"])
+    patched = next(iter(r["build"]["patch"].values()))
+    (args.out / "changelog.md").write_text(
+        factory.changelog(args.app, pin["tag"] or "?", b["tag"], old, new, reason, patched, b["base"], b["built"]), encoding="utf-8")
+    print(f"pinned {b['built']}")
+    return 0
+
+
+def cmd_lift(args) -> int:
+    d = args.apps_dir / args.app
+    manifest = common.load_manifest(d)
+    report = json.loads(args.report.read_text())
+    rep = next((x for x in (report if isinstance(report, list) else [report]) if x.get("app", args.app) == args.app), {})
+    scan = json.loads((d / "scan.json").read_text())
+    tier = rep.get("computed_tier")
+    why = None
+    if not common.dig(manifest, ("metadata", "build", "image")):
+        why = "the manifest has no metadata.build: not a factory image"
+    elif scan.get("result") != "pass" or scan.get("smoke") != "pass":
+        why = f"the gate did not pass (result {scan.get('result')}, smoke {scan.get('smoke')})"
+    elif tier not in ("community", "verified"):
+        why = f"the gate computed tier '{tier}'"
+    if why:
+        print(f"tier stays {common.dig(manifest, ('metadata', 'tier'))}: {why}")
+        return 1
+    common.set_tier(d / common.MANIFEST_NAME, tier)
+    print(f"tier set to {tier} by the gate's verdict")
+    return 0
+
+
+def main(argv: list[str]) -> int:
+    p = argparse.ArgumentParser(prog="app-factory", description=__doc__.split("\n")[0])
+    p.add_argument("--apps-dir", type=Path, default=common.APPS_DIR)
+    sub = p.add_subparsers(dest="cmd", required=True)
+    for name in ("check", "plan"):
+        s = sub.add_parser(name)
+        s.add_argument("apps", nargs="*")
+        if name == "plan":
+            s.add_argument("--force", action="store_true")
+    s = sub.add_parser("build")
+    s.add_argument("app"); s.add_argument("--tag", required=True); s.add_argument("--out", type=Path, required=True)
+    s.add_argument("--push", action="store_true"); s.add_argument("--revision", type=int); s.add_argument("--released-at")
+    s = sub.add_parser("apply")
+    s.add_argument("app"); s.add_argument("--out", type=Path, required=True); s.add_argument("--reason")
+    s = sub.add_parser("lift")
+    s.add_argument("app"); s.add_argument("--report", type=Path, required=True)
+    args = p.parse_args(argv)
+    try:
+        return {"check": cmd_check, "plan": cmd_plan, "build": cmd_build, "apply": cmd_apply, "lift": cmd_lift}[args.cmd](args)
+    except (common.ToolError, OSError, ValueError, KeyError) as exc:
+        sys.stderr.write(f"error: {exc}\n")
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

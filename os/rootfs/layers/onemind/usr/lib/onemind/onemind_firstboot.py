@@ -35,6 +35,7 @@ import pathlib
 import pwd
 import re
 import secrets
+import shutil
 import socket
 import subprocess
 import sys
@@ -47,7 +48,7 @@ ROLES = ("hub", "worker", "leaf")
 # example tailscaled before the box CA exists, or the NATS leaf before `onemind fabric join` wrote
 # its config); whoever creates the missing file starts the unit itself.
 ROLE_UNITS = {
-    "hub": ["onemind-nats.service", "onemind-nats-accounts.path", "onemindd.service", "onemind-gateway.service",
+    "hub": ["onemind-starting.service", "onemind-nats.service", "onemind-nats-accounts.path", "onemindd.service", "onemind-gateway.service",
             "onemind-gateway-kube.service", "tailscaled.service", "onemind-headscale.service",
             "onemind-mesh-setup.service", "onemind-rescue.service", "onemind-host.service",
             "onemind-storage.service", "onemind-images.service"],
@@ -115,6 +116,8 @@ class Paths:
         self.hosts = j("etc", "hosts")                                   # a bind mount from /data on the image
         self.state = j("data", "onemind", "firstboot", "state.json")
         self.esp_conf = j("boot", "efi", "onemind.conf")
+        self.esp_boot = j("boot", "efi", "EFI", "BOOT")                  # grub.cfg, grubenv and user.cfg live here
+        self.esp_user_cfg = j("boot", "efi", "EFI", "BOOT", "user.cfg")  # the boot menu lock (os/assemble/grub.cfg.in)
         self.cloud_userdata = j("var", "lib", "cloud", "instance", "user-data.txt")
         self.seed_mnt = j("run", "onemind", "seed")
         self.run = j("run", "onemind")
@@ -124,8 +127,11 @@ class Paths:
         self.job_key = j("data", "onemind", "custodian", "job.key")
         self.backup = j("data", "onemind", "backup")                     # the agent's state; agent.json is its settings
         self.backup_conf = j("data", "onemind", "backup", "agent.json")
+        self.backup_export = j("data", "onemind", "gateway", "backup-export")  # the built-ins' export (#616)
         self.rescue_tls = j("data", "onemind", "tls")   # https.crt/https.key for onemind-rescue (CORE-UPDATE-9)
         self.files = j("data", "onemind", "files")      # the gateway's ONEMIND_FILES_ROOT (and Samba's shares)
+        self.k3s_data = j("data", "k3s")                # k3s --data-dir (a leaf removes it, retire_k3s)
+        self.k3s_run = j("run", "k3s")                  # tmpfs: exists only if k3s started on this boot
 
 
 # ------------------------------------------------------------------ settings
@@ -330,15 +336,59 @@ def onemind_ids() -> tuple[int, int] | None:
 
 
 def chown_tree(path: str, ids: tuple[int, int] | None) -> None:
+    """Re-own a tree. A file that is gone by the time it is reached is skipped: something else may be working
+    in the tree (k3s unpacks its binaries into a *-tmp folder and renames it), and one vanished file must not
+    fail first boot, which would leave the box without its role units (cloud C4 reboot, issue #391)."""
     if not ids or not os.path.isdir(path):
         return
     for dirpath, _dirs, files in os.walk(path):
         for n in [dirpath, *(os.path.join(dirpath, f) for f in files)]:
-            os.chown(n, *ids)
+            try:
+                os.chown(n, *ids)
+            except FileNotFoundError:
+                pass
 
 
 def token() -> str:
     return secrets.token_hex(32)
+
+
+# ------------------------------------------------------------------ boot menu lock
+# GRUB's menu is locked (os/assemble/grub.cfg.in): the A/B entries boot with no password, but editing an
+# entry's command line or opening the GRUB shell needs the superuser "onemind". The password is made here,
+# once per box, so no two boxes share one and none ships in the image. Only its PBKDF2 hash goes on the ESP
+# (GRUB format, the one grub-mkpasswd-pbkdf2 prints); the password is shown once on the console.
+BOOT_USER = "onemind"
+BOOT_PW_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"   # no 0/o, 1/l/i: it is typed at a bare console
+BOOT_PW_GROUPS = 5                                     # 5 groups of 4 from 31 symbols: about 99 bits
+GRUB_PBKDF2_ROUNDS = 10000                             # grub-mkpasswd-pbkdf2's default
+
+
+def boot_password() -> str:
+    return "-".join("".join(secrets.choice(BOOT_PW_ALPHABET) for _ in range(4)) for _ in range(BOOT_PW_GROUPS))
+
+
+def grub_pbkdf2(password: str, salt: bytes | None = None, rounds: int = GRUB_PBKDF2_ROUNDS) -> str:
+    """`grub.pbkdf2.sha512.<rounds>.<salt hex>.<hash hex>`, as GRUB's password_pbkdf2 command expects
+    (grub-core/lib/crypto.c, grub_crypto_pbkdf2 with HMAC-SHA512 and a 64-byte hash)."""
+    salt = salt if salt is not None else secrets.token_bytes(64)
+    h = hashlib.pbkdf2_hmac("sha512", password.encode(), salt, rounds, 64)
+    return f"grub.pbkdf2.sha512.{rounds}.{salt.hex().upper()}.{h.hex().upper()}"
+
+
+def ensure_boot_lock(p: Paths) -> str | None:
+    """Give this box its boot menu password the first time. Returns the password to show, or None when it
+    already has one or the box has no GRUB ESP (a board that boots another way). Never raises: a full or
+    read-only ESP must not stop first boot (the menu then stays locked with no password: nobody can edit it)."""
+    if not os.path.isdir(p.esp_boot) or os.path.exists(p.esp_user_cfg):
+        return None
+    pw = boot_password()
+    try:
+        write(p.esp_user_cfg, f"password_pbkdf2 {BOOT_USER} {grub_pbkdf2(pw)}\n", mode=0o600)
+    except OSError as exc:
+        log(f"could not write the boot menu password hash ({exc}); the boot menu stays locked for everyone")
+        return None
+    return pw
 
 
 def lan_addr() -> str | None:
@@ -431,11 +481,26 @@ def nats_service_keys(p: Paths) -> None:
     if ids:
         os.chown(os.path.join(p.nats_keys, "gateway.nk"), *ids)
     # The first accounts file (hub account with the two service keys); the gateway owns and rewrites it.
+    os.environ.setdefault("ONEMIND_FABRIC_JETSTREAM_MAX_BYTES", str(jetstream_max_bytes(p)))
     natsconf.main([p.accounts, p.nats_keys])
 
 
 # The hub NATS reads copies of these from its runtime dir (onemind-nats.service, onemind-nats-files).
 NATS_RUN = "/run/onemind-nats"
+# The hub's JetStream store: the bind mount /var/lib/onemind-nats (fstab), on the data disk.
+JETSTREAM_MOUNT = "/var/lib/onemind-nats"
+JETSTREAM_DIR = JETSTREAM_MOUNT + "/jetstream"
+
+
+def jetstream_max_bytes(p: Paths) -> int:
+    """The hub's JetStream cap: a share of the data disk (core/onemind_core/jetstream.py, #601), never a
+    fixed size. Read from the disk's total size, so the same disk always gives the same cap. A disk too
+    small for JetStream raises: the hub is not set up with an uncapped or a useless store."""
+    from onemind_core import jetstream  # the gateway venv (stdlib only at import)
+    d = os.path.dirname(p.data)  # /data
+    while not os.path.exists(d) and os.path.dirname(d) != d:
+        d = os.path.dirname(d)   # not mounted yet (or a test root): the disk that will hold it
+    return jetstream.cap_for_path(d)
 
 
 # onemind-nats.service waits for the mesh address only when this line is in nats.conf. A box set up before
@@ -443,15 +508,23 @@ NATS_RUN = "/run/onemind-nats"
 MESH_LEAF_MARKER = "# onemind: mesh leaf listener"
 
 
-def hub_nats_conf(mesh_ip: str | None = None) -> str:
+def hub_nats_conf(mesh_ip: str | None = None, js_max_bytes: int | None = None) -> str:
     """The hub NATS as deploy/install.sh nats_install writes it: clients on loopback only, each with its
     own nkey (the included accounts file); with the mesh, the leaf-node listener on the hub's mesh
-    address with TLS from the box CA, and nodes must present a certificate from it (verify)."""
+    address with TLS from the box CA, and nodes must present a certificate from it (verify).
+    `js_max_bytes` is the JetStream cap (default: jetstream_max_bytes of /data); 0 or less is refused (#601)."""
+    if js_max_bytes is None:
+        js_max_bytes = jetstream_max_bytes(Paths("/"))
+    if isinstance(js_max_bytes, bool) or not isinstance(js_max_bytes, int) or js_max_bytes <= 0:
+        raise ValueError("hub nats.conf: JetStream without a cap is refused (#601)")
     out = ("# Written by onemind-firstboot (docs/leap/core/IMAGES.md §3; NETWORKING.md §7). Do not edit.\n"
            "# No shared secret: every client signs in with its own nkey (nats-accounts.conf, public keys only).\n"
            "server_name: hub\nlisten: 127.0.0.1:4222\nhttp: 127.0.0.1:8222\nmax_payload: 1MB\n"
            "# A dead leaf link shows within about a minute instead of 3-7 (FB-3 lab, observation \"outage detection\").\n"
-           'ping_interval: "20s"\nping_max: 2\nwrite_deadline: "10s"\n')
+           'ping_interval: "20s"\nping_max: 2\nwrite_deadline: "10s"\n'
+           "# JetStream for app event streams (streams.py): file store only on the data disk, capped\n"
+           "# in total; the ONEMIND account gets the same cap in nats-accounts.conf (natsconf.py).\n"
+           f'jetstream {{\n  store_dir: "{JETSTREAM_DIR}"\n  max_file_store: {js_max_bytes}\n  max_memory_store: 0\n}}\n')
     if mesh_ip:
         out += (f"{MESH_LEAF_MARKER}\n"
                 "leafnodes {\n"
@@ -468,13 +541,14 @@ def hub_nats_conf(mesh_ip: str | None = None) -> str:
     return out + 'include "nats-accounts.conf"\n'
 
 
-def gateway_env(p: Paths, st: dict, mesh_ip: str | None = None) -> str:
+def gateway_env(p: Paths, st: dict, mesh_ip: str | None = None, js_max_bytes: int | None = None) -> str:
     """gateway.env, as deploy/install.sh gateway_env, from the state and what `mesh` found."""
     g, box, lan = p.gateway, st["box"], known_lan(p)
+    js_max_bytes = jetstream_max_bytes(p) if js_max_bytes is None else js_max_bytes
     out = ("# Written by onemind-firstboot (core/README.md \"Environment\"; deploy/install.sh gateway_env)\n"
            f"ONEMIND_TOKENS_FILE={g}/tokens.yaml\nONEMIND_DATA_DIR={g}\n"
            f"ONEMIND_DB_URL=sqlite:///{g}/onemind.db\nONEMIND_AUDIT_PATH={g}/audit.jsonl\n"
-           "ONEMIND_APPS_DIR=/usr/lib/onemind/apps\nONEMIND_APP_SCHEMA=/usr/lib/onemind/sdk/schema/onemind.app.schema.json\n"
+           "ONEMIND_APPS_DIR=/usr/lib/onemind/apps\nONEMIND_CATALOG_DIR=/data/onemind/catalog\nONEMIND_APP_SCHEMA=/usr/lib/onemind/sdk/schema/onemind.app.schema.json\n"
            "ONEMIND_SANDBOX_RULES=/usr/lib/onemind/sdk/policy/app-objects.yaml\n"
            "ONEMIND_DASHBOARD_DIST=/usr/lib/onemind/dashboard\nONEMIND_EXECUTOR=kubernetes\n"
            f"ONEMIND_KUBECTL=/usr/lib/onemind/bin/kubectl\nKUBECONFIG={g}/kubeconfig\n"
@@ -494,7 +568,8 @@ def gateway_env(p: Paths, st: dict, mesh_ip: str | None = None) -> str:
            f"ONEMIND_FABRIC_HUB_URL=https://{box}.local\n"
            f"ONEMIND_FABRIC_NATS_ACCOUNTS_FILE={p.accounts}\n"
            f"ONEMIND_FABRIC_NATS_SERVICE_KEYS={p.nats_keys}\n"
-           f"ONEMIND_FABRIC_NATS_NKEY_SEED={p.nats_keys}/gateway.nk\n")
+           f"ONEMIND_FABRIC_NATS_NKEY_SEED={p.nats_keys}/gateway.nk\n"
+           f"ONEMIND_FABRIC_JETSTREAM_MAX_BYTES={js_max_bytes}\nONEMIND_FABRIC_JETSTREAM_PATH={JETSTREAM_MOUNT}\n")
     out += backup_gateway_env(p)
     if mesh_ip:
         out += ("# The mesh (written by `onemind-firstboot mesh` once the hub has its mesh address).\n"
@@ -513,12 +588,25 @@ def gateway_env(p: Paths, st: dict, mesh_ip: str | None = None) -> str:
 K3S_BACKUP_VERSION = "v1.37.2-k3s1"     # os/versions.lock.yaml k3s.version, "+" written as "-"
 
 
+def backup_system_paths(p: Paths) -> list[str]:
+    """What the agent's `system` unit copies as files: settings, the box CA, NATS keys, and (#616) the
+    built-ins' table export the gateway writes before each run plus the built-in folders on this box."""
+    return [p.etc, p.tls, p.nats_keys, p.backup_export, p.files]
+
+
+def builtin_backup_env(p: Paths) -> str:
+    """Tells the gateway where to write the built-ins' export and which built-in folders the agent copies
+    (ONEMIND_FILES_ROOT = p.files above), so GET /v1/backups/status can say they are in a snapshot."""
+    return ("# Built-in apps' data in the system unit (#616; core/onemind_core/backups/units.py).\n"
+            f"ONEMIND_BACKUPS_EXPORT_DIR={p.backup_export}\nONEMIND_BACKUPS_AGENT_DIRS=ONEMIND_FILES_ROOT\n")
+
+
 def backup_gateway_env(p: Paths) -> str:
     """The gateway's backup lines; empty until the job key exists (so a failed key never half-enables it)."""
     if not os.path.exists(p.job_key):
         return ""
     return ("# Backups (core/onemind_core/backups; onemind-firstboot ensure_backup).\n"
-            f"ONEMIND_BACKUPS_ENABLED=1\nONEMIND_BACKUPS_JOB_KEY_FILE={p.job_key}\n")
+            f"ONEMIND_BACKUPS_ENABLED=1\nONEMIND_BACKUPS_JOB_KEY_FILE={p.job_key}\n" + builtin_backup_env(p))
 
 
 def backup_agent_conf(p: Paths, node_id: str) -> dict:
@@ -537,7 +625,7 @@ def backup_agent_conf(p: Paths, node_id: str) -> dict:
         "retention": {"hourly": 24, "daily": 7, "weekly": 4, "monthly": 12},
         "targets": [],
         "units": {
-            "system": {"paths": [p.etc, p.tls, p.nats_keys],
+            "system": {"paths": backup_system_paths(p),
                        "sqlite": [{"path": f"{p.gateway}/onemind.db", "name": "gateway.db"}],
                        "audit_log": f"{p.gateway}/audit.jsonl"},
             "k3s": {"paths": ["/data/k3s/server/token", "/data/k3s/server/tls",
@@ -553,6 +641,19 @@ def _append_missing(path: str, key: str, text: str) -> None:
     if old is None or re.search(rf"(?m)^{key}=", old):
         return
     write(path, old + ("" if old.endswith("\n") else "\n") + text)
+
+
+def upgrade_agent_conf(p: Paths) -> None:
+    """A box set up before #616 keeps its agent.json; add the system paths it lacks, change nothing else."""
+    conf = json.loads(_read(p.backup_conf) or "{}")
+    system = conf.get("units", {}).get("system")
+    if not isinstance(system, dict):
+        return
+    paths = list(system.get("paths") or [])
+    missing = [x for x in backup_system_paths(p) if x not in paths]
+    if missing:
+        system["paths"] = paths + missing
+        write(p.backup_conf, json.dumps(conf, indent=2) + "\n")
 
 
 def ensure_backup(p: Paths, st: dict) -> None:
@@ -576,12 +677,20 @@ def ensure_backup(p: Paths, st: dict) -> None:
         pub = os.path.join(p.backup, "job.pub")
         with open(os.path.join(p.custodian, "job.pub"), encoding="utf-8") as f:
             write(pub, f.read(), 0o644)
+        # The gateway writes the built-ins' export here; the agent must find it at its first run (#616).
+        os.makedirs(p.backup_export, mode=0o700, exist_ok=True)
+        os.chmod(p.backup_export, 0o700)
+        if ids:
+            os.chown(p.backup_export, *ids)
         if not os.path.exists(p.backup_conf):
             write(p.backup_conf, json.dumps(backup_agent_conf(p, st["node_id"]), indent=2) + "\n")
+        else:
+            upgrade_agent_conf(p)
         _append_missing(os.path.join(p.etc, "onemindd.env"), "ONEMIND_BACKUP_CONF",
                         f"# Backups (IMG-BACKUP-01): onemindd starts the backup agent from this file.\n"
                         f"ONEMIND_BACKUP_CONF={p.backup_conf}\n")
         _append_missing(os.path.join(p.etc, "gateway.env"), "ONEMIND_BACKUPS_ENABLED", backup_gateway_env(p))
+        _append_missing(os.path.join(p.etc, "gateway.env"), "ONEMIND_BACKUPS_EXPORT_DIR", builtin_backup_env(p))
     except Exception as e:  # noqa: BLE001
         log(f"backups not set up: {e}")
 
@@ -741,7 +850,7 @@ def configure(p: Paths, cfg: dict, source: str) -> str | None:
         st["ca_sha256"] = make_ca(p, box)
         ensure_rescue_tls(p)                # CORE-UPDATE-9: needs the box CA above
         nats_service_keys(p)
-        write(os.path.join(p.etc, "nats.conf"), hub_nats_conf(None))
+        write(os.path.join(p.etc, "nats.conf"), hub_nats_conf(None, jetstream_max_bytes(p)))
         write(os.path.join(p.etc, "onemindd.env"),
               "# Written by onemind-firstboot (contract §1)\n"
               "ONEMIND_NATS_URL=nats://127.0.0.1:4222\n"
@@ -840,8 +949,40 @@ def ensure_files_root(p: Paths) -> None:
         os.chown(p.files, *ids)
 
 
+# What k3s writes under its --data-dir. /data/k3s itself and /data/k3s/storage are made on every box by
+# onemind-data-layout.service and tmpfiles.d/onemind-backup.conf, so they stay.
+K3S_WRITES = ("server", "agent", "data")
+
+
+def retire_k3s(p: Paths) -> None:
+    """An edge (role leaf, #751) never runs a k3s server, yet the image boots one before the box has a role.
+    k3s.service skips itself once the role file says leaf (k3s.service.d/20-onemind-leaf.conf); this stops the
+    one that ran on the boot the role was picked, and on a later boot, when k3s never started (no /run/k3s, a
+    tmpfs), removes what it left on /data: its own server token, certificates and datastore. Never while k3s
+    may still hold the folder. Pods it started keep running until the next restart (KillMode=process).
+    Only a k3s that is already running is stopped: a stop sent while its start job still waits (for
+    network-online.target) would cancel that job, so k3s would never reach its condition and the skip would
+    not show (CRITERIA-EDGE.md EG2 found this)."""
+    try:
+        state = run_cmd(["systemctl", "show", "-p", "ActiveState", "--value", "k3s.service"]).stdout.strip()
+    except OSError:
+        state = "unknown"                  # no systemctl: never remove anything on a guess
+    running = os.path.lexists(p.k3s_run) or state in ("active", "activating", "reloading")
+    if running:
+        systemctl("stop", "--no-block", "k3s.service")
+    left = [os.path.join(p.k3s_data, d) for d in K3S_WRITES if os.path.lexists(os.path.join(p.k3s_data, d))]
+    if running or state not in ("inactive", "failed") or not left:
+        return
+    for d in left:
+        shutil.rmtree(d, ignore_errors=True)
+    msg = "ONEMIND-FIRSTBOOT: edge: removed the k3s state left from before the role was picked"
+    log(msg); console(p, msg)
+
+
 def start_units(p: Paths, st: dict) -> None:
     role = st["role"]
+    if role == "leaf":
+        retire_k3s(p)
     if role == "hub":
         ensure_files_root(p)               # before the gateway: its sandbox needs the folder to exist
         ensure_rescue_tls(p)               # boxes configured before CORE-UPDATE-9 get their pair now
@@ -895,6 +1036,11 @@ def finish(p: Paths, cfg: dict, source: str) -> int:
     st = load_state(p)
     msg = f"ONEMIND-FIRSTBOOT: configured role={cfg['role']} source={source} node_id={st['node_id']}"
     log(msg); console(p, msg)
+    boot_pw = ensure_boot_lock(p)
+    if boot_pw:
+        console(p, f"ONEMIND BOOT MENU PASSWORD (user {BOOT_USER}, shown once, only its hash is stored): {boot_pw}")
+        run_dir(p)
+        write(os.path.join(p.run, "boot-menu-password"), boot_pw + "\n")   # tmpfs: for the recovery kit, gone at reboot
     if owner:
         console(p, "ONEMIND-FIRSTBOOT: the owner token below is shown once; only its sha256 is stored.")
         console(p, f"ONEMIND OWNER TOKEN: {owner}")
@@ -1038,7 +1184,7 @@ def _mesh(p: Paths, st: dict, sleep) -> str:
         log("mesh: gateway Headscale API key written")
     # 9. NATS gets its leaf listener; the gateway its mesh settings. Restart what changed.
     changed = []
-    if write(os.path.join(p.etc, "nats.conf"), hub_nats_conf(ip)):
+    if write(os.path.join(p.etc, "nats.conf"), hub_nats_conf(ip, jetstream_max_bytes(p))):
         changed.append("onemind-nats.service")
     if write(os.path.join(p.etc, "gateway.env"), gateway_env(p, st, ip)):
         changed.append("onemind-gateway.service")

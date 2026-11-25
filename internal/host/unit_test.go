@@ -199,7 +199,7 @@ func TestHostUnitSandbox(t *testing.T) {
 		"PrivateTmp=yes", "PrivateDevices=no", "DevicePolicy=closed", "DeviceAllow=block-* r", "ProtectKernelTunables=yes", "ProtectKernelModules=yes",
 		"ProtectControlGroups=yes", "RestrictSUIDSGID=yes", "MemoryDenyWriteExecute=yes", "RestrictNamespaces=yes",
 		"SystemCallFilter=~@privileged", "UMask=0022", "Requires=onemind-host.socket", "AmbientCapabilities=", "RequiresMountsFor=/data",
-		"RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX"} {
+		"RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK"} {
 		key, val, _ := strings.Cut(k, "=")
 		found := false
 		for _, v := range u[key] {
@@ -272,7 +272,16 @@ func TestFactoryResetUnitOrdering(t *testing.T) {
 		t.Error("onemind-data-check must refuse while a marker exists")
 	}
 	cf, _ := os.ReadFile("../../os/rootfs/Containerfile")
-	if !strings.Contains(string(cf), "onemind-factory-reset.service >/dev/null") {
+	// Units are enabled by `systemctl enable a b c >/dev/null`, possibly joined to others and across
+	// continuation lines; collect every enabled unit and require the wipe unit among them.
+	enabled := map[string]bool{}
+	joined := strings.ReplaceAll(string(cf), "\\\n", " ")
+	for _, m := range regexp.MustCompile(`systemctl enable ([^;&|>]*)`).FindAllStringSubmatch(joined, -1) {
+		for _, u := range strings.Fields(m[1]) {
+			enabled[u] = true
+		}
+	}
+	if !enabled["onemind-factory-reset.service"] {
 		t.Error("the image does not enable the wipe unit")
 	}
 }

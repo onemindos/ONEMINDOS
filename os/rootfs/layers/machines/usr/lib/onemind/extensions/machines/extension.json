@@ -1,0 +1,13 @@
+{
+  "schema": "onemind.extension/v1",
+  "name": "machines",
+  "note": "Pinned KubeVirt and CDI release manifests, fetched at image build by os/rootfs/fetch-machines.sh. The gateway re-checks each sha256 before it applies anything. Both projects are Apache-2.0 (LICENSE read at the pinned tags). The same pins are in os/versions.lock.yaml, machines_extension.",
+  "kubevirt": "v1.9.1",
+  "cdi": "v1.66.1",
+  "files": {
+    "kubevirt-operator.yaml": "9ac45a436c49d32e6fc21d542bcb7600b970705297b9e6752f3ef9b0a1d292da",
+    "kubevirt-cr.yaml": "43106136dbce3312bdbfdeae612aacafc6c12da518d233f90645b4685d84a2af",
+    "cdi-operator.yaml": "c7d92bd1b2ee1a3952a5990000437c08d58109f31c0bd48ab6188ec27a13e224",
+    "cdi-cr.yaml": "a497f90de608c1df26f9ee4095289373f17132d74a2042ca03e00c17c964f8a7"
+  }
+}

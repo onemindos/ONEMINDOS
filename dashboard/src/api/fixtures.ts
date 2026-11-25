@@ -184,6 +184,38 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
     },
     {
       ...base,
+      id: 'firefox',
+      icon: '/mock-icons/firefox.svg', // demo drawing (public/mock-icons); real hubs carry the manifest's own icon
+      name: 'Firefox',
+      version: '3.2.0',
+      description: 'Firefox in a window you open from the dashboard, streamed from your box with Neko. One profile that stays on the box.',
+      category: 'developer',
+      license: 'Apache-2.0',
+      source: 'https://github.com/m1k1o/neko',
+      requires: { gpu: false, minMemoryMb: 1024 },
+      web_port: 8080,
+      links: { docs: 'https://neko.m1k1o.net/', website: 'https://www.mozilla.org/firefox/', ...gh('m1k1o/neko') },
+      tier: 'verified', // demo state after the gate passes; the Discover page hides community-tier apps by default,
+      scan: { scanned_at: iso(now, 86400), result: 'pass' },
+    },
+    {
+      ...base,
+      id: 'chromium',
+      icon: '/mock-icons/chromium.svg', // demo drawing (public/mock-icons); real hubs carry the manifest's own icon
+      name: 'Chromium',
+      version: '3.2.0',
+      description: 'Chromium in a window you open from the dashboard, streamed from your box with Neko. One profile that stays on the box.',
+      category: 'developer',
+      license: 'Apache-2.0',
+      source: 'https://github.com/m1k1o/neko',
+      requires: { gpu: false, minMemoryMb: 1024 },
+      web_port: 8080,
+      links: { docs: 'https://neko.m1k1o.net/', website: 'https://www.chromium.org/', ...gh('m1k1o/neko') },
+      tier: 'verified', // demo state after the gate passes; the Discover page hides community-tier apps by default,
+      scan: { scanned_at: iso(now, 86400), result: 'pass' },
+    },
+    {
+      ...base,
       id: 'ollama',
       icon: '/mock-icons/ollama.svg', // demo drawing (public/mock-icons); real hubs carry the manifest's own icon
       name: 'Ollama',

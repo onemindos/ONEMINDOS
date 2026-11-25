@@ -16,20 +16,25 @@ import {
   buildPaletteCommands,
   formatAgo,
   pushRecentCommand,
+  useToast,
 
-  usePaletteHotkey,
   type NavItem,
   type PaletteCommand,
 } from '@onemind/ui';
 import { isServerId, mergeNotifications, SERVER_PREFIX } from '../data/notificationFeed';
 import { useNotificationFeed } from '../data/useNotificationFeed';
+import { useDownloadToasts } from '../data/useDownloadToasts';
 import { activityFrom, notificationsFrom, toActionSummary, toPaletteApp } from '../data/adapters';
 import { ActionJobs, jobsStackStyle } from './ActionJobs';
 import { useHub } from '../data/hub';
 import { useAppRequest } from './useAppRequest';
+import { useRecordVisit } from '../data/homeRecent';
 import { homeLayoutStore, personList } from '../data/prefs';
+import { useKeymap } from './keys/useKeymap';
 import { DesktopShell, type DockApp } from './DesktopShell';
 import { useLayoutMode, type LayoutMode } from './layoutMode';
+import { QuickSettings } from './quick/QuickSettings';
+import { effectiveView, useViewChoice } from './quick/viewPref';
 import { brand } from '../brand.generated';
 import { useSignedIn } from '../session';
 import { navItems } from '../screens/registry';
@@ -74,14 +79,17 @@ export function Shell({ children }: { children: ReactNode }) {
 
   const [layout, setLayout] = useLayoutMode(person);
 
-  usePaletteHotkey(() => setPaletteOpen(true));
+  useKeymap({ palette: () => setPaletteOpen(true) });
 
   // A real gateway session does not carry the role, so ask GET /v1/me once. If that fails the
   // view falls back to Simple (fail closed): the Pro screens are offered only to a known role.
   const me = usePoll(() => (principal ? Promise.resolve(null) : client.me()), 0);
   const displayName = useDisplayName();
   const role = roleOf(principal, me.data ?? undefined);
-  const view = viewFor(role === undefined && me.error ? null : role);
+  // The role decides Pro; the person may narrow it to Simple (quick settings), never widen it.
+  const [viewChoice, setViewChoice] = useViewChoice(person);
+  const view = effectiveView(viewFor(role === undefined && me.error ? null : role), viewChoice);
+  const recordVisit = useRecordVisit(view, role);
   // A failed lookup is retried with backoff, then slowly, so a network hiccup does not leave an
   // owner in the Simple view until a reload. Stops once /v1/me answers.
   const meTries = useRef(0);
@@ -97,7 +105,10 @@ export function Shell({ children }: { children: ReactNode }) {
 
   const go = (link: string) => {
     const to = toRoute(link);
-    if (to) navigate(to);
+    if (!to) return false;
+    recordVisit(to);
+    navigate(to);
+    return true;
   };
 
 
@@ -105,6 +116,9 @@ export function Shell({ children }: { children: ReactNode }) {
   const apps = hub.apps.data ?? [];
   const pending = hub.actionList.filter((a) => a.state === 'awaiting_approval');
   const feed = useNotificationFeed();
+  const toast = useToast();
+  // #693: a browser download that passed quarantine and reached Files shows once as a toast.
+  useDownloadToasts(feed.notifications, (t) => toast.show({ tone: 'ok', ...t }), () => navigate('/files'));
   const notifications = useMemo(
     () => mergeNotifications(feed.notifications, feed.alerts, notificationsFrom(hub.actionList, nodes.map((n) => ({ ...n, status: hub.nodeStatus(n) })), hub.appName, read), read),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -137,9 +151,9 @@ export function Shell({ children }: { children: ReactNode }) {
         nodes: nodes.map((n) => ({ ...n, status: hub.nodeStatus(n) })),
         pending: pending.map((a) => toActionSummary(a, hub.appName)),
         canApprove: hub.canDecide !== 'no',
-      }).filter((c) => paletteShows(c, view)),
+      }).filter((c) => paletteShows(c, view, role)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [hub.apps.data, hub.nodes.data, hub.actionList, hub.canDecide, view],
+    [hub.apps.data, hub.nodes.data, hub.actionList, hub.canDecide, view, role],
   );
   const runCommand = (c: PaletteCommand) => {
     setPaletteOpen(false);
@@ -155,7 +169,8 @@ export function Shell({ children }: { children: ReactNode }) {
 
   const waiting = pending.length;
   const allNav: NavItem[] = navItems(waiting);
-  const nav = allNav.filter((item) => showsNav(item.id, view));
+  // Troubleshoot is owner-only on the hub (system:admin); hidden once we know this principal is not an owner.
+  const nav = allNav.filter((item) => showsNav(item.id, view, role) && !(item.id === 'troubleshoot' && hub.canDecide === 'no'));
 
   // Route plain in-app links from ui components through the router (no reload).
   const onClickCapture = (e: MouseEvent<HTMLDivElement>) => {
@@ -164,10 +179,7 @@ export function Shell({ children }: { children: ReactNode }) {
     if (!a || a.target || a.hasAttribute('download')) return;
     const raw = a.getAttribute('href') ?? '';
     if (raw === '#om-main' || raw.startsWith('#om')) return;
-    const to = toRoute(raw);
-    if (!to) return;
-    e.preventDefault();
-    navigate(to);
+    if (go(raw)) e.preventDefault();
   };
 
   const status =
@@ -179,6 +191,8 @@ export function Shell({ children }: { children: ReactNode }) {
 
   const boxName = hub.instance.data?.name ?? brand.shortName;
   const bell = (
+    <>
+    <QuickSettings role={role} view={view} viewChoice={viewChoice} onViewChoice={setViewChoice} />
     <NotificationBell
       items={notifications}
       now={hub.now}
@@ -194,6 +208,7 @@ export function Shell({ children }: { children: ReactNode }) {
       allHref={href.activity}
       settingsHref={href.setting('notifications')}
     />
+    </>
   );
   const account = (
     <>
@@ -270,10 +285,10 @@ export function Shell({ children }: { children: ReactNode }) {
 }
 
 /** A palette command is offered when it leads to a screen this view shows (Pro screens: roles.ts). */
-export function paletteShows(c: PaletteCommand, view: View): boolean {
+export function paletteShows(c: PaletteCommand, view: View, role?: string | null): boolean {
   if (!c.href) return true;
   const to = toRoute(c.href);
-  return to === undefined || showsNav(navId(to.split('?')[0] ?? '/'), view);
+  return to === undefined || showsNav(navId(to.split('?')[0] ?? '/'), view, role);
 }
 
 /** Activity entries are needed by Home and Activity; computed once per actions answer. */

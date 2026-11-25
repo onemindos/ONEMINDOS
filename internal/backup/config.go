@@ -174,6 +174,9 @@ type AppSpec struct {
 	// VolumeSQLite are SQLite databases inside a volume, copied with the
 	// online backup into the unit's staging directory.
 	VolumeSQLite []VolumeFile `json:"volume_sqlite,omitempty"`
+	// Content says whether the app's re-downloadable content (content.go)
+	// is in its snapshots: included or excluded, tagged content=<value>.
+	Content string `json:"content,omitempty"`
 }
 
 // VolumeRef names a local-path volume: <root>/<Volume>_<Namespace>_<Claim>.

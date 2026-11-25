@@ -12,8 +12,11 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (rss) are listed in README.md
   # until the schema has metadata.tags.
   category: news
+  age_rating: 12   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Reads news feeds from the open internet; the feeds are the user's choice."
   icon: icon.svg
   license: "AGPL-3.0"
+  licenceClass: L2
   source: https://github.com/FreshRSS/FreshRSS
   links:
     docs: "https://freshrss.github.io/FreshRSS/"

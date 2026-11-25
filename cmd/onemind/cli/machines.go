@@ -14,7 +14,7 @@ import (
 )
 
 // machinesCommands is `onemind machines` (MACH-01, #281): which boxes can run virtual machines, the
-// machines there are, and requests to create, start, stop and delete one. Every change is a request
+// machines there are, and requests to create, start, stop, restart, force off, snapshot, clone and delete one. Every change is a request
 // that waits for an owner (`onemind actions approve ID`); this command never approves, so an agent
 // token can use it and still never actuate (docs/umbrel2/machines.md §5).
 func machinesCommands(a *App) []*cobra.Command {
@@ -60,6 +60,21 @@ func machinesCommands(a *App) []*cobra.Command {
 			return a.machineRequest("machine.delete", map[string]any{"name": args[0], "confirm": confirm})
 		}}
 	del.Flags().StringVar(&confirm, "confirm", "", "the machine's name again; deleting erases its disk")
+	var snap string
+	snapshot := &cobra.Command{Use: "snapshot NAME", Short: "Request a snapshot of a machine's disk (an owner approves)", Args: cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			return a.machineRequest("machine.snapshot", map[string]any{"name": args[0], "snapshot": snap})
+		}}
+	snapshot.Flags().StringVar(&snap, "snapshot", "", "a name for this snapshot")
+	_ = snapshot.MarkFlagRequired("snapshot")
+	snapshots := &cobra.Command{Use: "snapshots NAME", Short: "The snapshots of one machine and how consistent each is", Args: cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			return get("/v1/machines/" + url.PathEscape(args[0]) + "/snapshots")
+		}}
+	clone := &cobra.Command{Use: "clone SOURCE NEW_NAME", Short: "Request a copy of a stopped machine (counts against the quota; an owner approves)", Args: cobra.ExactArgs(2),
+		RunE: func(_ *cobra.Command, args []string) error {
+			return a.machineRequest("machine.clone", map[string]any{"source": args[0], "name": args[1]})
+		}}
 	console := &cobra.Command{Use: "console NAME", Short: "A one-minute console ticket (owners only)", Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			c, _, err := a.client()
@@ -72,7 +87,12 @@ func machinesCommands(a *App) []*cobra.Command {
 			}
 			return printJSON(a.Stdout, raw)
 		}}
-	root.AddCommand(list, caps, info, create, ref("start"), ref("stop"), del, console)
+	forceStop := ref("force-stop")
+	forceStop.Short = "Request to cut a machine's power at once, without a clean shutdown (an owner approves)"
+	forceStop.RunE = func(_ *cobra.Command, args []string) error {
+		return a.machineRequest("machine.force_stop", map[string]any{"name": args[0]})
+	}
+	root.AddCommand(list, caps, info, create, ref("start"), ref("stop"), ref("restart"), forceStop, snapshot, snapshots, clone, del, console)
 	return []*cobra.Command{root}
 }
 

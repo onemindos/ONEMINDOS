@@ -11,7 +11,7 @@ WHAT=$1; ARCH=$2; DEST=$3
 GO_VERSION=1.26.11
 NODE_VERSION=v24.22.3
 UV_VERSION=0.13.7
-NATS_VERSION=v2.15.2
+NATS_VERSION=v2.15.3
 TAILSCALE_VERSION=1.104.6
 HEADSCALE_VERSION=0.29.7
 RESTIC_VERSION=0.19.1
@@ -22,10 +22,10 @@ node-amd64) URL=https://nodejs.org/dist/$NODE_VERSION/node-$NODE_VERSION-linux-x
 node-arm64) URL=https://nodejs.org/dist/$NODE_VERSION/node-$NODE_VERSION-linux-arm64.tar.gz; SHA=261af2af250dfd7e9f25cf151d1b2713a0adf8f10a9ad116c4947f68627affe8 ;;
 uv-amd64)   URL=https://github.com/astral-sh/uv/releases/download/$UV_VERSION/uv-x86_64-unknown-linux-gnu.tar.gz;  SHA=c5221ff41b7892bfc223543883600125f6a47fe845093e0f5bdff4f359196d83 ;;
 uv-arm64)   URL=https://github.com/astral-sh/uv/releases/download/$UV_VERSION/uv-aarch64-unknown-linux-gnu.tar.gz; SHA=71279f8d3c67241e807b9d8db872d1bf541579fb9f08b7d1eb1682196d1e57dc ;;
-nats-amd64) URL=https://github.com/nats-io/nats-server/releases/download/$NATS_VERSION/nats-server-$NATS_VERSION-linux-amd64.tar.gz; SHA=67cb8e10bc6f0c4b47f75a728529a20953dbae2a4f9a4a52ae8517d65ae303ff
-            BIN_SHA=33f3fe3fed80b2b229bd9fe4b735257ad8583cd2349452a0c74f3d768b593e66 ;;
-nats-arm64) URL=https://github.com/nats-io/nats-server/releases/download/$NATS_VERSION/nats-server-$NATS_VERSION-linux-arm64.tar.gz; SHA=bc2c788dcbf2849af749564e06a0d48c19bced851f2d68a2e21c54d078949b28
-            BIN_SHA=9f03b5f7b53b1d3dd3474dce5744b4b55149ceafd8bbeded0ae4c27695c4aeb4 ;;
+nats-amd64) URL=https://github.com/nats-io/nats-server/releases/download/$NATS_VERSION/nats-server-$NATS_VERSION-linux-amd64.tar.gz; SHA=32e18c1e78d7ef4f86e483070eef3abb2647c3d4d67e29668077c7ad81da0797
+            BIN_SHA=c1a56aca1f0210120dd816a345a7da7561ad0adee9bcac59e1be5d7d111031f2 ;;
+nats-arm64) URL=https://github.com/nats-io/nats-server/releases/download/$NATS_VERSION/nats-server-$NATS_VERSION-linux-arm64.tar.gz; SHA=4a2088b3ec7103bf79d6484f55e80ab5d10204811d9ae6f7a33e8544d98dd45d
+            BIN_SHA=164cd17d29ed9ec762140c7389bc7d5e0d5bde04da1bad880fc276311c1dcc0b ;;
 tailscale-amd64) URL=https://pkgs.tailscale.com/stable/tailscale_${TAILSCALE_VERSION}_amd64.tgz; SHA=82a85429f733e52fd1a95dedb2c8dd8cd46d6603504e566a56b1779c9a7a4809
             BIN_SHA=a781895a86932424dce380c8b445c77b8568dd2248a7fed20ba77ce3cb221185
             BIN2_SHA=01106e93593dfe01ba6d8615ba5de40222ce3e54797525cc66ef7795f682c216 ;;

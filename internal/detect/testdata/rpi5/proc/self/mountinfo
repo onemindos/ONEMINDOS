@@ -1,0 +1,2 @@
+22 1 179:2 / / rw,noatime shared:1 - ext4 /dev/root rw
+23 22 0:21 / /proc rw - proc proc rw

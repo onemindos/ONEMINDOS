@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/onemindos/onemindos/internal/storage"
+	"github.com/onemindos/onemindos/internal/storage/netmount"
 )
 
 // Server is onemindd's local storage API on a Unix socket (storage.md §4.8:
@@ -29,12 +30,14 @@ import (
 //	GET  /v1/operations          recent operations
 //	GET  /v1/operations/{id}     one operation (journal)
 //	POST /v1/recovery-key/take   the pending recovery key, once (H-11)
+//	/v1/netmounts...             NAS shares as Files locations (netmount.Routes; off when Net is nil)
 type Server struct {
 	E               *Engine
-	RecoveryKeyFile string        // default storage.RecoveryKeyFile
-	AllowUID        int           // besides root; -1 none
-	AllowGID        int           // -1 none
-	HealthEvery     time.Duration // SMART is read at most this often (default 10 min, storage.md §4.7)
+	Net             *netmount.Manager // NAS mounts (#718); nil leaves the routes off
+	RecoveryKeyFile string            // default storage.RecoveryKeyFile
+	AllowUID        int               // besides root; -1 none
+	AllowGID        int               // -1 none
+	HealthEvery     time.Duration     // SMART is read at most this often (default 10 min, storage.md §4.7)
 
 	mu       sync.Mutex
 	health   map[string]storage.Health
@@ -254,6 +257,9 @@ func (s *Server) Handler() http.Handler {
 		}
 		writeJSON(w, http.StatusOK, map[string]string{"recovery_key": key})
 	})
+	if s.Net != nil {
+		s.Net.Routes(mux)
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !s.peerAllowed(r) {
 			apiError(w, http.StatusForbidden, "permission_denied", "this socket serves root and the gateway only", nil)

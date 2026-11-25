@@ -115,6 +115,12 @@ def bundle_sha256(app: AppEntry) -> str | None:
     files = [app.dir / "onemind.app.yaml"]
     if root.is_dir():
         files += sorted(p for p in root.rglob("*") if p.is_file() and not p.is_symlink())
+    if "extensions" in (app.manifest.get("spec") or {}):
+        from .plugins.bundle import fingerprint_files
+        try:
+            files += fingerprint_files(app)
+        except (OSError, ValueError, TypeError):
+            return None
     base = app.dir.resolve()
     for p in files:
         try:
@@ -142,8 +148,42 @@ _SUMMARY = {
 OPENS_PATHS = frozenset({"app.install", "app.update", "app.configure"})
 
 
+def _plugin_grants(app: AppEntry) -> list[str]:
+    """The scopes a plugin principal's token would carry, or [] for a non-plugin app."""
+    if not (app.manifest.get("spec") or {}).get("plugin"):
+        return []
+    from .plugins.workload import declaration
+    try:
+        parsed = declaration(app)
+    except ValueError:
+        return []  # the app check refuses an invalid declaration before anything is issued
+    return parsed[1] if parsed else []
+
+
+def plugin_tools(app: AppEntry) -> list[dict]:
+    """Each declared REST tool with its declared effect, sorted. The owner approves these labels."""
+    tools = ((app.manifest.get("spec") or {}).get("extensions") or {}).get("tools")
+    rows = []
+    for item in tools if isinstance(tools, list) else []:
+        if isinstance(item, dict) and isinstance(item.get("name"), str):
+            rows.append({"name": item["name"], "effect": str(item.get("effect")),
+                         "rest": bool((item.get("exposure") or {}).get("rest"))
+                         if isinstance(item.get("exposure"), dict) else False})
+    return sorted(rows, key=lambda r: r["name"])
+
+
+def _describe_grant(grant: str) -> str:
+    prefix = "actions:request:"
+    if grant.startswith(prefix):
+        return f"may ask for the action {grant[len(prefix):]}, which still needs your approval"
+    return {"actions:read:own": "may read the status of its own requests",
+            "apps:read": "may read the list of apps", "nodes:read": "may read the list of machines"
+            }.get(grant, f"holds the grant {grant}")
+
+
 def render_plan(action_type: str, params: dict, app: AppEntry, runtime: AppRuntime | None, status: str | None,
-                network: tuple[list[dict], list[str]] | None = None) -> dict:
+                network: tuple[list[dict], list[str]] | None = None,
+                streams: list[dict] | None = None, sched: dict | None = None) -> dict:
     """The plan for one action, with `plan_sha256`. Pure: no cluster call, no write.
 
     network: (paths, warnings) from the dependency resolver (§12.22); an app without dependencies
@@ -176,6 +216,21 @@ def render_plan(action_type: str, params: dict, app: AppEntry, runtime: AppRunti
         volumes.append({"kind": "PersistentVolumeClaim", "namespace": ns, "selector": "all", "effect": "deleted"})
         obj["namespace"] = ns
         warnings.append("All files and databases of this app are deleted. There is no undo.")
+    if action_type in ("app.install", "app.update"):
+        grants = _plugin_grants(app)
+        if grants:
+            # Hashed with the plan: the owner approves these exact grants, and a different set
+            # is a different plan. They are what the plugin's own token can later request.
+            obj["plugin_grants"] = grants
+            for grant in grants:
+                warnings.append(f"Plugin permission: {_describe_grant(grant)}.")
+            tools = plugin_tools(app)
+            if tools:
+                obj["plugin_tools"] = tools  # hashed: a flipped effect is a different plan
+                for tool in tools:
+                    warnings.append(f"Plugin tool {tool['name']} ({tool['effect']}): " + (
+                        "runs at once with no approval, so only approve it if it truly changes nothing."
+                        if tool["effect"] == "read" else "waits for your approval each time it is used."))
     paths: list[dict] = []
     if network is not None and action_type in OPENS_PATHS:
         paths, net_warnings = network
@@ -185,13 +240,28 @@ def render_plan(action_type: str, params: dict, app: AppEntry, runtime: AppRunti
             warnings.append(f"Opens a network path: {path['from']} → {path['to']} on TCP {path['port']} "
                             f"(needs {path['requirement']}).")
         warnings.extend(net_warnings)
+    if streams and action_type in ("app.install", "app.update"):
+        obj["streams"] = streams  # hashed: a different limit or subject is a different plan
+        for s in streams:
+            warnings.append(f"Creates an event stream on the hub: {s['name']} keeps up to {s['max_bytes']} bytes "
+                            f"for {s['max_age_s']} seconds on {', '.join(s['subjects'])}; the oldest events are dropped at the limit.")
+    nodes: list[dict] = []
+    if sched and action_type in ("app.install", "app.update"):
+        obj["placement"] = sched  # hashed: another machine or GPU request is a different plan
+        nodes.append({"node_id": sched["node_id"], "pinned": sched["pin"], "gpu": sched["gpu"]})
+        if sched["pin"]:
+            warnings.append(f"Runs on machine {sched['node_id']}, not the hub: the pods are pinned to it.")
+        elif sched["node_id"] and sched["gpu"] is None:
+            warnings.append(f"Best machine is {sched['node_id']}, but it reported no hostname, so the pods are not pinned.")
+        if sched["gpu"]:
+            warnings.append(f"Uses {sched['gpu']['count']} graphics card(s) on machine {sched['node_id']}.")
     if bundle is None:
         warnings.append("The app's manifest folder could not be read.")
     objects = [obj]
     target = {"kind": "app", "id": app.id}
     plan = {
         "summary": _SUMMARY[action_type].format(name=name, to=to_version or "", frm=frm or "the current version"),
-        "objects": objects, "images": [], "volumes": volumes, "nodes": [], "warnings": warnings,
+        "objects": objects, "images": [], "volumes": volumes, "nodes": nodes, "warnings": warnings,
         "app_status": status or "not_installed",
     }
     if paths:
@@ -242,6 +312,8 @@ class ExecContext:
     # closes the ones its own onemind-dependencies policy names but these do not; app.remove closes all).
     dependency_paths: tuple[tuple[str, int], ...] = ()
     dependency_sync: bool = False
+    # CORE-FABRIC-4 (#171): placement.schedule for an install or update (pin to a machine, GPU request).
+    placement: dict | None = None
 
 
 # ---- sealed credentials (PD-07) ----------------------------------------------------------

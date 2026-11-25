@@ -110,9 +110,9 @@ describe('fixtures (contract §2–§4)', () => {
     }
   });
 
-  it('have ten apps with the §11.4 fields', () => {
+  it('have twelve apps with the §11.4 fields', () => {
     const apps = makeApps();
-    expect(apps).toHaveLength(10);
+    expect(apps).toHaveLength(12);
     for (const a of apps) {
       expect(Object.keys(a.links).sort()).toEqual(['docs', 'github', 'support', 'website']);
       expect([null, 'verified', 'community', 'blocked']).toContain(a.tier);

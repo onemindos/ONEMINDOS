@@ -12,6 +12,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"math/big"
+	mrand "math/rand/v2"
 	"net"
 	"net/http"
 	"os"
@@ -23,6 +24,7 @@ import (
 
 	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"github.com/nats-io/nkeys"
 )
 
@@ -89,8 +91,19 @@ func (p *pki) issue(t *testing.T, name string, server bool) (string, string) {
 	return c, k
 }
 
+// freePort picks a port a lab server listens on a moment later. It comes from below the kernels'
+// ephemeral ranges (Linux 32768-60999, macOS 49152-65535): a port 0 pick is an ephemeral port, which
+// any outgoing connection on a busy CI machine may take before the server binds it ("server not
+// ready"); a port from 20000-32767 is never handed to an outgoing connection.
 func freePort(t *testing.T) int {
 	t.Helper()
+	for i := 0; i < 200; i++ {
+		port := 20000 + mrand.IntN(12768)
+		if l, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port)); err == nil {
+			l.Close()
+			return port
+		}
+	}
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -117,9 +130,25 @@ func startServer(t *testing.T, conf string) *server.Server {
 		t.Fatalf("config %s: %v", filepath.Base(conf), err)
 	}
 	opts.NoSigs, opts.NoLog = true, true
+	// ONEMIND_LAB_LOGDIR=<dir> keeps a debug log of every lab server and copies those of a failed
+	// test into <dir> (for chasing a flaky lab run; off in CI).
+	logDir := os.Getenv("ONEMIND_LAB_LOGDIR")
+	if logDir != "" {
+		opts.NoLog, opts.Debug, opts.Logtime = false, true, true
+		opts.LogFile = conf + ".log"
+	}
 	s, err := server.NewServer(opts)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if logDir != "" {
+		s.ConfigureLogger()
+		t.Cleanup(func() {
+			if t.Failed() {
+				b, _ := os.ReadFile(opts.LogFile)
+				_ = os.WriteFile(filepath.Join(logDir, fmt.Sprintf("%d-%s.log", time.Now().UnixNano(), opts.ServerName)), b, 0o600)
+			}
+		})
 	}
 	go s.Start()
 	if !s.ReadyForConnections(10 * time.Second) {
@@ -343,10 +372,13 @@ func TestRenderGolden(t *testing.T) {
 server_name: "node-3f9c2a1b7d4e"
 listen: "127.0.0.1:4222"
 http: "127.0.0.1:8222"
+ping_interval: "15s"
+ping_max: 2
 jetstream {
   store_dir: "/data/onemind/nats"
   domain: "node-3f9c2a1b7d4e"
   max_file_store: 256MB
+  max_memory_store: 0
 }
 leafnodes {
   remotes: [
@@ -401,6 +433,65 @@ func TestValidateRejects(t *testing.T) {
 	}
 	if _, err := validConfig().Render("/etc/other/leaf.conf"); err == nil {
 		t.Error("nkey file outside the config directory accepted")
+	}
+}
+
+// #601: a leaf config without max_memory_store: 0 (or without a file cap) is refused, so the
+// leaf's JetStream can never grow in RAM.
+func TestCheckConfRefusesUncappedJetStream(t *testing.T) {
+	good, err := validConfig().Render("/etc/onemind/nats/leaf.conf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := CheckConf(good); err != nil {
+		t.Fatalf("rendered config refused: %v", err)
+	}
+	ok := []string{
+		"jetstream { store_dir: \"/x\", domain: \"node-n1\", max_file_store: 256MB, max_memory_store: 0 }\n",
+		"jetstream {\n  max_file_store = 268435456\n  max_memory_store = 0B\n}\n",
+	}
+	for _, c := range ok {
+		if err := CheckConf([]byte(c)); err != nil {
+			t.Errorf("%q refused: %v", c, err)
+		}
+	}
+	bad := map[string]string{
+		"no memory cap":      strings.Replace(string(good), "  max_memory_store: 0\n", "", 1),
+		"memory not zero":    strings.Replace(string(good), "max_memory_store: 0", "max_memory_store: 1GB", 1),
+		"no file cap":        strings.Replace(string(good), "  max_file_store: 256MB\n", "", 1),
+		"file cap zero":      strings.Replace(string(good), "max_file_store: 256MB", "max_file_store: 0", 1),
+		"alias hides value":  strings.Replace(string(good), "max_memory_store: 0", "max_memory_store: 0\n  max_mem: 2GB", 1),
+		"no jetstream block": strings.Replace(string(good), "jetstream {", "jetstream_off {", 1),
+		"jetstream enabled":  "jetstream: enabled\n",
+		"two blocks":         string(good) + "jetstream { max_file_store: 1GB, max_memory_store: 0 }\n",
+		"lab config of #472": "jetstream { store_dir: \"/x\", domain: \"node-n1\", max_file_store: 256MB }\n",
+	}
+	for name, c := range bad {
+		if err := CheckConf([]byte(c)); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+}
+
+// #601: the rendered leaf.conf, run by a real nats-server, refuses memory streams and keeps the
+// outbox (a file stream) working.
+func TestRenderedLeafRefusesMemoryStreams(t *testing.T) {
+	dir := t.TempDir()
+	seed, pub := userKey(t)
+	hub := startHub(t, dir, pub)
+	n := nodeConfig(t, dir, hub, seed, hub.pki.caFile, true)
+	if _, err := Apply(n.confPath, n.cfg); err != nil {
+		t.Fatal(err)
+	}
+	startServer(t, n.confPath)
+	js := connectJS(t, "nats://"+n.cfg.Listen)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	if _, err := js.CreateStream(ctx, jetstream.StreamConfig{Name: "MEM", Subjects: []string{"mem.>"}, Storage: jetstream.MemoryStorage}); err == nil {
+		t.Fatal("the leaf accepted a memory stream: max_memory_store 0 is not in effect")
+	}
+	if err := EnsureOutbox(ctx, js, OutboxConfig{}); err != nil {
+		t.Fatalf("the outbox (file storage) must still work: %v", err)
 	}
 }
 

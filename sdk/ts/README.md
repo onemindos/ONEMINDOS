@@ -14,6 +14,18 @@ await om.events.subscribe({ types: ["action.*"], signal }, (e) => console.log(e.
 
 The token goes only in the `Authorization` header (the event stream uses streaming `fetch`, not `EventSource`, for that reason). Regenerate with `make -C sdk gen`; test with `make -C sdk test-ts`.
 
+### Live events across browser windows
+
+Dashboard windows on the same origin share one gateway connection per hub and bearer session. An ordinary `om.events.subscribe({ signal }, handler)` joins that connection. Use `subscribeShared` to filter the shared feed locally.
+
+```ts
+await om.events.subscribeShared({ kind: "camera", area: "kitchen", signal }, onEvent);
+```
+
+`kind` selects an asset kind or event domain such as `node`. `area` selects an `area_id`. For map windows, `bbox` accepts west, south, east and north in degrees. Every subscriber receives `stream.reset` so it can refresh its view. Aborting a subscription releases its resources. Another window takes over if the connected window closes.
+
+Sharing requires a fixed bearer token, Web Locks, BroadcastChannel and a secure context such as HTTPS or localhost. The ordinary subscription uses a dedicated stream in other environments and with rotating token providers, server-side `types`, historical replay, custom silence timeouts or custom transports. A shared subscriber whose handler falls 128 events behind receives a `slow_subscriber` error and can reload its view.
+
 ### Agent apps and the box CA
 
 `OneMind.fromEnv()` reads the agent Secret (`ONEMIND_GATEWAY_URL`, `ONEMIND_AGENT_TOKEN`). When `ONEMIND_GATEWAY_CA` (the box CA as PEM text) is also set, the client verifies TLS against that CA only, on Node, through a small `node:https` fetch (no extra dependency; verification is never disabled). A `fetch` passed in `extra` replaces it. Browsers and React Native do not use this variable: install the box CA in the device instead.

@@ -1,0 +1,325 @@
+# SPDX-License-Identifier: Apache-2.0
+# App factory (first slice): rebuild an app's image on a patched, digest-pinned base when upstream has a
+# new release (or the base moved, or the last build is a week old), run OneMind's own gate on the result and
+# open one pull request per app for independent review. Recipes: apps/<id>/factory.yaml. Tool: sdk/tools/app-factory.
+# Shape (same trust split as apps-rescan.yml):
+#   plan    asks upstream what is new; read-only
+#   build   the only job that can write packages; builds and pushes the image to ghcr.io/onemindos/apps/<id>
+#           with the workflow's own GITHUB_TOKEN (no registry secret exists or is needed); runs no app code
+#   verify  read-only token: the existing gate (scan, secrets, ClamAV, licence) plus the install smoke test on a
+#           throwaway k3d cluster, on the rebuilt image
+#   publish writes the branch and the pull request; runs no app code; takes only allow-listed files from artifacts
+# Runners: OneMind's own runner when the repository variable LOCAL_RUNNER is on, else GitHub-hosted (never hosted-only).
+# Secrets used (names only): none beyond GITHUB_TOKEN. Optional DOCKERHUB_USERNAME / DOCKERHUB_TOKEN for pull limits.
+# One-time setup the first run needs: the ghcr.io/onemindos/apps/* packages must be public so a box can pull them
+# without credentials (organisation settings, Packages); until then the smoke test cannot pull and the PR says so.
+name: app-factory
+
+on:
+  schedule:
+    - cron: "47 4 * * *"
+  workflow_dispatch:
+    inputs:
+      apps:
+        description: "Space-separated app ids (empty: every app that has a recipe)"
+        required: false
+        default: ""
+      force:
+        description: "Rebuild even when nothing changed upstream"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-factory
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      todo: ${{ steps.plan.outputs.todo }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        if: runner.environment == 'github-hosted'
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+
+      - name: Install tools
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check -r sdk/tools/requirements.txt
+          sdk/tools/ci/install-tools.sh "$RUNNER_TEMP/bin" crane
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Validate every recipe, then ask upstream what is new
+        id: plan
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          APPS: ${{ inputs.apps }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          set -euo pipefail
+          for a in $APPS; do grep -qE '^[a-z0-9][a-z0-9-]*$' <<<"$a" || { echo "bad app id: $a" >&2; exit 1; }; done
+          python3 -I sdk/tools/app-factory check $APPS
+          flag=""; [ "$FORCE" = "true" ] && flag="--force"
+          python3 -I sdk/tools/app-factory plan $flag $APPS > "$RUNNER_TEMP/plan.json"
+          jq -r '.[] | "\(.app): \(.action): \(.reason)"' "$RUNNER_TEMP/plan.json"
+          echo "todo=$(jq -c '[.[] | select(.action == "rebuild")]' "$RUNNER_TEMP/plan.json")" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: plan
+    if: needs.plan.outputs.todo != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false   # one app's failed rebuild must not stop the others
+      max-parallel: 4
+      matrix:
+        item: ${{ fromJSON(needs.plan.outputs.todo) }}
+    env:
+      APP: ${{ matrix.item.app }}
+      TAG: ${{ matrix.item.tag }}
+      REVISION: ${{ matrix.item.revision }}
+      RELEASED_AT: ${{ matrix.item.released_at }}
+      REASON: ${{ matrix.item.reason }}
+      HAS_DOCKERHUB: ${{ secrets.DOCKERHUB_TOKEN != '' }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        if: runner.environment == 'github-hosted'
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+
+      - name: Registry logins (ghcr.io with the workflow token; Docker Hub only if its secrets exist)
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Docker Hub login (optional)
+        if: env.HAS_DOCKERHUB == 'true'
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: QEMU and buildx (the overlay's package upgrade runs once per architecture)
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+
+      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Install tools
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check -r sdk/tools/requirements.txt
+          sdk/tools/ci/install-tools.sh "$RUNNER_TEMP/bin" trivy crane
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Rebuild, push, scan old and new, pin
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/out"
+          python3 -I sdk/tools/app-factory build "$APP" --tag "$TAG" --revision "$REVISION" \
+            ${RELEASED_AT:+--released-at "$RELEASED_AT"} --out "$out" --push
+          python3 -I sdk/tools/app-factory apply "$APP" --out "$out" --reason "$REASON"
+          # Hand the next job only the files this app's rebuild may change.
+          git add -A -- "apps/$APP"
+          git diff --cached --name-only > "$out/files.txt"
+          tar -cf "$out/apps.tar" -T "$out/files.txt"
+
+      - name: Upload the result
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: app-factory-build-${{ matrix.item.app }}
+          path: |
+            ${{ runner.temp }}/out/apps.tar
+            ${{ runner.temp }}/out/files.txt
+            ${{ runner.temp }}/out/changelog.md
+            ${{ runner.temp }}/out/built.json
+          retention-days: 30
+
+  verify:
+    needs: [plan, build]
+    if: always() && needs.build.result != 'cancelled' && needs.plan.outputs.todo != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        item: ${{ fromJSON(needs.plan.outputs.todo) }}
+    env:
+      APP: ${{ matrix.item.app }}
+      HAS_DOCKERHUB: ${{ secrets.DOCKERHUB_TOKEN != '' }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Download the rebuild
+        id: dl
+        continue-on-error: true   # the build job failed: nothing to verify, publish reports it
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: app-factory-build-${{ matrix.item.app }}
+          path: ${{ runner.temp }}/in
+
+      - name: Set up Python
+        if: steps.dl.outcome == 'success' && runner.environment == 'github-hosted'
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+
+      - name: Docker Hub login (optional)
+        if: steps.dl.outcome == 'success' && env.HAS_DOCKERHUB == 'true'
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Install the gate's tools (pinned by version and sha256)
+        if: steps.dl.outcome == 'success'
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check -r sdk/tools/requirements.txt
+          sdk/tools/ci/install-tools.sh "$RUNNER_TEMP/bin" trivy crane cosign k3d kubectl kustomize kubeconform
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          if ! command -v clamscan >/dev/null; then
+            sudo apt-get update -qq
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq clamav clamav-freshclam
+            sudo systemctl stop clamav-freshclam || true
+          fi
+          for i in 1 2 3; do sudo freshclam --stdout && break; sleep $((i * 20)); done
+
+      - name: Throwaway k3s cluster (k3d)
+        if: steps.dl.outcome == 'success'
+        run: |
+          k3d cluster create factory --wait --timeout 300s --no-lb \
+            --image docker.io/rancher/k3s:v1.37.2-k3s1@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332
+
+      - name: Gate the rebuilt image
+        if: steps.dl.outcome == 'success'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          in="$RUNNER_TEMP/in"; out="$RUNNER_TEMP/changed"; mkdir -p "$out"
+          # Only regular files under this app's own folder come out of the build artifact.
+          if grep -vE "^apps/$APP/(onemind\.app\.yaml|scan\.json|README\.md|manifests/[A-Za-z0-9._/-]+\.ya?ml)\$" "$in/files.txt"; then
+            echo "the build changed files outside apps/$APP" >&2; echo 2 > "$out/status"; exit 0
+          fi
+          tar -xf "$in/apps.tar" -C . --no-same-owner
+          # The gate is the unchanged one. It computes the tier; --tier check never lifts a human 'blocked'.
+          rc=0
+          python3 -I sdk/tools/app-gate "$APP" --smoke --tier check --fail-on fail --clamav-db /var/lib/clamav \
+            --workdir "$RUNNER_TEMP" --report "$out/report.json" || rc=$?
+          echo "$rc" > "$out/status"
+          if [ "$rc" -le 1 ]; then
+            # Only a green gate on a factory image lets the factory set the tier the gate computed.
+            python3 -I sdk/tools/app-factory lift "$APP" --report "$out/report.json" || true
+          fi
+          git add -A -- "apps/$APP"
+          git diff --cached --name-only > "$out/files.txt"
+          [ -s "$out/files.txt" ] && tar -cf "$out/apps.tar" -T "$out/files.txt"
+          cp "$in/changelog.md" "$out/changelog.md"
+          grep '^  tier:' "apps/$APP/onemind.app.yaml" > "$out/tier.txt" || true
+
+      - name: Upload the verified result
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: app-factory-verify-${{ matrix.item.app }}
+          path: ${{ runner.temp }}/changed/
+          if-no-files-found: ignore
+          retention-days: 30
+
+  publish:
+    needs: [plan, verify]
+    if: always() && needs.plan.result == 'success' && needs.verify.result != 'cancelled' && needs.plan.outputs.todo != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Check out
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Download every verified result
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: app-factory-verify-*
+          path: ${{ runner.temp }}/results
+
+      - name: One pull request per rebuilt app
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TODO: ${{ needs.plan.outputs.todo }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          failed=""
+          for id in $(jq -r '.[].app' <<<"$TODO"); do
+            grep -qE '^[a-z0-9][a-z0-9-]*$' <<<"$id" || { echo "bad app id: $id" >&2; exit 1; }
+            d="$RUNNER_TEMP/results/app-factory-verify-$id"
+            rc=$(cat "$d/status" 2>/dev/null || echo missing)
+            # rc 0 = the gate passed, 1 = it did not (the PR still shows why); anything else = nothing to publish.
+            if ! grep -qE '^[01]$' <<<"$rc" || [ ! -s "$d/files.txt" ]; then failed="$failed $id"; continue; fi
+            if grep -vE "^apps/$id/(onemind\.app\.yaml|scan\.json|README\.md|manifests/[A-Za-z0-9._/-]+\.ya?ml)\$" "$d/files.txt"; then
+              echo "refusing $id: files outside apps/$id" >&2; failed="$failed $id"; continue
+            fi
+            git checkout -q --detach origin/main 2>/dev/null || git checkout -q --detach HEAD
+            mkdir "$d/x"; tar -xf "$d/apps.tar" -C "$d/x" --no-same-owner
+            while IFS= read -r f; do
+              if [ -L "$d/x/$f" ] || [ ! -f "$d/x/$f" ]; then echo "not a regular file: $f" >&2; exit 1; fi
+              mkdir -p "$(dirname "$f")"; cp "$d/x/$f" "$f"
+            done < "$d/files.txt"
+            branch="bot/app-factory-$id"
+            git checkout -q -B "$branch"
+            git add "apps/$id"
+            git commit -q -s -m "apps($id): OneMind-built image, rebuilt on a patched base" \
+              -m "Written by .github/workflows/app-factory.yml from apps/$id/factory.yaml. Run: $RUN_URL"
+            git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" "HEAD:refs/heads/$branch"
+            verdict="the gate passed"
+            [ "$rc" = 1 ] && verdict="the gate did NOT pass: the tier stays blocked, see the scan below"
+            { cat "$d/changelog.md"; echo; echo "Gate result: $verdict. Tier in this pull request: $(cat "$d/tier.txt" 2>/dev/null || echo unknown)."; \
+              echo "Run: $RUN_URL"; echo; echo "Refs #234"; } > "$RUNNER_TEMP/body.md"
+            if [ -n "$(gh pr list --head "$branch" --state open --json number --jq '.[].number')" ]; then
+              gh pr edit "$branch" --body-file "$RUNNER_TEMP/body.md"
+            else
+              gh pr create --head "$branch" --base main --title "apps($id): OneMind-built image, rebuilt on a patched base" --body-file "$RUNNER_TEMP/body.md"
+              gh pr edit "$branch" --add-label apps || echo "label 'apps' not added (does it exist?)"
+            fi
+          done
+          if [ -n "$failed" ]; then echo "no pull request for:$failed (build or verify did not finish)" >&2; exit 1; fi

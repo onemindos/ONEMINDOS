@@ -20,6 +20,7 @@ from starlette.requests import ClientDisconnect
 
 from ..auth import Principal
 from ..context import Gateway
+from ..guard import reads_body
 from ..errors import error_response, error_responses
 from ..identity.scopes import register_route_scope
 from ..jsonbody import JsonBody
@@ -248,6 +249,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             **error_responses(401, 403, 404, 409, 422),
         },
     )
+    @reads_body
     async def append(
         upload_id: str,
         request: Request,

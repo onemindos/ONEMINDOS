@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: Apache-2.0
+# Criteria a machine must meet before it is named the OneMind reference box at gate G1 (2026-12-13).
+# Every criterion points at the kit that measures it. None has been measured on real hardware yet.
+# Open founder question (SUPERSEDE.md): buy one box, or certify the Dell all-in-one only.
+gate: G1
+criteria:
+  - id: RB-1
+    text: The shipping installer image installs onto the internal disk and reaches the dashboard with no keyboard after the first screen.
+    kit: LT-X86-01
+  - id: RB-2
+    text: A good update commits on the other slot and a bad update rolls back by itself, 10 of 10 times.
+    kit: G1
+  - id: RB-3
+    text: Power pulled at each update phase, 20 of 20 times, the box comes back healthy on a good slot.
+    kit: G1
+  - id: RB-4
+    text: The disk is an SSD or NVMe (a spinning disk makes k3s feel stuck).
+    kit: LT-X86-00
+  - id: RB-5
+    text: Wired network works from the first boot; any Wi-Fi claim is listed only after it is tested.
+    kit: LT-X86-00
+  - id: RB-6
+    text: The machine's TPM and Secure Boot state are recorded, even if the answer is none.
+    kit: LT-X86-00
+  - id: RB-7
+    text: RAM is at least 16 GB so apps, the gateway and k3s fit together.
+    kit: LT-X86-00
+  - id: RB-8
+    text: A backup is restored onto the box from a recovery key in under 60 minutes.
+    kit: G1
+  - id: RB-9
+    text: No drive lock-in; any standard SATA or NVMe disk works.
+    kit: LT-X86-00
