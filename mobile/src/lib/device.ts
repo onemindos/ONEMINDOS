@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // This phone as a device of the box (docs/umbrel2/clients.md §4.3–4.4, CLIENT-2; not yet in the contract).
-// Adding a device is a request: `POST /v1/devices/requests` files the action `device.add`, and only an
+// Adding a device is a request: `POST /v1/me/devices` (issue 716; feature-detected from /openapi.json, else the
+// older `POST /v1/devices/requests`) files the action `device.add`, and only an
 // owner can approve it (on this phone, the dashboard or the CLI). The owner's own first phone may be
 // approved at once by the box (`approval: self`). Once active, the device renews its sign-in with a
 // DPoP proof (RFC 9449) from a key that never leaves this phone.
@@ -14,7 +15,7 @@ import { utf8ToBytes } from '@noble/hashes/utils.js';
 import Constants from 'expo-constants';
 import * as Crypto from 'expo-crypto';
 import { Platform } from 'react-native';
-import { OP, type Features, type OneMindApi } from '../api/client';
+import { Features, OP, type OneMindApi } from '../api/client';
 import { ApiError, type DeviceRequest, type DeviceState, type EcPublicJwk, type LoginResult } from '../api/types';
 import { deleteSecret, loadSecret, saveSecret } from '../storage';
 
@@ -120,6 +121,8 @@ export interface DeviceLink {
   /** Device-bound refresh token, given once when the request turns active. */
   refreshToken?: string;
   since: string;
+  /** Filed on `/v1/me/devices` (polled there too). */
+  me?: boolean;
 }
 
 const LINK = 'onemind.device.v1';
@@ -153,6 +156,7 @@ function merge(prev: Partial<DeviceLink>, r: DeviceRequest, hubUrl: string, now:
     state: r.state,
     refreshToken: r.one_time?.refresh_token ?? prev.refreshToken,
     since: prev.since ?? new Date(now).toISOString(),
+    ...(prev.me ? { me: true } : {}),
   };
 }
 
@@ -169,15 +173,16 @@ export function deviceInfo(name: string) {
 /** Ask the owner to add this phone. Files `device.add`; the answer may already be `active` (owner's own phone). */
 export async function requestDevice(api: OneMindApi, hubUrl: string, name: string, o: { random?: Random; now?: number } = {}): Promise<DeviceLink> {
   const key = await loadOrCreateKey(o.random);
-  const r = await api.deviceRequest({ ...deviceInfo(name), jwk: key.jwk });
-  const link = merge({}, r, hubUrl, o.now ?? Date.now());
+  const me = (await api.features().catch(() => Features.none())).has(OP.meDevices);
+  const r = await api.deviceRequest({ ...deviceInfo(name), jwk: key.jwk }, me ? { me } : undefined);
+  const link = merge(me ? { me } : {}, r, hubUrl, o.now ?? Date.now());
   await saveLink(link);
   return link;
 }
 
 /** Check a pending request (the owner may have approved or denied it). */
 export async function pollDevice(api: OneMindApi, link: DeviceLink): Promise<DeviceLink> {
-  const r = await api.deviceRequestStatus(link.requestId, link.pollCode);
+  const r = link.me ? await api.deviceRequestStatus(link.requestId, link.pollCode, { me: true }) : await api.deviceRequestStatus(link.requestId, link.pollCode);
   const next = merge(link, r, link.hubUrl, Date.now());
   await saveLink(next);
   return next;

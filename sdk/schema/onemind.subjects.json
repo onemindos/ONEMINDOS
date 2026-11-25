@@ -1,0 +1,180 @@
+{
+  "$comment": "SPDX-License-Identifier: Apache-2.0. The one NATS subject tree of OneMind OS (issue #600, contract sdk/contracts/poc-v0.md section 12.9). Read by the gateway (core/onemind_core/subjects.py, GET /v1/subjects), the lint (sdk/tools/subject-lint, run by make lint) and Go (sdk/schema/embed.go). A new kind, pattern or placeholder is a contract change: add it here first, with a test.",
+  "schema": "onemind.subjects/v1",
+  "root": "onemind",
+  "grammar": "onemind.<kind>.<scope>.<id>.<field>",
+  "publishers": {
+    "gateway": "the gateway on the hub: the only writer of core subjects; it validates, stamps source and licence, and re-publishes",
+    "node": "a joined machine's onemindd, through its own NODE_<id> account: only subjects carrying its own node id",
+    "app": "an installed app, plugin or bridge, through its own APP_<id> account or the gateway relay: only subjects carrying its own app id",
+    "agent": "an AI agent, through the AGENTS account import: only requests carrying its own agent id, which the server stamps; a request never acts until a person approves"
+  },
+  "placeholders": {
+    "node_id": {"re": "^[A-Za-z0-9_-]{1,64}$", "description": "a node id (internal/heartbeat)"},
+    "app_id": {"re": "^[a-z0-9]([a-z0-9-]{0,57}[a-z0-9])?$", "description": "an app id (core/onemind_core/catalog.py APP_ID_RE)"},
+    "token": {"re": "^[a-z0-9][a-z0-9_-]{0,63}$", "description": "one lowercase subject token: a name chosen by OneMind (source, field, domain, layer), never a record id"},
+    "id": {"re": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$", "description": "an opaque record id of contract 12.1 as it is, case kept: a prefixed ULID (job_01HX..., usr_01HX..., alrt_01HX...), a UUID v4 or an asset id; never lowercased or re-encoded, and an id holding a dot cannot ride the tree"},
+    "agent_name": {"re": "^[a-z0-9_-]{1,63}$", "min": 1, "max": 32, "description": "an agent principal id agent:<name> without the agent: prefix, one subject token per dot-separated part: agent:hermes.v2 is hermes.v2 (two tokens); a name with an empty part (two dots in a row, or a trailing dot) has no subject and is refused"},
+    "type": {"re": "^[a-z0-9][a-z0-9_-]{0,39}$", "min": 1, "max": 5, "description": "a dotted event type such as backup.run.finished"},
+    "path": {"re": "^[a-z0-9_-]{1,32}$", "min": 1, "max": 8, "description": "an app's own relative subject, as in spec.streams"},
+    "asset_class": {"re": "^[a-z0-9][a-z0-9_-]{0,63}$", "not": ["robot"], "description": "an open asset class such as camera, sensor, device or machine; robot has its own reserved channels"},
+    "robot_channel": {"enum": ["identity", "pose", "state", "battery", "task", "capabilities", "video", "events", "estop"], "description": "the reserved robot channels (no robot work until OneMind has a robot; names only)"}
+  },
+  "envelopes": {
+    "onemind.datapoint/v1": {"file": "onemind.datapoint.schema.json", "description": "one observed value: value, unit, time, quality, source, licence, sequence, optional WGS-84 position or framed pose"},
+    "onemind.event/v1": {"file": "onemind.event.schema.json", "description": "the event envelope of contract section 12.8"},
+    "onemind.message.event/v1": {"file": "onemind.message.event.schema.json", "description": "the onemind.event/v1 envelope of the two message events: ids and metadata only, never the text (#855)"},
+    "onemind.node.status/v1": {"contract": "sdk/contracts/poc-v0.md section 2 and 12.10", "description": "the node heartbeat"},
+    "onemind.node.event/v1": {"contract": "internal/agent/events.go", "description": "a durable node event, re-published by the gateway as onemind.event.<type>"},
+    "onemind.job/v1": {"contract": "sdk/contracts/poc-v0.md section 12.11", "description": "a signed job for one node"},
+    "jobresult": {"contract": "sdk/contracts/poc-v0.md section 12.9", "description": "{job_id, state, progress, summary, reason, finished_at}"},
+    "audit-line": {"contract": "sdk/contracts/poc-v0.md section 3", "description": "one hash-chained audit line"},
+    "onemind.alert/v1": {"contract": "sdk/contracts/poc-v0.md section 12.14", "description": "an alert record"}
+  },
+  "kinds": {
+    "node": {
+      "description": "facts a machine reports about itself, and the jobs the gateway sends it",
+      "core": true,
+      "stream": "ONEMIND_NODE_OUTBOX",
+      "retention": {"policy": "limits", "max_age_s": 604800, "max_bytes": 268435456},
+      "envelope": "onemind.node.event/v1",
+      "subjects": [
+        {"pattern": "onemind.node.{node_id:node_id}.status", "publishers": ["node"], "owner": "node_id", "stream": null, "retention": {"policy": "none"}, "envelope": "onemind.node.status/v1"},
+        {"pattern": "onemind.node.{node_id:node_id}.event.{type:type}", "publishers": ["node"], "owner": "node_id"},
+        {"pattern": "onemind.node.{node_id:node_id}.job.{job_kind:type}", "publishers": ["gateway"], "stream": "ONEMIND_JOBS", "retention": {"policy": "workqueue", "max_age_s": 86400, "max_bytes": 67108864}, "envelope": "onemind.job/v1"},
+        {"pattern": "onemind.node.{node_id:node_id}.jobresult.{job_id:id}", "publishers": ["node"], "owner": "node_id", "stream": "ONEMIND_JOBRESULTS", "retention": {"policy": "limits", "max_age_s": 2592000, "max_bytes": 134217728}, "envelope": "jobresult"}
+      ]
+    },
+    "audit": {
+      "description": "the hash-chained audit log, as published by the gateway",
+      "core": true,
+      "stream": "ONEMIND_AUDIT",
+      "retention": {"policy": "limits", "max_age_s": 31536000, "max_bytes": 2147483648, "deny_delete": true, "deny_purge": true},
+      "envelope": "audit-line",
+      "subjects": [
+        {"pattern": "onemind.audit", "publishers": ["gateway"]}
+      ]
+    },
+    "event": {
+      "description": "validated domain events (action, node, app, backup, alert, notification ...)",
+      "core": true,
+      "stream": "ONEMIND_EVENTS",
+      "retention": {"policy": "limits", "max_age_s": 604800, "max_bytes": 1073741824},
+      "envelope": "onemind.event/v1",
+      "subjects": [
+        {"pattern": "onemind.event.message.received", "publishers": ["gateway"], "envelope": "onemind.message.event/v1"},
+        {"pattern": "onemind.event.message.status", "publishers": ["gateway"], "envelope": "onemind.message.event/v1"},
+        {"pattern": "onemind.event.{type:type}", "publishers": ["gateway"]}
+      ]
+    },
+    "alert": {
+      "description": "alert records; nodes raise theirs through the outbox and the gateway re-publishes",
+      "core": true,
+      "stream": "ONEMIND_EVENTS",
+      "retention": {"policy": "limits", "max_age_s": 604800, "max_bytes": 1073741824},
+      "envelope": "onemind.alert/v1",
+      "subjects": [
+        {"pattern": "onemind.alert.{source:token}.{alert_kind:token}", "publishers": ["gateway"]}
+      ]
+    },
+    "asset": {
+      "description": "the normalised state of one thing (camera, sensor, device, machine, vehicle ...); the map pin, video tile and dashboard card are views of it",
+      "core": true,
+      "stream": "ONEMIND_ASSET_STATE",
+      "retention": {"policy": "latest", "max_bytes": 268435456},
+      "envelope": "onemind.datapoint/v1",
+      "subjects": [
+        {"pattern": "onemind.asset.{asset_class:asset_class}.{asset_id:id}.{field:token}", "publishers": ["gateway"]},
+        {"pattern": "onemind.asset.robot.{asset_id:id}.{channel:robot_channel}", "publishers": ["gateway"]}
+      ]
+    },
+    "intel": {
+      "description": "normalised observations from intelligence and news bridges, each with its source and licence",
+      "core": true,
+      "stream": "ONEMIND_INTEL",
+      "retention": {"policy": "limits", "max_age_s": 2592000, "max_bytes": 1073741824},
+      "envelope": "onemind.datapoint/v1",
+      "subjects": [
+        {"pattern": "onemind.intel.{domain:token}.{source:token}.{field:token}", "publishers": ["gateway"]}
+      ]
+    },
+    "metric": {
+      "description": "numeric samples (cpu, temperature, rates); history lives in the series store, not in JetStream",
+      "core": true,
+      "stream": null,
+      "retention": {"policy": "none"},
+      "envelope": "onemind.datapoint/v1",
+      "subjects": [
+        {"pattern": "onemind.metric.node.{node_id:node_id}.{field:token}", "publishers": ["gateway", "node"], "owner": "node_id"},
+        {"pattern": "onemind.metric.{scope:token}.{id:token}.{field:token}", "publishers": ["gateway"]}
+      ]
+    },
+    "plugin": {
+      "description": "an app's, plugin's or bridge's own subjects (events and raw intake under in.>); durable only through the app's own spec.streams",
+      "core": false,
+      "stream": null,
+      "retention": {"policy": "none"},
+      "envelope": "onemind.event/v1",
+      "subjects": [
+        {"pattern": "onemind.plugin.{app_id:app_id}.{path:path}", "publishers": ["gateway", "app"], "owner": "app_id"}
+      ]
+    },
+    "layer": {
+      "description": "map layer metadata and deltas; owner is core or the app id, as the map namespaces plug:<app>:<id>",
+      "core": true,
+      "stream": "ONEMIND_LAYER_META",
+      "retention": {"policy": "latest", "max_bytes": 67108864},
+      "envelope": "onemind.datapoint/v1",
+      "subjects": [
+        {"pattern": "onemind.layer.{owner:token}.{layer_id:token}.{field:token}", "publishers": ["gateway"]}
+      ]
+    },
+    "notification": {
+      "description": "a person's inbox changed: ids only, never the text; the inbox itself stays in the gateway database",
+      "core": true,
+      "stream": null,
+      "retention": {"policy": "none"},
+      "envelope": "onemind.event/v1",
+      "subjects": [
+        {"pattern": "onemind.notification.person.{person_id:id}.{field:token}", "publishers": ["gateway"]}
+      ]
+    },
+    "request": {
+      "description": "an agent or app asks for something; the gateway turns it into an approval card and only a person approves",
+      "core": false,
+      "stream": "ONEMIND_REQUESTS",
+      "retention": {"policy": "workqueue", "max_age_s": 86400, "max_bytes": 67108864},
+      "envelope": "onemind.event/v1",
+      "subjects": [
+        {"pattern": "onemind.request.agent.{agent_id:agent_name}.{request_type:token}", "publishers": ["gateway", "agent"], "owner": "agent_id"},
+        {"pattern": "onemind.request.app.{app_id:app_id}.{request_type:token}", "publishers": ["gateway", "app"], "owner": "app_id"}
+      ]
+    }
+  },
+  "reserved_kinds": {
+    "app": "retired prefix of the first spec.streams slice (PR #540): an app's subjects live under onemind.plugin.<app_id>.",
+    "cmd": "commands never travel on the bus: an agent or app sends onemind.request.* and a person approves",
+    "device": "a device is an asset: onemind.asset.device.<asset_id>.<field>",
+    "lora": "a radio is driven only by Ed25519-signed jobs from the gateway to onemindd on its loopback job API (#855); nothing on the bus makes a radio transmit",
+    "message": "message text never rides the bus: the gateway publishes ids only on onemind.event.message.received and onemind.event.message.status (#855)",
+    "radio": "a radio is driven only by signed jobs (see lora); its status is served by GET /v1/radios, not published (#855)",
+    "robot": "a robot is an asset with reserved channels: onemind.asset.robot.<asset_id>.<channel>",
+    "state": "state is the asset kind: onemind.asset.<asset_class>.<asset_id>.state"
+  },
+  "mappings": [
+    {"grammar": "contract 12.9", "from": "onemind.node.<node_id>.status|event.<type>|job.<kind>|jobresult.<job_id>, onemind.audit, onemind.event.<type>, onemind.alert.<source>.<kind>", "to": "unchanged: kinds node, audit, event and alert", "note": "every subject in code today stays valid"},
+    {"grammar": "contract 12.9", "from": "onemind.plugin.<app_id>.<event> (gateway relay only)", "to": "onemind.plugin.<app_id>.<path>", "note": "the app may also publish there itself, through its own account, under its own id only"},
+    {"grammar": "PR #540 spec.streams", "from": "onemind.app.<app_id>.<subject>", "to": "onemind.plugin.<app_id>.<subject>", "note": "onemind.app is a reserved, refused kind"},
+    {"grammar": "plugin SDK (E7)", "from": "evt.app.<app_id>.<event>", "to": "onemind.plugin.<app_id>.<event>", "note": "the manifest keeps the relative evt.app name; the gateway relays it onto the tree"},
+    {"grammar": "cluster", "from": "evt.<domain>.<entity>.<event>", "to": "onemind.event.<domain>.<entity>.<event>", "note": "projection bridge, not a rename of the cluster"},
+    {"grammar": "cluster", "from": "ent.<type>.<id>.state", "to": "onemind.asset.<type>.<id>.state", "note": "the asset service is the only writer"},
+    {"grammar": "cluster", "from": "tel.fleet.<class>.<id>.position, evt.world.air.<id>", "to": "onemind.asset.<class>.<id>.state, onemind.asset.aircraft.<id>.state", "note": "positions ride the datapoint envelope"},
+    {"grammar": "cluster", "from": "tel.<node>.<class>.<metric>", "to": "onemind.metric.node.<node_id>.<metric>", "note": "series history in the series store"},
+    {"grammar": "cluster", "from": "intel.<domain>.<source>.<type>", "to": "onemind.plugin.<bridge_id>.in.<domain>.<type>, normalised to onemind.intel.<domain>.<source>.<field>", "note": "a bridge writes only its own intake; the gateway normalises"},
+    {"grammar": "cluster", "from": "tak.cot.out, tak.cot.inject", "to": "onemind.plugin.tak.out.cot, onemind.plugin.tak.in.cot", "note": "CoT is built only by the TAK bridge; inbound CoT never creates an action"},
+    {"grammar": "cluster", "from": "cmd.<domain>.<entity>.<action>", "to": "none: onemind.request.<agent|app>.<id>.<type> plus a person's approval", "note": "no command subjects, on purpose"},
+    {"grammar": "principal ids (contract 12.1)", "from": "agent:<name>, for example agent:hermes.v2", "to": "onemind.request.agent.<name>.<request_type>, for example onemind.request.agent.hermes.v2.action", "note": "drop the agent: prefix; each dot-separated part of the name is one token and request_type is always exactly one last token, so the split is unambiguous; the agent's NATS permission is publish onemind.request.agent.<name>.* only; a name with an empty part has no subject"},
+    {"grammar": "contract 12.1 ids", "from": "job_01HX..., usr_01HX..., asset ids, action UUIDs", "to": "the id slot as it is (jobresult.<job_id>, notification.person.<person_id>, asset.<class>.<asset_id>)", "note": "ids keep their case and are never re-encoded; job kinds keep their dots (job.backup.run, job.system.restart_unit)"},
+    {"grammar": "cluster", "from": "agents.*", "to": "unchanged, outside onemind.> in the AGENTS account", "note": "talking on agents.* gives no power"}
+  ]
+}

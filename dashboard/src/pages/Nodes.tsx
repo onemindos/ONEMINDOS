@@ -72,6 +72,7 @@ export function Nodes() {
   return (
     <>
       <PageHeader title="Nodes" lede="The machines in this OneMind. Each sends a heartbeat every 10 s; after 30 s without one it is stale, after 2 minutes offline." />
+      <p><Link to="/add-machine">Add a machine</Link></p>
       {nodes === undefined ? (
         hub.nodes.error ? (
           <StateView state="error" error={{ error: hub.nodes.error.code === 'network' ? 'unreachable' : hub.nodes.error.code === 'unauthenticated' ? 'unauthenticated' : 'not_found', message: hub.nodes.error.message }} onRetry={hub.reloadAll} />
@@ -80,7 +81,7 @@ export function Nodes() {
         )
       ) : nodes.length === 0 ? (
         <EmptyState icon="nodes" title="No machines have reported yet" command="onemind node join">
-          <p>The hub lists a machine after its first heartbeat. Adding nodes from here comes with CORE-FABRIC (join codes).</p>
+          <p>The hub lists a machine after its first heartbeat. <Link to="/add-machine">Add a machine</Link> to join one.</p>
         </EmptyState>
       ) : (
         <>

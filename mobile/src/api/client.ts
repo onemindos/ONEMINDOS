@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
-// Started as a copy of dashboard/src/api/client.ts (feat/gwmcp, commit 951470f). The §3 methods keep the
-// dashboard's behaviour; the §12 methods (identity, notifications, push, devices, events) are mobile
-// additions until the generated `@onemind/sdk` replaces both copies (DEV-SDK-4).
+// The phone's API layer. Every JSON request goes out through the generated client's transport,
+// `OneMind.call` from `@onemind/sdk` (CI-08, issue 233), so the phone and the dashboard share one
+// client; `HttpApi.sdk` hands that client to screens that call generated paths directly. The phone keeps
+// its own error mapping (ApiError), session renewal and response-shape checks on top. Binary transfers
+// (tus uploads, downloads) stay on fetch: the JSON client cannot carry them.
+// contract.ts checks the hand-written types in types.ts against the generated schema at compile time.
+import { OneMind, NetworkError } from '@onemind/sdk';
+import { noteProtocol, PROTOCOL_HEADER, PROTOCOL_VERSION } from '../lib/protocol';
 import {
   ApiError,
   type Action,
@@ -9,6 +14,7 @@ import {
   type AlertRecord,
   type ApiErrorBody,
   type ApproveBody,
+  type ApproverKey,
   type ApproveOptions,
   type AutomationRule,
   type AutomationRun,
@@ -27,10 +33,18 @@ import {
   type HomeView,
   type InboxItem,
   type Instance,
+  type FamilyProfile,
+  type KillSwitch,
+  type TokenInfo,
+  type CreatedUser,
+  type UserInfo,
   type LifecycleType,
   type LoginResult,
   type MeshView,
+  type StatusView,
   type MonitoringSummary,
+  type MyDeviceRemoved,
+  type MyDevices,
   type NodeMetrics,
   type AppMetrics,
   type OsUpdateHistory,
@@ -65,9 +79,13 @@ export const OP = {
   vapidKey: 'GET /v1/push/vapid-public-key',
   loginOptions: 'POST /v1/auth/login/options',
   passkeyRegisterOptions: 'POST /v1/auth/passkeys/register/options',
+  /** #702: register this phone's approval key. */
+  approverKeys: 'POST /v1/auth/approver-keys',
   /** Not in §12.6 (it returns a refresh_token but names no route); used only when the gateway lists it. */
   authRefresh: 'POST /v1/auth/refresh',
   deviceRequest: 'POST /v1/devices/requests',
+  /** The person's own devices (issue 716): used instead of /v1/devices/requests once the gateway lists it. */
+  meDevices: 'POST /v1/me/devices',
   deviceToken: 'POST /v1/devices/token',
   /** §12.41 (owner only). */
   onboardingSettings: 'GET /v1/onboarding/settings',
@@ -87,14 +105,30 @@ export const OP = {
   filesDownload: 'GET /v1/files/download',
   filesUploads: 'POST /v1/files/uploads',
   migratePlans: 'GET /v1/migrate/plans',
+  /** §12.6 users (owner), FAM-01 family limits, CORE-SEC-6 agent kill switch. */
+  users: 'GET /v1/users',
+  usersCreate: 'POST /v1/users',
+  usersUpdate: 'PATCH /v1/users/{}',
+  familyProfile: 'GET /v1/family/profiles/{}',
+  tokens: 'GET /v1/tokens',
+  killSwitch: 'GET /v1/agents/kill-switch',
+  killSwitchSet: 'PUT /v1/agents/kill-switch',
   osUpdates: 'GET /v1/os/updates',
   osUpdateHistory: 'GET /v1/os/updates/history',
   monitoringSummary: 'GET /v1/monitoring/summary',
   nodeMetrics: 'GET /v1/nodes/{}/metrics',
   appMetrics: 'GET /v1/apps/{}/metrics',
   mesh: 'GET /v1/mesh',
-  /** UNVERIFIED name: the hub has no restart / shut down / troubleshoot route yet, so System controls stays hidden. */
+  /** Health of every source at a glance. */
+  status: 'GET /v1/status',
+  /**
+   * Never in /openapi.json, so System controls stays hidden: the hub has no plan preview for restart /
+   * shut down / troubleshoot. It serves `GET /v1/system/controls` and `POST /v1/system/actions` instead,
+   * a different flow (confirm phrase, no plan hash); `HttpApi.systemPlan` sends nothing.
+   */
   systemPlan: 'GET /v1/system/plan',
+  myDevices: 'GET /v1/me/devices',
+  myDeviceRemove: 'DELETE /v1/me/devices/{}',
 } as const;
 
 export type Op = (typeof OP)[keyof typeof OP];
@@ -137,6 +171,8 @@ export interface LoginBody {
   passkey: WebAuthnAssertion;
   client: 'app';
   client_name?: string;
+  /** This app install (#715, lib/install.ts): My devices groups this sign-in with the install's passkeys and push. */
+  install_id?: string;
 }
 
 /** WebAuthn options as the gateway sends them: bare JSON, or wrapped in `publicKey` (both are common). */
@@ -147,6 +183,18 @@ export type RegisterOptions = Partial<WebAuthnCreationOptions> & { publicKey?: P
  * Everything the phone may ask the hub: the §3 routes plus the §12 routes it uses.
  * The phone never decides anything; every write is a request or a decision the gateway checks.
  */
+function readUploadOffset(res: Response): number {
+  const header = res.headers.get('Upload-Offset');
+  const offset = Number(header);
+  if (!header || !/^\d+$/.test(header) || !Number.isSafeInteger(offset)) {
+    throw new ApiError(res.status, 'unknown', 'The hub sent no valid Upload-Offset.');
+  }
+  return offset;
+}
+
+/** A file-backed PATCH handed to the OS, with the same origin check and token renewal as fetch. */
+export type TusTransport = (url: string, headers: Record<string, string>, bytes: Uint8Array) => Promise<Response>;
+
 export interface OneMindApi {
   healthz(): Promise<{ ok: boolean }>;
   instance(): Promise<Instance>;
@@ -186,9 +234,13 @@ export interface OneMindApi {
   refreshSession(refreshToken: string): Promise<LoginResult>;
   logout(): Promise<void>;
   passkeyRegisterOptions(): Promise<RegisterOptions>;
-  passkeyRegister(body: { credential: WebAuthnAttestation; label: string }): Promise<{ credential_id: string; label: string }>;
-  deviceRequest(body: DeviceRequestBody): Promise<DeviceRequest>;
-  deviceRequestStatus(id: string, pollCode?: string): Promise<DeviceRequest>;
+  passkeyRegister(body: { credential: WebAuthnAttestation; label: string; install_id?: string }): Promise<{ credential_id: string; label: string }>;
+  /** #702 (optional: only the live client has them; feature-detect with OP.approverKeys). */
+  approverKeyRegister?(body: { public_key: string; label: string; key_kind: 'hardware-reported' | 'software' }): Promise<ApproverKey>;
+  approverKeyRevoke?(keyId: string): Promise<void>;
+  /** `me`: the newer `/v1/me/devices` routes (only when `features()` lists OP.meDevices). */
+  deviceRequest(body: DeviceRequestBody, o?: { me?: boolean }): Promise<DeviceRequest>;
+  deviceRequestStatus(id: string, pollCode?: string, o?: { me?: boolean }): Promise<DeviceRequest>;
   /** Device-bound renewal (RFC 9449 DPoP proof in the `DPoP` header). */
   deviceToken(dpopProof: string, refreshToken: string): Promise<LoginResult>;
 
@@ -223,8 +275,16 @@ export interface OneMindApi {
   /** `HEAD` the upload: how many bytes the hub holds (resume point). */
   filesUploadOffset(url: string): Promise<number>;
   /** `PATCH` one chunk at `offset`; returns the new offset and, on the last chunk, the hub's whole-file sha256. */
-  filesUploadChunk(url: string, offset: number, bytes: Uint8Array): Promise<{ offset: number; sha256?: string }>;
+  filesUploadChunk(url: string, offset: number, bytes: Uint8Array, transport?: TusTransport): Promise<{ offset: number; sha256?: string }>;
   migratePlans(): Promise<MigratePlan[]>;
+  // People and agents. Writes are owner-only on the hub, which also asks for a fresh passkey (`step_up_required`).
+  users(): Promise<UserInfo[]>;
+  createUser(body: { display_name: string; role: string }): Promise<CreatedUser>;
+  setUserRole(id: string, role: string): Promise<UserInfo>;
+  familyProfile(id: string): Promise<FamilyProfile>;
+  apiTokens(): Promise<TokenInfo[]>;
+  killSwitch(): Promise<KillSwitch>;
+  setKillSwitch(on: boolean, reason?: string): Promise<KillSwitch>;
   // System screens (read only, except that an install or a control is filed as a request).
   osUpdates(): Promise<OsUpdateStatus>;
   osUpdateHistory(): Promise<OsUpdateHistory>;
@@ -232,7 +292,11 @@ export interface OneMindApi {
   nodeMetrics(nodeId: string, window?: string): Promise<NodeMetrics>;
   appMetrics(appId: string): Promise<AppMetrics>;
   mesh(): Promise<MeshView>;
+  status(): Promise<StatusView>;
   systemPlan(type: SystemControlType): Promise<SystemPlanPreview>;
+  // #715 My devices: the caller's own devices; removing one revokes everything it holds (a fresh passkey once passkeys are on).
+  myDevices(): Promise<MyDevices>;
+  removeMyDevice(id: string): Promise<MyDeviceRemoved>;
   /** Where the SSE stream lives and which bearer to send; undefined in demo mode (no stream). */
   eventsEndpoint(): { url: string; bearer: () => string | undefined; refresh?: () => Promise<string | undefined> } | undefined;
 }
@@ -250,6 +314,7 @@ const KNOWN_CODES = new Set([
   'unavailable',
   'payload_too_large',
   'policy_refused',
+  'upgrade_required',
 ]);
 
 function isErrorBody(v: unknown): v is ApiErrorBody {
@@ -321,8 +386,28 @@ type Shape = 'object' | 'array' | 'any';
 
 const enc = encodeURIComponent;
 
-/** Real client: talks to the gateway over HTTP(S) with a bearer token. */
+/** One request as `OneMind.call` takes it; the transport passes DELETE and PATCH through as well. */
+type SdkRequest = Parameters<OneMind['call']>[0];
+
+/** Ties a request the SDK sends back to the HttpApi call that asked for it; removed before it leaves the phone. */
+const CALL_HEADER = 'X-OneMind-Phone-Call';
+
+/** What came back for one call, read by the transport before the SDK parses it. */
+interface Exchange {
+  auth: boolean;
+  thrown?: unknown;
+  res?: { ok: boolean; status: number; headers: Headers; data: unknown };
+}
+
+/** The generated client behind an API object, or undefined for one that does not talk to a hub. */
+export function sdkOf(api: OneMindApi): OneMind | undefined {
+  return api instanceof HttpApi ? api.sdk : undefined;
+}
+
+/** Real client: talks to the gateway over HTTP(S) with a bearer token, through `@onemind/sdk`. */
 export class HttpApi implements OneMindApi {
+  /** The generated gateway client on the same hub, token and timeout (no retries: the phone shows the error). */
+  readonly sdk: OneMind;
   private readonly base: string;
   private readonly tokens: TokenSource;
   private readonly fetchFn: FetchLike;
@@ -330,6 +415,8 @@ export class HttpApi implements OneMindApi {
   private offsetMs: number | undefined;
   private renewing: Promise<string | undefined> | undefined;
   private featuresCache: Promise<Features> | undefined;
+  private readonly exchanges = new Map<string, Exchange>();
+  private seq = 0;
 
   // Mobile change: the hub URL is required (a phone has no same-origin hub), and
   // every request has a timeout, because a phone off the home network otherwise
@@ -340,6 +427,56 @@ export class HttpApi implements OneMindApi {
     this.tokens = opts.tokens ?? { current: () => fixed };
     this.fetchFn = opts.fetchFn ?? ((input, init) => fetch(input, init));
     this.timeoutMs = opts.timeoutMs ?? 10_000;
+    this.sdk = new OneMind({
+      baseUrl: this.base,
+      token: { token: () => this.tokens.current() ?? '' },
+      timeoutMs: this.timeoutMs,
+      retries: 1,
+      fetch: ((input: string, init?: RequestInit) => this.send(input, init)) as unknown as typeof fetch,
+      // A hub on the home network over plain http is the normal first run (app.json allows cleartext).
+      onWarning: () => undefined,
+    });
+  }
+
+  /**
+   * The fetch the SDK sends through. It adds what the phone sends on every request, drops the bearer
+   * on the calls that must go without one, learns the hub clock, and keeps the answer for `req`.
+   */
+  private async send(url: string, init: RequestInit = {}): Promise<Response> {
+    const headers: Record<string, string> = { ...(init.headers as Record<string, string> | undefined) };
+    const ex = this.exchanges.get(headers[CALL_HEADER] ?? '');
+    delete headers[CALL_HEADER];
+    if (ex && !ex.auth) delete headers.Authorization;
+    // §12.1: clients send the API major version they speak.
+    headers['OneMind-API-Version'] = '1';
+    // The phone's own generation, not the SDK's fixed one: a lab "older app" build
+    // (EXPO_PUBLIC_ONEMIND_PROTOCOL) must declare one version on JSON calls, transfers and events alike.
+    headers[PROTOCOL_HEADER] = String(PROTOCOL_VERSION);
+    let res: Response;
+    try {
+      res = await this.fetchFn(url, { ...init, headers });
+    } catch (e) {
+      if (ex) ex.thrown = e;
+      throw e;
+    }
+    // The hub stamps last_seen with its own clock; the Date header lets the UI
+    // age it on that clock instead of the phone's (1 s resolution is enough
+    // for the 30 s / 120 s thresholds).
+    const hubDate = Date.parse(res.headers.get('Date') ?? '');
+    if (!Number.isNaN(hubDate)) this.offsetMs = hubDate - Date.now();
+    noteProtocol(res.headers);
+    const text = await res.text();
+    let data: unknown = undefined;
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = undefined;
+      }
+    }
+    if (ex) ex.res = { ok: res.ok, status: res.status, headers: res.headers, data };
+    // The body was read once here; the SDK reads this copy.
+    return { ok: res.ok, status: res.status, headers: res.headers, text: async () => text } as Response;
   }
 
   /** One renewal at a time, shared by every request that hit the same 401. */
@@ -362,45 +499,28 @@ export class HttpApi implements OneMindApi {
     shape: Shape = 'object',
     opts: { auth?: boolean; headers?: Record<string, string>; retried?: boolean; onHeaders?: (h: Headers) => void } = {},
   ): Promise<T> {
-    let res: Response;
-    const ctl = typeof AbortController !== 'undefined' ? new AbortController() : undefined;
-    const timer = ctl ? setTimeout(() => ctl.abort(), this.timeoutMs) : undefined;
     const bearer = opts.auth === false ? undefined : this.tokens.current();
+    const id = String(++this.seq);
+    const ex: Exchange = { auth: opts.auth !== false };
+    this.exchanges.set(id, ex);
+    let failure: unknown;
     try {
-      res = await this.fetchFn(this.base + path, {
-        signal: ctl?.signal,
-        method,
-        headers: {
-          Accept: 'application/json',
-          // §12.1: clients send the API major version they speak.
-          'OneMind-API-Version': '1',
-          ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
-          ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-          ...opts.headers,
-        },
-        body: body !== undefined ? JSON.stringify(body) : undefined,
-      });
+      const sdkReq = { method, path, body, retry: false, headers: { ...opts.headers, [CALL_HEADER]: id } } as SdkRequest;
+      await this.sdk.call<unknown>(sdkReq);
     } catch (e) {
-      if (ctl?.signal.aborted) throw new ApiError(0, 'network', `The hub did not answer within ${this.timeoutMs / 1000} s`);
-      throw new ApiError(0, 'network', e instanceof Error ? e.message : 'Network error');
+      // The SDK throws for every non-2xx answer and for a 2xx without JSON; the phone decides from the answer itself.
+      failure = e;
     } finally {
-      if (timer !== undefined) clearTimeout(timer);
+      this.exchanges.delete(id);
     }
-    // The hub stamps last_seen with its own clock; the Date header lets the UI
-    // age it on that clock instead of the phone's (1 s resolution is enough
-    // for the 30 s / 120 s thresholds).
-    const hubDate = Date.parse(res.headers.get('Date') ?? '');
-    if (!Number.isNaN(hubDate)) this.offsetMs = hubDate - Date.now();
+    const res = ex.res;
+    if (!res) {
+      if (failure instanceof NetworkError && failure.timedOut) throw new ApiError(0, 'network', `The hub did not answer within ${this.timeoutMs / 1000} s`);
+      const cause = ex.thrown ?? failure;
+      throw new ApiError(0, 'network', cause instanceof Error ? cause.message : 'Network error');
+    }
     opts.onHeaders?.(res.headers);
-    const text = await res.text();
-    let data: unknown = undefined;
-    if (text) {
-      try {
-        data = JSON.parse(text);
-      } catch {
-        data = undefined;
-      }
-    }
+    const data = res.data;
     if (!res.ok) {
       const err = errorFrom(res.status, data, res.headers.get('Retry-After'), res.headers.get('DPoP-Nonce'));
       // A session token may have expired: renew once and repeat. A step-up refusal is not an expiry.
@@ -445,7 +565,7 @@ export class HttpApi implements OneMindApi {
     return this.req<Action>('GET', `/v1/actions/${enc(id)}`);
   }
   approve(id: string, body?: ApproveBody) {
-    const b = body && (body.plan_sha256 || body.webauthn) ? body : undefined;
+    const b = body && (body.plan_sha256 || body.webauthn || body.device_signature) ? body : undefined;
     return this.req<Action>('POST', `/v1/actions/${enc(id)}/approve`, b);
   }
   deny(id: string, reason?: string) {
@@ -522,14 +642,20 @@ export class HttpApi implements OneMindApi {
   passkeyRegisterOptions() {
     return this.req<RegisterOptions>('POST', '/v1/auth/passkeys/register/options', {});
   }
-  passkeyRegister(body: { credential: WebAuthnAttestation; label: string }) {
+  passkeyRegister(body: { credential: WebAuthnAttestation; label: string; install_id?: string }) {
     return this.req<{ credential_id: string; label: string }>('POST', '/v1/auth/passkeys/register', body);
   }
-  deviceRequest(body: DeviceRequestBody) {
-    return this.req<DeviceRequest>('POST', '/v1/devices/requests', body);
+  approverKeyRegister(body: { public_key: string; label: string; key_kind: 'hardware-reported' | 'software' }) {
+    return this.req<ApproverKey>('POST', '/v1/auth/approver-keys', body);
   }
-  deviceRequestStatus(id: string, pollCode?: string) {
-    return this.req<DeviceRequest>('GET', `/v1/devices/requests/${enc(id)}`, undefined, 'object', {
+  async approverKeyRevoke(keyId: string) {
+    await this.req<unknown>('DELETE', `/v1/auth/approver-keys/${enc(keyId)}`, undefined, 'any');
+  }
+  deviceRequest(body: DeviceRequestBody, o: { me?: boolean } = {}) {
+    return this.req<DeviceRequest>('POST', o.me ? '/v1/me/devices' : '/v1/devices/requests', body);
+  }
+  deviceRequestStatus(id: string, pollCode?: string, o: { me?: boolean } = {}) {
+    return this.req<DeviceRequest>('GET', `${o.me ? '/v1/me/devices' : '/v1/devices/requests'}/${enc(id)}`, undefined, 'object', {
       headers: pollCode ? { 'OneMind-Poll-Code': pollCode } : {},
     });
   }
@@ -608,22 +734,20 @@ export class HttpApi implements OneMindApi {
     const bearer = this.tokens.current();
     return {
       url: `${this.base}/v1/files/download?root=${enc(root)}&path=${enc(path)}`,
-      headers: { 'OneMind-API-Version': '1', ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
+      headers: { 'OneMind-API-Version': '1', [PROTOCOL_HEADER]: String(PROTOCOL_VERSION), ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
     };
   }
   /** One tus request. Not `req`: tus answers with headers and no JSON, and the location is an absolute URL on the hub. */
-  private async tus(method: string, url: string, headers: Record<string, string>, body?: Uint8Array, retried = false): Promise<Response> {
+  private async tus(method: string, url: string, headers: Record<string, string>, body?: Uint8Array, retried = false, transport?: TusTransport): Promise<Response> {
     if (url !== this.base && !url.startsWith(this.base + '/')) throw new ApiError(0, 'unknown', 'The hub sent an upload address on another origin');
     const bearer = this.tokens.current();
-    const ctl = typeof AbortController !== 'undefined' ? new AbortController() : undefined;
+    const ctl = !transport && typeof AbortController !== 'undefined' ? new AbortController() : undefined;
     const timer = ctl ? setTimeout(() => ctl.abort(), Math.max(this.timeoutMs, 60_000)) : undefined;
+    const requestHeaders = { 'OneMind-API-Version': '1', [PROTOCOL_HEADER]: String(PROTOCOL_VERSION), 'Tus-Resumable': '1.0.0', ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}), ...headers };
     let res: Response;
     try {
-      res = await this.fetchFn(url, {
-        signal: ctl?.signal,
-        method,
-        headers: { 'OneMind-API-Version': '1', 'Tus-Resumable': '1.0.0', ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}), ...headers },
-        body: body as unknown as BodyInit | undefined,
+      res = transport && body ? await transport(url, requestHeaders, body) : await this.fetchFn(url, {
+        signal: ctl?.signal, method, headers: requestHeaders, body: body as unknown as BodyInit | undefined,
       });
     } catch (e) {
       throw new ApiError(0, 'network', e instanceof Error ? e.message : 'Network error');
@@ -639,7 +763,7 @@ export class HttpApi implements OneMindApi {
     }
     const err = errorFrom(res.status, data, res.headers.get('Retry-After'), res.headers.get('DPoP-Nonce'));
     if (err.code === 'unauthenticated' && err.reason !== 'step_up_required' && bearer && !retried && this.tokens.refresh && (await this.renew())) {
-      return this.tus(method, url, headers, body, true);
+      return this.tus(method, url, headers, body, true, transport);
     }
     throw err;
   }
@@ -655,17 +779,35 @@ export class HttpApi implements OneMindApi {
   }
   async filesUploadOffset(url: string) {
     const res = await this.tus('HEAD', url, {});
-    const n = Number(res.headers.get('Upload-Offset'));
-    if (!Number.isSafeInteger(n) || n < 0) throw new ApiError(res.status, 'unknown', 'The hub sent no valid Upload-Offset');
-    return n;
+    return readUploadOffset(res);
   }
-  async filesUploadChunk(url: string, offset: number, bytes: Uint8Array) {
-    const res = await this.tus('PATCH', url, { 'Upload-Offset': String(offset), 'Content-Type': 'application/offset+octet-stream' }, bytes);
-    const n = Number(res.headers.get('Upload-Offset'));
-    return { offset: Number.isSafeInteger(n) ? n : offset + bytes.length, sha256: res.headers.get('OneMind-File-Sha256') ?? undefined };
+  async filesUploadChunk(url: string, offset: number, bytes: Uint8Array, transport?: TusTransport) {
+    const res = await this.tus('PATCH', url, { 'Upload-Offset': String(offset), 'Content-Type': 'application/offset+octet-stream' }, bytes, false, transport);
+    return { offset: readUploadOffset(res), sha256: res.headers.get('OneMind-File-Sha256') ?? undefined };
   }
   migratePlans() {
     return this.req<MigratePlan[]>('GET', '/v1/migrate/plans', undefined, 'array');
+  }
+  users() {
+    return this.req<UserInfo[]>('GET', '/v1/users', undefined, 'array');
+  }
+  createUser(body: { display_name: string; role: string }) {
+    return this.req<CreatedUser>('POST', '/v1/users', body);
+  }
+  setUserRole(id: string, role: string) {
+    return this.req<UserInfo>('PATCH', `/v1/users/${enc(id)}`, { role });
+  }
+  familyProfile(id: string) {
+    return this.req<FamilyProfile>('GET', `/v1/family/profiles/${enc(id)}`);
+  }
+  apiTokens() {
+    return this.req<TokenInfo[]>('GET', '/v1/tokens', undefined, 'array');
+  }
+  killSwitch() {
+    return this.req<KillSwitch>('GET', '/v1/agents/kill-switch');
+  }
+  setKillSwitch(on: boolean, reason?: string) {
+    return this.req<KillSwitch>('PUT', '/v1/agents/kill-switch', reason ? { on, reason } : { on });
   }
   osUpdates() {
     return this.req<OsUpdateStatus>('GET', '/v1/os/updates');
@@ -685,8 +827,18 @@ export class HttpApi implements OneMindApi {
   mesh() {
     return this.req<MeshView>('GET', '/v1/mesh');
   }
-  systemPlan(type: SystemControlType) {
-    return this.req<SystemPlanPreview>('GET', `/v1/system/plan?type=${enc(type)}`);
+  status() {
+    return this.req<StatusView>('GET', '/v1/status');
+  }
+  /** Hidden (see `OP.systemPlan`): the hub serves no system plan preview, so nothing is sent. */
+  systemPlan(type: SystemControlType): Promise<SystemPlanPreview> {
+    return Promise.reject(new ApiError(404, 'not_found', `This hub has no plan preview for ${type}.`));
+  }
+  myDevices() {
+    return this.req<MyDevices>('GET', '/v1/me/devices');
+  }
+  removeMyDevice(id: string) {
+    return this.req<MyDeviceRemoved>('DELETE', `/v1/me/devices/${enc(id)}`);
   }
   eventsEndpoint() {
     return {

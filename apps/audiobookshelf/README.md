@@ -7,9 +7,10 @@ Self-hosted audiobook and podcast server
 
 | | |
 |---|---|
-| Version | 2.37.2 (upstream release `v2.37.2`, published 2026-10-23) |
-| Licence | `GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-19) |
+| Version | 2.38.0 (upstream release `v2.38.0`, published 2026-11-17) |
+| Licence | `GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-23) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
+| Quality | `none` (computed by the gate from its evidence, never set by hand) |
 | Category | media |
 | GitHub | <https://github.com/advplyr/audiobookshelf> |
 | Website | <https://audiobookshelf.org> |
@@ -32,7 +33,7 @@ Storage: PVC `audiobookshelf-audiobooks` 20Gi, PVC `audiobookshelf-config` 1Gi, 
 
 Images:
 
-- `ghcr.io/advplyr/audiobookshelf:2.37.2@sha256:b897c33f05972fb1bf484f7487bc878fa91ec8691335c1db6e2929c3a7658efa`
+- `ghcr.io/advplyr/audiobookshelf:2.38.0@sha256:60064c23f32fd9099fd39e82c5132c51701d1221135bbca04cd099b589e1edc3`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -45,7 +46,7 @@ Images:
 
 ## How it is packaged
 
-- **Image:** upstream `ghcr.io/advplyr/audiobookshelf:2.37.2`. It runs as root on port 80 by default; this package starts it as `node` (UID/GID 1000) and sets `PORT=13378`, the app's non-Docker default.
+- **Image:** upstream `ghcr.io/advplyr/audiobookshelf:2.38.0`. It runs as root on port 80 by default; this package starts it as `node` (UID/GID 1000) and sets `PORT=13378`, the app's non-Docker default.
 - **State:** PVCs `audiobookshelf-config` (`/config`, SQLite), `audiobookshelf-metadata` (`/metadata`: covers, cache, backups), `audiobookshelf-audiobooks` (`/audiobooks`) and `audiobookshelf-podcasts` (`/podcasts`), the four volumes in upstream's `docker-compose.yml`.
 - **Health:** probes on `GET /healthcheck` (`server/Server.js`).
 - **Security:** `runAsNonRoot`, `allowPrivilegeEscalation: false`, all Linux capabilities dropped, `RuntimeDefault` seccomp, no service-account token. One replica with the `Recreate` strategy, so two pods never write the same volume.
@@ -72,14 +73,16 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 
 **Hold (apps/market-unblock-2, 2026-11-13):** npm CVEs in `form-data`, `proxy-addr`, `sequelize` and `tar`. `2.37.2` is the newest tag. Unblock: a release that updates those npm packages. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
+
+**Hold (2026-11-23, #147):** the pin is now `2.38.0` (digest `sha256:60064c23f32fd9099fd39e82c5132c51701d1221135bbca04cd099b589e1edc3`, newest upstream release). Trivy 0.76.2 on linux/amd64 and linux/arm64 still finds the same four CRITICALs in the app's npm dependencies: CVE-2025-7783 `form-data` 4.0.0 (fixed 4.0.4), CVE-2026-90711 `proxy-addr` 2.0.7 (fixed 2.0.8), CVE-2026-69240 `sequelize` 6.35.2 (fixed 6.37.4), CVE-2026-59873 `tar` 6.1.15 (fixed 7.5.19); 0 secrets. Tier stays `blocked`. Unblock: an upstream release that updates those packages, or a OneMind rebuild (founder decision). Tracked on #147.
 <!-- onemind:notes:end -->
 
 ## Latest security scan
 
-Scanned 2026-11-19T13:40:05Z by `sdk/tools/app-gate`: **fail**. Licence `GPL-3.0` class L2; smoke test pass.
+Scanned 2026-11-23T09:44:05Z by `sdk/tools/app-gate`: **fail**. Licence `GPL-3.0` class L2; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `ghcr.io/advplyr/audiobookshelf:2.37.2@sha256:b897c33f05972fb1bf484f7487bc878fa91ec8691335c1db6e2929c3a7658efa` | amd64, arm64 | 4 (4) | 57 | 0 infected (daily-28188) | 0 | unsigned |
+| `ghcr.io/advplyr/audiobookshelf:2.38.0@sha256:60064c23f32fd9099fd39e82c5132c51701d1221135bbca04cd099b589e1edc3` | amd64, arm64 | 4 (4) | 54 | 0 infected (daily-28192) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

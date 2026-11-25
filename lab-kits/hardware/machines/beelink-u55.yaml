@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: Apache-2.0
+id: beelink-u55
+name: Beelink mini PC (U55)
+class: x86-mini-pc
+board: x86_64-efi
+status: unproven
+cpu: UNVERIFIED (the research plan guesses an i3-5005U; LT-X86-00 reads it)
+ram: UNVERIFIED
+disk: UNVERIFIED (installer writes one disk, 32 GiB or more)
+network: wired Ethernet
+tpm: UNVERIFIED (LT-X86-00 reports whether tpm0 exists)
+firmware_needed:
+  - Secure Boot must be off for dev builds (unsigned)
+what_works: []
+what_does_not:
+  - Wi-Fi, CPU microcode (not in the image yet)
+kit: LT-X86-01
+result: null
+proven_on: null
+image_version: null

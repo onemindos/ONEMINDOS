@@ -1,10 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect, type Page } from '@playwright/test';
 
+/** The box name the golden path saves when it finishes first-run setup (see finishFirstRun). */
+const FIRST_RUN_BOX = 'home-hub';
+
+/**
+ * The token form sits under "Other ways to sign in", which the screen folds shut when the browser
+ * can use a passkey (and leaves open when it cannot). Open it only when it is shut.
+ */
+export async function openTokenForm(page: Page): Promise<void> {
+  const field = page.getByLabel('Access token');
+  // The heading names the box once first-run setup saved a box name (PR #563); "OneMind" before that.
+  await expect(page.getByRole('heading', { level: 1, name: new RegExp(`^Welcome to (OneMind|${FIRST_RUN_BOX})$`) })).toBeVisible();
+  if (!(await field.isVisible())) await page.getByText('Other ways to sign in', { exact: true }).click();
+  await expect(field).toBeVisible();
+}
+
 /** Sign in through the real sign-in screen (v0 static token; passkeys come with CORE-SEC-2). */
 export async function signIn(page: Page, token: string): Promise<void> {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Welcome to OneMind' })).toBeVisible();
+  await openTokenForm(page);
   const field = page.getByLabel('Access token');
   await field.click();
   // Not fill()/type()/keyboard.insertText(): Playwright writes their value into the step title, which
@@ -16,7 +31,30 @@ export async function signIn(page: Page, token: string): Promise<void> {
     input.dispatchEvent(new Event('input', { bubbles: true }));
   }, token);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page.getByRole('navigation', { name: 'Main' })).toBeVisible();
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  const wizard = page.getByRole('heading', { level: 1, name: 'Name your box' });
+  await expect(nav.or(wizard)).toBeVisible();
+  if (await wizard.isVisible()) await finishFirstRun(page, token);
+  await expect(nav).toBeVisible();
+}
+
+/**
+ * A fresh box opens the first-run wizard after the owner's first sign-in (PR #551: the gateway decides,
+ * GET /v1/onboarding/state). Its owner step needs a real passkey ceremony, which a headless CI browser on
+ * a plain-http hub cannot do, so save the same first-run settings the wizard saves (PUT
+ * /v1/onboarding/settings, the headless twin of the wizard) and reload: the shell must then open.
+ */
+async function finishFirstRun(page: Page, token: string): Promise<void> {
+  const headers = { Authorization: `Bearer ${token}` };
+  const saved = await page.request.put('/v1/onboarding/settings', {
+    headers,
+    data: { box_name: FIRST_RUN_BOX, time_zone: 'UTC', backup_choice: 'later', backup_destination_id: null },
+  });
+  expect(saved.status(), 'PUT /v1/onboarding/settings').toBe(200);
+  const state = await page.request.get('/v1/onboarding/state', { headers });
+  expect(state.status(), 'GET /v1/onboarding/state').toBe(200);
+  expect((await state.json()).complete, 'first-run setup complete after saving its settings').toBe(true);
+  await page.reload();
 }
 
 /**

@@ -1,9 +1,9 @@
 {
-  "scanned_at": "2026-11-19T13:40:05Z",
+  "scanned_at": "2026-11-23T09:44:05Z",
   "result": "fail",
   "images": [
     {
-      "ref": "ghcr.io/advplyr/audiobookshelf:2.37.2@sha256:b897c33f05972fb1bf484f7487bc878fa91ec8691335c1db6e2929c3a7658efa",
+      "ref": "ghcr.io/advplyr/audiobookshelf:2.38.0@sha256:60064c23f32fd9099fd39e82c5132c51701d1221135bbca04cd099b589e1edc3",
       "archs": [
         "amd64",
         "arm64"
@@ -12,10 +12,10 @@
         "version": "0.76.2",
         "critical_fixable": 4,
         "critical": 4,
-        "high": 57
+        "high": 54
       },
       "clamav": {
-        "signatures": "daily-28188",
+        "signatures": "daily-28192",
         "infected": 0
       },
       "secrets": 0,
@@ -26,5 +26,29 @@
     "spdx": "GPL-3.0",
     "class": "L2"
   },
-  "smoke": "pass"
+  "smoke": "pass",
+  "quality": {
+    "tier": "none",
+    "evidence": {
+      "bronze": {
+        "gate_pass": false,
+        "licence_green": true,
+        "images_clean": false,
+        "upstream_alive": true,
+        "nothing_unverified": true
+      },
+      "silver": {
+        "smoke_pass": true,
+        "non_root": true,
+        "support_links": true,
+        "security_updates": false
+      },
+      "gold": {
+        "images_signed": false,
+        "no_critical": false,
+        "patch_automerge": false,
+        "backup_declared": false
+      }
+    }
+  }
 }

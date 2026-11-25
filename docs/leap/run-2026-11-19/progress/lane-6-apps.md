@@ -10,13 +10,13 @@ The order comes from [LANES.md](../LANES.md).
 
 ## Draft (pushed, not ready yet)
 
-Detailed per-issue notes for this lane follow below the status headings.
-
 ## Next
 
 ## Blocked (waiting on the founder, hardware or another lane)
 
-# Lane 6: apps (detail)
+---
+
+# Lane 6: apps
 
 Date: 2026-11-19. Owner: Codex. Area: apps.
 
@@ -91,21 +91,3 @@ auto-approve. The exact dependency is recorded on #126:
 https://github.com/onemindos/ONEMINDOS/issues/126#issuecomment-7008676734.
 No gateway/dashboard files were changed. Keep #126 open until its Market
 acceptance criterion and full gate evidence are satisfied.
-
-## #129 — Supply Depot (NMD-04)
-
-State: claimed; intake verified; implementation starting.
-Branch: `codex/129-supply-depot`.
-
-The founder explicitly ordered #129 after #126. Its older dependency #147
-remains open; this work adds independently gated packages and does not claim
-to clear #147 or unblock any existing app.
-
-Plan: package CyberChef, IT-Tools, LibreTranslate, ArchiveBox and Collabora
-from verified upstream image digests using independently authored OneMind
-manifests. Preserve non-root, RuntimeDefault seccomp and approval controls.
-Keep software and model/content licence evidence separate; missing evidence
-or any gate failure keeps the app blocked with its reason in the README.
-No upstream GPL/AGPL implementation code or patterns will be copied into
-OneMind. Run manifest and tool tests, full unchanged app gates, hygiene and
-gitleaks; hand off for independent review without merging.

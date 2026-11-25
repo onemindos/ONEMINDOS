@@ -42,7 +42,7 @@ from pathlib import Path, PurePosixPath
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
-    from applib import common, licence, readme, retry  # noqa: E402
+    from applib import common, licence, quality, readme, retry, plugin_scan  # noqa: E402
 except ImportError as exc:  # pragma: no cover
     sys.stderr.write(f"error: missing dependency ({exc.name}); install sdk/tools/requirements.txt\n")
     sys.exit(2)
@@ -125,6 +125,8 @@ class Gate:
                            "--apps-dir", str(self.app_dir.parent), self.id], timeout=600)
         if proc.returncode != 0:
             c.fail("validate-apps failed:\n" + (proc.stdout + proc.stderr).strip())
+        if "manifests" not in self.spec:
+            return []  # shared validator permits only declarative plugins without workloads
         return common.render(self.app_dir / self.spec["manifests"])
 
     # -- 2: licence ---------------------------------------------------------------------------
@@ -284,8 +286,10 @@ class Gate:
         return healthy
 
     # -- 8: non-root ----------------------------------------------------------------------------
-    def nonroot(self, objects: list[dict]) -> None:
+    def nonroot(self, objects: list[dict]) -> bool:
+        """Check non-root; returns True when no container failed it (evidence for quality tier Silver)."""
         c = self.check("manifests")
+        failed_before = sum(n.startswith("FAIL") for n in c.notes)
         user_cache: dict[str, str] = {}
         for obj, pod in common.workloads(objects):
             psc = pod.get("securityContext") or {}
@@ -313,6 +317,7 @@ class Gate:
                 else:
                     c.fail(f"{where}: runs as root without runAsNonRoot; either run non-root or set "
                            "allowPrivilegeEscalation: false and drop ALL capabilities")
+        return sum(n.startswith("FAIL") for n in c.notes) == failed_before
 
     # -- 9: smoke test --------------------------------------------------------------------------
     def smoke(self, objects: list[dict]) -> str:
@@ -425,7 +430,7 @@ class Gate:
         repo_info = self.gh.repo(repo) if repo else None
         lic = self.licence_gate(repo_info, repo)
         healthy = self.upstream_health(repo, repo_info)
-        self.nonroot(objects)
+        non_root = self.nonroot(objects)
         owner = repo.split("/")[0] if repo else None
         images = []
         for ref in common.images(objects):
@@ -436,23 +441,37 @@ class Gate:
             clam = self.clamav(ref, archs)
             images.append({"ref": ref, "archs": archs, "trivy": trivy, "clamav": clam,
                            "secrets": secrets, "cosign": self.cosign(ref, children, owner)})
+        bundle_scan = None
+        if "extensions" in self.spec:
+            bundle_scan = plugin_scan.scan_bundle(self.app_dir, scanner=common.which("clamscan"),
+                                                  database=self.args.clamav_db)
+            for hit in bundle_scan["findings"]:
+                self.check("malware").fail("plugin bundle: " + hit)
+            self.check("malware").note(f"plugin bundle: {bundle_scan['files']} files scanned")
         smoke = self.smoke(objects) if self.check("manifests").ok and self.check("pinning").ok else "fail"
         if smoke == "fail" and "smoke" not in self.checks:
             self.check("smoke").fail("not run because the manifest or pinning checks failed")
         result = "pass" if all(c.ok for c in self.checks.values()) else "fail"
         scan = {"scanned_at": now(), "result": result, "images": images, "licence": lic, "smoke": smoke}
 
+        if bundle_scan is not None:
+            scan["plugin_bundle"] = bundle_scan
+
         unverified = common.unverified_files(self.app_dir)
         if unverified:
             self.check("unverified").note("UNVERIFIED in " + ", ".join(unverified) + ": tier capped at community")
-        if lic["class"] == "blocked" or any(i["clamav"]["infected"] or i["trivy"]["critical_fixable"] for i in images):
+        if lic["class"] == "blocked" or (bundle_scan and bundle_scan["infected"]) or any(i["clamav"]["infected"] or i["trivy"]["critical_fixable"] for i in images):
             tier = "blocked"
         elif result == "pass" and healthy and not unverified:
             tier = "verified"
         else:
             tier = "community"
+        # Quality tier (#174): from this run's evidence only, never from a manifest field.
+        scan["quality"] = quality.compute(scan, self.manifest, {
+            "upstream_alive": healthy, "non_root": non_root and self.check("manifests").ok,
+            "nothing_unverified": not unverified})
         self.report["checks"] = {n: {"ok": c.ok, "notes": c.notes} for n, c in self.checks.items()}
-        self.report.update({"result": result, "computed_tier": tier})
+        self.report.update({"result": result, "computed_tier": tier, "quality_tier": scan["quality"]["tier"]})
         return scan, tier
 
 
@@ -559,6 +578,7 @@ def main(argv: list[str]) -> int:
         errs = [apply_tier(app_dir / common.MANIFEST_NAME, gate.meta.get("tier", "community"), tier, args.tier)]
         if args.tier == "check":
             errs.append(scan_claim_error(committed, scan["result"]))
+            errs.append(quality.claim_error(committed, scan["quality"]["tier"]))
         errs = [e for e in errs if e]
         if errs:
             gate.report["checks"].setdefault("tier", {"ok": False, "notes": []})["notes"].extend(errs)
@@ -568,7 +588,7 @@ def main(argv: list[str]) -> int:
             (app_dir / "scan.json").write_text(json.dumps(scan, indent=2) + "\n", encoding="utf-8")
             (app_dir / "README.md").write_text(readme.render(app_dir), encoding="utf-8")
         reports.append(gate.report)
-        print(f"{'PASS' if scan['result'] == 'pass' else 'FAIL'} apps/{app_id}/ (tier {tier}, smoke {scan['smoke']})")
+        print(f"{'PASS' if scan['result'] == 'pass' else 'FAIL'} apps/{app_id}/ (tier {tier}, quality {scan['quality']['tier']}, smoke {scan['smoke']})")
         for name, c in gate.report["checks"].items():
             for n in c["notes"]:
                 print(f"  [{name}] {n}")

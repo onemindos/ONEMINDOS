@@ -4,6 +4,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Card, PageHeader, StateView } from '@onemind/ui';
+import { useSignedIn } from '../session';
 import { href } from './routes';
 import { useShell } from './Shell';
 
@@ -18,6 +19,24 @@ export function ProOnly({ title, children }: { title: string; children: ReactNod
         <p role="status">This screen is for the people who run this box (owners and adults). Ask an owner if you need something here.</p>
         <p>
           <Link to={href.home}>Back to Home</Link>
+        </p>
+      </Card>
+    </div>
+  );
+}
+
+/** Guards an owner-only screen (community sources, Compose import). Fails open while the ability is
+ * unknown so an owner is never locked out; the gateway refuses everyone else anyway. */
+export function OwnerOnly({ title, children }: { title: string; children: ReactNode }) {
+  const { canDecide } = useSignedIn();
+  if (canDecide !== 'no') return <>{children}</>;
+  return (
+    <div className="dash-stack">
+      <PageHeader title={title} />
+      <Card variant="sunken">
+        <p role="status">Only an owner can use this. Ask an owner if you need something here.</p>
+        <p>
+          <Link to={href.market}>Back to Market</Link>
         </p>
       </Card>
     </div>

@@ -1,0 +1,15 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# See onemind-nvidia-setup.service. 0x10de is NVIDIA's PCI vendor id (pci-ids.ucw.cz).
+set -eu
+DEST=/data/k3s/server/manifests/onemind-gpu.yaml
+if grep -qs '^0x10de$' /sys/bus/pci/devices/*/vendor; then
+  modprobe -a nvidia nvidia_uvm
+  nvidia-modprobe -u -c=0        # /dev/nvidia0, /dev/nvidiactl, /dev/nvidia-uvm
+  mkdir -p "$(dirname "$DEST")"
+  cp /usr/lib/onemind/gpu/onemind-gpu.yaml "$DEST"
+  echo "onemind-nvidia-setup: NVIDIA card found, driver loaded, device plugin manifest in place"
+else
+  rm -f "$DEST"
+  echo "onemind-nvidia-setup: no NVIDIA card on this machine; GPU apps will be refused"
+fi

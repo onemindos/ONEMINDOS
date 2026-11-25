@@ -88,6 +88,27 @@ class UpdaterInertWithoutRoot(unittest.TestCase):
         self.assertIn('filepath.Join(c.TUFRootDir, c.Channel, "root.json")', rd("internal", "update", "tuf.go"))
 
 
+class CatalogSyncInertWithoutRoot(unittest.TestCase):
+    """The signed catalog sync is shipped but inert: it needs the catalog channel's own TUF root and is never
+    enabled by the image. Its gateway wiring points at the directory the sync writes."""
+    def test_units_need_the_catalog_root_and_are_not_enabled(self):
+        d = ("os", "rootfs", "layers", "onemind", "usr", "lib", "systemd", "system")
+        svc, tm = rd(*d, "onemind-catalog.service"), rd(*d, "onemind-catalog.timer")
+        self.assertIn("ConditionPathExists=/usr/lib/onemind/tuf/catalog/root.json", svc)
+        self.assertIn("ExecStart=/usr/bin/onemind catalog sync", svc)
+        self.assertIn("ReadWritePaths=/data/onemind/catalog", svc)
+        # the dir must exist before the sandbox is built (226/NAMESPACE otherwise)
+        self.assertIn("ExecStartPre=+/bin/mkdir -p /data/onemind/catalog", svc)
+        self.assertNotIn("[Install]", svc + tm)
+        self.assertIn("Unit=onemind-catalog.service", tm)
+
+    def test_gateway_reads_what_the_sync_writes(self):
+        self.assertIn("ONEMIND_CATALOG_DIR=/data/onemind/catalog",
+                      rd("os", "rootfs", "layers", "onemind", "usr", "lib", "onemind", "onemind_firstboot.py"))
+        self.assertIn('c.StateDir = "/data/onemind/catalog"', rd("internal", "update", "config.go"))
+        self.assertIn("channel=catalog", rd("os", "rootfs", "layers", "base", "etc", "onemind", "catalog.conf"))
+
+
 class BrandBootSplash(unittest.TestCase):
     """The brand Plymouth theme is in the image and its initramfs; the splash never touches the serial console."""
     def test_theme_is_installed_before_the_initramfs_is_built(self):
@@ -160,10 +181,21 @@ class DashboardUiSource(unittest.TestCase):
     def test_sdk_src_reaches_the_dashboard_stage(self):
         cf = rd("os", "rootfs", "Containerfile")
         stage = cf[cf.index("AS onemind-dashboard"):cf.index("AS onemind-pyprep")]
-        self.assertIn("COPY sdk/ts/src/ /src/sdk/ts/src/", stage)
-        self.assertLess(stage.index("COPY sdk/ts/src/"), stage.index("npm run build"))
-        self.assertIn("!sdk/ts/src/", rd(".dockerignore"))
+        self.assertIn("COPY sdk/ts/ /src/sdk/ts/", stage)
+        self.assertLess(stage.index("COPY sdk/ts/"), stage.index("npm run build"))
+        self.assertIn("!sdk/ts/", rd(".dockerignore"))
         self.assertIn("../sdk/ts/src", rd("dashboard", "tsconfig.json"))
+        # CI-16: schema.ts is not committed, so the stage generates it from the spec before the build.
+        self.assertIn("COPY sdk/openapi/ /src/sdk/openapi/", stage)
+        self.assertLess(stage.index("gen-code.sh ts"), stage.index("npm run build"))
+
+    def test_go_stage_generates_the_sdk_types_before_building(self):
+        cf = rd("os", "rootfs", "Containerfile")
+        stage = cf[cf.index("AS onemind-go"):cf.index("AS onemind-dashboard")]
+        self.assertIn("COPY sdk/openapi/ sdk/openapi/", stage)
+        self.assertLess(stage.index("gen-code.sh go"), stage.index("go build"))
+        for path in ("!sdk/openapi/", "!sdk/scripts/"):
+            self.assertIn(path, rd(".dockerignore"))
 
 
 class NatsUnit(unittest.TestCase):

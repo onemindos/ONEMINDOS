@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind app manifest (sdk/contracts/poc-v0.md §4). Upstream facts verified 2026-11-12:
+#   release 2.5.10 (commit fc96c63bf31e); bumped to 2.5.11 on 2026-11-12 (apps/market-unblock-1): image tag and digest verified in the registry, GitHub release page not checked
+#   licence MIT (LICENSE at tag 2.5.10); research licence class L1 (research-output/13-apps-market-plugins.md §4,
+#   row in research-output/evidence/license-matrix.csv)
+#   image docker.io/louislam/uptime-kuma:2.5.11-rootless, multi-arch index with linux/amd64 and linux/arm64
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: uptime-kuma
+  name: Uptime Kuma
+  version: "2.5.11"
+  description: Self-hosted uptime monitoring for websites, ports and services, with status pages and notifications
+  category: monitoring
+  age_rating: 16   # same as apps/uptime-kuma (apps/README.md rubric)
+  age_reason: "Probes any host or port the user enters and sends alerts; behaves like a scanner."
+  icon: icon.svg
+  license: MIT
+  licenceClass: L1
+  source: https://github.com/louislam/uptime-kuma
+  # §9.3 facts from the GitHub API (repos/louislam/uptime-kuma and its releases/latest), read 2026-11-12.
+  links:
+    docs: https://github.com/louislam/uptime-kuma/wiki
+    github: https://github.com/louislam/uptime-kuma
+    website: https://uptime.kuma.pet
+    support: https://github.com/louislam/uptime-kuma/issues
+  # released_at is the image build time from the registry config (GitHub not reachable from the worker).
+  upstream: {release: "2.5.11", released_at: "2026-11-12T09:15:31Z", archived: false}
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 256}
+  web: {port: 3001}
+  manifests: manifests/
+  updates: {channel: stable, automerge: patch}
+  permissions: [nodes:read, actions:request:app.install]
+  compat: {onemind: ">=0.3 <1.0"}
+  plugin:
+    principal: true
+    secret: uptime-kuma-onemind
+    backend: {service: uptime-kuma, port: 3001}
+  extensions:
+    tools:
+      - name: status
+        title: Read status
+        description: Returns status data.
+        effect: read
+        input: {type: object, additionalProperties: false}
+        output: {type: object, additionalProperties: false}

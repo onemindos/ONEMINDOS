@@ -1,20 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
-// The first-run wizard of @onemind/ui (Onboarding), wired. It opens once, right after the owner is
-// created on the sign-in screen (setup flag in sessionStorage). Real effects only:
+// The first-run wizard of @onemind/ui (Onboarding), wired. The gateway decides when it opens
+// (GET /v1/onboarding/state: settings saved and, once a backup destination exists, the kit confirmed),
+// so a reload or a second browser lands in the same place. Real effects only:
 //  - "Create a passkey" runs the WebAuthn ceremony against /v1/auth/passkeys/register.
 //  - Each starter app the owner ticks becomes an `app.install` REQUEST in Approvals. Nothing is
 //    installed by the wizard (AI and automation never actuate; the owner approves each one).
+//  - The recovery kit step issues the owner key through /v1/backups/kit and confirms two typed-back groups.
+//    The key lives only in the step's memory, is never stored, and is never logged or put in a URL.
+//  - Each starter install shows its read-only plan first; the request carries that plan's hash, so the
+//    approval is bound to exactly what was shown.
 // Software settings persist through §12.41. Backup configuration stays in §12.12.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Onboarding, applyTheme, useToast, type StarterApp } from '@onemind/ui';
+import { Onboarding, applyTheme, useToast, type OnboardingKit, type StarterApp } from '@onemind/ui';
 import type { CatalogApp } from '../api/types';
-import type { BackupDestinationRecord, FirstRunSettings, FirstRunSettingsBody } from '../api/client';
+import type { BackupDestinationRecord, FirstRunSettings, FirstRunSettingsBody, FirstRunState } from '../api/client';
 import { categorySlug, deployClass } from '../data/adapters';
 import { useHub } from '../data/hub';
 import { createPasskey, webauthnSupported } from '../lib/webauthn';
 import { useSignedIn } from '../session';
-import { WIZARD_KEY } from './SignIn';
 
 export function toStarterApp(a: CatalogApp): StarterApp | undefined {
   const category = categorySlug(a.category);
@@ -22,20 +26,17 @@ export function toStarterApp(a: CatalogApp): StarterApp | undefined {
   return { id: a.id, name: a.name || a.id, tagline: a.description ?? '', category, deployClass: deployClass(a.tier), minMemoryMb: 0 };
 }
 
-export const wizardPending = (): boolean => {
-  try {
-    return window.sessionStorage.getItem(WIZARD_KEY) === '1';
-  } catch {
-    return false;
-  }
-};
-export const clearWizard = () => {
-  try {
-    window.sessionStorage.removeItem(WIZARD_KEY);
-  } catch {
-    /* nothing to clear */
-  }
-};
+/** undefined while asking the gateway. A failed or refused answer (a non-owner gets 403) never traps anyone in the wizard. */
+export function useWizardPending(): [boolean | undefined, (pending: boolean) => void] {
+  const { api } = useSignedIn();
+  const [pending, setPending] = useState<boolean>();
+  useEffect(() => {
+    let live = true;
+    api.onboardingState().then((s) => { if (live) setPending(!s.complete); }, () => { if (live) setPending(false); });
+    return () => { live = false; };
+  }, [api]);
+  return [pending, setPending];
+}
 
 export function FirstRun({ onDone }: { onDone: () => void }) {
   const { api } = useSignedIn();
@@ -43,22 +44,42 @@ export function FirstRun({ onDone }: { onDone: () => void }) {
   const toast = useToast();
   const navigate = useNavigate();
   const apps = useMemo(() => (hub.apps.data ?? []).map(toStarterApp).filter((a): a is StarterApp => !!a), [hub.apps.data]);
-  const [loaded, setLoaded] = useState<{ settings: FirstRunSettings; destinations: BackupDestinationRecord[] }>();
+  const [loaded, setLoaded] = useState<{ settings: FirstRunSettings; destinations: BackupDestinationRecord[]; state: FirstRunState }>();
+  const previewed = useRef(new Map<string, string>());
   const [error, setError] = useState<string>();
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let live = true;
     setError(undefined);
-    void Promise.all([api.onboardingSettings(), api.backupDestinations()]).then(([settings, destinations]) => {
-      if (live) setLoaded({ settings, destinations });
+    void Promise.all([api.onboardingSettings(), api.backupDestinations(), api.onboardingState()]).then(([settings, destinations, state]) => {
+      if (live) setLoaded({ settings, destinations, state });
     }).catch((e: unknown) => { if (live) setError(e instanceof Error ? e.message : 'Could not load settings.'); });
     return () => { live = false; };
   }, [api, attempt]);
   if (error) return <div role="alert">{error} <button onClick={() => setAttempt((x) => x + 1)}>Try again</button></div>;
   if (!loaded) return <p role="status">Loading first-run settings and backup destinations…</p>;
+  const { state } = loaded;
+  const { issueKit, confirmKit, appPlan } = api;
+  // Offered only where the gateway can issue one: a backup destination exists.
+  const kit: OnboardingKit | undefined = issueKit && confirmKit && state.destinations > 0 ? {
+    state: state.kit.state, positions: state.kit.positions,
+    issue: async () => {
+      const r = await issueKit.call(api);
+      return { ...r.one_time, positions: r.kit.positions };
+    },
+    confirm: (answers) => confirmKit.call(api, answers),
+  } : undefined;
+  const previewPlan = appPlan ? async (id: string) => {
+    const plan = await appPlan.call(api, id);
+    if (plan.policy_verdict !== 'needs_approval' || typeof plan.plan?.summary !== 'string') throw new Error(plan.reason || 'the gateway refused this install');
+    previewed.current.set(id, plan.plan_sha256);
+    return plan.plan.summary;
+  } : undefined;
   return (
     <Onboarding
       apps={apps}
+      kit={kit}
+      previewPlan={previewPlan}
       initial={{ boxName: loaded.settings.box_name ?? '', timeZone: loaded.settings.time_zone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC',
         backup: { destination: loaded.settings.backup_choice, destinationId: loaded.settings.backup_destination_id ?? undefined, kitSaved: false } }}
       backupDestinations={loaded.destinations}
@@ -89,14 +110,19 @@ export function FirstRun({ onDone }: { onDone: () => void }) {
           let sent = 0;
           for (const r of requests) {
             try {
-              await hub.request(r.type, r.params.app_id);
+              const shown = previewed.current.get(r.params.app_id);
+              if (shown && appPlan) {
+                // Bound to what the owner saw: a plan that changed since the preview is not filed.
+                const now = await appPlan.call(api, r.params.app_id);
+                if (now.plan_sha256 !== shown) continue;
+                await hub.request(r.type, r.params.app_id, {}, now.plan_sha256);
+              } else await hub.request(r.type, r.params.app_id);
               sent += 1;
             } catch {
               /* reported once below */
             }
           }
           if (requests.length) toast.show({ tone: sent === requests.length ? 'info' : 'warn', title: `${sent} of ${requests.length} install requests sent`, body: 'They wait in Approvals until you decide.' });
-          clearWizard();
           onDone();
           navigate(requests.length ? '/approvals' : '/');
       }}

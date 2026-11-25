@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: Apache-2.0
+# supervisord settings for running Neko's firefox image as UID 1000. Upstream's /etc/neko/supervisord.conf starts as root and
+# switches each program to the neko user; supervisord refuses that when it is not root. This file is that one with the
+# user switching removed and logs sent to the container log (m1k1o/neko v3.1.4 runtime/ and apps/firefox/ supervisord files,
+# read 2026-11-21; the 3.2.0 files are UNVERIFIED to be identical, the pod test in the README covers it).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: firefox-supervisord
+data:
+  supervisord.conf: |
+    [supervisord]
+    nodaemon=true
+    pidfile=/tmp/supervisord.pid
+    logfile=/dev/null
+    logfile_maxbytes=0
+    loglevel=info
+
+    [program:x-server]
+    environment=HOME="/home/neko",USER="neko"
+    command=/usr/bin/X :99.0 -config /etc/neko/xorg.conf -noreset -nolisten tcp
+    autorestart=true
+    priority=300
+    stdout_logfile=/dev/stdout
+    stdout_logfile_maxbytes=0
+    redirect_stderr=true
+
+    [program:pulseaudio]
+    environment=HOME="/home/neko",USER="neko",DISPLAY=":99.0"
+    command=/usr/bin/pulseaudio --log-level=error --disallow-module-loading --disallow-exit --exit-idle-time=-1
+    autorestart=true
+    priority=300
+    stdout_logfile=/dev/stdout
+    stdout_logfile_maxbytes=0
+    redirect_stderr=true
+
+    [program:neko]
+    environment=HOME="/home/neko",USER="neko",DISPLAY=":99.0"
+    command=/usr/bin/neko serve --server.static "/var/www"
+    stopsignal=INT
+    stopwaitsecs=3
+    autorestart=true
+    priority=800
+    stdout_logfile=/dev/stdout
+    stdout_logfile_maxbytes=0
+    redirect_stderr=true
+
+    [program:firefox]
+    environment=HOME="/home/neko",USER="neko",DISPLAY=":99.0"
+    command=/usr/bin/firefox --no-remote -P default --display=:99.0 -width 1280 -height 720
+    stopsignal=INT
+    autorestart=true
+    priority=800
+    stdout_logfile=/dev/stdout
+    stdout_logfile_maxbytes=0
+    redirect_stderr=true
+
+    [program:openbox]
+    environment=HOME="/home/neko",USER="neko",DISPLAY=":99.0"
+    command=/usr/bin/openbox --config-file /etc/neko/openbox.xml
+    autorestart=true
+    priority=300
+    stdout_logfile=/dev/stdout
+    stdout_logfile_maxbytes=0
+    redirect_stderr=true

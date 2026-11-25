@@ -17,6 +17,7 @@ import re
 import secrets
 import threading
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
@@ -26,6 +27,7 @@ from sqlalchemy import or_, select
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError
+from . import approver_keys as ak
 from . import passkeys as pk
 from . import scopes as sc
 from .crypto import (
@@ -44,6 +46,7 @@ from .crypto import (
 )
 from .models import (
     AppAccessRow,
+    ApproverKeyRow,
     ChallengeRow,
     IdentityRepository,
     PasskeyRow,
@@ -84,6 +87,23 @@ class AuthContext:
     user: UserRow | None = None
     session: SessionRow | None = None
     token: TokenRow | None = None
+
+
+PROFILE_NAME_MAX = 60
+
+
+def clean_profile_name(raw: str) -> str:
+    """1 to 60 characters after trimming; no control or format characters, no markup brackets."""
+    import unicodedata
+
+    name = raw.strip()
+    if not 1 <= len(name) <= PROFILE_NAME_MAX:
+        raise ApiError(422, "conflict", f"display name must be 1 to {PROFILE_NAME_MAX} characters",
+                       reason="display_name_length")
+    if any(unicodedata.category(ch)[0] == "C" or ch in "<>" for ch in name):
+        raise ApiError(422, "conflict", "display name cannot contain control characters or markup",
+                       reason="display_name_characters")
+    return name
 
 
 def ctx_of(request: Request) -> AuthContext | None:
@@ -131,6 +151,10 @@ class IdentityService:
         self.gw = gw
         self.cfg = gw.settings.section(IdentitySettings)
         self.repo = IdentityRepository(gw.db)
+        # SECURITY.md §3.2: the first-boot owner token stops working on the API once an owner exists.
+        gw.tokens.retire_when = lambda: self.repo.count(UserRow) > 0
+        # Features that give a new or re-roled person starting data (FAM-01 age presets): (user_id, role, actor).
+        self.role_hooks: list[Callable[[str, str, Principal], None]] = []
         self.limiter = FailureLimiter(self.cfg.login_failures_per_min, timedelta(minutes=self.cfg.lockout_minutes))
         secure = self.cfg.cookie_secure
         # __Host- cookies must be Secure, path=/ and host-only: they cannot be set by a sibling name.
@@ -205,6 +229,44 @@ class IdentityService:
             return None
         if ctx is None:
             return None
+        if ctx.principal.kind == "plugin":
+            # Installation-owned plugins never inherit static-v0 access, self-service
+            # exceptions or the generic scope table's broad route trees.
+            from ..plugins.auth import allows_read, allows_request, plugin_app_id, request_types
+            from ..plugins.auth import allows_own_action_read
+            from ..plugins.principal import PluginPrincipal
+
+            app_id = plugin_app_id(ctx.principal.id)
+            state = self.gw.repo.get_app_state(app_id) if app_id else None
+            row = ctx.token
+            policy = dict(method=request.method, path=request.url.path, principal_id=ctx.principal.id,
+                          source=row.source if row else "", scopes=row.scopes if row else None,
+                          app_status=state.status if state else None,
+                          operation_id=getattr(request.scope.get("route"), "operation_id", None))
+            if allows_request(**policy):
+                # Preserve the owning person's effective cap without ever adding the
+                # broad actions:request scope. The service checks the body type before
+                # either filing or returning an idempotent replay.
+                exact = request_types(list(ctx.scopes))
+                if not exact:
+                    raise self.deny(ctx.principal, "request actions", reason="plugin_policy")
+                ctx.principal = PluginPrincipal(ctx.principal.id, "plugin", "plugin", exact)
+                request.state.identity = ctx
+                return ctx.principal
+            if allows_own_action_read(**policy):
+                if "actions:read:own" not in ctx.scopes:
+                    raise self.deny(ctx.principal, "read own actions", reason="plugin_policy")
+                request.state.identity = ctx
+                return ctx.principal
+            from ..plugins.auth import EVENTS_WRITE_OWN, allows_bridge_intake
+
+            if allows_bridge_intake(**policy):
+                if EVENTS_WRITE_OWN not in ctx.scopes:
+                    raise self.deny(ctx.principal, "post bridge events", reason="plugin_policy")
+                request.state.identity = ctx
+                return ctx.principal
+            if not allows_read(**policy):
+                raise self.deny(ctx.principal, f"{request.method} {request.url.path}", reason="plugin_policy")
         required = sc.required_scopes(request.method, request.url.path)
         if required is not None and not sc.has_any(ctx.scopes, required):
             raise self.deny(ctx.principal, f"{request.method} {request.url.path}",
@@ -281,7 +343,13 @@ class IdentityService:
             principal = self.principal_for(owner)
         else:
             principal = Principal(id=t.principal_id, kind=t.kind, role=t.kind)
-        granted = frozenset(s for s in t.scopes if sc.allowed_for_kind(s, t.kind))
+        if t.kind == "plugin":
+            # The plugin policy checks the original snapshot and rejects malformed
+            # JSON. Do not let generic scope parsing fail before that denial.
+            raw = t.scopes if isinstance(t.scopes, list) else []
+            granted = frozenset(s for s in raw if isinstance(s, str))
+        else:
+            granted = frozenset(s for s in t.scopes if sc.allowed_for_kind(s, t.kind))
         if owner is not None and self.cfg.enforce_role_scopes:  # never beyond the owning person today
             cap = sc.role_scopes(owner.role)
             granted = frozenset(s for s in granted if sc.within(s, cap) or (s == sc.ALL and sc.ALL in cap))
@@ -295,13 +363,13 @@ class IdentityService:
         return label[:200]
 
     def start_session(self, request: Request, user: UserRow, method: str, client: str | None,
-                      bearer: bool, passkey: bool) -> dict:
+                      bearer: bool, passkey: bool, install_id: str | None = None) -> dict:
         """Create a session; returns the body, with secrets, and `_cookies` for the router to set."""
         now = self.now()
         sid = new_id("ses")
         out: dict = {}
         common = dict(id=sid, user_id=user.id, client=self._client_label(request, client), auth_method=method,
-                      passkey_at=now if passkey else None, created_at=now, last_seen_at=now)
+                      passkey_at=now if passkey else None, created_at=now, last_seen_at=now, install_id=install_id)
         if bearer:
             access, refresh = new_secret("ses"), new_secret("ref")
             access_exp = now + timedelta(minutes=self.cfg.access_token_minutes)
@@ -419,7 +487,9 @@ class IdentityService:
 
     def _consume_challenge(self, credential: dict, purpose: str) -> ChallengeRow:
         """Single use: the first verifier claims it, verified or not."""
-        value = pk.client_challenge(credential)
+        return self._claim_challenge(pk.client_challenge(credential), purpose)
+
+    def _claim_challenge(self, value: str, purpose: str) -> ChallengeRow:
         row = self.repo.one(select(ChallengeRow).where(ChallengeRow.challenge == value))
         now = self.now()
         if row is None or row.purpose != purpose:
@@ -478,7 +548,7 @@ class IdentityService:
 
     # ---- first owner (bootstrap) and enrolment -----------------------------------------------------
     def _setup_token_ok(self, token: str) -> bool:
-        p = self.gw.tokens.lookup(token) if token else None
+        p = self.gw.tokens.lookup(token, include_retired=True) if token else None
         if p is not None and p.is_owner:
             return True
         path = self.cfg.setup_token_file
@@ -514,6 +584,10 @@ class IdentityService:
         self.repo.add(u)
         self.emit("auth", "setup.completed", {"user_id": u.id, "username": u.username, "source": src},
                   self.principal_for(u))
+        if self.gw.tokens.has_retiring():
+            self.emit("auth", "setup_token.retired", {"user_id": u.id,
+                      "note": "the first-boot token no longer works on the API; the rescue console still takes it"},
+                      self.principal_for(u), severity="warning")
         return u
 
     def enrol(self, request: Request, code: str, username: str, password: str) -> UserRow:
@@ -587,7 +661,8 @@ class IdentityService:
                                        challenge=raw, exclude=existing)
         return {"challenge_id": row.id, "expires_at": iso(row.expires_at), "publicKey": opts}
 
-    def passkey_register(self, request: Request, ctx: AuthContext | None, credential: dict, label: str | None) -> dict:
+    def passkey_register(self, request: Request, ctx: AuthContext | None, credential: dict, label: str | None,
+                         install_id: str | None = None) -> dict:
         user = self._account(ctx, "register a passkey")
         self._refuse_onion_enrolment(request, ctx)
         try:
@@ -612,7 +687,8 @@ class IdentityService:
         now = self.now()
         label = (label or "passkey").strip()[:100] or "passkey"
         self.repo.add(PasskeyRow(id=v["id"], user_id=user.id, label=label, public_key=v["public_key"],
-                                 sign_count=v["sign_count"], transports=v["transports"], created_at=now))
+                                 sign_count=v["sign_count"], transports=v["transports"], created_at=now,
+                                 install_id=install_id))
         if ctx.session is not None:  # registering just proved presence on this device
             self.repo.update(SessionRow, [SessionRow.id == ctx.session.id], {"passkey_at": now})
         self.emit("auth", "passkey.registered", {"user_id": user.id, "credential_id": v["id"], "label": label},
@@ -639,6 +715,72 @@ class IdentityService:
         self.emit("auth", "passkey.removed", {"user_id": user.id, "credential_id": row.id}, ctx.principal)
 
     # ---- password and TOTP -------------------------------------------------------------------------
+    # ---- device-bound approver keys (#702) ------------------------------------------------------
+    def _require_fresh_passkey(self, ctx: AuthContext | None, p: Principal, what: str) -> None:
+        """A passkey sign-in (or registration) on this session in the last step_up_s seconds, always:
+        unlike require_step_up, there is no password-only path while the box has no passkey yet."""
+        s = ctx.session if ctx else None
+        if s is not None and s.passkey_at is not None and \
+                (self.now() - utc(s.passkey_at)).total_seconds() <= self.cfg.step_up_s:
+            return
+        self.emit("auth", "step_up.required", {"attempted": what}, p, severity="warning")
+        raise ApiError(401, "unauthenticated", "sign in again with your passkey to do this", reason="step_up_required")
+
+    @staticmethod
+    def approver_key_json(k: ApproverKeyRow) -> dict:
+        return {"key_id": k.id, "label": k.label, "key_kind": k.key_kind, "fingerprint": k.fingerprint,
+                "created_at": iso(k.created_at), "last_used_at": iso(k.last_used_at), "revoked_at": iso(k.revoked_at)}
+
+    def register_approver_key(self, ctx: AuthContext | None, public_key: str, label: str, key_kind: str) -> dict:
+        user = self._account(ctx, "register an approver key")
+        if user.role != "owner":
+            raise self.deny(ctx.principal, "register an approver key", reason="owner_only")
+        self._require_fresh_passkey(ctx, ctx.principal, "register an approver key")
+        if key_kind not in ak.KEY_KINDS:
+            raise ApiError(422, "conflict", f"key_kind must be one of {', '.join(ak.KEY_KINDS)}")
+        if key_kind == "hardware-attested":  # nothing verifies an attestation chain yet: never claim it
+            raise ApiError(422, "conflict", "hardware attestation is not verified yet; register as hardware-reported",
+                           reason="attestation_unverified")
+        label = " ".join((label or "").split())[:100]
+        if not label:
+            raise ApiError(422, "conflict", "name the phone this key lives on")
+        try:
+            der, fingerprint = ak.parse_public_key(public_key)
+        except ak.ApproverKeyError as exc:
+            raise ApiError(422, "conflict", str(exc)) from None
+        if self.repo.one(select(ApproverKeyRow.id).where(ApproverKeyRow.fingerprint == fingerprint)) is not None:
+            raise ApiError(409, "conflict", "this key is already registered (or was revoked); make a new one")
+        active = self.repo.all(select(ApproverKeyRow).where(ApproverKeyRow.user_id == user.id,
+                                                             ApproverKeyRow.revoked_at.is_(None)))
+        if any(k.label == label for k in active):
+            raise ApiError(409, "conflict", f"{label} already has an approver key; revoke it first", reason="label_taken")
+        if len(active) >= ak.MAX_ACTIVE_PER_USER:
+            raise ApiError(409, "conflict", "too many approver keys; revoke one first")
+        row = ApproverKeyRow(id=new_id("apk"), user_id=user.id, label=label, key_kind=key_kind, public_key=der,
+                             fingerprint=fingerprint, created_at=self.now())
+        self.repo.add(row)
+        self.emit("auth", "approver_key.registered", {"user_id": user.id, "key_id": row.id, "label": label,
+                                                      "key_kind": key_kind, "fingerprint": fingerprint}, ctx.principal)
+        return self.approver_key_json(row)
+
+    def list_approver_keys(self, ctx: AuthContext | None) -> list[dict]:
+        user = self._person(ctx)
+        rows = self.repo.all(select(ApproverKeyRow).where(ApproverKeyRow.user_id == user.id)
+                             .order_by(ApproverKeyRow.created_at))
+        return [self.approver_key_json(r) for r in rows]
+
+    def revoke_approver_key(self, ctx: AuthContext | None, key_id: str) -> None:
+        """Revoking takes power away, so no step-up: a lost phone is cut off from any signed-in device."""
+        user = self._person(ctx)
+        row = self.repo.get(ApproverKeyRow, key_id)
+        if row is None or row.user_id != user.id:
+            raise ApiError(404, "not_found", "no such approver key")
+        if row.revoked_at is not None:
+            return
+        self.repo.update(ApproverKeyRow, [ApproverKeyRow.id == row.id], {"revoked_at": self.now()})
+        self.emit("auth", "approver_key.revoked", {"user_id": user.id, "key_id": row.id, "label": row.label,
+                                                   "key_kind": row.key_kind}, ctx.principal)
+
     def change_password(self, request: Request, ctx: AuthContext | None, current: str, new: str) -> None:
         user = self._account(ctx, "change the password")
         now, src = self.now(), source_of(request)
@@ -720,6 +862,8 @@ class IdentityService:
                     created_at=now, updated_at=now, created_by=p.id)
         self.repo.add(u)
         self.emit("user", "created", {"user_id": u.id, "role": u.role, "step_up": via}, p)
+        for hook in self.role_hooks:
+            hook(u.id, u.role, p)
         base = (self.gw.settings.public_url or str(request.base_url)).rstrip("/")
         return {**self.user_json(u), "one_time": {"enrolment_code": code, "enrolment_url": f"{base}/signin#enrol={code}",
                                                   "expires_at": iso(now + ENROL_TTL)}}
@@ -745,7 +889,23 @@ class IdentityService:
         changed = sorted(k for k in values if k != "updated_at")
         self.emit("user", "updated", {"user_id": u.id, "changed": changed, "role": values.get("role", u.role),
                                       "step_up": via}, p)
+        if "role" in values:
+            for hook in self.role_hooks:
+                hook(u.id, values["role"], p)
         return self.user_json(self.user(u.id))
+
+    def set_profile_name(self, request: Request, p: Principal, name: str | None) -> dict:
+        """A person sets (or, with null, clears) their OWN display name: a direct self write, audited by
+        field name only. It is display text; authorisation and audit keep using the stable id and role."""
+        ctx = ctx_of(request)
+        if p.kind != "person" or ctx is None or ctx.user is None:
+            raise self.deny(p, "set a display name")
+        clean = None
+        if name is not None:
+            clean = clean_profile_name(name)
+        self.repo.update(UserRow, [UserRow.id == ctx.user.id], {"profile_name": clean, "updated_at": self.now()})
+        self.emit("user", "profile_name.changed", {"user_id": ctx.user.id, "cleared": clean is None}, p)
+        return {"display_name": clean}
 
     def disable_user(self, p: Principal, user_id: str) -> dict:
         self._owner_only(p, "disable users")
@@ -870,6 +1030,8 @@ class IdentityService:
 
     def rotate_token(self, ctx: AuthContext | None, p: Principal, token_id: str, grace_s: int) -> dict:
         t = self._token_for_write(ctx, p, token_id, "rotate tokens")
+        if t.kind == "plugin" and t.source == "app-install":
+            raise self.deny(p, "rotate an installation-managed plugin token", token_id=t.id)
         uid = ctx.user.id if ctx and ctx.user else None
         if t.owner_user_id is not None and t.owner_user_id != uid:
             # Rotation hands out the new secret: an owner may revoke another person's token, but not
@@ -988,6 +1150,7 @@ class IdentityService:
         rp_id, _ = self.rp(request)
         return {"challenge": row.challenge, "action_sha256": a_sha, "plan_sha256": p_sha or None,
                 "expires_at": iso(row.expires_at),
+                "device_payload": ak.signing_payload(row.challenge, action_id, a_sha, p_sha or None).decode(),
                 "publicKey": pk.authentication_options(rp_id=rp_id, challenge=raw, allow=allow)}
 
     def approval_guard(self, p: Principal, action_id: str, body: dict, request: Request) -> None:
@@ -995,6 +1158,10 @@ class IdentityService:
             return  # actions.approve refuses and audits non-owners itself
         ctx = ctx_of(request)
         assertion = body.get("webauthn")
+        if body.get("device_signature") is not None:
+            if assertion is not None:
+                raise ApiError(422, "conflict", "send a passkey assertion or a device signature, not both")
+            return self._approve_with_device_key(p, ctx, action_id, body)
         if assertion is None:
             if self.cfg.require_passkey_approval and self.passkeys_active():
                 self.emit("auth", "step_up.required", {"attempted": "approve", "action_id": action_id}, p,
@@ -1011,14 +1178,7 @@ class IdentityService:
             raise self._step_up_failed(p, action_id, str(exc)) from None
         except ApiError as exc:
             raise self._step_up_failed(p, action_id, exc.message) from None
-        if row.action_id != action_id:
-            raise self._step_up_failed(p, action_id, "challenge was issued for another action")
-        current = self.gw.actions.get(action_id)
-        if row.data.get("action_sha256") != self.action_sha256(current) or \
-                (row.data.get("plan_sha256") or None) != (current.get("plan_sha256") or None):
-            raise self._step_up_failed(p, action_id, "the action changed since the challenge", reason="plan_changed")
-        if body.get("plan_sha256") and body["plan_sha256"] != (row.data.get("plan_sha256") or None):
-            raise self._step_up_failed(p, action_id, "plan_sha256 differs from the one signed", reason="plan_changed")
+        self._check_bound(p, action_id, row, body)
         try:
             cred = self._assert(request, credential, row)
         except ApiError as exc:
@@ -1032,6 +1192,67 @@ class IdentityService:
             self.repo.update(SessionRow, [SessionRow.id == ctx.session.id], {"passkey_at": self.now()})
         self.emit("auth", "step_up.succeeded", {"action_id": action_id, "credential_id": cred.id,
                                                 "passkey_user_id": owner.id, "approval": "passkey"}, p)
+
+    def _check_bound(self, p: Principal, action_id: str, row: ChallengeRow, body: dict) -> None:
+        """The claimed challenge was made for this action, and neither the action nor its plan changed."""
+        if row.action_id != action_id:
+            raise self._step_up_failed(p, action_id, "challenge was issued for another action")
+        current = self.gw.actions.get(action_id)
+        if row.data.get("action_sha256") != self.action_sha256(current) or \
+                (row.data.get("plan_sha256") or None) != (current.get("plan_sha256") or None):
+            raise self._step_up_failed(p, action_id, "the action changed since the challenge", reason="plan_changed")
+        if body.get("plan_sha256") and body["plan_sha256"] != (row.data.get("plan_sha256") or None):
+            raise self._step_up_failed(p, action_id, "plan_sha256 differs from the one signed", reason="plan_changed")
+
+    def _device_key_refusal(self, action: dict) -> str | None:
+        """Why this action cannot be approved with a device key (F-2), or None when it can."""
+        action_type = str(action.get("type"))
+        if self.gw.actions.is_physical(action_type):
+            return "it moves something physical"
+        risk = action.get("risk")
+        if risk is None:
+            from ..automation import registry  # late, as in actions.py
+
+            risk = registry.risk_of(action_type, action.get("params") or {}) if registry.known(action_type) else None
+        if risk in ("read", "write", "sensitive"):
+            return None
+        if risk in ("destructive", "actuate") and self.cfg.approver_key_high_risk:
+            return None
+        return f"its risk is {risk or 'unknown'}"
+
+    def _approve_with_device_key(self, p: Principal, ctx: AuthContext | None, action_id: str, body: dict) -> None:
+        """#702: an ECDSA signature by the owner's phone key over approve-options' device_payload."""
+        sig = body["device_signature"]
+        why = self._device_key_refusal(self.gw.actions.get(action_id))
+        if why:  # checked before the challenge is claimed, so the phone can fall back to its passkey
+            self.emit("auth", "step_up.required", {"attempted": "approve", "action_id": action_id,
+                                                   "reason": "device_key_not_allowed", "detail": why}, p,
+                      severity="warning")
+            raise ApiError(401, "unauthenticated", f"approve this with your passkey: {why}", reason="step_up_required")
+        try:
+            row = self._claim_challenge(str(sig.get("challenge") or ""), "approve")
+        except ApiError as exc:
+            raise self._step_up_failed(p, action_id, exc.message) from None
+        self._check_bound(p, action_id, row, body)
+        key = self.repo.get(ApproverKeyRow, str(sig.get("key_id") or ""))
+        if key is None or key.revoked_at is not None:
+            raise self._step_up_failed(p, action_id, "unknown or revoked approver key")
+        owner = self._live_user(key.user_id)
+        if owner is None or owner.role != "owner":
+            raise self._step_up_failed(p, action_id, "approver key does not belong to an active owner")
+        if (ctx is not None and ctx.user is not None and ctx.user.id != owner.id) or \
+                (row.user_id is not None and row.user_id != owner.id):
+            raise self._step_up_failed(p, action_id, "approver key belongs to another account")
+        payload = ak.signing_payload(row.challenge, action_id, row.data.get("action_sha256") or "",
+                                     row.data.get("plan_sha256") or None)
+        try:
+            ak.verify(key.public_key, payload, str(sig.get("signature") or ""))
+        except ak.ApproverKeyError as exc:
+            raise self._step_up_failed(p, action_id, str(exc)) from None
+        self.repo.update(ApproverKeyRow, [ApproverKeyRow.id == key.id], {"last_used_at": self.now()})
+        self.emit("auth", "step_up.succeeded", {"action_id": action_id, "approval": "device_key", "key_id": key.id,
+                                                "key_kind": key.key_kind, "device": key.label,
+                                                "approver_user_id": owner.id}, p)
 
     def _step_up_failed(self, p: Principal, action_id: str, why: str, reason: str = "assertion_invalid") -> ApiError:
         self.emit("auth", "step_up.failed", {"action_id": action_id, "reason": reason, "detail": why[:200]}, p,
@@ -1095,6 +1316,7 @@ class IdentityService:
         principal = p.as_dict()
         token = session = None
         n_passkeys = 0
+        profile_name = None
         if ctx is None:  # static-file token, or an app agent token of §11.2
             header = request.headers.get("authorization", "")
             raw = header.partition(" ")[2].strip()
@@ -1105,6 +1327,7 @@ class IdentityService:
             if ctx.user is not None:
                 principal["display_name"] = ctx.user.display_name
                 principal["username"] = ctx.user.username
+                profile_name = ctx.user.profile_name
                 n_passkeys = self.repo.count(PasskeyRow, PasskeyRow.user_id == ctx.user.id)
             if ctx.token is not None:
                 token = {"id": ctx.token.id, "scopes": list(ctx.token.scopes), "expires_at": iso(ctx.token.expires_at),
@@ -1122,7 +1345,8 @@ class IdentityService:
             caps += ["can_manage_users", "can_share_apps"]
         if p.kind == "person" and sc.has_any(scopes, ("tokens:self", "tokens:admin")):
             caps.append("can_create_tokens")
-        return {"principal": principal, "token": token, "session": session, "passkeys": n_passkeys,
+        return {"principal": principal, "display_name": profile_name, "token": token, "session": session,
+                "passkeys": n_passkeys,
                 "scopes": scopes, "capabilities": caps,
                 "step_up": {"passkeys_active": self.passkeys_active(),
                             "require_passkey_approval": self.cfg.require_passkey_approval}}

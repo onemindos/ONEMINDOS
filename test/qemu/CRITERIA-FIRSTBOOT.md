@@ -55,3 +55,43 @@ All three run on the slot-A boot from F1, after F6 and before the F3 reboot, fro
 | F9 | One box CA | The sha256 of `/data/onemind/identity/ca.pem` equals that of `/data/onemind/gateway/tls/ca.crt`; `/data/onemind/identity/ca.key` does not exist; `openssl verify -CAfile /data/onemind/identity/ca.pem` accepts the gateway's `https.crt`, Headscale's `control.crt` and the NATS leaf listener's `nats.crt` | Two different CAs, a CA key in `identity`, or a certificate not from the box CA |
 
 Required for this task's "done": F7–F9 PASS on x86_64-efi. They are written without having run QEMU (no KVM where they were written); a harness bug found on the first run may be fixed and re-run once, named as such, under §1's rule.
+
+## 6. Amendment (2026-11-21): F10, the rescue console on the booted hub (CORE-UPDATE-9, #278)
+
+**Status:** PRE-REGISTERED before F10 was implemented in `firstboot.py` or run, in the commit before the code that adds it. F0-F9 above are unchanged. The sha256 of this file with this section is appended to `PREREGISTRATION.sha256`. **Serves:** issue #278's second "Done when" item (on a booted image hub with k3s stopped, the owner gets the rescue page). The image ships `onemind-rescue.service` and first boot enables it on the hub role; until now no test proved the running unit answers.
+
+F10 runs on the slot-A boot from F1, after F9 and before the F3 reboot, from the hub's own shell. It uses the owner token printed on the console in F1. Nothing is reached outside the VM. `k3s.service` is stopped by the test and started again at the end, so F3 and F4 judge the same box as before.
+
+| ID | Test | PASS if | FAIL if |
+|---|---|---|---|
+| F10 | Rescue console answers with k3s stopped | `systemctl is-enabled onemind-rescue` prints `enabled` and `is-active` prints `active`; with `systemctl stop k3s` done and `is-active k3s` not `active`: `curl --cacert /data/onemind/identity/ca.pem --resolve onemind.local:7443:127.0.0.1 https://onemind.local:7443/` returns HTTP **401** without a token (the certificate verifies against the box CA, by name) and HTTP **200** with `Authorization: Bearer <F1 owner token>`; `/status.json` with the token returns HTTP 200 and valid JSON; after `systemctl start k3s` the unit is still `active` | The unit not enabled or not active, a certificate that does not verify, anything other than 401 without the token or 200 with it, k3s still active when asked, or the unit stopped by k3s stopping |
+
+Required for this task's "done": F10 PASS on x86_64-efi. It is written without having run QEMU (no KVM where it was written); a harness bug found on the first run may be fixed and re-run once, named as such, under section 1's rule. The battery tier is the first-boot battery (`make firstboot`, run by CI's `image` and `battery` workflows with F4 as the upper limit, which includes F10); the A/B battery T1-T11 does not boot the OneMind layer.
+
+## 7. Amendment (2026-11-21): F11, the starting page and the hand-over to the gateway (P0 "starting page and faster gateway start")
+
+*Renumbered from section 6 / F10 to section 7 / F11 when it was combined with the #278 amendment (also written as section 6 / F10) on release/next, 2026-11-21. No criterion, threshold or procedure changed; only the ID and section number.*
+
+**Status:** PRE-REGISTERED before F11 was implemented in `firstboot.py` or run, in the commit before the code that adds it. F0–F10 above are unchanged. The sha256 of this file with this section is appended to `PREREGISTRATION.sha256`. **Serves:** the finish-audit item "starting page and faster gateway start after boot" (image speed audit, item 5 and 6); #234 (OneMind running live). **First run:** CI's image workflow (no KVM where it was written).
+
+F11 runs on the slot-A boot from F1, after F9 and before the F3 reboot, from the hub's shell. It restarts the **front door** on purpose: it stops `onemind-gateway.service` and `onemind-starting.service`, then starts `onemind-starting.service` (which holds `:443` and `:8443` with the box certificate) and, at once, `onemind-gateway.service`. A probe in the guest (the gateway venv's Python, standard library only) opens a TCP connection to `127.0.0.1:443` every 100 ms and, for each connect that succeeds, does a TLS request and records the HTTP status and whether the header `X-OneMind-Starting: 1` is present. It stops at the first response from the gateway itself (HTTP 200 on `/healthz` over HTTPS, no such header) or after **180 s**.
+
+| ID | Test | PASS if | FAIL if |
+|---|---|---|---|
+| F11 | Starting page, then the gateway, never a refused connection | The probe ends with the gateway's own HTTP 200 within 180 s; the **first** successful connect is answered by the starting page (HTTP 503 **with** `X-OneMind-Starting: 1`) or directly by the gateway; once any connect has succeeded, **no later connect is refused or reset** (no `ECONNREFUSED`, no reset, until the probe's end); no response with the marker header has status other than 503; the gateway unit's `After=` and `Wants=` lines contain no `network-online.target`; the elapsed seconds from the start command to the first gateway 200 (**time to dashboard**) are recorded in the verdict detail and in the run's `perf-dashboard.json`, and are at or under `time_to_dashboard_s` in `test/perf/budget.json` | A refused or reset connect after the first success, a page answering anything but 503, no gateway 200 in 180 s, `network-online.target` in the gateway's ordering, or a time over the budget |
+
+Required for this task's "done": F11 PASS on x86_64-efi in CI's image workflow. The time budget is a ceiling set from the first CI run, so it starts generous (TCG is slower than hardware); tighten it from real runs.
+
+## 8. Amendment (2026-11-22): F12, the gateway reaches the host helper (#875 mount-host-socket)
+
+**Status:** PRE-REGISTERED before F12 was implemented in `firstboot.py` or run, in the commit before the code that adds it. F0–F11 above are unchanged. The sha256 of this file with this section is appended to `PREREGISTRATION.sha256`. **Serves:** issue #875 (the gateway reaches the host helper on a real box, reports `host helper: reachable|missing` in `GET /v1/status`, and starts no host action when it is missing). **First run:** CI's image workflow (no KVM where it was written).
+
+Why here and not in the A/B battery: the gateway is not a k3s pod. In the image it is `onemind-gateway.service` (user `onemind`), and it reaches `/run/onemind/host.sock` (made by `onemind-host.socket`, mode 0660 root:onemind) through that unit; the host helper admits root and the gateway's uid only (`SO_PEERCRED`). The A/B battery T1–T11 does not boot the OneMind layer, so the only booted hub with a gateway is this first-boot battery.
+
+F12 runs on the slot-A boot from F1, after F11 and before the F3 reboot, from the hub's shell, with the owner token from F1. Nothing is reached outside the VM. It stops the host helper on purpose and starts it again at the end, so F3 and F4 judge the same box as before.
+
+| ID | Test | PASS if | FAIL if |
+|---|---|---|---|
+| F12 | The gateway reaches the host helper; without it, it says so and starts nothing | Within 120 s, `GET /v1/status` on :8080 with the owner token returns HTTP 200 with `host.helper` = `reachable`, `host.state` = `ok` and `host.hostname` equal to the output of `hostname` in the guest (one harmless host read: the answer comes from the host helper over the socket); then, with `systemctl stop onemind-host.service onemind-host.socket` done and `/run/onemind/host.sock` removed: `GET /v1/status` returns HTTP 200 with `host.helper` = `missing`, `host.state` not `ok`, `host.hostname` null and a `host.summary` that starts with `host helper: missing` and contains no `/run/`; and `GET /v1/os/updates` returns HTTP 200 with `install.available` false, `install.reason` = `engine_unreachable` and a plain-text `install.message` (no `Traceback`, no `Errno`, no `/run/`); after `systemctl start onemind-host.socket`, `host.helper` is `reachable` again within 60 s | Any status other than 200, `reachable` never seen before the stop or after the restart, a hostname that differs, `reachable` or `ok` while the socket is gone, a summary or message that leaks a path or a traceback, or the install reported available without the helper |
+
+Required for this task's "done": F12 PASS on x86_64-efi in CI's image workflow. It is written without having run QEMU (no KVM where it was written); a harness bug found on the first run may be fixed and re-run once, named as such, under section 1's rule.

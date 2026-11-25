@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
 	"os/user"
@@ -15,11 +16,12 @@ import (
 	"time"
 
 	"github.com/onemindos/onemindos/internal/storage"
+	"github.com/onemindos/onemindos/internal/storage/netmount"
 	"github.com/onemindos/onemindos/internal/storage/ops"
 )
 
 const storageUsage = `usage:
-  onemindd storage serve [--socket PATH] [--mount DIR] [--group NAME] [--journal DIR]
+  onemindd storage serve [--socket PATH] [--mount DIR] [--group NAME] [--journal DIR] [--net-base DIR] [--net-owner USER]
   onemindd storage init --device PART [--tpm2 auto|yes|no] [--force] [--print-recovery-key]
   onemindd storage assemble [--mount DIR] [--wait 30s] [--init] [--mount-normal] [--key-file F]
 `
@@ -53,6 +55,8 @@ func storageServe(args []string) int {
 	journal := fs.String("journal", "", "operation journal (default <mount>/onemind/storage/ops)")
 	keyFile := fs.String("key-file", os.Getenv("ONEMIND_STORAGE_KEY_FILE"), "set key (default <mount>/"+storage.SetKeyPath+")")
 	poll := fs.Duration("poll", 5*time.Second, "status polling while the kernel balances or replaces")
+	netBase := fs.String("net-base", env("ONEMIND_NETMOUNT_BASE", "/data/onemind/net"), "where NAS shares are mounted (#718)")
+	netOwner := fs.String("net-owner", env("ONEMIND_NETMOUNT_OWNER", "onemind"), "user that owns SMB files on the hub (the gateway's)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -91,7 +95,7 @@ func storageServe(args []string) int {
 		return 1
 	}
 	log.Info("storage service listening", "socket", *sock, "mount", *mount, "journal", e.Store != nil)
-	srv := &ops.Server{E: e, AllowUID: -1, AllowGID: gid}
+	srv := &ops.Server{E: e, AllowUID: -1, AllowGID: gid, Net: netMounts(*netBase, *netOwner, log)}
 	err = srv.Serve(ctx, l)
 	stop()
 	e.Wait()
@@ -162,4 +166,20 @@ func storageAssemble(args []string) int {
 		return 1
 	}
 	return 0
+}
+
+// netMounts is the NAS-mount side of the storage socket (internal/storage/netmount).
+// SMB files belong to the gateway's user so Files can read them; without that
+// user the mounts keep cifs's default owner (root).
+func netMounts(base, owner string, log *slog.Logger) *netmount.Manager {
+	m := &netmount.Manager{Base: base, CredDir: netmount.DefaultCredDir, UID: -1, GID: -1, Log: log}
+	if u, err := user.Lookup(owner); err == nil {
+		m.UID, _ = strconv.Atoi(u.Uid)
+		m.GID, _ = strconv.Atoi(u.Gid)
+	}
+	if err := m.Configured(); err != nil {
+		log.Warn("network mounts off", "err", err)
+		return nil
+	}
+	return m
 }

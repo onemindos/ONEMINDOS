@@ -4,15 +4,20 @@
 // the last owner cannot be disabled, an alert fix is only ever a REQUEST (never approved here),
 // bad credentials answer 401. All data is made up.
 import { ApiError, type Action, type Principal } from './types';
+import { AGE_PRESETS } from './wiring';
 import type * as W from './wiring';
 
 const DEMO_PASSWORD = 'demo-password';
 export const MOCK_SETUP_TOKEN = 'setup-demo';
+/** Demo only: set when the demo setup flow created the owner, so the demo wizard opens once. */
+export const MOCK_FRESH_KEY = 'onemind.mock.fresh';
 export const MOCK_ENROL_CODE = 'enrol-demo';
 const PERSONS: Record<string, { token: string; principal: W.PrincipalInfo }> = {
   owner: { token: 'owner-demo', principal: { id: 'owner', kind: 'person', role: 'owner', display_name: 'Owner', username: 'owner' } },
   alex: { token: 'adult-demo', principal: { id: 'alex', kind: 'person', role: 'adult', display_name: 'Alex', username: 'alex' } },
 };
+
+const EMPTY_PROFILE: W.FamilyProfile = { birth_date: null, allowed_apps: null, max_age_rating: null, blocked_tags: [], timezone: 'UTC', windows: null };
 
 const hex = (seed: string) => {
   let h = 2166136261;
@@ -31,6 +36,7 @@ export abstract class MockWiringBase implements W.WiringApi {
   private sessionRows: W.SessionInfo[] | undefined;
   private passkeyRows: W.PasskeyInfo[] = [];
   private userRows: W.UserInfo[] | undefined;
+  private profiles = new Map<string, W.FamilyProfile>();
   private tokenRows: W.TokenInfo[] | undefined;
   private notes: W.NotificationItem[] | undefined;
   private channelRows: W.ChannelInfo[] = [];
@@ -75,6 +81,7 @@ export abstract class MockWiringBase implements W.WiringApi {
     if (this.setupDone) throw new ApiError(409, 'conflict', 'this box already has accounts; sign in instead', 'already_set_up');
     if (b.password.length < 12) throw new ApiError(422, 'conflict', 'password must be at least 12 characters');
     this.setupDone = true;
+    try { window.sessionStorage.setItem(MOCK_FRESH_KEY, '1'); } catch { /* the demo wizard is then skipped */ }
     return this.result('owner');
   }
   async enrol(b: { code: string; username?: string; password: string }) {
@@ -87,7 +94,8 @@ export abstract class MockWiringBase implements W.WiringApi {
     const p = this.auth();
     const caps = p.role === 'owner' ? ['can_approve', 'can_request', 'can_manage_users', 'can_share_apps', 'can_create_tokens'] : p.kind === 'agent' ? ['can_request'] : ['can_create_tokens'];
     return {
-      principal: { id: p.id, kind: p.kind, role: p.role },
+      // A person carries the display name and username a real gateway adds (Home greets by it).
+      principal: PERSONS[p.id]?.principal ?? { id: p.id, kind: p.kind, role: p.role },
       token: { id: 'tok_mock', scopes: ['*'], expires_at: null, source: 'file' },
       session: null,
       passkeys: this.passkeyRows.length,
@@ -148,6 +156,7 @@ export abstract class MockWiringBase implements W.WiringApi {
     if (!['owner', 'adult', 'teen', 'child', 'guest'].includes(b.role)) throw new ApiError(422, 'conflict', 'role must be one of owner, adult, teen, child, guest');
     const u: W.UserInfo = { id: this.id('usr'), username: b.username ?? null, display_name: b.display_name, role: b.role, created_at: this.iso(), last_seen_at: null, disabled: false, enrolled: false, passkeys: 0, totp: false };
     this.users_().push(u);
+    this.presetFor(u.id, u.role);
     return { ...u, one_time: { enrolment_code: MOCK_ENROL_CODE, enrolment_url: `http://box.local/signin#enrol=${MOCK_ENROL_CODE}`, expires_at: this.iso(-86400) } };
   }
   async updateUser(id: string, b: { display_name?: string; role?: W.PersonRole }) {
@@ -157,7 +166,18 @@ export abstract class MockWiringBase implements W.WiringApi {
     const owners = this.users_().filter((x) => x.role === 'owner' && !x.disabled);
     if (b.role && b.role !== 'owner' && u.role === 'owner' && owners.length === 1) throw new ApiError(409, 'conflict', 'the last owner cannot be demoted or disabled', 'last_owner');
     Object.assign(u, b);
+    if (b.role) this.presetFor(u.id, b.role);
     return { ...u };
+  }
+  /** Mirrors the gateway: a child or teen gets the default age rating once, and an existing profile is kept. */
+  private presetFor(id: string, role: W.PersonRole) {
+    const max = AGE_PRESETS[role];
+    if (max !== undefined && !this.profiles.has(id)) this.profiles.set(id, { ...EMPTY_PROFILE, max_age_rating: max });
+  }
+  async familyProfile(id: string) {
+    this.owner();
+    if (!this.users_().some((x) => x.id === id)) throw new ApiError(404, 'not_found', 'no such user');
+    return { ...(this.profiles.get(id) ?? EMPTY_PROFILE) };
   }
   async disableUser(id: string) {
     this.owner();
@@ -228,7 +248,7 @@ export abstract class MockWiringBase implements W.WiringApi {
   }
   async createChannel(b: W.ChannelInput) {
     const p = this.person();
-    if (!['unifiedpush', 'webhook', 'email', 'ntfy'].includes(b.kind)) throw new ApiError(422, 'conflict', 'kind must be one of unifiedpush, webhook, email (or ntfy)');
+    if (!['unifiedpush', 'webhook', 'email', 'sms', 'ntfy'].includes(b.kind)) throw new ApiError(422, 'conflict', 'kind must be one of unifiedpush, webhook, email, sms (or ntfy)');
     const c: W.ChannelInfo = { id: this.id('chn'), kind: b.kind, label: b.label, content_level: b.content_level ?? 'title', config: b.config, verified: false, state: 'active', last_error: null, owner_person_id: p.id, secret: b.secret ? 'provided' : null, created_at: this.iso(), updated_at: this.iso() };
     this.channelRows = [...this.channelRows, c];
     return { ...c };
@@ -243,7 +263,7 @@ export abstract class MockWiringBase implements W.WiringApi {
     const c = this.channelRows.find((x) => x.id === id);
     if (!c) throw new ApiError(404, 'not_found', 'no such channel');
     c.verified = true;
-    return { ok: true };
+    return c.kind === 'sms' ? { delivered: true, latency_ms: 1, receipt: { status: 200, provider_id: 'mock-0001' } } : { delivered: true, latency_ms: 1 };
   }
 
   // ---- monitoring --------------------------------------------------------------------------------

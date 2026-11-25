@@ -125,7 +125,3 @@ def load_section(cls: type[T], env: Mapping[str, str]) -> T:
 def load_sections(env: Mapping[str, str]) -> dict[str, Any]:
     """Every registered section, parsed from env. Raises ValueError on a bad or missing value."""
     return {name: load_section(cls, env) for name, cls in sorted(_SECTIONS.items())}
-
-
-def registered_sections() -> dict[str, type]:
-    return dict(_SECTIONS)

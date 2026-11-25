@@ -21,10 +21,29 @@ export function dayPart(hour: number): DayPart {
   return 'night';
 }
 
-export function greeting(now: number, timeZone: string, name?: string): string {
+/** Words that name a role, not a person: never greeted by ("Good morning, owner"). */
+const ROLE_WORDS = new Set(['owner', 'admin', 'administrator', 'adult', 'child', 'guest', 'teen', 'root', 'user', 'agent']);
+
+/**
+ * A name to greet, from an account id or display name: "zeus" becomes "Zeus", and an id that only
+ * names a role ("owner") gives nothing, so the greeting stays "Good morning".
+ */
+export function greetingName(id?: string | null): string | undefined {
+  const first = id?.trim().split(/[\s._@-]+/)[0] ?? '';
+  if (!first || ROLE_WORDS.has(first.toLowerCase()) || /^\d+$/.test(first)) return undefined;
+  return first.charAt(0).toUpperCase() + first.slice(1);
+}
+
+/** The greeting in two parts, so the screen can put the name on its own line on a phone. */
+export function greetingParts(now: number, timeZone: string, name?: string): { hello: string; who?: string } {
   const part = dayPart(hourIn(now, timeZone));
   const hello = part === 'night' ? 'Good night' : `Good ${part}`;
   const who = name?.trim();
+  return who ? { hello, who } : { hello };
+}
+
+export function greeting(now: number, timeZone: string, name?: string): string {
+  const { hello, who } = greetingParts(now, timeZone, name);
   return who ? `${hello}, ${who}` : hello;
 }
 
@@ -55,8 +74,9 @@ export function summaryLine(s: SummaryInput): string {
   const parts: string[] = [];
   if (s.waiting) parts.push(`${s.waiting} ${s.waiting === 1 ? 'request needs' : 'requests need'} your decision`);
   if (s.unhealthyApps) parts.push(`${s.unhealthyApps} ${s.unhealthyApps === 1 ? 'app is' : 'apps are'} unhealthy`);
+  // "1 stale and 1 offline node": the noun agrees with the last number said.
   const nodeBits = [s.staleNodes && `${s.staleNodes} stale`, s.offlineNodes && `${s.offlineNodes} offline`].filter(Boolean);
-  if (nodeBits.length) parts.push(`${nodeBits.join(' and ')} ${s.staleNodes + s.offlineNodes === 1 ? 'node' : 'nodes'}`);
+  if (nodeBits.length) parts.push(`${nodeBits.join(' and ')} ${(s.offlineNodes || s.staleNodes) === 1 ? 'node' : 'nodes'}`);
   if (!parts.length) return 'Everything is running. Nothing needs you.';
   const [first, ...rest] = parts;
   const head = first!.charAt(0).toUpperCase() + first!.slice(1);

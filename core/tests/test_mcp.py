@@ -13,6 +13,10 @@ import pytest
 from conftest import ADULT, AGENT, OWNER, action_body
 from onemind_core.mcp import PROTOCOL_VERSION
 
+# The area read tools (#632) a token with no `scopes:` holds; read_app_logs and stat_file need a scope by name.
+V0_AREA_TOOLS = ["map_packs_list", "get_backup_status", "list_backup_runs", "list_backup_snapshots", "get_os_updates",
+                 "get_os_update_history", "list_machines", "get_machine", "get_storage", "list_alerts", "get_alert",
+                 "get_update_settings"]
 H = {**AGENT, "Accept": "application/json, text/event-stream", "MCP-Protocol-Version": PROTOCOL_VERSION}
 
 
@@ -62,7 +66,7 @@ def test_ping(client):
 
 def test_tools_list_is_exactly_the_contract_set(client):
     tools = rpc(client, "tools/list").json()["result"]["tools"]
-    assert [t["name"] for t in tools] == ["get_instance", "list_nodes", "get_node", "list_apps", "get_app", "list_actions", "get_action", "search_audit", "request_action"]
+    assert [t["name"] for t in tools] == ["get_instance", "list_nodes", "get_node", "list_apps", "get_app", "list_actions", "get_action", "search_audit", "request_action", *V0_AREA_TOOLS]
     for t in tools:
         assert t["inputSchema"]["type"] == "object"
     names = json.dumps(tools)
@@ -129,6 +133,14 @@ def test_request_action_bad_arguments(client, args):
 def test_unknown_tool_and_method(client):
     assert call(client, "approve_action", {"action_id": "x"})["error"]["code"] == -32602
     assert rpc(client, "prompts/list").json()["error"]["code"] == -32601
+
+
+@pytest.mark.parametrize("bad", [["x"], {"a": 1}])
+def test_unhashable_tool_name_is_invalid_params_on_legacy_path(client, bad):
+    legacy = {**H, "MCP-Protocol-Version": "2025-06-18"}
+    r = rpc(client, "tools/call", {"name": bad}, headers=legacy)
+    assert r.status_code == 200, r.text
+    assert r.json()["error"]["code"] == -32602
 
 
 def test_agent_cannot_approve_through_rest_either(client, clock):
@@ -226,7 +238,7 @@ def test_official_mcp_client(live_gateway, executor):
                 assert init.protocolVersion == PROTOCOL_VERSION
                 await session.send_ping()
                 tools = await session.list_tools()
-                assert [t.name for t in tools.tools] == ["get_instance", "list_nodes", "get_node", "list_apps", "get_app", "list_actions", "get_action", "search_audit", "request_action"]
+                assert [t.name for t in tools.tools] == ["get_instance", "list_nodes", "get_node", "list_apps", "get_app", "list_actions", "get_action", "search_audit", "request_action", *V0_AREA_TOOLS]
                 apps = await session.call_tool("list_apps", {})
                 assert not apps.isError
                 assert "uptime-kuma" in {a["id"] for a in apps.structuredContent["apps"]}

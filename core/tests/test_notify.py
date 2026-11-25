@@ -198,6 +198,85 @@ def test_ntfy_channel_title_level_and_secret_never_returned(nclient, http):
     assert "Click" not in req["headers"]
 
 
+def test_node_outage_groups_eight_app_warnings_for_each_recipient(nclient, clock, monkeypatch):
+    import socket
+
+    from onemind_core.notify import channels
+
+    requests = []
+    monkeypatch.setattr(channels.socket, "getaddrinfo", lambda *args, **kwargs: [
+        (socket.AF_INET6, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("2606:4700::1", 0, 0, 0)),
+    ])
+
+    def record_push(url, body, headers, timeout, lan_ok):
+        requests.append((url, headers["Title"]))
+        return 200
+
+    monkeypatch.setattr(channels, "http_post", record_push)
+    for path, headers in (("owner", OWNER), ("adult", ADULT)):
+        add_channel(nclient, {"kind": "ntfy", "label": path, "config": {"url": f"https://ntfy.sh/{path}"}}, headers)
+
+    def unhealthy(app_id, node_id):
+        nclient.app.state.events.publish_event(
+            "app", "unhealthy", {"app_id": app_id, "node_id": node_id, "reason": "readiness lost"},
+            severity="warning", source_id="gateway:monitoring",
+        )
+
+    for index in range(8):
+        unhealthy(f"app-{index}", "n1")
+    clock.advance(15)
+    assert svc(nclient).pump() == 0
+    assert requests == []
+    publish(nclient, "node", "offline", {"node_id": "n1", "hostname": "hub", "age_s": 300}, "warning")
+    assert svc(nclient).pump() == 1
+    clock.advance(15)
+    assert svc(nclient).pump() == 1
+    owner_push, adult_push = requests
+    assert owner_push == ("https://ntfy.sh/owner", "[warning] hub is offline")
+    assert adult_push[0] == "https://ntfy.sh/adult"
+    assert adult_push[1] in {f"[warning] app-{n} is not working" for n in range(8)}
+    owner_items = inbox(nclient, OWNER)
+    adult_items = inbox(nclient, ADULT)
+    assert len(owner_items) == 9 and len(adult_items) == 8
+    assert {item["group_key"] for item in owner_items + adult_items} == {"node:n1:offline"}
+    assert len(open_alerts(nclient, OWNER)) == 9 and len(open_alerts(nclient, ADULT)) == 8
+
+    unhealthy("unrelated", "n2")
+    clock.advance(30)
+    assert svc(nclient).pump() == 2
+    assert all("unrelated is not working" in title for _, title in requests[2:])
+    clock.advance(180)
+    unhealthy("late-app", "n1")
+    clock.advance(30)
+    assert svc(nclient).pump() == 1
+    assert requests[-1] == ("https://ntfy.sh/adult", "[warning] late-app is not working")
+
+
+def test_quiet_hours_app_warnings_fold_when_the_outage_was_delivered(nclient, http, clock):
+    ch = add_channel(nclient, {"kind": "ntfy", "label": "push", "config": {"url": http.url}})
+    prefs = {
+        "quiet_hours": {"tz": "UTC", "from": "21:30", "to": "07:00", "except_topics": ["nodes"]},
+        "routes": [{"match": {}, "channels": [ch["id"]]}],
+    }
+    assert nclient.put("/v1/notifications/preferences", headers=OWNER, json=prefs).status_code == 200
+    publish(nclient, "node", "offline", {"node_id": "n1", "hostname": "hub", "age_s": 300}, "warning")
+    assert svc(nclient).pump() == 1
+    for app_id in ("app-1", "app-2"):
+        nclient.app.state.events.publish_event(
+            "app", "unhealthy", {"app_id": app_id, "node_id": "n1", "reason": "readiness lost"},
+            severity="warning", source_id="gateway:monitoring",
+        )
+    children = [item for item in inbox(nclient, OWNER) if item["title"].endswith("is not working")]
+    assert len(children) == 2
+    for item in children:
+        [delivery] = svc(nclient).repo.deliveries_for(item["id"])
+        assert (delivery.state, delivery.held_reason) == ("held", "quiet")
+    clock.advance(9 * 3600)
+    assert svc(nclient).pump() == 0
+    assert len(http.requests) == 1
+    assert len(open_alerts(nclient, OWNER)) == 3
+
+
 def test_info_items_stay_in_app_by_default(nclient, http):
     add_channel(nclient, {"kind": "webhook", "label": "hook", "config": {"url": http.url}})
     publish(nclient, "update", "applied", {"node_id": "n1", "hostname": "pi", "version": "1.2"})

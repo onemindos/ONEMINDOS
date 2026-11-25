@@ -388,6 +388,38 @@ class PhotosRepository(SqlRepository):
             ).one()
         return int(total or 0), int(b or 0), int(v or 0)
 
+    def library_page(
+        self, owner: str, after: tuple[datetime, str] | None, limit: int,
+    ) -> list[tuple[str, str, datetime, int, datetime]]:
+        """One person's photos, newest first: (id, file_name, shown_at, size, created_at).
+
+        shown_at is the day the photo was taken (the phone's creation time) or, when the phone sent
+        none, the day the box stored it. after is the (shown_at, id) of the last row of the page before.
+        """
+        A, B = PhotoAssetRow, PhotoBlobRow
+        shown = func.coalesce(A.taken_at, A.created_at)
+        q = (
+            select(A.id, A.file_name, shown, B.size, A.created_at)
+            .join(B, B.hash == A.blob_hash).where(A.owner == owner)
+        )
+        if after is not None:
+            q = q.where((shown < after[0]) | ((shown == after[0]) & (A.id < after[1])))
+        with self.db.session() as s:
+            return [
+                (i, n, utc(t), int(sz), utc(c))
+                for i, n, t, sz, c in s.execute(q.order_by(shown.desc(), A.id.desc()).limit(limit))
+            ]
+
+    def asset_of(self, owner: str, asset_id: str) -> tuple[str, str, int] | None:
+        """(library_path, file_name, size) of this person's photo; someone else's looks missing."""
+        with self.db.session() as s:
+            row = s.execute(
+                select(PhotoAssetRow.library_path, PhotoAssetRow.file_name, PhotoBlobRow.size)
+                .join(PhotoBlobRow, PhotoBlobRow.hash == PhotoAssetRow.blob_hash)
+                .where(PhotoAssetRow.id == asset_id, PhotoAssetRow.owner == owner)
+            ).one_or_none()
+            return (row[0], row[1], int(row[2])) if row else None
+
     def receipts_page(self, source_id: str, after: str | None, limit: int) -> list[tuple[str, str, datetime, datetime]]:
         """(client_key, hash, received_at, asset created_at) ordered by key, after the cursor."""
         A, R = PhotoAssetRow, PhotoReceiptRow

@@ -35,6 +35,7 @@ func runRescue(args []string) int {
 	sw := fs.String("terminal-switch", env("ONEMIND_RESCUE_TERMINAL_SWITCH", defaultTerminalSwitch), "file whose presence turns the owner terminal on")
 	auditPath := fs.String("audit", env("ONEMIND_RESCUE_AUDIT", defaultRescueAudit), "the console's own audit chain")
 	gateway := fs.String("gateway", env("ONEMIND_RESCUE_GATEWAY", defaultRescueGateway), "gateway on this box (loopback only) that checks the owner's passkey")
+	helpDir := fs.String("help-dir", env("ONEMIND_HELP_DIR", rescue.DefaultHelpDir), "offline help pack served read-only under /help/")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -48,7 +49,7 @@ func runRescue(args []string) int {
 			"cert", crt, "listen", *listen)
 		return 2
 	}
-	cfg := rescue.Config{TokensFile: *tokens, Version: version.Version, Runner: rescue.Exec{}, Logger: log}
+	cfg := rescue.Config{TokensFile: *tokens, Version: version.Version, Runner: rescue.Exec{}, Logger: log, HelpDir: *helpDir}
 	// The owner terminal (SEC-TERM-01). A start needs a fresh owner passkey assertion that the gateway on this
 	// box verifies (D-014: never a shell behind the plain owner token). With a bad -gateway address Reauth
 	// stays nil and every start is refused.

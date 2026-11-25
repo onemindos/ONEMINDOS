@@ -11,8 +11,11 @@ metadata:
   description: Offline Wikipedia and other reference libraries (ZIM files), with a library manager that downloads and checks them
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tags: offline-knowledge.
   category: learning
+  age_rating: 0   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Offline Wikipedia and reference libraries, the founder's example of safe for anyone."
   icon: icon.svg
   license: GPL-3.0
+  licenceClass: L2
   source: https://github.com/kiwix/kiwix-tools
   # §9.3 facts from the GitHub API (repos/kiwix/kiwix-tools and its releases/latest), read 2026-11-14.
   links:
@@ -52,8 +55,11 @@ spec:
       default: 1024
       minimum: 0
       maximum: 1048576
-  # ZIM files can be hundreds of GiB and are downloaded again from the mirror, so only the
-  # library list is backed up (REC-NOMAD-07: content is an optional, size-aware tier).
+  # ZIM files can be hundreds of GiB and are downloaded again from the mirror, so they are the
+  # optional, size-aware content tier (REC-NOMAD-07, BAK-03): the library list is always backed up,
+  # the books only when the owner switches the tier on after seeing their size. Half-done
+  # downloads are never backed up.
   backup:
     mode: hot
-    exclude: ["*.zim", "*.zim.part"]
+    exclude: ["*.zim.part"]
+    content: ["*.zim"]

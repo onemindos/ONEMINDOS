@@ -1,0 +1,10 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Self-hosted Inter (OFL 1.1, see fonts/OFL.txt): one variable woff2, no font CDN call.
+   The stack in --om-font-sans falls back to the system UI font while it loads or if it fails. */
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('./fonts/inter-latin-wght.woff2') format('woff2-variations'), url('./fonts/inter-latin-wght.woff2') format('woff2');
+}

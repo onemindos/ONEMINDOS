@@ -27,7 +27,14 @@ from ..backups.settings import BackupsSettings
 from ..catalog import APP_ID_RE
 from ..context import Gateway
 from ..errors import ApiError, error_responses as _error_responses
+from ..identity.scopes import register_route_scope
+from ..jsonbody import JsonBody
 from ..ledger import utc
+
+# What a scoped token needs for the content tier (BAK-03): reading the sizes is a backups read;
+# switching the tier is owner-only, and `backups:admin` is a scope only the owner role holds.
+register_route_scope("GET,HEAD", r"/v1/backups/content", ("backups:read",))
+register_route_scope("POST", r"/v1/backups/content", ("backups:admin",))
 
 
 def error_responses(*statuses: int) -> dict[int, dict]:
@@ -43,7 +50,7 @@ USER_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 IdemHeader = Annotated[str | None, Header(alias="Idempotency-Key", min_length=1, max_length=200)]
 
 
-class _Request(BaseModel):
+class _Request(JsonBody):
     model_config = ConfigDict(extra="forbid")
     reason: str | None = Field(default=None, max_length=500)
     expires_at: AwareDatetime | None = None
@@ -102,6 +109,13 @@ class DestinationBody(_Request):
     credentials: dict[str, str] | None = None
 
 
+class ContentBody(_Request):
+    """Switch an app's content tier (BAK-03). Switching it on needs the size the owner was shown."""
+    app_id: str = Field(min_length=1, max_length=59, pattern=APP_ID_RE.pattern)
+    enabled: bool
+    seen_size_bytes: int | None = Field(default=None, ge=0)
+
+
 class KitConfirmBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     answers: dict[str, str] = Field(max_length=4)
@@ -141,6 +155,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     settings = gw.settings.section(BackupsSettings)
     svc = BackupService(gw, settings, pg=getattr(app.state, "databases", None))
     app.state.backups = svc
+    svc.builtins = getattr(app.state, "builtins", None)  # registered earlier (ORDER 135): the backup set, #616
     gw.on_startup(svc.startup)
     gw.on_shutdown(svc.shutdown)
     principal = gw.principal
@@ -287,6 +302,23 @@ def register(app: FastAPI, gw: Gateway) -> None:
         params = {"mode": body.mode, "latest": body.latest, **({"units": body.units} if body.units else {})}
         action, created = gw.actions.request_feature(p, "backup.verify", params, idempotency_key=key(idem),
                                                      expires_at=window(body), reason=body.reason)
+        return filed(p, body, action, created, request)
+
+    @app.get("/v1/backups/content", operation_id="backups.content.list", tags=tags, responses=error_responses(401, 403))
+    def content(_: Principal = Depends(reader)):
+        """Apps with large re-downloadable content (spec.backup.content): whether the optional content
+        tier is on, and what it weighs now, so the size is shown before anyone switches it on."""
+        if not svc.enabled:
+            raise Unavailable("backups are not switched on (ONEMIND_BACKUPS_ENABLED=1)", "backups_disabled")
+        return svc.content()
+
+    @app.post("/v1/backups/content", operation_id="backups.content.set", tags=tags, status_code=202,
+              responses=error_responses(401, 403, 404, 409, 422))
+    def set_content(request: Request, body: ContentBody, p: Principal = Depends(owner), idem: IdemHeader = None):
+        if not svc.enabled:
+            raise Unavailable("backups are not switched on (ONEMIND_BACKUPS_ENABLED=1)", "backups_disabled")
+        action, created = svc.request_content(p, body.model_dump(), idempotency_key=key(idem),
+                                              expires_at=window(body), reason=body.reason)
         return filed(p, body, action, created, request)
 
     @app.get("/v1/backups/verifications", operation_id="backups.verifications.list", tags=tags, responses=error_responses(401, 403))

@@ -45,8 +45,8 @@ def test_fuzz_config_states_the_expected_statuses_and_no_operation_is_selected_b
     operations = doc['operations']
     assert not [op for op in operations if 'include-method' in op or 'include-path' in op]
     families = {op['include-path-regex']: op['checks'] for op in operations if 'include-path-regex' in op}
-    assert set(families) == {'^/v1/(backups|restores)', '^/v1/files/uploads'}
-    assert families['^/v1/(backups|restores)'] == {
+    assert set(families) == {'^/v1/(backups|restores|onboarding/restore)', '^/v1/files/uploads'}
+    assert families['^/v1/(backups|restores|onboarding/restore)'] == {
         'not_a_server_error': {'expected-statuses': ['2xx', '3xx', '4xx', 503]}}
     assert set(families['^/v1/files/uploads']) == {'negative_data_rejection', 'missing_required_header'}
     assert 412 in families['^/v1/files/uploads']['negative_data_rejection']['expected-statuses']

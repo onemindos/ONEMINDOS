@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { OneMindApi, FirstRunSettings, FirstRunSettingsBody, BackupDestinationRecord } from './client';
-import { MockWiringBase } from './mockWiring';
+import type { OneMindApi, FirstRunState, FirstRunSettings, FirstRunSettingsBody, BackupDestinationRecord } from './client';
+import { MockWiringBase, MOCK_FRESH_KEY } from './mockWiring';
 import { installBlockReason } from '../lib/scan';
 import { DEMO_HOST_PORTS, DEMO_REQUIRES, DEMO_TOKENS, INSTANCE, makeActions, makeApps, makeNodes } from './fixtures';
 import { ApiError, type Action, type ActionRequest, type AppDependencies, type AppHostPorts, type CatalogApp, type Principal } from './types';
@@ -23,7 +23,16 @@ export class MockApi extends MockWiringBase implements OneMindApi {
   async onboardingSettings(): Promise<FirstRunSettings> {
     return { ...this.firstRun };
   }
+  // The demo has no persistent owner: a box counts as brand new only after the demo setup flow ran in this tab.
+  async onboardingState(): Promise<FirstRunState> {
+    let fresh = false;
+    try { fresh = window.sessionStorage.getItem(MOCK_FRESH_KEY) === '1'; } catch { /* treated as not fresh */ }
+    const saved = this.firstRun.saved;
+    return { complete: !fresh || saved, settings_saved: saved, backups_enabled: false, destinations: 0,
+      kit: { state: 'missing', confirmed_at: null, fingerprint: null, positions: [] } };
+  }
   async saveOnboardingSettings(body: FirstRunSettingsBody): Promise<FirstRunSettings> {
+    try { window.sessionStorage.removeItem(MOCK_FRESH_KEY); } catch { /* nothing to clear */ }
     this.firstRun = { ...body, saved: true };
     return { ...this.firstRun };
   }
@@ -112,6 +121,9 @@ export class MockApi extends MockWiringBase implements OneMindApi {
   }
   async healthz() {
     return { ok: true };
+  }
+  async instanceName() {
+    return { name: INSTANCE.name };
   }
   async instance() {
     this.auth();

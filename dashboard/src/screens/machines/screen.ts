@@ -9,6 +9,8 @@ const screen: ScreenDef = {
   section: 'Your box',
   order: 70,
   hue: ['#9b7bf7', '#5b2bc8'],
+  pro: true,
   load: () => import('../../pages/Machines').then((m) => ({ default: m.Machines })),
+  extra: [{ path: '/machines/:name', load: () => import('../../pages/MachineConsole').then((m) => ({ default: m.MachineConsoleWindow })) }],
 };
 export default screen;

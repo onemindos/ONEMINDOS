@@ -6,3 +6,19 @@ c17d9800a912c1cc0ca04930c588dc8ce2061941e3ca660a702fa5adbdd8bbc6  CRITERIA.md  2
 c96bbfe38e3480bd085de08c345fed23a6515ef81f5fedca771ef47551b612fd  CRITERIA-FIRSTBOOT.md  2026-11-13T00:00:00Z  (with §4 amendment: F5 H-01, F6 H-12; written before F5/F6 were implemented)
 4a65990cb3bc0f95c8b7fe411dba6dc5d77dcbd583baf766b63f0b8d6bf36e8f  CRITERIA-DATAFAIL.md  2026-11-14T11:29:39Z
 bf0fcc842cbb1b1e6bd3e75a9add9e71daa83c81a5aea9de4a69dd8f1c391c89  CRITERIA-FIRSTBOOT.md  2026-11-15T00:00:00Z  (with §5 amendment: F7-F9 mesh in the image, IMG-MESH-01; written before F7-F9 were implemented)
+a4b21f2578294a5398f448761cd04b013de6c917ebf5e01ccca32e3536a75099  CRITERIA-FIRSTBOOT.md  2026-11-21T00:00:00Z  (with §6 amendment: F10 rescue console on the booted hub, #278; written before F10 was implemented)
+2b788ed182eaf477e5895c916e8e62b54fe7cc993b70e63ebf68845d70357eb5  CRITERIA-SECUREBOOT.md  2026-11-21T22:00:00Z  (S-13; status line reworded before the PR merged to say the harness was self-tested on a rootless image before the full-image run; no criterion changed)
+d56cf70920434a075150dd8aca3518a9acfef5a43c40e037055171badfd3d7cd  CRITERIA-FIREWALL.md  2026-11-21T19:49:34Z
+fb2547dc5497328ed88333e86c7f1de48208193b5eabf3a4b35c54348d3689f8  CRITERIA-BOOTLOCK.md  2026-11-21T00:00:00Z  (written before the GRUB lock and bootlock.py were booted or run)
+a22ef6fa27ffd19b775ed245e094428b7a3eb94b792040943bccfc2a5bcc73c7  CRITERIA-MEMORY.md  2026-11-21T00:00:00Z
+e02799d8ba3889fb61baf9718c6bb298d743c6360e410eedcc39545cba199cd9  CRITERIA-FIRSTBOOT.md  2026-11-21T00:00:00Z  (with §6 amendment: F10 starting page hand-over; written before F10 was implemented)
+dfb95a8bc02be2d5dcaf87405f7730d797fd3fe7ed8d8f534c5fb53f5eb052ad  CRITERIA-FIRSTBOOT.md  2026-11-21T23:30:00Z  (release/next combination: #574's starting-page amendment renumbered to section 7 / F11 next to #278's section 6 / F10; no criterion changed)
+dd1565299e7957ca9f65011de03e2728ea8541c24bee46f4dc0adf848dd1daf2  CRITERIA-DATAENC.md  2026-11-21T00:00:00Z
+d9b08adb44a0cc33a7cea6b84baacdb6128063287a91786478986715349fb705  CRITERIA-WIZARD.md  2026-11-23T00:18:33Z  (#578, PR 921 review: committed before wizard.py was committed or run on any image)
+04087f2885f9ae7369ece1cb8b8f8eda4bb9c66dbec2f59666af06ab4256929a  CRITERIA-SYSEXT.md  2026-11-23T01:24:32Z  (T-W19-01, #186; written before the signed-only extension policy and sysextguard.py existed)
+fb2375a5a405e5d084aea80dbfdff1b5114f2b05391e1875277a8215982fbc20  CRITERIA-SECUREBOOT.md  2026-11-23T01:45:50Z  (with §4 amendment: SB5 slot B under Secure Boot, #148; written before SB5 or the efi route was booted)
+ece09c7f8d261e8da30dff5acca3a649c68c080a273506bc65a3f26a3e3ba433  CRITERIA-EDGE.md  2026-11-23T00:49:34Z  (written before edge.py, the leaf check and the k3s leaf skip existed, #751)
+5c92dab78d50f3cddd047bc4b75f582f4e5b50f3e7dfaabc1786254872d7c2a3  CRITERIA-EDGE.md  2026-11-23T00:52:06Z  (with §4 amendment: EG2 checks the folders k3s writes, not /data/k3s itself, which data-layout makes on every box; written before edge.py existed)
+5cc09a8565003c8c27750bdd2e627609ef2fe183e3d2bb22d8093f83f6c4b7b8  CRITERIA-SYSEXT.md  2026-11-23T04:02:01Z  (with §5 amendment: X8 two-dot directory names, PR 972 review; written before the guard fix and before X8 ran)
+adc1cf6619e8b6440e00da65da7ff13c2dfd0f66151facfe30bf8fdafd74c411  CRITERIA-NAS.md  2026-11-22T23:36:45Z  (written before nasmount.py was implemented or run)
+33e4d0bd5553de5265e5e790f7231ef4e4b3c503fddf669c7b115ec1b06be1fc  CRITERIA-FIRSTBOOT.md  2026-11-23T00:37:43Z  (with §8 amendment: F12 gateway reaches the host helper, #875; written before F12 was implemented)

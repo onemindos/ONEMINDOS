@@ -77,6 +77,17 @@ class KitRow(Base):
     attempts: Mapped[int] = mapped_column(default=0)
 
 
+class ContentTierRow(Base):
+    """An app whose re-downloadable content (spec.backup.content) the owner chose to back up (BAK-03).
+
+    A new table, so create_all adds it to an existing database; no row means the tier is off."""
+    __tablename__ = "backups_content_tier"
+    app_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    size_bytes: Mapped[int] = mapped_column()  # what the owner was shown when switching it on
+    action_id: Mapped[str] = mapped_column(String(36))
+    enabled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 def destination_json(r: DestinationRow) -> dict:
     return {"id": r.id, "kind": r.kind, "label": r.label, "primary": r.is_primary, "append_only": r.append_only,
             "config": r.config, "action_id": r.action_id, "created_at": iso(r.created_at)}
@@ -159,6 +170,17 @@ class BackupsRepository(SqlRepository):
     def restore_for_action(self, action_id: str) -> RestoreRow | None:
         with self.db.session() as s:
             return s.scalars(select(RestoreRow).where(RestoreRow.action_id == action_id)).first()
+
+    # content tier
+    def content_tier(self) -> dict[str, ContentTierRow]:
+        with self.db.session() as s:
+            return {r.app_id: r for r in s.scalars(select(ContentTierRow))}
+
+    def set_content_tier(self, row: ContentTierRow | None, app_id: str) -> None:
+        with self.db.session.begin() as s:
+            s.execute(delete(ContentTierRow).where(ContentTierRow.app_id == app_id))
+            if row is not None:
+                s.add(row)
 
     # kit
     def kit(self) -> KitRow | None:

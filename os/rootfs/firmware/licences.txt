@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# Licence record for every closed-source package the firmware layer may install.
+# Columns: package | kind | licence | source of the licence statement
+# Only firmware and CPU microcode may be listed here; nothing else closed-source ships in the image.
+# The licence names are those in each package's debian/copyright (Debian archive, non-free-firmware).
+# The full texts ship inside the image under /usr/share/doc/<package>/copyright and are listed in the
+# image's package list (usr/lib/onemind/packages.txt) and its SBOM.
+intel-microcode|microcode|Intel Redistributable Software licence (LICENSE-intel-microcode)|debian/copyright of intel-microcode
+amd64-microcode|microcode|AMD Redistributable Software licence (LICENSE.amd-ucode)|debian/copyright of amd64-microcode
+firmware-iwlwifi|firmware|Intel firmware licence (LICENCE.iwlwifi_firmware, redistribution allowed)|debian/copyright of firmware-nonfree
+firmware-atheros|firmware|Qualcomm Atheros redistribution licences (LICENCE.atheros_firmware, LICENCE.open-ath9k-htc-firmware)|debian/copyright of firmware-nonfree
+firmware-brcm80211|firmware|Broadcom firmware licence (LICENCE.broadcom_bcm43xx, LICENCE.cypress)|debian/copyright of firmware-nonfree
+firmware-realtek|firmware|Realtek firmware licence (LICENCE.rtlwifi_firmware.txt, LICENCE.rtl_nic)|debian/copyright of firmware-nonfree
+firmware-intel-graphics|firmware|Intel firmware licence (LICENSE.i915, LICENSE.xe)|debian/copyright of firmware-nonfree
+firmware-amd-graphics|firmware|AMD firmware licence (LICENSE.amdgpu, LICENSE.radeon)|debian/copyright of firmware-nonfree
+firmware-misc-nonfree|firmware|Mixed vendor redistribution licences, one file per vendor in the package copyright|debian/copyright of firmware-nonfree

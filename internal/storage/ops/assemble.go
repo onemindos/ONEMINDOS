@@ -269,6 +269,18 @@ func mappers(opened map[string]string) []string {
 	return out
 }
 
+// Candidates lists the onemind-data partitions of this box with their tokens
+// (read-only: lsblk and `cryptsetup token export`). The factory reset plan
+// uses it to name every member it would erase.
+func Candidates(ctx context.Context, r Runner) ([]Candidate, error) {
+	sr, ok := r.(storage.Runner)
+	if !ok {
+		sr = stdoutOf{r}
+	}
+	cands, _, err := candidates(ctx, &storage.Collector{Run: sr}, r)
+	return cands, err
+}
+
 // candidates lists onemind-data partitions with their tokens, and a blank
 // onemind-data partition on the system disk (first boot), if any.
 func candidates(ctx context.Context, col *storage.Collector, r Runner) ([]Candidate, string, error) {

@@ -35,6 +35,8 @@ services:
       - sh
       - -ec
       - |
+        # The TS SDK schema is generated, not committed (CI-16): run `make -C sdk gen-code` once.
+        test -f /sdk/ts/src/gen/schema.ts || { echo "sdk/ts/src/gen/schema.ts is missing: run make -C sdk gen-code" >&2; exit 1; }
         cp -R /src/. /build/ && rm -rf /build/node_modules /build/dist
         npm ci --no-audit --no-fund --loglevel=error
         npm run build

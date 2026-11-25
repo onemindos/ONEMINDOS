@@ -32,6 +32,8 @@ from urllib.parse import quote, urlsplit
 
 from .. import __version__
 from ..actions import FeatureAction
+from ..appstore.imagescan import scan_json, write_scan_json
+from ..appstore.sources import static_scan
 from ..auth import Principal
 from ..catalog import APP_ID_RE
 from ..errors import ApiError
@@ -338,10 +340,34 @@ class MigrateService:
         """At approval only, as for app.install (§10.3, F-7): nothing unscanned runs, private apps included."""
         if not self.gw.skip_scan:
             row = self._plan(a.params["plan_id"])
+            self._ensure_bundle_scan(row)
             problem = scan_problem(row.app_id, read_scan(self.bundle_dir(row.id)), self._now())
             if problem:
                 return problem + " (the on-box scan of private bundles, CORE-DEPLOY-2, writes this record)"
         return self._claim(a)
+
+    def _ensure_bundle_scan(self, row: MigratePlanRow) -> None:
+        """CORE-DEPLOY-2: with an on-box scanner, write the bundle's scan.json when it is missing or stale.
+
+        The record still goes through scan_problem() right after, so a failed or unavailable scan
+        refuses the import exactly like a missing one did. Without a scanner nothing changes.
+        """
+        scanner = getattr(self.gw, "image_scanner", None)
+        if scanner is None or not hasattr(scanner, "scan_images"):
+            return
+        root = self.bundle_dir(row.id)
+        if scan_problem(row.app_id, read_scan(root), self._now()) is None:
+            return
+        manifest = self._manifest(row)
+        problems, images = static_scan(bundlemod.entry(root, manifest, staging=False))
+        if problems:
+            result, entries = "fail", []
+            log.warning("bundle %s fails the app object rules: %s", row.id, "; ".join(problems[:3]))
+        else:
+            result, _detail, entries = scanner.scan_images(images)
+        if result == "unavailable":
+            return  # no record: "an unreadable scan is no evidence" (scan.py)
+        write_scan_json(root, scan_json(entries, result, self._now()))
 
     def _claim_with_kube(self, a: Action) -> str | None:
         if a.id not in self._held or self._take_held(a.id) is None:

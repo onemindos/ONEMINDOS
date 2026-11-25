@@ -36,17 +36,29 @@ CORE = Path(__file__).resolve().parents[1]
 REPO_APPS = CORE.parent / "apps"
 # Two real Market apps, so the catalog check is the one the box runs (the repo's app schema).
 OPEN_APP, STOPPED_APP = "actual-budget", "audiobookshelf"
+STARTING_APP, DOWN_APP = "bazarr", "komga"
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="the gateway runs on Linux and macOS")
+
+
+HITS: list[str] = []  # every request that reached the app's upstream
 
 
 class Echo(BaseHTTPRequestHandler):
     def do_GET(self):  # noqa: N802 (http.server API)
+        HITS.append(f"GET {self.path}")
         body = json.dumps({"path": self.path, "headers": {k.lower(): v for k, v in self.headers.items()}}).encode()
         self.send_response(200)
         self.send_header("content-type", "application/json")
         self.send_header("content-length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def _other(self):
+        HITS.append(f"{self.command} {self.path}")
+        self.send_response(204)
+        self.end_headers()
+
+    do_POST = do_PUT = do_DELETE = do_PATCH = do_HEAD = _other  # noqa: N815 (http.server API)
 
     def log_message(self, *_):
         pass
@@ -72,22 +84,25 @@ def upstream():
 def box(settings, tmp_path, upstream, clock):
     """The gateway process, HTTPS on, one app installed and one stopped."""
     apps = tmp_path / "market"
-    for app_id in (OPEN_APP, STOPPED_APP):
+    dead = free_port()  # nothing listens here: an installed app that does not answer
+    for app_id in (OPEN_APP, STOPPED_APP, STARTING_APP, DOWN_APP):
         shutil.copytree(REPO_APPS / app_id, apps / app_id)
         path = apps / app_id / "onemind.app.yaml"
         m = yaml.safe_load(path.read_text())
-        m["spec"]["web"]["port"] = upstream  # where this test's upstream listens
+        m["spec"]["web"]["port"] = dead if app_id == DOWN_APP else upstream  # where the upstream listens
         path.write_text(yaml.safe_dump(m, sort_keys=False))
     # The ledger as installs left it (create_app makes the tables).
     gw = create_app(settings, clock=clock)
     gw.state.repo.set_app_state(OPEN_APP, "installed", clock.now)
     gw.state.repo.set_app_state(STOPPED_APP, "stopped", clock.now)
+    gw.state.repo.set_app_state(STARTING_APP, "installing", clock.now)
+    gw.state.repo.set_app_state(DOWN_APP, "installed", clock.now)
     if hasattr(gw.state.repo, "close"):
         gw.state.repo.close()
 
     kubectl = tmp_path / "kubectl"
     services = {"items": [{"metadata": {"name": "web"}, "spec": {
-        "type": "ClusterIP", "clusterIP": "127.0.0.1", "ports": [{"port": upstream, "protocol": "TCP"}]}}]}
+        "type": "ClusterIP", "clusterIP": "127.0.0.1", "ports": [{"port": upstream, "protocol": "TCP"}, {"port": dead, "protocol": "TCP"}]}}]}
     kubectl.write_text(f"#!{sys.executable}\nimport sys\nprint({json.dumps(json.dumps(services))})\n")
     kubectl.chmod(0o755)
 
@@ -180,3 +195,39 @@ def test_stopped_app_says_so(box):
     assert r.status_code == 503
     assert "is stopped. Start it from the OneMind dashboard." in r.text
     assert box.request("GET", "nosuch.onemind.local", headers={"Cookie": cookie}).status_code == 404
+
+
+SIGNED_OUT_URLS = ["/", "/dashboard?x=1", "/v1/instance", "/apps/actual-budget/", "/%2e%2e/", "//evil/", "/a/../../b", "/.well-known/x"]
+
+
+@pytest.mark.parametrize("method", ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"])
+def test_every_app_url_needs_sign_in_and_the_app_never_sees_it(box, method):
+    """Auth is enforced for every app URL: any method, any path, a forged or empty credential."""
+    HITS.clear()
+    credentials = [{}, {"Cookie": "onemind_session=not-a-token"}, {"Authorization": "Bearer not-a-token"}]
+    for host in (f"{OPEN_APP}.onemind.local", f"{OPEN_APP}.box1.local", f"{STOPPED_APP}.onemind.local"):
+        for path in SIGNED_OUT_URLS:
+            for creds in credentials:
+                r = box.request(method, host, path, headers={**creds, "Origin": f"https://{host}"})
+                assert r.status_code == 401, (method, host, path, creds, r.status_code)
+    assert HITS == []  # not one request reached the app
+
+
+def test_signed_in_person_still_reaches_the_app_on_the_same_urls(box):
+    """The refusal above is about sign-in, not the paths: the same URLs open once signed in."""
+    HITS.clear()
+    cookie = box.app_cookie(OWNER)
+    for path in ("/", "/dashboard?x=1", "/v1/instance"):
+        assert box.request("GET", f"{OPEN_APP}.onemind.local", path, headers={"Cookie": cookie}).status_code == 200
+    assert HITS == ["GET /", "GET /dashboard?x=1", "GET /v1/instance"]
+
+
+def test_unknown_and_unreachable_apps_are_told_apart(box):
+    cookie = box.app_cookie(ADULT)
+    r = box.request("GET", f"{STARTING_APP}.onemind.local", headers={"Cookie": cookie, "Accept": "text/html"})
+    # A change that was in flight when the gateway restarted is recovered as "unknown": the page says so
+    # rather than guessing (the in-progress wording is unit-tested in test_proxy.py).
+    assert r.status_code == 503 and "Bazarr may not be running: OneMind cannot tell right now." in r.text
+    r = box.request("GET", f"{DOWN_APP}.onemind.local", headers={"Cookie": cookie})
+    assert r.status_code == 502
+    assert r.text == "Komga is installed but not answering. It may still be starting."

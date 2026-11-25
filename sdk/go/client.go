@@ -80,6 +80,8 @@ type Client struct {
 	Actions  *ActionsService
 	Audit    *AuditService
 	Events   *EventsService
+	Status   *StatusService
+	Services *ServicesService
 }
 
 // Option configures a Client.
@@ -167,6 +169,8 @@ func New(baseURL string, opts ...Option) (*Client, error) {
 	c.Actions = &ActionsService{c}
 	c.Audit = &AuditService{c}
 	c.Events = &EventsService{c}
+	c.Status = &StatusService{c}
+	c.Services = &ServicesService{c}
 	return c, nil
 }
 
@@ -423,6 +427,25 @@ func (s *AboutService) Get(ctx context.Context) (*About, error) {
 	return &v, s.c.Do(ctx, http.MethodGet, "/v1/os/about", nil, &v)
 }
 
+// StatusService is GET /v1/status (FD-01): what needs attention, per source.
+type StatusService struct{ c *Client }
+
+// Get is operation status.get. A source the gateway could not read is "unknown", never "ok".
+func (s *StatusService) Get(ctx context.Context) (*StatusView, error) {
+	var v StatusView
+	return &v, s.c.Do(ctx, http.MethodGet, "/v1/status", nil, &v)
+}
+
+// ServicesService is GET /v1/system/services (#623): the service cards, owner only.
+type ServicesService struct{ c *Client }
+
+// List is operation system.services.list: every systemd unit the OS ships with its plain name, risk and
+// systemd state. A unit the image's registry does not list has Known false. Read only.
+func (s *ServicesService) List(ctx context.Context) (*ServicesView, error) {
+	var v ServicesView
+	return &v, s.c.Do(ctx, http.MethodGet, "/v1/system/services", nil, &v)
+}
+
 // NodesService is /v1/nodes.
 type NodesService struct{ c *Client }
 
@@ -430,6 +453,12 @@ type NodesService struct{ c *Client }
 func (s *NodesService) List(ctx context.Context) ([]Node, error) {
 	var v []Node
 	return v, s.c.Do(ctx, http.MethodGet, "/v1/nodes", nil, &v)
+}
+
+// Usage is operation monitoring.usage (GET /v1/usage): CPU, memory and disk per machine and per app.
+func (s *NodesService) Usage(ctx context.Context) (*Usage, error) {
+	var v Usage
+	return &v, s.c.Do(ctx, http.MethodGet, "/v1/usage", nil, &v)
 }
 
 // Get is operation nodes.get.
@@ -448,6 +477,13 @@ func (s *AppsService) List(ctx context.Context) ([]CatalogApp, error) {
 }
 
 // Get returns one catalog entry (from apps.list until GET /v1/apps/{id} exists).
+// System is operation apps.system: the Built in area, every system app with its on/off switch, version,
+// licence and update channel. A switched-off app is listed only here, not by List.
+func (s *AppsService) System(ctx context.Context) ([]SystemApp, error) {
+	var v []SystemApp
+	return v, s.c.Do(ctx, http.MethodGet, "/v1/system-apps", nil, &v)
+}
+
 func (s *AppsService) Get(ctx context.Context, id string) (*CatalogApp, error) {
 	apps, err := s.List(ctx)
 	if err != nil {

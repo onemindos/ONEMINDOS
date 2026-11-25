@@ -24,7 +24,7 @@ from applib import common  # noqa: E402
 WORKFLOW = yaml.safe_load((ROOT / ".github/workflows/ci-apps.yml").read_text())
 # PyYAML's YAML 1.1 loader treats the Actions key `on` as True.
 TRIGGERS = WORKFLOW.get("on", WORKFLOW.get(True))
-CHANGED = next(step["run"] for step in WORKFLOW["jobs"]["validate"]["steps"]
+CHANGED = next(step["run"] for step in WORKFLOW["jobs"]["plan"]["steps"]
                if step.get("id") == "changed")
 MATRIX = ROOT / "research-output/evidence/license-matrix.csv"
 MATRIX_PATH = "research-output/evidence/license-matrix.csv"
@@ -65,6 +65,12 @@ class CiAppsPathsTests(unittest.TestCase):
             "sdk/tools/applib/common.py", "sdk/tools/applib/readme.py",
             "sdk/tools/requirements.txt", "sdk/tools/ci/install-tools.sh",
             "sdk/schema/onemind.app.schema.json",
+            "core/onemind_core/catalog.py", "core/onemind_core/manifest_convert.py",
+            # catalog.py imports these at load time; validate-apps runs their rules
+            "core/onemind_core/ai_policy.py", "core/onemind_core/scan.py",
+            "core/onemind_core/appsecrets/__init__.py", "core/onemind_core/appsecrets/spec.py",
+            "internal/plugin/validate/validate.go", "cmd/onemind/cli/plugin.go",
+            "go.mod", "go.sum",
             ".github/workflows/ci-apps.yml",
         ):
             with self.subTest(path=path):
@@ -134,6 +140,16 @@ class CiAppsPathsTests(unittest.TestCase):
 
     def test_gate_input_wins_over_changed_app_subset(self):
         self.assertEqual(self.selected(f"apps/{APPS[0]}/README.md", "sdk/tools/app-gate"), APPS)
+
+    def test_full_gate_prioritizes_changed_apps_then_keeps_the_full_inventory(self):
+        changed = APPS[-1]
+        selected = self.selected(f"apps/{changed}/manifests/deployment.yaml", "sdk/tools/app-gate")
+        self.assertEqual(selected, [changed, *APPS[:-1]])
+
+    def test_scan_artifacts_do_not_depend_on_validation(self):
+        jobs = WORKFLOW["jobs"]
+        self.assertEqual(jobs["gate"]["needs"], "plan")
+        self.assertNotIn("needs", jobs["plan"])
 
     def test_dispatch_selects_every_app_without_a_pr_diff(self):
         self.assertIn("workflow_dispatch", TRIGGERS)

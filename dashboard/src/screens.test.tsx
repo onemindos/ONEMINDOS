@@ -3,7 +3,7 @@
 // request → approval → live progress → installed loop, roles, honest stale and "coming" states.
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { renderApp, seriousViolations } from './test/helpers';
 
 const T = { timeout: 4000 };
@@ -29,6 +29,63 @@ describe('Home', () => {
     expect(await screen.findByRole('link', { name: /Uptime Kuma/ }, T)).toBeInTheDocument();
     expect(await seriousViolations(container)).toEqual([]);
   });
+
+  it('records an explicit keyboard launch across clients and keeps a directly loaded screen read-only', async () => {
+    let recent: string[] = [];
+    const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
+      const path = new URL(String(input)).pathname;
+      if (path === '/v1/status') {
+        return Response.json({ backups: { state: 'critical', observed_at: '2026-11-21T01:00:00Z', summary: 'Last backup failed' } });
+      }
+      if (path === '/v1/me/home') {
+        if (init?.method === 'PUT') recent = JSON.parse(String(init.body)).recent;
+        return Response.json({ version: 3, layout: 'desktop', recent }, { headers: { etag: '"v1"' } });
+      }
+      return Response.json({ error: 'not_found', message: 'Unavailable' }, { status: 404 });
+    });
+    vi.stubGlobal('fetch', fetch);
+    try {
+      const firstClient = renderApp({ token: 'owner-demo', route: '/installed', mock: false });
+      const dock = within(await screen.findByRole('navigation', { name: 'Main' }, T));
+      const market = dock.getByRole('link', { name: 'Market' });
+      expect(fetch.mock.calls.some(([url]) => new URL(String(url)).pathname === '/v1/me/home')).toBe(false);
+      market.focus();
+      await userEvent.setup().keyboard('{Enter}');
+      await waitFor(() => expect(recent).toEqual(['sys:market']), T);
+      firstClient.unmount();
+      // The second browser shares the hub history and starts with its own empty window store.
+      window.localStorage.clear();
+      renderApp({ token: 'owner-demo', mock: false });
+      const health = await screen.findByRole('region', { name: 'Box health' }, T);
+      expect(await within(health).findByText('Last backup failed')).toBeInTheDocument();
+      const history = within(await screen.findByRole('region', { name: 'Recent' }));
+      expect(await history.findByRole('link', { name: 'Market' })).toHaveAttribute('href', '/market');
+      expect(await screen.findByText('Backups: Last backup failed')).toBeInTheDocument();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('greets the person by the display name /v1/me gives, and by no name when there is none', async () => {
+    const alex = renderApp({ token: 'adult-demo' });
+    expect(await screen.findByRole('heading', { level: 1, name: /^Good (morning|afternoon|evening|night), Alex$/ }, T)).toBeInTheDocument();
+    alex.unmount();
+    // The demo owner's display name is the role word "Owner": it is not a name, so nothing is invented.
+    renderApp({ token: 'owner-demo' });
+    expect(await screen.findByRole('heading', { level: 1, name: /^Good (morning|afternoon|evening|night)$/ }, T)).toBeInTheDocument();
+  });
+});
+
+describe('Short screens', () => {
+  it('Storage opens in a compact window; Market keeps the wide one', async () => {
+    const { container, unmount } = renderApp({ token: 'owner-demo', route: '/storage' });
+    expect(await screen.findByRole('heading', { level: 1, name: 'Storage' }, T)).toBeInTheDocument();
+    expect(container.querySelector('.dsk-window')?.getAttribute('data-size')).toBe('compact');
+    unmount();
+    const wide = renderApp({ token: 'owner-demo', route: '/market' });
+    expect(await screen.findByRole('heading', { name: 'Start here' }, T)).toBeInTheDocument();
+    expect(wide.container.querySelector('.dsk-window')?.getAttribute('data-size')).toBeNull();
+  });
 });
 
 describe('Market and the install loop', () => {
@@ -37,6 +94,20 @@ describe('Market and the install loop', () => {
     expect(await screen.findByRole('heading', { name: 'Start here' }, T)).toBeInTheDocument();
     // home-automation (legacy slug on main) lands in Home & IoT.
     expect(screen.getByRole('button', { name: /^Home & IoT/ })).toBeInTheDocument();
+  });
+
+  it('Browsers row lists Firefox and Chromium, and installing one is a request that waits for the owner', async () => {
+    const u = userEvent.setup();
+    renderApp({ token: 'owner-demo', route: '/market' });
+    const row = (await screen.findByRole('heading', { name: 'Browsers' }, T)).closest('section')!;
+    expect(within(row).getByRole('link', { name: 'Firefox' })).toBeInTheDocument();
+    expect(within(row).getByRole('link', { name: 'Chromium' })).toBeInTheDocument();
+    expect(within(row).queryByText(/Chrome$|Edge/)).toBeNull();
+    await u.click(within(row).getByRole('link', { name: 'Firefox' }));
+    await u.click(await screen.findByRole('button', { name: /Request install/ }, T));
+    await u.click(within(await screen.findByRole('dialog', { name: 'Review app request' })).getByRole('button', { name: 'Send request' }));
+    const card = await screen.findByRole('article', { name: /Install firefox|Install Firefox/ }, T);
+    expect(card).toHaveTextContent(/awaiting approval/i);
   });
 
   it('app page shows the trust facts and greys out Install for a stale scan', async () => {
@@ -56,7 +127,7 @@ describe('Market and the install loop', () => {
     const card = await screen.findByRole('article', { name: /Install vaultwarden|Install Vaultwarden/ }, T);
     expect(within(card).getByText('Person')).toBeInTheDocument();
     expect(card).toHaveTextContent(/awaiting approval/i);
-    expect(screen.getByText(/Review the exact request and its gateway plan/)).toBeInTheDocument();
+    expect(screen.getByText(/has not described what this request will change/)).toBeInTheDocument();
     await u.click(screen.getByRole('button', { name: /^Approve/ }));
     expect(await screen.findByText('Approved', {}, T)).toBeInTheDocument();
 
@@ -66,7 +137,9 @@ describe('Market and the install loop', () => {
 
   it('an adult can look but is told they cannot request', async () => {
     renderApp({ token: 'adult-demo', route: '/market' });
-    expect(await screen.findByText(/can look but not request installs/, {}, T)).toBeInTheDocument();
+    // The notice shows once as a banner and again as the reason on each card whose request is blocked (#531).
+    expect((await screen.findAllByText(/can look but not request installs/, {}, T)).length).toBeGreaterThan(0);
+    screen.getAllByRole('button', { name: /^Request install/ }).forEach((b) => expect(b).toBeDisabled());
   });
 });
 
@@ -142,6 +215,8 @@ describe('Activity, Nodes, Settings', () => {
     expect(backups).toBeDefined();
     await u.click(backups!);
     expect(await screen.findByText(/Demo mode has no backup data/)).toBeInTheDocument();
+    expect(screen.getByText('No backup proved yet')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Set up backups' })).toBeInTheDocument();
     await u.click(screen.getByRole('link', { name: 'Settings' }));
     await u.click(screen.getByRole('link', { name: /About/ }));
     expect(await screen.findByText('Hub node', {}, T)).toBeInTheDocument();
@@ -168,7 +243,32 @@ describe('palette and notifications', () => {
     await screen.findByRole('list', { name: 'Nodes' }, T);
     const bell = await screen.findByRole('button', { name: /Notifications/ }, T);
     await u.click(bell);
-    expect(await screen.findByText('Install Ollama is waiting for approval', {}, T)).toBeInTheDocument();
+    // The hub's own notification for that action replaces the one the browser used to derive.
+    expect(await screen.findByText('A request is waiting for you', {}, T)).toBeInTheDocument();
+  });
+});
+
+describe('one notification centre', () => {
+  it('the bell lists hub notifications and open alerts, and marking one read tells the hub', async () => {
+    const u = userEvent.setup();
+    const { getApi } = renderApp({ token: 'owner-demo', route: '/nodes' });
+    await screen.findByRole('list', { name: 'Nodes' }, T);
+    const bell = await screen.findByRole('button', { name: /Notifications/ }, T);
+    await u.click(bell);
+    expect(await screen.findByText('Backup is two days behind', {}, T)).toBeInTheDocument();
+    // The hub's request notification replaces the browser-derived one for the same action.
+    expect(screen.getAllByText(/A request is waiting for you/).length).toBe(1);
+    const api = getApi();
+    await u.click(await screen.findByRole('button', { name: /mark all.*read/i }, T));
+    await waitFor(async () => expect((await api.notifications({ unread: true })).length).toBe(0), T);
+  });
+
+  it('Home shows an unknown verdict for every source when the box status is unavailable', async () => {
+    renderApp({ token: 'owner-demo' });
+    const card = await screen.findByRole('region', { name: 'Box health' }, T);
+    // Other services can answer while the aggregate status source is unavailable.
+    expect(within(card).getAllByText('Unknown')).toHaveLength(7);
+    expect(card.querySelector('.om-tone-ok')).toBeNull();
   });
 });
 

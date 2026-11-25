@@ -9,18 +9,23 @@ import { useParams } from 'react-router';
 import { EmptyState, SETTINGS_SECTIONS, SettingsLayout, StateView, type SettingsSectionId } from '@onemind/ui';
 import { SETTINGS_PAGES } from '../screens/registry';
 import { href } from '../shell/routes';
+import { ProOnly } from '../shell/ProOnly';
+import { useShell } from '../shell/Shell';
+import { PRO_SETTINGS } from '../shell/proSettings';
 
 const IDS = new Set(SETTINGS_SECTIONS.map((s) => s.id));
 
 export function Settings() {
   const { section } = useParams();
+  const { view, role } = useShell();
   const explicit = !!section && IDS.has(section as SettingsSectionId);
   const current = (explicit ? section : 'appearance') as SettingsSectionId;
   const meta = SETTINGS_SECTIONS.find((s) => s.id === current)!;
   const page = SETTINGS_PAGES.get(current);
   const Page = useMemo(() => (page?.load ? lazy(page.load) : null), [page]);
   let body;
-  if (Page) body = <Suspense fallback={<StateView state="loading" what={meta.label} skeleton="list" />}><Page /></Suspense>;
+  if (view !== 'pro' && PRO_SETTINGS.has(current)) body = <ProOnly title={meta.label}>{null}</ProOnly>;
+  else if (Page) body = <Suspense fallback={<StateView state="loading" what={meta.label} skeleton="list" />}><Page /></Suspense>;
   else {
     const c = page?.coming ?? { stream: 'its work stream', api: null };
     body = (
@@ -33,7 +38,7 @@ export function Settings() {
     );
   }
   return (
-    <SettingsLayout current={current} explicit={explicit} hrefFor={(id) => href.setting(id)} indexHref={href.settings}>
+    <SettingsLayout current={current} explicit={explicit} hrefFor={(id) => href.setting(id)} indexHref={href.settings} hidden={view !== 'pro' ? PRO_SETTINGS : role === 'owner' ? undefined : new Set<SettingsSectionId>(['care'])}>
       {body}
     </SettingsLayout>
   );

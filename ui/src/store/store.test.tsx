@@ -9,6 +9,7 @@ import { InstalledList, ManageApp } from './Installed';
 import { InstallReview } from './InstallReview';
 import { JobProgress, JobsTray } from './Jobs';
 import { DISCOVER_RAILS, Market } from './Market';
+import { QUALITY_CHECKS } from './taxonomy';
 import type { LoadState } from './types';
 
 const READY: LoadState = { kind: 'ready', fetched_at: new Date(NOW).toISOString() };
@@ -42,6 +43,59 @@ describe('Market', () => {
     expect(screen.getByRole('status')).toHaveTextContent('3 apps');
     await u.click(screen.getByRole('button', { name: /#photos/ }));
     expect(within(screen.getByRole('list', { name: 'Apps' })).getAllByRole('article')).toHaveLength(1);
+  });
+
+  it('shows only green licence classes in search, featured cards and collections by default', async () => {
+    const user = userEvent.setup();
+    const base = catalog[0]!;
+    const apps = [
+      { ...base, id: 'green', name: 'Green licence', licence_class: 'L2' as const },
+      { ...base, id: 'unassessed', name: 'Unknown licence', licence_class: 'L?' as const },
+    ];
+    render(<Market apps={apps} state={READY} now={NOW} {...handlers()}
+      featured={{ app_id: 'unassessed', headline: 'Unassessed feature', blurb: '' }}
+      collections={[{ id: 'both', title: 'Both', blurb: '', app_ids: ['green', 'unassessed'] }]} />);
+    expect(screen.getByRole('link', { name: 'Green licence' })).toBeInTheDocument();
+    expect(screen.queryByText('Unassessed feature')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Unknown licence' })).not.toBeInTheDocument();
+    await user.type(screen.getByRole('searchbox'), 'Unknown licence');
+    expect(screen.queryByRole('link', { name: 'Unknown licence' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Filters' }));
+    await user.click(screen.getByRole('checkbox', { name: /Unclear licence/ }));
+    expect(screen.getByRole('link', { name: 'Unknown licence' })).toBeInTheDocument();
+  });
+
+  it('shows the quality tier on the card, says "Not rated yet" without one, and filters by it', async () => {
+    const user = userEvent.setup();
+    const base = catalog.find((a) => a.deploy_class === 'market-verified' && a.scan)!;
+    const evidence = (silver: boolean) => ({
+      bronze: Object.fromEntries(QUALITY_CHECKS.bronze.map((c) => [c.name, true])),
+      silver: Object.fromEntries(QUALITY_CHECKS.silver.map((c) => [c.name, silver])),
+      gold: Object.fromEntries(QUALITY_CHECKS.gold.map((c) => [c.name, false])),
+    });
+    const apps = [
+      { ...base, id: 'bronzy', name: 'Bronzy', scan: { ...base.scan!, quality: { tier: 'bronze' as const, evidence: evidence(false) } } },
+      { ...base, id: 'silvery', name: 'Silvery', scan: { ...base.scan!, quality: { tier: 'silver' as const, evidence: evidence(true) } } },
+      { ...base, id: 'oldscan', name: 'Oldscan', scan: { ...base.scan!, quality: undefined } },
+    ];
+    render(<Market apps={apps} state={READY} now={NOW} {...handlers()} />);
+    const card = (name: string) => screen.getAllByRole('link', { name })[0]!.closest('article')!;
+    expect(within(card('Bronzy')).getByText('Bronze quality')).toBeInTheDocument();
+    expect(within(card('Silvery')).getByText('Silver quality')).toBeInTheDocument();
+    expect(within(card('Oldscan')).getByText('Not rated yet')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Filters' }));
+    await user.selectOptions(screen.getByLabelText('Quality'), 'silver');
+    expect(screen.getByRole('link', { name: 'Silvery' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Bronzy' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Oldscan' })).not.toBeInTheDocument();
+  });
+
+  it('leaves out categories that have no apps', () => {
+    const one = catalog.filter((a) => a.category === catalog[0]!.category);
+    render(<Market apps={one} state={READY} now={NOW} {...handlers()} />);
+    const chips = within(screen.getByRole('group', { name: 'Category' })).getAllByRole('button');
+    expect(chips).toHaveLength(2); // All, plus the one category that has apps
+    expect(chips.every((c) => !/\b0$/.test(c.textContent ?? ''))).toBe(true);
   });
 
   it('searches, shows an empty state with the CLI, and resets', async () => {
@@ -104,6 +158,24 @@ describe('AppDetail', () => {
     expect(h.onRequestInstall).toHaveBeenCalledWith(imm);
     await noAxeViolations(container);
   });
+  it('lists the quality checks behind the tier, each as a yes or no', () => {
+    const base = catalog.find((a) => a.deploy_class === 'market-verified' && a.scan)!;
+    const evidence = {
+      bronze: Object.fromEntries(QUALITY_CHECKS.bronze.map((c) => [c.name, true])),
+      silver: Object.fromEntries(QUALITY_CHECKS.silver.map((c) => [c.name, c.name !== 'non_root'])),
+      gold: Object.fromEntries(QUALITY_CHECKS.gold.map((c) => [c.name, true])),
+    };
+    const app = { ...base, scan: { ...base.scan!, quality: { tier: 'bronze' as const, evidence } } };
+    render(<AppDetail app={app} state={READY} planState={READY} now={NOW} backHref="#/store" {...handlers()} />);
+    expect(screen.getAllByText('Bronze quality').length).toBeGreaterThan(0);
+    expect(screen.getByText('No: Runs without root rights')).toBeInTheDocument();
+    expect(screen.getByText('Yes: The smoke test ran and passed')).toBeInTheDocument();
+  });
+  it('says Not rated yet when the scan carries no quality', () => {
+    const base = catalog.find((a) => a.deploy_class === 'market-verified' && a.scan)!;
+    render(<AppDetail app={{ ...base, scan: { ...base.scan!, quality: undefined } }} state={READY} planState={READY} now={NOW} backHref="#/store" {...handlers()} />);
+    expect(screen.getByText(/Not rated yet/)).toBeInTheDocument();
+  });
   it('says when the app does not exist', () => {
     render(<AppDetail state={READY} planState={READY} now={NOW} backHref="#/store" {...handlers()} />);
     expect(screen.getByText('No such app')).toBeInTheDocument();
@@ -165,6 +237,12 @@ describe('Jobs', () => {
     expect(pill).toHaveAttribute('aria-expanded', 'true');
     await u.click(screen.getByRole('button', { name: 'Dismiss Grafana' }));
     expect(onDismiss).toHaveBeenCalledWith('act-33d0');
+  });
+  it('tray pill carries a status glyph shape, not the removed ring', () => {
+    render(<JobsTray jobs={jobs} now={NOW} />);
+    const pill = screen.getByRole('button', { name: /2 jobs/ });
+    expect(pill.querySelector('svg.om-store-tray-glyph')).not.toBeNull();
+    expect(pill.querySelector('.om-store-tray-ring')).toBeNull();
   });
 });
 

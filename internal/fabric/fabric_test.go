@@ -394,3 +394,31 @@ type failAll struct{}
 
 func (failAll) Systemctl(context.Context, ...string) error { return errors.New("no systemd") }
 func (failAll) Chown(string, string) error                 { return nil }
+
+// JoinMesh (a sensor's mesh join) without control addresses pins the hub's LAN address instead, writes
+// only the box CA into IdentityDir, and refuses credentials without a mesh block before touching tailscaled.
+func TestJoinMeshFallsBackToHubAddrAndNeedsAMeshBlock(t *testing.T) {
+	root := t.TempDir()
+	ts, sys := &fakeTS{}, &fakeSys{}
+	in := &Installer{Root: root, Sys: sys, Mesh: &mesh.Client{Runner: ts, Now: time.Now}, EnrollTimeout: 5 * time.Second}
+	if _, err := in.JoinMesh(context.Background(), &Credentials{CACert: "ca"}, "192.0.2.20"); err == nil || len(sys.calls) != 0 {
+		t.Fatalf("no mesh block: err %v, systemctl %v", err, sys.calls)
+	}
+	cr := &Credentials{CACert: "box ca", Mesh: &MeshBlock{ControlURL: "https://control.onemind.internal:8444",
+		AuthKey: "hskey-auth-test-only", Hostname: "node-s1", HubMeshIP: "100.64.0.1", ShieldsUp: false}}
+	res, err := in.JoinMesh(context.Background(), cr, "192.0.2.20")
+	if err != nil || res.Addr != "100.64.0.7" {
+		t.Fatalf("%+v %v", res, err)
+	}
+	hosts, _ := os.ReadFile(filepath.Join(root, HostsFile))
+	ca, _ := os.ReadFile(filepath.Join(root, IdentityDir, "ca.pem"))
+	if !strings.Contains(string(hosts), "192.0.2.20 control.onemind.internal") || string(ca) != "box ca" {
+		t.Fatalf("hosts %q ca %q", hosts, ca)
+	}
+	if _, err := os.Stat(filepath.Join(root, IdentityDir, "node.key")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("JoinMesh wrote a node key: %v", err)
+	}
+	if !contains(ts.upArgs, "--shields-up") || strings.Join(sys.calls, "; ") != "restart tailscaled.service" {
+		t.Fatalf("up %v systemctl %v", ts.upArgs, sys.calls)
+	}
+}

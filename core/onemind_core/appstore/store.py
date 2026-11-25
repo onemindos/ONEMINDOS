@@ -32,6 +32,16 @@ class ExposureRow(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class SystemDisabledRow(Base):
+    """A system app the owner switched off. The row is the switch: no row, the app is on. Volumes,
+    secrets and settings are other tables and objects and are never touched by a disable."""
+    __tablename__ = "appstore_system_disabled"
+    app_id: Mapped[str] = mapped_column(String(59), primary_key=True)
+    prior_status: Mapped[str] = mapped_column(String(16))  # installed | stopped | not_installed
+    action_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    disabled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class SourceRow(Base):
     __tablename__ = "appstore_sources"
     id: Mapped[str] = mapped_column(String(40), primary_key=True)
@@ -111,6 +121,25 @@ class AppStoreRepository(SqlRepository):
                 self.db.insert()(ExposureRow).values(app_id=app_id, **row)
                 .on_conflict_do_update(index_elements=[ExposureRow.app_id], set_=row)
             )
+
+    # ---- system apps switched off ------------------------------------------------------------------
+    def disabled(self) -> dict[str, tuple[str, str | None, datetime]]:
+        """app id -> (prior status, action id, when) for every switched-off system app."""
+        with self.db.session() as s:
+            return {r.app_id: (r.prior_status, r.action_id, utc(r.disabled_at))
+                    for r in s.scalars(select(SystemDisabledRow))}
+
+    def set_disabled(self, app_id: str, prior_status: str, action_id: str | None, now: datetime) -> None:
+        row = {"prior_status": prior_status, "action_id": action_id, "disabled_at": now}
+        with self.db.session.begin() as s:
+            s.execute(
+                self.db.insert()(SystemDisabledRow).values(app_id=app_id, **row)
+                .on_conflict_do_update(index_elements=[SystemDisabledRow.app_id], set_=row)
+            )
+
+    def clear_disabled(self, app_id: str) -> None:
+        with self.db.session.begin() as s:
+            s.execute(delete(SystemDisabledRow).where(SystemDisabledRow.app_id == app_id))
 
     # ---- sources --------------------------------------------------------------------------------
     def list_sources(self) -> list[Source]:

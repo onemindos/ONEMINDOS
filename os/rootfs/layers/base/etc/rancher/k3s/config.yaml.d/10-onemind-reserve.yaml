@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+# Keep room for the OS itself. The kubelet (k3s's node agent) hands the pods only what is left after
+# these reserves, and evicts a pod before the box runs out of memory, so the gateway, NATS and k3s are
+# never the OOM killer's pick. fail-swap-on=false lets the kubelet start with zram swap present.
+kubelet-arg:
+  - "system-reserved=cpu=250m,memory=512Mi,ephemeral-storage=512Mi"
+  - "kube-reserved=cpu=250m,memory=512Mi,ephemeral-storage=512Mi"
+  - "eviction-hard=memory.available<256Mi,nodefs.available<5%,imagefs.available<5%"
+  - "fail-swap-on=false"

@@ -46,7 +46,8 @@ def test_action_body_schema_offers_settings_and_confirm_only_where_the_server_ta
                              "app.configure", "app.delete_data"}
     if path == "/v1/actions":
         assert len(feature) == 1, feature
-        assert not {t for t in feature[0].get("enum", []) if t.startswith("app.")}, feature  # no lifecycle type twice
+        # no lifecycle type twice; app.disable and app.enable are the Built in switch (appstore/system.py)
+        assert not {t for t in feature[0].get("enum", []) if t.startswith("app.")} - {"app.disable", "app.enable"}, feature
 
 
 def test_the_server_still_refuses_what_the_schema_no_longer_offers(client):
@@ -70,7 +71,7 @@ def test_a_secret_looking_setting_is_a_422_not_a_500(client):
 def test_backup_routes_document_503_and_answer_it_in_the_envelope(client):
     doc = spec(client)
     for path, item in doc["paths"].items():
-        if path.startswith(("/v1/backups", "/v1/restores")):
+        if path.startswith(("/v1/backups", "/v1/restores", "/v1/onboarding/restore")):
             for method, op in item.items():
                 assert "503" in op["responses"], (method, path)
                 assert op["responses"]["503"]["content"]["application/json"]["schema"]["$ref"].endswith("/ErrorBody")
@@ -228,8 +229,10 @@ def test_unavailable_check_pins_the_envelope_and_the_routes():
     check = getattr(h.unavailable_is_the_documented_envelope, "__wrapped__", h.unavailable_is_the_documented_envelope)
     ok_body = {"error": "unavailable", "message": "m", "reason": "backups_disabled", "retry_after_s": 30}
     check(None, _Resp(503, ok_body, {"retry-after": "30"}), _Case("/v1/backups/runs"))
+    check(None, _Resp(503, ok_body, {"retry-after": "30"}), _Case("/v1/onboarding/restore/candidates"))
     check(None, _Resp(500, {}), _Case("/v1/files/list"))
     for resp, path in ((_Resp(503, ok_body, {"retry-after": "30"}), "/v1/files/list"),
+                       (_Resp(503, ok_body, {"retry-after": "30"}), "/v1/onboarding/settings"),
                        (_Resp(503, {**ok_body, "reason": "boom"}, {"retry-after": "30"}), "/v1/backups/runs"),
                        (_Resp(503, ok_body, {}), "/v1/backups/runs")):
         with pytest.raises(AssertionError):
@@ -280,6 +283,8 @@ def test_fuzz_config_scopes_503_to_backups_and_412_to_tus(client, monkeypatch, t
                           for name in ("not_a_server_error", "negative_data_rejection", "missing_required_header")}
     assert "503" in seen["GET /v1/backups/status"]["not_a_server_error"]
     assert "503" in seen["POST /v1/restores"]["not_a_server_error"]
+    assert "503" in seen["POST /v1/onboarding/restore/candidates"]["not_a_server_error"]
+    assert "503" not in seen["GET /v1/onboarding/settings"]["not_a_server_error"]
     assert "503" not in seen["GET /v1/instance"]["not_a_server_error"]
     assert "503" not in seen["POST /v1/files/ops"]["not_a_server_error"]
     assert "412" in seen["POST /v1/files/uploads"]["negative_data_rejection"]
@@ -308,3 +313,14 @@ def test_openapi_bounds_use_json_schema_keywords():
 
     walk(spec, "")
     assert not leaks, leaks
+
+
+def test_quota_and_approve_refuse_a_string_and_an_integer_where_the_schema_says_otherwise(fc):
+    """api-fuzz ST201: a quota "0" and an approve of 1 were coerced and accepted. JSON integer / boolean only."""
+    url = "/v1/files/quotas/alice"
+    assert fc.put(url, headers=OWNER, json={"limit_bytes": "0"}).status_code == 422
+    assert fc.put(url, headers=OWNER, json={"limit_bytes": "1024"}).status_code == 422
+    for bad in (1, 0, "true", "yes"):
+        r = fc.post("/v1/files/trash/empty", headers=OWNER, json={"approve": bad})
+        assert r.status_code == 422, (bad, r.text)
+    assert fc.post("/v1/files/trash/empty", headers=OWNER, json={"approve": False}).status_code == 202

@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: Apache-2.0
+# App factory recipe (sdk/tools/app-factory, .github/workflows/app-factory.yml). Why this app: its upstream image
+# (Debian 13 base) ships linux-libc-dev with two CRITICAL findings that have a Debian fix, so the gate blocks it
+# and upstream has not rebuilt. OneMind rebuilds on the same upstream image with that package upgraded.
+apiVersion: onemind.factory/v1alpha1
+kind: Recipe
+app: hermes-agent
+upstream:
+  github: NousResearch/hermes-agent        # watched for new releases
+  tag_pattern: '^v\d+\.\d+\.\d+$'
+  image: docker.io/nousresearch/hermes-agent
+  image_tag: "{tag}"                       # release v0.23.0 is image tag v0.23.0
+build:
+  strategy: overlay                        # FROM the upstream image by digest, upgrade the packages, nothing else
+  restore_user: root                       # the image runs as root so its s6 bootstrap can remap the hermes user
+  patch:
+    apt: [linux-libc-dev]
+target:
+  image: ghcr.io/onemindos/apps/hermes-agent
+rebuild_after_days: 7

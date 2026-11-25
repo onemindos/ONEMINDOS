@@ -18,7 +18,22 @@ join and removal, and a systemd path unit reloads NATS):
   `no_auth_user` "hub-local", also STANDARD only;
 - account NODE_<node_id> per node: one nkey user (the node's own public key, sent at join; the
   seed never leaves the node), allowed on LEAFNODE connections only. It exports its
-  status/event/jobresult subjects to ONEMIND and imports its own job subjects from it.
+  status/event/jobresult subjects to ONEMIND and imports its own job subjects from it;
+- account AGENTS (#627), written only when the owner has registered at least one agent key: one
+  nkey user per agent principal `agent:<token>`, STANDARD connections only. Its users carry
+  permissions (that works for client users; only leaf users refuse them): each may publish and
+  subscribe its own Synadia Agent Protocol subjects `agents.{prompt,status,hb}.<token>.*.*`, its own
+  inbox `_INBOX_<token>.>` and the `$SRV` discovery subjects, answer what it is sent
+  (allow_responses), and send `onemind.request.agent.<token>.<type>`, a service the hub exports, so
+  the subject itself names the real sender. Nothing else: no onemind.event/asset/node/audit
+  subject, no JetStream (the account has none, and `$JS.>` is outside every allow list). ONEMIND
+  imports the prompt service and the status and heartbeat streams, so the gateway talks to agents.
+- hub sourcing (#747): the hub keeps a copy of each node's leaf outbox in a source stream
+  (jetstream.HubSource, internal/leaf HubSourceStream). Each NODE_<id> exports to ONEMIND only what
+  that needs, in the shape of the NATS "Mirrors and sources" page (cross-account): the consumer API
+  of its outbox in its own JetStream domain and the flow-control replies as service exports, and the
+  delivery subject as a stream export. The delivery subject sits under the node's own prefix, so a
+  node can feed only its own source stream, and ONEMIND exports nothing back for it.
 
 The file holds public keys only; no secret is written.
 """
@@ -43,6 +58,51 @@ SERVICE_RE = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
 NODE_EXPORTS = ("status", "event.>", "jobresult.>")
 # Subjects the hub sends to one node.
 NODE_IMPORTS = ("job.>",)
+
+# The AGENTS account (#627). An agent principal agent:<token> may use NATS only when <token> is one
+# subject token (the `agent_name` part regex of sdk/schema/onemind.subjects.json): a dotted name
+# would let agent "a" own a prefix of agent "a.b"'s subjects.
+AGENTS_ACCOUNT = "AGENTS"
+AGENT_TOKEN_RE = re.compile(r"^[a-z0-9_-]{1,63}$")
+AGENT_VERBS = ("prompt", "status", "hb")  # Synadia Agent Protocol 0.3.1: agents.<verb>.<agent>.<owner>.<name>
+# Account limits. Field names checked against nats-server v2.15.3 (server/opts.go parseAccountLimits:
+# max_connections, max_subscriptions, max_payload, max_leafnodes; any other name fails the config).
+AGENTS_LIMITS = (("max_connections", 64), ("max_subscriptions", 1024), ("max_payload", 262144), ("max_leafnodes", 0))
+# How many reply messages an agent may send to one request it received, and for how long.
+AGENT_RESPONSES = (1000, "10m")
+# Hub sourcing of a leaf's outbox (#747). OUTBOX_STREAM is internal/leaf OutboxStream; a node's leaf
+# runs JetStream in the domain node-<node_id> (internal/leaf Config.Domain).
+OUTBOX_STREAM = "OUTBOX"
+
+
+def node_domain(node_id: str) -> str:
+    """The JetStream domain of a node's leaf."""
+    return f"node-{node_id}"
+
+
+def node_js_api(node_id: str) -> str:
+    """The prefix under which the hub reaches the JetStream API of a node's leaf, over the leaf link."""
+    return f"$JS.{node_domain(node_id)}.API"
+
+
+def source_deliver_prefix(node_id: str) -> str:
+    """Where a node's leaf delivers its outbox to the hub's source stream: under the node's own prefix."""
+    return f"onemind.node.{node_id}.outbox"
+
+
+def source_services(node_id: str) -> tuple[str, ...]:
+    """The service subjects the hub's source stream needs in a node's account: create and delete its
+    consumer on the outbox (nats-server v2.15.3 stream.go setupSourceConsumer, tryDeleteSourcingConsumer:
+    CONSUMER.CREATE.<stream> plain or extended, CONSUMER.DELETE.<stream>.<consumer>) and answer flow
+    control (consumer.go: $JS.FC.<stream>.<consumer>.<n>).
+
+    Known gap: a leaf names its flow-control subject without its domain (the v1 format; v2 needs the
+    leaf's js_ack_fc_v2 feature flag), so every node account imports the same $JS.FC.OUTBOX.> and the
+    hub's empty flow-control replies (two sequence counters, no event) reach every node. Follow-up on
+    #747: turn the flag on in internal/leaf's leaf.conf, then import $JS.FC.node-<id>.> per node."""
+    api = node_js_api(node_id)
+    return (f"{api}.CONSUMER.CREATE.{OUTBOX_STREAM}", f"{api}.CONSUMER.CREATE.{OUTBOX_STREAM}.>",
+            f"{api}.CONSUMER.DELETE.{OUTBOX_STREAM}.>", f"$JS.FC.{OUTBOX_STREAM}.>")
 
 
 def _crc16(data: bytes) -> int:
@@ -98,9 +158,81 @@ class ServiceKey:
             raise ValueError(f"service {self.name}: not a NATS user public nkey")
 
 
-def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey] = ()) -> str:
-    """The accounts include file. Deterministic: same nodes and services, same bytes (no reload churn)."""
+@dataclass(frozen=True)
+class AgentUser:
+    """An agent principal `agent:<token>` and the user public nkey it signs in to NATS with (#627)."""
+    token: str
+    nkey: str
+
+    def __post_init__(self):
+        if not isinstance(self.token, str) or not AGENT_TOKEN_RE.match(self.token):
+            raise ValueError(f"agent {self.token!r}: a NATS agent name is one token of a-z, 0-9, '_', '-'")
+        if not is_user_public_nkey(self.nkey):
+            raise ValueError(f"agent {self.token}: not a NATS user public nkey")
+
+    @property
+    def principal_id(self) -> str:
+        return f"agent:{self.token}"
+
+    @property
+    def inbox_prefix(self) -> str:
+        return f"_INBOX_{self.token}"
+
+    def subjects(self) -> list[str]:
+        """What this agent may publish and subscribe on, besides replies and $SRV discovery."""
+        t = self.token
+        return [f"agents.{v}.{t}.*.*" for v in AGENT_VERBS] + [f"{self.inbox_prefix}.>"]
+
+    def request_subject(self) -> str:
+        """The only request subject this agent may send on: the subject itself names the sender."""
+        return f"onemind.request.agent.{self.token}.*"
+
+    def permissions(self) -> str:
+        own = self.subjects()
+        pub = [*own, self.request_subject()]
+        srv = ["$SRV.PING", "$SRV.INFO", "$SRV.STATS", f"$SRV.*.{self.token}", f"$SRV.*.{self.token}.*"]
+        q = lambda xs: ", ".join(f'"{x}"' for x in xs)  # noqa: E731
+        n, ttl = AGENT_RESPONSES
+        return (f"permissions: {{publish: {{allow: [{q(pub)}]}}, subscribe: {{allow: [{q([*own, *srv])}]}}, "
+                f'allow_responses: {{max: {n}, expires: "{ttl}"}}}}')
+
+
+def render_agents_account(agents: list[AgentUser]) -> list[str]:
+    """The AGENTS account block: one user per line, so removing a line removes exactly one agent."""
+    return [
+        f"  {AGENTS_ACCOUNT}: {{",
+        "    users: [",
+        *[f'      {{nkey: "{a.nkey}", allowed_connection_types: ["STANDARD"], {a.permissions()}}}  # {a.principal_id}'
+          for a in agents],
+        "    ]",
+        "    limits: {" + ", ".join(f"{k}: {v}" for k, v in AGENTS_LIMITS) + "}",
+        "    exports: [",
+        f'      {{service: "agents.prompt.>", accounts: ["{HUB_ACCOUNT}"], response_type: "stream"}}',
+        f'      {{stream: "agents.status.>", accounts: ["{HUB_ACCOUNT}"]}}',
+        f'      {{stream: "agents.hb.>", accounts: ["{HUB_ACCOUNT}"]}}',
+        "    ]",
+        "    imports: [",
+        f'      {{service: {{account: "{HUB_ACCOUNT}", subject: "onemind.request.agent.>"}}}}',
+        "    ]",
+        "  }",
+    ]
+
+
+# What the hub account may keep in JetStream: file storage only (no memory store: a restart must not
+# lose events silently), capped in total. App streams are carved out of this (streams.py).
+JETSTREAM_MAX_STREAMS = 32
+JETSTREAM_MAX_CONSUMERS = 128
+
+
+def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey] = (),
+                    jetstream_max_bytes: int = 0, agents: Iterable[AgentUser] = ()) -> str:
+    """The accounts include file. Deterministic: same nodes, services and agents, same bytes (no reload churn).
+
+    jetstream_max_bytes > 0 turns JetStream on for the hub account with that file-storage cap. Node
+    and agent accounts never get JetStream: a leaf's events are kept by its own outbox and by the hub
+    account. With no agents the AGENTS account is left out and the file is byte for byte as before."""
     nodes = sorted({n.node_id: n for n in nodes}.values(), key=lambda n: n.node_id)
+    agents = sorted({a.token: a for a in agents}.values(), key=lambda a: a.token)
     services = sorted({s.name: s for s in services}.values(), key=lambda s: s.name)
     if services:  # strict: every hub-local client signs with its own key
         hub_users = [f'      {{nkey: "{s.nkey}", allowed_connection_types: ["STANDARD"]}}  # {s.name}'
@@ -116,14 +248,26 @@ def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey]
         *hub_users,
         "    ]",
     ]
-    imports = [
-        f'      {{stream: {{account: "{n.account}", subject: "onemind.node.{n.node_id}.{s}"}}}}'
-        for n in nodes for s in NODE_EXPORTS
-    ]
+    if jetstream_max_bytes > 0:
+        out.append(f"    jetstream: {{max_mem: 0, max_file: {int(jetstream_max_bytes)}, "
+                   f"max_streams: {JETSTREAM_MAX_STREAMS}, max_consumers: {JETSTREAM_MAX_CONSUMERS}}}")
+    imports = []
+    for n in nodes:
+        imports += [f'      {{stream: {{account: "{n.account}", subject: "onemind.node.{n.node_id}.{s}"}}}}'
+                    for s in NODE_EXPORTS]
+        imports += [f'      {{service: {{account: "{n.account}", subject: "{s}"}}}}' for s in source_services(n.node_id)]
+        imports.append(f'      {{stream: {{account: "{n.account}", subject: "{source_deliver_prefix(n.node_id)}.>"}}}}')
     exports = [
         f'      {{stream: "onemind.node.{n.node_id}.{s}", accounts: ["{n.account}"]}}'
         for n in nodes for s in NODE_IMPORTS
     ]
+    if agents:  # the gateway prompts agents and hears their status and heartbeats; agents send requests
+        imports += [
+            f'      {{service: {{account: "{AGENTS_ACCOUNT}", subject: "agents.prompt.>"}}}}',
+            f'      {{stream: {{account: "{AGENTS_ACCOUNT}", subject: "agents.status.>"}}}}',
+            f'      {{stream: {{account: "{AGENTS_ACCOUNT}", subject: "agents.hb.>"}}}}',
+        ]
+        exports.append(f'      {{service: "onemind.request.agent.>", accounts: ["{AGENTS_ACCOUNT}"]}}')
     out += ["    imports: [", *imports, "    ]"] if imports else []
     out += ["    exports: [", *exports, "    ]"] if exports else []
     out.append("  }")
@@ -133,6 +277,8 @@ def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey]
             f'    users: [{{nkey: "{n.nkey}", allowed_connection_types: ["LEAFNODE"]}}]',
             "    exports: [",
             *[f'      {{stream: "onemind.node.{n.node_id}.{s}", accounts: ["{HUB_ACCOUNT}"]}}' for s in NODE_EXPORTS],
+            *[f'      {{service: "{s}", accounts: ["{HUB_ACCOUNT}"]}}' for s in source_services(n.node_id)],
+            f'      {{stream: "{source_deliver_prefix(n.node_id)}.>", accounts: ["{HUB_ACCOUNT}"]}}',
             "    ]",
             "    imports: [",
             *[f'      {{stream: {{account: "{HUB_ACCOUNT}", subject: "onemind.node.{n.node_id}.{s}"}}}}'
@@ -140,6 +286,8 @@ def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey]
             "    ]",
             "  }",
         ]
+    if agents:
+        out += render_agents_account(agents)
     out.append("}")
     if not services:
         out.append(f'no_auth_user: "{HUB_LOCAL_USER}"')
@@ -216,9 +364,10 @@ def make_service_key(directory: Path, name: str) -> str:
     return pub
 
 
-def write_accounts(path: Path, nodes: Iterable[NodeAccount], services: Iterable[ServiceKey] = ()) -> bool:
+def write_accounts(path: Path, nodes: Iterable[NodeAccount], services: Iterable[ServiceKey] = (),
+                   jetstream_max_bytes: int = 0, agents: Iterable[AgentUser] = ()) -> bool:
     """Write the include file atomically (0644: public keys only). True if the content changed."""
-    body = render_accounts(nodes, services).encode()
+    body = render_accounts(nodes, services, jetstream_max_bytes, agents).encode()
     try:
         if path.read_bytes() == body:
             return False
@@ -257,7 +406,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     path = Path(args[0])
     if not path.exists():
-        write_accounts(path, [], load_service_keys(Path(args[1])) if len(args) == 2 else [])
+        write_accounts(path, [], load_service_keys(Path(args[1])) if len(args) == 2 else [],
+                       int(os.environ.get("ONEMIND_FABRIC_JETSTREAM_MAX_BYTES") or 0))
     return 0
 
 

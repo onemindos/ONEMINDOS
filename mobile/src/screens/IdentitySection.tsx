@@ -4,16 +4,17 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { OP } from '../api/client';
 import { ApiError } from '../api/types';
+import { loadThisPhone, type ThisPhone } from '../lib/install';
 import { platformPasskeys } from '../lib/passkeys';
 import { creationOptionsFrom, PasskeyError, passkeyMessage, rpIdFor } from '../lib/webauthn';
 import { useSignedIn } from '../session';
 import { Button, Card, H2, Notice, P, Row, s } from '../ui/bits';
 
-export function IdentitySection({ deviceName }: { deviceName: string }) {
+export function IdentitySection({ phone }: { phone: ThisPhone | undefined }) {
   const { api, me, principal, features, connection, canDecide, refreshIdentity } = useSignedIn();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; ok: boolean }>();
-  const hubUrl = connection.mode === 'live' ? connection.hubUrl : undefined;
+  const hubUrl = connection.hubUrl;
   const canRegister = features.has(OP.passkeyRegisterOptions) && principal?.kind === 'person';
   const passkeys = platformPasskeys();
 
@@ -24,7 +25,9 @@ export function IdentitySection({ deviceName }: { deviceName: string }) {
       if (!passkeys?.supported()) throw new PasskeyError('not_supported', 'no platform authenticator');
       const opts = await api.passkeyRegisterOptions();
       const webauthn = await passkeys.create(creationOptionsFrom(opts, rpIdFor(hubUrl)));
-      const r = await api.passkeyRegister({ credential: webauthn, label: deviceName });
+      // This install's name and id, the same as its sign-in and push, so My devices keeps them together (#715).
+      const me = phone ?? (await loadThisPhone());
+      const r = await api.passkeyRegister({ credential: webauthn, label: me.name, install_id: me.installId });
       setMsg({ text: `Passkey "${r.label}" added. Approvals from this phone now use it.`, ok: true });
       await refreshIdentity();
     } catch (e) {
@@ -41,8 +44,7 @@ export function IdentitySection({ deviceName }: { deviceName: string }) {
   }
 
   const who = me?.principal.display_name ?? principal?.id;
-  const signIn =
-    connection.mode === 'mock' ? 'demo' : connection.auth === 'passkey' ? 'passkey (renews itself)' : 'access token (v0)';
+  const signIn = connection.auth === 'passkey' ? 'passkey (renews itself)' : 'access token (v0)';
   return (
     <>
       <H2>You</H2>
@@ -51,7 +53,7 @@ export function IdentitySection({ deviceName }: { deviceName: string }) {
         <Row label="Can approve" value={canDecide === 'yes' ? 'yes' : canDecide === 'no' ? 'no' : 'the hub decides when you try'} />
         <Row label="Signed in with" value={signIn} />
         {me && <Row label="Passkeys on your account" value={String(me.passkeys)} />}
-        {!features.has(OP.me) && connection.mode === 'live' && (
+        {!features.has(OP.me) && (
           <P muted small>This hub has no "who am I" route yet, so the app learns your role from the hub's answers.</P>
         )}
         {canRegister && (

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { CatalogApp } from '../api/types';
+import type { Connection } from '../storage';
 import { discoverPhotos } from './discovery';
 import { MockPhotosServer } from './mockServer';
 import { HttpPhotosApi, UPLOAD_INTEROP_VERSION } from './protocol';
@@ -63,16 +64,17 @@ describe('discoverPhotos (OneMind catalog)', () => {
   const app = (over: Partial<CatalogApp>) => ({ id: 'photos', installed: true, status: 'running', ...over }) as CatalogApp;
   const live = (hubUrl: string) => ({ mode: 'live' as const, hubUrl, token: 't' });
   it('finds Photos when it is installed and running on an HTTPS hub', () => {
-    expect(discoverPhotos(live('https://box.example'), [app({})], '')).toEqual({ state: 'ok', baseUrl: 'https://box.example', demo: false });
+    expect(discoverPhotos(live('https://box.example'), [app({})])).toEqual({ state: 'ok', baseUrl: 'https://box.example' });
   });
   it('says why it cannot back up', () => {
-    expect(discoverPhotos(live('https://b'), undefined, '').state).toBe('checking');
-    expect(discoverPhotos(live('https://b'), [], '').state).toBe('not_in_catalog');
-    expect(discoverPhotos(live('https://b'), [app({ installed: false })], '').state).toBe('not_installed');
-    expect(discoverPhotos(live('https://b'), [app({ status: 'failed' })], '')).toEqual({ state: 'not_running', status: 'failed' });
-    expect(discoverPhotos(live('http://192.0.2.1:8080'), [app({})], '').state).toBe('needs_https');
+    expect(discoverPhotos(live('https://b'), undefined).state).toBe('checking');
+    expect(discoverPhotos(live('https://b'), []).state).toBe('not_in_catalog');
+    expect(discoverPhotos(live('https://b'), [app({ installed: false })]).state).toBe('not_installed');
+    expect(discoverPhotos(live('https://b'), [app({ status: 'failed' })])).toEqual({ state: 'not_running', status: 'failed' });
+    expect(discoverPhotos(live('http://192.0.2.1:8080'), [app({})]).state).toBe('needs_https');
   });
-  it('the demo always uses the in-memory box', () => {
-    expect(discoverPhotos({ mode: 'mock', token: 'owner-demo' }, undefined, 'https://demo.invalid')).toMatchObject({ state: 'ok', demo: true });
+  it('has no in-memory box: an old demo entry waits for a real catalog instead of backing up', () => {
+    const oldDemo = { mode: 'mock', token: 'owner-demo' } as unknown as Connection;
+    expect(discoverPhotos(oldDemo, undefined)).toEqual({ state: 'checking' });
   });
 });

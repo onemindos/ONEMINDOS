@@ -30,13 +30,14 @@ from fastapi.testclient import TestClient
 import onemind_core.routers.net as net_router
 from onemind_core.app import create_app
 from onemind_core.ca import BoxCA, box_name_from_hostname
-from onemind_core.fabric import POLL_CONTEXT, SourceLimiter, code_hash, match_code, new_join_code, normalize_code
+from onemind_core.fabric import (POLL_CONTEXT, SourceLimiter, code_hash, match_code, new_join_code, normalize_code,
+                                  parse_join_qr)
 from onemind_core.lan import AvahiPublisher, desired_names
 from onemind_core.natsconf import NodeAccount, _crc16, is_user_public_nkey, render_accounts
 from onemind_core.netconf import FabricSettings, MeshSettings, NetSettings
 from onemind_core.mesh import HeadscaleClient
 from onemind_core.serve import redirect_app
-from conftest import AGENT, OWNER, ADULT, ScriptedExecutor
+from conftest import AGENT, OWNER, ADULT, GUEST, ScriptedExecutor
 from test_mesh import FakeHeadscale
 
 GOLDEN = Path(__file__).resolve().parents[2] / "internal" / "leaf" / "testdata" / "hub-accounts.golden.conf"
@@ -184,6 +185,25 @@ def test_ticket_is_owner_only_and_carries_the_ca(nc):
     audit = Path(nc.app.state.settings.audit_path).read_text()
     assert t["one_time"]["join_code"] not in audit and "fabric.ticket.created" in audit
     assert nc.post("/v1/fabric/join-tickets", json={"expires_in_s": 7200}, headers=OWNER).status_code == 422
+
+
+def test_ticket_carries_a_v2_join_qr(nc):
+    """FABRIC §4.3: the same ticket as a v2 QR (hub, mdns, ca, code, kind) next to the v1 one."""
+    t = ticket(nc, role="leaf")
+    qr = parse_join_qr(t["qr_payload_v2"])
+    assert (qr.version, qr.kind, qr.code, qr.ca, qr.hub) == (2, "leaf", t["one_time"]["join_code"], t["hub_ca_sha256"], t["hub_url"])
+    assert qr.mdns == "box1.local" and qr.alt == ""
+    v1 = parse_join_qr(t["qr_payload"])
+    assert (v1.version, v1.kind, v1.code, v1.ca, v1.hub) == (1, "leaf", qr.code, qr.ca, qr.hub)
+
+
+def test_ticket_with_a_bad_hub_url_is_refused_before_it_exists(net_settings, clock):
+    fabric = replace(net_settings.section(FabricSettings), hub_url="https://user@box1/x")
+    c = TestClient(create_app(replace(net_settings, sections={**net_settings.sections, "fabric": fabric}),
+                              clock=clock, executor=ScriptedExecutor()))
+    r = c.post("/v1/fabric/join-tickets", json={"role": "worker"}, headers=OWNER)
+    assert r.status_code == 409 and r.json()["reason"] == "join_qr_hub", r.text
+    assert c.get("/v1/fabric/join-tickets", headers=OWNER).json() == []
 
 
 def test_revoked_ticket_cannot_join(nc):
@@ -441,6 +461,20 @@ def test_ca_routes(nc):
     assert nc.get("/v1/tls/ca.crt?format=pem").text.startswith("-----BEGIN CERTIFICATE-----")
 
 
+def test_trust_profile_carries_only_the_ca(nc):
+    import plistlib
+    r = nc.get("/v1/tls/onemind.mobileconfig")  # open: a phone needs it before it can sign in
+    assert r.status_code == 200 and r.headers["content-type"] == "application/x-apple-aspen-config"
+    assert "attachment" in r.headers["content-disposition"]
+    doc = plistlib.loads(r.content)
+    (payload,) = doc["PayloadContent"]
+    assert payload["PayloadType"] == "com.apple.security.root"
+    assert payload["PayloadContent"] == nc.get("/v1/tls/ca.crt").content  # exactly the public CA, nothing else
+    assert doc["PayloadUUID"] and doc["PayloadIdentifier"].startswith("com.onemindos.ca.")
+    assert b"PRIVATE KEY" not in r.content
+    assert plistlib.loads(nc.get("/v1/tls/onemind.mobileconfig").content)["PayloadUUID"] == doc["PayloadUUID"]  # stable: re-install replaces
+
+
 def test_mesh_view_hides_addresses_by_default(nc, hs):
     hs.users["9"] = {"id": "9", "name": "onemind-machines"}
     hs.add_node("hub", tags=["tag:onemind-hub", "tag:onemind-k3s"])
@@ -607,3 +641,67 @@ def test_k3s_token_failure_says_why_without_the_secret():
     with pytest.raises(RuntimeError) as ei:
         k.create("n1", __import__("datetime").datetime(2030, 1, 1, tzinfo=__import__("datetime").timezone.utc))
     assert "Forbidden" in str(ei.value) and "token-secret" not in str(ei.value)
+
+
+# ---- the owner's own relay (NETWORKING §4.4, #234) ---------------------------------------------------
+@pytest.fixture
+def relay_nc(net_settings, clock):
+    mesh = replace(net_settings.section(MeshSettings), relay_addr="203.0.113.7")
+    return TestClient(create_app(replace(net_settings, sections={**net_settings.sections, "mesh": mesh}),
+                                 clock=clock, executor=ScriptedExecutor()))
+
+
+def test_a_box_with_no_relay_says_so_plainly(nc, hs):
+    hs.users["9"] = {"id": "9", "name": "onemind-machines"}
+    view = nc.get("/v1/mesh", headers=OWNER).json()
+    assert view["mode"] == "lan" and view["relay"]["state"] == "none" and "addr" not in view["relay"]
+    assert "home network" in view["relay"]["detail"] and "internet" in view["relay"]["detail"]
+    assert view["control"]["state"] == "up"  # not an error: the mesh itself is fine
+
+
+def test_a_paired_relay_is_shown_and_the_mode_is_relay(relay_nc, hs):
+    hs.users["9"] = {"id": "9", "name": "onemind-machines"}
+    view = relay_nc.get("/v1/mesh", headers=OWNER).json()
+    assert view["mode"] == "lan"  # no client uses the relay yet, so the mode must not claim it
+    assert view["relay"]["state"] == "configured"
+    assert "addr" not in view["relay"] and "203.0.113.7" not in relay_nc.get("/v1/mesh", headers=OWNER).text
+    assert "does not work yet" in view["relay"]["detail"]
+    assert relay_nc.get("/v1/mesh").status_code == 401  # still signed-in callers only
+
+
+def test_relay_address_is_owner_only_and_opt_in(relay_nc, hs):
+    hs.users["9"] = {"id": "9", "name": "onemind-machines"}
+    for hdr in (ADULT, GUEST):
+        r = relay_nc.get("/v1/mesh?addresses=1", headers=hdr)
+        assert r.status_code == 200 and "addr" not in r.json()["relay"] and "203.0.113.7" not in r.text
+    assert relay_nc.get("/v1/mesh?addresses=1", headers=OWNER).json()["relay"]["addr"] == "203.0.113.7"
+
+
+def test_join_bundle_keeps_the_relay_out_of_control_addrs(relay_nc):
+    t = ticket(relay_nc)
+    node = Node()
+    jr = relay_nc.post("/v1/fabric/join-requests", json=node.body(t["one_time"]["join_code"])).json()
+    relay_nc.post(f"/v1/actions/{jr['action']['id']}/approve", headers=OWNER)
+    c = node.poll(relay_nc, jr["join_request_id"], t["one_time"]["join_code"]).json()["credentials"]
+    assert c["mesh"]["control_addrs"] == ["192.0.2.10"] and c["mesh"]["relay_addrs"] == ["203.0.113.7"]
+
+
+def test_relay_never_replaces_the_home_address_without_a_lan_addr(net_settings, clock):
+    # no lan_addr: control_addrs stays empty so the node keeps the ticket's hub address (works at home, off grid)
+    mesh = replace(net_settings.section(MeshSettings), relay_addr="203.0.113.7")
+    net = replace(net_settings.section(NetSettings), lan_addr=None)
+    sections = {**net_settings.sections, "mesh": mesh, "net": net}
+    c2 = TestClient(create_app(replace(net_settings, sections=sections), clock=clock, executor=ScriptedExecutor()))
+    t = ticket(c2)
+    node = Node()
+    jr = c2.post("/v1/fabric/join-requests", json=node.body(t["one_time"]["join_code"])).json()
+    c2.post(f"/v1/actions/{jr['action']['id']}/approve", headers=OWNER)
+    c = node.poll(c2, jr["join_request_id"], t["one_time"]["join_code"]).json()["credentials"]
+    assert c["mesh"]["control_addrs"] == [] and c["mesh"]["relay_addrs"] == ["203.0.113.7"]
+
+
+@pytest.mark.parametrize("addr", [".".join(("10", "0", "0", "5")), ".".join(("192", "168", "1", "9")), "127.0.0.1", "100.64.0.9", "relay.example.com", ""])
+def test_relay_addr_must_be_a_public_ip(addr):
+    with pytest.raises(ValueError, match="RELAY_ADDR"):
+        MeshSettings(relay_addr=addr).validate()
+    MeshSettings(relay_addr="203.0.113.7").validate()
