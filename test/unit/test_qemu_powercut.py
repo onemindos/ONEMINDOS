@@ -57,6 +57,32 @@ class Helpers(unittest.TestCase):
         self.assertTrue(self.pc.RECOVERY.search("x ONEMIND-K3S-RECOVERY: repaired k3s state: 11 item(s)\n"))
         self.assertEqual(self.pc.NODE_ID.findall("ONEMIND-FIRSTBOOT: already configured role=hub node_id=ab12cd34ef56"), ["ab12cd34ef56"])
 
+    def test_f19h_and_f20_helpers(self):
+        h = self.pc.hold_state(FakeVM("ACTIVE=inactive\nRESULT=exec-condition\nNRESTARTS=0\nDB0=4096:ab\nDB1=absent\n"))
+        self.assertEqual(h, {"active": "inactive", "result": "exec-condition", "nrestarts": "0", "db": ["4096:ab", "absent"]})
+        dirs, last = self.pc.recovery_listing(FakeVM(
+            "QDIR=/data/onemind/k3s-recovery/20261125T1/\nQDIR=/data/onemind/k3s-recovery/20261125T0/\n"
+            'LAST={"action": "repaired", "scope": "agent", "moved": ["k3s/agent/client-kubelet.key"]}\n'))
+        self.assertEqual(dirs, ["/data/onemind/k3s-recovery/20261125T0", "/data/onemind/k3s-recovery/20261125T1"])
+        self.assertEqual(last["scope"], "agent")
+        self.assertEqual(self.pc.recovery_listing(FakeVM("ls: no such file\n")), ([], {}))
+        self.assertEqual(self.pc.app_uid(FakeVM("UID=1b2c-3d\n")), "1b2c-3d")
+
+    def test_section_14_and_the_harness_agree(self):
+        text = open(os.path.join(ROOT, "test", "qemu", "CRITERIA-FIRSTBOOT.md")).read()
+        sec = text[text.index("## 14. Amendment"):]
+        for path in self.pc.DB_FILES:
+            self.assertIn(path, sec)
+        self.assertIn("**60 s**", sec)
+        self.assertIn("`/data/k3s/agent/kubelet.kubeconfig` (nothing else)", sec)
+        self.assertEqual(self.pc.AGENT_FILES.split(), ["/data/k3s/agent/*.crt", "/data/k3s/agent/*.key",
+                                                       "/data/k3s/agent/kubelet.kubeconfig"])
+        src = open(os.path.join(ROOT, "test", "qemu", "powercut.py")).read()
+        # F20 runs between F18 and F19, and F19h inside F19 before the refused POSTs
+        self.assertLess(src.index('record("F18"'), src.index('record("F20"'))
+        self.assertLess(src.index('record("F20"'), src.index('record("F19h"'))
+        self.assertLess(src.index('record("F19h"'), src.index("no_token = rescue_post"))
+
 
 class PreRegistered(unittest.TestCase):
     def test_amendment_hash_is_registered(self):
@@ -64,12 +90,14 @@ class PreRegistered(unittest.TestCase):
         d = os.path.join(ROOT, "test", "qemu")
         got = hashlib.sha256(open(os.path.join(d, "CRITERIA-FIRSTBOOT.md"), "rb").read()).hexdigest()
         lines = open(os.path.join(d, "PREREGISTRATION.sha256")).read().splitlines()
-        # The power-cut sections are §12/§13 (F17-F19) since they met release/next (first registered as §9/§10, F13-F15).
-        self.assertTrue([l for l in lines if l.startswith(got) and "CRITERIA-FIRSTBOOT.md" in l and "§13" in l],
-                        "CRITERIA-FIRSTBOOT.md changed after its §13 hash was registered")
-        # the hashes registered before the code (§9, then §10) are still in the file, so the history is intact
+        # The power-cut sections are §12-§14 (F17-F20) since they met release/next (first registered as §9/§10,
+        # F13-F15); §14 (F19h, F20) was registered before its code.
+        self.assertTrue([l for l in lines if l.startswith(got) and "CRITERIA-FIRSTBOOT.md" in l and "§14" in l],
+                        "CRITERIA-FIRSTBOOT.md changed after its §14 hash was registered")
+        # the hashes registered before the code (§9, §10, then the renumbered §12/§13) are still in the file
         for h in ("0adac04da0caa9dff936e6d0937fd2f76387c85dff493de2155a426261b07b88",
-                  "60166bfb5bae78b8b865f5ce3e3059dbdd3d530232ed40ae196e9f955ebc5ab0"):
+                  "60166bfb5bae78b8b865f5ce3e3059dbdd3d530232ed40ae196e9f955ebc5ab0",
+                  "505308250e58ca08b3ae2e5b2da893fe9a4b7765230720196bab0582326d1da9"):
             self.assertTrue([l for l in lines if l.startswith(h) and "CRITERIA-FIRSTBOOT.md" in l], h)
 
 

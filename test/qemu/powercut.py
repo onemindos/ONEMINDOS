@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""OneMind QEMU battery, power cut in the first minute (F17-F19). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md §12
+"""OneMind QEMU battery, power cut in the first minute (F17-F20). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md §12-§14
 (pre-registered; never edited to make a result pass). VM 501 bug 1 (2026-11-25): a power cut about 45 s after the
 first boot left k3s's keys, certificates, token and node password empty and k3s never came back. Refs #234.
 
@@ -14,8 +14,11 @@ fix relies on, send a flush that a real drive honours.
        same box, no new owner token, committed boot, k3s healthy, no empty k3s file.
   F18  on that healthy box (the fixture's test app deleted, §13): write owner/app/gateway markers, stop k3s, empty
        every k3s file, power cut, boot again: the repair ran, k3s healthy, markers and token intact, damaged files kept.
-  F19  with an app in the cluster (the fixture's app is back): the same damage is NOT repaired by itself; the owner
-       approves "Reset k3s state" in the rescue console, then k3s is healthy and the markers are intact.
+  F20  with an app in the cluster (the fixture's app is back, §14): only the agent's certificates, keys and kubelet
+       kubeconfig emptied, power cut: repaired by itself without the datastore, the app keeps its uid.
+  F19  then the same app, every k3s file emptied: NOT repaired by itself; F19h: k3s is held (skipped by its
+       ExecCondition, not restarted) and the datastore is unchanged for 60 s; the owner approves "Reset k3s state" in
+       the rescue console, then k3s is healthy and the markers are intact.
 
 Needs the battery's fixtures (`make fixtures`). Run: make powercut BOARD=x86_64-efi (Linux with KVM).
 """
@@ -158,6 +161,52 @@ def rescue_status(vm, token):
     return (m.group(1), m.group(2)) if m else ("", "")
 
 
+AGENT_FILES = "/data/k3s/agent/*.crt /data/k3s/agent/*.key /data/k3s/agent/kubelet.kubeconfig"   # F20: these only
+DB_FILES = ("/data/k3s/server/db/state.db", "/data/k3s/server/db/state.db-wal")
+
+
+def app_uid(vm, wait=300):
+    """Waits until the fixture's apps/broken-app answers; returns its metadata.uid ("" if it never did)."""
+    _, out = vm.run(f"t0=$SECONDS; until k3s kubectl -n apps get deployment broken-app >/dev/null 2>&1; do "
+                    f"[ $((SECONDS - t0)) -ge {wait} ] && break; sleep 5; done; "
+                    "echo UID=$(k3s kubectl -n apps get deployment broken-app -o jsonpath='{.metadata.uid}' 2>/dev/null)", wait + 60)
+    return (re.findall(r"^UID=(\S*)\s*$", out, re.M) or [""])[-1]
+
+
+def recovery_listing(vm):
+    """(folders under k3s-recovery, last.json's action, scope and moved list)."""
+    _, out = vm.run("for d in /data/onemind/k3s-recovery/*/; do echo QDIR=$d; done; "
+                    f"{fb.PY} -I -c 'import json; d=json.load(open(\"/data/onemind/k3s-recovery/last.json\")); "
+                    "print(\"LAST=\" + json.dumps({k: d.get(k) for k in (\"action\", \"scope\", \"moved\")}))' 2>&1")
+    dirs = sorted(d.rstrip("/") for d in re.findall(r"^QDIR=(/data/onemind/k3s-recovery/\S+)\s*$", out, re.M))
+    m = re.search(r"^LAST=(\{.*\})\s*$", out, re.M)
+    last = json.loads(m.group(1)) if m else {}
+    return dirs, last
+
+
+def empty_files_in(vm, folder):
+    _, out = vm.run(f"echo QEMPTY=$(find {folder} -type f -size 0 2>/dev/null | wc -l)")
+    return int((re.findall(r"^QEMPTY=(\d+)", out, re.M) or ["0"])[-1])
+
+
+def file_sha(vm, path):
+    _, out = vm.run(f"echo SHA=$( [ -s {path} ] && sha256sum {path} | cut -c1-64 || echo none)")
+    return (re.findall(r"^SHA=(\S+)", out, re.M) or [""])[-1]
+
+
+def hold_state(vm):
+    """k3s's unit state and the datastore files (size:sha256 or absent): F19h."""
+    script = ("echo ACTIVE=$(systemctl show -p ActiveState --value k3s.service); "
+              "echo RESULT=$(systemctl show -p Result --value k3s.service); "
+              "echo NRESTARTS=$(systemctl show -p NRestarts --value k3s.service); ")
+    for i, f in enumerate(DB_FILES):
+        script += f"echo DB{i}=$( [ -e {f} ] && echo $(stat -c %s {f}):$(sha256sum {f} | cut -c1-64) || echo absent); "
+    _, out = vm.run(script.rstrip("; "))
+    get = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or [""])[-1]
+    return {"active": get("ACTIVE"), "result": get("RESULT"), "nrestarts": get("NRESTARTS"),
+            "db": [get(f"DB{i}") for i in range(len(DB_FILES))]}
+
+
 def owner_ok(vm, token):
     return fb.http_code(vm, f"{fb.GW}/v1/nodes", token, timeout=600) == "200"
 
@@ -245,6 +294,45 @@ def main():
         record("F18", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
                + f" emptied={emptied} recovery={rec.group(0)[:110] if rec else None} gate={g} t={time.time() - t0:.0f}s")
 
+        # ---- F20: only the agent's certificates damaged, an owner's app in the cluster: repaired, cluster kept (§14)
+        vm.mark("F20 agent certificates damaged with an owner app: repaired alone, the cluster is kept")
+        uid = app_uid(vm)
+        ids = fb.ident(vm)
+        stok = file_sha(vm, "/data/k3s/server/token")
+        dirs0, _ = recovery_listing(vm)
+        marks = write_markers(vm)
+        _, out = vm.run(f"systemctl stop k3s; n=0; for f in {AGENT_FILES}; do [ -e \"$f\" ] || continue; : > \"$f\"; "
+                        "n=$((n+1)); done; sync; echo EMPTIED=$n")
+        emptied = int((re.findall(r"^EMPTIED=(\d+)", out, re.M) or ["0"])[-1])
+        vm.kill()
+        al, g = boot_again(vm, "F20 boot after the damaged agent certificates")
+        rep_line = re.search(r"ONEMIND-K3S-RECOVERY: repaired[^\n]*", vm.since(0))
+        asked = re.search(r"ONEMIND-K3S-RECOVERY: NOT repaired", vm.since(0))
+        healthy, last = k3s_healthy(vm)
+        if not healthy:
+            diagnose(vm, f"k3s not healthy after the agent repair: {last}")
+        bad, checked = empty_k3s_files(vm)
+        dirs1, lastrec = recovery_listing(vm)
+        new = [d for d in dirs1 if d not in dirs0]
+        qe = empty_files_in(vm, new[0]) if len(new) == 1 else 0
+        _, out = vm.run("echo DBOK=$( [ -s /data/k3s/server/db/state.db ] && echo yes || echo no)")
+        uid2 = app_uid(vm, 120)
+        marks2 = read_markers(vm)
+        ids2 = fb.ident(vm)
+        tok_200 = bool(token) and owner_ok(vm, token)
+        moved = lastrec.get("moved") or []
+        c = {"app_before": bool(uid), "emptied_enough": emptied >= 3, "repaired_line": rep_line is not None,
+             "no_approval_asked": asked is None,
+             "record_agent": lastrec.get("action") == "repaired" and lastrec.get("scope") == "agent",
+             "moved_only_agent": bool(moved) and all(m.startswith("k3s/agent/") for m in moved),
+             "one_new_folder_with_damaged": len(new) == 1 and qe >= 1,
+             "datastore_kept": "DBOK=yes" in out, "server_token_unchanged": stok == file_sha(vm, "/data/k3s/server/token") != "none",
+             "k3s_healthy": healthy, "none_empty": not bad and checked >= 8, "same_app_uid": bool(uid) and uid2 == uid,
+             "markers_kept": all(len(v) == 64 for v in marks.values()) and marks == marks2, "token_200": tok_200,
+             "ids_unchanged": ids2["node_id"] == ids["node_id"] and ids2["tokens_sha256"] == ids["tokens_sha256"] and bool(ids["node_id"])}
+        record("F20", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
+               + f" emptied={emptied} moved={moved} line={rep_line.group(0)[:120] if rep_line else None} gate={g} t={time.time() - t0:.0f}s")
+
         # ---- F19: an owner's app in the cluster: no automatic repair; the owner approves the reset (§13)
         vm.mark("F19 owner app in the cluster: needs approval, then Reset k3s state")
         _, out = vm.run("t0=$SECONDS; until k3s kubectl -n apps get deployment broken-app >/dev/null 2>&1; do "
@@ -261,6 +349,16 @@ def main():
         qd1, _, action = quarantine_dirs(vm)
         still_bad, _ = empty_k3s_files(vm)
         status_action, csrf = rescue_status(vm, token)
+        # ---- F19h: while it waits for the owner, k3s is held and the datastore is untouched for 60 s (§14)
+        h1 = hold_state(vm)
+        time.sleep(60)
+        h2 = hold_state(vm)
+        ch = {"k3s_not_running": h1["active"] not in ("active", "activating") and h2["active"] not in ("active", "activating"),
+              "skipped_by_condition": h1["result"] == h2["result"] == "exec-condition",
+              "no_restarts": h1["nrestarts"] == h2["nrestarts"] != "",
+              "datastore_unchanged": h1["db"] == h2["db"] and h1["db"][0] not in ("", "absent"),
+              "says_held": notrep is not None and "k3s is held" in notrep.group(0)}
+        record("F19h", all(ch.values()), " ".join(f"{k}={v}" for k, v in ch.items()) + f" before={h1} after={h2}")
         no_token = rescue_post(vm, token, csrf, with_token=False)
         no_csrf = rescue_post(vm, token, "")
         _, _, action_after_refused = quarantine_dirs(vm)
@@ -300,7 +398,7 @@ def main():
         print(" | ".join((r["test"], r["verdict"], r["detail"])))
     logf.close()
     if a.results:
-        json.dump({"env": env, "minutes": round(total, 1), "criteria": "test/qemu/CRITERIA-FIRSTBOOT.md sections 12 and 13",
+        json.dump({"env": env, "minutes": round(total, 1), "criteria": "test/qemu/CRITERIA-FIRSTBOOT.md sections 12-14",
                    "results": RESULTS}, open(a.results, "w"), indent=2)
     shutil.rmtree(os.path.join(a.work, "seed"), ignore_errors=True)
     return 0 if RESULTS and all(r["verdict"] == "PASS" for r in RESULTS) else 1

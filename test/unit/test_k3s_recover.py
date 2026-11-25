@@ -133,7 +133,11 @@ class Recover(Box):
         self.assertIn("could not be read", rec["reason"])
         self.assertEqual([(f, os.path.getsize(f)) for f in self.everything_k3s()], before)   # nothing moved
         self.assertTrue(os.path.isfile(self.p.db))
-        self.assertFalse([d for d in os.listdir(self.p.recovery) if d != "last.json"])
+        # only a copy of the datastore was made (never a move), in a folder of its own
+        extra = [d for d in os.listdir(self.p.recovery) if d != "last.json"]
+        self.assertEqual(len(extra), 1)
+        self.assertTrue(extra[0].endswith(ks.COPY_SUFFIX))
+        self.assertEqual(rec["datastore_copy"], os.path.join("onemind", "k3s-recovery", extra[0]))
         # the owner's approval still resets it
         self.assertEqual(ks.recover(self.p, force=True, now=NOW + 60)["action"], "reset")
         self.assertFalse(os.path.lexists(self.p.db))
@@ -224,13 +228,232 @@ class Recover(Box):
 
     def test_main_never_raises_into_k3s_start(self):
         self.truncate([self.p.node_password])
-        with mock.patch.object(ks, "recover", side_effect=OSError("read-only")):
-            self.assertEqual(ks.main(["--root", self.tmp.name, "recover"]), 0)
+        for exc in (OSError("read-only"), ValueError("bug"), KeyError("bug")):
+            with mock.patch.object(ks, "recover", side_effect=exc):
+                self.assertEqual(ks.main(["--root", self.tmp.name, "recover"]), 0, exc)
 
     def test_main_recover_repairs(self):
         self.truncate([self.p.node_password])
         self.assertEqual(ks.main(["--root", self.tmp.name, "recover"]), 0)
         self.assertEqual(self.last()["action"], "repaired")
+
+
+class HoldWhileWaiting(Box):
+    """PR #1155 review (head 9d92f776): waiting for the owner must keep k3s from starting. recover is k3s.service's
+    ExecCondition; it exits HOLD (3), so systemd skips k3s and does not restart it, and kine never opens the old
+    datastore (opening a 0-byte state.db with a write-ahead log, even to read it, deletes the log)."""
+
+    def empty_db_with_wal(self):
+        os.unlink(self.p.db)
+        code = ("import os, sqlite3, sys; c = sqlite3.connect(sys.argv[1]); c.execute('pragma journal_mode=wal'); "
+                "c.execute('pragma wal_autocheckpoint=0'); c.execute('create table kine (id INTEGER PRIMARY KEY "
+                "AUTOINCREMENT, name TEXT, deleted INTEGER)'); c.commit(); c.execute(\"insert into kine (name, deleted) "
+                "values ('/registry/deployments/apps/jellyfin', 0)\"); c.commit(); os._exit(0)")
+        subprocess.run([sys.executable, "-I", "-c", code, self.p.db], check=True)
+        with open(self.p.db, "wb"):
+            pass                                        # the power cut left the main file empty, the log is not
+        with open(self.p.db + "-wal", "rb") as f:
+            return f.read()
+
+    def test_owner_apps_hold_k3s(self):
+        self.db(["/registry/deployments/apps/jellyfin"])
+        self.truncate(self.everything_k3s())
+        with mock.patch.object(ks, "say"):
+            self.assertEqual(ks.main(["--root", self.tmp.name, "recover"]), ks.HOLD)
+            self.assertEqual(ks.main(["--root", self.tmp.name, "recover"]), ks.HOLD)     # every start, said once
+        self.assertIn("k3s is held", self.reasons_said())
+
+    def reasons_said(self):
+        with mock.patch.object(ks, "console") as console, mock.patch.object(ks, "log"):
+            os.unlink(self.p.last)
+            ks.recover(self.p, now=NOW + 100)
+        return " ".join(c.args[1] for c in console.call_args_list)
+
+    def test_a_repair_does_not_hold_k3s(self):
+        self.truncate([self.p.node_password])
+        self.assertEqual(ks.main(["--root", self.tmp.name, "recover"]), 0)
+        self.assertEqual(ks.main(["--root", self.tmp.name, "recover"]), 0)      # healthy now: nothing to do
+
+    def test_empty_datastore_with_a_log_is_held_copied_and_kept(self):
+        wal = self.empty_db_with_wal()
+        self.truncate(self.everything_k3s())
+        with mock.patch.object(ks, "say"):
+            self.assertEqual(ks.main(["--root", self.tmp.name, "recover"]), ks.HOLD)
+        rec = self.last()
+        self.assertEqual((rec["action"], rec["datastore"]), ("needs-approval", "unreadable"))
+        # the original is where it was, untouched: the main file still empty, the log byte-identical
+        self.assertEqual(os.path.getsize(self.p.db), 0)
+        with open(self.p.db + "-wal", "rb") as f:
+            self.assertEqual(f.read(), wal)
+        # and a copy of both is kept, which sqlite can read: the owner's app is in it
+        copy = os.path.join(self.p.data, rec["datastore_copy"], "k3s", "server", "db")
+        with open(os.path.join(copy, "state.db-wal"), "rb") as f:
+            self.assertEqual(f.read(), wal)
+        self.assertEqual(os.path.getsize(os.path.join(copy, "state.db")), 0)
+        # a copy is not a repair: it never counts toward the repeat limit, and it is made once, not on every start
+        self.assertEqual(ks._recent_repairs(self.p, NOW), 0)
+        with mock.patch.object(ks, "say"):
+            self.assertEqual(ks.main(["--root", self.tmp.name, "recover"]), ks.HOLD)
+        self.assertEqual(len([d for d in os.listdir(self.p.recovery) if d.endswith(ks.COPY_SUFFIX)]), 1)
+        # the owner approves: the datastore folder moves (rename, so the log goes with it) and k3s may start
+        rec = ks.recover(self.p, force=True, now=NOW + 60)
+        self.assertEqual(rec["action"], "reset")
+        with open(os.path.join(self.p.data, rec["quarantine"], "k3s", "server", "db", "state.db-wal"), "rb") as f:
+            self.assertEqual(f.read(), wal)
+        self.assertEqual(ks.main(["--root", self.tmp.name, "recover"]), 0)
+
+    def test_a_copy_that_does_not_fit_is_removed_and_k3s_stays_held(self):
+        self.empty_db_with_wal()
+        self.truncate(self.everything_k3s())
+        with mock.patch.object(ks.shutil, "copyfile", side_effect=OSError(28, "No space left on device")), \
+                mock.patch.object(ks, "say"):
+            self.assertEqual(ks.main(["--root", self.tmp.name, "recover"]), ks.HOLD)
+        self.assertNotIn("datastore_copy", self.last())
+        self.assertFalse([d for d in os.listdir(self.p.recovery) if d.endswith(ks.COPY_SUFFIX)])
+
+    def test_a_record_that_cannot_be_written_still_holds_k3s(self):
+        self.db(["/registry/deployments/apps/jellyfin"])
+        self.truncate(self.everything_k3s())
+        with mock.patch.object(ks, "atomic_write", side_effect=OSError(28, "No space left on device")), \
+                mock.patch.object(ks, "say"):
+            self.assertEqual(ks.main(["--root", self.tmp.name, "recover"]), ks.HOLD)
+
+    def test_the_repeat_limit_holds_k3s_too(self):
+        for i in range(ks.REPEAT_LIMIT):
+            os.makedirs(os.path.join(self.p.recovery, f"old{i}"))
+        self.truncate(self.everything_k3s())
+        with mock.patch.object(ks, "say"):
+            self.assertEqual(ks.main(["--root", self.tmp.name, "recover"]), ks.HOLD)
+
+
+class AgentOnly(Box):
+    """The earlier #1155 review's follow-up: damage limited to the agent's own files is repaired without the
+    datastore, so a box with apps keeps its cluster (CRITERIA-FIRSTBOOT.md F20). k3s's agent asks its server for
+    these certificates again at every start and makes a missing key."""
+
+    AGENT = ("client-kubelet.crt", "client-kubelet.key", "serving-kubelet.crt", "kubelet.kubeconfig")
+
+    def setUp(self):
+        super().setUp()
+        self.db(["/registry/deployments/kube-system/coredns", "/registry/deployments/apps/jellyfin"])
+
+    def test_agent_certificates_alone_are_repaired_with_apps_in_the_cluster(self):
+        with open(self.p.db, "rb") as f:
+            db = f.read()
+        self.truncate([os.path.join(self.p.agent, "client-kubelet.key")])
+        with mock.patch.object(ks, "owner_workloads", wraps=ks.owner_workloads) as ow:
+            rec = ks.recover(self.p, now=NOW)
+        ow.assert_not_called()                          # the datastore is not even read
+        self.assertEqual((rec["action"], rec["scope"]), ("repaired", "agent"))
+        self.assertEqual(sorted(rec["moved"]), sorted(os.path.join("k3s", "agent", n) for n in self.AGENT))
+        for n in self.AGENT:
+            self.assertFalse(os.path.lexists(os.path.join(self.p.agent, n)), n)
+        with open(self.p.db, "rb") as f:
+            self.assertEqual(f.read(), db)
+        for kept in (os.path.join(self.p.server, "token"), os.path.join(self.p.server, "tls", "server-ca.crt"),
+                     os.path.join(self.p.agent, "etc", "containerd", "config.toml"), self.p.node_password,
+                     self.p.gw_kubeconfig, os.path.join(self.p.agent, "containerd", "blob")):
+            self.assertTrue(os.path.isfile(kept), kept)
+        self.assertEqual(ks.main(["--root", self.tmp.name, "recover"]), 0)
+
+    def test_agent_certificate_and_agent_config_together(self):
+        self.truncate([os.path.join(self.p.agent, "serving-kubelet.crt"),
+                       os.path.join(self.p.agent, "etc", "containerd", "config.toml")])
+        rec = ks.recover(self.p, now=NOW)
+        self.assertEqual(rec["scope"], "agent")
+        self.assertIn(os.path.join("k3s", "agent", "etc"), rec["moved"])
+        self.assertTrue(all(m.startswith(os.path.join("k3s", "agent") + os.sep) for m in rec["moved"]))
+
+    def test_a_server_file_too_means_the_cluster_and_the_owner_decides(self):
+        self.truncate([os.path.join(self.p.agent, "client-kubelet.crt"), os.path.join(self.p.server, "token")])
+        with mock.patch.object(ks, "say"):
+            rec = ks.recover(self.p, now=NOW)
+        self.assertEqual((rec["action"], rec["scope"]), ("needs-approval", "cluster"))
+        self.assertTrue(os.path.isfile(os.path.join(self.p.agent, "client-kubelet.crt")))
+
+    def test_the_node_password_is_not_an_agent_file(self):
+        # the server remembers it in the datastore, so a new one would be refused: never repaired on its own
+        self.assertFalse(ks.agent_scope(self.p, [(self.p.node_password, "empty")]))
+
+
+class Role(Box):
+    """PR #1155 review: a missing or damaged role file used to return silently, so a box hit by the bug got no
+    repair and no alert."""
+
+    def state(self, data):
+        self.put(self.p.state, data if isinstance(data, str) else json.dumps(data))
+
+    def test_state_json_names_the_role_when_the_role_file_is_damaged(self):
+        self.state({"role": "hub", "node_id": "ab12"})
+        self.truncate(self.everything_k3s() + [self.p.role])
+        self.assertEqual(ks.box_role(self.p), ("hub", "state.json"))
+        self.assertEqual(ks.recover(self.p, now=NOW)["action"], "repaired")
+
+    def test_a_configured_box_with_no_role_anywhere_says_so_once(self):
+        self.state("{ torn")
+        os.unlink(self.p.role)
+        self.truncate(self.everything_k3s())
+        with mock.patch.object(ks, "console") as console:
+            self.assertIsNone(ks.recover(self.p, now=NOW))
+            self.assertIsNone(ks.recover(self.p, now=NOW + 5))
+        self.assertEqual(console.call_count, 1)
+        self.assertIn("NOT checked", console.call_args.args[1])
+        last = self.last()
+        self.assertEqual(last["action"], "not-checked")
+        self.assertGreater(len(last["damaged"]), 5)
+        # nothing was moved and k3s is not held (nobody knows it is a hub)
+        self.assertEqual(ks.main(["--root", self.tmp.name, "recover"]), 0)
+        self.assertTrue(os.path.isfile(os.path.join(self.p.server, "token")))
+
+    def test_a_box_before_first_boot_is_quiet(self):
+        os.unlink(self.p.role)
+        self.truncate(self.everything_k3s())
+        with mock.patch.object(ks, "console") as console:
+            self.assertIsNone(ks.recover(self.p, now=NOW))
+        console.assert_not_called()
+        self.assertFalse(os.path.exists(self.p.recovery))
+
+    def test_worker_and_leaf_from_state_json_are_left_alone(self):
+        os.unlink(self.p.role)
+        self.truncate(self.everything_k3s())
+        for role in ("worker", "leaf"):
+            self.state({"role": role})
+            self.assertIsNone(ks.recover(self.p, now=NOW), role)
+        self.assertFalse(os.path.exists(self.p.recovery))
+
+
+class Wiring(unittest.TestCase):
+    ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+    def read(self, *rel):
+        with open(os.path.join(self.ROOT, *rel)) as f:
+            return f.read()
+
+    def test_recover_is_k3s_execcondition(self):
+        text = self.read("os", "rootfs", "layers", "onemind", "usr", "lib", "systemd", "system", "k3s.service.d",
+                         "30-onemind-recover.conf")
+        lines = [l for l in text.splitlines() if l and not l.startswith("#")]
+        self.assertIn("ExecCondition=/usr/lib/onemind/onemind-k3s-state recover", lines)
+        self.assertFalse([l for l in lines if l.startswith("ExecStartPre")])
+
+    def test_wrapper_lets_only_the_hold_code_skip_k3s(self):
+        import shutil as sh
+        import tempfile
+        wrapper = os.path.join(self.ROOT, "os", "rootfs", "layers", "onemind", "usr", "lib", "onemind", "onemind-k3s-state")
+        src = self.read("os", "rootfs", "layers", "onemind", "usr", "lib", "onemind", "onemind-k3s-state")
+        self.assertTrue(os.access(wrapper, os.X_OK))
+        with tempfile.TemporaryDirectory() as d:
+            for rc, want in ((0, 0), (3, 3), (1, 0), (127, 0), (2, 0)):
+                fake = os.path.join(d, "python3")
+                with open(fake, "w") as f:
+                    f.write(f"#!/bin/sh\nexit {rc}\n")
+                os.chmod(fake, 0o755)
+                script = os.path.join(d, "w.sh")
+                with open(script, "w") as f:
+                    f.write(src.replace("/usr/lib/onemind/gateway/venv/bin/python3", fake))
+                r = subprocess.run(["/bin/sh", script, "recover"], capture_output=True, check=False)
+                self.assertEqual(r.returncode, want, rc)
+            self.assertTrue(sh.which("sh"))
 
 
 if __name__ == "__main__":

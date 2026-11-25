@@ -162,8 +162,9 @@ type Status struct {
 	RAUC    heartbeat.RAUC    `json:"rauc"`
 	K3s     map[string]string `json:"k3s_units"`
 	Errors  []string          `json:"errors,omitempty"`
-	// K3sRecovery is the last automatic repair of k3s's state ("repaired", "needs-approval", "reset") and when;
-	// "needs-approval" means the owner's apps are in the cluster and nothing was moved (VM 501 bug 1).
+	// K3sRecovery is the last automatic repair of k3s's state ("repaired", "needs-approval", "reset", "partial",
+	// "not-checked") and when; "needs-approval" means the owner's apps are (or may be) in the cluster, nothing was
+	// moved and k3s is held until the owner approves the reset (VM 501 bug 1).
 	K3sRecovery *K3sRecovery `json:"k3s_recovery,omitempty"`
 	CSRF        string       `json:"csrf"`
 	Terminal    bool         `json:"-"`
@@ -237,7 +238,7 @@ var pageTmpl = template.Must(template.New("p").Parse(`<!doctype html><html lang=
 <label>Type <code>rollback</code> to confirm: <input name="confirm" autocomplete="off" required></label>
 <button type="submit">Roll back and restart</button></form>
 <h2>Reset k3s state</h2>
-{{with .K3sRecovery}}<p{{if eq .Action "needs-approval"}} role="alert"{{end}}>Last k3s state repair: <b>{{.Action}}</b> at {{.At}}.{{with .Reason}} {{.}}.{{end}}</p>{{end}}
+{{with .K3sRecovery}}<p{{if eq .Action "needs-approval"}} role="alert"{{end}}>Last k3s state repair: <b>{{.Action}}</b> at {{.At}}.{{with .Reason}} {{.}}.{{end}}{{if eq .Action "needs-approval"}} k3s is held (not started) until you decide, so nothing writes over its old state; your apps do not run meanwhile.{{end}}</p>{{end}}
 <form method="post" action="reset-k3s">
 <p>Use this when Kubernetes (k3s) will not start after a power cut. It moves k3s's generated state (certificates, tokens, node password and its datastore) aside under <code>/data/onemind/k3s-recovery/</code> and starts k3s again, which makes them anew. Your files, the apps' volumes and the gateway database are not touched. Apps that ran in k3s are not set up again on their own: install them again once k3s is back. Their old data stays on the disk under <code>/data/k3s/storage/</code>, but a new install gets new, empty volumes.</p>
 <input type="hidden" name="csrf" value="{{.CSRF}}">

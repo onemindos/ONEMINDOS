@@ -337,7 +337,8 @@ func TestStatusShowsTheLastK3sRepair(t *testing.T) {
 	if st.K3sRecovery == nil || st.K3sRecovery.Action != "needs-approval" {
 		t.Fatalf("k3s_recovery = %+v", st.K3sRecovery)
 	}
-	if page := do(s, "GET", "/", ownerToken, nil).Body.String(); !strings.Contains(page, "needs-approval") || !strings.Contains(page, `role="alert"`) {
+	if page := do(s, "GET", "/", ownerToken, nil).Body.String(); !strings.Contains(page, "needs-approval") || !strings.Contains(page, `role="alert"`) ||
+		!strings.Contains(page, "k3s is held (not started) until you decide") {
 		t.Fatalf("page does not show the repair that waits for the owner: %s", page)
 	}
 	s.cfg.K3sRecoveryFile = filepath.Join(t.TempDir(), "none.json")

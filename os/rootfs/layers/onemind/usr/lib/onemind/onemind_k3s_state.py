@@ -1,21 +1,26 @@
 # SPDX-License-Identifier: Apache-2.0
-"""k3s state that survives a power cut (VM 501 test 2026-11-25, bug 1; CRITERIA-FIRSTBOOT.md F17/F18; Refs #234).
+"""k3s state that survives a power cut (VM 501 test 2026-11-25, bug 1; CRITERIA-FIRSTBOOT.md F17-F20; Refs #234).
 
 What went wrong: k3s writes its first-start files (agent keys and certificates, the node password, the
-server token, the containerd config) to the ext4 /data disk without fsync (a call that forces data onto the
-disk). A power cut in the first minute left them 0 bytes, k3s never started again, and on a committed slot the
-health gate only alerts. Two fixes live here, both stdlib-only:
+server token, the containerd config) to /data without fsync (a call that forces data onto the disk). A power
+cut in the first minute left them 0 bytes, k3s never started again, and on a committed slot the health gate
+only alerts. Two fixes live here, both stdlib-only:
 
   settle   (onemind-k3s-settle.service, hub, first boot) keeps syncing /data while k3s starts, waits until
            k3s answers, syncs once more and records that the first setup is on disk (k3s-settled marker).
-  recover  (ExecStartPre of k3s.service, every start, hub only) finds damaged k3s state (empty or non-PEM
-           certificates and keys, empty tokens, node password or config). The generated state is moved
-           aside, never deleted, and k3s makes it again. Owner data, apps' volumes (/data/k3s/storage,
-           /data/k3s/agent/containerd) and the gateway's database (/data/onemind) are never touched. If the
-           datastore holds the owner's own workloads, or it cannot be read (so nobody can say it holds none),
-           nothing is moved: it logs, alerts and waits for the owner to approve "Reset k3s state" in the rescue
-           console (reset). Apps are not installed again by the reset: the owner installs them again, and
-           their old volumes stay on the disk.
+  recover  (ExecCondition of k3s.service, every start, hub only) finds damaged k3s state (empty or non-PEM
+           certificates and keys, empty tokens, node password or config). The damaged state is moved aside,
+           never deleted, and k3s makes it again. If only the agent's own files are damaged (its certificates,
+           keys and kubeconfigs, which k3s asks its server for again at every start, and agent/etc), only those
+           move and the cluster is kept. Owner data, apps' volumes (/data/k3s/storage, and /data/storage on
+           btrfs), the image store (/data/k3s/agent/containerd) and the gateway's database (/data/onemind) are
+           never touched. If the cluster state itself must be rebuilt and the datastore holds the owner's own
+           workloads, or cannot be read (so nobody can say it holds none), nothing is moved: it logs, alerts,
+           keeps k3s from starting (exit 3: systemd skips k3s, does not fail or restart it), so nothing opens
+           or writes the old datastore, and waits for the owner to approve "Reset k3s state" in the rescue
+           console (reset). A datastore that cannot be read is also copied into the quarantine folder first.
+           Apps are not installed again by the reset: the owner installs them again, and their old volumes
+           stay on the disk.
 
   onemind-k3s-state settle | recover | reset
 """
@@ -25,6 +30,7 @@ import argparse
 import ctypes
 import json
 import os
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -40,6 +46,10 @@ SETTLE_POLL_S = 2
 SETTLE_GRACE_S = 5          # k3s keeps writing for a moment after its first setup looks done
 REPEAT_LIMIT = 3            # automatic repairs inside REPEAT_WINDOW_S before the owner must decide
 REPEAT_WINDOW_S = 3600
+HOLD = 3                    # recover's exit code while it waits for the owner: ExecCondition skips k3s (not failed, no restart)
+ROLES = ("hub", "worker", "leaf")
+AGENT_FILES = (".crt", ".key", ".kubeconfig")   # directly under /data/k3s/agent: k3s asks its server for them at every start
+COPY_SUFFIX = "-datastore-copy"                 # a copy of a datastore that could not be read; not a repair
 
 
 class Paths:
@@ -58,6 +68,7 @@ class Paths:
         self.last = j("data", "onemind", "k3s-recovery", "last.json")
         self.settled = j("data", "onemind", "firstboot", "k3s-settled")
         self.role = j("data", "onemind", "etc", "role")
+        self.state = j("data", "onemind", "firstboot", "state.json")   # first boot's "done" mark; it names the role too
         self.kubeconfig = j("run", "k3s", "k3s.yaml")
         self.gw_kubeconfig = j("data", "onemind", "gateway", "kubeconfig")   # the gateway's ServiceAccount token for THIS cluster
         self.console = j("dev", "console")
@@ -211,28 +222,47 @@ def _rel(p: Paths, path: str) -> str:
     return os.path.relpath(path, p.data)
 
 
-def move_set(p: Paths, bad: list[tuple[str, str]], force: bool) -> list[str]:
-    """What to move aside. Only the agent's own config when that is all that is damaged (k3s writes it again
-    at every start). Anything else damaged (certificates, tokens, the node password, credentials) means the
-    whole generated state: they belong together (the certificates are signed by one CA, the node password is
-    remembered by the datastore), so the PKI, credentials, tokens, node password and datastore all go. Never
-    /data/k3s/storage (apps' volumes), /data/k3s/agent/containerd (image store), /data/k3s/data (k3s's own
-    binaries), manifests (the unit copies them in at every start) or the gateway's database and the rest of
-    /data/onemind. The one file taken from the gateway's folder is its kubeconfig: it holds a token and CA of the
-    cluster that is being replaced, and onemind-gateway-kube.service writes a new one once k3s is back."""
+def _agent_files(p: Paths) -> list[str]:
+    try:
+        return [os.path.join(p.agent, f) for f in sorted(os.listdir(p.agent)) if f.endswith(AGENT_FILES)]
+    except OSError:
+        return []
+
+
+def agent_scope(p: Paths, bad: list[tuple[str, str]]) -> bool:
+    """Is all the damage in the agent's own files? Those are agent/etc (k3s writes it again at every start) and the
+    certificates, keys and kubeconfigs directly under /data/k3s/agent: at every start k3s's agent asks its own
+    server for its certificates and the CA files again and rewrites the kubeconfigs, and makes a key that is missing
+    (k3s pkg/agent/config: getHostFile, getKubeletClientCert, LoadOrGenerateKeyFile). The server's CA, tokens,
+    node password and datastore are not among them, so the cluster is kept."""
     etc = os.path.join(p.agent, "etc")
-    agent_etc_only = not force and bad and all(f.startswith(etc + os.sep) for f, _ in bad)
+    return bool(bad) and all(f.startswith(etc + os.sep) or (os.path.dirname(f) == p.agent and f.endswith(AGENT_FILES))
+                             for f, _ in bad)
+
+
+def move_set(p: Paths, bad: list[tuple[str, str]], force: bool) -> list[str]:
+    """What to move aside. When all the damage is in the agent's own files (agent_scope), only the damaged part
+    of them: agent/etc if a file in it is damaged, and the agent's certificates, keys and kubeconfigs together if
+    one of them is (a new key needs new certificates; k3s asks for them again anyway). Anything else damaged
+    (the server's certificates, tokens, the node password, credentials) means the whole generated state: they
+    belong together (the certificates are signed by one CA, the node password is remembered by the datastore),
+    so the PKI, credentials, tokens, node password and datastore all go. Never /data/k3s/storage (apps'
+    volumes), /data/k3s/agent/containerd (image store), /data/k3s/data (k3s's own binaries), manifests (the unit
+    copies them in at every start) or the gateway's database and the rest of /data/onemind. The one file taken
+    from the gateway's folder is its kubeconfig: it holds a token and CA of the cluster that is being replaced,
+    and onemind-gateway-kube.service writes a new one once k3s is back."""
+    etc = os.path.join(p.agent, "etc")
+    if not force and agent_scope(p, bad):
+        paths = [etc] if any(f.startswith(etc + os.sep) for f, _ in bad) else []
+        if any(not f.startswith(etc + os.sep) for f, _ in bad):
+            paths += _agent_files(p)
+        return [x for x in paths if os.path.lexists(x)]
     paths = [etc]
-    if not agent_etc_only:
-        paths += [os.path.join(p.server, d) for d in ("tls", "cred", "db")]
-        paths += [os.path.join(p.server, f) for f in ("token", "agent-token")]
-        try:
-            paths += [os.path.join(p.agent, f) for f in sorted(os.listdir(p.agent))
-                      if f.endswith((".crt", ".key", ".kubeconfig"))]
-        except OSError:
-            pass
-        paths.append(p.node_password)
-        paths.append(p.gw_kubeconfig)     # a credential of the old cluster, not the gateway's database: made again below
+    paths += [os.path.join(p.server, d) for d in ("tls", "cred", "db")]
+    paths += [os.path.join(p.server, f) for f in ("token", "agent-token")]
+    paths += _agent_files(p)
+    paths.append(p.node_password)
+    paths.append(p.gw_kubeconfig)         # a credential of the old cluster, not the gateway's database: made again below
     return [x for x in paths if os.path.lexists(x)]
 
 
@@ -260,14 +290,27 @@ def _record(p: Paths, rec: dict) -> None:
     atomic_write(p.last, json.dumps(rec, indent=2) + "\n", 0o600)
 
 
-def _already_waiting(p: Paths, reason: str) -> bool:
-    """k3s restarts every 5 s while it cannot start (Restart=always): say it once, not every time."""
+def _record_quietly(p: Paths, rec: dict) -> None:
+    """For a decision to wait: a record that cannot be written (a full disk) must not turn "hold k3s" into an error,
+    which would let k3s start on the state the owner has to decide about."""
+    try:
+        _record(p, rec)
+    except OSError as exc:
+        log(f"could not record the decision ({exc}); still waiting for the owner")
+
+
+def _already(p: Paths, action: str, reason: str) -> bool:
+    """recover runs at every k3s start (every boot, and every manual start): say a waiting state once, not every time."""
     try:
         with open(p.last, encoding="utf-8") as f:
             last = json.load(f)
-    except (OSError, ValueError):
+    except (OSError, ValueError, UnicodeDecodeError):
         return False
-    return isinstance(last, dict) and last.get("action") == "needs-approval" and last.get("reason") == reason
+    return isinstance(last, dict) and last.get("action") == action and last.get("reason") == reason
+
+
+def _already_waiting(p: Paths, reason: str) -> bool:
+    return _already(p, "needs-approval", reason)
 
 
 def _recent_repairs(p: Paths, now: float) -> int:
@@ -275,6 +318,8 @@ def _recent_repairs(p: Paths, now: float) -> int:
     try:
         for d in os.listdir(p.recovery):
             full = os.path.join(p.recovery, d)
+            if d.endswith(COPY_SUFFIX):                # a copy made while waiting for the owner, not a repair
+                continue
             if os.path.isdir(full) and now - os.path.getmtime(full) < REPEAT_WINDOW_S:
                 n += 1
     except OSError:
@@ -296,13 +341,93 @@ def _new_quarantine(p: Paths, stamp: str) -> str:
     raise OSError(f"no free quarantine folder for {stamp}")
 
 
+def _read_role(path: str) -> str | None:
+    try:
+        with open(path, encoding="utf-8") as f:
+            role = f.read().strip()
+    except (OSError, UnicodeDecodeError):
+        return None
+    return role if role in ROLES else None
+
+
+def _state_role(p: Paths) -> tuple[bool, str | None]:
+    """(is the box configured, the role state.json names). state.json is first boot's "done" mark."""
+    try:
+        with open(p.state, encoding="utf-8") as f:
+            st = json.load(f)
+    except FileNotFoundError:
+        return False, None
+    except (OSError, ValueError, UnicodeDecodeError):
+        return True, None                              # there, but damaged: the box was configured
+    role = st.get("role") if isinstance(st, dict) else None
+    return True, (role if role in ROLES else None)
+
+
+def box_role(p: Paths) -> tuple[str | None, str]:
+    """The box's role and where it came from: the role file, else state.json (a power cut can damage the role
+    file too, and the box would then get no repair). ("", "unknown") when a configured box names no role
+    anywhere; (None, "unconfigured") before first boot has configured the box (k3s runs then, with no role yet)."""
+    role = _read_role(p.role)
+    if role:
+        return role, "role file"
+    configured, role = _state_role(p)
+    if role:
+        return role, "state.json"
+    return ("", "unknown") if configured else (None, "unconfigured")
+
+
 def is_hub(p: Paths) -> bool:
     """Only a hub holds k3s's server state (datastore, PKI, tokens); workers and leaves are left alone."""
+    return box_role(p)[0] == "hub"
+
+
+def _role_unknown(p: Paths, now: float) -> None:
+    """A configured box whose role file and state.json both name no role: nothing is checked, and that is said
+    (once, not on every k3s start) so the owner learns why a damaged k3s is not repaired."""
+    bad = find_damaged(p)
+    reason = "the box's role could not be read (role file and state.json), so k3s state was not checked"
+    log(f"{reason}; {len(bad)} damaged k3s file(s)")
+    if _already(p, "not-checked", reason):
+        return
+    rec = {"at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now)), "action": "not-checked", "reason": reason,
+           "damaged": [{"file": _rel(p, f), "why": why} for f, why in bad]}
     try:
-        with open(p.role, encoding="utf-8") as f:
-            return f.read().strip() == "hub"
-    except OSError:
-        return False
+        _record(p, rec)
+    except OSError as exc:
+        log(f"could not record it: {exc}")
+    console(p, f"ONEMIND-K3S-RECOVERY: NOT checked: {reason} ({len(bad)} damaged k3s file(s)). Restore "
+               "/data/onemind/etc/role (hub, worker or leaf), or open the rescue console (port 7443)")
+
+
+def copy_datastore(p: Paths, stamp: str) -> str | None:
+    """Copy (never move) the datastore files (state.db, -wal, -shm) into a folder of their own under the quarantine,
+    fsynced. Used when sqlite cannot read the datastore: whatever happens to the original before the owner decides,
+    the copy keeps it as it was. Returns the folder relative to /data, or None if it could not be made (it is then
+    removed again, so a full disk is not made fuller by half a copy)."""
+    src_dir = os.path.dirname(p.db)
+    names = [n for n in ("state.db", "state.db-wal", "state.db-shm") if os.path.isfile(os.path.join(src_dir, n))]
+    if not names:
+        return None
+    qdir = _new_quarantine(p, stamp + COPY_SUFFIX)
+    dst_dir = os.path.join(qdir, _rel(p, src_dir))
+    try:
+        os.makedirs(dst_dir, mode=0o700)
+        for n in names:
+            dst = os.path.join(dst_dir, n)
+            shutil.copyfile(os.path.join(src_dir, n), dst)
+            os.chmod(dst, 0o600)
+            fd = os.open(dst, os.O_RDONLY)
+            try:
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+        for d in (dst_dir, os.path.dirname(dst_dir), qdir, p.recovery):
+            fsync_dir(d)
+    except OSError as exc:
+        log(f"could not copy the datastore to /data/{_rel(p, qdir)}: {exc}")
+        shutil.rmtree(qdir, ignore_errors=True)
+        return None
+    return _rel(p, qdir)
 
 
 def start_followups(p: Paths) -> None:
@@ -318,20 +443,27 @@ def recover(p: Paths, force: bool = False, now: float | None = None) -> dict | N
     damaged. force (the owner approved "Reset k3s state") moves the whole generated state even if nothing is
     detectably damaged or the owner has workloads in the datastore."""
     now = time.time() if now is None else now
-    if not is_hub(p):
+    role, source = box_role(p)
+    if role == "":
+        _role_unknown(p, now)
+        return None
+    if role != "hub":
         return None
     bad = find_damaged(p)
     if not bad and not force:
         return None
-    wl_state, wl = owner_workloads(p)
+    if source != "role file":
+        log(f"the role file is missing or damaged; {source} says this box is a hub")
+    scope = "agent" if not force and agent_scope(p, bad) else "cluster"
+    # The datastore is only read when the cluster state would be rebuilt: an agent-only repair never touches it.
+    wl_state, wl = owner_workloads(p) if scope == "cluster" else ("not needed", [])
     stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime(now))
     rec = {"at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now)),
            "damaged": [{"file": _rel(p, f), "why": why} for f, why in bad],
-           "datastore": wl_state, "owner_workloads": wl[:20]}
+           "scope": scope, "datastore": wl_state, "owner_workloads": wl[:20]}
     moves = move_set(p, bad, force)
-    only_etc = all(os.path.join(p.agent, "etc") == m for m in moves)
-    needs_datastore = not only_etc and not force
-    if needs_datastore and wl_state in ("found", "unreadable"):
+    held = "k3s is held (not started) until the owner decides, so nothing opens or writes the old datastore"
+    if scope == "cluster" and not force and wl_state in ("found", "unreadable"):
         if wl_state == "found":
             reason = "the datastore holds the owner's apps, so the cluster state is not rebuilt automatically"
             why = "the owner's apps are in the cluster"
@@ -340,20 +472,26 @@ def recover(p: Paths, force: bool = False, now: float | None = None) -> dict | N
                       "rebuilt automatically")
             why = "the datastore could not be read to check for the owner's apps"
         rec.update(action="needs-approval", reason=reason)
+        log(f"NOT repaired: {reason}; {held}")
         if _already_waiting(p, rec["reason"]):
             return rec
-        _record(p, rec)
-        say(p, f"ONEMIND-K3S-RECOVERY: NOT repaired: {len(bad)} damaged k3s file(s) and {why}; open the rescue "
-               "console (port 7443) and approve \"Reset k3s state\"")
+        if wl_state == "unreadable":
+            copy = copy_datastore(p, stamp)            # never moved; the copy keeps it as it is now, whatever happens
+            if copy:
+                rec["datastore_copy"] = copy
+        _record_quietly(p, rec)
+        say(p, f"ONEMIND-K3S-RECOVERY: NOT repaired: {len(bad)} damaged k3s file(s) and {why}; {held}. Open the "
+               "rescue console (port 7443) and approve \"Reset k3s state\"")
         return rec
     if not force and _recent_repairs(p, now) >= REPEAT_LIMIT:
         rec.update(action="needs-approval", reason=f"repaired {REPEAT_LIMIT} times in the last hour; something keeps "
                    "damaging the disk, so it waits for the owner")
+        log(f"NOT repaired: {rec['reason']}; {held}")
         if _already_waiting(p, rec["reason"]):
             return rec
-        _record(p, rec)
-        say(p, "ONEMIND-K3S-RECOVERY: NOT repaired: it was repaired several times in the last hour; check the disk, "
-               "then approve \"Reset k3s state\" in the rescue console (port 7443)")
+        _record_quietly(p, rec)
+        say(p, f"ONEMIND-K3S-RECOVERY: NOT repaired: it was repaired several times in the last hour; {held}. Check "
+               "the disk, then approve \"Reset k3s state\" in the rescue console (port 7443)")
         return rec
     qdir = _new_quarantine(p, stamp)
     moved = []
@@ -389,9 +527,10 @@ def recover(p: Paths, force: bool = False, now: float | None = None) -> dict | N
     sync_fs(p.data)
     start_followups(p)
     verb = "reset (owner approved)" if force else "repaired"
+    what = "k3s state (the agent's own files only; the cluster and its apps are kept)" if scope == "agent" else "k3s state"
     apps = (" Apps that ran in k3s must be installed again; their old volumes stay in /data/k3s/storage."
             if force else "")
-    say(p, f"ONEMIND-K3S-RECOVERY: {verb} k3s state: {len(moved)} item(s) moved to /data/{_rel(p, qdir)}; k3s makes them "
+    say(p, f"ONEMIND-K3S-RECOVERY: {verb} {what}: {len(moved)} item(s) moved to /data/{_rel(p, qdir)}; k3s makes them "
            f"again. The owner's data, the apps' volumes and the gateway database were not touched.{apps}")
     return rec
 
@@ -482,11 +621,17 @@ def main(argv=None) -> int:
     a = ap.parse_args(argv)
     p = Paths(a.root)
     if a.cmd == "recover":
+        # ExecCondition of k3s.service: 0 starts k3s, HOLD (3) skips it while the owner decides. Anything that goes
+        # wrong here returns 0: a repair that could not run must never keep k3s down by itself.
         try:
-            recover(p)
-        except OSError as exc:                        # never block k3s's start on a repair that could not run
-            say(p, f"ONEMIND-K3S-RECOVERY: could not repair: {exc}")
-        return 0
+            rec = recover(p)
+        except Exception as exc:  # noqa: BLE001
+            try:
+                say(p, f"ONEMIND-K3S-RECOVERY: could not repair: {exc}")
+            except Exception:  # noqa: BLE001
+                pass
+            return 0
+        return HOLD if rec and rec.get("action") == "needs-approval" else 0
     return {"settle": settle, "reset": reset}[a.cmd](p)
 
 

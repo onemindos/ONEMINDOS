@@ -13,7 +13,7 @@
 #   make firstboot BOARD=x86_64-efi [FUPTO=F4]          -> out/firstboot-<board>/ (F0-F4, CRITERIA-FIRSTBOOT.md)
 #   make secureboot-test                                -> out/secureboot-x86_64-efi/ (SB1-SB7, CRITERIA-SECUREBOOT.md)
 #   make bootlock  BOARD=x86_64-efi                     -> out/bootlock-<board>/ (B1-B6, CRITERIA-BOOTLOCK.md)
-#   make powercut  BOARD=x86_64-efi                     -> out/powercut-<board>/ (F17-F19, CRITERIA-FIRSTBOOT.md sections 12-13)
+#   make powercut  BOARD=x86_64-efi                     -> out/powercut-<board>/ (F17-F20, CRITERIA-FIRSTBOOT.md sections 12-14)
 #   make rollback  BOARD=x86_64-efi                     -> out/rollback-<board>/ (RB0-RB4, CRITERIA-ROLLBACK.md)
 #   make edge      BOARD=x86_64-efi                     -> out/edge-<board>/ (EG1-EG7, CRITERIA-EDGE.md; fixtures with EDGE=1)
 #   make sysextguard BOARD=x86_64-efi                   -> out/sysextguard-<board>/ (T-W19-01 X0-X7, CRITERIA-SYSEXT.md)
@@ -153,7 +153,7 @@ edge:
 	  --log /out/edge-$(BOARD)/serial.log --results /out/edge-$(BOARD)/results.json; \
 	  rc=$$?; rm -f $(OUT)/edge-$(BOARD)/work/disk.img; exit $$rc
 
-# Power cut in the first minute (test/qemu/powercut.py, CRITERIA-FIRSTBOOT.md sections 12-13, F17-F19; VM 501 bug 1):
+# Power cut in the first minute (test/qemu/powercut.py, CRITERIA-FIRSTBOOT.md sections 12-14, F17-F20; VM 501 bug 1):
 # QEMU is killed 25 s after first boot, then again after k3s's files were emptied (with and without an owner's
 # app); k3s must come back healthy (by itself, or after the owner approves the reset) and the owner's data must
 # survive. Copies the fixture disk like `firstboot`.
