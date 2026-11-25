@@ -81,8 +81,11 @@ def setting_path(settings, name: str) -> tuple[bool, Path | None]:
     return False, None
 
 
-def unit_set(gw, registry) -> list[dict]:
-    """The gateway database, then one `builtin:<id>` unit per switched-on built-in."""
+def unit_set(gw, registry, *, export: bool = False, agent_dirs: frozenset[str] = frozenset()) -> list[dict]:
+    """The gateway database, then one `builtin:<id>` unit per switched-on built-in.
+
+    `export`: the gateway writes the built-ins' table export into a folder the agent's `system` unit
+    copies (BackupsSettings.export_dir); `agent_dirs`: the folder settings that unit also copies."""
     have = set(inspect(gw.db.engine).get_table_names())
     out = [{"unit": GATEWAY_UNIT, "kind": "database", "engine": gw.db.engine.dialect.name, "snapshot_unit": "system"}]
     for d in registry.enabled() if registry is not None else []:
@@ -96,25 +99,31 @@ def unit_set(gw, registry) -> list[dict]:
                 known, path = setting_path(gw.settings, u["name"])
                 if not known:
                     problems.append(f"{u['name']} is not a gateway setting")
-                dirs.append({"name": u["name"], "path": str(path) if path else None})
-        # snapshot_unit None: no agent unit carries this built-in's export or folders yet (the agent.json
-        # wiring in os/ is a follow-up on #616), so its rows live only in the whole-database copy and its
-        # folders are in no snapshot at all. The status must not read as "backed up".
+                dirs.append({"name": u["name"], "path": str(path) if path else None, "carried": u["name"] in agent_dirs})
+        # snapshot_unit None: no agent unit carries this built-in's export (no export folder is set), so its
+        # rows live only in the whole-database copy. The status must not read as "backed up".
         out.append({"unit": f"builtin:{d.id}", "kind": "builtin", "app_id": d.id, "tables": tables, "dirs": dirs,
-                    "problems": problems, "snapshot_unit": None})
+                    "problems": problems, "snapshot_unit": "system" if export else None})
     return out
 
 
-def public_view(units: list[dict], snapshotted: set[str] = frozenset()) -> list[dict]:
+def public_view(units: list[dict], snapshotted: set[str] = frozenset(),
+                builtin_snapshotted: set[str] = frozenset()) -> list[dict]:
     """The set as GET /v1/backups/status shows it: whether each folder is set, never its host path.
 
-    `in_snapshot` is true only for a unit whose `snapshot_unit` is one of `snapshotted` (the agent units
-    with a successful snapshot); a built-in with no snapshot unit is never shown as in a snapshot."""
+    `in_snapshot` is true only for a unit whose `snapshot_unit` is in `snapshotted` (the agent units with
+    a successful snapshot; `builtin_snapshotted` for built-ins: a successful snapshot that holds their
+    export) and, for a built-in, whose every set folder is carried by that unit too."""
     out = []
     for u in units:
-        v = {**u, "dirs": [{"name": x["name"], "configured": x["path"] is not None} for x in u["dirs"]]} \
-            if "dirs" in u else dict(u)
-        v["in_snapshot"] = u.get("snapshot_unit") is not None and u["snapshot_unit"] in snapshotted
+        if "dirs" not in u:
+            v = dict(u)
+            v["in_snapshot"] = u.get("snapshot_unit") is not None and u["snapshot_unit"] in snapshotted
+        else:
+            v = {**u, "dirs": [{"name": x["name"], "configured": x["path"] is not None, "carried": x["carried"]}
+                               for x in u["dirs"]]}
+            v["in_snapshot"] = (u.get("snapshot_unit") is not None and u["snapshot_unit"] in builtin_snapshotted
+                                and all(x["carried"] for x in u["dirs"] if x["path"] is not None))
         out.append(v)
     return out
 
@@ -244,6 +253,27 @@ def export(gw, registry, dest: Path, *, include_dirs: bool = True) -> dict:
                     entry["dirs"].append({"name": d["name"], "state": "copied", "files": files, "bytes": size})
             manifest["units"].append(entry)
     _write(dest / "manifest.json", json.dumps(manifest, indent=1, sort_keys=True).encode())
+    return manifest
+
+
+EXPORT_FILE = "builtin-units.tar"
+
+
+def write_export(gw, registry, folder: Path) -> dict:
+    """The tables-only export as `folder`/builtin-units.tar, replaced atomically (the agent copies the
+    folders itself). Called by the gateway before each box run."""
+    folder = Path(folder)
+    folder.mkdir(mode=0o700, parents=True, exist_ok=True)
+    tmp = folder / f".{EXPORT_FILE}.{secrets.token_hex(4)}"
+    try:
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "wb") as f:
+            manifest = export_tar(gw, registry, f, include_dirs=False)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, folder / EXPORT_FILE)
+    finally:
+        tmp.unlink(missing_ok=True)
     return manifest
 
 

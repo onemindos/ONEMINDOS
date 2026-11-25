@@ -389,6 +389,16 @@ export function toActionPlan(a: Action): ActionPlan | undefined {
     if (typeof w === 'string' && !NETWORK_WARNING.test(w)) effects.push({ kind: 'note', risk: /no undo|deleted|refus/i.test(w) ? 'high' : 'low', label: w });
   }
   if (typeof p.summary === 'string' && p.summary) effects.unshift({ kind: 'note', risk: 'low', label: p.summary });
+  // AIG-04 (#168): the requester read third-party text before asking (core taint.py). Shown first.
+  const taint = p.taint as { sources?: unknown; message?: unknown } | null | undefined;
+  if (taint && typeof taint === 'object') {
+    const read = Array.isArray(taint.sources) ? taint.sources.filter((x): x is string => typeof x === 'string') : [];
+    effects.unshift({
+      kind: 'note', risk: 'high',
+      label: typeof taint.message === 'string' && taint.message ? taint.message : 'This agent read text written by third parties before asking.',
+      ...(read.length ? { detail: `What it read: ${read.join(', ')}` } : {}),
+    });
+  }
   return {
     action_id: a.id,
     plan_hash: a.plan_sha256,

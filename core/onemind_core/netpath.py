@@ -27,6 +27,11 @@ socket peer is inside the configured trusted proxy networks (ONEMIND_NET_TRUSTED
 none); from anyone else it is ignored, so a client cannot upgrade itself by sending it. The edge
 must set the header on every request, replacing any value the client sent.
 
+A listener can also fix the path itself: the gateway's Tor listener (ONEMIND_NET_TOR_PORT, serve.py)
+sets `scope["onemind.path"] = "tor"` on every connection it accepts. That scope key is set by the
+server, never read from a client, and it wins over the peer address and over the header: the onion
+forward is raw TCP from a pod or masqueraded address that would otherwise read as lan or mesh.
+
 Tiers (contract §12.22): private -> lan; mesh -> lan, mesh; public -> lan, mesh, tor, public.
 """
 
@@ -40,6 +45,7 @@ from .ca import MESH_NETS
 
 NetPath = Literal["lan", "mesh", "tor", "public", "unknown"]
 PATH_HEADER = "x-onemind-path"
+SCOPE_PATH_KEY = "onemind.path"  # ASGI scope key a listener sets to pin the path of its connections
 EDGE_PATHS: frozenset[str] = frozenset({"lan", "mesh", "tor", "public"})
 
 TIER_PATHS: dict[str, frozenset[str]] = {

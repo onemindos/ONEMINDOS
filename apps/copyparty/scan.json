@@ -1,21 +1,21 @@
 {
-  "scanned_at": "2026-11-21T13:30:35Z",
-  "result": "fail",
+  "scanned_at": "2026-11-23T09:40:53Z",
+  "result": "pass",
   "images": [
     {
-      "ref": "docker.io/copyparty/ac:1.20.26@sha256:b2054d65e05daa8982ca17c26b12b74315c0ce586a03ff9018a59c80731b9e19",
+      "ref": "docker.io/copyparty/ac:1.20.27@sha256:a49363016be176a6eaaa78c6bb6af04ca22a4dd43806da8f9421c9336b92c8f4",
       "archs": [
         "amd64",
         "arm64"
       ],
       "trivy": {
         "version": "0.76.2",
-        "critical_fixable": 1,
-        "critical": 1,
-        "high": 8
+        "critical_fixable": 0,
+        "critical": 0,
+        "high": 0
       },
       "clamav": {
-        "signatures": "daily-28190",
+        "signatures": "daily-28192",
         "infected": 0
       },
       "secrets": 0,
@@ -26,5 +26,29 @@
     "spdx": "MIT",
     "class": "L1"
   },
-  "smoke": "pass"
+  "smoke": "pass",
+  "quality": {
+    "tier": "bronze",
+    "evidence": {
+      "bronze": {
+        "gate_pass": true,
+        "licence_green": true,
+        "images_clean": true,
+        "upstream_alive": true,
+        "nothing_unverified": true
+      },
+      "silver": {
+        "smoke_pass": true,
+        "non_root": true,
+        "support_links": true,
+        "security_updates": false
+      },
+      "gold": {
+        "images_signed": false,
+        "no_critical": true,
+        "patch_automerge": false,
+        "backup_declared": false
+      }
+    }
+  }
 }
