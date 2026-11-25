@@ -191,6 +191,9 @@ jobs:
       # approved os-rollback through the host service boots slot A again and the gate commits it. Copies the fixture disk.
       - name: Go back to the previous version (RB0-RB4)
         run: make rollback BOARD=x86_64-efi TOOLS=onemind-tools:ci
+      # Power cut in the first minute (F26-F28, CRITERIA-FIRSTBOOT.md sections 21-22; VM 501 bug 1): own VM, own work dir.
+      - name: Power cut in the first minute (F26-F28)
+        run: make powercut BOARD=x86_64-efi TOOLS=onemind-tools:ci
       - name: Summary and trimmed log
         if: always()
         run: |

@@ -7,6 +7,10 @@
 # x-systemd.growfs: after mounting, systemd-growfs makes the filesystem (and a LUKS2 volume under it) as big as the
 # device under it, which is how /data fills a partition that cloud-init's growpart or data_extend.py just enlarged.
 PARTLABEL=onemind-esp   /boot/efi  vfat  umask=0077                          0 1
+# No nodelalloc here (round-2 integration of #1157): on x86 /data is btrfs (subvolume @, #975), or ext4 on a box
+# installed before it, so the type is "auto" and an ext4-only option would make the btrfs mount fail. The power-cut
+# protection on every board is the syncfs of /data while k3s settles (onemind-k3s-state settle, F26); the ext4
+# boards (rpi5, Jetson) also mount with nodelalloc.
 PARTLABEL=onemind-data  /data      auto  defaults,noatime,nofail,x-systemd.growfs,x-systemd.device-timeout=30s  0 2
 # Writable state lives on onemind-data and is bind-mounted over the read-only root.
 # "nofail" on /data and every bind from it: a dead data disk must not fail local-fs.target (that

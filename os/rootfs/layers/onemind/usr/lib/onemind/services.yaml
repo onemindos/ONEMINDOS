@@ -17,6 +17,8 @@ services:
      description: "Reports this machine's health to the hub every few seconds and answers the local API. Without it the hub shows the machine offline."}
   - {unit: k3s.service, name: Kubernetes (k3s), docs: docs/ARCHITECTURE.md, restartable: true, risk: high, depends_on: [],
      description: "Runs every app in its own sandbox. Stopping it stops all apps; their data stays on the data disk."}
+  - {unit: onemind-k3s-settle.service, name: Kubernetes first-start sync, docs: docs/leap/core/IMAGES.md, restartable: false, risk: low,
+     depends_on: [], description: "On a new hub, saves Kubernetes's first-start files to the disk while it starts, so a power cut in the first minutes cannot leave them empty."}
   - {unit: onemind-images.service, name: App image cleanup, docs: docs/leap/core/APP-LIFECYCLE.md, restartable: true, risk: low, depends_on: [k3s.service],
      description: "Removes app images that a newer version replaced, so the disk does not fill up. Images in use are never touched."}
   - {unit: onemind-catalog.service, name: Market catalog sync, docs: docs/learning/08-security-pipeline-and-tuf.md, restartable: false, risk: low,
