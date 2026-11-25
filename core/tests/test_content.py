@@ -175,6 +175,46 @@ def test_auto_update_requests_inside_the_window_and_never_approves(box, clock):
     assert zims(box) == [MED_MAXI]
 
 
+def _auto_update_on(box, clock):
+    install_kiwix(box, clock)
+    file_action(box, clock, "app.configure", {"app_id": "kiwix", "settings": {"zims": MED_MAXI_OLD}})
+    r = box.put("/v1/content/auto-update", json={"enabled": True, "window_id": "win_nightly"}, headers=OWNER)
+    assert r.status_code == 200
+    clock.advance(5 * 3600)  # 03:00, inside the window
+    return box.app.state.content
+
+
+def test_auto_update_does_not_refile_after_the_owner_declines(box, clock):
+    svc = _auto_update_on(box, clock)
+    assert "waiting for the owner" in svc.tick()
+    first = box.get("/v1/content", headers=OWNER).json()["auto_update"]["last_action_id"]
+    assert box.post(f"/v1/actions/{first}/deny", headers=OWNER).status_code == 200
+    clock.advance(24 * 3600)  # next nightly window
+    result = svc.tick()
+    assert "declined" in result and "idempotency_key" not in result
+    au = box.get("/v1/content", headers=OWNER).json()["auto_update"]
+    assert au["last_action_id"] is None
+    clock.advance(24 * 3600)
+    assert "declined" in svc.tick()
+    filed = [a for a in box.get("/v1/actions", headers=OWNER).json() if a["requested_by"]["id"] == "automation:content-update"]
+    assert len(filed) == 1
+
+
+def test_auto_update_files_again_after_a_request_expires(box, clock):
+    svc = _auto_update_on(box, clock)
+    assert "waiting for the owner" in svc.tick()
+    first = box.get("/v1/content", headers=OWNER).json()["auto_update"]["last_action_id"]
+    clock.advance(24 * 3600)  # the 24 h request expires unanswered
+    result = svc.tick()
+    assert "waiting for the owner" in result, result
+    second = box.get("/v1/content", headers=OWNER).json()["auto_update"]["last_action_id"]
+    assert second and second != first
+    assert box.get(f"/v1/actions/{first}", headers=OWNER).json()["state"] == "expired"
+    assert box.get(f"/v1/actions/{second}", headers=OWNER).json()["state"] == "awaiting_approval"
+    clock.advance(24 * 3600)  # expires again: still not stuck
+    assert "waiting for the owner" in svc.tick()
+
+
 def test_catalogue_down_blocks_downloads_not_removals(box, clock):
     install_kiwix(box, clock)
     box.feeds.down = True

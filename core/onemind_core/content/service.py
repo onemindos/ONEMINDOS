@@ -103,6 +103,10 @@ def _stem(path: str) -> str:
     return book_key(path).split("/", 1)[-1]
 
 
+class _Declined(Exception):
+    """The owner already denied this exact update."""
+
+
 class ContentService:
     def __init__(self, gw: Gateway, appstore, catalog: KiwixCatalog | None = None,
                  window_open: Callable[[str, datetime], bool] | None = None,
@@ -284,6 +288,24 @@ class ContentService:
         return self._prefs_json(self.repo.get())
 
     # ---- auto-update ---------------------------------------------------------------------------------
+    def _update_key(self, plan: dict, digest: str, now: datetime) -> tuple[str, bool]:
+        """Idempotency key for this plan, and whether the owner already declined it.
+
+        A request's key is reused only while no earlier request for the same book list exists. If the newest
+        earlier one was denied (state `cancelled`), do not file again. If it expired or otherwise ended, file
+        again under a key that carries the window date, because the old key is bound to the old `expires_at`.
+        """
+        value = " ".join(plan["zims_after"])
+        earlier = [a for a in self.gw.actions.list()
+                   if a["type"] == "app.configure" and a["requested_by"].get("id") == UPDATER.id
+                   and (a["params"].get("settings") or {}).get(SETTING) == value]
+        if not earlier:
+            return f"content-update-{digest}", False
+        newest = max(earlier, key=lambda a: a["created_at"])
+        if newest["state"] == "cancelled":
+            return newest["idempotency_key"], True
+        return f"content-update-{digest}-{utc(now):%Y%m%d}", False
+
     def tick(self) -> str | None:
         """One auto-update check. Returns what it recorded (None when it had nothing to do yet)."""
         with self._tick_lock:
@@ -310,10 +332,19 @@ class ContentService:
                     result = "Every book is the newest release."
                 elif plan is not None:
                     digest = hashlib.sha256(" ".join(plan["zims_after"]).encode()).hexdigest()[:24]
+                    key, declined = self._update_key(plan, digest, now)
+                    if declined:
+                        result = "You declined this update; no new request until a newer release is published."
+                    else:
+                        result = None
                     try:
-                        action = self._file(UPDATER, plan, f"content-update-{digest}",
+                        if declined:
+                            raise _Declined
+                        action = self._file(UPDATER, plan, key,
                                             f"content auto-update: {len(plan['downloads'])} newer release(s), "
                                             f"{plan['download_bytes']} bytes")
+                    except _Declined:
+                        pass
                     except ApiError as exc:
                         result = exc.message[:300]
                     else:
