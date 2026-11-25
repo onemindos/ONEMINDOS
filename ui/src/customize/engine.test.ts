@@ -294,7 +294,7 @@ describe('upload', () => {
 });
 
 it('applies and clears the accessibility overrides and reads them back from appearance storage', async () => {
-  const prefs = normalizePreferences({ motion: 'full', fontScale: 1.25, higherContrast: true, focusAlways: true, underlineLinks: true });
+  const prefs = normalizePreferences({ motion: 'reduce', fontScale: 1.25, higherContrast: true, focusAlways: true, underlineLinks: true });
   const person = new LocalPreferencesStore({ storage: window.localStorage });
   // A separate in-memory backing slot, such as the dashboard's keyed personStorage.
   const other = new LocalPreferencesStore({ storage: { getItem: () => null } as unknown as Storage });
@@ -304,7 +304,7 @@ it('applies and clears the accessibility overrides and reads them back from appe
   const root = document.documentElement;
   try {
     applyPreferences(prefs);
-    expect(root).toHaveAttribute('data-om-motion', 'full');
+    expect(root).toHaveAttribute('data-om-motion', 'reduce');
     expect(root).toHaveAttribute('data-om-high-contrast');
     expect(root).toHaveAttribute('data-om-focus-always');
     expect(root).toHaveAttribute('data-om-underline-links');
@@ -316,4 +316,9 @@ it('applies and clears the accessibility overrides and reads them back from appe
     clearPreferences();
     window.localStorage.removeItem(LOCAL_SLOT);
   }
+});
+
+it('has no "full motion" choice: a stored full falls back to following the device, which is always respected', () => {
+  expect(normalizePreferences({ motion: 'full' }).motion).toBe('system');
+  expect(normalizePreferences({ motion: 'reduce' }).motion).toBe('reduce');
 });

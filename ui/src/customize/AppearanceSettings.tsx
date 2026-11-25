@@ -483,7 +483,7 @@ function EffectsSection() {
   const { prefs, update } = useCustomize();
   return (
     <Section title="Motion and effects">
-      <SettingRow title="Reduce motion" description="Choose how OneMind presents motion.">
+      <SettingRow title="Reduce motion" description="Stops sliding, fading and pulsing. Your device's setting is always respected.">
         <ChoiceGroup<MotionPref>
           legend="Reduce motion"
           hideLegend
@@ -492,7 +492,6 @@ function EffectsSection() {
           choices={[
             { value: 'system', label: 'Like my device' },
             { value: 'reduce', label: 'Always' },
-            { value: 'full', label: 'Never' },
           ]}
         />
       </SettingRow>

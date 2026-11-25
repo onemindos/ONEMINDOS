@@ -14,7 +14,7 @@ export type ThemeMode = 'system' | 'light' | 'dark' | 'schedule';
 export type AccentSource = 'wallpaper' | 'preset' | 'custom';
 export type Density = 'comfortable' | 'compact';
 export type Corners = 'sharp' | 'standard' | 'round';
-export type MotionPref = 'system' | 'reduce' | 'full';
+export type MotionPref = 'system' | 'reduce';
 export type TransparencyPref = 'system' | 'on' | 'off';
 
 export const FONT_SCALES = [0.9, 1, 1.125, 1.25] as const;
@@ -106,7 +106,7 @@ export function normalizePreferences(input: unknown): AppearancePreferences {
     density: pick(o.density, ['comfortable', 'compact'], d.density),
     fontScale: (FONT_SCALES as readonly number[]).includes(o.fontScale as number) ? (o.fontScale as FontScale) : d.fontScale,
     corners: pick(o.corners, ['sharp', 'standard', 'round'], d.corners),
-    motion: pick(o.motion, ['system', 'reduce', 'full'], d.motion),
+    motion: pick(o.motion, ['system', 'reduce'], d.motion),
     higherContrast: o.higherContrast === true,
     focusAlways: o.focusAlways === true,
     underlineLinks: o.underlineLinks === true,

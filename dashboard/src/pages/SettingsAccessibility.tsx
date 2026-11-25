@@ -4,7 +4,6 @@ import { Card, PageHeader, useCustomize } from '@onemind/ui';
 const motionOptions = [
   { value: 'system', label: 'Follow system' },
   { value: 'reduce', label: 'Reduce motion' },
-  { value: 'full', label: 'Full motion' },
 ] as const;
 const sizes = [{ value: 1, label: 'Standard' }, { value: 1.125, label: 'Large' }, { value: 1.25, label: 'Extra large' }] as const;
 
@@ -33,7 +32,7 @@ export function SettingsAccessibility() {
       </div>
     </Card>
     <Card title="Preview">
-      <p>This text uses your current reading preferences.</p>
+      <p>This text uses your current reading preferences. They are saved for you in this browser and do not follow you to another device.</p>
       <a href="/settings/appearance">Appearance settings</a>
     </Card>
   </>;
