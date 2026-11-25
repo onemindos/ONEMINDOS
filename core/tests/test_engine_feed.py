@@ -402,9 +402,10 @@ def test_real_hub_two_leaves_one_cut_link_down_within_60s_and_lag_after_return(s
 
     hub, mon_port, leaf_port, a_port, b_port = _port(), _port(), _port(), _port(), _port()
     pings = 'ping_interval: "1s"\nping_max: 2\n'
+    # Keep the cut leaf on the relay when it reconnects instead of learning the hub's direct address.
     procs = [_server(tmp_path, "hub", f'server_name: hub\nlisten: "127.0.0.1:{hub}"\nhttp: "127.0.0.1:{mon_port}"\n{pings}'
                      f'jetstream {{\n  store_dir: "{tmp_path / "hub-js"}"\n  domain: hub\n  max_file_store: {CAP}\n'
-                     f'  max_memory_store: 0\n}}\nleafnodes {{ listen: "127.0.0.1:{leaf_port}" }}\n')]
+                     f'  max_memory_store: 0\n}}\nleafnodes {{ listen: "127.0.0.1:{leaf_port}"\n  no_advertise: true }}\n')]
     _wait_port(leaf_port)
     relay = Cut(leaf_port)
 
