@@ -5,6 +5,11 @@
 first boot left k3s's keys, certificates, token and node password empty and k3s never came back. Refs #234.
 
 A power cut is SIGKILL of QEMU (guest memory is lost, the disk image keeps what the guest flushed).
+What this does NOT model: the disk is opened with cache=writeback, and the host itself does not crash, so writes
+the guest had already sent to its virtual disk but not flushed still reach the image (the host keeps them). A real
+disk can lose such writes from its own cache. The test therefore proves what is lost with the guest's page cache
+(the VM 501 bug: files k3s never wrote back), not losses inside a drive's write cache; fsync and syncfs, which the
+fix relies on, send a flush that a real drive honours.
   F13  first boot as a hub (NoCloud seed, as F1); 25 s after the "configured" console line, power cut; boot again:
        same box, no new owner token, committed boot, k3s healthy, no empty k3s file.
 F14 and F15 (repairing k3s state that is already damaged, §9 and §10) join with the repair itself.
