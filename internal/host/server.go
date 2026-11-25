@@ -30,6 +30,7 @@ const Schema = "onemind.host/v1"
 //	GET  /v1/operations/{id}   one operation by action id
 //	GET  /v1/plans/factory-reset  what a factory reset would erase, keep and warn (read-only)
 //	GET  /v1/smb, PUT /v1/smb/shares, PUT /v1/smb/users/{user}/password   file sharing (smb.go)
+//	GET  /v1/flatpak, GET /v1/flatpak/search, POST|DELETE /v1/flatpak/apps/{id}[/install|update|launch]   Flathub desktop apps (flatpak.go)
 //	GET  /v1/network           read-only network facts (internal/netview; 404 when Network is nil)
 //	GET  /v1/services          service cards: the image's registry joined with systemd (internal/svcregistry; 404 when Services is nil)
 //	GET  /v1/services/{unit}/logs?lines=200&follow=1   a registry unit's journal as text lines (404 when ServiceLogs is nil)
@@ -243,6 +244,7 @@ func (s *Server) Handler() http.Handler {
 		writeJSON(w, http.StatusOK, s.S.Reset.Plan(r.Context()))
 	})
 	s.smbRoutes(mux)
+	s.flatpakRoutes(mux)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !s.peerAllowed(r) {
 			apiError(w, http.StatusForbidden, "permission_denied", "peer", "this socket serves root and the gateway only")

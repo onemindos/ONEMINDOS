@@ -175,16 +175,17 @@ type Units interface {
 // Service runs the actions. Power, OS and Reset may be nil: that kind is then
 // reported unavailable and refused.
 type Service struct {
-	Store  *Store // nil: status only, every action refused
-	Power  Power
-	OS     OSInstaller
-	Reset  Resetter
-	SMB    SMBManager    // file sharing (smb.go); nil: not on this box
-	Units  Units         // service-restart; nil: refused
-	BootID string        // /proc/sys/kernel/random/boot_id
-	Delay  time.Duration // before the box goes down, so the gateway records "accepted" first
-	Now    func() time.Time
-	Log    *slog.Logger
+	Store   *Store // nil: status only, every action refused
+	Power   Power
+	OS      OSInstaller
+	Reset   Resetter
+	SMB     SMBManager     // file sharing (smb.go); nil: not on this box
+	Flatpak FlatpakManager // Flathub desktop apps (flatpak.go); nil: not on this box
+	Units   Units          // service-restart; nil: refused
+	BootID  string         // /proc/sys/kernel/random/boot_id
+	Delay   time.Duration  // before the box goes down, so the gateway records "accepted" first
+	Now     func() time.Time
+	Log     *slog.Logger
 
 	mu     sync.Mutex
 	active *Op

@@ -3555,6 +3555,30 @@
         "title": "DenyBody",
         "type": "object"
       },
+      "DesktopAppsView": {
+        "properties": {
+          "installed": {
+            "items": {
+              "$ref": "#/components/schemas/FlathubApp"
+            },
+            "title": "Installed",
+            "type": "array"
+          },
+          "service": {
+            "$ref": "#/components/schemas/ServiceInfo"
+          },
+          "stream": {
+            "$ref": "#/components/schemas/StreamInfo"
+          }
+        },
+        "required": [
+          "service",
+          "installed",
+          "stream"
+        ],
+        "title": "DesktopAppsView",
+        "type": "object"
+      },
       "DestinationBody": {
         "additionalProperties": false,
         "properties": {
@@ -4614,6 +4638,9 @@
               "app.disable",
               "app.enable",
               "data.grant",
+              "desktop.app.install",
+              "desktop.app.remove",
+              "desktop.app.update",
               "exposure.mesh",
               "exposure.private",
               "exposure.public",
@@ -4681,6 +4708,56 @@
           }
         },
         "title": "FixIn",
+        "type": "object"
+      },
+      "FlathubApp": {
+        "description": "One app: from the Flathub search, or installed (then `installed`, `update_available` and `folder` are set).",
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "folder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder"
+          },
+          "installed": {
+            "default": false,
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "name": {
+            "default": "",
+            "title": "Name",
+            "type": "string"
+          },
+          "summary": {
+            "default": "",
+            "title": "Summary",
+            "type": "string"
+          },
+          "update_available": {
+            "default": false,
+            "title": "Update Available",
+            "type": "boolean"
+          },
+          "version": {
+            "default": "",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id"
+        ],
+        "title": "FlathubApp",
         "type": "object"
       },
       "GeoSite": {
@@ -6031,6 +6108,28 @@
           "datapoint"
         ],
         "title": "LatestValue",
+        "type": "object"
+      },
+      "LaunchResult": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "launched": {
+            "title": "Launched",
+            "type": "boolean"
+          },
+          "stream": {
+            "$ref": "#/components/schemas/StreamInfo"
+          }
+        },
+        "required": [
+          "launched",
+          "app_id",
+          "stream"
+        ],
+        "title": "LaunchResult",
         "type": "object"
       },
       "LibraryItem": {
@@ -10738,6 +10837,22 @@
         "title": "SearchHit",
         "type": "object"
       },
+      "SearchResult": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/FlathubApp"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "results"
+        ],
+        "title": "SearchResult",
+        "type": "object"
+      },
       "SecretsChange": {
         "additionalProperties": false,
         "description": "POST /v1/apps/{id}/secrets: what to change. An empty body re-applies the current values.",
@@ -11066,6 +11181,54 @@
           "installed"
         ],
         "title": "ServiceCard",
+        "type": "object"
+      },
+      "ServiceInfo": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "remote": {
+            "title": "Remote",
+            "type": "string"
+          },
+          "sandbox": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sandbox",
+            "type": "array"
+          }
+        },
+        "required": [
+          "available",
+          "remote",
+          "sandbox"
+        ],
+        "title": "ServiceInfo",
         "type": "object"
       },
       "ServiceRestartRequest": {
@@ -12344,6 +12507,24 @@
           "available"
         ],
         "title": "StorageSummary",
+        "type": "object"
+      },
+      "StreamInfo": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "installed": {
+            "title": "Installed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "app_id",
+          "installed"
+        ],
+        "title": "StreamInfo",
         "type": "object"
       },
       "Subject": {
@@ -24392,6 +24573,206 @@
         "summary": "Deploy Compose",
         "tags": [
           "deploy"
+        ]
+      }
+    },
+    "/v1/desktop-apps": {
+      "get": {
+        "description": "Whether the box can run Flathub desktop apps, the installed ones (with their folder and whether an\nupdate is waiting), the sandbox every app gets, and whether the streaming session app is installed.",
+        "operationId": "desktop_apps.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesktopAppsView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Desktop Apps List",
+        "tags": [
+          "apps"
+        ]
+      }
+    },
+    "/v1/desktop-apps/search": {
+      "get": {
+        "description": "Flathub apps whose id, name or summary contains `q`, best name matches first (at most 50).",
+        "operationId": "desktop_apps.search",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 2,
+              "title": "Q",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Desktop Apps Search",
+        "tags": [
+          "apps"
+        ]
+      }
+    },
+    "/v1/desktop-apps/{app_id}/launch": {
+      "post": {
+        "description": "Start an installed app in the streaming session. Owner only, audited. It is not an approval:\nthe owner already approved the install, and the app stays inside its sandbox.",
+        "operationId": "desktop_apps.launch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LaunchResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Desktop Apps Launch",
+        "tags": [
+          "apps"
         ]
       }
     },

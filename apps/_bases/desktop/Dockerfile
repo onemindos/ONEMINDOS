@@ -18,6 +18,13 @@ RUN set -eux; \
     chown 1000:1000 /tmp/runtime-neko; chmod 0700 /tmp/runtime-neko
 COPY supervisord.conf /etc/neko/supervisord.conf
 COPY NOTICES.md /usr/share/doc/onemind-desktop/NOTICES.md
+# Flathub apps (#1097): Flatpak from Debian 13, the script that runs the app the owner opened, and its supervisord program, kept disabled here.
+RUN set -eux; apt-get -o Acquire::Retries=3 update; \
+    apt-get -o Acquire::Retries=3 install -y --no-install-recommends flatpak; \
+    apt-get clean -y; rm -rf /var/lib/apt/lists/* /var/cache/apt/*; \
+    find / -xdev -type f -perm /6000 -exec chmod a-s {} +
+COPY --chmod=755 onemind-desktop-session /usr/local/bin/onemind-desktop-session
+COPY flatpak-session.conf /etc/neko/supervisord/flatpak-session.conf.disabled
 LABEL org.opencontainers.image.title="OneMind desktop base" \
       org.opencontainers.image.source="https://github.com/onemindos/ONEMINDOS" \
       org.opencontainers.image.licenses="Apache-2.0" \

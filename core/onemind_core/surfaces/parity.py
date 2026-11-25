@@ -347,6 +347,10 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/bridges/{bridge_id}/latest": CONSOLE,
     "GET /v1/engine": CONSOLE,
     "GET /v1/system/services/{unit}/logs": CONSOLE,
+    # desktop apps (#1097): owner-only list and Flathub search; launching starts a program on the box
+    "GET /v1/desktop-apps": CONSOLE,
+    "GET /v1/desktop-apps/search": CONSOLE,
+    "POST /v1/desktop-apps/{app_id}/launch": WRITE,
     "GET /v1/system/ups": CONSOLE,
     "POST /v1/bridges/{bridge_id}/resume": WRITE,
     "POST /v1/system/services/{unit}/restart": WRITE,
