@@ -24,8 +24,9 @@ x-onemindd-build: &onemindd-build
 services:
   # One-shot: makes a NATS user key per client (a seed file, mode 0600, owned by that client's own uid:
   # the gateway 10001, node-sim 10002, sim-rpi5 10003, sim-jetson 10004, so no client can read another's
-  # seed; the keys directory itself is listable) and its public key) and the hub's accounts file, the same way the image does (core/onemind_core/natsconf.py,
-  # CORE-SEC-4 #161). Runs as root only to hand each seed to its client's uid; exits when done.
+  # seed), plus its public key and the hub's accounts file. Public keys and the accounts file are readable
+  # by all (the keys directory is listable); only the seeds are private. Same way the image does it
+  # (core/onemind_core/natsconf.py, CORE-SEC-4 #161). Runs as root only to hand each seed to its client's uid; exits when done.
   nats-keys:
     build: &core-build
       context: ../..
