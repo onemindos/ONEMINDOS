@@ -2106,6 +2106,91 @@
         "title": "BuiltinsOut",
         "type": "object"
       },
+      "CaptureBody": {
+        "additionalProperties": false,
+        "properties": {
+          "assignee": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PersonAssignee"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "body": {
+            "default": "",
+            "maxLength": 10000,
+            "title": "Body",
+            "type": "string"
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "labels": {
+            "default": [],
+            "items": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Labels",
+            "type": "array"
+          },
+          "priority": {
+            "default": 4,
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Priority",
+            "type": "integer"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "status": {
+            "default": "todo",
+            "enum": [
+              "todo",
+              "in_progress",
+              "done"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "CaptureBody",
+        "type": "object"
+      },
       "CareCheck": {
         "properties": {
           "detail": {
@@ -2462,6 +2547,118 @@
           "sha256"
         ],
         "title": "CatalogueImage",
+        "type": "object"
+      },
+      "ChangeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "assignee": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PersonAssignee"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "body": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "dependencies": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 100,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dependencies"
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "labels": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 32,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Labels"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "maximum": 4.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "todo",
+                  "in_progress",
+                  "done"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "ChangeBody",
         "type": "object"
       },
       "ChannelIn": {
@@ -4435,6 +4632,8 @@
               "machine.stop",
               "machines.disable",
               "machines.enable",
+              "map.pack.add",
+              "map.pack.remove",
               "node.wake",
               "os.rollout.resume",
               "os.rollout.start",
@@ -5357,6 +5556,48 @@
           }
         },
         "title": "ImportBody",
+        "type": "object"
+      },
+      "InstalledPack": {
+        "additionalProperties": false,
+        "properties": {
+          "bytes": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9.223372036854776e+18,
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "id": {
+            "maxLength": 64,
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "installed_at": {
+            "format": "date-time",
+            "title": "Installed At",
+            "type": "string"
+          },
+          "region": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Region",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "region",
+          "bytes",
+          "sha256",
+          "installed_at"
+        ],
+        "title": "InstalledPack",
         "type": "object"
       },
       "Instance": {
@@ -8496,6 +8737,29 @@
         "title": "OverrideInput",
         "type": "object"
       },
+      "Packs": {
+        "additionalProperties": false,
+        "properties": {
+          "free_bytes": {
+            "minimum": 0.0,
+            "title": "Free Bytes",
+            "type": "integer"
+          },
+          "packs": {
+            "items": {
+              "$ref": "#/components/schemas/InstalledPack"
+            },
+            "title": "Packs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "packs",
+          "free_bytes"
+        ],
+        "title": "Packs",
+        "type": "object"
+      },
       "PasskeyRegisterBody": {
         "properties": {
           "credential": {
@@ -8610,6 +8874,28 @@
           }
         },
         "title": "PauseBody",
+        "type": "object"
+      },
+      "PersonAssignee": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "person",
+            "default": "person",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "PersonAssignee",
         "type": "object"
       },
       "PlacementReason": {
@@ -8974,6 +9260,63 @@
           "kind"
         ],
         "title": "PrincipalRef",
+        "type": "object"
+      },
+      "Project": {
+        "additionalProperties": false,
+        "properties": {
+          "ai_access": {
+            "default": "none",
+            "enum": [
+              "none",
+              "read",
+              "work"
+            ],
+            "title": "Ai Access",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "id"
+        ],
+        "title": "Project",
+        "type": "object"
+      },
+      "ProjectBody": {
+        "additionalProperties": false,
+        "properties": {
+          "ai_access": {
+            "default": "none",
+            "enum": [
+              "none",
+              "read",
+              "work"
+            ],
+            "title": "Ai Access",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ProjectBody",
         "type": "object"
       },
       "ProtocolInfo": {
@@ -12028,6 +12371,40 @@
         "title": "Subject",
         "type": "object"
       },
+      "SubjectCard": {
+        "additionalProperties": false,
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/SubjectSource"
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "title": "SubjectCard",
+        "type": "object"
+      },
+      "SubjectSource": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "subject",
+            "title": "Kind",
+            "type": "string"
+          },
+          "subject": {
+            "description": "A gateway onemind.event subject with at most one wildcard in its name",
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "subject"
+        ],
+        "title": "SubjectSource",
+        "type": "object"
+      },
       "SubjectTree": {
         "description": "GET /v1/subjects.",
         "properties": {
@@ -13467,6 +13844,107 @@
           "pending"
         ],
         "title": "SystemControls",
+        "type": "object"
+      },
+      "Task": {
+        "additionalProperties": false,
+        "properties": {
+          "assignee": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PersonAssignee"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "body": {
+            "default": "",
+            "maxLength": 10000,
+            "title": "Body",
+            "type": "string"
+          },
+          "dependencies": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dependencies",
+            "type": "array"
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "labels": {
+            "default": [],
+            "items": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Labels",
+            "type": "array"
+          },
+          "priority": {
+            "default": 4,
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Priority",
+            "type": "integer"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "status": {
+            "default": "todo",
+            "enum": [
+              "todo",
+              "in_progress",
+              "done"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "id",
+          "project_id",
+          "revision",
+          "dependencies",
+          "updated_at"
+        ],
+        "title": "Task",
         "type": "object"
       },
       "TicketRequest": {
@@ -14917,7 +15395,7 @@
     },
     "/mcp": {
       "post": {
-        "description": "One JSON-RPC 2.0 message per request: initialize, ping, tools/list, tools/call. Read tools (get_instance, list_nodes, get_node, list_apps, get_app, list_actions, get_action, search_audit, get_backup_status, list_backup_runs, list_backup_snapshots, get_os_updates, get_os_update_history, stat_file, list_machines, get_machine, get_storage, list_alerts, get_alert, get_update_settings, read_app_logs), one request-only tool (request_action) and onemind:// resources. No approve tool. Notifications get 202; over the per-agent message limit, 429.",
+        "description": "One JSON-RPC 2.0 message per request: initialize, ping, tools/list, tools/call. Read tools (get_instance, list_nodes, get_node, list_apps, get_app, list_actions, get_action, search_audit, map_packs_list, work_tasks_list, work_task_get, get_backup_status, list_backup_runs, list_backup_snapshots, get_os_updates, get_os_update_history, stat_file, list_machines, get_machine, get_storage, list_alerts, get_alert, get_update_settings, read_app_logs), one request-only tool (request_action) and onemind:// resources. No approve tool. Notifications get 202; over the per-agent message limit, 429.",
         "operationId": "mcp.post",
         "requestBody": {
           "content": {
@@ -29287,6 +29765,57 @@
         ]
       }
     },
+    "/v1/map/packs": {
+      "get": {
+        "operationId": "map.packs_list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Packs"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "List Packs",
+        "tags": [
+          "map"
+        ]
+      }
+    },
     "/v1/me": {
       "get": {
         "operationId": "me.get",
@@ -29391,6 +29920,272 @@
         "summary": "Update Me",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/v1/me/dashboard-card": {
+      "get": {
+        "operationId": "me.dashboard_card.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/SubjectCard"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Me.Dashboard Card.Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Read Card",
+        "tags": [
+          "me"
+        ]
+      },
+      "put": {
+        "operationId": "me.dashboard_card.save",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubjectCard"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubjectCard"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Save Card",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/v1/me/dashboard-card/events": {
+      "get": {
+        "operationId": "me.dashboard_card.events",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Last-Event-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last-Event-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "contentMediaType": "application/json",
+                      "contentSchema": {
+                        "properties": {
+                          "actor_id": {
+                            "type": "string"
+                          },
+                          "data": {
+                            "type": "object"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "schema": {
+                            "const": "onemind.event/v1"
+                          },
+                          "severity": {
+                            "type": "string"
+                          },
+                          "subject": {
+                            "type": "object"
+                          },
+                          "ts": {
+                            "format": "date-time",
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "schema",
+                          "id",
+                          "type",
+                          "ts",
+                          "subject",
+                          "severity",
+                          "data"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "string"
+                    },
+                    "event": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "retry": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "event",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The person's authorized card events"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "summary": "Card Events",
+        "tags": [
+          "me"
         ]
       }
     },
@@ -39650,6 +40445,646 @@
         "summary": "Put Window",
         "tags": [
           "automation"
+        ]
+      }
+    },
+    "/v1/work/capture": {
+      "post": {
+        "operationId": "work.capture",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaptureBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            },
+            "description": "Idempotent capture replay"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Capture",
+        "tags": [
+          "work"
+        ]
+      }
+    },
+    "/v1/work/projects": {
+      "post": {
+        "operationId": "work.project_create",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Create Project",
+        "tags": [
+          "work"
+        ]
+      }
+    },
+    "/v1/work/projects/{project_id}/tasks/{task_id}": {
+      "delete": {
+        "operationId": "work.task_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": true,
+            "schema": {
+              "maxLength": 12,
+              "minLength": 1,
+              "title": "If-Match",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Delete Task",
+        "tags": [
+          "work"
+        ]
+      },
+      "get": {
+        "operationId": "work.task_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Get Task",
+        "tags": [
+          "work"
+        ]
+      },
+      "patch": {
+        "operationId": "work.task_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": true,
+            "schema": {
+              "maxLength": 12,
+              "minLength": 1,
+              "title": "If-Match",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Change Task",
+        "tags": [
+          "work"
+        ]
+      }
+    },
+    "/v1/work/tasks": {
+      "get": {
+        "operationId": "work.tasks_list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "project_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Project Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "view",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "enum": [
+                "all",
+                "today",
+                "upcoming",
+                "inbox"
+              ],
+              "title": "View",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Za-z0-9_-]{1,40}/[A-Za-z0-9_-]{1,40}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Task"
+                  },
+                  "title": "Response Work.Tasks List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "Link": {
+                "description": "Next page; rel=\"next\"",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "List Tasks",
+        "tags": [
+          "work"
         ]
       }
     }

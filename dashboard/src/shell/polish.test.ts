@@ -51,9 +51,9 @@ describe('phone layout in CSS', () => {
 });
 
 describe('one main-button colour, and an opaque launchpad', () => {
-  it('the primary button is neutral ink, never the red accent or the danger colour (Approve is never red)', () => {
+  it('the primary button uses the fixed Atlas action colour in every pack', () => {
     const rule = components.match(/\.om-btn-primary \{[^}]*\}/)?.[0] ?? '';
-    expect(rule).toMatch(/background: var\(--om-color-text\)/);
+    expect(rule).toMatch(/background: var\(--om-color-action\)/);
     expect(rule).not.toMatch(/accent|danger/);
   });
   it('the launchpad scrim is at least 92 percent opaque, hides the dock and clears the safe area', () => {

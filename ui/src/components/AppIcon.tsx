@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // One app icon for every screen (CRITIQUE #20): Home, the Store, the jobs tray and the approval
 // card all draw the same tile, so one app never looks like two brands. Uses the manifest `icon`
-// when it is an http(s) or same-origin path; otherwise a monogram on a hue picked from the app id.
-import type { CSSProperties } from 'react';
+// when it is an http(s) or same-origin path; otherwise neutral initials.
+import { useState, type CSSProperties } from 'react';
 import { safeHttpUrl } from '../lib/trust';
 
 /**
  * The eight tile hues (each a gradient pair). Tiles keep their colour in both themes, like an
  * app icon. White monogram text is ≥ 4.5:1 on both stops of every hue (store/logic.test.ts).
  */
+const SLATE = { name: 'slate', a: '#475459', b: '#2b3539' };
+
 export const TILE_HUES: readonly { name: string; a: string; b: string }[] = [
   { name: 'teal', a: '#1f6a66', b: '#113432' },
   { name: 'blue', a: '#2447b8', b: '#1a3389' },
@@ -16,7 +18,7 @@ export const TILE_HUES: readonly { name: string; a: string; b: string }[] = [
   { name: 'green', a: '#166236', b: '#0e3f23' },
   { name: 'amber', a: '#8a5a00', b: '#5c3c00' },
   { name: 'red', a: '#b42318', b: '#7a170f' },
-  { name: 'slate', a: '#475459', b: '#2b3539' },
+  SLATE,
   { name: 'plum', a: '#8e2c74', b: '#5e1c4c' },
 ];
 export const TILE_TEXT = '#ffffff';
@@ -44,7 +46,9 @@ export interface AppIconProps {
 /** Decorative (aria-hidden): the app's name is always written next to it. */
 export function AppIcon({ app, size = 48, className }: AppIconProps) {
   const src = app.icon && (app.icon.startsWith('/') && !app.icon.startsWith('//') ? app.icon : safeHttpUrl(app.icon));
-  const hue = TILE_HUES[tileHue(app.id)]!;
+  const [failedSrc, setFailedSrc] = useState<string>();
+  const hasIcon = Boolean(src && src !== failedSrc);
+  const hue = hasIcon ? TILE_HUES[tileHue(app.id)]! : SLATE;
   return (
     <span
       className={className ? `om-app-icon ${className}` : 'om-app-icon'}
@@ -52,7 +56,7 @@ export function AppIcon({ app, size = 48, className }: AppIconProps) {
       style={{ width: size, height: size, fontSize: Math.round(size * 0.38), '--om-app-icon-a': hue.a, '--om-app-icon-b': hue.b, '--om-app-icon-fg': TILE_TEXT } as CSSProperties}
       aria-hidden="true"
     >
-      {src ? <img src={src} alt="" width={size} height={size} loading="lazy" /> : monogram(app.name)}
+      {hasIcon ? <img src={src ?? undefined} onError={() => setFailedSrc(src ?? undefined)} alt="" width={size} height={size} loading="lazy" /> : monogram(app.name)}
     </span>
   );
 }

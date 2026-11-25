@@ -60,8 +60,8 @@ describe('accents', () => {
       }
     }
   });
-  it('the default (brand) preset equals the shipped tokens, all four roles', () => {
-    expect(DEFAULT_ACCENT).toBe('onemind');
+  it('the default teal preset equals the shipped tokens, all four roles', () => {
+    expect(DEFAULT_ACCENT).toBe('teal');
     const a = presetAccent(DEFAULT_ACCENT);
     for (const [t, theme] of [['light', light], ['dark', dark]] as const) {
       expect(a[t].set).toEqual({ accent: theme.accent, hover: theme['accent-hover'], text: theme['accent-text'], soft: theme['accent-soft'] });
@@ -168,14 +168,22 @@ describe('preferences', () => {
     expect(resolveThemeAttr({ ...DEFAULT_PREFERENCES, theme: 'dark' }, at)).toBe('dark');
     expect(resolveThemeAttr({ ...DEFAULT_PREFERENCES, theme: 'schedule' }, at)).toBe('dark');
     expect(accentSeed({ ...DEFAULT_PREFERENCES, accentSource: 'wallpaper', wallpaper: 'dunes' })).toEqual({ kind: 'preset', id: 'copper' });
-    expect(accentSeed(DEFAULT_PREFERENCES)).toEqual({ kind: 'preset', id: 'onemind' });
-    expect(accentSeed({ ...DEFAULT_PREFERENCES, accentSource: 'wallpaper', wallpaper: 'none' })).toEqual({ kind: 'preset', id: 'onemind' });
+    expect(accentSeed(DEFAULT_PREFERENCES)).toEqual({ kind: 'preset', id: 'teal' });
+    expect(accentSeed({ ...DEFAULT_PREFERENCES, accentSource: 'wallpaper', wallpaper: 'none' })).toEqual({ kind: 'preset', id: 'teal' });
     expect(accentSeed({ ...DEFAULT_PREFERENCES, accentSource: 'custom', accentCustom: '#123456' })).toEqual({ kind: 'custom', hex: '#123456' });
+  });
+  it('loads pre-Atlas red preferences as personal artwork while keeping selection and actions fixed', () => {
+    const old = normalizePreferences({ version: 1, accentPreset: 'onemind', accentSource: 'preset', wallpaper: 'onemind' });
+    expect(old).toMatchObject({ accentPreset: 'onemind', wallpaper: 'onemind', commandBar: false });
+    const css = customizeCss(old);
+    expect(css).toContain(`--om-wallpaper-tint: ${ACCENTS.onemind.light};`);
+    expect(css).not.toMatch(/--om-color-(accent|action|focus|logo)/);
   });
   it('writes CSS that mirrors the token theme selectors', () => {
     const css = customizeCss({ ...DEFAULT_PREFERENCES, accentSource: 'preset', accentPreset: 'rose', corners: 'round' });
-    expect(css).toContain(`--om-color-accent: ${ACCENTS.rose.light};`);
-    expect(css).toContain(`--om-color-accent: ${ACCENTS.rose.dark};`);
+    expect(css).toContain(`--om-wallpaper-tint: ${ACCENTS.rose.light};`);
+    expect(css).toContain(`--om-wallpaper-tint: ${ACCENTS.rose.dark};`);
+    expect(css).not.toMatch(/--om-color-(accent|action|focus|logo)/);
     expect(css).toContain(":root:root[data-theme='dark']");
     expect(css).toContain('@media (prefers-color-scheme: dark)');
     expect(css).toContain('--om-radius-lg: 20px;');
@@ -188,7 +196,7 @@ describe('preferences', () => {
     expect(root.getAttribute('data-om-density')).toBe('compact');
     expect(root.getAttribute('data-om-glass')).toBe('off');
     expect(root.style.fontSize).toBe('125%');
-    expect(document.getElementById(STYLE_ID)?.textContent).toContain('--om-color-accent');
+    expect(document.getElementById(STYLE_ID)?.textContent).toContain('--om-wallpaper-tint');
     applyPreferences({ ...DEFAULT_PREFERENCES, transparency: 'on' });
     expect(root.hasAttribute('data-theme')).toBe(false);
     expect(root.getAttribute('data-om-glass')).toBe('on');
