@@ -104,7 +104,7 @@ func TestSystemHostnameSavesTheNameAndAsksHostnamedAndAvahi(t *testing.T) {
 	if b, _ := os.ReadFile(hosts); string(b) != "127.0.0.1\tlocalhost\n127.0.1.1\tkitchen\n::1\t\tlocalhost\n" {
 		t.Fatalf("hosts %q", b)
 	}
-	want := []string{"hostnamectl --transient set-hostname kitchen", "systemctl try-restart avahi-daemon.service"}
+	want := []string{"systemctl start onemind-hostname.service", "systemctl try-restart avahi-daemon.service"}
 	if strings.Join(calls, "|") != strings.Join(want, "|") {
 		t.Fatalf("calls %v", calls)
 	}
@@ -125,7 +125,7 @@ func TestSystemHostnameSavesTheNameAndAsksHostnamedAndAvahi(t *testing.T) {
 		return []byte("denied"), errors.New("exit 1")
 	}
 	if err := h.Set(context.Background(), "garage"); err == nil || !strings.Contains(err.Error(), "denied") {
-		t.Fatalf("hostnamectl failure must surface: %v", err)
+		t.Fatalf("helper unit failure must surface: %v", err)
 	}
 }
 

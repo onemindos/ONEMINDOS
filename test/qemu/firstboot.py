@@ -593,6 +593,7 @@ def main():
             vm.mark("F3 reboot keeps state")
             seg = vm.here(); vm.send("systemctl reboot")
             al = vm.expect(ALREADY, 900).group(0)
+            vm.pos = seg  # the gate can print its verdict before "already configured" (as in F1): search this boot's output
             g3 = vm.wait_gate(); vm.shell_ready()
             new_toks = TOKEN.findall(vm.since(seg))
             ids3 = ident(vm)

@@ -35,10 +35,10 @@ func execRunner(ctx context.Context, name string, args ...string) ([]byte, error
 	return exec.CommandContext(ctx, name, args...).CombinedOutput()
 }
 
-// SystemHostname renames the box: it writes the name where the next boot reads it, asks systemd-hostnamed
-// (over D-Bus, through hostnamectl) to switch the running name, rewrites the 127.0.1.1 line of the hosts file
+// SystemHostname renames the box: it writes the name where the next boot reads it, starts
+// onemind-hostname.service to switch the running name, rewrites the 127.0.1.1 line of the hosts file
 // and restarts avahi so <name>.local answers at once. onemind-host.service has ProtectHostname=yes, so it
-// could not call sethostname itself and must not: hostnamed does it for the whole box.
+// cannot call sethostname itself: the helper unit does it for the whole box.
 type SystemHostname struct {
 	File   string // DefaultHostnameFile
 	K3sEnv string // DefaultK3sEnv
@@ -71,9 +71,10 @@ func (h SystemHostname) Set(ctx context.Context, name string) error {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	// --transient: only the running name. The static name would be written to /etc/hostname (read-only).
-	if out, err := h.run()(ctx, "hostnamectl", "--transient", "set-hostname", name); err != nil {
-		return fmt.Errorf("hostnamectl: %w: %s", err, strings.TrimSpace(string(out)))
+	// onemind-hostname.service reads the saved name and sets the kernel host name (this unit's own sandbox has a
+	// private host name, so it cannot; hostnamed would also keep the static name from /etc/hostname).
+	if out, err := h.run()(ctx, "systemctl", "start", "onemind-hostname.service"); err != nil {
+		return fmt.Errorf("applying the name: %w: %s", err, strings.TrimSpace(string(out)))
 	}
 	// /etc/hosts is a bind mount of the data partition's file and this unit's root is read-only (ProtectSystem=strict),
 	// so the source file is rewritten: same inode, so /etc/hosts shows it at once. No such file (a board without the

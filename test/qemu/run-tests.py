@@ -183,7 +183,8 @@ class VM:
 
     def shell_ready(self):
         time.sleep(2); self.send("")
-        self.expect(r"root@onemind:~# ", 300)
+        # Any host name: F13 renames the box (P-05) and F3 then reboots into the new name.
+        self.expect(r"root@[a-z0-9-]+:~# ", 300)
         self.run("bind 'set enable-bracketed-paste off' 2>/dev/null; stty cols 200; export SYSTEMD_PAGER= SYSTEMD_COLORS=0 KUBECONFIG=/run/k3s/k3s.yaml")
         self.run("mkdir -p /run/onemind-test && (mountpoint -q /run/onemind-test || "
                  "mount -o ro /dev/disk/by-label/onemind-test /run/onemind-test)")
