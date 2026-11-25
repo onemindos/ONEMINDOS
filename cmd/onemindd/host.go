@@ -75,13 +75,14 @@ func runHost(args []string) int {
 	svc := &host.Service{Power: host.Systemd{}, OS: &host.UpdateEngine{ConfigPath: *conf, Log: log},
 		Roll:   &host.SlotRollback{ConfigPath: *conf},
 		BootID: host.BootID(), Delay: *delay, Log: log,
-		Reset: &host.FactoryReset{},
-		Units: units,
-		Zones: &host.Timezone{},
-		Names: host.SystemHostname{},
-		Media: &host.Housekeeping{Run: storage.ExecRunner{}},
-		SMB:   &smb.Manager{P: smb.DefaultPaths(), Run: smb.ExecRunner{}},
-		SSH:   &ownerssh.Manager{Run: ownerssh.ExecRunner{}}}
+		Reset:  &host.FactoryReset{},
+		Units:  units,
+		Zones:  &host.Timezone{},
+		Names:  host.SystemHostname{},
+		Media:  &host.Housekeeping{Run: storage.ExecRunner{}},
+		Keymap: &host.KeymapStore{Units: units}, // P-11: /data/onemind/console/keyboard, the console and kiosk units
+		SMB:    &smb.Manager{P: smb.DefaultPaths(), Run: smb.ExecRunner{}},
+		SSH:    &ownerssh.Manager{Run: ownerssh.ExecRunner{}}}
 	if st, err := host.OpenStore(*journal); err != nil {
 		log.Error("host journal unavailable: status only, every action refused", "dir", *journal, "err", err)
 	} else {

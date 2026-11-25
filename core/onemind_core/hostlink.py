@@ -3,7 +3,7 @@
 
 `onemindd host serve` runs as root on the box and listens on /run/onemind/host.sock (mode 0660,
 root:onemind). It does what an owner already approved, from the id of the approved action, and
-nothing else: restart, shut down, factory reset, install an OS update, restart one service (#636), rename the box (P-05). This module is the gateway's
+nothing else: restart, shut down, factory reset, install an OS update, restart one service (#636), rename the box (P-05), set the keyboard layout (P-11). This module is the gateway's
 half of that contract:
 
 - `HostLink.problem(type)`: can this box do it now? (`GET /v1/status`)
@@ -55,6 +55,7 @@ KINDS = {
     "system.set_timezone": "set-timezone",  # P-04: one IANA zone; the host keeps it on /data
     "instance.rename": "set-hostname",  # P-05: the box's DNS label; avahi then answers <name>.local
     "storage.eject": "eject",  # P-10: unmount and power off one removable drive; the host checks it again
+    "system.set_keymap": "set-keymap",  # P-11: the console and kiosk keyboard layout; the host checks the image offers it
 }
 ACTION_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 # RFC 1123 labels: what the host helper may call the box (H-06: the answer is checked, not trusted).
@@ -64,6 +65,8 @@ PLAN_SHA = re.compile(r"^[0-9a-f]{64}$")  # internal/host: the hash of the facto
 LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")  # the box name: one lower-case DNS label
 SERIAL = re.compile(r"^[A-Za-z0-9._:-]{1,64}$")
 DEVICE = re.compile(r"^/dev/[a-z][a-z0-9]{1,15}$")
+LAYOUT = re.compile(r"^[A-Za-z0-9_]{1,24}$")  # xkb layout and variant ids (internal/keymap)
+VARIANT = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
 UNIT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.@-]{0,90}\.(service|socket|timer|path)$")
 ZONE = re.compile(r"^[A-Za-z][A-Za-z0-9_+-]*(/[A-Za-z0-9_+-]+){0,2}$")  # same shape as internal/host ZoneName
 NOT_ZONES = frozenset({"localtime", "posixrules", "Factory"})  # tzdata helper entries; localtime loops (host list)
@@ -224,6 +227,13 @@ class HostLink:
                 if not isinstance(serial, str) or not SERIAL.fullmatch(serial):
                     return ExecResult("failed", "the eject has a malformed drive serial", steps=[{"step": "host", "result": "bad_request"}])
                 body["serial"] = serial
+        if kind == "set-keymap":
+            layout, variant = (a.params or {}).get("layout"), (a.params or {}).get("variant")
+            if not isinstance(layout, str) or not LAYOUT.fullmatch(layout) or (variant is not None and (not isinstance(variant, str) or not VARIANT.fullmatch(variant))):
+                return ExecResult("failed", "the request has no approved layout", steps=[{"step": "host", "result": "bad_request"}])
+            body["layout"] = layout
+            if variant:
+                body["variant"] = variant
         with self._lock:
             self._inflight.add(a.id)
         try:

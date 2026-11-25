@@ -341,3 +341,19 @@ F29 runs on the slot-A boot from F1, after F12, from the hub's shell. F30 and F3
 | F31 | Console layout survives an A/B update | After the F4 update to slot B: the file still says `de`, the service is `active` and keycode 21 maps to `z` | The layout is lost or the unit failed |
 
 Required for this task's "done": F29-F31 PASS on x86_64-efi in CI's image workflow. It is written without having run QEMU here; a harness bug found on the first run may be fixed and re-run once, named as such, under section 1's rule. Not covered by F29: the cloud boards get no VA-API packages (a unit test checks the lists).
+
+## 24. Amendment (2026-11-25): F32, the keyboard layout is changed through the host service and survives reboot and update (P-11)
+
+*(Renumbered in the round-2 integration of skipped OS PRs: PR #1161 pre-registered F23 as F32 and referred to #1114's F20-F22, now F29-F31; the IDs and the section numbers are the only changes.)*
+
+**Status:** PRE-REGISTERED before F32 was run (its code and this text are in one change; no QEMU run had happened). F0-F31 above are unchanged. The sha256 of this file with this section is appended to `PREREGISTRATION.sha256`. **Serves:** P-11 of the native-features plan (Settings > Language & region, `onemind keyboard set`): an owner-approved `set-keymap` host action writes the layout to `/data/onemind/console/keyboard` and loads it into the text console and the kiosk screen. **First run:** CI's image workflow, or the R530 build worker.
+
+What this does not prove: the owner's approval and the gateway half (a request filed, approved, sent to the host) are unit-tested in `core/tests/test_keyboard.py` against a stand-in host, not here. F32 sends the same request the gateway sends, as root on the host socket (the socket admits root and the gateway's user only), which is the host service's own contract. The kiosk screen is not started in the VM (no cage, no monitor): its use of the file is covered by `test/unit/test_kiosk.py`. The VM has no physical keyboard, so F32 checks the kernel's key table (`dumpkeys`), as F30 does.
+
+F32 runs on the slot-A boot from F1, right after F30's first half (which leaves the console on `de` with an empty variant), before the F3 reboot. It is judged again after the F3 reboot and after the F4 update to slot B, with nothing written in between. It reaches nothing outside the VM.
+
+| ID | Test | PASS if | FAIL if |
+|---|---|---|---|
+| F32 | `set-keymap` through the host socket changes the layout, refuses what the image does not offer, and the choice survives reboot and update | Before the reboot: `GET /v1/status` on the host socket lists `set-keymap` as available; `GET /v1/keyboard` answers schema `onemind.keyboard/v1`, current layout `de`, empty variant, `seeded` false, and the list offers `nodeadkeys` for `de`. `POST /v1/operations` `{kind: set-keymap, layout: de, variant: nodeadkeys}` answers 202 and the operation ends `succeeded`; the file's layout is `de` and variant `nodeadkeys` (read back through `GET /v1/keyboard`); `onemind-console-keyboard.service` is `active`, keycode 21 still maps to `z`, and keycode 13 changes from a dead key (`dead_` in its symbol) to a plain one. A request for layout `zz` answers 409 reason `unknown_layout`, and one for `de;reboot` answers 400; neither changes the file or the console. After the F3 reboot: layout `de`, variant `nodeadkeys`, not `seeded`, the unit `active`, keycode 21 `z` and keycode 13 the same plain symbol as before the reboot. After the F4 update to slot B (when the run goes that far): the same | Any step differs: the kind is missing or unavailable, the operation fails, the variant is not loaded, an unknown or malformed layout is accepted or changes anything, or the reboot or update loses the choice |
+
+Required for this task's "done": F32 PASS on x86_64-efi (qemu, hub role). A harness bug found on the first run may be fixed and re-run once, named as such, under section 1's rule.

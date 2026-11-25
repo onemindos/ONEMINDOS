@@ -339,7 +339,7 @@ RUN set -eu; \
     /usr/lib/onemind/restic version | grep -q 'restic 0.19.1'; command -v sqlite3 >/dev/null; \
     for t in smartctl sgdisk btrfs jq htop rsync nano less ethtool dmidecode lspci lsusb ping; do command -v $t >/dev/null || { echo "missing $t"; exit 1; }; done; \
     for t in loadkeys dumpkeys ckbcomp setupcon; do command -v $t >/dev/null || { echo "missing $t"; exit 1; }; done; \
-    test -f /usr/share/X11/xkb/symbols/de; \
+    test -f /usr/share/X11/xkb/symbols/de; test -f /usr/share/X11/xkb/rules/base.lst; \
     /usr/lib/onemind/gateway/venv/bin/python3 -I -c "import onemind_core" ; \
     if [ -x /tmp/onemind/board/post-install.sh ]; then /tmp/onemind/board/post-install.sh; fi; \
     if [ "$(cat /usr/lib/onemind/network-stack)" = networkmanager ]; then \

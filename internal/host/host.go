@@ -20,11 +20,13 @@ import (
 	"regexp"
 	"sync"
 	"time"
+
+	"github.com/onemindos/onemindos/internal/keymap"
 )
 
 // Kinds of host action. The gateway's action types map onto them:
 // system.restart, system.shutdown, system.factory_reset, os.update.install,
-// os.rollback, service.restart, system.set_timezone, instance.rename, storage.eject.
+// os.rollback, service.restart, system.set_timezone, instance.rename, storage.eject, system.set_keymap.
 const (
 	KindRestart        = "restart"
 	KindShutdown       = "shutdown"
@@ -34,11 +36,12 @@ const (
 	KindServiceRestart = "service-restart"
 	KindSetTimezone    = "set-timezone"
 	KindSetHostname    = "set-hostname"
-	KindEject          = "eject" // P-10: unmount and power off one USB drive
+	KindEject          = "eject"      // P-10: unmount and power off one USB drive
+	KindSetKeymap      = "set-keymap" // P-11: the console and kiosk keyboard layout (keymap.go)
 )
 
 // Kinds lists every kind in a stable order (GET /v1/status).
-var Kinds = []string{KindRestart, KindShutdown, KindFactoryReset, KindOSInstall, KindOSRollback, KindServiceRestart, KindSetTimezone, KindSetHostname, KindEject}
+var Kinds = []string{KindRestart, KindShutdown, KindFactoryReset, KindOSInstall, KindOSRollback, KindServiceRestart, KindSetTimezone, KindSetHostname, KindEject, KindSetKeymap}
 
 // Operation states. going_down: the box was told to reboot or power off; the
 // next boot turns it into succeeded.
@@ -94,6 +97,9 @@ type Request struct {
 	// Serial (eject only, optional) is the serial number the drive had when the owner was asked. If the stick was
 	// swapped for another one before approval, the serial differs and the host refuses. Empty: the drive reports none.
 	Serial string `json:"serial,omitempty"`
+	// Layout and Variant (set-keymap only; Layout required) are the xkb names the owner approved ("de", "nodeadkeys").
+	Layout  string `json:"layout,omitempty"`
+	Variant string `json:"variant,omitempty"`
 }
 
 // Validate refuses a malformed request (HTTP 400).
@@ -115,6 +121,9 @@ func (r Request) Validate() error {
 	}
 	if r.Serial != "" && (r.Kind != KindEject || !serialRe.MatchString(r.Serial)) {
 		return errors.New("serial is only for eject and is 1-64 characters of A-Z a-z 0-9 . _ : -")
+	}
+	if (r.Kind == KindSetKeymap) != (r.Layout != "") || (r.Kind != KindSetKeymap && r.Variant != "") {
+		return fmt.Errorf("layout is required for %s and only for it (variant too)", KindSetKeymap)
 	}
 	switch r.Kind {
 	case KindEject:
@@ -169,8 +178,15 @@ func (r Request) Validate() error {
 		if !hostnameRe.MatchString(r.Hostname) {
 			return errors.New("hostname must be one lower-case DNS label (a-z, 0-9 and -, at most 63 characters)")
 		}
+	case KindSetKeymap:
+		if r.Version != "" || r.PlanSHA256 != "" {
+			return errors.New("set-keymap takes only a layout and a variant")
+		}
+		if err := keymap.ValidID(r.Layout, r.Variant); err != nil {
+			return err
+		}
 	default:
-		return fmt.Errorf("unknown kind %q (restart, shutdown, factory-reset, os-install, os-rollback, service-restart, set-timezone, set-hostname, eject)", r.Kind)
+		return fmt.Errorf("unknown kind %q (restart, shutdown, factory-reset, os-install, os-rollback, service-restart, set-timezone, set-hostname, eject, set-keymap)", r.Kind)
 	}
 	return nil
 }
@@ -186,6 +202,8 @@ type Op struct {
 	Hostname   string     `json:"hostname,omitempty"`    // set-hostname: the approved name
 	Device     string     `json:"device,omitempty"`      // eject: the approved drive
 	Serial     string     `json:"serial,omitempty"`      // eject: its serial when approved
+	Layout     string     `json:"layout,omitempty"`      // set-keymap: the approved layout
+	Variant    string     `json:"variant,omitempty"`     // set-keymap: the approved variant
 	State      string     `json:"state"`
 	Reason     string     `json:"reason,omitempty"` // failed: a stable code
 	Message    string     `json:"message,omitempty"`
@@ -248,6 +266,19 @@ type Hostnamer interface {
 	Reload(ctx context.Context) error
 }
 
+// Keymap reads and changes the keyboard layout of the text console and the kiosk screen (keymap.go).
+type Keymap interface {
+	// Unavailable says why this image cannot change the layout (no list of layouts), or "".
+	Unavailable() string
+	// View is what the owner can pick from and what is picked now.
+	View() (KeymapView, error)
+	// Check refuses a layout or variant the image does not offer (wrapping keymap.ErrUnknown).
+	Check(layout, variant string) error
+	// Set writes the layout to /data and applies it to the console and the kiosk. When applying fails it puts the
+	// previous layout back, so a bad choice never leaves a box with a keyboard it cannot type on.
+	Set(ctx context.Context, layout, variant string) error
+}
+
 // Service runs the actions. Power, OS and Reset may be nil: that kind is then
 // reported unavailable and refused.
 type Service struct {
@@ -262,6 +293,7 @@ type Service struct {
 	Zones  Zones         // set-timezone; nil: refused
 	Names  Hostnamer     // set-hostname; nil: refused
 	Media  Media         // storage housekeeping and eject (housekeeping.go); nil: not on this box
+	Keymap Keymap        // set-keymap; nil: refused
 	BootID string        // /proc/sys/kernel/random/boot_id
 	Delay  time.Duration // before the box goes down, so the gateway records "accepted" first
 	Now    func() time.Time
@@ -323,6 +355,11 @@ func (s *Service) Unavailable(kind string) string {
 			return "this host service cannot eject drives"
 		}
 		return s.Media.Unavailable()
+	case KindSetKeymap:
+		if s.Keymap == nil {
+			return "this host service cannot change the keyboard layout"
+		}
+		return s.Keymap.Unavailable()
 	case KindFactoryReset:
 		if s.Reset == nil {
 			return "factory reset is not in this OneMind version yet: the early-boot wipe ships separately (HOST-ACTIONS.md §4)"
@@ -356,7 +393,7 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if old, err := s.Store.Get(req.ActionID); err == nil {
-		if old.Kind != req.Kind || old.Version != req.Version || old.PlanSHA256 != req.PlanSHA256 || old.Unit != req.Unit || old.Zone != req.Zone || old.Hostname != req.Hostname || old.Device != req.Device || old.Serial != req.Serial {
+		if old.Kind != req.Kind || old.Version != req.Version || old.PlanSHA256 != req.PlanSHA256 || old.Unit != req.Unit || old.Zone != req.Zone || old.Hostname != req.Hostname || old.Device != req.Device || old.Serial != req.Serial || old.Layout != req.Layout || old.Variant != req.Variant {
 			return Op{}, false, &Refusal{"action_id_reused", "action " + req.ActionID + " was already sent as a different request"}
 		}
 		if s.active != nil && s.active.ID == old.ID {
@@ -374,7 +411,8 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 	}
 	// A restart, shutdown or reset in the middle of an OS update would cut the
 	// install short or spend one of the health gate's trial boots.
-	if req.Kind != KindOSInstall && s.OS != nil {
+	// A keyboard layout change touches no update state, so it is allowed during one.
+	if req.Kind != KindOSInstall && req.Kind != KindSetKeymap && s.OS != nil {
 		if why := s.OS.UpdateBusy(); why != "" {
 			return Op{}, false, &Refusal{"update_in_progress", why}
 		}
@@ -400,6 +438,16 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 			return Op{}, false, &Refusal{"unavailable", err.Error()}
 		}
 	}
+	if req.Kind == KindSetKeymap {
+		// Checked again here, whatever the gateway said: the layouts the signed image ships decide.
+		if err := s.Keymap.Check(req.Layout, req.Variant); err != nil {
+			reason := "unavailable"
+			if errors.Is(err, keymap.ErrUnknown) {
+				reason = "unknown_layout"
+			}
+			return Op{}, false, &Refusal{reason, err.Error()}
+		}
+	}
 	if req.Kind == KindFactoryReset {
 		// The owner approved one plan. If the disks changed since (a member
 		// added or pulled), nothing is armed: the owner must see the new plan.
@@ -408,7 +456,7 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 		}
 	}
 	now := s.now()
-	op = Op{ID: req.ActionID, Kind: req.Kind, Version: req.Version, PlanSHA256: req.PlanSHA256, Unit: req.Unit, Zone: req.Zone, Hostname: req.Hostname, Device: req.Device, Serial: req.Serial, State: StateAccepted, BootID: s.BootID,
+	op = Op{ID: req.ActionID, Kind: req.Kind, Version: req.Version, PlanSHA256: req.PlanSHA256, Unit: req.Unit, Zone: req.Zone, Hostname: req.Hostname, Device: req.Device, Serial: req.Serial, Layout: req.Layout, Variant: req.Variant, State: StateAccepted, BootID: s.BootID,
 		AcceptedAt: now, UpdatedAt: now, Message: "accepted"}
 	if err := s.Store.Put(op); err != nil {
 		return Op{}, false, err
@@ -565,6 +613,14 @@ func (s *Service) run(ctx context.Context, op Op) {
 			return
 		}
 		s.set(&op, StateSucceeded, "", op.Device+" is safe to remove")
+	case KindSetKeymap:
+		label := keymap.Label(op.Layout, op.Variant)
+		s.set(&op, StateRunning, "", "setting the keyboard layout to "+label)
+		if err := s.Keymap.Set(ctx, op.Layout, op.Variant); err != nil {
+			s.set(&op, StateFailed, "host_error", "the keyboard layout was not changed: "+err.Error())
+			return
+		}
+		s.set(&op, StateSucceeded, "", "the keyboard layout is now "+label)
 	case KindFactoryReset:
 		s.set(&op, StateRunning, "", "arming the factory reset")
 		if err := s.Reset.Arm(ctx, op); err != nil {
