@@ -56,8 +56,15 @@ func (f *fakeNM) Run(_ context.Context, name string, args ...string) ([]byte, er
 		f.checkpoint = "/org/freedesktop/NetworkManager/Checkpoint/7"
 		return []byte(`o "` + f.checkpoint + `"` + "\n"), nil
 	case strings.Contains(line, "CheckpointDestroy"):
+		// Like NetworkManager: only a checkpoint it holds can be destroyed.
+		if args[len(args)-1] != f.checkpoint || f.checkpoint == "" {
+			return nil, errors.New("busctl: Call failed: checkpoint does not exist")
+		}
 		f.checkpoint = ""
 	case strings.Contains(line, "CheckpointRollback"):
+		if args[len(args)-1] != f.checkpoint || f.checkpoint == "" {
+			return nil, errors.New("busctl: Call failed: checkpoint does not exist")
+		}
 		f.checkpoint = ""
 		for k, v := range f.rollbackTo {
 			f.props[k] = v
@@ -182,7 +189,7 @@ func TestApplyThenConfirm(t *testing.T) {
 	if err != nil || st.Pending != nil || st.Last == nil || st.Last.Result != ResultConfirmed {
 		t.Fatalf("confirm: %+v %v", st, err)
 	}
-	if f.ran("CheckpointDestroy") != 1 || f.props["ipv4.method"] != "manual" {
+	if f.ran("CheckpointDestroy o /org/freedesktop/NetworkManager/Checkpoint/7") != 1 || f.props["ipv4.method"] != "manual" {
 		t.Fatalf("confirming keeps the new settings: %v %v", f.cmds, f.props)
 	}
 	if got := m.Status(context.Background()); got.Pending != nil || got.Last.Result != ResultConfirmed {

@@ -480,10 +480,14 @@ func (m *Manager) Confirm(ctx context.Context, iface string) (Status, error) {
 	if st.Pending == nil || st.Pending.Interface != iface {
 		return Status{}, refuse("no_pending_change", "no change to %s is waiting for confirmation (it may have rolled back already)", iface)
 	}
-	if _, err := m.Run.Run(ctx, "busctl", "--system", "call", nmBus, nmPath, nmBus, "CheckpointDestroy", "o", st.Pending.Checkpoint); err != nil {
+	cur, last := m.load() // the record, not the view: only the record knows the checkpoint's path
+	if cur == nil || cur.Result != ResultPending {
+		return Status{}, refuse("no_pending_change", "no change to %s is waiting for confirmation", iface)
+	}
+	if out, err := m.Run.Run(ctx, "busctl", "--system", "call", nmBus, nmPath, nmBus, "CheckpointDestroy", "o", cur.Checkpoint); err != nil {
+		m.log().Error("network change: NetworkManager would not confirm", "interface", iface, "err", err, "reply", string(out))
 		return Status{}, refuse("confirm_failed", "NetworkManager would not confirm the change; it will roll back at its deadline")
 	}
-	cur, last := m.load()
 	last = m.finish(cur, ResultConfirmed)
 	if err := m.save(nil, last); err != nil {
 		m.log().Error("network change confirmed but not recorded", "err", err)
