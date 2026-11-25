@@ -874,6 +874,16 @@ POLICY |= {
         cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED, automation=DENIED, node=DENIED),
         lambda _w: w.Req("/v1/system/services/onemind-gateway.service/restart", json={}),
         "core/onemind_core/routers/services.py: owner or agent asks for a service restart; only an owner approves it"),
+    # The keyboard layout (P-11: core/onemind_core/routers/keyboard.py). Owner only, read only (scope system:admin); no host
+    # socket in this world, so the owner gets 200 with available=false.
+    ("GET", "/v1/system/keyboard"): Row(OWNER_ONLY, w.p_static("/v1/system/keyboard"),
+                                        "core/onemind_core/routers/keyboard.py: the console layout and what the image offers; owner only"),
+    # The owner and agents pass authorization and get 409 (no host socket: nothing is filed); with a host the request is
+    # filed and waits for the owner's approval (tests/test_keyboard.py).
+    ("POST", "/v1/system/keyboard"): Row(
+        cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        lambda _w: w.Req("/v1/system/keyboard", json={"layout": "de"}),
+        "core/onemind_core/routers/keyboard.py: owner or agent asks for a layout change; only an owner approves it"),
     # The UPS battery (IMG-06, #244: core/onemind_core/routers/ups.py). Read only; no upsd in this world, so a
     # reader gets 200 with present=false. Device health like /v1/os/about: a child has no nodes:read.
     ("GET", "/v1/system/ups"): Row(CHILD_CANNOT, w.p_static("/v1/system/ups"),
