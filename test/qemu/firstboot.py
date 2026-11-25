@@ -24,6 +24,8 @@ ALREADY = r"ONEMIND-FIRSTBOOT: already configured role=hub[^\n]*"
 TOKEN = re.compile(r"ONEMIND OWNER TOKEN: ([0-9a-f]{64})")
 UNITS = ["onemind-firstboot", "onemind-gateway", "onemind-nats", "onemindd", "onemind-update"]
 ARCH = {"x86_64-efi": "amd64", "vm": "amd64", "vm-do": "amd64", "arm64-efi": "arm64"}
+# Boards that ship VA-API (os/boards/<board>/packages-*.txt); F20 runs only on these (CRITERIA-FIRSTBOOT.md section 12: "the x86 box").
+VAAPI_BOARDS = ("x86_64-efi", "x86_64-efi-nvidia")
 RESULTS = []
 
 
@@ -616,7 +618,8 @@ def main():
         vm.mark("F10 rescue console with k3s stopped (CORE-UPDATE-9)"); f10(vm, token)
         vm.mark("F11 starting page, then the gateway, never a refused connection"); f11(vm, (os.path.dirname(a.results) or ".") if a.results else None)
         vm.mark("F12 the gateway reaches the host helper, and says missing without it (#875)"); f12(vm, token)
-        vm.mark("F20 VA-API packages and vainfo (Step 3; no GPU in QEMU)"); f20(vm)
+        if a.board in VAAPI_BOARDS:
+            vm.mark("F20 VA-API packages and vainfo (Step 3; no GPU in QEMU)"); f20(vm)
         vm.mark("F21 console layout from /data, changed to de before the reboot"); pre21 = f21_before(vm)
 
         if a.upto in ("F3", "F4"):

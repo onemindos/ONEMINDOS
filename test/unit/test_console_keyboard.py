@@ -2,7 +2,7 @@
 """Step 3 lane "video and console": VA-API packages on the x86 boards only, and the console keyboard layout
 kept on /data (os/rootfs/layers/base/usr/lib/onemind/onemind-console-keyboard). The QEMU proof is first-boot
 checks F20-F22 (test/qemu/CRITERIA-FIRSTBOOT.md section 12); here, the script's behaviour with stub tools and the wiring."""
-import hashlib, os, stat, subprocess, tempfile, unittest
+import hashlib, os, re, stat, subprocess, tempfile, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -165,6 +165,23 @@ class Wiring(unittest.TestCase):
 class Checks(unittest.TestCase):
     FB = rd("test", "qemu", "firstboot.py")
     CRIT = rd("test", "qemu", "CRITERIA-FIRSTBOOT.md")
+
+    def test_f20_runs_only_on_the_va_api_boards(self):
+        # arm64-efi, vm and vm-do carry no VA-API packages, so F20 there would always fail.
+        m = re.search(r"VAAPI_BOARDS = \(([^)]*)\)", self.FB)
+        boards = re.findall(r'"([^"]+)"', m.group(1))
+        self.assertIn("x86_64-efi", boards)
+        for b in ("arm64-efi", "vm", "vm-do"):
+            self.assertNotIn(b, boards)
+        for b in boards:
+            self.assertIn("vainfo", words(f"os/boards/{b}/packages-debian.txt"), b)
+        self.assertRegex(self.FB, r"if a\.board in VAAPI_BOARDS:\n\s+vm\.mark\(\"F20[^\n]*f20\(vm\)")
+
+    def test_console_keyboard_unit_drops_unneeded_capabilities(self):
+        u = rd(BASE, "usr/lib/systemd/system/onemind-console-keyboard.service")
+        self.assertIn("CapabilityBoundingSet=CAP_SYS_TTY_CONFIG CAP_DAC_OVERRIDE\n", u)
+        self.assertNotIn("CAP_CHOWN", u)
+        self.assertNotIn("CAP_FOWNER", u)
 
     def test_checks_are_preregistered_with_a_recorded_hash(self):
         h = hashlib.sha256(self.CRIT.encode()).hexdigest()
