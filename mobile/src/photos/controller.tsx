@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Wires the engine to the app: finds Photos in the catalog, keeps settings and the ledger, runs a
 // backup when the app opens (and every 15 minutes while it stays open), and registers the
-// background task when backup is on. The demo uses an in-memory box and a made-up library.
+// background task when backup is on. Always the phone's real library and the box's Photos service:
+// the in-memory box (mockServer.ts) and the made-up library in media.ts are for tests only.
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AppState } from 'react-native';
 import { useHubData } from '../data';
@@ -10,51 +11,29 @@ import { setBackgroundBackup } from './background';
 import { PhotoBackupContext, type BackgroundState, type PhotoBackupState } from './context';
 import { discoverPhotos } from './discovery';
 import { isRunning, runBackup, type Conditions, type Progress } from './engine';
-import { DEFAULT_SETTINGS, MemoryStore, type BackupSettings, type BackupStore, type Ledger } from './ledger';
-import { demoLibrary, type MediaAlbum, type MediaPermission, type MediaSource } from './media';
-import { MockPhotosServer } from './mockServer';
+import { DEFAULT_SETTINGS, type BackupSettings, type BackupStore, type Ledger } from './ledger';
+import type { MediaAlbum, MediaPermission, MediaSource } from './media';
 import { ExpoMedia, FileStore, PLATFORM, readConditions } from './native';
 import { HttpPhotosApi } from './protocol';
 
 const FOREGROUND_EVERY_MS = 15 * 60_000;
 
-// Demo singletons: the in-memory box and library live as long as the app process.
-let demo: { server: MockPhotosServer; media: MediaSource; store: BackupStore; conditions: Conditions } | undefined;
-function demoParts(token: string) {
-  if (!demo) {
-    const server = new MockPhotosServer({ token, latencyMs: 120 });
-    server.coverageRatio = { backed_up: 0.75, verified: 0.5 };
-    demo = { server, media: demoLibrary(), store: new MemoryStore(), conditions: { network: 'wifi', power: 'charging' } };
-  }
-  return demo;
-}
-
-/** Screenshot tour hooks (src/tour.ts); only ever set in demo mode. */
-export const photoTour: { enable?: () => Promise<void>; network?: (n: Conditions['network']) => void } = {};
-
 export function PhotoBackupProvider({ children }: { children: ReactNode }) {
   const { connection } = useSignedIn();
   const { apps } = useHubData();
-  const isDemo = connection.mode === 'mock';
-  const parts = useMemo(() => {
-    if (connection.mode === 'mock') {
-      const d = demoParts(connection.token);
-      return { ...d, conditions: async () => d.conditions, origin: d.server.origin, fetchFn: d.server.fetch, chunk: 512 * 1024 };
-    }
-    return { media: new ExpoMedia() as MediaSource, store: new FileStore() as BackupStore, conditions: readConditions, origin: '', fetchFn: undefined, chunk: undefined };
-  }, [connection]);
+  const parts = useMemo(() => ({ media: new ExpoMedia() as MediaSource, store: new FileStore() as BackupStore, conditions: readConditions }), []);
 
-  const availability = useMemo(() => discoverPhotos(connection, apps, parts.origin), [connection, apps, parts.origin]);
+  const availability = useMemo(() => discoverPhotos(connection, apps), [connection, apps]);
   const api = useMemo(
-    () => (availability.state === 'ok' ? new HttpPhotosApi({ baseUrl: availability.baseUrl, token: connection.token, fetchFn: parts.fetchFn }) : undefined),
-    [availability, connection.token, parts.fetchFn],
+    () => (availability.state === 'ok' ? new HttpPhotosApi({ baseUrl: availability.baseUrl, token: connection.token }) : undefined),
+    [availability, connection.token],
   );
 
   const [settings, setSettings] = useState<BackupSettings>(DEFAULT_SETTINGS);
   const [ledger, setLedger] = useState<Ledger | null>(null);
   const [permission, setPermission] = useState<MediaPermission>();
   const [conditions, setConditions] = useState<Conditions>();
-  const [background, setBackground] = useState<BackgroundState>(isDemo ? 'demo' : 'unknown');
+  const [background, setBackground] = useState<BackgroundState>('unknown');
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<Progress>();
   const [albums, setAlbums] = useState<MediaAlbum[]>();
@@ -85,11 +64,10 @@ export function PhotoBackupProvider({ children }: { children: ReactNode }) {
         store: parts.store,
         settings: settingsRef.current,
         conditions: parts.conditions,
-        platform: isDemo ? 'ios' : PLATFORM,
-        deviceName: isDemo ? 'Demo phone' : PLATFORM === 'ios' ? 'iPhone' : 'Android phone',
+        platform: PLATFORM,
+        deviceName: PLATFORM === 'ios' ? 'iPhone' : 'Android phone',
         trigger: 'foreground',
         signal: signal.current,
-        chunkSize: parts.chunk,
         onProgress: setProgress,
       });
     } finally {
@@ -97,7 +75,7 @@ export function PhotoBackupProvider({ children }: { children: ReactNode }) {
       setProgress(undefined);
       await refresh();
     }
-  }, [api, parts, isDemo, refresh]);
+  }, [api, parts, refresh]);
 
   // Run on open, on return to the foreground, and every 15 minutes while open.
   useEffect(() => {
@@ -114,9 +92,8 @@ export function PhotoBackupProvider({ children }: { children: ReactNode }) {
   }, [api, settings.enabled, runNow]);
 
   useEffect(() => {
-    if (isDemo) return;
     void setBackgroundBackup(settings.enabled && availability.state === 'ok').then(setBackground);
-  }, [isDemo, settings.enabled, availability.state]);
+  }, [settings.enabled, availability.state]);
 
   const updateSettings = useCallback(
     async (patch: Partial<BackupSettings>) => {
@@ -136,15 +113,6 @@ export function PhotoBackupProvider({ children }: { children: ReactNode }) {
     signal.current.aborted = true;
   }, []);
 
-  useEffect(() => {
-    if (!isDemo) return;
-    photoTour.enable = () => updateSettings({ enabled: true });
-    photoTour.network = (n) => {
-      demoParts(connection.mode === 'mock' ? connection.token : '').conditions = { network: n, power: 'charging' };
-      void refresh().then(() => (n === 'wifi' ? runNow() : undefined));
-    };
-  }, [isDemo, updateSettings, refresh, runNow, connection]);
-
   const value: PhotoBackupState = {
     availability,
     settings,
@@ -156,7 +124,6 @@ export function PhotoBackupProvider({ children }: { children: ReactNode }) {
     progress,
     albums,
     host: api?.host,
-    demo: isDemo,
     runNow,
     stop,
     updateSettings,

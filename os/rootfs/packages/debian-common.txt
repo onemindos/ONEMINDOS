@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Base layer, Debian 13 leg (brief 30 B2). Versions come from the pinned snapshot
-# (os/versions.lock.yaml); the resolved list is exported as /usr/lib/onemind/packages.txt.
+# (os/versions.lock.yaml); the resolved list is exported as /usr/lib/onemind/packages.txt
+# ("<package> <version> <arch> <installed size in KiB>" per line, the size for the size budget).
 systemd systemd-sysv systemd-resolved udev dbus login passwd
 # Compressed RAM swap (zram) so one big app cannot push the control plane into the OOM killer
 systemd-zram-generator
@@ -16,6 +17,11 @@ avahi-daemon avahi-utils openssl
 # File sharing (D-017): Samba with the vfs_fruit module for Time Machine, and the NSS module that lets Samba name its
 # per-person accounts from /data (the root is read-only). The Debian smbd, nmbd and winbind units are masked below.
 samba samba-vfs-modules libnss-extrausers
+# NAS client tools (#871): mount an SMB or NFS share from a NAS as a Files location (#718). Clients only: no
+# nfs-kernel-server or ksmbd-tools, and the rpcbind and nfs-client units nfs-common enables are disabled below
+# (os/rootfs/Containerfile); rpc-statd still starts on demand for an NFSv3 lock. The kernel's cifs and nfs modules
+# come with linux-image-*. Battery step: test/qemu/CRITERIA-NAS.md (TN0-TN2).
+cifs-utils nfs-common
 initramfs-tools
 # Boot splash (brand/generated/os/plymouth): graphical console only, the serial console is untouched
 plymouth plymouth-label fontconfig fonts-dejavu-core
@@ -26,3 +32,6 @@ libglib2.0-0t64 libssl3t64 libcurl4t64 libjson-glib-1.0-0 libfdisk1 libnl-genl-3
 # TPM2 libraries systemd loads at run time for tpm2-device=auto. Debian 13 package names, checked with apt-cache.
 # btrfs-progs: /data is btrfs with subvolumes @, @storage, @snapshots (#152).
 cryptsetup-bin systemd-cryptsetup btrfs-progs libtss2-esys-3.0.2-0t64 libtss2-rc0t64 libtss2-mu-4.0.1-0t64 libtss2-tcti-device0t64
+# UPS support (IMG-06, #244): NUT's client (upsmon, upsc) and server (upsd, upsdrvctl, nut-scanner, the USB drivers
+# and the udev rule that gives the nut group the UPS). The Debian nut-* units are masked; onemind-ups*.service run it.
+nut-client nut-server

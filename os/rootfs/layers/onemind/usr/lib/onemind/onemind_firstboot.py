@@ -35,6 +35,7 @@ import pathlib
 import pwd
 import re
 import secrets
+import shutil
 import socket
 import subprocess
 import sys
@@ -126,8 +127,11 @@ class Paths:
         self.job_key = j("data", "onemind", "custodian", "job.key")
         self.backup = j("data", "onemind", "backup")                     # the agent's state; agent.json is its settings
         self.backup_conf = j("data", "onemind", "backup", "agent.json")
+        self.backup_export = j("data", "onemind", "gateway", "backup-export")  # the built-ins' export (#616)
         self.rescue_tls = j("data", "onemind", "tls")   # https.crt/https.key for onemind-rescue (CORE-UPDATE-9)
         self.files = j("data", "onemind", "files")      # the gateway's ONEMIND_FILES_ROOT (and Samba's shares)
+        self.k3s_data = j("data", "k3s")                # k3s --data-dir (a leaf removes it, retire_k3s)
+        self.k3s_run = j("run", "k3s")                  # tmpfs: exists only if k3s started on this boot
 
 
 # ------------------------------------------------------------------ settings
@@ -584,12 +588,25 @@ def gateway_env(p: Paths, st: dict, mesh_ip: str | None = None, js_max_bytes: in
 K3S_BACKUP_VERSION = "v1.37.2-k3s1"     # os/versions.lock.yaml k3s.version, "+" written as "-"
 
 
+def backup_system_paths(p: Paths) -> list[str]:
+    """What the agent's `system` unit copies as files: settings, the box CA, NATS keys, and (#616) the
+    built-ins' table export the gateway writes before each run plus the built-in folders on this box."""
+    return [p.etc, p.tls, p.nats_keys, p.backup_export, p.files]
+
+
+def builtin_backup_env(p: Paths) -> str:
+    """Tells the gateway where to write the built-ins' export and which built-in folders the agent copies
+    (ONEMIND_FILES_ROOT = p.files above), so GET /v1/backups/status can say they are in a snapshot."""
+    return ("# Built-in apps' data in the system unit (#616; core/onemind_core/backups/units.py).\n"
+            f"ONEMIND_BACKUPS_EXPORT_DIR={p.backup_export}\nONEMIND_BACKUPS_AGENT_DIRS=ONEMIND_FILES_ROOT\n")
+
+
 def backup_gateway_env(p: Paths) -> str:
     """The gateway's backup lines; empty until the job key exists (so a failed key never half-enables it)."""
     if not os.path.exists(p.job_key):
         return ""
     return ("# Backups (core/onemind_core/backups; onemind-firstboot ensure_backup).\n"
-            f"ONEMIND_BACKUPS_ENABLED=1\nONEMIND_BACKUPS_JOB_KEY_FILE={p.job_key}\n")
+            f"ONEMIND_BACKUPS_ENABLED=1\nONEMIND_BACKUPS_JOB_KEY_FILE={p.job_key}\n" + builtin_backup_env(p))
 
 
 def backup_agent_conf(p: Paths, node_id: str) -> dict:
@@ -608,7 +625,7 @@ def backup_agent_conf(p: Paths, node_id: str) -> dict:
         "retention": {"hourly": 24, "daily": 7, "weekly": 4, "monthly": 12},
         "targets": [],
         "units": {
-            "system": {"paths": [p.etc, p.tls, p.nats_keys],
+            "system": {"paths": backup_system_paths(p),
                        "sqlite": [{"path": f"{p.gateway}/onemind.db", "name": "gateway.db"}],
                        "audit_log": f"{p.gateway}/audit.jsonl"},
             "k3s": {"paths": ["/data/k3s/server/token", "/data/k3s/server/tls",
@@ -624,6 +641,19 @@ def _append_missing(path: str, key: str, text: str) -> None:
     if old is None or re.search(rf"(?m)^{key}=", old):
         return
     write(path, old + ("" if old.endswith("\n") else "\n") + text)
+
+
+def upgrade_agent_conf(p: Paths) -> None:
+    """A box set up before #616 keeps its agent.json; add the system paths it lacks, change nothing else."""
+    conf = json.loads(_read(p.backup_conf) or "{}")
+    system = conf.get("units", {}).get("system")
+    if not isinstance(system, dict):
+        return
+    paths = list(system.get("paths") or [])
+    missing = [x for x in backup_system_paths(p) if x not in paths]
+    if missing:
+        system["paths"] = paths + missing
+        write(p.backup_conf, json.dumps(conf, indent=2) + "\n")
 
 
 def ensure_backup(p: Paths, st: dict) -> None:
@@ -647,12 +677,20 @@ def ensure_backup(p: Paths, st: dict) -> None:
         pub = os.path.join(p.backup, "job.pub")
         with open(os.path.join(p.custodian, "job.pub"), encoding="utf-8") as f:
             write(pub, f.read(), 0o644)
+        # The gateway writes the built-ins' export here; the agent must find it at its first run (#616).
+        os.makedirs(p.backup_export, mode=0o700, exist_ok=True)
+        os.chmod(p.backup_export, 0o700)
+        if ids:
+            os.chown(p.backup_export, *ids)
         if not os.path.exists(p.backup_conf):
             write(p.backup_conf, json.dumps(backup_agent_conf(p, st["node_id"]), indent=2) + "\n")
+        else:
+            upgrade_agent_conf(p)
         _append_missing(os.path.join(p.etc, "onemindd.env"), "ONEMIND_BACKUP_CONF",
                         f"# Backups (IMG-BACKUP-01): onemindd starts the backup agent from this file.\n"
                         f"ONEMIND_BACKUP_CONF={p.backup_conf}\n")
         _append_missing(os.path.join(p.etc, "gateway.env"), "ONEMIND_BACKUPS_ENABLED", backup_gateway_env(p))
+        _append_missing(os.path.join(p.etc, "gateway.env"), "ONEMIND_BACKUPS_EXPORT_DIR", builtin_backup_env(p))
     except Exception as e:  # noqa: BLE001
         log(f"backups not set up: {e}")
 
@@ -911,8 +949,40 @@ def ensure_files_root(p: Paths) -> None:
         os.chown(p.files, *ids)
 
 
+# What k3s writes under its --data-dir. /data/k3s itself and /data/k3s/storage are made on every box by
+# onemind-data-layout.service and tmpfiles.d/onemind-backup.conf, so they stay.
+K3S_WRITES = ("server", "agent", "data")
+
+
+def retire_k3s(p: Paths) -> None:
+    """An edge (role leaf, #751) never runs a k3s server, yet the image boots one before the box has a role.
+    k3s.service skips itself once the role file says leaf (k3s.service.d/20-onemind-leaf.conf); this stops the
+    one that ran on the boot the role was picked, and on a later boot, when k3s never started (no /run/k3s, a
+    tmpfs), removes what it left on /data: its own server token, certificates and datastore. Never while k3s
+    may still hold the folder. Pods it started keep running until the next restart (KillMode=process).
+    Only a k3s that is already running is stopped: a stop sent while its start job still waits (for
+    network-online.target) would cancel that job, so k3s would never reach its condition and the skip would
+    not show (CRITERIA-EDGE.md EG2 found this)."""
+    try:
+        state = run_cmd(["systemctl", "show", "-p", "ActiveState", "--value", "k3s.service"]).stdout.strip()
+    except OSError:
+        state = "unknown"                  # no systemctl: never remove anything on a guess
+    running = os.path.lexists(p.k3s_run) or state in ("active", "activating", "reloading")
+    if running:
+        systemctl("stop", "--no-block", "k3s.service")
+    left = [os.path.join(p.k3s_data, d) for d in K3S_WRITES if os.path.lexists(os.path.join(p.k3s_data, d))]
+    if running or state not in ("inactive", "failed") or not left:
+        return
+    for d in left:
+        shutil.rmtree(d, ignore_errors=True)
+    msg = "ONEMIND-FIRSTBOOT: edge: removed the k3s state left from before the role was picked"
+    log(msg); console(p, msg)
+
+
 def start_units(p: Paths, st: dict) -> None:
     role = st["role"]
+    if role == "leaf":
+        retire_k3s(p)
     if role == "hub":
         ensure_files_root(p)               # before the gateway: its sandbox needs the folder to exist
         ensure_rescue_tls(p)               # boxes configured before CORE-UPDATE-9 get their pair now

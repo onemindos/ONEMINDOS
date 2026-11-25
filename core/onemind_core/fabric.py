@@ -48,6 +48,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import JSON, DateTime, String, Text, delete, func, select, update
 from sqlalchemy.orm import Mapped, mapped_column
 
+from .agents_nats import agent_users
 from .auth import Principal
 from .ca import MESH_DOMAIN, BoxCA
 from .errors import ApiError
@@ -70,6 +71,8 @@ REQUEST_TTL = timedelta(minutes=15)       # an unapproved join request expires (
 COLLECT_TTL = timedelta(minutes=15)       # approved credentials not collected in time
 FIRST_HEARTBEAT_TTL = timedelta(minutes=30)
 K3S_TOKEN_TTL = timedelta(hours=1)
+# A join handed a mesh key is joined only after the §5.1 bind check; with the mesh off nothing can run it.
+MESH_OFF_REASON = "the mesh was turned off before this machine's mesh check; make a new join code"
 POLL_CONTEXT = b"onemind-join-poll:v1:"
 _CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 NODE_ID_RE = re.compile(r"^[a-z0-9]{1,32}$")
@@ -618,6 +621,17 @@ class FabricService:
         self.repo = FabricRepository(deps.db)
         self.limiter = SourceLimiter(deps.clock)
         self._tick_lock = threading.Lock()
+        # The client the owner last switched off (PUT /v1/mesh/settings): it still cleans up the joins
+        # that were handed one of its keys, since d.mesh is None from then on.
+        self._retired_mesh: MeshService | None = None
+        # Called with the node id when a join is approved, after its NATS account exists (#747: the
+        # gateway's JetStream side then creates the node's hub source stream, jetstream.HubSource).
+        # A failing hook is logged and never undoes the approval.
+        self.approved_hooks: list[Callable[[str], None]] = []
+
+    def node_ids(self) -> list[str]:
+        """Every node that has a NATS account (approved, joining or joined)."""
+        return [n["node_id"] for n in self.repo.nodes()]
 
     # -- helpers
     def _deny(self, principal: Principal, what: str) -> ApiError:
@@ -636,10 +650,11 @@ class FabricService:
         if path is None:
             return False
         accounts = [NodeAccount(n["node_id"], n["nats_pubkey"]) for n in self.repo.nodes()]
+        agents = agent_users(self.d.db)  # the AGENTS account (#627): one user per registered agent key
         changed = write_accounts(path, accounts, load_service_keys(self.d.fabric.nats_service_keys),
-                                 self.d.fabric.jetstream_max_bytes)
+                                 self.d.fabric.jetstream_max_bytes, agents)
         if changed:
-            log.info("NATS accounts updated (%d nodes)", len(accounts))
+            log.info("NATS accounts updated (%d nodes, %d agents)", len(accounts), len(agents))
         return changed
 
     # -- tickets (owner)
@@ -801,11 +816,13 @@ class FabricService:
             return None  # a concurrent poll is delivering
         action = self.d.actions.repo.get(req["action_id"])
         k3s_id, k3s_token, mesh_key = None, None, None
+        # Read once: the owner may turn the mesh off or on while this runs (PUT /v1/mesh/settings).
+        mesh_cfg, mesh_svc = self.d.mesh_settings, self.d.mesh
         try:
             if req["role"] == "worker" and self.d.fabric.k3s and self.d.k3s is not None:
                 k3s_id, k3s_token = self.d.k3s.create(req["node_id"], now + K3S_TOKEN_TTL)
-            if self.d.mesh_settings.enabled and self.d.mesh is not None:
-                mesh_key = self.d.mesh.mint_join_key(action)
+            if mesh_cfg.enabled and mesh_svc is not None:
+                mesh_key = mesh_svc.mint_join_key(action)
         except Exception as exc:
             self.repo.move(req["id"], ("delivering",), "approved", self.d.clock())
             if k3s_id and self.d.k3s is not None:
@@ -821,19 +838,22 @@ class FabricService:
             "nats": {"url": self.nats_url(), "account": f"NODE_{req['node_id']}", "user_pubkey": req["nats_pubkey"]},
             "job_pubkey": None,  # signed jobs (§12.11) are a later step
         }
-        if mesh_key is not None:
+        if mesh_key is not None and mesh_svc is not None:
             creds["mesh"] = {
-                "control_url": self.d.mesh_settings.control_url,
+                "control_url": mesh_cfg.control_url,
                 # Only the hub's LAN address: the node pins the coordinator name to control_addrs[0]. The
                 # relay has no link back to the hub yet (follow-up 2), so it must never replace this.
                 "control_addrs": [a for a in (self.d.net.lan_addr,) if a],
                 # The owner's relay, kept apart so it can never become the home address. No client dials
                 # it yet (follow-up 2); a node stores it for the away fallback.
-                "relay_addrs": [a for a in (self.d.mesh_settings.relay_addr,) if a],
+                "relay_addrs": [a for a in (mesh_cfg.relay_addr,) if a],
+                # Beside the relay fields (CORE-NET-8): which coordinator the auth key is for. Added, never
+                # renamed (#697): a node of the previous release ignores it and assumes Headscale.
+                "provider": mesh_svc.provider,
                 "ca_sha256": self.d.box_ca.ca_fingerprint(),
                 "auth_key": mesh_key.key,
                 "hostname": f"node-{req['node_id']}",
-                "hub_mesh_ip": self.d.mesh_settings.hub_ip,
+                "hub_mesh_ip": mesh_cfg.hub_ip,
                 "tags": list(mesh_key.tags),
                 "shields_up": req["role"] == "leaf",
             }
@@ -883,6 +903,11 @@ class FabricService:
             "cert_not_after": iso(cert.not_valid_after_utc), "nats_account": f"NODE_{req['node_id']}",
             "san": f"node-{req['node_id']}.{MESH_DOMAIN}",
         })
+        for hook in self.approved_hooks:
+            try:
+                hook(req["node_id"])
+            except Exception:
+                log.exception("join-approved hook failed for node %s", req["node_id"])
         return None  # stays dispatched until the node is up (tick)
 
     # -- background: finish or expire joins
@@ -900,7 +925,21 @@ class FabricService:
                            outcome="outcome_unknown")
         self.write_accounts()
 
-    def _fail(self, req: dict, state: str, why: str, *, outcome: str = "failed") -> None:
+    def mesh_switched_off(self, old: MeshService) -> int:
+        """The owner turned the mesh off (PUT /v1/mesh/settings, after d.mesh became None). A join that was
+        handed a mesh key and is not bound yet can never pass the §5.1 bind check now, so it fails here:
+        its key is expired and a machine that already used the key is taken off the mesh, while `old`
+        can still reach the coordinator. Returns how many joins were stopped."""
+        self._retired_mesh = old
+        n = 0
+        with self._tick_lock:  # not in the middle of a tick's _check_joined
+            for req in self.repo.requests(("delivered",)):
+                if req.get("mesh_key_id"):
+                    self._fail(req, "failed", MESH_OFF_REASON, drop_mesh_node=True)
+                    n += 1
+        return n
+
+    def _fail(self, req: dict, state: str, why: str, *, outcome: str = "failed", drop_mesh_node: bool = False) -> None:
         if not self.repo.move(req["id"], (req["state"],), state, self.d.clock(), reason=why[:200]):
             return
         self.repo.delete_node(req["node_id"], req["id"])
@@ -908,11 +947,18 @@ class FabricService:
             self.write_accounts()
         except OSError:
             log.exception("rewriting NATS accounts after a failed join")
-        if req.get("mesh_key_id") and self.d.mesh is not None:
+        svc = self.d.mesh or self._retired_mesh
+        if req.get("mesh_key_id") and svc is not None:
             try:
-                self.d.mesh.expire_key(req["mesh_key_id"], reason=why, action_id=req["action_id"])
+                if drop_mesh_node:
+                    svc.abandon_join(req["mesh_key_id"], reason=why, action_id=req["action_id"])
+                else:
+                    svc.expire_key(req["mesh_key_id"], reason=why, action_id=req["action_id"])
             except Exception:  # Headscale down: the key expires by itself within 15 minutes
                 log.warning("could not expire mesh key of %s", req["id"])
+                if drop_mesh_node:
+                    self.d.audit.append("mesh.join.cleanup_failed", None, req["action_id"], {
+                        "key_id": req["mesh_key_id"], "node_id": req["node_id"], "reason": why[:200]})
         if req.get("k3s_token_id") and self.d.k3s is not None:
             self.d.k3s.delete(req["k3s_token_id"])
         self.d.actions.finish(req["action_id"], outcome, why, from_states=frozenset({"accepted", "dispatched"}))
@@ -949,15 +995,21 @@ class FabricService:
         return bool(k3s.get("ready"))
 
     def _check_joined(self, req: dict, now: datetime) -> None:
+        svc = self.d.mesh  # read once: PUT /v1/mesh/settings swaps it at any time
+        if req.get("mesh_key_id") and svc is None:
+            # Handed a mesh key, but the mesh is off now (a delivery that finished after the owner's switch):
+            # never joined without the bind check.
+            self._fail(req, "failed", MESH_OFF_REASON, drop_mesh_node=True)
+            return
         if not self._heard_from(req["node_id"], req["delivered_at"]) or not self._k3s_ready(req):
             if req["delivered_at"] and now - req["delivered_at"] > FIRST_HEARTBEAT_TTL:
                 self._fail(req, "failed", "the node did not come up (heartbeat, and k3s for a worker) "
                                           "after it collected its credentials")
             return
         mesh_node = None
-        if self.d.mesh_settings.enabled and self.d.mesh is not None and req.get("mesh_key_id"):
+        if req.get("mesh_key_id") and svc is not None:
             try:
-                mesh_node = self.d.mesh.check_join(req["mesh_key_id"], req["node_id"], req["role"])
+                mesh_node = svc.check_join(req["mesh_key_id"], req["node_id"], req["role"])
             except MeshRefused as exc:
                 self._fail(req, "failed", str(exc))
                 return

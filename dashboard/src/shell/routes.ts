@@ -69,7 +69,7 @@ export function toRoute(link: string): string | undefined {
     case 'nodes':
       return href.nodes;
     case 'machines':
-      return href.machines;
+      return parts.length === 2 ? path + q : href.machines;
     case 'notifications':
       return href.activity;
     case 'backups':

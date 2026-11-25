@@ -18,6 +18,29 @@
 | Phone remote access: backlog item only | Official Tailscale apps pointed at the box's Headscale, enrolled by an approved `mesh.device.add` |
 | Apps at `http://host:port` | `https://<app>.onemind.local` through the hub edge with forward-auth; per-box CA with name constraints |
 
+### Hub NATS service keys
+
+A fresh hub install gives the gateway and hub `onemindd` separate NATS user nkeys. Each service uses its private seed to sign the server's challenge. The installer stores the keys in the root-owned directory `/var/lib/onemind/nats/keys`. The `gateway.nk` seed belongs to the gateway service user and `onemindd.nk` belongs to root. Both seeds are mode `0600`. The public `.pub` files go into the generated NATS accounts configuration.
+
+| Setting | Used by | Default hub install |
+|---|---|---|
+| `ONEMIND_FABRIC_NATS_SERVICE_KEYS` | Gateway, when generating hub accounts | `/var/lib/onemind/nats/keys` |
+| `ONEMIND_FABRIC_NATS_NKEY_SEED` | Gateway NATS client | `/var/lib/onemind/nats/keys/gateway.nk` |
+| `ONEMIND_NATS_NKEY_SEED` | Hub `onemindd` and diagnostic tools | `/var/lib/onemind/nats/keys/onemindd.nk` for hub `onemindd` |
+
+A hub with service keys refuses connections without an enrolled nkey. The passwordless `hub-local` user is a loopback fallback for configurations without service keys, including development Compose and older installs. Node leaf authentication continues to use per-node keys over TLS.
+
+On the hub, run the read-only NATS ping with the installed gateway Python and a seed file path. To exercise the deployment verifier, point `OWNER_TOKEN_FILE` at an owner token file and use its no-execute mode. Running the verifier as root on the hub lets it read the gateway seed path from `/etc/onemind/gateway.env`.
+
+```sh
+sudo /opt/onemind/venv/bin/python -I deploy/verify/natscheck.py ping nats://127.0.0.1:4222 \
+  --nkey /var/lib/onemind/nats/keys/gateway.nk
+sudo deploy/verify/verify.sh https://onemind.local --token-file "$OWNER_TOKEN_FILE" \
+  --nats nats://127.0.0.1:4222 --no-execute
+```
+
+Implementation and proof are in [PR #269](https://github.com/onemindos/ONEMINDOS/pull/269), the [installer](../../../deploy/install.sh), and the [service authentication tests](../../../internal/leaf/services_test.go).
+
 ## 2. Decisions this spec asks for
 
 - **Coordinator:** Headscale (default) vs NetBird vs Nebula vs plain WireGuard. Row F-32 in [DECISIONS-NEEDED.md](../DECISIONS-NEEDED.md).

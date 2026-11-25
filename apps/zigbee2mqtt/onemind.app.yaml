@@ -14,8 +14,11 @@ metadata:
   version: "2.14.3"
   description: Bridges Zigbee devices to MQTT, so sensors, lights and switches work without a vendor hub
   category: home-automation
+  age_rating: 18   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Bridges and controls the home's lights, sensors and switches."
   icon: icon.svg
   license: GPL-3.0
+  licenceClass: L2
   source: https://github.com/Koenkk/zigbee2mqtt
   # §9.3 facts from the GitHub API (repos/Koenkk/zigbee2mqtt and its releases/latest), read 2026-11-12.
   links:

@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# Secure Boot route (S-13, #148; appended by assemble.py render_rauc_conf for --boot efi). Each slot's signed UKI sits on
+# its own boot partition, and the bundle that writes a slot's root also writes its boot partition (parent=), so a
+# slot's kernel and root always come from the same release. The firmware entry of slot A starts
+# \EFI\Linux\onemind-A.efi on onemind-boot-a, B's starts \EFI\Linux\onemind-B.efi on onemind-boot-b
+# (os/rauc/onemind-efi-entries). Keys: https://rauc.readthedocs.io/en/v1.15.2/reference.html#slot-slot-class-idx-sections
+[slot.efi.0]
+device=/dev/disk/by-partlabel/onemind-boot-a
+type=vfat
+parent=rootfs.0
+
+[slot.efi.1]
+device=/dev/disk/by-partlabel/onemind-boot-b
+type=vfat
+parent=rootfs.1

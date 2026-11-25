@@ -532,5 +532,52 @@ class JobStartedHook(unittest.TestCase):
         self.assertIn("job-started.sh", (KIT / "up").read_text())
 
 
+class AppsNode(unittest.TestCase):
+    """#299 (CI-10 leftover): ci-apps `validate` runs JS regression tests in Node 22 on both pools.
+
+    The job sets Node up itself with the same pinned setup-node as ci-sdk (the Debian arm64 VM is a supported
+    setup-node platform, unlike setup-python), and the worker VM also carries a pinned Node 22 of its own.
+    """
+
+    SETUP_NODE = re.compile(r"^actions/setup-node@[0-9a-f]{40}$")
+
+    def setup_node_steps(self, wf, job):
+        steps = yaml.safe_load((WF / wf).read_text())["jobs"][job]["steps"]
+        return steps, [i for i, s in enumerate(steps) if str(s.get("uses", "")).startswith("actions/setup-node@")]
+
+    def test_validate_sets_up_node_22_with_the_ci_sdk_pin(self):
+        sdk = yaml.safe_load((WF / "ci-sdk.yml").read_text())
+        pins = {s["uses"] for job in sdk["jobs"].values() for s in job.get("steps", [])
+                if str(s.get("uses", "")).startswith("actions/setup-node@")}
+        self.assertEqual(len(pins), 1, pins)
+        steps, idx = self.setup_node_steps("ci-apps.yml", "validate")
+        self.assertEqual(len(idx), 1, "ci-apps validate needs exactly one setup-node step")
+        step = steps[idx[0]]
+        self.assertRegex(step["uses"], self.SETUP_NODE)
+        self.assertEqual({step["uses"]}, pins, "same setup-node pin as ci-sdk")
+        self.assertEqual(str(step["with"]["node-version"]), "22")
+        self.assertNotIn("if", step, "Node 22 on the hosted and the local runner alike")
+
+    def test_node_is_ready_before_the_unit_tests_and_checked(self):
+        steps, idx = self.setup_node_steps("ci-apps.yml", "validate")
+        names = [s.get("name", "") for s in steps]
+        unit = names.index("Unit tests (sdk/tools)")
+        self.assertLess(idx[0], unit)
+        check = [i for i, s in enumerate(steps) if "node --version" in str(s.get("run", ""))]
+        self.assertTrue(check and idx[0] < check[0] < unit, "validate prints and checks the Node major")
+        self.assertIn("grep -q '^v22\\.'", steps[check[0]]["run"])
+
+    def test_worker_vm_gets_a_pinned_node_22(self):
+        pin = dict(line.split("=", 1) for line in (KIT / "runner.pin").read_text().splitlines()
+                   if line and not line.startswith("#"))
+        self.assertRegex(pin.get("NODE_VERSION", ""), r"^22\.\d+\.\d+$")
+        self.assertRegex(pin.get("NODE_SHA256", ""), r"^[0-9a-f]{64}$")
+        text = (KIT / "provision.sh").read_text()
+        self.assertIn("https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-arm64.tar.xz", text)
+        self.assertIn('echo "${NODE_SHA256}  /tmp/node.txz" | sha256sum -c -', text)
+        # Only the worker VM runs ci-apps; the gate VM stays minimal.
+        self.assertRegex(text, r'if \[ "\$ROLE" = worker \] && ! node --version 2>/dev/null \| grep -q "\^v\$\{NODE_VERSION\}\$"')
+
+
 if __name__ == "__main__":
     unittest.main()

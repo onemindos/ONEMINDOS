@@ -9,14 +9,21 @@ comes back as known=false and is shown as unknown; test/unit/test_services_regis
 
 The host service is trusted but not blindly (H-06): every field is checked again here, card by card. A
 card that fails a check is dropped and counted in `dropped`, so one odd entry cannot hide the rest or put
-unchecked text on a screen. This is read-only: restarting a unit is a later, owner-approved action.
+unchecked text on a screen.
+
+#636 adds a unit's journal (`HostServicesClient.logs`, GET /v1/services/{unit}/logs on the host socket;
+the router redacts every line) and restarting one unit as the owner-approved service.restart action
+(routers/services.py, sent through hostlink.py). Rescue, first-boot, host and data-layout units never
+show as restartable here, whatever the host says (NEVER_RESTART, the same list as internal/svcregistry).
 """
 
 from __future__ import annotations
 
 import json
 import re
+from collections.abc import Iterator
 from datetime import datetime
+from urllib.parse import quote
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -32,6 +39,14 @@ STATE_RE = re.compile(r"^[a-z-]{1,32}$")
 VERSION_RE = re.compile(r"^[0-9A-Za-z.+~-]{1,64}$")
 CONTROL_RE = re.compile(r"[\x00-\x1f\x7f]")
 RISKS = ("low", "medium", "high")
+# Never a restart button: rescue and recovery, first boot, the host service, the data disk's layout units.
+NEVER_RESTART = ("onemind-rescue", "onemind-recovery", "onemind-firstboot", "onemind-host.", "onemind-data-",
+                 "onemind-factory-reset", "onemind-jetson-data", "onemind-rpi5-grow")
+MAX_LOG_LINE = 8192
+
+
+def never_restart(unit: str) -> bool:
+    return unit.startswith(NEVER_RESTART)
 
 Reason = Literal["host_service_unreachable", "host_service_error", "bad_response"]
 RegistryState = Literal["ok", "missing", "invalid"]
@@ -46,7 +61,8 @@ class ServiceCard(BaseModel):
     name: str = Field(description="Plain name for the card")
     description: str = Field(description="Plain words: what it does and what stops working without it (empty when unknown)")
     docs: str | None = Field(default=None, description="Repo path of the page that explains it, e.g. docs/leap/core/HOST-ACTIONS.md")
-    restartable: bool = Field(description="Whether a person may ask for a restart (an owner-approved action, later work)")
+    restartable: bool = Field(description="Whether a person or agent may ask for a restart (POST /v1/system/services/{unit}/restart, "
+                                          "an owner-approved action); never for rescue, first-boot, host or data-layout units")
     risk: Literal["low", "medium", "high", "unknown"] = Field(
         description="low: a background job pauses; medium: a feature stops for everyone; high: boot, data or access at stake")
     depends_on: list[str] = Field(default=[], description="Other registry units it needs")
@@ -103,6 +119,39 @@ class HostServicesClient:
         finally:
             conn.close()
 
+    def logs(self, unit: str, lines: int, follow: bool, follow_max_s: float) -> "LogStream":
+        """Open the host's journal stream for unit. Raises StorageUnavailable / StorageTimeout when the host
+        cannot be reached. The lines are not redacted yet: the caller must redact every one."""
+        conn = _UnixConnection(self.path, follow_max_s + 30 if follow else max(self.timeout_s, 35))
+        try:
+            conn.connect()
+        except OSError as exc:
+            conn.close()
+            raise StorageUnavailable(exc.__class__.__name__) from None
+        try:
+            conn.request("GET", f"/v1/services/{quote(unit, safe='')}/logs?lines={int(lines)}&follow={1 if follow else 0}")
+            return LogStream(conn, conn.getresponse())
+        except Exception as exc:
+            conn.close()
+            raise StorageTimeout(exc.__class__.__name__) from None
+
+
+class LogStream:
+    """One open logs request: `status`, then `lines()` until the host ends it; always `close()`."""
+
+    def __init__(self, conn: _UnixConnection, resp):
+        self.conn, self.resp, self.status = conn, resp, resp.status
+
+    def lines(self) -> Iterator[str]:
+        try:
+            while raw := self.resp.readline(MAX_LOG_LINE):
+                yield raw.decode("utf-8", "replace").rstrip("\r\n")
+        except (OSError, ValueError):  # the host closed or the follow timed out: the stream ends
+            return
+
+    def close(self) -> None:
+        self.conn.close()
+
 
 def _text(v: Any, lo: int, hi: int) -> str:
     if not isinstance(v, str) or not lo <= len(v) <= hi or CONTROL_RE.search(v):
@@ -143,8 +192,9 @@ def _card(d: dict) -> ServiceCard:
         return ServiceCard(**common, name=unit, description="", docs=None, restartable=False, risk="unknown", depends_on=[])
     if d.get("risk") not in RISKS:
         raise ValueError("bad risk")
+    restartable = _bool(d.get("restartable")) and not never_restart(unit)
     return ServiceCard(**common, name=_text(d.get("name"), 1, 60), description=_text(d.get("description"), 10, 300),
-                       docs=_opt(d.get("docs"), DOCS_RE), restartable=_bool(d.get("restartable")), risk=d["risk"],
+                       docs=_opt(d.get("docs"), DOCS_RE), restartable=restartable, risk=d["risk"],
                        depends_on=list(deps), version=_opt(d.get("version"), VERSION_RE))
 
 
@@ -183,6 +233,10 @@ def parse_view(body: Any) -> ServicesView:
         message = "the services registry on this OS image failed its checks, so every service shows as unknown"
     return ServicesView(available=True, registry=registry, message=message, at=at, services=cards,
                         unknown=sum(1 for c in cards if not c.known), dropped=dropped)
+
+
+def find_card(view: ServicesView, unit: str) -> ServiceCard | None:
+    return next((c for c in view.services if c.unit == unit), None)
 
 
 def read_view(client: HostServicesClient) -> ServicesView:
