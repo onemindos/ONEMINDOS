@@ -19,6 +19,11 @@ def kv(out, key):
     return (re.findall(rf"^{key}=(.*?)\s*$", out, re.M) or [""])[-1]
 
 
+def sh(vm, cmd, timeout):
+    """vm.run appends `; echo __RC=...`, so a command must not end in a semicolon (`; ;` is a syntax error)."""
+    return vm.run(cmd.rstrip().rstrip(";").rstrip(), timeout)
+
+
 def call(method, path, body=None, tag="R"):
     """Shell for one host-service call: prints <tag>CODE=<http status>; the body is left in /tmp/ns-<tag>.json."""
     data = f" -H 'Content-Type: application/json' -d '{body}'" if body else ""
@@ -42,7 +47,7 @@ def static_body(addr, gw, seconds=20):
 
 
 def where(vm):
-    _, out = vm.run(FIND + "echo DEV=$DEV; echo CON=\"$CON\"; echo A0=$(ip -4 -o addr show dev $DEV scope global | awk '{print $4}' | head -1); "
+    _, out = sh(vm, FIND + "echo DEV=$DEV; echo CON=\"$CON\"; echo A0=$(ip -4 -o addr show dev $DEV scope global | awk '{print $4}' | head -1); "
                     + SNAP, 200)
     return {"dev": kv(out, "DEV"), "con": kv(out, "CON"), "a0": kv(out, "A0"), "addrs": kv(out, "ADDRS"), "method": kv(out, "METHOD")}
 
@@ -52,14 +57,14 @@ def ns1(vm, record):
     if not (w["dev"] and re.match(r"\d+\.\d+\.\d+\.\d+/\d+$", w["a0"])):
         return record("NS1", False, f"no wired device with a DHCP address: {w}")
     dev, a0 = w["dev"], w["a0"]
-    _, out = vm.run(
+    _, out = sh(vm, 
         f"DEV={dev}; CON=\"{w['con']}\"; " + call("PUT", f"/v1/network/{dev}", static_body("192.0.2.50/24", "192.0.2.1"), "P")
         + "sleep 2; echo APPLIED=$(ip -4 -o addr show dev $DEV | grep -cF 192.0.2.50/24); "
         f"echo OLDGONE=$(ip -4 -o addr show dev $DEV | grep -cF {a0}); " + STATE + SNAP, 120)
     during = {"put": kv(out, "PCODE"), "applied": kv(out, "APPLIED"), "oldgone": kv(out, "OLDGONE"), "pending": kv(out, "PENDING"),
               "method": kv(out, "METHOD")}
     # No confirm. The box has 20 s; wait for the static address to go, then for the lease to come back.
-    _, out = vm.run(
+    _, out = sh(vm, 
         f"DEV={dev}; CON=\"{w['con']}\"; "
         "for i in $(seq 1 60); do ip -4 -o addr show dev $DEV | grep -qF 192.0.2.50/24 || break; sleep 1; done; "
         "for i in $(seq 1 60); do ip -4 -o addr show dev $DEV scope global | grep -q inet && break; sleep 1; done; "
@@ -85,7 +90,7 @@ def ns2_before(vm, record):
         record("NS2", False, f"no wired device with a DHCP address: {w}")
         return None
     dev = w["dev"]
-    _, out = vm.run(
+    _, out = sh(vm, 
         f"DEV={dev}; CON=\"{w['con']}\"; " + call("PUT", f"/v1/network/{dev}", static_body(w["a0"], gw), "P")
         + call("POST", f"/v1/network/{dev}/confirm", None, "C") + STATE
         + "sleep 30; " + SNAP + "echo DNS=$(nmcli -g ipv4.dns connection show \"$CON\"); "
@@ -99,7 +104,7 @@ def ns2_after(vm, record, st, rebooted=True):
     if st is None:
         return
     b = st["before"]
-    _, out = vm.run(
+    _, out = sh(vm, 
         FIND + "echo DEV2=$DEV; " + SNAP + "echo DNS=$(nmcli -g ipv4.dns connection show \"$CON\"); "
         + call("PUT", f"/v1/network/{st['dev']}", '{"mode":"dhcp","rollback_seconds":20}', "P")
         + call("POST", f"/v1/network/{st['dev']}/confirm", None, "C")
@@ -131,7 +136,7 @@ def ns3(vm, record):
         shell += call("PUT", f"/v1/network/{name}", body, f"R{i}")
     shell += call("POST", f"/v1/network/{dev}/confirm", None, "R4") + f"echo REASON=$({PY} -c 'import json;print(json.load(open(\"/tmp/ns-R4.json\")).get(\"reason\"))'); " \
         "echo AFTER; " + SNAP.replace("ADDRS", "ADDRS2").replace("METHOD", "METHOD2")
-    _, out = vm.run(shell, 200)
+    _, out = sh(vm, shell, 200)
     codes = [kv(out, f"R{i}CODE") for i in range(5)]
     c = {"all_refused": all(re.match(r"4\d\d$", x) for x in codes), "confirm_409_no_pending": codes[4] == "409" and kv(out, "REASON") == "no_pending_change",
          "unchanged": kv(out, "ADDRS") == kv(out, "ADDRS2") != "" and kv(out, "METHOD") == kv(out, "METHOD2")}

@@ -131,6 +131,23 @@ class Verdicts(unittest.TestCase):
                     ok.replace("REASON=no_pending_change", "REASON=None"), ok.replace("METHOD2=auto", "METHOD2=manual")):
             self.assertFalse(self.run_ns(self.ns.ns3, self.WHERE, bad)[0][1], bad)
 
+    def test_every_command_is_valid_shell_once_the_harness_appends_its_marker(self):
+        """The first real run died of `; ;`: vm.run appends `; echo __RC=...`, so a command ending in `;` is a syntax error."""
+        import subprocess
+        vms = []
+        for fn in (self.ns.ns1, self.ns.ns3):
+            vm = self.VM(self.WHERE)
+            fn(vm, lambda *a: None)
+            vms.append(vm)
+        vm = self.VM(self.WHERE)
+        st = self.ns.ns2_before(vm, lambda *a: None)
+        self.ns.ns2_after(vm, lambda *a: None, st)
+        vms.append(vm)
+        for vm in vms:
+            for cmd in vm.cmds:
+                r = subprocess.run(["bash", "-n", "-c", cmd + "; echo __RC=$?__"], capture_output=True, text=True)
+                self.assertEqual(r.returncode, 0, r.stderr + cmd[:120])
+
 
 if __name__ == "__main__":
     unittest.main()
