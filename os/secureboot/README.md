@@ -33,7 +33,7 @@ firmware (RAUC's efi backend, as the hardware lab proved) or systemd-boot, not G
 ## How to build and test it (flag off by default)
 - `make image BOARD=x86_64-efi SECUREBOOT=1` builds the Secure Boot route: RAUC's efi backend and one signed UKI per
   slot, signed with a **throwaway db key** made in the build container and deleted afterwards (the public `db.crt` stays
-  next to the image). Without `SECUREBOOT=1` (the default) the image is the GRUB image, byte for byte as before.
+  next to the image). Without `SECUREBOOT=1` (the default) the image is the GRUB image: the same code path and arguments as before, because the empty `$SB` adds nothing (the dev image makes random throwaway keys each build, so two builds never match byte for byte).
   Other boards refuse the flag.
 - `make secureboot-test` builds a test image on the same route and runs SB1-SB7 under OVMF Secure Boot with throwaway
   PK, KEK and db keys: signed chain boots (SB1), changed, wrongly signed and unsigned UKIs are refused (SB2-SB4),
@@ -109,7 +109,7 @@ exact entries are firmware-dependent, UNVERIFIED on the Dell and the R530). Cons
 ## Switch-over steps (GRUB default today, Secure Boot route once proven)
 1. **Now (done in this PR):** the route exists as a board option, off by default; dev keys only; SB1-SB7 prove boot,
    refusal, update, rollback and the panic path under Secure Boot; the normal battery keeps proving the GRUB route.
-2. **Before any real box:** the founder's key ceremony (next section) and the re-seal first-boot step (point 3 above).
+2. **Before any real box:** the founder's key ceremony (the section above) and the re-seal first-boot step (point 3 above).
 3. **Hardware check** on the Dell all-in-one and the R530: enrol the dev keys in setup mode, boot, update, pull the
    power during a trial, confirm BootNext fallback on real firmware (some firmware rewrites BootOrder).
 4. **Promote:** after SB1-SB7 stay green in CI on KVM for a run of PRs and step 3 passes, change the default of
