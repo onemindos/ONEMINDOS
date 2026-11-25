@@ -4,7 +4,7 @@
 // form sealed in this browser, a passkey signs the exact plan, and the gateway checks all of it.
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { ApprovalsBoard, Button, Dialog, SecretsForm, actionTitle, sealValues, useToast, type ActionPlan, type ActionSummary, type AppSecrets, type SecretsSubmission, type SettingsLoadable } from '@onemind/ui';
+import { ApprovalsBoard, Button, Dialog, HoldToApprove, SecretsForm, actionTitle, sealValues, useToast, type ActionPlan, type ActionSummary, type AppSecrets, type SecretsSubmission, type SettingsLoadable } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import { toActionPlan, toActionSummary } from '../data/adapters';
 import { errorText, subjectOf, useHub } from '../data/hub';
@@ -77,7 +77,7 @@ export function Approvals() {
 
   const approve = async (a: ActionSummary, elapsedMs?: number) => {
     if (a.hold) {
-      if (a.hold.plan && elapsedMs !== undefined && elapsedMs >= a.hold.duration)
+      if (elapsedMs !== undefined && elapsedMs >= a.hold.duration)
         return decide(a, 'approve', undefined, undefined, { ms: elapsedMs, plan: a.hold.plan });
       return;
     }
@@ -123,7 +123,9 @@ export function Approvals() {
       calls={['GET /v1/actions', 'POST /v1/actions/{id}/approve-options', 'POST /v1/actions/{id}/approve', 'POST /v1/actions/{id}/deny']}
       decided={decided}
       now={hub.now}
-      canDecide={hub.canDecide !== 'yes' ? { allowed: false, reason: 'Only the owner can approve or deny. Agents can ask and only a person can approve.' } : { allowed: true }}
+      canDecide={hub.canDecide === 'yes' ? { allowed: true } : hub.canDecide === 'unknown'
+        ? { allowed: false, reason: 'Checking who you are…' }
+        : { allowed: false, reason: 'Only the owner can approve or deny. Agents can ask and only a person can approve.' }}
       onApprove={(a, elapsedMs) => void approve(a, elapsedMs)}
       onDeny={(a) => void decide(a, 'deny')}
       onRetry={hub.reloadAll}
@@ -133,8 +135,10 @@ export function Approvals() {
     {hub.canDecide === 'yes' && (
       <section aria-labelledby="approval-practice-title">
         <h2 id="approval-practice-title">Practice an approval</h2>
-        <p>{practiceDone ? 'Practice approved.' : 'Try an approval without changing your box.'}</p>
-        <Button onClick={() => setPracticeDone(!practiceDone)}>{practiceDone ? 'Try again' : 'Practice: Approve'}</Button>
+        <p>{practiceDone ? 'Practice approved.' : 'Try an approval without changing your box. Press and hold the button.'}</p>
+        {practiceDone
+          ? <Button onClick={() => setPracticeDone(false)}>Try again</Button>
+          : <HoldToApprove label="Practice: Hold to approve" onApprove={() => setPracticeDone(true)} />}
       </section>
     )}
     {hub.actionList.filter((a) => a.state === 'awaiting_approval' && a.plan).map((a) => (

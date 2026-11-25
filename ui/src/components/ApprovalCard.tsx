@@ -125,7 +125,7 @@ export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, busy, 
           <div className="om-decide">
             {action.hold && !blocked && !busy && onApprove ? (
               <HoldToApprove key={`${action.id}:${action.hold.plan}:${action.hold.duration}`} label={`Hold to approve ${title}`}
-                duration={action.hold.duration} disabled={!action.hold.plan} onApprove={(ms) => onApprove(action, ms)} />
+                duration={action.hold.duration} onApprove={(ms) => onApprove(action, ms)} />
             ) : <Button variant="primary" icon="check" disabled={!!blocked || !!action.hold} busy={busy} aria-label={`Approve ${title}`} onClick={() => onApprove?.(action)} aria-describedby={blocked ? detailsId : undefined}>
               Approve
             </Button>}
