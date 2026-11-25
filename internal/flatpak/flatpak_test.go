@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // fakeFlatpak is a small stand-in for one installation with a local repository of three apps. It answers the
@@ -18,7 +19,10 @@ type fakeFlatpak struct {
 	installed map[string]bool
 	updates   []string
 	calls     [][]string
-	failOn    string // a sub-command that exits non-zero
+	failOn    string            // a sub-command that exits non-zero
+	runtimes  map[string]string // app id -> its runtime ref
+	prepared  [][2]string       // Prepare calls: app dir, granted folder
+	prepErr   error
 }
 
 const catalog = "md.obsidian.Obsidian\tObsidian\tKnowledge base on local Markdown\t1.8.9\n" +
@@ -40,7 +44,7 @@ func (f *fakeFlatpak) Run(_ context.Context, args ...string) ([]byte, error) {
 	case "remote-add":
 		return nil, nil
 	case "remote-ls":
-		if rest[1] == "--updates" {
+		if contains(rest, "--updates") {
 			return []byte(strings.Join(f.updates, "\n")), nil
 		}
 		return []byte(f.catalog), nil
@@ -54,7 +58,13 @@ func (f *fakeFlatpak) Run(_ context.Context, args ...string) ([]byte, error) {
 			}
 		}
 		out := strings.NewReplacer("Knowledge base on local Markdown\t", "", "Create images and edit photographs\t", "").Replace(b.String())
-		return []byte(out), nil
+		var lines []string
+		for _, l := range strings.Split(strings.TrimSpace(out), "\n") {
+			if l != "" {
+				lines = append(lines, l+"\t"+f.runtimes[strings.SplitN(l, "\t", 2)[0]])
+			}
+		}
+		return []byte(strings.Join(lines, "\n")), nil
 	case "install":
 		f.installed[rest[len(rest)-1]] = true
 	case "uninstall":
@@ -63,11 +73,20 @@ func (f *fakeFlatpak) Run(_ context.Context, args ...string) ([]byte, error) {
 	return nil, nil
 }
 
+// Prepare stands in for the unit that makes the folder: the Manager itself never touches /data.
+func (f *fakeFlatpak) Prepare(_ context.Context, appDir, folder string) error {
+	f.prepared = append(f.prepared, [2]string{appDir, folder})
+	if f.prepErr != nil {
+		return f.prepErr
+	}
+	return os.MkdirAll(folder, 0o755)
+}
+
 func box(t *testing.T) (*Manager, *fakeFlatpak) {
 	f := newFake()
 	dir := t.TempDir()
 	return &Manager{Run: f, FilesDir: filepath.Join(dir, "apps"), SessionDir: filepath.Join(dir, "session"),
-		Have: func(string) bool { return true }, Chown: func(string, int, int) error { return nil }}, f
+		Have: func(string) bool { return true }}, f
 }
 
 func TestSearchFindsObsidianByNameFirstThenSummary(t *testing.T) {
@@ -201,4 +220,161 @@ func contains(l []string, s string) bool {
 		}
 	}
 	return false
+}
+
+func TestTheFolderIsMadeByThePrepareUnitNotByTheManager(t *testing.T) {
+	m, f := box(t)
+	if err := m.Install(context.Background(), "md.obsidian.Obsidian"); err != nil {
+		t.Fatal(err)
+	}
+	want := [2]string{filepath.Join(m.FilesDir, "md.obsidian.Obsidian"), m.Folder("md.obsidian.Obsidian")}
+	if len(f.prepared) != 1 || f.prepared[0] != want {
+		t.Fatalf("prepare calls %v, want %v", f.prepared, want)
+	}
+	// The Manager runs inside the capability-less host service: it creates nothing under the apps folder itself.
+	if _, err := os.Stat(filepath.Join(m.FilesDir)); err != nil {
+		t.Fatalf("the fake made the folder, so this is only a guard: %v", err)
+	}
+	src, _ := os.ReadFile("flatpak.go")
+	for _, banned := range []string{"os.Chown(", "os.Lchown(", "syscall.Chown(", "os.MkdirAll(m.FilesDir", "os.MkdirAll(folder"} {
+		if strings.Contains(string(src), banned) {
+			t.Errorf("flatpak.go calls %s in the host service, which has no CAP_CHOWN", banned)
+		}
+	}
+}
+
+func TestAFolderThatCannotBeMadeRemovesTheApp(t *testing.T) {
+	m, f := box(t)
+	f.prepErr = errors.New("boom")
+	if err := m.Install(context.Background(), "md.obsidian.Obsidian"); err == nil || f.installed["md.obsidian.Obsidian"] {
+		t.Fatalf("err=%v installed=%v", err, f.installed)
+	}
+}
+
+func TestSandboxLimitsAnAppToItsOneFolder(t *testing.T) {
+	args := SandboxArgs("/data/onemind/desktop-apps/a.b.C/files")
+	idx := func(s string) int {
+		for i, a := range args {
+			if a == s {
+				return i
+			}
+		}
+		return -1
+	}
+	reset, grant := idx("--nofilesystem=host:reset"), idx("--filesystem=/data/onemind/desktop-apps/a.b.C/files:rw")
+	if reset < 0 || grant < 0 || reset > grant {
+		t.Fatalf("host:reset must come first and the folder grant after it: %v", args)
+	}
+	for _, want := range []string{"--nosocket=session-bus", "--nosocket=system-bus", "--nosocket=ssh-auth", "--nosocket=pcsc",
+		"--nosocket=cups", "--nosocket=gpg-agent", "--nodevice=all", "--no-talk-name=org.freedesktop.Flatpak"} {
+		if idx(want) < 0 {
+			t.Errorf("missing %s", want)
+		}
+	}
+	n := 0
+	for _, a := range args {
+		if strings.HasPrefix(a, "--filesystem=") {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Errorf("%d filesystem grants, want exactly one", n)
+	}
+}
+
+func TestSystemdUnitsAreHardenedAndGivenOnlyWhatTheirWorkNeeds(t *testing.T) {
+	r := SystemdRunner{Dir: "/data/onemind/flatpak", FilesDir: "/data/onemind/desktop-apps"}
+	fp := strings.Join(r.flatpakArgs("update", "x.y.Z"), " ")
+	for _, want := range []string{"ProtectKernelTunables=yes", "ProtectControlGroups=yes", "ProtectKernelModules=yes", "ProtectKernelLogs=yes",
+		"RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK", "PrivateDevices=yes", "CapabilityBoundingSet=~CAP_SYS_MODULE",
+		"CAP_SYS_PTRACE", "ReadWritePaths=/data/onemind/flatpak", "-- /usr/bin/flatpak update x.y.Z"} {
+		if !strings.Contains(fp, want) {
+			t.Errorf("flatpak unit lacks %q", want)
+		}
+	}
+	pp := strings.Join(r.prepareArgs("/data/onemind/desktop-apps/x.y.Z", "/data/onemind/desktop-apps/x.y.Z/files"), " ")
+	for _, want := range []string{"CapabilityBoundingSet=CAP_CHOWN CAP_FOWNER CAP_DAC_OVERRIDE", "PrivateNetwork=yes", "RestrictNamespaces=yes",
+		"ReadWritePaths=/data/onemind/desktop-apps", "install -d -o 0 -g 0 -m 0755", "-o 1000 -g 1000 -m 0755", "[ -L"} {
+		if !strings.Contains(pp, want) {
+			t.Errorf("prepare unit lacks %q", want)
+		}
+	}
+	if strings.Contains(pp, "/data/onemind/flatpak") {
+		t.Error("the folder step must not be able to write the Flatpak installation")
+	}
+}
+
+func TestUpdateAnswersAreCachedAndForgottenAfterAChange(t *testing.T) {
+	m, f := box(t)
+	now := time.Unix(1_000_000, 0)
+	m.Now = func() time.Time { return now }
+	ctx := context.Background()
+	if err := m.Install(ctx, "md.obsidian.Obsidian"); err != nil {
+		t.Fatal(err)
+	}
+	asks := func() int {
+		n := 0
+		for _, c := range f.calls {
+			if c[1] == "remote-ls" && contains(c, "--updates") {
+				n++
+			}
+		}
+		return n
+	}
+	f.calls = nil
+	for i := 0; i < 5; i++ {
+		_, _ = m.Installed(ctx)
+	}
+	if asks() != 1 {
+		t.Fatalf("remote asked %d times for 5 polls", asks())
+	}
+	now = now.Add(updateTTL + time.Second)
+	_, _ = m.Installed(ctx)
+	if asks() != 2 {
+		t.Fatalf("cache never expires: %d", asks())
+	}
+	if err := m.Update(ctx, "md.obsidian.Obsidian"); err != nil {
+		t.Fatal(err)
+	}
+	_, _ = m.Installed(ctx)
+	if asks() != 3 {
+		t.Fatalf("an update must forget the cache: %d", asks())
+	}
+}
+
+func TestARuntimeOnlyUpdateShowsOnItsApps(t *testing.T) {
+	m, f := box(t)
+	ctx := context.Background()
+	f.runtimes = map[string]string{"md.obsidian.Obsidian": "org.freedesktop.Platform/x86_64/24.08", "org.gimp.GIMP": "org.gnome.Platform/x86_64/47"}
+	for _, id := range []string{"md.obsidian.Obsidian", "org.gimp.GIMP"} {
+		if err := m.Install(ctx, id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	f.updates = []string{"org.freedesktop.Platform"}
+	apps, _ := m.Installed(ctx)
+	got := map[string]bool{}
+	for _, a := range apps {
+		got[a.ID] = a.UpdateAvailable
+	}
+	if !got["md.obsidian.Obsidian"] || got["org.gimp.GIMP"] {
+		t.Fatalf("runtime update not attributed to the right app: %v", got)
+	}
+}
+
+func TestUnusedRuntimesAreRemovedAfterARemove(t *testing.T) {
+	m, f := box(t)
+	ctx := context.Background()
+	if err := m.Install(ctx, "md.obsidian.Obsidian"); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Remove(ctx, "md.obsidian.Obsidian"); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range f.calls {
+		if c[1] == "uninstall" && contains(c, "--unused") {
+			return
+		}
+	}
+	t.Fatal("uninstall --unused never ran")
 }

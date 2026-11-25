@@ -61,29 +61,78 @@ type App struct {
 	Folder          string `json:"folder,omitempty"` // the granted folder, as the runtime sees it
 }
 
-// Runner runs `flatpak <args>` as root against the box's installation.
+// Runner runs `flatpak <args>` as root against the box's installation, and makes an app's granted folder.
+// Both happen in a transient systemd unit, never in the host service itself: that service is deliberately
+// capability-less (no CAP_CHOWN, no @privileged system calls), so anything that needs a capability runs in a unit
+// that is given exactly that capability and nothing else.
 type Runner interface {
 	Run(ctx context.Context, args ...string) ([]byte, error)
+	// Prepare makes <appDir> (root, 0755, so the runtime and the Files service can walk through it) and <folder> in
+	// it (the runtime's user, 0755). It follows no symbolic link.
+	Prepare(ctx context.Context, appDir, folder string) error
 }
 
-// SystemdRunner runs flatpak in a transient systemd unit. The host service is sandboxed tightly (no namespaces, no
-// extra capabilities), which ostree checkouts need; so each call gets a unit of its own that can write only the
-// two folders on /data it needs. The argument list is fixed here and in Manager: no caller text becomes an option.
-type SystemdRunner struct{ Dir, FilesDir, SessionDir string }
+// SystemdRunner runs flatpak and the folder step in transient systemd units. The argument lists are fixed here and
+// in Manager: no caller text becomes an option. The units are hardened beyond the host service's own hardening
+// where the work allows (flatpak needs namespaces and a normal capability set for ostree and bwrap, so those are
+// left, and the kernel, clock, hostname, devices, realtime and personality are closed).
+type SystemdRunner struct{ Dir, FilesDir string }
 
-// Run implements Runner.
-func (s SystemdRunner) Run(ctx context.Context, args ...string) ([]byte, error) {
+// prepareScript is the whole folder step. $1 is the app's folder under FilesDir, $2 the granted folder in it.
+const prepareScript = `set -eu
+if [ -L "$1" ] || [ -L "$2" ]; then echo "refusing a symbolic link" >&2; exit 1; fi
+install -d -o 0 -g 0 -m 0755 "$1"
+install -d -o ` + "1000 -g 1000" + ` -m 0755 "$2"`
+
+func (s SystemdRunner) common() []string {
+	return []string{"--quiet", "--wait", "--pipe", "--collect", "--service-type=exec",
+		"-p", "ProtectSystem=strict", "-p", "PrivateTmp=yes", "-p", "ProtectHome=yes", "-p", "PrivateDevices=yes",
+		"-p", "ProtectKernelTunables=yes", "-p", "ProtectKernelModules=yes", "-p", "ProtectKernelLogs=yes",
+		"-p", "ProtectControlGroups=yes", "-p", "ProtectClock=yes", "-p", "ProtectHostname=yes",
+		"-p", "RestrictRealtime=yes", "-p", "LockPersonality=yes", "-p", "SystemCallArchitectures=native",
+		"-p", "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK"}
+}
+
+// flatpakArgs is the systemd-run command line for one flatpak call.
+func (s SystemdRunner) flatpakArgs(args ...string) []string {
+	pre := append(s.common(),
+		"-p", "CapabilityBoundingSet=~CAP_SYS_MODULE CAP_SYS_BOOT CAP_SYS_TIME CAP_SYS_RAWIO CAP_SYS_PTRACE CAP_SYSLOG CAP_AUDIT_CONTROL CAP_MAC_ADMIN CAP_MAC_OVERRIDE CAP_WAKE_ALARM",
+		"-p", "ReadWritePaths="+s.Dir, "-p", "Environment=HOME="+s.Dir+"/home",
+		"--", "/usr/bin/flatpak")
+	return append(pre, args...)
+}
+
+// prepareArgs is the systemd-run command line for the folder step: no network, and only the three capabilities
+// that making a folder for another user needs.
+func (s SystemdRunner) prepareArgs(appDir, folder string) []string {
+	pre := append(s.common(),
+		"-p", "CapabilityBoundingSet=CAP_CHOWN CAP_FOWNER CAP_DAC_OVERRIDE", "-p", "PrivateNetwork=yes",
+		"-p", "RestrictNamespaces=yes", "-p", "ReadWritePaths="+s.FilesDir,
+		"--", "/bin/sh", "-c", prepareScript, "sh", appDir, folder)
+	return pre
+}
+
+func (s SystemdRunner) systemdRun(ctx context.Context, args []string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Minute)
 	defer cancel()
-	pre := []string{"--quiet", "--wait", "--pipe", "--collect", "--service-type=exec",
-		"-p", "ProtectSystem=strict", "-p", "PrivateTmp=yes", "-p", "ProtectHome=yes",
-		"-p", "ReadWritePaths=" + s.Dir + " " + s.FilesDir, "-p", "Environment=HOME=" + s.Dir + "/home",
-		"--", "/usr/bin/flatpak"}
-	c := exec.CommandContext(ctx, "/usr/bin/systemd-run", append(pre, args...)...)
+	c := exec.CommandContext(ctx, "/usr/bin/systemd-run", args...)
 	var out bytes.Buffer
 	c.Stdout, c.Stderr = &out, &out
 	err := c.Run()
 	return out.Bytes(), err
+}
+
+// Run implements Runner.
+func (s SystemdRunner) Run(ctx context.Context, args ...string) ([]byte, error) {
+	return s.systemdRun(ctx, s.flatpakArgs(args...))
+}
+
+// Prepare implements Runner.
+func (s SystemdRunner) Prepare(ctx context.Context, appDir, folder string) error {
+	if out, err := s.systemdRun(ctx, s.prepareArgs(appDir, folder)); err != nil {
+		return fail("prepare folder", out, err)
+	}
+	return nil
 }
 
 // Manager drives flatpak. One mutating call at a time.
@@ -92,17 +141,25 @@ type Manager struct {
 	FilesDir   string // /data/onemind/desktop-apps: one granted folder per app
 	SessionDir string // /data/onemind/desktop-session: the launch file the streaming runtime reads
 	URL        string // the remote's .flatpakrepo (default RemoteURL; a test points it at a local repo)
-	// Have reports whether a program is installed (default exec.LookPath); Chown is os.Chown by default.
-	Have  func(string) bool
-	Chown func(path string, uid, gid int) error
+	// Have reports whether a program is installed (default exec.LookPath).
+	Have func(string) bool
+	// Now is the clock for the update cache (default time.Now).
+	Now func() time.Time
 
-	mu sync.Mutex
+	mu    sync.Mutex
+	umu   sync.Mutex // guards the update cache
+	upd   map[string]bool
+	updAt time.Time
 }
+
+// updateTTL is how long the answer to "which apps have an update" is kept: asking the remote costs a network call
+// in a unit of its own, and the dashboard polls. Install, update and remove forget it at once.
+const updateTTL = 10 * time.Minute
 
 // NewDefault is the box's manager.
 func NewDefault() *Manager {
 	const dir, files, session = "/data/onemind/flatpak", "/data/onemind/desktop-apps", "/data/onemind/desktop-session"
-	return &Manager{Run: SystemdRunner{Dir: dir, FilesDir: files, SessionDir: session}, FilesDir: files, SessionDir: session}
+	return &Manager{Run: SystemdRunner{Dir: dir, FilesDir: files}, FilesDir: files, SessionDir: session}
 }
 
 func (m *Manager) have(p string) bool {
@@ -131,9 +188,15 @@ func (m *Manager) fp(ctx context.Context, args ...string) ([]byte, error) {
 }
 
 // SandboxArgs are the overrides every app gets: the granted folder is the only place it reaches on the host.
-// org.freedesktop.Flatpak is the portal that runs commands on the host, so it is closed too.
+//
+// --nofilesystem=host:reset clears every filesystem permission the app's manifest or an earlier layer gave
+// (xdg-documents, xdg-download, /media, /mnt, ~/.config/x and so on); a plain --nofilesystem=host removes only that
+// one exact grant. It needs Flatpak 1.14 or newer (Debian 13 ships 1.16; the exact first version is UNVERIFIED).
+// The folder is granted after it. A full session or system bus is a door to the host whatever --no-talk-name says,
+// so both sockets are removed, with the other agents an app could reach the host's secrets or printers through.
 func SandboxArgs(folder string) []string {
-	return []string{"--nofilesystem=host", "--nofilesystem=host-os", "--nofilesystem=host-etc", "--nofilesystem=home",
+	return []string{"--nofilesystem=host:reset", "--nofilesystem=host", "--nofilesystem=host-os", "--nofilesystem=host-etc", "--nofilesystem=home",
+		"--nosocket=session-bus", "--nosocket=system-bus", "--nosocket=ssh-auth", "--nosocket=pcsc", "--nosocket=cups", "--nosocket=gpg-agent",
 		"--no-talk-name=org.freedesktop.Flatpak", "--no-talk-name=org.freedesktop.systemd1",
 		"--nodevice=all", "--filesystem=" + folder + ":rw"}
 }
@@ -224,18 +287,48 @@ func (m *Manager) Search(ctx context.Context, q string) ([]App, error) {
 	return hits, nil
 }
 
-// Installed lists the installed apps (not runtimes), with whether the remote has an update for each.
+func (m *Manager) now() time.Time {
+	if m.Now != nil {
+		return m.Now()
+	}
+	return time.Now()
+}
+
+func (m *Manager) forgetUpdates() {
+	m.umu.Lock()
+	m.upd, m.updAt = nil, time.Time{}
+	m.umu.Unlock()
+}
+
+// updates is the set of application and runtime ids the remote has a newer build of, kept for updateTTL. A failed
+// ask is not kept (the next call asks again) and gives an empty set.
+func (m *Manager) updates(ctx context.Context) map[string]bool {
+	m.umu.Lock()
+	defer m.umu.Unlock()
+	if m.upd != nil && m.now().Sub(m.updAt) < updateTTL {
+		return m.upd
+	}
+	// No --app: runtimes are listed too, so a security update of a runtime alone shows up.
+	o, err := m.fp(ctx, "remote-ls", "--updates", "--columns=application", Remote)
+	if err != nil {
+		return map[string]bool{}
+	}
+	upd := map[string]bool{}
+	for _, l := range strings.Fields(string(o)) {
+		upd[l] = true
+	}
+	m.upd, m.updAt = upd, m.now()
+	return upd
+}
+
+// Installed lists the installed apps (not runtimes). An app has an update when the remote has a newer build of it or
+// of its runtime ("flatpak update <app>" brings its runtime along).
 func (m *Manager) Installed(ctx context.Context) ([]App, error) {
-	out, err := m.fp(ctx, "list", "--app", "--columns=application,name,version")
+	out, err := m.fp(ctx, "list", "--app", "--columns=application,name,version,runtime")
 	if err != nil {
 		return nil, fail("list", out, err)
 	}
-	upd := map[string]bool{}
-	if o, err := m.fp(ctx, "remote-ls", "--app", "--updates", "--columns=application", Remote); err == nil {
-		for _, l := range strings.Fields(string(o)) {
-			upd[l] = true
-		}
-	}
+	upd := m.updates(ctx)
 	apps := []App{}
 	for _, line := range strings.Split(string(out), "\n") {
 		f := strings.Split(line, "\t")
@@ -243,13 +336,23 @@ func (m *Manager) Installed(ctx context.Context) ([]App, error) {
 			continue
 		}
 		a := App{ID: strings.TrimSpace(f[0]), Name: strings.TrimSpace(f[1]), Installed: true}
-		a.UpdateAvailable, a.Folder = upd[a.ID], m.Folder(a.ID)
+		a.Folder = m.Folder(a.ID)
+		a.UpdateAvailable = upd[a.ID]
 		if len(f) > 2 {
 			a.Version = strings.TrimSpace(f[2])
+		}
+		if len(f) > 3 {
+			rt, _, _ := strings.Cut(strings.TrimSpace(f[3]), "/")
+			a.UpdateAvailable = a.UpdateAvailable || (rt != "" && upd[rt])
 		}
 		apps = append(apps, a)
 	}
 	return apps, nil
+}
+
+// cleanup removes runtimes nothing uses any more, so they do not pile up on /data. It is best effort.
+func (m *Manager) cleanup(ctx context.Context) {
+	_, _ = m.fp(ctx, "uninstall", "--unused", "--noninteractive", "--assumeyes")
 }
 
 func (m *Manager) isInstalled(ctx context.Context, id string) (bool, error) {
@@ -262,20 +365,12 @@ func (m *Manager) isInstalled(ctx context.Context, id string) (bool, error) {
 	return false, err
 }
 
-// sandbox makes the granted folder and writes the overrides. The folder belongs to the runtime's user.
+// sandbox makes the granted folder (in a unit that may chown, see Runner.Prepare) and writes the overrides.
 func (m *Manager) sandbox(ctx context.Context, id string) error {
-	folder := m.Folder(id)
-	if err := os.MkdirAll(folder, 0o750); err != nil {
+	if err := m.Run.Prepare(ctx, filepath.Join(m.FilesDir, id), m.Folder(id)); err != nil {
 		return err
 	}
-	chown := m.Chown
-	if chown == nil {
-		chown = os.Chown
-	}
-	if err := chown(folder, DesktopUID, DesktopUID); err != nil {
-		return err
-	}
-	if out, err := m.fp(ctx, append([]string{"override"}, append(SandboxArgs(folder), id)...)...); err != nil {
+	if out, err := m.fp(ctx, append([]string{"override"}, append(SandboxArgs(m.Folder(id)), id)...)...); err != nil {
 		return fail("override", out, err)
 	}
 	return nil
@@ -289,6 +384,7 @@ func (m *Manager) Install(ctx context.Context, id string) error {
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	defer m.forgetUpdates()
 	if err := m.ensureRemote(ctx); err != nil {
 		return err
 	}
@@ -297,6 +393,7 @@ func (m *Manager) Install(ctx context.Context, id string) error {
 	}
 	if err := m.sandbox(ctx, id); err != nil {
 		_, _ = m.fp(ctx, "uninstall", "--noninteractive", "--assumeyes", id)
+		m.cleanup(ctx)
 		return fmt.Errorf("sandbox for %s, app removed again: %w", id, err)
 	}
 	return nil
@@ -309,12 +406,14 @@ func (m *Manager) Update(ctx context.Context, id string) error {
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	defer m.forgetUpdates()
 	if ok, _ := m.isInstalled(ctx, id); !ok {
 		return &Refusal{"not_installed", id + " is not installed"}
 	}
 	if out, err := m.fp(ctx, "update", "--noninteractive", "--assumeyes", id); err != nil {
 		return fail("update", out, err)
 	}
+	m.cleanup(ctx)
 	return m.sandbox(ctx, id)
 }
 
@@ -325,12 +424,14 @@ func (m *Manager) Remove(ctx context.Context, id string) error {
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	defer m.forgetUpdates()
 	if ok, _ := m.isInstalled(ctx, id); !ok {
 		return &Refusal{"not_installed", id + " is not installed"}
 	}
 	if out, err := m.fp(ctx, "uninstall", "--noninteractive", "--assumeyes", id); err != nil {
 		return fail("uninstall", out, err)
 	}
+	m.cleanup(ctx)
 	return nil
 }
 

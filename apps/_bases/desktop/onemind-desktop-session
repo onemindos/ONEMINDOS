@@ -5,11 +5,16 @@
 # application id is ever run: anything else in the file is ignored. The Flatpak installation is /data/onemind/flatpak,
 # mounted read-only, and every app keeps the sandbox the box gave it (one granted folder, no host files).
 set -eu
+# Per-user overrides (~/.local/share/flatpak/overrides) would let anything running as this user widen an app's
+# sandbox. Point Flatpak's user directory at an empty read-only one (made in the Dockerfile) so none can exist.
+FLATPAK_USER_DIR="${ONEMIND_FLATPAK_USER_DIR:-/usr/share/onemind-flatpak-user}"
+export FLATPAK_USER_DIR
 FILE="${ONEMIND_LAUNCH_FILE:-/data/onemind/desktop-session/launch}"
 STAMP="${TMPDIR:-/tmp}/onemind-desktop-session.stamp"
 pid=""
 while :; do
-  if [ -f "$FILE" ] && { [ ! -e "$STAMP" ] || [ "$FILE" -nt "$STAMP" ]; }; then
+  # find -newer is POSIX; the test builtin's newer-than operator is not (shellcheck SC3013 on some versions).
+  if [ -f "$FILE" ] && { [ ! -e "$STAMP" ] || [ -n "$(find "$FILE" -newer "$STAMP" 2>/dev/null)" ]; }; then
     touch "$STAMP"
     want=$(head -n 1 "$FILE" 2>/dev/null || true)
     case "$want" in
