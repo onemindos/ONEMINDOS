@@ -284,3 +284,43 @@ def test_settings_validate():
     with pytest.raises(ValueError):
         HostLinkSettings(give_up_s=5).validate()
     HostLinkSettings().validate()
+
+
+# ---- os.rollback (P-16) --------------------------------------------------------------------------------
+ROLLBACK_RAUC = {"present": True, "booted_slot": "A", "slots": [
+    {"name": "rootfs.0", "class": "rootfs", "bootname": "A", "state": "booted", "boot_status": "good", "bundle_version": "0.1.1"},
+    {"name": "rootfs.1", "class": "rootfs", "bootname": "B", "state": "inactive", "boot_status": "good", "bundle_version": "0.1.0"}]}
+
+
+def ask_rollback(c, version="0.1.0"):
+    c.n += 1
+    return c.post("/v1/actions", headers=OWNER, json={
+        "type": "os.rollback", "params": {"node_id": NODE, "version": version}, "idempotency_key": f"rb{c.n}",
+        "expires_at": (c.clock.now + timedelta(hours=1)).isoformat()})
+
+
+def test_a_rollback_is_offered_only_when_the_host_offers_it(box, host):
+    box.report(rauc=ROLLBACK_RAUC)
+    assert box.get("/v1/os/updates", headers=OWNER).json()["rollback"]["reason"] == "unavailable"  # fake host: not listed
+    host.available["os-rollback"] = True
+    assert box.get("/v1/os/updates", headers=OWNER).json()["rollback"]["available"] is True
+    host.available["os-rollback"] = False  # e.g. the host sees the other slot is bad
+    st = box.get("/v1/os/updates", headers=OWNER).json()["rollback"]
+    assert st == {"available": False, "reason": "unavailable", "message": "os-rollback is off here"}
+
+
+def test_an_approved_rollback_sends_the_kind_and_the_version_only(box, host):
+    host.available["os-rollback"] = True
+    box.report(rauc=ROLLBACK_RAUC)
+    r = ask_rollback(box)
+    assert r.status_code == 201, r.text
+    box.link.poll()
+    assert host.posts == []  # nothing reaches the host before the owner approves
+    # A bare owner token is not enough: it takes the passkey (test_os_rollback_passkey.py signs one).
+    assert box.post(f"/v1/actions/{r.json()['id']}/approve", headers=OWNER).status_code == 401
+    assert host.posts == []
+
+
+def test_the_link_maps_the_action_to_os_rollback():
+    from onemind_core.hostlink import KINDS
+    assert KINDS["os.rollback"] == "os-rollback"

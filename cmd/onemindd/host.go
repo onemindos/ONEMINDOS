@@ -61,6 +61,7 @@ func runHost(args []string) int {
 	defer stop()
 	units := &svcregistry.Reader{Version: version.Version} // service cards, logs and approved restarts (#623, #636)
 	svc := &host.Service{Power: host.Systemd{}, OS: &host.UpdateEngine{ConfigPath: *conf, Log: log},
+		Roll:   &host.SlotRollback{ConfigPath: *conf},
 		BootID: host.BootID(), Delay: *delay, Log: log,
 		Reset: &host.FactoryReset{},
 		Units: units,

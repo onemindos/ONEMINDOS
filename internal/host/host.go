@@ -24,17 +24,18 @@ import (
 
 // Kinds of host action. The gateway's action types map onto them:
 // system.restart, system.shutdown, system.factory_reset, os.update.install,
-// service.restart.
+// os.rollback, service.restart.
 const (
 	KindRestart        = "restart"
 	KindShutdown       = "shutdown"
 	KindFactoryReset   = "factory-reset"
 	KindOSInstall      = "os-install"
+	KindOSRollback     = "os-rollback"
 	KindServiceRestart = "service-restart"
 )
 
 // Kinds lists every kind in a stable order (GET /v1/status).
-var Kinds = []string{KindRestart, KindShutdown, KindFactoryReset, KindOSInstall, KindServiceRestart}
+var Kinds = []string{KindRestart, KindShutdown, KindFactoryReset, KindOSInstall, KindOSRollback, KindServiceRestart}
 
 // Operation states. going_down: the box was told to reboot or power off; the
 // next boot turns it into succeeded.
@@ -105,6 +106,13 @@ func (r Request) Validate() error {
 		if !versionRe.MatchString(r.Version) {
 			return errors.New("os-install needs the approved version (1-64 characters of 0-9 A-Z a-z . + -)")
 		}
+	case KindOSRollback:
+		if r.PlanSHA256 != "" {
+			return errors.New("os-rollback takes no plan_sha256")
+		}
+		if !versionRe.MatchString(r.Version) {
+			return errors.New("os-rollback needs the approved version to go back to (1-64 characters of 0-9 A-Z a-z . + -)")
+		}
 	case KindServiceRestart:
 		if r.Version != "" || r.PlanSHA256 != "" {
 			return errors.New("service-restart takes only a unit")
@@ -113,7 +121,7 @@ func (r Request) Validate() error {
 			return errors.New("unit must be a systemd unit name")
 		}
 	default:
-		return fmt.Errorf("unknown kind %q (restart, shutdown, factory-reset, os-install, service-restart)", r.Kind)
+		return fmt.Errorf("unknown kind %q (restart, shutdown, factory-reset, os-install, os-rollback, service-restart)", r.Kind)
 	}
 	return nil
 }
@@ -178,6 +186,7 @@ type Service struct {
 	Store  *Store // nil: status only, every action refused
 	Power  Power
 	OS     OSInstaller
+	Roll   OSRoller // os-rollback; nil: refused
 	Reset  Resetter
 	SMB    SMBManager    // file sharing (smb.go); nil: not on this box
 	Units  Units         // service-restart; nil: refused
@@ -220,6 +229,11 @@ func (s *Service) Unavailable(kind string) string {
 			return "this box has no OS update engine"
 		}
 		return s.OS.Unavailable()
+	case KindOSRollback:
+		if s.Roll == nil {
+			return "this box has no OS rollback"
+		}
+		return s.Roll.RollbackUnavailable()
 	case KindServiceRestart:
 		if s.Units == nil {
 			return "this host service cannot restart services"
@@ -364,6 +378,27 @@ func (s *Service) run(ctx context.Context, op Op) {
 		case !rebooted:
 			s.set(&op, StateSucceeded, "", note)
 		}
+	case KindOSRollback:
+		s.set(&op, StateRunning, "", "going back to "+op.Version)
+		if err := s.Roll.Prepare(ctx, op.Version); err != nil {
+			var r *Refusal
+			if errors.As(err, &r) {
+				s.set(&op, StateFailed, r.Reason, r.Message)
+			} else {
+				s.set(&op, StateFailed, "host_error", "the rollback could not be prepared; nothing changed: "+err.Error())
+			}
+			return
+		}
+		select {
+		case <-ctx.Done(): // stopping: the slot is marked, the next boot goes back; Resume reports it
+			return
+		case <-time.After(s.Delay):
+		}
+		s.set(&op, StateGoingDown, "", "going back to "+op.Version+"; rebooting into the previous system")
+		if err := s.Power.Reboot(ctx); err != nil {
+			s.Roll.Cancel(ctx)
+			s.set(&op, StateFailed, "host_error", "restart failed: "+err.Error()+"; the box stays on the current version")
+		}
 	case KindServiceRestart:
 		s.set(&op, StateRunning, "", "restarting "+op.Unit)
 		if err := s.Units.Restart(ctx, op.Unit); err != nil {
@@ -417,6 +452,8 @@ func (s *Service) Resume() error {
 				KindShutdown: "the box shut down (and has been started again)",
 				KindOSInstall: "rebooted into " + op.Version +
 					"; the health gate decides whether it is kept (OS updates screen)",
+				KindOSRollback: "rebooted into the previous version " + op.Version +
+					"; the health gate commits it (OS updates screen)",
 			}[op.Kind]
 			s.set(&op, StateSucceeded, "", msg)
 		case earlier:

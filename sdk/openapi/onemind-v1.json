@@ -4635,6 +4635,7 @@
               "map.pack.add",
               "map.pack.remove",
               "node.wake",
+              "os.rollback",
               "os.rollout.resume",
               "os.rollout.start",
               "os.update.install",
