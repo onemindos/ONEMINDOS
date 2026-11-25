@@ -65,6 +65,9 @@ type PlanMember struct {
 	PartUUID   string `json:"partuuid"`
 	Generation int    `json:"generation"`
 	SystemDisk bool   `json:"system_disk"`
+	// Plain: an unencrypted btrfs partition (a box without a TPM). There are no
+	// keys to destroy, so the wipe clears its signatures and the start of the disk.
+	Plain bool `json:"plain,omitempty"`
 	// Stale: an older-generation member of the set (a disk that left the
 	// mirror but still holds readable data) is wiped too.
 	Stale bool `json:"stale,omitempty"`
@@ -90,6 +93,19 @@ var candidates = ops.Candidates
 
 const resetMethod = "fast wipe: destroy the LUKS2 encryption keys of every member, then clear its signatures"
 
+// resetMethodPlain and ResetWarningPlain are used instead when the data is
+// plain btrfs (no TPM, not encrypted): without keys to destroy the old data
+// stays on the disk until it is overwritten, and the owner is told so.
+const resetMethodPlain = "fast wipe: clear the filesystem signatures and the first 16 MiB of every member (the data is not encrypted on this box)"
+
+const ResetWarningPlain = "This erases everything on this box: apps, settings, the owner and passkeys, " +
+	"and the box's identity, on every disk listed below. The data on this box is not encrypted, so this is " +
+	"a fast wipe that removes the filesystem and its index but does not overwrite the rest of the disk: " +
+	"someone with special tools and the disk in hand could still recover parts of the old data until it is overwritten. " +
+	"Backups kept off this box (other disks, other machines, the cloud) are not erased. " +
+	"Restoring them afterwards needs the backup key you saved, because this box's own backup key is wiped with it. " +
+	"If you do not have that key, do not continue."
+
 func (p *ResetPlan) seal() {
 	p.SHA256 = ""
 	b, _ := json.Marshal(p)
@@ -105,13 +121,14 @@ func refusedPlan(why string) ResetPlan {
 }
 
 // BuildPlan turns the disks seen at boot into the plan. A box whose data is
-// not LUKS2 gets a refused plan that says so.
+// neither OneMind LUKS2 nor the plain btrfs of the system disk (an ext4 box
+// installed before #152, or a foreign disk) gets a refused plan that says so.
 func BuildPlan(cands []ops.Candidate) ResetPlan {
 	set, current, stale, _ := ops.Choose(cands)
 	if set == "" || len(current) == 0 {
-		return refusedPlan("the data on this box is not encrypted yet (no LUKS2 data set was found), " +
-			"so the fast wipe cannot run and nothing was changed. A slow overwrite is deliberately not offered; " +
-			"the encrypted data disk is tracked as F-61/F-62")
+		return refusedPlan("no OneMind data set was found (neither an encrypted LUKS2 set with the OneMind token nor the plain btrfs data " +
+			"partition of the system disk; an older ext4 data disk is not supported), " +
+			"so the fast wipe cannot run and nothing was changed. A slow overwrite is deliberately not offered")
 	}
 	p := ResetPlan{Schema: PlanSchema, Available: true, Method: resetMethod, SetUUID: set,
 		Erases: ResetErases, Survives: ResetSurvives, Warning: ResetWarning}
@@ -121,6 +138,12 @@ func BuildPlan(cands []ops.Candidate) ResetPlan {
 	for _, c := range stale {
 		p.Members = append(p.Members, member(c, true))
 	}
+	for _, m := range p.Members {
+		if m.Plain {
+			p.Method, p.Warning = resetMethodPlain, ResetWarningPlain
+			break
+		}
+	}
 	sort.Slice(p.Members, func(i, j int) bool { return p.Members[i].PartUUID < p.Members[j].PartUUID })
 	p.seal()
 	return p
@@ -128,7 +151,7 @@ func BuildPlan(cands []ops.Candidate) ResetPlan {
 
 func member(c ops.Candidate, stale bool) PlanMember {
 	return PlanMember{Part: c.Part, Disk: c.Disk, PartUUID: strings.ToLower(c.PartUUID),
-		Generation: c.Token.Generation, SystemDisk: c.System, Stale: stale}
+		Generation: c.Token.Generation, SystemDisk: c.System, Plain: c.Plain, Stale: stale}
 }
 
 // Marker is the file on the ESP that tells the next boot to wipe. The ESP is
@@ -459,11 +482,19 @@ func Wipe(ctx context.Context, r ops.Runner, esp string, now time.Time) error {
 		return err
 	}
 	for _, c := range targets {
-		if out, code, err := r.Exec(ctx, "", "cryptsetup", "erase", "--batch-mode", c.Part); err != nil || code != 0 {
-			return fmt.Errorf("cryptsetup erase %s failed: %s", c.Part, strings.TrimSpace(string(out)))
+		if !c.Plain { // plain btrfs has no keys to destroy
+			if out, code, err := r.Exec(ctx, "", "cryptsetup", "erase", "--batch-mode", c.Part); err != nil || code != 0 {
+				return fmt.Errorf("cryptsetup erase %s failed: %s", c.Part, strings.TrimSpace(string(out)))
+			}
 		}
 		if out, code, err := r.Exec(ctx, "", "wipefs", "-a", c.Part); err != nil || code != 0 {
 			return fmt.Errorf("wipefs %s failed: %s", c.Part, strings.TrimSpace(string(out)))
+		}
+		// Zero the head (the LUKS2 JSON header and keyslots, or the btrfs boot area) so first boot sees a
+		// blank partition and makes a new data disk; wipefs alone leaves bytes that data_encrypt reads as
+		// "unknown data" and never formats. Bounded to 16 MiB: not a slow overwrite.
+		if out, code, err := r.Exec(ctx, "", "dd", "if=/dev/zero", "of="+c.Part, "bs=1M", "count=16", "conv=fsync"); err != nil || code != 0 {
+			return fmt.Errorf("zeroing the start of %s failed: %s", c.Part, strings.TrimSpace(string(out)))
 		}
 		m.Erased = append(m.Erased, strings.ToLower(c.PartUUID))
 		if err := writeAtomic(path, m.encode()); err != nil {

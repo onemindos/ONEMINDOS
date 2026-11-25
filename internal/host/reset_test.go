@@ -70,7 +70,7 @@ func TestPlanListsEveryMirrorMemberAndTheRecoveryKeyWarning(t *testing.T) {
 
 func TestPlanRefusesWhenDataIsNotEncrypted(t *testing.T) {
 	p := BuildPlan(nil)
-	if p.Available || !strings.Contains(p.Refusal, "not encrypted") || !strings.Contains(p.Refusal, "slow overwrite is deliberately not offered") {
+	if p.Available || !strings.Contains(p.Refusal, "no OneMind data set was found") || !strings.Contains(p.Refusal, "slow overwrite is deliberately not offered") {
 		t.Fatalf("plan: %+v", p)
 	}
 	if p.SHA256 == "" || len(p.Members) != 0 {
@@ -206,6 +206,10 @@ func TestWipeErasesKeysOfEveryMemberOfTheSetOnly(t *testing.T) {
 		t.Fatal("wiped a disk of another set")
 	}
 	for _, c := range r.cmds { // fast wipe only: nothing overwrites the disks
+		// the only dd is the bounded 16 MiB zeroing of the head, so a new first boot sees a blank partition
+		if strings.HasPrefix(c, "dd ") && strings.Contains(c, "bs=1M count=16 ") && strings.Contains(c, "if=/dev/zero") {
+			continue
+		}
 		if strings.HasPrefix(c, "dd ") || strings.HasPrefix(c, "shred") || strings.Contains(c, "mkfs") {
 			t.Fatalf("slow overwrite: %s", c)
 		}
@@ -346,5 +350,76 @@ func TestWipeFailureKeepsMarkerAndRetryFinishes(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(esp, MarkerDoneName)); err != nil {
 		t.Fatal("not finished")
+	}
+}
+
+// plainCand is the unencrypted btrfs data partition of a box without a TPM,
+// as ops.Candidates describes it (the btrfs UUID is the set, generation 0).
+func plainCand(part, uuid, set string) ops.Candidate {
+	c := cand(part, uuid, set, 0, true)
+	c.Plain = true
+	return c
+}
+
+// The default box (no TPM) keeps /data as plain btrfs and must be resettable,
+// with a warning that says the data is not encrypted.
+func TestPlanAcceptsPlainBtrfsOfTheSystemDiskAndSaysItIsNotEncrypted(t *testing.T) {
+	p := BuildPlan([]ops.Candidate{plainCand("/dev/vda7", "p-sys", "fs-uuid"), cand("/dev/sdb1", "p-usb", "set-foreign", 4, false)})
+	if !p.Available || p.SetUUID != "fs-uuid" || len(p.Members) != 1 || !p.Members[0].Plain || p.Members[0].PartUUID != "p-sys" {
+		t.Fatalf("plan: %+v", p)
+	}
+	if p.Warning != ResetWarningPlain || p.Method != resetMethodPlain || !strings.Contains(p.Warning, "not encrypted") {
+		t.Fatalf("plain warning missing: %q / %q", p.Method, p.Warning)
+	}
+	if enc := BuildPlan(mirror()); enc.Warning != ResetWarning || enc.Method != resetMethod {
+		t.Fatalf("an encrypted box must keep the key-destruction wording: %+v", enc)
+	}
+	useDisks(t, []ops.Candidate{plainCand("/dev/vda7", "p-sys", "fs-uuid")}, nil)
+	f := &FactoryReset{ESP: t.TempDir()}
+	if f.Unavailable() != "" {
+		t.Fatalf("unavailable: %s", f.Unavailable())
+	}
+	// the foreign disk changes nothing: the plan is the same with or without it
+	own := BuildPlan([]ops.Candidate{plainCand("/dev/vda7", "p-sys", "fs-uuid")})
+	if err := f.Arm(context.Background(), Op{ID: "x", PlanSHA256: own.SHA256}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestWipeOfPlainBtrfsClearsSignaturesAndTheHeadAndTouchesNothingElse(t *testing.T) {
+	useDisks(t, []ops.Candidate{plainCand("/dev/vda7", "p-sys", "fs-uuid"), cand("/dev/sdb1", "p-usb", "set-foreign", 9, false)}, nil)
+	at := time.Now().UTC()
+	esp := t.TempDir()
+	m := Marker{ActionID: "fr1", RequestedAt: at, DataSet: "fs-uuid", PlanSHA256: strings.Repeat("a", 64), ExpiresAt: at.Add(time.Hour),
+		Members: []MarkerMember{{"p-sys", 0}}}
+	if err := writeAtomic(filepath.Join(esp, MarkerName), m.encode()); err != nil {
+		t.Fatal(err)
+	}
+	r := &recRunner{}
+	if err := Wipe(context.Background(), r, esp, at.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	all := strings.Join(r.cmds, "\n")
+	if strings.Contains(all, "cryptsetup") || strings.Contains(all, "sdb1") {
+		t.Fatalf("plain wipe ran a LUKS step or touched the foreign disk:\n%s", all)
+	}
+	for _, want := range []string{"wipefs -a /dev/vda7", "dd if=/dev/zero of=/dev/vda7 bs=1M count=16 conv=fsync"} {
+		if !strings.Contains(all, want) {
+			t.Errorf("missing %q in\n%s", want, all)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(esp, MarkerDoneName)); err != nil {
+		t.Fatal("no .done marker")
+	}
+}
+
+// A marker armed for one disk set never wipes a plain partition of another.
+func TestWipeRefusesAPlainPartitionOfAnotherSet(t *testing.T) {
+	useDisks(t, []ops.Candidate{plainCand("/dev/vda7", "p-sys", "fs-uuid")}, nil)
+	at := time.Now().UTC()
+	r := &recRunner{}
+	err := Wipe(context.Background(), r, armed(t, at, "set-a"), at.Add(time.Minute))
+	if err == nil || len(r.cmds) != 0 {
+		t.Fatalf("err=%v cmds=%v", err, r.cmds)
 	}
 }
