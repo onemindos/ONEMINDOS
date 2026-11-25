@@ -21,3 +21,8 @@ cifs-utils nfs-common
 initramfs-tools
 grub-common
 libglib2.0-0t64 libssl3t64 libcurl4t64 libjson-glib-1.0-0 libfdisk1 libnl-genl-3-200
+# Box care for a 24/7 machine (Step 2b): fwupd (firmware updates through LVFS, owner-approved only: the refresh timer
+# is masked in os/rootfs/Containerfile), lm-sensors (the sensors command), rasdaemon (hardware error log, its database
+# on /data), udisks2 (USB drives: detect only, never auto-mounted, os/rootfs/layers/base/usr/lib/udev). fstrim.timer
+# comes with util-linux; polkitd is not installed, so only root (the host helper) may mount or flash. Proof: first-boot check F14.
+fwupd lm-sensors rasdaemon udisks2
