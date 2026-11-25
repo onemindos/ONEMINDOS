@@ -212,6 +212,9 @@ export function Onboarding({
   }, [step]);
 
   useEffect(() => {
+    // The previous card's exit holds at opacity 0 until the next step has rendered, so it never flashes back.
+    exiting.current?.cancel();
+    exiting.current = undefined;
     const card = form.current;
     if (!card) return;
     const enter = animate(card, [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }],
@@ -222,6 +225,7 @@ export function Onboarding({
     return () => { enter?.cancel(); stagger?.cancel(); };
   }, [s.id, reduced]);
 
+  const exiting = useRef<Animation | undefined>(undefined);
   const moveTo = async (target: number) => {
     if (target === step || changingStep.current) return;
     changingStep.current = true;
@@ -229,12 +233,14 @@ export function Onboarding({
     const exit = card && animate(card, [{ opacity: 1 }, { opacity: 0 }],
       { duration: 140, fill: 'forwards', easing: 'ease-in' }, reduced);
     try {
+      exiting.current = exit || undefined;
       if (exit) await exit.finished;
       setStep(target);
     } catch {
       // The card was removed before completing this transition.
-    } finally {
       exit?.cancel();
+      exiting.current = undefined;
+    } finally {
       changingStep.current = false;
     }
   };
