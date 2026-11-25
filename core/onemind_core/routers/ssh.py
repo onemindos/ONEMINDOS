@@ -21,6 +21,7 @@ from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError, error_responses
 from ..identity.scopes import register_route_scope
+from ..jsonbody import JsonBody
 from ..sshaccess import KEY_ADD, KEY_REMOVE, TOGGLE, SshService, parse_public_key
 
 # Route order in the app and in /openapi.json (routers/__init__.py): after file sharing (337), before system (340).
@@ -37,7 +38,7 @@ register_route_scope("DELETE", r"/v1/ssh/keys/[^/]+", ("actions:request",))
 register_route_scope("PUT", r"/v1/ssh", ("actions:request",))
 
 
-class KeyAddRequest(BaseModel):
+class KeyAddRequest(JsonBody):
     model_config = ConfigDict(extra="forbid")
     public_key: str = Field(min_length=1, max_length=8192, description="The one line of a .pub file.")
     label: str | None = Field(default=None, max_length=60, description="A name for the key; defaults to the key's own comment.")
@@ -45,7 +46,7 @@ class KeyAddRequest(BaseModel):
     idempotency_key: str | None = Field(default=None, min_length=1, max_length=200)
 
 
-class SwitchRequest(BaseModel):
+class SwitchRequest(JsonBody):
     model_config = ConfigDict(extra="forbid")
     enabled: bool
     reason: str | None = Field(default=None, max_length=500)

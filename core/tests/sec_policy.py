@@ -831,6 +831,23 @@ POLICY |= {
                                                  f"{_SHR}: only an owner stops a share; the one probed does not exist"),
 }
 
+# ---- SSH keys and the SSH switch (P-06: core/onemind_core/routers/ssh.py) -----------------------------------------
+# Owner only for reads and for asking; an agent never asks (the ssh.* types have no agent requesters). No host service
+# in this world, so the owner's requests answer 409 ssh_unavailable (nothing is filed); the probed key id is unknown (404).
+_SSH = "core/onemind_core/routers/ssh.py"
+_SSH_KEY = ("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKyF1pG7Y3o0m5mK2yHn8sV6wq9Z4b1xT0uJ3eRcL7dN "
+            "matrix@test")
+POLICY |= {
+    ("GET", "/v1/ssh"): Row(ONLY_OWNER, w.p_static("/v1/ssh"), f"{_SSH}: who may log in over SSH and the rules it runs under; owner only"),
+    ("GET", "/v1/ssh/keys"): Row(ONLY_OWNER, w.p_static("/v1/ssh/keys"), f"{_SSH}: the authorised keys with fingerprints; owner only"),
+    ("POST", "/v1/ssh/keys"): Row(grid(409, 403, 403, 403, 403), lambda _w: w.Req("/v1/ssh/keys", json={"public_key": _SSH_KEY}),
+                                  f"{_SSH}: only an owner asks to let a key in (409: no host service here, nothing filed); never an agent"),
+    ("DELETE", "/v1/ssh/keys/{key_id}"): Row(grid(404, 403, 403, 403, 403), w.p_missing("/v1/ssh/keys/unknown-key"),
+                                             f"{_SSH}: only an owner asks to remove a key; the one probed does not exist"),
+    ("PUT", "/v1/ssh"): Row(grid(409, 403, 403, 403, 403), lambda _w: w.Req("/v1/ssh", json={"enabled": False}),
+                            f"{_SSH}: only an owner asks to switch SSH on or off (409: no host service here); never an agent"),
+}
+
 # ---- WebDAV app passwords (files-webdav, #722: core/onemind_core/routers/webdav.py) --------------------------
 # The /dav tree is a middleware outside the router (files/webdav.py): it takes only app passwords, so every
 # bearer token gets 401 there; core/tests/test_files_webdav.py covers it, including each token kind.
