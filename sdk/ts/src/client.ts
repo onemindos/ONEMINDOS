@@ -90,6 +90,7 @@ interface Req {
   path: string;
   body?: unknown;
   retry?: boolean;
+  redirect?: RequestRedirect;
   headers?: Record<string, string>;
 }
 
@@ -181,6 +182,19 @@ export class OneMind {
 
   readonly network = { view: () => this.call<NetworkView>({ method: "GET", path: "/v1/network" }) };
 
+  // Tips are served by the hub. Do not follow a redirect out to a content host.
+  readonly tips = {
+    list: () => this.call<components["schemas"]["TipList"]>({
+      method: "GET", path: "/v1/tips", redirect: "error",
+    }),
+    collections: () => this.call<components["schemas"]["TipCollections"]>({
+      method: "GET", path: "/v1/tips/collections", redirect: "error",
+    }),
+    get: (id: string) => this.call<components["schemas"]["TipView"]>({
+      method: "GET", path: `/v1/tips/${encodeURIComponent(id)}`, redirect: "error",
+    }),
+  };
+
   readonly apps = {
     list: () => this.call<CatalogApp[]>({ method: "GET", path: "/v1/apps" }),
   };
@@ -232,6 +246,9 @@ export class OneMind {
   };
 
   readonly notifications = {
+    devices: () => this.call<components['schemas']['PushRegistration'][]>({ method: 'GET', path: '/v1/push/registrations', retry: true }),
+    createChannel: (body: components['schemas']['ChannelIn']) =>
+      this.call<unknown>({ method: 'POST', path: '/v1/notifications/channels', body }),
     preferences: {
       /** The caller's routing document (quiet hours, routes, digest) and its ETag. */
       get: async (): Promise<NotificationPreferencesWithEtag> => {
@@ -336,6 +353,7 @@ export class OneMind {
     let res: Response;
     try {
       res = await this.fetchImpl(this.baseUrl + r.path, {
+        redirect: r.redirect,
         method: r.method,
         headers: {
           Accept: "application/json",
@@ -346,6 +364,7 @@ export class OneMind {
         },
         body: r.body !== undefined ? JSON.stringify(r.body) : undefined,
         signal: ctrl.signal,
+        ...(r.redirect ? { redirect: r.redirect } : {}),
       });
     } catch (e) {
       this.onTrace?.(r.method, pathOnly, 0, Date.now() - started);

@@ -14,10 +14,12 @@ import { useHub } from '../data/hub';
 import { appState, type AppDot, type AppHealth, type Fact } from '../lib/appState';
 import { appPageHref, readAppView, readSharing, readSnapshots, readUsage, type AppView } from '../lib/appPage';
 import { usePoll } from '../lib/hooks';
+import { needs } from '../lib/needs';
 import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
 import { useShell } from '../shell/Shell';
 import { Load } from './parts';
+import { AppMachineFit } from './AppMachineFit';
 
 const TONE: Record<AppDot, Tone> = { ok: 'ok', warn: 'warn', bad: 'bad', neutral: 'neutral', unknown: 'neutral' };
 const day = (iso: string | null | undefined) => (iso && !Number.isNaN(Date.parse(iso)) ? iso.slice(0, 10) : 'Not reported');
@@ -47,6 +49,7 @@ function Page({ app, sdk }: { app: CatalogApp; sdk?: OneMind }) {
     return readAppView(sdk, app.id);
   }, 30_000);
   const name = app.name || app.id;
+  const source = safeHttpUrl(app.source); // the licence's source duty (AGPL apps such as Vaultwarden): a real link
   const health: Fact<AppHealth> = view.data ? { state: 'ok', value: { ...view.data.health, restarts: view.data.restarts } } : view.error ? { state: 'failed' } : { state: 'absent' };
   const loadingHealth = !view.data && !view.error;
   const st = appState({
@@ -78,12 +81,13 @@ function Page({ app, sdk }: { app: CatalogApp; sdk?: OneMind }) {
         <div><dt>Status</dt><dd>{app.status}</dd></div>
         <div><dt>Version</dt><dd>{app.version ?? 'Not reported'}</dd></div>
         <div><dt>Licence</dt><dd>{app.license ?? 'Not reported'}</dd></div>
-        <div><dt>Source</dt><dd>{app.source ?? 'Not reported'}</dd></div>
+        <div><dt>Source</dt><dd>{source ? <a href={source} target="_blank" rel="noopener noreferrer">{app.source}</a> : (app.source ?? 'Not reported')}</dd></div>
         <div><dt>Category</dt><dd>{app.category ?? 'Not reported'}</dd></div>
       </dl>
       <p className="om-hint">Every change is a request an owner approves. <a href={href.manage(app.id)}>Open and manage {name}</a> · <a href={href.app(app.id)}>Market page</a></p>
     </Card>
     <Tabs label={`${name} details`} tabs={tabs} />
+    {pro && <AppMachineFit key={app.id} appId={app.id} />}
   </div>;
 }
 
@@ -174,7 +178,7 @@ function TrustTab({ app, now }: { app: CatalogApp; now: number }) {
     <div><dt>Licence</dt><dd>{app.license ?? 'Not reported'}</dd></div>
     <div><dt>Version</dt><dd>{app.version ?? 'Not reported'}</dd></div>
     <div><dt>Runs on</dt><dd>{app.archs.length ? app.archs.join(', ') : 'Not reported'}</dd></div>
-    <div><dt>Needs</dt><dd>{[app.requires.gpu ? 'a GPU' : null, app.requires.minMemoryMb ? `${app.requires.minMemoryMb} MB of memory` : null].filter(Boolean).join(', ') || 'Nothing special'}</dd></div>
+    <div><dt>Needs</dt><dd>{needs(app)}</dd></div>
     {links.length > 0 && <div><dt>Project</dt><dd>{links.length} link{links.length === 1 ? '' : 's'} under Help</dd></div>}
   </dl>;
 }

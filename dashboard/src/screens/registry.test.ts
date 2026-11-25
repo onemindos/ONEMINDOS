@@ -41,6 +41,7 @@ describe('screen registry', () => {
       ['installed', '/installed', 'Your box'],
       ['nodes', '/nodes', 'Your box'],
       ['add-machine', '/add-machine', 'Your box'],
+      ['world', '/world', 'Your box'],
       ['machines', '/machines', 'Your box'],
       ['photos', '/photos', 'Your box'],
       ['alerts', '/alerts', 'Your box'],
@@ -50,6 +51,7 @@ describe('screen registry', () => {
       ['backups', '/backups', 'Your box'],
       ['file-sharing', '/file-sharing', 'Your box'],
       ['troubleshoot', '/troubleshoot', 'Your box'],
+      ['tips', '/tips', 'Your box'],
       ['network', '/network', 'Your box'],
       ['automation', '/automation', 'Your box'],
       ['updates', '/updates', 'Your box'],
@@ -61,7 +63,7 @@ describe('screen registry', () => {
     expected.splice(expected.findIndex(([id]) => id === 'storage'), 0, ['work', '/work', 'Your box']);
     expect(navItems(2).map((n) => [n.id, n.href, n.group ?? 'primary'])).toEqual(expected);
     expect(navItems(2).find((n) => n.id === 'approvals')).toMatchObject({ badge: 2, badgeLabel: '2 waiting' });
-    expect([...PRO_SCREEN_IDS].sort()).toEqual(['add-machine', 'agents', 'automation', 'backups', 'control-hub', 'dashboards', 'file-sharing', 'machines', 'migrate', 'network', 'nodes', 'photos', 'storage', 'troubleshoot', 'updates', 'usage']);
+    expect([...PRO_SCREEN_IDS].sort()).toEqual(['add-machine', 'agents', 'automation', 'backups', 'control-hub', 'dashboards', 'file-sharing', 'machines', 'migrate', 'network', 'nodes', 'photos', 'storage', 'troubleshoot', 'updates', 'usage', 'world']);
     expect(DOCK_ORDER).toEqual(['home', 'market', 'installed', 'approvals', 'activity', 'settings']);
     expect(SCREENS.every((s) => s.title.length > 0)).toBe(true);
   });
@@ -73,6 +75,7 @@ describe('screen registry', () => {
     expect(navIdFor('/compose')).toBe('market');
     expect(navIdFor('/installed/x')).toBe('installed');
     expect(navIdFor('/settings/users')).toBe('settings');
+    expect(navIdFor('/tips/find-an-app')).toBe('tips');
     expect(navIdFor('/nowhere')).toBe('nowhere');
   });
 });
