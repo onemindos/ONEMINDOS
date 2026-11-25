@@ -118,7 +118,7 @@ class AllowRule(BaseModel):
     proto: Literal["tcp", "udp"]
     port: int
     scope: Literal["lan", "mesh"]
-    state: Literal["pending", "confirmed"]
+    state: Literal["pending", "confirmed", "revert_failed"] = Field(description="revert_failed: its time ran out and the box could not take it away yet; it keeps trying, and the owner can remove it now.")
     created_at: datetime | None = None
     expires_at: datetime | None = Field(default=None, description="Pending only: when the box takes the rule away again if nobody confirmed it.")
     summary: str
@@ -376,13 +376,14 @@ def _allow_rule(e: Any) -> AllowRule:
     rid, proto, scope, state = e.get("id"), e.get("proto"), e.get("scope"), e.get("state")
     port = e.get("port")
     if not isinstance(rid, str) or not ALLOW_ID_RE.match(rid) or proto not in ("tcp", "udp") or scope not in ("lan", "mesh") \
-            or state not in ("pending", "confirmed") or not isinstance(port, int) or isinstance(port, bool) or not 1 <= port <= 65535:
+            or state not in ("pending", "confirmed", "revert_failed") or not isinstance(port, int) or isinstance(port, bool) or not 1 <= port <= 65535:
         raise ValueError("bad allow rule")
     expires = _when(e.get("expires")) if state == "pending" else None
     if state == "pending" and expires is None:
         raise ValueError("a pending rule has a deadline")
     who = AUDIENCE_WORDS["lan" if scope == "lan" else "mesh"]
-    tail = "Closes again by itself unless you confirm it." if state == "pending" else "Confirmed: stays open until you remove it."
+    tail = {"pending": "Closes again by itself unless you confirm it.", "confirmed": "Confirmed: stays open until you remove it.",
+            "revert_failed": "Its time ran out and the box could not close it yet. It keeps trying; you can remove it now."}[state]
     return AllowRule(id=rid, proto=proto, port=port, scope=scope, state=state, created_at=_when(e.get("created")), expires_at=expires,
                      summary=f"Lets {who} reach {proto.upper()} port {port}. {tail}")
 
@@ -446,7 +447,12 @@ def _parse_view(body: Any) -> FirewallView:
     dropped += d
     host_dropped += d
     sets = [FirewallSet(name=n, elements=el) for n, el in raw_sets]
-    set_audience = {n: ("lan" if el and all(_is_lan_prefix(e) for e in el) else "specific_address") for n, el in raw_sets}
+    def _set_aud(el: list[str]) -> str:
+        if any(_is_everyone(e) for e in el):
+            return "any_network"  # a set that holds "everyone" (0.0.0.0/0, or the 0/1 + 128/1 pair) is everyone
+        return "lan" if el and all(_is_lan_prefix(e) for e in el) else "specific_address"
+
+    set_audience = {n: _set_aud(el) for n, el in raw_sets}
     set_audience = {n: ("specific_address" if truncated and a == "lan" else a) for n, a in set_audience.items()}  # a cut set may hide a public member
 
     by_name: dict[str, dict] = {}

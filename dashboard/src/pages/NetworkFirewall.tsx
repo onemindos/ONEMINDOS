@@ -75,6 +75,8 @@ function AllowPanel({ client, view, reload }: { client: OneMind; view: FirewallV
             render: (r) =>
               r.state === 'pending' ? (
                 <StatusPill tone="warn" label={`Closes ${r.expires_at ? formatIn(r.expires_at, Date.now()) : 'soon'} unless you confirm`} />
+              ) : r.state === 'revert_failed' ? (
+                <StatusPill tone="bad" label="Could not close yet, retrying. Close it again below." />
               ) : (
                 <StatusPill tone="ok" label="Kept" />
               ),
@@ -122,7 +124,7 @@ function AllowPanel({ client, view, reload }: { client: OneMind; view: FirewallV
             <option value="lan">Devices on my home network (LAN)</option>
             <option value="mesh">My other OneMind machines (mesh)</option>
           </select>
-          <p className="om-hint">The internet is never an option here. Nothing opens until you approve the request with your passkey, and an unconfirmed port closes again after {ttlMin} min.</p>
+          <p className="om-hint">The internet is never an option here. A home network (LAN) rule is also reachable from your mesh peers and from apps running on this box, because the box's LAN list covers those too. Nothing opens until you approve the request with your passkey, and an unconfirmed port closes again after {ttlMin} min.</p>
           <Button type="submit" variant="primary" disabled={!portOk || busy}>
             Ask to open this port
           </Button>
@@ -187,7 +189,7 @@ export function FirewallCard({ client }: { client: OneMind }) {
                 empty="No rules are loaded."
                 columns={[
                   { key: 'from', header: 'From', render: (r) => FROM[r.audience] ?? r.audience },
-                  { key: 'action', header: 'What happens', render: (r) => <StatusPill tone={r.action === 'accept' && r.audience === 'any_network' && r.kind === 'open_port' ? 'warn' : r.action === 'accept' ? 'ok' : 'neutral'} label={ACTION[r.action] ?? r.action} /> },
+                  { key: 'action', header: 'What happens', render: (r) => <StatusPill tone={r.action === 'accept' && (r.audience === 'any_network' || r.audience === 'one_interface') && r.kind === 'open_port' ? 'warn' : r.action === 'accept' ? 'ok' : 'neutral'} label={ACTION[r.action] ?? r.action} /> },
                   { key: 'summary', header: 'In plain words', render: (r) => r.summary },
                   { key: 'chain', header: 'List', secondary: true, render: (r) => `${r.chain} #${r.position}` },
                 ]}

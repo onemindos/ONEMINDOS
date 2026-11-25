@@ -28,7 +28,7 @@ func firewallCommands(a *App) []*cobra.Command {
 		Short: "Ask to open a port (for example tcp/8123) to your home network or mesh; an owner approves it with a passkey",
 		Long: "Files a request to open one port. It does not open anything until an owner approves it with a passkey (dashboard or phone app).\n" +
 			"After approval the rule is pending: the box removes it again after a few minutes unless you run `onemind firewall confirm ID`.\n" +
-			"The scope is --scope lan (devices on your home network) or --scope mesh (your other OneMind machines). The internet is not an option.",
+			"The scope is --scope lan (devices on your home network; mesh peers and apps on this box can reach it too) or --scope mesh (your other OneMind machines). The internet is not an option.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			proto, port, err := parseProtoPort(args[0])
@@ -187,6 +187,9 @@ func AllowRows(v *onemind.FirewallView) [][]string {
 		state := string(r.State)
 		if r.State == "pending" && r.ExpiresAt != nil {
 			state = "pending, closes " + r.ExpiresAt.Local().Format("15:04:05") + " unless confirmed"
+		}
+		if r.State == "revert_failed" {
+			state = "could not close yet, retrying (remove it with: onemind firewall remove ID)"
 		}
 		rows = append(rows, []string{sanitize(r.Id), fmt.Sprintf("%s/%d", sanitize(string(r.Proto)), r.Port), map[string]string{"lan": "LAN", "mesh": "mesh"}[string(r.Scope)], state})
 	}

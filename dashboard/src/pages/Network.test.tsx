@@ -184,6 +184,16 @@ it('lists the ports the owner opened: a pending one says it closes unless confir
   expect(table.getAllByRole('button', { name: 'Close it' })).toHaveLength(2);
 });
 
+it('shows a rule whose revert failed as not closed yet, and still offers to close it', async () => {
+  mountWithWrites({ ...allowView, allow: { ...allowView.allow, rules: [
+    { id: 'act-3', proto: 'tcp', port: 9000, scope: 'lan', state: 'revert_failed', created_at: null, expires_at: null, summary: 'x' },
+  ] } });
+  const table = within(await screen.findByRole('table', { name: 'Ports you opened' }));
+  expect(table.getByText(/Could not close yet, retrying/)).toBeInTheDocument();
+  expect(table.queryByRole('button', { name: 'Keep it open' })).toBeNull(); // too late to keep it
+  expect(table.getByRole('button', { name: 'Close it' })).toBeInTheDocument();
+});
+
 it('asks to open a port: only the home network or the mesh, never the internet, and nothing opens by itself', async () => {
   const calls = mountWithWrites(allowView);
   const scope = await screen.findByLabelText('Who can connect');

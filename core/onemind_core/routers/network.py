@@ -155,7 +155,10 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.post("/v1/network/firewall/allow/{rule_id}/confirm", tags=["net"], operation_id="network.firewall.allow.confirm",
               responses=error_responses(401, 403, 404, 409))
     def network_firewall_allow_confirm(rule_id: str, p: Principal = Depends(gw.principal)):
-        """Keep a pending allow rule for good. Owner only and audited. A rule nobody confirmed in time is already gone: 404."""
+        """Keep a pending allow rule for good. Owner only and audited. A rule nobody confirmed in time is already gone: 404.
+
+        Deliberately no step-up here: the passkey approval of the request came first, this only keeps what the owner
+        already approved open (it widens nothing), and the caller must be an owner."""
         doc = owner_call(p, rule_id, "POST", "/confirm", "confirm a firewall rule")
         gw.audit.append("firewall.allow.confirmed", p.as_dict(), None, {"rule_id": rule_id, "proto": doc.get("proto"), "port": doc.get("port"), "scope": doc.get("scope")})
         return {"id": rule_id, "state": "confirmed"}

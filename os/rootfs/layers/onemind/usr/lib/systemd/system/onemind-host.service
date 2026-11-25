@@ -8,7 +8,8 @@
 [Unit]
 Description=OneMind host actions (approved restart, shutdown, OS install)
 Requires=onemind-host.socket
-After=onemind-host.socket network-online.target rauc.service onemind-health-gate.service onemind-firstboot.service
+Wants=onemind-firewall-read.socket
+After=onemind-host.socket onemind-firewall-read.socket network-online.target rauc.service onemind-health-gate.service onemind-firstboot.service
 Wants=network-online.target
 RequiresMountsFor=/data
 ConditionPathExists=/data/onemind/firstboot/state.json
@@ -58,7 +59,9 @@ SystemCallFilter=~@privileged
 SystemCallErrorNumber=EPERM
 
 # --- network: HTTPS for the update channel, AF_UNIX for D-Bus (systemd, rauc), AF_NETLINK so GET /v1/network can
-# list interfaces (read only: CAP_NET_ADMIN is not in the bounding set, so no route or address can be changed) ---
+# list interfaces (read only: CAP_NET_ADMIN is not in the bounding set, so no route or address can be changed).
+# The firewall view cannot run nft here (the kernel wants CAP_NET_ADMIN to read nf_tables); it reads the answer
+# from onemind-firewall-read.socket, whose one-shot service holds the capability and can only print. ---
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
 
 [Install]

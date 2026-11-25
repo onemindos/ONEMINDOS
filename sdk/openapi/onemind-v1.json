@@ -1099,9 +1099,11 @@
             "type": "string"
           },
           "state": {
+            "description": "revert_failed: its time ran out and the box could not take it away yet; it keeps trying, and the owner can remove it now.",
             "enum": [
               "pending",
-              "confirmed"
+              "confirmed",
+              "revert_failed"
             ],
             "title": "State",
             "type": "string"
@@ -32248,7 +32250,7 @@
     },
     "/v1/network/firewall/allow/{rule_id}/confirm": {
       "post": {
-        "description": "Keep a pending allow rule for good. Owner only and audited. A rule nobody confirmed in time is already gone: 404.",
+        "description": "Keep a pending allow rule for good. Owner only and audited. A rule nobody confirmed in time is already gone: 404.\n\nDeliberately no step-up here: the passkey approval of the request came first, this only keeps what the owner\nalready approved open (it widens nothing), and the caller must be an owner.",
         "operationId": "network.firewall.allow.confirm",
         "parameters": [
           {

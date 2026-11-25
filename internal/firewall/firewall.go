@@ -17,6 +17,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net"
 	"sort"
 	"strconv"
 	"time"
@@ -270,11 +272,18 @@ func flatten(v any) ([]string, bool) {
 		if set, ok := x["set"].([]any); ok {
 			return flattenList(set)
 		}
+		// A set member with a comment, timeout or expiry is printed as {"elem": {"val": ..., ...}}.
+		if el, ok := x["elem"].(map[string]any); ok {
+			if val, ok := el["val"]; ok {
+				return flatten(val)
+			}
+		}
 		if r, ok := x["range"].([]any); ok && len(r) == 2 {
 			a, b := values(r[0]), values(r[1])
 			if len(a) == 1 && len(b) == 1 {
 				return []string{a[0] + "-" + b[0]}, false
 			}
+			return nil, true
 		}
 		if p, ok := x["prefix"].(map[string]any); ok {
 			if ln, ok := p["len"].(float64); ok {
@@ -282,7 +291,9 @@ func flatten(v any) ([]string, bool) {
 			}
 		}
 	}
-	return nil, false
+	// A shape this package does not read is reported as cut, never silently dropped: the caller counts it
+	// as not understood or truncated, so a member it could not read can never make a set look like "LAN".
+	return nil, true
 }
 
 func flattenList(list []any) ([]string, bool) {
@@ -387,4 +398,32 @@ func parseMatch(r *Rule, m map[string]any) bool {
 		}
 	}
 	return false
+}
+
+// maxRaw caps what is read from the reader socket.
+const maxRaw = 8 << 20
+
+// SocketReader returns a Collector.Run that connects to the firewall read socket and reads the whole answer
+// (the output of `nft -j list ruleset`, printed by a one-shot unit that holds CAP_NET_ADMIN). It sends
+// nothing, honours ctx for the connect and the read, and refuses an answer larger than 8 MiB.
+func SocketReader(path string) func(ctx context.Context) ([]byte, error) {
+	return func(ctx context.Context) ([]byte, error) {
+		var d net.Dialer
+		conn, err := d.DialContext(ctx, "unix", path)
+		if err != nil {
+			return nil, fmt.Errorf("firewall reader: %w", err)
+		}
+		defer conn.Close()
+		if dl, ok := ctx.Deadline(); ok {
+			_ = conn.SetDeadline(dl)
+		}
+		raw, err := io.ReadAll(io.LimitReader(conn, maxRaw+1))
+		if err != nil {
+			return nil, fmt.Errorf("firewall reader: %w", err)
+		}
+		if len(raw) > maxRaw {
+			return nil, fmt.Errorf("firewall reader: answer larger than %d bytes", maxRaw)
+		}
+		return raw, nil
+	}
 }

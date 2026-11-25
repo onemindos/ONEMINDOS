@@ -277,6 +277,14 @@ def test_a_host_that_lies_in_its_rule_list_is_dropped_and_counted():
     assert parse_view(copy.deepcopy(GOOD)).allow is None  # an older host service says nothing: no rules, not editable
 
 
+def test_a_rule_whose_revert_failed_is_shown_without_a_deadline_and_can_be_removed():
+    stuck = {"id": "a1", "proto": "tcp", "port": 80, "scope": "lan", "state": "revert_failed", "created": "2026-11-25T12:00:00Z"}
+    v = parse_view({**copy.deepcopy(GOOD), "allow": {"supported": True, "ttl_seconds": 300, "rules": [stuck]}})
+    (r,) = v.allow.rules
+    assert r.state == "revert_failed" and r.expires_at is None and v.dropped == 0
+    assert "could not close it yet" in r.summary and "remove it" in r.summary
+
+
 def test_routes_are_scoped():
     assert required_scopes("POST", ALLOW) == ("actions:request",)
     assert required_scopes("POST", f"{ALLOW}/abc/confirm") == ("*",)

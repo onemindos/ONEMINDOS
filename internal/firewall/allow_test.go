@@ -229,3 +229,86 @@ func TestViewOffersRulesOnlyWhenTheImageHasTheLists(t *testing.T) {
 		t.Fatalf("%+v", v.Allow)
 	}
 }
+
+func (r *rig) liveFile(t *testing.T) string {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join(r.dir, "live.nft"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(raw)
+}
+
+func TestFailedReloadOnAddLeavesNoUntrackedPort(t *testing.T) {
+	r := newRig(t)
+	r.fail = true
+	if _, err := r.a.Add(context.Background(), "act-1", "tcp", 8123, "lan"); err == nil {
+		t.Fatal("a failed reload must be an error")
+	}
+	// A later restart of the firewall reloads live.nft: it must not hold the port the list does not show.
+	if strings.Contains(r.liveFile(t), "dport 8123") {
+		t.Fatalf("live.nft kept a rule the list does not show:\n%s", r.liveFile(t))
+	}
+}
+
+func TestFailedReloadOnRemoveKeepsRuleAndFile(t *testing.T) {
+	r := newRig(t)
+	if _, err := r.a.Add(context.Background(), "act-1", "tcp", 8123, "lan"); err != nil {
+		t.Fatal(err)
+	}
+	r.fail = true
+	if err := r.a.Remove(context.Background(), "act-1"); err == nil {
+		t.Fatal("a failed reload must be an error")
+	}
+	if len(r.a.List()) != 1 || !strings.Contains(r.liveFile(t), "dport 8123") {
+		t.Fatalf("list and file disagree after a failed remove: %+v\n%s", r.a.List(), r.liveFile(t))
+	}
+}
+
+func TestFailedRevertStaysListedRemovableAndRetries(t *testing.T) {
+	r := newRig(t)
+	if _, err := r.a.Add(context.Background(), "act-1", "tcp", 8123, "lan"); err != nil {
+		t.Fatal(err)
+	}
+	r.fail = true
+	r.cbs[0]() // deadline, reload fails
+	got := r.a.List()
+	if len(got) != 1 || got[0].State != StateRevertFailed || got[0].Expires != nil {
+		t.Fatalf("a failed revert must stay visible as revert_failed: %+v", got)
+	}
+	if strings.Contains(r.liveFile(t), "dport 8123") {
+		t.Fatalf("the file must already be without the rule, so a restart closes it:\n%s", r.liveFile(t))
+	}
+	if _, err := r.a.Confirm(context.Background(), "act-1"); err == nil {
+		t.Fatal("a rule being reverted cannot be confirmed")
+	}
+	n := len(r.cbs)
+	if n < 2 {
+		t.Fatal("a retry must be scheduled")
+	}
+	r.cbs[n-1]() // retry, still failing: another one is scheduled
+	if len(r.cbs) != n+1 || len(r.a.List()) != 1 {
+		t.Fatalf("a failing retry must schedule the next: cbs=%d list=%+v", len(r.cbs), r.a.List())
+	}
+	r.fail = false
+	r.cbs[len(r.cbs)-1]() // retry loads
+	if len(r.a.List()) != 0 {
+		t.Fatalf("a loaded revert must clear the list: %+v", r.a.List())
+	}
+}
+
+func TestFailedRevertCanBeRemoved(t *testing.T) {
+	r := newRig(t)
+	if _, err := r.a.Add(context.Background(), "act-1", "tcp", 8123, "lan"); err != nil {
+		t.Fatal(err)
+	}
+	r.fail = true
+	r.cbs[0]()
+	r.fail = false
+	if err := r.a.Remove(context.Background(), "act-1"); err != nil {
+		t.Fatalf("a revert_failed rule must be removable: %v", err)
+	}
+	if len(r.a.List()) != 0 || strings.Contains(r.last(), "dport 8123") {
+		t.Fatalf("not removed: %+v", r.a.List())
+	}
+}

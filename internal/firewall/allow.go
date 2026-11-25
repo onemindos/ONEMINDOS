@@ -34,9 +34,16 @@ const (
 
 	StatePending   = "pending"
 	StateConfirmed = "confirmed"
+	// StateRevertFailed: the deadline passed and taking the rule away did not load. The rule is no longer in
+	// live.nft (so the next load closes it), it stays listed so the owner can see and remove it, and the
+	// revert is retried with a growing delay until it loads.
+	StateRevertFailed = "revert_failed"
 
 	DefaultTTL = 5 * time.Minute
 	MaxAllow   = 16
+
+	retryFirst = 5 * time.Second
+	retryMax   = 5 * time.Minute
 )
 
 var idRE = regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,128}$`)
@@ -164,6 +171,9 @@ func (a *Allower) script() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "flush chain inet %s %s\nflush chain inet %s %s\n", HostTable, ChainLAN, HostTable, ChainMesh)
 	for _, r := range a.rules {
+		if r.State == StateRevertFailed {
+			continue // being taken away: the file the firewall reloads on a restart must not hold it
+		}
 		chain := ChainLAN
 		if r.Scope == "mesh" {
 			chain = ChainMesh
@@ -174,15 +184,56 @@ func (a *Allower) script() string {
 	return b.String()
 }
 
+// apply writes the desired state and loads it. If the load fails, the previous file is written back and
+// loaded again, so live.nft never holds a rule that the list does not show (a restart of the firewall
+// reloads that file). The caller restores its own list on error.
 func (a *Allower) apply(ctx context.Context) error {
+	prev, perr := os.ReadFile(a.live())
+	err := a.load(ctx)
+	if err == nil {
+		a.pruneFailed()
+		return nil
+	}
+	if perr == nil {
+		if werr := a.writeFile(a.live(), prev); werr != nil {
+			a.log().Error("firewall owner rules: could not write the previous file back", "err", werr)
+		} else {
+			rctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			if rerr := a.Reload(rctx); rerr != nil {
+				a.log().Error("firewall owner rules: the previous rules did not load again", "err", rerr)
+			}
+		}
+	}
+	return err
+}
+
+// load writes the desired state to live.nft and loads it, without any rollback.
+func (a *Allower) load(ctx context.Context) error {
 	if err := a.writeFile(a.live(), []byte(a.script())); err != nil {
 		return err
 	}
 	if err := a.Reload(ctx); err != nil {
 		a.log().Error("firewall owner rules did not load", "err", err)
-		return &Refusal{"firewall_unsupported", "the box's firewall has no owner rules lists (owner_lan, owner_mesh); update the OS image"}
+		return &Refusal{"firewall_unsupported", "the box's firewall has no owner rules lists (owner_lan, owner_mesh), or it could not load them; update the OS image or look at the Firewall allow rules service"}
 	}
 	return nil
+}
+
+// pruneFailed forgets rules whose revert has now loaded (any successful load excludes them).
+func (a *Allower) pruneFailed() {
+	kept := a.rules[:0:0]
+	for _, r := range a.rules {
+		if r.State == StateRevertFailed {
+			if t := a.timers[r.ID]; t != nil {
+				t.Stop()
+				delete(a.timers, r.ID)
+			}
+			continue
+		}
+		kept = append(kept, r)
+	}
+	a.rules = kept
 }
 
 func (a *Allower) save() error {
@@ -258,7 +309,8 @@ func (a *Allower) Add(ctx context.Context, id, proto string, port int, scope str
 	return r, nil
 }
 
-// expire is the automatic revert: a rule still pending at its deadline is removed.
+// expire is the automatic revert: a rule still pending at its deadline is removed. If the reload fails the
+// rule stays listed as revert_failed (it can still be removed) and the revert is retried with backoff.
 func (a *Allower) expire(id string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -266,15 +318,34 @@ func (a *Allower) expire(id string) {
 	if i < 0 || a.rules[i].State != StatePending {
 		return
 	}
-	a.rules = append(a.rules[:i:i], a.rules[i+1:]...)
-	delete(a.timers, id)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	a.rules[i].State, a.rules[i].Expires = StateRevertFailed, nil
+	a.revert(id, retryFirst)
+}
+
+// revert loads the state without the rule; on failure it schedules another try after delay (doubling to retryMax).
+// The caller holds a.mu and has already marked the rule revert_failed.
+func (a *Allower) revert(id string, delay time.Duration) {
+	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Second)
 	defer cancel()
-	if err := a.apply(ctx); err != nil {
-		a.log().Error("firewall allow revert failed", "id", id, "err", err)
+	// No rollback here: the file must stay without the rule, so even a later restart of the firewall closes it.
+	if err := a.load(ctx); err != nil {
+		a.log().Error("firewall allow revert failed, will retry", "id", id, "retry_in", delay.String(), "err", err)
+		next := min(delay*2, retryMax)
+		a.timers[id] = a.after(delay, func() { a.retry(id, next) })
 		return
 	}
+	a.pruneFailed()
 	a.log().Info("firewall allow rule reverted: not confirmed in time", "id", id)
+}
+
+func (a *Allower) retry(id string, next time.Duration) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if i := a.index(id); i < 0 || a.rules[i].State != StateRevertFailed {
+		return
+	}
+	delete(a.timers, id)
+	a.revert(id, next)
 }
 
 func (a *Allower) index(id string) int {
@@ -297,6 +368,9 @@ func (a *Allower) Confirm(_ context.Context, id string) (Allow, error) {
 	if a.rules[i].State == StateConfirmed {
 		return a.rules[i], nil
 	}
+	if a.rules[i].State == StateRevertFailed {
+		return Allow{}, &Refusal{"reverting", "this rule is being taken away (its time ran out); it cannot be confirmed any more"}
+	}
 	a.rules[i].State, a.rules[i].Expires = StateConfirmed, nil
 	if t := a.timers[id]; t != nil {
 		t.Stop()
@@ -317,10 +391,10 @@ func (a *Allower) Remove(ctx context.Context, id string) error {
 	if i < 0 {
 		return &Refusal{"unknown_rule", "there is no such allow rule"}
 	}
-	gone := a.rules[i]
+	before := append([]Allow{}, a.rules...)
 	a.rules = append(a.rules[:i:i], a.rules[i+1:]...)
 	if err := a.apply(ctx); err != nil {
-		a.rules = append(a.rules, gone)
+		a.rules = before
 		return err
 	}
 	if t := a.timers[id]; t != nil {
