@@ -264,6 +264,7 @@ export interface ActionResult {
  * to "unknown" instead of crashing if the gateway names them differently.
  */
 export interface Action extends ActionRequest {
+  approval?: components['schemas']['Action']['approval'];
   plan?: PlanPreview['plan'] | null;
   progress?: { step: string; pct: number } | null;
   id: string;
