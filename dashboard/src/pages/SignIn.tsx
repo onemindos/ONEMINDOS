@@ -50,9 +50,11 @@ function hashCode(): string {
   }
 }
 
-export function SignIn({ mock }: { mock: boolean }) {
+export function SignIn({ mock, lockedBox, onReturnToLock, switchPerson }: {
+  mock: boolean; lockedBox?: string; onReturnToLock?: () => void; switchPerson?: boolean;
+}) {
   const { signIn, anon } = useSession();
-  const [view, setView] = useState<View>(initialView);
+  const [view, setView] = useState<View>(() => lockedBox ? 'signin' : initialView());
   const [error, setError] = useState<string>();
   const [errorFor, setErrorFor] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -70,6 +72,7 @@ export function SignIn({ mock }: { mock: boolean }) {
   // hub is unreachable, the product name stands in: the page never waits on it.
   const [boxName, setBoxName] = useState<string>();
   useEffect(() => {
+    if (lockedBox) return;
     let live = true;
     void anon.instanceName?.().then(
       (r) => live && setBoxName(r.name),
@@ -78,9 +81,9 @@ export function SignIn({ mock }: { mock: boolean }) {
     return () => {
       live = false;
     };
-  }, [anon]);
+  }, [anon, lockedBox]);
   const passkeyOk = webauthnSupported();
-  const layers = wallpaperLayers(DEFAULT_APPEARANCE.wallpaper, null);
+  const layers = wallpaperLayers(lockedBox ? 'contour' : DEFAULT_APPEARANCE.wallpaper, null);
 
   const fail = (field: string, msg: string) => {
     setError(msg);
@@ -158,9 +161,9 @@ export function SignIn({ mock }: { mock: boolean }) {
         <BrandMark className="om-brand-mark dash-signin-mark" />
         {view === 'signin' && (
           <>
-            <h1>{t('signin.title', { name: boxName || brand.shortName })}</h1>
+            <h1>{lockedBox ? (switchPerson ? t('lock.switchPerson') : t('lock.unlockTitle', { name: lockedBox })) : t('signin.title', { name: boxName || brand.shortName })}</h1>
             <p className="om-hint">{t('signin.lede')}</p>
-            {mock && !chipGone && (
+            {mock && !lockedBox && !chipGone && (
               <p id={hintId} className="dash-chip">
                 <span>{t('signin.mockHint')}</span>
                 <button type="button" className="dash-chip-x" aria-label={t('signin.mockHint.dismiss')} onClick={() => setChipGone(true)}>
@@ -168,13 +171,13 @@ export function SignIn({ mock }: { mock: boolean }) {
                 </button>
               </p>
             )}
-            <TrustThisBox />
+            {!lockedBox && <TrustThisBox />}
             {passkeyOk ? (
               <Button variant="primary" onClick={onPasskey} disabled={busy}>
                 {t('signin.passkey')}
               </Button>
             ) : (
-              <p className="om-hint">{t('signin.passkey.unsupported')}</p>
+              <p className="om-hint">{(lockedBox ? t('lock.passwordFallback') : t('signin.passkey.unsupported'))}</p>
             )}
             <details className="dash-signin-more" open={!passkeyOk || undefined}>
               <summary>{t('signin.more')}</summary>
@@ -189,22 +192,22 @@ export function SignIn({ mock }: { mock: boolean }) {
               </form>
               <form onSubmit={onToken} noValidate className="dash-signin-form">
                 <h2 className="dash-signin-sub">{t('signin.token.heading')}</h2>
-                <Field label={t('signin.token.label')} name="token" type="password" autoComplete="off" value={token} onChange={setToken} invalid={bad('token')} describedBy={describe('token', mock && !chipGone ? hintId : undefined)} />
+                <Field label={t('signin.token.label')} name="token" type="password" autoComplete="off" value={token} onChange={setToken} invalid={bad('token')} describedBy={describe('token', mock && !lockedBox && !chipGone ? hintId : undefined)} />
                 <Button type="submit" variant="primary" disabled={busy}>
                   {busy ? t('signin.busy') : t('signin.token.submit')}
                 </Button>
               </form>
-              <p className="om-hint">{t('signin.expiry')}</p>
+              {!lockedBox && <p className="om-hint">{t('signin.expiry')}</p>}
             </details>
             {alert}
-            <p className="dash-signin-links">
+            {lockedBox ? <Button variant="ghost" onClick={onReturnToLock}>{t('lock.return')}</Button> : <p className="dash-signin-links">
               <button type="button" className="om-link" onClick={() => go('setup')}>
                 {t('signin.firstTime')}
               </button>
               <button type="button" className="om-link" onClick={() => go('enrol')}>
                 {t('signin.haveCode')}
               </button>
-            </p>
+            </p>}
           </>
         )}
         {view === 'setup' && (

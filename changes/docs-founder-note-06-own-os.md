@@ -1,0 +1,5 @@
+---
+pr: 1084
+branch: docs/founder-note-06-own-os
+---
+Founder note 09 explains in plain language why OneMind ships its own OS image on Debian. It covers distro vs image, Debian with RAUC vs RHEL-family bootc, Buildroot vs our image, Rugix vs RAUC, k3s vs the alternatives, how competitors build on Debian and what we learn from them, Debian-based phone options, desktop layers, and where the gateway came from. Founder note 10 lays out real C2 and physical-AI paths (an off-grid go-box, site operations, multi-site fabric, a greenhouse controller, edge vision AI, drones and robots) mapped to Market apps and research, with robotics kept parked. Founder note 11 maps the public JADC2 strategy onto OneMind (sense, make sense, act; the data fabric; what to adopt) and keeps the line that AI never actuates without a person. None of the notes adds a decision.

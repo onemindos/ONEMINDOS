@@ -177,6 +177,12 @@ _R("GET,HEAD", r"/v1/tokens", ("tokens:read", "tokens:self", "tokens:admin"))
 _R("POST,DELETE", r"/v1/tokens(/.*)?", ("tokens:self", "tokens:admin"))
 
 
+def narrowed_mcp_access(method: str, path: str, granted: Iterable[str]) -> bool:
+    """POST /mcp for a token narrowed to request types (actions:request:<type>): the route asks for the broad
+    scope, but /mcp rebuilds the token's tool list from exactly what it holds, so a narrowed grant may enter."""
+    return method == "POST" and path == "/mcp" and any(g.startswith("actions:request:") for g in granted)
+
+
 def required_scopes(method: str, path: str) -> tuple[str, ...] | None:
     """Scopes that grant this route (any one), None for self-service, (ALL,) for an unknown route."""
     for methods, rx, scopes in reversed(_ROUTES):  # later registrations override earlier ones

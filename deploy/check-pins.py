@@ -63,6 +63,15 @@ gomod = re.search(r"^\s*github\.com/nats-io/nats-server/v2\s+(\S+)", read("go.mo
 if not gomod or gomod.group(1) != nats_version:
     errors.append(f"go.mod nats-server/v2 {gomod.group(1) if gomod else None!r}, lock says {nats_version!r}")
 
+# The dev compose stack and the verify tests run the same nats-server as the image (the lock's version).
+for path in ("deploy/compose/compose.yaml", "deploy/verify/tests/test_verify.py"):
+    tags = re.findall(r"library/nats:([0-9][0-9.]*)-alpine@sha256:[0-9a-f]{64}", read(path))
+    if not tags:
+        errors.append(f"{path} has no digest-pinned nats image")
+    for t in tags:
+        if t != nats_version.lstrip("v"):
+            errors.append(f"{path} runs nats {t}, lock says {nats_version}")
+
 # restic: deploy/pins.env must name exactly what the backup agent accepts (internal/backup/pins.go).
 gopins = read("internal/backup/pins.go")
 for arch in ("amd64", "arm64"):

@@ -38,8 +38,74 @@ valid:
   - name: edge placement
     ops:
       - {op: set, path: /spec/placement, value: edge}
+  # #724: requires / recommends / supports in one shape; the older requires keys stay valid.
+  - name: requires in the new spelling only
+    ops:
+      - op: set
+        path: /spec/requires
+        value:
+          arch: [x86-64-v2, arm64]
+          memoryMb: 128
+          storageFreeGb: 4
+          accelerator: {capability: gpu-compute, minMemoryMb: 8192, rtCores: true, count: 2}
+          devices: [serial-port]
+          radios: [zigbee, lora]
+          models: {quantisations: [q4_k_m, q8_0]}
+  - name: an older optional accelerator with its overlay
+    ops:
+      - {op: set, path: /spec/requires/accelerator, value: {capability: gpu-compute, minMemoryMb: 4096, optional: true, overlay: manifests-gpu}}
+  - name: a recommended accelerator and supported quantisations
+    ops:
+      - {op: set, path: /spec/recommends/accelerator, value: {capability: gpu-compute, minMemoryMb: 4096, overlay: manifests-gpu}}
+      - {op: set, path: /spec/supports/models, value: {quantisations: [q4_k_m, fp16]}}
+  - name: the older requires keys next to the new ones that have no older spelling
+    ops:
+      - {op: set, path: /spec/requires/cpuLevel, value: {amd64: x86-64-v3}}
+      - {op: set, path: /spec/requires/storageFreeGb, value: 10}
+      - {op: set, path: /spec/requires/devices, value: [camera]}
 invalid:
   - {name: unknown spec block, ops: [{op: set, path: /spec/widgets, value: {}}]}
+  # #724: requires / recommends / supports.
+  - {name: unknown key in requires, expect: minDiskGb, ops: [{op: set, path: /spec/requires/minDiskGb, value: 5}]}
+  - {name: an older key outside requires, expect: cpuLevel, ops: [{op: set, path: /spec/recommends/cpuLevel, value: {amd64: x86-64-v3}}]}
+  - name: a vendor resource in devices
+    expect: "spec/requires/devices/0: nvidia.com/gpu names a vendor or a host path"
+    ops: [{op: set, path: /spec/requires/devices, value: [nvidia.com/gpu]}]
+  - name: a host path in devices
+    expect: names a vendor or a host path
+    ops: [{op: set, path: /spec/supports/devices, value: [/dev/ttyUSB0]}]
+  - name: a vendor accelerator capability
+    expect: "spec/recommends/accelerator/capability: nvidia.com/gpu names a vendor or a host path"
+    ops: [{op: set, path: /spec/recommends/accelerator, value: {capability: nvidia.com/gpu}}]
+  - name: memory in both spellings
+    expect: minMemoryMb and memoryMb say the same thing
+    ops: [{op: set, path: /spec/requires/memoryMb, value: 128}]
+  - name: cpu level in both spellings
+    expect: cpuLevel and arch say the same thing
+    ops:
+      - {op: set, path: /spec/requires/cpuLevel, value: {amd64: x86-64-v2}}
+      - {op: set, path: /spec/requires/arch, value: [x86-64-v2, arm64]}
+  - name: card count in both spellings
+    expect: gpuCount and accelerator.count say the same thing
+    ops:
+      - op: set
+        path: /spec/requires
+        value: {gpu: true, minMemoryMb: 128, gpuCount: 2, accelerator: {capability: gpu-compute, count: 2}}
+  - name: an optional accelerator in requires and a recommended one
+    expect: requires.accelerator.optional and recommends.accelerator say the same thing
+    ops:
+      - {op: set, path: /spec/requires/accelerator, value: {capability: gpu-compute, optional: true, overlay: manifests-a}}
+      - {op: set, path: /spec/recommends/accelerator, value: {capability: gpu-compute, overlay: manifests-b}}
+  - name: an architecture named twice
+    expect: amd64 is named twice
+    ops: [{op: set, path: /spec/requires/arch, value: [amd64, x86-64-v3, arm64]}]
+  - name: requires arch differs from the images' archs
+    expect: must name the same architectures as spec.archs
+    ops: [{op: set, path: /spec/requires/arch, value: [arm64]}]
+  - {name: requires without memory, ops: [{op: remove, path: /spec/requires/minMemoryMb}]}
+  - {name: an unknown radio, ops: [{op: set, path: /spec/supports/radios, value: [wifi]}]}
+  - {name: a quantisation in capitals, ops: [{op: set, path: /spec/supports/models, value: {quantisations: [Q4_K_M]}}]}
+  - {name: an empty recommends block, ops: [{op: set, path: /spec/recommends, value: {}}]}
   - {name: unknown extension block, ops: [{op: set, path: /spec/extensions/map_layer, value: {}}]}
   - {name: terms record missing, ops: [{op: remove, path: /spec/terms}]}
   - {name: person data, ops: [{op: set, path: /spec/terms/personData, value: true}]}

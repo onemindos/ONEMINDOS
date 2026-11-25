@@ -92,6 +92,7 @@ def problems(keys: Iterable[str], tool_routes: dict[str, str]) -> list[str]:
 HUMAN_ONLY: dict[str, str] = {
     "POST /v1/work/projects": WRITE,
     "POST /v1/work/capture": WRITE,
+    "POST /v1/work/quick-add": WRITE,
     "PATCH /v1/work/projects/{project_id}/tasks/{task_id}": WRITE,
     "DELETE /v1/work/projects/{project_id}/tasks/{task_id}": WRITE,
     # ---- oversight: deciding requests and controlling agents
@@ -280,6 +281,10 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/browsers/{app_id}/session": WRITE,
     "POST /v1/browsers/{app_id}/session/close": WRITE,
     "POST /v1/deploy/compose": WRITE,
+    "GET /v1/custom-apps": OVERSIGHT,  # repository URLs and deploy history are the owner's; an agent requests app.install
+    "GET /v1/custom-apps/{app_id}": OVERSIGHT,
+    "POST /v1/custom-apps/plan": OVERSIGHT,  # fetches a repository: an owner act, an agent only requests the install
+    "POST /v1/custom-apps/{app_id}/rollback": OVERSIGHT,
     "POST /v1/domains": WRITE,
     "DELETE /v1/domains/hosts/{hostname}": WRITE,
     "DELETE /v1/domains/{domain}": WRITE,

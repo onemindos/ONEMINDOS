@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# Audio and Bluetooth for a box with its own screen (Step 3, issue #786 streamed desktop apps; the kiosk is
+# onemind-kiosk.service). Cloud boards and the other server boards never get these. Same list as rpi5.
+# PipeWire (sound server for the screen session and streamed apps; pipewire-pulse speaks the PulseAudio protocol that
+# desktop apps use, wireplumber picks the output, pulseaudio-utils gives pactl for checks), BlueZ (bluetoothd; pairings
+# on /data, adapter off until the owner turns it on), libspa-0.2-bluetooth (PipeWire's Bluetooth audio), alsa-ucm-conf
+# (sound card profiles for laptops and all-in-ones), dbus-user-session (the per-user bus PipeWire's user units need).
+alsa-ucm-conf bluez dbus-user-session libspa-0.2-bluetooth pipewire pipewire-bin pipewire-pulse pulseaudio-utils wireplumber

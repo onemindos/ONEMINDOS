@@ -19,7 +19,7 @@ it('awaits real settings persistence before summary, preserves failures for retr
   expect(screen.getByRole('button', { name: /Saving/ })).toBeDisabled();
   expect(finish).not.toHaveBeenCalled();
   await act(async () => resolve());
-  expect(screen.getByRole('heading', { level: 1, name: 'You are all set' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { level: 2, name: 'You are all set' })).toBeInTheDocument();
   expect(screen.getByText(/does not enable backups/)).toBeInTheDocument();
   expect(screen.queryByText(/emergency kit saved/)).toBeNull();
   await user.click(screen.getByRole('button', { name: /Go to Home/ }));
@@ -51,7 +51,7 @@ it('a wizard opened with an issued, unconfirmed kit can still skip it and finish
   expect(issue).toHaveBeenCalledTimes(1);
   await user.click(screen.getByRole('button', { name: 'Skip for now' }));
   await user.click(screen.getByRole('button', { name: /Finish setup/ }));
-  expect(await screen.findByRole('heading', { level: 1, name: 'You are all set' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { level: 2, name: 'You are all set' })).toBeInTheDocument();
   expect(screen.getByText(/skipped for now/)).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: /Go to Home/ }));
   expect(finish).toHaveBeenCalledTimes(1);

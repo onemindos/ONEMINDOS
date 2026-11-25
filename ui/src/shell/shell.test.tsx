@@ -11,7 +11,7 @@ import { CommandPalette } from './CommandPalette';
 import { NotificationBell, NotificationCentre } from './NotificationCentre';
 import { Onboarding } from './Onboarding';
 import { StateView } from './StateView';
-import { buildCommands, isPaletteHotkey, moveActive, parseQuery, pushRecent, scoreCommand, searchCommands, type PaletteApp, type PaletteCommand } from './palette';
+import { buildCommands, isPaletteHotkey, moveActive, parseQuery, pushRecent, scoreCommand, searchCommands, SETTINGS_COMMANDS, type PaletteApp, type PaletteCommand } from './palette';
 import { filterNotifications, groupByDay, markAllRead, needsYou, safeDeepLink, setRead, unreadCount, type ShellNotification } from './notifications';
 import { newArrivals, toastForNotification, toastForRequest, useNotificationToasts } from './toasts';
 import { viewState, isSlow } from './states';
@@ -107,6 +107,10 @@ describe('taxonomy', () => {
 
 // ---------- palette ----------
 describe('palette logic', () => {
+  it('sends Passkeys and sessions to Account (everyone), not the pro-only Security overview', () => {
+    expect(SETTINGS_COMMANDS.find((c) => c.id === 'set:passkeys')?.href).toBe('#/settings/account');
+  });
+
   it('parses scope prefixes', () => {
     expect(parseQuery('> restart')).toEqual({ scope: 'requests', text: 'restart' });
     expect(parseQuery('@pi')).toEqual({ scope: 'nodes', text: 'pi' });
@@ -423,7 +427,7 @@ describe('Onboarding', () => {
     const onFinish = vi.fn();
     const user = userEvent.setup();
     render(<Onboarding apps={starter} initial={{ timeZone: 'Europe/London' }} timeZones={['Europe/London', 'UTC']} onCreatePasskey={async () => true} onThemeChange={() => {}} onFinish={onFinish} />);
-    expect(screen.getByRole('heading', { level: 1, name: 'Name your box' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Name your box' })).toBeInTheDocument();
     await noAxeViolations(document.body);
 
     await user.click(screen.getByRole('button', { name: /Continue/ }));
@@ -432,7 +436,7 @@ describe('Onboarding', () => {
     expect(screen.getByLabelText('Box name')).toHaveValue('home-hub');
     await user.click(screen.getByRole('button', { name: /Continue/ }));
 
-    const h = screen.getByRole('heading', { level: 1, name: 'Create the owner' });
+    const h = screen.getByRole('heading', { level: 2, name: 'Create the owner' });
     expect(h).toHaveFocus();
     await user.type(screen.getByLabelText('Your name'), 'Dana');
     await user.click(screen.getByRole('button', { name: /Create passkey/ }));
@@ -458,7 +462,7 @@ describe('Onboarding', () => {
     await noAxeViolations(document.body);
     await user.click(screen.getByRole('button', { name: /Finish setup/ }));
 
-    expect(screen.getByRole('heading', { level: 1, name: 'You are all set' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'You are all set' })).toBeInTheDocument();
     expect(screen.getByText(/1 install request will wait/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /Go to Home/ }));
     expect(onFinish).toHaveBeenCalledWith(

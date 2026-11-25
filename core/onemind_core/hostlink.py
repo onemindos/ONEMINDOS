@@ -50,6 +50,7 @@ KINDS = {
     "system.shutdown": "shutdown",
     "system.factory_reset": "factory-reset",
     "os.update.install": "os-install",
+    "os.rollback": "os-rollback",  # P-16: back to the previous A/B slot
     "service.restart": "service-restart",  # #636: one registry unit; the host checks it is restartable
 }
 ACTION_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
@@ -169,10 +170,10 @@ class HostLink:
         if kind is None or not ACTION_ID.match(a.id):
             return ExecResult("failed", f"{a.type} cannot be sent to the host service", steps=[{"step": "host", "result": "bad_request"}])
         body: dict[str, str] = {"action_id": a.id, "kind": kind}
-        if kind == "os-install":
+        if kind in ("os-install", "os-rollback"):
             version = (a.params or {}).get("version")
             if not isinstance(version, str) or not version:
-                return ExecResult("failed", "the install has no approved version", steps=[{"step": "host", "result": "bad_request"}])
+                return ExecResult("failed", "the action has no approved version", steps=[{"step": "host", "result": "bad_request"}])
             body["version"] = version
         if kind == "service-restart":
             unit = (a.params or {}).get("unit")

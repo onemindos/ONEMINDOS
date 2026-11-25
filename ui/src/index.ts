@@ -15,6 +15,7 @@ export { AppShell, PageHeader } from './components/AppShell';
 export type { AppShellProps, NavItem } from './components/AppShell';
 export { ApprovalCard, ACTION_STATE, actionTitle, equivalentCall, requesterPill } from './components/ApprovalCard';
 export type { ActionSummary, ActionState, ApprovalCardProps } from './components/ApprovalCard';
+export { HoldToApprove } from './components/HoldToApprove';
 export { AppIcon, TILE_HUES, TILE_TEXT, monogram as appMonogram, tileHue as appTileHue } from './components/AppIcon';
 export type { AppIconProps } from './components/AppIcon';
 export { BrandMark, BRAND } from './components/BrandMark';
@@ -60,6 +61,7 @@ export * from './network';
 export * from './store';
 export * from './shell';
 export * from './secrets';
+export { animate, useReducedMotion } from './motion';
 
 export { SeriesCard } from './cards/SeriesCard';
 export type { SeriesCardData, SeriesReading } from './cards/SeriesCard';

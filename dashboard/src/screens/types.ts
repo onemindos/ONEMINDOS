@@ -46,6 +46,8 @@ export interface SettingsPageDef {
   id: SettingsSectionId;
   /** The page, when this hub serves it. */
   load?: ScreenLoader;
+  /** Otherwise, a section a screen of its own serves: the path of that screen. It must match that screen's `redirects`. */
+  to?: string;
   /** Otherwise: the work stream and the §12 API that bring it (an honest "coming" page). */
   coming?: { stream: string; api: string | null };
 }

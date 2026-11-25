@@ -72,13 +72,14 @@ func readKV(p string) (map[string]string, error) {
 // BadReleases is the gate's per-device list (<gate_dir>/bad-releases), lines
 // "<time> version=<v> verdict=image-bad|environment-bad".
 type BadReleases struct {
-	imageBad map[string]bool
-	envBad   map[string]int
+	imageBad  map[string]bool
+	envBad    map[string]int
+	ownerBack map[string]bool // verdict=owner-rollback: the owner went back from it (a kind of image-bad)
 }
 
 // ReadBadReleases reads the list; a missing file is an empty list.
 func ReadBadReleases(c *Config) (BadReleases, error) {
-	br := BadReleases{imageBad: map[string]bool{}, envBad: map[string]int{}}
+	br := BadReleases{imageBad: map[string]bool{}, envBad: map[string]int{}, ownerBack: map[string]bool{}}
 	b, err := os.ReadFile(filepath.Join(c.GateDir, "bad-releases"))
 	if errors.Is(err, os.ErrNotExist) {
 		return br, nil
@@ -100,6 +101,9 @@ func ReadBadReleases(c *Config) (BadReleases, error) {
 			br.envBad[v]++
 		default: // image-bad, or anything unknown: never retry
 			br.imageBad[v] = true
+			if verdict == "owner-rollback" {
+				br.ownerBack[v] = true
+			}
 		}
 	}
 	return br, nil
@@ -168,6 +172,14 @@ func (b BadReleases) Excluded(v string) string {
 	}
 	return ""
 }
+
+// OwnerRolledBack reports whether the owner went back from v (a passkey-approved rollback, P-16).
+func (b BadReleases) OwnerRolledBack(v string) bool { return b.ownerBack[v] }
+
+// Lock takes the update engine's exclusive lock, so no engine run (the update timer's) starts or
+// clears a bad-releases entry while the host holds it. The kernel drops it if the process dies.
+// ErrBusy means a run is in progress.
+func Lock(c *Config) (func(), error) { return lock(c.StateDir) }
 
 // Verdict returns the gate's last verdict recorded for v, or "".
 func (b BadReleases) Verdict(v string) string {

@@ -30,7 +30,8 @@ function response(value: unknown, code = 200) { return new Response(JSON.stringi
 function mount(answer: () => Response, token = 'owner-demo') {
   const fetch = vi.fn(async (url: string | URL | Request) => {
     const path = new URL(String(url)).pathname;
-    expect(path).toBe('/v1/network'); // the screen reads only this route
+    expect(['/v1/network', '/v1/domains']).toContain(path); // the screen reads only these two routes
+    if (path === '/v1/domains') return response({ enabled: false, acme: { account_thumbprint: null, issuance: 'not_available_yet' }, domains: [] });
     return answer();
   });
   vi.stubGlobal('fetch', fetch);

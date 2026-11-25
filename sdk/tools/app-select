@@ -1,6 +1,6 @@
 #!/usr/bin/env -S python3 -I
 # SPDX-License-Identifier: Apache-2.0
-"""Pick the apps a licence-matrix change affects (used by .github/workflows/ci-apps.yml).
+"""Select and route Market and container system apps for the app gate workflows.
 
   python3 -I sdk/tools/app-select matrix --old OLD.csv --new NEW.csv [--apps-dir apps]
 
@@ -11,7 +11,10 @@ from __future__ import annotations
 
 import argparse
 import sys
+import tarfile
 from pathlib import Path
+
+import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from applib import common, selection  # noqa: E402
@@ -24,12 +27,32 @@ def main(argv: list[str]) -> int:
     m.add_argument("--old", type=Path, required=True)
     m.add_argument("--new", type=Path, required=True)
     m.add_argument("--apps-dir", type=Path, default=common.APPS_DIR)
+    inventory = sub.add_parser("inventory", help="gate keys for all or changed apps")
+    inventory.add_argument("--changed", action="store_true", help="read changed paths from stdin")
+    inventory.add_argument("--apps-dir", type=Path, default=common.APPS_DIR)
+    path = sub.add_parser("path", help="resolve a gate key to its repository-relative app directory")
+    path.add_argument("key")
+    scan = sub.add_parser("apply-scan", help="copy only a gate key's allowed refreshed files")
+    scan.add_argument("key")
+    scan.add_argument("files", type=Path)
+    scan.add_argument("archive", type=Path)
     args = p.parse_args(argv)
     try:
-        ids = selection.apps_with_changed_rows(args.old.read_text(encoding="utf-8"),
-                                               args.new.read_text(encoding="utf-8"),
-                                               selection.app_repos(args.apps_dir))
-    except (OSError, ValueError, KeyError) as exc:
+        if args.cmd == "path":
+            print(selection.app_path(args.key))
+            return 0
+        if args.cmd == "apply-scan":
+            selection.apply_scan(args.key, args.files.read_text(encoding="utf-8"), args.archive, common.APPS_DIR.parent)
+            return 0
+        if args.cmd == "inventory":
+            ids = selection.inventory(args.apps_dir)
+            if args.changed:
+                ids = selection.changed_apps(ids, sys.stdin.read())
+        else:
+            ids = selection.apps_with_changed_rows(args.old.read_text(encoding="utf-8"),
+                                                   args.new.read_text(encoding="utf-8"),
+                                                   selection.app_repos(args.apps_dir))
+    except (OSError, ValueError, KeyError, yaml.YAMLError, tarfile.TarError) as exc:
         sys.stderr.write(f"error: {exc}\n")
         return 2
     print("\n".join(ids))

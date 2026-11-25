@@ -9,6 +9,7 @@ import { ApiError } from '../api/types';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { NetworkChange } from './NetworkChange';
+import { DomainsCard } from './DomainsCard';
 import { Load } from './parts';
 
 type Iface = NetworkView['interfaces'][number];
@@ -58,7 +59,7 @@ function LiveNetwork({ token }: { token: string }) {
   if (view.error?.status === 403 && view.data === undefined) return <OwnerOnly />;
   return (
     <div className="dash-stack">
-      <PageHeader title="Network" lede="How this box is connected: its addresses, gateway and DNS, Wi-Fi, and what it listens on. Changing a cable address is a request an owner approves." />
+      <PageHeader title="Network" lede="How this box is connected: its addresses, gateway and DNS, Wi-Fi, and what it listens on. Changing a cable address is a request an owner approves; your own domains are below." />
       <Button onClick={() => void view.reload()}>Refresh network</Button>
       <Load res={view} what="Loading the network">
         {(v) => {
@@ -141,6 +142,7 @@ function LiveNetwork({ token }: { token: string }) {
           );
         }}
       </Load>
+      <DomainsCard token={token} />
     </div>
   );
 }

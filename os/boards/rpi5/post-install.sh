@@ -15,4 +15,9 @@ rm -rf "$D"
 for k in 2712 v8; do ls /boot/vmlinuz-*-rpi-$k /boot/initrd.img-*-rpi-$k >/dev/null; done
 for m in /lib/modules/*; do case ${m##*/} in *-rpi-*) ;; *) echo "ERROR: non-Raspberry-Pi kernel ${m##*/} left" >&2; exit 1 ;; esac; done
 systemctl enable onemind-rpi5-grow.service onemind-rpi5-eeprom-check.service >/dev/null
+# Audio and Bluetooth for the box's own screen (Step 3): bluez comes from packages-debian.txt; bluetooth.service is wanted by
+# multi-user.target so bluetoothd runs before an adapter shows up (Debian only starts it when udev finds one).
+test -x /usr/libexec/bluetooth/bluetoothd
+test -x /usr/bin/pipewire && test -x /usr/bin/wireplumber && test -x /usr/bin/pipewire-pulse
+systemctl add-wants multi-user.target bluetooth.service
 echo "rpi5: kernels $(ls /lib/modules | tr '\n' ' ')"

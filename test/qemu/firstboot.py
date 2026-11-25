@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""OneMind QEMU battery, first boot (F0-F12). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
+"""OneMind QEMU battery, first boot (F0-F13, F14, F15, F16). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
 (pre-registered; never edited to make a result pass). Reuses run-tests.py's VM driver.
 
 Input: the battery's fixtures (`make fixtures`: disk.img = slot A v1 + test overlay, bundles.img with
@@ -502,6 +502,288 @@ def f12(vm, token):
     record("F12", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
            + f" box={box!r} up={up} down_summary={summary[:80]!r} engine_unreachable={inst.get('reason')}")
 
+def f13(vm):
+    """Step 2 PRs 4 and 7: the disk and admin tools run on the booted image (CRITERIA-FIRSTBOOT.md section 9)."""
+    _, out = vm.run(
+        'D=$(lsblk -no PKNAME "$(findmnt -no SOURCE /)" 2>/dev/null | head -1); '
+        '[ -n "$D" ] || D=$(lsblk -dno NAME,TYPE | awk \'$2=="disk"{print $1; exit}\'); D=/dev/$D; echo DISK=$D; '
+        'smartctl --version >/dev/null 2>&1; echo SMARTV_RC=$?; smartctl --scan >/dev/null 2>&1; echo SCAN_RC=$?; '
+        'smartctl -H $D 2>&1 | head -3; echo SMARTH_BANNER=$(smartctl -H $D 2>&1 | grep -c "^smartctl"); '
+        'sgdisk -p $D >/tmp/f13.sg 2>&1; echo SGDISK_RC=$?; echo SGDISK_TABLE=$(grep -c "^Number" /tmp/f13.sg); '
+        'btrfs --version >/dev/null 2>&1; echo BTRFS_RC=$?; '
+        'for t in jq htop rsync nano less ethtool dmidecode lspci lsusb; do $t --version >/dev/null 2>&1; echo TOOL $t $?; done; '
+        'ping -V >/dev/null 2>&1; echo TOOL ping $?; '
+        'test -r /usr/share/bash-completion/bash_completion; echo BASHCOMP_RC=$?; '
+        'echo SMARTD=$(systemctl is-enabled smartmontools.service 2>&1 | head -1)/$(systemctl is-enabled smartd.service 2>&1 | head -1)', 120)
+    get = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or ["?"])[-1]
+    tools = dict((t, rc) for t, rc in re.findall(r"^TOOL (\S+) (\d+)\s*$", out, re.M))
+    want = ["jq", "htop", "rsync", "nano", "less", "ethtool", "dmidecode", "lspci", "lsusb", "ping"]
+    c = {"smartctl_version": get("SMARTV_RC") == "0", "smartctl_scan": get("SCAN_RC") == "0",
+         "smartctl_H_runs": get("SMARTH_BANNER") not in ("0", "?"),
+         "sgdisk_p": get("SGDISK_RC") == "0" and get("SGDISK_TABLE") not in ("0", "?"),
+         "btrfs": get("BTRFS_RC") == "0",
+         "admin_tools": all(tools.get(t) == "0" for t in want),
+         "bash_completion": get("BASHCOMP_RC") == "0",
+         "smartd_masked": get("SMARTD") in ("masked/masked", "masked/alias")}
+    record("F13", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" disk={get('DISK')} tools={tools}")
+
+# F15's pseudo-terminal login, run in the guest (section 11): what a getty on tty2 does, with login(1) and PAM.
+# The password arrives in the environment (F15_PW) and is never printed; only the parsed results are.
+F15_PY = r"""
+import os, pty, select, sys, time
+pw = os.environ["F15_PW"]
+def login(password, shell):
+    pid, fd = pty.fork()
+    if pid == 0:
+        os.execv("/bin/login", ["login", "admin"])
+    buf = b""
+    def read_until(marks, t):
+        nonlocal buf
+        end = time.time() + t
+        while time.time() < end:
+            if any(m in buf for m in marks):
+                return True
+            r, _, _ = select.select([fd], [], [], 0.5)
+            if r:
+                try:
+                    d = os.read(fd, 4096)
+                except OSError:
+                    return any(m in buf for m in marks)
+                if not d:
+                    return any(m in buf for m in marks)
+                buf += d
+        return any(m in buf for m in marks)
+    got = {"prompt": read_until([b"assword:"], 60)}
+    os.write(fd, password.encode() + b"\n")
+    if shell:
+        got["shell"] = read_until([b"$ ", b"# "], 60)
+        os.write(fd, b"echo WHO=$(id -un) MARK$((1+1))\n")
+        got["who"] = read_until([b"MARK2"], 30)
+        os.write(fd, ("echo SUDOID=$(echo '%s' | sudo -S -p '' id -u) DONE$((2+3))\n" % password).encode())
+        got["sudo"] = read_until([b"DONE5"], 60)
+        os.write(fd, b"exit\n")
+    else:
+        got["denied"] = read_until([b"Login incorrect"], 60)
+        got["shell"] = b"MARK2" in buf
+    text = buf.decode("utf-8", "replace")
+    import re
+    who = re.search(r"WHO=(\S+) MARK2", text)
+    sud = re.search(r"SUDOID=(\S+) DONE5", text)
+    try:
+        os.kill(pid, 9)
+    except OSError:
+        pass
+    try:
+        os.waitpid(pid, 0)
+    except OSError:
+        pass
+    return {"who": who and who.group(1), "sudo": sud and sud.group(1), "denied": b"Login incorrect" in buf,
+            "reached_shell": bool(who)}
+good = login(pw, True)
+bad = login(pw + "-wrong", False)
+print("F15LOGIN good_who=%s good_sudo=%s bad_denied=%s bad_shell=%s" % (good["who"], good["sudo"], bad["denied"], bad["reached_shell"]))
+"""
+
+F15_SSHO = "-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20 -o LogLevel=ERROR"
+
+
+def f15_judge(out):
+    """F15's verdict from the guest's output (pure, so test/unit can feed it canned text)."""
+    g = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or [""])[-1]
+    cfg = {k: v for k, v in re.findall(r"^(passwordauthentication|kbdinteractiveauthentication|permitrootlogin|"
+                                        r"authenticationmethods|allowusers) (.*?)\s*$", out, re.M)}
+    login = re.findall(r"^F15LOGIN good_who=(\S+) good_sudo=(\S+) bad_denied=(\S+) bad_shell=(\S+)\s*$", out, re.M)
+    lw, ls, bd, bs = login[-1] if login else ("", "", "", "")
+    pkgs = set(g("PKG").split())
+    c = {
+        "packages": {"openssh-server", "sudo", "libpam-systemd"} <= pkgs,
+        "admin_uid1000_bash": re.fullmatch(r"admin:x:1000:\d+:[^:]*:/home/admin:/bin/bash", g("ADMIN")) is not None,
+        "no_baked_password": g("SHADOWLINE") == "0" and g("EXTRASH") == "0",
+        "no_slot_hostkeys": g("SLOTKEYS0") == "0" and g("SLOTKEYS1") == "0",
+        "no_key_sshd_inactive": g("SSH0") != "active" and g("SSH0") != "",
+        "no_key_nothing_listens": g("LISTEN0") == "0" and g("NFT0") == "0",
+        "key_added": g("ADDRC") == "0",
+        "key_starts_sshd": g("SSH1") == "active" and g("LISTEN1") != "" and int(g("LISTEN1") or 0) >= 1,
+        "firewall_opens_22": (g("NFT1") or "0").isdigit() and int(g("NFT1")) >= 1,
+        "hostkeys_on_data": g("HK") == "/data/onemind/ssh/ssh_host_ed25519_key",
+        "key_login": g("KEYLOGIN") == "admin",
+        "password_set": g("PWRC") == "0",
+        "password_refused": g("PWRC2") not in ("", "0") and "Permission denied (publickey)" in g("PWOUT"),
+        "sshd_config": cfg.get("passwordauthentication") == "no" and cfg.get("kbdinteractiveauthentication") == "no"
+        and cfg.get("permitrootlogin") == "no" and cfg.get("authenticationmethods") == "publickey"
+        and cfg.get("allowusers") == "admin",
+        "tty2_enabled": g("TTY2") == "enabled",
+        "tty2_login": lw == "admin" and ls == "0",
+        "tty2_wrong_password_refused": bd == "True" and bs == "False",
+        "kiosk_starts": g("KIOSK") == "active" and g("SESS") != "" and int(g("SESS") or 0) >= 1,
+    }
+    return c
+
+
+def f15(vm):
+    """The owner shell (section 11): no key and sshd stays down; the first key starts it; key login works, password
+    login is refused; a tty2 style login works with the console password; the kiosk still starts."""
+    PYL = PY
+    parts = []
+    _, o = vm.run(
+        "echo PKG=$(dpkg-query -W -f='${Package} ' openssh-server sudo libpam-systemd 2>&1); "
+        "echo ADMIN=$(getent passwd admin); echo SHADOWLINE=$(grep -c '^admin:' /etc/shadow); "
+        "echo EXTRASH=$(cat /var/lib/extrausers/shadow 2>/dev/null | grep -c '^admin:'); "
+        "echo SLOTKEYS0=$(ls /etc/ssh/ssh_host_* 2>/dev/null | wc -l); "
+        "echo SSH0=$(systemctl is-active ssh.service); "
+        "echo LISTEN0=$(ss -ltn 'sport = :22' | grep -c LISTEN); "
+        "echo NFT0=$(nft list chain inet onemind_host ssh | grep -c 'dport 22'); true", 120)
+    parts.append(o)
+    _, o = vm.run(
+        "mkdir -p /run/f15 && rm -f /run/f15/k /run/f15/k.pub && ssh-keygen -q -t ed25519 -N '' -f /run/f15/k; "
+        "/usr/lib/onemind/onemind-owner key-add /run/f15/k.pub; echo ADDRC=$?; "
+        "t0=$SECONDS; while [ \"$(systemctl is-active ssh.service)\" != active ] && [ $((SECONDS - t0)) -lt 60 ]; do sleep 1; done; "
+        "echo SSH1=$(systemctl is-active ssh.service); "
+        "echo LISTEN1=$(ss -ltn 'sport = :22' | grep -c LISTEN); "
+        "echo NFT1=$(nft list chain inet onemind_host ssh | grep -c 'tcp dport 22 accept'); "
+        "echo HK=$(ls /data/onemind/ssh/ssh_host_ed25519_key); echo SLOTKEYS1=$(ls /etc/ssh/ssh_host_* 2>/dev/null | wc -l); "
+        f"echo KEYLOGIN=$(ssh {F15_SSHO} -i /run/f15/k admin@127.0.0.1 'id -un' 2>&1 | tail -1); true", 240)
+    parts.append(o)
+    _, o = vm.run(
+        "export F15_PW=$(head -c 18 /dev/urandom | base64 | tr -d '/+=\\n'); "
+        "printf '%s\\n' \"$F15_PW\" | /usr/lib/onemind/onemind-owner password >/dev/null; echo PWRC=$?; "
+        f"R=$(ssh {F15_SSHO} -o PubkeyAuthentication=no -o PreferredAuthentications=password,keyboard-interactive "
+        "admin@127.0.0.1 true 2>&1); echo PWRC2=$?; echo PWOUT=$(echo \"$R\" | tail -1); "
+        "sshd -T 2>/dev/null | grep -E '^(passwordauthentication|kbdinteractiveauthentication|permitrootlogin|"
+        "authenticationmethods|allowusers) '; "
+        "echo TTY2=$(systemctl is-enabled getty@tty2.service 2>&1 | head -1); "
+        "cat > /run/f15.py <<'PYEOF'\n" + F15_PY + "\nPYEOF\n"
+        f"{PYL} -I /run/f15.py; unset F15_PW; rm -f /run/f15.py", 400)
+    parts.append(o)
+    _, o = vm.run(
+        "mkdir -p /data/onemind/kiosk; touch /data/onemind/kiosk/enabled; systemctl start onemind-kiosk-apply.service; "
+        "t0=$SECONDS; while [ \"$(systemctl is-active onemind-kiosk.service)\" != active ] && [ $((SECONDS - t0)) -lt 30 ]; do sleep 1; done; "
+        "sleep 3; echo KIOSK=$(systemctl is-active onemind-kiosk.service); "
+        "echo SESS=$(loginctl list-sessions --no-legend --no-pager | grep -c onemind-kiosk); "
+        "journalctl -u onemind-kiosk.service -n 12 --no-pager -o cat | sed 's/^/KLOG /'; "
+        "rm -f /data/onemind/kiosk/enabled; systemctl start onemind-kiosk-apply.service; rm -rf /run/f15; true", 180)
+    parts.append(o)
+    c = f15_judge("\n".join(parts))
+    record("F15", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()))
+# F16 (CRITERIA-FIRSTBOOT.md section 10): audio and Bluetooth on the boards with a screen.
+SCREEN_BOARDS = {"x86_64-efi", "rpi5"}
+F16_PKGS = ["pipewire", "pipewire-pulse", "wireplumber", "bluez", "libspa-0.2-bluetooth"]
+F16_CONF = "/usr/lib/onemind/bluetooth/main.conf"
+# The session user is the image's "onemind" account (uid 961): its user manager is started by hand, as the screen
+# session's own user does not exist in every image. Commands run as that user with setpriv, no PAM, nothing written to /etc.
+F16_UID = 961
+F16_UNIT = f"user@{F16_UID}.service"      # the user manager of uid 961
+F16_AS = ("setpriv --reuid=onemind --regid=onemind --clear-groups env XDG_RUNTIME_DIR=/run/user/961 "
+          "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/961/bus ")
+
+
+def f16_pairing_state(vm, token=None):
+    """The pairing directory facts, as a dict of booleans plus the marker token read back. With a token, write it first."""
+    write = (f"printf %s {token} > /var/lib/bluetooth/f16-marker; sync; " if token else "")
+    _, out = vm.run(write +
+        'echo MNT=$(findmnt -no FSROOT /var/lib/bluetooth 2>/dev/null | head -1); '
+        'echo MNTFS=$(findmnt -no SOURCE /var/lib/bluetooth 2>/dev/null | head -1 | sed "s/\\[.*//"); '
+        'echo DATAFS=$(findmnt -no SOURCE /data 2>/dev/null | head -1 | sed "s/\\[.*//"); '
+        'echo DROOT=$(findmnt -no FSROOT /data 2>/dev/null | head -1); '
+        'echo MARK=$(cat /var/lib/bluetooth/f16-marker 2>/dev/null); '
+        'echo DMARK=$(cat /data/state/var-lib-bluetooth/f16-marker 2>/dev/null); '
+        'echo BTACTIVE=$(systemctl is-active bluetooth.service 2>&1 | head -1)', 60)
+    g = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or ["?"])[-1]
+    # FSROOT of /data is "/" on ext4 and "/@" on the btrfs layout (#152, @ is the default subvolume), so the bind's
+    # root is compared with where /data itself starts, not with a fixed path.
+    droot = g("DROOT").rstrip("/") if g("DROOT") != "?" else None
+    return {"bind_of_data_dir": droot is not None and g("MNT") == droot + "/state/var-lib-bluetooth" and g("MNTFS") == g("DATAFS") != "?",
+            "marker": g("MARK"), "marker_on_data": g("DMARK") == g("MARK") != "",
+            "bluetooth_active": g("BTACTIVE") == "active"}
+
+
+def f16(vm, board):
+    """Step 3: PipeWire and BlueZ run on a screen board; the pairing directory is on /data; a no-screen board has neither."""
+    if board not in SCREEN_BOARDS:
+        _, out = vm.run("dpkg-query -W -f='${Package} ${Status}\\n' pipewire wireplumber bluez 2>/dev/null | grep -c 'install ok installed'; "
+                        "echo MOUNT_RC=$(mountpoint -q /var/lib/bluetooth; echo $?); "
+                        "echo BTENABLED=$(systemctl is-enabled bluetooth.service 2>&1 | head -1)", 60)
+        installed = (re.findall(r"^(\d+)\s*$", out, re.M) or ["?"])[0]
+        g = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or ["?"])[-1]
+        c = {"none_installed": installed == "0", "not_a_mount": g("MOUNT_RC") == "1", "bluetooth_not_enabled": g("BTENABLED") != "enabled"}
+        record("F16", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" board={board}")
+        return None
+    token = os.urandom(16).hex()
+    _, out = vm.run(
+        "for p in " + " ".join(F16_PKGS) + "; do dpkg-query -W -f='PKG ${Package} ${Status}\\n' $p 2>&1; done; "
+        "echo GLOBAL=$(systemctl --global is-enabled pipewire.socket pipewire-pulse.socket wireplumber.service 2>&1 | tr '\\n' ',' ); "
+        "echo BTENABLED=$(systemctl is-enabled bluetooth.service 2>&1 | head -1); "
+        "echo BTCMD=$(tr '\\0' ' ' < /proc/$(systemctl show -p MainPID --value bluetooth.service)/cmdline 2>/dev/null | grep -a bluetoothd); "
+        "busctl --system status org.bluez >/dev/null 2>&1; echo BUS_RC=$?; "
+        f"grep -qE '^AutoEnable *= *false' {F16_CONF}; echo AUTO_RC=$?; "
+        f"grep -qE '^AlwaysPairable *= *false' {F16_CONF}; echo ALWAYS_RC=$?; "
+        f"grep -qE '^DiscoverableTimeout *= *[1-9]' {F16_CONF}; echo DISC_RC=$?; "
+        f"grep -qE '^PairableTimeout *= *[1-9]' {F16_CONF}; echo PAIR_RC=$?; "
+        "grep -qE '^ *AutoEnable *= *true' /etc/bluetooth/main.conf; echo ETCAUTO_RC=$?; "
+        "echo ADAPTERS=$(timeout 15 bluetoothctl list 2>/dev/null | grep -c '^Controller')", 90)
+    g = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or ["?"])[-1]
+    pkgs = re.findall(r"^PKG (\S+) install ok installed", out, re.M)
+    st = f16_pairing_state(vm, token)
+    # The session user's manager, started by hand; the three daemons come up through the image's own user units.
+    _, out2 = vm.run(
+        f"systemctl start {F16_UNIT}; "
+        f"{F16_AS}systemctl --user start pipewire.socket pipewire-pulse.socket; "
+        f"{F16_AS}systemctl --user start wireplumber.service pipewire-pulse.service; "
+        "t0=$SECONDS; while [ $((SECONDS - t0)) -lt 90 ]; do "
+        f"a=$({F16_AS}systemctl --user is-active pipewire.service pipewire-pulse.service wireplumber.service 2>&1 | tr '\\n' ' '); "
+        f"s=$({F16_AS}pactl list short sinks 2>&1); "
+        "[ \"$a\" = 'active active active ' ] && echo \"$s\" | grep -q onemind-stream-sink && break; sleep 2; done; "
+        "echo DAEMONS=$a; echo SINKS=$(echo \"$s\" | tr '\\n' ';'); "
+        f"{F16_AS}pactl info 2>&1 | grep -E '^Server Name' ; "
+        f"systemctl stop {F16_UNIT}; echo DONE=1", 200)
+    g2 = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out2, re.M) or ["?"])[-1]
+    c = {"packages": sorted(pkgs) == sorted(F16_PKGS),
+         "user_units_enabled": g("GLOBAL") == "enabled,enabled,enabled,",
+         "bluetooth_enabled": g("BTENABLED") == "enabled", "bluetooth_active": st["bluetooth_active"],
+         "bluetoothd_config": f"-f {F16_CONF}" in g("BTCMD"), "dbus_org_bluez": g("BUS_RC") == "0",
+         "no_adapter_in_vm": g("ADAPTERS") == "0",
+         "adapter_off_by_default": g("AUTO_RC") == "0" and g("ETCAUTO_RC") == "1",
+         "pairing_needs_agent": g("ALWAYS_RC") == "0", "timeouts": g("DISC_RC") == "0" and g("PAIR_RC") == "0",
+         "pairing_dir_on_data": st["bind_of_data_dir"] and st["marker_on_data"] and st["marker"] == token,
+         "audio_daemons_active": g2("DAEMONS") == "active active active",
+         "virtual_sink": "onemind-stream-sink" in g2("SINKS")}
+    if not all(c.values()):
+        vm.run("systemctl status bluetooth.service var-lib-bluetooth.mount --no-pager 2>&1 | head -40; "
+               "journalctl -u bluetooth.service -u var-lib-bluetooth.mount -b --no-pager 2>&1 | tail -25; "
+               "findmnt /var/lib/bluetooth; ls -la /var/lib/bluetooth /data/state | head -30", 60)
+    record("F16", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
+           + f" adapters={g('ADAPTERS')}(none expected in QEMU) daemons={g2('DAEMONS')!r} sinks={g2('SINKS')[:120]!r} btcmd={g('BTCMD')[:100]!r}")
+    return token
+
+
+def f16_after(vm, tid, token):
+    """F16r / F16u: the same pairing directory and marker after a reboot or an A/B update."""
+    st = f16_pairing_state(vm)
+    c = {"bind_of_data_dir": st["bind_of_data_dir"], "marker_kept": st["marker"] == token and st["marker_on_data"],
+         "bluetooth_active": st["bluetooth_active"]}
+    record(tid, all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()))
+
+def f14(vm):
+    """CLI polish (#882): onemind completion and man pages are installed and work (CRITERIA-FIRSTBOOT.md section 10)."""
+    _, out = vm.run(
+        'B=/usr/share/bash-completion/completions/onemind; test -s $B; echo BASHFILE_RC=$?; '
+        'test -s /usr/share/zsh/vendor-completions/_onemind; echo ZSH_RC=$?; '
+        'test -s /usr/share/fish/vendor_completions.d/onemind.fish; echo FISH_RC=$?; '
+        'bash -c ". /usr/share/bash-completion/bash_completion; . $B; complete -p onemind" 2>&1 | head -2; '
+        'echo COMPLETE_FN=$(bash -c ". /usr/share/bash-completion/bash_completion; . $B; complete -p onemind" 2>/dev/null | grep -c "_onemind"); '
+        'onemind __complete ap > /tmp/f14.c 2>&1; echo CAND_RC=$?; echo CAND_APPS=$(grep -c "^apps" /tmp/f14.c); '
+        'echo MANW1=$(man -w onemind 2>&1 | head -1); echo MANW2=$(man -w onemind-apps 2>&1 | head -1); '
+        'MANPAGER=cat MANWIDTH=80 man onemind > /tmp/f14.m 2>&1; echo MAN_RC=$?; '
+        'echo MAN_NAME=$(grep -ci onemind /tmp/f14.m); echo MAN_SYN=$(grep -c "SYNOPSIS" /tmp/f14.m); rm -f /tmp/f14.c /tmp/f14.m', 120)
+    get = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or ["?"])[-1]
+    c = {"bash_file": get("BASHFILE_RC") == "0", "zsh_file": get("ZSH_RC") == "0", "fish_file": get("FISH_RC") == "0",
+         "complete_registered": get("COMPLETE_FN") not in ("0", "?"),
+         "cobra_candidates": get("CAND_RC") == "0" and get("CAND_APPS") not in ("0", "?"),
+         "man_w_root": get("MANW1").startswith("/usr/share/man/man1/"),
+         "man_w_sub": get("MANW2").startswith("/usr/share/man/man1/"),
+         "man_renders": get("MAN_RC") == "0" and get("MAN_NAME") not in ("0", "?") and get("MAN_SYN") not in ("0", "?")}
+    record("F14", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" manw={get('MANW1')!r}")
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=sorted(battery.BOARDS))
@@ -558,9 +840,13 @@ def main():
         vm.mark("F10 rescue console with k3s stopped (CORE-UPDATE-9)"); f10(vm, token)
         vm.mark("F11 starting page, then the gateway, never a refused connection"); f11(vm, (os.path.dirname(a.results) or ".") if a.results else None)
         vm.mark("F12 the gateway reaches the host helper, and says missing without it (#875)"); f12(vm, token)
+        vm.mark("F13 disk and admin tools run, smartd masked (Step 2)"); f13(vm)
         vm.mark("NW1-NW4 NetworkManager: wired DHCP, k3s order, unmanaged k3s links, saved profile")
         netcheck.nw1(vm, record); netcheck.nw2(vm, record); netcheck.nw3(vm, record)
         nw4 = netcheck.nw4_before(vm)
+        vm.mark("F15 the owner shell: key-only SSH, tty2 login, no baked password"); f15(vm)
+        vm.mark("F16 audio and Bluetooth on the screen boards (Step 3)"); btmark = f16(vm, a.board)
+        vm.mark("F14 onemind completion and man pages (#882)"); f14(vm)
         vm.mark("NS1-NS3 a wired address change rolls back by itself, a confirmed one sticks (P-08)")
         netset.ns3(vm, record); netset.ns1(vm, record)
         ns2 = netset.ns2_before(vm, record)
@@ -580,6 +866,8 @@ def main():
             record("F3", not new_toks and ids3 == ids and hz3 == "200" and bool(same) and bool(token),
                    f"'{al[:70]}' new_tokens={len(new_toks)} same_ids={ids3 == ids} healthz={hz3} listed={listed3} gate={g3}")
             netcheck.nw4_after(vm, record, nw4)
+            if btmark:
+                f16_after(vm, "F16r", btmark)
             netset.ns2_after(vm, record, ns2)
         else:
             netcheck.nw4_after(vm, record, nw4, rebooted=False)
@@ -607,6 +895,8 @@ def main():
                    and already and not TOKEN.search(s) and ids4 == ids and hz4 == "200" and bool(same),
                    f"install_rc={rc_i} gate={g4} marker_kept={mark == mark2} version2={ver2} already_configured={already} "
                    f"new_token={bool(TOKEN.search(s))} same_ids={ids4 == ids} healthz={hz4} listed={listed4}")
+            if btmark:
+                f16_after(vm, "F16u", btmark)
         rc = 0
     except (TimeoutError, RuntimeError) as e:
         record("HARNESS", False, f"aborted: {e}")
