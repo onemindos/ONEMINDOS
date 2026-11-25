@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Scaffolded by sdk/tools/app-scaffold from github.com/9001/copyparty (contract §9.2), then completed
-# from upstream at tag v1.20.26: scripts/docker/README.md ("docker run -u 1000 -p 3923:3923
+# from upstream at tag v1.20.27: scripts/docker/README.md ("docker run -u 1000 -p 3923:3923
 # -v ...:/w -v ...:/cfg copyparty/ac"; ac is "the recommended image edition"; config files
 # /cfg/*.conf are loaded), scripts/docker/innvikler.sh (initcfg: chdir /w, then "% /cfg") and
 # docs/examples/docker/basic-docker-compose/copyparty.conf (the [accounts] and volume syntax).
@@ -38,7 +38,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: config
-          image: docker.io/copyparty/ac:1.20.26@sha256:b2054d65e05daa8982ca17c26b12b74315c0ce586a03ff9018a59c80731b9e19
+          image: docker.io/copyparty/ac:1.20.27@sha256:a49363016be176a6eaaa78c6bb6af04ca22a4dd43806da8f9421c9336b92c8f4
           command:
             - /bin/ash
             - -c
@@ -84,7 +84,7 @@ spec:
               mountPath: /cfg
       containers:
         - name: copyparty
-          image: docker.io/copyparty/ac:1.20.26@sha256:b2054d65e05daa8982ca17c26b12b74315c0ce586a03ff9018a59c80731b9e19
+          image: docker.io/copyparty/ac:1.20.27@sha256:a49363016be176a6eaaa78c6bb6af04ca22a4dd43806da8f9421c9336b92c8f4
           ports:
             - name: http
               containerPort: 3923

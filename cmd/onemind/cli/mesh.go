@@ -62,15 +62,113 @@ func meshCmd(args []string, out io.Writer) error {
 	return nil
 }
 
-// meshCommands registers `onemind mesh` (a group line in root.go). The command keeps its own
-// flag handling (meshCmd), so cobra passes the arguments through untouched.
+// meshCommands registers `onemind mesh` (a group line in root.go). `mesh status` keeps its own
+// flag handling (meshCmd), so cobra passes its arguments through untouched; `mesh settings` is a
+// normal subcommand that talks to the hub.
 func meshCommands(a *App) []*cobra.Command {
-	return []*cobra.Command{{
+	m := &cobra.Command{
 		Use:                "mesh status [--json] [--leaf-monitor ADDR]",
-		Short:              "Show this machine's mesh and NATS leaf state",
+		Short:              "Show this machine's mesh and NATS leaf state, or the hub's mesh settings",
 		DisableFlagParsing: true,
 		RunE: func(_ *cobra.Command, args []string) error {
 			return meshCmd(args, a.Stdout)
 		},
-	}}
+	}
+	m.AddCommand(meshSettingsCommand(a))
+	return []*cobra.Command{m}
+}
+
+// meshView is the part of GET /v1/mesh (and of PUT /v1/mesh/settings' answer) that `mesh settings` prints.
+type meshView struct {
+	Settings struct {
+		Enabled    bool    `json:"enabled"`
+		Provider   *string `json:"provider"`
+		ControlURL string  `json:"control_url"`
+		Saved      bool    `json:"saved"`
+		UpdatedAt  *string `json:"updated_at"`
+	} `json:"settings"`
+	Setup struct {
+		State    string  `json:"state"`
+		Reason   *string `json:"reason"`
+		Detail   string  `json:"detail"`
+		NextStep *string `json:"next_step"`
+	} `json:"setup"`
+}
+
+// meshSettingsCommand is `onemind mesh settings` (CORE-NET-8): the hub's mesh state and its next step.
+// With --enable, --disable, --provider or --control-url it changes the state through PUT
+// /v1/mesh/settings, which only the owner may call and which writes an audit entry.
+func meshSettingsCommand(a *App) *cobra.Command {
+	var enable, disable bool
+	var provider, controlURL string
+	cmd := &cobra.Command{
+		Use:   "settings [--enable|--disable] [--provider headscale|none] [--control-url URL]",
+		Short: "Show or change the hub's mesh: on or off, its provider, its control URL (changing it is owner only)",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if enable && disable {
+				return exitWith(ExitUsage, "usage", "mesh settings: --enable and --disable together")
+			}
+			body := map[string]any{}
+			if enable {
+				body["enabled"] = true
+			}
+			if disable {
+				body["enabled"] = false
+			}
+			if cmd.Flags().Changed("provider") {
+				body["provider"] = provider
+			}
+			if cmd.Flags().Changed("control-url") {
+				body["control_url"] = controlURL
+			}
+			c, _, err := a.client()
+			if err != nil {
+				return err
+			}
+			var v meshView
+			if len(body) == 0 {
+				err = c.Do(bg(), http.MethodGet, "/v1/mesh", nil, &v)
+			} else {
+				err = c.Do(bg(), http.MethodPut, "/v1/mesh/settings", body, &v)
+			}
+			if err != nil {
+				return err
+			}
+			if a.G.JSON {
+				return printJSON(a.Stdout, v)
+			}
+			return printMeshSettings(a.Stdout, v)
+		},
+	}
+	f := cmd.Flags()
+	f.BoolVar(&enable, "enable", false, "turn the mesh on (needs a provider)")
+	f.BoolVar(&disable, "disable", false,
+		"stop minting mesh keys and managing the coordinator; machines and phones that already joined stay connected")
+	f.StringVar(&provider, "provider", "", "the mesh provider: headscale, or none to clear the choice")
+	f.StringVar(&controlURL, "control-url", "", "the https URL machines and phones reach the coordinator at")
+	return cmd
+}
+
+func printMeshSettings(out io.Writer, v meshView) error {
+	on := "off"
+	if v.Settings.Enabled {
+		on = "on"
+	}
+	provider := "none chosen"
+	if v.Settings.Provider != nil {
+		provider = *v.Settings.Provider
+	}
+	source := "install settings"
+	if v.Settings.Saved {
+		source = "changed by the owner " + deref(v.Settings.UpdatedAt)
+	}
+	pairs := [][2]string{
+		{"mesh:", on}, {"provider:", provider}, {"control url:", v.Settings.ControlURL}, {"from:", source},
+		{"state:", v.Setup.State}, {"detail:", v.Setup.Detail},
+	}
+	if v.Setup.NextStep != nil {
+		pairs = append(pairs, [2]string{"next step:", *v.Setup.NextStep})
+	}
+	return kv(out, pairs)
 }

@@ -27,6 +27,7 @@ from typing import Any
 import yaml
 
 from .catalog import APP_ID_RE as APP_ID
+from .hostgrants.kinds import NO_HOST, HostAllowance
 from .sections import config_section
 
 # Repo-relative and image locations of the rule file, found the same way as the app schema.
@@ -270,6 +271,18 @@ def pod_security_level(app_id: str, manifest: dict, rules: Rules) -> tuple[str, 
     return rules.psa_default, None
 
 
+# #186 E2: Pod Security has no level between baseline and privileged that admits a host path, host
+# networking or SYS_NICE, so the namespace of an app with an active host grant is enforced at
+# privileged. The sandbox below stays the narrow gate: it checks every object at the app's own level
+# and lets through only the granted node, host network or capability.
+HOST_GRANT_LEVEL = "privileged"
+
+
+def enforce_level(level: str, host: HostAllowance = NO_HOST) -> str:
+    """The namespace's Pod Security enforce label: the app's level, or privileged under a host grant."""
+    return HOST_GRANT_LEVEL if host else level
+
+
 def _pod_spec(obj: dict) -> tuple[dict | None, str]:
     kind = obj.get("kind")
     spec = obj.get("spec") if isinstance(obj.get("spec"), dict) else {}
@@ -292,7 +305,8 @@ def _containers(pod: dict, base: str) -> Iterator[tuple[dict, str]]:
                 yield c, f"{base}.{key}[{i}]"
 
 
-def _check_pod(pod: dict, base: str, level: str, caps_allowed: frozenset[str], rules: Rules, kind: str, name: str) -> list[Violation]:
+def _check_pod(pod: dict, base: str, level: str, caps_allowed: frozenset[str], rules: Rules, kind: str, name: str,
+               host: HostAllowance = NO_HOST) -> list[Violation]:
     out: list[Violation] = []
 
     def v(rule: str, path: str, extra: str = "") -> None:
@@ -310,7 +324,7 @@ def _check_pod(pod: dict, base: str, level: str, caps_allowed: frozenset[str], r
                 v("F-12", f"{path}.seLinuxOptions")
 
     for field_, rule in (("hostNetwork", "F-01"), ("hostPID", "F-02"), ("hostIPC", "F-03")):
-        if pod.get(field_) is True:
+        if pod.get(field_) is True and not (field_ == "hostNetwork" and host.host_network):
             v(rule, f"{base}.{field_}")
     psc = pod.get("securityContext")
     if not isinstance(psc, dict):
@@ -333,7 +347,8 @@ def _check_pod(pod: dict, base: str, level: str, caps_allowed: frozenset[str], r
             continue
         types_ = [k for k in vol if k not in _NOT_VOLUME_TYPES]
         if "hostPath" in vol:
-            v("F-04", f"{base}.volumes[{i}].hostPath")
+            if not (host.allows_host_path(vol["hostPath"]) and types_ == ["hostPath"]):
+                v("F-04", f"{base}.volumes[{i}].hostPath")
         elif level == "restricted":
             for t in types_:
                 if t not in RESTRICTED_VOLUMES:
@@ -433,13 +448,17 @@ def _check_rolebinding(obj: dict, ns: str, rules: Rules, name: str) -> list[Viol
     return out
 
 
-def check_objects(docs: Iterable[Any], app_id: str, manifest: dict, rules: Rules) -> list[Violation]:
-    """Every rendered object against the rule file. Empty list = allowed."""
+def check_objects(docs: Iterable[Any], app_id: str, manifest: dict, rules: Rules,
+                  host: HostAllowance = NO_HOST) -> list[Violation]:
+    """Every rendered object against the rule file. Empty list = allowed.
+
+    host: what this app's owner-approved host grants allow (hostgrants/, #186 E2), nothing by default.
+    """
     ns = f"app-{app_id}"
     level, gv = pod_security_level(app_id, manifest, rules)
     out: list[Violation] = [gv] if gv else []
     reviewed = rules.reviewed.get(app_id) or {}
-    caps_allowed = rules.caps_allowed | frozenset(reviewed.get("add_capabilities") or [])
+    caps_allowed = rules.caps_allowed | frozenset(reviewed.get("add_capabilities") or []) | host.add_capabilities
     for idx, obj in enumerate(docs):
         if not isinstance(obj, dict) or not obj.get("kind") or not obj.get("apiVersion"):
             out.append(Violation("G-02", "?", f"#{idx}", rules.msg("G-02")))
@@ -477,7 +496,7 @@ def check_objects(docs: Iterable[Any], app_id: str, manifest: dict, rules: Rules
                     out.append(Violation("P-01", kind, name, rules.msg("P-01", str(sc)), f"spec.volumeClaimTemplates[{i}]"))
         pod, base = _pod_spec(obj)
         if isinstance(pod, dict):
-            out.extend(_check_pod(pod, base, level, caps_allowed, rules, kind, name))
+            out.extend(_check_pod(pod, base, level, caps_allowed, rules, kind, name, host))
             if rules.require_digest:
                 for c, cpath in _containers(pod, base):
                     image = str(c.get("image") or "")
@@ -554,9 +573,14 @@ def web_ports(manifest: dict, docs: Iterable[Any]) -> list[int]:
     return sorted(out)
 
 
+# The label the gateway puts on a person's own browser pod (browsers.py, #692).
+BROWSER_PROFILE_LABEL = "onemind.io/browser-profile"
+BROWSER_POLICY = "onemind-browser-profiles"
+
+
 def network_policies(
     app_id: str, egress: list[str], rules: Rules, extra_egress: Iterable[tuple[str, int | None]] = (),
-    gateway_sources: Iterable[str] = (), gateway_ports: Iterable[int] = (),
+    gateway_sources: Iterable[str] = (), gateway_ports: Iterable[int] = (), browser: bool = False,
 ) -> list[dict]:
     """Default-deny for app-<id>, then the allowances: own namespace, DNS, the proxy, declared egress.
 
@@ -565,6 +589,11 @@ def network_policies(
     gateway_sources / gateway_ports: the hub's host addresses as a pod on another node sees them
     (the address of the hub's local flannel interface) and the app's web port(s). The gateway runs on the hub host,
     not in a pod, so the namespace rule never matches it; this lets it reach only those TCP ports.
+    browser: a browser app (#692). Each person's browser pod carries BROWSER_PROFILE_LABEL; the
+    namespace-wide allowance then leaves those pods out, and a third policy lets into them only the
+    gateway on the web port(s), never another pod (not another person's browser, not the app's own
+    pods, not the proxy namespace). NetworkPolicies add up, so leaving the pods out of
+    `onemind-allow` is what closes pod-to-pod; a policy of its own could only open more.
     """
     ns = f"app-{app_id}"
     labels = {"onemind.io/app": app_id, "onemind.io/managed-by": "onemind-gateway"}
@@ -613,7 +642,19 @@ def network_policies(
         "metadata": {"name": "onemind-allow", "namespace": ns, "labels": labels},
         "spec": {"podSelector": {}, "policyTypes": ["Ingress", "Egress"], "ingress": ingress, "egress": egress_rules},
     }
-    return [deny, allow]
+    if not browser:
+        return [deny, allow]
+    allow["spec"]["podSelector"] = {"matchExpressions": [{"key": BROWSER_PROFILE_LABEL, "operator": "DoesNotExist"}]}
+    hub = [r for r in ingress if any("ipBlock" in f for f in r["from"])]
+    # Out: DNS, the declared egress and the gateway's own additions, never a pod in the namespace.
+    out = [r for r in egress_rules if r != {"to": [{"podSelector": {}}]}]
+    person = {
+        "apiVersion": "networking.k8s.io/v1", "kind": "NetworkPolicy",
+        "metadata": {"name": BROWSER_POLICY, "namespace": ns, "labels": labels},
+        "spec": {"podSelector": {"matchExpressions": [{"key": BROWSER_PROFILE_LABEL, "operator": "Exists"}]},
+                 "policyTypes": ["Ingress", "Egress"], "ingress": hub, "egress": out},
+    }
+    return [deny, allow, person]
 
 
 # Names of the NetworkPolicies for declared dependencies (contract §12.22, dependency network paths).

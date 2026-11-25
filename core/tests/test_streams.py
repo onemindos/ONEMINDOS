@@ -33,7 +33,7 @@ def test_no_streams_declared_is_fine():
 
 def test_good_declaration_becomes_exact_plan_parameters():
     (entry,) = streams.plan_entries("sensor-hub", m(GOOD))
-    assert entry == {"name": "APP_SENSOR_HUB_READINGS", "subjects": ["onemind.app.sensor-hub.readings.>"],
+    assert entry == {"name": "APP_SENSOR_HUB_READINGS", "subjects": ["onemind.plugin.sensor-hub.readings.>"],
                      "storage": "file", "replicas": 1, "retention": "limits", "discard": "old",
                      "max_bytes": 64 << 20, "max_age_s": 86400}
 
@@ -50,8 +50,8 @@ def test_bad_declarations_are_named(change, needle):
     entry = {**GOOD, **change}
     entry = {k: v for k, v in entry.items() if v is not None}
     problems = streams.validate(m(entry))
-    if needle is None:  # ">" alone is legal here: it is relative, so it stays inside onemind.app.<id>.
-        assert problems == [] and streams.plan_entries("a", m(entry))[0]["subjects"] == ["onemind.app.a.>"]
+    if needle is None:  # ">" alone is legal here: it is relative, so it stays inside onemind.plugin.<id>.
+        assert problems == [] and streams.plan_entries("a", m(entry))[0]["subjects"] == ["onemind.plugin.a.>"]
     else:
         assert problems and any(needle in p["field"] or needle in p["problem"] for p in problems)
 
@@ -64,9 +64,9 @@ def test_limits_on_count_and_duplicates():
 
 
 def test_an_app_cannot_name_a_subject_outside_its_prefix():
-    # A subject like a core one is only ever relative: it lands under onemind.app.notes., never on it.
+    # A subject like a core one is only ever relative: it lands under onemind.plugin.notes., never on it.
     (e,) = streams.plan_entries("notes", m({**GOOD, "subjects": ["onemind.node.abc.status"]}))
-    assert e["subjects"] == ["onemind.app.notes.onemind.node.abc.status"]
+    assert e["subjects"] == ["onemind.plugin.notes.onemind.node.abc.status"]
     assert streams.plan_entries("notes", m({**GOOD, "subjects": ["$SYS.>"]})) == []  # refused outright
 
 

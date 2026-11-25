@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# The browser profile: bookmarks, logins, history. One profile per install (per-person profiles come later).
+# The browser profile: bookmarks, logins, history. The template claim: each person's profile-<key> copies its size and class (#692); this one is never mounted.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:

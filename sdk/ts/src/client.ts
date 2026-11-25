@@ -6,6 +6,7 @@ import type { components } from "./gen/schema.js";
 import { AmbiguousResultError, errorFor, NetworkError, OneMindError, UnexpectedResponseError } from "./errors.js";
 import { EventsApi } from "./events.js";
 import { caFetch } from "./nodeca.js";
+import { PROTOCOL_HEADER, PROTOCOL_VERSION } from "./protocol.js";
 
 export type Instance = components["schemas"]["Instance"];
 export type StatusView = components["schemas"]["StatusView"];
@@ -22,6 +23,12 @@ export type HomeBody = components["schemas"]["HomeBody"];
 /** A Home document with the validator to send back on the next save. */
 export interface HomeWithEtag {
   home: HomeView;
+  etag: string;
+}
+
+/** A person's notification routing document (GET /v1/notifications/preferences) with the ETag to send back. */
+export interface NotificationPreferencesWithEtag {
+  prefs: Record<string, unknown>;
   etag: string;
 }
 
@@ -116,7 +123,7 @@ export class OneMind {
     this.onWarning = opts.onWarning ?? ((m) => console.warn(`onemind: warning: ${m}`));
     this.onTrace = opts.onTrace;
     this.sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
-    this.events = new EventsApi(this);
+    this.events = new EventsApi(this, typeof opts.token === "string" && opts.token.length > 0);
   }
 
   /** ONEMIND_HUB + ONEMIND_TOKEN, else ONEMIND_GATEWAY_URL + ONEMIND_AGENT_TOKEN (contract §11.2).
@@ -224,6 +231,21 @@ export class OneMind {
     },
   };
 
+  readonly notifications = {
+    preferences: {
+      /** The caller's routing document (quiet hours, routes, digest) and its ETag. */
+      get: async (): Promise<NotificationPreferencesWithEtag> => {
+        const { body, headers } = await this.raw<Record<string, unknown>>({ method: "GET", path: "/v1/notifications/preferences", retry: true });
+        return { prefs: body, etag: headers.get("etag") ?? "" };
+      },
+      /** Replace the whole document; a stale `etag` answers 409 (never retried). */
+      save: async (doc: Record<string, unknown>, etag: string): Promise<NotificationPreferencesWithEtag> => {
+        const { body, headers } = await this.raw<Record<string, unknown>>({ method: "PUT", path: "/v1/notifications/preferences", body: doc, headers: { "If-Match": etag } });
+        return { prefs: body, etag: headers.get("etag") ?? "" };
+      },
+    },
+  };
+
   readonly audit = {
     /** audit.events.list; `more` is true when the gateway sent Link rel="next". */
     list: async (q: AuditQuery = {}): Promise<{ records: AuditRecord[]; more: boolean }> => {
@@ -317,6 +339,7 @@ export class OneMind {
         method: r.method,
         headers: {
           Accept: "application/json",
+          [PROTOCOL_HEADER]: String(PROTOCOL_VERSION),
           ...(r.body !== undefined ? { "Content-Type": "application/json" } : {}),
           ...(r.headers ?? {}),
           ...(await this.authHeader()),

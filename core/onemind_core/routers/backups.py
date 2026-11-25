@@ -28,6 +28,7 @@ from ..catalog import APP_ID_RE
 from ..context import Gateway
 from ..errors import ApiError, error_responses as _error_responses
 from ..identity.scopes import register_route_scope
+from ..jsonbody import JsonBody
 from ..ledger import utc
 
 # What a scoped token needs for the content tier (BAK-03): reading the sizes is a backups read;
@@ -49,7 +50,7 @@ USER_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 IdemHeader = Annotated[str | None, Header(alias="Idempotency-Key", min_length=1, max_length=200)]
 
 
-class _Request(BaseModel):
+class _Request(JsonBody):
     model_config = ConfigDict(extra="forbid")
     reason: str | None = Field(default=None, max_length=500)
     expires_at: AwareDatetime | None = None
@@ -154,6 +155,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     settings = gw.settings.section(BackupsSettings)
     svc = BackupService(gw, settings, pg=getattr(app.state, "databases", None))
     app.state.backups = svc
+    svc.builtins = getattr(app.state, "builtins", None)  # registered earlier (ORDER 135): the backup set, #616
     gw.on_startup(svc.startup)
     gw.on_shutdown(svc.shutdown)
     principal = gw.principal

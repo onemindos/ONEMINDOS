@@ -49,9 +49,32 @@ class HostFirewall(unittest.TestCase):
         self.assertNotRegex(lan_chain(), r"\b8080\b")
         u = rd("os/rootfs/layers/onemind/usr/lib/systemd/system/onemind-setup.service")
         self.assertIn("nft add rule inet onemind_host setup tcp dport 8080 accept", u)
-        self.assertIn("ExecStopPost=-/usr/sbin/nft flush chain inet onemind_host setup", u)
+        self.assertIn("ExecStopPost=-+/usr/sbin/nft flush chain inet onemind_host setup", u)   # "+": the web part is unprivileged (#578)
         self.assertIn("wizard-local-only", u)
         self.assertIn("After=onemind-firewall.service", u)
+
+    def test_samba_port_is_opened_only_by_the_samba_unit_and_only_from_the_lan(self):
+        # D-017: 445/tcp from the LAN ranges while onemind-smb runs (it runs only while a share is approved), never
+        # from a public address, closed in the shipped ruleset. The namespace scan proves the same with real packets.
+        r = rd(RULES)
+        self.assertIn("jump samba", lan_chain())
+        self.assertRegex(r, r"chain samba \{\s*\}")          # empty in the ruleset: closed by default
+        for line in r.splitlines():
+            if re.search(r"\b445\b", line):
+                self.assertTrue(line.lstrip().startswith("#"), line)   # no rule in host.nft names 445
+        self.assertNotIn("jump samba", re.search(r"chain input \{(.*?)\n  \}", r, re.S).group(1))
+        u = rd("os/rootfs/layers/onemind/usr/lib/systemd/system/onemind-smb.service")
+        self.assertIn("ExecStartPre=-+/usr/sbin/nft add rule inet onemind_host samba tcp dport 445 accept", u)
+        self.assertIn("ExecStartPre=-+/usr/sbin/nft flush chain inet onemind_host samba", u)
+        self.assertIn("ExecStopPost=-+/usr/sbin/nft flush chain inet onemind_host samba", u)
+        self.assertIn("ConditionPathExists=/data/onemind/samba/smb.conf", u)   # off while no share is approved
+        self.assertRegex(u, r"(?m)^After=.*\bonemind-firewall\.service\b")
+        self.assertIn("PartOf=onemind-firewall.service", u)
+        # smbd's own sandbox has no CAP_NET_ADMIN: every nft line must run outside it ("+"), or the rule never lands.
+        for line in re.findall(r"(?m)^Exec\w+=.*nft .*$", u):
+            self.assertRegex(line, r"^Exec\w+=-?\+/usr/sbin/nft ", line)
+        for b in ("cloud", "vm-do"):   # a cloud box never offers SMB to the internet
+            self.assertNotRegex(rd(f"os/boards/{b}/rootfs/etc/onemind/host.d/10-cloud.nft"), r"\b445\b")
 
     def test_cloud_boards_open_ssh_and_https_and_keep_the_wizard_local(self):
         for b in ("cloud", "vm-do"):

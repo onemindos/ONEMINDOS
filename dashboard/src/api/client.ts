@@ -1,13 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { WiringApi } from './wiring';
 import { getPasskey } from '../lib/webauthn';
+import { withProtocol } from '../lib/protocol';
 import type * as W from './wiring';
 import { OneMind, OneMindError, type components, type operations } from '@onemind/sdk';
 import type { FabricSummary, JoinTicket, MeshView } from '@onemind/ui';
 import type { AppSecrets, SealedInput, SecretsPublicKey } from '@onemind/ui';
 
+/** `POST /v1/browsers/{app_id}/session` (#692): the person's own browser host and profile. */
+export type BrowserSession = components['schemas']['BrowserSession'];
+
 /** `GET /v1/os/about` (UMB-P14): device facts per node; never a serial number or an address. */
 export type AboutBox = components['schemas']['About'];
+
+/** `GET /v1/system/ups` (IMG-06): the UPS on the box, read only; present=false when it has none. */
+export type UpsStatus = components['schemas']['UpsStatus'];
 import {
   ApiError,
   type Action,
@@ -31,7 +38,12 @@ export type PluginKeyInfo = components["schemas"]["SigningKey"];
 export type PluginKeyInput = components["schemas"]["KeyRequest"];
 export type PluginKeyRevokeInput = components["schemas"]["RevokeRequest"];
 
+/** GET /v1/notifications/summary (#682): the caller's unread state, kept on the hub. */
+export type NotificationSummary = components["schemas"]["NotificationSummary"];
+
 export interface OneMindApi extends WiringApi {
+  /** One call for the bell's unread state. Absent on the mock gateway and test doubles. */
+  notificationSummary?(): Promise<NotificationSummary>;
   pluginSigningKeys?(): Promise<components["schemas"]["SigningKeys"]>;
   requestPluginSigningKey?(body: PluginKeyInput): Promise<components["schemas"]["Action"]>;
   revokePluginSigningKey?(keyId: string, body: PluginKeyRevokeInput): Promise<components["schemas"]["Action"]>;
@@ -52,6 +64,8 @@ export interface OneMindApi extends WiringApi {
   apps(): Promise<CatalogApp[]>;
   /** UMB-P14: absent on the mock gateway, which has no device facts. */
   about?(): Promise<AboutBox>;
+  /** IMG-06: absent on the mock gateway, which has no UPS. */
+  ups?(): Promise<UpsStatus>;
   /** MACH-01: absent on the mock gateway, which has no machines. */
   machines?(): Promise<MachineRecord[]>;
   machineCapabilities?(): Promise<MachineCapabilities>;
@@ -77,6 +91,12 @@ export interface OneMindApi extends WiringApi {
   appHostPorts?(id: string): Promise<AppHostPorts>;
   /** Sets the sign-in cookie app hosts accept (POST /v1/auth/app-session). Absent on the mock gateway. */
   openAppSession?(): Promise<void>;
+  /** #692: start the signed-in person's own browser pod (their profile is made the first time). Absent on the mock gateway. */
+  openBrowser?(appId: string): Promise<BrowserSession>;
+  /** #692: stop the person's browser pod; the profile stays. */
+  closeBrowser?(appId: string): Promise<BrowserSession>;
+  /** #692: file browser.profile.reset for the person's own profile; nothing is erased until an owner approves. */
+  resetBrowserProfile?(appId: string): Promise<Action>;
   sources?(): Promise<CommunitySource[]>;
   /** Files a `source.add` request; it waits in Approvals until the owner approves it. */
   requestSourceAdd?(params: SourceAddParams, key: { idempotency_key: string; expires_at: string }): Promise<Action>;
@@ -149,6 +169,7 @@ const KNOWN_CODES = new Set([
   'rate_limited',
   'payload_too_large',
   'policy_refused',
+  'upgrade_required',
 ]);
 
 function isErrorBody(v: unknown): v is ApiErrorBody {
@@ -179,7 +200,8 @@ export class HttpApi implements OneMindApi {
   constructor(opts: { token: string; baseUrl?: string; fetchFn?: FetchLike }) {
     this.base = (opts.baseUrl ?? '').replace(/\/$/, '');
     this.token = opts.token;
-    this.fetchFn = opts.fetchFn ?? ((input, init) => fetch(input, init));
+    // Declares this build's protocol generation and watches the hub's range (lib/protocol.ts).
+    this.fetchFn = withProtocol(opts.fetchFn ?? ((input, init) => fetch(input, init)));
     this.sdk = new OneMind({ baseUrl: new URL(this.base || '/', globalThis.location?.origin ?? 'http://localhost').href, token: opts.token, fetch: (input, init) => this.fetchFn(String(input), init), retries: 1 });
   }
 
@@ -316,6 +338,7 @@ export class HttpApi implements OneMindApi {
   backupsStatus() { return this.sdkCall<Record<string, unknown>>('GET', '/v1/backups/status'); }
   osUpdates() { return this.sdkCall<Record<string, unknown>>('GET', '/v1/os/updates'); }
   about() { return this.req<AboutBox>('GET', '/v1/os/about'); }
+  ups() { return this.sdkCall<UpsStatus>('GET', '/v1/system/ups'); }
   pluginSigningKeys() { return this.sdkCall<components["schemas"]["SigningKeys"]>('GET', '/v1/plugin-trust/keys'); }
   requestPluginSigningKey(body: PluginKeyInput) { return this.sdkCall<components["schemas"]["Action"]>('POST', '/v1/plugin-trust/keys/requests', body); }
   revokePluginSigningKey(keyId: string, body: PluginKeyRevokeInput) { return this.sdkCall<components["schemas"]["Action"]>('POST', `/v1/plugin-trust/keys/${encodeURIComponent(keyId)}/revoke`, body); }
@@ -340,6 +363,9 @@ export class HttpApi implements OneMindApi {
     if (!Array.isArray(raw.requires) || !Array.isArray(raw.dependents) || raw.requires.some((r) => !r || typeof r.id !== 'string' || !Array.isArray(r.choices) || !r.choices.every(okChoice)) || raw.dependents.some((d) => !d || typeof d.id !== 'string')) throw new ApiError(200, 'unknown', 'Invalid gateway dependencies');
     return raw;
   }
+  async openBrowser(appId: string) { return checkBrowser(await this.sdkCall<BrowserSession>('POST', `/v1/browsers/${encodeURIComponent(appId)}/session`), appId); }
+  async closeBrowser(appId: string) { return checkBrowser(await this.sdkCall<BrowserSession>('POST', `/v1/browsers/${encodeURIComponent(appId)}/session/close`), appId); }
+  resetBrowserProfile(appId: string) { return this.sdkCall<Action>('POST', `/v1/browsers/${encodeURIComponent(appId)}/profile/reset`); }
   async openAppSession() {
     await this.req<void>('POST', '/v1/auth/app-session');
   }
@@ -470,6 +496,9 @@ export class HttpApi implements OneMindApi {
   disableUser(id: string) {
     return this.req<W.UserInfo>('POST', `/v1/users/${encodeURIComponent(id)}/disable`, {});
   }
+  familyProfile(id: string) {
+    return this.req<W.FamilyProfile>('GET', `/v1/family/profiles/${encodeURIComponent(id)}`);
+  }
   tokens() {
     return this.req<W.TokenInfo[]>('GET', '/v1/tokens', undefined, 'array');
   }
@@ -494,6 +523,7 @@ export class HttpApi implements OneMindApi {
   markAllRead() {
     return this.req<{ marked: number }>('POST', '/v1/notifications/read-all', {});
   }
+  notificationSummary() { return this.sdkCall<NotificationSummary>('GET', '/v1/notifications/summary'); }
   channels() {
     return this.req<W.ChannelInfo[]>('GET', '/v1/notifications/channels', undefined, 'array');
   }
@@ -504,7 +534,7 @@ export class HttpApi implements OneMindApi {
     await this.req<void>('DELETE', `/v1/notifications/channels/${encodeURIComponent(id)}`);
   }
   testChannel(id: string) {
-    return this.req<{ ok?: boolean; error?: string | null }>('POST', `/v1/notifications/channels/${encodeURIComponent(id)}/test`, {});
+    return this.req<W.ChannelTestResult>('POST', `/v1/notifications/channels/${encodeURIComponent(id)}/test`, {});
   }
   monitoring() {
     return this.req<W.MonitoringSummary>('GET', '/v1/monitoring/summary');
@@ -530,4 +560,12 @@ export class HttpApi implements OneMindApi {
   auditVerify() {
     return this.req<W.AuditVerifyResult>('GET', '/v1/audit/verify');
   }
+}
+
+/** A browser session the window may load: for this app, on an http(s) URL whose first label is `<app>--<key>`. */
+export function checkBrowser(s: BrowserSession, appId: string): BrowserSession {
+  let url: URL | undefined;
+  try { url = new URL(s.url); } catch { url = undefined; }
+  if (s.app_id !== appId || !/^[0-9a-f]{16}$/.test(s.person_key) || (s.password != null && typeof s.password !== 'string') || !url || !['http:', 'https:'].includes(url.protocol) || url.hostname.split('.')[0] !== `${appId}--${s.person_key}`) throw new ApiError(200, 'unknown', 'Invalid gateway browser session');
+  return s;
 }

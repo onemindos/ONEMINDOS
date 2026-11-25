@@ -15,6 +15,8 @@ import yaml
 from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "core"))
+from onemind_core.catalog import Catalog  # noqa: E402
 VALIDATE = runpy.run_path(str(ROOT / "sdk/tools/validate-apps"))
 AppChecker = VALIDATE["AppChecker"]
 SCHEMA = json.loads((ROOT / "sdk/schema/onemind.app.schema.json").read_text())
@@ -51,7 +53,7 @@ class PluginValidatorTests(unittest.TestCase):
 
     def checker(self, binary):
         # A declarative bundle must never invoke these workload tools.
-        return AppChecker(Draft202012Validator(SCHEMA), "/no-workload/kustomize",
+        return AppChecker(Catalog(ROOT / "apps", ROOT / "sdk/schema/onemind.app.schema.json"), "/no-workload/kustomize",
                           "/no-workload/kubeconform", binary)
 
     def test_real_box_validator_accepts_declarative_bundle(self):

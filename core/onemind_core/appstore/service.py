@@ -28,7 +28,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ..actions import FeatureAction
 from ..auth import Principal
-from .. import cpufit, placement, streams
+from .. import cpufit, gpufit, placement, streams
 from ..catalog import APP_ID_RE, MANIFEST, AppEntry
 from ..context import Gateway
 from ..errors import ApiError
@@ -37,7 +37,9 @@ from ..ledger import Action, iso
 from ..scan import MAX_AGE
 from ..netconf import FabricSettings
 from ..sections import config_section
+from .. import systemlist
 from . import appsettings, compose, deps, exposure, hostports
+from .system import SystemApps
 from .sources import (
     COMMIT_RE, FetchError, GitFetcher, ImageScanner, NoImageScanner, SourceAppEntry, SourceCatalog,
     param_problems, scan_entry,
@@ -60,6 +62,7 @@ class AppStoreSettings:
     fetch_timeout_s: int = 120        # ONEMIND_APPSTORE_FETCH_TIMEOUT_S
     max_source_mb: int = 64           # ONEMIND_APPSTORE_MAX_SOURCE_MB
     scanner: str = "auto"             # ONEMIND_APPSTORE_SCANNER: auto | none | kubernetes (CORE-DEPLOY-2)
+    system_apps_file: Path | None = None  # ONEMIND_APPSTORE_SYSTEM_APPS_FILE; default: the image's signed list
 
     def validate(self) -> None:
         if not 5 <= self.fetch_timeout_s <= 900:
@@ -117,6 +120,8 @@ class AppStore:
         self.image_scanner: ImageScanner = image_scanner or getattr(gw, "image_scanner", None) or NoImageScanner()
         self.sources = SourceCatalog(self.repo, self.fetcher, gw.catalog.validate)
         self.reserved = hostports.load_reserved()
+        # Built-in apps: the signed list is the only authority (systemlist.py).
+        self.system = SystemApps(self, systemlist.load(cfg.system_apps_file))
 
     # ---- shared helpers ----------------------------------------------------------------------------
     def statuses(self) -> dict[str, str]:
@@ -283,6 +288,13 @@ class AppStore:
             # needs a GPU where no node has one. No node reported yet is unknown, not refused.
             where = placement.place(app.manifest, self.gw.registry.list())
             if where["verdict"] == "nowhere":
+                # S-5: an app that declares spec.requires.accelerator gets the box-level GPU wording.
+                reqs = (app.manifest.get("spec") or {}).get("requires")
+                gpu_fit = (gpufit.refusal(app.manifest, cpufit.hub(self.gw.registry.list()))
+                           if isinstance(reqs, dict) and isinstance(reqs.get("accelerator"), dict) else None)
+                if gpu_fit:
+                    code, message, details = gpu_fit
+                    raise _refuse(409, "stale_precondition", message, reason=code, details=details)
                 raise _refuse(409, "stale_precondition", where["message"], reason="no_node_fits",
                               details=[{"field": f"node:{ln['node_id']}", "problem": r["code"]}
                                        for ln in where["nodes"] for r in ln["reasons"] if r["blocking"]])
@@ -546,6 +558,12 @@ class AppStore:
         actions = self.gw.actions
         for action_type, spec in self.specs().items():
             actions.register_type(action_type, spec)
+        for action_type, spec in self.system.specs().items():
+            actions.register_type(action_type, spec)
+        actions.app_checks.append(self.system.check_app)
+        actions.id_checks.append(self.system.check_id)
+        self.gw.catalog.system_ids = self.system.list.ids
+        self.gw.disabled_apps = self.system.disabled_ids
         actions.app_checks.append(self.check_app)
         actions.after_dispatch.append(self.after_dispatch)
         actions.settings_transform = self.settings_transform

@@ -7,6 +7,7 @@ import os, re, sys, tempfile, unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 LIB = os.path.join(ROOT, "os", "rootfs", "layers", "onemind", "usr", "lib")
 sys.path.insert(0, os.path.join(LIB, "onemind"))
+sys.path.insert(1, os.path.join(ROOT, "core"))  # onemind_core.jetstream: the JetStream cap (#601)
 import onemind_firstboot as fb  # noqa: E402
 
 
@@ -17,15 +18,28 @@ def unit(name):
 class FilesAndStorageOnTheImage(unittest.TestCase):
     def test_gateway_env_points_files_at_the_data_partition_and_turns_storage_on(self):
         with tempfile.TemporaryDirectory() as d:
-            env = fb.gateway_env(fb.Paths(d), {"box": "home-box", "node_id": "abc", "name": "Home"})
+            env = fb.gateway_env(fb.Paths(d), {"box": "home-box", "node_id": "abc", "name": "Home"},
+                                 js_max_bytes=1 << 30)
         self.assertIn("ONEMIND_FILES_ROOT=/data/onemind/files\n", env)
         self.assertIn("ONEMIND_STORAGE_ENABLED=1\n", env)
 
     def test_gateway_may_write_the_files_root_and_it_exists_before_the_sandbox(self):
         gw = unit("onemind-gateway.service")
         self.assertRegex(gw, r"(?m)^ReadWritePaths=.*/data/onemind/files\b")
-        self.assertRegex(gw, r"(?m)^ExecStartPre=\+.*install -d .*-o onemind .*/data/onemind/files$")
-        self.assertLess(gw.index("ExecStartPre="), gw.index("ExecStart=/usr"))
+        # PR #621 smoke: an ExecStartPre=+install for the folder never ran; systemd set up the ReadWritePaths=
+        # namespace first and failed the unit with 226/NAMESPACE. The folder is made by first boot instead.
+        self.assertNotRegex(gw, r"(?m)^ExecStartPre=.*/data/onemind/files")
+        src = open(fb.__file__).read()
+        start = src[src.index("def start_units("):]
+        self.assertLess(start.index("ensure_files_root(p)"), start.index('systemctl("start"'))
+        with tempfile.TemporaryDirectory() as d:
+            p = fb.Paths(d)
+            fb.ensure_files_root(p)
+            self.assertEqual(p.files, os.path.join(d, "data", "onemind", "files"))
+            self.assertEqual(os.stat(p.files).st_mode & 0o777, 0o750)
+            open(os.path.join(p.files, "keep.txt"), "w").close()
+            fb.ensure_files_root(p)          # idempotent: every boot, contents untouched
+            self.assertTrue(os.path.exists(os.path.join(p.files, "keep.txt")))
 
     def test_storage_service_runs_on_the_hub_only_and_is_not_enabled_at_build(self):
         self.assertIn("onemind-storage.service", fb.ROLE_UNITS["hub"])

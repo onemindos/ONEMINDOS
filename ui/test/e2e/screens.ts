@@ -100,9 +100,12 @@ export async function open(page: Page, s: Screen, theme: Theme): Promise<void> {
 }
 
 /**
- * Waits until nothing moves: fonts loaded, every CSS animation and transition finished, and the
+ * Waits until nothing moves: images decoded, fonts loaded, every CSS animation and transition finished, and the
  * desktop window (.dsk-window, D-016) at the same place on three frames in a row. WebKit has been
- * seen drawing that window mid open-animation, about 8 px low. prefers-reduced-motion is forced by the
+ * seen drawing that window mid open-animation, about 8 px low. Images are the other cause of a screen that
+ * differs from itself: the Market's featured app icon is an <img loading="lazy">, which WebKit fetches and
+ * paints late on a busy machine (3,760 pixels differed on 4 of 16 runs under load). So every image is made
+ * eager and decoded before the shot. prefers-reduced-motion is forced by the
  * Playwright config; the injected style is the second line of defence if an engine ignores it.
  */
 export async function settle(page: Page): Promise<void> {
@@ -110,6 +113,10 @@ export async function settle(page: Page): Promise<void> {
     content: '*, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }',
   });
   await page.evaluate(async () => {
+    // Lazy images below or beside the viewport would otherwise load whenever the engine gets to them.
+    const imgs = Array.from(document.images);
+    for (const img of imgs) img.loading = 'eager';
+    await Promise.all(imgs.map((img) => (img.complete && img.naturalWidth > 0 ? undefined : img.decode().catch(() => undefined))));
     await document.fonts.ready;
     const frame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
     const pos = () => {

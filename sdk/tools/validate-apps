@@ -17,6 +17,10 @@ Checks, per app directory (directories whose name starts with "_", such as apps/
      volumes, no hostPort and no privileged containers
   9. renovate.json automerges exactly the apps with tier verified and spec.updates.automerge: patch
      (contract §10.2; checked when renovate.json exists and every app is validated)
+ 11. system apps ("Built in", spec.system): an app may declare spec.system only if it lives in
+     apps/_system/<id>/ AND its id is on the signed list os/rootfs/layers/onemind/usr/lib/onemind/
+     system-apps.json (override with --system-list); every app in apps/_system/ must be on that list
+     and declare spec.system with the same class and update as the list says.
  10. no two apps declare the same spec.hostPorts port/protocol, and none declares a port OneMind
      itself uses (sdk/policy/host-ports.yaml; contract §12.22). Always checked across every app.
  11. plugin extensions pass the same built onemind plugin validate used on the box
@@ -28,7 +32,8 @@ Run with: python3 -I sdk/tools/validate-apps [--apps-dir DIR] [APP_ID ...]
 Exit codes: 0 all apps pass, 1 at least one check failed, 2 usage or environment error.
 
 Also reports a deterministic computed/SPDX-derived inventory from metadata.license,
-using the existing L1/L2/blocked classifier. This is not declared metadata.licenceClass,
+using the existing L1/L2/blocked classifier. The declared metadata.licenceClass follows on
+a declared_licence_class row. Neither is
 primary-source verification, a scan pass, or preinstall permission. Missing/non-string
 expressions are reported as unavailable, not as a licence class; validation still fails.
 """
@@ -58,13 +63,15 @@ except ImportError as exc:  # pragma: no cover - environment problem
 
 # Resolve the local library explicitly, including under Python's isolated (-I) mode.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from applib.licence import classify  # noqa: E402
+from applib.licence import GREEN, classify  # noqa: E402
 from factorylib import desktop  # noqa: E402
 
 SCHEMA_PATH = REPO_ROOT / "sdk" / "schema" / "onemind.app.schema.json"
 POLICY_RULES_PATH = REPO_ROOT / "sdk" / "policy" / "app-objects.yaml"
 RENOVATE_PATH = REPO_ROOT / "renovate.json"
 HOST_PORTS_PATH = REPO_ROOT / "sdk" / "policy" / "host-ports.yaml"
+SYSTEM_LIST_PATH = REPO_ROOT / "os" / "rootfs" / "layers" / "onemind" / "usr" / "lib" / "onemind" / "system-apps.json"
+SYSTEM_DIR = "_system"
 RENOVATE_APP_RE = re.compile(r"^apps/([^/]+)/manifests/\*\*$")
 MANIFEST_NAME = "onemind.app.yaml"
 
@@ -135,10 +142,55 @@ def licence_inventory(doc: object, app_dir: Path) -> None:
     print(f"licence apps/{app_dir.name}/ computed_spdx_class={computed}")
 
 
+def licence_class_errors(meta: dict) -> list[str]:
+    """metadata.licenceClass (issue #173): a green claim (L1 or L2) must equal the class computed from
+    metadata.license, so no manifest can mark a source-available licence green. `blocked` and `unknown`
+    are always allowed: they only ever make the Market stricter."""
+    declared, spdx = meta.get("licenceClass"), meta.get("license")
+    if declared not in GREEN:
+        return []
+    computed = classify(spdx) if isinstance(spdx, str) else "blocked"
+    if computed == declared:
+        return []
+    return [f"metadata.licenceClass is {declared} but metadata.license '{spdx}' classifies as {computed}; "
+            f"fix the class (or set it to blocked or unknown)"]
+
+
+def load_system_list(path: Path) -> dict[str, dict]:
+    """id -> list entry of the signed system apps list (empty when the file does not exist)."""
+    if not path.is_file():
+        return {}
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(doc, dict) or doc.get("schema") != "onemind.io/system-apps/v1" or not isinstance(doc.get("apps"), list):
+        raise ValueError(f"{path.name}: schema must be onemind.io/system-apps/v1 with an apps list")
+    return {r["id"]: r for r in doc["apps"] if isinstance(r, dict) and isinstance(r.get("id"), str)}
+
+
+def system_errors(app_dir: Path, spec: dict, system: dict[str, dict]) -> list[str]:
+    """Rule 11. Only apps/_system/<id>/ for an id on the signed list may be a system app."""
+    in_system_dir = app_dir.parent.name == SYSTEM_DIR
+    claim = spec.get("system")
+    listed = system.get(app_dir.name)
+    if not in_system_dir:
+        errs = []
+        if claim is not None:
+            errs.append(f"spec.system is only allowed in apps/{SYSTEM_DIR}/ for an id on the signed system apps list")
+        if app_dir.name in system:
+            errs.append(f"id '{app_dir.name}' is reserved for a system app on the signed list")
+        return errs
+    if listed is None:
+        return [f"apps/{SYSTEM_DIR}/{app_dir.name}/ is not on the signed system apps list"]
+    if claim is None:
+        return ["a system app must declare spec.system"]
+    return [f"spec.system.{k} is '{claim.get(k)}' but the signed list says '{listed.get(k)}'"
+            for k in ("class", "update", "disable") if k in listed and claim.get(k) != listed[k]]
+
+
 class AppChecker:
     def __init__(self, catalog: Catalog, kustomize: str, kubeconform: str,
-                 plugin_validator: Path | None = None):
+                 plugin_validator: Path | None = None, system: dict[str, dict] | None = None):
         self.catalog = catalog
+        self.system = system or {}
         self.kustomize = kustomize
         self.kubeconform = kubeconform
         self.plugin_validator = plugin_validator
@@ -146,6 +198,14 @@ class AppChecker:
         # declare a dependency on it (the gateway opens a path from each of them).
         self.rules = load_rules(POLICY_RULES_PATH)
         self.dependents: dict[str, set[str]] = {}
+        self.declared_class: object = None  # metadata.licenceClass of the manifest last checked
+
+    def schema_errors(self, doc: object) -> list[str]:
+        """The core Catalog's folder check (check_manifest: apps/_system/ manifests may carry
+        spec.system); any other checker, such as a plain jsonschema validator the unit tests
+        pass, keeps the validate(doc) call it always had."""
+        check = getattr(self.catalog, "check_manifest", None)
+        return list(check(doc) if callable(check) else self.catalog.validate(doc))
 
     def check(self, app_dir: Path) -> tuple[str | None, list[str]]:
         """Return (metadata.id or None, list of error messages) for one app directory."""
@@ -161,7 +221,8 @@ class AppChecker:
             return None, [f"{MANIFEST_NAME} is not valid YAML: {exc}"]
 
         licence_inventory(doc, app_dir)
-        schema_errors = sorted(self.catalog.validate(doc))
+        self.declared_class = dig(doc, ("metadata", "licenceClass"))
+        schema_errors = sorted(self.schema_errors(doc))
         errors.extend(f"schema: {msg}" for msg in schema_errors)
         if schema_errors:
             # The remaining checks rely on a schema-valid manifest.
@@ -172,6 +233,9 @@ class AppChecker:
         app_id = meta["id"]
         if app_id != app_dir.name:
             errors.append(f"metadata.id '{app_id}' does not match directory name '{app_dir.name}'")
+
+        errors.extend(licence_class_errors(meta))
+        errors.extend(system_errors(app_dir, spec, self.system))
 
         plugin_declaration = any(field in spec for field in ("extensions", "plugin", "permissions", "compat"))
         if plugin_declaration:
@@ -492,6 +556,8 @@ def main(argv: list[str]) -> int:
                         help="directory holding apps/<id>/ (default: the repo's apps/)")
     parser.add_argument("--plugin-validator", type=Path, default=os.environ.get("ONEMIND_PLUGIN_VALIDATOR"),
                         help="absolute built onemind binary path (or ONEMIND_PLUGIN_VALIDATOR); required for plugins")
+    parser.add_argument("--system-list", type=Path, default=SYSTEM_LIST_PATH,
+                        help="the signed system apps list (default: the one in os/rootfs)")
     parser.add_argument("app_ids", nargs="*", help="validate only these app ids (default: all)")
     args = parser.parse_args(argv)
 
@@ -516,6 +582,16 @@ def main(argv: list[str]) -> int:
         return 2
     app_dirs = sorted(d for d in apps_dir.iterdir()
                       if d.is_dir() and not d.name.startswith(("_", ".")))
+    system_root = apps_dir / SYSTEM_DIR
+    system_dirs = sorted(d for d in system_root.iterdir() if d.is_dir() and not d.name.startswith("."))\
+        if os.path.isdir(system_root) else []
+    try:
+        system_list = load_system_list(args.system_list)
+    except (OSError, ValueError) as exc:
+        sys.stderr.write(f"error: cannot load the system apps list: {exc}\n")
+        return 2
+    renovate_dirs = list(app_dirs)  # the renovate rule is about ordinary apps' own image updates
+    app_dirs = app_dirs + system_dirs
     if args.app_ids:
         wanted = set(args.app_ids)
         unknown = wanted - {d.name for d in app_dirs}
@@ -527,16 +603,24 @@ def main(argv: list[str]) -> int:
         print("validate-apps: no app directories found; nothing to check")
         return 0
 
+    def shown(d: Path) -> str:
+        return f"apps/{SYSTEM_DIR}/{d.name}" if d.parent.name == SYSTEM_DIR else f"apps/{d.name}"
+
     checker = AppChecker(Catalog(apps_dir, SCHEMA_PATH), tools["kustomize"], tools["kubeconform"],
-                         args.plugin_validator)
+                         args.plugin_validator, system_list)
     checker.dependents = dependents_map(all_app_dirs(apps_dir))
     print("licence inventory: computed/SPDX-derived from metadata.license; "
-          "not declared metadata.licenceClass; "
+          "not declared metadata.licenceClass (that is on the licence-class rows); "
           "not primary-source verification, scan pass, or preinstall permission")
     seen: dict[str, str] = {}
     failed = 0
     for app_dir in app_dirs:
+        checker.declared_class = None
         app_id, errors = checker.check(app_dir)
+        # What the manifest declares, next to the SPDX class computed above (#173): the Market
+        # installs by the declared class, so CI shows both and a mismatch is visible.
+        declared = checker.declared_class if isinstance(checker.declared_class, str) else "unset"
+        print(f"licence-class apps/{app_dir.name}/ declared_licence_class={declared}")
         if app_id is not None:
             if app_id in seen:
                 errors.append(f"duplicate metadata.id '{app_id}' (also used by apps/{seen[app_id]}/)")
@@ -544,13 +628,13 @@ def main(argv: list[str]) -> int:
                 seen[app_id] = app_dir.name
         if errors:
             failed += 1
-            print(f"FAIL apps/{app_dir.name}/")
+            print(f"FAIL {shown(app_dir)}/")
             for msg in errors:
                 print(f"  - {msg}")
         else:
-            print(f"ok   apps/{app_dir.name}/")
+            print(f"ok   {shown(app_dir)}/")
 
-    all_dirs = sorted(d for d in apps_dir.iterdir() if d.is_dir() and not d.name.startswith(("_", ".")))
+    all_dirs = sorted(d for d in apps_dir.iterdir() if d.is_dir() and not d.name.startswith(("_", "."))) + system_dirs
     port_errors = host_ports_check(all_dirs, HOST_PORTS_PATH)
     if port_errors:
         failed += 1
@@ -562,7 +646,7 @@ def main(argv: list[str]) -> int:
 
     renovate_failed = False
     if not args.app_ids and args.apps_dir.resolve() == (REPO_ROOT / "apps").resolve() and RENOVATE_PATH.is_file():
-        renovate_errors = renovate_check(RENOVATE_PATH, apps_dir, app_dirs)
+        renovate_errors = renovate_check(RENOVATE_PATH, apps_dir, renovate_dirs)
         if renovate_errors:
             renovate_failed = True
             print("FAIL renovate.json")

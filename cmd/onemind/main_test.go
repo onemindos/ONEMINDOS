@@ -89,6 +89,25 @@ func TestNodeInfoFixture(t *testing.T) {
 	}
 }
 
+// `onemind node capabilities` prints the hardware profile (#618) from the same probe onemindd runs.
+func TestNodeCapabilitiesFixture(t *testing.T) {
+	var out, errb bytes.Buffer
+	if code := run([]string{"node", "capabilities", "--root", "../../internal/detect/testdata/rpi5", "--arch", "arm64"}, &out, &errb); code != 0 {
+		t.Fatalf("exit %d: %s", code, errb.String())
+	}
+	var m map[string]any
+	if err := json.Unmarshal(out.Bytes(), &m); err != nil {
+		t.Fatal(err)
+	}
+	accel, _ := m["accelerators"].([]any)
+	if m["schema"] != "onemind.node.capabilities/v1" || len(accel) != 1 || accel[0].(map[string]any)["vendor"] != "hailo" {
+		t.Fatalf("node capabilities = %v", m)
+	}
+	if mem := m["memory"].(map[string]any); mem["unified"] != nil { // a Pi 5 with only an NPU: unknown, not false
+		t.Fatalf("memory = %v", mem)
+	}
+}
+
 func TestNodeInfoRejectsBadEnv(t *testing.T) {
 	for _, c := range []struct{ k, v string }{
 		{"ONEMIND_NODE_ROLE", "worker"},

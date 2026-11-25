@@ -38,6 +38,7 @@ from sec_world import DESCRIBE, KINDS, MINTABLE, PENDING_KINDS, World, route_met
 PUBLIC = {
     ("GET", "/healthz"),                       # liveness probe for the health gate
     ("GET", "/v1/instance/name"),              # the box name alone, so the sign-in page can show it
+    ("GET", "/v1/protocol"),                   # the protocol generations served (#697); an app too old to sign in must read it
     ("GET", "/openapi.json"),                  # the contract; reveals the version only
     ("POST", "/v1/auth/setup"),                # first owner; needs the install token in the body
     ("POST", "/v1/auth/login/options"),        # WebAuthn challenge; bounded (MAX_OPEN_LOGIN_CHALLENGES)
@@ -52,6 +53,8 @@ PUBLIC = {
     ("DELETE", "/v1/auth/app-session"),        # only clears the caller's own cookie; no data
     ("GET", "/v1/auth/forward"),               # loopback only (404 elsewhere); decides with the same sign-in + access rule as the proxy
     ("GET", "/{full_path:path}"),              # the dashboard's static files (never the API tree)
+    ("GET", "/v1/share/{token}"),              # FILES-02 share link: the 256-bit link secret in the path is the credential
+    ("GET", "/v1/share/{token}/items/{index}"),  # FILES-02: one shared item, same secret; expiry, revoke and creator re-checked
 }
 
 

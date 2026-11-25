@@ -76,6 +76,8 @@ type Config struct {
 	Now        func() time.Time // tests
 	// Terminal mounts the owner-only web terminal (terminal.go); nil leaves it unmounted.
 	Terminal *Terminal
+	// HelpDir is the offline help pack served read-only under /help/ (help.go); "" serves none.
+	HelpDir string
 }
 
 // Server is the rescue console's HTTP handler.
@@ -104,6 +106,7 @@ func New(cfg Config) *Server {
 	s.mux.HandleFunc("GET /status.json", s.statusJSON)
 	s.mux.HandleFunc("GET /logs", s.logs)
 	s.mux.HandleFunc("POST /rollback", s.rollback)
+	s.mux.HandleFunc("GET /help/{path...}", s.help)
 	if cfg.Terminal != nil {
 		s.mountTerminal()
 	}
@@ -157,10 +160,12 @@ type Status struct {
 	Errors   []string          `json:"errors,omitempty"`
 	CSRF     string            `json:"csrf"`
 	Terminal bool              `json:"-"`
+	Help     bool              `json:"-"`
 }
 
 func (s *Server) status(ctx context.Context) Status {
-	st := Status{Version: s.cfg.Version, RAUC: heartbeat.RAUC{Slots: []heartbeat.Slot{}}, K3s: map[string]string{}, CSRF: s.csrf, Terminal: s.cfg.Terminal != nil && SwitchOn(s.cfg.Terminal.SwitchFile)}
+	st := Status{Version: s.cfg.Version, RAUC: heartbeat.RAUC{Slots: []heartbeat.Slot{}}, K3s: map[string]string{}, CSRF: s.csrf, Terminal: s.cfg.Terminal != nil && SwitchOn(s.cfg.Terminal.SwitchFile),
+		Help: s.hasHelp()}
 	if b, err := s.cfg.Runner.Run(ctx, "rauc", "status", "--output-format=json"); err != nil {
 		st.Errors = append(st.Errors, "rauc status: "+err.Error())
 	} else {
@@ -200,6 +205,7 @@ var pageTmpl = template.Must(template.New("p").Parse(`<!doctype html><html lang=
 <button type="submit">Roll back and restart</button></form>
 {{if .Terminal}}<h2>Terminal</h2><p><a href="terminal">Open a shell</a> (owner only, needs a fresh passkey sign-in).</p>{{end}}
 <h2>Logs</h2><p><a href="logs">Download recent logs</a> (onemindd, update, health gate, RAUC, k3s).</p>
+{{if .Help}}<h2>Help</h2><p><a href="help/">Offline help</a>: what to do when the box is in trouble. It works with the gateway down.</p>{{end}}
 </body></html>`))
 
 func (s *Server) page(w http.ResponseWriter, r *http.Request) {

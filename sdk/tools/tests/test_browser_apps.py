@@ -56,6 +56,18 @@ class BrowserApps(unittest.TestCase):
                 shm = next(v for v in pod["volumes"] if v["name"] == "shm")
                 self.assertEqual(shm["emptyDir"], {"medium": "Memory", "sizeLimit": "1Gi"})
 
+    def test_one_profile_per_person_never_a_shared_one(self):
+        # #692: the Deployment is a template the gateway copies per person; it never runs a shared profile.
+        for app in BROWSERS:
+            with self.subTest(app=app):
+                m = yaml.safe_load((APPS / app / "onemind.app.yaml").read_text())
+                volume = m["spec"]["browser"]["profileVolume"]
+                (dep,) = load(app, "deployment.yaml")
+                self.assertEqual(dep["spec"]["replicas"], 0)
+                (vol,) = [v for v in dep["spec"]["template"]["spec"]["volumes"] if v["name"] == volume]
+                (pvc,) = load(app, "pvc.yaml")
+                self.assertEqual(vol["persistentVolumeClaim"]["claimName"], pvc["metadata"]["name"])
+
     def test_service_is_cluster_ip_web_only(self):
         for app in BROWSERS:
             with self.subTest(app=app):

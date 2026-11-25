@@ -19,6 +19,10 @@ pub struct SavedBox {
     /// True when the owner accepted plain HTTP to a non-loopback address (development boxes).
     #[serde(default)]
     pub insecure: bool,
+    /// The box CA (DER, hex) pinned when the box was joined by its link or code (join.rs). Public
+    /// data. When set, every request to this box trusts only this CA.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ca_der: Option<String>,
 }
 
 pub struct Store {
@@ -81,9 +85,24 @@ pub fn token(box_id: &str) -> Option<String> {
 }
 
 pub fn delete_token(box_id: &str) {
-    if let Ok(e) = entry(box_id) {
-        let _ = e.delete_credential();
+    for id in [box_id.to_string(), refresh_key(box_id)] {
+        if let Ok(e) = entry(&id) {
+            let _ = e.delete_credential();
+        }
     }
+}
+
+/// The refresh token of a joined box sits next to its access token in the keychain.
+fn refresh_key(box_id: &str) -> String {
+    format!("{box_id}#refresh")
+}
+
+pub fn save_refresh(box_id: &str, token: &str) -> Result<(), String> {
+    save_token(&refresh_key(box_id), token)
+}
+
+pub fn refresh_token(box_id: &str) -> Option<String> {
+    token(&refresh_key(box_id))
 }
 
 /// Writes, reads and deletes one keychain item. `cargo test -- --ignored keychain_roundtrip`

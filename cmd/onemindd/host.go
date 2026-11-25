@@ -20,7 +20,9 @@ import (
 	"github.com/onemindos/onemindos/internal/netview"
 	"github.com/onemindos/onemindos/internal/smb"
 	"github.com/onemindos/onemindos/internal/storage/ops"
+	"github.com/onemindos/onemindos/internal/svcregistry"
 	"github.com/onemindos/onemindos/internal/update"
+	"github.com/onemindos/onemindos/internal/version"
 )
 
 const hostUsage = `usage:
@@ -57,9 +59,11 @@ func runHost(args []string) int {
 	log := newLogger()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	units := &svcregistry.Reader{Version: version.Version} // service cards, logs and approved restarts (#623, #636)
 	svc := &host.Service{Power: host.Systemd{}, OS: &host.UpdateEngine{ConfigPath: *conf, Log: log},
 		BootID: host.BootID(), Delay: *delay, Log: log,
 		Reset: &host.FactoryReset{},
+		Units: units,
 		SMB:   &smb.Manager{P: smb.DefaultPaths(), Run: smb.ExecRunner{}}}
 	if st, err := host.OpenStore(*journal); err != nil {
 		log.Error("host journal unavailable: status only, every action refused", "dir", *journal, "err", err)
@@ -88,7 +92,8 @@ func runHost(args []string) int {
 		return 1
 	}
 	log.Info("host service listening", "socket", *sock, "journal", svc.Store != nil, "boot_id", svc.BootID, "gateway_uid", uid)
-	err = (&host.Server{S: svc, AllowUID: uid, AllowGID: -1, Ctx: ctx, Network: networkView}).Serve(ctx, l)
+	err = (&host.Server{S: svc, AllowUID: uid, AllowGID: -1, Ctx: ctx, Network: networkView,
+		Services: serviceCards, ServiceLogs: units.Logs}).Serve(ctx, l)
 	stop()
 	svc.Wait()
 	if err != nil {
@@ -144,4 +149,11 @@ func networkView() (any, error) {
 	}
 	exists := func(p string) bool { _, err := os.Stat(p); return err == nil }
 	return netview.System(read, exists).Collect()
+}
+
+// serviceCards is GET /v1/services (#623): every unit in the image's services registry
+// (/usr/lib/onemind/services.yaml) with systemd's state and memory, plus OneMind units the registry
+// does not list (known=false). Read-only: systemctl show and list-unit-files only.
+func serviceCards(ctx context.Context) (any, error) {
+	return (&svcregistry.Reader{Version: version.Version}).Collect(ctx)
 }

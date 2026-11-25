@@ -11,8 +11,11 @@ metadata:
   description: Offline Wikipedia and other reference libraries (ZIM files), with a library manager that downloads and checks them
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tags: offline-knowledge.
   category: learning
+  age_rating: 0   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Offline Wikipedia and reference libraries, the founder's example of safe for anyone."
   icon: icon.svg
   license: GPL-3.0
+  licenceClass: L2
   source: https://github.com/kiwix/kiwix-tools
   # §9.3 facts from the GitHub API (repos/kiwix/kiwix-tools and its releases/latest), read 2026-11-14.
   links:

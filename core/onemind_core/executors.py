@@ -38,11 +38,13 @@ import yaml
 
 from . import placement
 from .ca import MESH_DOMAIN
+from .hostgrants.kinds import NO_HOST, HostAllowance
 from .catalog import AppEntry
 from .lifecycle import AppCredentialGrant, ExecContext, report_progress
 from .netconf import MeshSettings
 from .policy import (
     APP_ID,
+    BROWSER_PROFILE_LABEL,
     DEPENDENCIES_POLICY,
     Rules,
     SandboxSettings,
@@ -52,6 +54,7 @@ from .policy import (
     dependency_policies,
     dependent_policy_name,
     egress_entries,
+    enforce_level,
     load_rules,
     network_policies,
     parse_rendered,
@@ -239,6 +242,13 @@ Runner = Callable[..., subprocess.CompletedProcess]
 # The ConfigMap the gateway writes for app.configure; manifests read it with envFrom (optional: true).
 SETTINGS_CONFIGMAP = "onemind-settings"
 
+# NET-TOR-01 (#284): the gateway's path to the dashboard for the Tor app, and only for it. The
+# gateway writes this ConfigMap (the dashboard's ip:port, which the app reads with envFrom) and adds
+# one egress allowance to that address and port. The ids are fixed here, in the gateway, so an app
+# cannot ask for the path in its own manifest.
+GATEWAY_PATH_CONFIGMAP = "onemind-gateway-path"
+GATEWAY_PATH_APPS = frozenset({"tor-remote-access"})
+
 # Namespaced kinds app.remove deletes: the app kinds of sdk/policy/app-objects.yaml minus
 # PersistentVolumeClaim (data is kept, contract 12.5) and minus RoleBinding (the gateway's own
 # binding lives there). Pods go with their controllers.
@@ -293,8 +303,15 @@ class KubernetesExecutor(Executor):
         resolve: Callable[[str], list[str]] | None = None,
         hub_addresses: Callable[[], list[str]] | None = None,
         static_hosts: dict[str, list[str]] | None = None,
+        dashboard_url: str | None = None,
+        tor_port: int = 0,
     ):
         self.kubectl = kubectl
+        # The URL whose host the gateway is reached on, and the port of its Tor listener (netconf
+        # tor_port): plain HTTP, every request classified as the Tor path (netpath.py, serve.py).
+        # The scheme and port of the URL are not used: the onion forward is raw TCP and the origin is http://.
+        self.dashboard_url = dashboard_url
+        self.tor_port = tor_port
         self.timeout_s = timeout_s
         self.runner = runner
         self.sandbox = sandbox or SandboxSettings()
@@ -313,6 +330,8 @@ class KubernetesExecutor(Executor):
         # Names the gateway knows without asking host DNS (hub.onemind.internal -> the hub's mesh IP).
         self.static_hosts = {h.lower(): list(v) for h, v in (static_hosts or {}).items()}
         self.hub_addresses = hub_addresses or (lambda: [])
+        # #186 E2: the app's owner-approved host grants, asked at every render (hostgrants/broker.py sets it).
+        self.host_grants: Callable[[str], HostAllowance] = lambda _app_id: NO_HOST
 
     # ---- the documents the gateway itself writes ---------------------------------------------
     def namespace_doc(self, app: AppEntry, level: str) -> str:
@@ -355,6 +374,34 @@ class KubernetesExecutor(Executor):
             out.append((f"{addr}/{32 if addr.version == 4 else 128}", port))
         return out
 
+    def gateway_path(self, app: AppEntry) -> tuple[str, int] | None:
+        """(IPv4 address, port of the Tor listener) for an app allowed the gateway path, else None.
+
+        Only IPv4, one address: the app's egress opens to exactly that address and port.
+        """
+        if app.id not in GATEWAY_PATH_APPS or not self.dashboard_url or not self.tor_port:
+            return None
+        parts = urlsplit(self.dashboard_url)
+        if not parts.hostname:
+            return None
+        port = self.tor_port
+        for ip in self.static_hosts.get(parts.hostname.lower()) or self.resolve(parts.hostname):
+            addr = ipaddress.ip_address(ip)
+            if addr.version == 4 and not (addr.is_loopback or addr.is_unspecified):
+                return str(addr), port
+        return None
+
+    def gateway_path_doc(self, app: AppEntry) -> str | None:
+        path = self.gateway_path(app)
+        if path is None:
+            return None
+        return json.dumps({
+            "apiVersion": "v1", "kind": "ConfigMap",
+            "metadata": {"name": GATEWAY_PATH_CONFIGMAP, "namespace": f"app-{app.id}",
+                         "labels": {"onemind.io/app": app.id, "onemind.io/managed-by": "onemind-gateway"}},
+            "data": {"ONEMIND_DASHBOARD_TARGET": f"{path[0]}:{path[1]}"},
+        })
+
     def _netpols(self, app: AppEntry, egress: list[str] | None, agent: AgentSecret | None,
                  rendered: str | None) -> list[dict]:
         """Default-deny plus the allowances; the hub's host address may reach only the web port.
@@ -369,7 +416,12 @@ class KubernetesExecutor(Executor):
         except yaml.YAMLError:
             pass
         sources = self.hub_addresses() if ports else []
-        return network_policies(app.id, egress or [], self.rules, self._gateway_egress(agent), sources, ports)
+        extra = self._gateway_egress(agent)
+        path = self.gateway_path(app)
+        if path is not None:  # the dashboard's address and port only, never the LAN
+            extra.append((f"{path[0]}/32", path[1]))
+        browser = isinstance((app.manifest.get("spec") or {}).get("browser"), dict)
+        return network_policies(app.id, egress or [], self.rules, extra, sources, ports, browser=browser)
 
     def plan(
         self, action_type: str, app: AppEntry, agent: AgentSecret | None = None, *,
@@ -390,6 +442,9 @@ class KubernetesExecutor(Executor):
                 steps.append(([k, "apply", "-n", ns, "-f", "-"], rb))
             netpols = self._netpols(app, egress, agent, rendered)
             steps.append(([k, "apply", "-n", ns, "-f", "-"], "\n---\n".join(json.dumps(d) for d in netpols)))
+            gp = self.gateway_path_doc(app)
+            if gp is not None:  # before the manifests, so the pods start with the address
+                steps.append(([k, "apply", "-n", ns, "-f", "-"], gp))
             if agent is not None:  # before the manifests, so the pods start with the Secret
                 # Server-side apply: a client-side `kubectl apply` would copy the whole object,
                 # token included, into the kubectl.kubernetes.io/last-applied-configuration
@@ -567,8 +622,12 @@ class KubernetesExecutor(Executor):
             return ExecResult("failed", str(exc), steps)
         violations = check_kustomization(mdir, app.dir, rules)
         level, gv = pod_security_level(app.id, app.manifest, rules)
+        host = self.host_grants(app.id)
+        level = enforce_level(level, host)
         egress, ev = egress_entries(app.id, app.manifest, rules)
         plan = {"policy_version": rules.version, "pod_security": level, "egress": egress}
+        if host:  # the install approval is bound to the grants active at render
+            plan["host_grants"] = host.to_json()
         if violations:  # never render something that could fetch or read outside the app folder
             return _refused(app, violations + ([gv] if gv else []) + ev, plan, steps)
         argv = [self.kubectl, "kustomize", "--load-restrictor=LoadRestrictionsRootOnly", str(mdir)]
@@ -587,7 +646,7 @@ class KubernetesExecutor(Executor):
             plan["placement"] = sched
         plan.update(summarize(docs))
         plan["rendered_sha256"] = rendered_sha256(rendered)
-        violations = check_objects(docs, app.id, app.manifest, rules) + ev
+        violations = check_objects(docs, app.id, app.manifest, rules, host) + ev
         if violations:
             return _refused(app, violations, plan, steps)
         return rendered, level, egress, plan
@@ -613,8 +672,15 @@ class KubernetesExecutor(Executor):
             "data": data,
         })
 
-    def _workloads(self, app: AppEntry, steps: list[dict]):
-        """(refs, error): the app's Deployments and StatefulSets as [(ref, replicas, saved_replicas)]."""
+    def _workloads(self, app: AppEntry, steps: list[dict], *, skip: frozenset[str] = frozenset({"person"}),
+                   roles: bool = False):
+        """(refs, error): the app's Deployments and StatefulSets as [(ref, replicas, saved_replicas)].
+
+        A browser app (#692) has two kinds the lifecycle must not treat as its own workloads:
+        "template", its Deployment that mounts the shared profile volume and runs no replica, and
+        "person", each person's browser-<key> Deployment (BROWSER_PROFILE_LABEL). `skip` leaves
+        those roles out; roles=True adds the role (None for an ordinary workload) as a fourth item.
+        """
         cp, err = self._exec([self.kubectl, "get", WORKLOAD_KINDS, "-n", f"app-{app.id}", "-o", "json"],
                              None, app, None, steps, keep_stdout=False)
         if err is not None:
@@ -624,10 +690,14 @@ class KubernetesExecutor(Executor):
             out = []
             for it in items:
                 kind = "statefulset" if it.get("kind") == "StatefulSet" else "deployment"
+                role = _browser_role(app, it)
+                if role in skip:
+                    continue
                 ann = (it.get("metadata") or {}).get("annotations") or {}
                 saved = ann.get(REPLICAS_ANNOTATION)
-                out.append((f"{kind}/{it['metadata']['name']}", int((it.get("spec") or {}).get("replicas", 1)),
-                            int(saved) if saved is not None else None))
+                row = (f"{kind}/{it['metadata']['name']}", int((it.get("spec") or {}).get("replicas", 1)),
+                       int(saved) if saved is not None else None)
+                out.append((*row, role) if roles else row)
             return out, None
         except (ValueError, KeyError, TypeError, AttributeError):
             return None, ExecResult("failed", "could not read the app's workloads", steps)
@@ -665,14 +735,18 @@ class KubernetesExecutor(Executor):
                 report_progress("done", 100)
                 return ExecResult("succeeded", f"app.configure {app.id}: settings applied, no restart needed", steps)
         report_progress("reading workloads", 30)
-        work, err = self._workloads(app, steps)
+        # A browser app's template never runs (its shared profile must not), and a person's browser
+        # is started only by that person (browsers.py): start and restart leave both alone; stop also
+        # stops every person's browser, without a remembered count, so start does not bring it back.
+        skip = frozenset({"template"}) if action_type == "app.stop" else frozenset({"template", "person"})
+        work, err = self._workloads(app, steps, skip=skip, roles=True)
         if err is not None:
             return err
-        for i, (ref, replicas, saved) in enumerate(work):
+        for i, (ref, replicas, saved, role) in enumerate(work):
             report_progress(f"{action_type.split('.')[1]} {ref}", 40 + int(40 * i / max(1, len(work))))
             if action_type == "app.stop":
                 cmds = []
-                if replicas > 0:  # remember the count; a second stop must not overwrite it with 0
+                if replicas > 0 and role is None:  # remember the count; a second stop must not overwrite it with 0
                     cmds.append([k, "annotate", ref, f"{REPLICAS_ANNOTATION}={replicas}", "--overwrite", "-n", ns])
                 cmds.append([k, "scale", ref, "--replicas=0", "-n", ns])
             elif action_type == "app.start":
@@ -703,8 +777,10 @@ class KubernetesExecutor(Executor):
         rendered, _level, egress, plan_info = checked
         report_progress("applying the new version", 35)
         netpols = self._netpols(app, egress, agent, rendered)
+        gp = self.gateway_path_doc(app)
         for argv, stdin in (
             ([k, "apply", "-n", ns, "-f", "-"], "\n---\n".join(json.dumps(d) for d in netpols)),
+            *((([k, "apply", "-n", ns, "-f", "-"], gp),) if gp is not None else ()),
             ([k, "apply", "-n", ns, "-f", "-"], rendered),  # exactly the checked bytes
         ):
             if stdin is rendered:  # the paths before the new version starts (§12.22)
@@ -805,6 +881,20 @@ class KubernetesExecutor(Executor):
         return ExecResult(
             "succeeded", f"{action_type} {app.id} applied to namespace app-{app.id}", steps, plan=plan_info
         )
+
+
+def _browser_role(app: AppEntry, item: dict) -> str | None:
+    """"person", "template" or None: the role of a workload of a browser app (#692; browsers.py)."""
+    browser = (app.manifest.get("spec") or {}).get("browser")
+    if not isinstance(browser, dict) or item.get("kind", "Deployment") != "Deployment":
+        return None
+    if BROWSER_PROFILE_LABEL in ((item.get("metadata") or {}).get("labels") or {}):
+        return "person"
+    pod = ((item.get("spec") or {}).get("template") or {}).get("spec") or {}
+    for vol in pod.get("volumes") or []:
+        if vol.get("name") == browser.get("profileVolume") and (vol.get("persistentVolumeClaim") or {}).get("claimName"):
+            return "template"
+    return None
 
 
 def _refused(app: AppEntry, violations: list[Violation], plan: dict, steps: list[dict]) -> ExecResult:
@@ -943,9 +1033,10 @@ def mesh_static_hosts(mesh: MeshSettings) -> dict[str, list[str]]:
 
 def make_executor(
     name: str, kubectl: str = "kubectl", timeout_s: float = 300, sandbox: SandboxSettings | None = None,
-    static_hosts: dict[str, list[str]] | None = None,
+    static_hosts: dict[str, list[str]] | None = None, dashboard_url: str | None = None, tor_port: int = 0,
 ) -> Executor:
     if name == "kubernetes":
         return KubernetesExecutor(kubectl=kubectl, timeout_s=timeout_s, sandbox=sandbox,
-                                  hub_addresses=local_flannel_addresses(), static_hosts=static_hosts)
+                                  hub_addresses=local_flannel_addresses(), static_hosts=static_hosts,
+                                  dashboard_url=dashboard_url, tor_port=tor_port)
     return NoopExecutor()

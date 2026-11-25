@@ -33,10 +33,12 @@ CEILINGS = {
     "tailscaled.service": 5.3,
     "onemind-local-api.service": 1.7,
     "onemind-recovery-web.service": 5.3,
+    # The setup wizard's web part runs as a dynamic user with no capabilities since #578 (was 8.4 as root);
+    # its root helper is a template (onemind-setup-helper@.service), scored in test_setup_helper.py.
+    "onemind-setup.service": 1.5,
     # 3. Not sandboxed yet. Each is a boot-time or board-specific oneshot that needs its own on-hardware check
     #    before it can be locked down (see the PR's follow-up list). The ceiling stops it getting worse, and a
-    #    PR that hardens one should lower its number. onemind-setup.service is sandboxed by its own open PR.
-    "onemind-setup.service": 8.4,
+    #    PR that hardens one should lower its number.
     "onemind-screen.service": 8.9,
     "onemind-ssh-hostkeys.service": 9.6,
     "onemind-rpi5-grow.service": 9.6,
@@ -52,6 +54,22 @@ CEILINGS = {
     "onemind-data-extend.service": 9.6,
     "onemind-data-check.service": 9.6,
     "onemind-cloud-home.service": 9.6,
+    # 4. Units that arrived from separate PRs merged together on release/next (each was under the default when
+    #    its PR ran, because the score gate only knew the units of its own branch). Recorded at their measured
+    #    score plus 0.3 so they cannot get worse; hardening them is a follow-up (lower the number then).
+    "onemind-data-encrypt.service": 9.6,
+    "onemind-factory-reset.service": 9.6,
+    "onemind-firewall.service": 9.6,
+    "onemind-nvidia-setup.service": 9.6,
+    "onemind-storage.service": 8.0,
+    # The kiosk units (#333, UX-07) met this gate only when W0 merged them onto release/next (systemd 255:
+    # kiosk 7.6, kiosk-apply 9.4). Hardening them needs an on-hardware check of the screen switch: follow-up.
+    "onemind-kiosk.service": 7.9,
+    "onemind-kiosk-apply.service": 9.7,
+    # The UPS low-battery shutdown (IMG-06, #244; measured 9.4 with systemd 255). Cannot be sandboxed: it stops
+    # k3s, kills what is left in its cgroup, unmounts /data, closes the encrypted disk and powers the box off. It
+    # runs only when upsmon starts it on a low battery (onemind-ups.service and -monitor are under the default).
+    "onemind-ups-shutdown.service": 9.7,
 }
 
 
