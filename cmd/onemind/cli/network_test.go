@@ -27,6 +27,11 @@ func networkHub(t *testing.T, got *[]string) {
 		case r.Method == http.MethodPut && r.URL.Path == "/v1/network/eth0":
 			var b map[string]any
 			_ = json.Unmarshal(body, &b)
+			// NetworkConfigBody.dns is list[str] with a default: a missing key is fine, null is a 422 (pydantic).
+			if v, ok := b["dns"]; ok && v == nil {
+				jsonOut(w, 422, map[string]string{"error": "invalid_request", "message": "dns: Input should be a valid list"})
+				return
+			}
 			if b["mode"] == "static" && b["gateway"] == "198.51.100.1" {
 				jsonOut(w, 422, map[string]string{"error": "conflict", "reason": "invalid_gateway", "message": "The gateway must be another host inside 192.0.2.0/24."})
 				return
@@ -74,6 +79,23 @@ func TestNetworkSetFilesTheRequestAndNeverApproves(t *testing.T) {
 		if strings.Contains(g, "/approve") {
 			t.Fatalf("the CLI never approves: %v", got)
 		}
+	}
+}
+
+// Review of #1156: without --dns the body must not carry "dns": null, which the gateway refuses.
+func TestNetworkSetWithoutDNSLeavesTheKeyOut(t *testing.T) {
+	var got []string
+	networkHub(t, &got)
+	r := run(t, "", false, "network", "set", "eth0", "--address", "192.0.2.50/24", "--gateway", "192.0.2.1")
+	if r.code != 0 || !strings.Contains(r.out, "Approval id: act-9") {
+		t.Fatalf("network set without --dns %+v", r)
+	}
+	line := got[len(got)-1]
+	if strings.Contains(line, "null") {
+		t.Fatalf("the body carries a null: %s", line)
+	}
+	if _, ok := lastBody(t, got)["dns"]; ok {
+		t.Fatalf("no --dns, no dns key: %s", line)
 	}
 }
 
@@ -136,5 +158,16 @@ func TestNetworkConfirm(t *testing.T) {
 	}
 	if r := run(t, "", false, "network", "confirm", "eth1"); r.code != ExitConflict || !strings.Contains(r.errOut, "waiting for confirmation") {
 		t.Fatalf("nothing pending: %+v", r)
+	}
+}
+
+// release/next added `network show` in another group; one "network" command must carry all four.
+func TestNetworkGroupHasShowAndTheChanges(t *testing.T) {
+	isolate(t)
+	r := run(t, "", false, "network", "--help")
+	for _, sub := range []string{"show", "set", "dhcp", "confirm"} {
+		if !strings.Contains(r.out, "  "+sub+" ") {
+			t.Fatalf("onemind network lacks %s:\n%s", sub, r.out)
+		}
 	}
 }

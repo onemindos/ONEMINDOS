@@ -157,6 +157,10 @@ type Change struct {
 	Checkpoint string            `json:"checkpoint,omitempty"`
 	BootID     string            `json:"boot_id,omitempty"`
 	Previous   map[string]string `json:"previous,omitempty"` // the settings to put back
+	// ConfirmedAt is written BEFORE the checkpoint is destroyed: if the box goes down (or /data fails) between
+	// destroying the checkpoint and recording "confirmed", the record still says the owner confirmed, and the
+	// change is kept when the profile holds it instead of being undone as "lost".
+	ConfirmedAt *time.Time `json:"confirmed_at,omitempty"`
 }
 
 // Status is GET /v1/network/changes.
@@ -257,11 +261,49 @@ func (m *Manager) save(cur, last *Change) error {
 }
 
 // Status reads the record and settles it against NetworkManager's own list of checkpoints, so a
-// rollback that NetworkManager did by itself shows up as rolled_back.
+// rollback that NetworkManager did by itself shows up as rolled_back. It never waits behind an Apply or
+// Confirm in progress (those hold the lock for up to about 40 seconds of `nmcli up`): it then answers from
+// the record as it stands, and Watch settles it afterwards.
 func (m *Manager) Status(ctx context.Context) Status {
-	m.mu.Lock()
+	if !m.mu.TryLock() {
+		st := Status{Available: true}
+		if why := m.Unavailable(); why != "" {
+			st.Available, st.Reason = false, &why
+		}
+		cur, last := m.load()
+		if cur != nil && cur.Result == ResultPending {
+			st.Pending = view(cur)
+		}
+		st.Last = view(last)
+		return st
+	}
 	defer m.mu.Unlock()
 	return m.statusLocked(ctx)
+}
+
+// WatchEvery is how often Watch looks at a change that waits for confirmation.
+const WatchEvery = 10 * time.Second
+
+// Watch settles a pending change by itself until ctx ends, so the way back never depends on somebody opening
+// the Network screen: when NetworkManager restarted and lost its checkpoint, or when Recover at boot could not
+// reach NetworkManager yet, the old settings still come back within about WatchEvery. The host service runs it
+// for its whole life. Without a pending change each tick is one small file read.
+func (m *Manager) Watch(ctx context.Context, every time.Duration) {
+	t := time.NewTicker(every)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+		if cur, _ := m.load(); cur == nil || cur.Result != ResultPending {
+			continue
+		}
+		m.mu.Lock()
+		m.statusLocked(ctx)
+		m.mu.Unlock()
+	}
 }
 
 func (m *Manager) statusLocked(ctx context.Context) Status {
@@ -271,17 +313,23 @@ func (m *Manager) statusLocked(ctx context.Context) Status {
 	}
 	cur, last := m.load()
 	if cur != nil && cur.Result == ResultPending && st.Available {
-		if m.checkpointListed(ctx, cur.Checkpoint) {
+		listed, err := m.checkpointListed(ctx, cur.Checkpoint)
+		if listed || err != nil && m.now().Before(cur.Deadline.Add(5*time.Second)) {
+			// Listed: NetworkManager still holds the timer. Unreadable (a D-Bus hiccup) before the deadline: nothing
+			// is decided on a failed read, because "gone" would undo a change the owner may be confirming; Watch
+			// looks again in a few seconds. After the deadline the change is settled either way (unforced: the
+			// saved settings are written only where the profile differs).
 			return Status{Available: true, Pending: view(cur), Last: view(last)}
 		}
 		// Gone. After the deadline NetworkManager rolled back by itself; before it, NetworkManager lost it
 		// (a restart), so the settings are put back here.
-		if err := m.settle(ctx, cur, m.now().Before(cur.Deadline.Add(-2*time.Second))); err != nil {
-			// The old settings are NOT back: the change stays pending in the record and is retried at the next
-			// Status, Recover or Apply, instead of being recorded as rolled back while the new profile is in force.
+		done, err := m.resolve(ctx, cur, m.now().Before(cur.Deadline.Add(-2*time.Second)))
+		if err != nil {
+			// The old settings are NOT back: the change stays pending in the record and is retried by Watch, the
+			// next Status, Recover or Apply, instead of being recorded as rolled back while the new profile is in force.
 			return Status{Available: true, Pending: view(cur), Last: view(last)}
 		}
-		last = m.finish(cur, ResultRolledBack)
+		last = done
 		cur = nil
 		_ = m.save(nil, last)
 	}
@@ -295,8 +343,45 @@ func view(c *Change) *Change {
 		return nil
 	}
 	v := *c
-	v.Checkpoint, v.BootID, v.Previous, v.Connection = "", "", nil, ""
+	v.Checkpoint, v.BootID, v.Previous, v.Connection, v.ConfirmedAt = "", "", nil, "", nil
 	return &v
+}
+
+// resolve ends a pending change whose checkpoint is gone. When the owner had confirmed (ConfirmedAt) and the
+// profile still holds the new settings, it is kept: the checkpoint was destroyed by Confirm, not lost. Otherwise
+// the saved settings go back (force: also when the profile looks unchanged, because NetworkManager did not
+// roll it back itself). An error means nothing is decided yet and the caller keeps the change pending.
+func (m *Manager) resolve(ctx context.Context, c *Change, force bool) (*Change, error) {
+	if c.ConfirmedAt != nil {
+		kept, err := m.holdsNew(ctx, c)
+		if err != nil {
+			return nil, err
+		}
+		if kept {
+			return m.finish(c, ResultConfirmed), nil
+		}
+		force = false // NetworkManager rolled back before Confirm destroyed the checkpoint: only check the profile
+	}
+	if err := m.settle(ctx, c, force); err != nil {
+		return nil, err
+	}
+	return m.finish(c, ResultRolledBack), nil
+}
+
+// holdsNew says whether the profile carries the change (rather than the settings that were saved before it).
+func (m *Manager) holdsNew(ctx context.Context, c *Change) (bool, error) {
+	method, err := m.get(ctx, c.Connection, "ipv4.method")
+	if err != nil {
+		return false, err
+	}
+	if c.Mode == "dhcp" {
+		return method == "auto", nil
+	}
+	addrs, err := m.get(ctx, c.Connection, "ipv4.addresses")
+	if err != nil {
+		return false, err
+	}
+	return method == "manual" && addrs == c.Address, nil
 }
 
 func (m *Manager) finish(c *Change, result string) *Change {
@@ -315,8 +400,8 @@ func (m *Manager) settle(ctx context.Context, c *Change, force bool) error {
 	}
 	differ := force
 	for _, p := range props {
-		if m.get(ctx, c.Connection, p) != c.Previous[p] {
-			differ = true
+		if v, err := m.get(ctx, c.Connection, p); err != nil || v != c.Previous[p] {
+			differ = true // an unreadable profile is written back rather than trusted
 		}
 	}
 	if !differ {
@@ -334,9 +419,12 @@ func (m *Manager) settle(ctx context.Context, c *Change, force bool) error {
 	return nil
 }
 
-func (m *Manager) get(ctx context.Context, con, prop string) string {
-	out, _ := m.Run.Run(ctx, "nmcli", "-t", "-g", prop, "connection", "show", "uuid", con)
-	return strings.TrimSpace(string(out))
+func (m *Manager) get(ctx context.Context, con, prop string) (string, error) {
+	out, err := m.Run.Run(ctx, "nmcli", "-t", "-g", prop, "connection", "show", "uuid", con)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 func (m *Manager) write(ctx context.Context, con string, v map[string]string) error {
@@ -348,12 +436,16 @@ func (m *Manager) write(ctx context.Context, con string, v map[string]string) er
 	return err
 }
 
-func (m *Manager) checkpointListed(ctx context.Context, cp string) bool {
+// checkpointListed says whether NetworkManager still holds the checkpoint; an error means the list could not be read.
+func (m *Manager) checkpointListed(ctx context.Context, cp string) (bool, error) {
 	if cp == "" {
-		return false
+		return false, nil
 	}
 	out, err := m.Run.Run(ctx, "busctl", "--system", "get-property", nmBus, nmPath, nmBus, "Checkpoints")
-	return err == nil && strings.Contains(string(out), `"`+cp+`"`)
+	if err != nil {
+		return false, err
+	}
+	return strings.Contains(string(out), `"`+cp+`"`), nil
 }
 
 // Recover runs when the host service starts. A change that was waiting for confirmation when the box
@@ -361,18 +453,19 @@ func (m *Manager) checkpointListed(ctx context.Context, cp string) bool {
 func (m *Manager) Recover(ctx context.Context) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	cur, last := m.load()
+	cur, _ := m.load()
 	// An empty BootID (it could not be read) never matches, so every host-service restart rolls a pending
 	// change back: the safe direction, because the owner can always ask again.
 	if cur == nil || cur.Result != ResultPending || (m.BootID != "" && cur.BootID == m.BootID) {
 		return // nothing waiting, or this very boot (the host service only restarted: Status settles it)
 	}
 	m.log().Warn("an unconfirmed network change survived a reboot: putting the old settings back", "interface", cur.Interface)
-	if err := m.settle(ctx, cur, true); err != nil {
-		return // still pending in the record: Status retries once NetworkManager answers
+	done, err := m.resolve(ctx, cur, true)
+	if err != nil {
+		m.log().Error("network change: not settled at start; Watch retries", "interface", cur.Interface, "err", err)
+		return // still pending in the record: Watch retries once NetworkManager answers
 	}
-	last = m.finish(cur, ResultRolledBack)
-	_ = m.save(nil, last)
+	_ = m.save(nil, done)
 }
 
 // Apply starts a change: checkpoint, new settings, activation. The returned Status has it pending; the
@@ -399,7 +492,13 @@ func (m *Manager) Apply(ctx context.Context, iface string, c Config) (Status, er
 	}
 	prev := map[string]string{}
 	for _, p := range props {
-		prev[p] = m.get(ctx, con, p)
+		v, err := m.get(ctx, con, p)
+		if err != nil {
+			// Saving an empty value would make a later put-back write `ipv4.method ""`, which fails for ever.
+			m.log().Error("network change: the current settings could not be read", "interface", iface, "prop", p, "err", err)
+			return Status{}, refuse("network_unavailable", "the current settings of %s could not be read, so nothing was changed", iface)
+		}
+		prev[p] = v
 	}
 	devOut, err := m.Run.Run(ctx, "busctl", "--system", "call", nmBus, nmPath, nmBus, "GetDeviceByIpIface", "s", iface)
 	dm := devicePathRe.FindSubmatch(devOut)
@@ -437,8 +536,11 @@ func (m *Manager) Apply(ctx context.Context, iface string, c Config) (Status, er
 		_, _ = m.Run.Run(ctx, "busctl", "--system", "call", nmBus, nmPath, nmBus, "CheckpointRollback", "o", ch.Checkpoint)
 		if m.settle(ctx, ch, false) == nil {
 			_ = m.save(nil, m.finish(ch, ResultRolledBack))
-		} // else the record stays pending and Status retries the put-back
-		return Status{}, refuse("apply_failed", "NetworkManager could not apply that; the old settings are back")
+			return Status{}, refuse("apply_failed", "NetworkManager could not apply that; the old settings are back")
+		}
+		// The record stays pending and Watch retries the put-back; NetworkManager's checkpoint ends at the deadline too.
+		return Status{}, refuse("apply_failed", "NetworkManager could not apply that, and the old settings are not back yet: "+
+			"the box keeps putting them back by itself, at the latest by %s", ch.Deadline.Format(time.RFC3339))
 	}
 	return Status{Available: true, Pending: view(ch), Last: view(last)}, nil
 }
@@ -498,13 +600,30 @@ func (m *Manager) Confirm(ctx context.Context, iface string) (Status, error) {
 	if cur == nil || cur.Result != ResultPending {
 		return Status{}, refuse("no_pending_change", "no change to %s is waiting for confirmation", iface)
 	}
+	// The owner's confirmation is recorded first, while the checkpoint still exists. If that write fails, nothing
+	// is confirmed and the change rolls back at its deadline, which is what the owner is told.
+	at := m.now()
+	cur.ConfirmedAt = &at
+	if err := m.save(cur, last); err != nil {
+		m.log().Error("network change: the confirmation could not be recorded", "interface", iface, "err", err)
+		return Status{}, refuse("confirm_failed", "the confirmation could not be recorded on the box (is /data full?); the change rolls back at its deadline")
+	}
 	if out, err := m.Run.Run(ctx, "busctl", "--system", "call", nmBus, nmPath, nmBus, "CheckpointDestroy", "o", cur.Checkpoint); err != nil {
 		m.log().Error("network change: NetworkManager would not confirm", "interface", iface, "err", err, "reply", string(out))
+		cur.ConfirmedAt = nil
+		if err := m.save(cur, last); err != nil {
+			// The checkpoint is still listed, so Status keeps the change pending; it rolls back at the deadline. Only
+			// if NetworkManager loses the checkpoint before then is ConfirmedAt read, and the change is kept: the
+			// owner did reach the box at its new address.
+			m.log().Error("network change: the failed confirmation could not be undone in the record", "err", err)
+		}
 		return Status{}, refuse("confirm_failed", "NetworkManager would not confirm the change; it will roll back at its deadline")
 	}
 	last = m.finish(cur, ResultConfirmed)
 	if err := m.save(nil, last); err != nil {
-		m.log().Error("network change confirmed but not recorded", "err", err)
+		// The record still says pending, with ConfirmedAt: Status and Recover see the checkpoint gone and the new
+		// settings in the profile, and record it as confirmed then. Nothing is undone.
+		m.log().Error("network change confirmed but not recorded as finished; it is settled later", "err", err)
 	}
 	return Status{Available: true, Last: view(last)}, nil
 }

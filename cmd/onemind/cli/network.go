@@ -12,15 +12,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// networkCommands are `onemind network set|dhcp|confirm` (P-08): a wired interface's fixed IPv4 address and
-// DNS, or back to DHCP, with an automatic way back.
+// networkCommands are `onemind network show|set|dhcp|confirm`. show reads the box's network (gateway_admin.go);
+// set, dhcp and confirm (P-08) change a wired interface's fixed IPv4 address and DNS, or go back to DHCP, with an
+// automatic way back. One group: two top-level "network" commands would hide one of them.
 //
 // set and dhcp only ASK (PUT /v1/network/{iface} files a network.configure action): an owner approves it with
 // a passkey in the dashboard or the phone app, the box applies it, and the owner then has a few minutes to reach
 // the box at the NEW address and confirm. confirm keeps it (POST /v1/network/{iface}/confirm); without it the box
 // goes back to its old settings by itself, so a wrong address never strands anyone. The CLI never approves.
 func networkCommands(a *App) []*cobra.Command {
-	g := &cobra.Command{Use: "network", Short: "Change a wired interface: fixed address and DNS, or back to DHCP, with automatic rollback (owner)"}
+	g := &cobra.Command{Use: "network", Short: "This box's network: show it; change a wired interface (fixed address and DNS, or DHCP) with automatic rollback (owner)"}
 
 	var address, gateway, reason string
 	var dns []string
@@ -35,7 +36,10 @@ func networkCommands(a *App) []*cobra.Command {
 			if address == "" || gateway == "" {
 				return exitWith(ExitUsage, "usage", "network set needs --address (like 192.0.2.20/24) and --gateway; to use the router's address instead, run: onemind network dhcp "+sanitize(args[0]))
 			}
-			body := map[string]any{"mode": "static", "address": address, "gateway": gateway, "dns": dns}
+			body := map[string]any{"mode": "static", "address": address, "gateway": gateway}
+			if len(dns) > 0 { // a nil slice would go out as "dns": null, which the gateway refuses (422)
+				body["dns"] = dns
+			}
 			return a.networkRequest(args[0], body, rollback, reason, address)
 		},
 	}
@@ -78,7 +82,7 @@ func networkCommands(a *App) []*cobra.Command {
 			return nil
 		},
 	}
-	g.AddCommand(set, dhcp, confirm)
+	g.AddCommand(networkShowCmd(a), set, dhcp, confirm)
 	return []*cobra.Command{g}
 }
 

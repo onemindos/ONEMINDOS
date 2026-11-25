@@ -51,6 +51,7 @@ class FakeHost:
         self.available = True
         self.fail: tuple[int, dict] | None = None
         self.put_delay = 0.0  # answers after this long, but has already applied the change
+        self.changes_delay = 0.0  # GET /v1/network/changes answers after this long
         host = self
 
         class H(http.server.BaseHTTPRequestHandler):
@@ -74,7 +75,12 @@ class FakeHost:
                 if self.path == "/v1/network":
                     return self.send(200, GOOD)
                 if self.path == "/v1/network/changes":
-                    return self.send(200, self.status())
+                    if host.changes_delay:
+                        time.sleep(host.changes_delay)
+                    try:
+                        return self.send(200, self.status())
+                    except OSError:
+                        return None  # the gateway gave up waiting
                 self.send(404, {})
 
             def do_PUT(self):
@@ -310,3 +316,28 @@ def test_only_owners_may_ask_or_confirm(settings, clock, host):
         assert anon.put("/v1/network/eth0", json={"mode": "dhcp"}).status_code == 401
         assert anon.post("/v1/network/eth0/confirm").status_code == 401
         assert host.puts == [] and host.confirms == []
+
+
+def test_a_static_change_without_dns_is_accepted_and_null_is_not(settings, clock, host):
+    """Review of #1156: `onemind network set` without --dns sends no dns key (cmd/onemind/cli/network.go); that
+    body must be accepted. A null is refused, which is why the CLI leaves the key out."""
+    with box(settings, clock, host.path) as c:
+        r = put(c, mode="static", address="192.0.2.50/24", gateway="192.0.2.1")
+        assert r.status_code == 202, r.text
+        assert r.json()["params"]["dns"] == []
+        c.post(f"/v1/actions/{r.json()['id']}/deny", headers=OWNER, json={})
+        assert put(c, mode="static", address="192.0.2.50/24", gateway="192.0.2.1", dns=None).status_code == 422
+
+
+def test_the_network_screen_never_waits_the_long_change_timeout(settings, clock, host):
+    """Review of #1156: GET /v1/network reads the pending change with the short read timeout, not the 60 s one
+    an Apply gets, so a busy host never holds the page."""
+    net = NetSettings(host_socket=Path(host.path), host_timeout_s=0.3, change_timeout_s=30)
+    s = replace(settings, sections={"identity": IdentitySettings(rp_id=RP_ID, origins=(ORIGIN,), cookie_secure=False), "net": net})
+    host.changes_delay = 3.0
+    with TestClient(create_app(s, clock=clock)) as c:
+        t0 = time.monotonic()
+        v = c.get("/v1/network", headers=OWNER).json()
+        took = time.monotonic() - t0
+    assert took < 2.5, took
+    assert v["available"] is True and v["changes"]["can_change"] is False, v

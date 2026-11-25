@@ -64,7 +64,7 @@ def passkey_step_up(gw: Gateway):
 def register(app: FastAPI, gw: Gateway) -> None:
     cfg = gw.settings.section(NetSettings)
     client = HostNetClient(str(cfg.host_socket), cfg.host_timeout_s)
-    svc = NetChangeService(gw, client, HostNetChangeClient(cfg.host_socket, cfg.change_timeout_s))
+    svc = NetChangeService(gw, client, HostNetChangeClient(cfg.host_socket, cfg.change_timeout_s, cfg.host_timeout_s))
     svc.register()
     gw.approval_guards.append(passkey_step_up(gw))
     app.state.netchange = svc

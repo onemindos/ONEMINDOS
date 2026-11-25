@@ -59,7 +59,9 @@ func (s *Server) netRoutes(mux *http.ServeMux) {
 		if !s.netReady(w) {
 			return
 		}
-		st, err := s.S.Net.Confirm(r.Context(), r.PathValue("iface"))
+		// Not cancelled with the request either: a gateway that dies mid-call must not cut Confirm between
+		// recording the confirmation and destroying the checkpoint.
+		st, err := s.S.Net.Confirm(context.WithoutCancel(r.Context()), r.PathValue("iface"))
 		if err != nil {
 			s.netError(w, "confirm", err)
 			return

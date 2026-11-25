@@ -81,7 +81,8 @@ func runHost(args []string) int {
 		log.Error("host journal unreadable: status only, every action refused", "err", err)
 		svc.Store = nil
 	}
-	nm.Recover(ctx) // a change that was waiting for confirmation when the box went down
+	nm.Recover(ctx)                     // a change that was waiting for confirmation when the box went down
+	go nm.Watch(ctx, netset.WatchEvery) // and later: the way back never waits for somebody to open the Network screen
 	uid := -1
 	if u, err := user.Lookup(*gwUser); err == nil {
 		uid, _ = strconv.Atoi(u.Uid)

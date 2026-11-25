@@ -5,6 +5,7 @@ package netset
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -20,6 +21,8 @@ type fakeNM struct {
 	cmds       []string
 	failUp     bool
 	failModify bool
+	failGet    bool
+	failList   bool
 	rollbackTo map[string]string // what a CheckpointRollback restores (nil: NetworkManager restores nothing)
 }
 
@@ -40,6 +43,9 @@ func (f *fakeNM) Run(_ context.Context, name string, args ...string) ([]byte, er
 	case strings.HasPrefix(line, "nmcli -t -f DEVICE,TYPE,STATE,CON-UUID device status"):
 		return []byte(f.devices + "\n"), nil
 	case strings.HasPrefix(line, "nmcli -t -g ipv4"):
+		if f.failGet {
+			return nil, errors.New("nmcli: Error: NetworkManager is not running")
+		}
 		return []byte(f.props[args[2]] + "\n"), nil
 	case strings.HasPrefix(line, "nmcli connection modify uuid "):
 		if f.failModify {
@@ -73,6 +79,8 @@ func (f *fakeNM) Run(_ context.Context, name string, args ...string) ([]byte, er
 		for k, v := range f.rollbackTo {
 			f.props[k] = v
 		}
+	case strings.Contains(line, "get-property") && f.failList:
+		return nil, errors.New("busctl: Connection timed out")
 	case strings.Contains(line, "get-property"):
 		if f.checkpoint == "" {
 			return []byte("ao 0\n"), nil
@@ -403,5 +411,249 @@ func TestProfilesAreAddressedByUUID(t *testing.T) {
 	}
 	if f.ran("connection modify uuid 6f1e1c1a-0000-4000-8000-000000000001 ") != 1 || f.ran("connection up uuid 6f1e1c1a-0000-4000-8000-000000000001 ifname eth0") != 1 {
 		t.Fatalf("%v", f.cmds)
+	}
+}
+
+// blockSave makes the next record writes fail (the temp file's name is taken by a non-empty directory, which
+// even root cannot write over) while the record already on disk stays readable. It returns the undo.
+func blockSave(t *testing.T, m *Manager) func() {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Join(m.path()+".tmp", "x"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	return func() { _ = os.RemoveAll(m.path() + ".tmp") }
+}
+
+func pristine() map[string]string {
+	return map[string]string{"ipv4.method": "auto", "ipv4.addresses": "", "ipv4.gateway": "", "ipv4.dns": "", "ipv4.ignore-auto-dns": "no"}
+}
+
+// Review of #1156 (round 2, item 2): the checkpoint is destroyed, then the record cannot be written. The owner was
+// told "Confirmed"; the change must stay, not be undone later as a lost checkpoint.
+func TestConfirmWhoseFinalRecordFailsIsStillKept(t *testing.T) {
+	m, f, now := setup(t)
+	if _, err := m.Apply(context.Background(), "eth0", static); err != nil {
+		t.Fatal(err)
+	}
+	var undo func()
+	f2 := &hookNM{fakeNM: f, onDestroy: func() { undo = blockSave(t, m) }}
+	m.Run = f2
+	st, err := m.Confirm(context.Background(), "eth0")
+	if err != nil || st.Last == nil || st.Last.Result != ResultConfirmed {
+		t.Fatalf("confirm: %+v %v", st, err)
+	}
+	if cur, _ := m.load(); cur == nil || cur.Result != ResultPending || cur.ConfirmedAt == nil {
+		t.Fatalf("the record on disk still says pending, with the confirmation: %+v", cur)
+	}
+	undo()
+	modifies := f.ran("connection modify")
+	for _, later := range []time.Duration{5 * time.Second, time.Minute} { // before and after the deadline
+		*now = now.Add(later)
+		got := m.Status(context.Background())
+		if got.Pending != nil || got.Last == nil || got.Last.Result != ResultConfirmed {
+			t.Fatalf("after %v: %+v", later, got)
+		}
+	}
+	if f.ran("connection modify") != modifies || f.props["ipv4.method"] != "manual" || f.props["ipv4.addresses"] != "192.0.2.50/24" {
+		t.Fatalf("a confirmed change is never put back: %v %v", f.cmds, f.props)
+	}
+}
+
+// hookNM runs a callback after a successful CheckpointDestroy.
+type hookNM struct {
+	*fakeNM
+	onDestroy func()
+}
+
+func (h *hookNM) Run(ctx context.Context, name string, args ...string) ([]byte, error) {
+	out, err := h.fakeNM.Run(ctx, name, args...)
+	if err == nil && strings.Contains(strings.Join(args, " "), "CheckpointDestroy") && h.onDestroy != nil {
+		h.onDestroy()
+		h.onDestroy = nil
+	}
+	return out, err
+}
+
+func TestConfirmThatCannotBeRecordedConfirmsNothing(t *testing.T) {
+	m, f, _ := setup(t)
+	if _, err := m.Apply(context.Background(), "eth0", static); err != nil {
+		t.Fatal(err)
+	}
+	undo := blockSave(t, m)
+	if _, err := m.Confirm(context.Background(), "eth0"); reason(err) != "confirm_failed" {
+		t.Fatalf("got %v", err)
+	}
+	undo()
+	if f.checkpoint == "" || f.ran("CheckpointDestroy") != 0 {
+		t.Fatalf("the checkpoint stays, so the change still rolls back at its deadline: %v", f.cmds)
+	}
+	if st := m.Status(context.Background()); st.Pending == nil {
+		t.Fatalf("still pending: %+v", st)
+	}
+}
+
+// The box went down after the confirmation was recorded but before the checkpoint was destroyed, and
+// NetworkManager's timer ran out: the old settings are back, so the record says rolled_back, not confirmed.
+func TestConfirmationRecordedButNetworkManagerRolledBackFirst(t *testing.T) {
+	m, f, now := setup(t)
+	if _, err := m.Apply(context.Background(), "eth0", static); err != nil {
+		t.Fatal(err)
+	}
+	cur, last := m.load()
+	at := *now
+	cur.ConfirmedAt = &at
+	if err := m.save(cur, last); err != nil {
+		t.Fatal(err)
+	}
+	*now = now.Add(31 * time.Second)
+	f.checkpoint, f.props = "", pristine()
+	st := m.Status(context.Background())
+	if st.Pending != nil || st.Last == nil || st.Last.Result != ResultRolledBack {
+		t.Fatalf("%+v", st)
+	}
+}
+
+// After a reboot, a change the owner confirmed (recorded) whose final record was lost is kept.
+func TestRecoverKeepsAConfirmedChange(t *testing.T) {
+	m, f, now := setup(t)
+	if _, err := m.Apply(context.Background(), "eth0", static); err != nil {
+		t.Fatal(err)
+	}
+	cur, last := m.load()
+	at := *now
+	cur.ConfirmedAt = &at
+	_ = m.save(cur, last)
+	f.checkpoint = ""
+	m2 := &Manager{Run: f, StatePath: m.StatePath, BootID: "boot-2", Now: m.Now}
+	m2.Recover(context.Background())
+	if _, l := m2.load(); l == nil || l.Result != ResultConfirmed || f.props["ipv4.method"] != "manual" {
+		t.Fatalf("%+v %v", l, f.props)
+	}
+}
+
+// Review of #1156 (round 2, item 5): an unreadable profile is never saved as the settings to put back.
+func TestApplyRefusesWhenTheCurrentSettingsCannotBeRead(t *testing.T) {
+	m, f, _ := setup(t)
+	f.failGet = true
+	if _, err := m.Apply(context.Background(), "eth0", static); reason(err) != "network_unavailable" {
+		t.Fatalf("got %v", err)
+	}
+	if f.ran("CheckpointCreate") != 0 || f.ran("connection modify") != 0 {
+		t.Fatalf("nothing is touched: %v", f.cmds)
+	}
+	if cur, _ := m.load(); cur != nil {
+		t.Fatalf("no record: %+v", cur)
+	}
+}
+
+// Review of #1156 (round 2, item 3): when the put-back after a failed apply fails too, the owner is not told the
+// old settings are back.
+func TestFailedApplyWhosePutBackFailsSaysSo(t *testing.T) {
+	m, f, _ := setup(t)
+	f.failUp = true
+	hook := &modifyFailsAfterFirst{fakeNM: f}
+	m.Run = hook
+	_, err := m.Apply(context.Background(), "eth0", static)
+	var r *Refusal
+	if !errors.As(err, &r) || r.Reason != "apply_failed" || strings.Contains(r.Message, "the old settings are back") || !strings.Contains(r.Message, "not back yet") {
+		t.Fatalf("got %v", err)
+	}
+	if cur, _ := m.load(); cur == nil || cur.Result != ResultPending {
+		t.Fatalf("stays pending for Watch to retry: %+v", cur)
+	}
+}
+
+type modifyFailsAfterFirst struct {
+	*fakeNM
+	n int
+}
+
+func (h *modifyFailsAfterFirst) Run(ctx context.Context, name string, args ...string) ([]byte, error) {
+	if strings.Contains(strings.Join(args, " "), "connection modify") {
+		h.n++
+		h.fakeNM.failModify = h.n > 1
+	}
+	return h.fakeNM.Run(ctx, name, args...)
+}
+
+// The way back must not depend on somebody opening the Network screen: Watch settles a change whose checkpoint
+// NetworkManager lost (a restart), and one Recover could not settle at boot.
+func TestWatchSettlesWithoutAnyoneLooking(t *testing.T) {
+	m, f, _ := setup(t)
+	if _, err := m.Apply(context.Background(), "eth0", static); err != nil {
+		t.Fatal(err)
+	}
+	f.checkpoint = "" // NetworkManager restarted: the timer is gone, the new profile is in force
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { m.Watch(ctx, 5*time.Millisecond); close(done) }()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		if cur, last := m.load(); cur == nil && last != nil && last.Result == ResultRolledBack {
+			break
+		}
+		if time.Now().After(deadline) {
+			cancel()
+			<-done
+			t.Fatal("Watch did not settle the change")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	cancel()
+	<-done
+	if f.props["ipv4.method"] != "auto" || f.props["ipv4.addresses"] != "" {
+		t.Fatalf("old settings back: %v", f.props)
+	}
+}
+
+// Review of #1156 (round 2, item 4): a read never waits behind an Apply that holds the lock.
+func TestStatusDoesNotWaitForAChangeInProgress(t *testing.T) {
+	m, _, _ := setup(t)
+	if _, err := m.Apply(context.Background(), "eth0", static); err != nil {
+		t.Fatal(err)
+	}
+	m.mu.Lock()
+	got := make(chan Status, 1)
+	go func() { got <- m.Status(context.Background()) }()
+	select {
+	case st := <-got:
+		if st.Pending == nil || st.Pending.Interface != "eth0" || st.Pending.Checkpoint != "" || st.Pending.Previous != nil {
+			t.Fatalf("answers from the record, stripped: %+v", st.Pending)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Status waited for the lock")
+	}
+	m.mu.Unlock()
+}
+
+// A failed read of NetworkManager's checkpoint list decides nothing: Watch runs every few seconds, and treating
+// a D-Bus hiccup as "checkpoint gone" would undo a change before its deadline.
+func TestAnUnreadableCheckpointListLeavesTheChangePending(t *testing.T) {
+	m, f, now := setup(t)
+	if _, err := m.Apply(context.Background(), "eth0", static); err != nil {
+		t.Fatal(err)
+	}
+	*now = now.Add(5 * time.Second)
+	f.failList = true
+	modifies := f.ran("connection modify")
+	if st := m.Status(context.Background()); st.Pending == nil {
+		t.Fatalf("still pending: %+v", st)
+	}
+	if f.ran("connection modify") != modifies || f.props["ipv4.method"] != "manual" {
+		t.Fatalf("nothing was put back: %v", f.cmds)
+	}
+	f.failList = false
+	if _, err := m.Confirm(context.Background(), "eth0"); err != nil {
+		t.Fatalf("the owner can still confirm: %v", err)
+	}
+	// After the deadline an unreadable list no longer holds the way back.
+	m2, f2, now2 := setup(t)
+	if _, err := m2.Apply(context.Background(), "eth0", static); err != nil {
+		t.Fatal(err)
+	}
+	*now2 = now2.Add(40 * time.Second)
+	f2.failList = true
+	if st := m2.Status(context.Background()); st.Pending != nil || st.Last == nil || st.Last.Result != ResultRolledBack || f2.props["ipv4.method"] != "auto" {
+		t.Fatalf("settled after the deadline: %+v %v", st, f2.props)
 	}
 }

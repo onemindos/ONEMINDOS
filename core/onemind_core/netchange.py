@@ -72,12 +72,16 @@ class NetHostError(Exception):
 class HostNetChangeClient:
     """JSON over the host service's Unix socket (internal/host/netset.go)."""
 
-    def __init__(self, socket_path, timeout_s: float):
+    def __init__(self, socket_path, timeout_s: float, read_timeout_s: float | None = None):
+        # Two clients: applying waits up to `timeout_s` (NetworkManager re-activates the link); reading the
+        # pending change for the Network screen and the approval check waits only `read_timeout_s`, so a slow
+        # Apply never holds a page load for a minute (review of #1156). The host answers reads at once anyway.
         self.api = StorageClient(socket_path, timeout_s)
+        self.read_api = StorageClient(socket_path, read_timeout_s if read_timeout_s is not None else timeout_s)
 
-    def _call(self, method: str, path: str, body: dict | None = None) -> tuple[int, dict]:
+    def _call(self, method: str, path: str, body: dict | None = None, *, read: bool = False) -> tuple[int, dict]:
         try:
-            status, doc = self.api.call(method, path, body)
+            status, doc = (self.read_api if read else self.api).call(method, path, body)
         except StorageUnavailable:
             raise NetHostError("host_unavailable", "The host service is not reachable, so the network cannot be changed.") from None
         except StorageTimeout:
@@ -86,7 +90,7 @@ class HostNetChangeClient:
 
     def changes(self) -> NetChanges:
         try:
-            status, doc = self._call("GET", "/v1/network/changes")
+            status, doc = self._call("GET", "/v1/network/changes", read=True)
         except NetHostError as e:
             return NetChanges(can_change=False, reason=e.message)
         return parse_changes(doc) if status == 200 else NetChanges(can_change=False, reason=f"The host service answered {status}.")
