@@ -82,6 +82,7 @@ type Client struct {
 	Events   *EventsService
 	Status   *StatusService
 	Services *ServicesService
+	Domains  *DomainsService
 }
 
 // Option configures a Client.
@@ -171,6 +172,7 @@ func New(baseURL string, opts ...Option) (*Client, error) {
 	c.Events = &EventsService{c}
 	c.Status = &StatusService{c}
 	c.Services = &ServicesService{c}
+	c.Domains = &DomainsService{c}
 	return c, nil
 }
 

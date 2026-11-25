@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { SettingsPageDef } from '../types';
 
-const page: SettingsPageDef = { id: 'devices', coming: { stream: 'CORE-FABRIC (core-net)', api: '/v1/fabric/join-tickets' } };
+// Served by its own screen: /nodes (the screen's `redirects` send /settings/devices there).
+const page: SettingsPageDef = { id: 'devices', to: '/nodes' };
 export default page;
