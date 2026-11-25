@@ -38,7 +38,7 @@ from typing import Any, Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, ValidationError
 
-from ..actions import ActionRequest
+from ..actions import PENDING_MAX_AGENT, ActionRequest
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError
@@ -89,7 +89,7 @@ class Options(JsonBody):
     catch_up: Literal["none", "last"] = "none"
     debounce_s: int = Field(default=300, ge=0, le=86400)
     window_id: str | None = Field(default=None, max_length=40)
-    expires_s: int = Field(default=86400, ge=60, le=7 * 86400)  # §12.1: at most 7 days
+    expires_s: int = Field(default=86400, ge=60, le=int(PENDING_MAX_AGENT.total_seconds()))  # §12.1: at most 72 hours, the agent cap
 
 
 class RuleBody(BaseModel):
@@ -469,7 +469,8 @@ class AutomationService:
                 params = render(tpl["params"], ctx)
                 req = ActionRequest.model_validate({
                     "type": tpl["type"], "params": params, "idempotency_key": f"{fire_id}:{i}",
-                    "expires_at": iso(now + timedelta(seconds=opts.get("expires_s", 86400))),
+                    "expires_at": iso(now + timedelta(seconds=min(opts.get("expires_s", 86400),
+                                                              PENDING_MAX_AGENT.total_seconds()))),
                 })
             except (TemplateError, ValidationError) as exc:
                 errors.append({"index": i, "error": "template_error", "message": _short(exc)})

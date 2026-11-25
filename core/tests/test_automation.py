@@ -192,6 +192,32 @@ def test_missed_fires_after_downtime(client, clock, catch_up, expected):
     assert len(fired) == expected
 
 
+def test_rule_expiry_is_capped_at_the_agent_limit(client, clock):
+    """expires_s above 72 h would pass here and then be refused on every fire (gap 9)."""
+    ok = client.post("/v1/automation/rules", json=remove_rule({"schedule": {"cron": "0 3 * * *"}}, expires_s=72 * 3600),
+                     headers=OWNER)
+    assert ok.status_code == 201, ok.text
+    too_long = client.post("/v1/automation/rules",
+                           json=remove_rule({"schedule": {"cron": "0 3 * * *"}}, expires_s=72 * 3600 + 1), headers=OWNER)
+    assert too_long.status_code == 422, too_long.text
+
+
+def test_a_stored_rule_with_a_longer_expiry_is_clamped_when_it_fires(client, clock):
+    install(client, clock)
+    rule = create_rule(client, remove_rule({"schedule": {"cron": "* * * * *"}}))
+    enable(client, rule["id"])
+    stored = svc(client).repo.get_rule(rule["id"])
+    # a rule saved before the 72 h cap shipped, with a 7 day expiry
+    assert svc(client).repo.update_rule(rule["id"], options={**stored.options, "expires_s": 7 * 86400})
+    clock.now = datetime(2026, 11, 11, 22, 0, 30, tzinfo=UTC)
+    svc(client).tick()
+    clock.advance(100)
+    fired = svc(client).tick()
+    assert [f["outcome"] for f in fired] == ["requested"], fired
+    action = client.get(f"/v1/actions/{fired[0]['action_ids'][0]}", headers=OWNER).json()
+    assert datetime.fromisoformat(action["expires_at"]) - clock.now == timedelta(hours=72)
+
+
 def test_a_late_tick_fires_a_rule_once(client, clock):
     install(client, clock)
     rule = create_rule(client, remove_rule({"schedule": {"cron": "* * * * *"}}))
