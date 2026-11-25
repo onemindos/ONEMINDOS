@@ -3,7 +3,7 @@
 the unsafe case, section 10 F15), against a temp root. Standard library only, no Docker or VM. The unsafe case of
 section 9 (the datastore holds the owner's apps, so rebuilding the cluster state would lose them) must repair
 nothing, log and alert: test_owner_apps_in_the_datastore_wait_for_approval and the tests after it."""
-import json, os, sqlite3, sys, unittest
+import json, os, sqlite3, subprocess, sys, unittest
 from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -120,13 +120,91 @@ class Recover(Box):
         self.db(["/registry/persistentvolumeclaims/apps/data"])
         self.assertEqual(ks.owner_workloads(self.p)[0], "found")
 
-    def test_unreadable_or_empty_datastore_is_repaired(self):
+    def test_unreadable_datastore_waits_for_approval(self):
+        # kine runs sqlite in WAL mode; a datastore sqlite cannot read after a power cut may still hold the
+        # owner's apps, so nothing is moved without the owner (PR #1155 review, CHANGES 1).
         self.put(self.p.db, b"this is not sqlite at all, a torn first write " * 50)
         self.assertEqual(ks.owner_workloads(self.p)[0], "unreadable")
         self.truncate(self.everything_k3s())
-        self.assertEqual(ks.recover(self.p, now=NOW)["action"], "repaired")
+        before = [(f, os.path.getsize(f)) for f in self.everything_k3s()]
+        rec = ks.recover(self.p, now=NOW)
+        self.assertEqual(rec["action"], "needs-approval")
+        self.assertEqual(rec["datastore"], "unreadable")
+        self.assertIn("could not be read", rec["reason"])
+        self.assertEqual([(f, os.path.getsize(f)) for f in self.everything_k3s()], before)   # nothing moved
+        self.assertTrue(os.path.isfile(self.p.db))
+        self.assertFalse([d for d in os.listdir(self.p.recovery) if d != "last.json"])
+        # the owner's approval still resets it
+        self.assertEqual(ks.recover(self.p, force=True, now=NOW + 60)["action"], "reset")
+        self.assertFalse(os.path.lexists(self.p.db))
+
+    def test_empty_datastore_with_a_write_ahead_log_is_not_called_empty(self):
         self.put(self.p.db, b"")
         self.assertEqual(ks.owner_workloads(self.p), ("none", []))
+        self.put(self.p.db + "-wal", b"wal frames that sqlite could not replay")
+        self.assertEqual(ks.owner_workloads(self.p), ("unreadable", []))
+        self.assertEqual(os.path.getsize(self.p.db + "-wal"), 39)    # the check never opened it (sqlite would drop the log)
+        self.truncate(self.everything_k3s())
+        self.assertEqual(ks.recover(self.p, now=NOW)["action"], "needs-approval")
+
+    def test_apps_still_in_the_write_ahead_log_are_found_and_the_log_is_kept(self):
+        # kine's WAL mode: a writer that dies (power cut) before a checkpoint leaves the newest rows in -wal only
+        os.unlink(self.p.db)
+        code = ("import os, sqlite3, sys; c = sqlite3.connect(sys.argv[1]); c.execute('pragma journal_mode=wal'); "
+                "c.execute('pragma wal_autocheckpoint=0'); c.execute('create table kine (id INTEGER PRIMARY KEY "
+                "AUTOINCREMENT, name TEXT, deleted INTEGER)'); c.commit(); c.execute(\"insert into kine (name, deleted) "
+                "values ('/registry/deployments/apps/jellyfin', 0)\"); c.commit(); os._exit(0)")
+        subprocess.run([sys.executable, "-I", "-c", code, self.p.db], check=True)
+        wal = os.path.getsize(self.p.db + "-wal")
+        self.assertGreater(wal, 0)
+        self.assertEqual(ks.owner_workloads(self.p), ("found", ["/registry/deployments/apps/jellyfin"]))
+        self.assertEqual(os.path.getsize(self.p.db + "-wal"), wal)
+
+    def test_empty_datastore_is_repaired(self):
+        self.put(self.p.db, b"")
+        self.truncate(self.everything_k3s())
+        self.assertEqual(ks.recover(self.p, now=NOW)["action"], "repaired")
+
+    def test_only_a_hub_is_repaired(self):
+        self.truncate(self.everything_k3s())
+        for role in ("worker\n", "leaf\n", ""):
+            self.put(self.p.role, role)
+            self.assertIsNone(ks.recover(self.p, now=NOW), role)
+        os.unlink(self.p.role)
+        self.assertIsNone(ks.recover(self.p, now=NOW))
+        self.assertFalse(os.path.exists(self.p.recovery))
+
+    def test_two_repairs_in_the_same_second_get_their_own_folders(self):
+        self.truncate([self.p.node_password])
+        first = ks.recover(self.p, now=NOW)["quarantine"]
+        self.put(self.p.node_password, b"")
+        second = ks.recover(self.p, now=NOW)["quarantine"]
+        self.assertNotEqual(first, second)
+        self.assertEqual(self.last()["action"], "repaired")
+        self.assertTrue(os.path.isfile(os.path.join(self.p.data, first, "state", "etc-rancher-node", "password")))
+        self.assertTrue(os.path.isfile(os.path.join(self.p.data, second, "state", "etc-rancher-node", "password")))
+
+    def test_a_move_that_fails_half_way_is_recorded(self):
+        self.truncate(self.everything_k3s())
+        real = os.rename
+        calls = []
+
+        def flaky(src, dst):
+            calls.append(src)
+            if len(calls) == 3:
+                raise OSError(28, "No space left on device")
+            return real(src, dst)
+
+        with mock.patch.object(ks.os, "rename", side_effect=flaky):
+            rec = ks.recover(self.p, now=NOW)
+        self.assertEqual(rec["action"], "partial")
+        last = self.last()
+        self.assertEqual(last["action"], "partial")
+        self.assertEqual(len(last["moved"]), 2)
+        self.assertGreater(len(last["planned"]), 2)
+        self.assertIn("No space left", last["error"])
+        for rel in last["moved"]:                       # what moved is kept, nothing deleted
+            self.assertTrue(os.path.lexists(os.path.join(self.p.data, last["quarantine"], rel)), rel)
 
     def test_force_resets_even_with_apps_and_nothing_damaged(self):
         self.db(["/registry/deployments/apps/jellyfin"])

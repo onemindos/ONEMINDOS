@@ -239,7 +239,7 @@ var pageTmpl = template.Must(template.New("p").Parse(`<!doctype html><html lang=
 <h2>Reset k3s state</h2>
 {{with .K3sRecovery}}<p{{if eq .Action "needs-approval"}} role="alert"{{end}}>Last k3s state repair: <b>{{.Action}}</b> at {{.At}}.{{with .Reason}} {{.}}.{{end}}</p>{{end}}
 <form method="post" action="reset-k3s">
-<p>Use this when Kubernetes (k3s) will not start after a power cut. It moves k3s's generated state (certificates, tokens, node password and its datastore) aside under <code>/data/onemind/k3s-recovery/</code> and starts k3s again, which makes them anew. Your files, the apps' volumes and the gateway database are not touched; apps are set up again by the gateway after k3s is back.</p>
+<p>Use this when Kubernetes (k3s) will not start after a power cut. It moves k3s's generated state (certificates, tokens, node password and its datastore) aside under <code>/data/onemind/k3s-recovery/</code> and starts k3s again, which makes them anew. Your files, the apps' volumes and the gateway database are not touched. Apps that ran in k3s are not set up again on their own: install them again once k3s is back. Their old data stays on the disk under <code>/data/k3s/storage/</code>, but a new install gets new, empty volumes.</p>
 <input type="hidden" name="csrf" value="{{.CSRF}}">
 <label>Type <code>reset k3s</code> to confirm: <input name="confirm" autocomplete="off" required></label>
 <button type="submit">Reset k3s state</button></form>
@@ -334,5 +334,5 @@ func (s *Server) resetK3s(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	_, _ = w.Write([]byte("k3s state reset started. k3s restarts and makes its state again; reload this page in a minute or two.\n"))
+	_, _ = w.Write([]byte("k3s state reset started. k3s restarts and makes its state again; reload this page in a minute or two. Then install your apps again: their old data stays under /data/k3s/storage/.\n"))
 }

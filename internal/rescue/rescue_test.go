@@ -313,6 +313,14 @@ func TestResetK3sNeedsApprovalThenStartsTheUnit(t *testing.T) {
 	if f.ran("rauc status mark-active") || f.ran("systemctl reboot") {
 		t.Fatalf("a k3s reset must not touch the slots or reboot: %v", f.calls)
 	}
+	// Nothing in the OS installs apps again after a reset (PR #1155 review): the page and the reply say so.
+	if !strings.Contains(w.Body.String(), "install your apps again") {
+		t.Fatalf("the reply must tell the owner to install apps again: %s", w.Body)
+	}
+	page := do(s, "GET", "/", ownerToken, nil).Body.String()
+	if !strings.Contains(page, "install them again once k3s is back") || strings.Contains(page, "set up again by the gateway") {
+		t.Fatalf("the page must not promise that apps come back on their own: %s", page)
+	}
 }
 
 func TestStatusShowsTheLastK3sRepair(t *testing.T) {

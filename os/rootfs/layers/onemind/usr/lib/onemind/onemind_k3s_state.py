@@ -8,12 +8,14 @@ health gate only alerts. Two fixes live here, both stdlib-only:
 
   settle   (onemind-k3s-settle.service, hub, first boot) keeps syncing /data while k3s starts, waits until
            k3s answers, syncs once more and records that the first setup is on disk (k3s-settled marker).
-  recover  (ExecStartPre of k3s.service, every start) finds damaged k3s state (empty or non-PEM
+  recover  (ExecStartPre of k3s.service, every start, hub only) finds damaged k3s state (empty or non-PEM
            certificates and keys, empty tokens, node password or config). The generated state is moved
            aside, never deleted, and k3s makes it again. Owner data, apps' volumes (/data/k3s/storage,
            /data/k3s/agent/containerd) and the gateway's database (/data/onemind) are never touched. If the
-           datastore holds the owner's own workloads, nothing is moved: it logs, alerts and waits for the
-           owner to approve "Reset k3s state" in the rescue console (reset).
+           datastore holds the owner's own workloads, or it cannot be read (so nobody can say it holds none),
+           nothing is moved: it logs, alerts and waits for the owner to approve "Reset k3s state" in the rescue
+           console (reset). Apps are not installed again by the reset: the owner installs them again, and
+           their old volumes stay on the disk.
 
   onemind-k3s-state settle | recover | reset
 """
@@ -165,16 +167,27 @@ def find_damaged(p: Paths) -> list[tuple[str, str]]:
     return [(f, why) for f in k3s_files(p) if (why := damaged(f))]
 
 
+def _size(path: str) -> int:
+    try:
+        return os.path.getsize(path)
+    except OSError:
+        return 0
+
+
 def owner_workloads(p: Paths) -> tuple[str, list[str]]:
     """Does the datastore hold workloads the owner made (apps)? Returns ("none"|"found"|"unreadable", names).
-    A missing, empty or unreadable datastore counts as no owner workloads: k3s cannot use it either, and it is
-    only moved aside, never deleted. Reads kine's table (k3s's sqlite store: one row per revision of each
-    key; the newest row of a key decides whether it exists); read-only."""
-    try:
-        if not os.path.isfile(p.db) or os.path.getsize(p.db) == 0:
-            return "none", []
-    except OSError:
+    "none" only when there is nothing to read: no datastore, or an empty one with no write-ahead log (kine runs
+    sqlite in WAL mode, so after a power cut the newest data can sit in state.db-wal while state.db is still
+    empty). "unreadable" (sqlite could not open or query it, which after a power cut is not always corruption)
+    means nobody can say there are no apps, so recover treats it like "found" and waits for the owner.
+    Reads kine's table (k3s's sqlite store: one row per revision of each key; the newest row of a key decides
+    whether it exists); read-only."""
+    if not os.path.isfile(p.db) or (_size(p.db) == 0 and _size(p.db + "-wal") == 0):
         return "none", []
+    if _size(p.db) == 0:
+        # Never let sqlite open this one: opening an empty database with a write-ahead log, even read-only,
+        # deletes the log (seen with Python's sqlite3), and the log is where the data is.
+        return "unreadable", []
     likes = " OR ".join("name LIKE ?" for _ in WORKLOAD_KINDS)
     sql = (f"SELECT k.name FROM kine k JOIN (SELECT name, max(id) AS mid FROM kine WHERE {likes} GROUP BY name) m "
            "ON k.id = m.mid WHERE k.deleted = 0")
@@ -270,6 +283,28 @@ def _recent_repairs(p: Paths, now: float) -> int:
 
 
 # ------------------------------------------------------------------ recover / reset
+def _new_quarantine(p: Paths, stamp: str) -> str:
+    """A folder of its own for this repair: two repairs in the same second never share (or rename into) one."""
+    os.makedirs(p.recovery, mode=0o700, exist_ok=True)
+    for n in range(100):
+        qdir = os.path.join(p.recovery, stamp if n == 0 else f"{stamp}-{n}")
+        try:
+            os.mkdir(qdir, 0o700)
+            return qdir
+        except FileExistsError:
+            continue
+    raise OSError(f"no free quarantine folder for {stamp}")
+
+
+def is_hub(p: Paths) -> bool:
+    """Only a hub holds k3s's server state (datastore, PKI, tokens); workers and leaves are left alone."""
+    try:
+        with open(p.role, encoding="utf-8") as f:
+            return f.read().strip() == "hub"
+    except OSError:
+        return False
+
+
 def start_followups(p: Paths) -> None:
     """After a repair k3s makes its state again: have settle sync it (its marker was removed) and have the
     gateway's kubeconfig made again if it was moved. Real box only."""
@@ -283,6 +318,8 @@ def recover(p: Paths, force: bool = False, now: float | None = None) -> dict | N
     damaged. force (the owner approved "Reset k3s state") moves the whole generated state even if nothing is
     detectably damaged or the owner has workloads in the datastore."""
     now = time.time() if now is None else now
+    if not is_hub(p):
+        return None
     bad = find_damaged(p)
     if not bad and not force:
         return None
@@ -294,14 +331,20 @@ def recover(p: Paths, force: bool = False, now: float | None = None) -> dict | N
     moves = move_set(p, bad, force)
     only_etc = all(os.path.join(p.agent, "etc") == m for m in moves)
     needs_datastore = not only_etc and not force
-    if needs_datastore and wl_state == "found":
-        rec.update(action="needs-approval", reason="the datastore holds the owner's apps, so the cluster state is "
-                   "not rebuilt automatically")
+    if needs_datastore and wl_state in ("found", "unreadable"):
+        if wl_state == "found":
+            reason = "the datastore holds the owner's apps, so the cluster state is not rebuilt automatically"
+            why = "the owner's apps are in the cluster"
+        else:
+            reason = ("the datastore could not be read, so it may hold the owner's apps; the cluster state is not "
+                      "rebuilt automatically")
+            why = "the datastore could not be read to check for the owner's apps"
+        rec.update(action="needs-approval", reason=reason)
         if _already_waiting(p, rec["reason"]):
             return rec
         _record(p, rec)
-        say(p, f"ONEMIND-K3S-RECOVERY: NOT repaired: {len(bad)} damaged k3s file(s) and the owner's apps are in "
-               "the cluster; open the rescue console (port 7443) and approve \"Reset k3s state\"")
+        say(p, f"ONEMIND-K3S-RECOVERY: NOT repaired: {len(bad)} damaged k3s file(s) and {why}; open the rescue "
+               "console (port 7443) and approve \"Reset k3s state\"")
         return rec
     if not force and _recent_repairs(p, now) >= REPEAT_LIMIT:
         rec.update(action="needs-approval", reason=f"repaired {REPEAT_LIMIT} times in the last hour; something keeps "
@@ -312,14 +355,26 @@ def recover(p: Paths, force: bool = False, now: float | None = None) -> dict | N
         say(p, "ONEMIND-K3S-RECOVERY: NOT repaired: it was repaired several times in the last hour; check the disk, "
                "then approve \"Reset k3s state\" in the rescue console (port 7443)")
         return rec
-    qdir = os.path.join(p.recovery, stamp)
-    os.makedirs(qdir, mode=0o700, exist_ok=True)
+    qdir = _new_quarantine(p, stamp)
     moved = []
-    for src in moves:
-        dst = os.path.join(qdir, _rel(p, src))
-        os.makedirs(os.path.dirname(dst), mode=0o700, exist_ok=True)
-        os.rename(src, dst)                           # same filesystem (/data): atomic, nothing is copied or lost
-        moved.append(_rel(p, src))
+    # Written before the first move: a power cut or an error in the middle leaves a record of what was planned.
+    rec.update(action="moving", quarantine=_rel(p, qdir), planned=[_rel(p, m) for m in moves], moved=moved)
+    _record(p, rec)
+    try:
+        for src in moves:
+            dst = os.path.join(qdir, _rel(p, src))
+            os.makedirs(os.path.dirname(dst), mode=0o700, exist_ok=True)
+            os.rename(src, dst)                       # same filesystem (/data): atomic, nothing is copied or lost
+            moved.append(_rel(p, src))
+    except OSError as exc:
+        rec.update(action="partial", error=str(exc))
+        _record(p, rec)
+        sync_fs(p.data)
+        say(p, f"ONEMIND-K3S-RECOVERY: repair stopped half-way ({exc}): {len(moved)} of {len(moves)} item(s) moved "
+               f"to /data/{_rel(p, qdir)}; nothing was deleted. Approve \"Reset k3s state\" in the rescue console "
+               "(port 7443) to finish it")
+        return rec
+    rec.pop("planned", None)
     try:
         os.unlink(p.settled)                           # settle must run again and sync what k3s writes next
     except OSError:
@@ -334,8 +389,10 @@ def recover(p: Paths, force: bool = False, now: float | None = None) -> dict | N
     sync_fs(p.data)
     start_followups(p)
     verb = "reset (owner approved)" if force else "repaired"
+    apps = (" Apps that ran in k3s must be installed again; their old volumes stay in /data/k3s/storage."
+            if force else "")
     say(p, f"ONEMIND-K3S-RECOVERY: {verb} k3s state: {len(moved)} item(s) moved to /data/{_rel(p, qdir)}; k3s makes them "
-           "again. The owner's data, the apps' volumes and the gateway database were not touched.")
+           f"again. The owner's data, the apps' volumes and the gateway database were not touched.{apps}")
     return rec
 
 
@@ -382,11 +439,7 @@ def settle(p: Paths, timeout: int = SETTLE_TIMEOUT_S, sleep=time.sleep, ready=No
     sync = sync or (lambda: sync_fs(p.data))
     if os.path.exists(p.settled):
         return 0
-    try:
-        with open(p.role, encoding="utf-8") as f:
-            if f.read().strip() != "hub":
-                return 0
-    except OSError:
+    if not is_hub(p):
         return 0
     waited = 0
     while waited < timeout:
