@@ -231,4 +231,4 @@ Founder decisions. Each entry is final until Zeus changes it. Reference these ID
 - **FD-00 ([#518](https://github.com/onemindos/ONEMINDOS/issues/518)):** its retirement and shutdown steps no longer apply.
 - **The move comes after the OS is done.** It is not a 1.0 gate.
 - **Custom apps are first-class.** People can deploy any app they want, not only Market apps, through OneMind's own gated process (every install is an owner approval). That path is built in [#643](https://github.com/onemindos/ONEMINDOS/issues/643) (pack, sideload and publish) and [#252](https://github.com/onemindos/ONEMINDOS/issues/252) (deploy a custom app from a Git repo).
-- **Why:** the founder wants to keep using Backstage on his own OS, and wants people to be able to deploy anything they want through OneMind's process, not only what the Market lists.
+- **Why:** the founder wants to keep using Backstage on the founder's own OS, and wants people to be able to deploy anything they want through OneMind's process, not only what the Market lists.
