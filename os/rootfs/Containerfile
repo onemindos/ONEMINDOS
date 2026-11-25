@@ -239,7 +239,7 @@ RUN set -eu; \
     /usr/lib/onemind/restic version | grep -q 'restic 0.19.1'; command -v sqlite3 >/dev/null; \
     /usr/lib/onemind/gateway/venv/bin/python3 -I -c "import onemind_core" ; \
     if [ -x /tmp/onemind/board/post-install.sh ]; then /tmp/onemind/board/post-install.sh; fi; \
-    systemctl enable systemd-networkd.service systemd-resolved.service onemind-data-layout.service \
+    systemctl enable systemd-networkd.service systemd-resolved.service systemd-timesyncd.service onemind-data-layout.service \
       k3s.service onemind-local-api.service onemind-health-gate.service onemind-data-check.service \
       onemind-factory-reset.service systemd-sysext.service systemd-confext.service >/dev/null; \
     systemctl mask systemd-firstboot.service >/dev/null 2>&1 || true; \
