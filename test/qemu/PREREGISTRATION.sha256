@@ -23,3 +23,4 @@ ece09c7f8d261e8da30dff5acca3a649c68c080a273506bc65a3f26a3e3ba433  CRITERIA-EDGE.
 adc1cf6619e8b6440e00da65da7ff13c2dfd0f66151facfe30bf8fdafd74c411  CRITERIA-NAS.md  2026-11-22T23:36:45Z  (written before nasmount.py was implemented or run)
 33e4d0bd5553de5265e5e790f7231ef4e4b3c503fddf669c7b115ec1b06be1fc  CRITERIA-FIRSTBOOT.md  2026-11-23T00:37:43Z  (with §8 amendment: F12 gateway reaches the host helper, #875; written before F12 was implemented)
 85956c06ea1cd9d458a152e5ae885b7fa6998c3759d282efe9daaaedefb12933  CRITERIA-DATABTRFS.md  2026-11-25T03:50:00Z  (plan PR 5, #152; written before E5-E7 ran on any image)
+303b9f1b7c4e406f2500ed959fc779dec32baa212b48c52f4a8d96582f58f0f2  CRITERIA-SNAPPER.md  2026-11-25T05:30:00Z  (plan PR 6, #152; written before E8 ran on any image)

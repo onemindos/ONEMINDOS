@@ -231,6 +231,12 @@ RUN set -eu; \
       nut-driver-enumerator.service nut-driver-enumerator.path nut-driver@.service >/dev/null; \
     systemctl enable onemind-ups.service onemind-ups-monitor.service >/dev/null; \
     systemctl disable rpcbind.service rpcbind.socket nfs-client.target nfs-blkmap.service >/dev/null 2>&1; \
+    if [ "${LEG}" = debian ]; then \
+      systemctl enable snapper-timeline.timer snapper-cleanup.timer btrfs-scrub.timer >/dev/null; \
+      systemctl disable snapperd.service >/dev/null 2>&1 || true; \
+      systemctl mask snapper-boot.timer snapper-boot.service btrfs-balance.timer btrfs-defrag.timer btrfs-trim.timer \
+        btrfsmaintenance-refresh.path btrfsmaintenance-refresh.service >/dev/null; \
+    fi; \
     for db in passwd group shadow; do \
       grep -Eq "^$db:.*extrausers" /etc/nsswitch.conf || sed -i -E "s/^($db:.*)$/\\1 extrausers/" /etc/nsswitch.conf; \
     done; \
