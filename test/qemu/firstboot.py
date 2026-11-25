@@ -502,6 +502,8 @@ F16_PKGS = ["pipewire", "pipewire-pulse", "wireplumber", "bluez", "libspa-0.2-bl
 F16_CONF = "/usr/lib/onemind/bluetooth/main.conf"
 # The session user is the image's "onemind" account (uid 961): its user manager is started by hand, as the screen
 # session's own user does not exist in every image. Commands run as that user with setpriv, no PAM, nothing written to /etc.
+F16_UID = 961
+F16_UNIT = f"user@{F16_UID}.service"      # the user manager of uid 961
 F16_AS = ("setpriv --reuid=onemind --regid=onemind --clear-groups env XDG_RUNTIME_DIR=/run/user/961 "
           "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/961/bus ")
 
@@ -551,7 +553,7 @@ def f16(vm, board):
     st = f16_pairing_state(vm, token)
     # The session user's manager, started by hand; the three daemons come up through the image's own user units.
     _, out2 = vm.run(
-        "systemctl start user@961.service; "
+        f"systemctl start {F16_UNIT}; "
         f"{F16_AS}systemctl --user start pipewire.socket pipewire-pulse.socket; "
         f"{F16_AS}systemctl --user start wireplumber.service pipewire-pulse.service; "
         "t0=$SECONDS; while [ $((SECONDS - t0)) -lt 90 ]; do "
@@ -560,7 +562,7 @@ def f16(vm, board):
         "[ \"$a\" = 'active active active ' ] && echo \"$s\" | grep -q onemind-stream-sink && break; sleep 2; done; "
         "echo DAEMONS=$a; echo SINKS=$(echo \"$s\" | tr '\\n' ';'); "
         f"{F16_AS}pactl info 2>&1 | grep -E '^Server Name' ; "
-        "systemctl stop user@961.service; echo DONE=1", 200)
+        f"systemctl stop {F16_UNIT}; echo DONE=1", 200)
     g2 = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out2, re.M) or ["?"])[-1]
     c = {"packages": sorted(pkgs) == sorted(F16_PKGS),
          "user_units_enabled": g("GLOBAL") == "enabled,enabled,enabled,",

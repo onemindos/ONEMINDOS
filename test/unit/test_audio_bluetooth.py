@@ -147,9 +147,9 @@ class F16Verdicts(unittest.TestCase):
         self.assertEqual(r["verdict"], "PASS", r["detail"])
         self.assertEqual(len(tok), 32)
         self.assertIn("adapters=0", r["detail"])
-        self.assertIn("user@961.service", vm.cmds[2])           # the session user's manager, stopped again at the end
+        self.assertIn("systemctl start " + self.fb.F16_UNIT, vm.cmds[2])           # the session user's manager, stopped again at the end
         self.assertTrue(vm.cmds[2].rstrip().endswith("echo DONE=1"))
-        self.assertIn("systemctl stop user@961.service", vm.cmds[2])
+        self.assertIn("systemctl stop " + self.fb.F16_UNIT, vm.cmds[2])
 
     def test_adapter_that_powers_on_by_itself_fails(self):
         _, r, _ = self.run_f16(query=QUERY.replace("AUTO_RC=0", "AUTO_RC=1"))
