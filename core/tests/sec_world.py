@@ -486,6 +486,10 @@ def p_rescue_options(w: World) -> Req:
     return Req("/v1/auth/rescue/options")
 
 
+def p_rescue_kit(w: World) -> Req:
+    return Req("/v1/auth/rescue/kit", json={"kit_key": "AAAA-BBBB-CCCC-DDDD-EEEE-FFFF-GGGG-HHHH-IIII-JJJJ-KKKK-LLLL-MMMM"})
+
+
 def p_rescue_verify(w: World) -> Req:
     return Req("/v1/auth/rescue/verify", json={"credential": {"id": "probe", "type": "public-key"}})
 

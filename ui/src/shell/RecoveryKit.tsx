@@ -9,6 +9,10 @@ import { ShellIcon } from './icons';
 export interface IssuedKit {
   groups: string[];
   check: string;
+  /** The disk (LUKS) recovery key, when /data is encrypted and its key was still waiting (D-028). Shown once. */
+  disk_recovery_key?: string;
+  /** Non-secret: the earlier kit page that holds the disk key, when this kit does not (D-028). */
+  disk_key_kit?: { fingerprint: string; issued_at: string } | null;
   /** The printable kit page, produced by the gateway. */
   text: string;
   /** 1-based positions of the two groups to type back. */
@@ -61,7 +65,7 @@ export function RecoveryKit({ kit, onConfirmed, onSkip }: { kit: OnboardingKit; 
           <p className="om-hint" role="status"><ShellIcon name="check" size={16} /> Your kit is confirmed. The gateway keeps no copy of the key.</p>
         ) : (
           <p className="om-hint">
-            One page with your <strong>owner recovery key</strong>. If this box dies or you lose every device, it is the only way back in. It is shown once and OneMind cannot recover it for you.
+            One page with your <strong>owner recovery key</strong>. If this box dies or you lose every device, it is the way back in. It is shown once and OneMind cannot recover it for you.
           </p>
         )}
         {!confirmed && !issued && kit.state === 'missing' && (
@@ -91,6 +95,20 @@ export function RecoveryKit({ kit, onConfirmed, onSkip }: { kit: OnboardingKit; 
           <>
             <pre className="om-code" aria-label="Owner recovery key"><code>{issued.groups.join('-')}</code></pre>
             <p className="om-hint">Check group: <strong>{issued.check}</strong>. Save this page offline, away from this box.</p>
+            {issued.disk_recovery_key && (
+              <>
+                <p className="om-hint">
+                  <strong>Disk recovery key.</strong> If this box cannot unlock its encrypted data disk by itself, type this at the box's own console. It is shown once, here only, and it is on the page you download.
+                </p>
+                <pre className="om-code" aria-label="Disk recovery key"><code>{issued.disk_recovery_key}</code></pre>
+              </>
+            )}
+            {!issued.disk_recovery_key && issued.disk_key_kit && (
+              <p className="om-hint" role="note">
+                <strong>The disk recovery key is not on this page.</strong> It was printed once, on the kit issued {issued.disk_key_kit.issued_at} (fingerprint {issued.disk_key_kit.fingerprint}). Keep that page: this box cannot show it again.
+              </p>
+            )}
+            <p className="om-hint">Lost every passkey? Stand at the box, open its rescue console and type the owner recovery key. Nothing is deleted and the disk stays encrypted.</p>
             <div className="oms-kit-actions">
               <button type="button" className={cx('om-btn', saved ? 'om-btn-secondary' : 'om-btn-primary')} onClick={download}>
                 <ShellIcon name={saved ? 'check' : 'download'} size={18} /> {saved ? 'Saved · download again' : 'Download emergency kit'}

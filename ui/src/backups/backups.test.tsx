@@ -117,6 +117,28 @@ describe('EmergencyKit', () => {
   const issued: KitState = { state: 'issued', issued_at: ago(1), confirmed_at: null, fingerprint: 'f00d', positions: [2, 10] };
   const one: KitOneTime = { owner_key: groups.join('-'), groups, check: 'QQQQ', text: 'kit', qr_payload: 'onemind-kit:v1' };
 
+  it('prints the disk recovery key beside the owner key when the hub handed one over', async () => {
+    render(
+      <EmergencyKit kit={{ ...issued, state: 'missing', positions: [] }} boxName="Home hub"
+        onIssue={async () => ({ kit: issued, one_time: { ...one, disk_recovery_key: 'cbdefghi-jklnrtuv' } })}
+        onConfirm={async () => issued} onDone={vi.fn()} />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Show my recovery key' }));
+    expect(screen.getByLabelText('Disk recovery key')).toHaveTextContent('cbdefghi-jklnrtuv');
+  });
+
+  it('says which earlier kit holds the disk key when a later kit does not', async () => {
+    const marker = { fingerprint: 'cafe1234cafe1234', issued_at: '2026-11-20T08:00:00Z' };
+    render(
+      <EmergencyKit kit={{ ...issued, disk_key_kit: marker }} boxName="Home hub"
+        onIssue={async () => ({ kit: { ...issued, disk_key_kit: marker }, one_time: one })}
+        onConfirm={async () => issued} onDone={vi.fn()} />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'I lost it: make a new kit' }));
+    expect(screen.queryByLabelText('Disk recovery key')).toBeNull();
+    expect(screen.getByRole('note')).toHaveTextContent(/not on this page.*2026-11-20T08:00:00Z.*cafe1234cafe1234/);
+  });
+
   it('cannot be skipped: done only after the hub accepts two typed-back groups', async () => {
     const onDone = vi.fn();
     const onConfirm = vi.fn(async (a: Record<string, string>) => {
