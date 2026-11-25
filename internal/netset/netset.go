@@ -394,7 +394,7 @@ func (m *Manager) Apply(ctx context.Context, iface string, c Config) (Status, er
 		m.log().Error("network change: NetworkManager does not know the interface", "interface", iface, "err", err, "reply", string(devOut))
 		return Status{}, refuse("unknown_interface", "NetworkManager does not know an interface called %s", iface)
 	}
-	cp, err := m.Run.Run(ctx, "busctl", "--system", "call", nmBus, nmPath, nmBus, "CheckpointCreate", "aoui",
+	cp, err := m.Run.Run(ctx, "busctl", "--system", "call", nmBus, nmPath, nmBus, "CheckpointCreate", "aouu",
 		"1", string(dm[1]), strconv.Itoa(c.RollbackSeconds), checkpointFlags)
 	cm := checkpointRe.FindSubmatch(cp)
 	if err != nil || cm == nil {

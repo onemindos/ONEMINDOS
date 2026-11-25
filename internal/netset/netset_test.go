@@ -164,7 +164,7 @@ func TestApplyThenConfirm(t *testing.T) {
 	if f.props["ipv4.method"] != "manual" || f.props["ipv4.addresses"] != "192.0.2.50/24" || f.props["ipv4.gateway"] != "192.0.2.1" || f.props["ipv4.dns"] != "192.0.2.53" || f.props["ipv4.ignore-auto-dns"] != "yes" {
 		t.Fatalf("profile: %v", f.props)
 	}
-	if f.ran("CheckpointCreate aoui 1 /org/freedesktop/NetworkManager/Devices/2 30 1") != 1 {
+	if f.ran("CheckpointCreate aouu 1 /org/freedesktop/NetworkManager/Devices/2 30 1") != 1 {
 		t.Fatalf("one checkpoint with the owner's timer: %v", f.cmds)
 	}
 	// The checkpoint is taken before the profile is touched.
