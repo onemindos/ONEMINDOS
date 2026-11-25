@@ -203,6 +203,20 @@ class Verdicts(unittest.TestCase):
         self.assertFalse(self.verdict(self.nc.nw4_after, out.replace("a" * 64, "b" * 64), before=before)[1])
         self.assertFalse(self.verdict(self.nc.nw4_after, out, before=dict(before, bind2=False))[1])
 
+    def test_nw4_before_reads_the_binds_on_ext4_and_on_btrfs(self):
+        class VM:
+            def __init__(self, out): self.out = out
+            def run(self, cmd, timeout=0): return 0, self.out
+        def out(droot, sub):
+            return ("ADD_RC=0\nMODE=600\nSHA=" + "a" * 64 + f"\nMNT1=/dev/vda3[{sub}/state/etc-NetworkManager-system-connections]\n"
+                    f"MNT2=/dev/vda3[{sub}/state/var-lib-NetworkManager]\nDROOT={droot}\n")
+        ok = self.nc.nw4_before(VM(out("/", "")))
+        self.assertTrue(ok["bind1"] and ok["bind2"])
+        ok = self.nc.nw4_before(VM(out("/@", "/@")))
+        self.assertTrue(ok["bind1"] and ok["bind2"])
+        bad = self.nc.nw4_before(VM(out("/@", "")))          # a bind that does not start at /data's own root
+        self.assertFalse(bad["bind1"] or bad["bind2"])
+
     def test_fw5_fails_when_the_second_nic_held_online_back(self):
         ok = "NMSTART=4000000\nWOEND=12000000\nK3SFIRST=12.5\nNICS=2\n"
         self.assertTrue(self.verdict(self.nc.fw5, ok)[1])
