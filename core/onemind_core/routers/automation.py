@@ -112,12 +112,18 @@ def register(app: FastAPI, gw: Gateway) -> None:
     # ---- standing approvals --------------------------------------------------------------------
     @app.get("/v1/approval-policies", operation_id="approvals.policies.list", tags=tags, responses=error_responses(401))
     def list_policies(_: Principal = Depends(principal)):
-        return [policies.to_json(x) for x in svc.repo.list_policies()]
+        return [policies.to_json(x) for x in svc.repo.list_policies(with_paused=True)]
 
     @app.post("/v1/approval-policies", operation_id="approvals.policies.create", tags=tags, status_code=201, responses=error_responses(401, 403, 404, 422))
     def create_policy(body: PolicyBody, request: Request, p: Principal = Depends(principal)):
         via = step_up(request, p, "create standing approval")
         return JSONResponse(status_code=201, content=policies.create(p, body, approval=via))
+
+    @app.post("/v1/approval-policies/{policy_id}/confirm", operation_id="approvals.policies.confirm", tags=tags,
+              responses=error_responses(401, 403, 404))
+    def confirm_policy(policy_id: str, request: Request, p: Principal = Depends(principal)):
+        step_up(request, p, "confirm standing approval")
+        return policies.confirm(p, policy_id)
 
     @app.delete("/v1/approval-policies/{policy_id}", operation_id="approvals.policies.delete", tags=tags, status_code=204,
                 responses=error_responses(401, 403, 404))
