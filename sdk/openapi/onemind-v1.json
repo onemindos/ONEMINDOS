@@ -31682,7 +31682,7 @@
     },
     "/v1/network/{iface}": {
       "put": {
-        "description": "Ask to give a wired interface a fixed IPv4 address and DNS, or to go back to DHCP. Nothing changes yet.\n\nThe request waits for an owner, who approves it with a passkey. After approval the box applies it\nand the owner has `rollback_seconds` (default 120) to open the box at the new address and confirm\n(`POST /v1/network/{iface}/confirm`); without that the old settings come back by themselves.\n\n409 `host_unavailable` while the box cannot change its network, `unknown_interface` / `not_wired` for an\ninterface that is not a cable, `change_pending` while an earlier change waits for confirmation (nothing\nis filed in these cases); 422 for an address, gateway or DNS no network can use.",
+        "description": "Ask to give a wired interface a fixed IPv4 address and DNS, or to go back to DHCP. Nothing changes yet.\n\nThe request waits for an owner, who approves it with a passkey. After approval the box applies it\nand the owner has `rollback_seconds` (default 120) to open the box at the new address and confirm\n(`POST /v1/network/{iface}/confirm`); without that the old settings come back by themselves.\n\n409 `host_unavailable` while the box cannot change its network, `unknown_interface` / `not_wired` for an\ninterface that is not a cable, `change_pending` while an earlier change waits for confirmation (nothing\nis filed in these cases); 422 for an address, gateway or DNS no network can use. The `Idempotency-Key` header\n(or the body's `idempotency_key`) makes a retry replay the same request.",
         "operationId": "network.configure",
         "parameters": [
           {
@@ -31692,6 +31692,24 @@
             "schema": {
               "title": "Iface",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
             }
           }
         ],

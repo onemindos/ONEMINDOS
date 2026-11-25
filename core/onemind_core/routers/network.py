@@ -11,8 +11,9 @@ same automatic revert) come later.
 from __future__ import annotations
 
 import re
+from typing import Annotated
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, Header, Request
 from fastapi.responses import JSONResponse
 
 from ..apimodels import Action
@@ -94,7 +95,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.put("/v1/network/{iface}", tags=["net"], operation_id="network.configure", status_code=202, response_model=Action,
              responses={200: {"model": Action, "description": "Idempotent replay"}, **error_responses(401, 403, 404, 409, 422, 429)})
-    def network_configure(iface: str, body: NetworkConfigBody, p: Principal = Depends(gw.principal)):
+    def network_configure(iface: str, body: NetworkConfigBody, p: Principal = Depends(gw.principal),
+                          idem: Annotated[str | None, Header(alias="Idempotency-Key", min_length=1, max_length=200)] = None):
         """Ask to give a wired interface a fixed IPv4 address and DNS, or to go back to DHCP. Nothing changes yet.
 
         The request waits for an owner, who approves it with a passkey. After approval the box applies it
@@ -103,11 +105,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
         409 `host_unavailable` while the box cannot change its network, `unknown_interface` / `not_wired` for an
         interface that is not a cable, `change_pending` while an earlier change waits for confirmation (nothing
-        is filed in these cases); 422 for an address, gateway or DNS no network can use."""
+        is filed in these cases); 422 for an address, gateway or DNS no network can use. The `Idempotency-Key` header
+        (or the body's `idempotency_key`) makes a retry replay the same request."""
         owner(p, "change network")
         if not p.can_request_actions:
             raise ApiError(403, "permission_denied", "this token cannot request actions")
-        body_out, created = svc.request(p, iface_name(iface), body)
+        body_out, created = svc.request(p, iface_name(iface), body, idem)
         return JSONResponse(status_code=202 if created else 200, content=body_out,
                             headers={"Location": f"/v1/actions/{body_out['id']}"})
 

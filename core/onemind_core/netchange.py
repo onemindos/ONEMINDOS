@@ -183,13 +183,13 @@ class NetChangeService:
         return r[1] if r else None
 
     # ---- the action -------------------------------------------------------------------------------
-    def request(self, p: Principal, iface: str, body: NetworkConfigBody) -> tuple[dict, bool]:
+    def request(self, p: Principal, iface: str, body: NetworkConfigBody, idem: str | None = None) -> tuple[dict, bool]:
         self.check_request(iface, body)
         params = {"interface": iface, "mode": body.mode, "rollback_seconds": body.rollback_seconds}
         if body.mode == "static":
             params |= {"address": body.address, "gateway": body.gateway, "dns": body.dns}
         return self.gw.actions.request_feature(
-            p, ACTION, params, idempotency_key=body.idempotency_key or f"network:{uuid.uuid4()}",
+            p, ACTION, params, idempotency_key=idem or body.idempotency_key or f"network:{uuid.uuid4()}",
             expires_at=self.gw.clock() + REQUEST_TTL, reason=body.reason, pending_cap=True)
 
     def _run(self, a, finish) -> None:
