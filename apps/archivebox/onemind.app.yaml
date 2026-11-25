@@ -14,8 +14,11 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tag (archive) is listed in README.md until
   # the schema has metadata.tags.
   category: news
+  age_rating: 16   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Saves pages and media from the open internet that the person chooses, so it can show unfiltered web content."
   icon: icon.svg
   license: "MIT"
+  licenceClass: L1
   source: https://github.com/ArchiveBox/ArchiveBox
   links:
     docs: "https://github.com/ArchiveBox/ArchiveBox/wiki"
@@ -23,7 +26,7 @@ metadata:
     website: "https://archivebox.io"
     support: "https://github.com/ArchiveBox/ArchiveBox/issues"
   upstream: {release: "v0.9.77", released_at: "2026-10-27T22:10:48Z", archived: false}
-  tier: community   # starting value written by hand, never above the gate verdict; CI (app-gate --tier write) owns it from here
+  tier: blocked   # starting value written by hand, never above the gate verdict; CI (app-gate --tier write) owns it from here
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 512}   # sum of the memory requests in manifests/

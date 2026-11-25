@@ -8,8 +8,9 @@ Handy tools for developers and admins in one web page: converters, generators, e
 | | |
 |---|---|
 | Version | 2024.10.22-7ca5933 (upstream release `v2024.10.22-7ca5933`, published 2024-10-22) |
-| Licence | `GPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Licence | `GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-25) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
+| Quality | `none` (computed by the gate from its evidence, never set by hand) |
 | Category | developer |
 | GitHub | <https://github.com/CorentinTh/it-tools> |
 | Website | <https://it-tools.tech> |
@@ -74,4 +75,10 @@ Source: [IT-Tools README](https://github.com/CorentinTh/it-tools#readme).
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-25T05:03:03Z by `sdk/tools/app-gate`: **fail**. Licence `GPL-3.0` class L2; smoke test skipped.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `docker.io/corentinth/it-tools:2024.10.22-7ca5933@sha256:8b8128748339583ca951af03dfe02a9a4d7363f61a216226fc28030731a5a61f` | amd64, arm64 | 3 (3) | 37 | 0 infected (daily-28193) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

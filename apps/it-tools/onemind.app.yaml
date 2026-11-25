@@ -13,8 +13,11 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tag (tools) is listed in README.md until
   # the schema has metadata.tags.
   category: developer
+  age_rating: 7   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Simple developer utilities (converters, generators) where the content is only what the person makes."
   icon: icon.svg
   license: "GPL-3.0"
+  licenceClass: L2
   source: https://github.com/CorentinTh/it-tools
   links:
     docs: "https://github.com/CorentinTh/it-tools#readme"
@@ -23,7 +26,7 @@ metadata:
     support: "https://github.com/CorentinTh/it-tools/issues"
   # The newest release is from 2024-10-22, over 18 months old, which caps the tier at community.
   upstream: {release: "v2024.10.22-7ca5933", released_at: "2024-10-22T09:58:03Z", archived: false}
-  tier: community   # starting value written by hand, never above the gate verdict; CI (app-gate --tier write) owns it from here
+  tier: blocked   # starting value written by hand, never above the gate verdict; CI (app-gate --tier write) owns it from here
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 16}   # sum of the memory requests in manifests/

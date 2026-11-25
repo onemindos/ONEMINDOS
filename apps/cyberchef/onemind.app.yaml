@@ -13,8 +13,11 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tag (tools) is listed in README.md until
   # the schema has metadata.tags.
   category: developer
+  age_rating: 7   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Simple encode, decode and data tools where the content is only what the person types in."
   icon: icon.svg
   license: "Apache-2.0"
+  licenceClass: L1
   source: https://github.com/gchq/CyberChef
   links:
     docs: "https://github.com/gchq/CyberChef/wiki"
@@ -22,7 +25,7 @@ metadata:
     website: "https://gchq.github.io/CyberChef"
     support: "https://github.com/gchq/CyberChef/issues"
   upstream: {release: "v11.5.0", released_at: "2026-09-18T11:54:19Z", archived: false}
-  tier: community   # starting value written by hand, never above the gate verdict; CI (app-gate --tier write) owns it from here
+  tier: blocked   # starting value written by hand, never above the gate verdict; CI (app-gate --tier write) owns it from here
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 32}   # sum of the memory requests in manifests/

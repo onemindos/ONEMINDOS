@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Issue 129 (Supply Depot): tier claims are honest and the progress file has no merge leftovers.
+"""Issue 129 (Supply Depot): tier claims are honest and the hygiene allow list has no merge leftovers.
 
 No registry or scan is run here; the committed claims are checked against what evidence is
 committed. A package may claim `verified` only with a committed scan.json that says "pass".
@@ -40,12 +40,10 @@ class SupplyDepotTests(unittest.TestCase):
     def test_libretranslate_model_licence_is_unverified(self):
         self.assertIn("UNVERIFIED", (ROOT / "apps/libretranslate/README.md").read_text())
 
-    def test_progress_file_has_no_conflict_markers(self):
-        text = (ROOT / "docs/leap/run-2026-11-19/progress/lane-6-apps.md").read_text()
+    def test_hygiene_allowlist_has_no_conflict_markers(self):
+        text = (ROOT / "scripts/hygiene-allow.tsv").read_text()
         for marker in ("<<<<<<<", "=======\n", ">>>>>>>"):
             self.assertNotIn(marker, text)
-        self.assertIn("## Draft (pushed, not ready yet)", text)
-        self.assertIn("## #129", text)
 
     @staticmethod
     def _passes(app):

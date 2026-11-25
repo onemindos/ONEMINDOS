@@ -16,8 +16,11 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tag (office) is listed in README.md until
   # the schema has metadata.tags.
   category: productivity
+  age_rating: 12   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Document, spreadsheet and slide editing for files people add; collaboration, no open internet browsing."
   icon: icon.svg
   license: "MPL-2.0"
+  licenceClass: blocked
   source: https://github.com/CollaboraOnline/online
   links:
     docs: "https://sdk.collaboraonline.com/docs/installation/CODE_Docker_image.html"

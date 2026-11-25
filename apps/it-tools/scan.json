@@ -1,0 +1,54 @@
+{
+  "scanned_at": "2026-11-25T05:03:03Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "docker.io/corentinth/it-tools:2024.10.22-7ca5933@sha256:8b8128748339583ca951af03dfe02a9a4d7363f61a216226fc28030731a5a61f",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 3,
+        "critical": 3,
+        "high": 37
+      },
+      "clamav": {
+        "signatures": "daily-28193",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "GPL-3.0",
+    "class": "L2"
+  },
+  "smoke": "skipped",
+  "quality": {
+    "tier": "none",
+    "evidence": {
+      "bronze": {
+        "gate_pass": false,
+        "licence_green": true,
+        "images_clean": false,
+        "upstream_alive": false,
+        "nothing_unverified": true
+      },
+      "silver": {
+        "smoke_pass": false,
+        "non_root": true,
+        "support_links": true,
+        "security_updates": false
+      },
+      "gold": {
+        "images_signed": false,
+        "no_critical": false,
+        "patch_automerge": false,
+        "backup_declared": false
+      }
+    }
+  }
+}

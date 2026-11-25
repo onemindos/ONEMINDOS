@@ -8,8 +8,9 @@ The Cyber Swiss Army Knife: encode, decode, encrypt, compress and analyse data i
 | | |
 |---|---|
 | Version | 11.5.0 (upstream release `v11.5.0`, published 2026-09-18) |
-| Licence | `Apache-2.0`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Licence | `Apache-2.0`, Market class **L1** (licence gate, scan of 2026-11-25) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
+| Quality | `none` (computed by the gate from its evidence, never set by hand) |
 | Category | developer |
 | GitHub | <https://github.com/gchq/CyberChef> |
 | Website | <https://gchq.github.io/CyberChef> |
@@ -74,4 +75,10 @@ Source: [CyberChef README](https://github.com/gchq/CyberChef#readme).
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-25T05:02:14Z by `sdk/tools/app-gate`: **fail**. Licence `Apache-2.0` class L1; smoke test skipped.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `ghcr.io/gchq/cyberchef:11.5.0@sha256:f04a39926344faf8e4cbbc8c92fb125d2b466f9be62db09aff23c7c406101a51` | amd64, arm64 | 6 (6) | 29 | 0 infected (daily-28193) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

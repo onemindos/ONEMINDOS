@@ -8,8 +8,9 @@ Self-hosted web archive: saves pages you choose as HTML, PDF, screenshots and me
 | | |
 |---|---|
 | Version | 0.9.77 (upstream release `v0.9.77`, published 2026-10-27) |
-| Licence | `MIT`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-25) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
+| Quality | `none` (computed by the gate from its evidence, never set by hand) |
 | Category | news |
 | GitHub | <https://github.com/ArchiveBox/ArchiveBox> |
 | Website | <https://archivebox.io> |
@@ -82,4 +83,10 @@ Source: [ArchiveBox wiki, Docker](https://github.com/ArchiveBox/ArchiveBox/wiki/
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-25T05:28:32Z by `sdk/tools/app-gate`: **fail**. Licence `MIT` class L1; smoke test skipped.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `docker.io/archivebox/archivebox:0.9.77@sha256:f63170551ec48d7aa087c71e2d093156dbf4b4ed8680e2f97f22483e3bc71e55` | amd64, arm64 | 21 (11) | 618 | 0 infected (daily-28193) | 2 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

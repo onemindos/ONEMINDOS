@@ -8,8 +8,9 @@ Machine translation that runs on your own box: a web page and an HTTP API, no cl
 | | |
 |---|---|
 | Version | 1.9.6 (upstream release `v1.9.6`, published 2026-05-26) |
-| Licence | `AGPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-25) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
+| Quality | `none` (computed by the gate from its evidence, never set by hand) |
 | Category | ai |
 | GitHub | <https://github.com/LibreTranslate/LibreTranslate> |
 | Website | <https://libretranslate.com> |
@@ -83,4 +84,10 @@ Source: [LibreTranslate docs](https://docs.libretranslate.com).
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-25T05:12:25Z by `sdk/tools/app-gate`: **fail**. Licence `AGPL-3.0` class L2; smoke test skipped.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `docker.io/libretranslate/libretranslate:v1.9.6@sha256:1de2d7056bb8ad607a412f4563d9abe324ff632b43b5be9428bcc8e213aebb32` | amd64, arm64 | 11 (9) | 142 | 0 infected (daily-28193) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

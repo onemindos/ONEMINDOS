@@ -14,8 +14,11 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tag (translation) is listed in README.md
   # until the schema has metadata.tags.
   category: ai
+  age_rating: 7   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Translates text the person types in; no accounts, chat or sharing with outsiders."
   icon: icon.svg
   license: "AGPL-3.0"
+  licenceClass: L2
   source: https://github.com/LibreTranslate/LibreTranslate
   links:
     docs: "https://docs.libretranslate.com"
@@ -23,7 +26,7 @@ metadata:
     website: "https://libretranslate.com"
     support: "https://github.com/LibreTranslate/LibreTranslate/issues"
   upstream: {release: "v1.9.6", released_at: "2026-05-26T17:45:39Z", archived: false}
-  tier: community   # starting value written by hand, never above the gate verdict; CI (app-gate --tier write) owns it from here
+  tier: blocked   # starting value written by hand, never above the gate verdict; CI (app-gate --tier write) owns it from here
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 1024}   # sum of the memory requests in manifests/
