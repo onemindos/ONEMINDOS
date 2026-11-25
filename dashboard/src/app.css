@@ -75,3 +75,5 @@
 .dash-tech[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
 @media (prefers-reduced-motion: reduce) { .dash-tech > summary::after { transition: none; } }
 .dash-tech > summary:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
+
+.dash-world-stale { color: var(--om-color-text-muted); }

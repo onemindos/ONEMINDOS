@@ -90,6 +90,7 @@ interface Req {
   path: string;
   body?: unknown;
   retry?: boolean;
+  redirect?: RequestRedirect;
   headers?: Record<string, string>;
 }
 
@@ -339,6 +340,7 @@ export class OneMind {
     let res: Response;
     try {
       res = await this.fetchImpl(this.baseUrl + r.path, {
+        redirect: r.redirect,
         method: r.method,
         headers: {
           Accept: "application/json",
