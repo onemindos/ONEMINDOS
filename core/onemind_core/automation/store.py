@@ -21,6 +21,22 @@ from ..store import FeatureSchema, SqlRepository
 
 SCHEMA = FeatureSchema("automation")
 
+
+@SCHEMA.step(2, "gateway permissions PR 5: rules record proposed_by; legacy automation:* standing approvals pause")
+def _automation_v2(conn) -> None:
+    import json
+
+    from sqlalchemy import inspect, text
+
+    if "proposed_by" not in {c["name"] for c in inspect(conn).get_columns("automation_rules")}:
+        conn.execute(text("ALTER TABLE automation_rules ADD COLUMN proposed_by JSON"))
+    rows = conn.execute(text("SELECT id, allow FROM automation_policies WHERE state = 'active'")).all()
+    for pid, allow in rows:
+        allow = json.loads(allow) if isinstance(allow, str) else allow
+        if "automation:*" in (allow or {}).get("requested_by", []):
+            conn.execute(text("UPDATE automation_policies SET state = 'paused', revision = revision + 1 WHERE id = :i"),
+                         {"i": pid})
+
 _CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 
 
@@ -55,6 +71,9 @@ class RuleRow(Base):
     pending_action_ids: Mapped[list] = mapped_column(JSON, default=list)
     failures: Mapped[int] = mapped_column(Integer, default=0)
     breaker: Mapped[str] = mapped_column(String(8), default="closed")
+    # Who asked for this rule when someone other than its author did (an agent's proposal); null for a
+    # rule a person wrote by hand. A proposed rule never matches a wildcard standing approval.
+    proposed_by: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
 
 class FireRow(Base):
@@ -92,7 +111,7 @@ class PolicyRow(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_by: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    state: Mapped[str] = mapped_column(String(16), default="active")  # active | deleted
+    state: Mapped[str] = mapped_column(String(16), default="active")  # active | paused | deleted
     lock_seq: Mapped[int] = mapped_column(Integer, default=0)  # bumped to serialise the counter
 
 
@@ -149,6 +168,7 @@ class Rule:
     pending_action_ids: list
     failures: int
     breaker: str
+    proposed_by: dict | None = None
 
     @property
     def principal_id(self) -> str:
@@ -161,6 +181,7 @@ def _rule(r: RuleRow) -> Rule:
         dict(r.options), r.approval_policy_id, dict(r.created_by), utc(r.created_at), utc(r.updated_at),
         utc(r.cursor_at) if r.cursor_at else None, utc(r.last_fired_at) if r.last_fired_at else None,
         list(r.pending_action_ids or []), r.failures, r.breaker,
+        dict(r.proposed_by) if r.proposed_by else None,
     )
 
 
@@ -268,17 +289,24 @@ class AutomationRepository(SqlRepository):
             r = s.get(PolicyRow, policy_id)
             return _plain(r) if r else None
 
-    def list_policies(self, active_only: bool = True) -> list[dict]:
+    def list_policies(self, active_only: bool = True, *, with_paused: bool = False) -> list[dict]:
         q = select(PolicyRow).order_by(PolicyRow.created_at, PolicyRow.id)
         if active_only:
-            q = q.where(PolicyRow.state == "active")
+            q = q.where(PolicyRow.state.in_(("active", "paused") if with_paused else ("active",)))
         with self.db.session() as s:
             return [_plain(r) for r in s.scalars(q)]
 
     def delete_policy(self, policy_id: str) -> bool:
         with self.db.session.begin() as s:
-            return s.execute(update(PolicyRow).where(PolicyRow.id == policy_id, PolicyRow.state == "active")
-                             .values(state="deleted")).rowcount == 1
+            # One UPDATE sets the state and bumps the revision, so a use reserved against the old
+            # revision (reserve_use matches revision and state in one statement) can never slip in.
+            return s.execute(update(PolicyRow).where(PolicyRow.id == policy_id, PolicyRow.state.in_(("active", "paused")))
+                             .values(state="deleted", revision=PolicyRow.revision + 1)).rowcount == 1
+
+    def confirm_policy(self, policy_id: str) -> bool:
+        with self.db.session.begin() as s:
+            return s.execute(update(PolicyRow).where(PolicyRow.id == policy_id, PolicyRow.state == "paused")
+                             .values(state="active", revision=PolicyRow.revision + 1)).rowcount == 1
 
     def bump_policies_for_window(self, window_id: str) -> list[str]:
         with self.db.session.begin() as s:

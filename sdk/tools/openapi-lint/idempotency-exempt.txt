@@ -42,3 +42,4 @@ DELETE /v1/agent-browser/sessions/{session_id}  # ending a session twice is the 
 DELETE /v1/agent-browser/sites/{site_id}  # removing an approved site twice leaves the same allowlist (the second answers 404)
 PATCH /v1/work/projects/{project_id}/tasks/{task_id}  # guarded by If-Match; replay cannot change a task at a newer revision
 DELETE /v1/work/projects/{project_id}/tasks/{task_id}  # the second removal sees no task
+POST /v1/approval-policies/{policy_id}/confirm  # re-enables one paused rule: a repeat finds no paused rule, answers 404 and changes nothing
