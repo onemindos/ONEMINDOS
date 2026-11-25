@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-// Settings > Appearance: saved per person in this browser; it changes nothing on the box.
+// Settings > Appearance: theme, layout and the idle lock are saved per person in this browser and change nothing on the box;
+// the owner also gets the switch for the box's own screen (KioskCard).
 import { useState } from 'react';
 import { AppearanceSettings, PageHeader } from '@onemind/ui';
+import { KioskCard } from './KioskCard';
 import { LanguagePicker } from './LanguagePicker';
 import { useSignedIn } from '../session';
 import { idleOptions, saveIdleLock, useIdleLockPreference, type IdleMinutes } from '../shell/lock/state';
@@ -14,7 +16,7 @@ export function SettingsAppearance() {
   const [lockSaveError, setLockSaveError] = useState(false);
   return (
     <>
-      <PageHeader title="Appearance" lede="Theme, accent, wallpaper and layout. Saved for you only; it changes nothing on the box, so it needs no approval." />
+      <PageHeader title="Appearance" lede="Theme, accent, wallpaper and layout are saved for you only and change nothing on the box. The owner also chooses what the box's own screen shows." />
       <AppearanceSettings />
       <LanguagePicker />
       {person && <section>
@@ -24,6 +26,7 @@ export function SettingsAppearance() {
         </select>
         {lockSaveError && <p role="alert">Could not save the lock preference in this browser.</p>}
       </section>}
+      <KioskCard />
     </>
   );
 }

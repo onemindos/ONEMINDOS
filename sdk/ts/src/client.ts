@@ -17,6 +17,34 @@ export type AuditRecord = components["schemas"]["AuditRecord"];
 export type AuditVerify = components["schemas"]["AuditVerify"];
 /** This box's interfaces, gateway, DNS and listening ports, read only (`/v1/network`, owner only). */
 export type NetworkView = components["schemas"]["NetworkView"];
+/** The box's own screen as the full-screen dashboard (`/v1/instance/kiosk`, owner only). */
+export type KioskState = components["schemas"]["KioskState"];
+
+/** One name an owner asked for under their own domain (`<app>.<domain>`); `approved` is a recorded decision only. */
+export interface DomainHost {
+  hostname: string;
+  app_id: string;
+  state: "requested" | "approved" | string;
+  requested_by: string | null;
+  approved_by: string | null;
+  updated_at: string | null;
+  public: boolean;
+}
+/** A registered domain, its proof record (a TXT record to add at the DNS provider) and its names. */
+export interface DomainView {
+  domain: string;
+  verified: boolean;
+  verified_at: string | null;
+  proof: { type: "TXT"; name: string; value: string };
+  hosts: DomainHost[];
+}
+/** `GET /v1/domains`: `enabled` is false until the owner turns bring-your-own-domain on for the box. */
+export interface DomainsSummary {
+  enabled: boolean;
+  acme: { account_thumbprint: string | null; issuance: string };
+  domains: DomainView[];
+}
+
 /** The caller's own Home document (UMB-P07, `/v1/me/home`). */
 export type HomeView = components["schemas"]["HomeView"];
 export type HomeBody = components["schemas"]["HomeBody"];
@@ -86,7 +114,7 @@ export interface AuditQuery {
 }
 
 interface Req {
-  method: "GET" | "POST" | "PUT";
+  method: "GET" | "POST" | "PUT" | "DELETE";
   path: string;
   body?: unknown;
   retry?: boolean;
@@ -170,7 +198,23 @@ export class OneMind {
     return ((await this.call<{ ok: boolean }>({ method: "GET", path: "/healthz" })) ?? { ok: false }).ok;
   }
 
-  readonly instance = { get: () => this.call<Instance>({ method: "GET", path: "/v1/instance" }) };
+  readonly instance = {
+    get: () => this.call<Instance>({ method: "GET", path: "/v1/instance" }),
+    /** The box's own screen as the full-screen dashboard. Owner only; the screen switches within seconds. */
+    kiosk: {
+      get: () => this.call<KioskState>({ method: "GET", path: "/v1/instance/kiosk" }),
+      set: (enabled: boolean) => this.call<KioskState>({ method: "PUT", path: "/v1/instance/kiosk", body: { enabled } }),
+    },
+  };
+
+  /** Bring your own domain (NET-DOM-01, owner only). A domain is proved with a TXT record; approving a name records a decision only. */
+  readonly domains = {
+    list: () => this.call<DomainsSummary>({ method: "GET", path: "/v1/domains" }),
+    add: (domain: string) => this.call<DomainView>({ method: "POST", path: "/v1/domains", body: { domain } }),
+    check: (domain: string) =>
+      this.call<{ domain: DomainView; proof_found: boolean }>({ method: "POST", path: `/v1/domains/${encodeURIComponent(domain)}/check` }),
+    remove: (domain: string) => this.call<void>({ method: "DELETE", path: `/v1/domains/${encodeURIComponent(domain)}` }),
+  };
 
   /** status.get (FD-01): what needs attention, per source. A source that cannot be read is "unknown", never "ok". */
   readonly status = { get: () => this.call<StatusView>({ method: "GET", path: "/v1/status" }) };
