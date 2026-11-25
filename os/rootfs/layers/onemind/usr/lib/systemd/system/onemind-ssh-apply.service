@@ -26,7 +26,7 @@ CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH CAP_FOWNER 
 RestrictAddressFamilies=AF_UNIX AF_NETLINK
 LockPersonality=yes
 # The rest of the sandbox (test/unit/test_unit_security.py: a new unit scores 5.0 or better). /home is read-only like
-# the rest of the root; ReadWritePaths above opens /home/admin. It talks to systemd over its Unix socket and to the
+# the rest of the root; ReadWritePaths above opens the owner's home. It talks to systemd over its Unix socket and to the
 # kernel audit log through PAM (runuser); it needs no IP, no devices, no namespaces and no realtime scheduling.
 ProtectHome=read-only
 PrivateDevices=yes
