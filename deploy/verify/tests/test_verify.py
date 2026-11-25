@@ -500,6 +500,29 @@ class ComposeNatsClientsSignIn(unittest.TestCase):
             self.assertIn(seed, keyed, f"nats-keys does not make {name}'s key")
         self.assertEqual(len(set(clients.values())), 4, "two clients share a key")
 
+    def test_no_client_can_read_another_clients_seed(self):
+        """Each seed is owned by its client's own uid, and no two clients run as the same uid."""
+        text = open(os.path.join(self.ROOT, "deploy/compose/compose.yaml"), encoding="utf-8").read()
+        owners = {}
+        for m in re.finditer(r"chown (\d+):\d+((?: \$\$d/[a-z0-9-]+\.nk)+)", text):
+            for seed in re.findall(r"\$\$d/([a-z0-9-]+)\.nk", m.group(2)):
+                owners[seed] = m.group(1)
+        self.assertEqual(owners, {"gateway": "10001", "observer": "10001", "node-sim": "10002",
+                                  "sim-rpi5": "10003", "sim-jetson": "10004"})
+        services = re.split(r"\n(?=  [a-z][a-z0-9-]*:\n)", text.split("\nservices:\n", 1)[1].split("\nvolumes:\n", 1)[0])
+        for block in services:
+            name = block.strip().split(":", 1)[0]
+            if name in ("node-sim", "sim-rpi5", "sim-jetson"):
+                uid = re.search(r'user: "(\d+):\d+"', block)
+                self.assertIsNotNone(uid, f"{name} runs as the image's shared uid")
+                self.assertEqual(uid.group(1), owners[name], f"{name} cannot read its own seed")
+
+    def test_the_gateway_can_find_the_observer_key(self):
+        text = open(os.path.join(self.ROOT, "deploy/compose/compose.yaml"), encoding="utf-8").read()
+        gw = text.split("\n  gateway:\n", 1)[1].split("\n  node-sim:\n", 1)[0]
+        self.assertIn("ONEMIND_FABRIC_NATS_SERVICE_KEYS: /nats/keys", gw)
+        self.assertIn("for s in gateway observer ", text)
+
     def test_hub_conf_has_no_open_user(self):
         conf = open(os.path.join(self.ROOT, "deploy/compose/nats.conf"), encoding="utf-8").read()
         for bad in ("no_auth_user", "authorization", "token", "password"):
