@@ -22,7 +22,7 @@ from ..store import Database, SqlRepository
 from .access import OWN_TASK_ONLY_ROLES, WORK_ROLES
 from .db import (ActivityRow, CommentRow, DependencyRow, InboxRow, ProjectMemberRow, ProjectRow, ReminderRow, SectionRow,
                  TaskRow, WorkCreateRow)
-from .parse import next_due
+from .parse import next_due, zone
 
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=160)]
 Label = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)]
@@ -610,8 +610,11 @@ class WorkService(SqlRepository):
     def list_tasks(
         self, actor: Principal, project_id: str | None = None, *, after: str = "", after_project: str | None = None,
         limit: int = 100, view: TaskView = "all", delegated: Principal | None = None,
+        tz: str | None = None,
     ) -> list[Task]:
+        """`tz` (an IANA name, default UTC) decides where "today" ends for the today and upcoming views."""
         person, via_agent = _reader(actor, delegated)
+        local = zone(tz)
         with self.db.session() as session:
             visible = _visible_tasks(person, via_agent)
             if project_id is not None:
@@ -629,7 +632,8 @@ class WorkService(SqlRepository):
             if view == "inbox":
                 page = page.join(InboxRow, InboxRow.project_id == TaskRow.project_id).where(InboxRow.person_id == person.id)
             if view in ("today", "upcoming"):
-                cutoff = utc(self.clock()).replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+                tomorrow = self.clock().astimezone(local).date() + timedelta(days=1)
+                cutoff = datetime.combine(tomorrow, datetime.min.time(), tzinfo=local).astimezone(UTC)
                 due = (TaskRow.due_at < cutoff) if view == "today" else (TaskRow.due_at >= cutoff)
                 page = page.where(TaskRow.status != "done", due)
             rows = page.with_only_columns(TaskRow.project_id, TaskRow.id).order_by(

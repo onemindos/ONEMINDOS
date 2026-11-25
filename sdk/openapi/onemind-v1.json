@@ -42960,6 +42960,25 @@
             }
           },
           {
+            "description": "IANA zone where today ends (default UTC)",
+            "in": "query",
+            "name": "tz",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "IANA zone where today ends (default UTC)",
+              "title": "Tz"
+            }
+          },
+          {
             "in": "query",
             "name": "cursor",
             "required": false,

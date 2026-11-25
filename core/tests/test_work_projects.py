@@ -285,3 +285,17 @@ def test_a_task_cannot_be_assigned_to_a_child_who_could_not_open_it(client):
     work.person_role = lambda person_id: "adult"
     assert client.post("/v1/work/capture", json=body, headers={**OWNER, "Idempotency-Key": "c2"}).status_code == 201
 
+
+
+def test_today_and_upcoming_end_at_midnight_in_the_callers_zone(client, clock):
+    clock.advance(3 * 3600)  # 01:00 UTC on the 12th, still the evening of the 11th in New York
+    body = {"title": "Tomorrow morning", "due_at": "2026-11-12T15:00:00Z"}
+    client.post("/v1/work/capture", json=body, headers={**OWNER, "Idempotency-Key": "z1"})
+
+    def titles(view, tz=None):
+        query = f"?view={view}" + (f"&tz={tz}" if tz else "")
+        return [t["title"] for t in client.get("/v1/work/tasks" + query, headers=OWNER).json()]
+
+    assert titles("today") == ["Tomorrow morning"] and titles("upcoming") == []  # UTC by default
+    assert titles("today", "America/New_York") == [] and titles("upcoming", "America/New_York") == ["Tomorrow morning"]
+    assert client.get("/v1/work/tasks?view=today&tz=Mars/Base", headers=OWNER).status_code == 422

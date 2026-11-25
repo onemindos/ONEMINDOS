@@ -30,8 +30,10 @@ it('shows Today first, switches to Upcoming and Inbox, and says so when a view i
   const asked: string[] = [];
   mount((_method, path, query) => {
     if (path === '/v1/work/tasks') {
-      asked.push(query);
-      return json(query === '?view=today' ? [task('tsk_1', 'Pay rent', { priority: 1, labels: ['bills'], due_at: '2026-11-25T22:00:00Z' })] : []);
+      const view = new URLSearchParams(query).get('view') ?? '';
+      asked.push(`?view=${view}`);
+      expect(new URLSearchParams(query).get('tz')).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone);
+      return json(view === 'today' ? [task('tsk_1', 'Pay rent', { priority: 1, labels: ['bills'], due_at: '2026-11-25T22:00:00Z' })] : []);
     }
     return json({});
   });

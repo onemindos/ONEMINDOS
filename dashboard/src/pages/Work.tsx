@@ -17,6 +17,7 @@ const VIEWS = [
 ] as const;
 type View = (typeof VIEWS)[number]['id'];
 
+const zoneName = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const when = (iso: string) => new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
 
 function WorkList({ client }: { client: OneMind }) {
@@ -27,7 +28,7 @@ function WorkList({ client }: { client: OneMind }) {
   const [problem, setProblem] = useState('');
   const tasks = usePoll(async () => {
     try {
-      const rows = await client.call<Task[]>({ method: 'GET', path: `/v1/work/tasks?view=${view}` });
+      const rows = await client.call<Task[]>({ method: 'GET', path: `/v1/work/tasks?view=${view}&tz=${encodeURIComponent(zoneName)}` });
       return { view, rows };
     } catch (error) {
       if (error instanceof OneMindError && (error.status === 401 || error.status === 403)) return { view, denied: true } as const;
@@ -45,7 +46,7 @@ function WorkList({ client }: { client: OneMind }) {
     setSaving(true);
     setProblem('');
     try {
-      const body: QuickAdd = { text: text.trim(), tz: Intl.DateTimeFormat().resolvedOptions().timeZone };
+      const body: QuickAdd = { text: text.trim(), tz: zoneName };
       await client.call<Task>({ method: 'POST', path: '/v1/work/quick-add', body, headers: { 'Idempotency-Key': attempt } });
       setText('');
       setKey(undefined);
