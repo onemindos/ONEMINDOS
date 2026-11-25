@@ -30,3 +30,16 @@
 ## 4. Known harness reds this change must not be judged by
 
 F3/B2 hang after a reboot (read-position race), B1 `hash_in_grub_cfg=1` and FW3 (k3s not yet listening at the scan) were red on fast hosts before this change (a local run on release/next at 8ae9db84). They are another workflow's fixes. FW3's cause includes the second NIC delaying k3s, which FW5 now judges directly.
+
+## 5. Amendment (2026-11-25): NW1 judges what a restricted QEMU network can show
+
+**Status:** written after the first run of NW1 and before it was changed. NW1-NW4 and FW5 above are unchanged except NW1's wording below. **Why:** the first run found every NW1 clause true except two that this harness cannot satisfy by design: the guests run with QEMU's `restrict=on` user-mode network, whose DHCP server hands out an address but **no router and no DNS server** (`os/rootfs/layers/onemind/usr/lib/onemind/onemind_firstboot.py`, `lan_addr`, says the same). So "a default route through it" and "a DNS server listed by `resolvectl`" were never true on any stack, and the first run showed `route=''`. Nothing about NetworkManager was wrong. The two clauses are replaced, not dropped:
+
+- Instead of "a default route": the active profile's `ipv4.method` is `auto` (`nmcli -g ipv4.method connection show <profile>`), the device has a global IPv4 address, and NetworkManager holds a DHCP lease for it: a `DHCP4.OPTION[n]:ip_address = <address>` line in `nmcli -t device show <dev>`, or a lease file with an `ADDRESS=` line under `/var/lib/NetworkManager/` (the folder that is a bind mount from /data). Together these say the address came from a DHCP lease and not from an assumed or static configuration.
+- Instead of "a DNS server on that device": NetworkManager's own D-Bus property `org.freedesktop.NetworkManager.DnsManager` `Mode` is `systemd-resolved` (read with `busctl get-property`), `systemd-resolved.service` is active, and `/etc/resolv.conf` is a link to the resolved stub. The step that hands real DNS servers to resolved needs a router-less lease to carry some; it is for the hardware kit.
+
+Real-world default route and DNS are in the hardware kit's list, not claimed here.
+
+## 6. Amendment (2026-11-25): what FW5's first run found
+
+**Status:** written after the first FW5 run and before the fix; FW5 and NW2 above are unchanged. The first build used `nm-online -q` (Debian's `nm-online -s` without the `-s`) as the wait-online command. On the firewall box (second NIC with a link, no DHCP server) `NetworkManager-wait-online.service` **never became active**: it ended at its 30 s timeout and k3s first started at 36 s (FW5 FAIL: `online_end=None`, `k3s_first=35.97`). The first NIC was up within a second, so a connected device existed the whole time. The likely cause (UNVERIFIED, from `nm-online(1)` and the log, not from NetworkManager's source) is that `nm-online` watches NetworkManager's overall state, which stays "connecting" while any device is still activating. The unit therefore now runs `usr/lib/onemind/nm-wait-online`, which waits for one connected wired or Wi-Fi device, bounded by the same timeout. FW5 and NW2 then judge the result as written.
