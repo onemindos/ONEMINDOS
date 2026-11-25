@@ -31,3 +31,7 @@
 ## 4. Amendment, 2026-11-25 (written after the first FW5 run, before any later run)
 
 The first run of FW5 was not a verdict on the box: the serial console takes tens of seconds to run the harness's setup commands, so rule A had already reverted by the 25 s deadline before the first probe (the harness saw only B). The deadline is therefore **60 s** (`ONEMIND_HOST_FIREWALL_TTL=60s`) and the wait after it is 10 s; wherever sections 1 and 2 say 25 s, read 60 s. The run also showed the firewall view itself could not be read on the shipped image (`allow.supported` was false because the host service lacks CAP_NET_ADMIN); the image now reads the ruleset through a separate read-only unit, and FW5 still requires `allow.supported` to be true. No pass condition was loosened.
+
+## 5. Amendment, 2026-11-25 (written after the second FW5 run, before any later run)
+
+The second FW5 run (with the view readable, `allow.supported` true) saw rule B open and rule A not, although A was newer than the deadline allowed for. Port 9091 is used by a service already on the box (the harness's listener could not take it), so the test could not tell "closed by the firewall" from "nothing there". The three listener ports are therefore **39091, 39092 and 39093**; wherever sections 1 to 3 say 9091, 9092 or 9093, read 39091, 39092 and 39093. No pass condition was loosened.

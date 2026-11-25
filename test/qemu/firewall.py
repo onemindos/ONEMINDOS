@@ -58,7 +58,7 @@ def serve(p):
     s = socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1); s.bind(("0.0.0.0", p)); s.listen(16)
     while True:
         c, _ = s.accept(); c.close()
-for p in (9091, 9092, 9093):
+for p in (39091, 39092, 39093):
     threading.Thread(target=serve, args=(p,), daemon=True).start()
 time.sleep(1800)
 '''
@@ -182,37 +182,37 @@ def allow_tests(box, scan):
     box.run(f"(nohup {fb.PY} -I /run/fwlisten.py >/dev/null 2>&1 &)", 10)
     time.sleep(2)
     rule = lambda i, port, scope: {"id": i, "proto": "tcp", "port": port, "scope": scope}
-    a = host_api(box, "POST", "/v1/firewall/allow", rule("fwa-1", 9091, "lan"))
-    b = host_api(box, "POST", "/v1/firewall/allow", rule("fwb-1", 9092, "lan"))
-    c = host_api(box, "POST", "/v1/firewall/allow", rule("fwc-1", 9093, "mesh"))
+    a = host_api(box, "POST", "/v1/firewall/allow", rule("fwa-1", 39091, "lan"))
+    b = host_api(box, "POST", "/v1/firewall/allow", rule("fwb-1", 39092, "lan"))
+    c = host_api(box, "POST", "/v1/firewall/allow", rule("fwc-1", 39093, "mesh"))
     pending = all(x[0] == 200 and (x[1] or {}).get("state") == "pending" for x in (a, b, c))
     bad_scopes = [host_api(box, "POST", "/v1/firewall/allow", {"id": f"fwx-{i}", "proto": "tcp", "port": 9094, "scope": sc})[0]
                   for i, sc in enumerate(("wan", "any", "0.0.0.0/0"))]
     no_wan = all(x == 409 for x in bad_scopes) and "9094" not in owner_chain(box, "owner_lan") + owner_chain(box, "owner_mesh")
-    ports = [9091, 9092, 9093]
+    ports = [39091, 39092, 39093]
     lan0, pub0 = open_ports(scan, "lan", box, ports), open_ports(scan, "pub", box, ports)
     cb = host_api(box, "POST", "/v1/firewall/allow/fwb-1/confirm")
     time.sleep(ALLOW_TTL_S + 10)
     lan1 = open_ports(scan, "lan", box, ports)
     lan_chain = owner_chain(box, "owner_lan")
     ca = host_api(box, "POST", "/v1/firewall/allow/fwa-1/confirm")
-    record("FW5", supported and pending and lan0 == {9091, 9092} and cb[0] == 200 and lan1 == {9092}
-           and "9092" in lan_chain and "9091" not in lan_chain and ca[0] == 404,
+    record("FW5", supported and pending and lan0 == {39091, 39092} and cb[0] == 200 and lan1 == {39092}
+           and "39092" in lan_chain and "39091" not in lan_chain and ca[0] == 404,
            f"supported={supported} add={[x[0] for x in (a, b, c)]} pending={pending} open_at_first={sorted(lan0)} confirm_b={cb[0]} "
-           f"open_after_deadline={sorted(lan1)} chain_has_9091={'9091' in lan_chain} chain_has_9092={'9092' in lan_chain} confirm_a_after_revert={ca[0]}")
-    host_api(box, "POST", "/v1/firewall/allow", rule("fwd-1", 9091, "lan"))
+           f"open_after_deadline={sorted(lan1)} chain_has_39091={'39091' in lan_chain} chain_has_39092={'39092' in lan_chain} confirm_a_after_revert={ca[0]}")
+    host_api(box, "POST", "/v1/firewall/allow", rule("fwd-1", 39091, "lan"))
     box.run("systemctl restart onemind-host; echo RESTART-RC=$?", 60)
     back = wait_host_service(box)
     lan2 = open_ports(scan, "lan", box, ports)
     chain2 = owner_chain(box, "owner_lan")
     rm = host_api(box, "DELETE", "/v1/firewall/allow/fwb-1")
     lan3 = open_ports(scan, "lan", box, ports)
-    record("FW6", back and lan2 == {9092} and "9092" in chain2 and "9091" not in chain2 and rm[0] == 200 and not lan3,
-           f"host_back={back} open_after_restart={sorted(lan2)} chain_has_9092={'9092' in chain2} chain_has_9091={'9091' in chain2} "
+    record("FW6", back and lan2 == {39092} and "39092" in chain2 and "39091" not in chain2 and rm[0] == 200 and not lan3,
+           f"host_back={back} open_after_restart={sorted(lan2)} chain_has_39092={'39092' in chain2} chain_has_39091={'39091' in chain2} "
            f"remove_b={rm[0]} open_after_remove={sorted(lan3)}")
     lan4 = open_ports(scan, "lan", box, ports)
-    record("FW7", not pub0 and 9093 not in lan0 and 9093 not in lan1 and no_wan,
-           f"open_from_public_while_allowed={sorted(pub0)} mesh_rule_open_from_lan={9093 in lan0 or 9093 in lan1} "
+    record("FW7", not pub0 and 39093 not in lan0 and 39093 not in lan1 and no_wan,
+           f"open_from_public_while_allowed={sorted(pub0)} mesh_rule_open_from_lan={39093 in lan0 or 39093 in lan1} "
            f"bad_scope_answers={bad_scopes} wan_in_chain={not no_wan} open_from_lan_at_end={sorted(lan4)}")
 
 
