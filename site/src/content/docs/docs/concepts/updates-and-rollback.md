@@ -31,7 +31,7 @@ On the box, `onemindd` checks the channel, verifies the signed metadata (**TUF**
 ```sh
 onemind update status     # booted slot, channel, last result
 onemind update check      # is there something newer?
-onemind update apply      # install now (inside your policy)
+onemind update apply --local # break-glass: install now on this machine as root, no approval
 ```
 
 ## Nightly security rebuilds <span class="om-tag om-tag--unknown">being built</span>

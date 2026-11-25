@@ -8,6 +8,7 @@ package cli
 // ("approve": true) and never approves; `onemind actions approve ID` is the owner's step.
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/url"
@@ -133,7 +134,16 @@ func (a *App) backupRequest(what, path string, body map[string]any, reason strin
 	if reason != "" {
 		body["reason"] = reason
 	}
-	v, err := a.gwDo(http.MethodPost, path, body)
+	// The key names the operation and its target (the path and the body without the free-text reason),
+	// so asking twice for the same thing replays the waiting request instead of filing a second one.
+	target := map[string]any{}
+	for k, v := range body {
+		if k != "reason" {
+			target[k] = v
+		}
+	}
+	raw, _ := json.Marshal(target) // map keys marshal sorted, so equal requests give equal bytes
+	v, err := a.gwDoKeyed(http.MethodPost, path, idemKey("cli-backup-", path, string(raw)), body)
 	if err != nil {
 		return err
 	}

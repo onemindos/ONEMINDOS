@@ -9,10 +9,14 @@ package cli
 // tokens for backup restore and os.update.install, which only a person may request.
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
+	"time"
 
 	onemind "github.com/onemindos/onemindos/sdk/go"
 )
@@ -37,6 +41,34 @@ func (a *App) gwDo(method, path string, body any) (any, error) {
 		return nil, err
 	}
 	return raw, nil
+}
+
+// gwDoKeyed is gwDo for a write with an Idempotency-Key header (see idemKey).
+func (a *App) gwDoKeyed(method, path, key string, body any) (any, error) {
+	if a.gw == nil {
+		c, _, err := a.client()
+		if err != nil {
+			return nil, err
+		}
+		a.gw = c
+	}
+	var raw any
+	if err := a.gw.DoIdempotent(bg(), method, path, key, body, &raw); err != nil {
+		var e *onemind.Error
+		if errors.As(err, &e) && e.Reason == "step_up_required" {
+			return nil, fmt.Errorf("%w\nThis step needs a passkey sign-in, which the CLI cannot do. Do it in the dashboard, or approve the request there", err)
+		}
+		return nil, err
+	}
+	return raw, nil
+}
+
+// idemKey builds an Idempotency-Key from stable inputs only (what is asked for, on what, and the UTC
+// day), never from a clock reading or a random number, so running the same command again files
+// nothing new: the gateway replays the request that is already waiting.
+func idemKey(prefix string, parts ...string) string {
+	sum := sha256.Sum256([]byte(strings.Join(parts, "\x00") + "\x00" + time.Now().UTC().Format("2006-01-02")))
+	return prefix + hex.EncodeToString(sum[:12])
 }
 
 // obj reads a JSON object field-by-field without panicking on a surprise shape.

@@ -13,8 +13,6 @@ package cli
 // falling back to root. Use --local only when the gateway is down.
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -86,13 +84,16 @@ func (a *App) updateApplyViaGateway(node, version string) error {
 		version = offered
 	}
 	if in := obj(obj(st)["install"]); in["available"] == false {
-		fmt.Fprintln(a.Stderr, "onemind: warning: the box cannot run an approved install yet:", sanitize(str(in["message"])))
+		// Filing would only make the owner approve with a passkey for an install that then fails, and
+		// core's own advice would send them back here. Say what really works and stop.
+		return exitWith(ExitConflict, "conflict", "this box cannot run an approved install yet (gateway mode has no host service to install here): "+
+			"at the box, `sudo onemind update apply --local` is the break-glass path (root, no approval), "+
+			"or wait for the gateway install path. Nothing was filed. "+sanitize(str(in["message"])))
 	}
 	// The key is built from node, version and the UTC day, so a retry the same day is a replay of
 	// the request already waiting, not a second one.
-	sum := sha256.Sum256([]byte(node + "\x00" + version + "\x00" + time.Now().UTC().Format("2006-01-02")))
 	body := map[string]any{"type": "os.update.install", "params": map[string]any{"node_id": node, "version": version},
-		"idempotency_key": "cli-os-update-" + hex.EncodeToString(sum[:12]), "expires_at": time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339)}
+		"idempotency_key": idemKey("cli-os-update-", node, version), "expires_at": time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339)}
 	act, err := a.gwDo(http.MethodPost, "/v1/actions", body)
 	if err != nil {
 		return err

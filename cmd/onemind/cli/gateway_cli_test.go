@@ -23,11 +23,14 @@ type recGW struct {
 	stepUp bool
 	// noAISchedule makes GET /v1/update-policy leave ai_schedule out.
 	noAISchedule bool
+	// noInstall makes GET /v1/os/updates say the box has no host service to install with.
+	noInstall bool
 }
 
 type rec struct {
 	method, path, query string
 	body                map[string]any
+	idem                string // the Idempotency-Key header
 }
 
 func newRecGW(t *testing.T) *recGW {
@@ -57,7 +60,7 @@ func (g *recGW) serve(w http.ResponseWriter, r *http.Request) {
 	if raw, _ := io.ReadAll(r.Body); len(raw) > 0 {
 		_ = json.Unmarshal(raw, &body)
 	}
-	g.log = append(g.log, rec{r.Method, r.URL.Path, r.URL.RawQuery, body})
+	g.log = append(g.log, rec{r.Method, r.URL.Path, r.URL.RawQuery, body, r.Header.Get("Idempotency-Key")})
 	who := map[string]string{"Bearer " + ownerTok: "owner", "Bearer " + agentTok: "agent"}[r.Header.Get("Authorization")]
 	if who == "" {
 		jsonOut(w, 401, map[string]string{"error": "unauthenticated", "message": "unknown token"})
@@ -130,7 +133,11 @@ func (g *recGW) serve(w http.ResponseWriter, r *http.Request) {
 		}
 		jsonOut(w, 200, body)
 	case p == "/v1/os/updates":
-		jsonOut(w, 200, map[string]any{"install": map[string]any{"available": true, "reason": nil, "message": "ok"},
+		install := map[string]any{"available": true, "reason": nil, "message": "ok"}
+		if g.noInstall {
+			install = map[string]any{"available": false, "reason": "engine_unreachable", "message": "Install at the box."}
+		}
+		jsonOut(w, 200, map[string]any{"install": install,
 			"nodes": []any{
 				map[string]any{"node_id": "hub1", "available_version": "0.2.0", "current_version": "0.1.0", "reported": true},
 				map[string]any{"node_id": "idle", "available_version": nil, "current_version": "0.1.0", "reported": true},
@@ -331,9 +338,54 @@ func TestUpdateApplyFilesAnApprovalInsteadOfActingAsRoot(t *testing.T) {
 	if got := len(g.requests("POST", "/v1/actions")); got != n {
 		t.Fatalf("filed %d extra actions", got-n)
 	}
-	// An explicit version is passed through.
+	// An explicit version is only forwarded: the real gateway refuses one the node does not offer.
 	if r := run(t, "", false, "update", "apply", "--node", "idle", "--target-version", "0.3.0"); r.code != 0 {
 		t.Fatalf("explicit version %+v", r)
+	}
+}
+
+func TestUpdateApplyWithNoHostServiceFilesNothingAndSaysWhatWorks(t *testing.T) {
+	g := asOwner(t)
+	g.noInstall = true
+	r := run(t, "", false, "update", "apply")
+	if r.code != ExitConflict || len(g.requests("POST", "/v1/actions")) != 0 {
+		t.Fatalf("apply %+v", r)
+	}
+	for _, want := range []string{"cannot run an approved install", "update apply --local", "Nothing was filed"} {
+		if !strings.Contains(r.errOut, want) {
+			t.Errorf("message lacks %q: %s", want, r.errOut)
+		}
+	}
+}
+
+func TestBackupWritesSendAStableIdempotencyKey(t *testing.T) {
+	g := asOwner(t)
+	cmds := [][]string{
+		{"backup", "run", "--app", "photos"},
+		{"backup", "verify", "--mode", "check"},
+		{"backup", "restore", "abcd1234", "--app", "photos"},
+	}
+	paths := []string{"/v1/backups/runs", "/v1/backups/verify", "/v1/restores"}
+	for i, args := range cmds {
+		// The free-text reason is not part of what is asked for, so it must not change the key.
+		for _, extra := range [][]string{nil, {"--reason", "again"}} {
+			if r := run(t, "", false, append(append([]string{}, args...), extra...)...); r.code != 0 {
+				t.Fatalf("%v %+v", args, r)
+			}
+		}
+		got := g.requests("POST", paths[i])
+		if len(got) != 2 || got[0].idem == "" || got[0].idem != got[1].idem {
+			t.Fatalf("%v: keys %+v", args, got)
+		}
+	}
+	// A different target is a different request.
+	run(t, "", false, "backup", "run", "--app", "notes")
+	if got := g.requests("POST", "/v1/backups/runs"); got[0].idem == got[2].idem {
+		t.Fatalf("different apps shared a key: %+v", got)
+	}
+	// And a different operation never collides with another.
+	if a, b := g.requests("POST", "/v1/backups/runs")[0].idem, g.requests("POST", "/v1/backups/verify")[0].idem; a == b {
+		t.Fatal("run and verify share a key")
 	}
 }
 

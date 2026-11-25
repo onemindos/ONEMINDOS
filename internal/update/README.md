@@ -54,7 +54,7 @@ How the state is read back after a reboot (the gate's files, the same ones the g
 - `onemindd update` — the service loop (unit [`deploy/systemd/onemind-update.service`](../../deploy/systemd/onemind-update.service)).
 - `onemind update status [--json]` — what the box runs, what is available, state, last result, history.
 - `onemind update check` — fetch and decide, print the decision; never installs.
-- `onemind update apply [--no-reboot]` — the owner installs now (overrides window, notify, off and postpone; never overrides a pending gate verdict or a required snapshot).
+- `onemind update apply --local [--no-reboot]` — break-glass: the owner installs now on this machine as root, with no approval (with a box selected, plain `apply` files an `os.update.install` approval through the gateway instead) (overrides window, notify, off and postpone; never overrides a pending gate verdict or a required snapshot).
 
 ## Try it (dry run, no VM needed)
 ```sh
@@ -67,7 +67,7 @@ onemind update check --config update.conf
 The unit tests do the same in-process (`engine_test.go`): verify OK, expired timestamp, replayed older metadata (rollback), wrong root, wrong board, tampered bundle, consistent-snapshot paths, window/policy/postpone, pending-trial refusal, commit and rollback verdicts, reboot inhibit, the lock, the "no snapshot" rules, and that a local restic repository under `/data` is excluded from its own snapshot.
 
 ## v0 shortcuts and open items
-- **Gateway approval (REC-DEC-13) is not wired.** B4.2 says OS updates are approval-gated through the gateway; v0 follows BD-09's "security auto by default" on the box and treats `onemind update apply` at the console as the owner's approval. The `/v1/os/*` gateway API and the local Unix socket API come later.
+- **Gateway approval (REC-DEC-13) is only half wired.** The CLI files `os.update.install` through the gateway, but the box has no host service to run an approved install yet, so `--local` stays the working path (#1106 tracks part 2). B4.2 says OS updates are approval-gated through the gateway; v0 follows BD-09's "security auto by default" on the box and treats `onemind update apply` at the console as the owner's approval. The `/v1/os/*` gateway API and the local Unix socket API come later.
 - **Offline grace and mirror installs (B4.3, #155) first slice.** `onemind update check|apply --mirror <dir>` reads the channel from a directory (a USB stick or a mounted LAN share; same flat layout as CHANNEL.md section 3) instead of the network. Nothing about trust is relaxed: the same image-shipped root, the same TUF cache (so a stick cannot replay older metadata), the same length and sha256 checks against the signed targets, and RAUC still verifies the bundle's own signature. The one relaxation is freshness: the TUF reference time is moved back by `offline_grace` (default 90 days, max 1 year, `0` = strict), so a stick built weeks ago still verifies. Online checks never get the grace. Left: automatic detection and mounting of a stick, a gateway/dashboard entry point, a QEMU test with a real RAUC bundle and no network, and root rotation from the stick.
 - **Metadata expiries:** this follows the shared interface (timestamp 1 d, snapshot 7 d, targets 30 d, root 1 y). Brief 30 B4.3 says 7 d / 30 d / 180 d; the pipeline sets them, the box only enforces what is signed. Flagged for the DEC owner.
 - **Environment-bad re-offer** uses the gate's `bad-releases` count; the re-offer of an abandoned trial on Pi 5 / `efi` route and the alert are not done.

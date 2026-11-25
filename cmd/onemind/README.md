@@ -22,7 +22,8 @@ onemind version
 # OS updates on a OneMind image (brief 30 B4.2; needs root except status)
 onemind update status [--json]            # current/available version, state, last result, history
 onemind update check                      # fetch the TUF channel and print the decision; never installs
-onemind update apply [--no-reboot]        # owner installs now (not while the health gate is deciding)
+onemind update apply --local [--no-reboot] # BREAK-GLASS: install on this machine now, as root, no approval (not while the health gate is deciding)
+# With a box selected (onemind login), `onemind update apply` files an approval instead; see "Settings over the gateway" below
 ```
 See [`internal/update/`](../../internal/update/README.md) for the policy, window and states.
 
@@ -64,7 +65,7 @@ Each of these calls an existing gateway route with your token, takes `--json` (t
 - `onemind backup status|snapshots|run [--app ID]|verify [--mode check]|restore SNAPSHOT --app ID [--path P]`: `run`, `verify` and `restore` file a request that waits for an owner (`onemind actions approve ID`).
 - `onemind care checkup`: the box check-up; reads only.
 - `onemind update policy show|set`: the app update rules; `set` keeps every value you do not pass.
-- `onemind update apply`: files an `os.update.install` request for the hub (or `--node`), which an owner approves; the box's host service then installs with the health gate and rollback. `--local` is the break-glass path that runs the engine on this machine as root with no approval, and it says so each time. With no box selected (`onemind login`, `--hub`) it is the only path.
+- `onemind update apply`: files an `os.update.install` request for the hub (or `--node`), which an owner approves; the box's host service then installs with the health gate and rollback. `--local` is the break-glass path that runs the engine on this machine as root with no approval, and it says so each time. With no box selected, apply refuses unless you pass `--local`. If the box reports it has no host service to install with, apply files nothing and tells you to use `--local` at the box.
 
 ## Build and test
 `make -C cmd/onemindd build` builds this tool too (`dist/onemind-linux-{amd64,arm64}`). Tests: `go test ./cmd/onemind/...` (a fake gateway: tables, `--json`, contexts and file modes, the approval flow, exit codes, the bridge); end to end against a live gateway in `core/tests/test_sdk_conformance.py`.
