@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 1147
 branch: claude/storage-reset-token
 status_rows:
 ---
