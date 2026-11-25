@@ -12,7 +12,8 @@
 # optional services (Samba, SSH) are separate steps: they add rules to this table, see /etc/onemind/host.local.nft
 # (the owner's file) and /etc/onemind/host.d/*.nft (shipped by an image: the cloud boards open 22/443/8443 there).
 # The setup wizard (8080) is opened from the LAN only while the box has no role, through the "setup" chain below.
-# Samba file sharing (445, D-017) is opened from the LAN only while onemind-smb.service runs, through the "samba" chain.
+# Ports the owner opens from the dashboard (approved with a passkey, reverted unless confirmed) go in owner_lan and
+# owner_mesh below. Samba file sharing (445, D-017) is opened from the LAN only while onemind-smb.service runs, through the "samba" chain.
 add table inet onemind_host
 flush table inet onemind_host
 table inet onemind_host {
@@ -33,6 +34,7 @@ table inet onemind_host {
     iifname "tailscale0" udp dport { 8472, 51820, 51821 } accept
     iifname "flannel*" udp dport { 8472, 51820, 51821 } accept
     iifname "tailscale0" tcp dport { 443, 8443, 7422 } accept
+    iifname "tailscale0" jump owner_mesh
 
     # Network basics: ping, path-MTU, IPv6 neighbour discovery, DHCP replies (they arrive before conntrack knows them).
     meta l4proto icmp accept
@@ -48,6 +50,7 @@ table inet onemind_host {
   chain lan {
     jump setup
     jump samba
+    jump owner_lan
     tcp dport { 443, 8443, 8444, 7443 } accept
     udp dport { 5353, 3478, 41641 } accept
   }
@@ -62,6 +65,14 @@ table inet onemind_host {
   # owner has approved at least one share) and flushes it when it stops. Reached from the lan chain only, so SMB is
   # never offered to a public address, and a box with no shares answers nothing on 445.
   chain samba {
+  }
+
+  # Empty on purpose. onemindd host serve (P-09 part 2) writes the ports the owner approved here, one accept line
+  # each, and flushes them again when an unconfirmed rule runs out of time. owner_lan is reached from the lan chain
+  # (private source addresses only); owner_mesh from the mesh interface only. No rule can name the internet.
+  chain owner_lan {
+  }
+  chain owner_mesh {
   }
 
   # Forwarded (pod) traffic is the CNI's and kube-proxy's business; this table does not touch it.

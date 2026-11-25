@@ -10,12 +10,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"os/signal"
 	"os/user"
 	"strconv"
 	"syscall"
 	"time"
 
+	"github.com/onemindos/onemindos/internal/firewall"
 	"github.com/onemindos/onemindos/internal/host"
 	"github.com/onemindos/onemindos/internal/netview"
 	"github.com/onemindos/onemindos/internal/smb"
@@ -26,7 +28,7 @@ import (
 )
 
 const hostUsage = `usage:
-  onemindd host serve [--socket PATH] [--user NAME] [--journal DIR] [--update-conf FILE] [--delay 3s]
+  onemindd host serve [--socket PATH] [--user NAME] [--journal DIR] [--update-conf FILE] [--firewall-dir DIR] [--delay 3s]
   onemindd host plan factory-reset    print what a factory reset would erase and keep (JSON, read-only, root)
   onemindd factory-reset wipe [--esp DIR]   early boot only: run the armed reset (onemind-factory-reset.service)
 `
@@ -52,6 +54,8 @@ func runHost(args []string) int {
 	gwUser := fs.String("user", env("ONEMIND_HOST_USER", "onemind"), "the one user besides root allowed on the socket (the gateway's)")
 	journal := fs.String("journal", env("ONEMIND_HOST_JOURNAL", "/data/onemind/host/actions"), "action journal directory")
 	conf := fs.String("update-conf", env("ONEMIND_UPDATE_CONF", update.DefaultConfigPath), "update.conf for OS installs")
+	fwDir := fs.String("firewall-dir", env("ONEMIND_HOST_FIREWALL_DIR", "/data/onemind/firewall"), "where confirmed owner allow rules are kept")
+	fwTTL := fs.Duration("firewall-ttl", envDuration("ONEMIND_HOST_FIREWALL_TTL", firewall.DefaultTTL), "how long a new owner allow rule waits for confirmation before it reverts")
 	delay := fs.Duration("delay", 3*time.Second, "wait before the box goes down, so the gateway records the answer first")
 	if err := fs.Parse(args[1:]); err != nil {
 		return 2
@@ -92,7 +96,12 @@ func runHost(args []string) int {
 		return 1
 	}
 	log.Info("host service listening", "socket", *sock, "journal", svc.Store != nil, "boot_id", svc.BootID, "gateway_uid", uid)
-	err = (&host.Server{S: svc, AllowUID: uid, AllowGID: -1, Ctx: ctx, Network: networkView,
+	// Owner allow rules (P-09 part 2): confirmed ones come back from /data, pending ones are dropped (reverted).
+	allow := &firewall.Allower{Dir: *fwDir, Reload: reloadOwnerFirewall, TTL: *fwTTL, Log: log}
+	if err := allow.Open(ctx); err != nil {
+		log.Error("firewall owner rules not loaded; new ones are refused until the firewall has its owner lists", "err", err)
+	}
+	err = (&host.Server{S: svc, AllowUID: uid, AllowGID: -1, Ctx: ctx, Network: networkView, Firewall: firewallView(allow), FirewallAllow: allow,
 		Services: serviceCards, ServiceLogs: units.Logs}).Serve(ctx, l)
 	stop()
 	svc.Wait()
@@ -151,9 +160,46 @@ func networkView() (any, error) {
 	return netview.System(read, exists).Collect()
 }
 
+// firewallReadSocket is where onemind-firewall-read.socket prints `nft -j list ruleset`. The host service
+// has no CAP_NET_ADMIN (the kernel wants it even to read nf_tables), so it cannot run nft itself.
+const firewallReadSocket = "/run/onemind/firewall-read.sock"
+
+// firewallView is GET /v1/firewall: the ruleset read from the firewall read socket (internal/firewall),
+// parsed into a structured form, plus the owner allow rules. Output is capped and the read has a deadline,
+// so a stuck reader cannot hold the host service.
+func firewallView(al *firewall.Allower) func(context.Context) (any, error) {
+	return func(ctx context.Context) (any, error) { return collectFirewall(ctx, al) }
+}
+
+func collectFirewall(ctx context.Context, al *firewall.Allower) (any, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	c := firewall.Collector{Allower: al, Run: firewall.SocketReader(firewallReadSocket)}
+	return c.Collect(ctx)
+}
+
 // serviceCards is GET /v1/services (#623): every unit in the image's services registry
 // (/usr/lib/onemind/services.yaml) with systemd's state and memory, plus OneMind units the registry
 // does not list (known=false). Read-only: systemctl show and list-unit-files only.
 func serviceCards(ctx context.Context) (any, error) {
 	return (&svcregistry.Reader{Version: version.Version}).Collect(ctx)
+}
+
+// envDuration is a duration from an environment variable; unset or not a positive duration gives def.
+func envDuration(key string, def time.Duration) time.Duration {
+	if d, err := time.ParseDuration(os.Getenv(key)); err == nil && d > 0 {
+		return d
+	}
+	return def
+}
+
+// reloadOwnerFirewall has systemd load /data/onemind/firewall/live.nft. The unit holds CAP_NET_ADMIN, the host
+// service does not: it can only hand over a file, and `nft -c` in the unit refuses a file that is not valid.
+func reloadOwnerFirewall(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	if out, err := exec.CommandContext(ctx, "systemctl", "restart", "onemind-firewall-owner.service").CombinedOutput(); err != nil {
+		return fmt.Errorf("systemctl restart onemind-firewall-owner.service: %w: %s", err, out)
+	}
+	return nil
 }

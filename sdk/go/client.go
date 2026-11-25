@@ -82,6 +82,7 @@ type Client struct {
 	Events   *EventsService
 	Status   *StatusService
 	Services *ServicesService
+	Network  *NetworkService
 }
 
 // Option configures a Client.
@@ -171,6 +172,7 @@ func New(baseURL string, opts ...Option) (*Client, error) {
 	c.Events = &EventsService{c}
 	c.Status = &StatusService{c}
 	c.Services = &ServicesService{c}
+	c.Network = &NetworkService{c}
 	return c, nil
 }
 
@@ -444,6 +446,40 @@ type ServicesService struct{ c *Client }
 func (s *ServicesService) List(ctx context.Context) (*ServicesView, error) {
 	var v ServicesView
 	return &v, s.c.Do(ctx, http.MethodGet, "/v1/system/services", nil, &v)
+}
+
+// NetworkService is /v1/network: this box's network facts, owner only.
+type NetworkService struct{ c *Client }
+
+// Firewall is operation network.firewall (GET /v1/network/firewall, P-09 part 1): the live firewall checked
+// and explained in plain words, read only. Available is false, with a reason, when the host service cannot
+// be reached; an unknown firewall is never reported as safe.
+func (s *NetworkService) Firewall(ctx context.Context) (*FirewallView, error) {
+	var v FirewallView
+	return &v, s.c.Do(ctx, http.MethodGet, "/v1/network/firewall", nil, &v)
+}
+
+// Allow is operation network.firewall.allow (POST /v1/network/firewall/allow, P-09 part 2): it files a
+// firewall.allow action for one port from the home network ("lan") or the mesh ("mesh"). It only asks: an owner
+// approves it with a passkey, and the rule then stays pending until it is confirmed. Retried calls carry one
+// idempotency key so a retry never files twice.
+func (s *NetworkService) Allow(ctx context.Context, proto string, port int, scope, reason string) (*Action, error) {
+	body := map[string]any{"proto": proto, "port": port, "scope": scope, "idempotency_key": "sdk-" + strconv.FormatInt(time.Now().UnixNano(), 36)}
+	if reason != "" {
+		body["reason"] = reason
+	}
+	var v Action
+	return &v, s.c.Do(ctx, http.MethodPost, "/v1/network/firewall/allow", body, &v)
+}
+
+// ConfirmAllow is operation network.firewall.allow.confirm: keep a pending rule (owner only).
+func (s *NetworkService) ConfirmAllow(ctx context.Context, id string) error {
+	return s.c.Do(ctx, http.MethodPost, "/v1/network/firewall/allow/"+url.PathEscape(id)+"/confirm", nil, nil)
+}
+
+// RemoveAllow is operation network.firewall.allow.remove: take a rule away, pending or confirmed (owner only).
+func (s *NetworkService) RemoveAllow(ctx context.Context, id string) error {
+	return s.c.Do(ctx, http.MethodDelete, "/v1/network/firewall/allow/"+url.PathEscape(id), nil, nil)
 }
 
 // NodesService is /v1/nodes.
