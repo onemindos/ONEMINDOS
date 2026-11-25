@@ -122,7 +122,8 @@ func (c *Config) Validate() error {
 	seen := map[netip.Addr]bool{}
 	for _, s := range c.DNS {
 		a, err := netip.ParseAddr(s)
-		if err != nil || a.Zone() != "" || !a.IsGlobalUnicast() || seen[a] {
+		// IPv4 only: the profile's ipv4.dns property cannot hold an IPv6 server (nmcli would fail the change later).
+		if err != nil || !a.Is4() || !a.IsGlobalUnicast() || seen[a] {
 			return refuse("invalid_dns", "%q is not a usable, distinct DNS server address", s)
 		}
 		seen[a] = true
@@ -144,7 +145,7 @@ func broadcast(p netip.Prefix) netip.Addr {
 // Change is one change and what became of it (the record on /data).
 type Change struct {
 	Interface  string            `json:"interface"`
-	Connection string            `json:"connection"`
+	Connection string            `json:"connection"` // the profile's UUID (a name can collide with nmcli's own keywords)
 	Mode       string            `json:"mode"`
 	Address    string            `json:"address,omitempty"`
 	Gateway    string            `json:"gateway,omitempty"`
@@ -275,7 +276,11 @@ func (m *Manager) statusLocked(ctx context.Context) Status {
 		}
 		// Gone. After the deadline NetworkManager rolled back by itself; before it, NetworkManager lost it
 		// (a restart), so the settings are put back here.
-		m.settle(ctx, cur, m.now().Before(cur.Deadline.Add(-2*time.Second)))
+		if err := m.settle(ctx, cur, m.now().Before(cur.Deadline.Add(-2*time.Second))); err != nil {
+			// The old settings are NOT back: the change stays pending in the record and is retried at the next
+			// Status, Recover or Apply, instead of being recorded as rolled back while the new profile is in force.
+			return Status{Available: true, Pending: view(cur), Last: view(last)}
+		}
 		last = m.finish(cur, ResultRolledBack)
 		cur = nil
 		_ = m.save(nil, last)
@@ -290,7 +295,7 @@ func view(c *Change) *Change {
 		return nil
 	}
 	v := *c
-	v.Checkpoint, v.BootID, v.Previous = "", "", nil
+	v.Checkpoint, v.BootID, v.Previous, v.Connection = "", "", nil, ""
 	return &v
 }
 
@@ -302,10 +307,11 @@ func (m *Manager) finish(c *Change, result string) *Change {
 
 // settle makes sure the profile holds the saved settings again. NetworkManager restores them by itself
 // on rollback; this checks, and puts them back (reactivating the connection) only when they differ or
-// when force says NetworkManager did not do it.
-func (m *Manager) settle(ctx context.Context, c *Change, force bool) {
+// when force says NetworkManager did not do it. It returns an error when the settings could not be put
+// back (for example NetworkManager is not up yet), so the caller keeps the change pending and retries.
+func (m *Manager) settle(ctx context.Context, c *Change, force bool) error {
 	if len(c.Previous) == 0 {
-		return
+		return nil
 	}
 	differ := force
 	for _, p := range props {
@@ -314,24 +320,27 @@ func (m *Manager) settle(ctx context.Context, c *Change, force bool) {
 		}
 	}
 	if !differ {
-		return
+		return nil
 	}
 	if err := m.write(ctx, c.Connection, c.Previous); err != nil {
 		m.log().Error("network change: the old settings could not be put back", "err", err)
-		return
+		return err
 	}
-	if _, err := m.Run.Run(ctx, "nmcli", "--wait", "30", "connection", "up", c.Connection, "ifname", c.Interface); err != nil {
+	if _, err := m.Run.Run(ctx, "nmcli", "--wait", "30", "connection", "up", "uuid", c.Connection, "ifname", c.Interface); err != nil {
+		// The profile holds the old settings again; only the live connection did not follow. Not fatal:
+		// the record can end, and the next activation (or reboot) picks the profile up.
 		m.log().Error("network change: reactivating after the rollback failed", "err", err)
 	}
+	return nil
 }
 
 func (m *Manager) get(ctx context.Context, con, prop string) string {
-	out, _ := m.Run.Run(ctx, "nmcli", "-t", "-g", prop, "connection", "show", con)
+	out, _ := m.Run.Run(ctx, "nmcli", "-t", "-g", prop, "connection", "show", "uuid", con)
 	return strings.TrimSpace(string(out))
 }
 
 func (m *Manager) write(ctx context.Context, con string, v map[string]string) error {
-	args := []string{"connection", "modify", con}
+	args := []string{"connection", "modify", "uuid", con} // by UUID: a profile named "id", "uuid" or "path" would be misread
 	for _, p := range props {
 		args = append(args, p, v[p])
 	}
@@ -353,11 +362,15 @@ func (m *Manager) Recover(ctx context.Context) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	cur, last := m.load()
+	// An empty BootID (it could not be read) never matches, so every host-service restart rolls a pending
+	// change back: the safe direction, because the owner can always ask again.
 	if cur == nil || cur.Result != ResultPending || (m.BootID != "" && cur.BootID == m.BootID) {
 		return // nothing waiting, or this very boot (the host service only restarted: Status settles it)
 	}
 	m.log().Warn("an unconfirmed network change survived a reboot: putting the old settings back", "interface", cur.Interface)
-	m.settle(ctx, cur, true)
+	if err := m.settle(ctx, cur, true); err != nil {
+		return // still pending in the record: Status retries once NetworkManager answers
+	}
 	last = m.finish(cur, ResultRolledBack)
 	_ = m.save(nil, last)
 }
@@ -417,13 +430,14 @@ func (m *Manager) Apply(ctx context.Context, iface string, c Config) (Status, er
 	}
 	err = m.write(ctx, con, want)
 	if err == nil {
-		_, err = m.Run.Run(ctx, "nmcli", "--wait", "40", "connection", "up", con, "ifname", iface)
+		_, err = m.Run.Run(ctx, "nmcli", "--wait", "40", "connection", "up", "uuid", con, "ifname", iface)
 	}
 	if err != nil {
 		m.log().Error("network change failed; rolling back", "interface", iface, "err", err)
 		_, _ = m.Run.Run(ctx, "busctl", "--system", "call", nmBus, nmPath, nmBus, "CheckpointRollback", "o", ch.Checkpoint)
-		m.settle(ctx, ch, false)
-		_ = m.save(nil, m.finish(ch, ResultRolledBack))
+		if m.settle(ctx, ch, false) == nil {
+			_ = m.save(nil, m.finish(ch, ResultRolledBack))
+		} // else the record stays pending and Status retries the put-back
 		return Status{}, refuse("apply_failed", "NetworkManager could not apply that; the old settings are back")
 	}
 	return Status{Available: true, Pending: view(ch), Last: view(last)}, nil
@@ -431,7 +445,7 @@ func (m *Manager) Apply(ctx context.Context, iface string, c Config) (Status, er
 
 // wiredConnection is the active profile of an ethernet interface, or a Refusal saying why there is none.
 func (m *Manager) wiredConnection(ctx context.Context, iface string) (string, error) {
-	out, err := m.Run.Run(ctx, "nmcli", "-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device", "status")
+	out, err := m.Run.Run(ctx, "nmcli", "-t", "-f", "DEVICE,TYPE,STATE,CON-UUID", "device", "status")
 	if err != nil {
 		return "", refuse("network_unavailable", "NetworkManager could not list the interfaces")
 	}

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -22,12 +22,12 @@ const json = (v: unknown, code = 200) => new Response(JSON.stringify(v), { statu
 
 type Call = { method: string; path: string; body: Record<string, unknown> | null };
 
-function mount(changes: unknown, answer: (c: Call) => Response | undefined = () => undefined) {
+function mount(changes: unknown | (() => unknown), answer: (c: Call) => Response | undefined = () => undefined) {
   const calls: Call[] = [];
   const fetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
     const call: Call = { method: init?.method ?? 'GET', path: new URL(String(url)).pathname, body: init?.body ? JSON.parse(String(init.body)) : null };
     calls.push(call);
-    if (call.method === 'GET' && call.path === '/v1/network') return json({ ...base, changes });
+    if (call.method === 'GET' && call.path === '/v1/network') return json({ ...base, changes: typeof changes === 'function' ? (changes as () => unknown)() : changes });
     return answer(call) ?? json({ error: 'not_found', message: 'unexpected call' }, 404);
   });
   vi.stubGlobal('fetch', fetch);
@@ -118,4 +118,20 @@ it('shows nothing to change against a gateway that does not report changes', asy
   mount(undefined);
   expect(await screen.findByRole('heading', { level: 1, name: 'Network' })).toBeInTheDocument();
   expect(screen.queryByRole('form', { name: 'Change a cable connection' })).not.toBeInTheDocument();
+});
+
+it('a countdown that runs out is a rollback, never a confirmation', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  const started = new Date().toISOString();
+  const deadline = new Date(Date.now() + 5_000).toISOString();
+  const pending = { interface: 'eth0', mode: 'static', address: '192.0.2.50/24', gateway: '192.0.2.1', dns: [], result: 'pending', started_at: started, deadline, ended_at: null };
+  const last = { ...pending, result: 'rolled_back', ended_at: deadline };
+  let rolledBack = false;
+  const calls = mount(() => (rolledBack ? { ...idle, last } : { ...idle, pending }));
+  expect(await screen.findByRole('button', { name: 'Confirm eth0' })).toBeInTheDocument();
+  rolledBack = true; // the box puts the old settings back by itself once the time is up
+  await act(async () => { await vi.advanceTimersByTimeAsync(5_000 + 4_000 + 1_000); });
+  expect(await screen.findByText(/was not confirmed in time, so the box went back to its old settings/)).toBeInTheDocument();
+  expect(screen.queryByText(/Confirmed\. The change stays/)).not.toBeInTheDocument();
+  expect(calls.some((c) => c.method === 'POST')).toBe(false);
 });

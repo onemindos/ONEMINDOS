@@ -27,7 +27,7 @@ export function secondsLeft(deadline: string, now: number): number {
   return Math.max(0, Math.ceil((Date.parse(deadline) - now) / 1000));
 }
 
-function Confirm({ client, pending, onDone }: { client: OneMind; pending: Pending; onDone: () => void }) {
+function Confirm({ client, pending, onDone, onExpired }: { client: OneMind; pending: Pending; onDone: () => void; onExpired: () => void }) {
   const [now, setNow] = useState(() => Date.now());
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -38,9 +38,9 @@ function Confirm({ client, pending, onDone }: { client: OneMind; pending: Pendin
   const left = secondsLeft(pending.deadline, now);
   useEffect(() => {
     if (left > 0) return;
-    const t = window.setTimeout(onDone, 4000); // the box rolled back by itself: read the network again
+    const t = window.setTimeout(onExpired, 4000); // the box rolled back by itself: read the network again (this is NOT a confirmation)
     return () => window.clearTimeout(t);
-  }, [left, onDone]);
+  }, [left, onExpired]);
   const confirm = async () => {
     setBusy(true);
     setErr(null);
@@ -85,7 +85,7 @@ export function NetworkChange({ client, view, onChanged }: { client: OneMind; vi
 
   if (!changes) return null; // an older gateway: this page cannot change anything
   if (changes.pending) {
-    return <Confirm client={client} pending={changes.pending} onDone={() => { setKept(true); onChanged(); }} />;
+    return <Confirm client={client} pending={changes.pending} onDone={() => { setKept(true); onChanged(); }} onExpired={onChanged} />;
   }
   const rolledBack = changes.last?.result === 'rolled_back' ? changes.last : null;
   const submit = async (ev: FormEvent) => {

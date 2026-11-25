@@ -18,6 +18,7 @@ import shutil
 import socketserver
 import tempfile
 import threading
+import time
 from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
@@ -49,6 +50,7 @@ class FakeHost:
         self.last: dict | None = None
         self.available = True
         self.fail: tuple[int, dict] | None = None
+        self.put_delay = 0.0  # answers after this long, but has already applied the change
         host = self
 
         class H(http.server.BaseHTTPRequestHandler):
@@ -83,7 +85,12 @@ class FakeHost:
                 host.pending = {"interface": self.path.rsplit("/", 1)[1], "mode": body["mode"], "address": body.get("address"),
                                 "gateway": body.get("gateway"), "dns": body.get("dns", []), "result": "pending",
                                 "started_at": NOW, "deadline": LATER}
-                self.send(200, self.status())
+                if host.put_delay:
+                    time.sleep(host.put_delay)
+                try:
+                    self.send(200, self.status())
+                except OSError:
+                    pass  # the gateway gave up waiting
 
             def do_POST(self):
                 iface = self.path.split("/")[3]
@@ -113,10 +120,11 @@ def host():
 
 
 @contextmanager
-def box(settings, clock, sock: str, *, passkey=True):
+def box(settings, clock, sock: str, *, passkey=True, timeout_s: float | None = None):
+    net = NetSettings(host_socket=Path(sock)) if timeout_s is None else NetSettings(host_socket=Path(sock), host_timeout_s=timeout_s)
     s = replace(settings, sections={
         "identity": IdentitySettings(rp_id=RP_ID, origins=(ORIGIN,), cookie_secure=False),
-        "net": NetSettings(host_socket=Path(sock))})
+        "net": net})
     with TestClient(create_app(s, clock=clock)) as c:
         if passkey:
             setup_owner(c)
@@ -205,6 +213,7 @@ def test_going_back_to_dhcp_sends_no_address(settings, clock, host):
     ({"mode": "static", "address": "192.0.2.50/24", "gateway": "192.0.2.1", "dns": ["127.0.0.1"]}, "invalid_dns"),
     ({"mode": "static", "address": "192.0.2.50/24", "gateway": "192.0.2.1", "dns": ["192.0.2.9", "192.0.2.9"]}, "invalid_dns"),
     ({"mode": "static", "address": "192.0.2.50/24", "gateway": "192.0.2.1", "dns": ["not an address"]}, "invalid_dns"),
+    ({"mode": "static", "address": "192.0.2.50/24", "gateway": "192.0.2.1", "dns": ["2001:db8::53"]}, "invalid_dns"),
     ({"mode": "dhcp", "address": "192.0.2.50/24"}, "invalid_config"),
 ])
 def test_an_address_no_network_can_use_is_refused_and_nothing_is_filed(settings, clock, host, body, reason):
@@ -278,6 +287,15 @@ def test_a_host_that_cannot_apply_ends_the_action_as_failed_with_its_reason(sett
         done = c.get(f"/v1/actions/{a['id']}", headers=OWNER).json()
         assert done["state"] == "failed" and "old settings are back" in done["result"]["message"], done
         assert done["result"]["steps"][0]["result"] == "apply_failed"
+
+
+def test_a_host_that_is_slow_but_does_apply_is_not_reported_as_failed(settings, clock, host):
+    with box(settings, clock, host.path, timeout_s=0.3) as c:
+        a = put(c, **STATIC).json()
+        host.put_delay = 1.0
+        assert approve(c, a["id"]).status_code == 200
+        done = c.get(f"/v1/actions/{a['id']}", headers=OWNER).json()
+        assert done["state"] == "succeeded" and done["result"]["steps"][0]["result"] == "pending_confirmation", done
 
 
 def test_only_owners_may_ask_or_confirm(settings, clock, host):

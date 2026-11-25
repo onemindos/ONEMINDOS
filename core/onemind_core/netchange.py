@@ -140,7 +140,7 @@ def check_config(body: NetworkConfigBody) -> None:
             d = ipaddress.ip_address(s)
         except ValueError:
             raise _bad(f"{s!r} is not a DNS server address.", "invalid_dns") from None
-        if d in seen or d.is_loopback or d.is_unspecified or d.is_multicast or d.is_link_local:
+        if d.version != 4 or d in seen or d.is_loopback or d.is_unspecified or d.is_multicast or d.is_link_local:
             raise _bad(f"{s} is not a usable, distinct DNS server address.", "invalid_dns")
         seen.add(d)
 
@@ -198,8 +198,16 @@ class NetChangeService:
         try:
             changes = self.host.apply(p["interface"], host_body)
         except NetHostError as e:
-            finish(ExecResult("failed", e.message, steps=[{"step": "apply network", "interface": p["interface"], "result": e.reason}]))
-            return
+            if e.reason == "host_timeout":
+                # The host may still be applying: it can answer after this call gave up. Read it again before
+                # calling the action failed, because a change that is now pending is waiting for Confirm.
+                after = self.host.changes()
+                if after.pending is not None and after.pending.interface == p["interface"]:
+                    changes = after
+                    e = None
+            if e is not None:
+                finish(ExecResult("failed", e.message, steps=[{"step": "apply network", "interface": p["interface"], "result": e.reason}]))
+                return
         except Exception as e:  # noqa: BLE001 - an approved action must always end
             log.exception("applying the network change failed")
             finish(ExecResult("failed", f"The gateway could not apply the change ({type(e).__name__}). Check the network screen.",

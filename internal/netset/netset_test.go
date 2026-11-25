@@ -19,11 +19,12 @@ type fakeNM struct {
 	checkpoint string // "" = none held by NetworkManager
 	cmds       []string
 	failUp     bool
+	failModify bool
 	rollbackTo map[string]string // what a CheckpointRollback restores (nil: NetworkManager restores nothing)
 }
 
 func newFake() *fakeNM {
-	return &fakeNM{running: true, devices: "eth0:ethernet:connected:Wired connection 1\nlo:loopback:connected (externally):lo\nflannel.1:vxlan:unmanaged:--\neth1:ethernet:disconnected:--\ntailscale0:tun:unmanaged:--\neth2:ethernet:unmanaged:--",
+	return &fakeNM{running: true, devices: "eth0:ethernet:connected:6f1e1c1a-0000-4000-8000-000000000001\nlo:loopback:connected (externally):lo\nflannel.1:vxlan:unmanaged:--\neth1:ethernet:disconnected:--\ntailscale0:tun:unmanaged:--\neth2:ethernet:unmanaged:--",
 		props: map[string]string{"ipv4.method": "auto", "ipv4.addresses": "", "ipv4.gateway": "", "ipv4.dns": "", "ipv4.ignore-auto-dns": "no"}}
 }
 
@@ -36,12 +37,15 @@ func (f *fakeNM) Run(_ context.Context, name string, args ...string) ([]byte, er
 			return []byte("running\n"), nil
 		}
 		return nil, errors.New("nmcli: NetworkManager is not running")
-	case strings.HasPrefix(line, "nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device status"):
+	case strings.HasPrefix(line, "nmcli -t -f DEVICE,TYPE,STATE,CON-UUID device status"):
 		return []byte(f.devices + "\n"), nil
 	case strings.HasPrefix(line, "nmcli -t -g ipv4"):
 		return []byte(f.props[args[2]] + "\n"), nil
-	case strings.HasPrefix(line, "nmcli connection modify"):
-		for i := 3; i+1 < len(args); i += 2 {
+	case strings.HasPrefix(line, "nmcli connection modify uuid "):
+		if f.failModify {
+			return nil, errors.New("nmcli: NetworkManager is not running")
+		}
+		for i := 4; i+1 < len(args); i += 2 {
 			f.props[args[i]] = args[i+1]
 		}
 	case strings.HasPrefix(line, "nmcli --wait 40 connection up"):
@@ -137,6 +141,7 @@ func TestValidate(t *testing.T) {
 		{"gateway is broadcast", Config{Mode: "static", Address: "192.0.2.5/24", Gateway: "192.0.2.255"}, "invalid_gateway"},
 		{"four dns", Config{Mode: "static", Address: "192.0.2.5/24", Gateway: "192.0.2.1", DNS: []string{"192.0.2.2", "192.0.2.3", "192.0.2.4", "192.0.2.6"}}, "invalid_dns"},
 		{"dns loopback", Config{Mode: "static", Address: "192.0.2.5/24", Gateway: "192.0.2.1", DNS: []string{"127.0.0.1"}}, "invalid_dns"},
+		{"dns ipv6", Config{Mode: "static", Address: "192.0.2.5/24", Gateway: "192.0.2.1", DNS: []string{"2001:db8::53"}}, "invalid_dns"},
 		{"dns twice", Config{Mode: "static", Address: "192.0.2.5/24", Gateway: "192.0.2.1", DNS: []string{"192.0.2.9", "192.0.2.9"}}, "invalid_dns"},
 		{"dns flag injection", Config{Mode: "static", Address: "192.0.2.5/24", Gateway: "192.0.2.1", DNS: []string{"--wait"}}, "invalid_dns"},
 		{"rollback too short", Config{Mode: "dhcp", RollbackSeconds: 5}, "invalid_rollback"},
@@ -364,5 +369,39 @@ func TestSplitTerse(t *testing.T) {
 	got := splitTerse(`eth0:ethernet:connected:Wired\: office`, 4)
 	if len(got) != 4 || got[3] != "Wired: office" {
 		t.Fatalf("%q", got)
+	}
+}
+
+func TestRecoverThatCannotPutTheSettingsBackStaysPendingAndIsRetried(t *testing.T) {
+	m, f, now := setup(t)
+	if _, err := m.Apply(context.Background(), "eth0", static); err != nil {
+		t.Fatal(err)
+	}
+	f.checkpoint = "" // the box rebooted: NetworkManager's timer is gone, the new profile is on disk
+	m2 := &Manager{Run: f, StatePath: m.StatePath, BootID: "boot-2", Now: m.Now}
+	f.failModify = true // NetworkManager is not answering yet
+	m2.Recover(context.Background())
+	if cur, last := m2.load(); cur == nil || cur.Result != ResultPending || last != nil {
+		t.Fatalf("a failed put-back must not be recorded as rolled back: %+v %+v", cur, last)
+	}
+	if f.props["ipv4.method"] != "manual" {
+		t.Fatalf("the fake should still hold the new profile: %v", f.props)
+	}
+	// NetworkManager is up: the next Status retries and finishes the rollback.
+	f.failModify = false
+	*now = now.Add(time.Minute)
+	st := m2.Status(context.Background())
+	if st.Pending != nil || st.Last == nil || st.Last.Result != ResultRolledBack || f.props["ipv4.method"] != "auto" || f.props["ipv4.dns"] != "" {
+		t.Fatalf("%+v %v", st, f.props)
+	}
+}
+
+func TestProfilesAreAddressedByUUID(t *testing.T) {
+	m, f, _ := setup(t)
+	if _, err := m.Apply(context.Background(), "eth0", static); err != nil {
+		t.Fatal(err)
+	}
+	if f.ran("connection modify uuid 6f1e1c1a-0000-4000-8000-000000000001 ") != 1 || f.ran("connection up uuid 6f1e1c1a-0000-4000-8000-000000000001 ifname eth0") != 1 {
+		t.Fatalf("%v", f.cmds)
 	}
 }
