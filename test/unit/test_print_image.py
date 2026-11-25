@@ -95,6 +95,16 @@ class State(unittest.TestCase):
                              % (re.escape(src), re.escape(dst)))
             self.assertIn(f"/data/state/{src}", DROPIN)            # the source folder is made before the bind runs
 
+    def test_boards_with_their_own_fstab_carry_the_same_binds(self):
+        for f in ("os/boards/rpi5/rootfs/etc/fstab",):   # Jetson runs L4T with its own layer: out of scope
+            for src, dst in self.BINDS.items():
+                self.assertRegex(rd(f), r"(?m)^/data/state/%s\s+%s\s+none bind," % (re.escape(src), re.escape(dst)), f)
+
+    def test_recovery_check_waits_for_the_new_mounts(self):
+        after = re.search(r"(?m)^After=(.*)$", rd("os/recovery/onemind-data-check.service")).group(1).split()
+        for m in ("etc-cups.mount", "var-spool-cups.mount", "var-cache-cups.mount", "var-lib-ipp\\x2dusb.mount"):
+            self.assertIn(m, after)
+
     def test_mount_points_exist_in_the_image(self):
         self.assertIn("/var/lib/ipp-usb", CONTAINERFILE)
         for p in ("/etc/cups", "/var/spool/cups", "/var/cache/cups"):

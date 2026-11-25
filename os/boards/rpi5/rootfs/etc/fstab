@@ -27,3 +27,8 @@ PARTUUID=4f4d5035-07  /data      ext4  defaults,noatime,nofail,x-systemd.device-
 # The hub's JetStream store (app event streams), on the data disk so it survives A/B updates.
 /data/state/var-lib-onemind-nats      /var/lib/onemind-nats         none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
 /data/state/etc-hosts                 /etc/hosts                    none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+# Printing (Step 3): CUPS's settings and printers, its spool and cache, and ipp-usb's state live on the data disk.
+/data/state/etc-cups                  /etc/cups                     none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-spool-cups            /var/spool/cups               none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-cache-cups            /var/cache/cups               none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-lib-ipp-usb           /var/lib/ipp-usb              none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
