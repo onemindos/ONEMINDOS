@@ -12,8 +12,11 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (books) are listed in README.md
   # until the schema has metadata.tags.
   category: media
+  age_rating: 12   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Reads and downloads ebooks; the library holds whatever the owner added."
   icon: icon.svg
   license: "GPL-3.0"
+  licenceClass: L2
   source: https://github.com/janeczku/calibre-web
   links:
     docs: "https://github.com/janeczku/calibre-web/wiki"

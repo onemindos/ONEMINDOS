@@ -12,8 +12,11 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
   # the schema has metadata.tags).
   category: developer
+  age_rating: 12   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Code hosting with issues and comments; content is user-made."
   icon: icon.svg
   license: "MIT"
+  licenceClass: L1
   source: https://github.com/go-gitea/gitea
   # §9.3 facts from the GitHub API (repos/go-gitea/gitea), read 2026-11-12.
   links:

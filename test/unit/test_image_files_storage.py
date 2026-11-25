@@ -7,6 +7,7 @@ import os, re, sys, tempfile, unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 LIB = os.path.join(ROOT, "os", "rootfs", "layers", "onemind", "usr", "lib")
 sys.path.insert(0, os.path.join(LIB, "onemind"))
+sys.path.insert(1, os.path.join(ROOT, "core"))  # onemind_core.jetstream: the JetStream cap (#601)
 import onemind_firstboot as fb  # noqa: E402
 
 
@@ -17,7 +18,8 @@ def unit(name):
 class FilesAndStorageOnTheImage(unittest.TestCase):
     def test_gateway_env_points_files_at_the_data_partition_and_turns_storage_on(self):
         with tempfile.TemporaryDirectory() as d:
-            env = fb.gateway_env(fb.Paths(d), {"box": "home-box", "node_id": "abc", "name": "Home"})
+            env = fb.gateway_env(fb.Paths(d), {"box": "home-box", "node_id": "abc", "name": "Home"},
+                                 js_max_bytes=1 << 30)
         self.assertIn("ONEMIND_FILES_ROOT=/data/onemind/files\n", env)
         self.assertIn("ONEMIND_STORAGE_ENABLED=1\n", env)
 

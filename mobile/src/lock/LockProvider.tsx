@@ -33,6 +33,11 @@ export function useLock(): Lock {
   return v;
 }
 
+/** True while the lock screen covers the app. False outside a LockProvider (the lock is off there). */
+export function useIsLocked(): boolean {
+  return useContext(Ctx)?.locked ?? false;
+}
+
 export function LockProvider({ children, relockMs = RELOCK_MS, now = Date.now }: { children: ReactNode; relockMs?: number; now?: () => number }) {
   const [ready, setReady] = useState(false);
   const [available, setAvailable] = useState<boolean>();
@@ -107,7 +112,15 @@ export function LockProvider({ children, relockMs = RELOCK_MS, now = Date.now }:
   const value = useMemo<Lock>(() => ({ available, enabled, locked, setEnabled, confirm }), [available, enabled, locked, setEnabled, confirm]);
   return (
     <Ctx.Provider value={value}>
-      {children}
+      {/* Hidden from TalkBack and VoiceOver while the lock covers the screen, so they cannot read or act on what is behind it. */}
+      <View
+        testID="app-content"
+        style={{ flex: 1 }}
+        importantForAccessibility={!ready || locked ? 'no-hide-descendants' : 'auto'}
+        accessibilityElementsHidden={!ready || locked}
+      >
+        {children}
+      </View>
       {(!ready || locked) && <LockScreen checking={!ready} onUnlock={() => void unlock()} />}
     </Ctx.Provider>
   );
@@ -116,7 +129,7 @@ export function LockProvider({ children, relockMs = RELOCK_MS, now = Date.now }:
 function LockScreen({ checking, onUnlock }: { checking: boolean; onUnlock: () => void }) {
   const t = useTheme();
   return (
-    <View testID={checking ? 'app-lock-checking' : 'app-lock'} style={[StyleSheet.absoluteFill, { backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center', gap: space.lg, padding: space.xl }]}>
+    <View testID={checking ? 'app-lock-checking' : 'app-lock'} accessibilityViewIsModal style={[StyleSheet.absoluteFill, { backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center', gap: space.lg, padding: space.xl }]}>
       {!checking && (
         <>
           <Text style={{ color: t.text, fontSize: font.lg, fontWeight: font.bold }}>OneMind is locked</Text>

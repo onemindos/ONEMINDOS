@@ -2,6 +2,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { Features, OP, type OneMindApi } from '../api/client';
 import { ApiError } from '../api/types';
+import { useIsLocked } from '../lock/LockProvider';
 import { useSignedIn } from '../session';
 import { IncomingFiles } from './IncomingFiles';
 import { canResolve, stagedFiles, useFileShare } from './incoming';
@@ -9,6 +10,7 @@ import { deliverShare, discardShare, readShare, shareDirectory, stageShare } fro
 import type { ResolvedSharePayload } from 'expo-sharing';
 
 jest.mock('../data', () => ({ useHubData: () => ({ refreshing: false }) }));
+jest.mock('../lock/LockProvider', () => ({ useIsLocked: jest.fn(() => false) }));
 jest.mock('../session', () => ({ useSignedIn: jest.fn() }));
 jest.mock('./incoming', () => ({ ...jest.requireActual('./incoming'), useFileShare: jest.fn() }));
 jest.mock('./shareQueue', () => ({
@@ -93,4 +95,15 @@ it('registers Android single-document and mixed-batch shares without advertising
   expect(options.android).toEqual({
     enabled: true, singleShareMimeTypes: ['image/*', 'application/*', 'audio/*', 'video/*'], multipleShareMimeTypes: ['*/*'],
   });
+});
+
+it('shows nothing while the app is locked (a Modal would draw above the lock), and the sheet opens after the unlock', async () => {
+  jest.mocked(useIsLocked).mockReturnValue(true);
+  const view = await render(<IncomingFiles />);
+  expect(screen.queryByText('Shared files')).toBeNull();
+  expect(shareDirectory).not.toHaveBeenCalled(); // no folder listing or upload can start behind the lock
+  jest.mocked(useIsLocked).mockReturnValue(false);
+  await view.rerender(<IncomingFiles />);
+  expect(await screen.findByText('Shared files')).toBeTruthy();
+  expect(clear).not.toHaveBeenCalled(); // the shared files were kept for after the unlock
 });

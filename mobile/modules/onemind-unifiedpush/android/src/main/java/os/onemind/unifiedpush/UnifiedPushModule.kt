@@ -64,6 +64,9 @@ class UnifiedPushModule : Module() {
     Function("showApproval") { tag: String, title: String, body: String, actionId: String ->
       Notices.showApproval(context, tag, title, body, actionId)
     }
+
+    /** When the last ping arrived (ms since epoch), including while the app was closed; null if never. */
+    Function("lastPingAt") { Store.lastPing(context) }
   }
 
   companion object {

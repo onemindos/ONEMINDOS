@@ -9,9 +9,10 @@ strings marked `x-onemind-open-enum`: an SDK must accept a value it does not kno
 
 from __future__ import annotations
 
+import re
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 OPEN_ENUM = {"x-onemind-open-enum": True}
 
@@ -122,9 +123,31 @@ class NodeTTYPort(_Profile):
     usb_port: str | None = Field(default=None, pattern=USB_PORT)
 
 
+# The known USB dongle kinds (sdk/schema/onemind.radios.json, #732). Such a radio's interface is its
+# USB serial line and its device the stable name udev gave it, /dev/onemind/<kind><n>: the only path a
+# grant (#854) ever passes into an app. wifi, bluetooth and cellular radios carry no device.
+SERIAL_RADIO_KINDS = ("zigbee", "zigbee-thread", "lora")
+USB_TTY = r"^tty(USB|ACM)[0-9]+$"
+RADIO_DEVICE = r"^/dev/onemind/(zigbee|zigbee-thread|lora)([0-9]|1[0-5])$"
+# A radio's stable id: the machine's node id, a dot, the stable name's last part (3f9c2a1b7d4e.lora0).
+RADIO_ID = r"^[A-Za-z0-9_-]{1,64}\.(zigbee|zigbee-thread|lora)([0-9]|1[0-5])$"
+
+
 class NodeRadio(_Profile):
-    kind: str = Field(max_length=16, description="wifi | bluetooth | cellular", json_schema_extra=OPEN_ENUM)
-    interface: str = Field(pattern=r"^[A-Za-z0-9_.-]{1,15}$")
+    kind: str = Field(max_length=16, description="wifi | bluetooth | cellular | zigbee | zigbee-thread | lora", json_schema_extra=OPEN_ENUM)
+    interface: str = Field(pattern=r"^[A-Za-z0-9_.-]{1,15}$", description="the network interface (wlan0, hci0), or for a USB dongle its serial line (ttyUSB0)")
+    device: str | None = Field(default=None, pattern=RADIO_DEVICE, description="a USB dongle's stable name, /dev/onemind/<kind><n> (lora0); absent for wifi, bluetooth and cellular")
+
+    @model_validator(mode="after")
+    def _dongle_is_a_named_usb_tty(self):
+        if self.kind in SERIAL_RADIO_KINDS:
+            if not re.match(USB_TTY, self.interface):
+                raise ValueError(f"a {self.kind} radio's interface must be a USB serial line")
+            if self.device is None or re.match(RADIO_DEVICE, self.device).group(1) != self.kind:
+                raise ValueError(f"a {self.kind} radio needs its own /dev/onemind/{self.kind}<n> name")
+        elif self.device is not None:
+            raise ValueError("only a known USB dongle has a /dev/onemind name")
+        return self
 
 
 class NodeCamera(_Profile):
@@ -145,6 +168,22 @@ class NodeThermalProfile(_Profile):
     state: str | None = Field(default=None, max_length=16, description="normal | passive | hot | critical", json_schema_extra=OPEN_ENUM)
 
 
+DRIVER_NAME = r"^[A-Za-z0-9_.-]{1,32}$"
+
+
+class NodeIOMMUGroup(_Profile):
+    group: int = Field(ge=0, description="the kernel's IOMMU group number (/sys/kernel/iommu_groups/N)")
+    devices: list[Annotated[str, Field(pattern=PCI_SLOT)]] = Field(max_length=32, description="PCI addresses in the group")
+
+
+class NodePassthrough(_Profile):
+    """What a VM device grant reads (#690). Present only when the kernel runs with an IOMMU (VT-d, AMD-Vi)."""
+
+    iommu_groups: list[NodeIOMMUGroup] = Field(max_length=MAX_LISTED, description="the groups that hold an accelerator")
+    usb_drivers: dict[Annotated[str, Field(pattern=USB_PORT)], list[Annotated[str, Field(pattern=DRIVER_NAME)]]] = Field(
+        max_length=MAX_LISTED, description="USB port -> drivers bound to its interfaces; a port that is not a key has none")
+
+
 class NodeCapabilities(_Profile):
     """The machine's hardware profile, sent in its heartbeat; read with nodes:read only."""
 
@@ -158,6 +197,45 @@ class NodeCapabilities(_Profile):
     cameras: list[NodeCamera] | None = Field(max_length=MAX_LISTED)
     power: NodePowerProfile
     thermal: NodeThermalProfile
+    passthrough: NodePassthrough | None = Field(default=None, description="absent without an IOMMU: no device can be passed to a machine (#690)")
+
+
+class RadioConfirmation(BaseModel):
+    """What the owner confirms on a radio's card before anything may open it (#732; the grant is #854)."""
+
+    profile: str = Field(description="meshcore-companion-usb", json_schema_extra=OPEN_ENUM)
+    label: str = Field(description="what the card asks, e.g. MeshCore companion (USB)")
+    confirmed: bool = Field(description="true once an owner confirmed this radio on this machine and USB port; kept across gateway restarts and replugs into the same port, asked again on another port")
+    confirmed_at: str | None = None
+
+
+class RadioCard(BaseModel):
+    """One radio-found card (GET /v1/radios, #732): a USB serial line on a machine, from its latest heartbeat.
+
+    A known radio has a kind and its stable name `device`; any other USB serial line is listed with
+    kind and device null: never named, never granted. Unplugging removes the card with the next heartbeat.
+    OneMind never probes a radio: kind and model come from the USB ids alone.
+    """
+
+    id: str | None = Field(pattern=RADIO_ID, description="the radio's stable id, <node_id>.<kind><n> (3f9c2a1b7d4e.lora0), used by /v1/radios/{id}/...; null when not a known radio")
+    node_id: str
+    hostname: str | None = None
+    node_status: str = Field(description="online | stale | offline", json_schema_extra=OPEN_ENUM)
+    kind: str | None = Field(description="zigbee | zigbee-thread | lora; null: not a known radio", json_schema_extra=OPEN_ENUM)
+    model: str | None = Field(description="from sdk/schema/onemind.radios.json; null when unknown or several products share the id")
+    match: str | None = Field(description="product: the USB id and product string name the product | id: a generic USB-serial chip, the id alone proves nothing; null when unknown", json_schema_extra=OPEN_ENUM)
+    tty: str = Field(pattern=USB_TTY, description="the kernel's name for the serial line, e.g. ttyUSB0")
+    device: str | None = Field(pattern=RADIO_DEVICE, description="the stable name, /dev/onemind/<kind><n>; null when not named")
+    usb_id: str | None = Field(pattern=VID_PID, description="vvvv:pppp")
+    usb_port: str | None = Field(pattern=USB_PORT, description="kernel port path, e.g. 1-1.2")
+    confirm: RadioConfirmation | None = Field(description="the owner's confirmation this kind needs before a grant; null when none is needed")
+
+
+class RadioConfirmRequest(BaseModel):
+    """POST /v1/radios/{id}/confirm: an owner says the radio with this id is this profile."""
+
+    model_config = ConfigDict(extra="forbid")
+    profile: Literal["meshcore-companion-usb"]
 
 
 class Node(BaseModel):
@@ -174,6 +252,11 @@ class Node(BaseModel):
     k3s: NodeK3s | None = None
     capabilities: NodeCapabilities | None = Field(default=None, description="hardware profile (#618); absent from older agents")
     status: str = Field(description="online | stale | offline", json_schema_extra=OPEN_ENUM)
+    presence: str | None = Field(default=None, description="online | offline: the fast view for live screens "
+                                 "(#608). Offline once a heartbeat is clearly missed (14 s) or at once after a "
+                                 "clean shutdown. Absent from older gateways", json_schema_extra=OPEN_ENUM)
+    departed_at: str | None = Field(default=None, description="RFC 3339 time the node announced a clean "
+                                    "shutdown; null while it is running or after it came back")
     last_seen: str = Field(description="RFC 3339 time the gateway last received a heartbeat")
 
 

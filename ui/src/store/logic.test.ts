@@ -18,6 +18,7 @@ import {
   monogram,
   nextJobState,
   primaryAction,
+  qualityOf,
   searchScore,
   tagsInCategory,
   tileHue,
@@ -194,5 +195,29 @@ describe('tiles and store tokens', () => {
   it.each(TILE_HUES.map((h) => [h.name, h] as const))('%s tile: white monogram ≥ 4.5:1 on both gradient stops', (_n, h) => {
     expect(contrast(TILE_TEXT, h.a)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(TILE_TEXT, h.b)).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('quality tiers (#174)', () => {
+  const app = catalog.find((a) => a.deploy_class === 'market-verified' && a.scan)!;
+  const rated = (tier: 'none' | 'bronze' | 'silver' | 'gold') => ({
+    ...app,
+    scan: { ...app.scan!, quality: { tier, evidence: { bronze: {}, silver: {}, gold: {} } } },
+  });
+  it('reads the tier from the scan, and an unrated app counts as none', () => {
+    expect(qualityOf(rated('gold'))).toBe('gold');
+    expect(qualityOf({ scan: null })).toBe('none');
+    expect(qualityOf({ scan: { ...app.scan!, quality: null } })).toBe('none');
+  });
+  it('filters at a minimum tier and counts the filter as active', () => {
+    const apps = [rated('gold'), { ...rated('silver'), id: 's' }, { ...rated('bronze'), id: 'b' }, { ...rated('none'), id: 'n' }, { ...app, id: 'old', scan: { ...app.scan!, quality: undefined } }];
+    const at = (quality: 'any' | 'bronze' | 'silver' | 'gold') =>
+      filterApps(apps, { ...DEFAULT_FILTERS, fitsOnly: false, quality }).apps.map((a) => a.id).sort();
+    expect(at('any')).toHaveLength(5);
+    expect(at('bronze')).toEqual([app.id, 'b', 's'].sort());
+    expect(at('silver')).toEqual([app.id, 's'].sort());
+    expect(at('gold')).toEqual([app.id]);
+    expect(activeFilterCount({ ...DEFAULT_FILTERS, quality: 'gold' })).toBe(1);
+    expect(activeFilterCount(DEFAULT_FILTERS)).toBe(0);
   });
 });

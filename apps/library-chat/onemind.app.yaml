@@ -12,8 +12,11 @@ metadata:
   description: Ask your offline library questions and get short answers from a local AI model, with links to the articles it used
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tags: chat, rag.
   category: ai
+  age_rating: 16   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Chat with a local AI model over the offline library; model replies are not filtered."
   icon: icon.svg
   license: Apache-2.0
+  licenceClass: L1
   source: https://github.com/onemindos/ONEMINDOS
   links:
     docs: https://github.com/onemindos/ONEMINDOS/blob/main/apps/library-chat/README.md

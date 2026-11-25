@@ -1,0 +1,150 @@
+{
+  "_comment": "Captured from the real gateway (core, GET /v1/system-apps and GET /v1/apps/notebook/dependencies) with the signed list os/rootfs/layers/onemind/usr/lib/onemind/system-apps.json plus one container system app (notebook) that another app (journal) depends on; photos switched off through an approved app.disable.",
+  "system_apps": [
+    {
+      "id": "approvals",
+      "name": "Approvals",
+      "kind": "native",
+      "update": "os",
+      "disable": "never",
+      "enabled": true,
+      "can_disable": false,
+      "status": null,
+      "version": null,
+      "license": null,
+      "update_channel": "os",
+      "disabled_at": null,
+      "action_id": null
+    },
+    {
+      "id": "backups",
+      "name": "Backups",
+      "kind": "native",
+      "update": "os",
+      "disable": "never",
+      "enabled": true,
+      "can_disable": false,
+      "status": null,
+      "version": null,
+      "license": null,
+      "update_channel": "os",
+      "disabled_at": null,
+      "action_id": null
+    },
+    {
+      "id": "files",
+      "name": "Files",
+      "kind": "native",
+      "update": "os",
+      "disable": "never",
+      "enabled": true,
+      "can_disable": false,
+      "status": null,
+      "version": null,
+      "license": null,
+      "update_channel": "os",
+      "disabled_at": null,
+      "action_id": null
+    },
+    {
+      "id": "market",
+      "name": "Market",
+      "kind": "native",
+      "update": "os",
+      "disable": "never",
+      "enabled": true,
+      "can_disable": false,
+      "status": null,
+      "version": null,
+      "license": null,
+      "update_channel": "os",
+      "disabled_at": null,
+      "action_id": null
+    },
+    {
+      "id": "notebook",
+      "name": "Notebook",
+      "kind": "container",
+      "update": "own",
+      "disable": "allowed",
+      "enabled": true,
+      "can_disable": true,
+      "status": "installed",
+      "version": "1.0.0",
+      "license": "MIT",
+      "update_channel": "stable",
+      "disabled_at": null,
+      "action_id": null
+    },
+    {
+      "id": "notifications",
+      "name": "Notifications",
+      "kind": "native",
+      "update": "os",
+      "disable": "never",
+      "enabled": true,
+      "can_disable": false,
+      "status": null,
+      "version": null,
+      "license": null,
+      "update_channel": "os",
+      "disabled_at": null,
+      "action_id": null
+    },
+    {
+      "id": "photos",
+      "name": "Photos",
+      "kind": "native",
+      "update": "os",
+      "disable": "allowed",
+      "enabled": false,
+      "can_disable": true,
+      "status": null,
+      "version": null,
+      "license": null,
+      "update_channel": "os",
+      "disabled_at": "2026-11-11T22:00:00Z",
+      "action_id": "d068d6fc-c15b-4725-b24c-ab2633d9a7b4"
+    },
+    {
+      "id": "settings",
+      "name": "Settings",
+      "kind": "native",
+      "update": "os",
+      "disable": "never",
+      "enabled": true,
+      "can_disable": false,
+      "status": null,
+      "version": null,
+      "license": null,
+      "update_channel": "os",
+      "disabled_at": null,
+      "action_id": null
+    },
+    {
+      "id": "updates",
+      "name": "Updates",
+      "kind": "native",
+      "update": "os",
+      "disable": "never",
+      "enabled": true,
+      "can_disable": false,
+      "status": null,
+      "version": null,
+      "license": null,
+      "update_channel": "os",
+      "disabled_at": null,
+      "action_id": null
+    }
+  ],
+  "notebook_dependencies": {
+    "app_id": "notebook",
+    "requires": [],
+    "dependents": [
+      {
+        "id": "journal",
+        "name": "Journal"
+      }
+    ]
+  }
+}

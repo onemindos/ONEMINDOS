@@ -40,6 +40,8 @@ class FakeHost:
         self.journal = True
         self.available = {"restart": True, "shutdown": True, "factory-reset": False, "os-install": True}
         self.refuse: tuple[int, dict] | None = None
+        self.hostname: object = "testbox"  # GET /v1/status names the box (#875); None leaves the field out
+        self.status_code = 200
         host = self
 
         class H(http.server.BaseHTTPRequestHandler):
@@ -60,8 +62,10 @@ class FakeHost:
                 if self.path == "/v1/status":
                     ops = [{"kind": k, "available": v, "unavailable_reason": None if v else f"{k} is off here"}
                            for k, v in host.available.items()]
-                    return self.send(200, {"schema": "onemind.host/v1", "journal": host.journal, "operations": ops,
-                                           "active_operation": None})
+                    st = {"schema": "onemind.host/v1", "journal": host.journal, "operations": ops, "active_operation": None}
+                    if host.hostname is not None:
+                        st["hostname"] = host.hostname
+                    return self.send(host.status_code, st)
                 if self.path.startswith("/v1/operations/"):
                     op = host.ops.get(self.path.rsplit("/", 1)[1])
                     return self.send(200, op) if op else self.send(404, {"error": "not_found", "reason": "unknown_action", "message": "no host action with that id"})

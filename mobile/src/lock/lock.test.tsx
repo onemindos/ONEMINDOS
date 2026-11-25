@@ -201,7 +201,7 @@ describe('Lock OneMind', () => {
         <LockSection />
       </LockProvider>,
     );
-    await screen.findByTestId('lock-section');
+    await screen.findByTestId('lock-section', { includeHiddenElements: true });
     await waitFor(() => expect(screen.queryByTestId('app-lock-checking')).toBeNull());
   }
 
@@ -243,5 +243,24 @@ describe('Lock OneMind', () => {
     await act(async () => appStateListener?.('active'));
     expect(await screen.findByTestId('app-lock')).toBeTruthy();
     expect(auth).toHaveBeenCalledTimes(3);
+  });
+
+  it('hides the app from screen readers while locked, and shows it again after the unlock', async () => {
+    await SecureStore.setItemAsync(LOCK_KEY, 'on');
+    auth.mockResolvedValueOnce({ success: false, error: 'user_cancel' });
+    await render(
+      <LockProvider>
+        <Text>home</Text>
+      </LockProvider>,
+    );
+    const content = await screen.findByTestId('app-content', { includeHiddenElements: true });
+    expect(content.props.importantForAccessibility).toBe('no-hide-descendants');
+    expect(content.props.accessibilityElementsHidden).toBe(true);
+    expect((await screen.findByTestId('app-lock')).props.accessibilityViewIsModal).toBe(true);
+    await fireEvent.press(screen.getByTestId('unlock'));
+    await waitFor(() => expect(screen.queryByTestId('app-lock')).toBeNull());
+    const open = screen.getByTestId('app-content');
+    expect(open.props.importantForAccessibility).toBe('auto');
+    expect(open.props.accessibilityElementsHidden).toBe(false);
   });
 });
