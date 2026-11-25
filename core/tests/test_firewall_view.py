@@ -171,13 +171,141 @@ def test_no_firewall_table_or_a_permissive_default_is_said_plainly():
     assert v.exposure == "no_firewall" and v.default_action == "accept"
 
 
-def test_a_rule_the_screen_cannot_describe_says_so_and_never_counts_as_open():
+def test_a_rule_the_screen_cannot_describe_says_so_and_is_never_called_safe():
     body = good()
-    body["host"]["chains"][0]["rules"].append(R(understood=False))
+    body["host"]["chains"][0]["rules"].append(R(understood=False))  # e.g. `tcp dport 82 limit rate 10/second accept`, from anyone
     v = parse_view(body)
     last = rules(v, "input")[-1]
     assert not last.understood and last.kind == "other" and "cannot describe" in last.summary
-    assert v.open_to_anywhere == [] and v.exposure == "lan_and_mesh_only"
+    assert v.open_to_anywhere == []  # it is not claimed to be open either: it is not known
+    assert v.exposure == "not_fully_understood" and "Nothing is open to the internet" not in v.headline
+    assert "1 rule that let traffic in use something it cannot describe" in v.headline
+    # A permit the screen cannot read is only a doubt when it could be reached from outside the LAN.
+    body = good()
+    body["host"]["chains"][0]["rules"].append(R(iif="lo", understood=False))
+    body["host"]["chains"][1]["rules"].append(R(proto="tcp", dport=["1"], understood=False))  # in the lan chain: LAN only
+    body["host"]["chains"][0]["rules"].append(R("drop", understood=False))  # a block it cannot read opens nothing
+    assert parse_view(body).exposure == "lan_and_mesh_only"
+    # An unreadable jump from anyone into a list is never called LAN-only (the list's ports count as open to anyone).
+    body = good()
+    body["host"]["chains"][0]["rules"].append(R("jump", target="lan", understood=False))
+    assert parse_view(body).exposure == "open_to_internet"
+    body = good()
+    body["host"]["chains"][0]["rules"].append(R("jump", target="nowhere", understood=False))
+    assert parse_view(body).exposure == "not_fully_understood"
+
+
+def test_only_replies_are_called_replies_and_a_new_connection_rule_is_an_open_port():
+    # nft prints `tcp dport 22 ct state new accept` with ct state "new": it lets a stranger start a connection.
+    body = good()
+    body["host"]["chains"][0]["rules"].append(R(proto="tcp", dport=["22"], ct=["new"]))
+    v = parse_view(body)
+    last = rules(v, "input")[-1]
+    assert last.kind == "open_port" and last.audience == "any_network" and "TCP 22 (remote login, SSH)" in last.summary
+    assert v.exposure == "open_to_internet" and v.open_to_anywhere == ["tcp/22"] and "Nothing is open" not in v.headline
+    # ct state new with no port opens everything; established,new is no better.
+    for states in (["new"], ["established", "new"], ["untracked"], ["invalid"]):
+        body = good()
+        body["host"]["chains"][0]["rules"].append(R(ct=states))
+        v = parse_view(body)
+        assert rules(v, "input")[-1].kind == "other" and v.open_to_anywhere == ["everything"], states
+        assert v.exposure == "open_to_internet", states
+    # Replies with extra conditions are not the plain replies rule either.
+    for extra in ({"proto": "tcp", "dport": ["22"]}, {"saddr": "203.0.113.0/24"}, {"iif": "eth0"}):
+        body = good()
+        body["host"]["chains"][0]["rules"].append(R(ct=["established", "related"], **extra))
+        assert rules(parse_view(body), "input")[-1].kind != "state", extra
+    # The shipped rule, in either order, is still the replies rule.
+    for states in (["related", "established"], ["established"]):
+        body = good()
+        body["host"]["chains"][0]["rules"][0] = R(ct=states)
+        assert rules(parse_view(body), "input")[0].kind == "state"
+
+
+def test_everyone_written_as_a_prefix_or_an_interface_name_is_still_the_internet():
+    for extra, label in (({"saddr": "0.0.0.0/0"}, "tcp/80"), ({"saddr": "::/0"}, "tcp/80"), ({"saddr": "0.0.0.0/1"}, "tcp/80"),
+                         ({"iif": "eth0"}, "tcp/80 on eth0")):
+        body = good()
+        body["host"]["chains"][0]["rules"].append(R(proto="tcp", dport=["80"], **extra))
+        v = parse_view(body)
+        assert v.exposure == "open_to_internet" and v.open_to_anywhere == [label], extra
+    # A source limit beats an interface name: eth0 from the LAN only is the LAN.
+    body = good()
+    body["host"]["chains"][0]["rules"].append(R(proto="tcp", dport=["80"], iif="eth0", saddr="@lan4"))
+    v = parse_view(body)
+    assert rules(v, "input")[-1].audience == "lan" and v.exposure == "lan_and_mesh_only"
+    # One named public address is not "anyone".
+    body = good()
+    body["host"]["chains"][0]["rules"].append(R(proto="tcp", dport=["22"], saddr="203.0.113.7"))
+    assert parse_view(body).exposure == "lan_and_mesh_only"
+    # Everything from one connection, with no port, is named too.
+    body = good()
+    body["host"]["chains"][0]["rules"].append(R(iif="eth0"))
+    assert parse_view(body).open_to_anywhere == ["everything on eth0"]
+
+
+def test_rules_in_a_list_nothing_reaches_or_in_a_forward_chain_do_not_count_as_open():
+    body = good()
+    body["host"]["chains"].append({"name": "orphan", "rules": [R(proto="tcp", dport=["9999"])]})
+    body["host"]["chains"].append({"name": "fwd", "hook": "forward", "policy": "accept", "rules": [R(proto="tcp", dport=["8888"])]})
+    v = parse_view(body)
+    assert v.exposure == "lan_and_mesh_only" and v.open_to_anywhere == []
+    assert any(r.chain == "orphan" for r in v.rules)  # still shown, nothing hidden
+
+
+def test_a_partial_ruleset_is_never_called_closed():
+    v = parse_view(good(truncated=3))
+    assert v.truncated == 3 and v.exposure == "not_fully_understood"
+    assert "3 parts of the rules were left out for size" in v.headline and "Nothing is open to the internet" not in v.headline
+    # A cut set may hide a public member, so a rule that names it is no longer called LAN.
+    body = good(truncated=1)
+    body["host"]["chains"][0]["rules"].append(R(proto="tcp", dport=["22"], saddr="@lan4"))
+    assert rules(parse_view(body), "input")[-1].audience == "specific_address"
+    # A host service that predates the field says nothing: zero. Garbage is refused.
+    assert parse_view(GOOD).truncated == 0
+    assert parse_view(good(truncated=-1)).reason == "bad_response"
+    assert parse_view(good(truncated="x")).reason == "bad_response"
+    # Entries the gateway itself refuses in the OneMind table also stop it saying "nothing is open".
+    body = good()
+    body["host"]["chains"][0]["rules"].append(R(iif="<bad>"))
+    v = parse_view(body)
+    assert v.dropped == 1 and v.exposure == "not_fully_understood" and "failed its checks" in v.headline
+    # ...and so do chains past the gateway's own cap.
+    body = good()
+    body["host"]["chains"] += [{"name": f"x{i}", "rules": []} for i in range(70)]
+    assert parse_view(body).exposure == "not_fully_understood"
+
+
+def test_the_ping_sentence_names_the_audience_the_rule_really_has():
+    v = parse_view(GOOD)
+    assert "from any address" in rules(v, "input")[7].summary  # the shipped rule has no source limit
+    body = good()
+    body["host"]["chains"][1]["rules"].append(R(proto="icmp"))
+    assert "from devices on your home network (LAN)" in rules(parse_view(body), "lan")[-1].summary
+    body = good()
+    body["host"]["chains"][0]["rules"].append(R(proto="icmp", saddr="@lan4"))
+    assert "from any address" not in rules(parse_view(body), "input")[-1].summary
+
+
+def test_the_headline_says_what_it_checked():
+    assert "not checked here" in parse_view(GOOD).headline
+
+
+GOLDEN = Path(__file__).resolve().parents[2] / "internal" / "firewall" / "testdata" / "host-view.golden.json"
+
+
+def test_the_real_nft_output_of_the_shipped_host_nft_reads_as_closed():
+    """internal/firewall's golden view is what the Go side emits for the unedited `nft -j list ruleset` of host.nft
+    (nftables 1.1.3). It goes through the same checks as a live answer: every shipped rule is understood, nothing is
+    open to the internet, and nothing is dropped or truncated."""
+    v = parse_view(json.loads(GOLDEN.read_text()))
+    assert v.available and v.dropped == 0 and v.truncated == 0
+    assert all(r.understood for r in v.rules), [r.summary for r in v.rules if not r.understood]
+    assert v.exposure == "lan_and_mesh_only" and v.open_to_anywhere == [] and v.default_action == "drop"
+    inp = rules(v, "input")
+    assert inp[0].kind == "state" and inp[1].kind == "block" and inp[2].audience == "this_machine"
+    assert [r.audience for r in inp if r.kind == "hand_off"] == ["lan", "lan"]
+    assert {r.audience for r in rules(v, "lan")} == {"lan"} and rules(v, "samba")[0].ports == ["445"]
 
 
 @pytest.mark.parametrize("who", [ADULT, AGENT])

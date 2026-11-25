@@ -48,6 +48,9 @@ func firewallCommands(a *App) []*cobra.Command {
 			if n := derefInt(v.Dropped); n > 0 {
 				fmt.Fprintf(a.Stderr, "onemind: warning: %d entr%s left out because the box reported something that did not check out\n", n, map[bool]string{true: "y was", false: "ies were"}[n == 1])
 			}
+			if n := derefInt(v.Truncated); n > 0 {
+				fmt.Fprintf(a.Stderr, "onemind: warning: %d part%s of the rules left out for size; this view is not complete\n", n, map[bool]string{true: "", false: "s"}[n == 1])
+			}
 			return nil
 		},
 	})

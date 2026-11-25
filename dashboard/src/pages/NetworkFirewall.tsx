@@ -23,10 +23,10 @@ const FROM: Record<Audience, string> = {
 const ACTION: Record<Rule['action'], string> = { accept: 'Allow', drop: 'Block', reject: 'Block', jump: 'Check list', goto: 'Check list', return: 'Back', none: 'No effect' };
 
 function exposureTone(e: FirewallView['exposure']): Tone {
-  return e === 'lan_and_mesh_only' ? 'ok' : e === 'open_to_internet' ? 'warn' : 'bad';
+  return e === 'lan_and_mesh_only' ? 'ok' : e === 'open_to_internet' || e === 'not_fully_understood' ? 'warn' : 'bad';
 }
 function exposureLabel(e: FirewallView['exposure']): string {
-  return e === 'lan_and_mesh_only' ? 'Never the internet' : e === 'open_to_internet' ? 'Open to the internet' : e === 'no_firewall' ? 'Not protected' : 'Unknown';
+  return e === 'lan_and_mesh_only' ? 'Never the internet' : e === 'open_to_internet' ? 'Open to the internet' : e === 'no_firewall' ? 'Not protected' : e === 'not_fully_understood' ? 'Not fully checked' : 'Unknown';
 }
 
 export function FirewallCard({ client }: { client: OneMind }) {
@@ -51,7 +51,7 @@ export function FirewallCard({ client }: { client: OneMind }) {
           }
           const rules = v.rules ?? [];
           const lists = (v.chains ?? []).filter((c) => !c.base);
-          const lan = (v.sets ?? []).find((s) => s.name === 'lan4');
+          const lan = (v.sets ?? []).filter((s) => s.name === 'lan4' || s.name === 'lan6').flatMap((s) => s.elements);
           return (
             <>
               <p>
@@ -64,7 +64,7 @@ export function FirewallCard({ client }: { client: OneMind }) {
               )}
               <p className="om-hint">
                 Rules are tried top to bottom. {v.default_action === 'drop' ? 'Anything no rule allows is dropped.' : 'Anything no rule blocks is let in.'}
-                {lan ? ` "Home network" means ${lan.elements.join(', ')}.` : ''}
+                {lan.length > 0 ? ` "Home network" means ${lan.join(', ')}.` : ''}
                 {lists.length > 0 ? ` Lists: ${lists.map((c) => c.name).join(', ')}.` : ''}
               </p>
               <Table<Rule>
@@ -83,6 +83,11 @@ export function FirewallCard({ client }: { client: OneMind }) {
               {(v.other_tables ?? []).length > 0 && (
                 <p className="om-hint">
                   Other services keep their own rules ({(v.other_tables ?? []).map((t) => `${t.name}: ${t.rules}`).join(', ')}). They are not listed here.
+                </p>
+              )}
+              {(v.truncated ?? 0) > 0 && (
+                <p className="om-note om-tone-warn" role="status">
+                  Part of the rules ({v.truncated}) were left out because the list is too long, so this view is not complete.
                 </p>
               )}
               {(v.dropped ?? 0) > 0 && (

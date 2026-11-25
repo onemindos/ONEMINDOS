@@ -28,7 +28,9 @@ const Schema = "onemind.firewall/v1"
 // HostTable is the OneMind host firewall table (family inet).
 const HostTable = "onemind_host"
 
-// Caps keep one answer small whatever the ruleset looks like.
+// Caps keep one answer small whatever the ruleset looks like. maxRules counts rules across the whole host
+// table (not per chain), so the answer stays far below the gateway's 1 MiB read limit. Whatever a cap cuts
+// is counted in View.Truncated: the gateway never calls a firewall it only partly saw "closed".
 const (
 	maxTables = 32
 	maxChains = 64
@@ -46,6 +48,9 @@ type View struct {
 	Tables []TableInfo `json:"tables"`
 	// Host is the detailed OneMind table; nil when it is not loaded.
 	Host *Table `json:"host"`
+	// Truncated counts the chains, rules, sets and set members of the OneMind table that a size cap left
+	// out. Zero on every normal box; when it is not zero the gateway reports the firewall as not fully checked.
+	Truncated int `json:"truncated"`
 }
 
 // TableInfo is one table, without its contents.
@@ -132,6 +137,7 @@ func Parse(raw []byte) (*View, error) {
 	chains := map[key][]*Chain{}
 	chainAt := map[[3]string]*Chain{}
 	var sets []Set
+	truncated, hostRules := 0, 0
 	for _, item := range doc.Nftables {
 		for kind, body := range item {
 			var m map[string]any
@@ -152,20 +158,31 @@ func Parse(raw []byte) (*View, error) {
 					continue
 				}
 				t.Chains++
-				if tk.family != "inet" || tk.table != HostTable || len(chains[tk]) >= maxChains {
+				if tk.family != "inet" || tk.table != HostTable {
+					continue
+				}
+				if len(chains[tk]) >= maxChains {
+					truncated++
 					continue
 				}
 				ch := &Chain{Name: str(m["name"]), Hook: str(m["hook"]), Policy: str(m["policy"]), Rules: []Rule{}}
 				chains[tk] = append(chains[tk], ch)
 				chainAt[[3]string{tk.family, tk.table, ch.Name}] = ch
 			case "set":
-				if str(m["family"]) == "inet" && str(m["table"]) == HostTable && len(sets) < maxSets {
+				if str(m["family"]) == "inet" && str(m["table"]) == HostTable {
+					if len(sets) >= maxSets {
+						truncated++
+						continue
+					}
 					s := Set{Name: str(m["name"]), Elements: []string{}}
 					if el, ok := m["elem"].([]any); ok {
 						for _, e := range el {
-							if len(s.Elements) < maxElems {
-								s.Elements = append(s.Elements, values(e)...)
+							vals, cut := flatten(e)
+							if cut || len(s.Elements)+len(vals) > maxElems {
+								truncated++
+								continue
 							}
+							s.Elements = append(s.Elements, vals...)
 						}
 					}
 					sets = append(sets, s)
@@ -175,14 +192,20 @@ func Parse(raw []byte) (*View, error) {
 				if t := info[tk]; t != nil {
 					t.Rules++
 				}
-				ch := chainAt[[3]string{tk.family, tk.table, str(m["chain"])}]
-				if ch != nil && len(ch.Rules) < maxRules {
-					ch.Rules = append(ch.Rules, parseRule(m["expr"]))
+				if tk.family != "inet" || tk.table != HostTable {
+					continue
 				}
+				ch := chainAt[[3]string{tk.family, tk.table, str(m["chain"])}]
+				if ch == nil || hostRules >= maxRules {
+					truncated++ // a rule in a chain that was cut, or past the rule cap
+					continue
+				}
+				hostRules++
+				ch.Rules = append(ch.Rules, parseRule(m["expr"]))
 			}
 		}
 	}
-	v := &View{Schema: Schema, Tables: []TableInfo{}}
+	v := &View{Schema: Schema, Tables: []TableInfo{}, Truncated: truncated}
 	for _, k := range order {
 		v.Tables = append(v.Tables, *info[k])
 	}
@@ -207,36 +230,51 @@ func str(v any) string {
 }
 
 // values flattens a match's right-hand side into display strings: numbers, names, ranges "a-b",
-// prefixes "addr/len", and the members of an anonymous set.
+// prefixes "addr/len", and the members of a set. libnftables-json(5) writes a list of values as a plain
+// JSON array (`"right": ["established","related"]`) and an anonymous set as {"set": [...]}; both are read.
 func values(v any) []string {
+	out, _ := flatten(v)
+	return out
+}
+
+// flatten is values plus whether the maxItems cap cut something (the caller must then not trust the match).
+func flatten(v any) ([]string, bool) {
 	switch x := v.(type) {
 	case string:
-		return []string{x}
+		return []string{x}, false
 	case float64:
-		return []string{strconv.FormatInt(int64(x), 10)}
+		return []string{strconv.FormatInt(int64(x), 10)}, false
+	case []any:
+		return flattenList(x)
 	case map[string]any:
 		if set, ok := x["set"].([]any); ok {
-			out := []string{}
-			for _, e := range set {
-				if len(out) < maxItems {
-					out = append(out, values(e)...)
-				}
-			}
-			return out
+			return flattenList(set)
 		}
 		if r, ok := x["range"].([]any); ok && len(r) == 2 {
 			a, b := values(r[0]), values(r[1])
 			if len(a) == 1 && len(b) == 1 {
-				return []string{a[0] + "-" + b[0]}
+				return []string{a[0] + "-" + b[0]}, false
 			}
 		}
 		if p, ok := x["prefix"].(map[string]any); ok {
 			if ln, ok := p["len"].(float64); ok {
-				return []string{str(p["addr"]) + "/" + strconv.Itoa(int(ln))}
+				return []string{str(p["addr"]) + "/" + strconv.Itoa(int(ln))}, false
 			}
 		}
 	}
-	return nil
+	return nil, false
+}
+
+func flattenList(list []any) ([]string, bool) {
+	out := []string{}
+	for _, e := range list {
+		vals, cut := flatten(e)
+		if cut || len(out)+len(vals) > maxItems {
+			return out, true
+		}
+		out = append(out, vals...)
+	}
+	return out, false
 }
 
 // parseRule models the expressions the OneMind table uses. Anything else clears Understood.
@@ -280,9 +318,9 @@ func parseMatch(r *Rule, m map[string]any) bool {
 	if op := str(m["op"]); op != "==" && op != "in" {
 		return false
 	}
-	right := values(m["right"])
-	if len(right) == 0 {
-		return false
+	right, cut := flatten(m["right"])
+	if len(right) == 0 || cut {
+		return false // nothing to read, or a list longer than the cap: not trusted
 	}
 	left := asMap(m["left"])
 	if meta := asMap(left["meta"]); meta != nil {

@@ -95,3 +95,4 @@ core/onemind_core/hostfw.py	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0
 core/tests/test_firewall_view.py	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-16
 internal/firewall/firewall_test.go	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-16
 dashboard/src/pages/Network.test.tsx	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-16
+internal/firewall/testdata/*	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-16

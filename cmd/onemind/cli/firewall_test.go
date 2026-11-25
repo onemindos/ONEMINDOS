@@ -12,7 +12,7 @@ import (
 // The hub answer has the shape of GET /v1/network/firewall (core/onemind_core/hostfw.py).
 const firewallBody = `{"available":true,"at":"2026-11-25T12:00:00Z","exposure":"lan_and_mesh_only","default_action":"drop",
 "headline":"Blocked by default. Only your home network (LAN), your mesh and this box itself can reach anything. Nothing is open to the internet.",
-"open_to_anywhere":[],"editable":false,"dropped":1,"sets":[],"other_tables":[],"chains":[],
+"open_to_anywhere":[],"editable":false,"dropped":1,"truncated":2,"sets":[],"other_tables":[],"chains":[],
 "rules":[
 {"chain":"input","position":1,"action":"accept","kind":"state","audience":"any_network","ports":[],"understood":true,"summary":"Replies to connections this box started are always allowed in."},
 {"chain":"lan","position":1,"action":"accept","kind":"open_port","audience":"lan","proto":"tcp","ports":["443"],"understood":true,"summary":"Devices on your home network (LAN) can reach TCP 443 (the OneMind dashboard and gateway, HTTPS).\u001b[31m"}]}`
@@ -52,6 +52,9 @@ func TestFirewallShowPrintsTheAnswerFirstThenEachRule(t *testing.T) {
 	}
 	if !strings.Contains(r.errOut, "1 entry was left out") {
 		t.Fatalf("a dropped entry is said: %q", r.errOut)
+	}
+	if !strings.Contains(r.errOut, "2 parts of the rules left out for size") {
+		t.Fatalf("a truncated view is said: %q", r.errOut)
 	}
 }
 

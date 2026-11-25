@@ -27,10 +27,10 @@ const view = {
 };
 // What GET /v1/network/firewall says for the shipped host.nft: documentation addresses only.
 const fwView = {
-  available: true, reason: null, message: null, at: '2026-11-25T12:00:00Z', dropped: 0, editable: false,
+  available: true, reason: null, message: null, at: '2026-11-25T12:00:00Z', dropped: 0, truncated: 0, editable: false,
   exposure: 'lan_and_mesh_only', default_action: 'drop', open_to_anywhere: [],
   headline: 'Blocked by default. Only your home network (LAN), your mesh and this box itself can reach anything. Nothing is open to the internet.',
-  sets: [{ name: 'lan4', elements: ['10.0.0.0/8', '192.168.0.0/16'] }],
+  sets: [{ name: 'lan4', elements: ['10.0.0.0/8', '192.168.0.0/16'] }, { name: 'lan6', elements: ['fc00::/7', 'fe80::/10'] }],
   chains: [{ name: 'input', base: true, hook: 'input', policy: 'drop', audience: null, rules: 2 }, { name: 'lan', base: false, hook: null, policy: null, audience: 'lan', rules: 1 }],
   rules: [
     { chain: 'input', position: 1, action: 'accept', kind: 'state', audience: 'any_network', proto: null, ports: [], understood: true, summary: 'Replies to connections this box started are always allowed in.' },
@@ -108,7 +108,7 @@ it('shows the firewall in plain words: what is open, to whom, and that nothing i
   expect(rules.getByText('Devices on your home network (LAN) can reach TCP 443 (the OneMind dashboard and gateway, HTTPS).')).toBeInTheDocument();
   expect(rules.getAllByText('Home network (LAN)')).toHaveLength(2);
   expect(rules.getByText('Any address')).toBeInTheDocument();
-  expect(screen.getByText(/"Home network" means 10\.0\.0\.0\/8, 192\.168\.0\.0\/16\./)).toBeInTheDocument();
+  expect(screen.getByText(/"Home network" means 10\.0\.0\.0\/8, 192\.168\.0\.0\/16, fc00::\/7, fe80::\/10\./)).toBeInTheDocument();
   expect(screen.getByText(/Other services keep their own rules \(kube-proxy: 12\)/)).toBeInTheDocument();
   expect(screen.queryByText(/Open to any address:/)).not.toBeInTheDocument();
   // Read only: nothing but GETs, and no control that opens a port.
@@ -120,6 +120,14 @@ it('warns plainly when a service is open to any address', async () => {
   mount(() => response(view), 'owner-demo', () => response({ ...fwView, exposure: 'open_to_internet', open_to_anywhere: ['tcp/22'], headline: 'Blocked by default. Open to any address, including the internet: tcp/22. Everything else is closed.' }));
   expect(await screen.findByText('Open to the internet')).toBeInTheDocument();
   expect(screen.getByText(/Open to any address: tcp\/22\./)).toBeInTheDocument();
+});
+
+it('never says "never the internet" for a firewall it could not fully read', async () => {
+  mount(() => response(view), 'owner-demo', () => response({ ...fwView, exposure: 'not_fully_understood', truncated: 3, headline: 'Blocked by default, but this screen could not read everything, so it cannot say nothing is open to the internet: 3 parts of the rules were left out for size.' }));
+  expect(await screen.findByText('Not fully checked')).toBeInTheDocument();
+  expect(screen.getByText(/cannot say nothing is open to the internet/)).toBeInTheDocument();
+  expect(screen.queryByText('Never the internet')).not.toBeInTheDocument();
+  expect(screen.getByText(/Part of the rules \(3\) were left out/)).toBeInTheDocument();
 });
 
 it('says an unreadable firewall is not a safe one', async () => {
