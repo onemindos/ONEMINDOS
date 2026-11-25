@@ -68,11 +68,16 @@ _WHO = re.compile(r"(?<![\w])\+(?P<v>[\w:.-]{1,64})")
 
 
 def next_due(due: datetime, repeat: dict, now: datetime) -> datetime:
-    """The first occurrence of `repeat` after both `due` and `now`, keeping the time of day (UTC)."""
+    """The first occurrence of `repeat` after both `due` and `now`, keeping the local time of day.
+
+    The days are counted in the rule's own zone (`repeat["tz"]`, an IANA name, default UTC), so "every
+    weekday" skips the local weekend and a task due at 23:59 local stays at 23:59 across a DST change.
+    """
     every, step = repeat["every"], repeat.get("interval", 1)
-    nxt = due
+    z = zone(repeat.get("tz"))
+    wall = due.astimezone(z).replace(tzinfo=None)
     for _ in range(5000):
-        d = nxt.date()
+        d = wall.date()
         if every == "day":
             d += timedelta(days=step)
         elif every == "week":
@@ -85,7 +90,8 @@ def next_due(due: datetime, repeat: dict, now: datetime) -> datetime:
             d += timedelta(days=1)
             while d.weekday() > 4:
                 d += timedelta(days=1)
-        nxt = datetime.combine(d, nxt.timetz())
+        wall = datetime.combine(d, wall.time())
+        nxt = wall.replace(tzinfo=z).astimezone(UTC)
         if nxt > due and nxt > now:
             return nxt
     raise ValueError("repeat rule did not reach the future")
@@ -109,6 +115,8 @@ def parse_quick_add(text: str, now: datetime, tz: str | None = None) -> dict:
     m, rest = _take(_EVERY, rest)
     if m:
         out["repeat"] = {"every": m["unit"].lower(), "interval": 1 if m["unit"].lower() == "weekday" else int(m["n"] or 1)}
+        if tz:
+            out["repeat"]["tz"] = z.key
     m, rest = _take(_PRIO, rest)
     if m:
         out["priority"] = int(m["v"])

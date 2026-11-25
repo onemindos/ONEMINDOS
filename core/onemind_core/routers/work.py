@@ -93,7 +93,11 @@ def _revision(value: str) -> int:
 
 
 def register(app: FastAPI, gw: Gateway) -> None:
-    service = WorkService(gw.db, clock=gw.clock)
+    def person_role(person_id: str) -> str | None:
+        user = app.state.identity.user(person_id)
+        return user.role if user is not None else None
+
+    service = WorkService(gw.db, clock=gw.clock, person_role=person_role)
     app.state.work = service
     gw.notify_enrichers["work"] = service.notification_fields
 
