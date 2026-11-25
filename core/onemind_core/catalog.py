@@ -143,6 +143,9 @@ class AppEntry:
             "version": str(md.get("version")) if md.get("version") is not None else None,
             "description": md.get("description"),
             "category": md.get("category"),
+            # FAM-01: the manifest's proposed minimum age; None when the manifest has none.
+            "age_rating": md["age_rating"] if isinstance(md.get("age_rating"), int) and not isinstance(md.get("age_rating"), bool) else None,
+            "age_reason": md.get("age_reason") if isinstance(md.get("age_reason"), str) else None,
             "icon": md.get("icon"),
             "license": md.get("license"),
             "licence_class": self.licence_class,
@@ -286,7 +289,9 @@ class Catalog:
                 for e in self._validator.iter_errors(doc)
             ]
             if rules is not None:
-                errs = [rules.hide(e) for e in errs] + rules.errors(doc)
+                # The cross-field rules read the spec as the schema shapes it, so like validateBlocks in Go
+                # they run only on a schema-valid manifest; a host that is a map is the schema's error alone.
+                errs = [rules.hide(e) for e in errs] if errs else rules.errors(doc)
             md = doc.get("metadata") if isinstance(doc, dict) else None
             app_id = md.get("id") if isinstance(md, dict) else None
             if not isinstance(app_id, str) or not APP_ID_RE.match(app_id):

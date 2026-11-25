@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: Apache-2.0
+// Theme packs: the founder's picks (2026-11-21) are Atlas's packs plus Console's packs. A pack is
+// only a bundle of the appearance fields that already exist (theme, accent, wallpaper, corners,
+// transparency), so applying one never touches text size, density, motion or the command bar.
+// Boot splash, terminal palette and lock screen are part of the studio proposals but need OS
+// image work; they are not set here. Wallpapers are OneMind's own procedural ones.
+import type { AppearancePreferences } from './preferences';
+
+export interface ThemePack {
+  id: string;
+  name: string;
+  source: 'Atlas' | 'Console';
+  note: string;
+  set: Pick<AppearancePreferences, 'theme' | 'accentPreset' | 'wallpaper' | 'corners' | 'transparency'>;
+}
+
+const base = { accentSource: 'preset' } as const;
+export const PACK_BASE: Pick<AppearancePreferences, 'accentSource'> = base;
+
+export const THEME_PACKS: readonly ThemePack[] = [
+  { id: 'atlas-night', name: 'Atlas Night', source: 'Atlas', note: 'Dark, Contour wallpaper, teal highlights.', set: { theme: 'dark', accentPreset: 'teal', wallpaper: 'contour', corners: 'standard', transparency: 'system' } },
+  { id: 'atlas-day', name: 'Atlas Day', source: 'Atlas', note: 'Light, the same map by day.', set: { theme: 'light', accentPreset: 'teal', wallpaper: 'contour', corners: 'standard', transparency: 'system' } },
+  { id: 'night-watch', name: 'Night Watch', source: 'Atlas', note: 'Low glare for a dark room or a wall screen.', set: { theme: 'dark', accentPreset: 'onemind', wallpaper: 'dusk', corners: 'standard', transparency: 'off' } },
+  { id: 'greenhouse', name: 'Greenhouse', source: 'Atlas', note: 'Light, moss green, readable in sunlight.', set: { theme: 'light', accentPreset: 'moss', wallpaper: 'meadow', corners: 'round', transparency: 'system' } },
+  { id: 'harbor', name: 'Harbor', source: 'Atlas', note: 'Dark blue with a warm copper accent.', set: { theme: 'dark', accentPreset: 'copper', wallpaper: 'tide', corners: 'standard', transparency: 'system' } },
+  { id: 'console-default', name: 'Console Default', source: 'Console', note: 'Graphite and OneMind red, the OneMind wallpaper.', set: { theme: 'dark', accentPreset: 'onemind', wallpaper: 'onemind', corners: 'standard', transparency: 'system' } },
+  { id: 'console-light', name: 'Console Light', source: 'Console', note: 'The same rules in daylight.', set: { theme: 'light', accentPreset: 'onemind', wallpaper: 'aurora', corners: 'standard', transparency: 'system' } },
+  { id: 'field', name: 'Field', source: 'Console', note: 'Night operations: solid surfaces, low glare.', set: { theme: 'dark', accentPreset: 'onemind', wallpaper: 'signal', corners: 'sharp', transparency: 'off' } },
+  { id: 'village', name: 'Village', source: 'Console', note: 'Warm and plain for shared screens.', set: { theme: 'light', accentPreset: 'copper', wallpaper: 'dunes', corners: 'round', transparency: 'system' } },
+  { id: 'mono', name: 'Mono', source: 'Console', note: 'Highest contrast: no glass, no wallpaper.', set: { theme: 'dark', accentPreset: 'graphite', wallpaper: 'none', corners: 'sharp', transparency: 'off' } },
+];
+
+export function packIsActive(p: ThemePack, prefs: AppearancePreferences): boolean {
+  return prefs.accentSource === 'preset' && (Object.keys(p.set) as (keyof ThemePack['set'])[]).every((k) => prefs[k] === p.set[k]);
+}
+
+export function packPatch(p: ThemePack): Partial<AppearancePreferences> {
+  return { ...PACK_BASE, ...p.set };
+}

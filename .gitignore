@@ -19,3 +19,5 @@ __pycache__/
 /sdk/python/src/onemind_sdk/_gen/models.py
 /sdk/python/src/onemind_sdk/aio.py
 /sdk/ts/src/gen/schema.ts
+# local agent sessions and worktrees (Claude Code); never shared
+/.claude/

@@ -25,7 +25,7 @@ from ..actions import APP_CLAIMS, ActionParams, ActionRequest
 from ..ai_policy import actions_for_agent, catalog_visible_to_ai, shown_policy
 from ..auth import Principal
 from ..errors import ApiError
-from ..surfaces.core import AUDIT_MAX, CORE_TOOLS, LIST_ACTIONS_MAX, MAX_REASON, obj
+from ..surfaces.core import AREA_TOOLS, AUDIT_MAX, CORE_TOOLS, LIST_ACTIONS_MAX, MAX_REASON, obj
 from .limits import Limits
 from .untrusted import META_KEY, mark
 
@@ -56,9 +56,14 @@ class Services:
     request: Callable[[Principal, ActionRequest, str | None], tuple[dict, bool]]
     audit_list: Callable[..., tuple[list[dict], bool]]
     clock: Callable[[], datetime]
+    # AIG-04: called as (principal, source) when a result carried third-party text; the gateway then
+    # treats every later request from that agent as tainted (taint.py). None in a bare Services.
+    mark_tainted: Callable[[Principal, str], None] | None = None
     # Request-only tools built from the descriptors of switched-on built-ins (builtins.py, #603):
     # tool name -> (action type, title, app name). A switched-off built-in's tools are not here.
     builtin_actions: Callable[[], dict[str, tuple[str, str, str]]] = lambda: {}
+    # The area read tools' services (mcp/read_tools.py AreaReads, #632); None serves them as unavailable.
+    area_reads: Any = None
 
 
 # ---- the catalogue: generated from the surface registry (surfaces/core.py, #605) -------------------
@@ -68,6 +73,7 @@ _obj = obj
 TOOLS: list[dict] = [t.mcp_tool() for t in CORE_TOOLS if "mcp" in t.exposure]
 TOOL_NAMES = [t["name"] for t in TOOLS]
 READ_TOOLS = {t.name for t in CORE_TOOLS if t.effect == "read" and t.name in TOOL_NAMES}
+AREA_TOOL_NAMES = frozenset(t.name for t in AREA_TOOLS)
 
 RESOURCES = [
     {"uri": "onemind://catalog", "name": "catalog", "title": "App catalog",
@@ -203,7 +209,20 @@ class Catalogue:
             wait = self.limits.reads.hit(p.id)
             if wait:
                 return refusal("rate_limited", "too many read calls; slow down", retry_after_s=wait)
-        return getattr(self, f"t_{name}")(p, args)
+        if name in AREA_TOOL_NAMES:  # registration hook for the area read tools (#632)
+            from .read_tools import call as area_call
+
+            out = area_call(self.svc.area_reads, p, name, args)
+        else:
+            out = getattr(self, f"t_{name}")(p, args)
+        # Area tools hand back logs, alert text and file names too: they taint like every other tool (AIG-04).
+        self._taint(p, out, f"mcp:{name}")
+        return out
+
+    def _taint(self, p: Principal, out: dict, source: str) -> None:
+        """An agent that was handed third-party text is tainted, whether or not it obeys it (AIG-04)."""
+        if self.svc.mark_tainted is not None and not out.get("isError") and (out.get("_meta") or {}).get(META_KEY):
+            self.svc.mark_tainted(p, source)
 
     def t_get_instance(self, p, args):
         _args(args, set())
@@ -400,6 +419,7 @@ class Catalogue:
             raise RpcError(-32002, f"resource not found: {uri}")
         if r["isError"]:
             raise RpcError(-32002, f"resource not found: {uri}")
+        self._taint(p, r, f"mcp:resource:{parts[0]}")
         content = {"uri": uri, "mimeType": "application/json", "text": r["content"][0]["text"]}
         if "_meta" in r:
             content["_meta"] = r["_meta"]

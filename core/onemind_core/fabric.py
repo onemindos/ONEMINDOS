@@ -48,6 +48,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import JSON, DateTime, String, Text, delete, func, select, update
 from sqlalchemy.orm import Mapped, mapped_column
 
+from .agents_nats import agent_users
 from .auth import Principal
 from .ca import MESH_DOMAIN, BoxCA
 from .errors import ApiError
@@ -623,6 +624,14 @@ class FabricService:
         # The client the owner last switched off (PUT /v1/mesh/settings): it still cleans up the joins
         # that were handed one of its keys, since d.mesh is None from then on.
         self._retired_mesh: MeshService | None = None
+        # Called with the node id when a join is approved, after its NATS account exists (#747: the
+        # gateway's JetStream side then creates the node's hub source stream, jetstream.HubSource).
+        # A failing hook is logged and never undoes the approval.
+        self.approved_hooks: list[Callable[[str], None]] = []
+
+    def node_ids(self) -> list[str]:
+        """Every node that has a NATS account (approved, joining or joined)."""
+        return [n["node_id"] for n in self.repo.nodes()]
 
     # -- helpers
     def _deny(self, principal: Principal, what: str) -> ApiError:
@@ -641,10 +650,11 @@ class FabricService:
         if path is None:
             return False
         accounts = [NodeAccount(n["node_id"], n["nats_pubkey"]) for n in self.repo.nodes()]
+        agents = agent_users(self.d.db)  # the AGENTS account (#627): one user per registered agent key
         changed = write_accounts(path, accounts, load_service_keys(self.d.fabric.nats_service_keys),
-                                 self.d.fabric.jetstream_max_bytes)
+                                 self.d.fabric.jetstream_max_bytes, agents)
         if changed:
-            log.info("NATS accounts updated (%d nodes)", len(accounts))
+            log.info("NATS accounts updated (%d nodes, %d agents)", len(accounts), len(agents))
         return changed
 
     # -- tickets (owner)
@@ -893,6 +903,11 @@ class FabricService:
             "cert_not_after": iso(cert.not_valid_after_utc), "nats_account": f"NODE_{req['node_id']}",
             "san": f"node-{req['node_id']}.{MESH_DOMAIN}",
         })
+        for hook in self.approved_hooks:
+            try:
+                hook(req["node_id"])
+            except Exception:
+                log.exception("join-approved hook failed for node %s", req["node_id"])
         return None  # stays dispatched until the node is up (tick)
 
     # -- background: finish or expire joins

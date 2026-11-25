@@ -388,6 +388,8 @@ class Scaffold:
             f"  id: {self.id}\n  name: {q(self.name_hint or info.get('name') or self.id)}\n"
             f"  version: {q(b['version'])}\n  description: {q(desc)}\n"
             f"  category: uncategorized   # {U}: choose a Market category (GitHub topics: {', '.join(info.get('topics') or []) or 'none'})\n"
+            f"  age_rating: 18   # {U}: placeholder (the safest); propose 0, 7, 12, 16 or 18 from the rubric in apps/README.md\n"
+            f"  age_reason: \"{U}: say in one line why, from what the app does\"\n"
             f"  icon: icon.svg\n  license: {q(b['license'])}\n  licenceClass: {licence.declared_class(b['license'])}\n  source: https://github.com/{self.repo}\n"
             "  links:\n" + "".join(f"    {k}: {q(v)}\n" for k, v in b["links"].items()) +
             f"  upstream: {{release: {q(b['release'])}, released_at: {q(b['released_at'])}, archived: {str(bool(info.get('archived'))).lower()}}}\n"
