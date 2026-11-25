@@ -46,7 +46,9 @@ class Box(unittest.TestCase):
                    mock.patch.object(fb, "find_seed_device", lambda: None),
                    mock.patch.object(fb.socket, "gethostname", lambda: "Home_Box"),
                    mock.patch.object(fb, "lan_addr", lambda: LAN),
-                   mock.patch.object(fb.time, "sleep", lambda s: None)]
+                   mock.patch.object(fb.time, "sleep", lambda s: None),
+                   # The fake box has its own data disk, independent of the runner's temp filesystem.
+                   mock.patch("shutil.disk_usage", return_value=shutil._ntuple_diskusage(24 << 30, 0, 24 << 30))]
         for pt in patches:
             pt.start()
             self.addCleanup(pt.stop)
@@ -219,11 +221,21 @@ class Files(unittest.TestCase):
             self.assertIn(f"ONEMIND_FABRIC_JETSTREAM_MAX_BYTES={cap}\n", env)
             with usage(2000 * GIB):
                 self.assertEqual(fb.jetstream_max_bytes(p), 64 * GIB)       # the ceiling
-            with usage(1 * GIB), self.assertRaises(ValueError):
-                fb.jetstream_max_bytes(p)                                  # too small: refused, not uncapped
         for bad in (0, -1):
             with self.assertRaises(ValueError):
                 fb.hub_nats_conf(None, bad)                                # JetStream without a cap is refused
+
+    def test_jetstream_refuses_a_data_disk_below_its_minimum(self):
+        from onemind_core.jetstream import JetStreamCapError
+
+        total = 2 << 30  # 10% of 2 GiB is below the 256 MiB floor
+        with tempfile.TemporaryDirectory() as root:
+            path = os.path.join(root, "data")
+            os.mkdir(path)
+            with mock.patch("shutil.disk_usage", return_value=shutil._ntuple_diskusage(total, 0, total)) as disk:
+                with self.assertRaisesRegex(JetStreamCapError, "too small for JetStream"):
+                    fb.jetstream_max_bytes(fb.Paths(root))
+            disk.assert_called_once_with(path)
 
     def test_hub_nats_refuses_to_start_jetstream_without_a_cap(self):
         # #601: onemind-nats-files runs the check before every start and reload, after the copies (it reads
