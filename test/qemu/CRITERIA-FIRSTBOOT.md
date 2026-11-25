@@ -185,3 +185,17 @@ F18 runs on the slot-A boot from F1, after F17 and before the F3 reboot, from th
 Required for this task's "done": F18 and F19 PASS on x86_64-efi (F19 needs a run with `FUPTO=F3` or higher).
 
 **Amendment (2026-11-25, after the first run):** the first run of F18 passed; the F3 reboot step then waited for a gate line that had already scrolled past (on a fast KVM host the health gate prints `RESULT committed-boot` before the harness has consumed the `already configured` line, the same race F1 already handles by resetting its search position). The harness now searches the boot's own buffer from the start of the reboot. This changes what is searched, not what passes, and is the one allowed re-run.
+
+## 14. Amendment (2026-11-25): F20, an approved restart reboots the box (W1, audit b1)
+
+*(Renumbered in the round-2 integration of skipped OS PRs: PR #1105 pre-registered F13 as F20; the IDs and the section number are the only changes.)*
+
+**Status:** PRE-REGISTERED before F20 was implemented in `firstboot.py` or run, in the commit before the code that adds it. F0–F12 above are unchanged. The sha256 of this file with this section is appended to `PREREGISTRATION.sha256`. **Serves:** the founder's rule of 2026-11-25 that every OS setting has image, API, front end and CLI wired together; audit item b1 (the gateway's `SystemService` now reaches the host helper, so an approved `system.restart` ends `succeeded` instead of `failed`). **First run:** CI's image workflow or a KVM build machine (no KVM where it was written).
+
+F20 runs on the slot-A boot from F1, after F12 (the host helper is reachable again) and before the F3 reboot, from the hub's shell, with the owner token from F1. The restart is the box's own: the gateway files the request, the owner token approves it, the gateway sends the action id and kind to the host helper, and the helper asks systemd to reboot. Restart (not shutdown, not factory reset) is the one control a single-VM run can complete and observe from inside the battery.
+
+| ID | Test | PASS if | FAIL if |
+|---|---|---|---|
+| F20 | An approved restart reboots the box and the ledger says so | The guest's `/proc/sys/kernel/random/boot_id` is read; `POST /v1/system/actions` with `{"type":"system.restart"}` and the owner token returns HTTP 202 with state `awaiting_approval`, and the boot id is unchanged and the console shows no reboot for 10 s afterwards (nothing runs before approval); `POST /v1/actions/{id}/approve` with the owner token returns HTTP 200; with no input the console then shows `ONEMIND-FIRSTBOOT: already configured role=hub` and **no** new `ONEMIND OWNER TOKEN` line; after the shell is back and `/healthz` answers 200 (timeouts as section 1), the boot id differs from the one read before, and `GET /v1/actions/{id}` with the owner token shows state `succeeded` within 120 s of `/healthz` | Any status other than the ones named, a reboot before the approval, no reboot within 900 s of the approval, the same boot id after the reboot, a new owner token, or the action ending in any state other than `succeeded` (`failed` and `outcome_unknown` are FAIL) |
+
+Required for this task's "done": F20 PASS on x86_64-efi on a build machine with KVM or in CI's image workflow. It is written without having run QEMU; a harness bug found on the first run may be fixed and re-run once, named as such, under section 1's rule.
