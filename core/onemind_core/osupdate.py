@@ -54,7 +54,7 @@ ENGINE = {
     "available": False,
     "reason": "engine_unreachable",
     "message": "The gateway cannot reach the box's update engine yet, so an approved install does not run. "
-               "Install at the box with `onemind update apply`; it keeps the A/B rollback and the health gate.",
+               "Install at the box with `sudo onemind update apply --local`; it keeps the A/B rollback and the health gate.",
 }
 
 

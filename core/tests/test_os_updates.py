@@ -77,7 +77,7 @@ def test_install_files_an_owner_approval_and_never_installs(box):
     done = box.post(f"/v1/actions/{r.json()['id']}/approve", headers=OWNER)
     assert done.status_code == 200, done.text
     a = done.json()
-    assert a["state"] == "failed" and "onemind update apply" in a["result"]["message"]
+    assert a["state"] == "failed" and "sudo onemind update apply --local" in a["result"]["message"]
     assert a["result"]["steps"][0]["result"] == "engine_unreachable"
     [req] = box.get("/v1/os/updates/history", headers=OWNER).json()["requests"]
     assert req["action_id"] == a["id"] and req["state"] == "failed" and req["version"] == "0.1.2"
