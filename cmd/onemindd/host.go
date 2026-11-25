@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"os/signal"
 	"os/user"
 	"strconv"
@@ -153,27 +152,17 @@ func networkView() (any, error) {
 	return netview.System(read, exists).Collect()
 }
 
-// firewallView is GET /v1/firewall: `nft -j list ruleset`, run with fixed arguments and no shell, parsed by
-// internal/firewall into a structured form. Output is capped and the run has a deadline, so a stuck
-// nft cannot hold the host service.
+// firewallReadSocket is where onemind-firewall-read.socket prints `nft -j list ruleset`. The host service
+// has no CAP_NET_ADMIN (the kernel wants it even to read nf_tables), so it cannot run nft itself.
+const firewallReadSocket = "/run/onemind/firewall-read.sock"
+
+// firewallView is GET /v1/firewall: the ruleset read from the firewall read socket (internal/firewall),
+// parsed into a structured form. Output is capped and the read has a deadline, so a stuck reader cannot hold
+// the host service.
 func firewallView(ctx context.Context) (any, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	c := firewall.Collector{Run: func(ctx context.Context) ([]byte, error) {
-		cmd := exec.CommandContext(ctx, "/usr/sbin/nft", "-j", "list", "ruleset")
-		out, err := cmd.StdoutPipe()
-		if err != nil {
-			return nil, err
-		}
-		if err := cmd.Start(); err != nil {
-			return nil, err
-		}
-		raw, rerr := io.ReadAll(io.LimitReader(out, 8<<20))
-		if err := cmd.Wait(); err != nil {
-			return nil, err
-		}
-		return raw, rerr
-	}}
+	c := firewall.Collector{Run: firewall.SocketReader(firewallReadSocket)}
 	return c.Collect(ctx)
 }
 

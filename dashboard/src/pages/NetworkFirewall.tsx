@@ -75,7 +75,7 @@ export function FirewallCard({ client }: { client: OneMind }) {
                 empty="No rules are loaded."
                 columns={[
                   { key: 'from', header: 'From', render: (r) => FROM[r.audience] ?? r.audience },
-                  { key: 'action', header: 'What happens', render: (r) => <StatusPill tone={r.action === 'accept' && r.audience === 'any_network' && r.kind === 'open_port' ? 'warn' : r.action === 'accept' ? 'ok' : 'neutral'} label={ACTION[r.action] ?? r.action} /> },
+                  { key: 'action', header: 'What happens', render: (r) => <StatusPill tone={r.action === 'accept' && (r.audience === 'any_network' || r.audience === 'one_interface') && r.kind === 'open_port' ? 'warn' : r.action === 'accept' ? 'ok' : 'neutral'} label={ACTION[r.action] ?? r.action} /> },
                   { key: 'summary', header: 'In plain words', render: (r) => r.summary },
                   { key: 'chain', header: 'List', secondary: true, render: (r) => `${r.chain} #${r.position}` },
                 ]}

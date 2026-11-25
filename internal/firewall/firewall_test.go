@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"reflect"
 	"strings"
@@ -287,5 +288,69 @@ func TestCollect(t *testing.T) {
 	c.Run = func(context.Context) ([]byte, error) { return nil, errors.New("nft: permission denied") }
 	if _, err := c.Collect(context.Background()); err == nil {
 		t.Fatal("a failed nft run is an error")
+	}
+}
+
+// libnftables-json(5): a set member with a comment, timeout or expiry is {"elem": {"val": ..., ...}}. It
+// must be read, and a member the parser cannot read must be counted as cut, never dropped silently.
+func TestSetMembersWithCommentOrTimeoutAreReadAndUnknownOnesAreCounted(t *testing.T) {
+	raw := `{"nftables":[
+ {"table":{"family":"inet","name":"onemind_host","handle":1}},
+ {"set":{"family":"inet","name":"trusted","table":"onemind_host","type":"ipv4_addr","handle":2,"flags":["interval","timeout"],
+   "elem":[{"prefix":{"addr":"192.168.0.0","len":16}},
+           {"elem":{"val":{"prefix":{"addr":"0.0.0.0","len":0}},"timeout":60,"expires":50,"comment":"temp"}},
+           {"mystery":1}]}}
+]}`
+	v, err := Parse([]byte(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := v.Host.Sets[0].Elements
+	if !reflect.DeepEqual(got, []string{"192.168.0.0/16", "0.0.0.0/0"}) {
+		t.Fatalf("elements %v: the member with a comment must be read", got)
+	}
+	if v.Truncated != 1 {
+		t.Fatalf("truncated=%d: the member the parser cannot read must be counted", v.Truncated)
+	}
+}
+
+func TestAnUnknownItemInARuleListMakesTheRuleNotUnderstood(t *testing.T) {
+	r := parseRule([]any{
+		map[string]any{"match": map[string]any{"op": "==",
+			"left":  map[string]any{"payload": map[string]any{"protocol": "tcp", "field": "dport"}},
+			"right": map[string]any{"set": []any{float64(22), map[string]any{"mystery": 1.0}}}}},
+		map[string]any{"accept": nil},
+	})
+	if r.Understood {
+		t.Fatalf("a list with an item that cannot be read must not be trusted: %+v", r)
+	}
+}
+
+func TestSocketReaderReadsWhatTheReaderUnitPrints(t *testing.T) {
+	dir, err := os.MkdirTemp("", "fw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+	path := dir + "/r.sock"
+	ln, err := net.Listen("unix", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	go func() {
+		c, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		_, _ = c.Write([]byte(ruleset))
+		c.Close()
+	}()
+	v, err := Collector{Run: SocketReader(path)}.Collect(context.Background())
+	if err != nil || v.Host == nil {
+		t.Fatalf("%v %+v", err, v)
+	}
+	if _, err := (Collector{Run: SocketReader(dir + "/none.sock")}).Collect(context.Background()); err == nil {
+		t.Fatal("a missing reader socket must be an error, not an empty ruleset")
 	}
 }

@@ -384,3 +384,16 @@ def test_openapi_describes_the_route(client):
     op = spec["paths"]["/v1/network/firewall"]["get"]
     assert op["operationId"] == "network.firewall"
     assert set(spec["paths"]["/v1/network/firewall"]) == {"get"}
+
+
+def test_a_named_set_that_holds_everyone_is_the_internet_not_one_address():
+    for members in (["0.0.0.0/0"], ["0.0.0.0/1", "128.0.0.0/1"], ["192.168.0.0/16", "0.0.0.0/0"]):
+        body = good()
+        body["host"]["sets"].append({"name": "all", "elements": members})
+        body["host"]["chains"][0]["rules"].append(R(proto="tcp", dport=["80"], saddr="@all"))
+        v = parse_view(body)
+        assert v.exposure == "open_to_internet" and v.open_to_anywhere == ["tcp/80"], members
+    body = good()
+    body["host"]["sets"].append({"name": "one", "elements": ["203.0.113.7"]})
+    body["host"]["chains"][0]["rules"].append(R(proto="tcp", dport=["80"], saddr="@one"))
+    assert parse_view(body).exposure == "lan_and_mesh_only"

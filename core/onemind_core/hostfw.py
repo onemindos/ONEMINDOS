@@ -364,7 +364,12 @@ def parse_view(body: Any) -> FirewallView:
     dropped += d
     host_dropped += d
     sets = [FirewallSet(name=n, elements=el) for n, el in raw_sets]
-    set_audience = {n: ("lan" if el and all(_is_lan_prefix(e) for e in el) else "specific_address") for n, el in raw_sets}
+    def _set_aud(el: list[str]) -> str:
+        if any(_is_everyone(e) for e in el):
+            return "any_network"  # a set that holds "everyone" (0.0.0.0/0, or the 0/1 + 128/1 pair) is everyone
+        return "lan" if el and all(_is_lan_prefix(e) for e in el) else "specific_address"
+
+    set_audience = {n: _set_aud(el) for n, el in raw_sets}
     set_audience = {n: ("specific_address" if truncated and a == "lan" else a) for n, a in set_audience.items()}  # a cut set may hide a public member
 
     by_name: dict[str, dict] = {}
