@@ -218,6 +218,18 @@ def test_a_stored_rule_with_a_longer_expiry_is_clamped_when_it_fires(client, clo
     assert datetime.fromisoformat(action["expires_at"]) - clock.now == timedelta(hours=72)
 
 
+def test_editing_a_stored_rule_with_a_longer_expiry_clamps_it(client, clock):
+    """PATCH without options re-validates the stored options; a 7 day value must not give a 500."""
+    install(client, clock)
+    rule = create_rule(client, remove_rule({"schedule": {"cron": "* * * * *"}}))
+    stored = svc(client).repo.get_rule(rule["id"])
+    assert svc(client).repo.update_rule(rule["id"], options={**stored.options, "expires_s": 7 * 86400})
+    resp = client.patch(f"/v1/automation/rules/{rule['id']}", json={"name": "renamed"}, headers=OWNER)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["name"] == "renamed"
+    assert resp.json()["options"]["expires_s"] == 72 * 3600
+
+
 def test_a_late_tick_fires_a_rule_once(client, clock):
     install(client, clock)
     rule = create_rule(client, remove_rule({"schedule": {"cron": "* * * * *"}}))

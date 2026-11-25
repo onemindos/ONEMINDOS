@@ -326,7 +326,8 @@ class AutomationService:
             trigger=patch.trigger if patch.trigger is not None else rule.trigger,
             conditions=patch.conditions if patch.conditions is not None else rule.conditions,
             actions=patch.actions if patch.actions is not None else [ActionTemplate(**a) for a in rule.actions],
-            options=patch.options or Options(**rule.options),
+            options=patch.options or Options(**{**rule.options, "expires_s": min(
+                int(rule.options.get("expires_s", 86400)), int(PENDING_MAX_AGENT.total_seconds()))}),
             approval_policy_id=patch.approval_policy_id if "approval_policy_id" in patch.model_fields_set
             else rule.approval_policy_id,
         )
