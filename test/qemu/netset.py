@@ -45,7 +45,7 @@ SNAP = ("echo ADDRS=$(ip -4 -o addr show dev $DEV scope global | awk '{print $4}
 def diagnose(vm):
     """What a person would ask for first when a change was refused: the answer, the host service's log, and whether
     nmcli runs under the host unit's own sandbox settings."""
-    _, out = sh(vm, "echo PBODY=$(head -c 400 /tmp/ns-P.json 2>&1); echo ---; journalctl -u onemind-host.service --no-pager -o cat | tail -12; echo ---; "
+    _, out = sh(vm, "echo PBODY=$(head -c 400 /tmp/ns-P.json 2>&1); echo CBODY=$(head -c 300 /tmp/ns-C.json 2>&1); echo ---; journalctl -u onemind-host.service --no-pager -o cat | tail -12; echo ---; "
                 "systemd-run --wait --pipe -q -p MemoryDenyWriteExecute=yes -p NoNewPrivileges=yes -p CapabilityBoundingSet=CAP_DAC_READ_SEARCH "
                 "-p SystemCallFilter=@system-service -p SystemCallFilter=~@privileged -p RestrictAddressFamilies='AF_INET AF_INET6 AF_UNIX AF_NETLINK' "
                 "nmcli -t -g RUNNING general 2>&1 | tail -3; echo ---; "
@@ -55,6 +55,11 @@ def diagnose(vm):
                 "for F in 1 0; do echo FLAGS=$F: $(busctl --system call $NM /org/freedesktop/NetworkManager $NM CheckpointCreate aouu 1 \"$P\" 20 $F 2>&1); done; "
                 "echo CPS: $(busctl --system get-property $NM /org/freedesktop/NetworkManager $NM Checkpoints 2>&1); nmcli --version 2>&1 | head -1", 120)
     return " DIAG=" + out.replace("\n", " | ")[-1500:]
+
+
+# NetworkManager's own list of checkpoints, right now.
+CPS = ("echo CPS=$(busctl --system get-property org.freedesktop.NetworkManager /org/freedesktop/NetworkManager "
+       "org.freedesktop.NetworkManager Checkpoints 2>&1); ")
 
 
 def static_body(addr, gw, seconds=20):
@@ -107,12 +112,16 @@ def ns2_before(vm, record):
         return None
     dev = w["dev"]
     _, out = sh(vm, 
-        f"DEV={dev}; CON=\"{w['con']}\"; " + call("PUT", f"/v1/network/{dev}", static_body(w["a0"], gw), "P")
+        f"DEV={dev}; CON=\"{w['con']}\"; T0=$(date +%s); " + call("PUT", f"/v1/network/{dev}", static_body(w["a0"], gw), "P")
+        + "echo PUT_SECONDS=$(( $(date +%s) - T0 )); " + CPS
         + call("POST", f"/v1/network/{dev}/confirm", None, "C") + STATE
         + "sleep 30; " + SNAP + "echo DNS=$(nmcli -g ipv4.dns connection show \"$CON\"); "
         f"F=$(grep -lx \"id=$CON\" {PROFILE_DIR}/*.nmconnection | head -1); echo MODE=$(stat -c %a \"$F\" 2>&1); " + STATE, 200)
     got = {"put": kv(out, "PCODE"), "confirm": kv(out, "CCODE"), "addrs": kv(out, "ADDRS"), "method": kv(out, "METHOD"),
            "dns": kv(out, "DNS"), "mode": kv(out, "MODE"), "pending": kv(out, "PENDING"), "last": kv(out, "LAST")}
+    got["put_seconds"], got["cps_after_put"] = kv(out, "PUT_SECONDS"), kv(out, "CPS")
+    if got["confirm"] != "200":
+        got["diag"] = diagnose(vm)
     return {"dev": dev, "con": w["con"], "a0": w["a0"], "gw": gw, "before": got}
 
 
