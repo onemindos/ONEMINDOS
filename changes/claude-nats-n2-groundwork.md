@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 1165
 branch: claude/nats-n2-groundwork
 ---
 Joined machines can now check that a job really comes from their own gateway and is meant for them (D-029, plan N2 groundwork). The join reply carries the gateway's job public key (job_pubkey plus its key id job_kid) over the box-CA-pinned channel, and onemind fabric join checks the id matches the key and pins it beside the node identity (under /data on the image). Jobs for a machine use a new signed envelope, onemind.job/v2, which adds aud (node:<id>), kid and policy_epoch; OS rollout offers now use it. The machine-side JobVerifier (NewNodeJobVerifier) accepts only v2 and refuses a job for another machine, an unknown key id, an epoch older than the newest it has accepted (it keeps that high-water mark) and a replayed job id. The hub's loopback backup agent keeps v1 only. A shared test vector proves the Python signer and the Go verifier agree byte for byte. Nothing on NATS approves anything. Not yet: the durable per-machine job stream and the onemindd listener that uses this verifier (N2 proper, next PR), and anything that raises the policy epoch (N7).
