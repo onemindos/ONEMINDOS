@@ -30,3 +30,6 @@ PARTLABEL=onemind-data  /data      auto  defaults,noatime,nofail,x-systemd.growf
 # The hub's JetStream store (app event streams), on the data disk so it survives A/B updates.
 /data/state/var-lib-onemind-nats      /var/lib/onemind-nats         none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
 /data/state/etc-hosts                 /etc/hosts                    none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+# btrfs-progs keeps the result of the last scrub here (`btrfs scrub status /data`); the root is read-only, so without
+# this the monthly scrub would run but leave no status behind (snapper/btrfsmaintenance, plan PR 6).
+/data/state/var-lib-btrfs             /var/lib/btrfs                none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0

@@ -79,6 +79,17 @@ class Units(unittest.TestCase):
         for k in ("DEFRAG", "BALANCE", "TRIM"):
             self.assertEqual(c[f"BTRFS_{k}_PERIOD"], "none", k)
 
+    def test_the_scrub_status_survives_on_data_because_the_root_is_read_only(self):
+        """Found booting E8: the scrub ran and found no errors, but `btrfs scrub status` said "no stats available"
+        because /var/lib/btrfs (where btrfs-progs writes it) is on the read-only root."""
+        fstab = [l.split() for l in rd(BASE, "etc/fstab").splitlines() if l.strip() and not l.startswith("#")]
+        row = next(r for r in fstab if r[1] == "/var/lib/btrfs")
+        self.assertEqual((row[0], row[2]), ("/data/state/var-lib-btrfs", "none"))
+        self.assertIn("bind", row[3].split(","))
+        self.assertIn("nofail", row[3].split(","))
+        self.assertIn("var-lib-btrfs", rd(BASE, "usr/lib/systemd/system/onemind-data-layout.service"))
+        self.assertIn("/var/lib/btrfs", rd("os/rootfs/Containerfile"))                 # the mount target exists in the image
+
     def test_the_packages_are_in_the_debian_list(self):
         words = {w for line in rd("os/rootfs/packages/debian-common.txt").splitlines() for w in line.split("#")[0].split()}
         self.assertLessEqual({"snapper", "btrfsmaintenance", "btrfs-progs"}, words)
