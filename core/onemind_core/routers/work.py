@@ -16,7 +16,7 @@ from ..errors import ApiError, error_responses
 from ..identity import ctx_of
 from ..identity.scopes import has_any, register_route_scope
 from ..jsonbody import JsonBody
-from ..work.access import WORK_ROLES, delegated_reader
+from ..work.access import OWN_TASK_ONLY_ROLES, WORK_ROLES, delegated_reader
 from ..work.parse import parse_quick_add, zone
 from ..work.service import (Activity, CaptureFields, Comment, CommentFields, Repeat, Section, SectionFields, PersonAssignee, Project, ProjectChanges, ProjectFields, Task,
                             TaskFields, TaskView, WorkService)
@@ -27,7 +27,7 @@ log = logging.getLogger("onemind.work")
 BASE = "/v1/work"
 TASK = BASE + "/projects/{project_id}/tasks/{task_id}"
 register_route_scope("GET,HEAD", r"/v1/work(/.*)?", ("work:read",))
-register_route_scope("POST,PATCH,DELETE", r"/v1/work(/.*)?", ("work:write",))
+register_route_scope("POST,PUT,PATCH,DELETE", r"/v1/work(/.*)?", ("work:write",))
 
 IdempotencyKey = Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=200)]
 RevisionHeader = Annotated[str, Header(alias="If-Match", min_length=1, max_length=12)]
@@ -135,6 +135,15 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def writer(request: Request, p: Principal = Depends(gw.principal)) -> Principal:
         if p.kind != "person" or p.role not in WORK_ROLES or not scope(request, "work:write"):
             raise denied(p, "write")
+        return p
+
+    def adult_writer(request: Request, p: Principal = Depends(writer)) -> Principal:
+        """Project-wide changes (adding people, sections) are for adults: a child or teen is refused here,
+        audited, before any lookup (the service refuses them again)."""
+        if p.role in OWN_TASK_ONLY_ROLES:
+            gw.audit.append("authz.denied", p.as_dict(), None,
+                            {"attempted": "change a project's people or sections", "reason": "permission_denied"})
+            raise ApiError(403, "permission_denied", "Only adults can change a project's people or sections")
         return p
 
     def emit(name: str, p: Principal, project_id: str, task_id: str) -> None:
@@ -292,7 +301,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.put(BASE + "/projects/{project_id}/members/{person_id}", tags=["work"], operation_id="work.member_add", openapi_extra={"security": [{"bearer": ["work:write"]}]},
              status_code=204, responses=error_responses(401, 403, 404))
-    def add_member(project_id: str, person_id: str, request: Request, p: Principal = Depends(writer)) -> Response:
+    def add_member(project_id: str, person_id: str, request: Request, p: Principal = Depends(adult_writer)) -> Response:
         user = request.app.state.identity.user(person_id)
         if user is None or user.disabled or user.role not in WORK_ROLES:
             raise ApiError(404, "not_found", "Work item not found")
@@ -339,17 +348,17 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.post(SECTIONS, tags=["work"], operation_id="work.section_create", status_code=201,
               openapi_extra={"security": [{"bearer": ["work:write"]}]}, responses=error_responses(401, 403, 404, 422))
-    def create_section(project_id: str, body: SectionFields, key: IdempotencyKey, p: Principal = Depends(writer)) -> Section:
+    def create_section(project_id: str, body: SectionFields, key: IdempotencyKey, p: Principal = Depends(adult_writer)) -> Section:
         return service.create_section(p, project_id, body, key)
 
     @app.patch(SECTIONS + "/{section_id}", tags=["work"], operation_id="work.section_update",
                openapi_extra={"security": [{"bearer": ["work:write"]}]}, responses=error_responses(401, 403, 404, 422))
-    def rename_section(project_id: str, section_id: str, body: SectionFields, p: Principal = Depends(writer)) -> Section:
+    def rename_section(project_id: str, section_id: str, body: SectionFields, p: Principal = Depends(adult_writer)) -> Section:
         return service.rename_section(p, project_id, section_id, body)
 
     @app.delete(SECTIONS + "/{section_id}", tags=["work"], operation_id="work.section_delete", status_code=204,
                 openapi_extra={"security": [{"bearer": ["work:write"]}]}, responses=error_responses(401, 403, 404))
-    def delete_section(project_id: str, section_id: str, p: Principal = Depends(writer)) -> Response:
+    def delete_section(project_id: str, section_id: str, p: Principal = Depends(adult_writer)) -> Response:
         service.delete_section(p, project_id, section_id)
         return Response(status_code=204)
 
