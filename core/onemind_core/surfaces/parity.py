@@ -110,6 +110,7 @@ HUMAN_ONLY: dict[str, str] = {
     "DELETE /v1/agents/{name}/nats-key": CREDENTIAL,
     "GET /v1/approval-policies": OVERSIGHT,
     "POST /v1/approval-policies": OVERSIGHT,
+    "POST /v1/approval-policies/{policy_id}/confirm": OVERSIGHT,
     "DELETE /v1/approval-policies/{policy_id}": OVERSIGHT,
     # FD-08 is an owner-only report for assessing the box before deciding on maintenance.
     "GET /v1/care/checkup": OVERSIGHT,

@@ -189,6 +189,7 @@ class AutomationService:
         self.repo = AutomationRepository(gw.db)
         self.policies = PolicyService(self.repo, gw.audit, gw.catalog, gw.clock, box_tz=self.settings.tz,
                                       installed_version=self._installed_version)
+        self.policies.person_role = self._person_role
         self._lock = threading.RLock()
         self._queue: queue.Queue[dict] = queue.Queue(maxsize=1000)
         self._recent: deque[dict] = deque(maxlen=2000)  # events seen since start, for dry runs
@@ -196,6 +197,13 @@ class AutomationService:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self.repo.seed_default_window(self.clock())
+
+    def _person_role(self, person_id: str) -> str | None:
+        for source in self.gw.people_sources:
+            role = source().get(person_id)
+            if role:
+                return role
+        return None
 
     # ---- helpers -------------------------------------------------------------------------------
     def _deny(self, principal: Principal, what: str) -> ApiError:
@@ -222,7 +230,8 @@ class AutomationService:
         return {
             "id": r.id, "name": r.name, "system": False, "revision": r.revision, "enabled": r.enabled,
             "trigger": r.trigger, "conditions": r.conditions, "actions": r.actions, "options": r.options,
-            "created_by": r.created_by, "approval_policy_id": r.approval_policy_id,
+            "created_by": r.created_by, "author": r.created_by, "proposed_by": r.proposed_by,
+            "approval_policy_id": r.approval_policy_id,
             "last_fired_at": iso(r.last_fired_at), "breaker": r.breaker, "failures": r.failures,
             "created_at": iso(r.created_at), "updated_at": iso(r.updated_at),
         }
