@@ -37,7 +37,7 @@ PCR 7 alone is a weak binding on a box without Secure Boot (anyone who boots ano
 firmware measures the same PCR 7). The recovery key is the strong fallback; adding the signed PCR 11 policy
 waits for UKIs (docs/leap/core/SECURITY.md).
 """
-import json, os, re, subprocess, sys, time
+import contextlib, json, os, re, signal, subprocess, sys, time
 
 LABEL = "onemind-data"
 NAME = "onemind-data"                      # /dev/mapper/onemind-data
@@ -74,16 +74,97 @@ ZERO_BYTES = 1 << 20
 SCRUB_BYTES = 16 << 20                     # a LUKS2 header plus keyslots is up to 16 MiB; wipefs alone leaves it
 
 
+ACTIVE_CONSOLES = "/sys/class/tty/console/active"
+
+
+def console_devices():
+    """The terminals the kernel console runs on ("tty0 ttyS0": the screen and the serial port).
+    Why not /dev/console alone: with the boot splash (plymouth, grub.cfg.in `splash`) running, plymouth redirects
+    /dev/console into its own log, so a line written there during early boot (this unit runs in sysinit.target) reaches
+    neither the serial console nor a text screen, and the recovery key would be shown nowhere. The terminals
+    themselves are not redirected."""
+    names = []
+    try:
+        with open(ACTIVE_CONSOLES) as f:
+            names = f.read().split()
+    except OSError:
+        pass
+    return ["/dev/" + n for n in names]
+
+
+def to_consoles(line, devices=None):
+    """Write one line to every console terminal that takes it, or to /dev/console when none does. Returns how many did.
+    Never raises, never blocks the boot (O_NONBLOCK: a serial port with nothing listening must not hang the first boot;
+    O_NOCTTY: this service must not take a terminal for its own)."""
+    n = 0
+    for dev in (console_devices() if devices is None else devices) + [None]:
+        if dev is None:
+            if n:
+                break
+            dev = "/dev/console"
+        try:
+            fd = os.open(dev, os.O_WRONLY | os.O_NOCTTY | os.O_NONBLOCK)
+        except OSError:
+            continue
+        try:
+            os.write(fd, (line + "\r\n").encode("utf-8", "replace"))
+            n += 1
+        except OSError:
+            pass
+        finally:
+            os.close(fd)
+    return n
+
+
+AGENT = "/usr/bin/systemd-tty-ask-password-agent"
+SERIAL_RX = re.compile(r"^(ttyS|ttyAMA|ttyUSB|ttyGS)\d+$")
+
+
+def serial_consoles(names=None):
+    """The serial ports the kernel console runs on (/dev/ttyS0 ...), never the screen (tty0)."""
+    if names is None:
+        names = [d[len("/dev/"):] for d in console_devices()]
+    return ["/dev/" + n for n in names if SERIAL_RX.match(n)]
+
+
+@contextlib.contextmanager
+def serial_prompt_agent(devices=None, popen=subprocess.Popen):
+    """While a question is open (the passphrase or recovery key prompt), also ask it on the serial console.
+    Why: while the boot splash (plymouth) runs, systemd's own console agent is switched off
+    (systemd-ask-password-console.path has ConditionPathExists=!/run/plymouth/pid) and the question goes to plymouth
+    only, which draws on the screen and never on a serial port (`plymouth.ignore-serial-consoles`). A box reached over
+    a serial console (a VM, a headless server, the QEMU battery) would sit at an invisible prompt. This starts the
+    same agent systemd uses, pointed at each serial console; whoever answers first (the screen or a serial line)
+    wins and the other agent drops the question. Nothing is started on a box with no serial console, and the agents
+    are always stopped afterwards (serial-getty takes the port next)."""
+    procs = []
+    for dev in (serial_consoles() if devices is None else devices):
+        try:
+            procs.append(popen([AGENT, "--watch", f"--console={dev}"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL, start_new_session=True))
+        except OSError:
+            pass
+    try:
+        yield len(procs)
+    finally:
+        for p in procs:
+            try:
+                os.killpg(p.pid, signal.SIGTERM)
+            except OSError:
+                pass
+            try:
+                p.wait(5)
+            except (subprocess.TimeoutExpired, OSError):
+                pass
+
+
 def say(msg, journal=True):
-    """To the console and (unless `journal` is False) the journal. The recovery key goes to the console only."""
+    """To the consoles (screen and serial, see console_devices) and (unless `journal` is False) the journal. The
+    recovery key goes to the consoles only."""
     line = f"ONEMIND-DATA-CRYPT: {msg}"
     if journal:
         print(line, flush=True)
-    try:
-        with open("/dev/console", "w") as c:
-            c.write(line + "\n")
-    except OSError:
-        pass
+    to_consoles(line)
 
 
 def run(cmd, input=None, check=True):
@@ -198,6 +279,11 @@ def ask_passphrase(runner=run, tries=3):
     """Ask the owner at the console (systemd's password agents; no timeout) for a new passphrase, twice.
     Returns it, or None after `tries` failed rounds. It is held in memory only and never said or logged."""
     ask = lambda prompt: runner(["systemd-ask-password", "--timeout=0", "--id=onemind-data-new", prompt], check=False)
+    with serial_prompt_agent():
+        return _ask_twice(ask, tries)
+
+
+def _ask_twice(ask, tries):
     for _ in range(tries):
         a = ask("Choose a passphrase for the OneMind data disk (it is asked at every restart):")
         if a.returncode != 0:
@@ -303,7 +389,8 @@ def unlock(node, has_tpm, runner=run):
         say("the TPM did not unlock the data disk (moved disk, firmware change or no key); asking for the recovery key")
     else:
         say("no TPM here: type the passphrase or the recovery key to unlock the data disk")
-    r = runner([CRYPTSETUP, "attach", NAME, node, "none", "luks,tries=3"], check=False)
+    with serial_prompt_agent():
+        r = runner([CRYPTSETUP, "attach", NAME, node, "none", "luks,tries=3"], check=False)
     return "recovery-key" if r.returncode == 0 else None
 
 

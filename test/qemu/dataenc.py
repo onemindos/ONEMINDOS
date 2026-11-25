@@ -18,7 +18,9 @@ battery = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(battery)
 
 KEY = re.compile(r"ONEMIND-DATA-CRYPT: RECOVERY KEY[^\n]*?: ([cbdefghijklnrtuv]{8}(?:-[cbdefghijklnrtuv]{8}){7})")
-PROMPT = r"(?i)(please enter passphrase for disk onemind-data|enter passphrase)"
+# systemd 257 asks "Please enter recovery key for disk ..." when the volume has a recovery-key token and "passphrase" when it
+# has none (a passphrase-only volume): both are the prompt for the disk's key.
+PROMPT = r"(?i)(please enter (passphrase|recovery key) for disk onemind-data|enter passphrase)"
 RESULTS = []
 
 
