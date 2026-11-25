@@ -3,7 +3,7 @@ import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import axe from 'axe-core';
 import { useState } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApprovalCard, type ActionSummary } from './ApprovalCard';
 import { AppShell, PageHeader, type NavItem } from './AppShell';
 import { Button } from './Button';
@@ -276,6 +276,29 @@ describe('Dialog', () => {
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(opener).toHaveFocus();
+  });
+});
+
+describe('Dialog motion', () => {
+  afterEach(() => { document.documentElement.removeAttribute('data-om-motion'); delete (HTMLElement.prototype as { animate?: unknown }).animate; });
+  const spy = () => {
+    const animate = vi.fn(() => ({ finish: vi.fn(), finished: Promise.resolve() }));
+    Object.defineProperty(HTMLElement.prototype, 'animate', { value: animate, configurable: true });
+    return animate;
+  };
+  it('eases the panel in with a short rise', () => {
+    const animate = spy();
+    render(<Dialog open onClose={() => {}} title="Hello" />);
+    expect(animate).toHaveBeenCalledTimes(1);
+    expect(animate.mock.calls[0]).toMatchObject([[{ opacity: 0 }, { opacity: 1 }], { duration: 180 }]);
+  });
+  it('uses opacity only for a person who asked for reduced motion', () => {
+    document.documentElement.setAttribute('data-om-motion', 'reduce');
+    const animate = spy();
+    render(<Dialog open onClose={() => {}} title="Hello" />);
+    const [frames, timing] = animate.mock.calls[0] as unknown as [Keyframe[], KeyframeAnimationOptions];
+    expect(frames.every((f) => Object.keys(f).join() === 'opacity')).toBe(true);
+    expect(timing).toMatchObject({ duration: 160, delay: 0 });
   });
 });
 
