@@ -7,6 +7,7 @@ import { afterEach, beforeEach } from 'vitest';
 configure({ asyncUtilTimeout: 5000 });
 
 beforeEach(() => {
+  if (typeof window === 'undefined') return;
   window.sessionStorage.clear();
   // Per-person preferences must not leak between tests. Node 25+ shadows jsdom's localStorage with
   // its own, which is undefined without --localstorage-file; CI (Node 22) has jsdom's.

@@ -56,6 +56,7 @@ def get(cat: Catalogue, p, params: dict) -> dict:
     out = {"resultType": "complete", **task_of(a)}
     if out["status"] == "completed":
         out["result"] = result(a, ACTION_FIELDS, _source(a, "", "id", "action"))
+        cat._taint(p, out["result"], "mcp:tasks/get")  # AIG-04: reading the marked text taints, as get_action does
     elif out["status"] == "failed":
         # The executor message can hold third-party text: mark it exactly as get_action does.
         failed = result({"id": a["id"], "result": {"message": (a.get("result") or {}).get("message") or "action failed"}},
@@ -63,6 +64,7 @@ def get(cat: Catalogue, p, params: dict) -> dict:
         out["error"] = {"code": -32000, "message": json.loads(failed["content"][0]["text"])["result"]["message"]}  # the wrapped text
         if "_meta" in failed:
             out["error"]["data"] = {"_meta": failed["_meta"]}
+        cat._taint(p, failed, "mcp:tasks/get")
     return out
 
 

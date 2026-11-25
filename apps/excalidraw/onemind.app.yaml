@@ -15,8 +15,11 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
   # the schema has metadata.tags).
   category: notes
+  age_rating: 7   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "A whiteboard for sketches; content is only what the person draws."
   icon: icon.svg
   license: "MIT"
+  licenceClass: L1
   source: https://github.com/excalidraw/excalidraw
   # §9.3 facts from the GitHub API (repos/excalidraw/excalidraw), read 2026-11-12. v0.18.1 is the
   # newest GitHub release (the npm package); the image is newer (2026-05-06).

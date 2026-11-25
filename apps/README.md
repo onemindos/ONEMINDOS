@@ -26,3 +26,19 @@ Market apps, one directory per app (`apps/<id>/`), each with an `onemind.app.yam
 | [AdGuard Home](adguard-home/) | 0.107.80 | GPL-3.0 (L2) | 3000 | Network-wide ad and tracker blocking DNS | no scan record yet |
 
 A scan of `fail` means the gateway refuses to install the app until a newer scan passes (contract section 10.3). An app with no `scan.json` is refused the same way ("nothing unscanned runs"), so the market batch 1 apps cannot be installed until CI writes a passing scan; the six marked blocked also carry `tier: blocked`. The result comes from each app's `scan.json`, read on 2026-11-12.
+
+## Age rating (`metadata.age_rating`)
+
+Every manifest carries a proposed minimum age: `age_rating` is 0, 7, 12, 16 or 18, with a one-line `age_reason`. `validate-apps` rejects a manifest without a valid `age_rating`. The gateway uses it as the default for family filtering: a child or teen with a rating limit sees an app only if its rating is at or below the limit, unless the owner has classified that app themselves (the owner's choice always wins). An app with no rating is hidden under a limit.
+
+Rate what the app **does**, not whose brand it is. Pick the **higher** number when unsure.
+
+| Rating | Meaning | Examples |
+|---|---|---|
+| 0 | Safe for anyone. Works offline or on fixed content, no accounts or chat, nothing to break. | Calculators, offline encyclopedias and maps, a speed test |
+| 7 | Simple tools where the content is only what the person makes. No open internet, no chat, no sharing with outsiders. | Whiteboard, PDF tools, recipes |
+| 12 | General productivity, media and communication tools. They show the open internet or hold content people add, but cannot change the box or the network. | Notes, tasks, wikis, file sharing, feed readers, bookmarks, code hosting, music and ebook libraries |
+| 16 | Mature media libraries, unfiltered chat or AI, torrent and download tools, search across the open internet, anything social or public, and tools that reveal other people's behaviour. | Film and photo libraries, AI chat, torrent clients, search engines, public blogs |
+| 18 | Admin and infrastructure tools that can change the box or the network, password vaults, finance and money, crypto, device control, agents that act on their own, anything adult. | Home automation, DNS and VPN-like tools, build servers, password manager, budgets |
+
+The review table for the current catalog, with the reason for each app, is `docs/learning/founder/app-age-ratings.md`.

@@ -16,8 +16,11 @@ metadata:
   description: Reach your OneMind from anywhere through Tor, even behind CGNAT, with no server of ours; only devices you add can connect
   # docs/design/TAXONOMY.md §1: Network & Security; sub-tags remote-access, tor.
   category: network
+  age_rating: 18   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Opens a route to the box from the internet; changes network exposure."
   icon: icon.svg
   license: Apache-2.0
+  licenceClass: L1
   source: https://github.com/onemindos/ONEMINDOS
   links:
     docs: https://github.com/onemindos/ONEMINDOS/blob/main/apps/tor-remote-access/README.md

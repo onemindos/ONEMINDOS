@@ -7,6 +7,8 @@ Kinds built here:
 - `webhook`: POST a JSON envelope; with a secret, signed like inbound hooks (AUTOMATION.md §3.6):
   `X-OneMind-Timestamp` and `X-OneMind-Signature: sha256=<HMAC(secret, timestamp + "." + body)>`.
 - `email`: SMTP with STARTTLS (default) or implicit TLS; plain SMTP only to a loopback relay.
+- `sms`: one short text through a provider-neutral adapter (sms.py, issue #869): the title and a
+  link hint only, a daily cap and an hourly limit counted in the gateway.
 - push devices (`/v1/push/registrations`, platform `webpush` or `unifiedpush`): RFC 8291
   encrypted, VAPID-signed. The payload is only `{notification_id, box_id}`: the device fetches
   the text from the box (D-005), so the push service learns nothing but size and timing.
@@ -36,10 +38,10 @@ from urllib.parse import urlsplit
 from . import crypto
 from .crypto import Vapid
 
-CHANNEL_KINDS = ("unifiedpush", "webhook", "email")
+CHANNEL_KINDS = ("unifiedpush", "webhook", "email", "sms")
 KIND_ALIASES = {"ntfy": "unifiedpush"}
 LEVELS = ("opaque", "title", "full")
-DEFAULT_LEVEL = {"unifiedpush": "title", "webhook": "full", "email": "title"}
+DEFAULT_LEVEL = {"unifiedpush": "title", "webhook": "full", "email": "title", "sms": "title"}
 DEVICE_PLATFORMS = ("webpush", "unifiedpush")
 OPAQUE_TITLE = "OneMind: new notification"
 PRIORITY = {"info": "3", "warning": "4", "critical": "5"}
@@ -191,18 +193,24 @@ def _opener(lan_ok: bool) -> urllib.request.OpenerDirector:
 _OPENERS = {True: _opener(True), False: _opener(False)}
 
 
-def http_post(url: str, body: bytes, headers: dict[str, str], timeout: float, lan_ok: bool) -> int:
+def http_exchange(url: str, body: bytes, headers: dict[str, str], timeout: float, lan_ok: bool) -> tuple[int, bytes]:
+    """POST through the guarded opener; (status, first MAX_RESPONSE bytes of the reply) or DeliveryError."""
     check_url(url, lan_ok)
     req = urllib.request.Request(url, data=body, method="POST", headers={"User-Agent": "onemind-notify/1", **headers})
     try:
         with _OPENERS[bool(lan_ok)].open(req, timeout=timeout) as resp:
-            resp.read(MAX_RESPONSE)
-            return resp.status
+            return resp.status, resp.read(MAX_RESPONSE)
     except urllib.error.HTTPError as exc:
         raise DeliveryError(f"HTTP {exc.code}") from None
     except (urllib.error.URLError, OSError, TimeoutError) as exc:
         reason = getattr(exc, "reason", exc)
+        if isinstance(reason, TimeoutError):
+            raise DeliveryError("connection timed out") from None
         raise DeliveryError(f"connection failed ({reason.__class__.__name__})") from None
+
+
+def http_post(url: str, body: bytes, headers: dict[str, str], timeout: float, lan_ok: bool) -> int:
+    return http_exchange(url, body, headers, timeout, lan_ok)[0]
 
 
 # ---- channel kinds -----------------------------------------------------------------------
@@ -240,11 +248,18 @@ def validate_config(kind: str, config: object) -> dict:
             if "@" not in out[key] or "\n" in out[key] or "\r" in out[key]:
                 raise ValueError(f"config.{key} must be an address")
         return out
+    if kind == "sms":
+        from . import sms
+        return sms.validate_config(config)
     raise ValueError(f"kind must be one of {CHANNEL_KINDS} (or ntfy)")
 
 
 def send_channel(kind: str, config: dict, secret: str | None, level: str, msg: Message,
-                 *, timeout: float, lan_ok: bool, now_s: int) -> None:
+                 *, timeout: float, lan_ok: bool, now_s: int):
+    """Send one message; returns the provider receipt for `sms` (sms.Receipt), else None."""
+    if kind == "sms":
+        from . import sms
+        return sms.send(config, secret, level, msg, timeout=timeout, lan_ok=lan_ok)
     if kind == "unifiedpush":
         _send_ntfy(config, secret, level, msg, timeout, lan_ok)
     elif kind == "webhook":
@@ -253,6 +268,7 @@ def send_channel(kind: str, config: dict, secret: str | None, level: str, msg: M
         _send_email(config, secret, level, msg, timeout, lan_ok)
     else:
         raise DeliveryError(f"unsupported channel kind {kind}")
+    return None
 
 
 def _latin1(text: str) -> str:

@@ -108,13 +108,15 @@ def test_registry_is_bounded_against_invented_node_ids(clock):
 # ---- apps ------------------------------------------------------------------------------
 
 CATALOG_KEYS = {
-    "id", "name", "version", "description", "category", "icon", "license", "source",
+    "id", "name", "version", "description", "category", "age_rating", "age_reason", "icon", "license", "source",
     "archs", "requires", "web_port", "installed", "status", "data_kept",
     "links", "tier", "scan",  # §11.4
     "build",  # app factory provenance
     "catalog_source",  # §12.22
     "browser",  # #692: opened in a window with a per-person profile
     "machine_needs",  # #724: requires / recommends / supports in one shape
+    "aiPolicy",  # #165: may this app's data go to AI (null when the manifest declares none)
+    "licence_class",  # #173: metadata.licenceClass, L1 and L2 are green
 }
 VALID_APPS = {"uptime-kuma", "whoami", "hermes-like", "vault-like"}
 
@@ -132,6 +134,7 @@ def test_apps_catalog_shape(client):
     assert ku["machine_needs"] == {"requires": {"arch": ["amd64", "arm64"], "memoryMb": 256}, "recommends": {}, "supports": {}}
     assert ku["installed"] is False and ku["status"] == "not_installed"
     assert ku["browser"] is False
+    assert ku["licence_class"] == "L1"
 
 
 @pytest.mark.parametrize("path", ["/v1/apps/uptime-kuma/icon"])

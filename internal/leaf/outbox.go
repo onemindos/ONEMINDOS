@@ -37,6 +37,10 @@ const (
 	DefaultOutboxMaxAge = 7 * 24 * time.Hour
 	// DefaultDedupeWindow is how long a message id is remembered for duplicate detection.
 	DefaultDedupeWindow = 24 * time.Hour
+	// DefaultHubCopyMaxBytes bounds the hub's copy of one leaf's outbox: the registry retention of
+	// ONEMIND_NODE_OUTBOX (sdk/schema/onemind.subjects.json, kinds/node). The gateway gives a copy
+	// less on a small hub disk (core/onemind_core/jetstream.py node_copy_bytes).
+	DefaultHubCopyMaxBytes = 256 << 20
 )
 
 // ErrOutboxFull is returned by Enqueue when the outbox is at its byte limit: the message is
@@ -60,9 +64,13 @@ func (c OutboxConfig) StreamConfig() jetstream.StreamConfig {
 	return jetstream.StreamConfig{
 		Name:     OutboxStream,
 		Subjects: []string{OutboxPrefix + ">"},
-		// WorkQueue: a message is removed from the leaf once the hub's source consumer has it, so
-		// the outbox holds only what the hub has not collected. It also keeps messages while no
-		// consumer exists yet (Interest would discard them), which is the hub-outage case.
+		// WorkQueue: a message is removed from the leaf once the hub has stored it, so the outbox
+		// holds only what the hub has not collected. On a WorkQueue stream nats-server (v2.15.3)
+		// makes the hub's source consumer durable with AckFlowControl: the hub's flow-control reply
+		// names the last stream sequence it stored, and only that acknowledges (removes) messages,
+		// so an event lost in flight when the link dies stays here (TestHubSourceLosesNothingWhen-
+		// TheLinkDiesMidStream). It also keeps messages while no consumer exists yet (Interest
+		// would discard them), which is the hub-outage case.
 		Retention:  jetstream.WorkQueuePolicy,
 		Storage:    jetstream.FileStorage,
 		MaxBytes:   c.MaxBytes,
@@ -81,6 +89,10 @@ func EnsureOutbox(ctx context.Context, js jetstream.JetStream, cfg OutboxConfig)
 // HubSourceStream returns the stream the hub creates for one leaf: it sources the leaf's outbox
 // through the leaf's JetStream domain (the API prefix routes the requests over the leaf link).
 // domain is the leaf's JetStream domain (node-<node_id>, Config.Domain).
+//
+// The copy keeps the registry retention of node events (#747): DefaultOutboxMaxAge and
+// DefaultHubCopyMaxBytes, dropping its own oldest event when full (discard old), so it never refuses
+// what the source delivers and one node can fill only its own copy.
 func HubSourceStream(domain string) (jetstream.StreamConfig, error) {
 	if !nameRe.MatchString(domain) || domain == "hub" {
 		return jetstream.StreamConfig{}, fmt.Errorf("bad leaf domain %q", domain)
@@ -89,6 +101,9 @@ func HubSourceStream(domain string) (jetstream.StreamConfig, error) {
 		Name:      "NODE_" + strings.ReplaceAll(domain, "-", "_") + "_OUTBOX",
 		Retention: jetstream.LimitsPolicy,
 		Storage:   jetstream.FileStorage,
+		MaxBytes:  DefaultHubCopyMaxBytes,
+		MaxAge:    DefaultOutboxMaxAge,
+		Discard:   jetstream.DiscardOld,
 		Sources: []*jetstream.StreamSource{{
 			Name:     OutboxStream,
 			External: &jetstream.ExternalStream{APIPrefix: "$JS." + domain + ".API"},

@@ -7,7 +7,7 @@ import type { Conditions, Progress } from './engine';
 import type { BackupSettings, Ledger } from './ledger';
 import type { MediaAlbum, MediaPermission } from './media';
 
-export type BackgroundState = 'available' | 'restricted' | 'unknown' | 'demo';
+export type BackgroundState = 'available' | 'restricted' | 'unknown';
 
 export interface PhotoBackupState {
   availability: Availability;
@@ -21,7 +21,6 @@ export interface PhotoBackupState {
   albums?: MediaAlbum[];
   /** Host that receives uploads (shown so the person knows where photos go). */
   host?: string;
-  demo: boolean;
   runNow(): Promise<void>;
   stop(): void;
   updateSettings(patch: Partial<BackupSettings>): Promise<void>;

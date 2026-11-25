@@ -14,10 +14,13 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
   # the schema has metadata.tags).
   category: media
+  age_rating: 16   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Torrent client; downloads files from untrusted peers."
   icon: icon.svg
   # COPYING: the source is GPLv2+, "the binary distribution is licensed under ... GPLv3+" (the image
   # ships the binary). The OpenSSL linking exception it adds has no SPDX id; README.md names it.
   license: "GPL-3.0-or-later"
+  licenceClass: L2
   source: https://github.com/qbittorrent/qBittorrent
   # §9.3 facts from the GitHub API (repos/qbittorrent/qBittorrent), read 2026-11-12.
   links:
