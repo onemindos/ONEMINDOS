@@ -10,19 +10,19 @@ import { brand } from './brand.generated.ts';
 export const palette = {
   neutral: {
     0: '#ffffff',
-    25: '#f7f9f9',
-    50: '#f0f3f3',
-    100: '#e3e8e9',
-    200: '#cdd5d7',
-    300: '#aab5b8',
-    400: '#808d91',
-    500: '#5e6b70',
-    600: '#475459',
-    700: '#343f44',
-    800: '#222b2f',
-    850: '#1a2226',
-    900: '#131a1d',
-    950: '#0c1214',
+    25: '#fafaf9',
+    50: '#f5f5f4',
+    100: '#e7e5e4',
+    200: '#d6d3d1',
+    300: '#a8a29e',
+    400: '#857e79',
+    500: '#625c57',
+    600: '#504a46',
+    700: '#423c38',
+    800: '#302b28',
+    850: '#24211f',
+    900: '#191715',
+    950: '#151311',
   },
   teal: { 50: '#e8f4f3', 100: '#cce8e5', 200: '#9fd2cc', 300: '#6db8b0', 500: '#237d77', 600: '#1f6a66', 700: '#1b5653', 900: '#113432' },
   green: { 50: '#e7f6ec', 100: '#c9ecd4', 300: '#7ad69c', 600: '#1d7a43', 700: '#166236' },
@@ -42,6 +42,7 @@ export type ColorRole =
   | 'surface-raised'
   | 'border'
   | 'border-strong'
+  | 'control-border'
   | 'text'
   | 'text-muted'
   | 'text-subtle'
@@ -51,6 +52,9 @@ export type ColorRole =
   | 'accent-soft'
   | 'logo-brain'
   | 'logo-circuit'
+  | 'action'
+  | 'action-hover'
+  | 'action-text'
   | 'focus'
   | 'danger'
   | 'danger-hover'
@@ -73,17 +77,22 @@ export const light: Theme = {
   'surface-raised': p.neutral[0],
   border: p.neutral[100],
   'border-strong': p.neutral[200],
+  // Edge of an input, chip or switch: 3:1 on every surface (WCAG 1.4.11), unlike the decorative borders above.
+  'control-border': '#7a818c',
   text: p.neutral[900],
   'text-muted': p.neutral[600],
   'text-subtle': p.neutral[500],
-  // Default accent: OneMind Red, made AA-safe for this theme by scripts/brand-sync.py.
-  accent: brand.accent.light.accent,
-  'accent-hover': brand.accent.light.hover,
-  'accent-text': brand.accent.light.text,
-  'accent-soft': brand.accent.light.soft,
+  // Selection and navigation use teal. The primary action keeps the brand red.
+  accent: p.teal[600],
+  'accent-hover': '#025955',
+  'accent-text': '#ffffff',
+  'accent-soft': '#e9f0f0',
+  action: brand.accent.light.accent,
+  'action-hover': brand.accent.light.hover,
+  'action-text': brand.accent.light.text,
   'logo-brain': brand.logo.light.brain,
   'logo-circuit': brand.logo.light.circuit,
-  focus: p.blue[600],
+  focus: p.teal[600],
   danger: p.red[600],
   'danger-hover': p.red[700],
   'danger-text': p.neutral[0],
@@ -111,20 +120,24 @@ export const light: Theme = {
 export const dark: Theme = {
   bg: p.neutral[950],
   surface: p.neutral[900],
-  'surface-sunken': '#0f1517',
+  'surface-sunken': '#181614',
   'surface-raised': p.neutral[850],
   border: p.neutral[800],
   'border-strong': p.neutral[700],
-  text: '#e8eeef',
-  'text-muted': '#a9b6b9',
-  'text-subtle': '#8a989c',
-  accent: brand.accent.dark.accent,
-  'accent-hover': brand.accent.dark.hover,
+  'control-border': '#827b75',
+  text: '#f5f5f4',
+  'text-muted': '#bab4b0',
+  'text-subtle': '#a8a29e',
+  accent: p.teal[300],
+  'accent-hover': '#83cfc6',
   'accent-text': brand.accent.dark.text,
-  'accent-soft': brand.accent.dark.soft,
+  'accent-soft': '#283431',
+  action: brand.accent.dark.accent,
+  'action-hover': brand.accent.dark.hover,
+  'action-text': brand.accent.dark.text,
   'logo-brain': brand.logo.dark.brain,
   'logo-circuit': brand.logo.dark.circuit,
-  focus: p.blue[300],
+  focus: p.teal[300],
   danger: p.red[300],
   'danger-hover': '#ffb0a9',
   'danger-text': p.neutral[950],
@@ -152,7 +165,7 @@ export const dark: Theme = {
 /** Theme-independent scales. Keys become `--om-<group>-<key>`. */
 export const scale = {
   font: {
-    sans: "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+    sans: "'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
     mono: "ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace",
   },
   'font-size': {
@@ -194,6 +207,8 @@ export const scale = {
     'nav-width': '232px',
     'tabbar-height': '64px',
     'touch-target': '44px',
+    'window-radius': '24px',
+    'tile-radius': '26%',
     'bp-compact': '720px',
   },
   z: { nav: '10', dialog: '40', toast: '50' },

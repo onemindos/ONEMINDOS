@@ -7,19 +7,24 @@ kind: App
 metadata:
   id: node-red
   name: "Node-RED"
-  version: "5.0.9"
+  version: "5.0.10"
   description: "Low-code programming for event-driven applications"
   category: automation
+  age_rating: 18   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Builds automations that act on devices and services."
   icon: icon.svg
   license: "Apache-2.0"
+  licenceClass: L1
   source: https://github.com/node-red/node-red
   links:
     docs: "https://nodered.org/docs/"
     github: "https://github.com/node-red/node-red"
     website: "https://nodered.org"   # GitHub homepage is http://nodered.org; the site serves HTTPS
     support: "https://github.com/node-red/node-red/issues"
-  upstream: {release: "5.0.9", released_at: "2026-10-21T10:29:19Z", archived: false}
-  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  upstream: {release: "5.0.10", released_at: "2026-11-17T10:58:39Z", archived: false}
+  # was blocked by CRITICAL CVE-2026-123158 in 5.0.9; 5.0.10 has no fixable CRITICAL (Trivy, 2026-11-21, details in README.md).
+  # community until a CI gate run (ci-apps on the PR, or the daily rescan) computes verified.
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 512}   # the container's memory limit; upstream gives no sizing

@@ -1,0 +1,59 @@
+{
+  "box_id": "0123456789ab",
+  "node_id": "0123456789ab",
+  "generation": 0,
+  "state_dir": "/data/onemind/backup",
+  "scratch_dir": "/data/onemind/backup/scratch",
+  "device_key_file": "/data/onemind/backup/secrets/device.key",
+  "restic": {
+    "binary": "/usr/lib/onemind/restic",
+    "cache_dir": "/data/onemind/backup/cache"
+  },
+  "sqlite3_binary": "/usr/bin/sqlite3",
+  "listen": "127.0.0.1:7480",
+  "job_pubkey_file": "/data/onemind/backup/job.pub",
+  "storage_roots": [
+    "/data/k3s/storage"
+  ],
+  "schedule": {
+    "minute": -1,
+    "maintenance_hour": 3,
+    "verify_weekday": 0,
+    "verify_min_age": "1h",
+    "gateway_hourly": true
+  },
+  "retention": {
+    "hourly": 24,
+    "daily": 7,
+    "weekly": 4,
+    "monthly": 12
+  },
+  "targets": [],
+  "units": {
+    "system": {
+      "paths": [
+        "/data/onemind/etc",
+        "/data/onemind/gateway/tls",
+        "/data/onemind/nats/keys",
+        "/data/onemind/gateway/backup-export",
+        "/data/onemind/files"
+      ],
+      "sqlite": [
+        {
+          "path": "/data/onemind/gateway/onemind.db",
+          "name": "gateway.db"
+        }
+      ],
+      "audit_log": "/data/onemind/gateway/audit.jsonl"
+    },
+    "k3s": {
+      "paths": [
+        "/data/k3s/server/token",
+        "/data/k3s/server/tls",
+        "/data/k3s/server/cred"
+      ],
+      "state_db": "/data/k3s/server/db/state.db",
+      "version": "v1.37.2-k3s1"
+    }
+  }
+}

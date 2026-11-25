@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -72,11 +73,27 @@ func (g *fakeGW) serve(w http.ResponseWriter, r *http.Request) {
 		jsonOut(w, 200, map[string]any{"jsonrpc": "2.0", "id": m["id"], "result": res})
 	case p == "/v1/instance":
 		jsonOut(w, 200, map[string]any{"name": "Test \x1b[31mBox", "version": "0.1.0", "hub_node_id": "abc"})
+	case p == "/v1/status":
+		src := func(state, sum string, at any) map[string]any {
+			return map[string]any{"state": state, "summary": sum, "observed_at": at, "count": 0}
+		}
+		jsonOut(w, 200, map[string]any{"state": "unknown", "observed_at": "2026-11-12T09:00:00Z",
+			"alerts": src("ok", "no open alerts", "2026-11-12T09:00:00Z"), "approvals": src("ok", "none", "2026-11-12T09:00:00Z"),
+			"apps": src("ok", "none", "2026-11-12T09:00:00Z"), "storage": src("unknown", "the storage service is not enabled", nil),
+			"backups": src("attention", "backups are not set up", "2026-11-12T09:00:00Z"),
+			"updates": src("ok", "up to date", "2026-11-12T09:00:00Z"), "mesh": src("ok", "off", "2026-11-12T09:00:00Z")})
+	case p == "/v1/usage":
+		jsonOut(w, 200, map[string]any{"at": "2026-11-20T10:00:00Z",
+			"nodes": []any{map[string]any{"node_id": "abc", "hostname": "hub", "status": "stale", "stale": true, "last_seen": "2026-11-20T09:59:00Z",
+				"age_s": 60, "cpu_pct": 12.5, "mem_used_mb": 2000, "mem_total_mb": 8000, "disk_used_gb": 40, "disk_total_gb": 100, "cpu_source": "heartbeat"}},
+			"apps": map[string]any{"source": "kubernetes", "sampled_at": "2026-11-20T09:58:00Z", "stale": true,
+				"items": []any{map[string]any{"app_id": "kuma", "cpu_millicores": 300, "mem_mib": 130, "disk_mib": nil}}}})
 	case p == "/v1/nodes":
 		jsonOut(w, 200, []any{map[string]any{"node_id": "abc", "hostname": "hub", "status": "online", "last_seen": "2026-11-12T09:00:00Z", "zeta": 1, "alpha": 2}})
 	case p == "/v1/apps":
 		jsonOut(w, 200, []any{
 			map[string]any{"id": "ntfy", "name": "ntfy", "version": "2.14.0", "category": "tools", "installed": false, "status": "not_installed", "archs": []string{"amd64"}, "requires": map[string]any{}, "links": map[string]any{}, "license": "Apache-2.0", "scan": map[string]any{"result": "pass", "scanned_at": "2026-11-11T09:00:00Z"}},
+			map[string]any{"id": "esphome", "name": "ESPHome", "version": "1.0", "category": "tools", "installed": false, "status": "not_installed", "archs": []string{"amd64"}, "requires": map[string]any{}, "links": map[string]any{}, "license": "MIT", "licence_class": "unknown"},
 			map[string]any{"id": "kuma", "name": "Uptime Kuma", "version": "1.0", "category": "monitoring", "installed": true, "status": "installed", "archs": []string{"amd64"}, "requires": map[string]any{}, "links": map[string]any{}},
 		})
 	case p == "/v1/actions" && r.Method == http.MethodPost:
@@ -107,6 +124,15 @@ func (g *fakeGW) serve(w http.ResponseWriter, r *http.Request) {
 			if who != "owner" {
 				jsonOut(w, 403, map[string]string{"error": "permission_denied", "message": "agent/agent may not approve action"})
 				return
+			}
+			if parts[1] == "approve" {
+				// #173: a licence that is not green needs accept_licence = the app id.
+				var body map[string]any
+				_ = json.NewDecoder(r.Body).Decode(&body)
+				if params, _ := a["params"].(map[string]any); params["app_id"] == "esphome" && body["accept_licence"] != "esphome" {
+					jsonOut(w, 409, map[string]any{"error": "stale_precondition", "reason": "licence_unconfirmed", "message": "app 'esphome' has licence class unknown, which is not green: send accept_licence with the app id"})
+					return
+				}
 			}
 			a["decided_by"] = map[string]any{"id": "owner", "kind": "person", "role": "owner"}
 			a["state"] = map[string]string{"approve": "succeeded", "deny": "cancelled"}[parts[1]]
@@ -215,6 +241,10 @@ func TestLoginContextsAndConfigModes(t *testing.T) {
 	if r := run(t, "", false, "status", "--json"); r.code != 0 || !strings.Contains(r.out, `"onemind.cli.status/v1"`) {
 		t.Fatalf("status %+v", r)
 	}
+	if r := run(t, "", false, "status"); r.code != 0 || !strings.Contains(r.out, "unknown: the storage service is not enabled (not read)") ||
+		!strings.Contains(r.out, "Needs attention") {
+		t.Fatalf("status text %+v", r)
+	}
 	if r := run(t, "", false, "logout"); r.code != 0 {
 		t.Fatal(r)
 	}
@@ -237,6 +267,30 @@ func TestJSONErrorsGoToStderrOnly(t *testing.T) {
 	var e map[string]any
 	if err := json.Unmarshal([]byte(r.errOut), &e); err != nil || e["error"] != "unauthenticated" || e["exit_code"] != float64(3) {
 		t.Fatalf("stderr %q", r.errOut)
+	}
+}
+
+func TestStatusUsageShowsStaleAndMissingNumbersHonestly(t *testing.T) {
+	isolate(t)
+	g := newFakeGW(t)
+	t.Setenv("ONEMIND_HUB", g.srv.URL)
+	t.Setenv("ONEMIND_TOKEN", ownerTok)
+	r := run(t, "", false, "status", "--usage")
+	if r.code != 0 {
+		t.Fatalf("usage %+v", r)
+	}
+	for _, want := range []string{"hub", "12.5%", "2000.0 / 8000.0 MB", "40.0 / 100.0 GB", "STALE: last heard 60s ago",
+		"Apps: STALE, last read 2026-11-20T09:58:00Z", "kuma", "300.0m", "130.0MiB"} {
+		if !strings.Contains(r.out, want) {
+			t.Errorf("missing %q in:\n%s", want, r.out)
+		}
+	}
+	// Disk of the app is unknown: a dash, never 0.
+	if !regexp.MustCompile(`kuma\s+300\.0m\s+130\.0MiB\s+-\s*\n`).MatchString(r.out) {
+		t.Errorf("unknown value must be a dash:\n%s", r.out)
+	}
+	if j := run(t, "", false, "status", "--usage", "--json"); j.code != 0 || !strings.Contains(j.out, `"stale": true`) {
+		t.Fatalf("json %+v", j)
 	}
 }
 
@@ -279,6 +333,28 @@ func TestAppsAndTheApprovalFlow(t *testing.T) {
 	t.Setenv("ONEMIND_TOKEN", agentTok)
 	if r := run(t, "", false, "apps", "install", "ntfy", "--yes"); r.code != ExitPermissionDenied || !strings.Contains(r.errOut, "actions approve") {
 		t.Fatalf("agent %+v", r)
+	}
+}
+
+func TestInstallNeedsTypedLicenceAcceptance(t *testing.T) {
+	isolate(t)
+	g := newFakeGW(t)
+	t.Setenv("ONEMIND_HUB", g.srv.URL)
+	t.Setenv("ONEMIND_TOKEN", ownerTok)
+	// Interactive: "y" to approve, then the app id typed to accept the licence.
+	if r := run(t, "y\nesphome\n", true, "apps", "install", "esphome"); r.code != 0 || !strings.Contains(r.errOut, "licence") || !strings.Contains(r.out, "succeeded") {
+		t.Fatalf("typed %+v", r)
+	}
+	// Anything else typed leaves the request waiting.
+	if r := run(t, "y\nnope\n", true, "apps", "install", "esphome"); r.code != ExitPending {
+		t.Fatalf("wrong id %+v", r)
+	}
+	// --yes alone never accepts a licence for the owner; the flag names the app.
+	if r := run(t, "", false, "apps", "install", "esphome", "--yes"); r.code != ExitUsage || !strings.Contains(r.errOut, "--accept-licence esphome") {
+		t.Fatalf("yes only %+v", r)
+	}
+	if r := run(t, "", false, "apps", "install", "esphome", "--yes", "--accept-licence", "esphome"); r.code != 0 {
+		t.Fatalf("flag %+v", r)
 	}
 }
 

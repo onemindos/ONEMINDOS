@@ -53,14 +53,17 @@ describe('lifecycle through the HTTP client', () => {
     const panel = screen.getByRole('region', { name: 'App request progress' });
     expect(within(panel).getByRole('heading', { name: 'App request progress' })).toBeInTheDocument();
     expect(panel).toHaveClass('om-card');
-    expect(within(panel).getByRole('status')).toHaveTextContent('Request status: succeeded');
-    expect(within(panel).getByText('Gateway result: applied')).toBeInTheDocument();
+    expect(within(panel).getByRole('status')).toHaveTextContent('Done.');
+    expect(panel).not.toHaveTextContent('Request status');
+    expect(panel).not.toHaveTextContent('Gateway result');
+    expect(within(panel).getByText('Hub result: applied')).toBeInTheDocument();
     expect(within(panel).queryByText('Healthy')).not.toBeInTheDocument();
   });
   it('keeps the compact jobs island and expands to actual ledger state', async () => {
     const { user } = setup();
     const tray = await screen.findByRole('complementary', { name: 'Jobs in progress' });
-    const toggle = within(tray).getByRole('button', { name: '1 job · Ollama: Awaiting approval' });
+    const toggle = within(tray).getByRole('button', { name: '1 job waiting: Ollama, awaiting approval' });
+    expect(toggle).toHaveTextContent(/^1 job waiting$/);
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     expect(toggle).toHaveClass('om-store-tray-pill');
     expect(within(tray).queryByRole('region', { name: 'Request progress' })).not.toBeInTheDocument();

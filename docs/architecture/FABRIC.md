@@ -67,7 +67,7 @@ Private keys never leave the node. The hub signs only public halves. Where `tpm2
  "Add node" → POST /v1/fabric/join-tickets {role, ttl}
                                     ticket: 128-bit random, single use,
                                     TTL ≤ 60 min (default 15), stored hashed
- QR: onemind-join:v1?hub=<url>&ca=<sha256 of CA>&t=<ticket>&role=worker
+ QR: onemind-join:v2?hub=<url>&ca=<sha256 of CA>&code=<ticket>&kind=worker  (§4.3)
                                                                         onemind node join <qr text or URL>
                                                                         (or scan with the phone app, which shows the text)
                                                                         - TLS to hub, CA pinned from the QR
@@ -112,6 +112,29 @@ Private keys never leave the node. The hub signs only public halves. Where `tpm2
 | Proxmox | Any node shows the whole cluster | AGPL-3.0 | Pattern: every hub page shows all nodes |
 
 None of them shows the joining machine to the owner and asks for approval with a pairing code. That is the beat (H-23 + FAB-B3).
+
+### 4.3 The join QR (onemind-join:v2)
+
+The join QR is one line of plain ASCII text. One builder makes it (`build_join_qr` in `core/onemind_core/fabric.py`), and three parsers read it: Python (`parse_join_qr`), Go (`ParseQR` in `internal/fabric/join.go`, used by `onemind fabric join`) and TypeScript (`parseJoinQR` in `@onemind/sdk`). All three run the same vectors file, `sdk/testdata/join-qr/vectors.json`, and must give the same answer and the same reason word for every payload in it. None of them uses a language's URL or query parser, because those disagree on `+`, `;`, repeated keys, IP shorthands and trailing newlines.
+
+```
+onemind-join:v2?hub=<https URL>[&alt=<https URL>][&mdns=<name>.local]&ca=<64 hex>&code=<XXXX-XXXX-XXXX>&kind=<kind>
+onemind-join:v1?code=<code>&ca=<64 hex>[&role=worker|leaf]&hub=<https URL>      (older; still read)
+```
+
+| Field | v2 | Rule |
+|---|---|---|
+| `hub` | required | `https://host[:port]`, optional trailing `/`; no user, path, query, fragment or IPv6 literal; the host is a DNS name or a dotted-quad IPv4 address |
+| `alt` | optional | the away address; same rule as `hub` |
+| `mdns` | optional | one lower-case label ending in `.local`, such as `box1.local` |
+| `ca` | required | sha256 of the box CA: 64 lower-case hex characters |
+| `code` | required | the one-use join code: three groups of four Crockford base-32 characters, upper case, joined by dashes |
+| `kind` | required | `worker` or `leaf` (machines, `onemind fabric join`), or `phone`, `desktop`, `browser`, `sensor` |
+
+- **Shape:** `key=value` pairs joined by `&`, each key at most once, no unknown keys. Values are percent-encoded; after decoding, every character is printable ASCII.
+- **Refused first:** any non-ASCII character (reason `charset`), then a payload longer than 640 characters (`length`). The ASCII check comes first because Python counts code points, Go bytes and TypeScript UTF-16 units, so a length check on non-ASCII text would give a different reason in each language.
+- **Reasons:** `charset`, `length`, `prefix`, `version`, `syntax`, `unknown_field`, `duplicate`, `missing_field`, `code`, `ca`, `kind`, `role`, `hub`, `alt`, `mdns`.
+- **v1:** the code field is `code=`, never `t=`. A v1 code keeps its looser shape (dashes optional, any case) and the CA fingerprint is lower-cased. `POST /v1/fabric/join-tickets` returns both `qr_payload` (v1, for OS images and `deploy/install.sh` that read only v1) and `qr_payload_v2`.
 
 ## 5. Messaging topology (NATS)
 

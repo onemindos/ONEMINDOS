@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: Apache-2.0
+# Built-in descriptor (sdk/schema/onemind.builtin.schema.json) of the LoRa messenger on MeshCore (#855).
+# Read only once "messages" is on the signed system apps list: the read path (#856) adds it there together
+# with the routes and tables below, and the conformance test (core/tests/test_builtin_conformance.py) then
+# checks every call, prefix, table and action against the running gateway. Action specs: actions.json.
+apiVersion: onemind.app/v1
+kind: App
+metadata:
+  id: messages
+  name: Messages
+  description: Text over LoRa radio (MeshCore). Every send and advert waits for a person's tap; agents only draft.
+spec:
+  routes:
+    # The switch-off gate: while Messages is off every request under these answers 409 app_disabled.
+    owns: [/v1/messages, /v1/radios]
+    calls:
+      - GET /v1/messages/threads
+      - POST /v1/messages/estimate
+      - POST /v1/messages
+      - POST /v1/messages/import
+      - GET /v1/radios
+  actions:
+    - {type: message.send, title: Send a radio message, mcp: true}
+    - {type: radio.advert, title: Announce this radio (zero-hop), mcp: false}
+    - {type: radio.grant, title: Give a radio to Messages, mcp: false}
+    - {type: radio.revoke, title: Take a radio back, mcp: false}
+    - {type: radio.region.confirm, title: Confirm the radio's region, mcp: false}
+  backup:
+    units:
+      - {kind: table, name: messages_messages}
+      - {kind: table, name: messages_radios}
+  data: {owns: [private], reads: []}
+  phone: {entry: native, screen: messages}

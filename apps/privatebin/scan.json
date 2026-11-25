@@ -1,6 +1,6 @@
 {
-  "scanned_at": "2026-11-20T22:37:41Z",
-  "result": "fail",
+  "scanned_at": "2026-11-21T15:37:17Z",
+  "result": "pass",
   "images": [
     {
       "ref": "docker.io/privatebin/nginx-fpm-alpine:edge@sha256:f0ade5951258358b7f36ba8b7662f90f17165f60402b99945f3ffe2deb32011a",
@@ -15,7 +15,7 @@
         "high": 0
       },
       "clamav": {
-        "signatures": "daily-28189",
+        "signatures": "daily-28190",
         "infected": 0
       },
       "secrets": 0,
@@ -26,5 +26,5 @@
     "spdx": "Zlib",
     "class": "L1"
   },
-  "smoke": "skipped"
+  "smoke": "pass"
 }

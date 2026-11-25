@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { makeActions, makeApps, makeNodes } from '../api/fixtures';
 import type { Action } from '../api/types';
 import { toRoute } from '../shell/routes';
-import { activityFrom, categorySlug, deployClass, DIRECT_URL_NOTE, iconOf, jobState, notificationsFrom, openUrl, runState, toActionSummary, toInstalled, toJob, toStoreApp } from './adapters';
+import { activityFrom, categorySlug, deployClass, NO_APP_NAME_NOTE, iconOf, jobState, notificationsFrom, openUrl, runState, toActionPlan, toActionSummary, toInstalled, toJob, toStoreApp } from './adapters';
 import { personKey, personStorage } from './prefs';
 
 const NOW = Date.parse('2026-11-12T12:00:00Z');
@@ -27,6 +27,29 @@ describe('catalog → Market (TAXONOMY §1, §11.4)', () => {
     expect(deployClass(null)).toBe('market-community');
   });
 
+  it('uses the gate class only for the current manifest licence', () => {
+    const app = makeApps(NOW)[0]!;
+    const scan = { scanned_at: new Date(NOW).toISOString(), result: 'pass' as const };
+    const checked = { ...scan, licence: { spdx: 'MIT', class: 'L1' as const } };
+    expect(toStoreApp({ ...app, license: 'MIT', scan: checked }).licence_class).toBe('L1');
+    expect(toStoreApp({ ...app, license: 'MIT', scan }).licence_class).toBe('L?');
+    expect(toStoreApp({ ...app, license: 'GPL-3.0', scan: checked }).licence_class).toBe('L?');
+    expect(toStoreApp({ ...app, license: 'MIT', scan: { ...scan, licence: { spdx: 'MIT', class: 'blocked' } } }).licence_class).toBe('blocked');
+  });
+
+  it('takes the manifest licence class first and never shows unknown as green (#173)', () => {
+    const app = makeApps(NOW)[0]!;
+    const scan = { scanned_at: new Date(NOW).toISOString(), result: 'pass' as const };
+    const gate = (cls: 'L1' | 'L2' | 'blocked') => ({ ...scan, licence: { spdx: 'MIT', class: cls } });
+    const of = (licence_class: 'L1' | 'L2' | 'blocked' | 'unknown', s = scan) =>
+      toStoreApp({ ...app, license: 'MIT', licence_class, scan: s }).licence_class;
+    expect(of('L1')).toBe('L1');
+    expect(of('L2')).toBe('L2');
+    expect(of('unknown', gate('L1'))).toBe('L?');
+    expect(of('blocked', gate('L1'))).toBe('blocked');
+    expect(of('L1', gate('blocked'))).toBe('blocked');
+  });
+
   it('keeps scan, tier, links and licence; tolerates null fields from the gateway', () => {
     const [kuma] = makeApps(NOW);
     const s = toStoreApp(kuma!);
@@ -47,11 +70,19 @@ describe('catalog → Market (TAXONOMY §1, §11.4)', () => {
     expect(iconOf('https://example.org/a.png')).toBe('https://example.org/a.png');
   });
 
-  it('opens an installed app on its web port on this host, and nothing else', () => {
+  it('opens an installed app at its own name on the box, never its raw port', () => {
     const loc = { protocol: 'https:', hostname: 'onemind.local' };
-    expect(openUrl({ installed: true, web_port: 3001 }, loc)).toBe('https://onemind.local:3001/');
-    expect(openUrl({ installed: false, web_port: 3001 }, loc)).toBeUndefined();
-    expect(openUrl({ installed: true, web_port: null }, loc)).toBeUndefined();
+    expect(openUrl({ id: 'uptime-kuma', installed: true, web_port: 3001 }, loc)).toBe('https://uptime-kuma.onemind.local/');
+    expect(openUrl({ id: 'uptime-kuma', installed: true, web_port: 3001 }, { protocol: 'https:', hostname: 'box1.local' })).toBe('https://uptime-kuma.box1.local/');
+    expect(openUrl({ id: 'x', installed: false, web_port: 3001 }, loc)).toBeUndefined();
+    expect(openUrl({ id: 'x', installed: true, web_port: null }, loc)).toBeUndefined();
+  });
+
+  it('has no link from an address that cannot name the app (an IP or another domain)', () => {
+    for (const hostname of ['192.0.2.10', 'localhost', 'box.example.org', 'evil.local.example.org']) {
+      expect(openUrl({ id: 'x', installed: true, web_port: 3001 }, { protocol: 'https:', hostname })).toBeUndefined();
+    }
+    expect(openUrl({ id: 'a.b', installed: true, web_port: 3001 }, { protocol: 'https:', hostname: 'onemind.local' })).toBeUndefined();
   });
 
   it('says "installed", not "running": v0 reports no health', () => {
@@ -62,12 +93,14 @@ describe('catalog → Market (TAXONOMY §1, §11.4)', () => {
     expect(toInstalled(makeApps(NOW)[0]!, new Date(NOW).toISOString()).state).toBe('installed');
   });
 
-  it('never calls the direct app port "behind the OneMind sign-in"', () => {
-    const loc = { protocol: 'http:', hostname: 'onemind.local' };
-    const inst = toInstalled(makeApps(NOW)[0]!, new Date(NOW).toISOString(), loc);
-    expect(inst.url).toBe('http://onemind.local:3001/');
-    expect(inst.url_note).toBe(DIRECT_URL_NOTE);
-    expect(inst.url_note).toMatch(/not behind the OneMind sign-in/);
+  it('links to the app behind the sign-in, and says so when it cannot', () => {
+    const app = makeApps(NOW)[0]!;
+    const named = toInstalled(app, new Date(NOW).toISOString(), { protocol: 'https:', hostname: 'onemind.local' });
+    expect(named.url).toBe(`https://${app.id}.onemind.local/`);
+    expect(named.url_note).toBeUndefined();
+    const byIp = toInstalled(app, new Date(NOW).toISOString(), { protocol: 'http:', hostname: '192.0.2.10' });
+    expect(byIp.url).toBeUndefined();
+    expect(byIp.url_note).toBe(NO_APP_NAME_NOTE);
   });
 });
 
@@ -79,6 +112,10 @@ describe('actions → approvals, progress, notifications, activity', () => {
     expect(s.requested_by?.id).toBe('owner');
     expect(s.message).toBe('kubectl delete exited with status 1');
     expect(toActionSummary(actions[0]!).requested_by?.kind).toBe('agent');
+    // Catalog names, not ids: "Install Ollama", never "Install ollama".
+    const named = toActionSummary({ ...actions[0]!, params: { app_id: 'ollama' } }, (id) => (id === 'ollama' ? 'Ollama' : id));
+    expect(named.target_name).toBe('Ollama');
+    expect(toActionSummary({ ...actions[0]!, params: { app_id: 'ollama' } }).target_name).toBeUndefined();
   });
 
   it('maps action states onto the install progress track', () => {
@@ -176,5 +213,20 @@ describe('per-person storage', () => {
     expect(personKey(undefined, t1)).toBe(personKey(undefined, t1));
     expect(personKey(undefined, t1)).toMatch(/^token-[0-9a-f]{8}$/);
     expect(personKey('owner', t1)).toBe('owner');
+  });
+});
+
+describe('tainted agent request (AIG-04, #168)', () => {
+  const base = { id: 'a1', type: 'app.remove', params: { app_id: 'whoami' }, idempotency_key: 'k', expires_at: '', state: 'awaiting_approval', plan_sha256: 'h' };
+  it('puts the gateway taint note first on the approval card, high risk, naming what the agent read', () => {
+    const plan = { summary: 'Remove whoami.', warnings: [], taint: { sources: ['mcp:get_app', 'mcp:resource:catalog'], since: '2026-11-22T10:00:00Z', message: 'This agent read text written by third parties before asking. Check the request against what you wanted, not against what the agent says.' } };
+    const p = toActionPlan({ ...base, plan } as unknown as Action)!;
+    expect(p.effects[0]).toMatchObject({ kind: 'note', risk: 'high' });
+    expect(p.effects[0]!.label).toMatch(/third parties/);
+    expect(p.effects[0]!.detail).toContain('mcp:get_app, mcp:resource:catalog');
+  });
+  it('adds nothing when the requester read nothing from outside', () => {
+    const p = toActionPlan({ ...base, plan: { summary: 'Remove whoami.', warnings: [] } } as unknown as Action)!;
+    expect(p.effects.map((e) => e.label)).toEqual(['Remove whoami.']);
   });
 });

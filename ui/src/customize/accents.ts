@@ -12,7 +12,7 @@ import { contrast, hexToOklch, mix, normalizeHex, withLightness } from './color'
 export type ThemeName = 'light' | 'dark';
 
 /** Curated presets. The first, `onemind`, is the brand accent (OneMind Red from brand/brand.json)
- * and the default. Other violet, red, amber and green hues are left out on purpose: they are
+ * and remains available. Other violet, red, amber and green hues are left out on purpose: they are
  * reserved for the agent tone and the status tones (PRINCIPLES P3), so an accent never
  * reads as "an agent did this" or "this failed". The brand red is the one exception, by
  * founder decision; status tones always carry an icon and a label, never colour alone. */
@@ -27,8 +27,8 @@ export interface AccentPreset {
   dark: string;
 }
 
-/** The accent a new box starts with: the brand accent. */
-export const DEFAULT_ACCENT: AccentId = 'onemind';
+/** The accent a new box starts with: teal, shared by Atlas theme packs. */
+export const DEFAULT_ACCENT: AccentId = 'teal';
 
 export const ACCENTS: Record<AccentId, AccentPreset> = {
   onemind: { id: 'onemind', name: brand.accent.name, light: brand.accent.light.accent, dark: brand.accent.dark.accent },

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package host runs owner-approved host actions (#146, #142): restart,
-// shutdown, OS install and factory reset. It is `onemindd host serve`, its own
+// shutdown, OS install, factory reset and restarting one service (#636). It is `onemindd host serve`, its own
 // privileged unit, reached by the gateway over a Unix socket
 // (docs/leap/core/HOST-ACTIONS.md).
 //
@@ -23,16 +23,18 @@ import (
 )
 
 // Kinds of host action. The gateway's action types map onto them:
-// system.restart, system.shutdown, system.factory_reset, os.update.install.
+// system.restart, system.shutdown, system.factory_reset, os.update.install,
+// service.restart.
 const (
-	KindRestart      = "restart"
-	KindShutdown     = "shutdown"
-	KindFactoryReset = "factory-reset"
-	KindOSInstall    = "os-install"
+	KindRestart        = "restart"
+	KindShutdown       = "shutdown"
+	KindFactoryReset   = "factory-reset"
+	KindOSInstall      = "os-install"
+	KindServiceRestart = "service-restart"
 )
 
 // Kinds lists every kind in a stable order (GET /v1/status).
-var Kinds = []string{KindRestart, KindShutdown, KindFactoryReset, KindOSInstall}
+var Kinds = []string{KindRestart, KindShutdown, KindFactoryReset, KindOSInstall, KindServiceRestart}
 
 // Operation states. going_down: the box was told to reboot or power off; the
 // next boot turns it into succeeded.
@@ -49,7 +51,9 @@ func Terminal(state string) bool { return state == StateSucceeded || state == St
 
 var (
 	actionIDRe = regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,128}$`)
+	planHashRe = regexp.MustCompile(`^[0-9a-f]{64}$`)
 	versionRe  = regexp.MustCompile(`^[0-9A-Za-z.+-]{1,64}$`) // the gateway's InstallParams.version
+	unitRe     = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.@-]{0,90}\.(service|socket|timer|path)$`)
 )
 
 // ErrNoJournal: the journal is not open, so nothing may start (a result that
@@ -67,6 +71,12 @@ type Request struct {
 	ActionID string `json:"action_id"`
 	Kind     string `json:"kind"`
 	Version  string `json:"version,omitempty"` // os-install only: the version the owner approved
+	// PlanSHA256 (factory-reset only, required) is the hash of the plan the
+	// owner approved (GET /v1/plans/factory-reset). The box wipes only if its
+	// disks still match that exact plan.
+	PlanSHA256 string `json:"plan_sha256,omitempty"`
+	// Unit (service-restart only, required) is the systemd unit the owner approved restarting.
+	Unit string `json:"unit,omitempty"`
 }
 
 // Validate refuses a malformed request (HTTP 400).
@@ -74,17 +84,36 @@ func (r Request) Validate() error {
 	if !actionIDRe.MatchString(r.ActionID) {
 		return errors.New("action_id must be 1-128 characters of A-Z a-z 0-9 _ . : -")
 	}
+	if (r.Kind == KindServiceRestart) != (r.Unit != "") {
+		return fmt.Errorf("unit is required for %s and only for it", KindServiceRestart)
+	}
 	switch r.Kind {
 	case KindRestart, KindShutdown, KindFactoryReset:
 		if r.Version != "" {
 			return fmt.Errorf("%s takes no version", r.Kind)
 		}
+		if r.Kind == KindFactoryReset && !planHashRe.MatchString(r.PlanSHA256) {
+			return errors.New("factory-reset needs plan_sha256, the hash of the plan the owner approved (64 hex characters)")
+		}
+		if r.Kind != KindFactoryReset && r.PlanSHA256 != "" {
+			return fmt.Errorf("%s takes no plan_sha256", r.Kind)
+		}
 	case KindOSInstall:
+		if r.PlanSHA256 != "" {
+			return errors.New("os-install takes no plan_sha256")
+		}
 		if !versionRe.MatchString(r.Version) {
 			return errors.New("os-install needs the approved version (1-64 characters of 0-9 A-Z a-z . + -)")
 		}
+	case KindServiceRestart:
+		if r.Version != "" || r.PlanSHA256 != "" {
+			return errors.New("service-restart takes only a unit")
+		}
+		if !unitRe.MatchString(r.Unit) {
+			return errors.New("unit must be a systemd unit name")
+		}
 	default:
-		return fmt.Errorf("unknown kind %q (restart, shutdown, factory-reset, os-install)", r.Kind)
+		return fmt.Errorf("unknown kind %q (restart, shutdown, factory-reset, os-install, service-restart)", r.Kind)
 	}
 	return nil
 }
@@ -94,6 +123,8 @@ type Op struct {
 	ID         string     `json:"action_id"`
 	Kind       string     `json:"kind"`
 	Version    string     `json:"version,omitempty"`
+	PlanSHA256 string     `json:"plan_sha256,omitempty"` // factory-reset: the approved plan
+	Unit       string     `json:"unit,omitempty"`        // service-restart: the approved unit
 	State      string     `json:"state"`
 	Reason     string     `json:"reason,omitempty"` // failed: a stable code
 	Message    string     `json:"message,omitempty"`
@@ -126,7 +157,19 @@ type OSInstaller interface {
 // Resetter arms the two-phase factory reset (HOST-ACTIONS.md §4).
 type Resetter interface {
 	Unavailable() string
+	// Plan inspects the disks now and returns exactly what a reset would erase.
+	Plan(ctx context.Context) ResetPlan
+	// Arm re-plans, refuses unless op.PlanSHA256 still matches, and writes the
+	// marker the next boot's wipe unit acts on.
 	Arm(ctx context.Context, op Op) error
+}
+
+// Units restarts one service (internal/svcregistry.Reader in production).
+// CheckRestart refuses a unit the image's registry does not list or does not
+// mark restartable, and the rescue, first-boot, host and data-layout units.
+type Units interface {
+	CheckRestart(unit string) error
+	Restart(ctx context.Context, unit string) error
 }
 
 // Service runs the actions. Power, OS and Reset may be nil: that kind is then
@@ -136,6 +179,8 @@ type Service struct {
 	Power  Power
 	OS     OSInstaller
 	Reset  Resetter
+	SMB    SMBManager    // file sharing (smb.go); nil: not on this box
+	Units  Units         // service-restart; nil: refused
 	BootID string        // /proc/sys/kernel/random/boot_id
 	Delay  time.Duration // before the box goes down, so the gateway records "accepted" first
 	Now    func() time.Time
@@ -175,6 +220,10 @@ func (s *Service) Unavailable(kind string) string {
 			return "this box has no OS update engine"
 		}
 		return s.OS.Unavailable()
+	case KindServiceRestart:
+		if s.Units == nil {
+			return "this host service cannot restart services"
+		}
 	case KindFactoryReset:
 		if s.Reset == nil {
 			return "factory reset is not in this OneMind version yet: the early-boot wipe ships separately (HOST-ACTIONS.md §4)"
@@ -208,7 +257,7 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if old, err := s.Store.Get(req.ActionID); err == nil {
-		if old.Kind != req.Kind || old.Version != req.Version {
+		if old.Kind != req.Kind || old.Version != req.Version || old.PlanSHA256 != req.PlanSHA256 || old.Unit != req.Unit {
 			return Op{}, false, &Refusal{"action_id_reused", "action " + req.ActionID + " was already sent as a different request"}
 		}
 		if s.active != nil && s.active.ID == old.ID {
@@ -231,8 +280,21 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 			return Op{}, false, &Refusal{"update_in_progress", why}
 		}
 	}
+	if req.Kind == KindServiceRestart {
+		// Checked again here, whatever the gateway said: the registry on the signed image decides.
+		if err := s.Units.CheckRestart(req.Unit); err != nil {
+			return Op{}, false, &Refusal{"not_restartable", req.Unit + ": " + err.Error()}
+		}
+	}
+	if req.Kind == KindFactoryReset {
+		// The owner approved one plan. If the disks changed since (a member
+		// added or pulled), nothing is armed: the owner must see the new plan.
+		if p := s.Reset.Plan(ctx); p.SHA256 != req.PlanSHA256 {
+			return Op{}, false, &Refusal{"plan_changed", "the disks changed since the plan you approved; request the factory reset again to see the new plan"}
+		}
+	}
 	now := s.now()
-	op = Op{ID: req.ActionID, Kind: req.Kind, Version: req.Version, State: StateAccepted, BootID: s.BootID,
+	op = Op{ID: req.ActionID, Kind: req.Kind, Version: req.Version, PlanSHA256: req.PlanSHA256, Unit: req.Unit, State: StateAccepted, BootID: s.BootID,
 		AcceptedAt: now, UpdatedAt: now, Message: "accepted"}
 	if err := s.Store.Put(op); err != nil {
 		return Op{}, false, err
@@ -244,7 +306,7 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 		defer s.wg.Done()
 		s.run(ctx, cp)
 	}()
-	s.log().Info("host action accepted", "action_id", op.ID, "kind", op.Kind, "version", op.Version)
+	s.log().Info("host action accepted", "action_id", op.ID, "kind", op.Kind, "version", op.Version, "unit", op.Unit)
 	return op, true, nil
 }
 
@@ -302,6 +364,13 @@ func (s *Service) run(ctx context.Context, op Op) {
 		case !rebooted:
 			s.set(&op, StateSucceeded, "", note)
 		}
+	case KindServiceRestart:
+		s.set(&op, StateRunning, "", "restarting "+op.Unit)
+		if err := s.Units.Restart(ctx, op.Unit); err != nil {
+			s.set(&op, StateFailed, "host_error", "restarting "+op.Unit+" failed: "+err.Error())
+			return
+		}
+		s.set(&op, StateSucceeded, "", op.Unit+" restarted")
 	case KindFactoryReset:
 		s.set(&op, StateRunning, "", "arming the factory reset")
 		if err := s.Reset.Arm(ctx, op); err != nil {

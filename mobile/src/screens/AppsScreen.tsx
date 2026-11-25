@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useNavigation } from '@react-navigation/native';
-import { Pressable, Text, View } from 'react-native';
+import { Linking, Pressable, Text, View } from 'react-native';
 import type { AppTier, CatalogApp } from '../api/types';
 import { useHubData } from '../data';
+import { appOpenUrl } from '../lib/health';
+import { asksParent } from '../lib/people';
+import { useSignedIn } from '../session';
 import { formatDay, installBlockReason } from '../lib/scan';
-import { Badge, Card, H1, H2, Loading, P, Screen, s } from '../ui/bits';
+import { Badge, Button, Card, H1, H2, Loading, P, Screen, s } from '../ui/bits';
 import { useTheme } from '../ui/theme';
 
 export const TIER_TONE: Record<AppTier, 'ok' | 'neutral' | 'bad'> = { verified: 'ok', community: 'neutral', blocked: 'bad' };
@@ -20,6 +23,8 @@ function AppRow({ app, hubNow }: { app: CatalogApp; hubNow: number }) {
   const nav = useNavigation();
   const scan = scanLabel(app);
   const blocked = !app.installed && installBlockReason(app, hubNow);
+  const { connection } = useSignedIn();
+  const openUrl = appOpenUrl(app, connection.mode === 'live' ? connection.hubUrl : undefined);
   return (
     <Pressable accessibilityRole="button" onPress={() => nav.navigate('AppDetail', { id: app.id })}>
       <Card testID={`app-${app.id}`}>
@@ -32,9 +37,11 @@ function AppRow({ app, hubNow }: { app: CatalogApp; hubNow: number }) {
           {app.installed && <Badge label={app.status.replace(/_/g, ' ')} tone="info" />}
           <Badge label={app.tier ?? 'no tier'} tone={app.tier ? TIER_TONE[app.tier] : 'warn'} />
           <Badge label={scan.text} tone={scan.tone} />
+          {app.min_age != null && <Badge label={`age ${app.min_age}+`} />}
           <Badge label={app.license} />
           {blocked ? <Badge label="cannot install yet" tone="warn" /> : null}
         </View>
+        {openUrl ? <Button testID={`open-${app.id}`} label="Open" variant="secondary" onPress={() => void Linking.openURL(openUrl)} /> : null}
       </Card>
     </Pressable>
   );
@@ -42,6 +49,7 @@ function AppRow({ app, hubNow }: { app: CatalogApp; hubNow: number }) {
 
 export function AppsScreen() {
   const { apps, hubOffsetMs, loading } = useHubData();
+  const { principal } = useSignedIn();
   if (loading && !apps) return <Loading what="apps" />;
   const hubNow = Date.now() + (hubOffsetMs ?? 0);
   const installed = (apps ?? []).filter((a) => a.installed);
@@ -49,6 +57,7 @@ export function AppsScreen() {
   return (
     <Screen testID="apps">
       <H1>Apps</H1>
+      {asksParent(principal?.role) && <P muted small>The box only lists apps that fit your limits. For anything else, open an app and ask a parent.</P>}
       <P muted small>Only apps with a passing security scan from the last 7 days can be installed. Every install waits for an owner.</P>
       {installed.length > 0 && <H2>Installed</H2>}
       {installed.map((a) => (

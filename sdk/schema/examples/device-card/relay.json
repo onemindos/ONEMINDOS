@@ -1,0 +1,35 @@
+{
+  "@context": ["https://www.w3.org/2022/wot/td/v1.1", {"om": "https://github.com/onemindos/ONEMINDOS/sdk/schema/om#"}],
+  "om:schema": "onemind.device-card/v1",
+  "title": "Relay",
+  "description": "Switches one mains load on or off. Switching it is physical: an owner approves with a hold.",
+  "securityDefinitions": {"nosec_sc": {"scheme": "nosec"}},
+  "security": ["nosec_sc"],
+  "properties": {
+    "on": {
+      "type": "boolean", "readOnly": true, "observable": true,
+      "om:safety": {"class": "observe", "needsHold": false, "sim": true, "askers": ["owner", "member", "agent", "automation"]}
+    }
+  },
+  "actions": {
+    "switch": {
+      "title": "Switch the relay",
+      "input": {
+        "type": "object", "required": ["on"],
+        "properties": {
+          "on": {"type": "boolean"},
+          "for": {"type": "integer", "unit": "s", "minimum": 1, "maximum": 3600, "description": "switch back after this long"}
+        }
+      },
+      "om:safety": {
+        "class": "physical", "needsHold": true, "dryRun": true, "sim": true,
+        "limits": [{"name": "load_current", "max": 10, "unit": "A"}, {"name": "on_time", "max": 3600, "unit": "s"}],
+        "rate": {"max": 6, "per": "min"},
+        "safeState": {"property": "on", "value": false, "description": "Relay open: the load has no power."},
+        "askers": ["owner", "agent"],
+        "approvers": ["owner"],
+        "requires": ["properties/on"]
+      }
+    }
+  }
+}

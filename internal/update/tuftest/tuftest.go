@@ -54,6 +54,7 @@ type Repo struct {
 	meta               map[string]Meta
 	// Version counters (bumped by Publish).
 	tVer, sVer, tsVer int64
+	revoked           map[string]ed25519.PrivateKey // keys before the last RotateKeys
 }
 
 // New returns a repo with fresh keys and a version-1 root.
@@ -77,6 +78,50 @@ func New(now time.Time) (*Repo, error) {
 	return r, nil
 }
 
+// RotateKeys publishes a new root version that revokes the timestamp,
+// snapshot and targets keys and replaces them with fresh ones (the root key
+// stays). The revoked private keys are kept so a test can play an attacker
+// who still holds them (UseRevokedKeys). Publish writes the new N.root.json.
+func (r *Repo) RotateKeys() error {
+	r.revoked = map[string]ed25519.PrivateKey{}
+	for _, role := range []string{metadata.TARGETS, metadata.SNAPSHOT, metadata.TIMESTAMP} {
+		old := r.keys[role]
+		r.revoked[role] = old
+		ok, err := metadata.KeyFromPublicKey(old.Public())
+		if err != nil {
+			return err
+		}
+		oid, err := ok.ID()
+		if err != nil {
+			return err
+		}
+		if err := r.root.Signed.RevokeKey(oid, role); err != nil {
+			return err
+		}
+		_, priv, err := ed25519.GenerateKey(nil)
+		if err != nil {
+			return err
+		}
+		nk, err := metadata.KeyFromPublicKey(priv.Public())
+		if err != nil {
+			return err
+		}
+		if err := r.root.Signed.AddKey(nk, role); err != nil {
+			return err
+		}
+		r.keys[role] = priv
+	}
+	r.root.Signed.Version++
+	return nil
+}
+
+// UseRevokedKeys makes later Publish calls sign with the keys RotateKeys revoked.
+func (r *Repo) UseRevokedKeys() {
+	for role, k := range r.revoked {
+		r.keys[role] = k
+	}
+}
+
 // AddTarget adds a bundle at <board>/<version>/onemind-<board>-<version>.raucb.
 func (r *Repo) AddTarget(m Meta, content []byte) string {
 	p := fmt.Sprintf("%s/%s/onemind-%s-%s.raucb", m.Board, m.Version, m.Board, m.Version)
@@ -86,6 +131,9 @@ func (r *Repo) AddTarget(m Meta, content []byte) string {
 
 // AddRaw adds a target at an arbitrary path with arbitrary custom metadata.
 func (r *Repo) AddRaw(p string, m Meta, content []byte) { r.targets[p], r.meta[p] = content, m }
+
+// RemoveTarget drops a target from the next Publish (the channel stops offering it).
+func (r *Repo) RemoveTarget(p string) { delete(r.targets, p); delete(r.meta, p) }
 
 func (r *Repo) sign(role string, s interface {
 	Sign(signature.Signer) (*metadata.Signature, error)
@@ -167,7 +215,7 @@ func (r *Repo) Publish(dir string, tsExpiry time.Duration) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	files := map[string][]byte{"1.root.json": rootJSON, "root.json": rootJSON}
+	files := map[string][]byte{fmt.Sprintf("%d.root.json", r.root.Signed.Version): rootJSON, "root.json": rootJSON}
 	for name, m := range map[string]interface{ ToBytes(bool) ([]byte, error) }{"targets": tg, "snapshot": sn, "timestamp": ts} {
 		b, err := m.ToBytes(true)
 		if err != nil {

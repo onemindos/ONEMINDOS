@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: Apache-2.0
+id: dell-aio-7459
+name: Dell all-in-one (model 7459), the planned daily hub
+class: x86-all-in-one
+board: installer-x86_64
+status: unproven
+cpu: UNVERIFIED (retail listings only; the pre-check kit reads it on the machine)
+ram: UNVERIFIED (budget 16 GB until the machine is checked)
+disk: UNVERIFIED (listings show a spinning disk plus a small SSD; the kit says fit an SSD)
+network: wired Ethernet only (the image has no Wi-Fi firmware yet)
+tpm: UNVERIFIED
+firmware_needed:
+  - non-free firmware and CPU microcode are not in the image yet (needs a founder decision)
+what_works: []
+what_does_not:
+  - Wi-Fi and Bluetooth (no firmware in the image)
+  - CPU microcode updates (not installed)
+  - GPU acceleration (no driver in the image)
+  - the machine's own screen shows an address and QR code, not the dashboard
+kit: LT-X86-07459
+result: null
+proven_on: null
+image_version: null

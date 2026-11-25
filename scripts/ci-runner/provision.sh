@@ -36,6 +36,17 @@ if [ "$ROLE" = worker ] && ! command -v gitleaks >/dev/null; then
   rm -f /tmp/gl.tgz
 fi
 
+# Node 22 for ci-apps (#299): Debian 13 ships Node 20, so take the pinned official build. The job also runs
+# setup-node; this keeps `node` on PATH for any local job that does not.
+if [ "$ROLE" = worker ] && ! node --version 2>/dev/null | grep -q "^v${NODE_VERSION}$"; then
+  curl -fsSL -o /tmp/node.txz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-arm64.tar.xz"
+  echo "${NODE_SHA256}  /tmp/node.txz" | sha256sum -c -
+  rm -rf /usr/local/lib/nodejs && mkdir -p /usr/local/lib/nodejs
+  tar -xJf /tmp/node.txz -C /usr/local/lib/nodejs --strip-components=1
+  for b in node npm npx corepack; do ln -sf "/usr/local/lib/nodejs/bin/$b" "/usr/local/bin/$b"; done
+  rm -f /tmp/node.txz
+fi
+
 RH=$(getent passwd runner | cut -d: -f6)
 N=${INSTANCES:-1}
 if [ ! -f "$RH/runner-$RUNNER_VERSION.tgz" ]; then
@@ -51,8 +62,13 @@ while [ "$i" -le "$N" ]; do
     mkdir -p "$R" && tar -xzf "$RH/runner-$RUNNER_VERSION.tgz" -C "$R"
     "$R/bin/installdependencies.sh" >/dev/null   # the runner's own list of system libraries
   fi
+  # Fail-closed fork-PR guard: the runner runs this before every job (the name must end in .sh).
+  grep -v '^ACTIONS_RUNNER_HOOK_JOB_STARTED=' "$R/.env" 2>/dev/null > "$R/.env.new" || true
+  echo 'ACTIONS_RUNNER_HOOK_JOB_STARTED=/usr/local/bin/onemind-ci-job-started.sh' >> "$R/.env.new"
+  mv "$R/.env.new" "$R/.env"
   i=$((i + 1))
 done
 chown -R runner:runner "$RH"
 install -m 0755 -o root -g root /opt/onemind-ci/run-one.sh /usr/local/bin/onemind-ci-run-one
+install -m 0755 -o root -g root /opt/onemind-ci/job-started.sh /usr/local/bin/onemind-ci-job-started.sh
 echo "provisioned ($ROLE): runner $RUNNER_VERSION x $N"

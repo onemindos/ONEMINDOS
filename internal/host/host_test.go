@@ -158,7 +158,7 @@ func TestRefusals(t *testing.T) {
 	}
 	// No factory reset in this build: refused with the reason, never pretended.
 	idle, _ := newService(t, t.TempDir(), "b")
-	_, _, err := idle.Submit(ctx, Request{ActionID: "r1", Kind: KindFactoryReset})
+	_, _, err := idle.Submit(ctx, Request{ActionID: "r1", Kind: KindFactoryReset, PlanSHA256: strings.Repeat("a", 64)})
 	var r *Refusal
 	if !errors.As(err, &r) || r.Reason != "unavailable" {
 		t.Fatalf("factory reset without a resetter: %v", err)
@@ -247,6 +247,9 @@ func TestOSInstall(t *testing.T) {
 type fakeReset struct{ armed []string }
 
 func (f *fakeReset) Unavailable() string { return "" }
+func (f *fakeReset) Plan(context.Context) ResetPlan {
+	return ResetPlan{Available: true, SHA256: strings.Repeat("a", 64)}
+}
 func (f *fakeReset) Arm(_ context.Context, op Op) error {
 	f.armed = append(f.armed, op.ID)
 	return nil
@@ -256,7 +259,7 @@ func TestFactoryResetArmsThenReboots(t *testing.T) {
 	s, p := newService(t, t.TempDir(), "b")
 	r := &fakeReset{}
 	s.Reset = r
-	if _, _, err := s.Submit(context.Background(), Request{ActionID: "fr", Kind: KindFactoryReset}); err != nil {
+	if _, _, err := s.Submit(context.Background(), Request{ActionID: "fr", Kind: KindFactoryReset, PlanSHA256: strings.Repeat("a", 64)}); err != nil {
 		t.Fatal(err)
 	}
 	s.Wait()
@@ -333,7 +336,7 @@ func TestSocketPeerCredentials(t *testing.T) {
 	var st Status
 	_ = json.NewDecoder(resp.Body).Decode(&st)
 	resp.Body.Close()
-	if st.Schema != Schema || len(st.Operations) != 4 || !st.Operations[0].Available || st.Operations[2].Available {
+	if st.Schema != Schema || len(st.Operations) != 5 || !st.Operations[0].Available || st.Operations[2].Available || st.Operations[4].Available {
 		t.Fatalf("status: %+v", st)
 	}
 }

@@ -73,6 +73,14 @@ class ImageScope(unittest.TestCase):
         smoke = re.search(r"\n  smoke:\n((?:    .*\n|\n)*)", text).group(1)
         self.assertNotIn("needs.scope.outputs.os", smoke)
 
+    def test_the_smoke_has_room_to_pass_on_a_busy_runner(self):
+        # A passing smoke took about 44 minutes on a loaded KVM host (2026-11-21); at 45 half of them were
+        # cancelled. Keep at least double the usual time so load never turns a pass into a red check.
+        text = (ROOT / ".github/workflows/image.yml").read_text()
+        smoke = re.search(r"\n  smoke:\n((?:    .*\n|\n)*)", text).group(1)
+        limit = int(re.search(r"^    timeout-minutes: (\d+)$", smoke, re.M).group(1))
+        self.assertGreaterEqual(limit, 90)
+
 
 if __name__ == "__main__":
     unittest.main()

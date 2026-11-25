@@ -45,6 +45,8 @@ describe('tokens', () => {
       ['accent', 'accent-soft'],
       ['accent-text', 'accent'],
       ['danger-text', 'danger'],
+      ['action-text', 'action'],
+      ['action-text', 'action-hover'],
     ] as Array<[keyof Theme, keyof Theme]>)('%s on %s ≥ 4.5', (fg, bg) => {
       expect(contrast(t[fg], t[bg])).toBeGreaterThanOrEqual(4.5);
     });
@@ -53,6 +55,10 @@ describe('tokens', () => {
       const fg = t[`${tone}-fg` as keyof Theme];
       expect(contrast(fg, t[`${tone}-bg` as keyof Theme])).toBeGreaterThanOrEqual(4.5);
       expect(contrast(fg, t.surface)).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it.each([['surface'], ['surface-sunken'], ['surface-raised']] as Array<[keyof Theme]>)('control border ≥ 3 on %s (WCAG 1.4.11)', (bg) => {
+      expect(contrast(t['control-border'], t[bg])).toBeGreaterThanOrEqual(3);
     });
 
     it('focus ring ≥ 3 against bg and surface', () => {

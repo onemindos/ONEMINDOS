@@ -4,8 +4,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"os/user"
@@ -14,12 +17,18 @@ import (
 	"time"
 
 	"github.com/onemindos/onemindos/internal/host"
+	"github.com/onemindos/onemindos/internal/netview"
+	"github.com/onemindos/onemindos/internal/smb"
 	"github.com/onemindos/onemindos/internal/storage/ops"
+	"github.com/onemindos/onemindos/internal/svcregistry"
 	"github.com/onemindos/onemindos/internal/update"
+	"github.com/onemindos/onemindos/internal/version"
 )
 
 const hostUsage = `usage:
   onemindd host serve [--socket PATH] [--user NAME] [--journal DIR] [--update-conf FILE] [--delay 3s]
+  onemindd host plan factory-reset    print what a factory reset would erase and keep (JSON, read-only, root)
+  onemindd factory-reset wipe [--esp DIR]   early boot only: run the armed reset (onemind-factory-reset.service)
 `
 
 // runHost is `onemindd host`: the host action service (#146, #142), its own
@@ -27,6 +36,13 @@ const hostUsage = `usage:
 // It restarts, shuts down and installs OS updates for actions the owner
 // approved in the gateway (docs/leap/core/HOST-ACTIONS.md).
 func runHost(args []string) int {
+	if len(args) == 2 && args[0] == "plan" && args[1] == "factory-reset" {
+		p := (&host.FactoryReset{}).Plan(context.Background())
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(p)
+		return 0
+	}
 	if len(args) == 0 || args[0] != "serve" {
 		fmt.Fprint(os.Stderr, hostUsage)
 		return 2
@@ -43,8 +59,12 @@ func runHost(args []string) int {
 	log := newLogger()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	units := &svcregistry.Reader{Version: version.Version} // service cards, logs and approved restarts (#623, #636)
 	svc := &host.Service{Power: host.Systemd{}, OS: &host.UpdateEngine{ConfigPath: *conf, Log: log},
-		BootID: host.BootID(), Delay: *delay, Log: log}
+		BootID: host.BootID(), Delay: *delay, Log: log,
+		Reset: &host.FactoryReset{},
+		Units: units,
+		SMB:   &smb.Manager{P: smb.DefaultPaths(), Run: smb.ExecRunner{}}}
 	if st, err := host.OpenStore(*journal); err != nil {
 		log.Error("host journal unavailable: status only, every action refused", "dir", *journal, "err", err)
 	} else {
@@ -72,7 +92,8 @@ func runHost(args []string) int {
 		return 1
 	}
 	log.Info("host service listening", "socket", *sock, "journal", svc.Store != nil, "boot_id", svc.BootID, "gateway_uid", uid)
-	err = (&host.Server{S: svc, AllowUID: uid, AllowGID: -1, Ctx: ctx}).Serve(ctx, l)
+	err = (&host.Server{S: svc, AllowUID: uid, AllowGID: -1, Ctx: ctx, Network: networkView,
+		Services: serviceCards, ServiceLogs: units.Logs}).Serve(ctx, l)
 	stop()
 	svc.Wait()
 	if err != nil {
@@ -80,4 +101,59 @@ func runHost(args []string) int {
 		return 1
 	}
 	return 0
+}
+
+// runFactoryReset is `onemindd factory-reset wipe`, run by
+// onemind-factory-reset.service early in boot, before /data is assembled. Exit
+// 0: wiped, or nothing was armed; the boot goes on. Exit 1: the wipe failed or
+// the marker is stale; the unit's OnFailure= isolates recovery mode, so the old
+// data is never mounted after a reset was approved. Writes the reason to
+// /run/onemind-recovery/status like onemind-data-check does.
+func runFactoryReset(args []string) int {
+	fs := flag.NewFlagSet("onemindd factory-reset wipe", flag.ContinueOnError)
+	esp := fs.String("esp", "/boot/efi", "the ESP mount holding the marker")
+	if len(args) == 0 || args[0] != "wipe" || fs.Parse(args[1:]) != nil {
+		fmt.Fprint(os.Stderr, hostUsage)
+		return 2
+	}
+	log := newLogger()
+	err := host.Wipe(context.Background(), ops.ExecRunner{}, *esp, time.Now())
+	switch {
+	case err == nil:
+		log.Info("factory reset done: the box is set up again on this boot")
+		return 0
+	case errors.Is(err, host.ErrNoMarker):
+		return 0
+	}
+	reason := "factory-reset"
+	if errors.Is(err, host.ErrStaleMarker) {
+		reason = "factory-reset-stale"
+	}
+	log.Error("factory reset did not complete: recovery mode", "reason", reason, "err", err)
+	_ = os.MkdirAll("/run/onemind-recovery", 0o755)
+	_ = os.WriteFile("/run/onemind-recovery/status",
+		[]byte(fmt.Sprintf("REASON=%s\nDETAIL=%q\nSINCE=%s\n", reason, err.Error(), time.Now().UTC().Format(time.RFC3339))), 0o644)
+	return 1
+}
+
+// networkView is GET /v1/network: the box's interfaces, gateways, DNS and listening ports, read from
+// /sys and /proc (internal/netview). Files are capped so an odd host cannot make one answer huge.
+func networkView() (any, error) {
+	read := func(p string) ([]byte, error) {
+		f, err := os.Open(p)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+		return io.ReadAll(io.LimitReader(f, 1<<20))
+	}
+	exists := func(p string) bool { _, err := os.Stat(p); return err == nil }
+	return netview.System(read, exists).Collect()
+}
+
+// serviceCards is GET /v1/services (#623): every unit in the image's services registry
+// (/usr/lib/onemind/services.yaml) with systemd's state and memory, plus OneMind units the registry
+// does not list (known=false). Read-only: systemctl show and list-unit-files only.
+func serviceCards(ctx context.Context) (any, error) {
+	return (&svcregistry.Reader{Version: version.Version}).Collect(ctx)
 }

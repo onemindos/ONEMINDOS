@@ -14,6 +14,12 @@ mask() {
          -e 's/(^|[^0-9.])10\.[0-9]+\.[0-9]+\.[0-9]+/\1<vm-private-ip>/g' \
   | cut -c1-260
 }
+# trim-log.sh --diag <serial.log>: the test-only early-boot evidence block (cloudboot.py DIAG_SH), masked,
+# when a boot did not reach its first-boot line (issue 391). Prints nothing when the block is absent.
+if [ "$1" = --diag ]; then
+  tr -d '\r' < "$2" | sed -n '/ONEMIND-TEST-DIAG BEGIN/,/ONEMIND-TEST-DIAG END/p' | mask
+  exit
+fi
 if [ "$1" = --tail ]; then
   case "$2" in ''|*[!0-9]*) echo "usage: trim-log.sh --tail N <serial.log>" >&2; exit 2;; esac
   tail -n "$2" "$3" | tr -d '\r' | mask

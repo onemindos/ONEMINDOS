@@ -19,6 +19,22 @@ const Schema = "onemind.node.status/v1"
 // Subject returns the NATS subject a node publishes its heartbeat on.
 func Subject(nodeID string) string { return fmt.Sprintf("onemind.node.%s.status", nodeID) }
 
+// DepartureSchema is the schema of the departure a node publishes once, on
+// Subject, when it stops cleanly (#608). It rides the node's own status
+// subject on purpose: on a strict hub only that node's NATS account may
+// publish there (core/onemind_core/natsconf.py), so no new export or
+// permission is needed and no other machine can announce it.
+const DepartureSchema = "onemind.node.departure/v1"
+
+// Departure says "this node is going away on purpose": the gateway shows it
+// offline at once instead of waiting for heartbeats to stop. A later
+// heartbeat brings the node back. It carries nothing else.
+type Departure struct {
+	Schema string `json:"schema"`
+	NodeID string `json:"node_id"`
+	Reason string `json:"reason"` // "shutdown"
+}
+
 // nodeIDRe is the node id charset the gateway accepts on ingest: one NATS
 // subject token, no '.', '*', '>' or whitespace.
 var nodeIDRe = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
@@ -101,9 +117,15 @@ type Status struct {
 	// Backup is the backup agent's last result (contract 12.10); omitted
 	// when the box has no backup agent configured.
 	Backup *Backup `json:"backup,omitempty"`
+	// Images is the image cleanup and disk budget state (NMD-08, #133;
+	// internal/imagegc); omitted when the node runs no image cleaner.
+	Images *Images `json:"images,omitempty"`
 	// Metrics are the node's live load figures (contract 12.10 "metrics"),
 	// read at each heartbeat. Optional: omitted when none can be read.
 	Metrics *Metrics `json:"metrics,omitempty"`
+	// Capabilities is the hardware profile (NodeCapabilities, #618; capabilities.go). onemindd
+	// always sends it; it is a pointer so heartbeats from older agents stay valid without it.
+	Capabilities *Capabilities `json:"capabilities,omitempty"`
 }
 
 // Fabric is the heartbeat's fabric object (contract §12.10).
@@ -118,6 +140,22 @@ type Backup struct {
 	Running    bool    `json:"running"`
 	LastRunAt  *string `json:"last_run_at"`
 	LastResult string  `json:"last_result"` // succeeded | failed | partial | none
+}
+
+// Images is the heartbeat's optional "images" object (NMD-08): the container
+// image store, the box's disk budget, and the last cleanup. The gateway warns
+// the owner (disk.budget_near) when DiskUsedPct reaches WarnPct.
+type Images struct {
+	Count           int     `json:"count"`
+	Bytes           int64   `json:"bytes"`
+	SupersededBytes int64   `json:"superseded_bytes"`
+	DiskUsedPct     float64 `json:"disk_used_pct"`
+	BudgetPct       float64 `json:"budget_pct"`
+	WarnPct         float64 `json:"warn_pct"`
+	LastCleanupAt   *string `json:"last_cleanup_at"`
+	LastResult      string  `json:"last_result"` // succeeded | partial | skipped | failed | none
+	LastRemoved     int     `json:"last_removed"`
+	LastFreedBytes  int64   `json:"last_freed_bytes"`
 }
 
 // Metrics feeds the gateway's per-node history and threshold alerts
@@ -187,8 +225,13 @@ type Slot struct {
 	BundleVersion string `json:"bundle_version,omitempty"`
 }
 
-// GPU reports an NVIDIA GPU. Model is null when there is none.
+// GPU reports an NVIDIA GPU. Model is null when there is none. Count and VRAMMB
+// are additive (omitted when nvidia-smi is not there to read them, and always on
+// a Jetson, whose GPU shares system memory): Count is the number of cards and
+// VRAMMB the memory of the smallest one, which is what a placement must trust.
 type GPU struct {
 	NVIDIA bool    `json:"nvidia"`
 	Model  *string `json:"model"`
+	Count  *int    `json:"count,omitempty"`
+	VRAMMB *int    `json:"vram_mb,omitempty"`
 }

@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // The wiring-pass screens on the mock gateway: sign-in by account, first-run setup and the wizard,
-// invite, Account, People, Tokens, Notifications, Alerts ("ask to fix" is only a request), Coming
-// soon, and the rules that matter (one alert, no token in localStorage, AI never approves).
+// invite, Account, People, Tokens, Notifications, Alerts ("ask to fix" is only a request), and the rules that matter (one alert, no token in localStorage, AI never approves).
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { MOCK_ENROL_CODE, MOCK_SETUP_TOKEN } from './api/mockWiring';
-import { COMING_ITEMS } from './pages/Coming';
-import { WIZARD_KEY } from './pages/SignIn';
 import { renderApp, seriousViolations } from './test/helpers';
 
 const T = { timeout: 4000 };
@@ -43,7 +40,7 @@ describe('sign-in', () => {
     await u.type(screen.getByLabelText(/^Password/), 'a-long-passphrase');
     await u.click(screen.getByRole('button', { name: 'Create the owner' }));
     expect(await screen.findByRole('heading', { name: 'Name your box' }, T)).toBeInTheDocument();
-    expect(window.sessionStorage.getItem(WIZARD_KEY)).toBe('1');
+    expect(window.sessionStorage.getItem('onemind.wizard')).toBeNull();
     // Opening the wizard installs nothing: every request on the hub is still waiting for a person.
     expect((await getApi().actions()).filter((a) => a.state === 'succeeded' && a.type === 'app.install').every((a) => a.id !== 'new')).toBe(true);
   });
@@ -104,6 +101,22 @@ describe('People', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Invite a person' }, T);
     expect(within(dialog).getByText(MOCK_ENROL_CODE)).toBeInTheDocument();
     expect(JSON.stringify({ ...window.sessionStorage })).not.toContain(MOCK_ENROL_CODE);
+  });
+
+  it('shows the default age rating for a new child and a new teen, and keeps an owner-set one', async () => {
+    const u = userEvent.setup();
+    renderApp({ token: 'owner-demo', route: '/settings/users' });
+    for (const [name, role] of [['Kit', 'child'], ['Tess', 'teen']] as const) {
+      await u.click(await screen.findByRole('button', { name: 'Invite a person' }, T));
+      await u.type(screen.getByLabelText('Name'), name);
+      await u.selectOptions(screen.getByLabelText('Role'), role);
+      await u.click(screen.getByRole('button', { name: 'Create invite' }));
+      await screen.findByText(/Give this code to/, {}, T);
+      await u.click(screen.getAllByRole('button', { name: 'Close' }).at(-1)!);
+    }
+    expect(await screen.findByText('Age rating up to 12 (default for children)', {}, T)).toBeInTheDocument();
+    expect(await screen.findByText('Age rating up to 16 (default for teens)', {}, T)).toBeInTheDocument();
+    expect(screen.queryAllByText(/No age limit/)).toHaveLength(0);
   });
 
   it('the last owner cannot be disabled, and the hub says why', async () => {
@@ -204,17 +217,17 @@ describe('Alerts', () => {
   });
 });
 
-describe('Coming soon', () => {
-  it('names every area without an API on main and shows no controls or data', async () => {
+describe('Settings sections', () => {
+  it('has no Coming soon screen or nav entry', async () => {
     renderApp({ token: 'owner-demo', route: '/coming' });
-    const list = await screen.findByRole('list', { name: 'Coming soon' }, T);
-    expect(within(list).getAllByRole('article')).toHaveLength(COMING_ITEMS.length);
-    expect(within(list).queryAllByRole('button')).toHaveLength(0);
-    for (const i of COMING_ITEMS) expect(within(list).getByRole('article', { name: i.title })).toHaveTextContent('Coming soon');
+    expect(await screen.findByRole('navigation', { name: 'Main' }, T)).toBeInTheDocument();
+    expect(screen.queryByText(/Coming soon/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1, name: 'Coming soon' })).not.toBeInTheDocument();
   });
 
   it('legacy Storage settings reach the new real-hub-only view', async () => {
     renderApp({ token: 'owner-demo', route: '/settings/storage' });
     expect(await screen.findByText(/Demo mode has no storage data/, {}, T)).toBeInTheDocument();
+    expect(screen.getByText('No storage reported yet')).toBeInTheDocument();
   });
 });

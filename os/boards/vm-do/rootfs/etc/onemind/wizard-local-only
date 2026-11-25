@@ -1,0 +1,2 @@
+# SPDX-License-Identifier: Apache-2.0
+# Present = the setup wizard (8080) stays local to the instance on cloud images (CRITERIA-CLOUD.md C5): no LAN rule.

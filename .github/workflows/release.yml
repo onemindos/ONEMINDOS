@@ -4,6 +4,9 @@
 # and adds the `release` environment with its signing secret, every run stops in the `gate` job.
 # Never runs on a PR. The image artefacts come from an image.yml run named by `image_run_id`.
 # UNPROVEN end to end: the publish job cannot run before F-27; the check script has unit tests.
+# The phone app (#880): the android job trusts the image run only when it is a successful push or manual image.yml
+# run whose commit is on main or release/next (scripts/release/check-image-run.py), builds the signed APK from that
+# commit and checks it with scripts/check-apk from the workflow's own ref; publish attaches onemind-<version>.apk, .sha256 and .sha256.sig (scripts/release/apk-assets.py).
 name: release
 
 on:
@@ -32,14 +35,126 @@ jobs:
           if grep -q "PRIVATE KEY" os/release/release-pubkey.pem; then echo "REFUSED: a private key is committed"; exit 2; fi
       - name: Check script self-test
         run: python3 -I -m unittest discover -s test/unit -p 'test_release.py'
+      - name: Phone APK checks self-test (#880)
+        run: python3 -I -m unittest discover -s test/unit -p 'test_check_apk.py'
+      - name: Image run checks self-test (#880)
+        run: python3 -I -m unittest discover -s test/unit -p 'test_check_image_run.py'
       - name: Refuse a development version
         env:
           VERSION: ${{ inputs.version }}
         run: |
           case "$VERSION" in *-dev*|"") echo "REFUSED: '$VERSION' is a development version"; exit 2;; esac
+      - name: Client apps take this version (desktop and mobile; stamping happens in their build jobs)
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          # Refuses a version the stores cannot take, and proves the stamper and the drift test pass.
+          python3 -I -m unittest discover -s test/unit -p 'test_client_versions.py'
+          cp -r . "$RUNNER_TEMP/stamp-try" && python3 -I scripts/release/stamp-client-versions.py --root "$RUNNER_TEMP/stamp-try" --version "$VERSION" --build "$GITHUB_RUN_NUMBER"
+
+  android:
+    # The phone app (#880), built from the commit the image was built from and checked by scripts/check-apk.
+    # Holds the Android upload-key secrets and a read-only token; the job that writes the release never sees them.
+    needs: gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: release
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      sha: ${{ steps.commit.outputs.sha }}
+      apk_sha256: ${{ steps.check.outputs.sha256 }}
+    steps:
+      # The workflow's own ref, apart from the image commit: the run check, the stamper and scripts/check-apk run
+      # from here, so the code being released can never replace the checks it must pass.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          path: trusted
+          fetch-depth: 0              # origin/main and origin/release/next, for the reachability check
+          persist-credentials: false
+      - name: The commit the image run built (a successful push or manual image.yml run, on main or release/next)
+        id: commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.image_run_id }}
+        run: |
+          set -euo pipefail
+          [[ "$RUN_ID" =~ ^[1-9][0-9]*$ ]] || { echo "REFUSED: image_run_id '$RUN_ID' is not a run number"; exit 2; }
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" > "$RUNNER_TEMP/image-run.json"
+          # Refuses a run started by a PR (fork PRs included), another workflow, a failed run, or a commit that is
+          # not on origin/main or origin/release/next: no unreviewed code ever sees the upload key below.
+          sha=$(python3 -I trusted/scripts/release/check-image-run.py --run-json "$RUNNER_TEMP/image-run.json" \
+            --run-id "$RUN_ID" --repo "$GITHUB_REPOSITORY" --git trusted)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ steps.commit.outputs.sha }}
+          path: app
+          persist-credentials: false
+      - name: Refuse an unsigned phone build
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          # Presence only; the values are never printed. Without them the build script would make a debug-signed APK.
+          for v in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            test -n "${!v}" || { echo "REFUSED: Android signing secrets are not all set ($v missing); no phone release"; exit 2; }
+          done
+      - name: Stamp the release version into the app
+        env:
+          VERSION: ${{ inputs.version }}
+        run: python3 -I trusted/scripts/release/stamp-client-versions.py --root app --version "$VERSION" --build "$GITHUB_RUN_NUMBER"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: app/mobile/package-lock.json
+      - run: npm ci
+        working-directory: app/mobile
+      - name: Android SDK packages (the NDK React Native pins, CMake for expo-modules-core)
+        working-directory: app/mobile
+        run: |
+          set -euo pipefail
+          ndk=$(sed -nE 's/^ndkVersion = "([^"]+)"/\1/p' node_modules/react-native/gradle/libs.versions.toml)
+          [ -n "$ndk" ] || { echo "::error::ndkVersion not found in react-native's libs.versions.toml"; exit 1; }
+          sm="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          (yes || true) | "$sm" --licenses > /dev/null
+          "$sm" --install "ndk;$ndk" "cmake;3.22.1" > /dev/null
+      - name: Build the signed release APK
+        working-directory: app/mobile
+        env:
+          VERSION: ${{ inputs.version }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          code=$(python3 -I -c 'import json; print(json.load(open("app.json"))["expo"]["android"]["versionCode"])')
+          scripts/android-release-build.sh "$RUNNER_TEMP/android-out" "$code" "$VERSION"
+          echo "CODE=$code" >> "$GITHUB_ENV"
+      - name: Check the APK (package, version, not debuggable, release key, no demo module)
+        id: check
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          apk="$RUNNER_TEMP/android-out/onemind-android-$VERSION.apk"
+          python3 -I trusted/scripts/check-apk --apk "$apk" --version "$VERSION" --version-code "$CODE"
+          mkdir -p "$RUNNER_TEMP/apk-out" && cp "$apk" "$RUNNER_TEMP/apk-out/"
+          echo "sha256=$(sha256sum "$apk" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: android-apk
+          path: ${{ runner.temp }}/apk-out/*.apk
+          if-no-files-found: error
+          retention-days: 1
 
   publish:
-    needs: gate
+    needs: [gate, android]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: release           # reviewers and the signing secret live here (separate from RAUC/TUF jobs, H-07)
@@ -77,8 +192,21 @@ jobs:
         with:
           name: release-manifest
           path: rel-manifest.json
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: android-apk
+          path: apk-in
+      - name: Phone APK, its checksum and the checksum signature (key never printed)
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+          VERSION: ${{ inputs.version }}
+          APK_SHA256: ${{ needs.android.outputs.apk_sha256 }}
+        run: python3 -I scripts/release/apk-assets.py --apk "apk-in/onemind-android-$VERSION.apk" --version "$VERSION" --out apk --pubkey os/release/release-pubkey.pem --expect-sha256 "$APK_SHA256"
       - name: Publish the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
-        run: gh release create "v$VERSION" rel/* --repo "$GITHUB_REPOSITORY" --title "OneMind OS $VERSION" --notes "Signed release. Verify SHA256SUMS.sig against os/release/release-pubkey.pem."
+          TARGET: ${{ needs.android.outputs.sha }}
+        run: |
+          gh release create "v$VERSION" rel/* apk/* --repo "$GITHUB_REPOSITORY" --target "$TARGET" --title "OneMind OS $VERSION" \
+            --notes "Signed release. Verify SHA256SUMS.sig against os/release/release-pubkey.pem. Phone app: onemind-$VERSION.apk (check it with onemind-$VERSION.apk.sha256 and its .sig, same key); install steps: https://github.com/$GITHUB_REPOSITORY/blob/v$VERSION/mobile/docs/install-android.md"

@@ -1,0 +1,78 @@
+{
+  "$comment": "SPDX-License-Identifier: Apache-2.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/onemindos/ONEMINDOS/sdk/schema/onemind.datapoint.schema.json",
+  "title": "OneMind datapoint envelope (onemind.datapoint/v1)",
+  "description": "One observed value on the asset, intel, metric and layer subjects (sdk/schema/onemind.subjects.json). The gateway stamps source and licence and is the only writer of those subjects. At most 16 KiB. Video and point clouds never ride the bus.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "nats_subject", "time", "quality", "source"],
+  "properties": {
+    "schema": {"const": "onemind.datapoint/v1"},
+    "nats_subject": {"type": "string", "minLength": 1, "maxLength": 255, "description": "the NATS subject it was published on; named nats_subject because subject in onemind.event/v1 is an object of ids (contract 12.8)"},
+    "time": {"type": "string", "format": "date-time", "description": "when the value was observed (RFC 3339)"},
+    "seq": {"type": "integer", "minimum": 0, "description": "per-source sequence number, so a replayed message can be refused"},
+    "value": {
+      "description": "the value; a structured value is small (at most 32 keys)",
+      "type": ["number", "string", "boolean", "null", "object"],
+      "maxLength": 1024,
+      "maxProperties": 32
+    },
+    "unit": {"type": "string", "pattern": "^[A-Za-z0-9%/._^()\\[\\]{}*-]{1,32}$", "description": "UCUM-style unit code, such as Cel, %, m/s, By; required when value is a number"},
+    "quality": {"enum": ["live", "stale", "unknown", "simulated"]},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": {"enum": ["gateway", "node", "app", "bridge", "device"]},
+        "id": {"type": "string", "pattern": "^[A-Za-z0-9_.:-]{1,128}$"}
+      }
+    },
+    "licence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "description": "the code or data-provider terms the value is used under; required for app and bridge sources",
+      "properties": {
+        "id": {"type": "string", "minLength": 1, "maxLength": 128, "description": "an SPDX identifier or the id of the provider terms record"},
+        "attribution": {"type": "string", "maxLength": 256},
+        "url": {"type": "string", "format": "uri", "maxLength": 512}
+      }
+    },
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lat", "lon"],
+      "description": "WGS-84 position; exactly 0,0 is refused (it is almost always a missing fix)",
+      "properties": {
+        "lat": {"type": "number", "minimum": -90, "maximum": 90},
+        "lon": {"type": "number", "minimum": -180, "maximum": 180},
+        "alt_m": {"type": "number"},
+        "heading_deg": {"type": "number", "minimum": 0, "exclusiveMaximum": 360},
+        "accuracy_m": {"type": "number", "minimum": 0}
+      },
+      "not": {"properties": {"lat": {"const": 0}, "lon": {"const": 0}}}
+    },
+    "pose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frame", "x", "y", "z"],
+      "description": "a position in a named local frame (site, floor, map), in metres, with an optional orientation quaternion",
+      "properties": {
+        "frame": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}$"},
+        "x": {"type": "number"},
+        "y": {"type": "number"},
+        "z": {"type": "number"},
+        "qx": {"type": "number"},
+        "qy": {"type": "number"},
+        "qz": {"type": "number"},
+        "qw": {"type": "number"}
+      }
+    }
+  },
+  "allOf": [
+    {"if": {"properties": {"value": {"type": "number"}}, "required": ["value"]}, "then": {"required": ["unit"]}},
+    {"if": {"properties": {"source": {"properties": {"kind": {"enum": ["app", "bridge"]}}}}}, "then": {"required": ["licence"]}}
+  ]
+}

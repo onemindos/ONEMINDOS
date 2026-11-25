@@ -99,10 +99,38 @@ export async function open(page: Page, s: Screen, theme: Theme): Promise<void> {
   await settle(page);
 }
 
+/**
+ * Waits until nothing moves: images decoded, fonts loaded, every CSS animation and transition finished, and the
+ * desktop window (.dsk-window, D-016) at the same place on three frames in a row. WebKit has been
+ * seen drawing that window mid open-animation, about 8 px low. Images are the other cause of a screen that
+ * differs from itself: the Market's featured app icon is an <img loading="lazy">, which WebKit fetches and
+ * paints late on a busy machine (3,760 pixels differed on 4 of 16 runs under load). So every image is made
+ * eager and decoded before the shot. prefers-reduced-motion is forced by the
+ * Playwright config; the injected style is the second line of defence if an engine ignores it.
+ */
 export async function settle(page: Page): Promise<void> {
+  await page.addStyleTag({
+    content: '*, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }',
+  });
   await page.evaluate(async () => {
+    // Lazy images below or beside the viewport would otherwise load whenever the engine gets to them.
+    const imgs = Array.from(document.images);
+    for (const img of imgs) img.loading = 'eager';
+    await Promise.all(imgs.map((img) => (img.complete && img.naturalWidth > 0 ? undefined : img.decode().catch(() => undefined))));
     await document.fonts.ready;
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const frame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
+    const pos = () => {
+      const r = document.querySelector('.dsk-window')?.getBoundingClientRect();
+      return r ? `${r.x},${r.y},${r.width},${r.height}` : '';
+    };
+    await Promise.all(document.getAnimations().map((a) => a.finished.catch(() => undefined)));
+    let last = pos();
+    for (let stable = 0, i = 0; stable < 3 && i < 120; i++) {
+      await frame();
+      const now = pos();
+      stable = now === last ? stable + 1 : 0;
+      last = now;
+    }
   });
 }
 

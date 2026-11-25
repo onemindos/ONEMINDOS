@@ -1,0 +1,108 @@
+#!/usr/bin/env -S python3 -I
+# SPDX-License-Identifier: Apache-2.0
+"""Fail when code names a NATS subject that is not in the one subject tree (issue #600).
+
+Scans our Python, Go and TypeScript sources (tests excluded) for string literals that start with
+`onemind.` on a line that talks about a subject (the word "subject", or a publish/subscribe call),
+and checks each one against sdk/schema/onemind.subjects.json with the gateway's own code
+(core/onemind_core/subjects.py), so CI and the box cannot disagree:
+
+  - a format hole (`%s`, `{node_id}`, `${id}`) is any one token (`*`), or any tail (`>`) when it is
+    last; a literal ending in "." or naming only a kind ("onemind.plugin") is a prefix and is
+    checked as `<literal>.>`;
+  - wildcards (`*`, `>`) are allowed, as in a subscription filter;
+  - comment lines, a schema id such as "onemind.event/v1" (it has a slash) and a file name such as
+    "onemind.subjects.json" are not subjects and are skipped; backticks quote only in Go and TS.
+
+Run with: python3 -I sdk/tools/subject-lint [--root DIR] [PATH ...]
+Exit codes: 0 every subject is registered, 1 at least one is not, 2 the registry cannot be read.
+"""
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO_ROOT / "core"))
+from onemind_core import subjects  # noqa: E402
+
+DEFAULT_PATHS = ("core/onemind_core", "internal", "cmd", "sdk/go", "sdk/python", "sdk/ts/src", "dashboard/src",
+                 "mobile/src")
+SUFFIXES = {".py", ".go", ".ts", ".tsx"}
+SKIP_PARTS = {"node_modules", "testdata", "tests", "__pycache__", "generated", "dist"}
+LITERAL = re.compile(r"""(?P<q>["'])(?P<s>onemind\.[^"'`\s]*)(?P=q)""")
+LITERAL_BACKTICK = re.compile(r"""(?P<q>[`"'])(?P<s>onemind\.[^"'`\s]*)(?P=q)""")
+COMMENT = re.compile(r"^\s*(#|//|\*|/\*)")
+FILE_NAME = re.compile(r"\.(json|ya?ml|py|go|ts|md|conf)$")
+CONTEXT = re.compile(r"subject|\.publish\(|\.Publish\(|\.subscribe\(|\.Subscribe\(", re.IGNORECASE)
+HOLE = re.compile(r"%[sdv]|\{[^{}]*\}|\$\{[^{}]*\}")
+
+
+def is_test(path: Path) -> bool:
+    n = path.name
+    return n.startswith("test_") or n.endswith(("_test.go", ".test.ts", ".test.tsx", "_test.py", ".spec.ts"))
+
+
+def candidates(path: Path):
+    """(line number, literal) for every subject-looking literal in `path`."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return
+    literal = LITERAL if path.suffix == ".py" else LITERAL_BACKTICK
+    for no, line in enumerate(text.splitlines(), 1):
+        if COMMENT.match(line) or not CONTEXT.search(line):
+            continue
+        for m in literal.finditer(line):
+            lit = m.group("s")
+            if "/" in lit or FILE_NAME.search(lit):
+                continue  # a schema id ("onemind.event/v1") or a file name, not a subject
+            yield no, lit
+
+
+def normalise(literal: str, registry: subjects.Registry) -> str:
+    tokens = HOLE.sub("*", literal).split(".")
+    if tokens and tokens[-1] == "*" and HOLE.search(literal.rsplit(".", 1)[-1]):
+        tokens[-1] = ">"
+    if tokens[-1] == "" or (len(tokens) == 2 and tokens[1] in registry.kinds
+                            and not registry.covers(".".join(tokens)).ok):
+        tokens = [t for t in tokens if t] + [">"]
+    return ".".join(tokens)
+
+
+def lint(root: Path, paths: list[str], registry: subjects.Registry) -> list[str]:
+    problems: list[str] = []
+    for rel in paths:
+        base = root / rel
+        files = [base] if base.is_file() else sorted(base.rglob("*")) if base.is_dir() else []
+        for f in files:
+            if f.suffix not in SUFFIXES or not f.is_file() or is_test(f) or SKIP_PARTS & set(f.relative_to(root).parts):
+                continue
+            for no, lit in candidates(f):
+                v = registry.covers(normalise(lit, registry))
+                if not v.ok:
+                    problems.append(f"{f.relative_to(root)}:{no}: {lit!r}: {v.reason}")
+    return problems
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--root", type=Path, default=REPO_ROOT)
+    ap.add_argument("paths", nargs="*")
+    args = ap.parse_args(argv)
+    try:
+        registry = subjects.load(REPO_ROOT / "sdk" / "schema" / subjects.REGISTRY_FILE)
+    except subjects.RegistryError as exc:
+        print(f"subject-lint: {exc}", file=sys.stderr)
+        return 2
+    problems = lint(args.root.resolve(), args.paths or list(DEFAULT_PATHS), registry)
+    for p in problems:
+        print(p)
+    print(f"subject-lint: {'FAILED, ' + str(len(problems)) + ' unregistered subject(s)' if problems else 'ok'}")
+    return 1 if problems else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

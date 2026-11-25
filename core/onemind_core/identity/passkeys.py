@@ -1,21 +1,19 @@
 # SPDX-License-Identifier: Apache-2.0
-"""WebAuthn ceremonies over py_webauthn (BSD-3-Clause). Pure functions; state lives in service.py."""
+"""WebAuthn ceremonies over py_webauthn (BSD-3-Clause). Pure functions; state lives in service.py.
+
+py_webauthn is imported inside each ceremony, not at module import: with pyasn1, pyOpenSSL and cbor2 it is
+about 100 modules and 4 MiB that an idle gateway never needs (perf budget, issue #849).
+"""
 
 from __future__ import annotations
 
 import json
-from typing import Any
-
-import webauthn
-from webauthn.helpers.exceptions import InvalidAuthenticationResponse, InvalidRegistrationResponse
-from webauthn.helpers.structs import (
-    AuthenticatorSelectionCriteria,
-    PublicKeyCredentialDescriptor,
-    ResidentKeyRequirement,
-    UserVerificationRequirement,
-)
+from typing import TYPE_CHECKING, Any
 
 from .crypto import b64url, unb64url
+
+if TYPE_CHECKING:
+    from webauthn.helpers.structs import PublicKeyCredentialDescriptor
 
 TIMEOUT_MS = 120_000
 
@@ -52,11 +50,16 @@ def client_challenge(credential: dict) -> str:
 
 
 def _descriptors(ids: list[str]) -> list[PublicKeyCredentialDescriptor]:
+    from webauthn.helpers.structs import PublicKeyCredentialDescriptor
+
     return [PublicKeyCredentialDescriptor(id=unb64url(i)) for i in ids]
 
 
 def registration_options(*, rp_id: str, rp_name: str, user_id: str, user_name: str, display_name: str,
                          challenge: bytes, exclude: list[str]) -> dict:
+    import webauthn
+    from webauthn.helpers.structs import AuthenticatorSelectionCriteria, ResidentKeyRequirement, UserVerificationRequirement
+
     opts = webauthn.generate_registration_options(
         rp_id=rp_id, rp_name=rp_name, user_id=user_id.encode(), user_name=user_name,
         user_display_name=display_name, challenge=challenge, timeout=TIMEOUT_MS,
@@ -69,6 +72,9 @@ def registration_options(*, rp_id: str, rp_name: str, user_id: str, user_name: s
 
 
 def authentication_options(*, rp_id: str, challenge: bytes, allow: list[str]) -> dict:
+    import webauthn
+    from webauthn.helpers.structs import UserVerificationRequirement
+
     opts = webauthn.generate_authentication_options(
         rp_id=rp_id, challenge=challenge, timeout=TIMEOUT_MS, allow_credentials=_descriptors(allow),
         user_verification=UserVerificationRequirement.REQUIRED,
@@ -77,6 +83,9 @@ def authentication_options(*, rp_id: str, challenge: bytes, allow: list[str]) ->
 
 
 def verify_registration(*, credential: dict, challenge: bytes, rp_id: str, origins: list[str]) -> dict:
+    import webauthn
+    from webauthn.helpers.exceptions import InvalidRegistrationResponse
+
     try:
         v = webauthn.verify_registration_response(
             credential=credential, expected_challenge=challenge, expected_rp_id=rp_id,
@@ -92,6 +101,9 @@ def verify_registration(*, credential: dict, challenge: bytes, rp_id: str, origi
 def verify_assertion(*, credential: dict, challenge: bytes, rp_id: str, origins: list[str],
                      public_key: bytes, sign_count: int) -> int:
     """Returns the new sign count."""
+    import webauthn
+    from webauthn.helpers.exceptions import InvalidAuthenticationResponse
+
     try:
         v = webauthn.verify_authentication_response(
             credential=credential, expected_challenge=challenge, expected_rp_id=rp_id, expected_origin=origins,

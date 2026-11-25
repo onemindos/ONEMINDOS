@@ -9,7 +9,7 @@ import type { Tone } from '../tokens/tokens';
 import { matchSection } from './logic';
 import { SetIcon, type SetIconName } from './primitives';
 
-export type SettingsSectionId = 'appearance' | 'account' | 'users' | 'devices' | 'network' | 'backups' | 'updates' | 'notifications' | 'automation' | 'agents' | 'storage' | 'about';
+export type SettingsSectionId = 'default-apps' | 'appearance' | 'account' | 'users' | 'devices' | 'network' | 'backups' | 'updates' | 'notifications' | 'automation' | 'agents' | 'storage' | 'apps' | 'care' | 'about';
 
 export interface SettingsSectionMeta {
   id: SettingsSectionId;
@@ -22,16 +22,19 @@ export interface SettingsSectionMeta {
 
 export const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
   { id: 'appearance', label: 'Appearance', icon: 'eye', group: 'You', keywords: ['theme', 'dark', 'light', 'accent', 'wallpaper', 'colour', 'color', 'density', 'font'] },
+  { id: 'default-apps', label: 'Default apps', icon: 'settings', group: 'You', keywords: ['open with', 'preferred', 'browser'] },
   { id: 'account', label: 'Account & security', icon: 'lock', group: 'People and access', keywords: ['passkey', 'password', 'sessions', 'tokens', 'sign in', '2fa', 'totp'] },
   { id: 'users', label: 'Users & roles', icon: 'users', group: 'People and access', keywords: ['people', 'family', 'invite', 'owner', 'guest'] },
   { id: 'agents', label: 'Agents & MCP', icon: 'agent', group: 'People and access', keywords: ['ai', 'hermes', 'mcp', 'tools', 'revoke', 'suspend'] },
   { id: 'devices', label: 'Devices & nodes', icon: 'nodes', group: 'Machines', keywords: ['fabric', 'join', 'qr', 'hub', 'worker', 'leaf', 'add node'] },
   { id: 'network', label: 'Network & mesh', icon: 'globe', group: 'Machines', keywords: ['remote', 'vpn', 'mesh', 'dns', 'mdns', 'certificate', 'https', 'tls'] },
   { id: 'storage', label: 'Storage', icon: 'disk', group: 'Machines', keywords: ['disk', 'space', 'usage', 'categories'] },
+  { id: 'care', label: 'Care', icon: 'info', group: 'Keeping it healthy', keywords: ['box check-up', 'health', 'drift'] },
   { id: 'backups', label: 'Backups', icon: 'backups', group: 'Keeping it healthy', keywords: ['restore', 'snapshot', 'usb', 's3', 'emergency kit'] },
   { id: 'updates', label: 'Updates', icon: 'updates', group: 'Keeping it healthy', keywords: ['os', 'version', 'channel', 'rollback', 'release notes', 'slot'] },
   { id: 'notifications', label: 'Notifications', icon: 'bell', group: 'Keeping it healthy', keywords: ['push', 'email', 'quiet hours', 'alerts', 'matrix', 'telegram'] },
   { id: 'automation', label: 'Automation', icon: 'flow', group: 'Keeping it healthy', keywords: ['rules', 'schedule', 'webhook', 'standing approval'] },
+  { id: 'apps', label: 'Apps', icon: 'apps', group: 'Apps', keywords: ['built in', 'built-in', 'system apps', 'switch off', 'disable', 'licence', 'license', 'update channel'] },
   { id: 'about', label: 'About & diagnostics', icon: 'info', group: 'About', keywords: ['version', 'logs', 'diagnostic bundle', 'rescue', 'support'] },
 ];
 
@@ -44,17 +47,19 @@ export interface SettingsLayoutProps {
   indexHref: string;
   /** Optional status per section, e.g. backups "Verify soon"; always a word, never only a dot. */
   hints?: Partial<Record<SettingsSectionId, { tone: Tone; label: string }>>;
+  /** Sections left out of the list (e.g. screens that are not for this person's role). */
+  hidden?: ReadonlySet<SettingsSectionId>;
   children: ReactNode;
 }
 
-export function SettingsLayout({ current, explicit, hrefFor, indexHref, hints = {}, children }: SettingsLayoutProps) {
+export function SettingsLayout({ current, explicit, hrefFor, indexHref, hints = {}, hidden, children }: SettingsLayoutProps) {
   const [q, setQ] = useState('');
   const searchId = useId();
-  const shown = SETTINGS_SECTIONS.filter((s) => matchSection(s, q));
+  const shown = SETTINGS_SECTIONS.filter((s) => !hidden?.has(s.id) && matchSection(s, q));
   const groups = [...new Set(shown.map((s) => s.group))];
   return (
     <>
-      <PageHeader title="Settings" lede="Everything here is also an API call. Changes that add power are requests you approve; changes that take power away happen at once." />
+      <PageHeader title="Settings" lede="Changes that add power are requests you approve; changes that take power away happen at once." />
       <div className={cx('om-set', explicit ? 'om-set-in-section' : 'om-set-at-index')}>
         <nav className="om-set-nav" aria-label="Settings sections">
           <label className="om-set-search" htmlFor={searchId}>

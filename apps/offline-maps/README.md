@@ -8,7 +8,7 @@ Vector street maps of your region that work with no internet, from OpenStreetMap
 | | |
 |---|---|
 | Version | 1.31.2 (upstream release `v1.31.2`, published 2026-07-22) |
-| Licence | `BSD-3-Clause`, Market class **L1** (licence gate, scan of 2026-11-19) |
+| Licence | `BSD-3-Clause`, Market class **L1** (licence gate, scan of 2026-11-21) |
 | Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | field |
 | GitHub | <https://github.com/protomaps/go-pmtiles> |
@@ -49,12 +49,12 @@ Images:
 
 - One `Deployment` (`Recreate`) with two containers sharing the 16 GiB volume `offline-maps-data`. Both run as UID 65532 (the distroless `nonroot` user) with a read-only root filesystem, no privilege escalation and all capabilities dropped.
 - **`viewer`** (python 3.14 slim image, standard library only, port 8080):
-  - It serves the map page and the archives in `/data/maps` with HTTP range requests (PMTiles is read in small ranges by the browser).
+  - It serves the map page and the archives in `/data/maps` with HTTP range requests. The viewer's same-origin `/api/maps` lists local PMTiles v3 basemaps with byte size, bounds, zoom range and attribution when available. The list reads declared attribution from uncompressed or gzip metadata as plain text, and uses the [PMTiles header](https://github.com/protomaps/PMTiles/blob/main/spec/v3/spec.md#3-header) and skips incomplete archives.
   - On first start it downloads the browser libraries, fonts and icons once, **each checked against a pinned SHA-512 or SHA-256**, into `/data/assets`. A file that does not match is refused and the page says why. After that the box needs no internet.
   - It never writes, renames or deletes a map.
 - **`pmtiles`** (`go-pmtiles serve`, port 8081): a Z/X/Y tile API (`/<map name>/{z}/{x}/{y}.mvt`) for other map clients. It is also the tool the owner uses to cut a map (below).
 - Settings: `language` (place-name language, for example `en`, `es`, `de`) and `flavor` (`light`, `dark`, `white`, `grayscale`, `black`).
-- Backups skip the maps and the assets, which can be cut and downloaded again.
+- Backups skip the assets, which are downloaded again. The maps (`maps/*.pmtiles`) are the optional content tier: skipped (they can be cut again) until the owner switches the tier on in Backups after seeing their size (`GET /v1/backups/content`, BAK-03).
 
 ## First run
 
@@ -79,9 +79,46 @@ To remove a map (the `pmtiles` container is distroless and has no shell, so this
 kubectl -n app-offline-maps exec deploy/offline-maps -c viewer -- python3 -c "import os; os.remove('/data/maps/home.pmtiles')"
 ```
 
+## Measure distance and add an overlay
+
+Enable **Measure two points**, then click two places. The viewer shows the
+approximate straight-line distance in kilometres; it does not calculate a road
+route or account for terrain. A third click starts a new measurement, and
+**Clear measurement** removes it. Both calculations and drawing work offline.
+
+Choose a local `.geojson` or `.json` file with **GeoJSON overlay** to display
+points, lines or polygons over the map. The file stays in this browser tab and
+is never uploaded. Switching map archives retains the overlay; clearing it or
+closing/reloading the tab removes it. Keep the original file yourself.
+
+Overlays use longitude/latitude degrees ([RFC 7946](https://www.rfc-editor.org/rfc/rfc7946)).
+Files are limited to 2 MiB and 50,000 positions. Point, MultiPoint, LineString,
+MultiLineString, Polygon and MultiPolygon geometries are supported; polygon
+rings must be closed. GeometryCollection is unsupported. Only geometry is
+drawn; properties, links, HTML and remote styles are discarded. This uses the
+existing MapLibre GeoJSON source/layer APIs; no new library is downloaded.
+API reference: [MapLibre GeoJSONSource](https://maplibre.org/maplibre-gl-js/docs/API/classes/GeoJSONSource/).
+Use only overlay data you have permission to use, and keep its attribution and
+licence with the original file; the overlay adds no redistribution rights.
+
+## Gateway-managed packs
+
+The gateway lists verified packs at `GET /v1/map/packs`. Add and remove go
+through the standard action approval flow using `map.pack.add` with a
+`region_id` or `map.pack.remove` with a `pack_id`. The app proxy serves bytes
+from `packs/<id>` with Range support.
+
+Provision the same directory for the gateway's `[map].packs_dir` and the
+viewer's `maps/packs` on the Offline Maps volume. Configure `region_catalog`
+with the signed `onemind.map.regions/v1` JSON and `region_key_file` with its
+trusted Ed25519 public key in PEM form. The adjacent `.sig` contains a base64
+signature over the exact JSON bytes. Each entry supplies `id`, `region`,
+`url`, `sha256` and `bytes`. Managed downloads require the shared mount and
+signed catalog.
+
 ## Not done yet
 
-- **Cutting a map is a terminal step.** A Market action ("add map for this area") that the owner approves from the dashboard is the next step. It needs a contract action type for app-specific jobs.
+- Cutting a custom region outside the signed catalog is a terminal step.
 - The tile API's TileJSON needs `--public-url`, which waits for the app proxy's LAN hostname.
 - No HTTPS or LAN hostname: the map is reached through a port-forward until the app proxy exists.
 - No search box (geocoding): finding a place by name offline needs a separate index.
@@ -89,11 +126,11 @@ kubectl -n app-offline-maps exec deploy/offline-maps -c viewer -- python3 -c "im
 
 ## Latest security scan
 
-Scanned 2026-11-19T14:41:31Z by `sdk/tools/app-gate`: **pass**. Licence `BSD-3-Clause` class L1; smoke test pass.
+Scanned 2026-11-21T15:16:44Z by `sdk/tools/app-gate`: **pass**. Licence `BSD-3-Clause` class L1; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `docker.io/library/python:3.14.10-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f` | amd64, arm64 | 0 (0) | 53 | 0 infected (daily-28188) | 0 | unsigned |
-| `docker.io/protomaps/go-pmtiles:v1.31.2@sha256:06574f01f55a78f78f887bc7ebf729a5c093c0d6e17d9876300cfcb0758b59d3` | amd64, arm64 | 0 (0) | 36 | 0 infected (daily-28188) | 0 | unsigned |
+| `docker.io/library/python:3.14.10-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f` | amd64, arm64 | 0 (0) | 56 | 0 infected (daily-28190) | 0 | unsigned |
+| `docker.io/protomaps/go-pmtiles:v1.31.2@sha256:06574f01f55a78f78f887bc7ebf729a5c093c0d6e17d9876300cfcb0758b59d3` | amd64, arm64 | 0 (0) | 36 | 0 infected (daily-28190) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

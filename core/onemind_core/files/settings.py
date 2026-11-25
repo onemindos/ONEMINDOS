@@ -32,6 +32,12 @@ class FilesSettings:
     max_open_uploads: int = 16                        # ONEMIND_FILES_MAX_OPEN_UPLOADS
     # Bytes of a text file returned inline by the preview endpoint.
     preview_text_bytes: int = 64 * 1024               # ONEMIND_FILES_PREVIEW_TEXT_BYTES
+    # Sync index (index.py): a full rescan of every space this often; 0 = only at start and on watcher events.
+    index_scan_interval_s: int = 900                  # ONEMIND_FILES_INDEX_SCAN_INTERVAL_S
+    # Linux inotify watcher that catches writes made over SMB or WebDAV; the rescan is the fallback.
+    index_watch: bool = True                          # ONEMIND_FILES_INDEX_WATCH
+    # How long a deletion stays in the change feed; an older cursor gets 410 and walks the tree again.
+    index_tombstone_days: int = 30                    # ONEMIND_FILES_INDEX_TOMBSTONE_DAYS
 
     def validate(self) -> None:
         if not self.root.is_absolute():
@@ -49,3 +55,7 @@ class FilesSettings:
             raise ValueError("ONEMIND_FILES_UPLOAD_EXPIRY_HOURS must be between 1 and 168")
         if not 0 <= self.preview_text_bytes <= MIB:
             raise ValueError("ONEMIND_FILES_PREVIEW_TEXT_BYTES must be between 0 and 1 MiB")
+        if self.index_scan_interval_s < 0:
+            raise ValueError("ONEMIND_FILES_INDEX_SCAN_INTERVAL_S must not be negative")
+        if self.index_tombstone_days < 1:
+            raise ValueError("ONEMIND_FILES_INDEX_TOMBSTONE_DAYS must be at least 1")

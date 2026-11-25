@@ -72,6 +72,7 @@ export function requestLifecycle(
 /** One plain sentence for a failed request, from the §12.2 code and reason. */
 export function requestError(e: unknown, what = 'that'): { text: string; forbidden: boolean } {
   const err = e instanceof ApiError ? e : new ApiError(0, 'unknown', String(e));
+  if (err.reason === 'step_up_required') return { text: `The hub wants a fresh passkey before ${what}. Sign in again with your passkey (Settings), then try again. Nothing was changed.`, forbidden: false };
   if (err.reason === 'plan_changed') return { text: `The plan for ${what} changed. Nothing was sent; look at the new plan and try again.`, forbidden: false };
   switch (err.code) {
     case 'permission_denied':

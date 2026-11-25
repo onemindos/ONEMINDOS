@@ -2,13 +2,8 @@
 # Reviewed false positives for scripts/hygiene.py: <path glob> TAB <regex the whole hit must match> TAB <id in handbook/hygiene.md>
 *	(serial-)?getty@tty[A-Za-z0-9]+\.service	FP-3
 *	git@github\.com	FP-5
-os/boards/vm-do/*	/home/onemind	B-FP-1
-test/qemu/*	/home/onemind	B-FP-1
-lab-kits/*	/home/onemind	B-FP-1
-handbook/*	/home/onemind	B-FP-1
 *	noreply@anthropic\.com	B-FP-2
 scripts/hygiene.py	/home/[a-z]	B-FP-3
-scripts/hygiene-allow.tsv	/home/onemind	B-FP-1
 scripts/hygiene-selftest.sh	t@t\.invalid	B-FP-4
 scripts/hygiene.py	rpi-otp-private-key|odmfuse	B-FP-3
 scripts/hygiene-allow.tsv	rpi-otp-private-key|odmfuse	B-FP-3
@@ -30,13 +25,11 @@ docs/*	/home/(layout|types|fixtures|shoot\.mjs|edit|offline|loading|errors|fresh
 research-output/evidence/lab/fb3-mesh-nat/*	(100\.64\.[0-9]+\.[0-9]+|10\.4[23]\.[0-9]+\.[0-9]+|/home/runner)	B-FP-9
 cmd/onemind/cli/mesh*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 core/onemind_core/ca.py	100\.64\.[0-9]+\.[0-9]+	B-FP-9
-core/onemind_core/mesh.py	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 core/tests/*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 internal/mesh/*	(100\.64\.[0-9]+\.[0-9]+|p@control\.onemind\.internal)	B-FP-9
 internal/leaf/*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 internal/rescue/*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 docs/architecture/NETWORKING.md	100\.64\.[0-9]+\.[0-9]+	B-FP-9
-docs/leap/core/NETWORKING.md	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 os/rootfs/layers/onemind/usr/lib/onemind/onemind_firstboot.py	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 test/qemu/CRITERIA-FIRSTBOOT.md	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 test/qemu/firstboot.py	100\.64\.[0-9]+\.[0-9]+	B-FP-9
@@ -50,6 +43,7 @@ core/tests/security/test_injection_traversal.py	(10\.0\.0\.1|192\.168\.1\.1|172\
 core/tests/security/test_injection_traversal.py	127\.0\.0\.1@evil\.example	B-FP-7
 research-output/evidence/lab/net-p2/*	(100\.64\.[0-9]+\.[0-9]+|10\.4[23]\.[0-9]+\.[0-9]+)	B-FP-9
 cmd/onemind/cli/mesh*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
+cmd/onemind/cli/device_join*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 core/onemind_core/netconf.py	100\.64\.0\.0	B-FP-9
 deploy/install.sh	100\.64\.0\.0	B-FP-9
 internal/fabric/*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
@@ -68,5 +62,31 @@ core/onemind_core/netpath.py	100\.64\.0\.0	B-FP-9
 core/tests/test_app_exposure_sharing.py	192\.168\.1\.20	B-FP-6
 # B-FP-9b: the LAN allowlist in core/onemind_core/netpath.py names the RFC 1918 network addresses (standard ranges, not a real network).
 core/onemind_core/netpath.py	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0)	B-FP-9
+# B-FP-12: CI-14 KVM runner firewall (scripts/ci-runner-kvm/net.sh) and its test block whole ranges by their network address: RFC 1918 (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) and RFC 6598 CGNAT (100.64.0.0/10). They are the ranges being denied, not hosts or addresses of any real network. 10.10.0.0 is the kit's own default job subnet (CI_NET), created by net.sh on the runner host.
+scripts/ci-runner-kvm/*	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-12
+test/unit/test_kvm_runner_policy.py	(10\.0\.0\.0|10\.10\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-12
+scripts/hygiene-allow.tsv	(10\.0\.0\.0|10\.10\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-12
 # B-FP-13: net-2vm harness private link, not a real network.
 test/net/*	172\.31\.250\.[0-9]+(/24)?	B-FP-13
+# B-FP-15: CI-15 DigitalOcean runner kit (scripts/ci-runner-do/): the container firewall blocks whole ranges by their network address (RFC 1918, RFC 6598 CGNAT), the ranges being denied and not any real network; /home/runner is the job container's own user home, not a host path.
+scripts/ci-runner-do/*	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0|/home/runner)	B-FP-15
+test/unit/test_do_runner_policy.py	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-15
+# B-FP-14: the SMB allow list (internal/smb, onemind-smb.service) names the standard private, CGNAT and mesh ranges, like netpath.py; not a real network. The test share paths below the Files root are fixtures.
+internal/smb/*	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-14
+os/rootfs/layers/onemind/usr/lib/systemd/system/onemind-smb.service	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-14
+internal/smb/smb_test.go	[/]home[/]al.x	B-FP-14
+# B-FP-16: host firewall (host.nft) names the private ranges by their network address (RFC 1918, RFC 6598), as ranges, not hosts.
+os/rootfs/layers/onemind/usr/lib/onemind/host.nft	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-16
+# B-FP-17: firewall QEMU tests: the QEMU user-networking gateway (fixed by QEMU) and the private link addresses 192.168.77.x the harness gives its own two throwaway VMs; neither is a real network.
+test/qemu/firewall.py	192\.168\.77\.[0-9]+	B-FP-17
+test/qemu/CRITERIA-FIREWALL.md	192\.168\.77\.[0-9]+	B-FP-17
+test/qemu/overlay/etc/onemind/host.d/*	10\.0\.2\.2	B-FP-17
+test/unit/test_host_firewall.py	10\.0\.2\.2	B-FP-17
+# B-FP-browser: Neko browser apps (apps/firefox, apps/chromium): /home/neko is the container image's own user home, not a host path.
+apps/firefox/*	/home/neko	B-FP-browser
+apps/chromium/*	/home/neko	B-FP-browser
+scripts/hygiene-allow.tsv	/home/neko	B-FP-browser
+core/onemind_core/serve.py	(10\.42\.0\.0|100\.64\.0\.0)	B-FP-9
+core/tests/test_serve_bind.py	(10\.42\.0\.7|100\.64\.0\.1|192\.168\.1\.[0-9]+|10\.0\.0\.5)	B-FP-9
+# B-FP-kanidm-lab: Kanidm SPNs (name@domain) in the UMB-ACCT-1 lab output (issue 403) use the reserved .test domain idm.onemind.test (RFC 2606); they name lab accounts and groups, not e-mail addresses.
+research-output/evidence/lab/acct-kanidm/*	[A-Za-z0-9._%+-]+@idm\.onemind\.test	B-FP-kanidm-lab

@@ -18,7 +18,24 @@ os/versions.lock.yaml:generic-api-key:135
 os/versions.lock.yaml:generic-api-key:138
 # same public fingerprint, dir-scan form (line moved by the Tailscale/Headscale pins, IMG-MESH-01)
 os/versions.lock.yaml:generic-api-key:148
+# same public fingerprint, dir-scan form (line moved by the restic pin block, IMG-BACKUP-01); reviewed false positive, a public GPG fingerprint
+os/versions.lock.yaml:generic-api-key:153
+# same public fingerprint, dir-scan form (line moved by the pin blocks combined on release/next); reviewed false positive, a public GPG fingerprint
+os/versions.lock.yaml:generic-api-key:165
 # NATS user public nkeys in the strict-hub golden (CORE-SEC-4, #161); public by design, no seed is committed
 internal/leaf/testdata/hub-accounts-services.golden.conf:generic-api-key:6
 internal/leaf/testdata/hub-accounts-services.golden.conf:generic-api-key:7
 internal/leaf/testdata/hub-accounts-services.golden.conf:generic-api-key:23
+# fake wrong-recovery-key test value in the #145 restore test (history only; later commits use a low-entropy named variable). Not a secret.
+846fc5aa2ce9e12a005c12a22e95081cc31b870d:internal/backup/managed_test.go:generic-api-key:561
+5b604430ee54180f2fcb0032489cc42d76f87965:internal/backup/managed_test.go:generic-api-key:36
+# NATS user public nkeys in the AGENTS-account golden (#627); public by design, no seed is committed
+internal/leaf/testdata/hub-accounts-agents.golden.conf:generic-api-key:19
+# NATS user public nkeys in the account goldens, lines moved by the hub-sourcing imports (#747); public by design, no seed is committed
+internal/leaf/testdata/hub-accounts.golden.conf:generic-api-key:32
+internal/leaf/testdata/hub-accounts-services.golden.conf:generic-api-key:33
+internal/leaf/testdata/hub-accounts-jetstream.golden.conf:generic-api-key:33
+aa2c44166979a708f9f96ee0dcb9ba29a5fce7dc:internal/leaf/testdata/hub-accounts-jetstream.golden.conf:generic-api-key:33
+# UMB-ACCT-1 lab log (#403): "credential_fp" is a 16-hex public fingerprint of a lab passkey credential id (sha256 prefix), not a secret.
+research-output/evidence/lab/acct-kanidm/run-1/AK-3.txt:generic-api-key:68
+dd47c170b08577f4b352d8a3c1f4792cba9326f4:research-output/evidence/lab/acct-kanidm/run-1/AK-3.txt:generic-api-key:68

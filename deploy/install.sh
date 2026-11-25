@@ -143,7 +143,7 @@ banner
 uninstall() {
   if [ "$DRY_RUN" = 1 ]; then
     step "Uninstall"
-    plan "systemctl disable --now onemind-gateway-token.timer onemind-gateway onemind-rescue onemindd onemind-nats; remove their unit files"
+    plan "systemctl disable --now onemind-gateway-token.timer onemind-gateway onemind-rescue onemindd onemind-images onemind-nats; remove their unit files"
     plan "rm $BIN/onemindd $BIN/onemind $BIN/nats-server"
     plan "run k3s-uninstall.sh / k3s-agent-uninstall.sh if present (k3s and its data)"
     plan "rm /etc/apt/apt.conf.d/52onemind-security-only /etc/needrestart/conf.d/50-onemind.conf"
@@ -155,7 +155,7 @@ uninstall() {
   systemctl disable --now onemind-gateway-token.timer 2>/dev/null || true
   rm -f /etc/systemd/system/onemind-gateway-token.timer
   # The Tailscale client goes only if OneMind installed it (tailscale_install's marker).
-  local units="onemind-gateway onemind-gateway-token onemindd onemind-nats onemind-nats-leaf onemind-headscale onemind-rescue onemind-nats-accounts.path" ts=0
+  local units="onemind-gateway onemind-gateway-token onemindd onemind-images onemind-nats onemind-nats-leaf onemind-headscale onemind-rescue onemind-nats-accounts.path" ts=0
   [ -f "$ETC/mesh-client" ] && ts=1
   if [ "$ts" = 1 ]; then
     if command -v tailscale >/dev/null 2>&1; then tailscale logout >/dev/null 2>&1 || true; fi
@@ -437,7 +437,7 @@ apt_setup() {
     plan "debconf: unattended-upgrades/enable_auto_updates=true; dpkg-reconfigure unattended-upgrades"
     apt_security_conf | show_file /etc/apt/apt.conf.d/52onemind-security-only 0644
     needrestart_conf | show_file /etc/needrestart/conf.d/50-onemind.conf 0644
-    plan "systemctl enable --now apt-daily.timer apt-daily-upgrade.timer"
+    plan "systemctl enable --now apt-daily.timer apt-daily-upgrade.timer, as the install's last step (see apt_timers_start)"
     return 0
   fi
   # shellcheck disable=SC2086
@@ -456,6 +456,15 @@ apt_setup() {
   # needrestart: restart services that still use replaced libraries, without asking.
   install -d -m0755 /etc/needrestart/conf.d
   needrestart_conf > /etc/needrestart/conf.d/50-onemind.conf
+}
+
+# The apt timers start last (#275). apt-daily-upgrade.timer is Persistent=true, so on a machine where
+# it was off (a CI runner, a fresh cloud image) it can fire as soon as it starts. unattended-upgrades then
+# replaces systemd or dbus while this script's next `systemctl` call waits for an answer, and that
+# call dies with "D-Bus connection terminated". Started here, after the last unit is up, an upgrade
+# can only restart what is already running, which needrestart handles.
+apt_timers_start() {
+  [ "$DRY_RUN" = 1 ] && return 0
   systemctl enable --now apt-daily.timer apt-daily-upgrade.timer >/dev/null 2>&1 || true
 }
 
@@ -947,7 +956,8 @@ onemindd_install() {
       plan "use the prebuilt $ONEMINDD_BIN (and onemind-linux-$ARCH next to it, if there)"
     else
       go_toolchain
-      plan "go build -trimpath ./cmd/onemindd ./cmd/onemind (CGO_ENABLED=0, from $SRC)"
+      plan "as user nobody, in $CACHE/sdk-gen: generate the Go SDK types from sdk/openapi (sdk/scripts/gen-code.sh go; CI-16)"
+      plan "go build -trimpath -overlay (those types) ./cmd/onemindd ./cmd/onemind (CGO_ENABLED=0, from $SRC)"
     fi
     plan "install -m0755 onemindd onemind -> $BIN/ (if they differ)"
     onemindd_env "$nats_url" | show_file "$ETC/onemindd.env" 0644
@@ -963,14 +973,27 @@ onemindd_install() {
     # No onemindd release artifact is published yet, so it is built from this checkout.
     go_toolchain
     log "onemindd: building from source with Go $GO_VERSION"
-    local bin
+    local bin gen="$CACHE/sdk-gen"
+    # The onemind CLI imports the Go SDK, whose types are generated from the committed spec, not
+    # committed (CI-16). Make them every time (an ignored copy in the checkout can be stale), as the
+    # unprivileged user nobody in a scratch copy, never as root, and hand them to `go build` with
+    # -overlay: nothing is written into the checkout.
+    log "onemindd: generating the Go SDK types from sdk/openapi (sdk/scripts/gen-code.sh go, as nobody)"
+    rm -rf "$gen"; install -d -m0700 "$gen/sdk"
+    cp -R "$SRC/sdk/go" "$SRC/sdk/openapi" "$SRC/sdk/scripts" "$gen/sdk/"
+    chown -R nobody "$gen"
+    runuser -u nobody -- env -i PATH="$GO_DIR/bin:/usr/bin:/bin" HOME="$gen" GOTOOLCHAIN=local \
+      GOCACHE="$gen/go-build" GOMODCACHE="$gen/go-mod" GOPATH="$gen/go" sh "$gen/sdk/scripts/gen-code.sh" go
+    printf '{"Replace":{"%s":"%s"}}\n' "$SRC/sdk/go/internal/gen/types.gen.go" "$gen/sdk/go/internal/gen/types.gen.go" \
+      > "$gen/overlay.json"
     for bin in onemindd onemind; do
       (cd "$SRC" && env CGO_ENABLED=0 GOTOOLCHAIN=local GOFLAGS=-mod=readonly \
         GOCACHE="$CACHE/go-build" GOMODCACHE="$CACHE/go-mod" GOPATH="$CACHE/go" HOME="$CACHE" \
-        "$GO_DIR/bin/go" build -trimpath -buildvcs=false \
+        "$GO_DIR/bin/go" build -trimpath -buildvcs=false -overlay "$gen/overlay.json" \
         -ldflags "-s -w -buildid= -X github.com/onemindos/onemindos/internal/version.Version=0.1.0+devinstall" \
         -o "$out/$bin" "./cmd/$bin")
     done
+    rm -rf "$gen"
   fi
   local changed=0
   cmp -s "$out/onemindd" "$BIN/onemindd" 2>/dev/null || { install -m0755 "$out/onemindd" "$BIN/onemindd"; changed=1; }
@@ -1078,7 +1101,7 @@ dashboard_build() {
     step "Dashboard -> $PREFIX/dashboard (served by the gateway)"
     if [ -n "$DASH_DIST" ]; then plan "copy the prebuilt $DASH_DIST"; return 0; fi
     node_toolchain
-    plan "as user onemind: npm ci --ignore-scripts && npm run build (skipped when dashboard/ is unchanged)"
+    plan "as user onemind: generate the TS SDK schema from sdk/openapi (CI-16), npm ci --ignore-scripts && npm run build (skipped when dashboard/ is unchanged)"
     return 0
   fi
   if [ -n "$DASH_DIST" ]; then
@@ -1087,21 +1110,26 @@ dashboard_build() {
     copy_tree_plain "$DASH_DIST" "$PREFIX/dashboard"; return 0
   fi
   # Dashboard aliases consume the design system and SDK from source; hash every input tree.
-  sum=$(cd "$SRC" && find dashboard ui/src sdk/ts/src -path dashboard/node_modules -prune -o -path dashboard/dist -prune -o -type f -print0 \
+  # sdk/openapi and sdk/ts/package*.json: the TS SDK schema is generated here from the spec, with the
+  # generator sdk/ts pins (CI-16).
+  sum=$(cd "$SRC" && find dashboard ui/src sdk/ts/src sdk/ts/package.json sdk/ts/package-lock.json sdk/openapi -path dashboard/node_modules -prune -o -path dashboard/dist -prune -o -type f -print0 \
         | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
   if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$sum" ]; then log "dashboard: up to date"; return 0; fi
   node_toolchain
   log "dashboard: npm ci + vite build with Node $NODE_VERSION (as user onemind, no install scripts)"
   copy_src_tree "$SRC/dashboard" "$CACHE/dashboard-src"
   copy_src_tree "$SRC/ui/src" "$CACHE/ui/src"   # ../ui/src as seen from dashboard-src
-  copy_src_tree "$SRC/sdk/ts/src" "$CACHE/sdk/ts/src"
+  copy_src_tree "$SRC/sdk/ts" "$CACHE/sdk/ts"   # src/ for the build; package files to generate src/gen/
+  copy_src_tree "$SRC/sdk/openapi" "$CACHE/sdk/openapi"
+  copy_src_tree "$SRC/sdk/scripts" "$CACHE/sdk/scripts"
   # npm packages are third-party code: never run them as root. --ignore-scripts skips dependency
   # lifecycle scripts (esbuild's is an optional speed-up; its platform binary comes as a package).
   install -d -o onemind -g onemind -m0700 "$CACHE/npm-home"
   chown -R onemind:onemind "$CACHE/dashboard-src" "$CACHE/ui" "$CACHE/sdk"
   (cd "$CACHE/dashboard-src" && runuser -u onemind -- env -i PATH="$NODE_DIR/bin:/usr/bin:/bin" HOME="$CACHE/npm-home" \
      npm_config_cache="$CACHE/npm-home/cache" npm_config_update_notifier=false sh -ec \
-     'npm ci --ignore-scripts --no-audit --no-fund --loglevel=error >/dev/null; npm run build >/dev/null')
+     'sh ../sdk/scripts/gen-code.sh ts >/dev/null   # always from the spec, never a stale copy
+      npm ci --ignore-scripts --no-audit --no-fund --loglevel=error >/dev/null; npm run build >/dev/null')
   copy_tree_plain "$CACHE/dashboard-src/dist" "$PREFIX/dashboard"
   printf '%s\n' "$sum" > "$stamp"
   rm -rf "$CACHE/dashboard-src" "$CACHE/ui" "$CACHE/sdk"
@@ -1224,6 +1252,22 @@ gateway_tokens() {
   fi
 }
 
+# Image cleanup and disk budget (NMD-08, #133): `onemindd images` removes only superseded images,
+# never those of an installed app (stopped included), so an offline box restarts every app.
+images_install() {
+  step "Image cleanup and disk budget (onemind-images.service, superseded images only)"
+  if [ "$DRY_RUN" = 1 ]; then
+    plan "install $SCRIPT_DIR/systemd/onemind-images.service; systemctl enable onemind-images; start it (restart if the unit changed)"
+    return 0
+  fi
+  local changed=0
+  cmp -s "$SCRIPT_DIR/systemd/onemind-images.service" /etc/systemd/system/onemind-images.service 2>/dev/null || changed=1
+  install -m0644 "$SCRIPT_DIR/systemd/onemind-images.service" /etc/systemd/system/onemind-images.service
+  systemctl daemon-reload
+  systemctl enable onemind-images >/dev/null 2>&1
+  if [ "$changed" = 1 ] || ! systemctl is-active --quiet onemind-images; then systemctl restart onemind-images; fi
+}
+
 # The rescue console (CORE-UPDATE-9, #278): its own unit, so the owner has a page on :7443 even when k3s or
 # the gateway is down. Needs the box CA's https.crt/key (box_certs) and the owner's tokens.yaml
 # (gateway_tokens), so it comes after both. LAN only: the console refuses public and mesh clients itself.
@@ -1301,6 +1345,10 @@ ONEMIND_NET_LAN_ADDR=$LAN_ADDR
 ONEMIND_NET_TLS=1
 ONEMIND_NET_TLS_DIR=$STATE/tls
 ONEMIND_NET_HTTP_REDIRECT_PORT=80
+# Plain-HTTP listener whose requests are always the Tor path: the Tor app's onion service forwards here (#284).
+# The gateway binds it only to the hub's mesh address (never the LAN), accepts only pod, mesh and
+# loopback peers, and answers 503 until the tor-remote-access app is installed.
+ONEMIND_NET_TOR_PORT=8446
 ONEMIND_NET_MDNS=1
 ONEMIND_MESH_ENABLED=1
 ONEMIND_MESH_HEADSCALE_URL=https://127.0.0.1:$HS_PORT
@@ -1374,6 +1422,7 @@ if [ "$ROLE" = hub ]; then
   mesh_hub               # the hub joins its own mesh first: k3s and NATS use its mesh address
   box_certs              # + the NATS leaf listener certificate for that address
   k3s_server
+  images_install         # after k3s: it reads the cluster with the k3s admin kubeconfig
   nats_install
   dashboard_build
   gateway_kubeconfig
@@ -1394,6 +1443,7 @@ if [ "$ROLE" = hub ]; then
     exit 0
   fi
   backup_setup
+  apt_timers_start
   no_raw_tokens_on_disk
   banner
   log "hub ready: https://$BOX.local (and https://onemind.local), box CA sha256 $BOX_CA_SHA"
@@ -1439,7 +1489,8 @@ else
   log "joining: the owner approves this machine on the hub (dashboard Approvals or onemind fabric approve)"
   # shellcheck disable=SC2086
   "$BIN/onemind" fabric join "$JOIN" ${HUB_ADDR:+--hub-addr "$HUB_ADDR"}
-  [ "$NODE_ROLE" = worker ] && k3s_agent
+  [ "$NODE_ROLE" != worker ] || k3s_agent
+  apt_timers_start
   banner
   log "node joined as a $NODE_ROLE: mesh up, NATS leaf to the hub over the mesh"
   log "check it: sudo $SCRIPT_DIR/verify/node-check.sh"

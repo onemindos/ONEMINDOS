@@ -16,23 +16,32 @@ import {
   buildPaletteCommands,
   formatAgo,
   pushRecentCommand,
+  useToast,
 
-  usePaletteHotkey,
   type NavItem,
   type PaletteCommand,
 } from '@onemind/ui';
+import { isServerId, mergeNotifications, SERVER_PREFIX } from '../data/notificationFeed';
+import { useNotificationFeed } from '../data/useNotificationFeed';
+import { useDownloadToasts } from '../data/useDownloadToasts';
 import { activityFrom, notificationsFrom, toActionSummary, toPaletteApp } from '../data/adapters';
-import { ActionJobs } from './ActionJobs';
+import { ActionJobs, jobsStackStyle } from './ActionJobs';
 import { useHub } from '../data/hub';
 import { useAppRequest } from './useAppRequest';
+import { useRecordVisit } from '../data/homeRecent';
 import { homeLayoutStore, personList } from '../data/prefs';
+import { useKeymap } from './keys/useKeymap';
 import { DesktopShell, type DockApp } from './DesktopShell';
 import { useLayoutMode, type LayoutMode } from './layoutMode';
+import { QuickSettings } from './quick/QuickSettings';
+import { effectiveView, useViewChoice } from './quick/viewPref';
 import { brand } from '../brand.generated';
 import { useSignedIn } from '../session';
+import { navItems } from '../screens/registry';
 import { href, navId, toRoute } from './routes';
 import { meRetryDelay, roleOf, showsNav, viewFor, type View } from './roles';
 import { usePoll } from '../lib/hooks';
+import { useDisplayName } from '../data/homeMe';
 
 interface ShellApi {
   openPalette: () => void;
@@ -40,6 +49,8 @@ interface ShellApi {
   requestApp: ReturnType<typeof useAppRequest>['requestApp'];
   /** Simple or Pro, from the signed-in role (roles.ts); 'unknown' until GET /v1/me answers. */
   view: View;
+  /** The signed-in role ('child', 'guest', ...), null for an agent; undefined until known. */
+  role: string | null | undefined;
   /** Desktop (default) or Console, chosen per person (layoutMode.ts). */
   layout: LayoutMode;
 }
@@ -60,6 +71,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const location = useLocation();
   const { requestApp, reviewDialog } = useAppRequest();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [jobsShown, setJobsShown] = useState(false);
   const readStore = useMemo(() => personList(person, 'notifications.read'), [person]);
   const recentStore = useMemo(() => personList(person, 'palette.recent', 8), [person]);
   const [read, setRead] = useState(() => new Set(readStore.load()));
@@ -67,13 +79,17 @@ export function Shell({ children }: { children: ReactNode }) {
 
   const [layout, setLayout] = useLayoutMode(person);
 
-  usePaletteHotkey(() => setPaletteOpen(true));
+  useKeymap({ palette: () => setPaletteOpen(true) });
 
   // A real gateway session does not carry the role, so ask GET /v1/me once. If that fails the
   // view falls back to Simple (fail closed): the Pro screens are offered only to a known role.
   const me = usePoll(() => (principal ? Promise.resolve(null) : client.me()), 0);
+  const displayName = useDisplayName();
   const role = roleOf(principal, me.data ?? undefined);
-  const view = viewFor(role === undefined && me.error ? null : role);
+  // The role decides Pro; the person may narrow it to Simple (quick settings), never widen it.
+  const [viewChoice, setViewChoice] = useViewChoice(person);
+  const view = effectiveView(viewFor(role === undefined && me.error ? null : role), viewChoice);
+  const recordVisit = useRecordVisit(view, role);
   // A failed lookup is retried with backoff, then slowly, so a network hiccup does not leave an
   // owner in the Simple view until a reload. Stops once /v1/me answers.
   const meTries = useRef(0);
@@ -89,23 +105,42 @@ export function Shell({ children }: { children: ReactNode }) {
 
   const go = (link: string) => {
     const to = toRoute(link);
-    if (to) navigate(to);
+    if (!to) return false;
+    recordVisit(to);
+    navigate(to);
+    return true;
   };
 
 
   const nodes = hub.nodes.data ?? [];
   const apps = hub.apps.data ?? [];
   const pending = hub.actionList.filter((a) => a.state === 'awaiting_approval');
+  const feed = useNotificationFeed();
+  const toast = useToast();
+  // #693: a browser download that passed quarantine and reached Files shows once as a toast.
+  useDownloadToasts(feed.notifications, (t) => toast.show({ tone: 'ok', ...t }), () => navigate('/files'));
   const notifications = useMemo(
-    () => notificationsFrom(hub.actionList, nodes.map((n) => ({ ...n, status: hub.nodeStatus(n) })), hub.appName, read),
+    () => mergeNotifications(feed.notifications, feed.alerts, notificationsFrom(hub.actionList, nodes.map((n) => ({ ...n, status: hub.nodeStatus(n) })), hub.appName, read), read),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [hub.actionList, hub.nodes.data, hub.appName, read, hub.now - (hub.now % 10_000)],
+    [feed.notifications, feed.alerts, hub.actionList, hub.nodes.data, hub.appName, read, hub.now - (hub.now % 10_000)],
   );
-  const markRead = (ids: string[], value: boolean) => {
+  // Read state: a hub notification is also marked read on the hub (it follows the person to every
+  // device; the hub has no "unread", so un-reading is this browser only). Alerts and derived facts
+  // are remembered in this browser.
+  const remember = (ids: string[], value: boolean) => {
     const next = new Set(read);
     ids.forEach((id) => (value ? next.add(id) : next.delete(id)));
     setRead(next);
     readStore.save([...next]);
+  };
+  const markRead = (ids: string[], value: boolean) => {
+    const hubIds = ids.filter(isServerId);
+    if (value && hubIds.length) void Promise.allSettled(hubIds.map((id) => client.markRead(id.slice(SERVER_PREFIX.length)))).then(feed.reload);
+    remember(ids, value);
+  };
+  const readAll = () => {
+    void client.markAllRead().then(feed.reload, () => undefined);
+    remember(notifications.map((n) => n.id), true);
   };
 
   const commands = useMemo(
@@ -114,11 +149,11 @@ export function Shell({ children }: { children: ReactNode }) {
         now: hub.now,
         apps: apps.map(toPaletteApp),
         nodes: nodes.map((n) => ({ ...n, status: hub.nodeStatus(n) })),
-        pending: pending.map(toActionSummary),
+        pending: pending.map((a) => toActionSummary(a, hub.appName)),
         canApprove: hub.canDecide !== 'no',
-      }).filter((c) => paletteShows(c, view)),
+      }).filter((c) => paletteShows(c, view, role)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [hub.apps.data, hub.nodes.data, hub.actionList, hub.canDecide, view],
+    [hub.apps.data, hub.nodes.data, hub.actionList, hub.canDecide, view, role],
   );
   const runCommand = (c: PaletteCommand) => {
     setPaletteOpen(false);
@@ -133,25 +168,9 @@ export function Shell({ children }: { children: ReactNode }) {
 
 
   const waiting = pending.length;
-  const allNav: NavItem[] = [
-    { id: 'home', label: 'Home', href: href.home, icon: 'home', primary: true },
-    { id: 'market', label: 'Market', href: href.market, icon: 'apps', primary: true },
-    { id: 'approvals', label: 'Approvals', href: href.approvals, icon: 'approvals', primary: true, badge: waiting, badgeLabel: `${waiting} waiting` },
-    { id: 'activity', label: 'Activity', href: href.activity, icon: 'activity', primary: true },
-    { id: 'installed', label: 'Installed', href: href.installed, icon: 'check', group: 'Your box' },
-    { id: 'nodes', label: 'Nodes', href: href.nodes, icon: 'nodes', group: 'Your box' },
-    { id: 'machines', label: 'Machines', href: href.machines, icon: 'monitor', group: 'Your box' },
-    { id: 'alerts', label: 'Alerts', href: href.alerts, icon: 'bell', group: 'Your box' },
-    { id: 'storage', label: 'Storage', href: href.storage, icon: 'storage', group: 'Your box' },
-    { id: 'backups', label: 'Backups', href: href.backups, icon: 'backups', group: 'Your box' },
-    { id: 'automation', label: 'Automation', href: href.automation, icon: 'clock', group: 'Your box' },
-    { id: 'updates', label: 'OS updates', href: href.updates, icon: 'updates', group: 'Your box' },
-    { id: 'settings', label: 'Settings', href: href.settings, icon: 'settings', group: 'Your box' },
-    { id: 'coming', label: 'Coming soon', href: href.coming, icon: 'info', group: 'Your box' },
-    { id: 'control-hub', label: 'Control Hub', href: href.controlHub, icon: 'hub', group: 'System' },
-    { id: 'agents', label: 'AI & Agents', href: href.agents, icon: 'agent', group: 'System' },
-  ];
-  const nav = allNav.filter((item) => showsNav(item.id, view));
+  const allNav: NavItem[] = navItems(waiting);
+  // Troubleshoot is owner-only on the hub (system:admin); hidden once we know this principal is not an owner.
+  const nav = allNav.filter((item) => showsNav(item.id, view, role) && !(item.id === 'troubleshoot' && hub.canDecide === 'no'));
 
   // Route plain in-app links from ui components through the router (no reload).
   const onClickCapture = (e: MouseEvent<HTMLDivElement>) => {
@@ -160,10 +179,7 @@ export function Shell({ children }: { children: ReactNode }) {
     if (!a || a.target || a.hasAttribute('download')) return;
     const raw = a.getAttribute('href') ?? '';
     if (raw === '#om-main' || raw.startsWith('#om')) return;
-    const to = toRoute(raw);
-    if (!to) return;
-    e.preventDefault();
-    navigate(to);
+    if (go(raw)) e.preventDefault();
   };
 
   const status =
@@ -175,6 +191,8 @@ export function Shell({ children }: { children: ReactNode }) {
 
   const boxName = hub.instance.data?.name ?? brand.shortName;
   const bell = (
+    <>
+    <QuickSettings role={role} view={view} viewChoice={viewChoice} onViewChoice={setViewChoice} />
     <NotificationBell
       items={notifications}
       now={hub.now}
@@ -186,10 +204,11 @@ export function Shell({ children }: { children: ReactNode }) {
         go(n.href);
       }}
       onSetRead={markRead}
-      onReadAll={() => markRead(notifications.map((n) => n.id), true)}
+      onReadAll={readAll}
       allHref={href.activity}
       settingsHref={href.setting('notifications')}
     />
+    </>
   );
   const account = (
     <>
@@ -211,7 +230,7 @@ export function Shell({ children }: { children: ReactNode }) {
       </Button>
     </>
   );
-  const api: ShellApi = { openPalette: () => setPaletteOpen(true), requestApp, view, layout };
+  const api: ShellApi = { openPalette: () => setPaletteOpen(true), requestApp, view, role, layout };
 
   // Apps pinned on Home go in the dock (Home hides its own dock on the desktop).
   const pinnedIds = layout === 'desktop' ? (homeLayoutStore().load(person)?.pinned ?? []) : [];
@@ -223,7 +242,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const installedApps: DockApp[] = layout === 'desktop' ? apps.filter((a) => a.installed).map(dockApp) : [];
   return (
     <ShellCtx.Provider value={api}>
-      <div onClickCapture={onClickCapture} className={layout === 'desktop' ? 'dash-root dash-desktop' : 'dash-root'}>
+      <div onClickCapture={onClickCapture} className={layout === 'desktop' ? 'dash-root dash-desktop' : 'dash-root'} data-jobs={jobsShown ? '' : undefined} style={jobsStackStyle(jobsShown)}>
         {layout === 'desktop' ? (
           <DesktopShell
             boxName={boxName}
@@ -236,6 +255,7 @@ export function Shell({ children }: { children: ReactNode }) {
             now={hub.now}
             timeZone={Intl.DateTimeFormat().resolvedOptions().timeZone}
             person={principal ? { id: principal.id, role: principal.kind === 'agent' ? 'agent' : principal.role } : undefined}
+            displayName={displayName}
             demo={mock}
             onSearch={() => setPaletteOpen(true)}
             onConsoleView={() => setLayout('console')}
@@ -257,7 +277,7 @@ export function Shell({ children }: { children: ReactNode }) {
           state={hub.freshness === 'stale' || hub.freshness === 'offline' ? hub.freshness : hub.freshness === 'unknown' ? 'loading' : 'ready'}
           ageSeconds={hub.ageS}
         />
-        <ActionJobs />
+        {view !== 'simple' && <ActionJobs onShown={setJobsShown} />}
         {reviewDialog}
       </div>
     </ShellCtx.Provider>
@@ -265,10 +285,10 @@ export function Shell({ children }: { children: ReactNode }) {
 }
 
 /** A palette command is offered when it leads to a screen this view shows (Pro screens: roles.ts). */
-export function paletteShows(c: PaletteCommand, view: View): boolean {
+export function paletteShows(c: PaletteCommand, view: View, role?: string | null): boolean {
   if (!c.href) return true;
   const to = toRoute(c.href);
-  return to === undefined || showsNav(navId(to.split('?')[0] ?? '/'), view);
+  return to === undefined || showsNav(navId(to.split('?')[0] ?? '/'), view, role);
 }
 
 /** Activity entries are needed by Home and Activity; computed once per actions answer. */

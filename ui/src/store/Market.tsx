@@ -7,7 +7,7 @@ import { EmptyState } from '../components/EmptyState';
 import { Icon } from '../components/Icon';
 import { StatusPill } from '../components/StatusPill';
 import { cx } from '../lib/cx';
-import { AppTile, ClassPills, FitLine, LoadGate } from './bits';
+import { AppTile, ClassPills, FitLine, LoadGate, QualityPill } from './bits';
 import { CategoryIcon } from './CategoryIcon';
 import { activeFilterCount, countByCategory, DEFAULT_FILTERS, filterApps, JOB_LABEL, primaryAction, tagsInCategory, type MarketFilters } from './logic';
 import { BROWSABLE_CLASSES, CATEGORIES, CATEGORY_BY_SLUG, DEPLOY_CLASSES, LICENCE_CLASSES } from './taxonomy';
@@ -21,6 +21,8 @@ export interface MarketHandlers {
   onRequestRemove?: (app: CatalogApp) => void;
   /** Link to the app page. */
   appHref: (id: string) => string;
+  /** Why this person cannot request installs or removals (role). Disables only those buttons; Open still works. */
+  requestBlocked?: string;
 }
 
 export interface MarketProps extends MarketHandlers {
@@ -41,11 +43,12 @@ export const DISCOVER_RAILS = 4;
 
 // ---------------------------------------------------------------- app card
 
-export function AppCard({ app, now, onRequestInstall, onRequestRemove, onOpen, appHref, disabled }: MarketHandlers & { app: CatalogApp; now: number; disabled?: string }) {
+export function AppCard({ app, now, onRequestInstall, onRequestRemove, onOpen, appHref, disabled, requestBlocked }: MarketHandlers & { app: CatalogApp; now: number; disabled?: string }) {
   const action = primaryAction(app, now);
   const reasonId = useId();
   const cat = CATEGORY_BY_SLUG[app.category];
-  const reason = disabled ?? (action.kind === 'blocked' || action.kind === 'none' ? action.reason : undefined);
+  const wantsRequest = action.kind === 'request-install' || action.kind === 'request-deploy' || (action.kind === 'open' && !!onRequestRemove);
+  const reason = disabled ?? (wantsRequest ? requestBlocked : undefined) ?? (action.kind === 'blocked' || action.kind === 'none' ? action.reason : undefined);
   return (
     <article className={cx('om-store-card', action.kind === 'blocked' && 'om-store-card-muted')} aria-labelledby={`${reasonId}-name`}>
       <div className="om-store-card-top">
@@ -65,6 +68,7 @@ export function AppCard({ app, now, onRequestInstall, onRequestRemove, onOpen, a
       </div>
       <p className="om-store-card-desc">{app.tagline ?? app.description}</p>
       <ClassPills app={app} />
+      <QualityPill app={app} />
       {/* The trust facts the owner decides on, on the card itself (contract §10.3, §11.4). */}
       <p className="om-store-card-trust">
         Licence: {app.license}
@@ -80,7 +84,7 @@ export function AppCard({ app, now, onRequestInstall, onRequestRemove, onOpen, a
                 Open
               </Button>
               {onRequestRemove && (
-                <Button size="sm" variant="ghost" disabled={!!disabled} onClick={() => onRequestRemove(app)}>
+                <Button size="sm" variant="ghost" disabled={!!disabled || !!requestBlocked} aria-describedby={requestBlocked ? reasonId : undefined} onClick={() => onRequestRemove(app)}>
                   Remove<span className="om-visually-hidden"> {app.name}</span>
                 </Button>
               )}
@@ -94,7 +98,7 @@ export function AppCard({ app, now, onRequestInstall, onRequestRemove, onOpen, a
               </a>
             ) : null
           ) : action.kind === 'request-install' || action.kind === 'request-deploy' ? (
-            <Button size="sm" variant="primary" disabled={!!disabled} aria-describedby={disabled ? reasonId : undefined} onClick={() => onRequestInstall(app)}>
+            <Button size="sm" variant="primary" disabled={!!disabled || !!requestBlocked} aria-describedby={reason ? reasonId : undefined} onClick={() => onRequestInstall(app)}>
               {action.kind === 'request-deploy' ? 'Request deploy' : 'Request install'}
               <span className="om-visually-hidden"> {app.name}</span>
             </Button>
@@ -166,7 +170,7 @@ function Featured({ app, headline, blurb, now, ...h }: MarketHandlers & { app: C
         <p className="om-store-hero-blurb">{blurb}</p>
         <div className="om-store-row">
           {action.kind === 'request-install' && (
-            <Button variant="primary" disabled={!!h.disabled} onClick={() => h.onRequestInstall(app)}>
+            <Button variant="primary" disabled={!!h.disabled || !!h.requestBlocked} title={h.requestBlocked} onClick={() => h.onRequestInstall(app)}>
               Request install
             </Button>
           )}
@@ -248,6 +252,15 @@ function FilterPanel({ f, set, id }: { f: MarketFilters; set: (p: Partial<Market
             <option value="blocked">Blocked (cannot install)</option>
           </select>
         </label>
+        <label className="om-store-select">
+          <span>Quality</span>
+          <select value={f.quality} onChange={(e) => set({ quality: e.target.value as MarketFilters['quality'] })}>
+            <option value="any">Any</option>
+            <option value="bronze">Bronze or better</option>
+            <option value="silver">Silver or better</option>
+            <option value="gold">Gold only</option>
+          </select>
+        </label>
       </fieldset>
     </div>
   );
@@ -267,7 +280,7 @@ export function Market({ apps, state, now, collections = [], featured, jobs = []
   const result = useMemo(() => filterApps(apps, f), [apps, f]);
   const counts = useMemo(() => countByCategory(apps, f), [apps, f]);
   const tags = useMemo(() => (f.category ? tagsInCategory(apps, f.category, f) : []), [apps, f]);
-  const byId = useMemo(() => new Map(apps.map((a) => [a.id, a])), [apps]);
+  const byId = useMemo(() => new Map(result.apps.map((a) => [a.id, a])), [result]);
   const nFilters = activeFilterCount(f);
   const discover = !f.q && !f.category && !f.tag;
   const waiting = jobs.filter((j) => j.type === 'app.install' && j.state === 'awaiting_approval');
@@ -280,10 +293,7 @@ export function Market({ apps, state, now, collections = [], featured, jobs = []
   const railCats = withApps.filter((c) => fullest.has(c));
   const moreCats = withApps.filter((c) => !railCats.includes(c));
 
-  const visible = (ids: string[]) => {
-    const shown = new Set(result.apps.map((a) => a.id));
-    return ids.map((id) => byId.get(id)).filter((a): a is CatalogApp => !!a && shown.has(a.id));
-  };
+  const visible = (ids: string[]) => ids.map((id) => byId.get(id)).filter((a): a is CatalogApp => !!a);
 
   // On Discover an app is shown once: in the first rail that has it. The same card twice would
   // list the same Install button twice and make a page of rails look longer than the catalog.
@@ -319,7 +329,8 @@ export function Market({ apps, state, now, collections = [], featured, jobs = []
           <CategoryIcon name="grid" size={16} />
           All <span className="om-store-chip-n">{total}</span>
         </button>
-        {CATEGORIES.map((c) => (
+        {/* A category with no apps would only lead to an empty list: leave it out (the open one stays so it can be closed). */}
+        {CATEGORIES.filter((c) => (counts[c.slug] ?? 0) > 0 || f.category === c.slug).map((c) => (
           <button
             key={c.slug}
             type="button"
