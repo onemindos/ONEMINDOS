@@ -72,13 +72,15 @@ _installs = itertools.count()
 def install_whoami(client, clock):
     key = f"own-install-{next(_installs)}"
     r = client.post("/v1/actions", json=action_body(clock, "whoami", key=key), headers=OWNER)
+    if r.status_code == 409 and "is installed" in r.text:
+        return
     assert r.status_code == 201, r.text
     done = client.post(f"/v1/actions/{r.json()['id']}/approve", headers=OWNER).json()
     assert done["state"] == "succeeded", done
 
 
 def owner_allows_removals(client):
-    """A standing approval that accepts any agent's app.remove, as an owner-set policy would."""
+    """A standing approval that accepts any agent's app.restart, as an owner-set policy would."""
     gw = client.app.state.gateway
     grant = StandingGrant(Principal("policy:pol_x@1", "policy", "policy"), {"approved_via": "policy"}, lambda: None)
     gw.actions.standing_approvals.insert(0, lambda a: grant)
@@ -86,7 +88,7 @@ def owner_allows_removals(client):
 
 
 def agent_removes_whoami(client, clock, key):
-    return client.post("/v1/actions", json=action_body(clock, "whoami", "app.remove", key=key), headers=AGENT)
+    return client.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key=key), headers=AGENT)
 
 
 # ---- the injection test ------------------------------------------------------------------------
@@ -132,7 +134,7 @@ def test_the_agent_itself_can_never_approve(tclient, clock):
 
 def test_the_approval_card_and_audit_say_where_the_context_came_from(tclient, clock):
     install_whoami(tclient, clock)
-    preview = tclient.get("/v1/apps/whoami/plan", params={"type": "app.remove"}, headers=OWNER)
+    preview = tclient.get("/v1/apps/whoami/plan", params={"type": "app.restart"}, headers=OWNER)
     assert preview.status_code == 200
     call(tclient, "get_app", {"app_id": "evil-app"})
     action = agent_removes_whoami(tclient, clock, "k").json()
@@ -150,7 +152,7 @@ def test_taint_covers_reads_of_resources_and_the_mcp_request_path(tclient, clock
     install_whoami(tclient, clock)
     owner_allows_removals(tclient)
     rpc(tclient, "resources/read", {"uri": "onemind://catalog/evil-app"})
-    out = call(tclient, "request_action", {"type": "app.remove", "app_id": "whoami"})["result"]
+    out = call(tclient, "request_action", {"type": "app.restart", "app_id": "whoami"})["result"]
     assert out["structuredContent"]["state"] == "awaiting_approval"
 
 
@@ -193,7 +195,7 @@ def test_an_agent_that_reads_over_rest_is_tainted_too(tclient, clock, url, route
 
 
 def test_the_hostile_rest_page_cannot_make_an_agent_act(tclient, clock):
-    """The reviewer's probe: GET /v1/apps and /v1/apps/evil-app, then app.remove under a standing approval."""
+    """The reviewer's probe: GET /v1/apps and /v1/apps/evil-app, then app.restart under a standing approval."""
     install_whoami(tclient, clock)
     owner_allows_removals(tclient)
     tclient.get("/v1/apps", headers=AGENT)
@@ -377,7 +379,7 @@ def test_a_tainted_agent_cannot_even_ask_about_an_app_that_keeps_ai_away(tclient
 def test_the_owner_is_never_tainted(tclient, clock):
     install_whoami(tclient, clock)
     call(tclient, "get_app", {"app_id": "evil-app"})  # the agent is tainted, not the owner
-    r = tclient.post("/v1/actions", json=action_body(clock, "whoami", "app.remove", key="o"), headers=OWNER)
+    r = tclient.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key="o"), headers=OWNER)
     assert r.status_code == 201 and plan_taint(r.json()["plan"]) is None
     assert tclient.post(f"/v1/actions/{r.json()['id']}/approve", headers=OWNER).json()["state"] == "succeeded"
 
