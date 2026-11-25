@@ -40,7 +40,7 @@ Whoever holds the root keys decides what every OneMind box in the world will ins
 
 **What the plan says today (D-010):** the first ceremony runs on three encrypted USB sticks on an offline computer, and the root then moves onto hardware keys later ([#272](https://github.com/onemindos/ONEMINDOS/issues/272), REL-02). The script already supports hardware keys (`hsm:` keys in `scripts/tuf-bootstrap-root.sh`, tested in CI with SoftHSM, a software stand-in), and `os/update/CEREMONY.md` has a section for the move. Two things are still open:
 - **No real YubiKey has been tried yet** (CEREMONY.md marks it UNVERIFIED), so a rehearsal on a real key comes first.
-- **The hardware-key steps still use an offline computer and a sheet every key holder reads aloud.** It is simpler than the stick version, but not "plug into your everyday laptop".
+- **The hardware-key steps still use an offline computer and a sheet every key holder reads aloud.** Moving an existing root onto hardware keys also needs two of the old USB sticks and their passphrases, so it is no harder than the stick version, but it is not "plug into your everyday laptop".
 
 The founder has three YubiKeys, which is exactly what the move to hardware keys needs. Going straight to YubiKeys for the first ceremony would be a change to D-010 that the founder decides.
 
