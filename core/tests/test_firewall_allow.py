@@ -150,8 +150,9 @@ def test_an_agent_asks_the_owner_approves_with_a_passkey_and_the_rule_starts_pen
         a = r.json()
         assert a["type"] == "firewall.allow" and a["state"] == "awaiting_approval"
         assert a["params"] == {"proto": "tcp", "port": 8123, "scope": "lan"}
-        # the approval card shows the reason first: it must say what would be opened, then the asker's words
-        assert a["reason"] == "Open TCP port 8123 for devices on your home network (LAN): the printer app needs it"
+        # the reason on record says what would be opened first, then the asker's words
+        asked = next(x for x in audit(settings) if x["event"] == "action.requested" and x.get("action_id") == a["id"])
+        assert asked["data"]["reason"] == "Open TCP port 8123 for devices on your home network (LAN): the printer app needs it", asked
         assert c.post(f"/v1/actions/{a['id']}/approve", headers=AGENT).status_code == 403  # an agent never approves
         refused = c.post(f"/v1/actions/{a['id']}/approve", headers=OWNER)  # the owner's token alone is not enough
         assert refused.status_code == 401 and refused.json()["reason"] == "step_up_required"
