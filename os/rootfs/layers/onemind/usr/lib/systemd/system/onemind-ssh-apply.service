@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: Apache-2.0
+# Applies the one SSH job the owner approved (add a key, remove a key, SSH on or off). `onemindd host serve` is
+# sandboxed (no /home, no way to start sshd), so it files the job as text in /data/onemind/ssh/job and starts this
+# oneshot, which runs `onemind-owner apply-job` as root and leaves the outcome in /data/onemind/ssh/result.
+# Nothing else starts it; it is not enabled and has no [Install] section.
+[Unit]
+Description=OneMind: apply an approved SSH key or on/off change
+RequiresMountsFor=/data /home/admin
+ConditionPathExists=/usr/lib/onemind/onemind-owner
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/onemind/onemind-owner apply-job
+TimeoutStartSec=60
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes

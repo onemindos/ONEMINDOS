@@ -150,5 +150,77 @@ class F15OwnerShell(unittest.TestCase):
         self.assertIn("F15_PW=$(head -c 18 /dev/urandom", body)         # generated in the guest, never baked
 
 
+GOOD_F20 = (
+    "F20 noauth=401\nF20 get=200\nF20 available=True\nF20 password_login=False\nF20 port=22\nF20 user=admin\n"
+    "F20 b_code=202\nF20 b_state=awaiting_approval\nF20 b_type=ssh.key.add\nF20 b_pre_login=Permission denied (publickey).\n"
+    "F20 c_state=succeeded\nF20 c_login=admin\nF20 c_listed=True\n"
+    "F20 d_add_code=202\nF20 d_add_state=succeeded\nF20 d_k2_login=admin\n"
+    "F20 d_del_code=202\nF20 d_del_state0=awaiting_approval\nF20 d_k2_before_approval=admin\nF20 d_del_state=succeeded\n"
+    "F20 d_k2_after_rc=255\nF20 d_k2_after_denied=True\nF20 d_k1_still=admin\nF20 d_k2_listed=False\nF20 d_k1_listed=True\n"
+    "F20 e_limit_first=True\n"
+    "F20 f_code=202\nF20 f_state0=awaiting_approval\nF20 f_listen_before=2\nF20 f_state=succeeded\nF20 f_active=inactive\n"
+    "F20 f_listen=0\nF20 f_nft=0\nF20 f_flag=True\nF20 f_login_rc=255\nF20 f_restart_active=inactive\n"
+    "F20 g_state=succeeded\nF20 g_active=active\nF20 g_listen=2\nF20 g_flag=False\nF20 g_login=admin\n"
+    "F20 i_code=422\nF20 i_filed=0\n")
+
+
+class F20SshKeysAndSwitch(unittest.TestCase):
+    """F20 (CRITERIA-FIRSTBOOT.md section 12): every sub-check must be able to fail on its own."""
+
+    def setUp(self):
+        self.fb = load_firstboot()
+        self.fb.RESULTS.clear()
+
+    def mutate(self, old, new):
+        self.assertIn(old, GOOD_F20)
+        return self.fb.f20_judge(GOOD_F20.replace(old, new))
+
+    def test_good_output_passes_every_check(self):
+        c = self.fb.f20_judge(GOOD_F20)
+        self.assertTrue(all(c.values()), c)
+
+    def test_each_failure_is_caught(self):
+        for old, new, key in (
+            ("noauth=401", "noauth=200", "reads"),                                  # the API answered without a token
+            ("password_login=False", "password_login=True", "reads"),
+            ("b_state=awaiting_approval", "b_state=succeeded", "request_waits"),    # a request ran before approval
+            ("b_pre_login=Permission denied (publickey).", "b_pre_login=admin", "request_waits"),
+            ("c_login=admin", "c_login=Permission denied", "approval_adds"),
+            ("c_listed=True", "c_listed=False", "approval_adds"),
+            ("d_k2_login=admin", "d_k2_login=", "second_key"),
+            ("d_k2_before_approval=admin", "d_k2_before_approval=", "removal_waits"),  # removed before approval
+            ("d_k2_after_rc=255", "d_k2_after_rc=0", "removal_refuses"),            # the removed key still logs in
+            ("d_k2_after_denied=True", "d_k2_after_denied=False", "removal_refuses"),
+            ("d_k1_still=admin", "d_k1_still=", "removal_refuses"),                 # removal took the other key too
+            ("d_k2_listed=False", "d_k2_listed=True", "removal_refuses"),
+            ("e_limit_first=True", "e_limit_first=False", "rate_limit_rule"),
+            ("f_listen_before=2", "f_listen_before=0", "off_waits"),
+            ("f_listen=0", "f_listen=1", "off_closes_port"),                        # the port is still open
+            ("f_active=inactive", "f_active=active", "off_closes_port"),
+            ("f_nft=0", "f_nft=1", "off_closes_port"),
+            ("f_flag=True", "f_flag=False", "off_closes_port"),
+            ("f_restart_active=inactive", "f_restart_active=active", "off_holds"),  # systemctl start undid the switch
+            ("g_active=active", "g_active=inactive", "on_opens_it"),
+            ("g_flag=False", "g_flag=True", "on_opens_it"),
+            ("g_login=admin", "g_login=", "on_opens_it"),
+            ("i_code=422", "i_code=202", "bad_key_refused"),
+            ("i_filed=0", "i_filed=1", "bad_key_refused"),
+        ):
+            with self.subTest(change=new):
+                self.assertFalse(self.mutate(old, new)[key], key)
+
+    def test_missing_output_is_a_failure_not_a_pass(self):
+        self.assertFalse(any(self.fb.f20_judge("").values()))
+
+    def test_f20_runs_after_f15_and_prints_no_secret(self):
+        src = open(os.path.join(ROOT, "test", "qemu", "firstboot.py")).read()
+        main = src[src.index("def main("):]
+        self.assertLess(main.index("f15(vm)"), main.index("f20(vm, token)"))
+        script = src[src.index("F20_PY = "):src.index("def f20_judge(")]
+        self.assertNotIn("print(TOKEN", script)
+        self.assertNotRegex(script, r"out\([^)]*open\(K[12]\)(?!\.pub)")      # never the private key
+        self.assertIn("ssh-keygen -q -t ed25519 -N ''", script)                   # keys are made in the guest
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -18,6 +18,7 @@ import (
 
 	"github.com/onemindos/onemindos/internal/host"
 	"github.com/onemindos/onemindos/internal/netview"
+	"github.com/onemindos/onemindos/internal/ownerssh"
 	"github.com/onemindos/onemindos/internal/smb"
 	"github.com/onemindos/onemindos/internal/storage/ops"
 	"github.com/onemindos/onemindos/internal/svcregistry"
@@ -64,7 +65,8 @@ func runHost(args []string) int {
 		BootID: host.BootID(), Delay: *delay, Log: log,
 		Reset: &host.FactoryReset{},
 		Units: units,
-		SMB:   &smb.Manager{P: smb.DefaultPaths(), Run: smb.ExecRunner{}}}
+		SMB:   &smb.Manager{P: smb.DefaultPaths(), Run: smb.ExecRunner{}},
+		SSH:   &ownerssh.Manager{Run: ownerssh.ExecRunner{}}}
 	if st, err := host.OpenStore(*journal); err != nil {
 		log.Error("host journal unavailable: status only, every action refused", "dir", *journal, "err", err)
 	} else {

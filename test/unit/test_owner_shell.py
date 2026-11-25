@@ -152,6 +152,163 @@ class NoPasswordIsBaked(unittest.TestCase):
         self.assertIn("ssh-*|ecdsa-*|sk-*", t)
 
 
+OWNER = f"{L}/usr/lib/onemind/onemind-owner"
+
+
+def run_owner(d, *args, stdin=None):
+    """The real script as the current user, the owner's home and state moved into the temp dir d (the test hook)."""
+    import subprocess
+    env = dict(os.environ, ONEMIND_OWNER_TEST_ROOT=d)
+    return subprocess.run(["sh", os.path.join(ROOT, OWNER), *args], env=env, input=stdin, capture_output=True, text=True)
+
+
+def make_key(d, name, comment):
+    import subprocess
+    subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", comment, "-f", os.path.join(d, name)], check=True)
+    import subprocess as sp
+    fp = sp.run(["ssh-keygen", "-l", "-f", os.path.join(d, name + ".pub")], capture_output=True, text=True, check=True).stdout.split()[1]
+    return os.path.join(d, name + ".pub"), fp
+
+
+class SshKeysAndSwitch(unittest.TestCase):
+    """P-06: key-rm, the on/off switch and the job runner of onemind-owner, and the unit files around them."""
+
+    def test_key_rm_removes_exactly_one_key_and_publishes_the_list(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            a, fa = make_key(d, "a", "first"); b, fb = make_key(d, "b", "second")
+            for k in (a, b):
+                self.assertEqual(run_owner(d, "key-add", k).returncode, 0)
+            listed = open(os.path.join(d, "sshstate", "keys.list")).read()
+            self.assertIn(fa, listed); self.assertIn(fb, listed)
+            r = run_owner(d, "key-rm", fa)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            kf = os.path.join(d, "home", ".ssh", "authorized_keys")
+            self.assertEqual(len(open(kf).read().splitlines()), 1)
+            self.assertEqual(os.stat(kf).st_mode & 0o777, 0o600)
+            listed = open(os.path.join(d, "sshstate", "keys.list")).read()
+            self.assertNotIn(fa, listed); self.assertIn(fb, listed)
+            self.assertFalse(os.path.exists(os.path.join(d, "systemctl.log")), "one key is left: sshd keeps running")
+            self.assertEqual(run_owner(d, "key-rm", fa).returncode, 4)          # already gone: "no such key"
+
+    def test_removing_the_last_key_stops_sshd(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            a, fa = make_key(d, "a", "only")
+            run_owner(d, "key-add", a)
+            self.assertEqual(run_owner(d, "key-rm", fa).returncode, 0)
+            self.assertIn("stop ssh.service", open(os.path.join(d, "systemctl.log")).read())
+            self.assertEqual(open(os.path.join(d, "sshstate", "keys.list")).read(), "")
+
+    def test_key_rm_refuses_anything_that_is_not_a_fingerprint(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            a, _ = make_key(d, "a", "x"); run_owner(d, "key-add", a)
+            for bad in ("", "x", "MD5:aa:bb", "SHA256:short", "SHA256:" + "A" * 42 + "/../etc", ".*"):
+                self.assertEqual(run_owner(d, "key-rm", bad).returncode, 2, bad)
+            self.assertEqual(len(open(os.path.join(d, "home", ".ssh", "authorized_keys")).read().splitlines()), 1)
+
+    def test_key_rm_never_follows_a_symlink_as_root(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            a, fa = make_key(d, "a", "x"); run_owner(d, "key-add", a)
+            target = os.path.join(d, "shadow")
+            open(target, "w").write("root:!:::\n")
+            kf = os.path.join(d, "home", ".ssh", "authorized_keys")
+            os.remove(kf); os.symlink(target, kf)
+            r = run_owner(d, "key-rm", fa)
+            self.assertEqual(r.returncode, 3, r.stderr)
+            self.assertIn("symlink", r.stderr)
+            self.assertEqual(open(target).read(), "root:!:::\n")
+
+    def test_key_rm_keeps_comments_and_other_lines_intact(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            a, fa = make_key(d, "a", "x"); b, fb = make_key(d, "b", "y")
+            run_owner(d, "key-add", a); run_owner(d, "key-add", b)
+            kf = os.path.join(d, "home", ".ssh", "authorized_keys")
+            lines = open(kf).read().splitlines()
+            open(kf, "w").write("# my own note\n" + "\n".join(lines) + "\n")
+            self.assertEqual(run_owner(d, "key-rm", fa).returncode, 0)
+            left = open(kf).read().splitlines()
+            self.assertEqual(left[0], "# my own note"); self.assertEqual(len(left), 2); self.assertIn(open(b).read().split()[1], left[1])
+
+    def test_the_switch_is_a_flag_file_on_data_and_survives(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            self.assertIn("enabled=true", run_owner(d, "ssh-state").stdout)
+            self.assertEqual(run_owner(d, "ssh-off").returncode, 0)
+            self.assertTrue(os.path.exists(os.path.join(d, "sshstate", "disabled")))
+            self.assertIn("enabled=false", run_owner(d, "ssh-state").stdout)
+            self.assertIn("stop ssh.service", open(os.path.join(d, "systemctl.log")).read())
+            self.assertEqual(run_owner(d, "ssh-on").returncode, 0)
+            self.assertFalse(os.path.exists(os.path.join(d, "sshstate", "disabled")))
+            self.assertIn("start ssh.service", open(os.path.join(d, "systemctl.log")).read())
+        t = rd(OWNER)
+        self.assertIn("STATEDIR=/data/onemind/ssh", t)           # the real path is on the data partition
+
+    def test_ssh_service_honours_the_flag_on_every_board(self):
+        d = rd(f"{SYS}/ssh.service.d/40-onemind-ssh-toggle.conf")
+        self.assertIn("ConditionPathExists=!/data/onemind/ssh/disabled", d)
+        self.assertRegex(d, r"(?m)^RequiresMountsFor=/data/onemind/ssh$")
+        self.assertIn("STATEDIR=/data/onemind/ssh", rd(OWNER))
+        self.assertIn("OFF=$STATEDIR/disabled", rd(OWNER))          # the same file the unit condition tests
+        # the cloud boards delete 20-onemind-owner-key.conf; the switch lives in its own file so it stays
+        self.assertNotIn("40-onemind-ssh-toggle", rd("os/rootfs/Containerfile"))
+        self.assertTrue(exists(f"{SYS}/ssh.service.d/40-onemind-ssh-toggle.conf"))
+
+    def test_job_runner_applies_one_filed_job_and_leaves_a_result(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            a, fa = make_key(d, "a", "via job")
+            os.makedirs(os.path.join(d, "sshstate"))
+            job = os.path.join(d, "sshstate", "job")
+            open(job, "w").write("key-add\n" + open(a).read())
+            self.assertEqual(run_owner(d, "apply-job").returncode, 0)
+            self.assertFalse(os.path.exists(job), "a done job is not left behind")
+            self.assertTrue(open(os.path.join(d, "sshstate", "result")).read().startswith("rc=0\n"))
+            self.assertIn(fa, open(os.path.join(d, "sshstate", "keys.list")).read())
+            open(job, "w").write("key-rm\n" + fa + "\n")
+            run_owner(d, "apply-job")
+            self.assertEqual(open(os.path.join(d, "sshstate", "keys.list")).read(), "")
+            open(job, "w").write("key-rm\n" + fa + "\n")
+            run_owner(d, "apply-job")
+            self.assertTrue(open(os.path.join(d, "sshstate", "result")).read().startswith("rc=4\n"))
+            open(job, "w").write("key-add\ncommand=\"id\" ssh-ed25519 AAAA x\n")
+            run_owner(d, "apply-job")
+            self.assertTrue(open(os.path.join(d, "sshstate", "result")).read().startswith("rc=2\n"))
+            open(job, "w").write("ssh\noff\n")
+            run_owner(d, "apply-job")
+            self.assertTrue(os.path.exists(os.path.join(d, "sshstate", "disabled")))
+            open(job, "w").write("rm-rf\n/\n")
+            run_owner(d, "apply-job")
+            self.assertTrue(open(os.path.join(d, "sshstate", "result")).read().startswith("rc=64\n"))
+            os.remove(os.path.join(d, "sshstate", "result"))
+            run_owner(d, "apply-job")                                          # no job: only publishes the list
+            self.assertFalse(os.path.exists(os.path.join(d, "sshstate", "result")))
+
+    def test_the_apply_unit_is_a_root_oneshot_that_nothing_enables(self):
+        u = rd(f"{SYS}/onemind-ssh-apply.service")
+        self.assertIn("Type=oneshot", u)
+        self.assertIn("ExecStart=/usr/lib/onemind/onemind-owner apply-job", u)
+        self.assertNotIn("[Install]", "\n".join(l for l in u.splitlines() if not l.startswith("#")))  # started by the host service only
+        self.assertIn("onemind-ssh-apply.service", rd(f"{L}/usr/lib/onemind/services.yaml"))
+
+    def test_the_host_service_never_gets_wider_to_do_this(self):
+        # It is sandboxed (no /home, no capabilities to start sshd); the design files a job on /data instead.
+        h = rd(f"{SYS}/onemind-host.service")
+        self.assertIn("ProtectHome=yes", h)
+        self.assertIn("ReadWritePaths=/data /boot/efi", h)       # /data is where the job and the result are filed
+
+    def test_rate_limit_and_accept_are_in_the_ssh_chain_in_that_order(self):
+        d = rd(f"{SYS}/ssh.service.d/30-onemind-firewall.conf")
+        v4, v6, acc = (d.index(x) for x in ("meter ssh_new_v4", "meter ssh_new_v6", "tcp dport 22 accept"))
+        self.assertLess(v4, acc); self.assertLess(v6, acc)
+        self.assertEqual(d.count("limit rate over 6/minute burst 6 packets"), 2)
+        self.assertEqual(d.count("ct state new"), 2)             # only new connections are counted
+        self.assertIn("ip saddr", d); self.assertIn("ip6 saddr", d)
+
+
 class KioskUserExistsInTheImage(unittest.TestCase):
     def test_kiosk_user_is_created_at_build_time(self):
         # F15 first run: onemind-kiosk.service failed with 217/USER. The user came only from sysusers.d, which needs a

@@ -93,3 +93,5 @@ research-output/evidence/lab/acct-kanidm/*	[A-Za-z0-9._%+-]+@idm\.onemind\.test	
 os/rootfs/layers/onemind/*	/home/admin	B-FP-6
 test/unit/*	/home/admin	B-FP-6
 os/rootfs/Containerfile	/home/admin	B-FP-6
+# B-FP-ssh-keytype: OpenSSH names its two security-key public key types with an at-sign and a domain; they are algorithm names, not e-mail addresses (P-06).
+core/onemind_core/sshaccess.py	sk-(ssh-ed25519|ecdsa-sha2-nistp256)@openssh\.com	B-FP-ssh-keytype
