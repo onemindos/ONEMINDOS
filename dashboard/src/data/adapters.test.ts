@@ -179,6 +179,7 @@ describe('routes from ui links', () => {
     expect(toRoute('#/approvals/a-1')).toBe('/approvals?highlight=a-1');
     expect(toRoute('#/settings/people')).toBe('/settings/users');
     expect(toRoute('#/settings/appearance')).toBe('/settings/appearance');
+    expect(toRoute('#/settings/security')).toBe('/settings/security'); // the Security overview page, no alias to account
     expect(toRoute('#/backups')).toBe('/backups');
     expect(toRoute('/installed/x')).toBe('/installed/x');
   });

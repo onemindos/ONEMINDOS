@@ -38,7 +38,7 @@ export const href = {
 };
 
 /** ui settings slugs (palette) → SettingsLayout section ids. */
-const SETTINGS_ALIAS: Record<string, string> = { people: 'users', security: 'account', remote: 'network' };
+const SETTINGS_ALIAS: Record<string, string> = { people: 'users', remote: 'network' };
 
 /**
  * An in-app path for a ui link (or an onemind://app deep link), or undefined when it is not an in-app link (an external or
