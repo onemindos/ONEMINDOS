@@ -45,6 +45,8 @@ class PermissionEngine:
         # principal keeps the PR 8 behaviour: the owner's rules apply ("auto").
         self.mode_of: Callable[[str, str], str] = lambda _name, _kind: "auto"
         self.owner_passkey: Callable[[], bool] = lambda: True
+        # §3.5.1: the owner's own requests run directly and are exempt from modes (PR 10 wires it).
+        self.is_owner: Callable[[dict], bool] = lambda _requested_by: False
         # (action_type, params, requested_by) -> "policy:<id>@<rev>" of a live rule that would cover it.
         self.rule_for: Callable[[str, dict, dict], str | None] = lambda _t, _p, _r: None
         self.licence_green: Callable[[str, dict], bool] = lambda _t, _p: True
@@ -69,7 +71,7 @@ class PermissionEngine:
         except Exception:
             log.exception("deny rule lookup failed")
             deny = "lookup_failed"
-        mode = self._mode(name, kind)
+        mode = self._mode(name, kind, requested_by)
         # Only Headless needs to know before filing whether a rule covers it (it refuses instead of
         # waiting); otherwise the policy module finds the rule after filing and reserves a use.
         rule = ANY_RULE
@@ -99,7 +101,11 @@ class PermissionEngine:
             owner_passkey=self._safe(self.owner_passkey, False), rule=rule,
         )
 
-    def _mode(self, name: str, kind: str) -> str:
+    def _mode(self, name: str, kind: str, requested_by: dict | None = None) -> str:
+        # The owner's own requests: no mode applies (a Locked or Headless household default included),
+        # so they behave as before modes existed. Their floor items still wait for a person.
+        if kind == "person" and requested_by is not None and self._safe(lambda: self.is_owner(requested_by), False):
+            return "auto"
         try:
             return self.mode_of(name, kind)
         except Exception:

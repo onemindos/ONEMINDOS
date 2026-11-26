@@ -467,6 +467,7 @@ class PolicyService:
     def confirm(self, principal: Principal, policy_id: str) -> dict:
         """The owner re-enables a legacy rule that migration paused (it keeps its narrow reading)."""
         self._owner_only(principal, "confirm standing approvals")
+        self._check_loosen()  # re-enabling a paused rule loosens (F-8)
         if not self.repo.confirm_policy(policy_id):
             raise ApiError(404, "not_found", "no paused standing approval with that id")
         self.audit.append("automation.policy.confirmed", principal.as_dict(), None, {"policy_id": policy_id})

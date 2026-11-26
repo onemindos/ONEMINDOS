@@ -18,7 +18,11 @@ Who may change a mode (§3.5.1):
 - **Loosening** is an approver's power (the owner today): a fresh passkey (L1 today; D-028 sets L2,
   design PR 11), and **never before the owner has a passkey** (F-8 = a: until then every mode
   behaves as Always ask and loosening answers 409 "add a passkey first").
-- **Nobody loosens their own requests.** The owner's own requests run directly, as today.
+- **Nobody loosens their own requests.** The owner's own requests run directly, as today: they
+  are exempt from modes (the engine never looks up a mode for an owner, so neither a Locked nor a
+  Headless household default touches them), and no mode row may be set for an owner (422
+  owner_exempt). Without that an owner could lock themselves and, with no other approver in 1.0,
+  nobody could undo it short of editing the database.
 - An agent never changes a mode, its own included; it may read its own.
 
 The household default (principal "*") is what a principal without its own row gets. On upgrade,
@@ -71,6 +75,8 @@ class ModeStore:
         self.owned_by: Callable[[str], set[str]] = lambda _uid: set()  # person id -> agents they own
         self.cancel_pending: Callable[[str, Principal], int] = lambda _name, _by: 0  # Locked cancels these
         self.owner_passkey: Callable[[], bool] = lambda: True  # F-8, set by the router
+        # §3.5.1: is this display key an owner ("person:<id>" whose role is owner)? Owners are exempt.
+        self.is_owner: Callable[[str], bool] = lambda _name: False
 
     # ---- reads -----------------------------------------------------------------------------------
     def _row(self, principal: str) -> ModeRow | None:
@@ -131,6 +137,9 @@ class ModeStore:
             self._denied(p, "change the household default")
         if name != HOUSEHOLD and not self.has_say(p, name, user_id):
             self._denied(p, f"change the mode of {name}")
+        if name != HOUSEHOLD and name.startswith("person:") and self.is_owner(name):
+            raise ApiError(422, "conflict", "the owner's own requests run directly and have no mode (design 3.5.1): "
+                                            "a mode here could lock the owner out for good", reason="owner_exempt")
         old = self.default() if name == HOUSEHOLD else self.effective(name)
         if mode == old:
             return "same"
@@ -164,9 +173,14 @@ class ModeStore:
                 "reason": r.reason if r else None, "household_default": self.default(),
                 "owner_passkey": bool(self.owner_passkey())}
 
-    def migrate(self, live_rule_principals: Callable[[], set[str]]) -> list[str]:
+    def migrate(self, live_rule_principals: Callable[[], set[str]],
+                wildcard_rules: Callable[[], list[str]] = lambda: []) -> list[str]:
         """Once per box: every principal a live rule names moves to auto (fix 14), so an upgrade never
-        silently turns a working rule off. A principal that already has a mode keeps it."""
+        silently turns a working rule off. A principal that already has a mode keeps it.
+
+        A legacy wildcard entry (person:*, automation:*) names nobody, so nobody moves for it: such a
+        rule stops firing for adults, who start on Always ask. Those rules are listed in the audit line
+        (`wildcard_rules_not_moved`) so the owner can see them and set each person's mode."""
         if self._row(MIGRATED) is not None:
             return []
         moved = []
@@ -174,9 +188,15 @@ class ModeStore:
             if PRINCIPAL_RE.fullmatch(name) and self._row(name) is None:
                 self._write(name, "auto", None, "upgrade: it had a live standing approval")
                 moved.append(name)
+        try:
+            wild = sorted(wildcard_rules())
+        except Exception:  # listing them is a courtesy; the move itself must still run once
+            wild = []
         self._write(MIGRATED, "auto", None, "marker")
-        if moved:
-            self.audit.append("permission.mode.migrated", None, None, {"to": "auto", "principals": moved})
+        if moved or wild:
+            self.audit.append("permission.mode.migrated", None, None,
+                              {"to": "auto", "principals": moved,
+                               **({"wildcard_rules_not_moved": wild} if wild else {})})
         return moved
 
     def _denied(self, p: Principal, what: str) -> None:
