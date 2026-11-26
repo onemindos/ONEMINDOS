@@ -256,11 +256,11 @@ function ApprovalsWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) 
       <WidgetFrame {...common} stale={hubStale(ctx)} state={{ kind: 'empty', title: 'Nothing needs you', body: 'Requests from people, agents and the system wait here until you decide.' }} />
     );
   const more = list.length - max;
+  // Approvals come first: a status row never pushes a decision out of the card.
+  const flagged = attention?.filter((row) => row.state !== 'unknown') ?? [];
+  const unknown = attention?.filter((row) => row.state === 'unknown') ?? [];
   return (
     <WidgetFrame {...common} stale={hubStale(ctx)} aside={list.length ? <StatusPill tone="warn" label={`${list.length} waiting`} /> : undefined}>
-      {attention && attention.length > 0 && <ul aria-label="Box status requiring attention">{attention.map((row) => (
-        <li key={row.source}>{row.label}: {row.state === 'unknown' ? 'Unknown' : row.summary}</li>
-      ))}</ul>}
       {l.state === 'error' && <p role="status">Approval requests are unavailable.</p>}
       <ul className="omh-approvals">
         {list.slice(0, max).map((a) => (
@@ -271,6 +271,23 @@ function ApprovalsWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) 
         <a className="omh-more" href={ctx.links.approvals}>
           {more} more waiting
         </a>
+      )}
+      {(flagged.length > 0 || unknown.length > 0) && (
+        <ul className="omh-rows" aria-label="Box status requiring attention">
+          {flagged.map((row) => (
+            <li key={row.source}>
+              <StatusPill tone={row.state === 'critical' ? 'bad' : 'warn'} label={row.label} />
+              <span className="omh-row-main">{row.summary || (row.state === 'critical' ? 'Critical' : 'Needs attention')}</span>
+            </li>
+          ))}
+          {unknown.length > 0 && (
+            // Sources the box has not reported stay visible, as one line: never a bullet per source.
+            <li key="unknown">
+              <StatusPill tone="neutral" label="Not reported" />
+              <span className="omh-row-main">{ctx.data.boxStatus?.every((row) => row.state === 'unknown') ? 'Box status' : unknown.map((row) => row.label).join(', ')}</span>
+            </li>
+          )}
+        </ul>
       )}
     </WidgetFrame>
   );
