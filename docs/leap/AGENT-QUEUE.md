@@ -44,7 +44,7 @@ gh issue list -R onemindos/ONEMINDOS -l claimed --json number,title,labels --jq 
 2. **Check `main` first.** Read the issue's *Done when* list and search the code; part may already exist. If it is all done, comment with the evidence and stop.
 3. **Branch** from fresh `origin/main`: `feat/…`, `fix/…`, `docs/…`.
 4. **Build the smallest change that ticks the *Done when* list.** Aim for under about 600 changed lines; split larger work into several PRs on the same issue.
-5. **Prove it** (see §4), then open the PR with `Closes #<n>`, the template sections *Why / What / Tests / Not done*, and the labels `builder:<codex|claude>` and `needs-review` (see §6).
+5. **Prove it** (see §4), then open the PR with `Refs #<n>` (never "Closes"; issues are closed by hand), the template sections *Why / What / Tests / Not done*, and the labels `builder:<codex|claude>` and `needs-review` (see §6).
 6. **Unclaim** if you stop: remove `claimed` and comment what is left.
 
 ## 4. Definition of done (every PR)
@@ -81,7 +81,7 @@ gh issue list -R onemindos/ONEMINDOS -l claimed --json number,title,labels --jq 
 
 ## 6. The hand-off between builders and the gate
 
-1. A builder claims an issue (`claim:` comment plus the `claimed` label), builds it, and opens a PR with `Closes #<n>` and the labels `builder:codex` or `builder:claude`, plus `needs-review`.
+1. A builder claims an issue (`claim:` comment plus the `claimed` label), builds it, and opens a PR with `Refs #<n>` (never "Closes"; issues are closed by hand) and the labels `builder:codex` or `builder:claude`, plus `needs-review`.
 2. The gate reviews it. If it approves, it removes `needs-review`, adds `review:approved`, and runs `gh pr merge <n> --auto`, which puts it in the merge queue. If it does not, it adds `review:changes` and comments a numbered list of fixes.
 3. The builder fixes everything listed, pushes, removes `review:changes` and adds `needs-review` again.
 4. **Conflicts with main:** the builder runs `git merge origin/main` on its branch and pushes. Rebasing would need a force-push, which needs Zeus's permission.
@@ -154,7 +154,7 @@ WORKER BRIEF (give this to each sub-agent)
   * AI never actuates anything without human approval
 - Open the PR: title "<type>(<area>): <what>", the repo's PR template filled
   in (Why / What / Tests with exact commands and results / Not done),
-  "Closes #<n>", labels builder:codex and needs-review. Never merge it.
+  "Refs #<n>", labels builder:codex and needs-review. Never merge it.
 - If main moved and the PR conflicts: git merge origin/main, fix, push. Never
   force-push, never push to main, never change repo settings.
 - If blocked, or the issue seems to need a founder decision or to break a
@@ -195,7 +195,7 @@ For each issue: claim it (comment plus the claimed label), branch from fresh
 origin/main, build the smallest change that ticks every Done-when box, and
 prove it. For anything under os/ or test/qemu, the image battery must pass in
 CI on your PR; say in the PR which battery jobs ran and their results. Open
-the PR with "Closes #<n>" and the labels builder:claude and needs-review. Never
+the PR with "Refs #<n>" and the labels builder:claude and needs-review. Never
 merge it; the Opus gate does that. When the gate labels it review:changes, fix
 every listed item first, then re-add needs-review. Never force-push, never
 touch signing keys or repo settings, never start parked, needs-founder or

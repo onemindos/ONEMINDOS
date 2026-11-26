@@ -264,9 +264,9 @@ POLICY |= {
     ("GET", "/v1/nodes/{node_id}/metrics"): Row(CHILD_CANNOT, w.p_node_metrics, "§12.15; a child has no monitoring:read"),
     ("GET", "/v1/metrics"): Row(CHILD_CANNOT, w.p_static("/v1/metrics"),
                                 "Prometheus text of node, app and alert numbers; a child has no monitoring:read"),
-    ("GET", "/v1/map/packs"): Row(cells(503, **GONE, child=403, plugin=DECIDE, automation=DECIDE, node=DECIDE),
+    ("GET", "/v1/map/packs"): Row(cells(200, **GONE, child=403, plugin=DECIDE, automation=DECIDE, node=DECIDE),
                                   w.p_static("/v1/map/packs"),
-                                  "Map uses nodes:read; the pack volume is unavailable in the security fixture"),
+                                  "Map uses nodes:read; no pack volume is configured in the security fixture, so the list is empty"),
     ("GET", "/v1/work/tasks"): Row(cells(403, **GONE, owner=200, adult=200, child=200),
                                     w.p_static("/v1/work/tasks"), "Work lists only visible tasks"),
     ("GET", "/v1/work/projects/{project_id}/tasks/{task_id}"): Row(
