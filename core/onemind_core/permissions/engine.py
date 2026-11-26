@@ -119,7 +119,10 @@ class PermissionEngine:
     def filed(self, a: Action) -> Decision:
         """Once stored: may the owner's rules decide it? "approve" here means "if a live rule covers it";
         the policy module then finds that rule and reserves one use (or the request waits)."""
-        return decide(self.facts(a.requested_by, a.type, a.params, a.risk, physical=_physical(a), plan=a.plan,
+        from ..automation.registry import effective_risk
+
+        risk = effective_risk(a.type, a.params, a.risk) if a.risk is not None else effective_risk(a.type, a.params)
+        return decide(self.facts(a.requested_by, a.type, a.params, risk, physical=_physical(a), plan=a.plan,
                                  lookahead=False))
 
 
