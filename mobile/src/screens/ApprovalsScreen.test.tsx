@@ -44,22 +44,33 @@ async function renderApprovals(d: SessionDeps, keyNative?: ApprovalKeyNative) {
 }
 
 describe('Approvals screen', () => {
-  it('shows the exact request and the agent requester, and the owner approves it', async () => {
+  it('shows the exact request, agent requester and the three Atlas segments', async () => {
     await renderApprovals(deps(mockConnection('owner-demo'), mockApi));
+    await fireEvent.press(screen.getByTestId('details-act-0001'));
     const params = screen.getByTestId('params-act-0001');
     expect(params).toHaveTextContent(/"type": "app.install"/);
     expect(params).toHaveTextContent(/"app_id": "ollama"/);
-    expect(screen.getByText('agent: ops-agent')).toBeTruthy();
-    expect(screen.getByText(/cannot approve its own request/)).toBeTruthy();
+    expect(screen.getByText('ops-agent asks')).toBeTruthy();
 
-    await fireEvent.press(screen.getByTestId('approve-act-0001'));
-    expect(await screen.findByText('Approved (without a passkey) and done: Install ollama.')).toBeTruthy();
+    expect(screen.getByText('AI agent · can ask, cannot act')).toBeTruthy();
+    expect(screen.getByText('○ Can be undone')).toBeTruthy();
+    expect(screen.queryByText('How long')).toBeNull();
+    await fireEvent.press(screen.getByTestId('segment-Decided'));
     expect(screen.queryByTestId('pending-act-0001')).toBeNull();
-    expect(screen.getByText('Nothing is waiting.')).toBeTruthy();
+    expect(screen.getByTestId('decided-act-0000')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('segment-Agents'));
+    expect(screen.getByTestId('approval-agent-ops-agent')).toBeTruthy();
+    expect(screen.queryByTestId('approve-act-0001')).toBeNull();
+    await fireEvent.press(screen.getByTestId('segment-Waiting'));
+    expect(screen.getByTestId('pending-act-0001')).toBeTruthy();
   });
 
   it.each(['actuate', 'destructive'] as const)('requires a full hold before signing %s', async (risk) => {
-    const a = { ...makeActions(Date.now())[0]!, risk };
+    const a = {
+      ...makeActions(Date.now())[0]!, risk,
+      expires_at: new Date(Date.now() + 570_000).toISOString(),
+      ...(risk === 'actuate' ? { params: { app_id: 'ollama', duration_s: 2700 } } : {}),
+    };
     const signed = { id: 'credential', response: { clientDataJSON: 'client', authenticatorData: 'auth', signature: 'sig' } };
     const approve = jest.fn(async () => ({ ...a, state: 'succeeded' as const }));
     const deny = jest.fn(async () => ({ ...a, state: 'cancelled' as const }));
@@ -71,6 +82,9 @@ describe('Approvals screen', () => {
       const api = v0Api({ features: async () => new Features([OP.approveOptions], 'openapi'), actions: async () => [a], approve, approveOptions, deny });
       await renderApprovals(deps(mockConnection('owner-demo'), () => api));
       const button = screen.getByTestId('approve-act-0001');
+      expect(button).toHaveTextContent(risk === 'actuate' ? /^Hold to approve 45 min$/ : /^Hold to approve$/);
+      expect(screen.getByText(/9 min left/)).toBeTruthy();
+      expect(screen.queryByText('How long')).toBeNull();
       const pressIn = () => fireEvent(button, 'pressIn', { nativeEvent: { touches: [{}] } });
 
       await fireEvent.press(button);
@@ -90,7 +104,7 @@ describe('Approvals screen', () => {
       await fireEvent(button, 'longPress');
       expect(await screen.findByText(/Approved.*Install ollama/)).toBeTruthy();
       expect(approve).toHaveBeenCalledTimes(1);
-      expect(approve).toHaveBeenCalledWith(a.id, expect.objectContaining({ hold_ms: 2000, webauthn: expect.objectContaining({ signature: 'sig' }) }));
+      expect(approve).toHaveBeenCalledWith(a.id, expect.objectContaining({ hold_ms: 2000, plan_sha256: PLAN, webauthn: expect.objectContaining({ signature: 'sig' }) }));
       await fireEvent.press(screen.getByTestId('deny-act-0001'));
       expect(deny).toHaveBeenCalledTimes(1);
     } finally {
@@ -98,6 +112,29 @@ describe('Approvals screen', () => {
       jest.mocked(Passkey.isSupported).mockReturnValue(false);
       jest.mocked(Passkey.get).mockReset();
     }
+  });
+
+  it('shows plan evidence and duration without offering alternate plans', async () => {
+    const action = makeActions(Date.now())[0]!;
+    const rollback_at = new Date(Date.now() + 20 * 60_000).toISOString();
+    const a = {
+      ...action,
+      risk: 'actuate' as const,
+      plan: { ...action.plan, params: { duration_minutes: 20 }, rollback_at },
+      approval: {
+        physical: true, hold: true,
+        preview: { kind: 'text', text: 'Box confirmed the device state' },
+        limits: [{ name: 'Open position', value: 40, unit: '%' }],
+      },
+    };
+    const api = v0Api({ features: async () => new Features([OP.approveOptions], 'openapi'), actions: async () => [a] });
+    await renderApprovals(deps(mockConnection('owner-demo'), () => api));
+    expect(screen.getByText('Box confirmed the device state')).toBeTruthy();
+    expect(screen.getByText(/Open position · 40 %/)).toBeTruthy();
+    expect(screen.getByText('Goes back at')).toBeTruthy();
+    expect(screen.getByText(new Date(rollback_at).toLocaleString())).toBeTruthy();
+    expect(screen.getByText('Hold to approve 20 min')).toBeTruthy();
+    expect(screen.queryByText('How long')).toBeNull();
   });
 
   it('the owner denies', async () => {
@@ -113,17 +150,20 @@ describe('Approvals screen', () => {
     expect(screen.getByTestId('deny-act-0001')).toBeDisabled();
   });
 
-  it('against a live hub the role is unknown until the hub answers 403; then the buttons turn off', async () => {
+  it('a legacy hub without approval signing can still deny but cannot approve', async () => {
     const approve = jest.fn(async () => {
       throw new ApiError(403, 'permission_denied', 'owner only');
     });
-    const api = v0Api({ approve, deny: approve });
+    const deny = jest.fn(approve);
+    const api = v0Api({ approve, deny });
     await renderApprovals(deps({ mode: 'live', hubUrl: 'https://hub.example', token: 't' }, () => api));
     expect(screen.getByText(/checks that you are an owner/)).toBeTruthy();
-    expect(screen.getByTestId('approve-act-0001')).toBeEnabled();
+    expect(screen.getByTestId('approve-act-0001')).toBeDisabled();
     await fireEvent.press(screen.getByTestId('approve-act-0001'));
+    expect(approve).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByTestId('deny-act-0001'));
     expect(await screen.findByText(/This token is not an owner/)).toBeTruthy();
-    expect(approve).toHaveBeenCalledWith('act-0001');
+    expect(deny).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('approve-act-0001')).toBeDisabled();
   });
 });
@@ -175,6 +215,8 @@ describe('Approvals screen: approval key (#703)', () => {
     await screen.findByTestId('approval-key-remove');
     expect(within(screen.getByTestId('pending-act-0001')).getByText(/A PIN is not accepted/)).toBeTruthy();
     for (const id of ['act-d', 'act-p']) {
+      const collapsed = screen.queryByTestId(`expand-${id}`);
+      if (collapsed) await fireEvent.press(collapsed);
       const card = within(screen.getByTestId(`pending-${id}`));
       expect(card.queryByText(/A PIN is not accepted/)).toBeNull();
       expect(card.getByText(/may ask for your passkey instead of the approval key/)).toBeTruthy();
