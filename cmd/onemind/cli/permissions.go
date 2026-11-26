@@ -3,10 +3,13 @@
 package cli
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -405,27 +408,58 @@ func ruleHistory(c *onemind.Client, rule map[string]any) ([]map[string]any, erro
 		since = t.Add(-time.Second).UTC().Format(time.RFC3339)
 	}
 	out := []map[string]any{}
-	after := ""
-	for page := 0; page < 5; page++ {
-		q := url.Values{"event": {"automation.policy.created,approval.policy.*"}, "since": {since}, "limit": {"500"}}
-		if after != "" {
-			q.Set("after_seq", after)
+	err := auditPages(c, url.Values{"event": {"automation.policy.created,approval.policy.*"}, "since": {since}}, 5, func(r map[string]any) {
+		if d, _ := r["data"].(map[string]any); d != nil && d["policy_id"] == rule["id"] {
+			out = append(out, r)
 		}
+	})
+	return out, err
+}
+
+// auditPages reads GET /v1/audit/events with query q, oldest first, in pages of 500 (at most `pages` of
+// them), and hands every line to each. Both `permissions rules show` and `permissions log` page with it.
+func auditPages(c *onemind.Client, q url.Values, pages int, each func(map[string]any)) error {
+	q.Set("limit", "500")
+	for page := 0; page < pages; page++ {
 		var recs []map[string]any
 		if err := c.Do(bg(), http.MethodGet, "/v1/audit/events?"+q.Encode(), nil, &recs); err != nil {
-			return nil, err
+			return err
 		}
 		for _, r := range recs {
-			if d, _ := r["data"].(map[string]any); d != nil && d["policy_id"] == rule["id"] {
-				out = append(out, r)
-			}
+			each(r)
 		}
 		if len(recs) < 500 {
-			break
+			return nil
 		}
-		after = fmt.Sprint(recs[len(recs)-1]["seq"])
+		after := seqCursor(recs[len(recs)-1]["seq"])
+		if after == "" {
+			return nil // a line with no usable seq: stop rather than ask for the same page again
+		}
+		q.Set("after_seq", after)
 	}
-	return out, nil
+	return nil
+}
+
+// seqCursor is an audit line's seq as the integer the gateway's after_seq expects. JSON numbers decode
+// as float64, and fmt.Sprint prints a float64 of a million or more as 1e+06, which the gateway refuses
+// (422); this always gives plain digits. It is "" for a missing or non-integer seq.
+func seqCursor(v any) string {
+	switch n := v.(type) {
+	case float64:
+		if n < 0 || n != math.Trunc(n) || n > math.MaxInt64 {
+			return ""
+		}
+		return strconv.FormatInt(int64(n), 10)
+	case json.Number:
+		if _, err := strconv.ParseInt(string(n), 10, 64); err == nil {
+			return string(n)
+		}
+	case int:
+		return strconv.Itoa(n)
+	case int64:
+		return strconv.FormatInt(n, 10)
+	}
+	return ""
 }
 
 // permissionsLogCommand is `onemind permissions log` (design §3.12 "Auto-approved log"): every request a
@@ -444,26 +478,14 @@ func permissionsLogCommand(a *App) *cobra.Command {
 			}
 			since := time.Now().UTC().Add(-time.Duration(days) * 24 * time.Hour).Format(time.RFC3339)
 			out := []map[string]any{}
-			after := ""
-			for page := 0; page < 10; page++ {
-				q := url.Values{"event": {"action.approved"}, "since": {since}, "limit": {"500"}}
-				if after != "" {
-					q.Set("after_seq", after)
+			err = auditPages(c, url.Values{"event": {"action.approved"}, "since": {since}}, 10, func(r map[string]any) {
+				if d, _ := r["data"].(map[string]any); d != nil && d["approved_via"] == "policy" {
+					out = append(out, map[string]any{"ts": r["ts"], "action_id": r["action_id"], "type": d["type"],
+						"requested_by": d["requested_by"], "policy_id": d["policy_id"], "policy_revision": d["policy_revision"], "uses": d["uses"]})
 				}
-				var recs []map[string]any
-				if err := c.Do(bg(), http.MethodGet, "/v1/audit/events?"+q.Encode(), nil, &recs); err != nil {
-					return err
-				}
-				for _, r := range recs {
-					if d, _ := r["data"].(map[string]any); d != nil && d["approved_via"] == "policy" {
-						out = append(out, map[string]any{"ts": r["ts"], "action_id": r["action_id"], "type": d["type"],
-							"requested_by": d["requested_by"], "policy_id": d["policy_id"], "policy_revision": d["policy_revision"], "uses": d["uses"]})
-					}
-				}
-				if len(recs) < 500 {
-					break
-				}
-				after = fmt.Sprint(recs[len(recs)-1]["seq"])
+			})
+			if err != nil {
+				return err
 			}
 			for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
 				out[i], out[j] = out[j], out[i]

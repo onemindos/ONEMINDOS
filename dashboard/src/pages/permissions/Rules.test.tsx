@@ -114,5 +114,21 @@ it('shows one rule with its own history, narrows it on the revision read, and re
 
 it('says so when a linked rule is gone', async () => {
   page('/settings/permissions/rules/pol_missing');
-  expect(await screen.findByText(/This rule no longer exists/)).toBeVisible();
+  expect(await screen.findByText('This rule was revoked or has ended, so it no longer approves anything.')).toBeVisible();
+  expect(screen.getByRole('link', { name: 'See all rules' })).toHaveAttribute('href', '/settings/permissions/rules');
+});
+
+it('keeps the Revoked note on the rule page after the rule leaves the list', async () => {
+  answer = (c) => {
+    if (c.method === 'POST' && c.path.endsWith('/pol_dated/revoke')) {
+      rules = rules.filter((r) => r.id !== 'pol_dated'); // the gateway lists only rules still in force
+      return Response.json(rule('pol_dated', { state: 'revoked' }));
+    }
+    return undefined;
+  };
+  page('/settings/permissions/rules/pol_dated');
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: /^Revoke/ }));
+  expect(await screen.findByRole('status')).toHaveTextContent('Revoked: helper may backup.run. It will not approve anything again.');
+  expect(screen.queryByText(/revoked or has ended/)).toBeNull();
 });
