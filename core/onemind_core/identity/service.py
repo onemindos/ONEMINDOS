@@ -797,6 +797,15 @@ class IdentityService:
                                       SessionRow.revoked_at.is_(None)], {"revoked_at": now})
         self.emit("auth", "password.changed", {"user_id": user.id, "other_sessions_revoked": True}, ctx.principal)
 
+    def sign_in_methods(self, ctx: AuthContext | None) -> dict:
+        """GET /v1/auth/methods: what the person's own sign-in looks like. Reading needs no session (a
+        person's token may read it); changing any of it does (_account)."""
+        person = self._person(ctx)
+        user = self.user(person.id) or person  # re-read: a change in this request's session is seen at once
+        return {"password": user.password_hash is not None, "totp": user.totp_secret is not None,
+                "passkeys": self.repo.count(PasskeyRow, PasskeyRow.user_id == user.id),
+                "passkeys_active": self.passkeys_active()}
+
     def totp_setup(self, ctx: AuthContext | None) -> dict:
         user = self._account(ctx, "set up an authenticator")
         if user.totp_secret:
