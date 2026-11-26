@@ -42,6 +42,7 @@ class FakeHost:
         self.refuse: tuple[int, dict] | None = None
         self.hostname: object = "testbox"  # GET /v1/status names the box (#875); None leaves the field out
         self.status_code = 200
+        self.plan_sha = "ab" * 32  # GET /v1/plans/factory-reset
         host = self
 
         class H(http.server.BaseHTTPRequestHandler):
@@ -66,6 +67,8 @@ class FakeHost:
                     if host.hostname is not None:
                         st["hostname"] = host.hostname
                     return self.send(host.status_code, st)
+                if self.path == "/v1/plans/factory-reset":
+                    return self.send(200, {"schema": "onemind.host.factory-reset-plan/v1", "available": True, "plan_sha256": host.plan_sha})
                 if self.path.startswith("/v1/operations/"):
                     op = host.ops.get(self.path.rsplit("/", 1)[1])
                     return self.send(200, op) if op else self.send(404, {"error": "not_found", "reason": "unknown_action", "message": "no host action with that id"})

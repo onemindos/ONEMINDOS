@@ -109,7 +109,7 @@ func TestServiceKeysRefuseEveryOtherClient(t *testing.T) {
 	}
 	gw.Flush()
 	leafA := startNodeLeaf(t, dir, "aaa111", hub, seedA)
-	a, err := nats.Connect(leafA)
+	a, err := dialLeaf(leafA)
 	if err != nil {
 		t.Fatal(err)
 	}

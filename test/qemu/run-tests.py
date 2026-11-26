@@ -176,14 +176,28 @@ class VM:
                 self.pos = max(self.pos, whole.end())
         return whole or m
 
-    def wait_gate(self, timeout=1800):
+    def wait_gate(self, timeout=1800, since=None):
+        """The next gate RESULT line. With since (a here() mark taken before the reboot), a RESULT line that is
+        already complete anywhere after that mark counts: the gate and the first-boot "already configured" line
+        start at the same time and print in either order, so a test that first waits for the second one must not
+        then wait for a first one that has already gone by (found on F3 and B2, 2026-11-25)."""
+        if since is not None:
+            with self.lock:
+                m = re.compile(GATE).search(self.buf, since)
+                done = bool(m) and "\n" in self.buf[m.end():]
+                if done:
+                    self.pos = max(self.pos, m.end())
+            if done:
+                self.last_gate = m.group(0)
+                return m.group(1), m.group(2), m.group(3)
         m = self.expect_line(GATE, timeout)
         self.last_gate = m.group(0)
         return m.group(1), m.group(2), m.group(3)
 
     def shell_ready(self):
         time.sleep(2); self.send("")
-        self.expect(r"root@onemind:~# ", 300)
+        # Any host name: F13 renames the box (P-05) and F3 then reboots into the new name.
+        self.expect(r"root@[a-z0-9-]+:~# ", 300)
         self.run("bind 'set enable-bracketed-paste off' 2>/dev/null; stty cols 200; export SYSTEMD_PAGER= SYSTEMD_COLORS=0 KUBECONFIG=/run/k3s/k3s.yaml")
         self.run("mkdir -p /run/onemind-test && (mountpoint -q /run/onemind-test || "
                  "mount -o ro /dev/disk/by-label/onemind-test /run/onemind-test)")

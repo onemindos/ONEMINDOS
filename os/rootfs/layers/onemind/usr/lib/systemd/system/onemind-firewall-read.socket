@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: Apache-2.0
+# The firewall read door (P-09 part 1). Each connection runs onemind-firewall-read@.service, which prints
+# `nft -j list ruleset` into the connection and nothing else; the host service reads that answer. Why a
+# separate door: the kernel demands CAP_NET_ADMIN for every nf_tables netlink message, reads included, and
+# onemind-host.service deliberately has no CAP_NET_ADMIN (it must not be able to change a route, an address or a
+# rule). The capability lives in the one-shot reader below, which can only print. Mode 0600 root: only root
+# (the host service) can connect, and it takes no input.
+[Unit]
+Description=OneMind firewall read socket (prints the ruleset, nothing else)
+
+[Socket]
+ListenStream=/run/onemind/firewall-read.sock
+SocketUser=root
+SocketGroup=root
+SocketMode=0600
+DirectoryMode=0711
+Accept=yes
+MaxConnections=4
+MaxConnectionsPerSource=4
+ExecStartPre=/bin/sh -c 'mkdir -p /run/onemind && chmod go+x /run/onemind'
+
+[Install]
+WantedBy=sockets.target

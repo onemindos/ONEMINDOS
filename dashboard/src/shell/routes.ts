@@ -30,6 +30,7 @@ export const href = {
   automation: '/automation',
   updates: '/updates',
   fileSharing: '/file-sharing',
+  desktopApps: '/desktop-apps',
   usage: '/usage',
   network: '/network',
   coming: '/coming',

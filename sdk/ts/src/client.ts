@@ -45,6 +45,12 @@ export interface DomainsSummary {
   domains: DomainView[];
 }
 
+/** The box's live firewall, explained in plain words, read only (`/v1/network/firewall`, owner only). */
+export type FirewallView = components["schemas"]["FirewallView"];
+/** One port the owner opened (P-09 part 2): pending until confirmed, then kept; a pending rule reverts at `expires_at`. */
+export type AllowRule = components["schemas"]["AllowRule"];
+/** What to ask for: one port, one protocol, the home network (`lan`) or the mesh. The internet is not an option. */
+export type AllowRequest = components["schemas"]["AllowRequest"];
 /** The caller's own Home document (UMB-P07, `/v1/me/home`). */
 export type HomeView = components["schemas"]["HomeView"];
 export type HomeBody = components["schemas"]["HomeBody"];
@@ -224,7 +230,18 @@ export class OneMind {
     get: (id: string) => this.call<Node>({ method: "GET", path: `/v1/nodes/${encodeURIComponent(id)}` }),
   };
 
-  readonly network = { view: () => this.call<NetworkView>({ method: "GET", path: "/v1/network" }) };
+  readonly network = {
+    view: () => this.call<NetworkView>({ method: "GET", path: "/v1/network" }),
+    /** network.firewall (P-09 part 1): what the box's firewall lets in, and from where. Read only. */
+    firewall: () => this.call<FirewallView>({ method: "GET", path: "/v1/network/firewall" }),
+    /** network.firewall.allow (P-09 part 2): files a `firewall.allow` action; an owner approves it with a passkey,
+     * then the rule is pending until `confirmAllow`. Safe to retry (one idempotency key). */
+    allow: (input: AllowRequest) => this.call<Action>({ method: "POST", path: "/v1/network/firewall/allow", body: input, retry: true }),
+    /** network.firewall.allow.confirm: keep a pending rule (owner only). A rule that reverted already is a 404. */
+    confirmAllow: (id: string) => this.call<{ id: string; state: string }>({ method: "POST", path: `/v1/network/firewall/allow/${encodeURIComponent(id)}/confirm` }),
+    /** network.firewall.allow.remove: take a rule away, pending or confirmed (owner only). */
+    removeAllow: (id: string) => this.call<{ id: string; removed: boolean }>({ method: "DELETE", path: `/v1/network/firewall/allow/${encodeURIComponent(id)}` }),
+  };
 
   // Tips are served by the hub. Do not follow a redirect out to a content host.
   readonly tips = {

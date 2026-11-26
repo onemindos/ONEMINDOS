@@ -6,11 +6,9 @@ and shutdown, an agent) *requests* one, only an owner approves, and nothing reac
 the approval. Factory reset is destructive: it is approved only with the owner's passkey (the guard
 in routers/system.py, on top of identity's), and only an owner may even ask for it.
 
-The host path: the gateway runs inside k3s and has no way to power the host off yet. `onemindd`
-reboots only from the rescue console (internal/rescue, a person at the LAN page) and the update
-engine (internal/update); neither listens to the gateway. Until a host service exists (a Unix socket
-like `onemindd storage serve`), the executor here is `NoHostPath`: an approved control ends `failed`
-with that reason, so the ledger shows the owner's decision and the box never pretends it acted.
+The host path: `onemindd host serve` (root, Unix socket) powers the box off or restarts it. The executor
+is `HostLinkExecutor` (the gateway's HostLink, hostlink.py). `NoHostPath` stays as the explicit "no host"
+executor: an approved control ends `failed` with that reason, so the box never pretends it acted.
 
 The diagnostic bundle is what support needs to see what is wrong, and nothing personal: versions,
 node health, recent actions and audit event names. Every string goes through `redact`, which covers
@@ -102,6 +100,31 @@ class SystemExecutor(Protocol):
         """Why this control cannot run on this box, or None when it can."""
 
     def run(self, action_type: str) -> ExecResult: ...
+
+
+class HostLinkExecutor:
+    """The real host path: an approved control goes to `onemindd host serve` over the host link (hostlink.py).
+
+    `unavailable` is the host's own answer (socket missing, no journal, kind not offered). `dispatch` sends
+    the approved action id and kind, never a command, and the link's poller closes the ledger action from
+    the host's journal: a restart or shutdown stops the box, so its answer can come after the gateway
+    restarts (these types are SELF_RECONCILED). A refused or unreachable host ends the action `failed`."""
+
+    def __init__(self, link) -> None:
+        self.link = link
+
+    def unavailable(self, action_type: str) -> str | None:
+        problem = self.link.problem(action_type)
+        return problem[1] if problem else None
+
+    def run(self, action_type: str) -> ExecResult:  # the Protocol's synchronous form: a host action is never synchronous
+        return ExecResult("failed", "a host control runs through dispatch, after approval", steps=[{"step": "host", "result": "bad_request"}])
+
+    def dispatch(self, a, finish) -> None:
+        self.link.run(a, finish)
+
+    def reset_plan_hash(self) -> str | None:
+        return self.link.reset_plan_hash()
 
 
 class NoHostPath:
@@ -215,8 +238,12 @@ class SystemService:
     def run(self, a, finish) -> None:
         """After approval: the host executor's result, or `failed` with the reason it cannot run."""
         why = self.executor.unavailable(a.type)
-        finish(ExecResult("failed", why, steps=[{"step": "host", "result": "unavailable"}]) if why
-               else self.executor.run(a.type))
+        if why:
+            finish(ExecResult("failed", why, steps=[{"step": "host", "result": "unavailable"}]))
+        elif isinstance(self.executor, HostLinkExecutor):
+            self.executor.dispatch(a, finish)  # closes now on a refusal, else when the host's journal says so
+        else:
+            finish(self.executor.run(a.type))
 
     def diagnostics(self) -> dict:
         gw = self.gw

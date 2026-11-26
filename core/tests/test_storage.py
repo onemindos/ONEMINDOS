@@ -119,6 +119,15 @@ def _serve(node: FakeNode, path: str):
                     return self._send(404, {"error": "not_found", "message": "shown once"})
                 key, node.recovery_key = node.recovery_key, None
                 return self._send(200, {"recovery_key": key})
+            if self.path == "/v1/recovery-key/peek":
+                if node.recovery_key is None:
+                    return self._send(404, {"error": "not_found"})
+                return self._send(200, {"recovery_key": node.recovery_key})
+            if self.path == "/v1/recovery-key/forget":
+                if node.recovery_key is None:
+                    return self._send(404, {"error": "not_found"})
+                node.recovery_key = None
+                return self._send(200, {"forgotten": True})
             self._send(404, {"error": "not_found"})
 
     class Server(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):

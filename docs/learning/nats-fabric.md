@@ -203,6 +203,14 @@ Found while writing this guide. Each needs an owner to settle, so nothing is bui
 
 **Sources:** [contract §12.9](../../sdk/contracts/poc-v0.md#129-nats); the files named in each item.
 
+## 12a. The system-account observer (#620)
+
+- **What:** a NATS server can announce on a special **system account** (`SYS`) every client or leaf that connects, every one that drops, and every sign-in it refuses. OneMind adds one user to `SYS`, the gateway's **observer**, with its own nkey (`observer.nk`). It may subscribe to exactly three announcements and may publish nothing; nobody else is in `SYS`, so no app, agent or machine can read or send `$SYS`.
+- **The subjects** (checked in nats-server v2.15.3 `server/events.go`, which settles the "exact auth-error subject" item the plan listed as unverified): `$SYS.ACCOUNT.<account>.CONNECT`, `$SYS.ACCOUNT.<account>.DISCONNECT` and `$SYS.SERVER.<server id>.CLIENT.AUTH.ERR`. The body carries the client's public nkey, never its password or token.
+- **What the gateway does** ([`fabricwatch.py`](../../core/onemind_core/fabricwatch.py)): one audit line per event (`fabric.connect`, `fabric.disconnect`, `fabric.auth_failed`, no client address), rate limited per key. An alert for a key this box never issued (`fabric.unknown_key`), for a key that signed in before and was removed (`fabric.revoked_retry`), for a refused sign-in that names a key that *is* on the list (`fabric.key_refused`: the server reports the key the client claimed, signature checked or not, and public keys are readable, so this is what posing as a live device looks like), and for a key that connects five times in two minutes (`fabric.flapping`). Alerts go to the inbox under the `security` topic, so the on/off switch is the existing notification preference, not a new one.
+- **Seen in the real server:** a refused sign-in sends *two* announcements (the auth error and a DISCONNECT in the global account `$G`). The observer keeps the first and drops the second.
+- **Where to look:** `GET /v1/fabric/events`, `onemind fabric events`, and Settings > About > Security events. All read-only.
+
 ## 13. Check yourself
 
 1. Node A's leaf publishes `onemind.node.B.status`. Which account does the message land in, and why does the gateway never see it?

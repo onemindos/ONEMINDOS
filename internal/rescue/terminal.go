@@ -184,6 +184,8 @@ var termTmpl = template.Must(template.New("t").Parse(`<!doctype html><html lang=
 <h1>Rescue terminal</h1>
 <p>A root shell on this box. The session start and end are written to the audit chain (not what you type).
 It closes after a few idle minutes. <a href="./">Back</a></p>
+<form id="kit" hidden><label>Owner recovery key from the printed kit <input id="kitkey" type="password" autocomplete="off" spellcheck="false" style="width:30em"></label>
+<button>Open with the kit</button></form>
 <pre id="out" style="background:#111;color:#eee;padding:.5em;min-height:20em;overflow:auto" aria-live="off"></pre>
 <form id="f"><input id="line" autocomplete="off" style="width:70%" aria-label="command">
 <button>Send</button> <button type="button" id="int">Ctrl-C</button> <button type="button" id="end">End session</button></form>
@@ -193,17 +195,28 @@ const out=document.getElementById('out'),line=document.getElementById('line');
 const h={'X-CSRF-Token':'{{.CSRF}}'};
 const u=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')+'==='.slice((s.length+3)%4)),c=>c.charCodeAt(0));
 const b=a=>btoa(String.fromCharCode(...new Uint8Array(a))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const atBox={{.AtBox}};
+const kitForm=document.getElementById('kit'),kitKey=document.getElementById('kitkey');
+const kitProof=()=>new Promise(res=>{kitForm.hidden=false;kitKey.focus();
+ kitForm.onsubmit=e=>{e.preventDefault();const v=kitKey.value;kitKey.value='';kitForm.hidden=true;res({kit_key:v})}});
 out.textContent='Touch your passkey to open the shell...';
-let cred;
+let proof;
 try{
  const o=await fetch('terminal/passkey/options',{method:'POST',headers:h});
  if(!o.ok){out.textContent='Could not start the passkey check: '+(await o.text());return}
- const pk=(await o.json()).publicKey;pk.challenge=u(pk.challenge);(pk.allowCredentials||[]).forEach(c=>{c.id=u(c.id)});
- const c=await navigator.credentials.get({publicKey:pk}),x=c.response;
- cred={id:c.id,rawId:b(c.rawId),type:c.type,response:{clientDataJSON:b(x.clientDataJSON),authenticatorData:b(x.authenticatorData),
-  signature:b(x.signature),userHandle:x.userHandle?b(x.userHandle):null}};
+ const opts=await o.json(),pk=opts.publicKey;
+ if(!pk){
+  if(!atBox){out.textContent='No passkey is registered. Open this page in a browser on the box itself and type the printed emergency kit key.';return}
+  out.textContent='No passkey is registered. Type the owner recovery key from your printed emergency kit.';
+  proof=await kitProof();
+ }else{
+  pk.challenge=u(pk.challenge);(pk.allowCredentials||[]).forEach(c=>{c.id=u(c.id)});
+  const c=await navigator.credentials.get({publicKey:pk}),x=c.response;
+  proof={webauthn:{id:c.id,rawId:b(c.rawId),type:c.type,response:{clientDataJSON:b(x.clientDataJSON),authenticatorData:b(x.authenticatorData),
+   signature:b(x.signature),userHandle:x.userHandle?b(x.userHandle):null}}};
+ }
 }catch(e){out.textContent='Passkey check failed: '+e.message;return}
-const r=await fetch('terminal/sessions',{method:'POST',headers:{...h,'Content-Type':'application/json'},body:JSON.stringify({webauthn:cred})});
+const r=await fetch('terminal/sessions',{method:'POST',headers:{...h,'Content-Type':'application/json'},body:JSON.stringify(proof)});
 if(!r.ok){out.textContent='Could not open a shell: '+(await r.text());return}
 out.textContent='';
 const {id}=await r.json();
@@ -232,7 +245,7 @@ func (s *Server) termPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-"+n+
 		"'; connect-src 'self'; frame-ancestors 'none'")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = termTmpl.Execute(w, map[string]string{"Nonce": n, "CSRF": s.csrf})
+	_ = termTmpl.Execute(w, map[string]any{"Nonce": n, "CSRF": s.csrf, "AtBox": loopbackClient(r)})
 }
 
 // sameOriginPost refuses cross-site writes: the CSRF header must match and any Origin must be ours.

@@ -95,7 +95,8 @@ class HostFirewall(unittest.TestCase):
         for b in ("cloud", "vm-do"):
             d = f"os/boards/{b}/rootfs/etc/onemind"
             rules = [l for l in rd(f"{d}/host.d/10-cloud.nft").splitlines() if l.strip() and not l.startswith("#")]
-            self.assertEqual(rules, ["add rule inet onemind_host input tcp dport { 22, 443, 8443 } accept",
+            self.assertEqual(rules, ["add rule inet onemind_host input tcp dport 22 jump ssh",
+                                     "add rule inet onemind_host input tcp dport { 443, 8443 } accept",
                                      "add rule inet onemind_host input udp dport 41641 accept"])
             self.assertTrue(os.path.exists(os.path.join(ROOT, d, "wizard-local-only")))
         self.assertIn("/etc/onemind/host.d/*.nft", rd(UNIT))

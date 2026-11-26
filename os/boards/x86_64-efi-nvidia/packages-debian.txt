@@ -3,3 +3,7 @@
 # pciutils for the lab kit. The GPU packages themselves come from gpu/packages.txt (post-install.sh), because
 # they live in Debian's non-free component, which the rest of the image does not enable.
 dkms gcc make libc6-dev linux-headers-amd64 pciutils
+# Hardware video decode (Step 3): VA-API drivers for the x86 boards only.
+# intel-media-va-driver (iHD, Broadwell and newer) and mesa-va-drivers (AMD radeonsi, Intel/AMD via Mesa) are in main;
+# the non-free iHD variant is not used. vainfo lists what the GPU can decode. Proof: first-boot check F29.
+intel-media-va-driver mesa-va-drivers vainfo

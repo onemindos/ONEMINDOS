@@ -3,7 +3,7 @@
 
 `onemindd host serve` runs as root on the box and listens on /run/onemind/host.sock (mode 0660,
 root:onemind). It does what an owner already approved, from the id of the approved action, and
-nothing else: restart, shut down, factory reset, install an OS update, restart one service (#636). This module is the gateway's
+nothing else: restart, shut down, factory reset, install an OS update, restart one service (#636), rename the box (P-05), set the keyboard layout (P-11). This module is the gateway's
 half of that contract:
 
 - `HostLink.problem(type)`: can this box do it now? (`GET /v1/status`)
@@ -13,7 +13,7 @@ half of that contract:
   admits root and the gateway's uid only (SO_PEERCRED), so no pod or host path is involved.
 - `HostLink.run(action, finish)`: after the owner's approval, `POST /v1/operations` with the action
   id (and the approved version for an install). The host writes its journal before it acts, so a retry
-  never runs twice. Argv never leaves the gateway: the host knows four kinds and nothing else.
+  never runs twice. Argv never leaves the gateway: the host knows a fixed set of kinds and nothing else.
 - a poller reads `GET /v1/operations/{id}` and closes the ledger action when the journal says
   `succeeded` or `failed`. `going_down` means the box is about to stop, so the action stays open;
   these types are SELF_RECONCILED (actions.py), so a gateway restarted by the reboot finds the action
@@ -52,12 +52,24 @@ KINDS = {
     "os.update.install": "os-install",
     "os.rollback": "os-rollback",  # P-16: back to the previous A/B slot
     "service.restart": "service-restart",  # #636: one registry unit; the host checks it is restartable
+    "system.set_timezone": "set-timezone",  # P-04: one IANA zone; the host keeps it on /data
+    "instance.rename": "set-hostname",  # P-05: the box's DNS label; avahi then answers <name>.local
+    "storage.eject": "eject",  # P-10: unmount and power off one removable drive; the host checks it again
+    "system.set_keymap": "set-keymap",  # P-11: the console and kiosk keyboard layout; the host checks the image offers it
 }
 ACTION_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 # RFC 1123 labels: what the host helper may call the box (H-06: the answer is checked, not trusted).
 HOSTNAME = re.compile(r"(?=.{1,253}\Z)[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*")
 PROBE_TIMEOUT_S = 2.0  # GET /v1/status reads the helper on every call: a silent socket must not hold it up
+PLAN_SHA = re.compile(r"^[0-9a-f]{64}$")  # internal/host: the hash of the factory-reset plan the owner approved
+LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")  # the box name: one lower-case DNS label
+SERIAL = re.compile(r"^[A-Za-z0-9._:-]{1,64}$")
+DEVICE = re.compile(r"^/dev/[a-z][a-z0-9]{1,15}$")
+LAYOUT = re.compile(r"^[A-Za-z0-9_]{1,24}$")  # xkb layout and variant ids (internal/keymap)
+VARIANT = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
 UNIT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.@-]{0,90}\.(service|socket|timer|path)$")
+ZONE = re.compile(r"^[A-Za-z][A-Za-z0-9_+-]*(/[A-Za-z0-9_+-]+){0,2}$")  # same shape as internal/host ZoneName
+NOT_ZONES = frozenset({"localtime", "posixrules", "Factory"})  # tzdata helper entries; localtime loops (host list)
 UNREACHABLE = "engine_unreachable"  # the reason when nothing answers on the socket
 NO_HOST = ("The gateway cannot reach the host service on this box (onemind-host.socket), so the action did not run. "
            "Your approval is recorded; use the rescue console or the box itself.")
@@ -153,6 +165,16 @@ class HostLink:
                 return "unavailable", _text(op.get("unavailable_reason")) or f"The host cannot {kind} now."
         return "unavailable", f"This version of the host service does not offer {kind}."
 
+    def reset_plan_hash(self) -> str | None:
+        """The hash of the factory-reset plan the host would carry out right now (GET /v1/plans/factory-reset),
+        or None when the host cannot say. The request stores it; the host refuses a wipe whose plan changed."""
+        try:
+            status, plan = self.client.call("GET", "/v1/plans/factory-reset")
+        except (StorageUnavailable, StorageTimeout):
+            return None
+        sha = plan.get("plan_sha256") if status == 200 and isinstance(plan, dict) else None
+        return sha if isinstance(sha, str) and PLAN_SHA.fullmatch(sha) else None
+
     # ---- after approval --------------------------------------------------------------------------------
     def run(self, a: Action, finish: Callable[[ExecResult], None]) -> None:
         """FeatureAction.run: send the approved action to the host. Closes now when the host refuses
@@ -175,11 +197,43 @@ class HostLink:
             if not isinstance(version, str) or not version:
                 return ExecResult("failed", "the action has no approved version", steps=[{"step": "host", "result": "bad_request"}])
             body["version"] = version
+        if kind == "factory-reset":
+            plan = (a.params or {}).get("plan_sha256")
+            if not isinstance(plan, str) or not PLAN_SHA.fullmatch(plan):
+                return ExecResult("failed", "the reset has no approved plan", steps=[{"step": "host", "result": "bad_request"}])
+            body["plan_sha256"] = plan
         if kind == "service-restart":
             unit = (a.params or {}).get("unit")
             if not isinstance(unit, str) or not UNIT.fullmatch(unit):
                 return ExecResult("failed", "the restart has no approved unit", steps=[{"step": "host", "result": "bad_request"}])
             body["unit"] = unit
+        if kind == "set-timezone":
+            zone = (a.params or {}).get("zone")
+            if not isinstance(zone, str) or not ZONE.fullmatch(zone) or zone in NOT_ZONES:
+                return ExecResult("failed", "the change has no approved time zone", steps=[{"step": "host", "result": "bad_request"}])
+            body["zone"] = zone
+        if kind == "set-hostname":
+            name = (a.params or {}).get("name")
+            if not isinstance(name, str) or not LABEL.fullmatch(name):
+                return ExecResult("failed", "the rename has no approved name", steps=[{"step": "host", "result": "bad_request"}])
+            body["hostname"] = name
+        if kind == "eject":
+            device = (a.params or {}).get("device")
+            if not isinstance(device, str) or not DEVICE.fullmatch(device):
+                return ExecResult("failed", "the eject has no approved drive", steps=[{"step": "host", "result": "bad_request"}])
+            body["device"] = device
+            serial = (a.params or {}).get("serial")
+            if serial is not None:
+                if not isinstance(serial, str) or not SERIAL.fullmatch(serial):
+                    return ExecResult("failed", "the eject has a malformed drive serial", steps=[{"step": "host", "result": "bad_request"}])
+                body["serial"] = serial
+        if kind == "set-keymap":
+            layout, variant = (a.params or {}).get("layout"), (a.params or {}).get("variant")
+            if not isinstance(layout, str) or not LAYOUT.fullmatch(layout) or (variant is not None and (not isinstance(variant, str) or not VARIANT.fullmatch(variant))):
+                return ExecResult("failed", "the request has no approved layout", steps=[{"step": "host", "result": "bad_request"}])
+            body["layout"] = layout
+            if variant:
+                body["variant"] = variant
         with self._lock:
             self._inflight.add(a.id)
         try:

@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: Apache-2.0
+# One firewall read (P-09 part 1): prints `nft -j list ruleset` into the socket connection and exits. It reads
+# no input (StandardInput=null), writes no file, and holds CAP_NET_ADMIN only because the kernel requires it
+# for reading nf_tables too. `nft list` cannot change a rule; the arguments are fixed here, not taken from the
+# caller, so the connection can never make it run anything else.
+[Unit]
+Description=OneMind firewall read (prints the ruleset)
+CollectMode=inactive-or-failed
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/nft -j list ruleset
+StandardInput=null
+StandardOutput=socket
+StandardError=journal
+RuntimeMaxSec=10
+UMask=0077
+
+# --- identity / privileges: root with only CAP_NET_ADMIN (the kernel's price for nf_tables netlink) ---
+User=root
+CapabilityBoundingSet=CAP_NET_ADMIN
+AmbientCapabilities=
+NoNewPrivileges=yes
+
+# --- filesystem: read-only everywhere ---
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+
+# --- kernel / syscalls ---
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@mount @debug @swap @reboot @raw-io @obsolete @cpu-emulation @resources
+SystemCallErrorNumber=EPERM
+
+# --- network: only the netlink socket nft talks to the kernel on (and the inherited connection) ---
+RestrictAddressFamilies=AF_NETLINK AF_UNIX

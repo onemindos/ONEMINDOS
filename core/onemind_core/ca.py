@@ -195,12 +195,24 @@ class BoxCA:
         names = tuple(dns_names)
         if not names:
             raise ValueError("a certificate needs at least one name")
-        allowed = self.permitted_domains()
+        # The CA on disk decides, not this instance's box name: after a rename a new BoxCA must not issue names
+        # the existing CA's (critical) name constraints exclude, because strict clients reject the whole chain.
+        allowed = self._ca_permitted_domains()
         for n in names:
             bare = n[2:] if n.startswith("*.") else n
             if not any(bare == d or bare.endswith("." + d) for d in allowed):
                 raise ValueError(f"{n!r} is outside the box CA's name constraints")
         return names
+
+    def _ca_permitted_domains(self) -> tuple[str, ...]:
+        if not self.started():
+            return self.permitted_domains()
+        cert = self.ensure()
+        try:
+            nc = cert.extensions.get_extension_for_class(x509.NameConstraints).value
+        except x509.ExtensionNotFound:
+            return self.permitted_domains()
+        return tuple(t.value for t in (nc.permitted_subtrees or []) if isinstance(t, x509.DNSName))
 
     def issue(self, name: str, dns_names: Iterable[str], *, ip_addresses: Iterable[str] = ()) -> IssuedCert:
         """Issue (or re-issue) a server certificate; key and cert land in <tls_dir>/<name>.{key,crt}."""
@@ -336,6 +348,22 @@ class BoxCA:
 
     def ensure_wildcard_cert(self) -> IssuedCert:
         return self.ensure_cert("apps-wildcard", self.wildcard_names())
+
+
+def existing_box_name(tls_dir: Path) -> str | None:
+    """The box name the CA in tls_dir was created with (its CN is "OneMind <box> CA"), or None.
+
+    The CA's name constraints are fixed for its life and name only that box (RFC 5280 §4.2.1.10), so
+    server certificates keep using it after the owner renames the box (P-05). A rename changes the
+    host name, never the names the box presents over TLS; https://<new>.local needs a CA rotation.
+    """
+    try:
+        cert = x509.load_pem_x509_certificate((tls_dir / CA_CERT).read_bytes())
+        cn = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+    except (OSError, ValueError, IndexError):
+        return None
+    m = re.fullmatch(r"OneMind (.+) CA", str(cn))
+    return m.group(1) if m and BOX_RE.match(m.group(1)) else None
 
 
 def box_name_from_hostname(hostname: str | None) -> str:

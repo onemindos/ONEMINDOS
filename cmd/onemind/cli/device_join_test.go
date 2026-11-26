@@ -191,14 +191,14 @@ func TestDeviceJoinAgainstHubStandIn(t *testing.T) {
 	if st.Role != "leaf" || st.CASHA256 != ca.sha || strings.Join(st.Publish, " ") != strings.Join(want, " ") || len(st.Subscribe) != 0 {
 		t.Errorf("sensor.json = %+v", st)
 	}
-	for _, f := range []string{"leaf.nkey", "node.key", "sensor.conf"} {
+	for _, f := range []string{"leaf.nkey", "node.key", "sensor.conf", "sensor.nk"} {
 		fi, err := os.Stat(filepath.Join(sd, f))
 		if err != nil || fi.Mode().Perm() != 0o600 {
 			t.Errorf("%s: %v mode %v, want 0600", f, err, fi)
 		}
 	}
 	conf, _ := os.ReadFile(filepath.Join(sd, "sensor.conf"))
-	if !strings.Contains(string(conf), `subscribe: {deny: [">"]}`) || !strings.Contains(string(conf), `no_auth_user: "sensor"`) {
+	if !strings.Contains(string(conf), `subscribe: {deny: [">"]}`) || strings.Contains(string(conf), "no_auth_user") || !strings.Contains(string(conf), "{nkey:") {
 		t.Errorf("sensor.conf lacks the publish-only rule:\n%s", conf)
 	}
 	seed, _ := os.ReadFile(filepath.Join(sd, "leaf.nkey"))
@@ -349,7 +349,12 @@ func TestSensorCannotSubscribeOutsideItsOwnSubjects(t *testing.T) {
 		Monitor: fmt.Sprintf("127.0.0.1:%d", freeTCPPort(t)), StoreDir: filepath.Join(dir, "store"),
 		HubURLs: []string{fmt.Sprintf("tls://127.0.0.1:%d", freeTCPPort(t))}, CAFile: filepath.Join(dir, "ca.pem"),
 		CertFile: filepath.Join(dir, "node.crt"), KeyFile: filepath.Join(dir, "node.key"), NkeyFile: nkeyFile}
-	body, err := RenderSensorConf(conf, lc, "abc123")
+	keys := t.TempDir()
+	sensorPub, err := leaf.WriteLocalSeed(keys, leaf.ProgramSensor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := RenderSensorConf(conf, lc, "abc123", sensorPub)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -372,10 +377,19 @@ func TestSensorCannotSubscribeOutsideItsOwnSubjects(t *testing.T) {
 	}
 
 	errs := make(chan error, 16)
-	nc, err := nats.Connect(fmt.Sprintf("nats://127.0.0.1:%d", port),
-		nats.ErrorHandler(func(_ *nats.Conn, _ *nats.Subscription, e error) { errs <- e }))
+	url := fmt.Sprintf("nats://127.0.0.1:%d", port)
+	if anon, err := nats.Connect(url); err == nil {
+		anon.Close()
+		t.Fatal("a local client with no key was accepted by the sensor leaf")
+	}
+	signIn, err := leaf.ClientOptions(leaf.ProgramSensor, filepath.Join(keys, leaf.ProgramSensor+".nk"))
 	if err != nil {
-		t.Fatalf("a local client connects as the sensor without a password: %v", err)
+		t.Fatal(err)
+	}
+	nc, err := nats.Connect(url, append(signIn,
+		nats.ErrorHandler(func(_ *nats.Conn, _ *nats.Subscription, e error) { errs <- e }))...)
+	if err != nil {
+		t.Fatalf("the sensor's own key does not sign in: %v", err)
 	}
 	defer nc.Close()
 	expect := func(what string, violation bool, do func() error) {

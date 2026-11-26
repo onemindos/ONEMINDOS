@@ -97,7 +97,8 @@ class HostServicesClient:
     def __init__(self, path: str, timeout_s: float):
         self.path, self.timeout_s = path, timeout_s
 
-    def fetch(self) -> tuple[int, Any]:
+    def fetch(self, path: str = "/v1/services") -> tuple[int, Any]:
+        """GET a read-only path on the host socket (the service cards by default; P-10 reads /v1/storage/housekeeping)."""
         conn = _UnixConnection(self.path, self.timeout_s)
         try:
             try:
@@ -105,7 +106,7 @@ class HostServicesClient:
             except OSError as exc:
                 raise StorageUnavailable(exc.__class__.__name__) from None
             try:
-                conn.request("GET", "/v1/services")
+                conn.request("GET", path)
                 resp = conn.getresponse()
                 raw = resp.read(MAX_BODY + 1)
             except Exception as exc:  # timeout, reset, protocol error
