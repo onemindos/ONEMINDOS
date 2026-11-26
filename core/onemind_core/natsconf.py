@@ -351,7 +351,7 @@ def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey]
         exports += [f'      {{service: "{s}", accounts: ["{n.account}"]}}' for n in nodes for s in job_services(n.node_id)]
         # D-029 N7: and reads its own stop and revoke snapshot
         exports += [f'      {{service: "{policy_service(n.node_id)}", accounts: ["{n.account}"]}}' for n in nodes]
-    if agents:  # the gateway prompts agents and hears their status and heartbeats; agents send requests
+    if agents or callout:  # the gateway prompts agents and hears them; agents send requests (static or callout)
         imports += [
             f'      {{service: {{account: "{AGENTS_ACCOUNT}", subject: "agents.prompt.>"}}}}',
             f'      {{stream: {{account: "{AGENTS_ACCOUNT}", subject: "agents.status.>"}}}}',
