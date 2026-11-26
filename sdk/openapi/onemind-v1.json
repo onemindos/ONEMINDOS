@@ -9324,9 +9324,16 @@
         "additionalProperties": false,
         "properties": {
           "free_bytes": {
-            "minimum": 0.0,
-            "title": "Free Bytes",
-            "type": "integer"
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Free Bytes"
           },
           "packs": {
             "items": {
