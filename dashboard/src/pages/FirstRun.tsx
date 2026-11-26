@@ -60,8 +60,8 @@ export function FirstRun({ onDone }: { onDone: () => void }) {
   if (!loaded) return <p role="status">Loading first-run settings and backup destinations…</p>;
   const { state } = loaded;
   const { issueKit, confirmKit, appPlan } = api;
-  // Offered only where the gateway can issue one: a backup destination exists.
-  const kit: OnboardingKit | undefined = issueKit && confirmKit && state.destinations > 0 ? {
+  // Every owner gets a kit (design 25a), with or without a backup destination; only a box with backups off cannot issue one.
+  const kit: OnboardingKit | undefined = issueKit && confirmKit && state.backups_enabled ? {
     state: state.kit.state, positions: state.kit.positions,
     issue: async () => {
       const r = await issueKit.call(api);

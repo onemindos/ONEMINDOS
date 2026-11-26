@@ -159,7 +159,7 @@ export interface FirstRunState {
 }
 export interface IssuedKitResponse {
   kit: FirstRunState['kit'];
-  one_time: { groups: string[]; check: string; text: string };
+  one_time: { groups: string[]; check: string; text: string; disk_key?: string | null };
 }
 export interface SourceAddParams { name: string; url: string; commit: string }
 export interface BackupDestinationRecord { id: string; kind: string; label: string }

@@ -62,3 +62,30 @@ it('links to the existing passkey-gated request flow and never writes a reset', 
   expect(screen.getByRole('link', { name: 'Open system controls' })).toHaveAttribute('href', '/troubleshoot');
   expect(network.mock.calls.every((call) => call[1].method === 'GET')).toBe(true);
 });
+
+it('shows the disk key line and adds the typed kit key to destinations added after the kit (design 25a)', async () => {
+  state.role = 'owner';
+  let missing = ['dst_new'];
+  const request = vi.fn(async (url: string, init: RequestInit) => {
+    const path = new URL(url).pathname;
+    if (path === '/v1/backups/status') return Response.json({ last_verified_restore_at: null });
+    if (path === '/v1/backups/kit') return Response.json({ state: 'confirmed', missing_on: missing, disk_key: 'included' });
+    if (path === '/v1/backups/kit/attach') { missing = []; return Response.json({ action: { id: 'act_1', state: 'succeeded' } }); }
+    if (path === '/v1/system/controls') return Response.json({ controls: [], pending: [] });
+    throw new Error(`Unexpected test route ${path} ${init.method}`);
+  });
+  vi.stubGlobal('fetch', request);
+  render(<MemoryRouter><SettingsRecoveryReset /></MemoryRouter>);
+  expect(await screen.findByText('In the kit')).toBeVisible();
+  const field = await screen.findByLabelText('Owner recovery key and check group');
+  const user = userEvent.setup();
+  const button = screen.getByRole('button', { name: 'Add the key to the new destinations' });
+  expect(button).toBeDisabled();
+  await user.type(field, 'ABCD-EFGH-IJKL-MNOP-QRST-UVWX-YZ23-4567-ABCD-EFGH-IJKL-MNOP-QRST WXYZ');
+  await user.click(button);
+  const sent = request.mock.calls.find((call) => new URL(call[0]).pathname === '/v1/backups/kit/attach');
+  expect(JSON.parse(String(sent?.[1].body))).toMatchObject({ check: 'WXYZ' });
+  expect(JSON.parse(String(sent?.[1].body)).groups).toHaveLength(13);
+  expect(await screen.findByText('In the kit')).toBeVisible();
+  await vi.waitFor(() => expect(screen.queryByLabelText('Owner recovery key and check group')).toBeNull());
+});

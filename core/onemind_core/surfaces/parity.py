@@ -172,6 +172,7 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/auth/totp/setup": CREDENTIAL,
     "GET /v1/backups/kit": CREDENTIAL,
     "POST /v1/backups/kit": CREDENTIAL,
+    "POST /v1/backups/kit/attach": CREDENTIAL,
     "POST /v1/backups/kit/confirm": CREDENTIAL,
     "POST /v1/fabric/join-requests": CREDENTIAL,
     "GET /v1/fabric/join-requests/{request_id}": CREDENTIAL,

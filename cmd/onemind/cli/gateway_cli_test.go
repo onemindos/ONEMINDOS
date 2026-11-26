@@ -115,6 +115,14 @@ func (g *recGW) serve(w http.ResponseWriter, r *http.Request) {
 	case p == "/v1/backups/status":
 		jsonOut(w, 200, map[string]any{"health": "ok", "last_success_at": "2026-11-25T02:00:00Z", "last_verified_restore_at": nil,
 			"next_run_at": "2026-11-26T02:00:00Z", "copies": 2, "agent": "ok", "reason": nil, "kit": map[string]any{"state": "confirmed"}})
+	case p == "/v1/backups/kit":
+		jsonOut(w, 200, map[string]any{"state": "confirmed", "issued_at": "2026-11-25T01:00:00Z", "confirmed_at": nil,
+			"fingerprint": "0123456789abcdef", "positions": []any{}, "missing_on": []any{"dst_new"}, "disk_key": "included"})
+	case p == "/v1/backups/kit/attach":
+		if denyAgent() {
+			return
+		}
+		jsonOut(w, 200, map[string]any{"action": map[string]any{"id": "act_2", "state": "succeeded"}, "kit": map[string]any{"missing_on": []any{}}})
 	case p == "/v1/backups/snapshots":
 		jsonOut(w, 200, []any{map[string]any{"id": "abcd1234", "taken_at": "2026-11-25T02:00:00Z", "unit": "app:photos"}})
 	case p == "/v1/backups/runs", p == "/v1/backups/verify":
@@ -473,5 +481,27 @@ func TestUpdatePolicySetSkipsAISchedulePolicyWhenAbsent(t *testing.T) {
 	}
 	if _, has := put[0].body["ai_schedule"]; has {
 		t.Fatalf("ai_schedule sent as %v", put[0].body["ai_schedule"])
+	}
+}
+
+// design 25a: the kit's state, and attaching the printed key (stdin) to newer destinations.
+func TestBackupKitStatusAndAttach(t *testing.T) {
+	g := asOwner(t)
+	if r := run(t, "", false, "backup", "kit"); r.code != 0 || !strings.Contains(r.out, "dst_new") || !strings.Contains(r.out, "included") {
+		t.Fatalf("kit %+v", r)
+	}
+	printed := strings.Repeat("ABCD-", 12) + "ABCD\ncheck: wxyz\n" // the kit page, as typed
+	if r := run(t, printed, false, "backup", "kit", "attach"); r.code != 0 || !strings.Contains(r.out, "act_2") {
+		t.Fatalf("attach %+v", r)
+	}
+	q := g.requests("POST", "/v1/backups/kit/attach")
+	if len(q) != 1 || len(q[0].body["groups"].([]any)) != 13 || q[0].body["check"] != "WXYZ" {
+		t.Fatalf("sent %+v", q)
+	}
+	if r := run(t, printed, false, "backup", "kit", "attach"); strings.Contains(r.out+r.errOut, "ABCD-ABCD") {
+		t.Fatal("the key is never printed")
+	}
+	if r := run(t, "ABCD EFGH", false, "backup", "kit", "attach"); r.code != ExitUsage {
+		t.Fatalf("a short key is a usage error: %+v", r)
 	}
 }

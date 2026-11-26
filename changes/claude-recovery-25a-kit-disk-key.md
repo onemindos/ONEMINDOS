@@ -1,0 +1,5 @@
+---
+pr: pending
+branch: claude/recovery-25a-kit-disk-key
+---
+Every owner gets an emergency kit, and the kit carries the disk key (gateway permissions design 25a, D-020). The kit can now be made before any backup destination exists; a destination added later gets the owner key when the owner types the printed key back (Settings, Recovery and reset, or onemind backup kit attach), because the box never keeps a copy. When the data disk is encrypted, the kit takes the disk recovery key from the storage service once (the file the first boot leaves in RAM, which the storage service now also serves) and prints it; it is in the one-time answer only, never in the database, the audit log or an event, and the general recovery-key route stays off. A new kit only adds a key, so snapshots the old kit opens stay openable, and the kit remembers when the disk key was printed in an earlier kit. New: POST /v1/backups/kit/attach, missing_on and disk_key in GET /v1/backups/kit, onemind backup kit and onemind backup kit attach, the disk key on the first-run kit screen.

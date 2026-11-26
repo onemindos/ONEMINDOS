@@ -503,8 +503,7 @@ def test_cold_backup_scales_every_stopped_app_back_up_when_stopping_fails_midway
 
 # ---- emergency kit ---------------------------------------------------------------------------------
 def test_emergency_kit_is_shown_once_and_must_be_typed_back(client, bk, settings):
-    assert client.post("/v1/backups/kit", headers=OWNER).status_code == 409, "a destination comes first"
-    add_usb(client, bk)
+    add_usb(client, bk)  # a kit without a destination: test_recovery_kit.py
     assert client.post("/v1/backups/kit", headers=ADULT).status_code == 403
     r = client.post("/v1/backups/kit", headers=OWNER, json=None)
     assert r.status_code == 201, r.text

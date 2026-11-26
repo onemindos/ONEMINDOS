@@ -595,7 +595,7 @@ func TestServerAPI(t *testing.T) {
 	e := newEngine(t, b, t.TempDir())
 	keyFile := filepath.Join(t.TempDir(), "recovery-key")
 	os.WriteFile(keyFile, []byte("cbdefghi-jklnrtuv"), 0o600)
-	srv := httptest.NewServer((&Server{E: e, RecoveryKeyFile: keyFile, AllowUID: -1, AllowGID: -1}).Handler())
+	srv := httptest.NewServer((&Server{E: e, RecoveryKeyFile: keyFile, FirstBootKeyFile: filepath.Join(t.TempDir(), "none"), AllowUID: -1, AllowGID: -1}).Handler())
 	defer srv.Close()
 	post := func(path, body string) (int, map[string]any) {
 		resp, err := http.Post(srv.URL+path, "application/json", strings.NewReader(body))
@@ -739,5 +739,46 @@ func TestListenKeepsTheSocketReachable(t *testing.T) {
 	r, _ := os.Stat(run)
 	if p.Mode().Perm() != 0o755 || r.Mode().Perm() != 0o700 {
 		t.Errorf("parent %v run dir %v", p.Mode().Perm(), r.Mode().Perm())
+	}
+}
+
+// The image's first boot (data_encrypt.py) leaves the /data recovery key in its own
+// file; the emergency kit takes it through the same once-only route (design 25a).
+func TestServerTakesFirstBootRecoveryKey(t *testing.T) {
+	b := newBox()
+	e := newEngine(t, b, t.TempDir())
+	first := filepath.Join(t.TempDir(), "data-recovery-key")
+	os.WriteFile(first, []byte("cbdefghi-jklnrtuv-cbdefghi\n"), 0o600)
+	s := &Server{E: e, RecoveryKeyFile: filepath.Join(t.TempDir(), "none"), FirstBootKeyFile: first, AllowUID: -1, AllowGID: -1}
+	srv := httptest.NewServer(s.Handler())
+	defer srv.Close()
+	resp, err := http.Get(srv.URL + "/v1/status")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var st Status
+	_ = json.NewDecoder(resp.Body).Decode(&st)
+	resp.Body.Close()
+	if !st.RecoveryKeyPending {
+		t.Fatal("a first-boot key must count as pending")
+	}
+	take := func() (int, map[string]any) {
+		resp, err := http.Post(srv.URL+"/v1/recovery-key/take", "application/json", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		var m map[string]any
+		_ = json.NewDecoder(resp.Body).Decode(&m)
+		return resp.StatusCode, m
+	}
+	if code, body := take(); code != 200 || body["recovery_key"] != "cbdefghi-jklnrtuv-cbdefghi" {
+		t.Fatalf("take: %d %v (the trailing newline must be gone)", code, body)
+	}
+	if code, _ := take(); code != 404 {
+		t.Errorf("shown once: second take %d", code)
+	}
+	if _, err := os.Stat(first); !errors.Is(err, os.ErrNotExist) {
+		t.Error("first-boot key file not removed")
 	}
 }

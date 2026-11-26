@@ -121,6 +121,7 @@ def test_owner_only_routes_refuse_everyone_else(client, clock, who):
         ("GET", "/v1/files/quotas", None),
         ("PUT", "/v1/files/quotas/owner", {"limit_bytes": 1}),
         ("POST", "/v1/backups/kit/confirm", {}),
+        ("POST", "/v1/backups/kit/attach", {"groups": ["AAAA"] * 13, "check": "AAAA"}),
         ("GET", "/v1/backups/snapshots/abcdef0123456789/tree", None),
         ("GET", "/v1/backups/snapshots/abcdef0123456789/file?path=/a", None),
         # app lifecycle: the generated login is owner only (never an agent), and deleting data is

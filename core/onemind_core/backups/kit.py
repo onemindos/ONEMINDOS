@@ -68,7 +68,16 @@ def answer_ok(ch: dict, answers: dict[str, str]) -> bool:
     return ok
 
 
-def kit_text(*, box_name: str, instance_id: str, key: OwnerKey, destinations: list[dict], issued_at: datetime) -> str:
+DISK_KEY_NOTES = {
+    "not_encrypted": "This box's data disk is not encrypted, so it has no disk key.",
+    "earlier_kit": "The disk key was printed in an earlier kit (it is shown only once). Keep that page as well.",
+    "not_available": "The disk key could not be added to this kit (it was already shown once on this box's screen, or "
+                     "the storage service did not answer). Settings > Storage tells you more.",
+}
+
+
+def kit_text(*, box_name: str, instance_id: str, key: OwnerKey, destinations: list[dict], issued_at: datetime,
+             disk_key: str | None = None, disk_key_state: str | None = None) -> str:
     lines = [
         "ONEMIND EMERGENCY KIT",
         "=====================",
@@ -84,8 +93,21 @@ def kit_text(*, box_name: str, instance_id: str, key: OwnerKey, destinations: li
         "Keep this page offline, somewhere safe. Anyone with it and a backup disk can read your data.",
         "OneMind does not keep this key. If you lose it and the box, your backups cannot be opened.",
         "",
-        "Where your backups are:",
     ]
+    # D-020: the /data disk is encrypted with the TPM; its recovery key goes in this kit. The box never stores it.
+    if disk_key:
+        lines += [
+            "Disk recovery key (unlocks this box's data disk when the TPM cannot: a moved disk, a new motherboard,",
+            "a firmware change). Type it at the box's unlock prompt:",
+            "",
+            "    " + disk_key,
+            "",
+        ]
+    elif disk_key_state in DISK_KEY_NOTES:
+        lines += [DISK_KEY_NOTES[disk_key_state], ""]
+    lines.append("Where your backups are:")
+    if not destinations:
+        lines.append("  - none yet. When you add one, attach this key to it (Settings > Recovery, or `onemind backup kit attach`).")
     for d in destinations:
         cfg = d.get("config") or {}
         where = cfg.get("usb_uuid") or cfg.get("url") or "/".join(x for x in (cfg.get("endpoint"), cfg.get("bucket"), cfg.get("prefix")) if x)

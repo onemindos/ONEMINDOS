@@ -35,6 +35,7 @@ from ..ledger import utc
 # switching the tier is owner-only, and `backups:admin` is a scope only the owner role holds.
 register_route_scope("GET,HEAD", r"/v1/backups/content", ("backups:read",))
 register_route_scope("POST", r"/v1/backups/content", ("backups:admin",))
+register_route_scope("POST", r"/v1/backups/kit/attach", ("*",))  # the owner key from the kit: owner credentials only
 
 
 def error_responses(*statuses: int) -> dict[int, dict]:
@@ -119,6 +120,14 @@ class ContentBody(_Request):
 class KitConfirmBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     answers: dict[str, str] = Field(max_length=4)
+
+
+class KitAttachBody(BaseModel):
+    """The printed owner key, typed back: 13 groups of 4 letters and the check group. Held in memory only."""
+    model_config = ConfigDict(extra="forbid")
+    groups: list[Annotated[str, Field(min_length=4, max_length=4, pattern=r"^[A-Za-z2-7]{4}$")]] = Field(
+        min_length=13, max_length=13, json_schema_extra={"writeOnly": True})
+    check: str = Field(min_length=4, max_length=4, pattern=r"^[A-Za-z2-7]{4}$")
 
 
 def _check_destination(b: DestinationBody) -> dict:
@@ -367,6 +376,23 @@ def register(app: FastAPI, gw: Gateway) -> None:
             raise ApiError(409, "stale_precondition", (action.get("result") or {}).get("message") or "the kit was not issued")
         return JSONResponse(status_code=201, headers={"Cache-Control": "no-store"},
                             content={"action": action, "kit": svc.kit_state(), "one_time": one_time})
+
+    @app.post("/v1/backups/kit/attach", operation_id="backups.kit.attach", tags=tags, responses=error_responses(401, 403, 404, 409, 422))
+    def attach_kit(body: KitAttachBody, request: Request, p: Principal = Depends(owner), idem: IdemHeader = None):
+        """Add the owner key from the printed kit to the destinations added after it was issued (`missing_on` in
+        GET /v1/backups/kit). The key must be this box's current kit (its fingerprint); it is held in memory for the
+        approval only, never stored or logged. Files backup.kit.attach and approves it as the owner."""
+        if not svc.enabled:
+            raise Unavailable("backups are not switched on (ONEMIND_BACKUPS_ENABLED=1)", "backups_disabled")
+        password = svc.check_kit_key(body.groups, body.check)
+        if not svc.kit_state()["missing_on"]:
+            return {"action": None, "kit": svc.kit_state()}
+        action, created = gw.actions.request_feature(p, "backup.kit.attach", {}, idempotency_key=key(idem),
+                                                     expires_at=gw.clock() + timedelta(minutes=10))
+        if created:
+            svc.hold_attach_key(action["id"], password)
+        action = approve_as_owner(p, action["id"], request)
+        return {"action": action, "kit": svc.kit_state()}
 
     @app.post("/v1/backups/kit/confirm", operation_id="backups.kit.confirm", tags=tags, responses=error_responses(401, 403, 404, 409))
     def confirm_kit(body: KitConfirmBody, p: Principal = Depends(owner)):
