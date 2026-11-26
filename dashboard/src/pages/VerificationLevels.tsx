@@ -39,11 +39,14 @@ export function offeredLevels(row: Bounds, household: VTable['household_level'])
  *  signed-in owner's own request. */
 export interface Waiting { level: string; by: string; mine: boolean }
 type Asker = { id: string; kind: string } | undefined;
+/** GET /v1/users, through its generated schema. */
+type Person = components['schemas']['UserInfo'];
 
 /** key -> the table changes already waiting in Approvals for that row. Any person may file one (core
  *  registers the type for every person), so a guest's or a child's request is shown with their name and never
  *  passes for the owner's own: only the owner's own request blocks the row from being asked again. */
-export function waitingChanges(actions: Pick<Action, 'type' | 'state' | 'params' | 'requested_by'>[], me: Asker): Record<string, Waiting[]> {
+export function waitingChanges(actions: Pick<Action, 'type' | 'state' | 'params' | 'requested_by'>[], me: Asker,
+  nameOf: (id: string) => string | undefined = () => undefined): Record<string, Waiting[]> {
   const out: Record<string, Waiting[]> = {};
   for (const a of actions) {
     if (a.type !== SET_TYPE || a.state !== 'awaiting_approval') continue;
@@ -51,7 +54,7 @@ export function waitingChanges(actions: Pick<Action, 'type' | 'state' | 'params'
     if (typeof p.key !== 'string' || typeof p.level !== 'string') continue;
     const rb = a.requested_by;
     const mine = !!rb && !!me && rb.id === me.id && rb.kind === me.kind;
-    const by = !rb ? 'someone' : mine ? 'you' : rb.kind === 'person' ? rb.id : `${rb.kind} ${rb.id}`;
+    const by = !rb ? 'someone' : mine ? 'you' : rb.kind === 'person' ? nameOf(rb.id) ?? rb.id : `${rb.kind} ${rb.id}`;
     (out[p.key] ??= []).push({ level: p.level, by, mine });
   }
   return out;
@@ -87,7 +90,11 @@ function LiveTable({ token, me, signOut }: { token: string; me: Asker; signOut: 
   // Requests this box has filed: changes already waiting in Approvals (so a row is not asked twice), and the
   // kinds of request it knows, as suggestions for a per-type check (real data; the hub checks the name again).
   const actions = usePoll(() => viaSdk(() => client.actions.list()), 0);
-  const pending = waitingChanges(actions.data ?? [], me);
+  // The people on this box, so a waiting request reads "asked by Gus", not an account id. If the list can't
+  // be read the id is shown instead; it is never shown as the owner's own.
+  const users = usePoll(() => viaSdk(() => client.call<Person[]>({ method: 'GET', path: '/v1/users' })), 0);
+  const nameOf = (id: string) => users.data?.find((u) => u.id === id)?.display_name || undefined;
+  const pending = waitingChanges(actions.data ?? [], me, nameOf);
   const seenTypes = [...new Set((actions.data ?? []).map((a) => a.type).filter((x) => x !== SET_TYPE))].sort();
   const [note, setNote] = useState<{ tone: 'ok' | 'bad'; text: string; id?: string }>();
   const [busy, setBusy] = useState(false);
