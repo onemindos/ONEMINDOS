@@ -45,7 +45,7 @@ export function Rules({ item }: { item?: string }) {
               onReconfirm={() => void act(() => post(rule.id, 'reconfirm', true), 'Re-confirmed. The rule works again.')}
               onKeep={() => void act(() => post(rule.id, 'keep'), 'Kept. You will be asked again in 90 days.')}
               onNarrow={(body) => act(() => stepUp((c) => c.call<Rule>({ method: 'PATCH', path: `${RULES}/${encodeURIComponent(rule.id)}`, body: { ...body, revision: rule.revision } }), sdk), 'Saved as a new revision.')} />
-          : <p className="om-note om-tone-warn" role="status">This rule no longer exists. <Link to="/settings/permissions/rules">See all rules</Link></p>;
+          : <Gone note={note} />;
         const active = list.filter(live).sort((a, b) => Number(b.forever) - Number(a.forever) || a.created_at.localeCompare(b.created_at));
         const ended = list.filter((r) => !live(r));
         return (
@@ -77,6 +77,21 @@ export function Rules({ item }: { item?: string }) {
         );
       }}
     </Load>
+  );
+}
+
+/**
+ * A rule page whose rule is not listed: the gateway lists only rules still in force, so it was revoked
+ * or has ended. Right after Revoke on this page, the note says so instead.
+ */
+function Gone({ note }: { note?: { tone: 'ok' | 'bad'; text: string } }) {
+  return (
+    <>
+      {note
+        ? <p className={`om-note om-tone-${note.tone}`} role={note.tone === 'bad' ? 'alert' : 'status'}>{note.text}</p>
+        : <p className="om-note om-tone-warn" role="status">This rule was revoked or has ended, so it no longer approves anything.</p>}
+      <p><Link to="/settings/permissions/rules">See all rules</Link></p>
+    </>
   );
 }
 
