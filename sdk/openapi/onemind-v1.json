@@ -19489,6 +19489,13 @@
             "description": "The principal may not do this (permission_denied)"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "tokens:self"
+            ]
+          }
+        ],
         "summary": "List Denies",
         "tags": [
           "permissions"
@@ -19568,6 +19575,13 @@
             "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "tokens:self"
+            ]
+          }
+        ],
         "summary": "Create Deny",
         "tags": [
           "permissions"

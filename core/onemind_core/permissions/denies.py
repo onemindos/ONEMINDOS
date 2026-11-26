@@ -118,6 +118,9 @@ class DenyStore:
             self._denied(p, "add a deny rule for a person")
         if not self.may_manage(p, principal, user_id):
             self._denied(p, f"add a deny rule for {principal}")
+        for r in self.list():  # the same "never" twice is the rule already there (a retry adds nothing)
+            if (r["principal"], r["action_type"], r["tier"]) == (principal, action_type, tier):
+                return r
         if len(self.list()) >= MAX_DENIES:
             raise ApiError(409, "conflict", f"at most {MAX_DENIES} deny rules")
         row = DenyRow(id=new_id("den_"), principal=principal, action_type=action_type, tier=tier,
