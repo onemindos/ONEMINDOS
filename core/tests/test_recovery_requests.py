@@ -7,7 +7,9 @@ wait, finishing with a new passkey, and the notices."""
 
 from __future__ import annotations
 
+import json
 from datetime import timedelta
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -15,7 +17,7 @@ from fastapi.testclient import TestClient
 from conftest import OWNER
 from onemind_core.app import create_app
 from onemind_core.identity.crypto import new_id, totp_code
-from onemind_core.recovery.requests import code_for, vouch_payload
+from onemind_core.recovery.requests import MAX_TRIES, code_for, vouch_payload
 from recovery_support import ContactPhone, invite_and_accept, owner_with_passkey
 from test_identity import PASSWORD, SoftAuthenticator, audit_events, csrf, id_settings
 
@@ -261,3 +263,83 @@ def test_a_contact_cannot_start_a_recovery_or_see_another_owners(rc, clock):
     r = TestClient(rc.app).post(f"/v1/recovery/requests/{s['id']}/vouch", headers=phone.auth,
                                 json={"picked": s["matching_number"], "signature": ContactPhone().sign(b"x")})
     assert r.status_code == 401 and r.json()["reason"] == "signature_invalid"
+
+
+def test_a_cancel_that_lands_while_finishing_leaves_the_credentials_unchanged(rc, clock):
+    """The claim (waiting -> completed) runs first, in the same transaction as the writes: a cancel just
+    before it means nothing is written, not "cancelled but the password changed"."""
+    owner_with_passkey(rc)
+    phone = ready_contact(rc, clock)
+    s = start(rc).json()
+    vouch(rc, phone, s["id"], picked=s["matching_number"])
+    clock.advance(24 * 3600 + 1)
+    rec = rc.app.state.recoveries
+    real_ready = rec._ready
+
+    def ready_then_cancel(row):
+        real_ready(row)  # the checks pass, then an owner's cancel lands before the claim
+        rec._cancel(row, "usr_owner")
+
+    rec._ready = ready_then_cancel
+    try:
+        r = as_starter(rc, s).post(f"/v1/auth/recovery/requests/{s['id']}/complete",
+                                   json={"new_password": "a brand new passphrase"})
+    finally:
+        rec._ready = real_ready
+    assert r.status_code == 409 and r.json()["reason"] == "not_waiting"
+    assert as_starter(rc, s).get(f"/v1/auth/recovery/requests/{s['id']}").json()["state"] == "cancelled"
+    # No session was revoked, the new password does not work and the old one still does.
+    from onemind_core.identity.models import SessionRow
+    with rec.db.session() as db:
+        assert db.query(SessionRow).filter(SessionRow.revoked_at.is_not(None)).count() == 0
+    fresh = TestClient(rc.app)
+    assert fresh.post("/v1/auth/login", json={"username": "zeus", "password": "a brand new passphrase"}).status_code == 401
+    assert TestClient(rc.app).post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD}).status_code == 200
+
+
+def test_tries_are_counted_atomically_even_from_a_stale_read(rc, clock):
+    """Two wrong answers that both read tries=0 (parallel requests) still count as two tries."""
+    owner_with_passkey(rc)
+    ready_contact(rc, clock)
+    s = start(rc).json()
+    rec = rc.app.state.recoveries
+    stale = rec._get(s["id"])
+    for _ in range(MAX_TRIES - 1):
+        assert rec._one_try(stale, "wrong").reason == "wrong_answer"  # same stale row object each time
+    err = rec._one_try(stale, "wrong")
+    assert err.reason == "request_closed"
+    assert rec._get(s["id"]).state == "failed" and rec._get(s["id"]).tries == MAX_TRIES
+    assert rec._one_try(stale, "wrong").reason == "not_awaiting"  # a closed request takes no more tries
+
+
+def test_the_request_token_and_the_8_digit_code_never_reach_the_audit_events_or_notices(rc, clock, settings):
+    owner_with_passkey(rc)
+    phone = ready_contact(rc, clock)
+    rec = rc.app.state.recoveries
+    published: list[str] = []
+    real_publish = rec.gw.events.publish_event
+
+    def capture(*a, **kw):
+        published.append(json.dumps([a, kw], default=str))
+        return real_publish(*a, **kw)
+
+    rec.gw.events.publish_event = capture
+    try:
+        s = start(rc).json()
+        token = s["one_time"]["request_token"]
+        starter = as_starter(rc, s)
+        assert starter.post(f"/v1/auth/recovery/requests/{s['id']}/code", json={"code": "00000000"}).status_code == 422
+        good = code_for(phone.secret, s["id"], s["request_code"])
+        assert starter.post(f"/v1/auth/recovery/requests/{s['id']}/code", json={"code": good}).status_code == 200
+        clock.advance(24 * 3600 + 1)
+        assert starter.post(f"/v1/auth/recovery/requests/{s['id']}/complete",
+                            json={"new_password": "a brand new passphrase"}).status_code == 200
+    finally:
+        rec.gw.events.publish_event = real_publish
+    assert token.startswith("omr_") and len(good) == 8
+    audit = Path(settings.audit_path).read_text()
+    notices = json.dumps(TestClient(rc.app).get("/v1/recovery/contact/notices", headers=phone.auth).json())
+    events = "\n".join(published)
+    assert published, "the flow publishes events"
+    for secret in (token, token[len("omr_"):], good, s["request_code"], "a brand new passphrase"):
+        assert secret not in audit and secret not in events and secret not in notices
