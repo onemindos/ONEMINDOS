@@ -624,48 +624,83 @@ class IdentityService:
         """Administration that adds power: once passkeys are active, a passkey sign-in in the last
         step_up_s seconds. Returns how the caller proved presence (audited by the caller).
 
-        op names the owner route (levels.STEP_UP_ROWS). When its row asks an owner for L2 or more, the
-        5-minute window is not enough: the request must carry a step-up made for this exact change
-        (op, target and body) with a key at that level (design 3.11, gap 20)."""
+        op names the owner route (levels.STEP_UP_ROWS, or levels.FRESH_OPS). When its row asks an owner
+        for L2 or more, the 5-minute window is not enough: the request must carry a step-up made for this
+        exact change (op, target and body) with a key at that level (design 3.11, gap 20). Below L2 a
+        step-up grant also stands in for signing in again. Either way the 401 names the step-up in
+        `details` ({"step_up": {op, target, body, required_level}}), so a client can make it in place and
+        repeat the request with the OneMind-Step-Up header (SDK `completeStepUp`)."""
         if not self.passkeys_active():
             return "token" if ctx is None or ctx.session is None else ctx.session.auth_method
-        if op is not None and p.is_owner:
-            need, eased = self.levels.effective(*self.levels.for_row(lv.STEP_UP_ROWS[op]))
+        need, inplace = 1, op is not None and (p.is_owner or op in lv.FRESH_OPS)
+        if inplace:
+            need, eased = self._op_need(op)
             if need >= 2:
                 return self._use_step_up_grant(ctx, p, what, op, target, body or {}, need)
             if eased:
                 what = f"{what} (grace: no proven key yet)"
+            if ctx is not None and ctx.step_up_grant:  # a step-up made in place, instead of signing in again
+                return self._use_step_up_grant(ctx, p, what, op, target, body or {}, 1)
         s = ctx.session if ctx else None
         if s is not None and s.passkey_at is not None and \
                 (self.now() - utc(s.passkey_at)).total_seconds() <= self.cfg.step_up_s:
             return "passkey"
         self.emit("auth", "step_up.required", {"attempted": what}, p, severity="warning")
-        raise ApiError(401, "unauthenticated", "sign in again with your passkey to do this", reason="step_up_required")
+        if not inplace:
+            raise ApiError(401, "unauthenticated", "sign in again with your passkey to do this",
+                           reason="step_up_required")
+        raise ApiError(401, "unauthenticated", "confirm it's you with your passkey to do this",
+                       reason="step_up_required", details=self._step_up_details(op, target, body or {}, need))
+
+    def _op_need(self, op: str) -> tuple[int, bool]:
+        """(level asked for, whether the grace eased it) for an owner route's step-up."""
+        if op in lv.FRESH_OPS:
+            return 1, False
+        return self.levels.effective(*self.levels.for_row(lv.STEP_UP_ROWS[op]))
+
+    @staticmethod
+    def _canon(v):
+        """The JSON value a step-up binds: what a client gets back from the error's details and sends to
+        step-up/options after a JSON round trip. 2.0 and 2 are the same JSON number, so they hash alike."""
+        if isinstance(v, dict):
+            return {str(k): IdentityService._canon(x) for k, x in v.items()}
+        if isinstance(v, (list, tuple)):
+            return [IdentityService._canon(x) for x in v]
+        if isinstance(v, float) and v.is_integer():
+            return int(v)
+        return v
 
     @staticmethod
     def step_up_sha256(op: str, target: str, body: dict) -> str:
-        canon = json.dumps({"op": op, "target": target, "body": body}, sort_keys=True, separators=(",", ":"),
-                           ensure_ascii=False)
+        canon = json.dumps({"op": op, "target": target, "body": IdentityService._canon(body)}, sort_keys=True,
+                           separators=(",", ":"), ensure_ascii=False)
         return "sha256:" + hashlib.sha256(canon.encode()).hexdigest()
+
+    @staticmethod
+    def _step_up_details(op: str, target: str, body: dict, need: int) -> list[dict]:
+        return [{"step_up": {"op": op, "target": target, "body": IdentityService._canon(body),
+                             "required_level": lv.name(max(need, 1))}}]
 
     def step_up_options(self, request: Request, ctx: AuthContext | None, op: str, target: str, body: dict) -> dict:
         """A challenge for one owner change: only keys that meet its row's level may answer."""
-        user = self._account(ctx, "step up")
-        if op not in lv.STEP_UP_ROWS:
-            raise ApiError(422, "conflict", f"op must be one of {', '.join(sorted(lv.STEP_UP_ROWS))}", reason="invalid_op")
-        need, eased = self.levels.effective(*self.levels.for_row(lv.STEP_UP_ROWS[op]))
+        user = self._account(ctx, "step up")  # a session, never an API token: a grant is bound to it
+        if op not in lv.STEP_UP_ROWS and op not in lv.FRESH_OPS:
+            ops = sorted(set(lv.STEP_UP_ROWS) | lv.FRESH_OPS)
+            raise ApiError(422, "conflict", f"op must be one of {', '.join(ops)}", reason="invalid_op")
+        need, eased = self._op_need(op)
         allow = self._keys_meeting(user.id, max(need, 1))
         if not allow:
             raise self._level_unmet(ctx.principal, op, need)
         row, raw = self._new_challenge("stepup", user_id=user.id, data={
-            "op": op, "sha256": self.step_up_sha256(op, target, body), "need": need})
+            "op": op, "sha256": self.step_up_sha256(op, target, body), "need": max(need, 1)})
         rp_id, _ = self.rp(request)
-        return {"challenge_id": row.id, "expires_at": iso(row.expires_at), "required_level": lv.name(need),
+        return {"challenge_id": row.id, "expires_at": iso(row.expires_at), "required_level": lv.name(max(need, 1)),
                 "grace": eased, "publicKey": pk.authentication_options(rp_id=rp_id, challenge=raw, allow=allow)}
 
     def step_up_verify(self, request: Request, ctx: AuthContext | None, credential: dict) -> dict:
         """Check the assertion; answer a single-use grant (send it as OneMind-Step-Up within 2 minutes)."""
         user = self._account(ctx, "step up")
+        session = ctx.session
         try:
             credential = pk.normalize(credential)
             row = self._consume_challenge(credential, "stepup")
@@ -681,32 +716,34 @@ class IdentityService:
             raise ApiError(401, "unauthenticated", "this key doesn't meet the level this change needs",
                            reason="step_up_required")
         now = self.now()
-        self.repo.update(SessionRow, [SessionRow.id == ctx.session.id], {"passkey_at": now,
-                                                                         "step_up_credential_id": cred.id})
+        self.repo.update(SessionRow, [SessionRow.id == session.id], {"passkey_at": now,
+                                                                     "step_up_credential_id": cred.id})
         grant, _ = self._new_challenge("stepup-grant", user_id=user.id, data={
-            **row.data, "credential_id": cred.id, "level": lv.name(level), "session_id": ctx.session.id})
+            **row.data, "credential_id": cred.id, "level": lv.name(level), "session_id": session.id})
         return {"step_up": grant.challenge, "expires_at": iso(grant.expires_at), "level": lv.name(level)}
 
     def _use_step_up_grant(self, ctx: AuthContext | None, p: Principal, what: str, op: str, target: str,
                            body: dict, need: int) -> str:
         grant = ctx.step_up_grant if ctx else None
+        details = self._step_up_details(op, target, body, need)
         if not grant:
             self.emit("auth", "step_up.required", {"attempted": what, "required_level": lv.name(need)}, p,
                       severity="warning")
             raise ApiError(401, "unauthenticated", f"this change needs your proven key ({lv.name(need)}): "
                            f"POST /v1/auth/step-up/options with op {op!r}, then send the grant as "
-                           "OneMind-Step-Up", reason="step_up_required")
+                           "OneMind-Step-Up", reason="step_up_required", details=details)
         try:
             row = self._claim_challenge(grant, "stepup-grant")
         except ApiError:
-            raise ApiError(401, "unauthenticated", "step-up expired or already used", reason="step_up_required") from None
+            raise ApiError(401, "unauthenticated", "step-up expired or already used", reason="step_up_required",
+                           details=details) from None
         d = row.data
         if (d.get("op") != op or d.get("sha256") != self.step_up_sha256(op, target, body)
                 or ctx.session is None or d.get("session_id") != ctx.session.id
                 or lv.rank(d.get("level") or "L0") < need):
             self.emit("auth", "step_up.failed", {"attempted": what, "reason": "grant_mismatch"}, p, severity="warning")
             raise ApiError(401, "unauthenticated", "this step-up was made for a different change",
-                           reason="step_up_required")
+                           reason="step_up_required", details=details)
         return f"passkey:{d.get('level')}"
 
     def _keys_meeting(self, user_ids: str | list[str], need: int) -> list[str]:
@@ -827,7 +864,7 @@ class IdentityService:
         row = self.repo.get(PasskeyRow, credential_id)
         if row is None or row.user_id != user.id:
             raise ApiError(404, "not_found", "no such passkey")
-        self.require_step_up(ctx, ctx.principal, "remove a passkey")
+        self.require_step_up(ctx, ctx.principal, "remove a passkey", op="auth.passkeys.delete", target=credential_id)
         if user.role == "owner":
             owners = self.active_owner_ids()
             if self.repo.count(PasskeyRow, PasskeyRow.user_id.in_(owners)) <= 1:
@@ -856,11 +893,12 @@ class IdentityService:
         user = self._account(ctx, "register an approver key")
         if user.role != "owner":
             raise self.deny(ctx.principal, "register an approver key", reason="owner_only")
-        self._require_fresh_passkey(ctx, ctx.principal, "register an approver key")
-        if self.levels.effective(*self.levels.for_row("admin.high_risk"))[0] >= 2:  # once a proven key exists
+        need = self.levels.effective(*self.levels.for_row("admin.high_risk"))[0]
+        if need >= 2:  # once a proven key exists; the L2 grant is itself a fresh passkey proof
             self._use_step_up_grant(ctx, ctx.principal, "register an approver key", "auth.approver_keys.register",
-                                    "", {"public_key": public_key, "label": label, "key_kind": key_kind},
-                                    self.levels.row_level("admin.high_risk"))
+                                    "", {"public_key": public_key, "label": label, "key_kind": key_kind}, need)
+        else:
+            self._require_fresh_passkey(ctx, ctx.principal, "register an approver key")
         if key_kind not in ak.KEY_KINDS:
             raise ApiError(422, "conflict", f"key_kind must be one of {', '.join(ak.KEY_KINDS)}")
         if key_kind == "hardware-attested":  # nothing verifies an attestation chain yet: never claim it

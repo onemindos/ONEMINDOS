@@ -72,6 +72,9 @@ describe('request errors', () => {
   it('names the plan change, the owner rule and a busy app in plain words', () => {
     expect(requestError(new ApiError(409, 'stale_precondition', 'm', { reason: 'plan_changed' }), 'the restart').text).toMatch(/plan for the restart changed/);
     expect(requestError(new ApiError(403, 'permission_denied', 'm'), 'that')).toMatchObject({ forbidden: true });
+    // D-028: a phone passkey is L1, so a change that needs the proven key points to the dashboard.
+    expect(requestError(new ApiError(409, 'conflict', 'm', { reason: 'verification_level_unmet' }), 'adding a person').text).toMatch(/^Adding a person needs your proven key.*dashboard/);
+    expect(requestError(new ApiError(401, 'unauthenticated', 'm', { reason: 'step_up_cancelled' }), 'adding a person').text).toMatch(/cancelled/);
     expect(requestError(new ApiError(409, 'conflict', 'm')).text).toMatch(/busy/);
     expect(requestError(new ApiError(0, 'network', 'offline')).text).toMatch(/Nothing was changed/);
   });

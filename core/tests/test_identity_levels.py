@@ -446,3 +446,115 @@ def test_every_step_up_row_and_type_row_is_a_real_row():
     for key, row in lv.ROWS.items():
         assert lv.rank(row.minimum) <= lv.rank(row.default) <= lv.rank(row.maximum), key
     assert lv.ROWS["data.access"].maximum == "L1"  # data access never depends on a strong key (B-4)
+
+
+# ---- the step-up a client makes in place (review of #1184) -------------------------------------------------
+def step_up_of(r) -> dict:
+    """The step-up a 401 names in details, as a client reads it after a JSON round trip."""
+    assert r.status_code == 401 and r.json()["reason"] == "step_up_required", r.text
+    (d,) = [x["step_up"] for x in r.json()["details"] if "step_up" in x]
+    return json.loads(json.dumps(d))
+
+
+def grant_from(c: TestClient, auth, step: dict) -> str:
+    return grant(c, auth, step["op"], step["target"], step["body"])
+
+
+def test_the_401_names_the_step_up_so_any_client_can_finish_the_change(lvc, root):
+    setup_owner(lvc)
+    bio = AttestedAuthenticator(root)
+    add_key(lvc, bio, "bio")  # the grace is over: owner changes need a body-bound L2 step-up
+    cases = [
+        ("post", "/v1/users", {"display_name": "Bea", "role": "adult"}),
+        ("put", "/v1/apps/uptime-kuma/access", {"roles": ["guest"], "people": []}),
+    ]
+    for method, path, body in cases:
+        r = getattr(lvc, method)(path, json=body, headers=csrf(lvc))
+        step = step_up_of(r)
+        assert step["required_level"] == "L2" and step["op"] in ("users.create", "apps.access.set")
+        g = grant_from(lvc, bio, step)  # the client sends back exactly what it was given
+        r = getattr(lvc, method)(path, json=body, headers={**csrf(lvc), "OneMind-Step-Up": g})
+        assert r.status_code in (200, 201), r.text
+    # A used grant names the step-up again, so a client can retry once more and no further.
+    r = lvc.put("/v1/apps/uptime-kuma/access", json={"roles": ["guest", "child"], "people": []},
+                headers={**csrf(lvc), "OneMind-Step-Up": g})
+    assert step_up_of(r)["body"]["roles"] == ["guest", "child"]
+
+
+def test_the_step_up_digest_is_pinned():
+    from onemind_core.identity.service import IdentityService as S
+
+    # create_user binds {display_name, role, username}; a client never rebuilds it, it echoes details.
+    body = {"display_name": "Bea", "role": "adult", "username": None}
+    assert S.step_up_sha256("users.create", "", body) == "sha256:" + hashlib.sha256(
+        b'{"body":{"display_name":"Bea","role":"adult","username":null},"op":"users.create","target":""}').hexdigest()
+    assert S.step_up_sha256("users.create", "", dict(reversed(body.items()))) == S.step_up_sha256("users.create", "", body)
+    # JSON has one number type: 2.0 from Python and 2 back from a browser are the same value.
+    assert S.step_up_sha256("x", "", {"n": 2.0, "l": [1.0, 1.5]}) == S.step_up_sha256("x", "", {"n": 2, "l": [1, 1.5]})
+    assert S.step_up_sha256("x", "", {"n": 1.5}) != S.step_up_sha256("x", "", {"n": 1})
+    assert S.step_up_sha256("x", "a", {}) != S.step_up_sha256("x", "b", {})
+    assert S._step_up_details("x", "", {"n": 2.0}, 2) == [{"step_up": {"op": "x", "target": "", "body": {"n": 2},
+                                                                      "required_level": "L2"}}]
+
+
+def test_during_grace_a_step_up_in_place_replaces_signing_in_again(lvc, clock, settings):
+    setup_owner(lvc)
+    phone = SoftAuthenticator()
+    add_key(lvc, phone, "phone")
+    clock.advance(lvc.app.state.identity.cfg.step_up_s + 60)  # the sign-in proof has gone stale
+    body = {"display_name": "Cy", "role": "adult"}
+    step = step_up_of(lvc.post("/v1/users", json=body, headers=csrf(lvc)))
+    assert step["required_level"] == "L1"
+    g = grant_from(lvc, phone, step)
+    assert lvc.post("/v1/users", json=body, headers={**csrf(lvc), "OneMind-Step-Up": g}).status_code == 201
+    # Removing a key is the same: a fresh L1 proof made in place, never more.
+    clock.advance(lvc.app.state.identity.cfg.step_up_s + 60)
+    add_key(lvc, SoftAuthenticator(), "spare", grant=grant(lvc, phone, "auth.passkeys.register"))
+    clock.advance(lvc.app.state.identity.cfg.step_up_s + 60)
+    spare = keys(lvc)["spare"]["credential_id"]
+    step = step_up_of(lvc.delete(f"/v1/auth/passkeys/{spare}", headers=csrf(lvc)))
+    assert (step["op"], step["target"], step["required_level"]) == ("auth.passkeys.delete", spare, "L1")
+    g = grant_from(lvc, phone, step)
+    r = lvc.delete(f"/v1/auth/passkeys/{spare}", headers={**csrf(lvc), "OneMind-Step-Up": g})
+    assert r.status_code == 204, r.text
+
+
+def test_a_physical_approval_stays_l2_during_the_grace(lvc, clock):
+    from onemind_core.actions import FeatureAction
+    from onemind_core.executors import ExecResult
+
+    from pydantic import BaseModel
+
+    class PumpParams(BaseModel):
+        pump: str
+
+    lvc.app.state.gateway.actions.register_type("test.pump.run", FeatureAction(
+        "write", lambda a, finish: finish(ExecResult("succeeded", "ran")), frozenset({"person"}), physical=True,
+        params_model=PumpParams))
+    setup_owner(lvc)
+    phone = SoftAuthenticator()
+    add_key(lvc, phone, "phone")
+    assert lvc.get("/v1/verification-requirements").json()["grace"] is True
+    aid = file_action(lvc, clock, "test.pump.run", {"pump": "garden"}, "pump1")
+    r = lvc.post(f"/v1/actions/{aid}/approve-options", headers=csrf(lvc))
+    # tier.P is strict: the grace that eases T3 to L1 never reaches it, so the phone is told plainly.
+    assert r.status_code == 409 and r.json()["reason"] == "verification_level_unmet", r.text
+    assert lvc.get(f"/v1/actions/{aid}").json()["state"] == "awaiting_approval"
+
+
+def test_a_step_up_without_a_session_is_refused_not_a_crash(lvc, root):
+    """An API token has no session for a grant to be bound to: a plain 403, never a 500."""
+    setup_owner(lvc)
+    add_key(lvc, AttestedAuthenticator(root), "bio")
+    tok = lvc.post("/v1/tokens", json={"name": "cli"}, headers=csrf(lvc))
+    assert tok.status_code == 201, tok.text
+    bearer = {"Authorization": f"Bearer {tok.json()['one_time']['token']}"}
+    api = new_session_client(lvc)
+    r = api.post("/v1/auth/step-up/options", json={"op": "users.create", "body": {}}, headers=bearer)
+    assert r.status_code == 403, r.text
+    r = api.post("/v1/auth/step-up", json={"credential": {"id": "x", "rawId": "x", "type": "public-key",
+                                                          "response": {}}}, headers=bearer)
+    assert r.status_code == 403, r.text
+    # The change itself still names the step-up; the CLI turns that into "use the dashboard or phone".
+    r = api.post("/v1/users", json={"display_name": "Di", "role": "adult"}, headers=bearer)
+    assert r.status_code in (401, 403), r.text

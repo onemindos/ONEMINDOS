@@ -63,7 +63,9 @@ func explainGateway(err error) error {
 		return err
 	}
 	if e.Reason == "step_up_required" {
-		return fmt.Errorf("%w\nThis step needs a passkey sign-in, which the CLI cannot do. Do it in the dashboard, or approve the request there", err)
+		// D-028: owner changes need a passkey confirmation bound to the exact change (a proven key once the
+		// household holds one). Only a browser or the phone can make it, so signing in again here won't help.
+		return fmt.Errorf("%w\nThis step needs a passkey confirmation, which the CLI cannot make. Do it in the dashboard (it asks for your passkey in place), or approve the request there", err)
 	}
 	if e.Status == http.StatusConflict && strings.Contains(e.Message, "idempotency_key") {
 		return fmt.Errorf("%w\nThis exact request was already filed today by someone else, or with different details, so the box will not file it twice. See what is waiting with `onemind actions list`", err)
