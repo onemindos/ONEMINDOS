@@ -274,3 +274,11 @@ Founder decisions. Each entry is final until Zeus changes it. Reference these ID
 - **Machines enforce a signed stop and revoke snapshot while offline.** It can only ever add a "no".
 - **A per-box fabric root key,** owner-held and never a OneMind-held key (D-019); separate from OneMind's release root (#153, D-010). It is made at first boot, its backup goes into the D-020 emergency kit, and machines pin it when they join. It signs only key rotations and revocations; under it sits one key per purpose (jobs, policy snapshot, audit head, callout issuer), each with its own `kid`.
 - **First fix:** on a joined machine, local programs must sign in to NATS (today they do not).
+
+## D-031 · The first key ceremony runs on YubiKeys, in Step 5
+**Date:** 2026-11-25 · **Decided by:** Zeus
+> "also we are going to be doing yubi key" (founder, in a Claude session on 2026-11-25), answering whether the first ceremony uses the three USB sticks of D-010 or his three YubiKeys. Earlier the same day: "i want to include the key ceremony in step 5 to be able to test updates as well."
+- **This changes D-010 in one point:** the first ceremony creates the three root keys **inside the founder's three YubiKeys** (any two sign), not on encrypted USB key files that later move to hardware keys. The secret keys never leave the devices. The rest of D-010 stands: three keys, any two sign, kept in three places.
+- **The ceremony is part of Step 5** (the install on the daily hub), so the first real signed update can be published and tested on that box, including a refused tampered update and a rollback.
+- **The founder runs it himself.** No AI agent ever holds, sees or types a real root key or PIN. Agents prepare and rehearse the script with throwaway keys only (YubiKey path: PR #1172; signed-update test: #1188; runbook: #1178).
+- **Before the real run:** one rehearsal on a real YubiKey, because the YubiKey steps are still marked UNVERIFIED until then.
