@@ -160,18 +160,16 @@ function PermissionDetail({ sdk, by, id, role }: { sdk: OneMind; by: By; id: str
   </>;
 }
 
-export function SettingsPermissions() {
+/** Settings > Permissions > Who has access (the tab; pages/permissions/PermissionsPage.tsx holds the tabs). */
+export function WhoHasAccess() {
   const sdk = useSecuritySdk();
   const [by, select] = useState<By>('person');
-  return <>
-    <PageHeader title="Permissions" />
-    <Card title="Who has access">
-      <div role="group" aria-label="View permissions">
-        {(Object.keys(groups) as By[]).map((group) => <button type="button" key={group} aria-pressed={by === group} onClick={() => select(group)}>{groups[group]}</button>)}
-      </div>
-      <PermissionList key={by} sdk={sdk} by={by} />
-    </Card>
-  </>;
+  return <Card title="Who has access">
+    <div role="group" aria-label="View permissions">
+      {(Object.keys(groups) as By[]).map((group) => <button type="button" key={group} aria-pressed={by === group} onClick={() => select(group)}>{groups[group]}</button>)}
+    </div>
+    <PermissionList key={by} sdk={sdk} by={by} />
+  </Card>;
 }
 
 function measured<T>(request: Promise<T>) {

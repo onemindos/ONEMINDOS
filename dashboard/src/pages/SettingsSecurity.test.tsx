@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, expect, it, vi } from 'vitest';
-import { SettingsActivityMonitor, SettingsPermissions, SettingsSecurity } from './SettingsSecurity';
+import { SettingsActivityMonitor, SettingsSecurity, WhoHasAccess } from './SettingsSecurity';
 
 const state = vi.hoisted(() => ({ role: 'owner', signOut: vi.fn() }));
 vi.mock('../session', () => ({ useSignedIn: () => ({ token: 'fixture' }), useSession: () => ({ signOut: state.signOut }) }));
@@ -46,7 +46,7 @@ it('shows app roles and the people returned by the access endpoint', async () =>
     '/v1/apps': [{ id: 'notes', name: 'Notes' }],
     '/v1/apps/notes/access': { roles: ['adult'], people: [{ display_name: 'Test person' }] },
   });
-  render(<SettingsPermissions />);
+  render(<WhoHasAccess />);
   expect(await screen.findByText('Owner only')).toBeVisible();
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: 'By app' }));
