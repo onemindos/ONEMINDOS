@@ -14,6 +14,13 @@
 #   mobile-scope <tag> [/path/prefix ...]   the phone checks this OpenAPI tag (narrowed to the prefixes)
 #   group <name> issue=#<n> <reason>        a reason and the issue that owns closing it
 #   <dashboard|cli|mobile> <operationId> <group>
+#   indirect <dashboard|cli|mobile> <operationId> <reason>
+#       a person CAN do this on that surface, but the scanner sees only the path (kept in a table or
+#       a variable and sent by a helper), not the HTTP method. A path-only literal never counts by
+#       itself (it would stand for every method on the path, so a new DELETE next to a known GET
+#       would pass unseen); it counts for the operation only with this line. The reason says where the
+#       method is sent. The line fails when a method-aware caller appears (delete it) or when no file
+#       on that surface names the path any more (the caller is gone: list the gap under a group).
 #
 # Run `python3 -I sdk/tools/surface-parity --report` for the whole matrix.
 
@@ -283,11 +290,12 @@ dashboard push.registrations.delete found-owner-screens
 dashboard sources.get found-owner-screens
 dashboard system.services.logs found-owner-screens
 dashboard system.services.restart found-owner-screens
-cli agents.budget.set found-owner-screens
-cli agents.cancel found-owner-screens
-cli agents.nats_key.delete found-owner-screens
-cli agents.nats_key.set found-owner-screens
-cli agents.resume found-owner-screens
+group found-owner-commands issue=#1244 Found by the ratchet (not in the 2026-11-26 report): owner controls for agents with an API and a phone or dashboard path but no `onemind` command.
+cli agents.budget.set found-owner-commands
+cli agents.cancel found-owner-commands
+cli agents.nats_key.delete found-owner-commands
+cli agents.nats_key.set found-owner-commands
+cli agents.resume found-owner-commands
 
 # ---- not a person's screen or command, by design -----------------------------------------------------
 group door issue=#1232 A door for machines, not a person's screen: the MCP endpoint, the protocol and surface registries, Prometheus metrics, the built-in and database listings for operators, loopback forward-auth, token refresh and the web-push key. Confirm per row when a screen is wanted.
@@ -377,7 +385,7 @@ cli me.dashboard_card.save cli-visual-layout
 cli me.home.save cli-visual-layout
 
 # ---- the phone's 1.0 scope: what the phone leaves to the dashboard (FOUNDER TO CONFIRM) --------------
-group mobile-files-browse-only issue=#1232 Mobile 1.0 scope (founder to confirm): the phone browses, downloads and uploads files and handles Send to; file requests, sharing, trash, quotas, app passwords, the office editor and resumable-upload follow-ups (sent to the Location the upload returns) are dashboard-only.
+group mobile-files-browse-only issue=#1232 Mobile 1.0 scope (founder to confirm): the phone browses, downloads and uploads files and handles Send to; file requests, sharing, trash, quotas, app passwords, the office editor, and polling or cancelling an unfinished upload are dashboard-only.
 mobile files.app_passwords.create mobile-files-browse-only
 mobile files.app_passwords.list mobile-files-browse-only
 mobile files.app_passwords.revoke mobile-files-browse-only
@@ -403,15 +411,75 @@ mobile files.stat mobile-files-browse-only
 mobile files.trash.empty mobile-files-browse-only
 mobile files.trash.list mobile-files-browse-only
 mobile files.uploads.delete mobile-files-browse-only
-mobile files.uploads.patch mobile-files-browse-only
 mobile files.uploads.status mobile-files-browse-only
 mobile files.wopi.check_file_info mobile-files-browse-only
 mobile files.wopi.get_file mobile-files-browse-only
 mobile files.wopi.lock mobile-files-browse-only
 mobile files.wopi.put_file mobile-files-browse-only
 mobile files.wopi.tokens.create mobile-files-browse-only
-group mobile-photos-backup-only issue=#1232 Mobile 1.0 scope (founder to confirm): the phone backs photos up; the library view is on the dashboard. Upload chunks go to the Location the upload returns, so photos.append has no path literal.
-mobile photos.append mobile-photos-backup-only
+group mobile-photos-backup-only issue=#1232 Mobile 1.0 scope (founder to confirm): the phone backs photos up; the library view is on the dashboard.
 mobile photos.asset_content mobile-photos-backup-only
 mobile photos.library mobile-photos-backup-only
 mobile photos.receipts mobile-photos-backup-only
+
+# ---- scanner blind spot, not a gap ---------------------------------------------------------------------
+# A resumable upload (tus) answers its create with a Location header, and every later chunk (PATCH) and
+# status read (GET) goes to that returned URL, held in a variable. There is no path literal for the
+# scanner to read, so these calls the surface already makes cannot be seen. Not a gap to build: the
+# owner issue is the ratchet's own tracking issue, and a line goes only if the scanner learns to follow
+# the Location (then the test reports it as stale).
+group scanner-blind-upload-location issue=#1232 Scanner blind spot, NOT a missing screen: the surface already sends this to the Location URL its upload create returned (dashboard/src/files/api.ts upload and completedUpload, mobile/src/api/client.ts filesUploadChunk, mobile/src/photos/protocol.ts), which holds no path literal.
+dashboard files.uploads.patch scanner-blind-upload-location
+dashboard files.uploads.status scanner-blind-upload-location
+mobile files.uploads.patch scanner-blind-upload-location
+mobile photos.append scanner-blind-upload-location
+
+# ---- a real gap the path-only reading hid (review of PR #1251) ---------------------------------------
+group files-upload-cancel issue=#1232 Cancelling an unfinished upload (DELETE /v1/files/uploads/{id}) is sent by no dashboard code; the Files window only compares the upload Location, which used to read as a caller.
+dashboard files.uploads.delete files-upload-cancel
+
+# ---- indirect: the surface sends the method, through a helper the scanner cannot read -----------------
+# Each line was checked by reading the named file (2026-11-26, review of PR #1251).
+# dashboard/src/files/api.ts keeps the paths in the table P and sends them through get(), post() and fetchImpl.
+indirect dashboard files.roots.list FilesApi.roots sends GET through get(P.roots)
+indirect dashboard files.list FilesApi.list sends GET through get(P.list)
+indirect dashboard files.preview FilesApi.preview sends GET through get(P.preview)
+indirect dashboard files.download FilesApi.fetchBlob sends GET (fetch default) to P.download
+indirect dashboard files.ops FilesApi.mkdir, trash and restore send POST through post(P.ops)
+indirect dashboard files.trash.list FilesApi.trashList sends GET through get(P.trash)
+indirect dashboard files.trash.empty FilesApi.requestTrashEmpty sends POST through post(P.trashEmpty)
+indirect dashboard files.grants.request FilesApi.requestGrant sends POST through post(P.grants)
+indirect dashboard files.grants.revoke FilesApi.revoke sends DELETE to P.grant through fetchImpl
+indirect dashboard files.requests.list FilesApi.requests sends GET through get(P.requests)
+indirect dashboard files.requests.approve FilesApi.approve sends POST through post(P.approve)
+indirect dashboard files.requests.deny FilesApi.deny sends POST through post(P.deny)
+indirect dashboard files.requests.cancel FilesApi.cancel sends POST through post(P.cancel)
+indirect dashboard files.uploads.create FilesApi.upload sends the tus create POST to P.uploads
+# dashboard/src/pages/Migrate.tsx keeps the paths in ROUTE and sends them through get() and post().
+indirect dashboard migrate.list Migrate.tsx polls GET through get(sdk, ROUTE.plans)
+indirect dashboard migrate.plan Migrate.tsx files the plan with POST through post(..., ROUTE.plans)
+indirect dashboard migrate.get Migrate.tsx polls GET through get(sdk, fill(ROUTE.plan))
+indirect dashboard migrate.helper Migrate.tsx reads GET through get(sdk, fill(ROUTE.helper))
+indirect dashboard migrate.import Migrate.tsx sends POST through post(..., fill(ROUTE[step])) for step import
+indirect dashboard migrate.copy Migrate.tsx sends POST through post(..., fill(ROUTE[step])) for step copy
+indirect dashboard migrate.cutover Migrate.tsx sends POST through post(..., fill(ROUTE[step])) for step cutover
+indirect dashboard migrate.revert Migrate.tsx sends POST through post(..., fill(ROUTE[step])) for step revert
+# dashboard/src/pages/backups/shared.ts: useFiling().file(path, ...) sends POST, read(sdk, path) sends GET.
+indirect dashboard backups.destinations.add backups/Destinations.tsx sends POST through useFiling file('/v1/backups/destinations')
+indirect dashboard restores.request backups/Restore.tsx sends POST through useFiling file('/v1/restores')
+indirect dashboard care.checkup Care.tsx sends GET through read(sdk, endpoint) from backups/shared.ts
+# A path held in a constant or variable and passed to sdk.call, fetch or a link.
+indirect dashboard machines.console MachineConsole.tsx sends POST through sdk.call with the filled route
+indirect dashboard machines.upload Machines.tsx sends POST through sdk.call with the filled route
+indirect dashboard me.dashboard_card.get SubjectCardPanel.tsx sends GET through client.call with CARD_PATH
+indirect dashboard me.dashboard_card.save SubjectCardPanel.tsx sends PUT through client.call with CARD_PATH
+indirect dashboard photos.library Photos.tsx sends GET through client.call with the built path
+indirect dashboard photos.asset_content Photos.tsx fetches GET (fetch default) with the bearer token
+indirect dashboard tls.ca TrustThisBox.tsx links CA_URL with a download anchor (GET)
+indirect dashboard tls.profile TrustThisBox.tsx links PROFILE_URL with a download anchor (GET)
+indirect mobile files.download FilesScreen.tsx downloads (GET) the url filesDownloadRequest returns
+# cmd/onemind/cli: the path is a constant or an argument of a helper that takes the method.
+indirect cli agents.kill_switch.set agents.go sends PUT through call(http.MethodPut, body) with const path
+indirect cli backups.runs.request backup.go `backup run` sends POST through backupRequest, gwDoKeyed(http.MethodPost)
+indirect cli backups.verify backup.go `backup verify` sends POST through backupRequest, gwDoKeyed(http.MethodPost)
+indirect cli restores.request backup.go `restore` sends POST through backupRequest, gwDoKeyed(http.MethodPost)

@@ -53,6 +53,17 @@ class RepoIsAccountedFor(unittest.TestCase):
         ex, _ = sp.load_exemptions()
         self.assertEqual(sorted(ex.mobile_scope), ["actions", "auth", "files", "photos", "push"])
 
+    def test_every_indirect_line_still_has_its_path_only_literal(self):
+        # The whole-repo check covers this too; this names the rule: an indirect line stands only for a
+        # path the surface still names, never for an operation with no literal at all.
+        ops = sp.load_operations()
+        result = sp.scan(ROOT, ops)
+        ex, _ = sp.load_exemptions()
+        self.assertGreater(len(ex.indirect), 0)
+        for surface, op_id in ex.indirect:
+            self.assertTrue(result.path_only(surface, op_id), f"{surface} {op_id}")
+            self.assertFalse(result.has(surface, op_id), f"{surface} {op_id}")
+
 
 SPEC = {
     "openapi": "3.1.0",
@@ -180,11 +191,86 @@ class Recognition(unittest.TestCase):
         self.assertFalse(result.has("dashboard", "domains.list"))
         self.assertFalse(result.has("cli", "tokens.create"))
 
-    def test_a_path_without_a_readable_method_counts_for_the_whole_path(self):
+    def test_a_path_without_a_readable_method_is_not_a_caller_by_itself(self):
         _, result = self.run_repo({"dashboard/src/a.ts": "export const PATHS = { tokens: '/v1/tokens' };\n"})
-        self.assertTrue(result.has("dashboard", "tokens.list"))
-        self.assertTrue(result.has("dashboard", "tokens.create"))
-        self.assertEqual({c.how for c in result.callers["dashboard"]["tokens.create"]}, {"path-only"})
+        self.assertFalse(result.has("dashboard", "tokens.list"))
+        self.assertFalse(result.has("dashboard", "tokens.create"))
+        self.assertEqual({c.how for c in result.path_only("dashboard", "tokens.create")}, {"path-only"})
+
+    # The rest of the dashboard and CLI, with /v1/tokens itself reached only through a table (path-only).
+    TABLE_DASH = ALL_COVERED_DASH.replace("const a = () => api.req('GET', '/v1/tokens');\n", "") \
+        .replace("api.req('POST', '/v1/tokens', body)", "api.req(METHOD, P.tokens, body)") + "    const P = { tokens: '/v1/tokens' };\n"
+    INDIRECT = ("indirect dashboard tokens.list a.ts sends GET through req(METHOD, P.tokens)\n"
+                "indirect dashboard tokens.create a.ts sends POST through req(METHOD, P.tokens)\n")
+
+    def test_an_indirect_line_vouches_for_a_path_only_literal(self):
+        files = {"dashboard/src/a.ts": self.TABLE_DASH, "cmd/onemind/cli/a.go": ALL_COVERED_CLI}
+        bad, _ = self.run_repo(files)
+        self.assertEqual(sorted(b.split(" ")[0] for b in bad), ["tokens.create", "tokens.list"])
+        self.assertTrue(all("names its path but no HTTP method" in b for b in bad))
+        bad, _ = self.run_repo({**files, "exemptions.txt": self.INDIRECT})
+        self.assertEqual(bad, [])
+
+    def test_a_new_method_on_a_path_with_only_path_only_callers_fails(self):
+        # The hole the review found: DELETE /v1/tokens added next to the vouched GET and POST must fail on
+        # the dashboard and the CLI, though both name the path.
+        spec = json.loads(json.dumps(SPEC))
+        spec["paths"]["/v1/tokens"]["delete"] = {"operationId": "tokens.wipe", "tags": ["tokens"]}
+        cli = ALL_COVERED_CLI.replace("a.gwDo(http.MethodPost, \"/v1/tokens\", body)", "a.gwDo(m, tokensPath, body)") \
+            + 'const tokensPath = "/v1/tokens"\n'
+        files = {"sdk/openapi/onemind-v1.json": json.dumps(spec), "dashboard/src/a.ts": self.TABLE_DASH,
+                 "cmd/onemind/cli/a.go": cli,
+                 "exemptions.txt": self.INDIRECT + "indirect cli tokens.create a.go sends POST through gwDo(m, tokensPath)\n"}
+        bad, _ = self.run_repo(files)
+        self.assertEqual(len(bad), 2, bad)
+        self.assertIn("tokens.wipe (DELETE /v1/tokens) has no dashboard caller", bad[0])
+        self.assertIn("tokens.wipe (DELETE /v1/tokens) has no cli caller", bad[1])
+
+    def test_an_indirect_line_goes_stale(self):
+        files = {"dashboard/src/a.ts": self.TABLE_DASH, "cmd/onemind/cli/a.go": ALL_COVERED_CLI,
+                 "exemptions.txt": self.INDIRECT}
+        # A method-aware caller appears: the line must go.
+        files["dashboard/src/b.ts"] = "api.req('GET', '/v1/tokens');\n"
+        bad, _ = self.run_repo(files)
+        self.assertEqual(bad, ["exemptions.txt:1: indirect dashboard tokens.list is stale, dashboard/src/b.ts now calls "
+                               "it with its HTTP method: delete the line"])
+        # The path-only literal disappears: the line must go (and the gap shows).
+        del files["dashboard/src/b.ts"]
+        files["dashboard/src/a.ts"] = self.TABLE_DASH.replace("const P = { tokens: '/v1/tokens' };", "")
+        bad, _ = self.run_repo(files)
+        self.assertIn("exemptions.txt:1: indirect dashboard tokens.list is stale, no dashboard file names /v1/tokens "
+                      "any more: delete the line, or list the gap under a group", bad)
+        self.assertIn("exemptions.txt:2: indirect dashboard tokens.create is stale, no dashboard file names /v1/tokens "
+                      "any more: delete the line, or list the gap under a group", bad)
+
+    def test_bad_indirect_lines_fail(self):
+        ex = textwrap.dedent("""\
+            group gap issue=#1 a gap with a long enough reason here
+            indirect dashboard tokens.list too short
+            indirect tablet tokens.list a reason that is long enough
+            indirect dashboard domains.list a reason that is long enough
+            dashboard domains.list gap
+            indirect dashboard gone.op a reason that is long enough
+            indirect dashboard tokens.builtin a reason that is long enough
+            indirect dashboard tokens.builtin a reason that is long enough
+            """)
+        bad, _ = self.run_repo({"dashboard/src/a.ts": ALL_COVERED_DASH.replace("sdk.domains.list()", "0"),
+                                "cmd/onemind/cli/a.go": ALL_COVERED_CLI, "exemptions.txt": ex})
+        text = "\n".join(bad)
+        self.assertEqual(text.count("an indirect line is"), 2)
+        self.assertIn("dashboard domains.list is both indirect and exempt", text)
+        self.assertIn("indirect gone.op is not in the spec any more", text)
+        self.assertIn("indirect dashboard tokens.builtin is listed twice", text)
+        self.assertIn("indirect dashboard tokens.builtin is stale", text)
+
+    def test_a_compared_path_is_not_a_caller(self):
+        # dashboard/src/files/api.ts: `location !== `/v1/files/uploads/${row.id}`` checks an address, it sends nothing.
+        dash = ("if (location !== `/v1/tokens/${id}`) throw x;\n"
+                "if (`/v1/tokens/${id}` === where) ok();\n"
+                'if (p == "/v1/tokens/" + id) ok();\n')
+        _, result = self.run_repo({"dashboard/src/a.ts": dash, "cmd/onemind/cli/a.go": 'package cli\nfunc x() { if p != "/v1/tokens/"+id {} }\n'})
+        self.assertNotIn("tokens.revoke", result.callers.get("dashboard", {}))
+        self.assertNotIn("tokens.revoke", result.callers.get("cli", {}))
 
     def test_go_paths_built_by_concatenation_and_sprintf(self):
         cli = 'package cli\nfunc x() {\n  a.gwDo(http.MethodDelete, fmt.Sprintf("/v1/tokens/%s", id), nil)\n  c.Do(bg(), http.MethodGet, "/v1/apps/"+url.PathEscape(id)+"/logs", nil, &v)\n}\n'
@@ -200,8 +286,10 @@ class Recognition(unittest.TestCase):
         self.assertEqual([c.how for c in result.callers["cli"]["actions.list"]], ["sdk:Actions.List"])
 
     def test_a_hub_url_prefix_is_not_part_of_the_path(self):
-        _, result = self.run_repo({"mobile/src/a.ts": "const u = `${this.base}/v1/tokens/builtin?x=1`;\nfetch(u);\n"})
+        _, result = self.run_repo({"mobile/src/a.ts": "this.tus('GET', `${this.base}/v1/tokens/builtin?x=1`, {});\n",
+                                   "mobile/src/b.ts": "const u = `${this.base}/v1/tokens/builtin?x=1`;\nfetch(u);\n"})
         self.assertTrue(result.has("mobile", "tokens.builtin"))
+        self.assertEqual({c.file for c in result.path_only("mobile", "tokens.builtin")}, {"mobile/src/b.ts"})
 
     def test_an_exemption_covers_a_gap_and_goes_stale_when_the_caller_lands(self):
         ex = "group gap issue=#1 a gap with a long enough reason here\ndashboard domains.list gap\n"

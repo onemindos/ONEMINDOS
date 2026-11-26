@@ -31,10 +31,14 @@ How a caller is found (by operation, not by path alone):
     operation to search for, so the operationId is the name this tool reports.)
   - a direct call: a path literal in a surface file (`req('POST', '/v1/tokens')`,
     `c.Do(ctx, http.MethodGet, "/v1/x/"+id, ...)`, `fmt.Sprintf("/v1/apps/%s", id)`), with the HTTP
-    method read from the enclosing call. A path whose method cannot be read (a path kept in a table
-    and sent elsewhere) counts for every operation on that path, so it can hide a missing method but
-    never invents a gap; `--report` lists those as `path-only`.
-  Comments, tests, mocks and fixtures are not callers.
+    method read from the enclosing call.
+  - a path-only literal: a path whose method cannot be read (a path kept in a table and sent
+    elsewhere). It is NOT a caller by itself, because it would stand for every method on that path
+    (a new DELETE next to a known GET would pass unseen). It counts only for the operations named in
+    an `indirect <surface> <operationId> <reason>` line of exemptions.txt, and that line goes stale
+    when a method-aware caller appears or the path-only literal disappears.
+  Comments, tests, mocks and fixtures are not callers, and neither is a path literal that is only
+  compared (`location !== `/v1/files/uploads/${id}``).
 
 Run with: python3 -I sdk/tools/surface-parity [--report] [--print-exemptions]
 Exit codes: 0 clean, 1 a rule failed, 2 an input cannot be read.
@@ -459,7 +463,21 @@ class Scan:
         self.callers.setdefault(surface, {}).setdefault(op.op_id, []).append(caller)
 
     def has(self, surface: str, op_id: str) -> bool:
-        return bool(self.callers.get(surface, {}).get(op_id))
+        """A method-aware caller: an SDK method or a call whose HTTP method was read."""
+        return any(c.how != "path-only" for c in self.callers.get(surface, {}).get(op_id, ()))
+
+    def path_only(self, surface: str, op_id: str) -> list[Caller]:
+        """Literals of the operation's path whose HTTP method could not be read."""
+        return [c for c in self.callers.get(surface, {}).get(op_id, ()) if c.how == "path-only"]
+
+
+COMPARE_AFTER = re.compile(r"\s*[!=]==?")
+COMPARE_BEFORE = re.compile(r"[!=]==?\s*$")
+
+
+def is_comparison(text: str, start: int, end: int) -> bool:
+    """The literal text[start:end] is an operand of ==, ===, != or !==: compared, not sent."""
+    return bool(COMPARE_BEFORE.search(text[max(0, start - 8):start]) or COMPARE_AFTER.match(text, end))
 
 
 def literal_calls(text: str, go: bool, matcher: Matcher):
@@ -468,7 +486,9 @@ def literal_calls(text: str, go: bool, matcher: Matcher):
     # A literal that starts with the path, or a template that starts with the hub URL: `${base}/v1/...`.
     for m in re.finditer(rf"""(?:(['"`])|`\$\{{[\w.]+\}})/(?:{roots})(?=[/'"`?$%]|\$\{{)""", text):
         i = m.start()
-        raw, _ = read_concat(text, i, go)
+        raw, end = read_concat(text, i, go)
+        if is_comparison(text, i, end):
+            continue
         segs = normalise(raw)
         if segs is None:
             continue
@@ -664,6 +684,8 @@ class Exemptions:
     entries: dict[tuple[str, str], str]  # (surface, op_id) -> group
     lines: dict[tuple[str, str], int]
     mobile_scope: MobileScope = field(default_factory=dict)
+    indirect: dict[tuple[str, str], str] = field(default_factory=dict)  # (surface, op_id) -> reason
+    indirect_lines: dict[tuple[str, str], int] = field(default_factory=dict)
 
 
 def load_exemptions(path: Path = EXEMPTIONS) -> tuple[Exemptions, list[str]]:
@@ -675,6 +697,8 @@ def load_exemptions(path: Path = EXEMPTIONS) -> tuple[Exemptions, list[str]]:
     entries: dict[tuple[str, str], str] = {}
     lines: dict[tuple[str, str], int] = {}
     scope: dict[str, list[str]] = {}
+    indirect: dict[tuple[str, str], str] = {}
+    indirect_lines: dict[tuple[str, str], int] = {}
     errors: list[str] = []
     for no, line in enumerate(text.splitlines(), 1):
         s = line.strip()
@@ -686,6 +710,17 @@ def load_exemptions(path: Path = EXEMPTIONS) -> tuple[Exemptions, list[str]]:
                 errors.append(f"exemptions.txt:{no}: a scope line is `mobile-scope <tag> [/path/prefix ...]`")
                 continue
             scope.setdefault(parts[1], []).extend(parts[2:])
+            continue
+        if parts[0] == "indirect":
+            if len(parts) < 7 or parts[1] not in SURFACES:
+                errors.append(f"exemptions.txt:{no}: an indirect line is `indirect <{'|'.join(SURFACES)}> "
+                              "<operationId> <reason, at least four words: where the method is sent>`")
+                continue
+            key = (parts[1], parts[2])
+            if key in indirect:
+                errors.append(f"exemptions.txt:{no}: indirect {parts[1]} {parts[2]} is listed twice")
+            indirect[key] = " ".join(parts[3:])
+            indirect_lines[key] = no
             continue
         if parts[0] == "group":
             m = re.match(r"group\s+([a-z0-9][a-z0-9-]*)\s+issue=#(\d+)\s+(\S.*)$", s)
@@ -707,7 +742,18 @@ def load_exemptions(path: Path = EXEMPTIONS) -> tuple[Exemptions, list[str]]:
     for key, g in entries.items():
         if g not in groups:
             errors.append(f"exemptions.txt:{lines[key]}: group {g} is not declared")
-    return Exemptions(groups, entries, lines, {t: tuple(p) for t, p in scope.items()}), errors
+    for key, no in indirect_lines.items():
+        if key in entries:
+            errors.append(f"exemptions.txt:{no}: {key[0]} {key[1]} is both indirect and exempt (line {lines[key]}): keep one")
+    return Exemptions(groups, entries, lines, {t: tuple(p) for t, p in scope.items()},
+                      indirect, indirect_lines), errors
+
+
+def covered(result: Scan, ex: Exemptions, surface: str, op_id: str) -> bool:
+    """A method-aware caller, or a path-only literal the operation's `indirect` line vouches for."""
+    if result.has(surface, op_id):
+        return True
+    return (surface, op_id) in ex.indirect and bool(result.path_only(surface, op_id))
 
 
 def problems(ops: list[Operation], result: Scan, ex: Exemptions) -> list[str]:
@@ -724,11 +770,16 @@ def problems(ops: list[Operation], result: Scan, ex: Exemptions) -> list[str]:
     for op in sorted(ops, key=lambda o: o.op_id):
         for surface in required_surfaces(op, ex.mobile_scope):
             listed = (surface, op.op_id) in ex.entries
-            if not result.has(surface, op.op_id) and not listed:
+            if not covered(result, ex, surface, op.op_id) and not listed:
                 what = {"dashboard": "a dashboard screen calling it through @onemind/sdk",
                         "cli": "an `onemind` command (Cobra, --json)",
                         "mobile": "a phone screen (it is in the mobile 1.0 scope)"}[surface]
-                out.append(f"{op.op_id} ({op.key}) has no {surface} caller: add {what}, or list "
+                hint = ""
+                if result.path_only(surface, op.op_id):
+                    files = sorted({c.file for c in result.path_only(surface, op.op_id)})
+                    hint = (f" ({files[0]} names its path but no HTTP method: call it with the method, or, when "
+                            f"that file really sends {op.method}, vouch with `indirect {surface} {op.op_id} <reason>`)")
+                out.append(f"{op.op_id} ({op.key}) has no {surface} caller{hint}: add {what}, or list "
                            f"`{surface} {op.op_id} <group>` in sdk/tools/surface-parity/exemptions.txt with an owner issue")
     for (surface, op_id), group in sorted(ex.entries.items()):
         no = ex.lines[(surface, op_id)]
@@ -740,6 +791,19 @@ def problems(ops: list[Operation], result: Scan, ex: Exemptions) -> list[str]:
         elif result.has(surface, op_id):
             files = sorted({c.file for c in result.callers[surface][op_id]})
             out.append(f"exemptions.txt:{no}: {surface} {op_id} is stale, {files[0]} now calls it: delete the line")
+    for (surface, op_id), no in sorted(ex.indirect_lines.items()):
+        op = by_id.get(op_id)
+        if op is None:
+            out.append(f"exemptions.txt:{no}: indirect {op_id} is not in the spec any more: delete the line")
+        elif surface not in required_surfaces(op, ex.mobile_scope):
+            out.append(f"exemptions.txt:{no}: indirect {surface} {op_id} is not required on {surface}: delete the line")
+        elif result.has(surface, op_id):
+            files = sorted({c.file for c in result.callers[surface][op_id] if c.how != "path-only"})
+            out.append(f"exemptions.txt:{no}: indirect {surface} {op_id} is stale, {files[0]} now calls it with "
+                       "its HTTP method: delete the line")
+        elif not result.path_only(surface, op_id):
+            out.append(f"exemptions.txt:{no}: indirect {surface} {op_id} is stale, no {surface} file names "
+                       f"{op.path} any more: delete the line, or list the gap under a group")
     used = set(ex.entries.values())
     for name in sorted(set(ex.groups) - used):
         out.append(f"exemptions.txt: group {name} has no entries left: delete it")
@@ -751,13 +815,15 @@ def report(ops: list[Operation], result: Scan, ex: Exemptions) -> str:
     for op in sorted(ops, key=lambda o: o.op_id):
         cells = []
         for surface in SURFACES:
-            callers = result.callers.get(surface, {}).get(op.op_id, [])
             need = surface in required_surfaces(op, ex.mobile_scope)
-            if callers:
-                hows = sorted({c.how for c in callers})
-                cells.append("path-only" if hows == ["path-only"] else "Y")
+            if result.has(surface, op.op_id):
+                cells.append("Y")
+            elif covered(result, ex, surface, op.op_id):
+                cells.append("indirect")
             elif (surface, op.op_id) in ex.entries:
                 cells.append(f"x:{ex.entries[(surface, op.op_id)]}")
+            elif result.path_only(surface, op.op_id):
+                cells.append("MISSING(path-only)" if need else "path-only")
             else:
                 cells.append("MISSING" if need else "-")
         rows.append(f"{op.op_id:48} {op.key:70} " + "  ".join(f"{c:24}" for c in cells))
@@ -784,8 +850,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.print_exemptions:
         for op in sorted(ops, key=lambda o: o.op_id):
             for surface in required_surfaces(op, ex.mobile_scope):
-                if not result.has(surface, op.op_id):
-                    print(f"{surface} {op.op_id} {ex.entries.get((surface, op.op_id), 'TODO')}")
+                if not covered(result, ex, surface, op.op_id):
+                    tag = " (path-only)" if result.path_only(surface, op.op_id) else ""
+                    print(f"{surface} {op.op_id} {ex.entries.get((surface, op.op_id), 'TODO')}{tag}")
         return 0
     bad = errs + problems(ops, result, ex)
     for line in bad:
@@ -793,7 +860,8 @@ def main(argv: list[str] | None = None) -> int:
     if bad:
         print(f"surface-parity: {len(bad)} problem(s)", file=sys.stderr)
         return 1
-    print(f"surface-parity: {len(ops)} operations, {len(ex.entries)} exemptions, all accounted for")
+    print(f"surface-parity: {len(ops)} operations, {len(ex.entries)} exemptions, "
+          f"{len(ex.indirect)} indirect, all accounted for")
     return 0
 
 
