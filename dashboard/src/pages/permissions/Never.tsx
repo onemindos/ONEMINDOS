@@ -3,11 +3,14 @@
 // one kind of request (or a whole risk tier) approved without you, whatever a rule or mode says.
 // GET/POST /v1/approval-denies, DELETE /v1/approval-denies/{id}.
 // Adding one only tightens: the owner, or the person who owns that agent, with no passkey.
-// Removing one loosens: the owner only, and the gateway asks for a fresh passkey.
+// Removing one loosens: the owner only, and the gateway asks for a fresh passkey. A passkey sign-in in
+// the last few minutes counts as fresh, so the page always asks first (as Modes does): a mis-tap never
+// removes a rule silently. Anyone but the owner is not offered Remove (the gateway refuses it anyway).
 import { useState, type FormEvent } from 'react';
-import { Button, Card } from '@onemind/ui';
+import { Button, Card, Dialog } from '@onemind/ui';
 import type { components } from '@onemind/sdk';
 import { usePoll } from '../../lib/hooks';
+import { useShell } from '../../shell/Shell';
 import { agentKey, explain, read, usePermSdk, useStepUp } from '../../lib/permissions';
 import { Load } from '../parts';
 
@@ -24,10 +27,12 @@ export const TIERS: Record<string, string> = {
 };
 const PATH = '/v1/approval-denies';
 const short = (name: string) => name.replace(/^(agent|person|plugin|automation):/, '');
+const whatOf = (d: Deny) => d.action_type ?? TIERS[d.tier ?? ''] ?? d.tier ?? '';
 
 export function Never() {
   const sdk = usePermSdk();
   const stepUp = useStepUp();
+  const isOwner = useShell().role === 'owner';
   const data = usePoll(async () => {
     const [denies, agents, actions] = await Promise.all([
       read(sdk.call<Deny[]>({ method: 'GET', path: PATH })),
@@ -42,25 +47,43 @@ export function Never() {
   const [tier, setTier] = useState('T3');
   const [reason, setReason] = useState('');
   const [note, setNote] = useState<{ tone: 'ok' | 'bad'; text: string }>();
+  const [removing, setRemoving] = useState<{ deny: Deny; busy?: boolean; error?: string }>();
 
-  const done = async (job: () => Promise<unknown>, ok: string) => {
+  const done = async (job: () => Promise<unknown>, ok: string): Promise<boolean> => {
+    let worked = false;
     try {
       await job();
       setNote({ tone: 'ok', text: ok });
+      worked = true;
     } catch (e) {
       setNote({ tone: 'bad', text: explain(e) });
     }
     await data.reload();
+    return worked;
   };
-  const add = (e: FormEvent) => {
+  const add = async (e: FormEvent) => {
     e.preventDefault();
     const body = { principal: who.trim(), ...(by === 'type' ? { action_type: type.trim() } : { tier }), ...(reason.trim() ? { reason: reason.trim() } : {}) };
-    void done(() => read(sdk.call<Deny>({ method: 'POST', path: PATH, body })), `Added. ${short(body.principal)} can no longer have that approved without you.`);
+    if (await done(() => read(sdk.call<Deny>({ method: 'POST', path: PATH, body })), `Added. ${short(body.principal)} can no longer have that approved without you.`)) {
+      setWho(''); // a second press must not send the same rule again
+      setType('');
+      setReason('');
+    }
   };
-  const remove = (d: Deny) => done(
-    () => stepUp((c) => c.call<void>({ method: 'DELETE', path: `${PATH}/${encodeURIComponent(d.id)}` }), sdk),
-    `Removed the rule for ${short(d.principal)}.`,
-  );
+  const remove = async () => {
+    if (!removing) return;
+    const d = removing.deny;
+    setRemoving({ deny: d, busy: true });
+    try {
+      await stepUp((c) => c.call<void>({ method: 'DELETE', path: `${PATH}/${encodeURIComponent(d.id)}` }), sdk);
+    } catch (e) {
+      setRemoving({ deny: d, error: explain(e) });
+      return;
+    }
+    setRemoving(undefined);
+    setNote({ tone: 'ok', text: `Removed the rule for ${short(d.principal)}.` });
+    await data.reload();
+  };
 
   return (
     <Load res={data} what="Loading never rules">
@@ -71,11 +94,11 @@ export function Never() {
             {denies.length === 0 ? <p className="om-hint">No never rules yet.</p> : (
               <ul className="dash-list" aria-label="Never rules">
                 {denies.map((d) => {
-                  const what = d.action_type ?? TIERS[d.tier ?? ''] ?? d.tier ?? '';
+                  const what = whatOf(d);
                   return (
                     <li key={d.id} className="dash-actions">
                       <span><strong>{short(d.principal)}</strong> may never: {what}{d.reason ? <span className="om-hint"> · {d.reason}</span> : null}</span>
-                      <Button size="sm" variant="secondary" aria-label={`Remove: ${short(d.principal)} may never ${what}`} onClick={() => void remove(d)}>Remove</Button>
+                      {isOwner && <Button size="sm" variant="secondary" aria-label={`Remove: ${short(d.principal)} may never ${what}`} onClick={() => setRemoving({ deny: d })}>Remove</Button>}
                     </li>
                   );
                 })}
@@ -83,7 +106,7 @@ export function Never() {
             )}
           </Card>
           <Card title="Add a never rule" subtitle="Adding one only makes things safer, so it needs no passkey.">
-            <form onSubmit={add} className="dash-stack">
+            <form onSubmit={(e) => void add(e)} className="dash-stack">
               <label>Who
                 <input list="never-who" required value={who} placeholder="agent:notes-helper" onChange={(e) => setWho(e.target.value)} />
               </label>
@@ -109,6 +132,21 @@ export function Never() {
               <div><Button type="submit" variant="primary">Add never rule</Button></div>
             </form>
           </Card>
+          {removing && (
+            <Dialog
+              open
+              role="alertdialog"
+              title={`Allow ${short(removing.deny.principal)} to have ${whatOf(removing.deny)} approved again?`}
+              description="Rules and modes can then answer these requests for you. Your passkey confirms it."
+              onClose={() => (removing.busy ? undefined : setRemoving(undefined))}
+              actions={<>
+                <Button onClick={() => setRemoving(undefined)} disabled={removing.busy}>Cancel</Button>
+                <Button variant="primary" busy={removing.busy} onClick={() => void remove()}>Remove with passkey</Button>
+              </>}
+            >
+              {removing.error && <p className="om-note om-tone-bad" role="alert">{removing.error}</p>}
+            </Dialog>
+          )}
         </>
       )}
     </Load>
