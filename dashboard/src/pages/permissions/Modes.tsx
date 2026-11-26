@@ -6,11 +6,17 @@
 // passkey; loosening is the owner's, with a fresh passkey, and never before the owner has one (F-8).
 // The owner's own requests run directly and have no mode. Every new agent and person starts on
 // Always ask (F-7).
+//
+// The page still offers only what the gateway would allow (check_change): the household default and
+// every loosening are the owner's, so anyone else sees the default as text and only tighter modes in
+// each row. The role comes from the shell (GET /v1/me); until it is known the page offers the
+// non-owner view (fail closed), and the gateway decides either way.
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { Button, Card, Dialog, StatusPill } from '@onemind/ui';
 import type { components as api } from '@onemind/sdk';
 import { usePoll } from '../../lib/hooks';
+import { useShell } from '../../shell/Shell';
 import { MODE_TEXT, MODES, agentKey, explain, modeLabel, read, usePermSdk, useStepUp, type Mode } from '../../lib/permissions';
 import { Load } from '../parts';
 
@@ -32,6 +38,7 @@ async function optional<T>(job: Promise<T>): Promise<T | null> {
 
 export function Modes() {
   const sdk = usePermSdk();
+  const isOwner = useShell().role === 'owner';
   const stepUp = useStepUp();
   const data = usePoll(async () => {
     const [modes, agents, people] = await Promise.all([
@@ -86,11 +93,16 @@ export function Modes() {
                 No owner passkey yet, so every requester is treated as Always ask and nothing can be loosened. <Link to="/settings/account">Add a passkey</Link>
               </p>
             )}
-            <Card title="How requests are handled" subtitle="Moving toward Locked needs no passkey. Loosening is for the owner and asks for your passkey. The owner’s own requests run directly.">
+            <Card
+              title="How requests are handled"
+              subtitle={isOwner
+                ? 'Moving toward Locked needs no passkey. Loosening is for the owner and asks for your passkey. The owner’s own requests run directly.'
+                : 'You can move a requester you look after toward Locked. Only the owner can loosen a mode or change the household default.'}
+            >
               <ul className="dash-list" aria-label="Permission modes">
-                {household && <ModeRow row={{ key: '*', name: 'Household default', kind: 'Everyone without their own mode' }} current={household.mode} onPick={(to) => setChange({ row: { key: '*', name: 'The household default', kind: '' }, to, reason: '' })} />}
+                {household && <ModeRow row={{ key: '*', name: 'Household default', kind: 'Everyone without their own mode' }} current={household.mode} readOnly={!isOwner} onPick={(to) => setChange({ row: { key: '*', name: 'The household default', kind: '' }, to, reason: '' })} />}
                 {rows.map((r) => (
-                  <ModeRow key={r.key} row={r} current={r.mode?.mode ?? fallback} followsDefault={!r.owner && !r.mode?.own} onPick={(to) => setChange({ row: r, to, reason: '' })} />
+                  <ModeRow key={r.key} row={r} current={r.mode?.mode ?? fallback} tighterOnly={!isOwner} followsDefault={!r.owner && !r.mode?.own} onPick={(to) => setChange({ row: r, to, reason: '' })} />
                 ))}
               </ul>
               {rows.length === 0 && <p className="om-hint">No agents or people have a mode of their own yet. They all follow the household default.</p>}
@@ -125,8 +137,14 @@ function currentOf(row: Row, household?: PermissionMode): string {
   return row.key === '*' ? household?.mode ?? 'ask' : row.mode?.mode ?? household?.mode ?? 'ask';
 }
 
-function ModeRow({ row, current, followsDefault, onPick }: { row: Row; current: string; followsDefault?: boolean; onPick: (to: Mode) => void }) {
+/** The modes a row's select offers: all of them to the owner, the current one and tighter to anyone else. */
+function offeredModes(current: string, tighterOnly: boolean): Mode[] {
+  return tighterOnly ? MODES.filter((m) => !loosens(current, m)) : [...MODES];
+}
+
+function ModeRow({ row, current, followsDefault, readOnly, tighterOnly = false, onPick }: { row: Row; current: string; followsDefault?: boolean; readOnly?: boolean; tighterOnly?: boolean; onPick: (to: Mode) => void }) {
   const id = `mode-${row.key.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+  const offered = offeredModes(current, tighterOnly);
   return (
     <li className="dash-actions">
       <span>
@@ -134,12 +152,16 @@ function ModeRow({ row, current, followsDefault, onPick }: { row: Row; current: 
       </span>
       {row.owner ? (
         <StatusPill tone="info" label="Owner: runs directly" />
+      ) : readOnly ? (
+        <span>
+          <strong>{modeLabel(current)}</strong> <span className="om-hint">Only the owner changes this.</span>
+        </span>
       ) : (
         <>
           <label htmlFor={id} className="om-visually-hidden">Mode for {row.name}</label>
           <select id={id} value={current} onChange={(e) => onPick(e.target.value as Mode)}>
-            {MODES.map((m) => <option key={m} value={m}>{MODE_TEXT[m]!.label}</option>)}
-            {!MODES.includes(current as Mode) && <option value={current} disabled>{modeLabel(current)}</option>}
+            {offered.map((m) => <option key={m} value={m}>{MODE_TEXT[m]!.label}</option>)}
+            {!offered.includes(current as Mode) && <option value={current} disabled>{modeLabel(current)}</option>}
           </select>
         </>
       )}

@@ -4,6 +4,7 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -279,5 +280,97 @@ func TestPermissionsLogListsOnlyRuleApprovalsNewestFirst(t *testing.T) {
 	}
 	if r := run(t, "", false, "permissions", "log", "--days", "0"); r.code != ExitUsage {
 		t.Fatalf("bad --days %+v", r)
+	}
+}
+
+func TestSeqCursorIsAlwaysPlainDigits(t *testing.T) {
+	for in, want := range map[any]string{float64(1): "1", float64(1000000): "1000000", float64(1234567): "1234567",
+		float64(98765432101): "98765432101", json.Number("2000000"): "2000000", 7: "7", int64(3000000): "3000000",
+		float64(1.5): "", float64(-1): "", nil: "", "12": "", json.Number("1e6"): ""} {
+		if got := seqCursor(in); got != want {
+			t.Errorf("seqCursor(%#v) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// A long-running box: more than 500 policy events, with seq past a million. Page 2 must ask for
+// after_seq=<digits>, never 1.0005e+06 (the gateway answers 422 to that).
+func TestPermissionsRulesShowPagesPastAMillion(t *testing.T) {
+	isolate(t)
+	var afters []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/approval-policies":
+			jsonOut(w, 200, []map[string]any{{"id": "pol_1", "revision": 1, "state": "active", "created_at": "2026-11-01T00:00:00Z",
+				"limits": map[string]any{}, "allow": map[string]any{"requested_by": []string{"agent:hermes"}, "types": []string{"backup.run"}}}})
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/audit/events":
+			after := r.URL.Query().Get("after_seq")
+			afters = append(afters, after)
+			if after == "" {
+				page := make([]map[string]any, 500)
+				for i := range page {
+					page[i] = map[string]any{"seq": 1000001 + i, "ts": "2026-11-02T00:00:00Z", "event": "approval.policy.revised",
+						"data": map[string]any{"policy_id": "pol_other", "revision": 1}}
+				}
+				page[0]["data"] = map[string]any{"policy_id": "pol_1", "revision": 1}
+				jsonOut(w, 200, page)
+				return
+			}
+			if after != fmt.Sprint(1000500) {
+				jsonOut(w, 422, map[string]string{"error": "conflict", "message": "after_seq must be an integer"})
+				return
+			}
+			jsonOut(w, 200, []map[string]any{{"seq": 1000501, "ts": "2026-11-03T00:00:00Z", "event": "approval.policy.revoked",
+				"data": map[string]any{"policy_id": "pol_1", "revision": 1}}})
+		default:
+			jsonOut(w, 404, map[string]string{"error": "not_found", "message": r.URL.Path})
+		}
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("ONEMIND_HUB", srv.URL)
+	t.Setenv("ONEMIND_TOKEN", ownerTok)
+	r := run(t, "", false, "permissions", "rules", "show", "pol_1", "--json")
+	var out map[string]any
+	if r.code != 0 || json.Unmarshal([]byte(r.out), &out) != nil {
+		t.Fatalf("show --json %+v (after_seq sent: %v)", r, afters)
+	}
+	if h := out["history"].([]any); len(h) != 2 || len(afters) != 2 || afters[1] != "1000500" {
+		t.Fatalf("history %d lines, after_seq sent %v", len(h), afters)
+	}
+}
+
+// `permissions log` pages with the same helper: more than 500 approvals and seq past a million.
+func TestPermissionsLogPagesPastAMillion(t *testing.T) {
+	isolate(t)
+	var afters []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/audit/events" {
+			jsonOut(w, 404, map[string]string{"error": "not_found", "message": r.URL.Path})
+			return
+		}
+		after := r.URL.Query().Get("after_seq")
+		afters = append(afters, after)
+		switch after {
+		case "":
+			page := make([]map[string]any, 500)
+			for i := range page {
+				page[i] = map[string]any{"seq": 1999501 + i, "ts": "2026-11-20T00:00:00Z", "action_id": fmt.Sprint("a", i),
+					"data": map[string]any{"type": "backup.run", "requested_by": "agent:hermes", "approved_via": "policy", "policy_id": "pol_1", "policy_revision": 1}}
+			}
+			jsonOut(w, 200, page)
+		case "2000000":
+			jsonOut(w, 200, []map[string]any{{"seq": 2000001, "ts": "2026-11-21T00:00:00Z", "action_id": "last",
+				"data": map[string]any{"type": "notes.read", "requested_by": "agent:reader", "approved_via": "policy", "policy_id": "pol_2", "policy_revision": 1}}})
+		default:
+			jsonOut(w, 422, map[string]string{"error": "conflict", "message": "after_seq must be an integer"})
+		}
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("ONEMIND_HUB", srv.URL)
+	t.Setenv("ONEMIND_TOKEN", ownerTok)
+	r := run(t, "", false, "permissions", "log", "--json")
+	var out []map[string]any
+	if r.code != 0 || json.Unmarshal([]byte(r.out), &out) != nil || len(out) != 501 || out[0]["action_id"] != "last" {
+		t.Fatalf("log --json %d lines, after_seq sent %v: %+v", len(out), afters, r.errOut)
 	}
 }
