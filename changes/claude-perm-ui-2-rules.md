@@ -1,0 +1,5 @@
+---
+pr: pending
+branch: claude/perm-ui-2-rules
+---
+Settings, Permissions has a Rules tab: every standing approval in force, forever rules first with a Forever badge, each with who may do what, its end date or no end date, the end-early-if-unused-for-14-days setting, its daily and total limits, how often it was used, how you are told about uses, and why it does nothing right now (suspended, paused, or its requester is on Locked or Always ask). Revoke is one tap with no passkey, Revoke all ends every rule, and each rule has a page (/settings/permissions/rules/<id>, where approval.auto notices link) with its revision, its history from the audit log, a form to lower limits or end it sooner (widening asks for the passkey), Re-confirm for a suspended rule and Keep for a forever rule due for its 90-day review. The gateway now documents the rule fields (ApprovalPolicy) on every rule route so the screen uses the generated SDK type, and the CLI gains onemind permissions rules show (with history) and rules revoke-all.

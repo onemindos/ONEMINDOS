@@ -191,3 +191,57 @@ func TestPermissionsModeGetSet(t *testing.T) {
 		t.Fatalf("default %+v", r)
 	}
 }
+
+func TestPermissionsRulesShowWithHistoryAndRevokeAll(t *testing.T) {
+	isolate(t)
+	var revokeBody map[string]any
+	var auditQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/approval-policies":
+			jsonOut(w, 200, []map[string]any{{"id": "pol_1", "revision": 2, "state": "active", "forever": false,
+				"expires_at": "2027-01-01T00:00:00Z", "created_at": "2026-11-01T00:00:00Z", "uses": 3, "uses_24h": 1,
+				"notify_after": "digest", "lapse_unused_days": 14, "limits": map[string]any{"per_day": 5, "max_uses": nil},
+				"allow": map[string]any{"requested_by": []string{"agent:hermes"}, "types": []string{"backup.run"}}}})
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/audit/events":
+			auditQuery = r.URL.RawQuery
+			jsonOut(w, 200, []map[string]any{
+				{"seq": 1, "ts": "2026-11-01T00:00:00Z", "event": "automation.policy.created", "data": map[string]any{"policy_id": "pol_1", "revision": 1}},
+				{"seq": 2, "ts": "2026-11-02T00:00:00Z", "event": "approval.policy.revised", "data": map[string]any{"policy_id": "pol_9", "revision": 4}},
+				{"seq": 3, "ts": "2026-11-03T00:00:00Z", "event": "approval.policy.revised", "data": map[string]any{"policy_id": "pol_1", "revision": 2}},
+			})
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/approval-policies/revoke-all":
+			_ = json.NewDecoder(r.Body).Decode(&revokeBody)
+			jsonOut(w, 200, map[string]any{"revoked": []string{"pol_1"}})
+		default:
+			jsonOut(w, 404, map[string]string{"error": "not_found", "message": r.URL.Path})
+		}
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("ONEMIND_HUB", srv.URL)
+	t.Setenv("ONEMIND_TOKEN", ownerTok)
+	r := run(t, "", false, "permissions", "rules", "show", "pol_1")
+	if r.code != 0 || !strings.Contains(r.out, "per day 5, max uses -, uses 3 (1 in 24 h)") ||
+		!strings.Contains(r.out, "automation.policy.created rev 1") || !strings.Contains(r.out, "approval.policy.revised rev 2") ||
+		strings.Contains(r.out, "rev 4") {
+		t.Fatalf("show %+v", r)
+	}
+	if !strings.Contains(auditQuery, "since=2026-10-31T23%3A59%3A59Z") || !strings.Contains(auditQuery, "approval.policy.%2A") {
+		t.Fatalf("audit query %q", auditQuery)
+	}
+	r = run(t, "", false, "permissions", "rules", "show", "pol_1", "--json")
+	var out map[string]any
+	if r.code != 0 || json.Unmarshal([]byte(r.out), &out) != nil || len(out["history"].([]any)) != 2 {
+		t.Fatalf("show --json %+v", r)
+	}
+	if r := run(t, "", false, "permissions", "rules", "show", "pol_x"); r.code != ExitNotFound {
+		t.Fatalf("missing rule %+v", r)
+	}
+	r = run(t, "", false, "permissions", "rules", "revoke-all", "--principal", "agent:hermes")
+	if r.code != 0 || !strings.Contains(r.out, "Revoked 1 rule(s). pol_1") || revokeBody["principal"] != "agent:hermes" {
+		t.Fatalf("revoke-all %+v %v", r, revokeBody)
+	}
+	if r := run(t, "", false, "permissions", "rules", "revoke-all"); r.code != 0 || revokeBody["principal"] != nil {
+		t.Fatalf("revoke-all every rule %+v %v", r, revokeBody)
+	}
+}

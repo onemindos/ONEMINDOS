@@ -13,7 +13,7 @@ from ..auth import Principal
 from ..automation import AutomationService
 from ..automation.cron import parse_ranges
 from ..automation.engine import DryRunBody, PauseBody, RuleBody, RulePatch
-from ..automation.policies import PolicyBody, PolicyPatch
+from ..automation.policies import ApprovalPolicy, PolicyBody, PolicyPatch
 from ..context import Gateway
 from ..errors import ApiError, error_responses
 from ..identity import ctx_of
@@ -28,6 +28,13 @@ class RevokeAllBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     principal: str | None = Field(default=None, max_length=100,
                                   description="revoke every rule naming this principal; null (owner only) revokes every rule")
+
+
+class RevokeAllResult(BaseModel):
+    revoked: list[str] = Field(description="the ids of the rules revoked")
+
+
+ONE = {200: {"model": ApprovalPolicy}}  # response documentation: the Rules screen reads these fields
 
 
 class WindowBody(BaseModel):
@@ -170,7 +177,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return svc.set_paused(p, False, (body or PauseBody()).reason)
 
     # ---- standing approvals --------------------------------------------------------------------
-    @app.get("/v1/approval-policies", operation_id="approvals.policies.list", tags=tags, responses=error_responses(401, 403))
+    @app.get("/v1/approval-policies", operation_id="approvals.policies.list", tags=tags,
+             responses={200: {"model": list[ApprovalPolicy]}, **error_responses(401, 403)})
     def list_policies(p: Principal = Depends(principal)):
         # Gateway permissions design gap 3: the rules are the owner's. An agent that can read them can shape its
         # requests to fit one, so every other principal is refused (and the refusal is audited).
@@ -180,13 +188,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
         policies.lapse_due(gw.clock())
         return [policies.to_json(x) for x in svc.repo.list_policies(with_paused=True)]
 
-    @app.post("/v1/approval-policies", operation_id="approvals.policies.create", tags=tags, status_code=201, responses=error_responses(401, 403, 404, 422))
+    @app.post("/v1/approval-policies", operation_id="approvals.policies.create", tags=tags, status_code=201,
+              responses={201: {"model": ApprovalPolicy}, **error_responses(401, 403, 404, 422)})
     def create_policy(body: PolicyBody, request: Request, p: Principal = Depends(principal)):
         via = step_up(request, p, "create standing approval")
         return JSONResponse(status_code=201, content=policies.create(p, body, approval=via))
 
     @app.post("/v1/approval-policies/{policy_id}/confirm", operation_id="approvals.policies.confirm", tags=tags,
-              responses=error_responses(401, 403, 404), openapi_extra={"security": [{"bearer": ["*"]}]})
+              responses={**ONE, **error_responses(401, 403, 404)}, openapi_extra={"security": [{"bearer": ["*"]}]})
     def confirm_policy(policy_id: str, request: Request, p: Principal = Depends(principal)):
         step_up(request, p, "confirm standing approval")
         return policies.confirm(p, policy_id)
@@ -196,7 +205,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return ctx.user.id if ctx is not None and ctx.user is not None else None
 
     @app.patch("/v1/approval-policies/{policy_id}", operation_id="approvals.policies.update", tags=tags,
-               responses=error_responses(401, 403, 404, 409, 422), openapi_extra={"security": [{"bearer": ["*"]}]})
+               responses={**ONE, **error_responses(401, 403, 404, 409, 422)}, openapi_extra={"security": [{"bearer": ["*"]}]})
     def update_policy(policy_id: str, body: PolicyPatch, request: Request, p: Principal = Depends(principal)):
         # Narrowing applies at once: the owner editing it is the approval. Widening needs a fresh passkey
         # (L1 today; D-028 sets L2 as the target for rules, design PR 11).
@@ -207,7 +216,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return policies.revise(p, policy_id, body, via)
 
     @app.post("/v1/approval-policies/{policy_id}/revoke", operation_id="approvals.policies.revoke", tags=tags,
-              responses=error_responses(401, 403, 404), openapi_extra={"security": [{"bearer": ["tokens:self"]}]})
+              responses={**ONE, **error_responses(401, 403, 404)}, openapi_extra={"security": [{"bearer": ["tokens:self"]}]})
     def revoke_policy(policy_id: str, request: Request, p: Principal = Depends(principal)):
         # One tap, no step-up (L0): ending a rule only narrows (design §3.6.2 item 3).
         if not (p.kind == "person" and p.role in ("owner", "adult")):  # people who can own an agent
@@ -215,20 +224,20 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return policies.revoke(p, policy_id, owned_agents(caller_user(request)))
 
     @app.post("/v1/approval-policies/revoke-all", operation_id="approvals.policies.revoke_all", tags=tags,
-              responses=error_responses(401, 403, 422), openapi_extra={"security": [{"bearer": ["tokens:self"]}]})
+              responses={200: {"model": RevokeAllResult}, **error_responses(401, 403, 422)}, openapi_extra={"security": [{"bearer": ["tokens:self"]}]})
     def revoke_all(body: RevokeAllBody, request: Request, p: Principal = Depends(principal)):
         if not (p.kind == "person" and p.role in ("owner", "adult")):
             policies._owner_only(p, "revoke standing approvals")
         return {"revoked": policies.revoke_all(p, body.principal, owned_agents(caller_user(request)))}
 
     @app.post("/v1/approval-policies/{policy_id}/reconfirm", operation_id="approvals.policies.reconfirm", tags=tags,
-              responses=error_responses(401, 403, 404, 409, 422), openapi_extra={"security": [{"bearer": ["*"]}]})
+              responses={**ONE, **error_responses(401, 403, 404, 409, 422)}, openapi_extra={"security": [{"bearer": ["*"]}]})
     def reconfirm_policy(policy_id: str, request: Request, p: Principal = Depends(principal)):
         via = step_up(request, p, "re-confirm a suspended standing approval")  # one tap at L1
         return policies.reconfirm(p, policy_id, via)
 
     @app.post("/v1/approval-policies/{policy_id}/keep", operation_id="approvals.policies.keep", tags=tags,
-              responses=error_responses(401, 403, 404), openapi_extra={"security": [{"bearer": ["*"]}]})
+              responses={**ONE, **error_responses(401, 403, 404)}, openapi_extra={"security": [{"bearer": ["*"]}]})
     def keep_policy(policy_id: str, p: Principal = Depends(principal)):
         return policies.keep(p, policy_id)
 
