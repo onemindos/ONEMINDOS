@@ -13,6 +13,7 @@ ssh <owner>@onemind.local 'sh -s' < scripts/hw-check.sh | tee hw-check.txt
 ```
 - It ends `N checks: ... passed, ... need a look (WARN), ... failed, ... could not be checked (SKIP)`. Exit code 1 means at least one FAIL.
 - **SKIP** means the script could not look: a tool is not on this image yet, or it needs root. Re-run with passwordless sudo for the root-only reads (SMART, btrfs, snapper): `ssh <owner>@onemind.local 'HW_CHECK_SUDO=1 sh -s' < scripts/hw-check.sh`. It uses `sudo -n` and never asks for a password.
+- **PASS** needs positive evidence: a line in the tool's real output that shows the good state. Empty output, an error or a sudo password prompt gives SKIP or WARN with the first line of what the tool said, never PASS.
 - Serial numbers, MAC and IP addresses, e-mail addresses, home paths and network names are masked before anything prints. Still read `hw-check.txt` once by eye before filing it.
 - If the image has no `sh -s` over SSH for your user, run it on the Dell's own console instead: `sh scripts/hw-check.sh`.
 

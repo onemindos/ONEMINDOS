@@ -9,6 +9,8 @@
 #   HW_CHECK_ROOT=dir read /sys, /proc and /dev from a copy of the tree (the unit tests use this)
 # Output: one line per check (PASS, WARN, FAIL or SKIP), then a plain-language summary. Exit 1 only if a check FAILed.
 # SKIP means "could not look" (a tool is missing on this image or needs root), which is a finding, not a fault.
+# A check PASSes only on positive evidence: a line in the tool's real output format that shows the good state.
+# Empty output, an error message or a sudo password prompt is never a PASS; it gives SKIP or WARN with the first line.
 set -u
 R=${HW_CHECK_ROOT:-}
 pass=0; warn=0; fail=0; skip=0
@@ -52,6 +54,7 @@ report() {
     radio=$(ro nmcli radio wifi | first_line)
     if [ -z "$wl" ]; then row WARN "Wi-Fi" "NetworkManager lists no Wi-Fi adapter (a wired-only setup is fine; if the Dell has Wi-Fi, its driver or firmware is missing)"
     elif [ "$radio" = disabled ]; then row WARN "Wi-Fi" "adapter found, radio is switched off"
+    elif [ "$radio" != enabled ]; then row WARN "Wi-Fi" "adapter found, radio state unknown: ${radio:-no answer}"
     else row PASS "Wi-Fi" "adapter found, state: $wl"; fi
   else row SKIP "Wi-Fi" "nmcli (NetworkManager) is not installed"; fi
 
@@ -64,29 +67,33 @@ report() {
   else row SKIP "Firmware devices" "fwupdmgr (fwupd) is not installed"; fi
 
   # 3. Sensors: temperature chips the kernel exposes in sysfs.
-  chips=0; hot=0; names=""
+  chips=0; hot=0; names=""; reads=0
   for h in "$R"/sys/class/hwmon/hwmon*; do
     [ -d "$h" ] || continue
     chips=$((chips+1)); nm=$(cat "$h/name" 2>/dev/null || echo chip); names="$names $nm"
     for t in "$h"/temp*_input; do
       [ -f "$t" ] || continue
-      v=$(cat "$t" 2>/dev/null || echo 0); v=$((v/1000)); [ "$v" -gt "$hot" ] && hot=$v
+      v=$(cat "$t" 2>/dev/null); case "$v" in ''|-|*[!0-9-]*|*?-*) continue;; esac  # a number in millidegrees, or skip it
+      reads=$((reads+1)); v=$((v/1000)); [ "$v" -gt "$hot" ] && hot=$v
     done
   done
   if [ "$chips" -eq 0 ]; then row WARN "Sensors" "no hardware monitor chips found"
+  elif [ "$reads" -eq 0 ]; then row WARN "Sensors" "$chips chip(s) (${names# }) but no temperature reading"
   elif [ "$hot" -ge 90 ]; then row WARN "Sensors" "$chips chip(s) (${names# }); hottest reading ${hot} C is high"
   else row PASS "Sensors" "$chips chip(s) (${names# }); hottest reading ${hot} C"; fi
 
   # 4. A USB stick that is seen but not mounted (OneMind must not auto-mount strangers' drives).
   if have lsblk; then
-    usb=$(ro lsblk -P -o NAME,TRAN,TYPE,MOUNTPOINTS | grep 'TRAN="usb"' | grep -c 'TYPE="disk"')
-    mounted=$(ro lsblk -P -o NAME,TRAN,TYPE,MOUNTPOINTS | grep 'TRAN="usb"' | grep -c 'MOUNTPOINTS="/')
+    # one listing for both counts, and only lines in lsblk's own NAME="..." format count (an error line never does)
+    blk=$(ro lsblk -P -o NAME,TRAN,TYPE,MOUNTPOINTS | grep '^NAME="' | grep 'TRAN="usb"')
+    usb=$(printf '%s\n' "$blk" | grep -c 'TYPE="disk"')
+    mounted=$(printf '%s\n' "$blk" | grep -c 'MOUNTPOINTS="/')
     # a partition of a USB disk has an empty TRAN on some kernels, so also look at partitions of removable disks
     for d in "$R"/sys/block/*; do
       [ -d "$d" ] || continue
       [ "$(cat "$d/removable" 2>/dev/null || echo 0)" = 1 ] || continue
       case "${d##*/}" in loop*|ram*|sr*) continue;; esac
-      m=$(ro lsblk -n -o MOUNTPOINTS "/dev/${d##*/}" | grep -c '/')
+      m=$(ro lsblk -n -o MOUNTPOINTS "/dev/${d##*/}" | grep -c '^/')
       [ "$m" -gt "$mounted" ] && mounted=$m
     done
     if [ "$usb" -eq 0 ]; then row WARN "USB stick" "none seen: plug one in and run this again to test it"
@@ -109,7 +116,7 @@ report() {
     if [ "$sinks" -gt 0 ]; then row PASS "Sound" "$sinks PipeWire output device(s)"
     else row WARN "Sound" "PipeWire answers but lists no output device (or no audio session for this user)"; fi
   elif have pactl; then
-    sinks=$(ro pactl list short sinks | grep -c '[[:alnum:]]')
+    sinks=$(ro pactl list short sinks | grep -cE '^[0-9]+[[:space:]]')  # real lines start with the sink index
     if [ "$sinks" -gt 0 ]; then row PASS "Sound" "$sinks output device(s)"; else row WARN "Sound" "no output device"; fi
   elif [ -r "$R/proc/asound/cards" ] && grep -q '[[:alnum:]]' "$R/proc/asound/cards"; then
     row WARN "Sound" "the kernel sees a sound card but no PipeWire or Pulse tool is installed"
@@ -169,8 +176,9 @@ report() {
       any=1
       out=$(rro smartctl -H "/dev/$n")
       if printf '%s\n' "$out" | grep -qE 'overall-health.*: *(PASSED|OK)|SMART Health Status: *OK'; then row PASS "Disk health $n" "SMART says healthy"
-      elif printf '%s\n' "$out" | grep -qi 'FAILED'; then row FAIL "Disk health $n" "SMART reports the disk is failing: back up and replace it"
-      elif printf '%s\n' "$out" | grep -qiE 'permission|denied|root|sudo'; then row SKIP "Disk health $n" "needs root: run again with HW_CHECK_SUDO=1 (passwordless sudo)"
+      # FAIL only on the verdict line itself: an error such as 'open device: /dev/sda failed: Permission denied' is not a verdict
+      elif printf '%s\n' "$out" | grep -qE 'overall-health.*: *FAILED|SMART Health Status: .*(FAIL|IMPENDING)'; then row FAIL "Disk health $n" "SMART reports the disk is failing: back up and replace it"
+      elif printf '%s\n' "$out" | grep -qiE 'permission|denied|not permitted|password|root|sudo'; then row SKIP "Disk health $n" "needs root: run again with HW_CHECK_SUDO=1 (passwordless sudo): $(printf '%s\n' "$out" | first_line)"
       else row WARN "Disk health $n" "no SMART verdict ($(printf '%s\n' "$out" | first_line))"; fi
     done
     [ "$any" = 1 ] || row WARN "Disk health" "no internal disk listed"
@@ -185,7 +193,7 @@ report() {
         enc="not encrypted"; case "$src" in /dev/mapper/*) enc="encrypted (LUKS2)";; esac
         row PASS "/data filesystem" "btrfs, $enc"
         if have snapper; then
-          cfg=$(ro snapper --no-dbus list-configs | grep -c '^storage')
+          cfg=$(ro snapper --no-dbus list-configs | grep -c '^storage[[:space:]]')
           if [ "$cfg" -gt 0 ]; then
             tl=$(unit_state snapper-timeline.timer)
             row PASS "Snapshots (snapper)" "config 'storage' exists; timeline timer: ${tl:-unknown}"
@@ -193,11 +201,16 @@ report() {
         else row SKIP "Snapshots (snapper)" "snapper is not installed"; fi
         if have btrfs; then
           st=$(rro btrfs device stats /data)
-          if printf '%s\n' "$st" | grep -qiE 'must be run as root|permission|denied'; then row SKIP "btrfs error counters" "needs root: HW_CHECK_SUDO=1"
           # Real lines look like '[/dev/mapper/onemind-data].write_io_errs    3': a '.' sits between ']' and the name.
-          elif printf '%s\n' "$st" | grep -E '\]\.[a-z_]+_errs[[:space:]]+[1-9]' >/dev/null; then row FAIL "btrfs error counters" "the filesystem recorded read, write or corruption errors"
-          elif [ -n "$st" ]; then row PASS "btrfs error counters" "all zero"
-          else row WARN "btrfs error counters" "no answer"; fi
+          # PASS needs positive evidence: at least one such line, every non-empty line in that format, none non-zero.
+          ctr='^\[[^]]+\]\.[a-z_]+_errs[[:space:]]+[0-9]+[[:space:]]*$'
+          nctr=$(printf '%s\n' "$st" | grep -cE "$ctr")
+          nother=$(printf '%s\n' "$st" | grep '[^[:space:]]' | grep -cvE "$ctr")
+          if printf '%s\n' "$st" | grep -E '^\[[^]]+\]\.[a-z_]+_errs[[:space:]]+0*[1-9]' >/dev/null; then row FAIL "btrfs error counters" "the filesystem recorded read, write or corruption errors"
+          elif [ "$nctr" -gt 0 ] && [ "$nother" -eq 0 ]; then row PASS "btrfs error counters" "all zero ($nctr counters read)"
+          elif printf '%s\n' "$st" | grep -qiE 'must be run as root|permission|denied|not permitted|password|sudo:'; then row SKIP "btrfs error counters" "needs root: HW_CHECK_SUDO=1 with passwordless sudo ($(printf '%s\n' "$st" | first_line))"
+          elif [ -z "$(printf '%s\n' "$st" | first_line)" ]; then row WARN "btrfs error counters" "no answer"
+          else row WARN "btrfs error counters" "counters not read: $(printf '%s\n' "$st" | first_line)"; fi
         fi;;
       "") row WARN "/data filesystem" "/data is not mounted";;
       *) row WARN "/data filesystem" "$fs (expected btrfs on a new install; an older install may be ext4)";;

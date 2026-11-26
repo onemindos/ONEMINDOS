@@ -215,6 +215,15 @@ class HwCheckTest(unittest.TestCase):
         self.assertEqual(out.returncode, 1)
         self.assertRegex(out.stdout, r"FAIL\s+Disk health")
 
+    def test_smartctl_open_error_is_neither_pass_nor_fail(self):
+        # smartctl run without root: the word 'failed' in an error is not a SMART verdict
+        p = os.path.join(self.bin, "smartctl")
+        with open(p, "w") as f:
+            f.write('#!/bin/sh\necho "Smartctl open device: /dev/sda failed: Permission denied"; exit 2\n')
+        out = self.run_script()
+        self.assertEqual(out.returncode, 0, out.stdout)
+        self.assertRegex(out.stdout, r"SKIP\s+Disk health sda\s+needs root")
+
     def test_mounted_usb_stick_is_flagged(self):
         p = os.path.join(self.bin, "lsblk")
         with open(p, "w") as f:
@@ -225,6 +234,7 @@ class HwCheckTest(unittest.TestCase):
         p = os.path.join(self.bin, name)
         with open(p, "w") as f:
             f.write("#!/bin/sh\n" + body + "\n")
+        os.chmod(p, 0o755)
 
     def test_a_nonzero_btrfs_error_counter_fails(self):
         # the exact `btrfs device stats` layout: '[dev].name_errs' with a '.' after the ']'
@@ -236,7 +246,80 @@ class HwCheckTest(unittest.TestCase):
 
     def test_zero_btrfs_counters_pass(self):
         out = self.run_script(sudo=True)
-        self.assertRegex(out.stdout, r"PASS\s+btrfs error counters\s+all zero")
+        self.assertRegex(out.stdout, r"PASS\s+btrfs error counters\s+all zero \(2 counters read\)")
+
+    def btrfs_line(self, out):
+        lines = [l for l in out.splitlines() if "btrfs error counters" in l]
+        self.assertEqual(len(lines), 1, out)
+        return lines[0]
+
+    def test_sudo_password_prompt_is_never_a_pass(self):
+        # HW_CHECK_SUDO=1 without passwordless sudo: `sudo -n` prints this and exits 1 for every root-only read
+        self.write_stub("sudo", "echo 'sudo: a password is required' >&2; exit 1")
+        out = self.run_script(sudo=True).stdout
+        self.assertRegex(self.btrfs_line(out), r"^SKIP\s")
+        self.assertIn("a password is required", self.btrfs_line(out))
+        for name in ("Disk health", "Boot slot"):
+            self.assertNotRegex(out, r"PASS\s+" + re.escape(name), out)
+
+    def test_btrfs_operation_not_permitted_is_never_a_pass(self):
+        self.write_stub("btrfs", "echo 'ERROR: getting device info for /data failed: Operation not permitted' >&2; exit 1")
+        for sudo in (False, True):
+            line = self.btrfs_line(self.run_script(sudo=sudo).stdout)
+            self.assertRegex(line, r"^SKIP\s", line)
+            self.assertIn("Operation not permitted", line)
+
+    def test_btrfs_empty_output_is_never_a_pass(self):
+        self.write_stub("btrfs", "exit 0")
+        self.assertRegex(self.btrfs_line(self.run_script(sudo=True).stdout), r"^WARN\s+btrfs error counters\s+no answer")
+
+    def test_btrfs_unknown_output_or_a_partial_read_is_never_a_pass(self):
+        self.write_stub("btrfs", "echo 'ERROR: not a btrfs filesystem: /data'")
+        self.assertRegex(self.btrfs_line(self.run_script().stdout), r"^WARN\s+btrfs error counters\s+counters not read: ERROR")
+        # one device read fine, another gave an error: not every counter was read, so no PASS
+        self.write_stub("btrfs", "printf '[/dev/mapper/onemind-data].write_io_errs    0\\nERROR: cannot read /dev/sdc: No such device\\n'")
+        self.assertRegex(self.btrfs_line(self.run_script().stdout), r"^WARN\s")
+
+    def failing_tools(self, body):
+        """Replace every stub except sudo and findmnt with `body` and empty the fake /sys tree. findmnt keeps
+        reporting a btrfs /data so that the snapper and btrfs counter checks behind it are reached."""
+        for name in STUBS:
+            if name not in ("sudo", "findmnt"):
+                self.write_stub(name, body)
+        shutil.rmtree(self.root)
+        os.mkdir(self.root)
+
+    def test_no_check_passes_on_error_output(self):
+        # every tool prints an error (on stdout and stderr) and exits 1, and /sys, /proc and /dev are empty
+        self.failing_tools("echo 'ERROR: Operation not permitted'; echo 'Error: NetworkManager is not running.' >&2; exit 1")
+        for sudo in (False, True):
+            out = self.run_script(sudo=sudo).stdout
+            self.assertIn("btrfs error counters", out)
+            self.assertNotRegex(out, r"(?m)^PASS (?!.*/data filesystem)", out)
+            self.assertNotRegex(out, r"(?m)^FAIL ", out)
+
+    def test_no_check_passes_on_empty_output(self):
+        self.failing_tools("exit 0")
+        for sudo in (False, True):
+            out = self.run_script(sudo=sudo).stdout
+            self.assertIn("btrfs error counters", out)
+            self.assertNotRegex(out, r"(?m)^PASS (?!.*/data filesystem)", out)
+
+    def test_pactl_error_is_not_a_sound_device(self):
+        os.remove(os.path.join(self.bin, "wpctl"))
+        self.write_stub("pactl", "echo 'Connection failure: Connection refused' >&2; exit 1")
+        self.assertRegex(self.run_script().stdout, r"WARN\s+Sound\s+no output device")
+        self.write_stub("pactl", "printf '0\\talsa_output.pci.analog-stereo\\tPipeWire\\ts32le 2ch 48000Hz\\tSUSPENDED\\n'")
+        self.assertRegex(self.run_script().stdout, r"PASS\s+Sound\s+1 output device")
+
+    def test_wifi_radio_error_is_not_a_pass(self):
+        self.write_stub("nmcli", 'case "$*" in "-t -f DEVICE,TYPE,STATE device") echo "wlp2s0:wifi:connected";; '
+                                 '*) echo "Error: NetworkManager is not running." >&2; exit 8;; esac')
+        self.assertRegex(self.run_script().stdout, r"WARN\s+Wi-Fi\s+adapter found, radio state unknown")
+
+    def test_sensor_chip_without_a_reading_is_not_a_pass(self):
+        os.remove(os.path.join(self.root, "sys/class/hwmon/hwmon0/temp1_input"))
+        self.assertRegex(self.run_script().stdout, r"WARN\s+Sensors\s+1 chip\(s\) \(coretemp\) but no temperature reading")
 
     def test_boot_status_comes_from_the_booted_slot(self):
         # booted slot listed first and unmarked, the other slot 'good': must not report 'good'
