@@ -41,3 +41,5 @@ research-output/evidence/lab/acct-kanidm/run-1/AK-3.txt:generic-api-key:68
 dd47c170b08577f4b352d8a3c1f4792cba9326f4:research-output/evidence/lab/acct-kanidm/run-1/AK-3.txt:generic-api-key:68
 # 25d recovery contacts: a Python type annotation of the box's invite-key attribute (the class name only), not a secret; renamed in the next commit.
 848cc0656b41e739055ef2b35e6d3ddf02445a0e:core/onemind_core/recovery/crypto.py:generic-api-key:70
+# 25e recovery requests: a made-up request id in a test (a ULID shape next to the word secret), not a secret; replaced in the next commit.
+3f883605e779d71f8418196ecb4a76f28d3b83ed:core/tests/test_recovery_requests.py:generic-api-key:116

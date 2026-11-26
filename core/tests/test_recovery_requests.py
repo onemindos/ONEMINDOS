@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 
 from conftest import OWNER
 from onemind_core.app import create_app
-from onemind_core.identity.crypto import totp_code
+from onemind_core.identity.crypto import new_id, totp_code
 from onemind_core.recovery.requests import code_for, vouch_payload
 from recovery_support import ContactPhone, invite_and_accept, owner_with_passkey
 from test_identity import PASSWORD, SoftAuthenticator, audit_events, csrf, id_settings
@@ -113,7 +113,8 @@ def test_the_8_digit_code_works_offline_and_only_for_its_own_request(rc, clock):
     s = start(rc).json()
     starter = as_starter(rc, s)
     # A code computed for another request id (or another request code) is refused.
-    other = code_for(phone.secret, "rr_01ARZ3NDEKTSV4RRFFQ69G5FAV", s["request_code"])
+    another_request = new_id("rr")
+    other = code_for(phone.secret, another_request, s["request_code"])
     assert starter.post(f"/v1/auth/recovery/requests/{s['id']}/code", json={"code": other}).status_code == 422
     good = code_for(phone.secret, s["id"], s["request_code"])
     r = starter.post(f"/v1/auth/recovery/requests/{s['id']}/code", json={"code": good[:4] + " " + good[4:]})
