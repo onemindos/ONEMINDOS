@@ -187,6 +187,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
         gw.on_startup(lambda: modes.migrate(live_rule_principals, wildcard_rules))
 
+    notify = getattr(app.state, "notify", None)
+    if notify is not None and svc is not None:  # PR 13: approval.auto notices
+        notify.auto_push_failed = svc.policies.pause
+        notify.rules_in_force = lambda: [svc.policies.to_json(p) for p in svc.repo.list_policies()]
+
     gw.actions.permissions = engine
     app.state.permissions = engine
 

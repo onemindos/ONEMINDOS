@@ -662,6 +662,19 @@ class PolicyService:
                                       {"policy_id": p["id"], "principal": name, "reason": reason[:80]})
         return hit
 
+    def pause(self, policy_id: str, reason: str) -> bool:
+        """PR 13: an `each` rule whose notice could not be pushed pauses (suspended; one tap re-confirms it).
+
+        Called on the first failed push attempt, before any retry: a transient failure pauses the rule too.
+        That fails closed by design (an `each` rule must not keep approving while the owner is not told)."""
+        p = self.repo.get_policy(policy_id)
+        if p is None or p["state"] != "active" or p.get("suspended_at"):
+            return False
+        if not self.repo.set_policy(policy_id, states=("active",), suspended_at=self.clock(), suspended_reason=reason[:80]):
+            return False
+        self.audit.append("approval.policy.paused", None, None, {"policy_id": policy_id, "reason": reason[:80]})
+        return True
+
     def reconfirm(self, principal: Principal, policy_id: str, approval: str) -> dict:
         """One tap (L1): the approver accepts what changed; the rule binds to the identity live now."""
         self._owner_only(principal, "re-confirm standing approvals")
