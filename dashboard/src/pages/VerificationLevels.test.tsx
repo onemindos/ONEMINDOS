@@ -52,6 +52,8 @@ it('reads the waiting changes with who asked, and says refusals in plain words',
     { type: 'app.remove', state: 'awaiting_approval', params: { app_id: 'x' }, requested_by: me },
   ] as never, me);
   expect(w).toEqual({ 'tier.T3': [{ level: 'L1', by: 'you', mine: true }], 'tier.T2': [{ level: 'L0', by: 'gus', mine: false }] });
+  expect(waitingChanges([{ type: 'verification.requirement.set', state: 'awaiting_approval', params: { key: 'tier.T2', level: 'L0' }, requested_by: { id: 'gus', kind: 'person' } }] as never,
+    me, (id) => (id === 'gus' ? 'Gus' : undefined))['tier.T2'][0].by).toBe('Gus');
   expect(ownWaiting(w['tier.T3'])).toBe(true);
   expect(ownWaiting(w['tier.T2'])).toBe(false);
   // An agent with the same id as the owner is not the owner.
@@ -149,13 +151,14 @@ it('shows a guest\'s waiting downgrade as theirs and leaves the owner\'s own cha
     if (path === '/v1/actions' && method === 'POST') return { id: 'act_3' };
     return ({
       '/v1/verification-requirements': table,
-      '/v1/actions': [{ id: 'g', type: 'verification.requirement.set', state: 'awaiting_approval', params: { key: 'tier.T3', level: 'L1' }, requested_by: { id: 'gus', kind: 'person' } }],
+      '/v1/actions': [{ id: 'g', type: 'verification.requirement.set', state: 'awaiting_approval', params: { key: 'tier.T3', level: 'L1' }, requested_by: { id: 'usr_gus', kind: 'person' } }],
+      '/v1/users': [{ id: 'zeus', display_name: 'Zeus', role: 'owner' }, { id: 'usr_gus', display_name: 'Gus', role: 'guest' }],
       '/v1/instance': { now: new Date().toISOString() },
     } as Record<string, unknown>)[path];
   });
   mount();
   const user = userEvent.setup();
-  expect(await screen.findByText('L1 asked by gus · waits in Approvals')).toBeVisible();
+  expect(await screen.findByText('L1 asked by Gus · waits in Approvals')).toBeVisible();
   expect(screen.queryByText(/asked by you/)).toBeNull();
   const destructive = screen.getByText('Approve a destructive action').closest('tr')!;
   const select = within(destructive).getByLabelText('New level for Approve a destructive action');
