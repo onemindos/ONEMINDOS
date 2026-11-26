@@ -12,7 +12,7 @@ import { useState } from 'react';
 import type { components } from '@onemind/sdk';
 import { Button, Card } from '@onemind/ui';
 import { usePoll } from '../lib/hooks';
-import { useGateway, viaSdk } from '../lib/gateway';
+import { sessionLapsed, useGateway, viaSdk } from '../lib/gateway';
 import { useSignedIn } from '../session';
 import { keyErrorText } from './SignInKeys';
 import { Load } from './parts';
@@ -20,6 +20,7 @@ import { Load } from './parts';
 type Access = components['schemas']['AppAccess'];
 type Inputs = components['schemas']['AgentInputsView'];
 type InputKind = components['schemas']['AgentInputsBody']['external_inputs'][number];
+type UserInfo = components['schemas']['UserInfo'];
 
 /** Roles that sharing decides for. Owners and adults open every app whatever the sharing says. */
 export const SHARED_ROLES = [['teen', 'Teens'], ['child', 'Children'], ['guest', 'Guests']] as const;
@@ -27,35 +28,35 @@ const ALWAYS = new Set(['owner', 'adult']);
 const INPUTS: [InputKind, string][] = [
   ['web', 'Web pages'], ['email', 'Email'], ['files', 'Files it opens itself'], ['chat', 'Many chats on one token (a chat host)'],
 ];
-const STEP_UP_HINT = 'Adding people, or loosening an agent, asks for your proven key. Before your first proven key it asks for any passkey plus the code on the box’s own screen. Taking access away happens at once.';
+const STEP_UP_HINT = 'Adding people, moving an app to its own sign-in, or loosening an agent, asks for your proven key. Before your first proven key it asks for any passkey plus the code on the box’s own screen. Taking access away happens at once.';
 
 type Person = { id: string; name: string; role: string };
 type Note = { tone: 'ok' | 'bad'; text: string };
-/** GET /v1/users has no response schema yet: keep only the fields this screen shows. */
-function people(raw: unknown): Person[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.flatMap((u) => {
-    const r = (u && typeof u === 'object' ? u : {}) as Record<string, unknown>;
-    if (typeof r.id !== 'string' || r.disabled === true) return [];
-    const name = typeof r.display_name === 'string' && r.display_name ? r.display_name : typeof r.username === 'string' ? r.username : r.id;
-    return [{ id: r.id, name, role: typeof r.role === 'string' ? r.role : '' }];
-  });
+/** The people this screen can share with (GET /v1/users, generated UserInfo type): disabled accounts left out. */
+export function people(users: UserInfo[]): Person[] {
+  return users.filter((u) => !u.disabled).map((u) => ({ id: u.id, name: u.display_name || u.username || u.id, role: u.role }));
+}
+
+/** A save the hub refused because the sign-in lapsed signs out, as every read does (usePoll); the form then
+ *  shows no note. A 401 that names a reason (a step-up the hub wants) is the form's to explain. */
+function guarded<T>(signOut: () => void, run: () => Promise<T>): Promise<T> {
+  return run().catch((e: unknown) => { if (sessionLapsed(e)) signOut(); throw e; });
 }
 
 const toggle = (list: string[], v: string, on: boolean) => (on ? [...new Set([...list, v])] : list.filter((x) => x !== v));
 const same = (a: string[], b: string[]) => a.length === b.length && [...a].sort().join('\0') === [...b].sort().join('\0');
 
 export function AppSharingEditor({ appId, appName }: { appId: string; appName: string }) {
-  const { token } = useSignedIn();
+  const { token, signOut } = useSignedIn();
   const client = useGateway(token);
   const path = `/v1/apps/${encodeURIComponent(appId)}/access`;
   const access = usePoll(() => viaSdk(() => client.call<Access>({ method: 'GET', path })), 0);
-  const users = usePoll(() => viaSdk(() => client.call<unknown>({ method: 'GET', path: '/v1/users' })).then(people), 0);
+  const users = usePoll(() => viaSdk(() => client.call<UserInfo[]>({ method: 'GET', path: '/v1/users' })).then(people), 0);
   const [note, setNote] = useState<Note>();
   return <Card title={`Who can open ${appName}`} subtitle="Owners and adults can always open every app. Choose who else can.">
     <Load res={access} what="Loading sharing">
       {(a) => <SharingForm key={`${a.roles.join()}|${a.people.map((p) => p.id).join()}|${a.auth}`} access={a} users={users.data ?? (users.error ? null : undefined)}
-        onNote={setNote} save={(body) => viaSdk(() => client.call<Access>({ method: 'PUT', path, body })).then(() => { void access.reload(); })} />}
+        onNote={setNote} save={(body) => guarded(signOut, () => viaSdk(() => client.call<Access>({ method: 'PUT', path, body }))).then(() => { void access.reload(); })} />}
     </Load>
     {note && <p role="status" className={`om-note om-tone-${note.tone}`}>{note.text}</p>}
   </Card>;
@@ -74,7 +75,7 @@ function SharingForm({ access, users, save, onNote: setNote }: { access: Access;
     try {
       await save({ roles, people: chosen, auth });
       setNote({ tone: 'ok', text: 'Saved.' });
-    } catch (e) { setNote({ tone: 'bad', text: `Sharing was not changed: ${keyErrorText(e)}` }); } finally { setBusy(false); }
+    } catch (e) { if (!sessionLapsed(e)) setNote({ tone: 'bad', text: `Sharing was not changed: ${keyErrorText(e)}` }); } finally { setBusy(false); }
   };
   return <>
     <fieldset><legend>Everyone with this role</legend>
@@ -98,7 +99,7 @@ function SharingForm({ access, users, save, onNote: setNote }: { access: Access;
 }
 
 export function AgentInputsEditor({ agentId }: { agentId: string }) {
-  const { token } = useSignedIn();
+  const { token, signOut } = useSignedIn();
   const client = useGateway(token);
   const path = `/v1/agents/${encodeURIComponent(agentId)}/inputs`;
   const inputs = usePoll(() => viaSdk(() => client.call<Inputs>({ method: 'GET', path })), 0);
@@ -106,7 +107,7 @@ export function AgentInputsEditor({ agentId }: { agentId: string }) {
   return <Card title="What this agent reads outside OneMind" subtitle="An agent that reads web pages, email or files can be steered by what it reads. While it does, no standing approval accepts its requests: you approve each one.">
     <Load res={inputs} what="Loading what this agent reads">
       {(v) => <InputsForm key={`${v.external_inputs.join()}|${v.accept_injection_risk.join()}|${v.declared}`} view={v}
-        onNote={setNote} save={(body) => viaSdk(() => client.call<Inputs>({ method: 'PUT', path, body })).then(() => { void inputs.reload(); })} />}
+        onNote={setNote} save={(body) => guarded(signOut, () => viaSdk(() => client.call<Inputs>({ method: 'PUT', path, body }))).then(() => { void inputs.reload(); })} />}
     </Load>
     {note && <p role="status" className={`om-note om-tone-${note.tone}`}>{note.text}</p>}
   </Card>;
@@ -124,7 +125,7 @@ function InputsForm({ view, save, onNote: setNote }: { view: Inputs; onNote: (n?
     try {
       await save({ external_inputs: reads, accept_injection_risk: acceptList });
       setNote({ tone: 'ok', text: 'Saved.' });
-    } catch (e) { setNote({ tone: 'bad', text: `Nothing changed: ${keyErrorText(e)}` }); } finally { setBusy(false); }
+    } catch (e) { if (!sessionLapsed(e)) setNote({ tone: 'bad', text: `Nothing changed: ${keyErrorText(e)}` }); } finally { setBusy(false); }
   };
   return <>
     <p>{view.permanently_tainted ? 'Now: it reads outside text, so you approve each of its requests.' : 'Now: it reads nothing outside OneMind that the gateway cannot see.'}</p>

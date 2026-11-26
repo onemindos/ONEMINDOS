@@ -2,9 +2,10 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { AgentInputsEditor, AppSharingEditor } from './PermissionEditors';
+import { AgentInputsEditor, AppSharingEditor, people } from './PermissionEditors';
 
-vi.mock('../session', () => ({ useSignedIn: () => ({ token: 'fixture', mock: false, principal: { id: 'zeus', kind: 'person', role: 'owner' } }), useSession: () => ({ signOut: vi.fn() }) }));
+const session = vi.hoisted(() => ({ signOut: vi.fn() }));
+vi.mock('../session', () => ({ useSignedIn: () => ({ token: 'fixture', mock: false, principal: { id: 'zeus', kind: 'person', role: 'owner' }, signOut: session.signOut }), useSession: () => ({ signOut: session.signOut }) }));
 const webauthn = vi.hoisted(() => ({ get: vi.fn() }));
 vi.mock('../lib/webauthn', () => ({ getPasskey: webauthn.get }));
 const box = vi.hoisted(() => ({ ask: vi.fn() }));
@@ -132,4 +133,40 @@ it('loosening an agent to read nothing goes through the step-up the hub names', 
   await user.click(screen.getByRole('button', { name: 'Save' }));
   expect(await screen.findByText(/it reads nothing outside OneMind that the gateway cannot see/)).toBeVisible();
   expect(calls.find((c) => c.path === '/v1/auth/step-up/options')?.body).toEqual({ op: 'agents.inputs.set', target: 'agent:hermes', body: { external_inputs: [], accept_injection_risk: [] } });
+});
+
+it('reads the people on the box through the generated type, leaving disabled accounts out', () => {
+  const u = (id: string, display_name: string, role: string, disabled = false) => ({ id, username: null, display_name, role, disabled, enrolled: true, passkeys: 0, totp: false });
+  expect(people([u('usr_gus', 'Gus', 'guest'), u('usr_old', 'Old', 'guest', true), u('usr_x', '', 'child')])).toEqual([
+    { id: 'usr_gus', name: 'Gus', role: 'guest' }, { id: 'usr_x', name: 'usr_x', role: 'child' },
+  ]);
+});
+
+it('signs out when the sign-in lapsed while saving, and shows no note', async () => {
+  gateway(({ method, path }) => {
+    if (path === '/v1/apps/notes/access' && method === 'PUT') return Response.json({ error: 'unauthenticated', message: 'unknown token' }, { status: 401 });
+    if (path === '/v1/apps/notes/access') return access;
+    if (path === '/v1/users') return users;
+    return undefined;
+  });
+  render(<AppSharingEditor appId="notes" appName="Notes" />);
+  const user = userEvent.setup();
+  await user.click(await screen.findByLabelText('Guests'));
+  await user.click(screen.getByRole('button', { name: 'Save sharing' }));
+  await waitFor(() => expect(session.signOut).toHaveBeenCalled());
+  expect(screen.queryByText(/Sharing was not changed/)).toBeNull();
+});
+
+it('a 401 that names a step-up reason is explained, not a sign-out', async () => {
+  gateway(({ method, path }) => {
+    if (path === '/v1/agents/agent:hermes/inputs' && method === 'PUT') return Response.json({ error: 'unauthenticated', message: 'too many', reason: 'box_code_locked' }, { status: 401 });
+    if (path === '/v1/agents/agent:hermes/inputs') return { id: 'agent:hermes', external_inputs: ['web'], declared: true, exposed: true, permanently_tainted: true, accept_injection_risk: [], accept_injection_risk_effective: false };
+    return undefined;
+  });
+  render(<AgentInputsEditor agentId="agent:hermes" />);
+  const user = userEvent.setup();
+  await user.click(await screen.findByLabelText('Email'));
+  await user.click(screen.getByRole('button', { name: 'Save' }));
+  expect(await screen.findByText(/too many wrong codes from the box's screen/)).toBeVisible();
+  expect(session.signOut).not.toHaveBeenCalled();
 });
