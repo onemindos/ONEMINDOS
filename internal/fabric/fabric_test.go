@@ -19,6 +19,8 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"github.com/nats-io/nkeys"
+	"github.com/onemindos/onemindos/internal/leaf"
 	"math/big"
 	"net"
 	"net/http"
@@ -310,6 +312,29 @@ func TestJoinEndToEnd(t *testing.T) {
 		if !strings.Contains(leafConf, want) {
 			t.Errorf("leaf.conf missing %q:\n%s", want, leafConf)
 		}
+	}
+	// D-029 first fix: local programs sign in with their own keys; the seeds are 0600 files, leaf.conf
+	// holds the public keys, there is no passwordless user, and onemindd is told its seed.
+	for _, name := range []string{leaf.LocalOnemindd, leaf.LocalCLI} {
+		seedFile := LocalSeedFile(name)
+		if mode(seedFile) != 0o600 {
+			t.Fatalf("%s seed mode %o", name, mode(seedFile))
+		}
+		kp, err := nkeys.FromSeed([]byte(strings.TrimSpace(read(seedFile))))
+		if err != nil {
+			t.Fatalf("%s seed: %v", name, err)
+		}
+		pub, _ := kp.PublicKey()
+		if !strings.Contains(leafConf, `{nkey: "`+pub+`"`) || strings.Contains(leafConf, strings.TrimSpace(read(seedFile))) {
+			t.Fatalf("leaf.conf and the %s key:\n%s", name, leafConf)
+		}
+	}
+	if !strings.Contains(leafConf, "authorization {") || strings.Contains(leafConf, "no_auth_user") ||
+		!strings.Contains(leafConf, `"onemind.node.n1.status"`) {
+		t.Fatalf("leaf.conf local sign-in:\n%s", leafConf)
+	}
+	if env := read(OnemindEnv); !strings.Contains(env, "ONEMIND_NATS_NKEY_SEED="+LocalSeedFile(leaf.LocalOnemindd)+"\n") {
+		t.Fatalf("onemindd.env:\n%s", env)
 	}
 	if strings.Contains(leafConf, string(id.NkeySeed)) {
 		t.Fatal("seed inside leaf.conf")
