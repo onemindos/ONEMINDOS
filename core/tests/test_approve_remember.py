@@ -30,13 +30,20 @@ def box(settings, clock, executor):
         yield c, key
 
 
+@pytest.fixture
+def l2(box):
+    """What design PR 11 wires: the owner proved a hardware key (L2), so T1 and Forever rules may be remembered."""
+    box[0].app.state.automation.policies.proven_key = lambda: True
+    return box
+
+
 def ask(c, clock, key_):
     r = c.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key=key_), headers=AGENT)
     assert r.status_code == 201, r.text
     return r.json()
 
 
-def test_approve_and_remember_makes_the_narrowest_rule_bound_to_the_passkey(box, clock):
+def test_approve_and_remember_makes_the_narrowest_rule_bound_to_the_passkey(box, l2, clock):
     c, key = box
     a = ask(c, clock, "r0")
     assert a["state"] == "awaiting_approval"
@@ -58,7 +65,7 @@ def test_approve_and_remember_makes_the_narrowest_rule_bound_to_the_passkey(box,
     assert ask(c, clock, "r1")["state"] == "succeeded"
 
 
-def test_a_tampered_rule_body_after_the_challenge_is_refused(box, clock):
+def test_a_tampered_rule_body_after_the_challenge_is_refused(box, l2, clock):
     c, key = box
     a = ask(c, clock, "t0")
     opts = c.post(f"/v1/actions/{a['id']}/approve-options", json={"remember": {}}, headers=csrf(c)).json()
@@ -75,7 +82,7 @@ def test_a_tampered_rule_body_after_the_challenge_is_refused(box, clock):
     assert r.status_code == 409 and r.json()["reason"] == "rule_changed"
 
 
-def test_remember_needs_the_passkey_not_the_phone_key_or_a_token(box, clock):
+def test_remember_needs_the_passkey_not_the_phone_key_or_a_token(box, l2, clock):
     c, _ = box
     a = ask(c, clock, "p0")
     opts = c.post(f"/v1/actions/{a['id']}/approve-options", json={"remember": {}}, headers=csrf(c)).json()
@@ -87,7 +94,7 @@ def test_remember_needs_the_passkey_not_the_phone_key_or_a_token(box, clock):
     assert r.status_code == 401 and r.json()["reason"] == "step_up_required"
 
 
-def test_the_person_may_widen_one_field_at_a_time_and_the_summary_follows(box, clock):
+def test_the_person_may_widen_one_field_at_a_time_and_the_summary_follows(box, l2, clock):
     c, key = box
     a = ask(c, clock, "w0")
     choice = {"lifetime": "forever", "lapse_unused": False, "per_day": 3, "unpin": ["app_id"], "notify_after": "each"}
@@ -147,3 +154,25 @@ def test_remember_is_refused_while_the_agent_is_on_always_ask(box, clock):
     a = ask(c, clock, "m0")
     r = c.post(f"/v1/actions/{a['id']}/approve-options", json={"remember": {}}, headers=csrf(c))
     assert r.status_code == 409 and r.json()["reason"] == "mode_ignores_rules"
+
+
+def test_t1_and_forever_remember_need_l2_which_is_refused_until_pr_11(box, clock):
+    """Opus review on #1204 (D-028): L1 may make only a dated T0 rule. app.restart is a write (T1)."""
+    c, key = box
+    a = ask(c, clock, "l0")
+    for choice in ({}, {"lifetime": "forever"}):
+        r = c.post(f"/v1/actions/{a['id']}/approve-options", json={"remember": choice}, headers=csrf(c))
+        assert r.status_code == 409 and r.json()["reason"] == "needs_proven_key", r.text
+    # a challenge made while L2 was there does not carry the rule past its loss: checked again before the yes
+    c.app.state.automation.policies.proven_key = lambda: True
+    opts = c.post(f"/v1/actions/{a['id']}/approve-options", json={"remember": {}}, headers=csrf(c)).json()
+    c.app.state.automation.policies.proven_key = lambda: False
+    r = c.post(f"/v1/actions/{a['id']}/approve", headers=csrf(c),
+               json={"webauthn": key.assert_(opts["challenge"]), "remember": {"rule": opts["remember"]["rule"]}})
+    assert r.status_code == 409 and r.json()["reason"] == "needs_proven_key", r.text
+    assert c.get(f"/v1/actions/{a['id']}", headers=OWNER).json()["state"] == "awaiting_approval"
+    assert c.get("/v1/approval-policies", headers=OWNER).json() == []
+    # approving once still works
+    plain = c.post(f"/v1/actions/{a['id']}/approve-options", headers=csrf(c)).json()
+    r = c.post(f"/v1/actions/{a['id']}/approve", headers=csrf(c), json={"webauthn": key.assert_(plain["challenge"])})
+    assert r.status_code == 200, r.text

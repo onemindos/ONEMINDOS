@@ -1017,7 +1017,8 @@ class IdentityService:
     def _check_agent_id(self, principal_id: str, user: UserRow | None, p: Principal) -> None:
         """A personal agent id must not reuse an app's agent principal (agent:<app-id>, §11.2), a
         static-file principal, or another person's agent: its requests would be shown and audited
-        as that principal's."""
+        as that principal's. Revoked tokens count too: approval rules bound to an agent's uid
+        (AutomationPolicyService._bound_ok) rely on a uid never passing to another owner."""
         app_id = principal_id.partition(":")[2]
         taken = app_id in self.gw.catalog.load() or any(fp.id == principal_id for _, fp in self.gw.tokens.entries())
         if not taken:
@@ -1216,6 +1217,12 @@ class IdentityService:
 
         body = PolicyBody.model_validate(rule)
         svc.policies._check_loosen()
+        if rm.required_level(rule) == "L2" and not svc.policies.proven_key():
+            # D-028: L1 (today's passkey) may make only a dated T0 rule. T1 and up, and any Forever rule,
+            # need a proven key (L2), which arrives with gateway permissions PR 11: refused until then.
+            raise ApiError(409, "conflict", "remembering this needs a proven key (L2, D-028): only a dated read-only "
+                                            "rule can be remembered until gateway permissions PR 11; approve it once "
+                                            "instead", reason="needs_proven_key")
         svc.policies.validate(body)
         svc.policies._bindings(body.allow.requested_by)
 

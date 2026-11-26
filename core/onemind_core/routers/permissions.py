@@ -158,6 +158,15 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return n
 
     modes.cancel_pending = cancel_pending
+
+    def is_owner_id(pid: str) -> bool:
+        """§3.5.1: is this person an owner? Static-file tokens first, then each people source."""
+        if any(fp.kind == "person" and fp.id == pid and fp.role == "owner" for _, fp in gw.tokens.entries()):
+            return True
+        return any(source().get(pid) == "owner" for source in gw.people_sources)
+
+    modes.is_owner = lambda name: name.startswith("person:") and is_owner_id(name.partition(":")[2])
+    engine.is_owner = lambda rb: str(rb.get("kind") or "") == "person" and is_owner_id(str(rb.get("id") or ""))
     engine.mode_of = modes.effective
     engine.owner_passkey = modes.owner_passkey
     engine.modes = modes
@@ -173,7 +182,10 @@ def register(app: FastAPI, gw: Gateway) -> None:
         def live_rule_principals() -> set[str]:
             return {w for p in svc.repo.list_policies() for w in p["allow"]["requested_by"] if not w.endswith(":*")}
 
-        gw.on_startup(lambda: modes.migrate(live_rule_principals))
+        def wildcard_rules() -> list[str]:
+            return [p["id"] for p in svc.repo.list_policies() if any(w.endswith(":*") for w in p["allow"]["requested_by"])]
+
+        gw.on_startup(lambda: modes.migrate(live_rule_principals, wildcard_rules))
 
     notify = getattr(app.state, "notify", None)
     if notify is not None and svc is not None:  # PR 13: approval.auto notices

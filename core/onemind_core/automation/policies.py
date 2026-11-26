@@ -117,7 +117,8 @@ class PolicyBody(JsonBody):
     limits: Limits
     window_id: str | None = Field(default=None, max_length=40)
     expires_at: AwareDatetime | None = Field(default=None, description="required unless forever is true; at most 180 days ahead")
-    forever: bool = Field(default=False, description="no end date (read and write types only; never a floor item)")
+    forever: bool = Field(default=False, description="no end date (read and write types only; never a floor item); "
+                                                     "needs a proven key (L2, design PR 11): refused for now")
     notify_after: Literal["each", "digest", "silent"] = "digest"
     lapse_unused_days: int | None = Field(default=DEFAULT_LAPSE_DAYS, ge=1, le=90,
                                           description="end after this many days without a use; null keeps it")
@@ -267,6 +268,10 @@ class PolicyService:
         # NMD-07 (#132): the owner's update policy (cool-off, same major, back-off) may hold an
         # update back; fn(params, at) -> reason or None. It never approves anything.
         self.update_gate: Callable[[dict, datetime], str | None] = lambda _params, _at: None
+        # D-028: any Forever rule needs a proven key (L2). Gateway permissions PR 11 brings L2 and
+        # wires this to "the owner proved a hardware key for this request"; until then it is False,
+        # so a Forever rule is refused (409 needs_proven_key) the same way accept_injection_risk is.
+        self.proven_key: Callable[[], bool] = lambda: False
         # Whether the gateway files requests of a type (ActionService.can_file); a rule that names
         # a type nothing files could never fire, so it is refused when made.
         self.can_file: Callable[[str], bool] = lambda _type: True
@@ -308,7 +313,12 @@ class PolicyService:
         return out
 
     def _bound_ok(self, p: dict, who: str) -> bool:
-        """Is the live identity of `who` the one this rule was bound to? Persons and automations need no binding."""
+        """Is the live identity of `who` the one this rule was bound to? Persons and automations need no binding.
+
+        Only the uid is compared, not owner_user_id. That is safe because uids are never reused and
+        IdentityService._check_agent_id refuses an agent name another person has ever minted (revoked
+        tokens included), so one uid can never move to a different owner. If that check is ever relaxed,
+        compare owner_user_id here too."""
         if not bound_kind(who):
             return True
         want = (p.get("principals") or {}).get(who)
@@ -448,9 +458,16 @@ class PolicyService:
             self.audit.append("authz.denied", principal.as_dict(), None, {"attempted": what, "reason": "permission_denied"})
             raise ApiError(403, "permission_denied", f"{principal.kind}/{principal.role} may not {what}")
 
+    def _require_proven(self, what: str) -> None:
+        """D-028: some settings need L2 (a proven hardware key). Refused until design PR 11 lands."""
+        if not self.proven_key():
+            raise ApiError(409, "conflict", f"{what} needs a proven key (L2, D-028), which arrives with gateway "
+                                            "permissions PR 11; it is refused until then", reason="needs_proven_key")
+
     def confirm(self, principal: Principal, policy_id: str) -> dict:
         """The owner re-enables a legacy rule that migration paused (it keeps its narrow reading)."""
         self._owner_only(principal, "confirm standing approvals")
+        self._check_loosen()  # re-enabling a paused rule loosens (F-8)
         if not self.repo.confirm_policy(policy_id):
             raise ApiError(404, "not_found", "no paused standing approval with that id")
         self.audit.append("automation.policy.confirmed", principal.as_dict(), None, {"policy_id": policy_id})
@@ -471,6 +488,8 @@ class PolicyService:
         self._owner_only(principal, "create standing approvals")
         self._check_loosen()
         self.validate(body)
+        if body.forever:
+            self._require_proven("a Forever rule")
         bindings = self._bindings(body.allow.requested_by)
         now = self.clock()
         p = self.repo.add_policy(id=new_id("pol_"), created_by=principal.as_dict(), created_at=now, principals=bindings,
@@ -587,6 +606,8 @@ class PolicyService:
         if direction == "widen" and approval is None:
             raise ApiError(401, "unauthenticated", "widening a standing approval needs a fresh passkey", reason="step_up_required")
         self.validate(new)
+        if new.forever and not old.forever:
+            self._require_proven("making a rule Forever")
         cols = self._columns(new)
         cols["principals"] = {**(p.get("principals") or {}), **self._bindings(
             [w for w in new.allow.requested_by if w not in (p.get("principals") or {})])}

@@ -76,6 +76,22 @@ def test_max_uses_one_approves_once_then_the_rule_ends(client, clock):
     assert client.app.state.automation.repo.get_policy(pid)["state"] == "ended"
 
 
+def test_a_use_that_did_not_go_through_reopens_a_max_uses_rule_at_the_new_revision(client, clock):
+    """Intended: release_use makes the ended rule live again but keeps the bumped revision, so an
+    approval or plan pinned to the old revision is not silently valid again."""
+    install(client, clock)
+    pid = make(client, clock, max_uses=1).json()["id"]
+    used = restart(client, clock, "r0")
+    repo = client.app.state.automation.repo
+    ended = repo.get_policy(pid)
+    assert ended["state"] == "ended" and ended["revision"] == 2
+    repo.release_use(used["id"])
+    back = repo.get_policy(pid)
+    assert back["state"] == "active" and back["revision"] == 2 and back["uses"] == 0
+    repo.release_use(used["id"])  # a second release changes nothing
+    assert repo.get_policy(pid)["uses"] == 0
+
+
 def test_a_rule_unused_for_14_days_lapses(client, clock):
     install(client, clock)
     pid = make(client, clock).json()["id"]
@@ -145,12 +161,21 @@ def test_forever_rules_are_fenced(client, clock):
     assert make(client, clock, expires_at=iso(clock.now + timedelta(days=181))).status_code == 422
     assert make(client, clock, expires_at=iso(clock.now + timedelta(days=180))).status_code == 201
     assert make(client, clock, notify_after="silent").status_code == 422  # silent is for read-only rules
+    # D-028: any Forever rule needs a proven key (L2), which design PR 11 brings; refused until then
+    r = make(client, clock, forever=True, expires_at=None, lapse_unused_days=None, types=["backup.run"])
+    assert r.status_code == 409 and r.json()["reason"] == "needs_proven_key", r.text
+    pid = make(client, clock).json()["id"]
+    r = client.patch(f"/v1/approval-policies/{pid}", headers=OWNER, json={"forever": True})
+    assert r.status_code == 409 and r.json()["reason"] == "needs_proven_key", r.text
+    assert next(p for p in client.get("/v1/approval-policies", headers=OWNER).json() if p["id"] == pid)["forever"] is False
+    client.app.state.automation.policies.proven_key = lambda: True  # what PR 11 wires
     r = make(client, clock, forever=True, expires_at=None, lapse_unused_days=None, types=["backup.run"])
     assert r.status_code == 201 and r.json()["forever"] is True and r.json()["expires_at"] is None
 
 
 def test_forever_rules_get_a_90_day_review_that_ends_nothing(client, clock):
     install(client, clock)
+    client.app.state.automation.policies.proven_key = lambda: True  # Forever needs L2 (design PR 11)
     pid = make(client, clock, forever=True, expires_at=None, lapse_unused_days=None).json()["id"]
     clock.advance(91 * 86400)
     svc = client.app.state.automation
