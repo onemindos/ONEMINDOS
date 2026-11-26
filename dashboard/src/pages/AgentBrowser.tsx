@@ -3,7 +3,8 @@
 // GET and DELETE /v1/agent-browser/sites and /sessions, and POST /v1/agent-browser/sites, through @onemind/sdk (owner only).
 // Adding a site only FILES a request: it waits in Approvals for an owner, so an agent can never widen its own reach.
 // Taking a site away or ending a session is immediate. The CLI twin is `onemind agent-browser`.
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
+import { uuid4 } from '@onemind/sdk';
 import { Link } from 'react-router';
 import { Button, Card, Dialog, StatusPill } from '@onemind/ui';
 import { usePoll } from '../lib/hooks';
@@ -28,6 +29,9 @@ function LiveAgentBrowser({ token }: { token: string }) {
   const [filed, setFiled] = useState<string>();
   const [removing, setRemoving] = useState<{ id: string; entry: string }>();
   const [busy, setBusy] = useState(false);
+  // One key per request: pressing the button again after a failure or a lost reply replays the same request in
+  // Approvals instead of filing a second one. A changed form gets a new key.
+  const key = useRef<{ sig: string; id: string } | undefined>(undefined);
 
   async function act(job: () => Promise<unknown>, title: string) {
     setBusy(true);
@@ -41,11 +45,16 @@ function LiveAgentBrowser({ token }: { token: string }) {
   async function request(e: FormEvent) {
     e.preventDefault();
     if (!entry.trim() || !agent.trim()) return;
+    const body = { entry: entry.trim(), agent: agent.trim(), ...(note.trim() ? { note: note.trim() } : {}) };
+    const sig = JSON.stringify(body);
+    if (key.current?.sig !== sig) key.current = { sig, id: uuid4() };
+    const id = key.current.id;
     const ok = await act(async () => {
-      const a = await viaSdk(() => client.agentBrowser.requestSite({ entry: entry.trim(), agent: agent.trim(), ...(note.trim() ? { note: note.trim() } : {}) }));
+      const a = await viaSdk(() => client.agentBrowser.requestSite(body, id));
       setFiled(a.id);
     }, 'Could not file the request');
     if (ok) {
+      key.current = undefined;
       setEntry('');
       setNote('');
     }

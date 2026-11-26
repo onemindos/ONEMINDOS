@@ -316,4 +316,11 @@ describe("agentBrowser", () => {
     expect((post.init.headers as Record<string, string>)["Idempotency-Key"]).toBe("key-1");
     expect(JSON.parse(String(post.init.body))).toEqual({ entry: "example.org", agent: "hermes" });
   });
+
+  it("keys a site request even when the caller gives no key", async () => {
+    const { om, calls } = client(() => json(201, action("awaiting_approval")));
+    await om.agentBrowser.requestSite({ entry: "example.org", agent: "hermes" });
+    const key = (calls[0]!.init.headers as Record<string, string>)["Idempotency-Key"];
+    expect(key).toMatch(/^[0-9a-f-]{36}$/);
+  });
 });

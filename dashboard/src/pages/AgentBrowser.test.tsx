@@ -59,6 +59,7 @@ it('files a request for a site instead of allowing it, and points to Approvals',
   const [url, init] = calls(fetch, 'POST')[0]!;
   expect(String(url)).toContain('/v1/agent-browser/sites');
   expect(JSON.parse(String(init!.body))).toEqual({ entry: 'docs.example.org', agent: 'ops-agent' });
+  expect(new Headers(init!.headers).get('Idempotency-Key')).toMatch(/^[0-9a-f-]{36}$/);
   expect(within(card).getByRole('link', { name: 'Review it in Approvals' })).toHaveAttribute('href', '/approvals');
   expect(within(card).getByText(/No site is approved/)).toBeInTheDocument(); // nothing is allowed until approved
 });
@@ -70,4 +71,33 @@ it('ends a session at once', async () => {
   await userEvent.setup().click(await within(card).findByRole('button', { name: 'End the session of ops-agent' }));
   await waitFor(() => expect(calls(fetch, 'DELETE')).toHaveLength(1));
   expect(String(calls(fetch, 'DELETE')[0]![0])).toContain('/v1/agent-browser/sessions/sess1');
+});
+it('retries a failed site request with the same key, so Approvals gets it once', async () => {
+  let n = 0;
+  const fetch = gateway([]);
+  const base = fetch.getMockImplementation()!;
+  fetch.mockImplementation(async (url, init) => {
+    if (new URL(String(url)).pathname === '/v1/agent-browser/sites' && init?.method === 'POST' && ++n === 1) return json({ error: 'bad', message: 'try again' }, 400);
+    return base(url, init);
+  });
+  mount('owner-demo');
+  const card = await screen.findByRole('article', { name: 'Agent browser' });
+  const u = userEvent.setup();
+  await u.type(await within(card).findByLabelText(/^Site/), 'docs.example.org');
+  await u.type(within(card).getByLabelText('Agent it is for'), 'ops-agent');
+  await u.click(within(card).getByRole('button', { name: 'Ask to allow this site' }));
+  await waitFor(() => expect(calls(fetch, 'POST')).toHaveLength(1));
+  await u.click(within(card).getByRole('button', { name: 'Ask to allow this site' }));
+  expect(await within(card).findByText(/Request act-77 was filed/)).toBeInTheDocument();
+  const keys = calls(fetch, 'POST').map(([, i]) => new Headers(i!.headers).get('Idempotency-Key'));
+  expect(keys).toHaveLength(2);
+  expect(keys[0]).toBe(keys[1]);
+});
+it.each(['adult-demo', 'child-demo', 'guest-demo'])('does not show the card or read the agent browser as %s', async (token) => {
+  const fetch = gateway();
+  mount(token);
+  expect((await screen.findAllByRole('heading', { level: 1 })).length).toBeGreaterThan(0); // the settings page rendered
+  await new Promise((r) => setTimeout(r, 50));
+  expect(screen.queryByRole('article', { name: 'Agent browser' })).not.toBeInTheDocument();
+  expect(fetch.mock.calls.some(([u]) => String(u).includes('/v1/agent-browser/'))).toBe(false);
 });
