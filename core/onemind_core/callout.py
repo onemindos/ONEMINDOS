@@ -9,9 +9,11 @@ account AGENTS with exactly the allow lists the gateway gives that agent (natsco
 
 - **The gateway decides; NATS enforces.** Only a registered agent key (agents_nats, the owner adds or
   removes it) whose holder signed the server's nonce gets in, and never while "Stop everything" for
-  agents is on (agent_stop, D-029 "Stop everything also cuts AI agents off the bus"). Removing a key
-  refuses the next connect without a reload, and the JWT expires after `ttl_s`, so a live connection
-  is cut by then at the latest and must ask again.
+  agents is on (agent_stop, D-029 "Stop everything also cuts AI agents off the bus"). Turning the kill
+  switch on also rewrites the accounts file without the AGENTS account, and the reload that follows
+  closes every agent connection at once (natsconf.render_accounts `agents_stopped`). Removing one key
+  refuses that agent's next connect without a reload; its live connection ends when its JWT expires
+  (`ttl_s`) and it must ask again.
 - **Fail closed.** No answer within nats-server's timeout means no connection. So with the gateway
   down, no agent gets in, while the pinned list (natsconf.CalloutAccount: hub services, machines,
   this responder) never waits for the gateway: machines keep reconnecting.
@@ -41,6 +43,11 @@ from .natsconf import AGENT_RESPONSES, AGENTS_ACCOUNT, AgentUser, CalloutAccount
 log = logging.getLogger("onemind.callout")
 
 AUTH_SUBJECT = "$SYS.REQ.USER.AUTH"
+# What nats-server puts in every authorization request (jwt/v2 AuthRequestSubject; auth_callout.go
+# sets aud to it and exp to now + the auth timeout). A request without both, or an expired one, is not
+# answered: an old request replayed into AUTH gets no fresh "yes".
+REQUEST_AUD = "nats-authorization-request"
+CLOCK_SKEW_S = 5
 DEFAULT_TTL_S = 600
 RETRY_S = 5.0
 ISSUER_FILE = "callout-issuer.nk"     # account seed: signs the answers (one key per purpose, D-029)
@@ -83,8 +90,16 @@ def answer(request: str, issuer: Ed25519PrivateKey, agents: dict[str, AgentUser]
     req = claims.get("nats") or {}
     server_id = (req.get("server_id") or {}).get("id")
     user_nkey = req.get("user_nkey")
+    # The issuer is the server's own key, asserted by the request itself: nats-server makes a fresh
+    # server key at each start and the config cannot pin it. What makes that safe is who can reach
+    # this subject at all: only the responder's user signs in to account AUTH (natsconf, pinned).
     if req.get("type") != "authorization_request" or server_id != claims.get("iss"):
         raise natsjwt.JwtError("not an authorization request from this server")
+    if claims.get("aud") != REQUEST_AUD:
+        raise natsjwt.JwtError(f"an authorization request is addressed to {REQUEST_AUD!r}")
+    exp = claims.get("exp")
+    if isinstance(exp, bool) or not isinstance(exp, int) or exp + CLOCK_SKEW_S < now:
+        raise natsjwt.JwtError("the authorization request has expired or carries no expiry")
     natsjwt.decode_public(str(user_nkey), natsjwt.PREFIX_USER)
     opts, info = req.get("connect_opts") or {}, req.get("client_info") or {}
     nkey = opts.get("nkey") or None

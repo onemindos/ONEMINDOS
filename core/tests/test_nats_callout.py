@@ -13,6 +13,7 @@ import asyncio
 import base64
 import json
 import shutil
+import signal
 import socket
 import subprocess
 import time
@@ -49,6 +50,7 @@ def request(nkey=AGENT_PUB, signer=AGENT, nonce="nonce-1", go_style=False, serve
     enc = base64.urlsafe_b64encode(sig).decode().rstrip("=") if go_style else base64.b64encode(sig).decode()
     sid = natsjwt.public_key(server, natsjwt.PREFIX_SERVER)
     claims = {"sub": natsjwt.public_key(ISSUER, natsjwt.PREFIX_ACCOUNT), "aud": "nats-authorization-request",
+              "exp": NOW + 2,
               "nats": {"server_id": {"name": "hub", "host": "127.0.0.1", "id": sid}, "user_nkey": USER_NKEY,
                        "client_info": {"host": "127.0.0.1", "id": 7, "nonce": nonce, "kind": "Client", "type": "nats"},
                        "connect_opts": {"nkey": nkey, "sig": enc, "protocol": 1},
@@ -123,6 +125,26 @@ def test_a_request_that_does_not_verify_gets_no_answer():
     wrong["nats"]["type"] = "authorization_response"  # a server-signed JWT that is not a request
     with pytest.raises(natsjwt.JwtError):
         callout.answer(natsjwt.encode(wrong, SERVER, natsjwt.PREFIX_SERVER, NOW), ISSUER, {AGENT_PUB: HERMES}, False, NOW)
+
+
+@pytest.mark.parametrize("change", ["aud", "no_exp", "expired", "bool_exp"])
+def test_a_request_not_addressed_to_the_callout_or_expired_gets_no_answer(change):
+    """#1199 review: aud and exp of the request are checked, so an old request replayed into AUTH
+    gets no fresh answer."""
+    c = natsjwt.decode(request(), natsjwt.PREFIX_SERVER)
+    c.pop("iat", None), c.pop("jti", None), c.pop("iss", None)
+    if change == "aud":
+        c["aud"] = "something-else"
+    elif change == "no_exp":
+        c.pop("exp")
+    elif change == "bool_exp":
+        c["exp"] = True
+    tok = natsjwt.encode(c, SERVER, natsjwt.PREFIX_SERVER, NOW)
+    now = NOW + 2 + callout.CLOCK_SKEW_S + 1 if change == "expired" else NOW
+    with pytest.raises(natsjwt.JwtError):
+        callout.answer(tok, ISSUER, {AGENT_PUB: HERMES}, False, now)
+    if change == "expired":  # within the skew it is still answered
+        assert callout.answer(tok, ISSUER, {AGENT_PUB: HERMES}, False, NOW + 2 + callout.CLOCK_SKEW_S).allowed
 
 
 def test_responder_audits_every_answer(tmp_path):
@@ -250,6 +272,23 @@ def test_real_server_asks_the_gateway(tmp_path):
         await ag.close()
         state["stopped"] = True                                       # Stop everything: refused
         assert await refused(tmp_path / "agent.nk")
+        state["stopped"] = False
+        # #1199 review, D-029 "Stop everything cuts agents off the bus": an agent already connected
+        # is cut at the reload that follows the switch (the file loses AGENTS), not when its JWT expires.
+        ag = await connect(tmp_path / "agent.nk")
+        assert ag.is_connected
+        state["stopped"] = True
+        (tmp_path / "accounts.conf").write_text(render_accounts([], [ServiceKey("gateway", gw_pub)], 0,
+                                                                state["agents"], keys.account, agents_stopped=True))
+        proc.send_signal(signal.SIGHUP)                               # what onemind-nats-reload.service does
+        for _ in range(50):
+            if not ag.is_connected:
+                break
+            await asyncio.sleep(0.1)
+        assert not ag.is_connected, "a connected agent stayed on the bus after Stop everything"
+        assert await refused(tmp_path / "agent.nk")
+        svc = await connect(tmp_path / "gw.nk")                       # the pinned hub service is not cut
+        await svc.close()
         state["stopped"], state["agents"] = False, []                 # key removed: refused, no reload
         assert await refused(tmp_path / "agent.nk")
         task.cancel()
@@ -288,6 +327,43 @@ def test_callout_switch_writes_the_block_and_keeps_agents_out_of_the_file(net_se
     assert "auth_callout" in text and f'issuer: "{acct.issuer}"' in text and acct.service in text
     assert pub not in text  # the agent is asked about at connect, never written into the file
     assert (custodian / callout.ISSUER_FILE).stat().st_mode & 0o777 == 0o600
+
+
+@pytest.mark.parametrize("with_callout", [True, False])
+def test_agents_stopped_leaves_the_agents_account_out(with_callout):
+    """#1199 review: with the kill switch on, nothing names AGENTS, so the reload closes every agent
+    connection (static and callout users); the callout block and the pinned list stay."""
+    co = _callout_account() if with_callout else None
+    on = render_accounts([NodeAccount("aaa111", PUB_A)], [ServiceKey("gateway", PUB_GW)], 0, [HERMES], co)
+    off = render_accounts([NodeAccount("aaa111", PUB_A)], [ServiceKey("gateway", PUB_GW)], 0, [HERMES], co,
+                          agents_stopped=True)
+    assert "AGENTS" in on and "AGENTS" not in off and AGENT_PUB not in off
+    assert ("auth_callout" in off) is with_callout and PUB_A in off and PUB_GW in off
+
+
+def test_kill_switch_rewrites_the_accounts_file(net_settings, clock, tmp_path):  # noqa: F811
+    from dataclasses import replace
+
+    from fastapi.testclient import TestClient
+
+    from conftest import OWNER, ScriptedExecutor
+    from onemind_core.app import create_app
+    from onemind_core.natsconf import make_service_key, new_user_key
+    from onemind_core.netconf import FabricSettings
+
+    keys_dir = tmp_path / "service-keys"
+    make_service_key(keys_dir, "gateway")
+    fab = replace(net_settings.section(FabricSettings), nats_service_keys=keys_dir, nats_callout=True)
+    settings = replace(net_settings, sections={**net_settings.sections, "fabric": fab})
+    client = TestClient(create_app(settings, clock=clock, executor=ScriptedExecutor()))
+    _, pub = new_user_key()
+    assert client.put("/v1/agents/agent:aaa/nats-key", json={"nkey": pub}, headers=OWNER).status_code == 200
+    assert "  AGENTS: {" in fab.nats_accounts_file.read_text()
+    assert client.put("/v1/agents/kill-switch", json={"on": True}, headers=OWNER).status_code == 200
+    text = fab.nats_accounts_file.read_text()
+    assert "AGENTS" not in text and "auth_callout" in text
+    assert client.put("/v1/agents/kill-switch", json={"on": False}, headers=OWNER).status_code == 200
+    assert "  AGENTS: {" in fab.nats_accounts_file.read_text()
 
 
 def test_callout_with_no_registered_agent_still_wires_the_agents_account():

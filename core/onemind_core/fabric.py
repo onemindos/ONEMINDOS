@@ -621,6 +621,9 @@ class FabricDeps:
     # The auth callout's keys (callout.py), when ONEMIND_FABRIC_NATS_CALLOUT is on: the accounts file
     # then gets account AUTH and the auth_callout block, and AGENTS keeps no static user.
     callout: Callable[[], CalloutAccount] | None = None
+    # The agent kill switch (agent_stop.py): while it is on, the accounts file has no AGENTS account,
+    # so the NATS reload cuts every connected agent off the bus at once (natsconf.render_accounts).
+    agents_stopped: Callable[[], bool] | None = None
 
 
 class FabricService:
@@ -660,10 +663,12 @@ class FabricService:
         accounts = [NodeAccount(n["node_id"], n["nats_pubkey"]) for n in self.repo.nodes()]
         agents = agent_users(self.d.db)  # the AGENTS account (#627): one user per registered agent key
         callout = self.d.callout() if self.d.callout is not None else None
+        stopped = bool(self.d.agents_stopped()) if self.d.agents_stopped is not None else False
         changed = write_accounts(path, accounts, load_service_keys(self.d.fabric.nats_service_keys),
-                                 self.d.fabric.jetstream_max_bytes, agents, callout)
+                                 self.d.fabric.jetstream_max_bytes, agents, callout, stopped)
         if changed:
-            log.info("NATS accounts updated (%d nodes, %d agents)", len(accounts), len(agents))
+            log.info("NATS accounts updated (%d nodes, %d agents%s)", len(accounts), len(agents),
+                     ", agents stopped: AGENTS left out" if stopped else "")
         return changed
 
     # -- tickets (owner)
