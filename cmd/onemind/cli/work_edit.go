@@ -106,8 +106,21 @@ func (a *App) workEdit() []*cobra.Command {
 	edit.Flags().StringVar(&due, "due", "", "due time (RFC 3339), or none to clear")
 	edit.Flags().StringVar(&status, "status", "", "todo, in_progress or done")
 
-	del := &cobra.Command{Use: "delete PROJECT_ID TASK_ID", Short: "Delete a task (DELETE, with the revision just read)", Args: cobra.ExactArgs(2),
+	// Deleting cannot be undone, so it asks first, like the CLI's other destructive commands
+	// (users disable --yes, approve --yes): a yes/no on a terminal, or --yes in a script.
+	var yes bool
+	del := &cobra.Command{Use: "delete PROJECT_ID TASK_ID", Short: "Delete a task (DELETE, with the revision just read); asks first unless --yes", Args: cobra.ExactArgs(2),
 		RunE: func(_ *cobra.Command, args []string) error {
+			if !yes {
+				ok, err := a.confirm("Delete task "+args[1]+" and its notes for everyone in the project? This cannot be undone.", "--yes")
+				if err != nil {
+					return err
+				}
+				if !ok {
+					fmt.Fprintln(a.Stderr, "Nothing was deleted.")
+					return nil
+				}
+			}
 			c, _, err := a.client()
 			if err != nil {
 				return err
@@ -120,5 +133,6 @@ func (a *App) workEdit() []*cobra.Command {
 			}
 			return nil
 		}}
+	del.Flags().BoolVar(&yes, "yes", false, "delete without asking")
 	return []*cobra.Command{add, edit, del}
 }

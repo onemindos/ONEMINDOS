@@ -26,54 +26,80 @@ function why(e: unknown, fallback: string): string {
   }
   return fallback;
 }
+/** A due time as the datetime-local field shows it, to the second, so an untouched field round-trips exactly. */
 const toLocal = (iso: string | null | undefined) => {
   if (!iso) return '';
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 };
+interface Form { title: string; due: string; priority: string }
+const formOf = (t: Task): Form => ({ title: t.title, due: toLocal(t.due_at), priority: String(t.priority) });
 
+/**
+ * Edit and delete one task. Opening the editor takes a snapshot of the task as it is then: the form
+ * starts from it, and its revision is the If-Match, never the revision of a later poll. A change made
+ * on another device meanwhile is therefore refused (409) instead of silently undone. Only the fields
+ * the person changed are sent.
+ */
 export function TaskTools({ client, task, onChanged }: { client: OneMind; task: Task; onChanged: () => Promise<void> | void }) {
-  const [editing, setEditing] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [title, setTitle] = useState(task.title);
-  const [due, setDue] = useState(toLocal(task.due_at));
-  const [priority, setPriority] = useState(String(task.priority));
+  const [base, setBase] = useState<Task>();
+  const [deleting, setDeleting] = useState<Task>();
+  const [form, setForm] = useState<Form>(() => formOf(task));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const path = `/v1/work/projects/${encodeURIComponent(task.project_id)}/tasks/${encodeURIComponent(task.id)}` as const;
-  const headers = { 'If-Match': String(task.revision) };
+  const [notice, setNotice] = useState('');
+  const pathOf = (t: Task) => `/v1/work/projects/${encodeURIComponent(t.project_id)}/tasks/${encodeURIComponent(t.id)}` as const;
+  const ifMatch = (t: Task) => ({ 'If-Match': String(t.revision) });
+  const open = () => { setError(''); setNotice(''); if (base) { setBase(undefined); return; } setBase(task); setForm(formOf(task)); };
+  const changed = (b: Task): Record<string, unknown> => {
+    const was = formOf(b);
+    const out: Record<string, unknown> = {};
+    if (form.title.trim() !== was.title) out.title = form.title.trim();
+    if (form.priority !== was.priority) out.priority = Number(form.priority);
+    if (form.due !== was.due) out.due_at = form.due ? new Date(form.due).toISOString() : null;
+    return out;
+  };
+  const stale = async () => { setNotice(`"${task.title}" was changed on another device meanwhile. It has been reloaded; open Edit again to make your change.`); await onChanged(); };
   const save = async (e: FormEvent) => {
     e.preventDefault();
-    if (busy || !title.trim()) return;
+    if (!base || busy || !form.title.trim()) return;
+    const body = changed(base);
+    if (Object.keys(body).length === 0) { setBase(undefined); setNotice('Nothing was changed.'); return; }
     setBusy(true); setError('');
     try {
-      await client.call<Task>({ method: 'PATCH', path, headers, body: { title: title.trim(), priority: Number(priority), due_at: due ? new Date(due).toISOString() : null } });
-      setEditing(false); await onChanged();
-    } catch (err) { setError(why(err, 'The task could not be saved. You can retry.')); if (err instanceof OneMindError && err.status === 409) { setEditing(false); await onChanged(); } }
-    finally { setBusy(false); }
+      await client.call<Task>({ method: 'PATCH', path: pathOf(base), headers: ifMatch(base), body });
+      setBase(undefined); await onChanged();
+    } catch (err) {
+      if (err instanceof OneMindError && err.status === 409) { setBase(undefined); await stale(); }
+      else setError(why(err, 'The task could not be saved. You can retry.'));
+    } finally { setBusy(false); }
   };
   const remove = async () => {
-    if (busy) return;
+    if (!deleting || busy) return;
     setBusy(true); setError('');
-    try { await client.call<unknown>({ method: 'DELETE', path, headers }); setDeleting(false); await onChanged(); }
-    catch (err) { setError(why(err, 'The task could not be deleted. You can retry.')); if (err instanceof OneMindError && err.status === 409) { setDeleting(false); await onChanged(); } }
-    finally { setBusy(false); }
+    try { await client.call<unknown>({ method: 'DELETE', path: pathOf(deleting), headers: ifMatch(deleting) }); setDeleting(undefined); await onChanged(); }
+    catch (err) {
+      if (err instanceof OneMindError && err.status === 409) { setDeleting(undefined); await stale(); }
+      else setError(why(err, 'The task could not be deleted. You can retry.'));
+    } finally { setBusy(false); }
   };
+  const id = task.id;
   return <>
-    {' '}<Button type="button" size="sm" variant="secondary" onClick={() => { setError(''); setEditing((v) => !v); }} aria-label={`Edit ${task.title}`}>Edit</Button>
-    {' '}<Button type="button" size="sm" variant="ghost" onClick={() => { setError(''); setDeleting(true); }} aria-label={`Delete ${task.title}`}>Delete</Button>
-    {editing && <form aria-label={`Edit ${task.title}`} onSubmit={(e) => void save(e)}>
-      <p><label htmlFor={`t-title-${task.id}`}>Title</label>{' '}<input id={`t-title-${task.id}`} className="om-input" value={title} maxLength={160} required onChange={(e) => setTitle(e.target.value)} /></p>
-      <p><label htmlFor={`t-due-${task.id}`}>Due</label>{' '}<input id={`t-due-${task.id}`} type="datetime-local" className="om-input" value={due} onChange={(e) => setDue(e.target.value)} />{' '}
+    {' '}<Button type="button" size="sm" variant="secondary" onClick={open} aria-label={`Edit ${task.title}`} aria-expanded={!!base}>Edit</Button>
+    {' '}<Button type="button" size="sm" variant="ghost" onClick={() => { setError(''); setNotice(''); setDeleting(task); }} aria-label={`Delete ${task.title}`}>Delete</Button>
+    {notice && <p role="alert" className="om-note">{notice}</p>}
+    {base && <form aria-label={`Edit ${base.title}`} onSubmit={(e) => void save(e)}>
+      <p><label htmlFor={`t-title-${id}`}>Title</label>{' '}<input id={`t-title-${id}`} className="om-input" value={form.title} maxLength={160} required onChange={(e) => setForm({ ...form, title: e.target.value })} /></p>
+      <p><label htmlFor={`t-due-${id}`}>Due</label>{' '}<input id={`t-due-${id}`} type="datetime-local" step={1} className="om-input" value={form.due} onChange={(e) => setForm({ ...form, due: e.target.value })} />{' '}
         <span className="om-note">Empty means no due time.</span></p>
-      <p><label htmlFor={`t-pri-${task.id}`}>How urgent</label>{' '}<select id={`t-pri-${task.id}`} className="om-input" value={priority} onChange={(e) => setPriority(e.target.value)}>
+      <p><label htmlFor={`t-pri-${id}`}>How urgent</label>{' '}<select id={`t-pri-${id}`} className="om-input" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })}>
         <option value="1">1, most urgent</option><option value="2">2</option><option value="3">3</option><option value="4">4, normal</option></select></p>
       {error && <p role="alert" className="om-note om-tone-bad">{error}</p>}
-      <Button type="submit" disabled={busy || !title.trim()}>{busy ? 'Saving…' : 'Save task'}</Button>{' '}
-      <Button type="button" variant="ghost" disabled={busy} onClick={() => setEditing(false)}>Cancel</Button>
+      <Button type="submit" disabled={busy || !form.title.trim()}>{busy ? 'Saving…' : 'Save task'}</Button>{' '}
+      <Button type="button" variant="ghost" disabled={busy} onClick={() => setBase(undefined)}>Cancel</Button>
     </form>}
-    <Dialog open={deleting} role="alertdialog" title={`Delete "${task.title}"?`} onClose={() => { if (!busy) setDeleting(false); }} actions={<Button disabled={busy} onClick={() => void remove()}>{busy ? 'Deleting…' : 'Yes, delete it'}</Button>}>
+    <Dialog open={!!deleting} role="alertdialog" title={`Delete "${deleting?.title ?? task.title}"?`} onClose={() => { if (!busy) setDeleting(undefined); }} actions={<Button disabled={busy} onClick={() => void remove()}>{busy ? 'Deleting…' : 'Yes, delete it'}</Button>}>
       <p>The task and its notes are removed for everyone in the project. This cannot be undone.</p>
       {error && <p role="alert">{error}</p>}
     </Dialog>

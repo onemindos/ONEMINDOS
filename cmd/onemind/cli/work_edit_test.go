@@ -95,10 +95,27 @@ func TestWorkEditRefusesBadInputBeforeAnyRequest(t *testing.T) {
 
 func TestWorkDeleteSendsTheRevisionItRead(t *testing.T) {
 	seen := workEditHub(t)
-	if r := run(t, "", false, "work", "delete", "prj_1", "tsk_1"); r.code != 0 || !strings.Contains(r.out, "Deleted tsk_1") {
+	if r := run(t, "", false, "work", "delete", "prj_1", "tsk_1", "--yes"); r.code != 0 || !strings.Contains(r.out, "Deleted tsk_1") {
 		t.Fatalf("delete %+v", r)
 	}
 	if got := (*seen)[1]; !strings.HasPrefix(got, "DELETE /v1/work/projects/prj_1/tasks/tsk_1 if-match=7") {
 		t.Fatalf("request %q", got)
+	}
+}
+
+// Deleting asks first: a script without --yes is told to pass it, and "no" on a terminal sends nothing.
+func TestWorkDeleteAsksFirst(t *testing.T) {
+	seen := workEditHub(t)
+	if r := run(t, "", false, "work", "delete", "prj_1", "tsk_1"); r.code != ExitUsage || !strings.Contains(r.errOut, "--yes") {
+		t.Fatalf("no tty %+v", r)
+	}
+	if r := run(t, "n\n", true, "work", "delete", "prj_1", "tsk_1"); r.code != 0 || !strings.Contains(r.errOut, "Nothing was deleted") {
+		t.Fatalf("answered no %+v", r)
+	}
+	if len(*seen) != 0 {
+		t.Fatalf("no request expected, got %v", *seen)
+	}
+	if r := run(t, "y\n", true, "work", "delete", "prj_1", "tsk_1"); r.code != 0 || !strings.Contains(r.out, "Deleted tsk_1") {
+		t.Fatalf("answered yes %+v", r)
 	}
 }
