@@ -533,6 +533,22 @@ def test_the_first_proven_key_is_added_at_the_box(lvc, root):
     assert add_key(lvc, AttestedAuthenticator(root), "bio")["level"] == "L2"
 
 
+def test_an_adults_proven_key_needs_no_box_code(lvc, root):
+    """Only owners' keys set the household's level, so an adult enrols a proven key without the box."""
+    from test_identity import enrol
+
+    setup_owner(lvc)
+    lvc.passkey = SoftAuthenticator()  # stepped() confirms adding the person at the box with it
+    add_key(lvc, lvc.passkey, "phone")
+    adult = enrol(lvc, "adult", "ana")
+    opts = adult.post("/v1/auth/passkeys/register/options", headers=csrf(adult)).json()
+    assert opts["box_code_if_proven"] is False
+    r = adult.post("/v1/auth/passkeys/register", json={"credential": AttestedAuthenticator(root).register(opts),
+                                                        "label": "ana key"}, headers=csrf(adult))
+    assert r.status_code == 201 and r.json()["level"] == "L2", r.text
+    assert lvc.get("/v1/verification-requirements").json()["grace"] is True  # still no owner proven key
+
+
 def test_a_box_without_a_screen_waits_for_a_proven_key(settings, clock, executor):
     with TestClient(create_app(id_settings(settings, box_code_file=None), clock=clock, executor=executor)) as c:
         add_wipe_type(c)

@@ -66,7 +66,7 @@ class PasskeyRegistered(BaseModel):
     explanation: str
 
 
-class StepUpOptionsBody(BaseModel):
+class StepUpOptionsBody(JsonBody):
     op: str = Field(max_length=64, description="the owner route's operation id, e.g. users.update")
     target: str = Field(default="", max_length=200, description="its path id (user id, app id, ...), or empty")
     body: dict[str, Any] = Field(default_factory=dict,

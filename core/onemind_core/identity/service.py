@@ -844,7 +844,8 @@ class IdentityService:
         # N-1 = b: until the household has had a proven key, the first one is added at the box, so an L1 key
         # (a synced phone passkey somewhere else) can't enrol a key of its own that would be L2. The screen
         # shows a code now; an L1 key (a phone or computer passkey) enrols without it.
-        box = self.passkeys_active() and not self.levels.note_proven("household_level")
+        # Only an owner's key counts for the household's level, so only an owner's enrolment needs the box.
+        box = user.role == "owner" and self.passkeys_active() and not self.levels.note_proven("household_level")
         data, shown = {"box_for_proven": box}, False
         if box and self.presence.available:
             data["box_sha256"] = self.presence.issue("add a proven key", self.now() + CHALLENGE_TTL)

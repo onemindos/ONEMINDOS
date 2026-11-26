@@ -17,6 +17,7 @@ from pathlib import Path
 import pytest
 
 from conftest import AGENT, GUEST, OWNER
+from test_identity import at_box
 from test_storage import (  # noqa: F401  (fixtures and helpers of the storage tests)
     FakeNode, approve, booted, events, no_poller, node, request_create,
 )
@@ -102,7 +103,7 @@ def test_agents_and_guests_can_only_request(settings, clock, node, no_poller):
             assert c.post(f"/v1/actions/{aid}/approve", headers=AGENT).status_code == 403
             # an agent cannot ride a passkey assertion either: approvals are owner principals only
             opts = c.post(f"/v1/actions/{aid}/approve-options", headers=OWNER).json()
-            body = {"webauthn": c.key.assert_(opts["challenge"], flat=True)}
+            body = {"webauthn": c.key.assert_(opts["challenge"], flat=True), **at_box(c, opts)}
             assert c.post(f"/v1/actions/{aid}/approve", headers=AGENT, json=body).status_code == 403
             assert c.get(f"/v1/actions/{aid}", headers=OWNER).json()["state"] == "awaiting_approval"
         assert file_request(c, "storage.mirror.remove", {"member": "2"}, headers=AGENT).status_code == 403
