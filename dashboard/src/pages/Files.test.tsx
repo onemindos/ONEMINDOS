@@ -130,3 +130,27 @@ it('lets an owner review and approve a request they filed themselves', async () 
   await waitFor(() => expect(calls.find((c) => c.path === '/v1/files/requests/frq_1/approve')).toBeDefined());
   expect(JSON.parse(calls.find((c) => c.path.endsWith('/approve'))!.body)).toEqual({ plan_sha256: 'sha256:abc' });
 });
+
+it('sends a file to an app that accepts files: a pointer, keyed once, never the content', async () => {
+  const calls = mount((c) => {
+    if (c.path === '/v1/share/targets') return json({ type: 'file', targets: [{ app_id: 'photos', name: 'Photos', verbs: ['open', 'add'] }] });
+    if (c.path === '/v1/share' && c.method === 'POST') return json({ id: 'evt1', to: 'photos', verb: 'add', object: { type: 'file', ref: 'home:owner:/notes.txt' }, link: 'onemind://photos/file/x', sent_at: '2026-11-26T12:00:00Z' }, 201);
+    return undefined;
+  });
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Send notes.txt to an app' }));
+  expect(calls.find((c) => c.path === '/v1/share/targets')!.search.get('type')).toBe('file');
+  const dialog = within(await screen.findByRole('dialog'));
+  await u.click(dialog.getByRole('button', { name: 'Add to Photos' }));
+  expect(await dialog.findByText(/Sent to photos/)).toBeInTheDocument();
+  const post = calls.find((c) => c.path === '/v1/share' && c.method === 'POST')!;
+  expect(JSON.parse(post.body)).toEqual({ to: 'photos', verb: 'add', object: { type: 'file', ref: 'home:owner:/notes.txt' } });
+  expect(post.headers.get('Idempotency-Key')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Send Docs to an app' })).not.toBeInTheDocument(); // folders are not sent
+});
+
+it('says plainly when no app accepts files', async () => {
+  mount((c) => (c.path === '/v1/share/targets' ? json({ type: 'file', targets: [] }) : undefined));
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Send notes.txt to an app' }));
+  expect(await screen.findByText(/No app on this box accepts files yet/)).toBeInTheDocument();
+});
