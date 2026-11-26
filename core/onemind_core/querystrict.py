@@ -15,8 +15,8 @@ import types
 import typing
 from typing import Any
 
-from fastapi import Request
 from fastapi.routing import APIRoute
+from starlette.requests import HTTPConnection
 
 from .errors import ApiError
 
@@ -44,8 +44,9 @@ def _single_valued(route: APIRoute) -> frozenset[str]:
     return frozenset(names)
 
 
-def one_value_per_query_parameter(request: Request) -> None:
-    """A dependency on every route: 422 when a single-valued query parameter arrives more than once."""
+def one_value_per_query_parameter(request: HTTPConnection) -> None:
+    """A dependency on every route: 422 when a single-valued query parameter arrives more than once.
+    HTTPConnection, not Request, so it also resolves on WebSocket routes (which it leaves alone)."""
     keys = [k for k, _ in request.query_params.multi_items()]
     if len(keys) == len(set(keys)):
         return
