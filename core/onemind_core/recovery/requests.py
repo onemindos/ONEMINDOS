@@ -132,23 +132,34 @@ class Recoveries:
         with self.db.session() as s:
             return s.get(RequestRow, request_id)
 
-    def _set(self, row: RequestRow, **values) -> RequestRow:
+    def _set(self, row: RequestRow, expect: tuple[str, ...], **values) -> bool:
+        """Compare-and-set: write `values` only while the request is still in one of the `expect` states.
+        Every state write goes through here (or is an equally conditional UPDATE), so two writers that
+        both read an old row can never overwrite each other's ending: the second one changes nothing.
+        Returns whether this call made the change."""
         with self.db.session.begin() as s:
-            s.execute(update(RequestRow).where(RequestRow.id == row.id).values(**values))
-        return self._get(row.id)
+            done = s.execute(update(RequestRow).where(RequestRow.id == row.id, RequestRow.state.in_(expect))
+                             .values(**values).returning(RequestRow.id)).scalar()
+        return done is not None
 
-    def _end(self, row: RequestRow, state: str, reason: str, by: str | None) -> RequestRow:
-        row = self._set(row, state=state, ended_at=self.now(), end_reason=reason, ended_by=by)
-        severity = "warning" if state == "cancelled" else "info"
-        self.contacts.tell(row.owner_user_id, f"recovery.request.{state}",
-                           {"request_id": row.id, "path": row.path, "reason": reason}, severity=severity)
+    def _end(self, row: RequestRow, state: str, reason: str, by: str | None,
+             expect: tuple[str, ...] = OPEN_STATES) -> RequestRow:
+        """End an open request, only if it is still in `expect`. The notice goes out only when this call
+        ended it, so the state and the notice always agree: a cancel that loses the race to a completion
+        (or to an expiry) sends no "cancelled" notice and returns the request as it really is."""
+        ended = self._set(row, expect, state=state, ended_at=self.now(), end_reason=reason, ended_by=by)
+        row = self._get(row.id)
+        if ended:
+            severity = "warning" if state == "cancelled" else "info"
+            self.contacts.tell(row.owner_user_id, f"recovery.request.{state}",
+                               {"request_id": row.id, "path": row.path, "reason": reason}, severity=severity)
         return row
 
     def _fresh(self, row: RequestRow | None) -> RequestRow | None:
         """Lazily close a request whose 15 minutes for a contact passed."""
         if row is not None and row.state == "awaiting_contact" and row.vouch_expires_at is not None \
                 and utc(row.vouch_expires_at) <= self.now():
-            row = self._end(row, "expired", "no_contact_in_time", None)
+            row = self._end(row, "expired", "no_contact_in_time", None, expect=("awaiting_contact",))
         return row
 
     def view(self, row: RequestRow, *, starter: bool) -> dict:
@@ -286,7 +297,7 @@ class Recoveries:
             return ApiError(409, "conflict", "this request is no longer waiting for a contact", reason="not_awaiting")
         row = self._get(row.id)
         if tries >= MAX_TRIES:
-            self._end(row, "failed", "too_many_tries", None)
+            self._end(row, "failed", "too_many_tries", None, expect=("awaiting_contact",))
             return ApiError(409, "conflict", f"{what}; this request is closed after {MAX_TRIES} tries", reason="request_closed")
         return ApiError(422, "conflict", f"{what}; {MAX_TRIES - tries} tries left", reason="wrong_answer")
 
@@ -375,9 +386,12 @@ class Recoveries:
         return self._cancel(row, p.id)
 
     def _cancel(self, row: RequestRow, by: str) -> dict:
+        """Cancel only from a cancellable state, checked by the database at the moment of the write (not
+        on the row read earlier): a cancel that arrives just after `complete()` claimed the request finds
+        it `completed`, changes nothing, sends no notice and answers with the real state."""
         if row.state not in OPEN_STATES:
             return self.view(row, starter=False)
-        return self.view(self._end(row, "cancelled", "cancelled", by), starter=False)
+        return self.view(self._end(row, "cancelled", "cancelled", by, expect=OPEN_STATES), starter=False)
 
     def _contact_ended(self, contact: ContactRow) -> None:
         """A contact removed or resigned during the wait they started: stop that recovery."""
@@ -385,7 +399,7 @@ class Recoveries:
             rows = list(s.scalars(select(RequestRow).where(RequestRow.vouched_by == contact.id,
                                                            RequestRow.state == "waiting")))
         for r in rows:
-            self._end(r, "cancelled", "contact_ended", f"contact:{contact.id}")
+            self._end(r, "cancelled", "contact_ended", f"contact:{contact.id}", expect=("waiting",))
 
     # ---- lists ---------------------------------------------------------------------------------------
     def for_owner(self, p: Principal, ctx) -> list[dict]:
@@ -435,8 +449,11 @@ class Recoveries:
             raise ApiError(409, "conflict", "this account is disabled", reason="account_disabled")
         now = self.now()
         # Check everything first, then claim the request and write the credentials in ONE transaction.
-        # The claim (waiting -> completed) comes first in it, so a cancel that lands at any moment either
-        # wins (nothing is written) or loses (the request is completed): never "cancelled but changed".
+        # The claim (a conditional waiting -> completed UPDATE) comes first in it, and every cancel is an
+        # equally conditional UPDATE (_set), so whichever commits first wins and the other changes
+        # nothing: a cancel first means no credential is written; a claim first means the cancel finds
+        # `completed` and sends no notice. Never "cancelled but changed". On PostgreSQL the second
+        # UPDATE waits for the first's row lock and then re-checks its WHERE against the committed row.
         new_key = None
         if credential is not None:
             try:
@@ -500,7 +517,8 @@ class Recoveries:
             new = [d for d in due if d not in (r.notices_sent or [])]
             if not new:
                 continue
-            self._set(r, notices_sent=[*(r.notices_sent or []), *new])
+            if not self._set(r, ("waiting",), notices_sent=[*(r.notices_sent or []), *new]):
+                continue  # completed or cancelled meanwhile: no reminder for an ended request
             self.contacts.tell(r.owner_user_id, "recovery.request.reminder",
                                {"request_id": r.id, "path": r.path, "not_before": iso(r.not_before),
                                 "notice": new[-1]}, severity="warning")
