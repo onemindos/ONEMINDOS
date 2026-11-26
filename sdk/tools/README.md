@@ -84,7 +84,7 @@ The tests use GitHub and registry answers recorded in `sdk/tools/tests/fixtures/
 
 ## app-gate
 
-`app-gate` runs the contract §9.4 gate for one or more apps and writes `apps/<id>/scan.json` in exactly the §11.1 format, then regenerates the app's README. `.github/workflows/ci-apps.yml` runs it on every pull request that changes an app, and `.github/workflows/apps-rescan.yml` runs it every day for every app (§10.2).
+`app-gate` runs the contract §9.4 gate for one or more apps and writes `apps/<id>/scan.json` in exactly the §11.1 format, then regenerates the app's README. `.github/workflows/ci-apps.yml` runs it on every pull request that changes an app (only for the apps it changes, or for every app when it changes a shared gate input; `app-select plan` decides, see `SHARED_GATE_INPUTS` in `applib/selection.py`), and for every app on a pull request into main, in the merge queue, nightly and by hand. `.github/workflows/apps-rescan.yml` runs it every day for every app (§10.2).
 
 | §9.4 | Check | Fails (`result: fail`) when |
 |---|---|---|
