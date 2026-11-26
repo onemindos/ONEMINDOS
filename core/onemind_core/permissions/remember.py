@@ -23,8 +23,9 @@ a malicious app screen could swap a wider rule under the owner's real passkey. S
    keeps every tainted automatic approval closed (permissions/floor.py), so remember stays refused too.
 
 Verification level: D-028 lets an L1 key create a dated T0 rule and asks L2 for T1 and up and for
-any forever rule. Levels arrive with design PR 11; until then every remember uses the passkey step-up
-the gateway has today (L1), and the options answer says which level the rule will need (`required_level`).
+any forever rule. Levels arrive with design PR 11. Until then the passkey step-up the gateway has
+today counts as L1, so a rule whose `required_level` is L2 is refused (409 needs_proven_key) both at
+approve-options and again just before the approval; only a dated read-only rule can be remembered.
 """
 
 from __future__ import annotations
