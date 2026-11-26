@@ -300,6 +300,10 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return svc.resign(svc.contact_row(request, p), p)
 
     # ---- 25e: the locked-out owner at the sign-in page -------------------------------------------------
+    def starter(request_id: str, request: Request) -> None:
+        """The request token first: a caller without it gets 401 before its body is even read."""
+        rec.status(request, request_id)
+
     @app.post("/v1/auth/recovery", operation_id="recovery.start", tags=TAGS, status_code=201,
               response_model=Started, responses=R(401, 409, 422, 429), openapi_extra={"security": []})
     def start(body: RecoveryStartBody, request: Request):
@@ -320,7 +324,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.post("/v1/auth/recovery/requests/{request_id}/code", operation_id="recovery.code", tags=TAGS,
               response_model=RecoveryView, responses=R(401, 409, 422), openapi_extra=STARTER_SECURITY)
-    def recovery_code(request_id: str, body: CodeBody, request: Request):
+    def recovery_code(request_id: str, body: CodeBody, request: Request, _: None = Depends(starter)):
         """Type the 8-digit code your contact read to you (3 tries)."""
         return rec.vouch_code(request, request_id, body.code)
 
@@ -341,7 +345,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.post("/v1/auth/recovery/requests/{request_id}/complete", operation_id="recovery.complete", tags=TAGS,
               responses=R(401, 409, 422), openapi_extra=STARTER_SECURITY)
-    def recovery_complete(request_id: str, body: CompleteBody, request: Request):
+    def recovery_complete(request_id: str, body: CompleteBody, request: Request, _: None = Depends(starter)):
         """After the wait: enrol the new passkey (and, on the contact path, set a new password); you get a
         normal session. Nothing is approved, deleted or unlocked."""
         _, user = rec.complete(request, request_id, body.credential, body.label, body.new_password)
