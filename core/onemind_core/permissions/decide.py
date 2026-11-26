@@ -12,9 +12,9 @@ earlier "no", so a narrower allow never opens a deny and no mode lifts the floor
      5. effective risk unknown                                                             -> refuse
      6. a hard floor item (floor.py)                          -> wait for a person (Headless: refuse)
      7. clock not trusted, floor settings off, no owner passkey yet       -> treat the mode as Always ask
-     8. mode Always ask or Ask once then remember                                          -> wait
+     8. mode Always ask                                                                    -> wait
      9. (bypass in a sandbox: design PR 23; until then Bypass behaves as Auto within rules)
-    10. mode Auto, Headless or Bypass and a live rule matches             -> approve as policy:<id>@<rev>
+    10. mode Remember, Auto, Headless or Bypass and a live rule matches  -> approve as policy:<id>@<rev>
     11. mode Headless                                                       -> refuse ("no rule covers this")
     12. otherwise                                                                          -> wait
 
@@ -31,7 +31,7 @@ from ..automation.registry import RISKS
 from .floor import floor_items
 
 MODES = ("locked", "ask", "remember", "auto", "headless", "bypass")
-RULE_MODES = frozenset({"auto", "headless", "bypass"})
+RULE_MODES = frozenset({"remember", "auto", "headless", "bypass"})
 AI_KINDS = frozenset({"agent", "plugin"})
 
 
@@ -105,8 +105,8 @@ def decide(f: Facts) -> Decision:
         return Decision("wait", "floor_settings_off", 7)
     if not f.owner_passkey and mode != "ask":
         return Decision("wait", "no_owner_passkey", 7)
-    if mode in ("ask", "remember"):
-        return Decision("wait", f"mode_{mode}", 8)
+    if mode == "ask":
+        return Decision("wait", "mode_ask", 8)
     if mode in RULE_MODES and f.rule:
         return Decision("approve", "rule", 10, via=f.rule)
     if mode == "headless":

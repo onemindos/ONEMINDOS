@@ -42,9 +42,9 @@ def test_every_cell(risk, physical, tainted, exposed, mode):
         assert (d.outcome, d.reason) == ("refuse", "unknown_risk")
     elif floor:
         assert d.outcome == ("refuse" if mode == "headless" else "wait") and d.step == 6
-    elif mode in ("ask", "remember"):
+    elif mode == "ask":
         assert d.outcome == "wait" and d.step == 8
-    else:  # auto, headless, bypass with a live rule
+    else:  # remember, auto, headless, bypass with a live rule
         assert (d.outcome, d.via) == ("approve", "policy:pol_1@1")
 
 
@@ -75,7 +75,7 @@ def test_licence_radio_and_smb_are_floor_items():
 @pytest.mark.parametrize("fact, reason", [("clock_trusted", "clock_untrusted"), ("floor_settings_on", "floor_settings_off"),
                                           ("owner_passkey", "no_owner_passkey")])
 def test_untrusted_time_floor_settings_or_no_passkey_turn_every_mode_into_always_ask(fact, reason):
-    for mode in ("auto", "headless", "bypass"):
+    for mode in ("remember", "auto", "headless", "bypass"):
         d = decide(facts(mode=mode, **{fact: False}))
         assert (d.outcome, d.reason, d.step) == ("wait", reason, 7)
 
@@ -99,7 +99,7 @@ def test_no_mode_ever_approves_a_floor_item_and_deny_beats_allow(f):
     if d.outcome == "approve":
         assert not (f.physical or f.tainted or f.exposed or f.network_paths or f.sealed or not f.licence_green)
         assert f.risk in ("read", "write", "sensitive") and f.deny is None and f.rule
-        assert f.mode in ("auto", "headless", "bypass") and f.clock_trusted and f.floor_settings_on and f.owner_passkey
+        assert f.mode in ("remember", "auto", "headless", "bypass") and f.clock_trusted and f.floor_settings_on and f.owner_passkey
     if f.deny is not None:
         assert d.outcome == "refuse"
     if f.agents_stopped and f.kind in ("agent", "plugin"):
