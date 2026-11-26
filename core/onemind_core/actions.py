@@ -60,6 +60,7 @@ from .scan import scan_problem
 from .approvalcard import APPROVAL_LIMIT_VALUE, HOLD_MIN_MS, approval_card, hold_required  # noqa: F401 (re-exported)
 from .ledger import Action, ActionRepository, iso, new_action_id, utc
 from .taint import PLAN_KEY, TaintLedger, plan_taint
+from .taint_store import NODE_JOIN_REQUESTER
 
 log = logging.getLogger("onemind.actions")
 
@@ -498,6 +499,9 @@ class ActionService:
         self.requester_checks: list[Callable[[Principal], None]] = []
         # AIG-04: who read third-party text lately. Fed by the MCP layer; read when a request is filed.
         self.taint = TaintLedger(clock)
+        # fn(principal_id): an agent identity ended (app removed, failed install); what the owner
+        # declared about it (agents_inputs) must not carry over to a new agent with the same id.
+        self.agent_forgotten: Callable[[str], None] | None = None
         self.handlers: dict[str, ActionHandler] = {}
         # How a background feature action's run() is started after approval; tests make it synchronous.
         self.spawn: Callable[[Callable[[], None]], None] = _worker
@@ -611,7 +615,12 @@ class ActionService:
         risk = registry.risk_of(action_type, params) if registry.known(action_type) else None
         # A requester that read third-party text is tainted here as on every other path, and a request
         # a standing approval could cover carries a plan, so an approval is bound to these parameters.
-        taint = self.taint.get(str(requested_by.get("id") or ""))
+        # Only the fabric's node.join request skips a node's default exposure; any other request a
+        # node files counts as exposed, as on every other path (#1133 fails closed).
+        kind = requested_by.get("kind")
+        if kind == "node" and action_type == "node.join":
+            kind = NODE_JOIN_REQUESTER
+        taint = self.taint.get(str(requested_by.get("id") or ""), kind)
         plan, plan_sha = None, None
         if taint is not None or registry.policy_may_cover(action_type, params, risk) is None:
             plan, plan_sha = feature_plan(action_type, params)
@@ -871,7 +880,7 @@ class ActionService:
                 409, "stale_precondition", "the plan changed since you read it; read it again",
                 reason="plan_changed",
             )
-        taint = self.taint.get(principal.id)
+        taint = self.taint.get(principal.id, principal.kind)
         if taint is not None:
             self._tainted_target_check(principal, app)
         action = Action(
@@ -1393,6 +1402,11 @@ class ActionService:
 
     def _revoke_agent(self, a: Action, reason: str) -> None:
         principal_id = f"agent:{a.params['app_id']}"
+        if self.agent_forgotten is not None:
+            try:
+                self.agent_forgotten(principal_id)
+            except Exception:  # best effort: the token is revoked either way
+                log.exception("forgetting the declared inputs of %s failed", principal_id)
         if self.repo.revoke_agent_token(principal_id, self.clock()):
             self.audit.append(
                 "agent.principal.revoked", None, a.id, {"principal_id": principal_id, "reason": reason}
@@ -1546,7 +1560,7 @@ class ActionService:
         if spec.physical:
             self._refuse_if_locked()
             plan, plan_sha = self._physical_plan(action_type, spec, params, risk)
-        taint = self.taint.get(principal.id)
+        taint = self.taint.get(principal.id, principal.kind)
         if taint is not None:
             # AIG-04: the same rules as an app action. The app it names must be visible to AI, the
             # card carries the note (beside the plan, outside the fingerprint), and the plan is

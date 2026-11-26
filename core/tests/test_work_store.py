@@ -26,8 +26,8 @@ NOW = datetime(2026, 1, 1, tzinfo=UTC)
 def work(settings):
     engine = make_engine(settings.db_url)
     try:
-        assert migrate(engine, [SCHEMA]) == {"work": 2}
-        yield WorkService(Database(engine), clock=lambda: NOW)
+        assert migrate(engine, [SCHEMA]) == {"work": 3}
+        yield WorkService(Database(engine), clock=lambda: NOW, person_role=lambda _: "adult")
     finally:
         engine.dispose()
 
@@ -126,7 +126,7 @@ def test_concurrent_mutations_commit_exactly_one_valid_revision_or_edge(work, op
         row = (a, b)[index] if opposing_dependencies else a
         requires = [(b, a)[index].id] if opposing_dependencies else None
         # Separate repository/session factory as in different gateway workers.
-        service = WorkService(Database(work.db.engine), clock=lambda: NOW)
+        service = WorkService(Database(work.db.engine), clock=lambda: NOW, person_role=lambda _: "adult")
         barrier.wait()
         try:
             return service.replace_task(CREATOR, project.id, row.id, expected_revision=row.revision,

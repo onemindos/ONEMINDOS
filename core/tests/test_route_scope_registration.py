@@ -148,6 +148,7 @@ FALLBACK_BASELINE: set[tuple[str, str]] = {
     ("PATCH", "/v1/files/uploads/{upload_id}"),
     ("PATCH", "/v1/photos/uploads/{upload_id}"),
     ("POST", "/v1/approval-policies"),
+    ("POST", "/v1/approval-policies/{policy_id}/confirm"),
     ("POST", "/v1/apps/{app_id}/secrets"),
     ("POST", "/v1/automation/pause"),
     ("POST", "/v1/automation/resume"),
