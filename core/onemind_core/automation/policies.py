@@ -286,6 +286,18 @@ class PolicyService:
         # (type, params) -> (bytes, items) one request writes, for the size caps. Set by the router.
         self.target_of: Callable[[str, dict | None], tuple[str, str] | None] = lambda _t, _p: None
         self.size_of: Callable[[str, dict], tuple[int, int]] = lambda _t, _p: (0, 1)
+        # PR 10 (F-8): why nothing may be loosened yet (no owner passkey), or None. Creating, widening or
+        # re-confirming a rule loosens.
+        self.loosen_guard: Callable[[], str | None] = lambda: None
+        # PR 10: (display id) -> its permission mode, shown on each rule: a rule for a principal on Always ask
+        # (the default) or Locked never fires until its mode lets rules apply.
+        self.mode_of: Callable[[str], str] | None = None
+
+    def _check_loosen(self) -> None:
+        why = self.loosen_guard()
+        if why:
+            raise ApiError(409, "conflict", "add a passkey first: no standing approval is made or widened before the "
+                                            "owner has one (F-8)", reason=why)
 
     def _bindings(self, requested_by: list[str]) -> dict:
         """The permanent id each agent or plugin entry binds to; 422 when one names nobody yet."""
@@ -378,6 +390,7 @@ class PolicyService:
             "uses": p.get("uses") or 0, "last_used_at": iso(p["last_used_at"]) if p.get("last_used_at") else None,
             "uses_24h": self.repo.count_uses(p["id"], now - timedelta(days=1)),
             "review_due": forever and state == "active" and self._review_base(p) + REVIEW_EVERY <= now,
+            "modes": {w: self.mode_of(w) for w in p["allow"]["requested_by"]} if self.mode_of is not None else {},
         }
 
     @staticmethod
@@ -454,6 +467,7 @@ class PolicyService:
     def confirm(self, principal: Principal, policy_id: str) -> dict:
         """The owner re-enables a legacy rule that migration paused (it keeps its narrow reading)."""
         self._owner_only(principal, "confirm standing approvals")
+        self._check_loosen()  # re-enabling a paused rule loosens (F-8)
         if not self.repo.confirm_policy(policy_id):
             raise ApiError(404, "not_found", "no paused standing approval with that id")
         self.audit.append("automation.policy.confirmed", principal.as_dict(), None, {"policy_id": policy_id})
@@ -472,6 +486,7 @@ class PolicyService:
     def create(self, principal: Principal, body: PolicyBody, approval: str = "token", *,
                created_from: str | None = None) -> dict:
         self._owner_only(principal, "create standing approvals")
+        self._check_loosen()
         self.validate(body)
         if body.forever:
             self._require_proven("a Forever rule")
@@ -586,6 +601,8 @@ class PolicyService:
         direction, changed = self.classify(old, new)
         if not changed:
             return self.to_json(p)
+        if direction == "widen":
+            self._check_loosen()
         if direction == "widen" and approval is None:
             raise ApiError(401, "unauthenticated", "widening a standing approval needs a fresh passkey", reason="step_up_required")
         self.validate(new)
@@ -648,6 +665,7 @@ class PolicyService:
     def reconfirm(self, principal: Principal, policy_id: str, approval: str) -> dict:
         """One tap (L1): the approver accepts what changed; the rule binds to the identity live now."""
         self._owner_only(principal, "re-confirm standing approvals")
+        self._check_loosen()
         p = self._get(policy_id)
         if not p.get("suspended_at"):
             raise ApiError(409, "conflict", "this rule is not suspended")

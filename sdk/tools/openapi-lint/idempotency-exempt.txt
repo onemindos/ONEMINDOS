@@ -61,3 +61,5 @@ POST /v1/approval-policies/{policy_id}/revoke  # revoking twice: the second find
 POST /v1/approval-policies/revoke-all  # a repeat finds no live rule left to revoke and answers an empty list
 POST /v1/approval-policies/{policy_id}/reconfirm  # a repeat finds the rule no longer suspended and answers 409
 POST /v1/approval-policies/{policy_id}/keep  # keeping twice sets the same review time again
+PUT /v1/permission-modes  # sets the household default to a value; the same value again changes nothing and is not audited twice
+PUT /v1/permission-modes/{principal}  # sets one principal's mode to a value; the same value again changes nothing and is not audited twice

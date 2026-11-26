@@ -136,6 +136,10 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/approval-policies/{policy_id}/keep": OVERSIGHT,
     "DELETE /v1/approval-policies/{policy_id}": OVERSIGHT,
     "GET /v1/approval-denies": OVERSIGHT,
+    "GET /v1/permission-modes": OVERSIGHT,
+    "GET /v1/permission-modes/{principal}": OVERSIGHT,
+    "PUT /v1/permission-modes": OVERSIGHT,
+    "PUT /v1/permission-modes/{principal}": OVERSIGHT,
     "POST /v1/approval-denies": OVERSIGHT,
     "DELETE /v1/approval-denies/{deny_id}": OVERSIGHT,
     # FD-08 is an owner-only report for assessing the box before deciding on maintenance.
