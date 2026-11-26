@@ -68,7 +68,7 @@ export function SettingsSecurity() {
         return typeof value.not_after === 'string' && Number.isFinite(Date.parse(value.not_after))
           ? `Expires ${new Date(value.not_after).toLocaleDateString()}` : undefined;
       })],
-      ['Standing approvals', '/settings/automation', summarize(get(sdk, '/v1/approval-policies'), count('configured'))],
+      ['Standing approvals', '/settings/permissions/rules', summarize(get(sdk, '/v1/approval-policies'), count('configured'))],
       ['Physical lockout', '/settings/automation', summarize(get(sdk, '/v1/physical/lockout'), (data) => {
         const value = object(data).locked;
         return value === true ? 'Locked' : value === false ? 'Unlocked' : undefined;

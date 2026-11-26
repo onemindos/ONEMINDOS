@@ -3,10 +3,14 @@
 package cli
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
+	"strconv"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -220,7 +224,69 @@ func permissionsRulesCommands(a *App) *cobra.Command {
 	narrow.Flags().IntVar(&perDay, "per-day", 0, "a lower number of uses per 24 hours")
 	narrow.Flags().IntVar(&maxUses, "max-uses", 0, "end the rule after this many uses in total")
 	narrow.Flags().StringVar(&expires, "expires", "", "an earlier end, RFC 3339 (e.g. 2026-12-31T00:00:00Z)")
-	root.AddCommand(list,
+	show := &cobra.Command{Use: "show <rule-id>", Short: "One rule: its limits, uses, notices and history (revisions, suspensions, revoke)", Args: cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			c, _, err := a.client()
+			if err != nil {
+				return err
+			}
+			var all []map[string]any
+			if err := c.Do(bg(), http.MethodGet, path, nil, &all); err != nil {
+				return err
+			}
+			var rule map[string]any
+			for _, p := range all {
+				if p["id"] == args[0] {
+					rule = p
+				}
+			}
+			if rule == nil {
+				return exitWith(ExitNotFound, "not_found", "no standing approval "+args[0])
+			}
+			hist, err := ruleHistory(c, rule)
+			if err != nil {
+				return err
+			}
+			if a.G.JSON {
+				return printJSON(a.Stdout, map[string]any{"rule": rule, "history": hist})
+			}
+			line(rule)
+			limits, _ := rule["limits"].(map[string]any)
+			fmt.Fprintf(a.Stdout, "  per day %v, max uses %v, uses %v (%v in 24 h), notices %v, lapse if unused %v days\n",
+				limits["per_day"], orDash(limits["max_uses"]), rule["uses"], rule["uses_24h"], rule["notify_after"], orDash(rule["lapse_unused_days"]))
+			for _, h := range hist {
+				d, _ := h["data"].(map[string]any)
+				fmt.Fprintf(a.Stdout, "  %s  %s", sanitize(fmt.Sprint(h["ts"])), sanitize(fmt.Sprint(h["event"])))
+				if rev, ok := d["revision"]; ok {
+					fmt.Fprintf(a.Stdout, " rev %v", rev)
+				}
+				if why, ok := d["reason"].(string); ok {
+					fmt.Fprintf(a.Stdout, " (%s)", sanitize(why))
+				}
+				fmt.Fprintln(a.Stdout)
+			}
+			return nil
+		}}
+	var only string
+	revokeAll := &cobra.Command{Use: "revoke-all", Short: "End every rule, or every rule naming one principal (--principal); no passkey needed", Args: cobra.NoArgs,
+		RunE: func(*cobra.Command, []string) error {
+			body := map[string]any{"principal": nil}
+			if only != "" {
+				body["principal"] = only
+			}
+			out, err := call(http.MethodPost, path+"/revoke-all", body)
+			if err != nil {
+				return err
+			}
+			if a.G.JSON {
+				return printJSON(a.Stdout, out)
+			}
+			ids, _ := out["revoked"].([]any)
+			fmt.Fprintf(a.Stdout, "Revoked %d rule(s). %s\n", len(ids), sanitize(joinAny(out["revoked"])))
+			return nil
+		}}
+	revokeAll.Flags().StringVar(&only, "principal", "", "only rules naming this principal, e.g. agent:notes-helper")
+	root.AddCommand(list, show, revokeAll,
 		one("revoke", "End a rule now (one step; no passkey needed)", "revoke", "revoking"),
 		one("reconfirm", "Re-confirm a suspended rule after its agent changed (owner; passkey)", "reconfirm", "re-confirming a rule"),
 		one("keep", "Keep a forever rule at its 90-day review", "keep", "keeping a rule"),
@@ -325,4 +391,66 @@ func permissionsModeCommands(a *App) *cobra.Command {
 	set.Flags().StringVar(&reason, "reason", "", "why, for the audit record")
 	root.AddCommand(get, list, set)
 	return root
+}
+
+func orDash(v any) any {
+	if v == nil {
+		return "-"
+	}
+	return v
+}
+
+// ruleHistory reads a rule's audit lines (created, revisions, suspensions, re-confirm, revoke) since it was
+// made, at most five pages of 500.
+func ruleHistory(c *onemind.Client, rule map[string]any) ([]map[string]any, error) {
+	since := fmt.Sprint(rule["created_at"])
+	if t, err := time.Parse(time.RFC3339, since); err == nil {
+		since = t.Add(-time.Second).UTC().Format(time.RFC3339)
+	}
+	out := []map[string]any{}
+	after := ""
+	for page := 0; page < 5; page++ {
+		q := url.Values{"event": {"automation.policy.created,approval.policy.*"}, "since": {since}, "limit": {"500"}}
+		if after != "" {
+			q.Set("after_seq", after)
+		}
+		var recs []map[string]any
+		if err := c.Do(bg(), http.MethodGet, "/v1/audit/events?"+q.Encode(), nil, &recs); err != nil {
+			return nil, err
+		}
+		for _, r := range recs {
+			if d, _ := r["data"].(map[string]any); d != nil && d["policy_id"] == rule["id"] {
+				out = append(out, r)
+			}
+		}
+		if len(recs) < 500 {
+			break
+		}
+		if after = seqCursor(recs[len(recs)-1]["seq"]); after == "" {
+			break // a line with no usable seq: stop rather than ask for the same page again
+		}
+	}
+	return out, nil
+}
+
+// seqCursor is an audit line's seq as the integer the gateway's after_seq expects. JSON numbers decode
+// as float64, and fmt.Sprint prints a float64 of a million or more as 1e+06, which the gateway refuses
+// (422); this always gives plain digits. It is "" for a missing or non-integer seq.
+func seqCursor(v any) string {
+	switch n := v.(type) {
+	case float64:
+		if n < 0 || n != math.Trunc(n) || n > math.MaxInt64 {
+			return ""
+		}
+		return strconv.FormatInt(int64(n), 10)
+	case json.Number:
+		if _, err := strconv.ParseInt(string(n), 10, 64); err == nil {
+			return string(n)
+		}
+	case int:
+		return strconv.Itoa(n)
+	case int64:
+		return strconv.FormatInt(n, 10)
+	}
+	return ""
 }

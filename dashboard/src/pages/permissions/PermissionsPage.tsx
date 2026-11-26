@@ -8,6 +8,7 @@ import { Link, useParams } from 'react-router';
 import { PageHeader } from '@onemind/ui';
 import { WhoHasAccess } from '../SettingsSecurity';
 import { Modes } from './Modes';
+import { Rules } from './Rules';
 
 export interface PermissionsTab {
   id: string;
@@ -17,6 +18,7 @@ export interface PermissionsTab {
 
 export const TABS: PermissionsTab[] = [
   { id: 'modes', label: 'Modes', Body: Modes },
+  { id: 'rules', label: 'Rules', Body: Rules },
   { id: 'access', label: 'Who has access', Body: WhoHasAccess },
 ];
 

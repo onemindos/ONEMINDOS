@@ -1788,6 +1788,211 @@
         "title": "ApprovalLimit",
         "type": "object"
       },
+      "ApprovalPolicy": {
+        "description": "A standing approval as the routes return it (PolicyService.to_json): the Rules screen and\n`onemind permissions rules` read these fields. Response documentation only; to_json stays the source.",
+        "properties": {
+          "accept_injection_risk": {
+            "default": false,
+            "title": "Accept Injection Risk",
+            "type": "boolean"
+          },
+          "allow": {
+            "$ref": "#/components/schemas/Allow"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "additionalProperties": true,
+            "title": "Created By",
+            "type": "object"
+          },
+          "created_from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the action it was remembered from",
+            "title": "Created From"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when forever",
+            "title": "Expires At"
+          },
+          "forever": {
+            "title": "Forever",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "lapse_unused_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lapse Unused Days"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/PolicyLimitsView"
+          },
+          "modes": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "each named principal's permission mode now; on locked or ask a rule never fires",
+            "title": "Modes",
+            "type": "object"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "notify_after": {
+            "description": "each, digest or silent",
+            "title": "Notify After",
+            "type": "string"
+          },
+          "principals": {
+            "additionalProperties": true,
+            "description": "requested_by entry -> the permanent principal id it binds",
+            "title": "Principals",
+            "type": "object"
+          },
+          "review_due": {
+            "default": false,
+            "description": "a forever rule whose 90-day review is due (Keep or revoke)",
+            "title": "Review Due",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "every edit, revoke or re-confirm is a new revision",
+            "title": "Revision",
+            "type": "integer"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "revoked_by": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked By"
+          },
+          "state": {
+            "description": "active, suspended, paused, expired, revoked or deleted",
+            "title": "State",
+            "type": "string"
+          },
+          "suspended_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suspended Reason"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          },
+          "uses": {
+            "default": 0,
+            "title": "Uses",
+            "type": "integer"
+          },
+          "uses_24h": {
+            "default": 0,
+            "title": "Uses 24H",
+            "type": "integer"
+          },
+          "window_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window Id"
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "allow",
+          "limits",
+          "forever",
+          "notify_after",
+          "created_by",
+          "created_at",
+          "state"
+        ],
+        "title": "ApprovalPolicy",
+        "type": "object"
+      },
       "ApprovalPreview": {
         "description": "The approval card's preview slot (#723): what the action will do, drawn by the host.",
         "properties": {
@@ -10607,6 +10812,52 @@
         "title": "PolicyBody",
         "type": "object"
       },
+      "PolicyLimitsView": {
+        "properties": {
+          "bytes_per_day": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bytes Per Day"
+          },
+          "items_per_day": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Items Per Day"
+          },
+          "max_uses": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Uses"
+          },
+          "per_day": {
+            "title": "Per Day",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "per_day"
+        ],
+        "title": "PolicyLimitsView",
+        "type": "object"
+      },
       "PolicyPatch": {
         "additionalProperties": false,
         "description": "A new revision. Fields left out keep their value. Narrowing applies at once; widening needs a\nfresh passkey (the route asks); either way the revision goes up.",
@@ -12080,6 +12331,23 @@
           }
         },
         "title": "RevokeAllBody",
+        "type": "object"
+      },
+      "RevokeAllResult": {
+        "properties": {
+          "revoked": {
+            "description": "the ids of the rules revoked",
+            "items": {
+              "type": "string"
+            },
+            "title": "Revoked",
+            "type": "array"
+          }
+        },
+        "required": [
+          "revoked"
+        ],
+        "title": "RevokeAllResult",
         "type": "object"
       },
       "RevokeRequest": {
@@ -19906,7 +20174,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ApprovalPolicy"
+                  },
+                  "title": "Response 200 Approvals.Policies.List",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -19953,7 +20227,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalPolicy"
+                }
               }
             },
             "description": "Successful Response"
@@ -20032,7 +20308,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RevokeAllResult"
+                }
               }
             },
             "description": "Successful Response"
@@ -20182,7 +20460,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalPolicy"
+                }
               }
             },
             "description": "Successful Response"
@@ -20279,7 +20559,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalPolicy"
+                }
               }
             },
             "description": "Successful Response"
@@ -20356,7 +20638,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalPolicy"
+                }
               }
             },
             "description": "Successful Response"
@@ -20433,7 +20717,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalPolicy"
+                }
               }
             },
             "description": "Successful Response"
@@ -20520,7 +20806,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalPolicy"
+                }
               }
             },
             "description": "Successful Response"
