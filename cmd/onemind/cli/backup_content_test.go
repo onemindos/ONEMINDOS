@@ -114,3 +114,18 @@ func TestBackupContentSetIsRefusedForAnAgent(t *testing.T) {
 		t.Fatalf("agent %+v", r)
 	}
 }
+
+// The CLI and the dashboard write a size the same way; the dashboard's size() test checks the same values.
+func TestHumanBytesMatchesTheDashboard(t *testing.T) {
+	for in, want := range map[float64]string{
+		512: "512 bytes", 4_200_000_000: "4.2 GB", 1_500_000_000: "1.5 GB", 1_250_000: "1.3 MB",
+		9_960_000_000: "10 GB", 15_400_000_000: "15 GB", 1_500_000_000_000: "1.5 TB",
+	} {
+		if got := humanBytes(in); got != want {
+			t.Errorf("humanBytes(%v) = %q, want %q", in, got, want)
+		}
+	}
+	if got := humanBytes(nil); got != "not measured" {
+		t.Errorf("nil: %q", got)
+	}
+}

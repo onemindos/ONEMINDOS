@@ -11,6 +11,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"math"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -108,9 +109,12 @@ func backupContentCommand(a *App) *cobra.Command {
 	return root
 }
 
+// humanBytes writes bytes in plain units, the same rule as the dashboard's size()
+// (dashboard/src/pages/backups/Content.tsx): powers of 1000, one decimal under 10 (1.5 GB), a whole
+// number from 10 up (15 GB), halves rounded up.
 func humanBytes(v any) string {
 	f, ok := v.(float64)
-	if !ok || f < 0 {
+	if !ok || f < 0 || math.IsInf(f, 0) || math.IsNaN(f) {
 		return "not measured"
 	}
 	units := []string{"bytes", "KB", "MB", "GB", "TB"}
@@ -122,5 +126,10 @@ func humanBytes(v any) string {
 	if i == 0 {
 		return strconv.Itoa(int(f)) + " bytes"
 	}
-	return fmt.Sprintf("%.1f %s", f, units[i])
+	if f < 10 {
+		if r := math.Round(f*10) / 10; r < 10 {
+			return fmt.Sprintf("%.1f %s", r, units[i])
+		}
+	}
+	return fmt.Sprintf("%.0f %s", math.Round(f), units[i])
 }

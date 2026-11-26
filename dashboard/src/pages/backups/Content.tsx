@@ -13,12 +13,21 @@ import { href } from '../../shell/routes';
 import { Load } from '../parts';
 import { read, rows, strings, text, useFiling } from './shared';
 
+/**
+ * Bytes in plain units, the same rule as the CLI's humanBytes (cmd/onemind/cli/backup_content.go):
+ * powers of 1000, one decimal under 10 (1.5 GB), a whole number from 10 up (15 GB), halves rounded up.
+ */
 export function size(bytes: unknown): string {
   if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes < 0) return 'size not measured yet';
   const units = ['bytes', 'KB', 'MB', 'GB', 'TB'];
   let n = bytes, i = 0;
   while (n >= 1000 && i < units.length - 1) { n /= 1000; i++; }
-  return `${i === 0 ? n : n.toFixed(n < 10 ? 1 : 0)} ${units[i]}`;
+  if (i === 0) return `${Math.trunc(n)} bytes`;
+  if (n < 10) {
+    const r = Math.round(n * 10) / 10;
+    if (r < 10) return `${r.toFixed(1)} ${units[i]}`;
+  }
+  return `${Math.round(n)} ${units[i]}`;
 }
 
 interface Item { id: string; name: string; patterns: string[]; enabled: boolean; bytes: number | undefined; files: number | undefined; enabledBytes: number | undefined; missing: string[] }
@@ -29,14 +38,29 @@ function item(r: Record<string, unknown>): Item {
 }
 const RESULT: Record<string, { tone: 'ok' | 'bad' | 'warn'; word: string }> = { pass: { tone: 'ok', word: 'Passed' }, fail: { tone: 'bad', word: 'Failed' }, error: { tone: 'warn', word: 'Could not finish' } };
 
-export function ContentSection({ sdk, token }: { sdk: OneMind; token: string }) {
-  const items = usePoll(async () => rows(await read(sdk, '/v1/backups/content')).map(item), 60_000);
+/** Choosing what goes into backups is owner-only at the gateway (POST /v1/backups/content), so only an owner sees the buttons. */
+export function ContentSection({ sdk, token, owner }: { sdk: OneMind; token: string; owner: boolean }) {
+  const load = async () => rows(await read(sdk, '/v1/backups/content')).map(item);
+  const items = usePoll(load, 60_000);
   const { file, busy, error } = useFiling(sdk, token);
   const [ask, setAsk] = useState<Item>();
+  const [grew, setGrew] = useState('');
   const [filed, setFiled] = useState<{ id: string; what: string }>();
   const send = async (i: Item, enabled: boolean) => {
+    setGrew('');
     const r = await file('/v1/backups/content', 'backup.content.set', enabled ? { app_id: i.id, enabled, seen_size_bytes: i.bytes } : { app_id: i.id, enabled });
-    if (r) { setFiled({ id: r.id, what: `${enabled ? 'Back up' : 'Leave out'} ${i.name}'s downloadable content` }); setAsk(undefined); }
+    if (r) { setFiled({ id: r.id, what: `${enabled ? 'Back up' : 'Leave out'} ${i.name}'s downloadable content` }); setAsk(undefined); return; }
+    if (!enabled) return;
+    // The gateway refuses (409) when the content grew past the size shown. Retrying the old size fails
+    // the same way, so read the size again and ask about the new one instead.
+    try {
+      const fresh = (await load()).find((x) => x.id === i.id);
+      await items.reload();
+      if (fresh && fresh.bytes !== undefined && fresh.bytes !== i.bytes) {
+        setAsk(fresh);
+        setGrew(`${i.name}'s content changed since you looked: it is now about ${size(fresh.bytes)}, not ${size(i.bytes)}. Check the new size, then send the request again.`);
+      }
+    } catch { /* the first error stays on screen */ }
   };
   return <>
     <Load res={items} what="Loading downloadable content">{(list) => <Card title="Downloadable content">
@@ -48,17 +72,18 @@ export function ContentSection({ sdk, token }: { sdk: OneMind; token: string }) 
           {i.enabled && i.enabledBytes !== undefined && <div><dt>Size when you included it</dt><dd>{size(i.enabledBytes)}</dd></div>}
           {i.missing.length > 0 && <div><dt>Not found</dt><dd>{i.missing.join(', ')}</dd></div>}
         </dl>
-        {i.enabled
+        {!owner ? null : i.enabled
           ? <Button size="sm" variant="secondary" disabled={busy} onClick={() => void send(i, false)} aria-label={`Leave out ${i.name}'s content`}>Leave out</Button>
           : <Button size="sm" variant="secondary" disabled={busy || i.bytes === undefined} onClick={() => setAsk(i)} aria-label={`Include ${i.name}'s content`}>Include in backups…</Button>}
       </li>)}</ul>}
+      {!owner && list.length > 0 && <p className="om-note">Only an owner can choose what goes into backups.</p>}
       {filed && <p role="status">{filed.what}: waiting for an owner. <Link to={href.approval(filed.id)}>Open it in Approvals</Link></p>}
       {error && !ask && <p role="alert" className="om-note om-tone-bad">{error}</p>}
     </Card>}</Load>
-    <Dialog open={!!ask} role="alertdialog" title={`Back up ${ask?.name}'s downloadable content?`} onClose={() => { if (!busy) setAsk(undefined); }}
+    <Dialog open={!!ask} role="alertdialog" title={`Back up ${ask?.name}'s downloadable content?`} onClose={() => { if (!busy) { setAsk(undefined); setGrew(''); } }}
       actions={<Button disabled={busy} onClick={() => ask && void send(ask, true)}>{busy ? 'Sending request…' : 'Send request'}</Button>}>
       <p>This adds about <strong>{size(ask?.bytes)}</strong> to every backup of {ask?.name}. Nothing changes until an owner approves it in Approvals.</p>
-      {error && <p role="alert">{error}</p>}
+      {grew ? <p role="alert">{grew}</p> : error && <p role="alert">{error}</p>}
     </Dialog>
   </>;
 }
