@@ -62,6 +62,21 @@ Why `adb reverse`: it makes `127.0.0.1:8099` on the phone point to port 8099 on 
 
 If the app crashes, read why with `adb logcat -d -b crash | tail -40`.
 
+## Is this the official design?
+
+Mostly, with one real mismatch. The official look is the founder's design picks of 2026-11-21 (Atlas base, Sovereign colours, today's logo), written down in [`DESIGN.md`](../../DESIGN.md) and design issue #757. Checked against the code on 2026-11-26:
+
+| Part of the look | Phone app | Matches? |
+|---|---|---|
+| Colours | Generated from the same source as the dashboard (`ui/src/tokens/tokens.ts` → `mobile/src/ui/tokens.generated.ts`); `npm run tokens -- --check` says up to date | **Yes** |
+| Dark background and surfaces (stone `#151311`, `#191715`) | Used | **Yes** |
+| Teal for selection, links and focus | Used | **Yes** |
+| Logo | Today's logo, original drawing | **Yes** |
+| **Primary buttons red** ("red is the general button colour", DESIGN.md "Primary action" `#d11826` / `#fb605a`) | **Teal.** `mobile/src/ui/bits.tsx` paints a primary button with `accent`; the dashboard's `.om-btn-primary` uses `action` (red). The phone's code comment still points at the old dashboard rule | **No: drift** |
+| Contour wallpaper, ten theme packs, Appearance settings | Not on the phone; the phone follows the system light or dark mode only | Not built for the phone (DESIGN.md describes the desktop) |
+
+So "Scan the box's code" and "Connect" are teal on the phone but would be red on the dashboard. The fix is small (primary buttons use `action` and `action-text`, plus a test), and it is a separate change from the crash fix.
+
 ## What this teaches us
 
 - **A green build is not a working app.** Every nightly built and passed its checks, and every one crashed on open. The next step is a CI smoke test that starts the release APK on an Android emulator and fails if it crashes.
