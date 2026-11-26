@@ -33,7 +33,7 @@ Which jobs (a test, `test/unit/test_local_runner_policy.py`, keeps this list hon
 They are arm64-safe, need no Docker and use no secrets. They stay on GitHub, and why:
 
 - **Need x86_64 or KVM:** `image`, `battery`, `nightly`, `net-2vm`, `e2e` `golden-path`, `ci` `rauc-build` (it builds on both architectures on purpose), `ci-onemindd` (it runs the amd64 binary it built).
-- **Need Docker:** the 4 PostgreSQL shards of `ci-core` (service containers) and its `image` job; all of `ci-deploy` (`docker compose`, privileged containers); `ci-apps` `gate` and `apps-gate-all` (k3d).
+- **Need Docker:** the 6 PostgreSQL shards of `ci-core` (service containers) and its `image` job; all of `ci-deploy` (`docker compose`, privileged containers); `ci-apps` `gate` and `apps-gate-all` (k3d).
 - **Need GitHub's preinstalled SDKs or other systems:** `ci-mobile` `android` (Android SDK, x86 Java) and `ios` (macOS); `ci-desktop` (macOS, Windows).
 - **Results depend on the machine:** `ui-quality` browsers (its visual snapshots were taken on x86 Ubuntu; arm64 renders fonts differently), `perf-smoke` (its budgets were measured on GitHub's arm runner).
 - **Write to the repo or read secrets:** `release`, `security-nightly`, `apps-rescan`, `changes-collect`, `dev-build`, `ui-quality` `commit-baseline`, `test-all` (it dispatches workflows).
