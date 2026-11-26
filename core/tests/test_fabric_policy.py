@@ -93,6 +93,10 @@ class FakeJS:
     async def publish(self, subject, data, headers=None):
         self.sent.append((subject, json.loads(data), headers))
 
+    async def purge_stream(self, name, subject=None):
+        self.purged = getattr(self, "purged", []) + [(name, subject)]
+        return True
+
 
 def test_publisher_republishes_every_machine_on_a_change(tmp_path):
     js, state = FakeJS(), {"s": fp.PolicyState()}
@@ -113,6 +117,126 @@ def test_publisher_republishes_every_machine_on_a_change(tmp_path):
         ("onemind.node.nodea.policy", 2, "policy-nodea-2"), ("onemind.node.nodeb.policy", 2, "policy-nodeb-2")]
     assert js.sent[-1][1]["stop"] == {"motion_lockout": False, "agents": True}
     assert pub.published == {"nodea": 2, "nodeb": 2} and pub.epoch() == 2
+
+
+# ------------------------------------------------------------------- #1210 review fixes
+@pytest.mark.parametrize("body", ["{not json", '{"epoch": "7", "digest": "x"}', '{"epoch": 0, "digest": "x"}',
+                                  '{"digest": "x"}', "[]"])
+def test_a_corrupt_epoch_file_fails_loudly_and_is_never_reset(tmp_path, body):
+    """#1210 review: a corrupt file used to read as epoch 1, so machines ignored every new note and
+    refused every new job as stale_epoch, silently. Now it is an error everywhere, and nothing rewrites it."""
+    path = tmp_path / "policy-epoch.json"
+    path.write_text(body)
+    store = fp.EpochStore(path)
+    js = FakeJS()
+    pub = fp.PolicyPublisher(key=_key, store=store, state=lambda: fp.PolicyState(motion_lockout=True),
+                             node_ids=lambda: ["nodea"], clock=lambda: NOW)
+    with pytest.raises(fp.EpochError):
+        store.read()
+    with pytest.raises(fp.EpochError):
+        store.advance(fp.PolicyState().digest())
+    with pytest.raises(fp.EpochError):
+        pub.epoch()                                   # no job is signed with a guessed epoch
+    asyncio.run(pub.publish_on(SimpleNamespace(jetstream=lambda: js), every=True))
+    assert js.sent == [] and pub.error.startswith("EpochError")
+    v = pub.view()
+    assert v["epoch"] == 0 and v["error"].startswith("EpochError") and v["stop"]["motion_lockout"] is True
+    assert path.read_text() == body                   # never reset behind the owner's back
+
+
+def test_the_first_stop_on_a_fresh_box_is_epoch_2(tmp_path):
+    """Jobs signed before any snapshot carry epoch 1 (backups/jobs.py POLICY_EPOCH): the very first stop
+    must be a newer epoch, or those jobs would not be stale under it."""
+    store = fp.EpochStore(tmp_path / "e.json")
+    assert store.peek(fp.PolicyState(motion_lockout=True).digest()) == 2
+    assert store.advance(fp.PolicyState(motion_lockout=True).digest()) == 2
+
+
+def test_reading_the_policy_never_writes_the_epoch_file(tmp_path):
+    """#1210 review: GET /v1/fabric/policy wrote the epoch file through epoch(). view() is read-only now
+    and still shows the epoch a job signed now would carry."""
+    path = tmp_path / "e.json"
+    state = {"s": fp.PolicyState()}
+    pub = fp.PolicyPublisher(key=_key, store=fp.EpochStore(path), state=lambda: state["s"],
+                             node_ids=lambda: [], clock=lambda: NOW)
+    assert pub.view()["epoch"] == 1 and not path.exists()
+    state["s"] = fp.PolicyState(agents_stopped=True)
+    assert pub.view()["epoch"] == 2 and not path.exists()
+    assert pub.epoch() == 2 and path.exists()
+    before = path.read_bytes()
+    state["s"] = fp.PolicyState()
+    assert pub.view()["epoch"] == 3 and path.read_bytes() == before
+    assert pub.epoch() == 3
+
+
+def test_a_stop_purges_queued_actuating_jobs_once_per_epoch(tmp_path):
+    """#1210 review: a job queued before Stop must not wait in the queue for the note to win a race."""
+    js, state = FakeJS(), {"s": fp.PolicyState()}
+    pub = fp.PolicyPublisher(key=_key, store=fp.EpochStore(tmp_path / "e.json"), state=lambda: state["s"],
+                             node_ids=lambda: ["nodea"], clock=lambda: NOW)
+    nc = SimpleNamespace(jetstream=lambda: js)
+
+    async def scenario():
+        await pub.publish_on(nc, every=True)
+        assert not getattr(js, "purged", [])           # no stop: nothing purged
+        state["s"] = fp.PolicyState(motion_lockout=True)
+        await pub.publish_on(nc)
+        await pub.publish_on(nc)                      # same epoch: not purged again
+
+    asyncio.run(scenario())
+    assert js.purged == [("ONEMIND_JOBS", s) for s in fp.actuating_job_subjects()]
+    assert "onemind.node.*.job.relay.>" in fp.actuating_job_subjects()
+    assert "onemind.node.*.job.physical" in fp.actuating_job_subjects()
+
+
+ACTUATE_GOLDEN = ROOT / "internal" / "leaf" / "testdata" / "actuating-job-subjects.golden.json"
+
+
+def test_actuating_subjects_golden_for_the_na_lab():
+    """NA7 (test/qemu/CRITERIA-NATS.md §3) purges ONEMIND_JOBS in nats-server with exactly these filters."""
+    assert json.loads(ACTUATE_GOLDEN.read_text()) == fp.actuating_job_subjects()
+
+
+def test_push_now_puts_the_notes_on_the_hub_before_it_returns(tmp_path):
+    """#1210 review: the stop switch call waits until the hub holds the new note (from a worker thread,
+    as a sync FastAPI route runs), instead of the next 5 s tick."""
+    import threading
+
+    from onemind_core.bus import NatsBus
+
+    js, state = FakeJS(), {"s": fp.PolicyState()}
+    pub = fp.PolicyPublisher(key=_key, store=fp.EpochStore(tmp_path / "e.json"), state=lambda: state["s"],
+                             node_ids=lambda: ["nodea"], clock=lambda: NOW)
+    loop = asyncio.new_event_loop()
+    t = threading.Thread(target=loop.run_forever, daemon=True)
+    t.start()
+    try:
+        bus = NatsBus.__new__(NatsBus)
+        bus.nc, bus._loop = SimpleNamespace(is_connected=True, jetstream=lambda: js), loop
+        state["s"] = fp.PolicyState(agents_stopped=True)
+        assert pub.push_now(bus) is True
+        assert [(s, e["epoch"], e["stop"]["agents"]) for s, e, _ in js.sent] == [("onemind.node.nodea.policy", 2, True)]
+        assert pub.published == {"nodea": 2} and js.purged
+        bus.nc = SimpleNamespace(is_connected=False)
+        assert pub.push_now(bus) is False             # NATS down: the caller reports it, the loop retries
+    finally:
+        loop.call_soon_threadsafe(loop.stop)
+        t.join(5)
+
+
+def test_stop_switch_pushes_and_a_failed_push_is_audited(settings, clock):
+    from dataclasses import replace
+
+    with TestClient(create_app(replace(settings, nats_url="nats://127.0.0.1:1"), clock=clock,
+                               executor=ScriptedExecutor())) as c:
+        gw = c.app.state.gateway
+        calls = []
+        gw.policy.push_now = lambda bus, *a, **k: calls.append("push") or False
+        assert c.put("/v1/physical/lockout", json={"locked": True}, headers=OWNER).status_code == 200
+        assert c.put("/v1/agents/kill-switch", json={"on": True}, headers=OWNER).status_code == 200
+        assert calls == ["push", "push"]
+    events = [json.loads(line).get("event") for line in settings.audit_path.read_text().splitlines() if line.strip()]
+    assert events.count("fabric.policy.push_failed") == 2
 
 
 def test_route_lockout_raises_the_epoch_jobs_carry(settings, clock):

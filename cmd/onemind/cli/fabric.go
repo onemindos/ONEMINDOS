@@ -372,7 +372,10 @@ func fabricPolicy(args []string, out io.Writer) error {
 		}
 		fmt.Fprintf(out, "  node %s: %s\n", n, state)
 	}
-	if v.Error != nil {
+	switch {
+	case v.Error != nil && v.Epoch == 0: // the gateway cannot read its epoch file: it signs no job until fixed
+		fmt.Fprintf(out, "The gateway signs no job until this is fixed: %s\n", *v.Error)
+	case v.Error != nil:
 		fmt.Fprintf(out, "Not yet on the hub: %s\n", *v.Error)
 	}
 	return nil

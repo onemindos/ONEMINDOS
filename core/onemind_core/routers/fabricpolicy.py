@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 
 from fastapi import Depends, FastAPI
 from pydantic import BaseModel, ConfigDict, Field
@@ -18,6 +19,8 @@ from ..context import Gateway
 from ..errors import error_responses
 from ..identity.scopes import register_route_scope
 from ..fabric_policy import EpochStore, PolicyPublisher, PolicyState
+
+log = logging.getLogger("onemind.policy")
 
 ORDER = 344  # after net (270: the node list), physical and agents (the switches) and jetstream (339)
 
@@ -61,6 +64,23 @@ def register(app: FastAPI, gw: Gateway) -> None:
     gw.policy = pub
     app.state.fabric_policy = pub
     task: dict[str, asyncio.Task] = {}
+
+    def push(on: bool) -> None:
+        """A stop switch changed: the hub holds the new notes before the switch call returns (#1210)."""
+        if not gw.bus.url:
+            return  # no NATS on this box: no machine to tell
+        if pub.push_now(gw.bus):
+            return
+        log.error("stop switch changed but the machines' notes are not on the hub yet (%s); retrying", pub.error)
+        gw.audit.append("fabric.policy.push_failed", None, None, {"stop": on, "error": pub.error or None})
+        gw.events.publish_event("fabric", "policy.not_delivered", {"stop": on, "error": pub.error or None},
+                                severity="warning", resource={"kind": "fabric", "id": "policy"},
+                                dedupe_key="fabric:policy:not_delivered")
+
+    # The two stop switches (routers/physical.py and routers/agents.py, both ORDER 155, registered first).
+    for switch in (getattr(app.state, "motion_lockout", None), getattr(app.state, "agent_stop", None)):
+        if switch is not None:
+            switch.listeners.append(push)
 
     @gw.on_startup
     async def _start() -> None:
