@@ -17,3 +17,4 @@ GET /v1/tls/onemind.mobileconfig  # contract §12.7: the same public CA wrapped 
 GET /v1/share/{token}  # FILES-02 (#237): someone outside the household opens a share link without an account; the link secret in the path is the credential (sec_policy.py: anonymous)
 GET /v1/share/{token}/items/{index}  # FILES-02 (#237): one item of that share link, same credential: the link secret in the path, read with the creator's current rights
 POST /v1/recovery/invites/{invite_id}/accept  # 25d (D-028): a recovery contact's phone, with no account on the box, accepts a box-signed single-use invite; the invite and a proof by the new key are the credential
+POST /v1/auth/recovery  # 25e (D-028): a locked-out owner starts a recovery from the sign-in page; a contact must confirm (and an owner is told), or the password plus authenticator code start a 72-hour wait

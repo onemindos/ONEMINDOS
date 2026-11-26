@@ -4,6 +4,8 @@
 // one, or shortening the cooling-off, needs a fresh passkey sign-in; removing one does not. A household
 // adult sees the invitations addressed to them and accepts in the OneMind phone app, where the contact
 // key lives. Calls go through the generated client (@onemind/sdk).
+// 25e: every owner sees each running recovery of an account on the box ("Is this you?") and can stop
+// it at once (no step-up), and picks the waits: after a contact confirms, and with no contact.
 import { useMemo, useState } from 'react';
 import { OneMind, OneMindError, type components } from '@onemind/sdk';
 import { Button, Card } from '@onemind/ui';
@@ -16,6 +18,8 @@ type Contact = components['schemas']['ContactView'];
 type Added = components['schemas']['ContactAdded'];
 type Waits = components['schemas']['RecoverySettings'];
 type Invitation = components['schemas']['Invitation'];
+type Recovery = components['schemas']['RecoveryView'];
+const WAIT_LABEL: Record<string, string> = { contact_wait_hours: 'Wait after a contact confirms', remote_wait_hours: 'Wait with no contact' };
 
 const STATE: Record<string, string> = {
   invited: 'Invited', expired: 'Invite expired', cooling_off: 'Accepted, not counting yet', active: 'Active',
@@ -48,7 +52,36 @@ function useSdk() {
 
 export function RecoveryContacts() {
   const { role } = useShell();
-  return role === 'owner' ? <OwnerContacts /> : <MyInvitations />;
+  return role === 'owner' ? <><RunningRecoveries /><OwnerContacts /></> : <MyInvitations />;
+}
+
+function RunningRecoveries() {
+  const sdk = useSdk();
+  const running = usePoll(() => checked(sdk.call<Recovery[]>({ method: 'GET', path: '/v1/auth/recovery' })), 30_000);
+  const [error, setError] = useState('');
+  if (!running.data?.length) return null;
+  const cancel = async (r: Recovery) => {
+    setError('');
+    try {
+      await sdk.call<Recovery>({ method: 'POST', path: `/v1/auth/recovery/requests/${encodeURIComponent(r.id)}/cancel` });
+      await running.reload();
+    } catch (e) {
+      setError(why(e));
+    }
+  };
+  return (
+    <Card title="Recovery in progress" subtitle="Someone is getting back into an account on this box. If it is not you or someone you know, stop it now.">
+      <ul aria-label="Running recoveries">
+        {running.data.map((r) => (
+          <li key={r.id}>
+            {r.path === 'contact' ? 'With a recovery contact' : 'With no contact'} · {r.state === 'waiting' && r.not_before ? `can finish after ${new Date(r.not_before).toLocaleString()}` : 'waiting for a contact'} · from {r.source}
+            <Button size="sm" aria-label={`Stop recovery ${r.id}`} onClick={() => void cancel(r)}>Stop it</Button>
+          </li>
+        ))}
+      </ul>
+      {error && <p role="alert">{error}</p>}
+    </Card>
+  );
 }
 
 function OwnerContacts() {
@@ -79,6 +112,7 @@ function OwnerContacts() {
   });
   const remove = (c: Contact) => act(() => sdk.call<Contact>({ method: 'DELETE', path: `/v1/auth/recovery/contacts/${encodeURIComponent(c.id)}` }));
   const setDefault = (days: number) => act(() => sdk.call<Waits>({ method: 'PUT', path: '/v1/auth/recovery/settings', body: { cooling_off_days: days } }));
+  const setWait = (key: string, value: number) => act(() => sdk.call<Waits>({ method: 'PUT', path: '/v1/auth/recovery/settings', body: { [key]: value } }));
 
   return (
     <Card title="Recovery contacts" subtitle="Up to 5 people who can confirm it is really you if you are locked out. They never see your files and cannot approve anything.">
@@ -114,6 +148,13 @@ function OwnerContacts() {
           </select>
         </label>
       )}
+      {waits.data && Object.keys(WAIT_LABEL).map((key) => waits.data && key in waits.data.values && (
+        <label key={key}>{WAIT_LABEL[key]}{' '}
+          <select aria-label={WAIT_LABEL[key]} value={waits.data.values[key]} onChange={(e) => void setWait(key, Number(e.target.value))}>
+            {(waits.data.options[key] ?? []).map((h) => <option key={h} value={h}>{h % 24 === 0 && h > 72 ? `${h / 24} days` : `${h} hours`}</option>)}
+          </select>
+        </label>
+      ))}
       {invite && (
         <div role="region" aria-label="Invite to send">
           <p>Send this invite to {invite.display_name}. They open it in the OneMind phone app. It works once and expires {new Date(invite.invite_expires_at).toLocaleDateString()}.</p>

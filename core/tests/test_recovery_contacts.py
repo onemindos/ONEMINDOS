@@ -188,7 +188,7 @@ def test_a_contact_principal_reaches_its_own_routes_and_nothing_else(rc, setting
     checked = 0
     for route in rc.app.routes:
         path = getattr(route, "path", "")
-        if not path.startswith("/v1/") or path in own or "/v1/recovery/invites/" in path:
+        if not path.startswith("/v1/") or path in own or path.startswith(("/v1/recovery/invites/", "/v1/recovery/requests")):
             continue
         concrete = path.replace("{", "x").replace("}", "")
         for method in sorted((getattr(route, "methods", None) or set()) - {"HEAD", "OPTIONS"}):

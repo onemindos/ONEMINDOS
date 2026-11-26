@@ -71,3 +71,22 @@ it('shows a household adult the invitations addressed to them and nothing to man
   expect(screen.queryByLabelText('Name')).toBeNull();
   expect(calls.every((c) => c.path === '/v1/auth/recovery/invitations')).toBe(true);
 });
+
+it('shows a running recovery to an owner and stops it without a step-up; the waits come from the gateway', async () => {
+  state.role = 'owner';
+  const running = [{ id: 'rr_1', path: 'contact', state: 'waiting', created_at: '2026-11-25T00:00:00Z', vouch_expires_at: null, vouched_at: '2026-11-25T00:01:00Z', vouch_method: 'online', wait_hours: 24, liveness_raised: false, not_before: '2026-11-26T00:01:00Z', ended_at: null, end_reason: null, source: '203.0.113.9' }];
+  const fullWaits = { ...waits, values: { cooling_off_days: 7, contact_wait_hours: 24, remote_wait_hours: 72 }, options: { cooling_off_days: [3, 7, 14], contact_wait_hours: [24, 48, 72], remote_wait_hours: [72, 168] } };
+  const calls = gateway((_method, path) => {
+    if (path === '/v1/auth/recovery') return Response.json(running);
+    if (path === '/v1/auth/recovery/settings') return Response.json(fullWaits);
+    if (path === '/v1/auth/recovery/requests/rr_1/cancel') return Response.json({ ...running[0], state: 'cancelled' });
+    return Response.json([]);
+  });
+  render(<RecoveryContacts />);
+  expect(await screen.findByText(/from 203.0.113.9/)).toBeVisible();
+  const user = userEvent.setup();
+  await user.selectOptions(await screen.findByLabelText('Wait with no contact'), '168');
+  await user.click(screen.getByRole('button', { name: 'Stop recovery rr_1' }));
+  expect(calls.some((c) => c.method === 'POST' && c.path === '/v1/auth/recovery/requests/rr_1/cancel')).toBe(true);
+  expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ remote_wait_hours: 168 });
+});

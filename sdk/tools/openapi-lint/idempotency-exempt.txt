@@ -59,3 +59,10 @@ DELETE /v1/auth/recovery/contacts/{contact_id}  # removing twice is the same as 
 PUT /v1/auth/recovery/settings  # sets each named wait to the given option: the same body twice leaves the same state
 POST /v1/recovery/invites/{invite_id}/accept  # answers with the contact token and secret once, which a replay store must not keep; the single-use invite refuses a retry (409 invite_used)
 POST /v1/recovery/contact/resign  # resigning twice is the same as once: the token stops at the first, so a repeat is refused before it changes anything
+POST /v1/auth/recovery  # answers with a fresh request token once, which a replay store must not keep; a second start while one runs answers 409 already_running
+POST /v1/auth/recovery/requests/{request_id}/code  # a code is checked once per try and the request moves on or counts the try; a replay store must not let a retry skip the 3-try limit
+POST /v1/auth/recovery/requests/{request_id}/cancel  # cancelling twice is the same as once: the repeat answers the cancelled request and changes nothing
+POST /v1/auth/recovery/requests/{request_id}/complete/options  # returns a fresh single-use WebAuthn challenge; nothing changes
+POST /v1/auth/recovery/requests/{request_id}/complete  # answers with fresh session tokens, which a replay store must not keep; a retry finds the request completed (409)
+POST /v1/recovery/requests/{request_id}/vouch  # the first confirmation moves the request to waiting; a repeat answers 409 and changes nothing
+POST /v1/recovery/requests/{request_id}/cancel  # cancelling twice is the same as once

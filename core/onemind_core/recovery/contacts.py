@@ -44,11 +44,18 @@ from .models import ContactRow, NoticeRow, SettingsRow
 MAX_CONTACTS = 5  # Apple's number; D-028 "up to 5"
 INVITE_TTL = timedelta(days=7)
 COOLING_OFF_OPTIONS = (3, 7, 14)  # D-028: the owner picks; 7 by default
-DEFAULTS: dict[str, int] = {"cooling_off_days": 7}
-OPTIONS: dict[str, tuple[int, ...]] = {"cooling_off_days": COOLING_OFF_OPTIONS}
+# D-028: each wait from set options, defaults in brackets: cooling-off 3, 7, 14 days [7]; the wait after
+# a contact confirms 24, 48, 72 hours [24, rising to 72 by itself when a strong key was used recently];
+# remote recovery 72 hours or 7 days [72 hours].
+DEFAULTS: dict[str, int] = {"cooling_off_days": 7, "contact_wait_hours": 24, "remote_wait_hours": 72}
+OPTIONS: dict[str, tuple[int, ...]] = {"cooling_off_days": COOLING_OFF_OPTIONS, "contact_wait_hours": (24, 48, 72),
+                                       "remote_wait_hours": (72, 168)}
 CONTACT_TOKEN_PREFIX = "omc_"
 # Routes a contact principal may reach; anything else is refused at the door. Later PRs add theirs.
-CONTACT_PATHS: list[re.Pattern[str]] = [re.compile(r"/v1/recovery/contact(/[a-z-]+)?")]
+CONTACT_PATHS: list[re.Pattern[str]] = [
+    re.compile(r"/v1/recovery/contact(/[a-z-]+)?"),
+    re.compile(r"/v1/recovery/requests(/rr_[0-9A-Z]{26}/(vouch|cancel))?"),  # 25e: confirm or stop a recovery
+]
 CONTACT_KINDS = ("household", "outside")
 HOUSEHOLD_CONTACT_ROLES = ("adult",)  # never child, teen or guest (§3.13); another owner already has power
 LIVE_STATES = ("invited", "active")
