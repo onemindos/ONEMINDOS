@@ -47,6 +47,27 @@ function mount(opts: { enabled?: boolean; domains?: Dom[]; proofFound?: boolean 
       domains.splice(domains.findIndex((x) => x.domain === del[1]), 1);
       return response(null, 204);
     }
+    const ask = /^\/v1\/domains\/([^/]+)\/hosts$/.exec(path);
+    if (ask && method === 'POST') {
+      const d = domains.find((x) => x.domain === ask[1])!;
+      const h = { hostname: `${body.app_id}.${d.domain}`, app_id: body.app_id, state: 'requested', requested_by: 'p1', approved_by: null, updated_at: null, public: false };
+      d.hosts.push(h);
+      return response(h, 201);
+    }
+    const hostOp = /^\/v1\/domains\/hosts\/([^/]+)(\/approve)?$/.exec(path);
+    if (hostOp) {
+      const d = domains.find((x) => (x.hosts as { hostname: string }[]).some((h) => h.hostname === hostOp[1]))!;
+      const hosts = d.hosts as { hostname: string; state: string }[];
+      const h = hosts.find((x) => x.hostname === hostOp[1])!;
+      if (hostOp[2] && method === 'POST') {
+        h.state = 'approved';
+        return response(h);
+      }
+      if (!hostOp[2] && method === 'DELETE') {
+        hosts.splice(hosts.indexOf(h), 1);
+        return response(null, 204);
+      }
+    }
     return response({ error: 'not_found', message: 'no' }, 404);
   });
   vi.stubGlobal('fetch', fetch);
@@ -108,4 +129,36 @@ it('says the feature is off and offers no way to add while the box has it off', 
   expect(await screen.findByText(/Your own domain is off on this box/)).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Add domain' })).toBeDisabled();
   expect(screen.getByLabelText('Domain to add')).toBeDisabled();
+});
+
+it('approves a name only after its full name is typed, then shows it as approved', async () => {
+  const calls = mount({ domains: [dom('example.org', true, true)] });
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Approve ntfy.example.org' }));
+  const approve = screen.getByRole('button', { name: 'Approve name' });
+  expect(approve).toBeDisabled();
+  await user.type(screen.getByLabelText(/^Type ntfy.example.org to confirm/), 'ntfy.example');
+  expect(approve).toBeDisabled();
+  await user.type(screen.getByLabelText(/^Type ntfy.example.org to confirm/), '.org');
+  await user.click(approve);
+  await vi.waitFor(() => expect(screen.getByText(/approved \(not served yet\)/)).toBeInTheDocument());
+  expect(calls.filter((c) => c.method === 'POST' && c.path.endsWith('/approve')).map((c) => [c.path, c.body])).toEqual([['/v1/domains/hosts/ntfy.example.org/approve', { confirm: 'ntfy.example.org' }]]);
+});
+
+it('asks for a name under a verified domain and removes a name', async () => {
+  const calls = mount({ domains: [dom('example.org', true, true)] });
+  const user = userEvent.setup();
+  await user.type(await screen.findByLabelText('App to give a name under example.org'), 'kuma');
+  await user.click(screen.getByRole('button', { name: 'Ask for this name' }));
+  await screen.findByText('kuma.example.org');
+  expect(calls.some((c) => c.method === 'POST' && c.path === '/v1/domains/example.org/hosts' && JSON.stringify(c.body) === '{"app_id":"kuma"}')).toBe(true);
+  await user.click(screen.getByRole('button', { name: 'Remove the name ntfy.example.org' }));
+  await vi.waitFor(() => expect(screen.queryByText('ntfy.example.org')).not.toBeInTheDocument());
+  expect(calls.some((c) => c.method === 'DELETE' && c.path === '/v1/domains/hosts/ntfy.example.org')).toBe(true);
+});
+
+it('offers no name request for a domain that is not verified', async () => {
+  mount({ domains: [dom('example.org')] });
+  await screen.findByRole('button', { name: 'Check example.org' });
+  expect(screen.queryByLabelText('App to give a name under example.org')).not.toBeInTheDocument();
 });

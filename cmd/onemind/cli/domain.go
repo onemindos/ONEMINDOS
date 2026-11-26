@@ -61,7 +61,82 @@ func domainCommands(a *App) []*cobra.Command {
 			return nil
 		},
 	})
+	g.AddCommand(domainHostCommands(a))
 	return []*cobra.Command{g}
+}
+
+// domainHostCommands is `onemind domain host`: the names asked for under a verified domain. Approving a name is
+// the owner's own decision, so it needs the full hostname typed again (--confirm), exactly as the dashboard asks.
+// Approving records a decision only: nothing is served from the name yet.
+func domainHostCommands(a *App) *cobra.Command {
+	h := &cobra.Command{Use: "host", Short: "Names under your domain: request one, approve it, or remove it (owner)"}
+	h.AddCommand(&cobra.Command{
+		Use:   "request DOMAIN APP",
+		Short: "Ask for APP.DOMAIN; it waits for you to approve it (POST /v1/domains/DOMAIN/hosts)",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(_ *cobra.Command, args []string) error {
+			cl, _, err := a.client()
+			if err != nil {
+				return err
+			}
+			v, err := cl.Domains.RequestHost(bg(), strings.TrimSpace(args[0]), strings.TrimSpace(args[1]))
+			if err != nil {
+				return err
+			}
+			if a.G.JSON {
+				return printJSON(a.Stdout, v)
+			}
+			fmt.Fprintf(a.Stdout, "Asked for %s (%s). Approve it with: onemind domain host approve %s --confirm %s\n", sanitize(v.Hostname), sanitize(v.State), sanitize(v.Hostname), sanitize(v.Hostname))
+			return nil
+		},
+	})
+	var confirm string
+	approve := &cobra.Command{
+		Use:   "approve HOSTNAME --confirm HOSTNAME",
+		Short: "Approve one name; type it in full to confirm (POST /v1/domains/hosts/HOSTNAME/approve)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name := strings.TrimSpace(args[0])
+			if !strings.EqualFold(strings.TrimSpace(confirm), name) {
+				return usageErr(cmd, "--confirm must repeat the full hostname, so a name is never approved by accident")
+			}
+			cl, _, err := a.client()
+			if err != nil {
+				return err
+			}
+			v, err := cl.Domains.ApproveHost(bg(), name, confirm)
+			if err != nil {
+				return err
+			}
+			if a.G.JSON {
+				return printJSON(a.Stdout, v)
+			}
+			fmt.Fprintf(a.Stdout, "Approved %s. This records your decision only: nothing is served from it yet.\n", sanitize(v.Hostname))
+			return nil
+		},
+	}
+	approve.Flags().StringVar(&confirm, "confirm", "", "the hostname again, in full")
+	h.AddCommand(approve)
+	h.AddCommand(&cobra.Command{
+		Use:   "remove HOSTNAME",
+		Short: "Withdraw a requested or approved name (DELETE /v1/domains/hosts/HOSTNAME)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			cl, _, err := a.client()
+			if err != nil {
+				return err
+			}
+			if err := cl.Domains.RemoveHost(bg(), strings.TrimSpace(args[0])); err != nil {
+				return err
+			}
+			if a.G.JSON {
+				return printJSON(a.Stdout, map[string]any{"removed": true, "hostname": strings.ToLower(strings.TrimSpace(args[0]))})
+			}
+			fmt.Fprintf(a.Stdout, "Removed %s.\n", sanitize(args[0]))
+			return nil
+		},
+	})
+	return h
 }
 
 // DomainRows is the table of `domain list`: one row per domain, with its names and their state.
