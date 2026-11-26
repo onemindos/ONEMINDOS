@@ -159,7 +159,9 @@ class LegacyContacts(RecoveryContacts):
         return out
 
     def _session_user(self, request) -> str | None:
-        if not request.headers.get("authorization") and not request.cookies:
+        # Only skip the lookup for a bare phone (no credentials at all), so it leaves no auth.rejected line.
+        # The session itself is resolved by identity (its cookie and CSRF rules, H-16), never read here.
+        if not request.headers.get("authorization") and not request.headers.get("cookie"):
             return None
         try:
             p = self.gw.principal(request)
