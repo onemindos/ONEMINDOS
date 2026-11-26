@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 
 from onemind_core.backups.kit import kit_text, new_owner_key
 
@@ -114,6 +115,18 @@ def test_kit_text_says_what_happened_to_the_disk_key():
     assert "not encrypted" in plain and "none yet" in plain
     missing = kit_text(box_name="b", instance_id="i", key=key, destinations=[], issued_at=now, disk_key_state="not_available")
     assert "could not be added" in missing
+
+
+def test_a_kit_approved_where_nobody_sees_it_leaves_the_disk_key_alone(client, bk, clock):
+    bk.disk_key_source = storage = FakeStorage()
+
+    p = client.app.state.gateway.tokens.lookup("dev-owner-token-change-me")
+    action, _ = bk.gw.actions.request_feature(p, "backup.kit.issue", {}, idempotency_key="elsewhere",
+                                              expires_at=clock.now + timedelta(minutes=10))
+    assert approve(client, action["id"])["state"] == "succeeded"
+    assert storage.calls == [] and storage.key == DISK_KEY, "the disk key is taken only for an answer that shows it"
+    assert client.get("/v1/backups/kit", headers=OWNER).json()["disk_key"] == "not_available"
+    assert client.post("/v1/backups/kit", headers=OWNER).json()["one_time"]["disk_key"] == DISK_KEY
 
 
 def test_a_storage_failure_never_blocks_the_kit(client, bk):
