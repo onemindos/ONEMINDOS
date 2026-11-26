@@ -89,6 +89,8 @@ export function toRoute(link: string): string | undefined {
     case 'storage':
       return href.storage;
     case 'settings':
+      // Permissions keeps its tab and rule (approval.auto notices link to /settings/permissions/rules/<id>).
+      if (parts[1] === 'permissions' && parts.length > 2 && parts.slice(2, 4).every((x) => /^[A-Za-z0-9_-]{1,80}$/.test(x))) return `/settings/permissions/${parts.slice(2, 4).join('/')}`;
       return parts[1] ? href.setting(SETTINGS_ALIAS[parts[1]] ?? parts[1]) : href.settings;
     default:
       p = path;
