@@ -232,3 +232,35 @@ def test_domains_switched_off_is_409_on_every_write(client):
                                ("DELETE", "/v1/domains/example.org", None)):
         r = client.request(method, path, headers=OWNER, json=body)
         assert (r.status_code, r.json()["reason"]) == (409, "domains_disabled"), (path, r.text)
+
+
+# ---- a single-valued query parameter sent twice: 422, not "the last copy wins" ------------------------
+def test_a_repeated_single_valued_query_parameter_is_refused(client):
+    r = client.get("/v1/audit/verify?from_seq=t&from_seq=%3D%2F&from_seq=5%0D", headers=OWNER)
+    assert r.status_code == 422 and r.json()["reason"] == "invalid_request", r.text
+    assert client.get("/v1/audit/verify?from_seq=1", headers=OWNER).status_code == 200
+    # a key the route does not declare is ignored as before, repeated or not
+    assert client.get("/v1/audit/verify?x=1&x=2", headers=OWNER).status_code == 200
+
+
+def test_a_list_query_parameter_still_takes_many_values():
+    from fastapi import Depends, FastAPI, Query
+    from fastapi.testclient import TestClient
+
+    from onemind_core.errors import install_handlers
+    from onemind_core.querystrict import one_value_per_query_parameter
+    app = FastAPI(dependencies=[Depends(one_value_per_query_parameter)])
+    install_handlers(app)
+
+    def page(cursor: str | None = Query(None)):
+        return cursor
+
+    @app.get("/t")
+    def t(types: list[str] | None = Query(None), limit: int = 5, cursor=Depends(page)):
+        return {"types": types, "limit": limit, "cursor": cursor}
+
+    c = TestClient(app)
+    assert c.get("/t?types=a&types=b").json() == {"types": ["a", "b"], "limit": 5, "cursor": None}
+    for q in ("limit=1&limit=2", "cursor=a&cursor=b"):  # a route's own and a dependency's parameter
+        r = c.get(f"/t?{q}")
+        assert r.status_code == 422 and r.json()["reason"] == "invalid_request", (q, r.text)
