@@ -28,6 +28,8 @@
 
 **Easiest way:** `python3 scripts/ceremony-guide.py` walks you through all of this below step by step on the offline machine (`--rehearsal` first, with throwaway keys). The manual steps stay the source of truth.
 
+**Using YubiKeys from the first day instead of sticks:** see [Ceremony on YubiKeys](#ceremony-on-yubikeys-proposed-changes-d-010) below (`python3 scripts/ceremony-guide.py --yubikey`). It is ready to rehearse, but D-010 still says sticks first, so it needs the founder's decision entry before a real root is made that way.
+
 ## Before the day: rehearse (step 0)
 
 On the offline machine (or any Linux machine or container with networking off), once:
@@ -78,6 +80,85 @@ Use the commands as written. `<stick-a>` is where holder A's stick is mounted (f
 10. **Wipe the online machine.** Shut the live USB down (it forgets), or securely delete `online/` and `out/`. The root `.key` files exist only on the three sticks. Wipe the transfer stick.
 11. **Store the sticks** in three places, one each: home, off-site, a trusted person. The succession note (who may act if you cannot, and where the sticks and passphrases are) goes in a **sealed envelope, never in the repo**.
 12. **Calendar the renewal.** The root **expires after 365 days** ([channel.json](channel.json)), and a box refuses an expired root, so put a reminder 90 days before. The nightly (`root-expiry` job in `security-nightly.yml`) also goes red 60 days before expiry. Renewal is done as described in **Renewing the root** below (same keys), or as a rotation onto hardware keys ([below](#rotate-the-root-onto-hardware-keys-rel-02-272); the same command with the same keys as old and new also renews).
+
+## Ceremony on YubiKeys (proposed; changes D-010)
+
+**What this is.** The same ceremony, with one difference: each holder's root key is made **inside their own YubiKey** and never exists anywhere else. There are no root key files and no passphrases: a key is used with the YubiKey plugged in, its **PIN** typed, and a **touch** on the device. The 2-of-3 rule, the online keys, `root.json`, the check, the sheet and the GitHub step do not change.
+
+**Decision needed (flag for the founder).** D-010 (2026-11-14) says: key files on encrypted sticks now, a rotation onto hardware keys later (#272). Using YubiKeys for the **first** ceremony changes that, so it needs a new decision entry from Zeus. What changes if he says yes:
+- No rotation is needed later, and the "rotation drill" D-010 counted on is replaced by the renewal rehearsal (same keys, `renew`).
+- Nothing to back up, nothing to copy: the 2-of-3 rule is the backup. One lost YubiKey changes nothing by itself; two lost means a new root and a re-flash of every box, exactly as with two lost sticks.
+- The ceremony steps marked UNVERIFIED below have to work on a **spare** YubiKey first.
+- The other release keys (RAUC CA, Secure Boot PK/KEK) and the choices for them are in [KEYS.md](KEYS.md).
+
+**Why it is safer.** A stick holds a key file; a copy of the file plus the passphrase is a copy of the key, and nobody can prove it was never copied. A YubiKey key is made on the device and the device refuses to export it. The device can even sign a statement saying so (its **attestation**, checked below).
+
+### More words
+- **YubiKey PIV:** the smart-card part of a YubiKey 5. Its slot `9c` ("digital signature") holds the root key. PKCS#11 key id `2`.
+- **PIN** (6 to 8 digits): unlocks the key. Three wrong tries lock it; the **PUK** unlocks the PIN; three wrong PUKs make the PIV part unusable until it is reset (which erases the key). Default PIN `123456`, PUK `12345678` (Yubico, "PIV PIN and Management Key"): change both before the day.
+- **Management key:** a third secret that protects *changes* to the YubiKey (making a key). `--protect` stores a random one on the device behind the PIN, so the holder only ever types the PIN.
+- **PIN policy "always":** the PIN is needed for every signature (slot 9c's default). **Touch policy "always":** every signature waits for a finger on the device, so malware on the computer cannot sign by itself.
+- **Attestation:** a certificate the YubiKey signs about its own key: "this public key was generated here, with this PIN and touch policy". It chains to Yubico's PIV CA. An imported key gets none.
+- **ykman:** Yubico's command-line tool (YubiKey Manager). **libykcs11:** Yubico's PKCS#11 module, which lets the signing tool use the key.
+
+### What you need (in addition to the table above; no root sticks)
+| Item | Notes |
+|---|---|
+| 3 YubiKeys, one per holder | YubiKey 5 series (PIV, firmware 5.x). Plus **1 spare** for the trial |
+| ykman and libykcs11 on the offline machine | Debian: `apt-get install yubikey-manager ykcs11` (or `yubico-piv-tool`); Mac: `brew install ykman yubico-piv-tool`. Note the module path (Debian: `/usr/lib/x86_64-linux-gnu/libykcs11.so`; Mac: `$(brew --prefix)/lib/libykcs11.dylib`). UNVERIFIED package names: check with `apt-cache policy` / `brew info` while online |
+| Yubico's PIV attestation CA | Download while online (developers.yubico.com, "PIV attestation"), write its sha256 on the checklist, carry it over. Set `YUBICO_PIV_CA=<file>` at the table. UNVERIFIED: firmware 5.7 and later may use a newer CA; if the check says the chain does not end at the CA, stop and ask |
+| 1 transfer stick | Only `root.json` and, for the GitHub step, the online keys (as above) |
+
+### The day before: prepare each YubiKey (each holder, alone)
+UNVERIFIED on real hardware: do all of this on the **spare** first, then the full rehearsal below on the spare.
+```sh
+ykman list --serials                                   # note your YubiKey's serial (also printed on it)
+ykman --device <serial> piv reset                      # ONLY a new or spare YubiKey: erases its PIV part
+ykman --device <serial> piv access change-pin          # old PIN 123456, then your own (6-8 digits), twice
+ykman --device <serial> piv access change-puk          # old PUK 12345678, then your own, twice
+ykman --device <serial> piv access change-management-key --generate --protect   # asks your PIN
+ykman --device <serial> piv info                       # slot 9c must be empty
+```
+Never type a PIN, PUK or management key as part of a command (it would stay in the shell history): let ykman prompt.
+
+### Rehearse (any machine, any time)
+```sh
+PYTHON=V/bin/python scripts/tuf-bootstrap-root.sh rehearse-tokens /tmp/token-rehearsal-1   # needs softhsm2
+PYTHON=V/bin/python python3 scripts/ceremony-guide.py --yubikey --rehearsal               # the guided walk
+```
+Both end with `REHEARSAL PASSED`. They use **SoftHSM**, a software token that speaks the same PKCS#11 as a YubiKey, with PIN-every-signature keys like slot 9c. The two differences from the real day, and the only ones: the token (software instead of a YubiKey), and how each key is made (`token-keygen` instead of `ykman`, so there is no touch and no attestation). Every later command (`token-pub`, `create`, `check`, `renew`) is the same code. CI runs both on every change to `os/update/` (`os/update/tests/test_tuf_token_ceremony.py`), plus the box's own verifier on a channel whose first root is held by tokens.
+
+**On the spare YubiKey** (the go/no-go for the real day): prepare it as above, then
+```sh
+export PYKCS11LIB=<module path> YUBICO_PIV_CA=<downloaded CA file>
+scripts/tuf-bootstrap-root.sh yubikey-key /tmp/spare-trial spare
+```
+It must end with `attestation OK` and print `PIN policy always, touch policy always`. Then reset the spare (`ykman --device <serial> piv reset`). If this fails, stop: the real three are not touched until the spare works.
+
+### The ceremony with YubiKeys
+`python3 scripts/ceremony-guide.py --yubikey` walks all of it. By hand:
+1. Steps 1 and 2 of the ceremony above (network off, commit checked). `export PYKCS11LIB=<module path> YUBICO_PIV_CA=<CA file>`.
+2. **Each holder makes their key on their YubiKey**, one at a time, with only their own YubiKey plugged in:
+   ```sh
+   scripts/tuf-bootstrap-root.sh yubikey-key pubs a      # holder A; then pubs b (holder B), pubs c (holder C)
+   ```
+   ykman asks for the PIN (the management key is PIN-protected), the key blinks: touch it. The script refuses if slot 9c already holds a key. It writes `pubs/a.pub` (public) and the attestation files, and prints the device serial, `attestation OK` and both policies. Write each serial on the checklist.
+3. **Online keys:** step 5 above (`online-keys online`).
+4. **Sign the root.** The two signers plug in their YubiKeys **together**; the third stays away:
+   ```sh
+   scripts/tuf-bootstrap-root.sh create out security 2 'hsm:2?yubikey=<serial A>' 'hsm:2?yubikey=<serial B>' pubs/c.pub -- \
+     online/targets.pub online/snapshot.pub online/timestamp.pub
+   ```
+   Each signer types their PIN at their own prompt and touches their YubiKey when it blinks. Quotes as written (the `?`).
+5. **Check and read aloud:** step 7 above, unchanged (`check out 2 3`). The root key ids are the ones the three `yubikey-key` runs printed.
+6. Steps 8 to 12 above, unchanged, except: there are no root sticks to store; each holder stores their **YubiKey** (home, off-site, trusted person), and their PIN and PUK go in their own password manager or sealed envelope, never in the repo.
+
+**Renewal** is the same `renew` command with two token references: `renew current/root.json out-renewed 'hsm:2?yubikey=<serial 1>' 'hsm:2?yubikey=<serial 2>'`.
+
+### Not verified yet (needs the spare YubiKey)
+- Every `ykman` command above, the module path and package names, and that libykcs11 reports slot 9c's PIN-always key the way SoftHSM does (the signer logs in again for each signature when the key asks for it; SoftHSM proves that path, a YubiKey has not yet).
+- The attestation chain to Yubico's current CA (the checker is tested on synthetic certificates in Yubico's documented layout).
+- The touch prompt while two YubiKeys sign in one command.
 
 ## Renewing the root
 A root lives 365 days. If it expires, every box refuses every update, security fixes included, and a box cannot fetch a new root by itself without one signed by keys it already trusts. So the root is renewed **before** it expires, offline, by the same 2-of-3 holders. Renewal makes root **version N+1** with the **same keys and thresholds** and a new expiry. It is not a key rotation (no key changes), so a box needs nothing but the new file: it walks `1.root.json`, `2.root.json`, … and accepts each one signed by the threshold of the keys the previous one trusted (TUF's root rotation rule, [CHANNEL.md §2](CHANNEL.md)).
@@ -173,7 +254,7 @@ If a device is lost, the other two still sign (2 of 3). Replacing the third key 
 ### What this does not cover
 
 - **Real hardware.** Everything here was exercised with SoftHSM, a software token that speaks the same PKCS#11 as a YubiKey. The `ykman` commands and the YubiKey module name have not been run or checked by an agent: the spare-device trial in step 1 is how you find out.
-- **Touch or PIN policies** (a YubiKey that wants a touch per signature): the prompt appears while the tool waits; touch the device. Not tested.
+- **Touch or PIN policies:** a key whose PIN policy is "always" (slot 9c's default) is logged in again for every signature (tested with SoftHSM keys that ask for it, `os/update/tests/test_tuf_token_ceremony.py`). A touch policy makes the device wait for a touch while the tool waits; not tested on a real device.
 - **The online keys** (`targets`, `snapshot`, `timestamp`) stay as they are unless you pass `--targets-pub` and friends to `tuf-repo.py rotate-root` directly; the channel metadata must then be rebuilt by hand.
 
 ## If something goes wrong
