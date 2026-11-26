@@ -5,8 +5,8 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { buildPolicy, StandingApprovals } from './StandingApprovals';
 
-const state = vi.hoisted(() => ({ role: 'owner' }));
-vi.mock('../session', () => ({ useSignedIn: () => ({ token: 'fixture', mock: false, principal: { id: 'zeus', kind: 'person', role: state.role } }), useSession: () => ({ signOut: vi.fn() }) }));
+const state = vi.hoisted(() => ({ role: 'owner', signOut: vi.fn() }));
+vi.mock('../session', () => ({ useSignedIn: () => ({ token: 'fixture', mock: false, principal: { id: 'zeus', kind: 'person', role: state.role }, signOut: state.signOut }), useSession: () => ({ signOut: state.signOut }) }));
 const webauthn = vi.hoisted(() => ({ get: vi.fn() }));
 vi.mock('../lib/webauthn', () => ({ getPasskey: webauthn.get }));
 const box = vi.hoisted(() => ({ ask: vi.fn() }));
@@ -140,4 +140,33 @@ it('tells a non-owner the rules are the owner\'s and reads nothing', () => {
   mount();
   expect(screen.getByRole('status')).toHaveTextContent('Only an owner');
   expect(calls).toEqual([]);
+});
+
+it('shows when each one ends and its window in the Name cell, which a 390 px phone keeps', async () => {
+  gateway(({ path }) => reads(path, [pol('pol_1', { window_id: 'win_nightly', state: 'paused' })]));
+  mount();
+  const row = (await screen.findByText('Nightly restarts')).closest('tr')!;
+  const name = row.querySelector('td')!;
+  expect(within(name).getByText(/^Ends .+ · Nightly$/)).toBeVisible();
+  // The Ends column is not one the compact table hides.
+  const ends = row.querySelector('td[data-label="Ends"]')!;
+  expect(ends).toHaveTextContent('20 Dec 2026');
+  expect(ends).not.toHaveClass('om-secondary');
+});
+
+it('says when the windows or the requesters could not be loaded instead of a silent "Any time"', async () => {
+  gateway(({ path }) => (path === '/v1/windows' || path === '/v1/agents'
+    ? Response.json({ error: 'internal', message: 'down' }, { status: 500 }) : reads(path, [])));
+  mount();
+  expect(await screen.findByText(/Couldn’t load the maintenance windows/)).toBeVisible();
+  expect(screen.getByText(/Couldn’t load the agents and automations/)).toBeVisible();
+});
+
+it('signs out when the sign-in lapsed while removing one', async () => {
+  gateway(({ method, path }) => (method === 'DELETE' ? Response.json({ error: 'unauthenticated', message: 'unknown token' }, { status: 401 }) : reads(path, [pol('pol_1')])));
+  mount();
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Remove Nightly restarts' }));
+  await user.click(screen.getByRole('button', { name: 'Confirm remove Nightly restarts' }));
+  await waitFor(() => expect(state.signOut).toHaveBeenCalled());
 });

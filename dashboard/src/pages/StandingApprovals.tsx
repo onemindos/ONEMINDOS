@@ -12,7 +12,7 @@ import { Link } from 'react-router';
 import type { components } from '@onemind/sdk';
 import { Button, Card, PageHeader, StatusPill, Table, formatDay } from '@onemind/ui';
 import { usePoll } from '../lib/hooks';
-import { useGateway, viaSdk } from '../lib/gateway';
+import { sessionLapsed, useGateway, viaSdk } from '../lib/gateway';
 import { useSignedIn } from '../session';
 import { keyErrorText } from './SignInKeys';
 import { Load } from './parts';
@@ -53,10 +53,10 @@ export function buildPolicy(f: { name: string; types: string; from: string; perD
 }
 
 export function StandingApprovals() {
-  const { token, mock, principal } = useSignedIn();
+  const { token, mock, principal, signOut } = useSignedIn();
   if (mock) return <><PageHeader title="Standing approvals" /><Card title="Standing approvals"><p role="status">Connect to a real hub to see its standing approvals. Demo mode has none.</p></Card></>;
   if (principal?.role !== 'owner') return <><PageHeader title="Standing approvals" /><Card title="Standing approvals"><p role="status">Only an owner can see and change standing approvals.</p></Card></>;
-  return <Live token={token} />;
+  return <Live token={token} signOut={signOut} />;
 }
 
 type Pick_ = { id: string; label: string };
@@ -68,24 +68,27 @@ function picks(raw: unknown, label: (r: Record<string, unknown>) => string | und
   });
 }
 
-function Live({ token }: { token: string }) {
+function Live({ token, signOut }: { token: string; signOut: () => void }) {
   const client = useGateway(token);
   const policies = usePoll(() => viaSdk(() => client.call<Policy[]>({ method: 'GET', path: '/v1/approval-policies' })), 0);
   // Suggestions from real data: the agents and automations on this box, and its maintenance windows.
   // A standing approval names a requester as <kind>:<id>; an agent id without its kind gets agent: in front.
   const agents = usePoll(() => viaSdk(() => client.call<unknown>({ method: 'GET', path: '/v1/agents' }))
-    .then((r) => picks(r, () => undefined).map((p) => ({ id: p.id.includes(':') ? p.id : `agent:${p.id}`, label: p.label }))).catch(() => []), 0);
+    .then((r) => picks(r, () => undefined).map((p) => ({ id: p.id.includes(':') ? p.id : `agent:${p.id}`, label: p.label }))), 0);
   const rules = usePoll(() => viaSdk(() => client.call<unknown>({ method: 'GET', path: '/v1/automation/rules' }))
-    .then((r) => picks(r, (x) => (typeof x.name === 'string' ? x.name : undefined)).map((p) => ({ id: `automation:${p.id}`, label: p.label }))).catch(() => []), 0);
-  const windows = usePoll(() => viaSdk(() => client.call<unknown>({ method: 'GET', path: '/v1/windows' })).then((r) => picks(r, (x) => (typeof x.name === 'string' ? x.name : undefined))).catch(() => []), 0);
+    .then((r) => picks(r, (x) => (typeof x.name === 'string' ? x.name : undefined)).map((p) => ({ id: `automation:${p.id}`, label: p.label }))), 0);
+  const windows = usePoll(() => viaSdk(() => client.call<unknown>({ method: 'GET', path: '/v1/windows' })).then((r) => picks(r, (x) => (typeof x.name === 'string' ? x.name : undefined))), 0);
   const [note, setNote] = useState<Note>();
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState<string>();
   const now = client.hubNow();
+  const windowName = (id: string | null | undefined) => (id ? windows.data?.find((w) => w.id === id)?.label ?? id : 'Any time');
 
   const run = async (job: () => Promise<unknown>, ok: string, what: string) => {
     setBusy(true); setNote(undefined);
     try { await job(); setNote({ tone: 'ok', text: ok }); return true; } catch (e) {
+      // A lapsed sign-in signs out, as every read does; a check the hub names is explained in plain words.
+      if (sessionLapsed(e)) { signOut(); return false; }
       setNote({ tone: 'bad', text: `${what}: ${keyErrorText(e)}` }); return false;
     } finally { setBusy(false); setRemoving(undefined); void policies.reload(); }
   };
@@ -112,11 +115,12 @@ function Live({ token }: { token: string }) {
         {(rows) => rows.length === 0 ? <p className="om-hint">None yet. Every request waits for you in Approvals.</p> : <Table
           caption="Standing approvals" hideCaption rows={rows} rowKey={(p) => p.id}
           columns={[
-            { key: 'name', header: 'Name', render: (p) => <><strong>{p.name ?? p.id}</strong><p className="om-hint">Covers {p.allow.types.join(', ')}</p></> },
+            { key: 'name', header: 'Name', render: (p) => <><strong>{p.name ?? p.id}</strong><p className="om-hint">Covers {p.allow.types.join(', ')}</p>
+              <p className="om-hint">{p.state === 'expired' ? 'Ended' : 'Ends'} {formatDay(p.expires_at)} · {windowName(p.window_id)}</p></> },
             { key: 'from', header: 'Who may ask', render: (p) => p.allow.requested_by.join(', ') },
             { key: 'limit', header: 'Today', render: (p) => `${p.uses_24h} of ${p.limits.per_day}` },
-            { key: 'window', header: 'Only during', render: (p) => p.window_id ?? 'Any time', secondary: true },
-            { key: 'ends', header: 'Ends', render: (p) => formatDay(p.expires_at), secondary: true },
+            { key: 'window', header: 'Only during', render: (p) => windowName(p.window_id), secondary: true },
+            { key: 'ends', header: 'Ends', render: (p) => formatDay(p.expires_at) },
             { key: 'state', header: 'State', render: (p) => <StatusPill tone={p.state === 'active' ? 'ok' : p.state === 'paused' ? 'warn' : 'neutral'}
               label={p.state === 'active' ? 'On' : p.state === 'paused' ? 'Paused: confirm it' : 'Ended'} /> },
             { key: 'x', header: 'Actions', render: (p) => <span className="dash-actions">
@@ -130,15 +134,17 @@ function Live({ token }: { token: string }) {
       </Load>
       {policies.data?.some((p) => p.state === 'paused') && <p className="om-hint">Paused ones were made before names had to be exact. Turn one back on only if it still names who you mean.</p>}
     </Card>
-    <NewPolicy busy={busy} now={now} who={[...(agents.data ?? []), ...(rules.data ?? [])]} windows={windows.data ?? []} onCreate={create} onInvalid={(text) => setNote({ tone: 'bad', text })} />
+    <NewPolicy busy={busy} now={now} who={[...(agents.data ?? []), ...(rules.data ?? [])]} windows={windows.data ?? []}
+      missing={{ who: !!(agents.error || rules.error), windows: !!windows.error }} onCreate={create} onInvalid={(text) => setNote({ tone: 'bad', text })} />
     {note && <p role="status" className={`om-note om-tone-${note.tone}`}>{note.text}</p>}
   </div>;
 }
 
 const EMPTY = { name: '', types: '', from: '', perDay: '3', days: '30', window: '', params: '' };
 
-function NewPolicy({ busy, now, who, windows, onCreate, onInvalid }: {
-  busy: boolean; now: number; who: Pick_[]; windows: Pick_[]; onCreate: (b: Body) => Promise<boolean>; onInvalid: (text: string) => void;
+function NewPolicy({ busy, now, who, windows, missing, onCreate, onInvalid }: {
+  busy: boolean; now: number; who: Pick_[]; windows: Pick_[]; missing: { who: boolean; windows: boolean };
+  onCreate: (b: Body) => Promise<boolean>; onInvalid: (text: string) => void;
 }) {
   const [f, setF] = useState(EMPTY);
   const set = (k: keyof typeof EMPTY) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
@@ -153,12 +159,14 @@ function NewPolicy({ busy, now, who, windows, onCreate, onInvalid }: {
       <label>Kinds of request it covers, comma separated{' '}<input value={f.types} onChange={set('types')} placeholder="app.restart" /></label>
       <label>Who may ask, comma separated{' '}<input value={f.from} list="om-policy-who" onChange={set('from')} placeholder="agent:hermes" /></label>
       <datalist id="om-policy-who">{who.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}</datalist>
+      {missing.who && <p className="om-note om-tone-warn" role="status">Couldn’t load the agents and automations on this box, so there are no suggestions. Type the name exactly, for example agent:hermes, or reload to try again.</p>}
       <label>At most this many a day{' '}<input type="number" min={1} max={1000} value={f.perDay} onChange={set('perDay')} /></label>
       <label>Ends after (days){' '}<input type="number" min={1} max={MAX_DAYS} value={f.days} onChange={set('days')} /></label>
       <label>Only during{' '}<select value={f.window} onChange={set('window')}>
         <option value="">Any time</option>
         {windows.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}
       </select></label>
+      {missing.windows && <p className="om-note om-tone-warn" role="status">Couldn’t load the maintenance windows, so only “Any time” is offered. An app update needs a window, so reload before you make one for app.update.</p>}
       <details className="om-details">
         <summary>Limit to certain values (advanced)</summary>
         <label>JSON, for example {'{"app_id": {"enum": ["notes"]}}'}{' '}<textarea rows={3} value={f.params} onChange={set('params')} /></label>
