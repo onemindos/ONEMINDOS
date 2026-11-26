@@ -28,6 +28,11 @@ import (
 // key pinned at join, and keeps the newest one on disk, so it holds across a
 // power cut and while the machine is cut off. Every verified job is then
 // checked against it. The note can only ever add a "no".
+//
+// A job that actuates something (ActuatePrefixes) is refused while this
+// machine holds no verified note at all ("no_policy"): before the first one,
+// when the hub has none for it yet, or when the one on disk does not verify.
+// So a missing or broken note never means "no stop" for those kinds.
 
 // PolicySchema is the snapshot envelope.
 const PolicySchema = "onemind.policy/v1"
@@ -59,22 +64,43 @@ type PolicyStore struct {
 	NodeID     string
 	PubKeyFile string
 
-	mu  sync.Mutex
-	cur *Policy
+	mu      sync.Mutex
+	cur     *Policy
+	loadErr error
 }
 
-// Current is the newest snapshot, or nil before the first.
+// Current is the newest snapshot, or nil before the first or when the one on
+// disk does not verify (LoadError then says why; actuating jobs are refused).
 func (s *PolicyStore) Current() *Policy {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.cur == nil {
-		if b, err := os.ReadFile(s.Path); err == nil {
+		b, err := os.ReadFile(s.Path)
+		switch {
+		case errors.Is(err, os.ErrNotExist):
+			s.loadErr = nil
+		case err != nil:
+			s.loadErr = fmt.Errorf("policy: reading %s: %w", s.Path, err)
+		default:
 			if p, err := s.verify(b); err == nil {
-				s.cur = p
+				s.cur, s.loadErr = p, nil
+			} else {
+				s.loadErr = fmt.Errorf("policy: the snapshot on disk (%s) does not verify: %w", s.Path, err)
 			}
 		}
 	}
 	return s.cur
+}
+
+// LoadError is why the snapshot on disk could not be used, or nil (none yet,
+// or it verified).
+func (s *PolicyStore) LoadError() error {
+	if s == nil {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.loadErr
 }
 
 // current is Current on a possibly nil store.
@@ -117,7 +143,7 @@ func (s *PolicyStore) Apply(body []byte) (bool, error) {
 		_ = d.Sync()
 		d.Close()
 	}
-	s.cur = p
+	s.cur, s.loadErr = p, nil
 	return true, nil
 }
 
@@ -170,9 +196,14 @@ func (s *PolicyStore) verify(body []byte) (*Policy, error) {
 	return &p, nil
 }
 
-// Check returns why the snapshot refuses job j, or "" when it may run.
+// Check returns why the snapshot refuses job j, or "" when it may run. With
+// no verified snapshot (p nil), a job that actuates something is refused as
+// "no_policy" and any other job may run.
 func (p *Policy) Check(j backup.Job) string {
 	if p == nil {
+		if Actuates(j.Kind) {
+			return "no_policy"
+		}
 		return ""
 	}
 	switch {
@@ -182,13 +213,15 @@ func (p *Policy) Check(j backup.Job) string {
 		return "revoked_key"
 	case p.AllowedKinds != nil && !contains(*p.AllowedKinds, j.Kind):
 		return "kind_not_allowed"
-	case (p.Stop.MotionLockout || p.Stop.Agents) && actuates(j.Kind):
+	case (p.Stop.MotionLockout || p.Stop.Agents) && Actuates(j.Kind):
 		return "stopped"
 	}
 	return ""
 }
 
-func actuates(kind string) bool {
+// Actuates reports whether a job kind moves or switches something in the
+// world (its first word is one of ActuatePrefixes).
+func Actuates(kind string) bool {
 	first, _, _ := strings.Cut(kind, ".")
 	return contains(ActuatePrefixes, first)
 }

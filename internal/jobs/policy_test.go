@@ -10,6 +10,7 @@ import (
 	"encoding/pem"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -115,7 +116,46 @@ func TestPolicyCheck(t *testing.T) {
 			t.Errorf("%+v stop=%v: %q, want %q", c.job, c.stop, got, c.want)
 		}
 	}
-	if (*Policy)(nil).Check(j("relay.set", "x", 0)) != "" {
-		t.Error("no snapshot must refuse nothing")
+	// #1210 review: with no verified snapshot, nothing that actuates may run; read-only jobs still do.
+	if got := (*Policy)(nil).Check(j("relay.set", "x", 0)); got != "no_policy" {
+		t.Errorf("no snapshot, actuating job: %q, want no_policy", got)
+	}
+	if got := (*Policy)(nil).Check(j("host.check", "x", 0)); got != "" {
+		t.Errorf("no snapshot, read-only job: %q, want it to run", got)
+	}
+}
+
+// #1210 review: a snapshot on disk that does not verify is not "no stop": Current is nil (so actuating
+// jobs are refused as no_policy) and LoadError says why, for the intake's loud log line.
+func TestPolicyStoreOnDiskThatDoesNotVerifyFailsClosedAndSaysWhy(t *testing.T) {
+	dir := t.TempDir()
+	s, pub, err := jobtest.New(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "policy.json")
+	fresh := &PolicyStore{Path: path, NodeID: "n1", PubKeyFile: pub}
+	if fresh.Current() != nil || fresh.LoadError() != nil {
+		t.Fatal("no file yet must be nil with no error")
+	}
+	if err := os.WriteFile(path, []byte(`{"schema":"onemind.policy/v1","epoch":9,"stop":{}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	st := &PolicyStore{Path: path, NodeID: "n1", PubKeyFile: pub}
+	if p := st.Current(); p != nil {
+		t.Fatalf("an unsigned file was used: %+v", p)
+	}
+	if err := st.LoadError(); err == nil || !strings.Contains(err.Error(), "does not verify") {
+		t.Fatalf("load error %v", err)
+	}
+	if got := st.Current().Check(backup.Job{Kind: "relay.set", PolicyEpoch: 9}); got != "no_policy" {
+		t.Fatalf("actuating job with a broken snapshot: %q", got)
+	}
+	// A new verified note from the hub replaces it and clears the error.
+	if ok, err := st.Apply(s.Policy("n1", 1, false, false, nil, nil, time.Now())); !ok || err != nil {
+		t.Fatalf("apply: %v %v", ok, err)
+	}
+	if st.LoadError() != nil || st.Current() == nil {
+		t.Fatal("error not cleared by a verified note")
 	}
 }

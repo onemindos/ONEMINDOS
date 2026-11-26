@@ -103,15 +103,17 @@ type Intake struct {
 	// given that power.
 	Handlers map[string]Handler
 	// Policy is this machine's stop and revoke snapshot (policy.go): read from the hub before every
-	// pull, kept on disk, and checked against every verified job. nil: no snapshot is enforced.
+	// pull (and again right before an actuating job), kept on disk, and checked against every verified
+	// job. nil or no verified snapshot: jobs that actuate something are refused (no_policy).
 	Policy   *PolicyStore
 	Log      *slog.Logger
 	PollWait time.Duration
 	Retry    time.Duration
 	Now      func() time.Time
 
-	mu    sync.Mutex
-	stats Stats
+	mu            sync.Mutex
+	stats         Stats
+	lastPolicyErr string
 }
 
 // Stats counts what the intake did since it started.
@@ -185,6 +187,7 @@ func (in *Intake) PullOnce(ctx context.Context) (bool, error) {
 	if err := in.refreshPolicy(ctx); err != nil {
 		return false, err
 	}
+	in.warnUnverifiedPolicy()
 	req, _ := json.Marshal(map[string]any{"batch": 1, "expires": in.PollWait.Nanoseconds()})
 	rctx, cancel := context.WithTimeout(ctx, in.PollWait+5*time.Second)
 	defer cancel()
@@ -226,7 +229,19 @@ func (in *Intake) handle(ctx context.Context, msg *nats.Msg) {
 		}
 		return
 	}
-	if code := in.Policy.current().Check(j); code != "" {
+	code := in.Policy.current().Check(j)
+	if code == "" && Actuates(j.Kind) {
+		// Read the newest snapshot once more right before something moves: a stop pressed while
+		// this job was on its way is on the hub before the gateway's stop call returns
+		// (fabric_policy.py push_now). Not reachable now means not run (fail closed).
+		if err := in.refreshPolicy(ctx); err != nil {
+			code = "policy_unreachable"
+			in.Log.Warn("policy snapshot not readable before an actuating job", "err", err)
+		} else {
+			code = in.Policy.current().Check(j)
+		}
+	}
+	if code != "" {
 		// Signed and meant for us, but the newest snapshot says no (D-029: it only ever adds a no).
 		in.ack(msg, "+TERM")
 		in.count(func(s *Stats) { s.Refused++ })
@@ -279,6 +294,26 @@ func (in *Intake) refreshPolicy(ctx context.Context) error {
 		in.Log.Info("policy snapshot applied", "epoch", p.Epoch, "motion_lockout", p.Stop.MotionLockout, "agents_stopped", p.Stop.Agents)
 	}
 	return nil
+}
+
+// warnUnverifiedPolicy says loudly, once per cause, that the snapshot on disk
+// does not verify: actuating jobs are refused (no_policy) until a new one arrives.
+func (in *Intake) warnUnverifiedPolicy() {
+	if in.Policy == nil || in.Policy.Current() != nil {
+		return
+	}
+	err := in.Policy.LoadError()
+	in.mu.Lock()
+	msg := ""
+	if err != nil {
+		msg = err.Error()
+	}
+	first := msg != "" && msg != in.lastPolicyErr
+	in.lastPolicyErr = msg
+	in.mu.Unlock()
+	if first {
+		in.Log.Error("the stop snapshot this machine keeps does not verify; actuating jobs are refused until the hub sends a new one", "err", err)
+	}
 }
 
 // ack answers the hub for msg: +ACK (done, remove it) or +TERM (refused, never redeliver).
