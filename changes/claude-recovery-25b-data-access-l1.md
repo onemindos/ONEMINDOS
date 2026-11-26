@@ -1,0 +1,5 @@
+---
+pr: pending
+branch: claude/recovery-25b-data-access-l1
+---
+Data access never needs a strong key (gateway permissions design 25b, D-028). A restore can now go into a new folder of your own Files (Restored from backup) instead of over the app's data: it is its own request type, backup.restore.copy, with risk write, so nothing is overwritten, no app stops, the app need not be installed any more, and the everyday approval is enough (the phone key may approve it, unlike an in-place restore). The backup agent fills an empty folder the gateway made, only under the Files root, never through a symlink, gives every copied file to the folder's owner and leaves out symlinks and special files. A new test pins every file, photo, sync, search, share and backup read at the normal sign-in: with passkeys on the box, a password session reaches all of them and can ask for a copy. Reachable from the restore wizard in Backups (a new folder is the default), onemind backup restore --new-folder and POST /v1/restores with target new_folder.

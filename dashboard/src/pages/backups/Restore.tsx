@@ -49,12 +49,15 @@ export function RestoreSection({ sdk, token }: { sdk: OneMind; token: string }) 
 function Wizard({ sdk, token, snap: s, onClose }: { sdk: OneMind; token: string; snap: Snap; onClose: () => void }) {
   const { file, busy, error } = useFiling(sdk, token);
   const [whole, setWhole] = useState(true);
+  // Design 25b: a copy into a new folder of your Files changes nothing and needs no strong key; in place overwrites.
+  const [copy, setCopy] = useState(true);
   const [path, setPath] = useState(s.paths[0] ?? '');
   const [filed, setFiled] = useState<{ id: string; restore: Record<string, unknown> | undefined }>();
   const bad = !whole && !folderOk(path, s.paths);
   const scope = whole ? { app_id: s.appId } : { app_id: s.appId, path };
   const send = async () => {
-    const r = await file('/v1/restores', 'backup.restore', { snapshot_id: s.id, scope, mode: 'portable', target: 'in_place' });
+    const r = await file('/v1/restores', copy ? 'backup.restore.copy' : 'backup.restore',
+      { snapshot_id: s.id, scope, mode: 'portable', target: copy ? 'new_folder' : 'in_place' });
     if (r) setFiled({ id: r.id, restore: r.body.restore && typeof r.body.restore === 'object' ? object(r.body.restore) : undefined });
   };
   const plan = filed?.restore ? object(filed.restore.plan) : undefined;
@@ -75,7 +78,13 @@ function Wizard({ sdk, token, snap: s, onClose }: { sdk: OneMind; token: string;
         <datalist id="restore-paths">{s.paths.map((p) => <option key={p} value={p} />)}</datalist>
         {bad && <p role="alert">The folder must be an absolute path inside this restore point.</p>}
       </>}
-      <p>Mode: portable, restored in place. Today's data is saved first so the restore can be undone.</p>
+      <fieldset>
+        <legend>Where it goes</legend>
+        <label><input type="radio" name="restore-target" checked={copy} onChange={() => setCopy(true)} /> A new folder in your Files (Restored from backup): nothing is overwritten and the app keeps running</label>
+        <label><input type="radio" name="restore-target" checked={!copy} onChange={() => setCopy(false)} /> In place: put it back inside the app</label>
+      </fieldset>
+      {copy ? <p>The copy appears in Files once it is approved. Today's data is not touched.</p>
+        : <p>Mode: portable, restored in place. Today's data is saved first so the restore can be undone.</p>}
       {error && <p role="alert">{error}</p>}
     </> : <>
       <p role="status">Step 2 of 2: request filed ({filed.id}). The hub's plan, to review before you approve it:</p>
@@ -85,7 +94,7 @@ function Wizard({ sdk, token, snap: s, onClose }: { sdk: OneMind; token: string;
         <p>Downtime: {text(plan.downtime, 'not stated')}.</p>
         {strings(plan.warnings).map((w) => <p key={w} className="om-note om-tone-warn">{w}</p>)}
       </> : <p>The hub did not return a plan. Check the request in Approvals before approving it.</p>}
-      <p>The undo snapshot is taken at the start of the restore; its id shows in Restores once it runs. If the app does not come back healthy, today's data is put back automatically.</p>
+      {!copy && <p>The undo snapshot is taken at the start of the restore; its id shows in Restores once it runs. If the app does not come back healthy, today's data is put back automatically.</p>}
       <p>Open the request in Approvals to approve it. Approving can ask for a fresh passkey.</p>
     </>}
   </Dialog>;

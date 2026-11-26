@@ -97,7 +97,8 @@ class RestoreBody(_Request):
     snapshot_id: str = Field(pattern=SNAP_RE)
     scope: Literal["box"] | PathScope | AppScope
     mode: Literal["portable", "exact"] = "portable"
-    target: Literal["in_place", "new_namespace"] = "in_place"
+    # new_folder (design 25b): a copy into a new folder of the requester's Files; nothing is overwritten (T1).
+    target: Literal["in_place", "new_namespace", "new_folder"] = "in_place"
 
 
 class DestinationBody(_Request):
@@ -342,8 +343,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
         if body.scope == "box":
             raise ApiError(409, "stale_precondition",
                            "a whole-box restore runs at onboarding on a fresh box (onemind init --restore), not on a running one")
+        if body.target == "new_folder" and body.mode == "portable":
+            b = {"snapshot_id": body.snapshot_id, "scope": body.scope.model_dump()}
+            action, created = svc.request_restore_copy(p, b, idempotency_key=key(idem), expires_at=window(body),
+                                                       reason=body.reason)
+            restore = next((r for r in svc.restores() if r["action_id"] == action["id"]), None)
+            return filed(p, body, action, created, request, {"restore": restore})
         if body.target != "in_place" or body.mode != "portable":
-            raise ApiError(409, "stale_precondition", "v0 restores in place, portable mode only")
+            raise ApiError(409, "stale_precondition", "v0 restores in place or into a new folder, portable mode only")
         b = {"snapshot_id": body.snapshot_id, "scope": body.scope.model_dump(), "mode": body.mode, "target": body.target}
         action, created = svc.request_restore(p, b, idempotency_key=key(idem), expires_at=window(body), reason=body.reason)
         restore = next((r for r in svc.restores() if r["action_id"] == action["id"]), None)

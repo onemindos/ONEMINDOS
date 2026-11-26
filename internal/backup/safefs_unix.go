@@ -330,3 +330,113 @@ func applyMetaFd(fd int, m dirMeta) error {
 	}
 	return unix.Fchmod(fd, uint32(m.mode.Perm()))
 }
+
+// openEmptyDir opens dest (no symlink on the way) and refuses it unless it is an
+// empty directory: a copy never lands on top of anything.
+func openEmptyDir(dest string) (int, error) {
+	fd, err := openDirNoFollow(dest, false)
+	if err != nil {
+		return -1, err
+	}
+	d := os.NewFile(uintptr(fd), dest)
+	names, err := d.Readdirnames(1)
+	if err == nil && len(names) > 0 {
+		unix.Close(fd)
+		return -1, fmt.Errorf("%s is not empty; a copy never overwrites anything", dest)
+	}
+	if err != nil && !errors.Is(err, io.EOF) {
+		unix.Close(fd)
+		return -1, err
+	}
+	if _, err := unix.Seek(fd, 0, 0); err != nil {
+		unix.Close(fd)
+		return -1, err
+	}
+	return fd, nil
+}
+
+// copyOwnedAt copies the staging entry src (a directory's contents when dir,
+// else one file) to name inside dfd. Every entry gets dfd's owner and at least
+// owner read and write; symlinks and special files are skipped and counted.
+func copyOwnedAt(src string, dir bool, dfd int, name string, res *CopyResult) error {
+	var own unix.Stat_t
+	if err := unix.Fstat(dfd, &own); err != nil {
+		return err
+	}
+	uid, gid := int(own.Uid), int(own.Gid)
+	var walk func(src string, dfd int) error
+	put := func(sp string, fi os.FileInfo, dfd int, name string) error {
+		switch {
+		case fi.IsDir():
+			if err := unix.Mkdirat(dfd, name, 0o700); err != nil {
+				return err
+			}
+			sub, err := unix.Openat(dfd, name, dirFlags, 0)
+			if err != nil {
+				return err
+			}
+			err = walk(sp, sub)
+			if err == nil {
+				err = unix.Fchown(sub, uid, gid)
+			}
+			if err == nil {
+				err = unix.Fchmod(sub, uint32(fi.Mode().Perm()|0o700))
+			}
+			unix.Close(sub)
+			res.Folders++
+			return err
+		case fi.Mode().IsRegular():
+			in, err := os.Open(sp)
+			if err != nil {
+				return err
+			}
+			defer in.Close()
+			fd, err := unix.Openat(dfd, name, unix.O_WRONLY|unix.O_CREAT|unix.O_EXCL|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0o600)
+			if err != nil {
+				return err
+			}
+			out := os.NewFile(uintptr(fd), name)
+			_, err = io.Copy(out, in)
+			if err == nil {
+				err = out.Chown(uid, gid)
+			}
+			if err == nil {
+				err = out.Chmod(fi.Mode().Perm() | 0o600)
+			}
+			if cerr := out.Close(); err == nil {
+				err = cerr
+			}
+			ts := []unix.Timespec{unix.NsecToTimespec(fi.ModTime().UnixNano()), unix.NsecToTimespec(fi.ModTime().UnixNano())}
+			_ = unix.UtimesNanoAt(dfd, name, ts, unix.AT_SYMLINK_NOFOLLOW)
+			res.Files++
+			return err
+		}
+		res.Skipped++ // symlinks, sockets, devices and pipes are never copied into a person's files
+		return nil
+	}
+	walk = func(src string, dfd int) error {
+		entries, err := os.ReadDir(src)
+		if err != nil {
+			return err
+		}
+		for _, e := range entries {
+			sp := filepath.Join(src, e.Name())
+			fi, err := os.Lstat(sp)
+			if err != nil {
+				return err
+			}
+			if err := put(sp, fi, dfd, e.Name()); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	fi, err := os.Lstat(src)
+	if err != nil {
+		return err
+	}
+	if dir && !fi.IsDir() {
+		return fmt.Errorf("%s is not a folder", src)
+	}
+	return put(src, fi, dfd, name)
+}

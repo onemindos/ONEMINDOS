@@ -11200,7 +11200,8 @@
             "default": "in_place",
             "enum": [
               "in_place",
-              "new_namespace"
+              "new_namespace",
+              "new_folder"
             ],
             "title": "Target",
             "type": "string"

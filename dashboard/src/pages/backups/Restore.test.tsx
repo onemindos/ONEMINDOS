@@ -61,6 +61,7 @@ it('files an unapproved restore, shows the hub plan and the approval link, never
   await u.click(await screen.findByRole('button', { name: /Restore notes from/ }));
   const dialog = await screen.findByRole('alertdialog');
   await u.click(within(dialog).getByRole('radio', { name: /One folder only/ }));
+  await u.click(within(dialog).getByRole('radio', { name: /In place/ }));
   await u.click(within(dialog).getByRole('button', { name: 'File restore request' }));
   expect(await within(dialog).findByText('take a pre-restore snapshot of notes (the undo point)')).toBeInTheDocument();
   expect(within(dialog).getByText('crash-consistent only')).toBeInTheDocument();
@@ -124,4 +125,22 @@ it('has no axe violations in the wizard', async () => {
   await u.click(await screen.findByRole('button', { name: /Restore notes from/ }));
   await screen.findByRole('alertdialog');
   expect(await seriousViolations(screen.getByRole('alertdialog'))).toEqual([]);
+});
+
+it('files a copy into a new folder by default: nothing is overwritten (design 25b)', async () => {
+  const fetch = transport((path, init) => {
+    if (path === '/v1/restores' && init?.method === 'POST') {
+      return response({ id: 'act_copy', type: 'backup.restore.copy', state: 'awaiting_approval', idempotency_key: new Headers(init.headers).get('Idempotency-Key'),
+        restore: { id: 'rst_3', plan: { summary: 'Copy notes into a new folder in your Files', steps: ['make a new folder'], downtime: 'none', warnings: [] } } }, 202);
+    }
+  });
+  mount();
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: /Restore notes from/ }));
+  const dialog = await screen.findByRole('alertdialog');
+  expect(within(dialog).getByRole('radio', { name: /A new folder in your Files/ })).toBeChecked();
+  await u.click(within(dialog).getByRole('button', { name: 'File restore request' }));
+  expect(await within(dialog).findByText('Copy notes into a new folder in your Files')).toBeInTheDocument();
+  const post = fetch.mock.calls.find(([, i]) => i?.method === 'POST')!;
+  expect(JSON.parse(String(post[1]!.body))).toMatchObject({ scope: { app_id: 'notes' }, target: 'new_folder', approve: false });
 });
