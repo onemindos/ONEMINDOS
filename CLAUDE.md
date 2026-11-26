@@ -20,6 +20,7 @@
 - **[docs/leap/CONTINUE.md](docs/leap/CONTINUE.md)** lists what is left of the started waves, sorted quick / medium / heavy, and the order to finish them. Merge ownership and the next wave are in [docs/leap/NEXT-WAVE.md](docs/leap/NEXT-WAVE.md).
 
 ## Picking up build work (Codex, GPT, Claude)
+- **[docs/leap/BUILDER-BRIEFING.md](docs/leap/BUILDER-BRIEFING.md)**: read first before any OS or gateway change; the checklist of mistakes reviewers keep sending back.
 - **[docs/leap/AGENT-QUEUE.md](docs/leap/AGENT-QUEUE.md)** is how agents pick, claim, build and hand in issues: the `owner:`, `wave:`, `area:` and `agent-ready` labels, the definition of done (real data only, tests, DCO sign-off), and the Opus review before merge.
 - **No robotics work until OneMind has a robot** (founder, 2026-11-14): issues labelled `parked` are not started.
 
