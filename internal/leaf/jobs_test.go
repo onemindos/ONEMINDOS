@@ -140,6 +140,22 @@ func (l *jobsLab) publish(t *testing.T, node string, body []byte, id string) {
 	}
 }
 
+// publishKind is publish on the job's own kind subject (onemind.node.<node>.job.<kind>), as the gateway
+// does, so a purge by subject filter (fabric_policy.purge_actuating_jobs) can tell kinds apart.
+func (l *jobsLab) publishKind(t *testing.T, node, kind string, body []byte, id string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	m := nats.NewMsg("onemind.node." + node + ".job." + kind)
+	m.Data = body
+	if id != "" {
+		m.Header.Set(jetstream.MsgIDHeader, id)
+	}
+	if _, err := l.hub.PublishMsg(ctx, m); err != nil {
+		t.Fatalf("publish %s: %v", kind, err)
+	}
+}
+
 func (l *jobsLab) intakeA(t *testing.T, ran *atomic.Int32) *jobs.Intake {
 	t.Helper()
 	nk, err := nats.NkeyOptionFromSeed(l.odSeed)

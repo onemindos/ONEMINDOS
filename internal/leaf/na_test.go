@@ -7,12 +7,14 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"github.com/nats-io/nkeys"
 
 	"github.com/onemindos/onemindos/internal/jobs"
@@ -186,6 +188,105 @@ func TestNA(t *testing.T) {
 		}
 		if err != nil || json.Unmarshal(raw, &p) != nil || p.Epoch != 2 || !strings.Contains(string(raw), `"motion_lockout":true`) {
 			t.Fatalf("NA4 FAIL: snapshot on disk: %v %s", err, raw)
+		}
+	})
+
+	// §3 amendment (2026-11-26, after the Opus review of #1210).
+	t.Run("NA6 no verified note, nothing actuates", func(t *testing.T) {
+		start := ran.Load()
+		// The intake NA4 ran may have left one pull waiting on the hub (up to its 2 s PollWait); a job
+		// published now could go to that dead pull and come back only after the 60 s ack wait.
+		time.Sleep(3 * time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		ps, err := l.hub.Stream(ctx, "ONEMIND_POLICY")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := ps.Purge(ctx, jetstream.WithPurgeSubject("onemind.node.aaa111.policy")); err != nil {
+			t.Fatalf("purge A's note: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(l.stateA, "policy.json"), []byte(`{"schema":"onemind.policy/v1","epoch":99}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		fresh := l.intakeA(t, &ran) // a restarted onemindd: reads the disk note, which does not verify
+		act, actID := l.signer.Job("aaa111", "relay.set", map[string]any{"na": 6}, 2, now, nil)
+		check, checkID := l.signer.Job("aaa111", "host.check", map[string]any{"na": 6}, 2, now, nil)
+		l.publishKind(t, "aaa111", "relay.set", act, actID)
+		l.publishKind(t, "aaa111", "host.check", check, checkID)
+		rctx, rcancel := context.WithCancel(context.Background())
+		done := make(chan error, 1)
+		go func() { done <- fresh.Run(rctx) }()
+		defer func() { rcancel(); <-done }()
+		defer func() {
+			if t.Failed() {
+				t.Logf("NA6 results %+v stats %+v load error %v", results(), fresh.Stats(), fresh.Policy.LoadError())
+			}
+		}()
+		waitUntil(t, 60*time.Second, "NA6 verdicts at the hub", func() bool {
+			got := results()
+			r := last(got[actID])
+			return r.State == jobs.StateFailed && r.Reason == "no_policy" && last(got[checkID]).State == jobs.StateSucceeded
+		})
+		if ran.Load()-start != 1 {
+			t.Fatalf("NA6 FAIL: handlers ran %d times (an actuating job ran with no verified note)", ran.Load()-start)
+		}
+		if fresh.Policy.LoadError() == nil {
+			t.Fatal("NA6 FAIL: the unverified note on disk was not reported")
+		}
+	})
+
+	t.Run("NA7 a stop purges queued actuating jobs on every machine", func(t *testing.T) {
+		start := ran.Load()
+		time.Sleep(3 * time.Second) // NA6's intake may still have a pull waiting on the hub (see NA6)
+		l.publishPolicy(t, l.signer.Policy("aaa111", 3, true, false, nil, nil, now)) // the stop itself
+		l.relayA.cut()
+		if h := waitHealth(t, l.supA, StateDown, 30*time.Second); h.State == StateUp {
+			t.Fatalf("leaf A still up after the cut: %+v", h)
+		}
+		act, actID := l.signer.Job("aaa111", "relay.set", map[string]any{"na": 7}, 3, now, nil)
+		check, checkID := l.signer.Job("aaa111", "host.check", map[string]any{"na": 7}, 3, now, nil)
+		move, _ := l.signer.Job("bbb222", "physical.move", map[string]any{"na": 7}, 3, now, nil)
+		l.publishKind(t, "aaa111", "relay.set", act, actID)
+		l.publishKind(t, "aaa111", "host.check", check, checkID)
+		l.publishKind(t, "bbb222", "physical.move", move, "")
+		var filters []string
+		raw, err := os.ReadFile(filepath.Join("testdata", "actuating-job-subjects.golden.json"))
+		if err != nil || json.Unmarshal(raw, &filters) != nil || len(filters) == 0 {
+			t.Fatalf("golden filters: %v", err)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		js, err := l.hub.Stream(ctx, "ONEMIND_JOBS")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, f := range filters { // what fabric_policy.purge_actuating_jobs sends
+			if err := js.Purge(ctx, jetstream.WithPurgeSubject(f)); err != nil {
+				t.Fatalf("purge %s: %v", f, err)
+			}
+		}
+		si, err := js.Info(ctx, jetstream.WithSubjectFilter("onemind.node.>"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := map[string]uint64{"onemind.node.aaa111.job.host.check": 1}; !reflect.DeepEqual(si.State.Subjects, want) {
+			t.Fatalf("NA7 FAIL: queued after the purge %v, want %v (A pending 1, B pending 0)", si.State.Subjects, want)
+		}
+		// Pending per machine is what the stream still holds on its subjects (A: host.check only, B:
+		// nothing). The consumers' own num_pending is not recounted by nats-server after a purge by
+		// subject, so it is logged, not judged; the run below proves nothing purged is delivered.
+		t.Logf("NA7 consumer num_pending after the purge (informational): A %d, B %d",
+			pending(t, l.hub, "node-aaa111"), pending(t, l.hub, "node-bbb222"))
+		rctx, rcancel := context.WithCancel(context.Background())
+		done := make(chan error, 1)
+		go func() { done <- in.Run(rctx) }()
+		defer func() { rcancel(); <-done }()
+		l.relayA.restore()
+		waitUntil(t, 60*time.Second, "NA7 host.check at the hub", func() bool { return last(results()[checkID]).State == jobs.StateSucceeded })
+		time.Sleep(2 * time.Second)
+		if r := results()[actID]; len(r) != 0 || ran.Load()-start != 1 {
+			t.Fatalf("NA7 FAIL: the purged relay.set reported %+v, handlers ran %d", r, ran.Load()-start)
 		}
 	})
 }
