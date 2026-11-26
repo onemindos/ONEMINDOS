@@ -51,6 +51,7 @@ Short answers to founder questions, saved so they are not lost in chat. Folder: 
 | 09 | [Why our own OS: distro vs image, bootc, Buildroot, Rugix vs RAUC, k3s, phones, desktop, the gateway](founder/09-why-our-own-os.md) |
 | 10 | [Real paths for C2 and physical AI: go-box, site ops, fabric, greenhouse, vision AI, drones, robots](founder/10-c2-and-physical-ai-paths.md) |
 | 11 | [JADC2 and OneMind: sense, make sense, act; the data fabric; what to adopt and where we differ](founder/11-jadc2-and-onemind.md) |
+| 12 | [The universal connector: the plugin system as the way the outside world plugs in, what is native to Debian](founder/12-universal-connector.md) |
 
 Also from founder questions: [umbrelOS screens and OneMind: what we have, what is built, what is missing](umbrelos-screen-gaps.md) (2026-11-20).
 
