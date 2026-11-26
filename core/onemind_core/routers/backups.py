@@ -377,8 +377,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
                                                      expires_at=gw.clock() + timedelta(minutes=10))
         if not created:
             raise ApiError(409, "conflict", "this kit was already issued; it is never shown twice")
-        svc.will_show(action["id"])  # this answer shows the kit, so it may carry the disk key
-        action = approve_as_owner(p, action["id"], request)
+        # This answer shows the kit, so it may carry the disk key. The mark lives only while this request approves:
+        # if the approval stops here (a passkey step-up, an error), a later approval in Approvals must not take the
+        # disk key from onemindd into a one-time answer that no route returns.
+        svc.will_show(action["id"])
+        try:
+            action = approve_as_owner(p, action["id"], request)
+        finally:
+            svc.forget_show(action["id"])
         one_time = svc.take_one_time(action["id"])
         if action["state"] != "succeeded" or one_time is None:
             raise ApiError(409, "stale_precondition", (action.get("result") or {}).get("message") or "the kit was not issued")
