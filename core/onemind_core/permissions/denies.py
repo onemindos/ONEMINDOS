@@ -78,11 +78,16 @@ class DenyStore:
                 return r.id
         return None
 
+    @staticmethod
+    def may_hold_agents(p: Principal) -> bool:
+        """People who can own an agent token (tokens:self): the owner and adults. Guests and children cannot."""
+        return p.kind == "person" and p.role in ("owner", "adult")
+
     def may_manage(self, p: Principal, principal: str, user_id: str | None) -> bool:
         """Who has a say over a principal: the owner, or the person who owns that agent's token."""
         if p.is_owner:
             return True
-        return p.kind == "person" and user_id is not None and principal in self.owned_by(user_id)
+        return self.may_hold_agents(p) and user_id is not None and principal in self.owned_by(user_id)
 
     def visible_to(self, p: Principal, user_id: str | None) -> list[dict]:
         rows = self.list()
@@ -95,7 +100,7 @@ class DenyStore:
             reason: str | None) -> dict:
         from ..automation.store import new_id
 
-        if p.kind != "person":
+        if not self.may_hold_agents(p):
             self._denied(p, "add a deny rule")
         if not PRINCIPAL_RE.fullmatch(principal):
             raise ApiError(422, "conflict", "principal must be <kind>:<id> for an agent, plugin, automation or person")

@@ -117,7 +117,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.get("/v1/approval-denies", operation_id="approvals.denies.list", tags=TAGS,
              responses={200: {"model": list[ApprovalDeny]}, **error_responses(401, 403)})
     def list_denies(request: Request, p: Principal = Depends(gw.principal)):
-        if p.kind != "person":
+        if not denies.may_hold_agents(p):  # agents never; guests and children own no agent
             denies._denied(p, "list deny rules")
         return denies.visible_to(p, user_id(request))
 
