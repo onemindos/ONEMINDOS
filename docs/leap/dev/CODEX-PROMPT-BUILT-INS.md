@@ -5,9 +5,10 @@ Founder-requested (2026-11-26). Paste everything below the line into Codex, run 
 
 ---
 
-You are registering OneMind OS apps that are already built and working as **built-ins**. A built-in is an app that ships with the OS: it is on the signed system list, has one on/off switch, Settings pages, backup units, request-only AI tools and a phone entry (D-003). The app code exists; your job is the wiring. Work through four issues **in this order, one branch and one PR each, and open the next only after the previous one is merged** (they all touch the same list file and test):
+You are registering OneMind OS apps that are already built and working as **built-ins**. A built-in is an app that ships with the OS: it is on the signed system list, has one on/off switch, Settings pages, backup units, request-only AI tools and a phone entry (D-003). The app code exists; your job is the wiring. Work through five issues **in this order, one branch and one PR each, and open the next only after the previous one is merged** (they all touch the same list file and test):
 
-1. **#1261 `builtins-everyday`**: Work, Dashboards, Search, Browser.
+1. **#1261 `builtins-everyday`**: Work, Dashboards, Search (Search declares no backup units with an explicit `none` reason; see the gate's comment on the issue).
+1b. **#1277 `builtins-browser`**: Browser, including closing the browser proxy when it is off.
 2. **#1262 `builtins-ai`**: Agents, Agent browser, Automation.
 3. **#1263 `builtins-system-people`**: Machines, Sharing, Family, Care, World sources.
 4. **#1264 `builtins-fold-into-settings`**: Control Hub, Usage, Storage, Network, Troubleshoot and Migrate go under the existing Settings built-in. They do **not** go on the signed list.
