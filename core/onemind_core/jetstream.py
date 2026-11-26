@@ -59,6 +59,8 @@ NODE_COPY_SLOTS = 8               # a household fabric is a handful of machines;
 
 # Registry streams that are kept per node by the hub's source streams, not created by the gateway.
 PER_NODE_STREAMS = ("ONEMIND_NODE_OUTBOX",)
+# Registry streams another module makes with its own config (last message per subject, direct get).
+SELF_MANAGED_STREAMS = {"ONEMIND_POLICY": "fabric_policy.py"}
 # Registry streams with the `latest` policy, and the KV bucket that keeps each (NATS stream KV_<bucket>).
 KV_BUCKETS = {"ONEMIND_ASSET_STATE": "asset-state", "ONEMIND_LAYER_META": "layer-meta"}
 
@@ -333,7 +335,7 @@ def plan(cap_bytes: int, registry: subjects.Registry | None = None) -> CorePlan:
                 raise subjects.RegistryError(f"stream {p.stream} is kept per node by limits, not {p.retention!r}")
             node_r = p.retention
             continue
-        if not p.stream:
+        if not p.stream or p.stream in SELF_MANAGED_STREAMS:
             continue
         g = groups.setdefault(p.stream, {"retention": p.retention, "filters": [], "kinds": []})
         g["filters"].append(_filter(p))

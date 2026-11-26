@@ -30,6 +30,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"regexp"
 	"sync"
@@ -101,6 +102,9 @@ type Intake struct {
 	// reported failed with reason unsupported_kind: this machine was never
 	// given that power.
 	Handlers map[string]Handler
+	// Policy is this machine's stop and revoke snapshot (policy.go): read from the hub before every
+	// pull, kept on disk, and checked against every verified job. nil: no snapshot is enforced.
+	Policy   *PolicyStore
 	Log      *slog.Logger
 	PollWait time.Duration
 	Retry    time.Duration
@@ -176,6 +180,11 @@ func (in *Intake) PullOnce(ctx context.Context) (bool, error) {
 	if err := in.defaults(); err != nil {
 		return false, err
 	}
+	// The newest stop and revoke snapshot always wins over a queued job: no job is taken while the
+	// snapshot cannot be read (fail closed), only while the hub has none for this machine yet.
+	if err := in.refreshPolicy(ctx); err != nil {
+		return false, err
+	}
 	req, _ := json.Marshal(map[string]any{"batch": 1, "expires": in.PollWait.Nanoseconds()})
 	rctx, cancel := context.WithTimeout(ctx, in.PollWait+5*time.Second)
 	defer cancel()
@@ -217,6 +226,14 @@ func (in *Intake) handle(ctx context.Context, msg *nats.Msg) {
 		}
 		return
 	}
+	if code := in.Policy.current().Check(j); code != "" {
+		// Signed and meant for us, but the newest snapshot says no (D-029: it only ever adds a no).
+		in.ack(msg, "+TERM")
+		in.count(func(s *Stats) { s.Refused++ })
+		in.Log.Warn("job refused by the policy snapshot", "code", code, "job_id", j.ID, "kind", j.Kind)
+		in.report(Report{JobID: j.ID, State: StateFailed, Summary: "refused by node-" + in.NodeID + "'s policy snapshot", Reason: code})
+		return
+	}
 	// Recorded in the done-list: acknowledge before running, so the hub stops redelivering.
 	in.ack(msg, "+ACK")
 	in.count(func(s *Stats) { s.Ran++ })
@@ -231,6 +248,37 @@ func (in *Intake) handle(ctx context.Context, msg *nats.Msg) {
 		res.State = StateFailed
 	}
 	in.report(Report{JobID: j.ID, State: res.State, Summary: res.Summary, Reason: res.Reason})
+}
+
+// refreshPolicy reads this machine's newest snapshot from the hub and keeps it when it verifies and
+// is newer; the one on disk stays otherwise. An error (the hub's snapshot service is not reachable)
+// means no job is pulled this round; "no snapshot yet" (404) is not an error.
+func (in *Intake) refreshPolicy(ctx context.Context) error {
+	if in.Policy == nil {
+		return nil
+	}
+	rctx, cancel := context.WithTimeout(ctx, ackTimeout)
+	defer cancel()
+	msg, err := in.NC.RequestWithContext(rctx, PolicyGetSubject(in.NodeID), nil)
+	if err != nil {
+		return fmt.Errorf("policy snapshot: %w", err)
+	}
+	switch st := msg.Header.Get("Status"); st {
+	case "":
+	case "404":
+		return nil
+	default:
+		return fmt.Errorf("policy snapshot: hub status %s %s", st, msg.Header.Get("Description"))
+	}
+	changed, err := in.Policy.Apply(msg.Data)
+	switch {
+	case err != nil:
+		in.Log.Warn("policy snapshot refused", "err", err)
+	case changed:
+		p := in.Policy.Current()
+		in.Log.Info("policy snapshot applied", "epoch", p.Epoch, "motion_lockout", p.Stop.MotionLockout, "agents_stopped", p.Stop.Agents)
+	}
+	return nil
 }
 
 // ack answers the hub for msg: +ACK (done, remove it) or +TERM (refused, never redeliver).

@@ -41,9 +41,9 @@ log = logging.getLogger("onemind.backups")
 JOB_SCHEMA = "onemind.job/v1"
 JOB_SCHEMA_V2 = "onemind.job/v2"
 JOB_TTL = timedelta(minutes=10)
-# The gateway's policy epoch today. Nothing raises it yet: the signed stop and revoke snapshot (plan N7,
-# D-029 "machines enforce a signed stop and revoke snapshot while offline") is what will, so that a job
-# signed before "Stop everything" is refused after it. Machines already keep the high-water mark.
+# The first policy epoch, and the one a job carries when no snapshot publisher runs (tests, a box without
+# NATS). fabric_policy.py raises the live epoch on every stop or revoke change, and job signers ask it
+# (gw.policy.epoch()), so a job signed before "Stop everything" is refused after it.
 POLICY_EPOCH = 1
 # A node id as the subject tree has it (sdk/schema/onemind.subjects.json placeholder node_id).
 _NODE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")

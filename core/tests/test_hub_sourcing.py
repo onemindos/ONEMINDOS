@@ -24,7 +24,7 @@ from fastapi.testclient import TestClient
 
 from onemind_core import jetstream, subjects
 from onemind_core.app import create_app
-from onemind_core.natsconf import NodeAccount, job_services, render_accounts, source_deliver_prefix, source_services
+from onemind_core.natsconf import NodeAccount, job_services, policy_service, render_accounts, source_deliver_prefix, source_services
 from onemind_core.netconf import FabricSettings
 from conftest import OWNER, ScriptedExecutor
 from test_jetstream_core import FakeBus, FakeJS
@@ -73,7 +73,8 @@ def test_each_node_exports_its_outbox_api_flow_control_and_delivery_to_the_hub_o
         assert _section(body, "imports") == [
             f'{{stream: {{account: "ONEMIND", subject: "onemind.node.{node}.job.>"}}}}',
             f'{{service: {{account: "ONEMIND", subject: "{nxt}"}}, to: "onemind.node.{node}.jobpull"}}',
-            f'{{service: {{account: "ONEMIND", subject: "{ack}"}}}}']
+            f'{{service: {{account: "ONEMIND", subject: "{ack}"}}}}',
+            f'{{service: {{account: "ONEMIND", subject: "{policy_service(node)}"}}, to: "onemind.node.{node}.policyget"}}']
     hub = _account(text, "ONEMIND")
     imports = _section(hub, "imports")
     for node in ("aaa111", "bbb222"):
@@ -82,7 +83,8 @@ def test_each_node_exports_its_outbox_api_flow_control_and_delivery_to_the_hub_o
         assert f'{{stream: {{account: "NODE_{node}", subject: "{source_deliver_prefix(node)}.>"}}}}' in imports
     # the hub offers the nodes no service but each node's own job consumer (no request path into ONEMIND)
     services = [e for e in _section(hub, "exports") if "service" in e]
-    assert services == [f'{{service: "{s}", accounts: ["NODE_{n}"]}}' for n in ("aaa111", "bbb222") for s in job_services(n)]
+    assert services == [f'{{service: "{s}", accounts: ["NODE_{n}"]}}' for n in ("aaa111", "bbb222") for s in job_services(n)] + [
+        f'{{service: "{policy_service(n)}", accounts: ["NODE_{n}"]}}' for n in ("aaa111", "bbb222")]
 
 
 def test_sourcing_subjects_are_scoped_to_the_outbox_and_the_node():

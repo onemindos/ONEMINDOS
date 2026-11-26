@@ -74,6 +74,7 @@ func runJobs(ctx context.Context, log *slog.Logger) error {
 	}
 	defer nc.Close()
 	in := &jobs.Intake{NC: nc, NodeID: st.NodeID, Verifier: backup.NewNodeJobVerifier(st.NodeID, fabric.JobPubFile, dir),
-		Handlers: jobs.Builtin(st.NodeID), Log: log}
+		Handlers: jobs.Builtin(st.NodeID), Log: log,
+		Policy: &jobs.PolicyStore{Path: filepath.Join(dir, "policy.json"), NodeID: st.NodeID, PubKeyFile: fabric.JobPubFile}}
 	return in.Run(ctx)
 }
