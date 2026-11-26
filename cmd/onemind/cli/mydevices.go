@@ -80,10 +80,11 @@ func holdsText(d myDevice) string {
 	return strings.Join(parts, ", ")
 }
 
-// explainDevices adds what to do when the gateway wants a session or a fresh passkey.
+// explainDevices adds what to do when the gateway wants a session or a fresh passkey. The gateway sends
+// reason=session_required; an older one sent a bare 403, which on these commands means the same thing.
 func explainDevices(err error) error {
 	var e *onemind.Error
-	if errors.As(err, &e) && e.Reason == "session_required" {
+	if errors.As(err, &e) && e.Status == 403 && (e.Reason == "session_required" || e.Reason == "") {
 		return fmt.Errorf("%w\nMy devices needs your own signed-in session, not an API token. Use the dashboard (Settings > Account and security) or the phone app", err)
 	}
 	if errors.As(err, &e) && e.Reason == "current_device" {

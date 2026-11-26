@@ -20,7 +20,9 @@ func devicesHub(t *testing.T, got *[]string, stepUp bool) {
 		switch r.Header.Get("Authorization") {
 		case "Bearer " + ownerTok:
 		case "Bearer pat-token":
-			jsonOut(w, 403, map[string]string{"error": "permission_denied", "message": "list your devices: not allowed", "reason": "session_required"})
+			// The real body (DeviceService._session_person -> deny(..., tell=True)), checked by core test_my_devices.
+			msg := map[string]string{http.MethodGet: "not allowed to list your devices", http.MethodDelete: "not allowed to remove a device"}[r.Method]
+			jsonOut(w, 403, map[string]string{"error": "permission_denied", "message": msg, "reason": "session_required"})
 			return
 		default:
 			jsonOut(w, 401, map[string]string{"error": "unauthenticated", "message": "no"})
@@ -95,6 +97,20 @@ func TestMyDevicesNeedsSessionAndPasskey(t *testing.T) {
 	}
 	t.Setenv("ONEMIND_TOKEN", "pat-token")
 	if r = run(t, "", false, "my-devices", "list"); r.code != ExitPermissionDenied || !strings.Contains(r.errOut, "not an API token") {
+		t.Fatalf("%+v", r)
+	}
+}
+
+// A gateway from before reason=session_required was sent answers a bare 403; the CLI still says what to do.
+func TestMyDevicesExplainsABare403FromAnOlderGateway(t *testing.T) {
+	isolate(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		jsonOut(w, 403, map[string]string{"error": "permission_denied", "message": "not allowed to remove a device"})
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("ONEMIND_HUB", srv.URL)
+	t.Setenv("ONEMIND_TOKEN", "pat-token")
+	if r := run(t, "", false, "my-devices", "remove", "dev_phone"); r.code != ExitPermissionDenied || !strings.Contains(r.errOut, "not an API token") {
 		t.Fatalf("%+v", r)
 	}
 }

@@ -70,6 +70,27 @@ it('explains the passkey step-up in plain words', async () => {
   expect(screen.getByText('Pixel 9')).toBeInTheDocument();
 });
 
+async function removePhone() {
+  const user = userEvent.setup();
+  render(<MyDevices />);
+  await user.click(await screen.findByRole('button', { name: 'Lost this device: Pixel 9' }));
+  await user.click(screen.getByRole('button', { name: 'Remove Pixel 9' }));
+}
+
+it('says to sign in when the gateway refuses an API token (the real 403 body)', async () => {
+  // DeviceService._session_person -> deny(..., tell=True): the body core test_my_devices asserts.
+  gateway(() => Response.json({ error: 'permission_denied', message: 'not allowed to remove a device', reason: 'session_required' }, { status: 403 }));
+  await removePhone();
+  expect(await screen.findByRole('alert')).toHaveTextContent('This needs you to be signed in on this device.');
+});
+
+it('says nothing was removed when the box does not answer', async () => {
+  gateway(() => { throw new TypeError('Failed to fetch'); });
+  await removePhone();
+  expect(await screen.findByRole('alert', {}, { timeout: 5000 })).toHaveTextContent('The box did not answer. Nothing was removed; try again.');
+  expect(screen.getByText('Pixel 9')).toBeInTheDocument();
+});
+
 it('keeping the device sends nothing', async () => {
   const calls = gateway();
   const user = userEvent.setup();
