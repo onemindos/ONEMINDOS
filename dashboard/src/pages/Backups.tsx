@@ -104,7 +104,7 @@ function LiveBackups({ token, person }: { token: string; person: string }) {
       <DestinationForm sdk={sdk} token={token} />
     </Card>}</Load>
     <RestoreSection sdk={sdk} token={token} />
-    {targets.data && <OtherBoxRestore sdk={sdk} token={token} destinations={targets.data.flatMap((d) => (typeof d.id === 'string' ? [{ id: d.id, label: text(d.label, d.id) }] : []))} />}
+    {targets.data && <OtherBoxRestore sdk={sdk} destinations={targets.data.flatMap((d) => (typeof d.id === 'string' ? [{ id: d.id, label: text(d.label, d.id) }] : []))} />}
     <Load res={runs} what="Loading backup runs">{(items) => <Card title="Backup runs">
       {items.length === 0 ? <p>No backup runs reported.</p> : <ul>{items.map((r) => <li key={text(r.id)}><strong>{text(r.id)}</strong> — {text(r.state)}{typeof r.finished_at === 'string' ? ` · finished ${r.finished_at}` : ''}{typeof r.error === 'string' ? ` · ${r.error}` : ''}</li>)}</ul>}
     </Card>}</Load>

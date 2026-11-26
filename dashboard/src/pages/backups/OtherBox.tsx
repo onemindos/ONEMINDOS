@@ -7,21 +7,28 @@
 // `onemind box-restore`.
 import { useRef, useState } from 'react';
 import { Link } from 'react-router';
-import { OneMind, OneMindError, uuid4 } from '@onemind/sdk';
+import { OneMindError, uuid4, type OneMind, type components } from '@onemind/sdk';
 import { Button, Card } from '@onemind/ui';
 import { useSignedIn } from '../../session';
 import { href } from '../../shell/routes';
 import { TextField } from '../parts';
-import { object, rows, strings, text } from './shared';
+import { object } from './shared';
 
-interface Point { runId: string; takenAt: string; apps: string[] }
+type CandidatesBody = components['schemas']['RestoreCandidatesBody'];
+type CandidatesView = components['schemas']['RestoreCandidatesView'];
+type RestorePoint = components['schemas']['RestorePoint'];
+type AppBody = components['schemas']['RestoreAppBody'];
+/** A point this form can restore from: one with a run id (a point without one holds no app data to pick). */
+type Point = RestorePoint & { run_id: string };
 
-function points(v: unknown): Point[] {
-  return rows(object(v).points).flatMap((r) => (typeof r.run_id === 'string' && r.run_id ? [{ runId: r.run_id, takenAt: text(r.taken_at, 'unknown time'), apps: strings(r.apps) }] : []));
+function points(v: CandidatesView): Point[] {
+  if (!v || !Array.isArray(v.points)) throw new Error('The hub returned an invalid list of restore points.');
+  return v.points.filter((p): p is Point => typeof p.run_id === 'string' && p.run_id !== '' && Array.isArray(p.apps));
 }
+const takenAt = (p: RestorePoint) => p.taken_at ?? 'unknown time';
 const why = (e: unknown) => (e instanceof OneMindError ? (e.status === 403 ? 'Only the owner can do this.' : e.message) : e instanceof Error ? e.message : String(e));
 
-export function OtherBoxRestore({ sdk, token, destinations }: { sdk: OneMind; token: string; destinations: { id: string; label: string }[] }) {
+export function OtherBoxRestore({ sdk, destinations }: { sdk: OneMind; destinations: { id: string; label: string }[] }) {
   const { principal } = useSignedIn();
   const [dest, setDest] = useState('');
   const [box, setBox] = useState('');
@@ -34,22 +41,21 @@ export function OtherBoxRestore({ sdk, token, destinations }: { sdk: OneMind; to
   if (principal?.role !== 'owner') return null;
   const destination = dest || destinations[0]?.id || '';
   const ready = !!destination && !!box.trim() && key.trim().length >= 32;
-  const call = <T,>(path: '/v1/onboarding/restore/candidates' | '/v1/onboarding/restore/apps', body: unknown, idem?: string) => {
-    const c = idem ? new OneMind({ baseUrl: sdk.baseUrl, token, retries: 1, fetch: (url, init) => { const h = new Headers(init?.headers); h.set('Idempotency-Key', idem); return fetch(url, { ...init, headers: h }); } }) : sdk;
-    return c.call<T>({ method: 'POST', path, body });
-  };
   const look = async () => {
     setBusy(true); setError(''); setFound(undefined); setReceipt(undefined);
-    try { setFound(points(await call<unknown>('/v1/onboarding/restore/candidates', { destination_id: destination, box_id: box.trim(), recovery_key: key.trim() }))); }
+    const body: CandidatesBody = { destination_id: destination, box_id: box.trim(), recovery_key: key.trim() };
+    try { setFound(points(await sdk.call<CandidatesView>({ method: 'POST', path: '/v1/onboarding/restore/candidates', body }))); }
     catch (e) { setError(why(e)); }
     finally { setBusy(false); }
   };
   const restore = async (p: Point, app: string) => {
     setBusy(true); setError('');
-    const sig = `${destination}|${box}|${p.runId}|${app}`;
+    const sig = `${destination}|${box}|${p.run_id}|${app}`;
     if (attempt.current?.sig !== sig) attempt.current = { sig, key: uuid4() };
+    const body: AppBody = { destination_id: destination, box_id: box.trim(), recovery_key: key.trim(), run_id: p.run_id, app_id: app, approve: false };
     try {
-      const r = object(await call<unknown>('/v1/onboarding/restore/apps', { destination_id: destination, box_id: box.trim(), recovery_key: key.trim(), run_id: p.runId, app_id: app, approve: false }, attempt.current.key));
+      // The 202 reply is the filed action; the spec leaves it untyped, so only its id is read and checked.
+      const r = object(await sdk.call<unknown>({ method: 'POST', path: '/v1/onboarding/restore/apps', body, headers: { 'Idempotency-Key': attempt.current.key } }));
       if (typeof r.id !== 'string' || !r.id) throw new Error('The hub returned an incomplete reply.');
       setReceipt({ id: r.id, app }); setKey(''); setFound(undefined); attempt.current = undefined;
     } catch (e) { setError(`${why(e)}. If this was a lost reply, try the same button again: it will not file a second request.`); }
@@ -72,14 +78,14 @@ export function OtherBoxRestore({ sdk, token, destinations }: { sdk: OneMind; to
         </form>
       )}
       {error && <p role="alert" className="om-note om-tone-bad">{error}</p>}
-      {receipt && <p role="status">Request {receipt.id} to restore {receipt.app} was filed and is not approved. <Link to={href.approval(receipt.id)}>Review it in Approvals</Link>.</p>}
+      {receipt && <p role="status">Request {receipt.id} to restore {receipt.app} was filed and is not approved. <Link to={href.approval(receipt.id)}>Review it in Approvals</Link>. Approve it soon: the box keeps the recovery key in memory only, so if the box restarts before you approve, the request cannot run and you file it again with the key.</p>}
       {found && (found.length === 0 ? <p role="status">That backup holds no restore points for this key.</p> : (
         <ul aria-label="Restore points">
           {found.map((p) => (
-            <li key={p.runId}>
-              <strong>{p.takenAt}</strong>
+            <li key={p.run_id}>
+              <strong>{takenAt(p)}</strong>
               {p.apps.length === 0 ? <span className="om-hint"> · no app data (box files only)</span> : p.apps.map((a) => (
-                <span key={a}> <Button size="sm" variant="secondary" disabled={busy} onClick={() => void restore(p, a)} aria-label={`Restore ${a} from ${p.takenAt}`}>Restore {a}…</Button></span>
+                <span key={a}> <Button size="sm" variant="secondary" disabled={busy} onClick={() => void restore(p, a)} aria-label={`Restore ${a} from ${takenAt(p)}`}>Restore {a}…</Button></span>
               ))}
             </li>
           ))}

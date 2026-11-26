@@ -78,6 +78,9 @@ func TestOnboardingRestoreAppOnlyFilesARequest(t *testing.T) {
 	if h.body[0]["approve"] != false || h.body[0]["app_id"] != "notes" || h.body[0]["run_id"] != "run1" {
 		t.Fatalf("body %+v", h.body[0])
 	}
+	if !strings.Contains(r.errOut, "restart before approval") {
+		t.Fatalf("warn that a restart drops the in-memory key: %q", r.errOut)
+	}
 	if !strings.HasPrefix(h.idem[0], "cli-restore-") {
 		t.Fatalf("a stable Idempotency-Key: %q", h.idem[0])
 	}

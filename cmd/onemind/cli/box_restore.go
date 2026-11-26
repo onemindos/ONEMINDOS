@@ -104,6 +104,8 @@ func boxRestoreCommands(a *App) []*cobra.Command {
 			}
 			if !a.G.JSON && !a.G.Quiet {
 				fmt.Fprintln(a.Stderr, "onemind: the app must already be installed on this box; its data is restored only after an owner approves.")
+				// The gateway holds the recovery key in memory for this one action (backups/service.py _pending_keys).
+				fmt.Fprintln(a.Stderr, "onemind: approve it soon: the box keeps the recovery key in memory only, so a restart before approval means filing the request again with the key.")
 			}
 			return a.printRequested("restore of "+sanitize(app), v)
 		},
