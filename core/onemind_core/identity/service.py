@@ -848,8 +848,11 @@ class IdentityService:
         box = user.role == "owner" and self.passkeys_active() and not self.levels.note_proven("household_level")
         data, shown = {"box_for_proven": box}, False
         if box and self.presence.available:
-            data["box_sha256"] = self.presence.issue("add a proven key", self.now() + CHALLENGE_TTL)
-            shown = True
+            try:
+                data["box_sha256"] = self.presence.issue("add a proven key", self.now() + CHALLENGE_TTL)
+                shown = True
+            except ApiError as exc:  # paused after wrong codes: an L1 key still enrols, a proven one waits
+                data["box_refused"] = {"status": exc.status, "reason": exc.reason, "message": exc.message}
         row, raw = self._new_challenge("register", user_id=user.id, data=data)
         opts = pk.registration_options(rp_id=rp_id, rp_name=self.cfg.rp_name, user_id=user.id,
                                        user_name=user.username or user.id, display_name=user.display_name,
@@ -886,6 +889,9 @@ class IdentityService:
         level, why = lv.credential_level(fmt=v["fmt"], has_chain=v["has_chain"], backup_eligible=v["backup_eligible"],
                                          model=model, chain_ok=v["chain_ok"])
         if lv.rank(level) >= 2 and row.data.get("box_for_proven"):
+            if (refused := row.data.get("box_refused")) is not None:
+                raise ApiError(refused["status"], "rate_limited" if refused["status"] == 429 else "unavailable",
+                               refused["message"], reason=refused["reason"])
             if not row.data.get("box_sha256"):
                 raise ApiError(409, "conflict", "this is a proven key, and the first one is added at the box, which "
                                "this install has no screen for; nothing was saved", reason="box_presence_unavailable")
