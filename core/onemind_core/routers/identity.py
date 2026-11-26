@@ -9,7 +9,7 @@ from typing import Any, Literal
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from ..auth import Principal
 from ..context import Gateway
@@ -17,6 +17,7 @@ from ..errors import error_responses
 from ..identity import IdentityService, ctx_of
 from ..identity.approver_keys import KeyKind
 from ..jsonbody import JsonBody
+from ..permissions.remember import RememberChoice
 
 SIGNIN_HTML = Path(__file__).resolve().parent.parent / "identity" / "signin.html"
 
@@ -29,6 +30,16 @@ class ApprovalChallenge(BaseModel):
     # #702: what a phone's approver key signs (UTF-8, ECDSA P-256 SHA-256) instead of a passkey assertion.
     device_payload: str
     publicKey: dict[str, Any]
+    # Gateway permissions PR 12: the rule approve-and-remember would store, its hash (bound into the
+    # challenge), the gateway-written summary and the verification level D-028 asks for it.
+    remember: dict[str, Any] | None = None
+
+
+class ApproveOptionsBody(JsonBody):
+    """Optional: ask for an "Approve and remember" challenge (gateway permissions PR 12)."""
+
+    model_config = ConfigDict(extra="forbid")
+    remember: RememberChoice | None = None
 
 
 # The random id an app install keeps for itself (#715): My devices groups a phone's sign-ins, passkeys
@@ -152,6 +163,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     gw.app_filters.append(svc.app_filter)
     gw.people_sources.append(svc.people)
     app.state.identity = svc
+    svc.gw_app_state = app.state
     principal = gw.principal
     cfg = svc.cfg
 
@@ -328,8 +340,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     # ---- approval step-up challenge (§12.4) ----------------------------------------------------------
     @app.post("/v1/actions/{action_id}/approve-options", operation_id="actions.approve_options", tags=["actions"], response_model=ApprovalChallenge, responses=R(401, 403, 404, 409))
-    def approve_options(action_id: str, request: Request, p: Principal = Depends(principal)):
-        return svc.approve_options(request, p, action_id)
+    def approve_options(action_id: str, request: Request, body: ApproveOptionsBody | None = None,
+                        p: Principal = Depends(principal)):
+        return svc.approve_options(request, p, action_id, body.remember if body else None)
 
     # ---- rescue console step-up (D-014): called by the console on this box, never listed in the API ----
     @app.post("/v1/auth/rescue/options", include_in_schema=False)

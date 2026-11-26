@@ -1594,6 +1594,18 @@
             "additionalProperties": true,
             "title": "Publickey",
             "type": "object"
+          },
+          "remember": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remember"
           }
         },
         "required": [
@@ -1812,6 +1824,24 @@
           "kind"
         ],
         "title": "ApprovalPreview",
+        "type": "object"
+      },
+      "ApproveOptionsBody": {
+        "additionalProperties": false,
+        "description": "Optional: ask for an \"Approve and remember\" challenge (gateway permissions PR 12).",
+        "properties": {
+          "remember": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RememberChoice"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "ApproveOptionsBody",
         "type": "object"
       },
       "ApproverKey": {
@@ -11500,6 +11530,73 @@
         "title": "RefreshBody",
         "type": "object"
       },
+      "RememberApproval": {
+        "additionalProperties": false,
+        "properties": {
+          "rule": {
+            "additionalProperties": true,
+            "description": "the rule exactly as approve-options returned it under remember.rule",
+            "title": "Rule",
+            "type": "object"
+          }
+        },
+        "required": [
+          "rule"
+        ],
+        "title": "RememberApproval",
+        "type": "object"
+      },
+      "RememberChoice": {
+        "additionalProperties": false,
+        "description": "What the person chose on the \"Approve and remember\" sheet. Everything else is the narrowest rule.",
+        "properties": {
+          "lapse_unused": {
+            "default": true,
+            "description": "\"end if unused for 14 days\" (on by default)",
+            "title": "Lapse Unused",
+            "type": "boolean"
+          },
+          "lifetime": {
+            "default": "30d",
+            "enum": [
+              "30d",
+              "90d",
+              "180d",
+              "forever"
+            ],
+            "title": "Lifetime",
+            "type": "string"
+          },
+          "notify_after": {
+            "default": "digest",
+            "enum": [
+              "each",
+              "digest",
+              "silent"
+            ],
+            "title": "Notify After",
+            "type": "string"
+          },
+          "per_day": {
+            "default": 10,
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Per Day",
+            "type": "integer"
+          },
+          "unpin": {
+            "description": "parameter names to leave open; every other parameter stays this request's value",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Unpin",
+            "type": "array"
+          }
+        },
+        "title": "RememberChoice",
+        "type": "object"
+      },
       "RenameOp": {
         "additionalProperties": false,
         "properties": {
@@ -17058,6 +17155,16 @@
             ],
             "title": "Plan Sha256"
           },
+          "remember": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RememberApproval"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "sealed": {
             "anyOf": [
               {
@@ -17589,6 +17696,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ApproveOptionsBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -17639,6 +17763,16 @@
               }
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
