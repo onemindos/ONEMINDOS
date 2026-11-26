@@ -75,6 +75,8 @@ Mostly, with one real mismatch. The official look is the founder's design picks 
 | **Primary buttons red** ("red is the general button colour", DESIGN.md "Primary action" `#d11826` / `#fb605a`) | **Teal.** `mobile/src/ui/bits.tsx` paints a primary button with `accent`; the dashboard's `.om-btn-primary` uses `action` (red). The phone's code comment still points at the old dashboard rule | **No: drift** |
 | Contour wallpaper, ten theme packs, Appearance settings | Not on the phone; the phone follows the system light or dark mode only | Not built for the phone (DESIGN.md describes the desktop) |
 
+**The bigger gap is the layout, not the colours.** The agreed design includes five phone screens (renders 13a to 13e in the founder's final design pack, kept outside the repo): a greeting ("Good afternoon, Maya. 3 things need you"), a "Needs you" card with a red **Review and decide** button and hold-to-approve for physical actions, app tiles with their icons, live sensor cards with sparklines, a machines row, the Contour wallpaper, and five tabs **Home, Map, Approvals, Apps, Me**. The built app is a plain list of health rows with tabs Home, Apps, Approvals, Activity, More, and has no Map. The app was built before the picks (phone wave P) and has not been moved to them; as of 2026-11-26 no issue tracks that work.
+
 So "Scan the box's code" and "Connect" are teal on the phone but would be red on the dashboard. The fix is small (primary buttons use `action` and `action-text`, plus a test), and it is a separate change from the crash fix.
 
 ## What this teaches us
