@@ -9540,6 +9540,69 @@
         "title": "NodeUSBDevice",
         "type": "object"
       },
+      "NotificationAction": {
+        "description": "A button on a notification as the inbox returns it. `revoke` (gateway permissions PR 13) is set only\nby the gateway on an approval.auto notice: it ends the rule `policy_id` names (POST\n/v1/approval-policies/{id}/revoke). Apps can post only `open` and `request`; nothing posts an approve.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "open",
+              "request",
+              "revoke"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link"
+          },
+          "policy_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Id"
+          },
+          "request": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "kind"
+        ],
+        "title": "NotificationAction",
+        "type": "object"
+      },
       "NotificationActionIn": {
         "additionalProperties": false,
         "description": "A button on the notification (notify/topics.py check_actions): open an in-app link, or let the\nperson who taps it file a normal request that still needs an approval. There is no approve kind.",
@@ -9801,6 +9864,145 @@
           "last_read_at"
         ],
         "title": "NotificationSummary",
+        "type": "object"
+      },
+      "NotificationView": {
+        "description": "One inbox item (notify/store.py notification_json). Response documentation only.",
+        "properties": {
+          "action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Id"
+          },
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationAction"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "alert_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alert Id"
+          },
+          "app_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Id"
+          },
+          "asset_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Id"
+          },
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "group_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Key"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link"
+          },
+          "read_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read At"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "source_kind": {
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "topic": {
+            "title": "Topic",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "severity",
+          "topic",
+          "title",
+          "body",
+          "source_kind",
+          "created_at"
+        ],
+        "title": "NotificationView",
         "type": "object"
       },
       "OnboardingKit": {
@@ -35175,7 +35377,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NotificationView"
+                  },
+                  "title": "Response 200 Notifications.List",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"

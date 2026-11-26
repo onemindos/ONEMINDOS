@@ -77,6 +77,14 @@ export function Inbox({ preferences = false }: { preferences?: boolean }) {
       await channels.reload();
     }, t('inbox.channels.add'));
   };
+  // An approval.auto notice's Revoke rule button (gateway permissions PR 13): one tap, no passkey (it only narrows).
+  const [revoked, setRevoked] = useState<Record<string, true>>({});
+  const revoke = (policyId: string) => {
+    void run(async () => {
+      await sdk.call({ method: 'POST', path: `/v1/approval-policies/${encodeURIComponent(policyId)}/revoke` });
+      setRevoked((r) => ({ ...r, [policyId]: true }));
+    }, 'Revoke rule');
+  };
   const open = (n: NotificationItem) => {
     void run(async () => {
       if (!n.read_at) await api.markRead(n.id);
@@ -105,6 +113,9 @@ export function Inbox({ preferences = false }: { preferences?: boolean }) {
                       </p>
                       <div className="dash-actions">
                         {to && <Link to={to}>Open</Link>}
+                        {(n.actions ?? []).filter((a) => a.kind === 'revoke' && a.policy_id).map((a) => revoked[a.policy_id!]
+                          ? <span key={a.id} role="status">{t('inbox.ruleRevoked')}</span>
+                          : <Button key={a.id} size="sm" variant="secondary" aria-label={`${a.label}: ${n.title}`} onClick={() => revoke(a.policy_id!)}>{a.label}</Button>)}
                         {!n.read_at && (
                           <Button size="sm" variant="ghost" aria-label={t('inbox.markRead', { title: n.title })} onClick={() => open(n)}>
                             {t('inbox.markRead.short')}

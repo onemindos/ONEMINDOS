@@ -19,7 +19,7 @@ import (
 // signed-in person's own, checked by the gateway (owner only where it loosens anything).
 func permissionsCommands(a *App) []*cobra.Command {
 	root := &cobra.Command{Use: "permissions", Short: "Deny rules, standing approvals and modes: what may happen without asking"}
-	root.AddCommand(permissionsDenyCommands(a), permissionsRulesCommands(a), permissionsModeCommands(a))
+	root.AddCommand(permissionsDenyCommands(a), permissionsRulesCommands(a), permissionsModeCommands(a), permissionsLogCommand(a))
 	return []*cobra.Command{root}
 }
 
@@ -426,4 +426,60 @@ func ruleHistory(c *onemind.Client, rule map[string]any) ([]map[string]any, erro
 		after = fmt.Sprint(recs[len(recs)-1]["seq"])
 	}
 	return out, nil
+}
+
+// permissionsLogCommand is `onemind permissions log` (design §3.12 "Auto-approved log"): every request a
+// standing approval approved in the last --days days, newest first, read from the audit log
+// (action.approved lines with approved_via=policy). End a rule with `onemind permissions rules revoke`.
+func permissionsLogCommand(a *App) *cobra.Command {
+	var days int
+	cmd := &cobra.Command{Use: "log", Short: "What your rules approved without asking (newest first)", Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if days < 1 || days > 365 {
+				return usageErr(cmd, "--days is 1 to 365")
+			}
+			c, _, err := a.client()
+			if err != nil {
+				return err
+			}
+			since := time.Now().UTC().Add(-time.Duration(days) * 24 * time.Hour).Format(time.RFC3339)
+			out := []map[string]any{}
+			after := ""
+			for page := 0; page < 10; page++ {
+				q := url.Values{"event": {"action.approved"}, "since": {since}, "limit": {"500"}}
+				if after != "" {
+					q.Set("after_seq", after)
+				}
+				var recs []map[string]any
+				if err := c.Do(bg(), http.MethodGet, "/v1/audit/events?"+q.Encode(), nil, &recs); err != nil {
+					return err
+				}
+				for _, r := range recs {
+					if d, _ := r["data"].(map[string]any); d != nil && d["approved_via"] == "policy" {
+						out = append(out, map[string]any{"ts": r["ts"], "action_id": r["action_id"], "type": d["type"],
+							"requested_by": d["requested_by"], "policy_id": d["policy_id"], "policy_revision": d["policy_revision"], "uses": d["uses"]})
+					}
+				}
+				if len(recs) < 500 {
+					break
+				}
+				after = fmt.Sprint(recs[len(recs)-1]["seq"])
+			}
+			for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
+				out[i], out[j] = out[j], out[i]
+			}
+			if a.G.JSON {
+				return printJSON(a.Stdout, out)
+			}
+			if len(out) == 0 {
+				fmt.Fprintf(a.Stdout, "Nothing was approved by a rule in the last %d days.\n", days)
+			}
+			for _, u := range out {
+				fmt.Fprintf(a.Stdout, "%s  %s  by %s  rule %s rev %v  (use %v)\n", sanitize(fmt.Sprint(u["ts"])), sanitize(fmt.Sprint(u["type"])),
+					sanitize(fmt.Sprint(u["requested_by"])), sanitize(fmt.Sprint(u["policy_id"])), u["policy_revision"], sanitize(fmt.Sprint(u["uses"])))
+			}
+			return nil
+		}}
+	cmd.Flags().IntVar(&days, "days", 30, "how many days back")
+	return cmd
 }

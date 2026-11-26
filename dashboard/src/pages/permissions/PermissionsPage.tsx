@@ -7,6 +7,7 @@ import type { ComponentType } from 'react';
 import { Link, useParams } from 'react-router';
 import { PageHeader } from '@onemind/ui';
 import { WhoHasAccess } from '../SettingsSecurity';
+import { AutoApproved } from './AutoApproved';
 import { Modes } from './Modes';
 import { Never } from './Never';
 import { Rules } from './Rules';
@@ -21,6 +22,7 @@ export const TABS: PermissionsTab[] = [
   { id: 'modes', label: 'Modes', Body: Modes },
   { id: 'rules', label: 'Rules', Body: Rules },
   { id: 'never', label: 'Never', Body: Never },
+  { id: 'auto-approved', label: 'Auto-approved', Body: AutoApproved },
   { id: 'access', label: 'Who has access', Body: WhoHasAccess },
 ];
 

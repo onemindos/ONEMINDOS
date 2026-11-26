@@ -245,3 +245,39 @@ func TestPermissionsRulesShowWithHistoryAndRevokeAll(t *testing.T) {
 		t.Fatalf("revoke-all every rule %+v %v", r, revokeBody)
 	}
 }
+
+func TestPermissionsLogListsOnlyRuleApprovalsNewestFirst(t *testing.T) {
+	isolate(t)
+	var query string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/audit/events" {
+			jsonOut(w, 404, map[string]string{"error": "not_found", "message": r.URL.Path})
+			return
+		}
+		query = r.URL.RawQuery
+		jsonOut(w, 200, []map[string]any{
+			{"seq": 1, "ts": "2026-11-20T00:00:00Z", "action_id": "a1", "data": map[string]any{"type": "backup.run", "requested_by": "agent:hermes", "approved_via": "policy", "policy_id": "pol_1", "policy_revision": 2, "uses": "1/5"}},
+			{"seq": 2, "ts": "2026-11-21T00:00:00Z", "action_id": "a2", "data": map[string]any{"type": "app.install", "approved_by": "owner"}},
+			{"seq": 3, "ts": "2026-11-22T00:00:00Z", "action_id": "a3", "data": map[string]any{"type": "notes.read", "requested_by": "agent:reader", "approved_via": "policy", "policy_id": "pol_2", "policy_revision": 1, "uses": "2/5"}},
+		})
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("ONEMIND_HUB", srv.URL)
+	t.Setenv("ONEMIND_TOKEN", ownerTok)
+	r := run(t, "", false, "permissions", "log", "--days", "7")
+	if r.code != 0 || strings.Contains(r.out, "app.install") || strings.Index(r.out, "notes.read") > strings.Index(r.out, "backup.run") ||
+		!strings.Contains(r.out, "rule pol_1 rev 2  (use 1/5)") {
+		t.Fatalf("log %+v", r)
+	}
+	if !strings.Contains(query, "event=action.approved") || !strings.Contains(query, "since=") {
+		t.Fatalf("query %q", query)
+	}
+	r = run(t, "", false, "permissions", "log", "--json")
+	var out []map[string]any
+	if r.code != 0 || json.Unmarshal([]byte(r.out), &out) != nil || len(out) != 2 || out[0]["policy_id"] != "pol_2" {
+		t.Fatalf("log --json %+v", r)
+	}
+	if r := run(t, "", false, "permissions", "log", "--days", "0"); r.code != ExitUsage {
+		t.Fatalf("bad --days %+v", r)
+	}
+}
