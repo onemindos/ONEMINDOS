@@ -104,7 +104,7 @@ func rolloutsCommand(a *App) *cobra.Command {
 				}
 				params["stages"] = st
 			}
-			return a.fileRolloutAction(cmd, "os.rollout.start", "rollout of "+version, params, version+stages+strconv.Itoa(maxFailures))
+			return a.fileRolloutAction(cmd, "os.rollout.start", "rollout of "+version, params, version, stages, strconv.Itoa(maxFailures))
 		},
 	}
 	start.Flags().StringVar(&version, "target-version", "", "the OS version to roll out")
@@ -144,8 +144,10 @@ func floatOf(v any) float64 {
 
 // fileRolloutAction files one rollout request. The key is built from what is asked for and the UTC
 // day, so asking twice replays the request that is already waiting instead of filing a second one.
-func (a *App) fileRolloutAction(cmd *cobra.Command, typ, what string, params map[string]any, keyPart string) error {
-	body := map[string]any{"type": typ, "params": params, "idempotency_key": idemKey("cli-"+strings.ReplaceAll(typ, ".", "-")+"-", keyPart),
+// Each part stays a separate field of the key (idemKey puts a NUL between them): joined into one
+// string, version 1.2 with 10 failures and 1.21 with 0 would give the same key.
+func (a *App) fileRolloutAction(cmd *cobra.Command, typ, what string, params map[string]any, keyParts ...string) error {
+	body := map[string]any{"type": typ, "params": params, "idempotency_key": idemKey("cli-"+strings.ReplaceAll(typ, ".", "-")+"-", keyParts...),
 		"expires_at": time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339)}
 	v, err := a.gwDo(http.MethodPost, "/v1/actions", body)
 	if err != nil {

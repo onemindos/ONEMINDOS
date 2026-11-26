@@ -85,3 +85,34 @@ it('shows windows read-only to anyone but an owner', async () => {
   expect(screen.queryByRole('button', { name: 'Edit Nightly' })).not.toBeInTheDocument();
   expect(screen.getByText('Only an owner can change a window.')).toBeInTheDocument();
 });
+
+it('never replaces an existing window when a new one would get the same id', async () => {
+  const puts: { path: string; body: Record<string, unknown> }[] = [];
+  gateway(puts);
+  mount('owner-demo');
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Add a window' }));
+  await u.type(screen.getByLabelText('Name'), 'Nightly');
+  await u.click(screen.getByRole('button', { name: 'Save window' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent(/win_nightly already exists/);
+  expect(puts).toHaveLength(0);
+});
+
+it('accepts a one-letter id, as the gateway does', async () => {
+  const puts: { path: string; body: Record<string, unknown> }[] = [];
+  vi.stubGlobal('fetch', vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+    const path = new URL(String(url)).pathname;
+    if (path === '/v1/windows' && (init?.method ?? 'GET') === 'GET') return json([win]);
+    if (path === '/v1/windows/win_a' && init?.method === 'PUT') { puts.push({ path, body: JSON.parse(String(init.body)) }); return json({ ...win, id: 'win_a', name: 'A' }); }
+    if (path === '/v1/automation/state') return json({ paused: false });
+    if (path.startsWith('/v1/automation/')) return json([]);
+    return json({ error: 'not_found', message: path }, 404);
+  }));
+  mount('owner-demo');
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Add a window' }));
+  await u.type(screen.getByLabelText('Name'), 'A');
+  await u.click(screen.getByRole('button', { name: 'Save window' }));
+  await screen.findByText(/Saved "A"/);
+  expect(puts.map((p) => p.path)).toEqual(['/v1/windows/win_a']);
+});

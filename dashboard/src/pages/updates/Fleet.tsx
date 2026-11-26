@@ -17,6 +17,8 @@ import { getJson, record, records, str } from '../records';
 const VERSION = /^[0-9]{1,10}(\.[0-9]{1,20}){0,5}(-dev)?$/;
 const ACTIVE = ['running', 'paused'];
 const STATE_WORDS: Record<string, string> = { running: 'Running', paused: 'Paused: needs a decision', completed: 'Finished', cancelled: 'Cancelled' };
+/** "3 machines": the fleet's count is a number, never a string. */
+const machines = (n: unknown) => (typeof n === 'number' ? `${n} ${n === 1 ? 'machine' : 'machines'}` : 'an unknown number of machines');
 const stage = (r: Record<string, unknown>) => `wave ${(typeof r.stage === 'number' ? r.stage : 0) + 1} of ${Array.isArray(r.stages) ? r.stages.length : '?'}`;
 
 export function Fleet() {
@@ -67,7 +69,7 @@ function LiveFleet({ token, owner }: { token: string; owner: boolean }) {
           {typeof m.available_version === 'string' && <div><dt>On offer</dt><dd>{m.available_version}</dd></div>}
         </dl>
       </li>)}</ul>}
-      {f.versions.length > 0 && <p className="om-note">Versions in use: {f.versions.map((v) => `${str(v.version)} on ${str(v.count)}`).join(', ')}.</p>}
+      {f.versions.length > 0 && <p className="om-note">Versions in use: {f.versions.map((v) => `${str(v.version)} on ${machines(v.count)}`).join(', ')}.</p>}
     </Card>}</Load>
     <Load res={rollouts} what="Loading rollouts">{(items) => <Card title="Rollouts to the whole fleet">
       <p className="om-note">A rollout offers a new version to a few machines first, waits until each one is healthy, then offers it to the next wave. Nothing is offered until an owner approves the request.</p>

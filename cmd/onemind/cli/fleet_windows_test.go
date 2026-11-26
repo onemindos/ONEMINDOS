@@ -188,3 +188,22 @@ func TestWindowsSetExplainsStepUpAndRefusesAgents(t *testing.T) {
 		t.Fatalf("agent %+v", r)
 	}
 }
+
+// Two different rollout requests must never share an idempotency key: joined into one string,
+// version 1.2 with 10 failures and 1.21 with 0 both read "1.210", and the second would replay the first.
+func TestRolloutStartKeyKeepsEachFieldApart(t *testing.T) {
+	g := fleetGW(t, ownerTok)
+	if r := run(t, "", false, "update", "rollouts", "start", "--target-version", "1.2", "--max-failures", "10"); r.code != 0 {
+		t.Fatalf("first %+v", r)
+	}
+	if r := run(t, "", false, "update", "rollouts", "start", "--target-version", "1.21", "--max-failures", "0"); r.code != 0 {
+		t.Fatalf("second %+v", r)
+	}
+	if r := run(t, "", false, "update", "rollouts", "start", "--target-version", "1.2", "--max-failures", "10"); r.code != 0 {
+		t.Fatalf("again %+v", r)
+	}
+	post := g.requests("POST", "/v1/actions")
+	if len(post) != 3 || post[0].idem == post[1].idem || post[0].idem != post[2].idem {
+		t.Fatalf("keys %q %q %q", post[0].idem, post[1].idem, post[2].idem)
+	}
+}

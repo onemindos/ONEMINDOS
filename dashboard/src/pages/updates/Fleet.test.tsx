@@ -39,6 +39,8 @@ it('shows every machine with its version and the rollouts with their wave and re
   expect(within(fleetCard).getByText('1.2.0')).toBeInTheDocument();
   expect(await within(fleetCard).findByText(/Paused: needs a decision · wave 1 of 2/)).toBeInTheDocument();
   expect(within(fleetCard).getByText('a machine rolled back')).toBeInTheDocument();
+  // The fleet's count is a number: it reads "1 machine", never "Not reported".
+  expect(within(fleetCard).getByText('Versions in use: 1.2.0 on 1 machine.')).toBeInTheDocument();
 });
 
 it('only files a request to start a rollout: nothing is approved', async () => {

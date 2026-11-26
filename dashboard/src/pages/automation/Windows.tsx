@@ -26,9 +26,14 @@ function describe(r: Range): string {
 function ranges(v: unknown): Range[] {
   return records(v).map((r) => ({ days: strs(r.days).length ? strs(r.days) : [...DAYS], start: str(r.start, '00:00'), end: str(r.end, '00:00') }));
 }
-function problem(d: Draft): string {
+/** The gateway's own rule for a window id (WINDOW_ID_RE in core/onemind_core/routers/automation.py). */
+const WINDOW_ID = /^win_[a-z0-9_]{1,36}$/;
+
+function problem(d: Draft, taken: string[]): string {
   if (!d.name.trim()) return 'Give the window a name.';
-  if (d.isNew && !/^win_[a-z0-9_]{5,36}$/.test(d.id)) return 'Use letters and numbers in the name so it can become an id.';
+  if (d.isNew && !WINDOW_ID.test(d.id)) return 'Use letters and numbers in the name so it can become an id.';
+  // Saving is a PUT by id: a new window whose id already exists would silently replace that window.
+  if (d.isNew && taken.includes(d.id)) return `A window with the id ${d.id} already exists. Give this one another name, or edit that window instead.`;
   if (d.ranges.length === 0) return 'Add at least one time range.';
   for (const r of d.ranges) {
     if (r.days.length === 0) return 'Pick at least one day in every range.';
@@ -54,10 +59,15 @@ function LiveWindows({ token, owner }: { token: string; owner: boolean }) {
   const setRange = (i: number, p: Partial<Range>) => setDraft((d) => d && { ...d, ranges: d.ranges.map((r, j) => (j === i ? { ...r, ...p } : r)) });
   const save = async () => {
     if (!draft || busy) return;
-    const bad = problem(draft);
+    let bad = problem(draft, (list.data ?? []).map((w) => str(w.id, '')));
     if (bad) { setError(bad); return; }
     setBusy(true); setError('');
     try {
+      if (draft.isNew) {
+        // Read the windows again right before the PUT, so one added on another device since the last poll is not replaced.
+        bad = problem(draft, records(await getJson(sdk, '/v1/windows')).map((w) => str(w.id, '')));
+        if (bad) { setError(bad); await list.reload(); return; }
+      }
       await sdk.call<unknown>({ method: 'PUT', path: `/v1/windows/${encodeURIComponent(draft.id)}`, body: { name: draft.name.trim(), tz: draft.tz.trim() || 'box', ranges: draft.ranges.map((r) => ({ days: r.days, start: r.start, end: r.end })) } });
       setSaved(`Saved "${draft.name.trim()}". Standing approvals that use it were given a new revision.`); setDraft(undefined); await list.reload();
     } catch (e) {
