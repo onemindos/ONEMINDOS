@@ -3,10 +3,13 @@
 package cli
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -423,7 +426,31 @@ func ruleHistory(c *onemind.Client, rule map[string]any) ([]map[string]any, erro
 		if len(recs) < 500 {
 			break
 		}
-		after = fmt.Sprint(recs[len(recs)-1]["seq"])
+		if after = seqCursor(recs[len(recs)-1]["seq"]); after == "" {
+			break // a line with no usable seq: stop rather than ask for the same page again
+		}
 	}
 	return out, nil
+}
+
+// seqCursor is an audit line's seq as the integer the gateway's after_seq expects. JSON numbers decode
+// as float64, and fmt.Sprint prints a float64 of a million or more as 1e+06, which the gateway refuses
+// (422); this always gives plain digits. It is "" for a missing or non-integer seq.
+func seqCursor(v any) string {
+	switch n := v.(type) {
+	case float64:
+		if n < 0 || n != math.Trunc(n) || n > math.MaxInt64 {
+			return ""
+		}
+		return strconv.FormatInt(int64(n), 10)
+	case json.Number:
+		if _, err := strconv.ParseInt(string(n), 10, 64); err == nil {
+			return string(n)
+		}
+	case int:
+		return strconv.Itoa(n)
+	case int64:
+		return strconv.FormatInt(n, 10)
+	}
+	return ""
 }
