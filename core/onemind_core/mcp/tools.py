@@ -64,7 +64,6 @@ class Services:
     builtin_actions: Callable[[], dict[str, tuple[str, str, str]]] = lambda: {}
     # The area read tools' services (mcp/read_tools.py AreaReads, #632); None serves them as unavailable.
     area_reads: Any = None
-    route_enabled: Callable[[str], bool] = lambda _: True
 
 
 # ---- the catalogue: generated from the surface registry (surfaces/core.py, #605) -------------------
@@ -163,9 +162,10 @@ def _int(args: dict, key: str, lo: int, hi: int | None) -> int | None:
 
 
 class Catalogue:
-    def __init__(self, svc: Services, limits: Limits):
+    def __init__(self, svc: Services, limits: Limits, *, route_enabled: Callable[[str], bool] = lambda _: True):
         self.svc = svc
         self.limits = limits
+        self.route_enabled = route_enabled
 
     # ---- tools -----------------------------------------------------------------------------
     # ---- request-only tools from built-in descriptors (#603) ----------------------------------
@@ -200,7 +200,7 @@ class Catalogue:
         return found[0] if found else None
 
     def core_tool_enabled(self, name: str) -> bool:
-        return self.svc.route_enabled(TOOL_ROUTES[name])
+        return self.route_enabled(TOOL_ROUTES[name])
 
     def call(self, p: Principal, name: object, args: object) -> dict:
         builtin = None if name in TOOL_NAMES else self.builtin_type(name)
