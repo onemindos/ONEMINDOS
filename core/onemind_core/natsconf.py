@@ -309,17 +309,24 @@ CALLOUT_ACCOUNT = "AUTH"
 
 def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey] = (),
                     jetstream_max_bytes: int = 0, agents: Iterable[AgentUser] = (),
-                    callout: CalloutAccount | None = None) -> str:
+                    callout: CalloutAccount | None = None, agents_stopped: bool = False) -> str:
     """The accounts include file. Deterministic: same nodes, services and agents, same bytes (no reload churn).
 
     jetstream_max_bytes > 0 turns JetStream on for the hub account with that file-storage cap. Node
     and agent accounts never get JetStream: a leaf's events are kept by its own outbox and by the hub
-    account. With no agents the AGENTS account is left out and the file is byte for byte as before."""
+    account. With no agents the AGENTS account is left out and the file is byte for byte as before.
+
+    agents_stopped (the agent kill switch, D-029 "Stop everything also cuts AI agents off the bus"):
+    the AGENTS account and everything that names it are left out. The reload that follows makes
+    nats-server close every connection in AGENTS at once, static users and callout users alike (an
+    account that is gone takes its clients with it), instead of waiting for a callout JWT to expire.
+    The callout block stays, so a new agent connect is still asked about, and refused."""
     nodes = sorted({n.node_id: n for n in nodes}.values(), key=lambda n: n.node_id)
     agents = sorted({a.token: a for a in agents}.values(), key=lambda a: a.token)
     services = sorted({s.name: s for s in services}.values(), key=lambda s: s.name)
     if not services:
         callout = None  # a passwordless dev hub is never asked about: the callout needs strict sign-in
+    wire_agents = bool(agents or callout) and not agents_stopped
     if services:  # strict: every hub-local client signs with its own key
         hub_users = [f'      {{nkey: "{s.nkey}", allowed_connection_types: ["STANDARD"]}}  # {s.name}'
                      for s in services]
@@ -351,7 +358,7 @@ def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey]
         exports += [f'      {{service: "{s}", accounts: ["{n.account}"]}}' for n in nodes for s in job_services(n.node_id)]
         # D-029 N7: and reads its own stop and revoke snapshot
         exports += [f'      {{service: "{policy_service(n.node_id)}", accounts: ["{n.account}"]}}' for n in nodes]
-    if agents or callout:  # the gateway prompts agents and hears them; agents send requests (static or callout)
+    if wire_agents:  # the gateway prompts agents and hears them; agents send requests (static or callout)
         imports += [
             f'      {{service: {{account: "{AGENTS_ACCOUNT}", subject: "agents.prompt.>"}}}}',
             f'      {{stream: {{account: "{AGENTS_ACCOUNT}", subject: "agents.status.>"}}}}',
@@ -377,7 +384,7 @@ def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey]
             "    ]",
             "  }",
         ]
-    if agents or callout:
+    if wire_agents:
         out += render_agents_account(agents, callout is not None)
     if callout:
         out += [f"  {CALLOUT_ACCOUNT}: {{",
@@ -472,9 +479,9 @@ def make_service_key(directory: Path, name: str) -> str:
 
 def write_accounts(path: Path, nodes: Iterable[NodeAccount], services: Iterable[ServiceKey] = (),
                    jetstream_max_bytes: int = 0, agents: Iterable[AgentUser] = (),
-                   callout: CalloutAccount | None = None) -> bool:
+                   callout: CalloutAccount | None = None, agents_stopped: bool = False) -> bool:
     """Write the include file atomically (0644: public keys only). True if the content changed."""
-    body = render_accounts(nodes, services, jetstream_max_bytes, agents, callout).encode()
+    body = render_accounts(nodes, services, jetstream_max_bytes, agents, callout, agents_stopped).encode()
     try:
         if path.read_bytes() == body:
             return False

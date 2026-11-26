@@ -178,6 +178,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return cfg, MeshService(HeadscaleClient.from_key_file(cfg.headscale_url, cfg.headscale_key_file, **extra),
                                 gw.audit, gw.clock)
 
+    def agents_stopped() -> bool:
+        """The agent kill switch (routers/agents.py, ORDER 155, registered before this router)."""
+        stop = getattr(app.state, "agent_stop", None)
+        return bool(stop.on) if stop is not None else False
+
     mesh_cfg, mesh = build(mesh_state())
     app.state.mesh = mesh  # read by GET /v1/status (FD-01)
     fabric = FabricService(FabricDeps(
@@ -188,6 +193,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         job_key=lazy_job_key(gateway_job_key_path(settings)),
         # D-029 hybrid: the callout's keys sit with the job key (one key per purpose, the custodian dir).
         callout=(lambda: load_callout_keys(gateway_job_key_path(settings).parent).account) if fab_cfg.nats_callout else None,
+        agents_stopped=agents_stopped,
     ))
     gw.actions.register_handler("node.join", fabric)
 
