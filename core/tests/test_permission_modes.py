@@ -55,6 +55,7 @@ def test_every_new_agent_starts_on_always_ask(client, clock, passkey):
     view = client.get("/v1/permission-modes/agent:hermes", headers=OWNER).json()
     assert (view["mode"], view["own"], view["household_default"]) == ("ask", False, "ask")
     assert restart(client, clock, "a0").json()["state"] == "awaiting_approval"  # the rule is ignored
+    assert client.get("/v1/approval-policies", headers=OWNER).json()[0]["modes"] == {"agent:hermes": "ask"}
     assert mode(client, "agent:hermes", "auto", reason="trusted helper").status_code == 200
     assert restart(client, clock, "a1").json()["state"] == "succeeded"
     changed = [e for e in audit(client) if e["event"] == "permission.mode.changed"]
