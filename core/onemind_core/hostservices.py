@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import re
+import socket
 from collections.abc import Iterator
 from datetime import datetime
 from urllib.parse import quote
@@ -164,6 +165,13 @@ class LogStream:
             return
 
     def close(self) -> None:
+        # shutdown first: a thread blocked in readline() on this socket wakes up and ends (close alone may not)
+        sock = getattr(self.conn, "sock", None)
+        if sock is not None:
+            try:
+                sock.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
         self.conn.close()
 
 
