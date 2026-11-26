@@ -53,6 +53,7 @@ Short answers to founder questions, saved so they are not lost in chat. Folder: 
 | 11 | [JADC2 and OneMind: sense, make sense, act; the data fabric; what to adopt and where we differ](founder/11-jadc2-and-onemind.md) |
 | 12 | [Clock, Secure Boot, disk and admin tools, and the `onemind` CLI](founder/12-clock-secure-boot-tools-and-the-cli.md) (Step 2 of the stable-and-live sprint, 2026-11-25) |
 | 13 | [The key ceremony, explained for a first-time OS builder](founder/13-the-key-ceremony-explained.md) (what the root keys do, why the owner holds them, YubiKeys vs USB sticks, is it required; 2026-11-25) |
+| 14 | [OneMind's own apps](founder/14-onemind-internal-apps.html) (web page: every built-in, built and planned app by state; built-in vs Market vs custom apps; how AI agents reach them; what to build next; 2026-11-26; open it in a browser) |
 
 Also from founder questions: [umbrelOS screens and OneMind: what we have, what is built, what is missing](umbrelos-screen-gaps.md) (2026-11-20).
 
