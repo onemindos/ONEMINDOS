@@ -71,6 +71,13 @@ class RC1(unittest.TestCase):
         self.assertNotIn("> /dev/tty", cmd)
         self.assertTrue(cmd.rstrip().endswith("chvt 1; echo RCDONE=1"))
 
+    def test_it_brings_its_own_chvt_when_the_image_has_none(self):
+        # kbd is not in the image; the fallback makes chvt's own ioctls (VT_ACTIVATE, VT_WAITACTIVE)
+        self.assertIn("command -v chvt", self.rc.SCRIPT)
+        self.assertIn("0x5606", self.rc.CHVT)
+        self.assertIn("0x5607", self.rc.CHVT)
+        self.assertLess(self.rc.SCRIPT.index("chvt() {"), self.rc.SCRIPT.index("chvt 3;"))
+
     def test_firstboot_runs_rc1_after_f15(self):
         src = Path(QEMU, "firstboot.py").read_text()
         self.assertLess(src.index("f15(vm)"), src.index("recoveryconsole.rc1(vm, record)"))

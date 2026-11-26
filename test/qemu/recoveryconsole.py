@@ -20,8 +20,14 @@ def kv(out, key):
 WAIT_VCS = ('wv() { i=0; while [ $i -lt "$2" ]; do tr -s " " < /dev/vcs$1 2>/dev/null | grep -aqF "$3" && { echo 1; return; }; '
             'sleep 1; i=$((i+1)); done; echo 0; }; ')
 
+# The image has no kbd package, so no chvt binary: the same two ioctls chvt makes (VT_ACTIVATE 0x5606, then
+# VT_WAITACTIVE 0x5607 on /dev/tty0), with the image's own python3. A chvt that exists is used as it is.
+CHVT = ("command -v chvt >/dev/null 2>&1 || chvt() { timeout 10 python3 -c 'import fcntl, os, sys; "
+        "fd = os.open(\"/dev/tty0\", os.O_RDWR | os.O_NOCTTY); n = int(sys.argv[1]); "
+        "fcntl.ioctl(fd, 0x5606, n); fcntl.ioctl(fd, 0x5607, n)' \"$1\"; }; ")
+
 SCRIPT = (
-    WAIT_VCS +
+    WAIT_VCS + CHVT +
     f"echo EN=$(systemctl is-enabled {UNIT} 2>&1 | head -1); "
     f"i=0; while [ $i -lt 60 ] && [ \"$(systemctl is-active {UNIT})\" != active ]; do sleep 1; i=$((i+1)); done; "
     f"echo ACT=$(systemctl is-active {UNIT}); echo NR=$(systemctl show -p NRestarts --value {UNIT}); "
