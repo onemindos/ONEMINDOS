@@ -53,7 +53,7 @@ it('reads the waiting changes with who asked, and says refusals in plain words',
   ] as never, me);
   expect(w).toEqual({ 'tier.T3': [{ level: 'L1', by: 'you', mine: true }], 'tier.T2': [{ level: 'L0', by: 'gus', mine: false }] });
   expect(waitingChanges([{ type: 'verification.requirement.set', state: 'awaiting_approval', params: { key: 'tier.T2', level: 'L0' }, requested_by: { id: 'gus', kind: 'person' } }] as never,
-    me, (id) => (id === 'gus' ? 'Gus' : undefined))['tier.T2'][0].by).toBe('Gus');
+    me, (id) => (id === 'gus' ? 'Gus' : undefined))['tier.T2']?.[0]?.by).toBe('Gus');
   expect(ownWaiting(w['tier.T3'])).toBe(true);
   expect(ownWaiting(w['tier.T2'])).toBe(false);
   // An agent with the same id as the owner is not the owner.
