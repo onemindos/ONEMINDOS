@@ -72,7 +72,9 @@ function Live({ token }: { token: string }) {
   const client = useGateway(token);
   const policies = usePoll(() => viaSdk(() => client.call<Policy[]>({ method: 'GET', path: '/v1/approval-policies' })), 0);
   // Suggestions from real data: the agents and automations on this box, and its maintenance windows.
-  const agents = usePoll(() => viaSdk(() => client.call<unknown>({ method: 'GET', path: '/v1/agents' })).then((r) => picks(r, () => undefined)).catch(() => []), 0);
+  // A standing approval names a requester as <kind>:<id>; an agent id without its kind gets agent: in front.
+  const agents = usePoll(() => viaSdk(() => client.call<unknown>({ method: 'GET', path: '/v1/agents' }))
+    .then((r) => picks(r, () => undefined).map((p) => ({ id: p.id.includes(':') ? p.id : `agent:${p.id}`, label: p.label }))).catch(() => []), 0);
   const rules = usePoll(() => viaSdk(() => client.call<unknown>({ method: 'GET', path: '/v1/automation/rules' }))
     .then((r) => picks(r, (x) => (typeof x.name === 'string' ? x.name : undefined)).map((p) => ({ id: `automation:${p.id}`, label: p.label }))).catch(() => []), 0);
   const windows = usePoll(() => viaSdk(() => client.call<unknown>({ method: 'GET', path: '/v1/windows' })).then((r) => picks(r, (x) => (typeof x.name === 'string' ? x.name : undefined))).catch(() => []), 0);
