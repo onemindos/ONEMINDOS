@@ -16678,6 +16678,84 @@
         "title": "UserCreateBody",
         "type": "object"
       },
+      "UserInfo": {
+        "description": "One person on this box, as `GET /v1/users` lists them for an owner (IdentityService.user_json).",
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "disabled": {
+            "title": "Disabled",
+            "type": "boolean"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "enrolled": {
+            "title": "Enrolled",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "passkeys": {
+            "title": "Passkeys",
+            "type": "integer"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "totp": {
+            "title": "Totp",
+            "type": "boolean"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "required": [
+          "id",
+          "display_name",
+          "role",
+          "disabled",
+          "enrolled",
+          "passkeys",
+          "totp"
+        ],
+        "title": "UserInfo",
+        "type": "object"
+      },
       "UserPatchBody": {
         "properties": {
           "display_name": {
@@ -43173,7 +43251,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UserInfo"
+                  },
+                  "title": "Response 200 Users.List",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"

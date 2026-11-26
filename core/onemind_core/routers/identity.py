@@ -240,6 +240,21 @@ class RotateBody(JsonBody):
     grace_s: int = 0
 
 
+class UserInfo(BaseModel):
+    """One person on this box, as `GET /v1/users` lists them for an owner (IdentityService.user_json)."""
+
+    id: str
+    username: str | None = None
+    display_name: str
+    role: str = Field(json_schema_extra={"x-onemind-open-enum": True})
+    created_at: str | None = None
+    last_seen_at: str | None = None
+    disabled: bool
+    enrolled: bool
+    passkeys: int
+    totp: bool
+
+
 class AccessPerson(BaseModel):
     id: str
     display_name: str | None = None
@@ -437,7 +452,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return svc.set_profile_name(request, p, body.display_name)
 
     # ---- users (owner) -------------------------------------------------------------------------------
-    @app.get("/v1/users", operation_id="users.list", tags=["users"], responses=R(401, 403))
+    # The schema documents the answer for the SDK; the route still returns the service's dicts unchanged.
+    @app.get("/v1/users", operation_id="users.list", tags=["users"], responses={200: {"model": list[UserInfo]}, **R(401, 403)})
     def users(p: Principal = Depends(principal)):
         return svc.list_users(p)
 

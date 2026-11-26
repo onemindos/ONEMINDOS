@@ -4,7 +4,8 @@ package cli
 
 // `onemind apps access get|set` (contract §12.6; issue #1214): who can open an app. Owners and adults
 // open every app; sharing decides for teens, children, guests and people added by name. Owner only.
-// Narrowing goes through at once. Widening adds power, so once the box holds passkeys the gateway asks
+// Narrowing goes through at once. Widening adds power (more people, or moving people to the app's own
+// sign-in, which OneMind then no longer checks), so once the box holds passkeys the gateway asks
 // for a passkey confirmation bound to this exact change (D-028), which a token on a command line cannot
 // make: the CLI then says to do it in the dashboard (Settings > Permissions > By app), which asks for
 // the key, and the code on the box's own screen before the first proven key, in place.
@@ -96,7 +97,7 @@ func appAccessCommand(a *App) *cobra.Command {
 			if err := c.Do(bg(), http.MethodPut, path(args[0]), body, &out); err != nil {
 				var ge *onemind.Error
 				if errors.As(err, &ge) && ge.Reason == "step_up_required" {
-					return exitWith(ExitUsage, "usage", "sharing an app with more people needs your passkey: do it in the dashboard (Settings > Permissions > By app), which asks for it in place; the CLI cannot make that confirmation. Taking access away works here")
+					return exitWith(ExitUsage, "usage", "sharing an app with more people, or moving it to its own sign-in, needs your passkey: do it in the dashboard (Settings > Permissions > By app), which asks for it in place; the CLI cannot make that confirmation. Taking access away works here")
 				}
 				return err
 			}

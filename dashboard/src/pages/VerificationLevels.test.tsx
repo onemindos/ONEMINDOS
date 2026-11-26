@@ -4,10 +4,10 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, expect, it, vi } from 'vitest';
 import { OneMindError } from '@onemind/sdk';
-import { offeredLevels, requestErrorText, VerificationLevels, waitingChanges } from './VerificationLevels';
+import { offeredLevels, ownWaiting, requestErrorText, VerificationLevels, waitingChanges } from './VerificationLevels';
 
-const state = vi.hoisted(() => ({ role: 'owner' }));
-vi.mock('../session', () => ({ useSignedIn: () => ({ token: 'fixture', mock: false, principal: { id: 'zeus', kind: 'person', role: state.role } }), useSession: () => ({ signOut: vi.fn() }) }));
+const state = vi.hoisted(() => ({ role: 'owner', signOut: vi.fn() }));
+vi.mock('../session', () => ({ useSignedIn: () => ({ token: 'fixture', mock: false, principal: { id: 'zeus', kind: 'person', role: state.role }, signOut: state.signOut }), useSession: () => ({ signOut: state.signOut }) }));
 vi.mock('../lib/webauthn', () => ({ getPasskey: vi.fn() }));
 vi.mock('../lib/boxcode', () => ({ askBoxCode: vi.fn() }));
 afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks(); state.role = 'owner'; });
@@ -43,12 +43,20 @@ it('offers only levels between the floor and the ceiling, and L3 only when a key
   expect(offeredLevels({ minimum: 'L0', maximum: 'L1' }, 'L3')).toEqual(['L0', 'L1']);
 });
 
-it('reads the waiting changes and says refusals in plain words', () => {
-  expect(waitingChanges([
-    { type: 'verification.requirement.set', state: 'awaiting_approval', params: { key: 'tier.T3', level: 'L1' } },
-    { type: 'verification.requirement.set', state: 'succeeded', params: { key: 'tier.T1', level: 'L2' } },
-    { type: 'app.remove', state: 'awaiting_approval', params: { app_id: 'x' } },
-  ] as never)).toEqual({ 'tier.T3': 'L1' });
+it('reads the waiting changes with who asked, and says refusals in plain words', () => {
+  const me = { id: 'zeus', kind: 'person' };
+  const w = waitingChanges([
+    { type: 'verification.requirement.set', state: 'awaiting_approval', params: { key: 'tier.T3', level: 'L1' }, requested_by: me },
+    { type: 'verification.requirement.set', state: 'awaiting_approval', params: { key: 'tier.T2', level: 'L0' }, requested_by: { id: 'gus', kind: 'person' } },
+    { type: 'verification.requirement.set', state: 'succeeded', params: { key: 'tier.T1', level: 'L2' }, requested_by: me },
+    { type: 'app.remove', state: 'awaiting_approval', params: { app_id: 'x' }, requested_by: me },
+  ] as never, me);
+  expect(w).toEqual({ 'tier.T3': [{ level: 'L1', by: 'you', mine: true }], 'tier.T2': [{ level: 'L0', by: 'gus', mine: false }] });
+  expect(ownWaiting(w['tier.T3'])).toBe(true);
+  expect(ownWaiting(w['tier.T2'])).toBe(false);
+  // An agent with the same id as the owner is not the owner.
+  expect(waitingChanges([{ type: 'verification.requirement.set', state: 'awaiting_approval', params: { key: 'tier.T3', level: 'L1' }, requested_by: { id: 'zeus', kind: 'agent' } }] as never, me))
+    .toEqual({ 'tier.T3': [{ level: 'L1', by: 'agent zeus', mine: false }] });
   expect(requestErrorText(new OneMindError(409, 'conflict', 'x', { reason: 'level_unreachable' }))).toMatch(/no key on this box reaches L3/);
   expect(requestErrorText(new OneMindError(422, 'conflict', 'x', { reason: 'below_floor' }))).toMatch(/can't go that low/);
 });
@@ -88,10 +96,12 @@ it('files a change through Approvals, never a direct write', async () => {
 it('shows a change already waiting instead of asking again, and the household state', async () => {
   gateway(({ path }) => ({
     '/v1/verification-requirements': { ...table, household_level: 'L1', grace: true, box_confirm: false },
-    '/v1/actions': [{ id: 'a', type: 'verification.requirement.set', state: 'awaiting_approval', params: { key: 'tier.T3', level: 'L1' } }],
+    '/v1/actions': [{ id: 'a', type: 'verification.requirement.set', state: 'awaiting_approval', params: { key: 'tier.T3', level: 'L1' }, requested_by: { id: 'zeus', kind: 'person' } }],
   } as Record<string, unknown>)[path]);
   mount();
-  expect(await screen.findByText('L1 waits in Approvals')).toBeVisible();
+  expect(await screen.findByText('L1 asked by you · waits in Approvals')).toBeVisible();
+  const destructive = screen.getByText('Approve a destructive action').closest('tr')!;
+  expect(within(destructive).queryByRole('combobox')).toBeNull();
   expect(screen.getByText(/accept any passkey plus the code on the box's own screen/)).toBeVisible();
   expect(screen.getByText(/This box has no screen to show that code/)).toBeVisible();
 });
@@ -130,4 +140,53 @@ it('says a refusal of the table plainly instead of a raw error', async () => {
   mount();
   expect(await screen.findByText('Your account is not allowed to see this.')).toBeVisible();
   expect(screen.queryByText(/OneMindError|\[object/)).toBeNull();
+});
+
+it('shows a guest\'s waiting downgrade as theirs and leaves the owner\'s own change open', async () => {
+  // Any person may file a table change (core registers the type for every person). A guest asking to lower the
+  // destructive row must not read as the owner's own request, nor take the owner's "Ask to change" away.
+  const calls = gateway(({ method, path }) => {
+    if (path === '/v1/actions' && method === 'POST') return { id: 'act_3' };
+    return ({
+      '/v1/verification-requirements': table,
+      '/v1/actions': [{ id: 'g', type: 'verification.requirement.set', state: 'awaiting_approval', params: { key: 'tier.T3', level: 'L1' }, requested_by: { id: 'gus', kind: 'person' } }],
+      '/v1/instance': { now: new Date().toISOString() },
+    } as Record<string, unknown>)[path];
+  });
+  mount();
+  const user = userEvent.setup();
+  expect(await screen.findByText('L1 asked by gus · waits in Approvals')).toBeVisible();
+  expect(screen.queryByText(/asked by you/)).toBeNull();
+  const destructive = screen.getByText('Approve a destructive action').closest('tr')!;
+  const select = within(destructive).getByLabelText('New level for Approve a destructive action');
+  await user.selectOptions(select, 'L1');
+  await user.click(within(destructive).getByRole('button', { name: 'Ask to change Approve a destructive action' }));
+  await waitFor(() => expect(calls.find((c) => c.method === 'POST')?.body).toMatchObject({ params: { key: 'tier.T3', level: 'L1' } }));
+});
+
+it('keeps a refused kind of request in the field so it can be corrected', async () => {
+  gateway(({ method, path }) => {
+    if (path === '/v1/actions' && method === 'POST') return Response.json({ error: 'conflict', message: 'unknown', reason: 'unknown_row' }, { status: 422 });
+    return ({ '/v1/verification-requirements': table, '/v1/actions': [], '/v1/instance': { now: new Date().toISOString() } } as Record<string, unknown>)[path];
+  });
+  mount();
+  const user = userEvent.setup();
+  const field = await screen.findByLabelText('Kind of request');
+  await user.type(field, 'app.remov');
+  await user.click(screen.getByRole('button', { name: 'Ask for this check' }));
+  expect(await screen.findByText(/doesn't know that kind of request/)).toBeVisible();
+  expect(field).toHaveValue('app.remov');
+});
+
+it('signs out when the sign-in lapsed while filing a change', async () => {
+  gateway(({ method, path }) => {
+    if (path === '/v1/actions' && method === 'POST') return Response.json({ error: 'unauthenticated', message: 'expired' }, { status: 401 });
+    return ({ '/v1/verification-requirements': table, '/v1/actions': [], '/v1/instance': { now: new Date().toISOString() } } as Record<string, unknown>)[path];
+  });
+  mount();
+  const user = userEvent.setup();
+  const destructive = (await screen.findByText('Approve a destructive action')).closest('tr')!;
+  await user.selectOptions(within(destructive).getByLabelText('New level for Approve a destructive action'), 'L1');
+  await user.click(within(destructive).getByRole('button', { name: 'Ask to change Approve a destructive action' }));
+  await waitFor(() => expect(state.signOut).toHaveBeenCalled());
 });
