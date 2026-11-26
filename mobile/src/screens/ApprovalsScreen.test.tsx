@@ -19,6 +19,12 @@ import type { ApprovalKeyNative } from '../../modules/onemind-approval-key';
 beforeEach(() => jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true));
 afterEach(() => jest.restoreAllMocks());
 
+const owner = (passkeys: number) => ({
+  principal: { id: 'owner', kind: 'person' as const, role: 'owner' as const },
+  capabilities: ['can_approve', 'can_request'],
+  token: null, session: null, passkeys,
+});
+
 const PLAN = makeActions(Date.now())[0]!.plan_sha256 ?? null;
 
 function deps(c: Connection, makeApi?: SessionDeps['makeApi']): SessionDeps {
@@ -79,7 +85,7 @@ describe('Approvals screen', () => {
     jest.mocked(Passkey.get).mockResolvedValue(signed as Awaited<ReturnType<typeof Passkey.get>>);
     const clock = jest.spyOn(performance, 'now').mockReturnValue(0);
     try {
-      const api = v0Api({ features: async () => new Features([OP.approveOptions], 'openapi'), actions: async () => [a], approve, approveOptions, deny });
+      const api = v0Api({ features: async () => new Features([OP.me, OP.approveOptions], 'openapi'), me: async () => owner(1), actions: async () => [a], approve, approveOptions, deny });
       await renderApprovals(deps(mockConnection('owner-demo'), () => api));
       const button = screen.getByTestId('approve-act-0001');
       expect(button).toHaveTextContent(risk === 'actuate' ? /^Hold to approve 45 min$/ : /^Hold to approve$/);
@@ -148,6 +154,24 @@ describe('Approvals screen', () => {
     expect(screen.getByText(/only an owner can approve or deny/)).toBeTruthy();
     expect(screen.getByTestId('approve-act-0001')).toBeDisabled();
     expect(screen.getByTestId('deny-act-0001')).toBeDisabled();
+  });
+
+  it('explains how to enable approval when an owner has no signing credential', async () => {
+    const approveOptions = jest.fn();
+    const deny = jest.fn(v0Api().deny);
+    const api = v0Api({
+      features: async () => new Features([OP.me, OP.approveOptions], 'openapi'),
+      me: async () => owner(0),
+      approveOptions,
+      deny,
+    });
+    await renderApprovals(deps(mockConnection('owner-demo'), () => api));
+    expect(await screen.findByText('Add a passkey to approve from this phone.')).toBeTruthy();
+    expect(screen.getByTestId('approve-act-0001')).toBeDisabled();
+    await fireEvent.press(screen.getByTestId('approve-act-0001'));
+    expect(approveOptions).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByTestId('deny-act-0001'));
+    expect(deny).toHaveBeenCalledTimes(1);
   });
 
   it('a legacy hub without approval signing can still deny but cannot approve', async () => {

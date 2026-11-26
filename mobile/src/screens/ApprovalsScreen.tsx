@@ -154,6 +154,7 @@ function PendingCard({
   expanded,
   onExpand,
   canSign,
+  hasCredential,
   onDecide,
 }: {
   a: Action;
@@ -165,6 +166,7 @@ function PendingCard({
   expanded: boolean;
   onExpand: () => void;
   canSign: boolean;
+  hasCredential: boolean;
   onDecide: (a: Action, d: Decision, holdMs?: number) => void;
 }) {
   const t = useTheme();
@@ -211,14 +213,15 @@ function PendingCard({
           ? "This phone's approval key signs after you confirm with your fingerprint or face. A PIN is not accepted."
           : 'This request may ask for your passkey instead of the approval key. Physical actions always take the passkey.'}</P>
       )}
+      {canDecide !== 'no' && canSign && !hasCredential && <Notice text="Add a passkey to approve from this phone." />}
       <View style={{ gap: space.sm }}>
         {hold ? (
           <HoldButton key={`${a.updated_at}:${a.plan_sha256}`} testID={`approve-${a.id}`}
-            label={duration ? `Hold to approve ${duration}` : 'Hold to approve'} disabled={off || !canSign}
+            label={duration ? `Hold to approve ${duration}` : 'Hold to approve'} disabled={off || !canSign || !hasCredential}
             onComplete={(holdMs) => onDecide(a, 'approve', holdMs)} />
         ) : (
           <Button testID={`approve-${a.id}`} label={keyed && keyCovers(a) ? 'Approve with biometrics' : 'Approve with passkey'}
-            disabled={off || !canSign} onPress={() => onDecide(a, 'approve')} />
+            disabled={off || !canSign || !hasCredential} onPress={() => onDecide(a, 'approve')} />
         )}
         <Button testID={`deny-${a.id}`} label="Deny" variant="secondary" disabled={off} onPress={() => onDecide(a, 'deny')} />
       </View>
@@ -230,7 +233,7 @@ function PendingCard({
 export function ApprovalsScreen({ keyNative = approvalKeyNative }: { keyNative?: ApprovalKeyNative } = {}) {
   const now = useNow();
   const t = useTheme();
-  const { api, canDecide, markForbidden, features, connection } = useSignedIn();
+  const { api, canDecide, markForbidden, features, me, connection } = useSignedIn();
   const { actions, hubOffsetMs, loading, reload, error } = useHubData();
   const nav = useContext(NavigationContext);
   useLayoutEffect(() => nav?.setOptions({ headerShown: false }), [nav]);
@@ -244,11 +247,12 @@ export function ApprovalsScreen({ keyNative = approvalKeyNative }: { keyNative?:
   const canSign = features.has(OP.approveOptions);
   const hubUrl = connection.mode === 'live' ? connection.hubUrl : undefined;
   const key = useApprovalKey(keyNative, hubUrl);
+  const hasCredential = (me?.passkeys ?? 0) > 0 || !!key.signer;
   const ctx: StepUp = { features, passkeys: platformPasskeys(), ownerHasPasskey: true, hubUrl, approvalKey: key.signer };
 
   async function onDecide(a: Action, d: Decision, holdMs?: number) {
     if (deciding.current || error || canDecide === 'no' || !(Date.parse(a.expires_at) > Date.now() + (hubOffsetMs ?? 0))) return;
-    if (d === 'approve' && (!canSign || (requiresHold(a) && holdMs === undefined))) return;
+    if (d === 'approve' && (!canSign || !hasCredential || (requiresHold(a) && holdMs === undefined))) return;
     // The gateway requires the hold duration alongside the signed approval. Leave the challenge,
     // plan binding and signer untouched. Only decorate the final write after the completed hold.
     const decisionApi = holdMs === undefined ? api : Object.assign(Object.create(api) as OneMindApi, {
@@ -316,7 +320,7 @@ export function ApprovalsScreen({ keyNative = approvalKeyNative }: { keyNative?:
             {!visible.length && <P muted>Nothing is waiting.</P>}
             {visible.map((a) => (
               <PendingCard key={a.id} a={a} now={hubNow} canDecide={canDecide} busy={busy !== undefined} offline={!!error}
-                keyed={!!key.signer} canSign={canSign} expanded={a.id === expandedId}
+                keyed={!!key.signer} canSign={canSign} hasCredential={hasCredential} expanded={a.id === expandedId}
                 onExpand={() => setSelection({ reviewId, segment: 'Waiting', id: a.id })}
                 onDecide={(x, d, holdMs) => void onDecide(x, d, holdMs)} />
             ))}
