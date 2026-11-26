@@ -41,14 +41,15 @@ class PermissionEngine:
         self.motion_lockout: Callable[[], bool] = lambda: False
         self.automation_paused: Callable[[], bool] = lambda: False
         self.floor_settings_on: Callable[[], bool] = lambda: True
-        # Design PR 10 adds the mode table and the owner-passkey check (F-8). Until then every principal
-        # keeps today's behaviour: the owner's rules apply ("auto").
+        # PR 10 sets these from the mode table and the owner-passkey check (F-8). Without them every
+        # principal keeps the PR 8 behaviour: the owner's rules apply ("auto").
         self.mode_of: Callable[[str, str], str] = lambda _name, _kind: "auto"
         self.owner_passkey: Callable[[], bool] = lambda: True
         # (action_type, params, requested_by) -> "policy:<id>@<rev>" of a live rule that would cover it.
         self.rule_for: Callable[[str, dict, dict], str | None] = lambda _t, _p, _r: None
         self.licence_green: Callable[[str, dict], bool] = lambda _t, _p: True
         self.taint: Any = None  # the ActionService's TaintLedger
+        self.modes: Any = None  # permissions.modes.ModeStore (PR 10)
 
     @staticmethod
     def _safe(fn: Callable[[], bool], closed: bool) -> bool:

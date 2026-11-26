@@ -18,7 +18,7 @@ import (
 // signed-in person's own, checked by the gateway (owner only where it loosens anything).
 func permissionsCommands(a *App) []*cobra.Command {
 	root := &cobra.Command{Use: "permissions", Short: "Deny rules, standing approvals and modes: what may happen without asking"}
-	root.AddCommand(permissionsDenyCommands(a), permissionsRulesCommands(a))
+	root.AddCommand(permissionsDenyCommands(a), permissionsRulesCommands(a), permissionsModeCommands(a))
 	return []*cobra.Command{root}
 }
 
@@ -225,5 +225,104 @@ func permissionsRulesCommands(a *App) *cobra.Command {
 		one("reconfirm", "Re-confirm a suspended rule after its agent changed (owner; passkey)", "reconfirm", "re-confirming a rule"),
 		one("keep", "Keep a forever rule at its 90-day review", "keep", "keeping a rule"),
 		narrow)
+	return root
+}
+
+// permissionsModeCommands is `onemind permissions mode` (PR 10): how a principal's requests are handled.
+// Tightening (toward locked) is anyone with a say over that agent; loosening is the owner, with a passkey,
+// and never before the owner has one (F-8). "default" names the household default (Always ask).
+func permissionsModeCommands(a *App) *cobra.Command {
+	root := &cobra.Command{Use: "mode", Short: "Permission modes: locked, ask, remember, auto, headless"}
+	const path = "/v1/permission-modes"
+	names := map[string]string{"locked": "Locked", "ask": "Always ask", "remember": "Ask once, then remember",
+		"auto": "Auto within rules", "headless": "Headless", "bypass": "Bypass in a sandbox"}
+	show := func(m map[string]any) {
+		who := fmt.Sprint(m["principal"])
+		if who == "*" {
+			who = "household default"
+		}
+		label := names[fmt.Sprint(m["mode"])]
+		if label == "" {
+			label = fmt.Sprint(m["mode"])
+		}
+		fmt.Fprintf(a.Stdout, "%s: %s", sanitize(who), sanitize(label))
+		if own, _ := m["own"].(bool); !own && m["principal"] != "*" {
+			fmt.Fprint(a.Stdout, " (household default)")
+		}
+		fmt.Fprintln(a.Stdout)
+		if pk, ok := m["owner_passkey"].(bool); ok && !pk {
+			fmt.Fprintln(a.Stdout, "No owner passkey yet: every mode behaves as Always ask, and nothing can be loosened (F-8).")
+		}
+	}
+	at := func(who string) string {
+		if who == "default" {
+			return path
+		}
+		return path + "/" + url.PathEscape(who)
+	}
+	get := &cobra.Command{Use: "get <principal|default>", Short: "Show a principal's mode (an agent may read its own)", Args: cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			c, _, err := a.client()
+			if err != nil {
+				return err
+			}
+			var out map[string]any
+			if err := c.Do(bg(), http.MethodGet, path+"/"+url.PathEscape(args[0]), nil, &out); err != nil {
+				return err
+			}
+			if a.G.JSON {
+				return printJSON(a.Stdout, out)
+			}
+			show(out)
+			return nil
+		}}
+	list := &cobra.Command{Use: "list", Short: "The household default and every principal with its own mode", Args: cobra.NoArgs,
+		RunE: func(*cobra.Command, []string) error {
+			c, _, err := a.client()
+			if err != nil {
+				return err
+			}
+			var out []map[string]any
+			if err := c.Do(bg(), http.MethodGet, path, nil, &out); err != nil {
+				return err
+			}
+			if a.G.JSON {
+				return printJSON(a.Stdout, out)
+			}
+			for _, m := range out {
+				show(m)
+			}
+			return nil
+		}}
+	var reason string
+	set := &cobra.Command{Use: "set <principal|default> <locked|ask|remember|auto|headless>", Short: "Set a mode (loosening: owner, passkey)", Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if _, ok := names[args[1]]; !ok {
+				return usageErr(cmd, "mode is one of locked, ask, remember, auto, headless")
+			}
+			body := map[string]any{"mode": args[1]}
+			if reason != "" {
+				body["reason"] = reason
+			}
+			c, _, err := a.client()
+			if err != nil {
+				return err
+			}
+			var out map[string]any
+			if err := c.Do(bg(), http.MethodPut, at(args[0]), body, &out); err != nil {
+				var ge *onemind.Error
+				if errors.As(err, &ge) && ge.Reason == "no_owner_passkey" {
+					return exitWith(ExitUsage, "usage", "add a passkey first: nothing is loosened before the owner has one (Settings, Security, Sign-in keys)")
+				}
+				return stepUpHint(err, "loosening a mode")
+			}
+			if a.G.JSON {
+				return printJSON(a.Stdout, out)
+			}
+			show(out)
+			return nil
+		}}
+	set.Flags().StringVar(&reason, "reason", "", "why, for the audit record")
+	root.AddCommand(get, list, set)
 	return root
 }

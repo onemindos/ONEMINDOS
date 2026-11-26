@@ -253,6 +253,24 @@ def test_agent_reads_nothing(request):
         yield
 
 
+@pytest.fixture(autouse=True)
+def rules_may_fire(request):
+    """Gateway permissions PR 10: a new principal starts on Always ask (F-7) and nothing is loosened before
+    the owner has a passkey (F-8), so no standing approval would fire in a test gateway. Tests of rules,
+    limits and the like run as a box whose owner has a passkey and whose household default is Auto
+    within rules; tests of the real defaults carry `@pytest.mark.real_mode_defaults`."""
+    if request.node.get_closest_marker("real_mode_defaults"):
+        yield
+        return
+    from onemind_core.permissions import modes
+    from onemind_core.routers import permissions
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(modes, "DEFAULT_MODE", "auto")
+        mp.setattr(permissions, "owner_has_passkey", lambda app: True)
+        yield
+
+
 @pytest.fixture
 def executor() -> ScriptedExecutor:
     return ScriptedExecutor()

@@ -145,3 +145,49 @@ func TestPermissionsRulesListRevokeNarrow(t *testing.T) {
 		t.Fatalf("revoke %+v", r)
 	}
 }
+
+func TestPermissionsModeGetSet(t *testing.T) {
+	isolate(t)
+	var mu sync.Mutex
+	state := map[string]any{"principal": "agent:hermes", "mode": "ask", "own": false, "owner_passkey": false}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/permission-modes/agent:hermes":
+			jsonOut(w, 200, state)
+		case r.Method == http.MethodPut && r.URL.Path == "/v1/permission-modes/agent:hermes":
+			var b map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&b)
+			if b["mode"] == "auto" && state["owner_passkey"] == false {
+				jsonOut(w, 409, map[string]string{"error": "conflict", "message": "add a passkey first", "reason": "no_owner_passkey"})
+				return
+			}
+			state["mode"], state["own"] = b["mode"], true
+			jsonOut(w, 200, state)
+		case r.Method == http.MethodPut && r.URL.Path == "/v1/permission-modes":
+			jsonOut(w, 200, map[string]any{"principal": "*", "mode": "ask", "own": true, "owner_passkey": true})
+		default:
+			jsonOut(w, 404, map[string]string{"error": "not_found", "message": r.URL.Path})
+		}
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("ONEMIND_HUB", srv.URL)
+	t.Setenv("ONEMIND_TOKEN", ownerTok)
+	r := run(t, "", false, "permissions", "mode", "get", "agent:hermes")
+	if r.code != 0 || !strings.Contains(r.out, "agent:hermes: Always ask (household default)") || !strings.Contains(r.out, "No owner passkey") {
+		t.Fatalf("get %+v", r)
+	}
+	if r := run(t, "", false, "permissions", "mode", "set", "agent:hermes", "auto"); r.code != ExitUsage || !strings.Contains(r.errOut, "add a passkey first") {
+		t.Fatalf("loosen before passkey %+v", r)
+	}
+	if r := run(t, "", false, "permissions", "mode", "set", "agent:hermes", "locked", "--reason", "pause"); r.code != 0 || !strings.Contains(r.out, "Locked") {
+		t.Fatalf("lock %+v", r)
+	}
+	if r := run(t, "", false, "permissions", "mode", "set", "agent:hermes", "sideways"); r.code != ExitUsage {
+		t.Fatalf("bad mode %+v", r)
+	}
+	if r := run(t, "", false, "permissions", "mode", "set", "default", "ask", "--json"); r.code != 0 || !strings.Contains(r.out, `"principal": "*"`) {
+		t.Fatalf("default %+v", r)
+	}
+}

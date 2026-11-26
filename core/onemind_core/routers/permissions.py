@@ -31,11 +31,17 @@ from ..jsonbody import JsonBody
 from ..permissions.clock import ClockGuard
 from ..permissions.denies import DenyStore
 from ..permissions.engine import PermissionEngine
+from ..permissions.modes import HOUSEHOLD, ModeStore
+from ..principals import display_key
 
 ORDER = 290  # after identity (260) and automation (280): the engine reads both
 TAGS = ["permissions"]
 
 register_route_scope("GET,HEAD,POST", r"/v1/approval-denies", ("tokens:self",))
+# PR 10: modes. Reading is open to anyone signed in (an agent reads only its own: the handler checks);
+# changing one needs a person (tightening: anyone with a say; loosening: the owner, with a passkey).
+register_route_scope("GET,HEAD", r"/v1/permission-modes(/[^/]+)?", ("instance:read",))
+register_route_scope("PUT", r"/v1/permission-modes(/[^/]+)?", ("tokens:self",))
 register_route_scope("DELETE", r"/v1/approval-denies/[^/]+", ("*",))  # owner only: removing a deny loosens
 
 
@@ -49,6 +55,32 @@ class ApprovalDeny(BaseModel):
     reason: str | None = None
     created_by: dict
     created_at: str
+
+
+class PermissionMode(BaseModel):
+    """A principal's permission mode (design §3.5). `own: false` means it follows the household default."""
+
+    principal: str
+    mode: str = Field(description="locked, ask (Always ask), remember, auto (Auto within rules), headless or bypass")
+    own: bool
+    set_by: dict | None = None
+    set_at: str | None = None
+    reason: str | None = None
+    household_default: str
+    owner_passkey: bool = Field(description="false: nothing can be loosened yet and every mode behaves as Always ask (F-8)")
+
+
+class PermissionModeBody(JsonBody):
+    model_config = ConfigDict(extra="forbid")
+    mode: Literal["locked", "ask", "remember", "auto", "headless", "bypass"]
+    reason: str | None = Field(default=None, max_length=200, description="why, for the audit record")
+
+
+def owner_has_passkey(app: FastAPI) -> bool:
+    """F-8: has any active owner a passkey? Without identity (static tokens only) there is no passkey to add,
+    so nothing can be loosened either."""
+    ident = getattr(app.state, "identity", None)
+    return bool(ident is not None and ident.passkeys_active())
 
 
 class ApprovalDenyBody(JsonBody):
@@ -107,12 +139,87 @@ def register(app: FastAPI, gw: Gateway) -> None:
     engine.rule_for = rule_for
     engine.licence_green = licence_green
     denies.owned_by = owned_by
+    # ---- PR 10: modes --------------------------------------------------------------------------
+    modes = ModeStore(gw.db, gw.audit, gw.clock)
+    modes.owned_by = owned_by
+    modes.owner_passkey = lambda: owner_has_passkey(app)
+
+    def cancel_pending(name: str, by: Principal) -> int:
+        """Locked: the principal's requests waiting for a person are cancelled (as an agent cancel does)."""
+        now, n = gw.clock(), 0
+        for a in gw.actions.repo.list({"awaiting_approval"}):
+            if display_key(a.requested_by) != name:
+                continue
+            if gw.actions.repo.transition(a.id, {"awaiting_approval"}, "cancelled", now,
+                                          decided_by=by.as_dict(), decided_at=now) is not None:
+                n += 1
+                gw.actions._release_feature(a)
+                gw.audit.append("action.denied", by.as_dict(), a.id, {"params": a.params, "reason": "mode_locked"})
+        return n
+
+    modes.cancel_pending = cancel_pending
+    engine.mode_of = modes.effective
+    engine.owner_passkey = modes.owner_passkey
+    engine.modes = modes
+
+    def no_rule_before_a_passkey() -> str | None:  # F-8: creating or widening a rule loosens too
+        return None if owner_has_passkey(app) else "no_owner_passkey"
+
+    svc = getattr(app.state, "automation", None)
+    if svc is not None:
+        svc.policies.loosen_guard = no_rule_before_a_passkey
+
+        def live_rule_principals() -> set[str]:
+            return {w for p in svc.repo.list_policies() for w in p["allow"]["requested_by"] if not w.endswith(":*")}
+
+        gw.on_startup(lambda: modes.migrate(live_rule_principals))
+
     gw.actions.permissions = engine
     app.state.permissions = engine
 
     def user_id(request: Request) -> str | None:
         ctx = ctx_of(request)
         return ctx.user.id if ctx is not None and ctx.user is not None else None
+
+    def name_of(raw: str) -> str:
+        return HOUSEHOLD if raw in ("default", HOUSEHOLD) else raw
+
+    @app.get("/v1/permission-modes", operation_id="permissions.modes.list", tags=TAGS,
+             responses={200: {"model": list[PermissionMode]}, **error_responses(401, 403)})
+    def list_modes(request: Request, p: Principal = Depends(gw.principal)):
+        """The household default first, then every principal with a mode of its own (owner: all; a person:
+        the agents they own; an agent: only its own)."""
+        uid = user_id(request)
+        rows = [modes.household_view()] + modes.list()
+        return [r for r in rows if r["principal"] == HOUSEHOLD or modes.may_read(p, r["principal"], uid)]
+
+    @app.get("/v1/permission-modes/{principal}", operation_id="permissions.modes.get", tags=TAGS,
+             responses={200: {"model": PermissionMode}, **error_responses(401, 403, 422)})
+    def get_mode(principal: str, request: Request, p: Principal = Depends(gw.principal)):
+        name = name_of(principal)
+        if name == HOUSEHOLD:
+            return modes.household_view()
+        if not modes.may_read(p, name, user_id(request)):
+            modes._denied(p, f"read the mode of {name}")
+        return modes.view(name)
+
+    def put(name: str, body: PermissionModeBody, request: Request, p: Principal):
+        direction = modes.check_change(p, name, body.mode, user_id(request))
+        via = None
+        if direction == "loosen":
+            ident = getattr(app.state, "identity", None)
+            via = ident.require_step_up(ctx_of(request), p, "loosen a permission mode") if ident is not None else "token"
+        return modes.set(p, name, body.mode, body.reason, direction, via)
+
+    @app.put("/v1/permission-modes", operation_id="permissions.modes.set_default", tags=TAGS,
+             responses={200: {"model": PermissionMode}, **error_responses(401, 403, 409, 422)})
+    def set_default_mode(body: PermissionModeBody, request: Request, p: Principal = Depends(gw.principal)):
+        return put(HOUSEHOLD, body, request, p)
+
+    @app.put("/v1/permission-modes/{principal}", operation_id="permissions.modes.set", tags=TAGS,
+             responses={200: {"model": PermissionMode}, **error_responses(401, 403, 409, 422)})
+    def set_mode(principal: str, body: PermissionModeBody, request: Request, p: Principal = Depends(gw.principal)):
+        return put(name_of(principal), body, request, p)
 
     @app.get("/v1/approval-denies", operation_id="approvals.denies.list", tags=TAGS,
              responses={200: {"model": list[ApprovalDeny]}, **error_responses(401, 403)})

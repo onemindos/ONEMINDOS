@@ -1,0 +1,5 @@
+---
+pr: pending
+branch: claude/gw-perm-10-modes
+---
+Every agent, app and person now has a permission mode: Locked (refused at once, its waiting requests cancelled), Always ask (the default, F-7: every request waits and rules are ignored), Ask once then remember, Auto within rules, and Headless (anything no rule covers is refused instead of queued); Bypass in a sandbox answers 422 until design PR 23. GET and PUT /v1/permission-modes (the household default) and /v1/permission-modes/principal, and onemind permissions mode list, get and set. Tightening is open to anyone with a say over that agent with no passkey; loosening is the owner's, needs a fresh passkey, and is refused with 409 add a passkey first while the owner has none (F-8), when every mode also behaves as Always ask and no rule can be made or widened. Nobody loosens their own requests, and an agent only reads its own mode. On upgrade every principal a live standing approval names moves to Auto once, audited, so working rules keep firing. New table permissions_modes. Gateway permissions design PR 10, F-7, F-8, D-028.
