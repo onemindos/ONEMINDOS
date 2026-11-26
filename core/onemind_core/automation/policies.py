@@ -210,7 +210,12 @@ class PolicyService:
         return out
 
     def _bound_ok(self, p: dict, who: str) -> bool:
-        """Is the live identity of `who` the one this rule was bound to? Persons and automations need no binding."""
+        """Is the live identity of `who` the one this rule was bound to? Persons and automations need no binding.
+
+        Only the uid is compared, not owner_user_id. That is safe because uids are never reused and
+        IdentityService._check_agent_id refuses an agent name another person has ever minted (revoked
+        tokens included), so one uid can never move to a different owner. If that check is ever relaxed,
+        compare owner_user_id here too."""
         if not bound_kind(who):
             return True
         want = (p.get("principals") or {}).get(who)
