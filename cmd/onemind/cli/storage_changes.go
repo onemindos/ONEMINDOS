@@ -12,8 +12,10 @@ package cli
 import (
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -87,8 +89,8 @@ func storageGatewayCommands(a *App) []*cobra.Command {
 	request.Flags().StringVar(&device, "device", "", "the blank disk (path, WWN or serial)")
 	request.Flags().StringVar(&member, "member", "", "the member (devid:N, a disk, or missing)")
 	request.Flags().BoolVar(&dry, "dry-run", false, "only show the plan; file nothing")
-	request.Flags().BoolVar(&unprotect, "unprotect", false, "remove: accept going below two members")
-	request.Flags().BoolVar(&wipe, "wipe", false, "replace or remove: erase the old disk afterwards")
+	request.Flags().BoolVar(&unprotect, "unprotect", false, "remove: accept going below two members (the data is then kept once, unprotected)")
+	request.Flags().BoolVar(&wipe, "wipe", false, "replace or remove: erase the old disk afterwards (not for a missing member)")
 	request.Flags().StringVar(&reason, "reason", "", "why, shown to the owner")
 
 	operation := &cobra.Command{
@@ -142,11 +144,17 @@ func printStoragePlan(w io.Writer, typ string, p map[string]any) {
 	}
 }
 
-// storageSize writes a byte count the way a person reads a disk label.
+// storageSize writes a byte count the way a person reads a disk label: decimal units, TB from 1000 GB
+// up, at most one decimal and no trailing ".0" (256 GB, 1.5 TB, 4 TB). The dashboard's diskSize
+// (dashboard/src/pages/storage/Changes.tsx) uses the same rule.
 func storageSize(v any) string {
 	f, ok := v.(float64)
-	if !ok || f < 0 {
+	if !ok || f < 0 || math.IsInf(f, 0) || math.IsNaN(f) {
 		return "size not reported"
 	}
-	return fmt.Sprintf("%.0f GB", f/1e9)
+	n, unit := f/1e9, "GB"
+	if math.Round(n*10)/10 >= 1000 {
+		n, unit = f/1e12, "TB"
+	}
+	return strconv.FormatFloat(math.Round(n*10)/10, 'f', -1, 64) + " " + unit
 }

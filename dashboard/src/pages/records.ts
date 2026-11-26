@@ -23,6 +23,7 @@ export function asApiError(e: unknown): unknown {
   if (e instanceof OneMindError) return new ApiError(e.status, e.status === 401 ? 'unauthenticated' : e.status === 403 ? 'permission_denied' : 'unknown', e.message, e.reason);
   return e;
 }
-export async function getJson(sdk: OneMind, path: KnownPath | `${KnownPath}?${string}`): Promise<unknown> {
-  try { return await sdk.call<unknown>({ method: 'GET', path }); } catch (e) { throw asApiError(e); }
+/** A GET on a route the spec knows. Name the answer's generated type (`components['schemas'][...]`) when the spec has one. */
+export async function getJson<T = unknown>(sdk: OneMind, path: KnownPath | `${KnownPath}?${string}`): Promise<T> {
+  try { return await sdk.call<T>({ method: 'GET', path }); } catch (e) { throw asApiError(e); }
 }

@@ -132,3 +132,15 @@ func TestStorageOperationAndTheLocalSubcommandsStillWork(t *testing.T) {
 		t.Fatalf("local parser lost: %+v", r)
 	}
 }
+
+// Disk sizes read like a disk label, in TB from 1000 GB up; the dashboard's diskSize test checks the same values.
+func TestStorageSizeReadsLikeADiskLabel(t *testing.T) {
+	for in, want := range map[float64]string{256e9: "256 GB", 1.5e12: "1.5 TB", 4e12: "4 TB", 999.96e9: "1 TB"} {
+		if got := storageSize(in); got != want {
+			t.Errorf("storageSize(%v) = %q, want %q", in, got, want)
+		}
+	}
+	if got := storageSize(nil); got != "size not reported" {
+		t.Errorf("nil: %q", got)
+	}
+}

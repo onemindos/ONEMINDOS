@@ -6,22 +6,35 @@
 // a destructive action needs their passkey. Nothing is changed from this page.
 import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import { OneMind, OneMindError } from '@onemind/sdk';
+import { OneMind, OneMindError, type components } from '@onemind/sdk';
 import { Button, Card, StatusPill } from '@onemind/ui';
 import { uuidv4 } from '../../lib/uuid';
 import { useSignedIn } from '../../session';
 import { href } from '../../shell/routes';
 import { record, records, str } from '../records';
 
-const ACTIONS = [
+type PlanRequest = components['schemas']['StoragePlanRequest'];
+type ActionType = PlanRequest['type'];
+type Params = components['schemas']['StorageParams'];
+const ACTIONS: readonly { type: ActionType; label: string; needs: readonly ('device' | 'member')[]; destructive: boolean }[] = [
   { type: 'storage.mirror.create', label: 'Start a mirror with a blank disk', needs: ['device'], destructive: true },
   { type: 'storage.mirror.add', label: 'Add a blank disk to the mirror', needs: ['device'], destructive: true },
   { type: 'storage.mirror.replace', label: 'Replace a member with a blank disk', needs: ['member', 'device'], destructive: true },
   { type: 'storage.mirror.remove', label: 'Take a member out of the mirror', needs: ['member'], destructive: true },
   { type: 'storage.mirror.repair', label: 'Repair the mirror', needs: [], destructive: false },
-] as const;
-type ActionType = (typeof ACTIONS)[number]['type'];
-const gb = (v: unknown) => (typeof v === 'number' && v >= 0 ? `${(v / 1e9).toFixed(0)} GB` : 'size not reported');
+];
+/** The two options the API takes (StorageParams): wipe on replace and remove, unprotect on remove only. */
+const WIPES: ActionType[] = ['storage.mirror.replace', 'storage.mirror.remove'];
+/**
+ * A disk size the way a person reads a disk label: decimal units, TB from 1000 GB up, at most one
+ * decimal and no trailing ".0" (256 GB, 1.5 TB, 4 TB). The CLI's storageSize uses the same rule.
+ */
+export function diskSize(v: unknown): string {
+  if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) return 'size not reported';
+  const round = (n: number) => Math.round(n * 10) / 10;
+  return round(v / 1e9) >= 1000 ? `${round(v / 1e12)} TB` : `${round(v / 1e9)} GB`;
+}
+const gb = diskSize;
 
 interface Plan { type: ActionType; hash: string; blocked: boolean; encrypted: boolean; targets: Record<string, unknown>[]; checks: Record<string, unknown>[]; warnings: string[]; steps: number }
 function plan(value: unknown): Plan {
@@ -55,6 +68,8 @@ function LiveChanges({ token, owner, summary: s, disks: all }: { token: string; 
   const [type, setType] = useState<ActionType>('storage.mirror.create');
   const [device, setDevice] = useState('');
   const [member, setMember] = useState('');
+  const [unprotect, setUnprotect] = useState(false);
+  const [wipe, setWipe] = useState(false);
   const [shown, setShown] = useState<Plan>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -62,13 +77,16 @@ function LiveChanges({ token, owner, summary: s, disks: all }: { token: string; 
   const key = useRef<{ sig: string; key: string } | undefined>(undefined);
   const blank = (all ?? []).filter((d) => d.role === 'unused'); // the only role a plan may wipe
   const spec = ACTIONS.find((a) => a.type === type)!;
-  const params = (): Record<string, unknown> => ({ ...(spec.needs.some((n) => n === 'device') ? { device } : {}), ...(spec.needs.some((n) => n === 'member') ? { member } : {}) });
+  const canWipe = WIPES.includes(type);
+  const canUnprotect = type === 'storage.mirror.remove';
+  const params = (): Params => ({ ...(spec.needs.includes('device') ? { device } : {}), ...(spec.needs.includes('member') ? { member } : {}),
+    unprotect: canUnprotect && unprotect, wipe: canWipe && wipe });
   const ready = spec.needs.every((n) => (n === 'device' ? device : member));
   const reset = () => { setShown(undefined); setFiled(undefined); setError(''); };
   const preview = async () => {
     if (!ready || busy) return;
     setBusy(true); reset();
-    try { setShown(plan(await sdk.call<unknown>({ method: 'POST', path: '/v1/storage/plans', body: { type, params: params() } }))); }
+    try { setShown(plan(await sdk.call<unknown>({ method: 'POST', path: '/v1/storage/plans', body: { type, params: params() } satisfies PlanRequest }))); }
     catch (e) { setError(why(e)); }
     finally { setBusy(false); }
   };
@@ -78,7 +96,7 @@ function LiveChanges({ token, owner, summary: s, disks: all }: { token: string; 
     const sig = type + JSON.stringify(params()) + shown.hash;
     if (key.current?.sig !== sig) key.current = { sig, key: uuidv4() };
     try {
-      const r = record(await sdk.call<unknown>({ method: 'POST', path: '/v1/storage/actions', body: { type, params: params() }, headers: { 'Idempotency-Key': key.current.key } }));
+      const r = record(await sdk.call<unknown>({ method: 'POST', path: '/v1/storage/actions', body: { type, params: params() } satisfies components['schemas']['StorageActionRequest'], headers: { 'Idempotency-Key': key.current.key } }));
       const id = str(record(r.action).id, '');
       if (!id) throw new Error('The box sent back a reply this page does not understand');
       key.current = undefined; setFiled(id);
@@ -90,18 +108,25 @@ function LiveChanges({ token, owner, summary: s, disks: all }: { token: string; 
   return <Card title="Change the disks">
     <p className="om-note">Nothing changes when you look. You first see exactly what would happen, then ask for approval, and an owner approves in Approvals with their passkey. Disks you add must be blank: whatever is on them is erased.</p>
     <p><label htmlFor="stor-action">What do you want to do?</label>{' '}
-      <select id="stor-action" className="om-input" value={type} onChange={(e) => { setType(e.target.value as ActionType); reset(); }}>{ACTIONS.map((a) => <option key={a.type} value={a.type}>{a.label}</option>)}</select></p>
-    {spec.needs.some((n) => n === 'device') && <p><label htmlFor="stor-device">The blank disk</label>{' '}
+      <select id="stor-action" className="om-input" value={type} onChange={(e) => { setType(e.target.value as ActionType); setUnprotect(false); setWipe(false); reset(); }}>{ACTIONS.map((a) => <option key={a.type} value={a.type}>{a.label}</option>)}</select></p>
+    {spec.needs.includes('device') && <p><label htmlFor="stor-device">The blank disk</label>{' '}
       <select id="stor-device" className="om-input" value={device} onChange={(e) => { setDevice(e.target.value); reset(); }}>
         <option value="">Choose a disk</option>
         {blank.length === 0 && <option disabled value="">No blank disk found</option>}
         {blank.map((d) => <option key={str(d.path)} value={str(d.path, '')}>{str(d.model, str(d.path))} · {gb(d.size_bytes)} · {str(d.path)}</option>)}
       </select></p>}
-    {spec.needs.some((n) => n === 'member') && <p><label htmlFor="stor-member">The member</label>{' '}
+    {spec.needs.includes('member') && <p><label htmlFor="stor-member">The member</label>{' '}
       <select id="stor-member" className="om-input" value={member} onChange={(e) => { setMember(e.target.value); reset(); }}>
         <option value="">Choose a member</option>
-        {members.map((m) => <option key={String(m.devid)} value={m.missing === true ? 'missing' : `devid:${String(m.devid)}`}>Member {String(m.devid)}{m.missing === true ? ' (missing)' : ''} · {gb(m.size_bytes)}</option>)}
+        {/* devid:N for every member, missing ones too: "missing" names only the one missing member, so two missing members would read the same. */}
+        {members.map((m) => <option key={String(m.devid)} value={`devid:${String(m.devid)}`}>Member {String(m.devid)}{m.missing === true ? ' (missing)' : ''} · {gb(m.size_bytes)}</option>)}
       </select></p>}
+    {canUnprotect && <p><label><input type="checkbox" checked={unprotect} onChange={(e) => { setUnprotect(e.target.checked); reset(); }} />{' '}
+      Allow the mirror to drop to one disk</label><br />
+      <span className="om-note">Needed to take a member out of a two-disk mirror. Your data is then kept on one disk only, so a disk failure loses it until you add another disk.</span></p>}
+    {canWipe && <p><label><input type="checkbox" checked={wipe} onChange={(e) => { setWipe(e.target.checked); reset(); }} />{' '}
+      Erase the old disk afterwards</label><br />
+      <span className="om-note">Everything on the disk that leaves the mirror is erased, so it can be given away or reused. Leave this off to keep it as it is. A missing disk cannot be erased.</span></p>}
     <Button disabled={!ready || busy} onClick={() => void preview()}>{busy && !shown ? 'Checking…' : 'Show what would happen'}</Button>
     {error && <p role="alert" className="om-note om-tone-bad">{error}</p>}
     {shown && <section aria-label="Plan">
