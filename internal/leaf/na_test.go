@@ -238,7 +238,7 @@ func TestNA(t *testing.T) {
 
 	t.Run("NA7 a stop purges queued actuating jobs on every machine", func(t *testing.T) {
 		start := ran.Load()
-		time.Sleep(3 * time.Second) // NA6's intake may still have a pull waiting on the hub (see NA6)
+		time.Sleep(3 * time.Second)                                                  // NA6's intake may still have a pull waiting on the hub (see NA6)
 		l.publishPolicy(t, l.signer.Policy("aaa111", 3, true, false, nil, nil, now)) // the stop itself
 		l.relayA.cut()
 		if h := waitHealth(t, l.supA, StateDown, 30*time.Second); h.State == StateUp {
