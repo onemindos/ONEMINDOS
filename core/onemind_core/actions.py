@@ -978,7 +978,10 @@ class ActionService:
 
     def _gate(self, requested_by: dict, action_type: str, params: dict, risk: str | None, *,
               physical: bool = False, plan: dict | None = None) -> None:
-        """Gateway permissions PR 8: refuse before anything is filed when decide() says so (deny first)."""
+        """Gateway permissions PR 8: refuse before anything is filed when decide() says so (deny first).
+
+        scope_ok is left at its default (True): the route's scope check already ran before this
+        handler, so decide() step 4 cannot fire from here (see Facts.scope_ok)."""
         if self.permissions is not None:
             self.permissions.gate(requested_by, action_type, params, risk, physical=physical, plan=plan)
 
