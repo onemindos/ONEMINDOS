@@ -96,6 +96,8 @@ export interface ApprovalCardProps {
   canDecide: { allowed: true } | { allowed: false; reason: string };
   onApprove?: (a: ActionSummary, elapsedMs?: number) => void;
   onDeny?: (a: ActionSummary) => void;
+  /** "Approve and remember…" (gateway permissions design 3.6.1): opens the sheet that makes a rule for requests like this. */
+  onRemember?: (a: ActionSummary) => void;
   busy?: boolean;
   /** Highlight a card the person just created or opened from a notification. */
   highlight?: boolean;
@@ -104,7 +106,7 @@ export interface ApprovalCardProps {
   technical?: ReactNode;
 }
 
-export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, busy, highlight, extra, technical }: ApprovalCardProps) {
+export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, onRemember, busy, highlight, extra, technical }: ApprovalCardProps) {
   const detailsId = useId();
   const title = actionTitle(action);
   const st = ACTION_STATE[action.state];
@@ -129,6 +131,11 @@ export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, busy, 
             ) : <Button variant="primary" icon="check" disabled={!!blocked || !!action.hold} busy={busy} aria-label={`Approve ${title}`} onClick={() => onApprove?.(action)} aria-describedby={blocked ? detailsId : undefined}>
               Approve
             </Button>}
+            {onRemember && !action.hold && (
+              <Button variant="secondary" disabled={!!blocked || busy} aria-label={`Approve and remember ${title}`} onClick={() => onRemember(action)}>
+                Approve and remember…
+              </Button>
+            )}
             <Button variant="secondary" icon="x" disabled={!!blocked || busy} aria-label={`Deny ${title}`} onClick={() => onDeny?.(action)}>
               Deny
             </Button>
