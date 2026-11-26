@@ -259,12 +259,14 @@ func contains(xs []string, v string) bool {
 // storageCommands registers `onemind storage` (a group line in root.go). Read-only: plan
 // prints commands, it never runs them.
 func storageCommands(a *App) []*cobra.Command {
-	return []*cobra.Command{{
+	root := &cobra.Command{
 		Use:                "storage disks|health|status|plan ...",
-		Short:              "List disks, check their health and print storage plans (read-only)",
+		Short:              "List disks, check their health and print storage plans (read-only); request and operation use the gateway",
 		DisableFlagParsing: true,
 		RunE: func(_ *cobra.Command, args []string) error {
 			return storageCmd(args, a.Stdout)
 		},
-	}}
+	}
+	root.AddCommand(storageGatewayCommands(a)...)
+	return []*cobra.Command{root}
 }
