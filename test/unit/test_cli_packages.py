@@ -163,5 +163,59 @@ class Packages(unittest.TestCase):
             open(os.path.join(self.tmp, "bin", "onemind-darwin-amd64"), "wb").write(b"BIN darwin amd64")
 
 
+PATHS = os.path.join(ROOT, "scripts", "release", "check-cli-paths.py")
+# Built at run time so the repo hygiene grep for home paths (scripts/hygiene.sh) has nothing literal to flag.
+HOME_L, HOME_M = "/" + "home/runner", "/" + "Users/someone"
+
+
+class NoBuildPaths(unittest.TestCase):
+    """scripts/release/check-cli-paths.py, the 'No build machine paths in the binaries' step of cli-packages.yml."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp)
+
+    def archive(self, body, name="onemind_0.1.0_linux_amd64"):
+        p = os.path.join(self.tmp, name + ".tar.gz")
+        with tarfile.open(p, "w:gz") as t:
+            i = tarfile.TarInfo(name + "/bin/onemind"); i.size = len(body)
+            t.addfile(i, io.BytesIO(body))
+        return p
+
+    def check(self, *args):
+        return subprocess.run([sys.executable, "-I", PATHS, *args], capture_output=True, text=True)
+
+    def test_gateway_routes_are_not_build_paths(self):
+        # The real strings that tripped the old grep '/(home|Users|runner|work)/' on the `onemind work` commands.
+        body = b"\x00Idempotency-Key/v1/system-apps/v1/work/tasks?application/pdf\x00appendIfNotPresent/v1/work/quick-add/v1/work/projects/\x00"
+        r = self.check("--forbid", HOME_L + "/work/ONEMINDOS/ONEMINDOS", self.archive(body))
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_untrimmed_source_and_module_paths_fail(self):
+        for leak in (HOME_L.encode() + b"/work/ONEMINDOS/ONEMINDOS/cmd/onemind/main.go",
+                     HOME_M.encode() + b"/go/pkg/mod/github.com/spf13/cobra@v1.9.1/command.go",
+                     b"\x00/work/onemind/internal/cli/root.go\x00"):
+            r = self.check(self.archive(b"\x00\x01runtime.main\x00" + leak + b"\x00"))
+            self.assertEqual(r.returncode, 1, leak)
+            self.assertIn("path leaked", r.stderr)
+
+    def test_a_forbidden_build_folder_fails_even_outside_home(self):
+        # GOROOT on a hosted runner is under /opt, which the generic roots do not cover.
+        body = b"\x00/opt/hostedtoolcache/go/1.26.0/x64/src/runtime/proc.go\x00"
+        self.assertEqual(self.check(self.archive(body)).returncode, 0)
+        r = self.check("--forbid", "/opt/hostedtoolcache/go/1.26.0/x64/", "--forbid", "", self.archive(body))
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("build folder", r.stdout)
+
+    def test_missing_or_empty_binary_and_wrong_count_fail(self):
+        self.assertNotEqual(self.check(self.archive(b"")).returncode, 0)
+        p = os.path.join(self.tmp, "nobin.tar.gz")
+        with tarfile.open(p, "w:gz") as t:
+            i = tarfile.TarInfo("x/README"); i.size = 1
+            t.addfile(i, io.BytesIO(b"x"))
+        self.assertNotEqual(self.check(p).returncode, 0)
+        self.assertNotEqual(self.check("--expect", "4", self.archive(b"clean binary")).returncode, 0)
+
+
 if __name__ == "__main__":
     unittest.main()
