@@ -34,6 +34,9 @@ var (
 	NATSDir     = filepath.Join(etcdir.Dir(), "nats")
 	StateFile   = filepath.Join(etcdir.Dir(), "fabric.json")
 	OnemindEnv  = filepath.Join(etcdir.Dir(), "onemindd.env")
+	// JobPubFile is the gateway's job public key, pinned at join from the box-CA-pinned reply. On the
+	// image it is under /data (ONEMIND_ETC_DIR=/data/onemind/etc), so it survives updates.
+	JobPubFile = filepath.Join(IdentityDir, "job.pub")
 )
 
 const (
@@ -61,6 +64,8 @@ type State struct {
 	CASHA256     string `json:"ca_sha256"`
 	CertNotAfter string `json:"cert_not_after"`
 	JoinedAt     string `json:"joined_at"`
+	// JobKid is the key id of the pinned job key (JobPubFile); empty when the hub sent none.
+	JobKid string `json:"job_kid,omitempty"`
 }
 
 // System is how the installer changes the machine; tests use a fake.
@@ -182,6 +187,21 @@ func (in *Installer) Apply(ctx context.Context, id *Identity, cr *Credentials, c
 		}
 	}
 	in.say("Identity    node-%s certificate until %s", id.NodeID, cert.NotAfter.UTC().Format("2006-01-02"))
+	// The job key (Check verified it matches its kid). A re-join replaces it: the join is the trust event.
+	jobKid := ""
+	if cr.JobPubkey != "" {
+		if err := writeFile(in.p(JobPubFile), []byte(cr.JobPubkey), 0o644); err != nil {
+			return nil, fmt.Errorf("job key: %w", err)
+		}
+		jobKid = cr.JobKid
+		in.say("Jobs        gateway job key %s pinned (jobs for node-%s only)", jobKid, id.NodeID)
+	} else {
+		// An older hub: remove a key pinned by an earlier join, so no job of another box can verify.
+		if err := os.Remove(in.p(JobPubFile)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("job key: %w", err)
+		}
+		in.say("Jobs        the hub sent no job key; this node refuses every job until it joins a newer hub")
+	}
 
 	// 2. Coordinator names point at the hub on the LAN (NETWORKING §5.4, LAN first).
 	if err := in.pinControl(cr, hubAddr); err != nil {
@@ -190,7 +210,7 @@ func (in *Installer) Apply(ctx context.Context, id *Identity, cr *Credentials, c
 
 	// 3. Mesh: restart tailscaled so it loads the box CA, then enroll with the one-time key.
 	st := &State{Schema: StateSchema, NodeID: id.NodeID, Role: role, HubURL: t.Hub, CASHA256: t.CASHA,
-		CertNotAfter: cert.NotAfter.UTC().Format(time.RFC3339)}
+		CertNotAfter: cert.NotAfter.UTC().Format(time.RFC3339), JobKid: jobKid}
 	if cr.Mesh != nil {
 		res, err := in.enrollMesh(ctx, cr.Mesh, cr.Mesh.ShieldsUp)
 		if err != nil {

@@ -43,6 +43,8 @@ import (
 	"time"
 
 	"github.com/nats-io/nkeys"
+
+	"github.com/onemindos/onemindos/internal/backup"
 )
 
 // PollContext prefixes the string a node signs to prove it holds its key
@@ -410,8 +412,12 @@ type Credentials struct {
 		Account    string `json:"account"`
 		UserPubkey string `json:"user_pubkey"`
 	} `json:"nats"`
-	Mesh *MeshBlock `json:"mesh,omitempty"`
-	K3s  *struct {
+	// JobPubkey is the gateway's job public key (PEM) and JobKid its key id. The node pins the key
+	// (JobPubFile) and accepts only jobs signed by it for its own node id. An older hub sends null.
+	JobPubkey string     `json:"job_pubkey,omitempty"`
+	JobKid    string     `json:"job_kid,omitempty"`
+	Mesh      *MeshBlock `json:"mesh,omitempty"`
+	K3s       *struct {
 		ServerURL string `json:"server_url"`
 		Token     string `json:"token"`
 	} `json:"k3s,omitempty"`
@@ -583,6 +589,15 @@ func (cr *Credentials) Check(id *Identity, pin string) (*x509.Certificate, error
 	}
 	if cr.NATS.UserPubkey != id.NkeyPub {
 		return nil, errors.New("credentials: NATS account is for another key")
+	}
+	if cr.JobPubkey != "" || cr.JobKid != "" {
+		pub, err := backup.ParseJobPublicKey([]byte(cr.JobPubkey))
+		if err != nil {
+			return nil, fmt.Errorf("credentials: job key: %w", err)
+		}
+		if kid := backup.JobKeyID(pub); kid != cr.JobKid {
+			return nil, fmt.Errorf("credentials: job key id %q does not match the key (%s)", cr.JobKid, kid)
+		}
 	}
 	return cert, nil
 }

@@ -10,7 +10,7 @@ stays silent too long is a failure; more failures than `max_failures` pause the 
 - **AI never actuates without owner approval.** Starting and resuming a rollout are action types
   (`os.rollout.start`, `os.rollout.resume`) on the shared ledger: an owner or an agent may request
   one, only an owner approves, and nothing is offered to any machine before that approval.
-- **The offer is a signed job** (contract §12.11, `onemind.job/v1`, kind `update.apply`), published
+- **The offer is a signed job** (contract §12.11, `onemind.job/v2` addressed to that one machine, kind `update.apply`), published
   on `onemind.node.<node_id>.job.update.apply`, the subject the hub already sends to each node. It
   is signed with the gateway's job key (backups/jobs.py) and names the action the owner approved.
 - **Progress is read from heartbeats** the registry already keeps, so this needs no new subject
@@ -25,7 +25,6 @@ import math
 import secrets
 import threading
 from datetime import datetime, timedelta
-from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import JSON, DateTime, Integer, String, select
@@ -33,8 +32,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from .actions import FeatureAction
 from .auth import Principal
-from .backups.jobs import load_or_create_job_key, sign_job
-from .backups.settings import BackupsSettings
+from .backups.jobs import gateway_job_key_path, load_or_create_job_key, sign_job_v2
 from .errors import ApiError
 from .executors import ExecResult
 from .ledger import Base, iso, utc
@@ -340,13 +338,12 @@ class RolloutService:
         if not self.gw.bus.connected:
             return False
         if self._key is None:
-            # The gateway's one job key, the same file the backup service signs with (backups/settings.py),
-            # so each node trusts a single public key (job.pub) for every signed job.
-            cfg = self.gw.settings.section(BackupsSettings)
-            path = cfg.job_key_file or (self.gw.settings.audit_path.parent / "custodian" / "job.key")
-            self._key = load_or_create_job_key(Path(path))
-        job = sign_job(self._key, JOB_KIND, {"version": version, "rollout_id": rid, "node_id": node_id},
-                       self.gw.clock(), action_id=action_id, ttl=timedelta(hours=1))
+            # The gateway's one job key, the same file the backup service signs with and whose public half
+            # the fabric join reply hands each machine to pin (job.pub), so a machine trusts one key.
+            self._key = load_or_create_job_key(gateway_job_key_path(self.gw.settings))
+        # v2: addressed to this one machine (aud), with the key id and policy epoch the machine checks.
+        job = sign_job_v2(self._key, JOB_KIND, {"version": version, "rollout_id": rid, "node_id": node_id},
+                          self.gw.clock(), node_id=node_id, action_id=action_id, ttl=timedelta(hours=1))
         self.gw.bus.publish_threadsafe(job_subject(node_id), json.dumps(job).encode())
         return True
 
