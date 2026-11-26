@@ -16,6 +16,7 @@ import { Button, Card, PageHeader, StatusPill, Table, VerificationBadge, LEVEL_N
 import { usePoll } from '../lib/hooks';
 import { sessionLapsed, useGateway, viaSdk } from '../lib/gateway';
 import { useSignedIn } from '../session';
+import { useShell } from '../shell/Shell';
 import { Load } from './parts';
 
 type VTable = components['schemas']['VerificationTable'];
@@ -77,10 +78,16 @@ export function requestErrorText(e: unknown): string {
 }
 
 export function VerificationLevels() {
-  const { token, mock, principal, signOut } = useSignedIn();
-  if (mock) return <><PageHeader title="Verification levels" /><Card title="Verification levels"><p role="status">Connect to a real hub to see its verification table. Demo mode has none.</p></Card></>;
-  if (principal?.role !== 'owner') return <><PageHeader title="Verification levels" /><Card title="Verification levels"><p role="status">Only an owner can see and change how strongly OneMind checks approvals.</p></Card></>;
-  return <LiveTable token={token} me={principal} signOut={signOut} />;
+  // The role comes from the shell, as on every other owner-only screen (SettingsSecurity, Care): a real
+  // gateway session carries no principal, so the shell reads GET /v1/me (roleOf). The hub still refuses
+  // a non-owner on every route this page calls.
+  const { role } = useShell();
+  const { token, mock, principal, account, signOut } = useSignedIn();
+  const notice = (text: string) => <><PageHeader title="Verification levels" /><Card title="Verification levels"><p role="status">{text}</p></Card></>;
+  if (mock) return notice('Connect to a real hub to see its verification table. Demo mode has none.');
+  if (role === undefined) return notice('Checking who is signed in…');
+  if (role !== 'owner') return notice('Only an owner can see and change how strongly OneMind checks approvals.');
+  return <LiveTable token={token} me={account ?? principal} signOut={signOut} />;
 }
 
 function LiveTable({ token, me, signOut }: { token: string; me: Asker; signOut: () => void }) {
