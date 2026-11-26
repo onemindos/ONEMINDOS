@@ -55,6 +55,7 @@ PUBLIC = {
     ("GET", "/{full_path:path}"),              # the dashboard's static files (never the API tree)
     ("GET", "/v1/share/{token}"),              # FILES-02 share link: the 256-bit link secret in the path is the credential
     ("GET", "/v1/share/{token}/items/{index}"),  # FILES-02: one shared item, same secret; expiry, revoke and creator re-checked
+    ("POST", "/v1/recovery/invites/{invite_id}/accept"),  # 25d: a contact's phone; the box-signed single-use invite and a proof by the new key are the credential; rate limited
 }
 
 
