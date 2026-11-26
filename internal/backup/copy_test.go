@@ -8,9 +8,11 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 )
 
 // Design 25b: a restore into a new folder copies into an EMPTY folder under the
@@ -106,3 +108,63 @@ func TestCopyOwnedAtSkipsLinksAndSpecialFiles(t *testing.T) {
 }
 
 func syscallMkfifo(p string) error { return syscall.Mkfifo(p, 0o600) }
+
+// Review of #1193: a copy that cannot fit is refused before anything is written,
+// and an unknown free space never blocks it.
+func TestRestoreCopyChecksFreeSpaceFirst(t *testing.T) {
+	f := newFixture(t)
+	f.agent.Cfg.CopyRoot = f.path("files")
+	f.run(ReasonScheduled)
+	snap := appSnapshot(t, f)
+	dest := f.path("files/spaces/p1/Restored/full")
+	if err := os.MkdirAll(dest, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	asked := map[string]bool{}
+	f.agent.FreeBytes = func(p string) (int64, error) { asked[p] = true; return 20, nil }
+	// photo-a and photo-b: 14 bytes; the folder needs 15 plus 15 to unpack, so 20 is short
+	_, err := f.agent.RestoreCopy(ctx, CopyRequest{SnapshotID: snap.ID, Dest: dest})
+	if err == nil || !strings.Contains(err.Error(), "not enough space") {
+		t.Fatalf("err = %v", err)
+	}
+	if !asked[dest] {
+		t.Fatalf("the copy's own disk was not asked: %v", asked)
+	}
+	if entries, _ := os.ReadDir(dest); len(entries) != 0 {
+		t.Fatalf("a refused copy wrote %d entries", len(entries))
+	}
+	f.agent.FreeBytes = func(string) (int64, error) { return 30, nil }
+	if _, err := f.agent.RestoreCopy(ctx, CopyRequest{SnapshotID: snap.ID, Dest: dest}); err != nil {
+		t.Fatalf("enough space: %v", err)
+	}
+	other := f.path("files/spaces/p1/Restored/unknown")
+	_ = os.MkdirAll(other, 0o750)
+	f.agent.FreeBytes = func(string) (int64, error) { return 0, os.ErrPermission }
+	if _, err := f.agent.RestoreCopy(ctx, CopyRequest{SnapshotID: snap.ID, Dest: other}); err != nil {
+		t.Fatalf("unknown free space must not block: %v", err)
+	}
+}
+
+// Review of #1193: openEmptyDir hands back an fd that it alone owns. It once
+// wrapped fd in an os.File and dropped it, so the garbage collector closed fd
+// under the copy (random "bad file descriptor" in unrelated tests).
+func TestOpenEmptyDirFdSurvivesTheGarbageCollector(t *testing.T) {
+	dir, err := filepath.EvalSymlinks(t.TempDir()) // macOS: /var is a symlink
+	if err != nil {
+		t.Fatal(err)
+	}
+	fd, err := openEmptyDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closeDir(fd)
+	for range 5 {
+		runtime.GC()
+		time.Sleep(time.Millisecond)
+	}
+	var st syscall.Stat_t
+	if err := syscall.Fstat(fd, &st); err != nil {
+		t.Fatalf("the fd was closed behind our back: %v", err)
+	}
+}

@@ -21,7 +21,12 @@ export interface ApproveOpts {
   sign?: (publicKey: Record<string, unknown>) => Promise<Record<string, unknown>>;
 }
 
-export async function approveWithStepUp(api: OneMindApi, action: Pick<Action, 'id' | 'plan_sha256'>, opts: ApproveOpts = {}): Promise<Action> {
+/** Design 25b (data-first recovery): types that only reach the owner's own data. The gateway approves them with the
+ * everyday sign-in even when a passkey is registered, so an owner who lost every passkey is not sent to a passkey
+ * prompt they cannot answer. The page still signs if the gateway asks (step_up_required below). */
+export const DATA_ACCESS_TYPES: ReadonlySet<string> = new Set(['backup.restore.copy']);
+
+export async function approveWithStepUp(api: OneMindApi, action: Pick<Action, 'id' | 'plan_sha256'> & { type?: string }, opts: ApproveOpts = {}): Promise<Action> {
   const extra: ApproveBody = { ...(opts.sealed ? { sealed: opts.sealed } : {}), ...(opts.acceptLicence ? { accept_licence: opts.acceptLicence } : {}),
     ...(opts.hold ? { hold_ms: opts.hold.ms } : {}) };
   // The hold is bound to the plan only when the action has one; many destructive actions have none.
@@ -40,7 +45,7 @@ export async function approveWithStepUp(api: OneMindApi, action: Pick<Action, 'i
   const signed = async () => ({ ...body, webauthn: await sign(challenge.publicKey) });
   // A hold does not force a passkey: only physical actions need one, and the gateway answers those with
   // step_up_required (retried signed below). A destructive action on a box with no passkey goes unsigned.
-  if (opts.passkey) return api.approve(action.id, await signed());
+  if (opts.passkey && !(action.type && DATA_ACCESS_TYPES.has(action.type))) return api.approve(action.id, await signed());
   try {
     return await api.approve(action.id, body);
   } catch (e) {

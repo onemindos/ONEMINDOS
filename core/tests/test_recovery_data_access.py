@@ -127,3 +127,32 @@ def test_a_password_session_reaches_every_data_route_without_a_step_up(settings,
         r = pw.post("/v1/restores", headers=csrf(pw), json={"snapshot_id": "abcdef0123456789", "scope": {"app_id": "notes"},
                                                             "target": "new_folder"})
         assert r.status_code != 401, r.text
+
+
+def test_an_owner_without_a_passkey_can_approve_a_copy_but_not_an_in_place_restore(settings, clock, executor):
+    """Review of #1193: the data-first rule holds at APPROVAL, not only at the request. With a passkey registered
+    (require_passkey_approval on, the default), an owner signed in with a password approves a restore copy without a
+    step-up; an in-place restore of the same box still asks for the passkey."""
+    app = create_app(id_settings(settings), clock=clock, executor=executor)
+    with TestClient(app) as c:
+        setup_owner(c)
+        register_passkey(c, SoftAuthenticator())
+        pw = TestClient(app)
+        assert pw.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD}).status_code == 200
+        gw = app.state.gateway
+        assert gw.actions.is_data_access("backup.restore.copy") and not gw.actions.is_data_access("backup.restore")
+        me = pw.get("/v1/me").json()
+        assert me["session"]["auth_method"] == "password"
+        owner = next(p for p in [gw.tokens.lookup("dev-owner-token-change-me")] if p is not None)
+        from datetime import timedelta
+
+        def file(kind: str, n: str) -> str:
+            action, _ = gw.actions.request_feature(owner, kind, {"snapshot_id": "abcdef0123456789", "scope": {"app_id": "notes"}},
+                                                   idempotency_key=n, expires_at=clock.now + timedelta(minutes=10))
+            return action["id"]
+
+        inplace = pw.post(f"/v1/actions/{file('backup.restore', 'in-place')}/approve", headers=csrf(pw), json={})
+        assert inplace.status_code == 401 and inplace.json()["reason"] == "step_up_required", inplace.text
+        copy = pw.post(f"/v1/actions/{file('backup.restore.copy', 'copy')}/approve", headers=csrf(pw), json={})
+        assert copy.status_code != 401, copy.text
+        assert copy.status_code == 200 and copy.json()["state"] != "awaiting_approval", copy.text

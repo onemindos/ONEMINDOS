@@ -338,8 +338,18 @@ func openEmptyDir(dest string) (int, error) {
 	if err != nil {
 		return -1, err
 	}
-	d := os.NewFile(uintptr(fd), dest)
+	// Read the listing through a duplicate that this function closes itself. An
+	// os.File made straight from fd would own it: its finalizer closes fd when the
+	// garbage collector runs, under a copy still writing through it, or after the
+	// number has been reused by another job's file (review of #1193).
+	dup, err := unix.Dup(fd)
+	if err != nil {
+		unix.Close(fd)
+		return -1, err
+	}
+	d := os.NewFile(uintptr(dup), dest)
 	names, err := d.Readdirnames(1)
+	d.Close()
 	if err == nil && len(names) > 0 {
 		unix.Close(fd)
 		return -1, fmt.Errorf("%s is not empty; a copy never overwrites anything", dest)

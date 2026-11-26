@@ -435,6 +435,11 @@ class FeatureAction:
     # derived from the request's params (part of plan_sha256).
     limits_for: Callable[[dict], list[dict]] | None = None
     preview_for: Callable[[dict], dict | None] | None = None
+    # Design 25b (data-first recovery, D-028): reaching the owner's own data never needs a strong key. An owner who
+    # lost every passkey and signs in with password and authenticator code may still APPROVE a data_access type
+    # without a passkey, even when require_passkey_approval is on. Only read and write types that change nothing
+    # that exists qualify (a restore copy into a new folder); never physical.
+    data_access: bool = False
 
 
 FEATURE_OUTCOMES = ("succeeded", "failed", "outcome_unknown")
@@ -538,6 +543,8 @@ class ActionService:
             raise ValueError(f"{action_type}: unknown risk class {spec.risk!r}")
         from .automation import registry  # imported late: the registry imports ActionType from here
 
+        if spec.data_access and (spec.physical or spec.risk not in ("read", "write") or spec.risk_for is not None):
+            raise ValueError(f"{action_type}: only a fixed read or write type that is not physical can be data access")
         if spec.physical:
             if spec.requesters & {"automation", "policy"}:
                 raise ValueError(f"{action_type}: a physical type is never requested by an automation or policy")
@@ -548,6 +555,10 @@ class ActionService:
     def can_file(self, action_type: str) -> bool:
         """True when a request of this type can be filed here (so a standing approval can fire on it)."""
         return action_type in APP_CLAIMS or action_type in self.handlers or action_type in self.feature_types
+
+    def is_data_access(self, action_type: str) -> bool:
+        spec = self.feature_types.get(action_type)
+        return spec is not None and spec.data_access
 
     def is_physical(self, action_type: str) -> bool:
         spec = self.feature_types.get(action_type)
