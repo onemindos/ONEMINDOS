@@ -72,6 +72,12 @@ export function SettingsSecurity() {
         return typeof value.not_after === 'string' && Number.isFinite(Date.parse(value.not_after))
           ? `Expires ${new Date(value.not_after).toLocaleDateString()}` : undefined;
       })],
+      ['Verification levels', '/settings/verification', summarize(get(sdk, '/v1/verification-requirements'), (data) => {
+        const t = object(data);
+        if (t.recovery_needed === true) return 'Waiting for a proven key';
+        if (t.grace === true) return 'Before your first proven key: confirmed at the box';
+        return typeof t.household_level === 'string' ? `Strongest key ${t.household_level}` : t.household_level === null ? 'No passkey yet' : undefined;
+      })],
       ['Standing approvals', '/settings/automation', summarize(get(sdk, '/v1/approval-policies'), count('configured'))],
       ['Physical lockout', '/settings/automation', summarize(get(sdk, '/v1/physical/lockout'), (data) => {
         const value = object(data).locked;

@@ -12,8 +12,8 @@
 // Before your box's first proven key (N-1 b), high-risk changes are confirmed at the box: a passkey plus the
 // code its own screen shows (lib/boxcode.tsx), and the first proven key is added there too.
 // Trusting a new key model is an owner action: it waits in Approvals for a proven key.
-// Editing the verification table itself is Settings > Permissions (design PR 16); the API and
-// `onemind permissions verify` already have it.
+// Editing the verification table itself is Settings > Verification levels (VerificationLevels.tsx, design
+// PR 16), also `onemind permissions verify`.
 import { useState } from 'react';
 import { completeStepUp, OneMind, OneMindError, STEP_UP_HEADER, type components } from '@onemind/sdk';
 import { Button, Card, PageHeader, StatusPill, Table, VerificationBadge, type VerificationLevel } from '@onemind/ui';

@@ -23,10 +23,13 @@ function gateway(responses: Record<string, unknown>) {
 
 it('shows an actual verified audit and distinguishes a refusal from an unknown status', async () => {
   state.role = 'owner';
-  gateway({ '/v1/auth/passkeys': [{ id: 'key', level: 'L2' }, { id: 'phone', level: 'L1' }], '/v1/audit/verify': { ok: true }, '/v1/physical/lockout': 403 });
+  gateway({ '/v1/auth/passkeys': [{ id: 'key', level: 'L2' }, { id: 'phone', level: 'L1' }], '/v1/audit/verify': { ok: true }, '/v1/physical/lockout': 403,
+    '/v1/verification-requirements': { household_level: 'L1', grace: true, recovery_needed: false } });
   render(<MemoryRouter><SettingsSecurity /></MemoryRouter>);
   expect(await screen.findByText('2 registered · 1 proven')).toBeVisible();
   expect(screen.getByRole('link', { name: 'Sign-in keys' })).toHaveAttribute('href', '/settings/sign-in-keys');
+  expect(screen.getByRole('link', { name: 'Verification levels' })).toHaveAttribute('href', '/settings/verification');
+  expect(screen.getByText('Before your first proven key: confirmed at the box')).toBeVisible();
   expect(screen.getByText('Verified')).toBeVisible();
   expect(screen.getByText('Owner only')).toBeVisible();
   expect(screen.getAllByText('Unknown').length).toBeGreaterThan(0);
