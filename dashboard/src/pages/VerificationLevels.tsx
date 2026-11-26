@@ -35,16 +35,30 @@ export function offeredLevels(row: Bounds, household: VTable['household_level'])
     && (l !== 'L3' || reach >= 3));
 }
 
-/** key -> level of each table change already waiting in Approvals. */
-export function waitingChanges(actions: Pick<Action, 'type' | 'state' | 'params'>[]): Record<string, string> {
-  const out: Record<string, string> = {};
+/** One table change already waiting in Approvals: the level asked for, who asked, and whether it is the
+ *  signed-in owner's own request. */
+export interface Waiting { level: string; by: string; mine: boolean }
+type Asker = { id: string; kind: string } | undefined;
+
+/** key -> the table changes already waiting in Approvals for that row. Any person may file one (core
+ *  registers the type for every person), so a guest's or a child's request is shown with their name and never
+ *  passes for the owner's own: only the owner's own request blocks the row from being asked again. */
+export function waitingChanges(actions: Pick<Action, 'type' | 'state' | 'params' | 'requested_by'>[], me: Asker): Record<string, Waiting[]> {
+  const out: Record<string, Waiting[]> = {};
   for (const a of actions) {
     if (a.type !== SET_TYPE || a.state !== 'awaiting_approval') continue;
     const p = (a.params ?? {}) as { key?: unknown; level?: unknown };
-    if (typeof p.key === 'string' && typeof p.level === 'string') out[p.key] = p.level;
+    if (typeof p.key !== 'string' || typeof p.level !== 'string') continue;
+    const rb = a.requested_by;
+    const mine = !!rb && !!me && rb.id === me.id && rb.kind === me.kind;
+    const by = !rb ? 'someone' : mine ? 'you' : rb.kind === 'person' ? rb.id : `${rb.kind} ${rb.id}`;
+    (out[p.key] ??= []).push({ level: p.level, by, mine });
   }
   return out;
 }
+
+/** True when the signed-in owner already has a change waiting for this row. */
+export const ownWaiting = (w: Waiting[] | undefined): boolean => !!w?.some((x) => x.mine);
 
 /** Plain words for why a change could not be filed. */
 export function requestErrorText(e: unknown): string {
@@ -60,25 +74,26 @@ export function requestErrorText(e: unknown): string {
 }
 
 export function VerificationLevels() {
-  const { token, mock, principal } = useSignedIn();
+  const { token, mock, principal, signOut } = useSignedIn();
   if (mock) return <><PageHeader title="Verification levels" /><Card title="Verification levels"><p role="status">Connect to a real hub to see its verification table. Demo mode has none.</p></Card></>;
   if (principal?.role !== 'owner') return <><PageHeader title="Verification levels" /><Card title="Verification levels"><p role="status">Only an owner can see and change how strongly OneMind checks approvals.</p></Card></>;
-  return <LiveTable token={token} />;
+  return <LiveTable token={token} me={principal} signOut={signOut} />;
 }
 
-function LiveTable({ token }: { token: string }) {
+function LiveTable({ token, me, signOut }: { token: string; me: Asker; signOut: () => void }) {
   const client = useGateway(token);
   // viaSdk keeps the hub's status and reason, so a 401 signs out and a 403 reads as such.
   const table = usePoll(() => viaSdk(() => client.call<VTable>({ method: 'GET', path: '/v1/verification-requirements' })), 0);
   // Requests this box has filed: changes already waiting in Approvals (so a row is not asked twice), and the
   // kinds of request it knows, as suggestions for a per-type check (real data; the hub checks the name again).
   const actions = usePoll(() => viaSdk(() => client.actions.list()), 0);
-  const pending = waitingChanges(actions.data ?? []);
+  const pending = waitingChanges(actions.data ?? [], me);
   const seenTypes = [...new Set((actions.data ?? []).map((a) => a.type).filter((x) => x !== SET_TYPE))].sort();
   const [note, setNote] = useState<{ tone: 'ok' | 'bad'; text: string; id?: string }>();
   const [busy, setBusy] = useState(false);
 
-  const request = async (key: string, level: string, what: string) => {
+  /** Files the change; true when the hub took it (so a typed kind of request is only cleared then). */
+  const request = async (key: string, level: string, what: string): Promise<boolean> => {
     setBusy(true); setNote(undefined);
     try {
       const a = await client.call<{ id: string }>({ method: 'POST', path: '/v1/actions', body: {
@@ -87,8 +102,12 @@ function LiveTable({ token }: { token: string }) {
         expires_at: new Date(client.hubNow() + 24 * 3600_000).toISOString(),
       } });
       setNote({ tone: 'ok', text: `Asked to set "${what}" to ${level} · ${LEVEL_NAME[level as VerificationLevel]}. It waits in Approvals for your proven key.`, id: a.id });
+      return true;
     } catch (e) {
+      // A lapsed sign-in signs out, as every read on this page does (usePoll); anything else is said plainly.
+      if (e instanceof OneMindError && e.status === 401) { signOut(); return false; }
       setNote({ tone: 'bad', text: `Changing "${what}": ${requestErrorText(e)}` });
+      return false;
     } finally { setBusy(false); void actions.reload(); }
   };
 
@@ -110,7 +129,7 @@ function LiveTable({ token }: { token: string }) {
                 onAsk={(level) => void request(r.key, level, r.label)} /> },
             ]} />
         </Card>
-        <TypeOptIns t={t} pending={pending} busy={busy} seenTypes={seenTypes} onAsk={(type, level) => void request(`${TYPE_PREFIX}${type}`, level, type)} />
+        <TypeOptIns t={t} pending={pending} busy={busy} seenTypes={seenTypes} onAsk={(type, level) => request(`${TYPE_PREFIX}${type}`, level, type)} />
       </>}
     </Load>
     {note && <p role="status" className={`om-note om-tone-${note.tone}`}>{note.text}{note.id && <> <Link to="/approvals">Open Approvals</Link></>}</p>}
@@ -126,13 +145,21 @@ function Household({ t }: { t: VTable }) {
   </Card>;
 }
 
-function Change({ label, bounds, current, options, waiting, busy, onAsk }: {
-  label: string; bounds: Bounds; current: string; options: VerificationLevel[]; waiting?: string; busy: boolean; onAsk: (level: string) => void;
+/** Who asked for what, on each waiting change: someone else's request reads as theirs, never as the owner's. */
+function WaitingPills({ waiting }: { waiting: Waiting[] }) {
+  return <>{waiting.map((w, i) => <StatusPill key={`${w.by}-${w.level}-${i}`} tone={w.mine ? 'info' : 'warn'}
+    label={`${w.level} asked by ${w.by} · waits in Approvals`} />)}</>;
+}
+
+function Change({ label, bounds, current, options, waiting = [], busy, onAsk }: {
+  label: string; bounds: Bounds; current: string; options: VerificationLevel[]; waiting?: Waiting[]; busy: boolean; onAsk: (level: string) => void;
 }) {
   const [level, setLevel] = useState(current);
-  if (waiting) return <StatusPill tone="info" label={`${waiting} waits in Approvals`} />;
-  if (options.length <= 1) return <span className="om-hint">{bounds.minimum === bounds.maximum ? 'Fixed' : 'No stronger key on this box yet'}</span>;
+  // Only the owner's own waiting request closes the row; a request from anyone else leaves it open.
+  if (ownWaiting(waiting)) return <span className="dash-actions"><WaitingPills waiting={waiting} /></span>;
+  if (options.length <= 1) return <span className="dash-actions"><WaitingPills waiting={waiting} /><span className="om-hint">{bounds.minimum === bounds.maximum ? 'Fixed' : 'No stronger key on this box yet'}</span></span>;
   return <span className="dash-actions">
+    <WaitingPills waiting={waiting} />
     <select aria-label={`New level for ${label}`} value={level} onChange={(e) => setLevel(e.target.value)}>
       {options.map((l) => <option key={l} value={l}>{l} · {LEVEL_NAME[l]}</option>)}
     </select>
@@ -141,7 +168,7 @@ function Change({ label, bounds, current, options, waiting, busy, onAsk }: {
 }
 
 function TypeOptIns({ t, pending, busy, seenTypes, onAsk }: {
-  t: VTable; pending: Record<string, string>; busy: boolean; seenTypes: string[]; onAsk: (type: string, level: string) => void;
+  t: VTable; pending: Record<string, Waiting[]>; busy: boolean; seenTypes: string[]; onAsk: (type: string, level: string) => Promise<boolean>;
 }) {
   const [type, setType] = useState('');
   const [level, setLevel] = useState<VerificationLevel>('L2');
@@ -163,7 +190,7 @@ function TypeOptIns({ t, pending, busy, seenTypes, onAsk }: {
       <label>Level{' '}<select value={level} onChange={(e) => setLevel(e.target.value as VerificationLevel)}>
         {choices.map((l) => <option key={l} value={l}>{l} · {LEVEL_NAME[l]}</option>)}
       </select></label>
-      <Button disabled={busy || !clean || !!pending[`${TYPE_PREFIX}${clean}`]} onClick={() => { onAsk(clean, level); setType(''); }}>Ask for this check</Button>
+      <Button disabled={busy || !clean || ownWaiting(pending[`${TYPE_PREFIX}${clean}`])} onClick={() => { void onAsk(clean, level).then((ok) => { if (ok) setType(''); }); }}>Ask for this check</Button>
     </div>
     {!t.household_level || levelRank(t.household_level as VerificationLevel) < 3 ? <p className="om-hint">L3 appears here once a key on this box reaches it.</p> : null}
   </Card>;
