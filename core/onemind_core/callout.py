@@ -83,7 +83,7 @@ def answer(request: str, issuer: Ed25519PrivateKey, agents: dict[str, AgentUser]
     req = claims.get("nats") or {}
     server_id = (req.get("server_id") or {}).get("id")
     user_nkey = req.get("user_nkey")
-    if claims.get("type") not in (None, "authorization_request") or server_id != claims.get("iss"):
+    if req.get("type") != "authorization_request" or server_id != claims.get("iss"):
         raise natsjwt.JwtError("not an authorization request from this server")
     natsjwt.decode_public(str(user_nkey), natsjwt.PREFIX_USER)
     opts, info = req.get("connect_opts") or {}, req.get("client_info") or {}

@@ -119,6 +119,10 @@ def test_a_request_that_does_not_verify_gets_no_answer():
     other["nats"]["server_id"]["id"] = natsjwt.public_key(_key(8), natsjwt.PREFIX_SERVER)  # iss is not this server
     with pytest.raises(natsjwt.JwtError):
         callout.answer(natsjwt.encode(other, SERVER, natsjwt.PREFIX_SERVER, NOW), ISSUER, {AGENT_PUB: HERMES}, False, NOW)
+    wrong = natsjwt.decode(request(), natsjwt.PREFIX_SERVER)
+    wrong["nats"]["type"] = "authorization_response"  # a server-signed JWT that is not a request
+    with pytest.raises(natsjwt.JwtError):
+        callout.answer(natsjwt.encode(wrong, SERVER, natsjwt.PREFIX_SERVER, NOW), ISSUER, {AGENT_PUB: HERMES}, False, NOW)
 
 
 def test_responder_audits_every_answer(tmp_path):
