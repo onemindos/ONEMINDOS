@@ -501,6 +501,9 @@ class ActionService:
         # fn(principal_id): an agent identity ended (app removed, failed install); what the owner
         # declared about it (agents_inputs) must not carry over to a new agent with the same id.
         self.agent_forgotten: Callable[[str], None] | None = None
+        # Gateway permissions PR 7: permanent ids of agent and plugin principals (principals.py), set by
+        # routers/agents.py. An app install gives its agent a new id; a removal retires it.
+        self.principals: Any = None
         self.handlers: dict[str, ActionHandler] = {}
         # How a background feature action's run() is started after approval; tests make it synchronous.
         self.spawn: Callable[[Callable[[], None]], None] = _worker
@@ -1385,6 +1388,11 @@ class ActionService:
             # Secret would go stale. An update still needs the gateway address for its egress rule.
             return AgentSecret(spec.secret, spec.principal_id, gateway_url=self.gateway_url) if a.type == "app.update" else None
         token = new_agent_token()
+        if self.principals is not None:
+            # Every install is a new identity: rules bound to an earlier install, or to whoever held the
+            # id before, never cover this one (gateway permissions PR 7).
+            self.principals.retire(spec.principal_id, "app.install")
+            self.principals.register(spec.principal_id, source="app")
         self.repo.issue_agent_token(spec.principal_id, app.id, token_hash(token), self.clock())
         self.audit.append(
             "agent.principal.issued", None, a.id,
@@ -1401,6 +1409,8 @@ class ActionService:
                 self.agent_forgotten(principal_id)
             except Exception:  # best effort: the token is revoked either way
                 log.exception("forgetting the declared inputs of %s failed", principal_id)
+        if self.principals is not None:
+            self.principals.retire(principal_id, reason)
         if self.repo.revoke_agent_token(principal_id, self.clock()):
             self.audit.append(
                 "agent.principal.revoked", None, a.id, {"principal_id": principal_id, "reason": reason}

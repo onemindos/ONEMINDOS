@@ -12,7 +12,10 @@ Hard limits, checked when it is created and again on every match:
   `sensitive` or `destructive` (e.g. `app.remove` with `delete_data`) is never covered, nor is
   `automation.rule.*` (registry.NEVER_BY_POLICY); actions.py checks the same again;
 - it always expires, at most 90 days ahead;
-- it covers an agent or a plugin only when it names it exactly (`agent:*` is refused);
+- it covers an agent or a plugin only when it names it exactly (`agent:*` is refused), and only the
+  identity it was bound to when it was made: its permanent principal id (principals.py, PR 7). An
+  agent whose token was revoked, an app reinstalled, or another holder of the same display id is
+  not covered;
 - `per_day` is counted in the database over the last 24 hours, so a restart keeps the count;
 - with a window, it approves only while the window is open;
 - `app.update` (F-6) needs a window and matches only a patch update of a `verified` app whose
@@ -39,6 +42,7 @@ from ..catalog import Catalog
 from ..errors import ApiError
 from ..jsonbody import JsonBody
 from ..ledger import Action, iso, utc
+from ..principals import bound_kind
 from ..scan import scan_problem
 from . import registry
 from .cron import parse_ranges, resolve_tz, window_open
@@ -187,6 +191,51 @@ class PolicyService:
         self.can_file: Callable[[str], bool] = lambda _type: True
         # Who a legacy wildcard may cover: person id -> role (identity), unknown means not covered.
         self.person_role: Callable[[str], str | None] = lambda _pid: None
+        # PR 7: the permanent ids of agents and plugins (principals.PrincipalRegistry), and the ids of
+        # static-file principals. Without a registry no agent or plugin is ever covered (fails closed).
+        self.principals = None
+        self.file_ids: Callable[[], set[str]] = lambda: set()
+
+    def _bindings(self, requested_by: list[str]) -> dict:
+        """The permanent id each agent or plugin entry binds to; 422 when one names nobody yet."""
+        out = {}
+        for who in requested_by:
+            if not bound_kind(who):
+                continue
+            found = self.principals.resolve(who, self.file_ids()) if self.principals is not None else None
+            if found is None:
+                raise ApiError(422, "conflict", f"{who!r} is not a principal this gateway knows: mint its token or "
+                                                "install its app first, so the rule binds to that identity", reason="unknown_principal")
+            out[who] = {"uid": found["uid"], "owner_user_id": found["owner_user_id"]}
+        return out
+
+    def _bound_ok(self, p: dict, who: str) -> bool:
+        """Is the live identity of `who` the one this rule was bound to? Persons and automations need no binding."""
+        if not bound_kind(who):
+            return True
+        want = (p.get("principals") or {}).get(who)
+        live = self.principals.live(who) if self.principals is not None else None
+        return bool(want and live and want.get("uid") == live["uid"])
+
+    def adopt_unbound(self) -> int:
+        """At start: bind rules made before PR 7 to the identity that holds each id now, so live rules
+        keep working after the upgrade. An entry nobody holds stays unbound and never matches."""
+        n = 0
+        for p in self.repo.list_policies(with_paused=True):
+            have = dict(p.get("principals") or {})
+            missing = [w for w in p["allow"]["requested_by"] if bound_kind(w) and w not in have]
+            if not missing or self.principals is None:
+                continue
+            for who in missing:
+                found = self.principals.resolve(who, self.file_ids())
+                if found is not None:
+                    have[who] = {"uid": found["uid"], "owner_user_id": found["owner_user_id"]}
+            if have != (p.get("principals") or {}):
+                self.repo.bind_principals(p["id"], have)
+                self.audit.append("approval.policy.bound", None, None,
+                                  {"policy_id": p["id"], "principals": have, "reason": "upgrade"})
+                n += 1
+        return n
 
     def _wildcard_covers(self, kind: str, who: str) -> bool:
         """May a legacy `person:*` / `automation:*` entry cover this requester? Fails closed."""
@@ -216,7 +265,7 @@ class PolicyService:
         expired = utc(p["expires_at"]) <= now
         return {
             "id": p["id"], "revision": p["revision"], "name": p["name"], "allow": p["allow"],
-            "limits": {"per_day": p["per_day"]}, "window_id": p["window_id"],
+            "limits": {"per_day": p["per_day"]}, "window_id": p["window_id"], "principals": p.get("principals") or {},
             "expires_at": iso(p["expires_at"]), "created_by": p["created_by"], "created_at": iso(p["created_at"]),
             "state": "expired" if p["state"] == "active" and expired else p["state"],
             "uses_24h": self.repo.count_uses(p["id"], now - timedelta(days=1)),
@@ -271,17 +320,19 @@ class PolicyService:
                               {"attempted": "create standing approval", "reason": "permission_denied"})
             raise ApiError(403, "permission_denied", f"{principal.kind}/{principal.role} may not create standing approvals")
         self.validate(body)
+        bindings = self._bindings(body.allow.requested_by)
         now = self.clock()
         p = self.repo.add_policy(
             id=new_id("pol_"), name=body.name, allow=body.allow.model_dump(), per_day=body.limits.per_day,
             window_id=body.window_id, expires_at=utc(body.expires_at), created_by=principal.as_dict(),
-            created_at=now,
+            created_at=now, principals=bindings,
         )
         # F-2: the route has already required identity step-up (a fresh passkey once passkeys are
         # active); `approval` records how the owner proved presence. Only an owner reaches here.
         self.audit.append("automation.policy.created", principal.as_dict(), None,
                           {"policy_id": p["id"], "revision": 1, "allow": p["allow"], "per_day": p["per_day"],
-                           "window_id": p["window_id"], "expires_at": iso(p["expires_at"]), "approval": approval})
+                           "window_id": p["window_id"], "expires_at": iso(p["expires_at"]), "approval": approval,
+                           "principals": bindings})
         return self.to_json(p)
 
     def delete(self, principal: Principal, policy_id: str) -> None:
@@ -325,6 +376,9 @@ class PolicyService:
             req = p["allow"]["requested_by"]
             if who not in req and not (kind in LEGACY_WILDCARD_KINDS and f"{kind}:*" in req
                                        and self._wildcard_covers(kind, who)):
+                continue
+            if not self._bound_ok(p, who):
+                reason = "principal_changed"
                 continue
             if not all(_param_ok(params.get(k), c) for k, c in p["allow"]["params"].items()):
                 continue

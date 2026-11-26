@@ -17,6 +17,8 @@ def register_credentials(gw, identity) -> None:
             TokenRow.kind == "plugin", TokenRow.source == "app-install",
             TokenRow.principal_id == f"plugin:{app_id}", TokenRow.revoked_at.is_(None),
         ], {"revoked_at": gw.clock()})
+        if gw.actions.principals is not None:  # PR 7: a reinstall is a new identity for its rules
+            gw.actions.principals.retire(f"plugin:{app_id}", reason)
         if ids:
             gw.audit.append("plugin.principal.revoked", None, action_id, {
                 "principal_id": f"plugin:{app_id}", "reason": reason, "count": len(ids),

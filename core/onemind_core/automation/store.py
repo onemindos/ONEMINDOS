@@ -37,6 +37,15 @@ def _automation_v2(conn) -> None:
             conn.execute(text("UPDATE automation_policies SET state = 'paused', revision = revision + 1 WHERE id = :i"),
                          {"i": pid})
 
+
+@SCHEMA.step(3, "gateway permissions PR 7: standing approvals bind agents and plugins to their permanent principal id")
+def _automation_v3(conn) -> None:
+    from sqlalchemy import inspect, text
+
+    if "principals" not in {c["name"] for c in inspect(conn).get_columns("automation_policies")}:
+        conn.execute(text("ALTER TABLE automation_policies ADD COLUMN principals JSON"))
+
+
 _CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 
 
@@ -113,6 +122,10 @@ class PolicyRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     state: Mapped[str] = mapped_column(String(16), default="active")  # active | paused | deleted
     lock_seq: Mapped[int] = mapped_column(Integer, default=0)  # bumped to serialise the counter
+    # Gateway permissions PR 7: for each agent or plugin in allow.requested_by, the permanent id it was
+    # bound to ({"agent:notes": {"uid": "prn_...", "owner_user_id": ...}}). A requester whose live id
+    # differs (the token was revoked, the app reinstalled, the id taken by someone else) is not covered.
+    principals: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
 
 class PolicyUseRow(Base):
@@ -307,6 +320,10 @@ class AutomationRepository(SqlRepository):
         with self.db.session.begin() as s:
             return s.execute(update(PolicyRow).where(PolicyRow.id == policy_id, PolicyRow.state == "paused")
                              .values(state="active", revision=PolicyRow.revision + 1)).rowcount == 1
+
+    def bind_principals(self, policy_id: str, principals: dict) -> None:
+        with self.db.session.begin() as s:
+            s.execute(update(PolicyRow).where(PolicyRow.id == policy_id).values(principals=principals))
 
     def bump_policies_for_window(self, window_id: str) -> list[str]:
         with self.db.session.begin() as s:
