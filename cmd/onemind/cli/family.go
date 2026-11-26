@@ -27,18 +27,26 @@ func familyCommands(a *App) []*cobra.Command {
 		RunE: func(_ *cobra.Command, args []string) error {
 			return a.read("/v1/family/profiles/"+pathID(args[0]), func(w io.Writer, v any) error {
 				m := obj(v)
+				// null and [] mean opposite things here (core/onemind_core/family.py): null leaves the
+				// rule off, [] blocks everything. On a child-safety screen neither may print as "-".
 				allowed := "every app that passes the age and tag rules"
 				if m["allowed_apps"] != nil {
 					allowed = joinStrs(m["allowed_apps"], 0)
+					if len(list(m["allowed_apps"])) == 0 {
+						allowed = "none: every app is blocked"
+					}
 				}
 				windows := "no time limits"
 				if m["windows"] != nil {
 					var parts []any
 					for _, x := range list(m["windows"]) {
 						wm := obj(x)
-						parts = append(parts, joinStrs(wm["days"], 0)+" "+minutes(wm["start_minute"])+"-"+minutes(wm["end_minute"]))
+						parts = append(parts, dayNames(wm["days"])+" "+minutes(wm["start_minute"])+"-"+minutes(wm["end_minute"]))
 					}
 					windows = joinStrs(parts, 0)
+					if len(parts) == 0 {
+						windows = "none: no time is allowed, so apps are blocked all day"
+					}
 				}
 				return kv(w, [][2]string{
 					{"age limit", dash(jnum(m["max_age_rating"]))},
@@ -104,6 +112,23 @@ func familyCommands(a *App) []*cobra.Command {
 
 	root.AddCommand(profile, apps)
 	return []*cobra.Command{root}
+}
+
+// weekdays are the gateway's day numbers: Window.days holds ints 0-6 with Monday=0.
+var weekdays = [7]string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
+
+// dayNames renders a window's day numbers as "Mon, Tue" ("?N" for a number outside 0-6).
+func dayNames(v any) string {
+	var out []any
+	for _, x := range list(v) {
+		f, ok := x.(float64)
+		if ok && f >= 0 && f <= 6 && f == float64(int(f)) {
+			out = append(out, weekdays[int(f)])
+		} else {
+			out = append(out, "?"+str(x))
+		}
+	}
+	return joinStrs(out, 0)
 }
 
 // minutes renders minutes after midnight as HH:MM.
