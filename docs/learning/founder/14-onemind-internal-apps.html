@@ -138,8 +138,8 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
     <h1>OneMind's own apps</h1>
     <p class="lede">What OneMind ships itself, how its own apps differ from Market apps and custom apps, how an AI agent reaches any of them, and what to build next.</p>
     <div class="strip" role="list">
-      <div class="stat" role="listitem"><b>10</b><span><i class="shape s-reg" aria-hidden="true"></i>Registered built-ins: signed list, switch off, never removed</span></div>
-      <div class="stat" role="listitem"><b>15</b><span><i class="shape s-built" aria-hidden="true"></i>Built and working, not yet registered as built-ins</span></div>
+      <div class="stat" role="listitem"><b>9</b><span><i class="shape s-reg" aria-hidden="true"></i>Registered built-ins: signed list, switch off, never removed (Messages has its descriptor and joins the list with #856)</span></div>
+      <div class="stat" role="listitem"><b>16</b><span><i class="shape s-built" aria-hidden="true"></i>Built and working, not yet registered as built-ins</span></div>
       <div class="stat" role="listitem"><b>17</b><span><i class="shape s-plan" aria-hidden="true"></i>Planned, each with an open issue</span></div>
     </div>
   </header>
@@ -188,8 +188,8 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
     <h2 id="inv">Every OneMind app, by state</h2>
     <div class="filters" role="group" aria-label="Filter apps">
       <button type="button" id="f-all" data-f="all" aria-pressed="true">All 42</button>
-      <button type="button" id="f-reg" data-f="reg" aria-pressed="false">Registered 10</button>
-      <button type="button" id="f-built" data-f="built" aria-pressed="false">Built, not registered 15</button>
+      <button type="button" id="f-reg" data-f="reg" aria-pressed="false">Registered 9</button>
+      <button type="button" id="f-built" data-f="built" aria-pressed="false">Built, not registered 16</button>
       <button type="button" id="f-plan" data-f="plan" aria-pressed="false">Planned 17</button>
     </div>
     <div class="groups" id="groups"></div>
@@ -230,7 +230,7 @@ const APPS = [
   ["reg","Core","Updates","OS updates (A/B) and app update rules",""],
   ["reg","Everyday","Photos","Photo library and phone backup; Immich stays optional",""],
   ["reg","Everyday","Tips","Short how-to tips by role","#670"],
-  ["reg","Field","Messages","Text over LoRa radio; every send waits for a tap","D-024"],
+  ["built","Field","Messages","Text over LoRa radio; every send waits for a tap. Descriptor written; joins the signed list with its read path (#856)","D-024"],
   ["built","Everyday","Work","Tasks, projects, board, agent lane; window and phone tab","#644"],
   ["built","Automation","Automation","Rules and flows; every action goes through approvals",""],
   ["built","System","Machines","Virtual machines with a web console","D-014"],
