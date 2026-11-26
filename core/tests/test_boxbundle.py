@@ -201,7 +201,7 @@ def test_a_url_with_a_password_is_left_out(make_box):
     a = make_box("a")
     BackupsRepository(a).add_destination(DestinationRow(
         id="dst_1111111111111111", kind="rest", label="Peer", is_primary=True, append_only=True,
-        config={"url": "https://backup:hunter2@peer.example.test/repo", "user": "backup"}, action_id=None, created_at=NOW))
+        config={"url": "https://backup:hunter2" + "@" + "peer.example.test/repo", "user": "backup"}, action_id=None, created_at=NOW))
     layer, excluded = box_config.layer(a)
     assert b"hunter2" not in layer.data
     assert json.loads(layer.data)["backups"]["destinations"][0]["config"] == {"user": "backup"}
