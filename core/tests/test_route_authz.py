@@ -55,6 +55,15 @@ PUBLIC = {
     ("GET", "/{full_path:path}"),              # the dashboard's static files (never the API tree)
     ("GET", "/v1/share/{token}"),              # FILES-02 share link: the 256-bit link secret in the path is the credential
     ("GET", "/v1/share/{token}/items/{index}"),  # FILES-02: one shared item, same secret; expiry, revoke and creator re-checked
+    # Design 25c: owner recovery with the kit at the box. The console key (a 0600 file, loopback only) is the credential;
+    # everyone else gets 403 (test_recovery_kit_console.py). The redeem route takes a one-time code made at the console.
+    ("POST", "/v1/auth/recovery/kit"),
+    ("GET", "/v1/auth/recovery/kit/owners"),
+    ("POST", "/v1/auth/recovery/kit/password"),
+    ("POST", "/v1/auth/recovery/kit/authenticator/clear"),
+    ("POST", "/v1/auth/recovery/kit/passkeys/remove"),
+    ("POST", "/v1/auth/recovery/kit/sign-in-code"),
+    ("POST", "/v1/auth/recovery/kit/redeem"),  # rate limited per source; single use, 15 minutes
 }
 
 

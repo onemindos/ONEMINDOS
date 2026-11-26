@@ -4,7 +4,7 @@
 // the printed emergency kit (gateway permissions design 25c, D-028, path 2 of
 // "never lose your data").
 //
-// It runs only on the box: `onemindd recover-owner` on tty2 (a screen and
+// It runs only on the box: `onemindd recover-owner` on tty3 (a screen and
 // keyboard plugged into the box) and `onemind recovery kit` in a root shell on
 // the box. It asks the gateway on loopback and proves it is the box's own
 // console with the console key, a 0600 file only the gateway's user and root can

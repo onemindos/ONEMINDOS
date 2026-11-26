@@ -2,7 +2,7 @@
 """Recover owner access at the box with the printed emergency kit (gateway permissions design 25c, D-028).
 
 Path 2 of design section 3.13: an owner who lost every passkey stands at the box, types the kit's owner key on the
-box's own console, and gets owner access back. The console program is `onemindd recover-owner` (on tty2) or
+box's own console, and gets owner access back. The console program is `onemindd recover-owner` (on tty3) or
 `onemind recovery kit` run as root on the box; it talks to this gateway on loopback and presents the CONSOLE
 KEY, a random secret in a 0600 file next to the gateway's data that only the gateway's user and root can read. A
 network client never has it, so these routes refuse every caller that is not the box's own console.

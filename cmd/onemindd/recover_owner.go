@@ -17,13 +17,13 @@ import (
 )
 
 // runRecoverOwner is `onemindd recover-owner`: the box's console menu for recovering owner access with the
-// printed emergency kit (gateway permissions design 25c). onemind-recovery-console.service runs it on tty2 with
+// printed emergency kit (gateway permissions design 25c). onemind-recovery-console.service runs it on tty3 with
 // --loop, so a screen and keyboard at the box can always reach it; root on the box can run it once by hand.
 func runRecoverOwner(args []string) int {
 	fs := flag.NewFlagSet("onemindd recover-owner", flag.ContinueOnError)
 	gateway := fs.String("gateway", env("ONEMIND_RECOVERY_GATEWAY", kitrecovery.DefaultGateway), "the gateway on this box (loopback)")
 	keyFile := fs.String("key-file", env("ONEMIND_CONSOLE_KEY_FILE", kitrecovery.DefaultKeyFile), "the console key the gateway made")
-	loop := fs.Bool("loop", false, "offer the menu again after each session (the tty2 unit)")
+	loop := fs.Bool("loop", false, "offer the menu again after each session (the tty3 unit)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
