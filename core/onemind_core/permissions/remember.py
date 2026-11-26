@@ -34,16 +34,17 @@ import json
 from datetime import datetime, timedelta
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 
 from ..automation import registry
+from ..jsonbody import JsonBody
 from .floor import floor_items
 
 LIFETIMES = {"30d": 30, "90d": 90, "180d": 180, "forever": None}
 DEFAULT_PER_DAY = 10
 
 
-class RememberChoice(BaseModel):
+class RememberChoice(JsonBody):
     """What the person chose on the "Approve and remember" sheet. Everything else is the narrowest rule."""
 
     model_config = ConfigDict(extra="forbid")
