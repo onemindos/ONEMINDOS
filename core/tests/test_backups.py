@@ -983,3 +983,13 @@ def test_market_apps_mark_their_downloadable_content():
     for app, pattern in (("kiwix", "*.zim"), ("offline-maps", "maps/*.pmtiles"), ("ollama", "models/")):
         spec, errs = parse_backup(yaml.safe_load((root / "apps" / app / "onemind.app.yaml").read_text())["spec"])
         assert errs == [] and pattern in spec.content and pattern not in spec.exclude, app
+
+
+def test_byte_counts_use_64_bit_columns():
+    """Sizes and byte counts pass 2 GiB, so PostgreSQL needs BIGINT (an INTEGER column overflowed at 5 GiB)."""
+    from sqlalchemy import BigInteger
+
+    from onemind_core.backups.store import ContentTierRow, RunRow
+
+    assert isinstance(ContentTierRow.__table__.c.size_bytes.type, BigInteger)
+    assert isinstance(RunRow.__table__.c.bytes_added.type, BigInteger)
