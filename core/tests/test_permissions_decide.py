@@ -217,3 +217,10 @@ def test_a_request_with_no_known_risk_is_refused_before_it_is_filed(client, cloc
                         expires_at=clock.now + timedelta(hours=1), idempotency_key="u0")
     assert exc.value.reason == "unknown_risk"
     assert gw.actions.repo.get_by_idempotency_key("u0") is None
+
+
+def test_adding_the_same_deny_twice_returns_the_rule_already_there(client):
+    body = {"principal": "agent:hermes", "tier": "T3"}
+    a = client.post("/v1/approval-denies", headers=OWNER, json=body).json()
+    b = client.post("/v1/approval-denies", headers=OWNER, json=body).json()
+    assert a["id"] == b["id"] and len(client.get("/v1/approval-denies", headers=OWNER).json()) == 1
