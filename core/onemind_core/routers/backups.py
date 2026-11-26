@@ -370,6 +370,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
                                                      expires_at=gw.clock() + timedelta(minutes=10))
         if not created:
             raise ApiError(409, "conflict", "this kit was already issued; it is never shown twice")
+        svc.will_show(action["id"])  # this answer shows the kit, so it may carry the disk key
         action = approve_as_owner(p, action["id"], request)
         one_time = svc.take_one_time(action["id"])
         if action["state"] != "succeeded" or one_time is None:

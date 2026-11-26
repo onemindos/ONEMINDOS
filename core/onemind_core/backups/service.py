@@ -140,6 +140,10 @@ class BackupService:
         self._pending_keys: dict[str, tuple[str, datetime]] = {}
         # action id -> the owner key typed back to attach the kit to newer destinations (memory only).
         self._attach_keys: dict[str, str] = {}
+        # Kit issues whose answer the owner will see (the POST /v1/backups/kit shortcut). Only those take the disk key:
+        # it is destroyed on the node when taken, so a kit approved elsewhere, whose one-time answer nobody reads,
+        # must not consume it.
+        self._shown: set[str] = set()
         # () -> (disk key state, key or None): the /data recovery key, taken once from onemindd for the kit.
         # routers/storage.py (registered after this, ORDER 310) sets it; None means no storage service.
         self.disk_key_source: Callable[[], tuple[str, str | None]] | None = None
@@ -153,7 +157,8 @@ class BackupService:
         acts.register_type("backup.destination.add", FeatureAction("sensitive", self._act_dest_add))
         acts.register_type("backup.destination.remove", FeatureAction("destructive", self._act_dest_remove))
         acts.register_type("backup.kit.issue", FeatureAction("sensitive", self._act_kit_issue))
-        acts.register_type("backup.kit.attach", FeatureAction("sensitive", self._act_kit_attach))
+        acts.register_type("backup.kit.attach", FeatureAction("sensitive", self._act_kit_attach,
+                                                              release=lambda a: self._attach_keys.pop(a.id, None)))
         acts.register_type("backup.content.set", FeatureAction("write", self._act_content_set))
 
     # ---- plumbing ---------------------------------------------------------------------------
@@ -1059,10 +1064,13 @@ class BackupService:
         finish(ExecResult("succeeded", msg, [{"app_id": app_id, "enabled": p["enabled"]}]))
 
     # ---- emergency kit ------------------------------------------------------------------------
-    def _disk_key(self, previous: KitRow | None) -> tuple[str, str | None]:
+    def will_show(self, action_id: str) -> None:
+        self._shown.add(action_id)
+
+    def _disk_key(self, previous: KitRow | None, action_id: str) -> tuple[str, str | None]:
         """The /data recovery key for the kit, taken once from onemindd (D-020). Never stored or logged."""
         state, key = "not_available", None
-        if self.disk_key_source is not None:
+        if self.disk_key_source is not None and action_id in self._shown:
             try:
                 state, key = self.disk_key_source()
             except Exception as exc:  # a missing key never blocks the kit; the kit says so instead
@@ -1085,7 +1093,8 @@ class BackupService:
                 finish(ExecResult("failed", f"the key could not be added to every destination: {e}"))
                 return
         previous = self.repo.kit()
-        disk_state, disk_key = self._disk_key(previous)
+        disk_state, disk_key = self._disk_key(previous, a.id)
+        self._shown.discard(a.id)
         now = self.gw.clock()
         ch = challenge(key)
         self.repo.put_kit(KitRow(id="kit", state="issued", fingerprint=key.fingerprint, challenge=ch, issued_at=utc(now),
