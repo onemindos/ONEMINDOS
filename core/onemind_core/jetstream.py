@@ -42,7 +42,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import subjects
-from .natsconf import NODE_ID_RE, OUTBOX_STREAM, node_domain, node_js_api, source_deliver_prefix
+from .natsconf import JOBS_STREAM, NODE_ID_RE, OUTBOX_STREAM, job_consumer, node_domain, node_js_api, source_deliver_prefix
 
 log = logging.getLogger("onemind.jetstream")
 
@@ -132,6 +132,52 @@ async def ensure_hub_source(js, src: HubSource) -> str:
         return "created"
     await js.update_stream(src.config())
     return "updated"
+
+
+# A node's job consumer (D-029 N2). A job is redelivered after JOB_ACK_WAIT_S without an acknowledgement
+# (the node acknowledges as soon as its verifier has recorded the job id, before it runs the job).
+JOB_ACK_WAIT_S = 60
+
+
+@dataclass(frozen=True)
+class NodeJobConsumer:
+    """One node's durable pull consumer on ONEMIND_JOBS (D-029 plan N2): only that node's own
+    `onemind.node.<node_id>.job.>`, one job in flight at a time, explicit acknowledgement (a work queue
+    removes a job once acknowledged). The node reaches only "next" and "ack" of this consumer
+    (natsconf.py job_services). internal/leaf/testdata/node-job-consumer.golden.json is `to_json()` for
+    node aaa111; the Go lab creates the consumer from it."""
+
+    node_id: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.node_id, str) or not NODE_ID_RE.match(self.node_id):
+            raise ValueError(f"node id {self.node_id!r} is not a lowercase id")
+
+    @property
+    def name(self) -> str:
+        return job_consumer(self.node_id)
+
+    @property
+    def filter_subject(self) -> str:
+        return f"onemind.node.{self.node_id}.job.>"
+
+    def to_json(self) -> dict:
+        return {"durable_name": self.name, "filter_subject": self.filter_subject, "deliver_policy": "all",
+                "ack_policy": "explicit", "ack_wait": JOB_ACK_WAIT_S * 10**9, "max_ack_pending": 1,
+                "replay_policy": "instant"}
+
+    def config(self):
+        from nats.js.api import AckPolicy, ConsumerConfig, DeliverPolicy, ReplayPolicy
+
+        return ConsumerConfig(durable_name=self.name, filter_subject=self.filter_subject,
+                              deliver_policy=DeliverPolicy.ALL, ack_policy=AckPolicy.EXPLICIT,
+                              ack_wait=float(JOB_ACK_WAIT_S), max_ack_pending=1, replay_policy=ReplayPolicy.INSTANT)
+
+
+async def ensure_job_consumer(js, c: NodeJobConsumer) -> str:
+    """Create a node's job consumer on ONEMIND_JOBS, or bring it to its config (add_consumer updates)."""
+    await js.add_consumer(JOBS_STREAM, c.config())
+    return "ensured"
 
 
 class JetStreamCapError(ValueError):
@@ -371,6 +417,8 @@ class JetStreamCore:
     # node id -> its hub source stream's state: pending (wanted, not yet on NATS), created, updated,
     # or error: <why> (retried on the next pass). Filled by want_source on join approval (fabric.py).
     sources: dict[str, str] = field(default_factory=dict)
+    # node id -> its job consumer on ONEMIND_JOBS (D-029 N2): "ensured" once made on this connection.
+    jobs: dict[str, str] = field(default_factory=dict)
     _seen: tuple = ()
 
     def __post_init__(self) -> None:
@@ -391,7 +439,8 @@ class JetStreamCore:
         return {"state": self.state, "reason": self.reason,
                 "ensured_at": self.ensured_at.isoformat() if self.ensured_at else None,
                 "results": dict(self.results), "plan": self.plan.to_json() if self.plan else None,
-                "sources": [{"node_id": n, "stream": HubSource(n).name, "state": st}
+                "sources": [{"node_id": n, "stream": HubSource(n).name, "state": st,
+                             "job_consumer": self.jobs.get(n, "pending")}
                             for n, st in sorted(self.sources.items())]}
 
     def want_source(self, node_id: str) -> None:
@@ -410,6 +459,8 @@ class JetStreamCore:
                 continue
             try:
                 self.sources[node_id] = await ensure_hub_source(js, self.plan.hub_source(node_id))
+                if any(st.name == JOBS_STREAM for st in self.plan.streams):  # D-029 N2: its durable job queue
+                    self.jobs[node_id] = await ensure_job_consumer(js, NodeJobConsumer(node_id))
             except Exception as exc:  # NATS refused it or the link dropped: retry on the next pass
                 self.sources[node_id] = f"error: {exc.__class__.__name__}: {exc}"[:300]
                 log.warning("hub source stream for node %s not ensured (%s); retrying", node_id, self.sources[node_id])

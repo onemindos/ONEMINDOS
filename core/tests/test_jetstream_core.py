@@ -129,6 +129,9 @@ class FakeJS:
         self.calls.append(f"update {cfg.name}")
         self.streams[cfg.name] = cfg
 
+    async def add_consumer(self, stream, cfg):  # a node's job consumer (D-029 N2, test_jobs_stream.py)
+        self.calls.append(f"consumer {stream} {cfg.durable_name}")
+
     async def create_key_value(self, cfg):
         self.calls.append(f"kv {cfg.bucket}")
         from nats.js.api import StreamConfig

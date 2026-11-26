@@ -1,0 +1,9 @@
+{
+  "durable_name": "node-aaa111",
+  "filter_subject": "onemind.node.aaa111.job.>",
+  "deliver_policy": "all",
+  "ack_policy": "explicit",
+  "ack_wait": 60000000000,
+  "max_ack_pending": 1,
+  "replay_policy": "instant"
+}
