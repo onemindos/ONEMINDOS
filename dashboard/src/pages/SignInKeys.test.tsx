@@ -3,7 +3,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { SignInKeys } from './SignInKeys';
+import { ApiError } from '../api/types';
+import { keyErrorText, LAST_PROVEN_WARNING, SignInKeys } from './SignInKeys';
 
 const state = vi.hoisted(() => ({ role: 'owner', signOut: vi.fn() }));
 vi.mock('../session', () => ({
@@ -80,7 +81,9 @@ it('a proven key vouches for a new one with a step-up bound to this change', asy
   const calls = gateway(({ method, path, headers }) => {
     if (path === '/v1/auth/passkeys') return method === 'GET' ? [bio] : undefined;
     if (path === '/v1/auth/passkeys/register/options') {
-      if (headers['OneMind-Step-Up'] !== 'grant-1') return Response.json({ error: 'unauthenticated', message: 'needs L2', reason: 'step_up_required' }, { status: 401 });
+      // The hub names the step-up in details; the SDK's shared helper makes it in place.
+      if (headers['OneMind-Step-Up'] !== 'grant-1') return Response.json({ error: 'unauthenticated', message: 'needs L2', reason: 'step_up_required',
+        details: [{ step_up: { op: 'auth.passkeys.register', target: '', body: {}, required_level: 'L2' } }] }, { status: 401 });
       return { challenge_id: 'c', expires_at: '2026-11-25T12:00:00Z', publicKey: { challenge: 'x' } };
     }
     if (path === '/v1/auth/step-up/options') return { challenge_id: 's', expires_at: '2026-11-25T12:00:00Z', required_level: 'L2', grace: false, publicKey: { challenge: 'y' } };
@@ -109,6 +112,36 @@ it('removes a key only after a second click', async () => {
   await user.click(screen.getByRole('button', { name: 'Confirm remove iPhone' }));
   await waitFor(() => expect(removed).toBe(true));
   await waitFor(() => expect(screen.queryByText('iPhone')).toBeNull());
+});
+
+it('warns before the last proven key goes, and a removal confirms with a passkey in place', async () => {
+  let removed = false;
+  const calls = gateway(({ method, path, headers }) => {
+    if (method === 'DELETE' && path === '/v1/auth/passkeys/bio') {
+      if (headers['OneMind-Step-Up'] !== 'grant-2') return Response.json({ error: 'unauthenticated', message: 'confirm it is you', reason: 'step_up_required',
+        details: [{ step_up: { op: 'auth.passkeys.delete', target: 'bio', body: {}, required_level: 'L1' } }] }, { status: 401 });
+      removed = true; return 204;
+    }
+    if (path === '/v1/auth/step-up/options') return { challenge_id: 's', expires_at: '2026-11-25T12:00:00Z', required_level: 'L1', grace: false, publicKey: { challenge: 'z' } };
+    if (path === '/v1/auth/step-up') return { step_up: 'grant-2', expires_at: '2026-11-25T12:02:00Z', level: 'L2' };
+    return ({ '/v1/auth/passkeys': removed ? [phone] : [phone, bio], '/v1/verification-requirements': { ...table, grace: false }, '/v1/auth/authenticator-allowlist': [] } as Record<string, unknown>)[path];
+  });
+  mount();
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Remove Bio key' }));
+  expect(screen.getByRole('alert')).toHaveTextContent(LAST_PROVEN_WARNING);
+  await user.click(screen.getByRole('button', { name: 'Confirm remove Bio key' }));
+  await waitFor(() => expect(removed).toBe(true));
+  expect(calls.find((c) => c.path === '/v1/auth/step-up/options')?.body).toEqual({ op: 'auth.passkeys.delete', target: 'bio', body: {} });
+  // A Device check key is not the last proven key: no warning for it.
+  await user.click(await screen.findByRole('button', { name: 'Remove iPhone' }));
+  expect(screen.queryByRole('alert')).toBeNull();
+});
+
+it('says what to do when a passkey check could not be made, instead of "try again"', () => {
+  expect(keyErrorText(new ApiError(401, 'unauthenticated', 'sign in again', 'step_up_required'))).toMatch(/sign in again with your passkey/);
+  expect(keyErrorText(Object.assign(new Error('x'), { name: 'NotAllowedError' }))).toMatch(/cancelled .* nothing changed/);
+  expect(keyErrorText(new ApiError(409, 'conflict', 'x', 'verification_level_unmet'))).toMatch(/proven key/);
 });
 
 it('an owner asks to trust a key model through Approvals and can stop trusting one', async () => {

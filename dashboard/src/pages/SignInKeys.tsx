@@ -3,17 +3,20 @@
 // Each key shows the level it proves: L1 Device check (any passkey, synced ones included) or L2 Proven key
 // (a device-bound key whose make and model OneMind could prove). Destructive and physical approvals and
 // security settings ask for L2 by default. Adding a key runs the browser's WebAuthn ceremony; once you
-// hold a proven key, adding another needs that key first (a step-up bound to this one change).
-// Removing a key or a trusted model only takes power away, so it happens at once (audited).
+// hold a proven key, adding another needs that key first (a step-up bound to this one change, made in place
+// by the SDK's shared helper: the hub's 401 names it, the browser asks for the key, the request goes again).
+// Removing a key or a trusted model only takes power away: removing a key asks for a fresh passkey check, a
+// trusted model goes at once (both audited). Removing your last proven key is warned about first.
 // Trusting a new key model is an owner action: it waits in Approvals for a proven key.
 // Editing the verification table itself is Settings > Permissions (design PR 16); the API and
 // `onemind permissions verify` already have it.
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { OneMind, OneMindError, type components } from '@onemind/sdk';
 import { Button, Card, PageHeader, StatusPill, Table, VerificationBadge, type VerificationLevel } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import { usePoll } from '../lib/hooks';
-import { createPasskey, getPasskey, webauthnSupported } from '../lib/webauthn';
+import { useGateway } from '../lib/gateway';
+import { createPasskey, webauthnSupported } from '../lib/webauthn';
 import { formatAgo, secondsSince } from '../lib/time';
 import { useSignedIn } from '../session';
 import { Load } from './parts';
@@ -22,8 +25,6 @@ type Key = components['schemas']['Passkey'];
 type Registered = components['schemas']['PasskeyRegistered'];
 type Model = components['schemas']['TrustedModel'];
 type Table_ = components['schemas']['VerificationTable'];
-type StepUpOptions = components['schemas']['StepUpOptions'];
-type StepUpGrant = components['schemas']['StepUpGrant'];
 type Json = Record<string, unknown>;
 
 const UV_METHODS = [
@@ -36,16 +37,18 @@ const strong = (k: { level: string }) => k.level === 'L2' || k.level === 'L3';
 function apiError(e: unknown) {
   return e instanceof OneMindError ? new ApiError(e.status, e.status === 401 ? 'unauthenticated' : e.status === 403 ? 'permission_denied' : e.status === 409 ? 'conflict' : 'unknown', e.message, e.reason) : e;
 }
-async function call<T>(client: OneMind, method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown, headers?: Record<string, string>): Promise<T> {
-  try { return await client.call<T>({ method, path, body, ...(headers ? { headers } : {}) }); } catch (e) { throw apiError(e); }
+async function call<T>(client: OneMind, method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown): Promise<T> {
+  try { return await client.call<T>({ method, path, body }); } catch (e) { throw apiError(e); }
 }
 const ago = (iso: string | null | undefined, now: number) => (iso ? formatAgo(secondsSince(iso, now)) : 'Never');
 
-/** A change that needs L2: sign a challenge for exactly this change, get a single-use grant. */
-async function stepUp(client: OneMind, op: string, body: Json = {}, target = ''): Promise<string> {
-  const o = await call<StepUpOptions>(client, 'POST', '/v1/auth/step-up/options', { op, target, body });
-  const credential = await getPasskey(o.publicKey);
-  return (await call<StepUpGrant>(client, 'POST', '/v1/auth/step-up', { credential })).step_up;
+/** Plain words for why adding or removing a key did not happen. */
+export function keyErrorText(e: unknown): string {
+  if (e instanceof ApiError && e.reason === 'verification_level_unmet') return 'this needs your proven key, and none of your keys is one yet';
+  // The hub named no step-up the page could make in place (an older hub), or the check did not finish.
+  if (e instanceof ApiError && e.reason === 'step_up_required') return 'the hub wants a fresh passkey check that this page could not make. Sign out, sign in again with your passkey, then do this again';
+  if (e instanceof Error && e.name === 'NotAllowedError') return 'the passkey check was cancelled or timed out, so nothing changed';
+  return e instanceof Error ? e.message : String(e);
 }
 
 export function SignInKeys() {
@@ -55,7 +58,7 @@ export function SignInKeys() {
 }
 
 function LiveSignInKeys({ token, owner }: { token: string; owner: boolean }) {
-  const client = useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1 }), [token]);
+  const client = useGateway(token); // with the passkey signer: a step-up the hub names is made in place
   const keys = usePoll(() => call<Key[]>(client, 'GET', '/v1/auth/passkeys'), 0);
   const table = usePoll(() => (owner ? call<Table_>(client, 'GET', '/v1/verification-requirements') : Promise.resolve(undefined)), 0);
   const [label, setLabel] = useState('');
@@ -67,23 +70,14 @@ function LiveSignInKeys({ token, owner }: { token: string; owner: boolean }) {
   const run = async (job: () => Promise<void>, what: string) => {
     setBusy(true); setNote(undefined);
     try { await job(); } catch (e) {
-      const text = e instanceof ApiError && e.reason === 'verification_level_unmet' ? 'this needs your proven key, and none of your keys is one yet'
-        : e instanceof ApiError && e.reason === 'step_up_required' ? 'this needs a fresh passkey check; try again and use your key when asked'
-          : e instanceof Error ? e.message : String(e);
-      setNote({ tone: 'bad', text: `${what}: ${text}` });
+      setNote({ tone: 'bad', text: `${what}: ${keyErrorText(e)}` });
     } finally { setBusy(false); void keys.reload(); void table.reload(); }
   };
 
   const addKey = () => run(async () => {
-    let options: { publicKey: Json };
-    try {
-      options = await call(client, 'POST', '/v1/auth/passkeys/register/options', {});
-    } catch (e) {
-      if (!(e instanceof ApiError && e.reason === 'step_up_required')) throw e;
-      // You hold a proven key: it vouches for the new one (a new device can't vouch for itself).
-      const grant = await stepUp(client, 'auth.passkeys.register');
-      options = await call(client, 'POST', '/v1/auth/passkeys/register/options', {}, { 'OneMind-Step-Up': grant });
-    }
+    // Once you hold a proven key it vouches for the new one first (a new device can't vouch for itself):
+    // the hub names that step-up and the client makes it before the options come back.
+    const options = await call<{ publicKey: Json }>(client, 'POST', '/v1/auth/passkeys/register/options', {});
     const credential = await createPasskey(options.publicKey);
     const r = await call<Registered>(client, 'POST', '/v1/auth/passkeys/register', { credential, label: label.trim() || 'Security key' });
     setLabel('');
@@ -111,7 +105,11 @@ function LiveSignInKeys({ token, owner }: { token: string; owner: boolean }) {
               { key: 'added', header: 'Added', render: (k) => ago(k.created_at, now), secondary: true },
               { key: 'used', header: 'Last used', render: (k) => ago(k.last_used_at, now), secondary: true },
               { key: 'x', header: 'Actions', render: (k) => confirming === k.credential_id
-                ? <Button size="sm" variant="danger" disabled={busy} aria-label={`Confirm remove ${k.label}`} onClick={() => void remove(k)}>Confirm remove</Button>
+                ? <>
+                    {strong(k) && list.filter(strong).length === 1 && <p role="alert" className="om-note om-tone-warn">{LAST_PROVEN_WARNING}</p>}
+                    <Button size="sm" variant="danger" disabled={busy} aria-label={`Confirm remove ${k.label}`} onClick={() => void remove(k)}>Confirm remove</Button>
+                    {' '}<Button size="sm" variant="ghost" disabled={busy} onClick={() => setConfirming(undefined)}>Keep it</Button>
+                  </>
                 : <Button size="sm" variant="ghost" disabled={busy} aria-label={`Remove ${k.label}`} onClick={() => setConfirming(k.credential_id)}>Remove</Button> },
             ]}
           />}
@@ -127,13 +125,16 @@ function LiveSignInKeys({ token, owner }: { token: string; owner: boolean }) {
   </div>;
 }
 
+/** Design 3.11: removing the last proven key is warned about before it happens. */
+export const LAST_PROVEN_WARNING = 'This is your last proven key. Without it you can\'t approve physical actions or turn the motion lockout off until you add another proven key. If no other owner holds one, restores over live data, removing a machine and security settings go back to accepting a Device check key. Add a spare first if you can.';
+
 function TwoKeyNudge({ list, grace }: { list: Key[]; grace?: boolean }) {
   const proven = list.filter(strong).length;
   if (proven >= 2) return null;
   return <Card title={proven === 1 ? 'Add a second proven key' : 'Add two proven keys'} variant="attention">
     <p>
       {proven === 1
-        ? 'You have one proven key. Add a second one (a spare security key, or the OneMind app key) so losing one never locks you out of high-risk approvals.'
+        ? 'You have one proven key. Add a second one (a spare security key of a trusted model) so losing one never locks you out of high-risk approvals.'
         : 'Restoring over live data, removing a machine, physical actions and security settings ask for a proven key. Add two, so losing one is never a lock-out.'}
     </p>
     {grace && <p className="om-hint"><StatusPill tone="warn" label="Until then" /> Those approvals accept a Device check key, so your box keeps working. Physical actions never do.</p>}
