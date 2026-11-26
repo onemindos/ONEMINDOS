@@ -284,3 +284,12 @@ def test_callout_switch_writes_the_block_and_keeps_agents_out_of_the_file(net_se
     assert "auth_callout" in text and f'issuer: "{acct.issuer}"' in text and acct.service in text
     assert pub not in text  # the agent is asked about at connect, never written into the file
     assert (custodian / callout.ISSUER_FILE).stat().st_mode & 0o777 == 0o600
+
+
+def test_callout_with_no_registered_agent_still_wires_the_agents_account():
+    """Found by the NA lab: with the callout on and no agent key yet, AGENTS imports the request service
+    from ONEMIND, so ONEMIND must export it, or nats-server refuses the whole file and the hub is down."""
+    text = render_accounts([], [ServiceKey("gateway", PUB_GW)], 0, [], _callout_account())
+    hub = text.split("  ONEMIND: {", 1)[1].split("\n  }", 1)[0]
+    assert '{service: "onemind.request.agent.>", accounts: ["AGENTS"]}' in hub
+    assert '{service: {account: "AGENTS", subject: "agents.prompt.>"}}' in hub
