@@ -343,3 +343,157 @@ def test_the_request_token_and_the_8_digit_code_never_reach_the_audit_events_or_
     assert published, "the flow publishes events"
     for secret in (token, token[len("omr_"):], good, s["request_code"], "a brand new passphrase"):
         assert secret not in audit and secret not in events and secret not in notices
+
+
+# ---- cancel against complete: the state and the notice always agree (Opus review round 2, #1197) --------
+
+def _waiting_request(rc, clock) -> tuple[str, str]:
+    """A contact-path request whose wait is already over, written straight into the table (so a test can
+    make many of them without the one-a-day rule). Returns (request id, the starter's token)."""
+    import secrets as _secrets
+
+    from sqlalchemy import select as _select
+
+    from onemind_core.identity.models import UserRow
+    from onemind_core.recovery.contacts import token_hash
+    from onemind_core.recovery.requests import REQUEST_TOKEN_PREFIX, RequestRow
+
+    rec = rc.app.state.recoveries
+    owner = rec.ident.repo.one(_select(UserRow).where(UserRow.username == "zeus"))
+    token = REQUEST_TOKEN_PREFIX + _secrets.token_urlsafe(32)
+    now = rec.now()
+    row = RequestRow(id=new_id("rr"), owner_user_id=owner.id, path="contact", state="waiting", created_at=now,
+                     vouched_at=now, vouch_method="code", wait_hours=24, liveness_raised=False,
+                     not_before=now - timedelta(seconds=1), starter_token_hash=token_hash(token),
+                     source="testclient", tries=0, notices_sent=["start", "vouched"])
+    with rec.db.session.begin() as s:
+        s.add(row)
+    return row.id, token
+
+
+def _record_endings(rec) -> list[tuple[str, str]]:
+    """Wrap contacts.tell to record every (event, request id) the module sends."""
+    import threading
+
+    log: list[tuple[str, str]] = []
+    lock = threading.Lock()
+    real = rec.contacts.tell
+
+    def tell(owner_id, event, data, *a, **kw):
+        with lock:
+            log.append((event, data.get("request_id")))
+        return real(owner_id, event, data, *a, **kw)
+
+    rec.contacts.tell = tell
+    return log
+
+
+def _endings_for(log, request_id) -> list[str]:
+    return [e for e, rid in log if rid == request_id and e in ("recovery.request.completed", "recovery.request.cancelled")]
+
+
+def _complete(rc, request_id, token, password):
+    c = TestClient(rc.app)
+    c.headers["Authorization"] = f"Bearer {token}"
+    return c.post(f"/v1/auth/recovery/requests/{request_id}/complete", json={"new_password": password})
+
+
+def _signs_in(rc, password) -> bool:
+    return TestClient(rc.app).post("/v1/auth/login", json={"username": "zeus", "password": password}).status_code == 200
+
+
+def test_a_cancel_read_before_a_completion_cannot_overwrite_it(rc, clock):
+    """The reviewer's interleaving: the cancel reads `waiting`, complete() claims and commits, then the
+    cancel writes. The request stays `completed`, the cancel answers `completed`, no "cancelled" notice."""
+    owner_with_passkey(rc)
+    rec = rc.app.state.recoveries
+    log = _record_endings(rec)
+    rid, token = _waiting_request(rc, clock)
+    stale = rec._get(rid)
+    assert stale.state == "waiting"
+    assert _complete(rc, rid, token, "a brand new passphrase").status_code == 200
+    answer = rec._cancel(stale, "usr_owner")  # the late cancel, on its stale row
+    assert answer["state"] == "completed"
+    assert rec._get(rid).state == "completed" and rec._get(rid).end_reason == "completed"
+    assert _endings_for(log, rid) == ["recovery.request.completed"]
+    assert _signs_in(rc, "a brand new passphrase")
+
+
+def test_a_cancel_that_commits_first_wins_and_the_completion_writes_nothing(rc, clock):
+    owner_with_passkey(rc)
+    rec = rc.app.state.recoveries
+    log = _record_endings(rec)
+    rid, token = _waiting_request(rc, clock)
+    assert rec._cancel(rec._get(rid), "usr_owner")["state"] == "cancelled"
+    r = _complete(rc, rid, token, "a brand new passphrase")
+    assert r.status_code == 409
+    assert rec._get(rid).state == "cancelled"
+    assert _endings_for(log, rid) == ["recovery.request.cancelled"]
+    assert not _signs_in(rc, "a brand new passphrase") and _signs_in(rc, PASSWORD)
+    # A second cancel of the ended request sends nothing more.
+    rec._cancel(rec._get(rid), "usr_owner")
+    rec._cancel(rec._fresh(rec._get(rid)), "usr_other")
+    assert _endings_for(log, rid) == ["recovery.request.cancelled"]
+
+
+def test_an_expiry_or_a_contact_ending_never_overwrites_a_completion(rc, clock):
+    """The other enders are conditional too: _end on a stale row of a completed request changes nothing."""
+    owner_with_passkey(rc)
+    rec = rc.app.state.recoveries
+    log = _record_endings(rec)
+    rid, token = _waiting_request(rc, clock)
+    stale = rec._get(rid)
+    assert _complete(rc, rid, token, "a brand new passphrase").status_code == 200
+    for state, reason in (("cancelled", "contact_ended"), ("expired", "no_contact_in_time"), ("failed", "too_many_tries")):
+        assert rec._end(stale, state, reason, None).state == "completed"
+    assert rec._set(stale, ("waiting",), notices_sent=["tampered"]) is False
+    assert rec._get(rid).state == "completed" and rec._get(rid).notices_sent == ["start", "vouched"]
+    assert _endings_for(log, rid) == ["recovery.request.completed"]
+
+
+def test_cancel_and_complete_run_truly_at_once_and_the_state_and_notice_always_agree(rc, clock):
+    """Two threads, two database sessions (two PostgreSQL connections when ONEMIND_TEST_DB_URL is set),
+    released together by a barrier, many rounds with jitter on both sides. Whatever the order: exactly one
+    ending notice, and it matches the final state, the HTTP answers and whether the new password works."""
+    import random as _random
+    import threading
+    import time
+
+    owner_with_passkey(rc)
+    rec = rc.app.state.recoveries
+    log = _record_endings(rec)
+    rng = _random.Random(1197)
+    outcomes = []
+    for n in range(12):
+        rid, token = _waiting_request(rc, clock)
+        stale = rec._get(rid)  # the cancel's earlier read, as in a real request
+        password = f"round {n} brand new passphrase"
+        barrier = threading.Barrier(2)
+        got: dict = {}
+        delays = (rng.uniform(0, 0.05), rng.uniform(0, 0.4))
+
+        def finish():
+            barrier.wait()
+            time.sleep(delays[0])
+            got["complete"] = _complete(rc, rid, token, password).status_code
+
+        def cancel():
+            barrier.wait()
+            time.sleep(delays[1])
+            got["cancel"] = rec._cancel(stale, "usr_owner")["state"]
+
+        threads = [threading.Thread(target=finish), threading.Thread(target=cancel)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(30)
+        assert not any(t.is_alive() for t in threads)
+        final = rec._get(rid).state
+        endings = _endings_for(log, rid)
+        assert final in ("completed", "cancelled"), final
+        assert endings == [f"recovery.request.{final}"], (final, endings)
+        assert got["cancel"] == final, got
+        assert got["complete"] == (200 if final == "completed" else 409), got
+        assert _signs_in(rc, password) is (final == "completed")
+        outcomes.append(final)
+    assert len(outcomes) == 12
