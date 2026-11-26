@@ -67,6 +67,11 @@ Each of these calls an existing gateway route with your token, takes `--json` (t
 - `onemind update policy show|set`: the app update rules; `set` keeps every value you do not pass.
 - `onemind update apply`: files an `os.update.install` request for the hub (or `--node`), which an owner approves; the box's host service then installs with the health gate and rollback. `--local` is the break-glass path that runs the engine on this machine as root with no approval, and it says so each time. With no box selected, apply refuses unless you pass `--local`. If the box reports it has no host service to install with, apply files nothing and tells you to use `--local` at the box.
 
+### Plugins, data grants, radios
+- `onemind plugins list|show ID|tools ID`, `plugins settings show|set ID --file F`, `plugins host-grants list|request --app APP --kind device|gpu|host-network|realtime --reason TEXT|revoke ID --yes`, `plugins keys list|enroll --name N --key-file public.pem|revoke ID`: settings, host access, and enrolling or revoking a signing key file a request an owner approves; taking a host grant back is direct and owner only.
+- `onemind data grants list|revoke ID --yes`: who may read or write which kind of your data; giving one is a request in `onemind actions`.
+- `onemind radios list|confirm ID --profile P`: say what a found radio is (owner only, never an agent); nothing is opened or sent by confirming.
+
 ## More groups over the gateway
 The same rules: each command calls an existing gateway route, takes `--json`, and never approves anything. A change either files a request that waits for an owner (it prints the request id and `onemind actions approve ID`) or is a direct call the gateway already limits to the right person.
 
