@@ -278,6 +278,23 @@ def test_per_app_sharing(idc):
     assert idc.get("/v1/apps/nope/access").status_code == 404
 
 
+def test_app_access_answers_match_the_documented_schema(idc):
+    """The dashboard's sharing editor reads apps.access.get/set through the generated SDK types (#1214)."""
+    from onemind_core.routers.identity import AppAccess
+
+    setup_owner(idc)
+    guest = enrol(idc, "guest", "gus")
+    gid = guest.get("/v1/me").json()["principal"]["id"]
+    spec = idc.get("/openapi.json").json()
+    for method in ("get", "put"):
+        ok = spec["paths"]["/v1/apps/{app_id}/access"][method]["responses"]["200"]["content"]["application/json"]["schema"]
+        assert ok == {"$ref": "#/components/schemas/AppAccess"}
+    put = idc.put("/v1/apps/whoami/access", json={"roles": ["adult"], "people": [gid]}, headers=csrf(idc))
+    assert AppAccess.model_validate(put.json()).people[0].id == gid
+    assert AppAccess.model_validate(idc.get("/v1/apps/whoami/access").json()).allowed is None  # an owner sees all
+    assert AppAccess.model_validate(guest.get("/v1/apps/whoami/access").json()).allowed is True
+
+
 def test_static_file_principals_keep_v0_behaviour(idc):
     setup_owner(idc)
     assert [a["id"] for a in idc.get("/v1/apps", headers=GUEST).json()]  # file guest: v0, sees the catalog
