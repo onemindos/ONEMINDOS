@@ -28,9 +28,14 @@ const backup: Tip = {
 
 function mount(route: string, tip = market) {
   const fetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
-    const path = new URL(String(url)).pathname;
+    const request = new URL(String(url));
+    const path = request.pathname;
     if (path.startsWith('/v1/tips')) expect(init?.redirect).toBe('error');
     switch (path) {
+      case '/v1/search':
+        return Response.json(request.searchParams.get('q') === 'backup' && request.searchParams.get('types') === 'tip'
+          ? [{ id: backup.id, title: backup.title, provider: 'tips', app_id: 'tips', type: 'tip', link: `onemind://app/tips/${backup.id}` }]
+          : []);
       case '/v1/tips':
         return Response.json({ pack: { version: '0.1.0', source: 'image' }, tips: [market, backup] });
       case '/v1/tips/collections':
@@ -48,6 +53,8 @@ function mount(route: string, tip = market) {
         return Response.json({ state: 'issued' });
       case '/v1/tips/find-an-app':
         return Response.json(tip);
+      case '/v1/tips/check-backups':
+        return Response.json(backup);
       default:
         return Response.json({ error: 'not_found', message: 'Route missing' }, { status: 404 });
     }
@@ -64,6 +71,24 @@ function mount(route: string, tip = market) {
 }
 
 afterEach(() => vi.unstubAllGlobals());
+
+it.each(['global', 'settings'])('opens a matching tip from %s search', async scope => {
+  const { user } = mount(scope === 'global' ? '/' : '/settings/appearance');
+  if (scope === 'global') {
+    await user.keyboard('{Control>}k{/Control}');
+    await user.type(await screen.findByRole('combobox', { name: /Search apps/ }), 'backup');
+    const options = within(await screen.findByRole('group', { name: 'Tips' }));
+    const option = options.getByRole('option');
+    expect(option).toHaveTextContent(backup.title);
+    expect(option).toHaveTextContent('Open');
+    await user.click(option);
+  } else {
+    await user.type(await screen.findByRole('searchbox', { name: 'Search settings' }), 'backup');
+    await user.click(await screen.findByRole('link', { name: 'Open Check backups' }));
+  }
+  expect(await screen.findByText(backup.body)).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Open', exact: true })).toHaveAttribute('href', '/backups');
+});
 
 it('browses collections and searches the loaded pack with / and no further requests', async () => {
   const { fetch, user } = mount('/tips');

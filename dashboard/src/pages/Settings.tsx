@@ -4,7 +4,7 @@
 // Appearance is live (saved per person in this browser until the §12 preferences route lands).
 // A section without a page says which work stream brings its API, instead of showing controls
 // that would do nothing.
-import { lazy, Suspense, useMemo } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { EmptyState, SETTINGS_SECTIONS, SettingsLayout, StateView, type SettingsSectionId } from '@onemind/ui';
 import { SETTINGS_PAGES } from '../screens/registry';
@@ -12,12 +12,15 @@ import { href } from '../shell/routes';
 import { ProOnly } from '../shell/ProOnly';
 import { useShell } from '../shell/Shell';
 import { PRO_SETTINGS } from '../shell/proSettings';
+import { useTipSearch } from '../data/useTipSearch';
 
 const IDS = new Set(SETTINGS_SECTIONS.map((s) => s.id));
 
 export function Settings() {
   const { section } = useParams();
   const { view, role } = useShell();
+  const [query, setQuery] = useState('');
+  const tips = useTipSearch(query);
   const explicit = !!section && IDS.has(section as SettingsSectionId);
   const current = (explicit ? section : 'appearance') as SettingsSectionId;
   const meta = SETTINGS_SECTIONS.find((s) => s.id === current)!;
@@ -47,7 +50,16 @@ export function Settings() {
     );
   }
   return (
-    <SettingsLayout current={current} explicit={explicit} hrefFor={(id) => href.setting(id)} indexHref={href.settings} hidden={view !== 'pro' ? PRO_SETTINGS : role === 'owner' ? undefined : new Set<SettingsSectionId>(['care'])}>
+    <SettingsLayout current={current} explicit={explicit} hrefFor={(id) => href.setting(id)} indexHref={href.settings} hidden={view !== 'pro' ? PRO_SETTINGS : role === 'owner' ? undefined : new Set<SettingsSectionId>(['care'])}
+      onSearch={setQuery}
+      extraSearchResults={tips.length > 0 && <div className="om-set-nav-group" aria-live="polite">
+        <p className="om-set-nav-title">Tips</p>
+        <ul>{tips.map(tip => <li key={tip.id}>
+          <Link className="om-set-nav-link" to={tip.href} aria-label={`Open ${tip.title}`}>
+            <span className="om-set-nav-label">{tip.title}</span> Open
+          </Link>
+        </li>)}</ul>
+      </div>}>
       {body}
     </SettingsLayout>
   );

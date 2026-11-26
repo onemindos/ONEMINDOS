@@ -14,6 +14,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+import yaml
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
@@ -90,6 +91,36 @@ def tc(settings, clock, box):
 def ids(r) -> list[str]:
     assert r.status_code == 200, r.text
     return [t["id"] for t in r.json()["tips"]]
+
+
+def test_search_uses_the_offline_pack_and_respects_role_and_switch(settings, clock, box):
+    entries = Path(__file__).resolve().parents[2] / "tips" / "entries"
+    _, frontmatter, body = (entries / "inspect-backup.md").read_text().split("---", 2)
+    backup = {"id": "inspect-backup", **yaml.safe_load(frontmatter), "body": body.strip()}
+    restricted = tip("backup-owner-guide", "box-health", roles=["owner"])
+    write_pack(box["dir"], {
+        **PACK,
+        "collections": [*PACK["collections"], {"id": "box-health", "title": "Box health"}],
+        "tips": [*PACK["tips"], backup, restricted],
+    })
+    with make_client(with_tips(settings, box), clock) as c:
+        def find(headers, *, types="tip"):
+            response = c.get("/v1/search", params={"q": "backup", "types": types}, headers=headers)
+            assert response.status_code == 200, response.text
+            return {hit["id"]: hit["link"] for hit in response.json()}, response.headers["OneMind-Search-Providers"]
+
+        owner, providers = find(OWNER)
+        assert "tips" in providers.split(",")
+        assert owner == {"inspect-backup": "onemind://app/tips/inspect-backup",
+                         "backup-owner-guide": "onemind://app/tips/backup-owner-guide"}
+        assert find(GUEST)[0] == {"inspect-backup": owner["inspect-backup"]}
+        assert find(AGENT)[0] == {}
+        assert run(c, clock, "app.disable", {"app_id": "tips"}).json()["state"] == "succeeded"
+        hits, providers = find(OWNER, types="tip,page")
+        assert not (hits.keys() & owner.keys())
+        assert "tips" not in providers.split(",") and "settings" in providers.split(",")
+        assert run(c, clock, "app.enable", {"app_id": "tips"}).json()["state"] == "succeeded"
+        assert find(OWNER)[0] == owner
 
 
 # ---- role filter -----------------------------------------------------------------------------------------
