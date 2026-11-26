@@ -156,10 +156,10 @@ it('lets an owner see storage per person and save one limit, in bytes, with no l
   await u.clear(kid);
   await u.type(kid, '2');
   await u.click(within(screen.getByRole('form', { name: 'Limit for kid' })).getByRole('button', { name: 'Save limit' }));
-  await waitFor(() => expect(calls.filter((c) => c.method === 'PUT').map((c) => [c.path, JSON.parse(c.body)])).toEqual([['/v1/files/quotas/kid', { limit_bytes: 2 * 1024 ** 3 }]]));
+  await waitFor(() => expect(calls.filter((c) => c.method === 'PUT').map((c) => [c.path, JSON.parse(c.body)])).toEqual([['/v1/files/quotas/kid', { limit_bytes: 2_000_000_000 }]]));
   await u.clear(screen.getByLabelText('Limit for kid in GB (empty for none)'));
   await u.click(within(screen.getByRole('form', { name: 'Limit for kid' })).getByRole('button', { name: 'Save limit' }));
-  await waitFor(() => expect(calls.filter((c) => c.method === 'PUT').map((c) => JSON.parse(c.body).limit_bytes)).toEqual([2 * 1024 ** 3, null]));
+  await waitFor(() => expect(calls.filter((c) => c.method === 'PUT').map((c) => JSON.parse(c.body).limit_bytes)).toEqual([2_000_000_000, null]));
 });
 
 it('refuses a negative or non-numeric limit before sending it', async () => {
@@ -169,4 +169,39 @@ it('refuses a negative or non-numeric limit before sending it', async () => {
   await u.type(await screen.findByLabelText('Limit for kid in GB (empty for none)'), '-3');
   expect(screen.getByRole('button', { name: 'Save limit' })).toBeDisabled();
   expect(calls.some((c) => c.method === 'PUT')).toBe(false);
+});
+
+it('reads and writes limits in decimal GB, the unit the row and the CLI use', async () => {
+  const calls = mount((c) => {
+    if (c.path === '/v1/files/quotas' && c.method === 'GET') return json([{ person_id: 'kid', root: 'home:kid', limit_bytes: 5_000_000_000, used_bytes: 1 }]);
+    if (c.method === 'PUT') return json({ person_id: 'kid', root: 'home:kid', limit_bytes: JSON.parse(c.body).limit_bytes, used_bytes: 1 });
+    return undefined;
+  });
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Storage limits' }));
+  const field = await screen.findByLabelText('Limit for kid in GB (empty for none)');
+  expect(field).toHaveValue('5');
+  expect(screen.getByText(/of 5.0 GB/)).toBeInTheDocument();
+  await u.clear(field);
+  await u.type(field, '5');
+  await u.click(screen.getByRole('button', { name: 'Save limit' }));
+  await waitFor(() => expect(calls.filter((c) => c.method === 'PUT').map((c) => JSON.parse(c.body).limit_bytes)).toEqual([5_000_000_000]));
+});
+
+it('refuses a limit of 0, which would block every write, and says why', async () => {
+  const calls = mount((c) => (c.path === '/v1/files/quotas' ? json([{ person_id: 'kid', root: 'home:kid', limit_bytes: null, used_bytes: 1 }]) : undefined));
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Storage limits' }));
+  await u.type(await screen.findByLabelText('Limit for kid in GB (empty for none)'), '0');
+  expect(screen.getByRole('button', { name: 'Save limit' })).toBeDisabled();
+  expect(screen.getByRole('alert')).toHaveTextContent(/above 0/);
+  await u.click(screen.getByRole('button', { name: 'Save limit' }));
+  expect(calls.some((c) => c.method === 'PUT')).toBe(false);
+});
+
+it('explains an empty list instead of showing nothing', async () => {
+  mount((c) => (c.path === '/v1/files/quotas' ? json([]) : undefined));
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Storage limits' }));
+  expect(await screen.findByText(/No person has a home space yet/)).toBeInTheDocument();
 });

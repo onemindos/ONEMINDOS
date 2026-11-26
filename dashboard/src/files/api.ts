@@ -32,7 +32,9 @@ export interface Entry { name: string; path: string; type: 'file' | 'dir' | stri
 export interface TrashItem { id: string; trash: 'home' | 'shared'; root: string; path: string; name: string; type: string; size: number; trashed_at: string; purge_at: string }
 export interface Grant { id: string; subject: { kind: string; id: string }; slot: string | null; root: string; path: string; access: string; revoked_at: string | null }
 export interface FileRequest { id: string; type: string; plan: { summary?: string }; risk: string; state: string; reason: string | null; requested_by: { id: string; kind: string }; expires_at: string; plan_sha256: string; deny_reason: string | null }
-/** One space's limit: a person's home, or the shared space (person_id null). limit_bytes null means no limit. */
+/** One space's limit: a person's home, or the shared space (person_id null). limit_bytes null means no limit.
+ *  Hand-written because GET/PUT /v1/files/quotas declare no response_model, so the spec has no schema to
+ *  generate from (the rows are checked at the edge below). Core follow-up: #1278. */
 export interface Quota { person_id: string | null; root: string; limit_bytes: number | null; used_bytes: number }
 export interface Preview { mime: string; kind: string; size: number; inline_safe: boolean; image?: { width: number; height: number } | null; text?: { excerpt: string; truncated: boolean } }
 
