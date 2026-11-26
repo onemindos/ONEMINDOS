@@ -130,3 +130,21 @@ func (a *App) requestWrite(what, method, path string, body any) error {
 }
 
 var _ = http.MethodGet
+
+// jbytes renders a byte count in plain words.
+func jbytes(v any) string {
+	f, ok := v.(float64)
+	if !ok {
+		return "-"
+	}
+	units := []string{"B", "KB", "MB", "GB", "TB"}
+	i := 0
+	for f >= 1000 && i < len(units)-1 {
+		f /= 1000
+		i++
+	}
+	if i == 0 {
+		return fmt.Sprintf("%d B", int64(f))
+	}
+	return fmt.Sprintf("%.1f %s", f, units[i])
+}
