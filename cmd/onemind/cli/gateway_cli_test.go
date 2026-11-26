@@ -517,3 +517,12 @@ func TestBackupRestoreNewFolder(t *testing.T) {
 		t.Fatalf("sent %+v", q)
 	}
 }
+
+// design 25c: `onemind recovery kit` works only on the box (it needs the console key file).
+func TestRecoveryKitNeedsTheBox(t *testing.T) {
+	isolate(t)
+	r := run(t, "", false, "recovery", "kit", "--key-file", t.TempDir()+"/none")
+	if r.code != ExitError || !strings.Contains(r.errOut, "only on the box") {
+		t.Fatalf("%+v", r)
+	}
+}

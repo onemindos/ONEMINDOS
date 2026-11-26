@@ -35,7 +35,14 @@
     <label for="u">Username</label><input id="u" autocomplete="username">
     <label for="p">Password</label><input id="p" type="password" autocomplete="current-password">
     <label for="t">Authenticator code (if set up)</label><input id="t" inputmode="numeric" autocomplete="one-time-code">
-    <button id="pwlogin">Sign in with password</button></section>
+    <button id="pwlogin">Sign in with password</button>
+    <p><a href="#kit" id="kitlink">Can't use your key?</a></p></section>
+  <section id="kit" hidden><h2>Can't use your key?</h2>
+    <p>Your files are still yours: sign in with your password and authenticator code above.</p>
+    <p>Lost every passkey? At the box, press Ctrl+Alt+F3 on a keyboard plugged into it and type the key from your
+      printed emergency kit. The box then shows a one-time code to type here.</p>
+    <label for="kc">Code from the box</label><input id="kc" autocomplete="one-time-code" autocapitalize="characters">
+    <button id="kitbtn">Use the code</button></section>
   <section id="setup"><h2>First owner (new box)</h2>
     <label for="st">Install owner token</label><input id="st" type="password" autocomplete="off">
     <label for="su">Username</label><input id="su" autocomplete="username">
@@ -76,6 +83,10 @@ $("setupbtn").onclick = () => api("/v1/auth/setup", { username: $("su").value, p
   .then(() => { $("st").value = ""; say("Owner account created. Add a passkey now."); refresh(); }, (e) => say(e.message));
 $("enrolbtn").onclick = () => api("/v1/auth/enrol", { code: location.hash.split("enrol=")[1] || "", username: $("eu").value, password: $("ep").value })
   .then(() => { history.replaceState(null, "", location.pathname); $("enrol").hidden = true; say("Account ready. Add a passkey now."); refresh(); }, (e) => say(e.message));
+$("kitlink").onclick = (e) => { e.preventDefault(); $("kit").hidden = false; };
+$("kitbtn").onclick = () => api("/v1/auth/recovery/kit/redeem", { code: $("kc").value })
+  .then(() => { $("kc").value = ""; $("kit").hidden = true; say("Signed in with the code from the box. Add a passkey now."); refresh(); },
+        (e) => say(e.message));
 $("addpk").onclick = async () => {
   try {
     const o = await api("/v1/auth/passkeys/register/options"); const pk = o.publicKey;

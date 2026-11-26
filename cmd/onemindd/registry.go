@@ -20,6 +20,7 @@ var subcommands = map[string]func(args []string) int{
 	"relay":         runRelay,        // net.go: the owner's relay role (NETWORKING.md §4.4)
 	"rescue":        runRescue,       // rescue.go: the rescue console, its own unit (CORE-UPDATE-8)
 	"images":        runImages,       // images.go: superseded-image cleanup + disk budget, its own unit (NMD-08)
+	"recover-owner": runRecoverOwner, // recover_owner.go: owner recovery with the printed kit at the console (25c)
 	// The terminal's shell starts through this hidden mode, which drops every capability first (#273).
 	rescue.ShellHelperCommand: rescue.RunShellHelper,
 }

@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Reviewed false positives for scripts/hygiene.py: <path glob> TAB <regex the whole hit must match> TAB <id in handbook/hygiene.md>
-*	(serial-)?getty@tty[A-Za-z0-9]+\.service	FP-3
+# FP-3 also covers autovt@ttyN.service: the same systemd template unit syntax (logind starts it on a console switch).
+*	(serial-)?(getty|autovt)@tty[A-Za-z0-9]+\.service	FP-3
 *	git@github\.com	FP-5
 *	noreply@anthropic\.com	B-FP-2
 scripts/hygiene.py	/home/[a-z]	B-FP-3

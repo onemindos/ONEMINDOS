@@ -53,6 +53,9 @@ services:
      description: "Shows a 'starting' page on the web address until the gateway is ready to answer."}
   - {unit: onemind-screen.service, name: Box screen, docs: docs/leap/core/IMAGES.md, restartable: true, risk: low, depends_on: [],
      description: "Draws the status screen on a monitor plugged into the box: its address and whether it is healthy."}
+  - {unit: onemind-recovery-console.service, name: Owner recovery console, docs: docs/leap/core/BACKUPS.md, restartable: true, risk: low,
+     depends_on: [onemind-gateway.service],
+     description: "Ctrl+Alt+F3 on a keyboard plugged into the box: type the printed emergency kit key to set a new password or add a new passkey after losing every key. It deletes nothing."}
   - {unit: onemind-kiosk.service, name: Kiosk dashboard, docs: docs/leap/core/IMAGES.md, restartable: true, risk: low, depends_on: [onemind-gateway.service],
      description: "Shows the dashboard full screen on a monitor plugged into the box, in place of the status screen. Runs only when the owner turns kiosk mode on."}
   - {unit: onemind-kiosk-apply.service, name: Kiosk switch, docs: docs/leap/core/IMAGES.md, restartable: false, risk: low,
