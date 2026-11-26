@@ -39,7 +39,11 @@ export function SettingsSecurity() {
   const owner = role === 'owner';
   const response = usePoll(async () => {
     const own = [
-      ['Passkeys', account, summarize(get(sdk, '/v1/auth/passkeys'), count('registered'))],
+      ['Sign-in keys', '/settings/sign-in-keys', summarize(get(sdk, '/v1/auth/passkeys'), (data) => {
+        if (!Array.isArray(data)) return undefined;
+        const proven = data.filter((item) => ['L2', 'L3'].includes(String(object(item).level))).length;
+        return `${data.length} registered · ${proven} proven`;
+      })],
       ['Authenticator code', account, summarize(get(sdk, '/v1/me'), (data) => {
         const totp = object(data).totp;
         return totp === true ? 'Configured' : totp === false ? 'Not configured' : undefined;
