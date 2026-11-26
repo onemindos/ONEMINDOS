@@ -95,7 +95,12 @@ func TestFamilyShowSetAndStepUp(t *testing.T) {
 	stepUp := false
 	g := newRouteGW(t, map[string]func(map[string]any) (int, any){
 		"GET /v1/family/profiles/usr_2": ok(map[string]any{"max_age_rating": 12.0, "blocked_tags": []any{"social"}, "allowed_apps": nil,
-			"timezone": "America/New_York", "windows": []any{map[string]any{"days": []any{"mon", "tue"}, "start_minute": 420.0, "end_minute": 1230.0}}}),
+			"timezone": "America/New_York", "windows": []any{map[string]any{"days": []any{0.0, 1.0}, "start_minute": 420.0, "end_minute": 1230.0},
+				map[string]any{"days": []any{6.0}, "start_minute": 480.0, "end_minute": 540.0}}}),
+		"GET /v1/family/profiles/usr_3": ok(map[string]any{"max_age_rating": 8.0, "blocked_tags": []any{}, "allowed_apps": []any{},
+			"timezone": "UTC", "windows": []any{}}),
+		"GET /v1/family/profiles/usr_4": ok(map[string]any{"max_age_rating": nil, "blocked_tags": []any{}, "allowed_apps": nil,
+			"timezone": "UTC", "windows": nil}),
 		"PUT /v1/family/profiles/usr_2": func(b map[string]any) (int, any) {
 			if stepUp {
 				return 401, map[string]any{"error": "unauthenticated", "reason": "step_up_required", "message": "sign in again"}
@@ -105,7 +110,12 @@ func TestFamilyShowSetAndStepUp(t *testing.T) {
 		"GET /v1/family/apps/chess": ok(map[string]any{"min_age": 6.0, "tags": []any{"games"}}),
 		"PUT /v1/family/apps/chess": func(b map[string]any) (int, any) { return 200, b },
 	})
-	outHas(t, run(t, "", false, "family", "profile", "show", "usr_2").out, "12", "social", "mon, tue 07:00-20:30", "every app that passes")
+	outHas(t, run(t, "", false, "family", "profile", "show", "usr_2").out, "12", "social", "Mon, Tue 07:00-20:30", "Sun 08:00-09:00", "every app that passes")
+	// [] is the opposite of null: every app blocked, no time allowed. Neither may print as "-".
+	r := run(t, "", false, "family", "profile", "show", "usr_3")
+	outHas(t, r.out, "none: every app is blocked", "none: no time is allowed")
+	r = run(t, "", false, "family", "profile", "show", "usr_4")
+	outHas(t, r.out, "every app that passes", "no time limits")
 	outHas(t, run(t, "", false, "family", "app", "show", "chess").out, "6", "games")
 
 	f := filepath.Join(t.TempDir(), "p.json")
@@ -126,7 +136,7 @@ func TestFamilyShowSetAndStepUp(t *testing.T) {
 		t.Fatalf("bad json %+v", r)
 	}
 	stepUp = true
-	r := run(t, "", false, "family", "profile", "set", "usr_2", "--file", f)
+	r = run(t, "", false, "family", "profile", "set", "usr_2", "--file", f)
 	if r.code == 0 || !strings.Contains(r.errOut, "passkey") {
 		t.Fatalf("step-up must be explained: %+v", r)
 	}
@@ -148,4 +158,26 @@ func TestBrowsersOpenCloseReset(t *testing.T) {
 	if len(g.sent("POST", "/v1/browsers/firefox/profile/reset")) != 1 {
 		t.Fatal("reset not filed")
 	}
+}
+
+// The gateway refuses every API token on the browsers routes (core/onemind_core/routers/browsers.py,
+// caller(): ctx.session is None), and an API token is what `onemind login` saves. The CLI must say so in
+// plain words instead of printing a bare 403.
+func TestBrowsersRefusedForAPIToken(t *testing.T) {
+	refuse := func(map[string]any) (int, any) {
+		return 403, map[string]any{"error": "permission_denied", "message": "only a signed-in person opens their own browser"}
+	}
+	g := newRouteGW(t, map[string]func(map[string]any) (int, any){
+		"POST /v1/browsers/firefox/session":       refuse,
+		"POST /v1/browsers/firefox/session/close": refuse,
+		"POST /v1/browsers/firefox/profile/reset": refuse,
+	})
+	for _, args := range [][]string{{"open"}, {"close"}, {"reset-profile"}, {"open", "--json"}} {
+		r := run(t, "", false, append([]string{"browsers", args[0], "firefox"}, args[1:]...)...)
+		if r.code != ExitPermissionDenied {
+			t.Fatalf("%v: exit %d, want %d: %+v", args, r.code, ExitPermissionDenied, r)
+		}
+		outHas(t, r.errOut, "API token", "dashboard or the phone app", "onemind login")
+	}
+	g.neverApproved(t)
 }

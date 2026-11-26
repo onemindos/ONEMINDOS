@@ -67,6 +67,15 @@ Each of these calls an existing gateway route with your token, takes `--json` (t
 - `onemind update policy show|set`: the app update rules; `set` keeps every value you do not pass.
 - `onemind update apply`: files an `os.update.install` request for the hub (or `--node`), which an owner approves; the box's host service then installs with the health gate and rollback. `--local` is the break-glass path that runs the engine on this machine as root with no approval, and it says so each time. With no box selected, apply refuses unless you pass `--local`. If the box reports it has no host service to install with, apply files nothing and tells you to use `--local` at the box.
 
+## More groups over the gateway
+The same rules: each command calls an existing gateway route, takes `--json`, and never approves anything. A change either files a request that waits for an owner (it prints the request id and `onemind actions approve ID`) or is a direct call the gateway already limits to the right person.
+
+### Tokens, secrets, family, browsers
+- `onemind tokens list|create NAME [--agent A] [--scopes s,t] [--days N]|rotate ID [--grace S]|revoke ID --yes`: a new token is printed once.
+- `onemind secrets show APP|public-key|generate APP NAME/KEY|clear APP NAME/KEY`: never shows or sends a value; `generate` and `clear` file a request. Typing a value stays in the dashboard, where the browser seals it.
+- `onemind family profile show|set USER --file F` and `family app show|set APP --file F`: owner only. `show` prints day names, and says plainly when every app or every hour is blocked. A box with passkeys asks for a passkey sign-in on the writes, which the CLI cannot do.
+- `onemind browsers open|close|reset-profile APP`: only for a dashboard or phone sign-in. The box refuses the API token that `onemind login` saves, and the CLI says so.
+
 ## Build and test
 `make -C cmd/onemindd build` builds this tool too (`dist/onemind-linux-{amd64,arm64}`). Tests: `go test ./cmd/onemind/...` (a fake gateway: tables, `--json`, contexts and file modes, the approval flow, exit codes, the bridge); end to end against a live gateway in `core/tests/test_sdk_conformance.py`.
 
