@@ -54,3 +54,5 @@ DELETE /v1/work/projects/{project_id}/members/{person_id}  # removing a member t
 DELETE /v1/work/projects/{project_id}/tasks/{task_id}/comments/{comment_id}  # the second removal sees no comment
 PATCH /v1/work/projects/{project_id}/sections/{section_id}  # sets the name to the stated value, so a repeat changes nothing more
 DELETE /v1/work/projects/{project_id}/sections/{section_id}  # the second removal sees no section
+POST /v1/approval-denies  # the same never (principal and type or tier) again returns the rule already there and adds nothing
+DELETE /v1/approval-denies/{deny_id}  # removing twice: the second finds no rule, answers 404 and changes nothing
