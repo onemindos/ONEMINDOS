@@ -6,6 +6,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { toRoute } from '../../shell/routes';
 import { PermissionsPage } from './PermissionsPage';
 
+const shell = vi.hoisted(() => ({ role: 'owner' as string | undefined }));
 const session = vi.hoisted(() => ({
   token: 'old-session',
   signIn: vi.fn(async () => undefined),
@@ -18,7 +19,7 @@ vi.mock('../../session', () => ({
   useSignedIn: () => ({ token: session.token, signIn: session.signIn, api: { logout: session.logout }, principal: { id: 'u-owner', kind: 'person', role: 'owner' },
     anon: { loginOptions: session.loginOptions, loginPasskey: session.loginPasskey } }),
 }));
-vi.mock('../../shell/Shell', () => ({ useShell: () => ({ role: 'owner' }) }));
+vi.mock('../../shell/Shell', () => ({ useShell: () => ({ role: shell.role }) }));
 vi.mock('../../lib/webauthn', () => ({ webauthnSupported: () => true, getPasskey: vi.fn(async () => ({ id: 'cred' })) }));
 
 type Call = { method: string; path: string; body?: unknown; auth: string | null };
@@ -49,6 +50,7 @@ const page = () => render(
 );
 
 beforeEach(() => {
+  shell.role = 'owner';
   calls = [];
   modes = [mode('*', 'ask'), mode('agent:notes-helper', 'remember')];
   session.signIn.mockClear();
@@ -127,4 +129,29 @@ it('never switches this tab to another person when their passkey is used', async
   expect(session.signIn).not.toHaveBeenCalled();
   expect(calls.filter((c) => c.method === 'PUT')).toHaveLength(1);
   expect(calls.find((c) => c.path === '/v1/auth/logout')?.auth).toBe('Bearer someone-else');
+});
+
+it.each([['adult'], ['child'], [undefined]])('offers a non-owner (%s) only tighter modes and shows the household default as text', async (role) => {
+  shell.role = role;
+  gateway((c) => Response.json(mode(decodeURIComponent(c.path.split('/').pop()!), 'locked')));
+  page();
+  const list = await screen.findByRole('list', { name: 'Permission modes' });
+  expect(screen.queryByLabelText('Mode for Household default')).toBeNull();
+  expect(within(list).getByText('Only the owner changes this.')).toBeVisible();
+  const agent = screen.getByLabelText('Mode for notes-helper');
+  const offered = within(agent).getAllByRole('option').map((o) => o.getAttribute('value'));
+  expect(offered).toEqual(['locked', 'ask', 'remember']); // current is remember: nothing looser
+  expect(within(screen.getByLabelText('Mode for Robin')).getAllByRole('option').map((o) => o.getAttribute('value'))).toEqual(['locked', 'ask']);
+  const user = userEvent.setup();
+  await user.selectOptions(agent, 'locked');
+  expect(screen.getByRole('button', { name: 'Change mode' })).toBeVisible();
+  expect(screen.queryByRole('button', { name: 'Confirm with passkey' })).toBeNull();
+});
+
+it('offers the owner every mode, the household default included', async () => {
+  gateway(() => Response.json({}));
+  page();
+  const select = await screen.findByLabelText('Mode for Household default');
+  expect(within(select).getAllByRole('option').map((o) => o.getAttribute('value'))).toEqual(['locked', 'ask', 'remember', 'auto', 'headless']);
+  expect(within(screen.getByLabelText('Mode for notes-helper')).getAllByRole('option')).toHaveLength(5);
 });
