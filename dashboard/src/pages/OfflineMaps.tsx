@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Storage > Offline maps: the map packs installed for the Offline Maps app (GET /v1/map/packs), how much disk is free
 // for them, and the map sites set up on this box (GET /v1/sites, read only). Taking a pack away only FILES a request
-// (map.pack.remove) that waits in Approvals; nothing is deleted here. Adding a region is `onemind map packs add`.
+// (map.pack.remove) that waits in Approvals; nothing is deleted here. Adding a region is `onemind map packs add` (no region list route yet: #1280).
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { Button, Card, Dialog } from '@onemind/ui';

@@ -10,6 +10,8 @@ import { useSignedIn } from '../session';
 import { Load, TextField, useRun } from './parts';
 
 type Publisher = 'gateway' | 'node' | 'app' | 'agent';
+/** How long a kind is kept, in the largest whole unit that does not round to 0 (30 minutes, not "0 h"). */
+const keptFor = (s: number) => (s < 60 ? `${s} s` : s < 3600 ? `${Math.round(s / 60)} min` : s < 2 * 86400 ? `${Math.round(s / 3600)} h` : `${Math.round(s / 86400)} days`);
 const PUBLISHERS: Publisher[] = ['app', 'agent', 'node', 'gateway'];
 
 export function SettingsSubjects() {
@@ -45,7 +47,7 @@ function LiveSubjects({ token }: { token: string }) {
               <ul aria-label="Message kinds">
                 {t.kinds.map((k) => (
                   <li key={k.kind}>
-                    <strong>{k.kind}</strong>{k.core ? ' (core)' : ''}: {k.description} Kept: {k.retention.policy}{k.retention.max_age_s ? `, up to ${Math.round(k.retention.max_age_s / 3600)} h` : ''}.
+                    <strong>{k.kind}</strong>{k.core ? ' (core)' : ''}: {k.description} Kept: {k.retention.policy}{k.retention.max_age_s ? `, up to ${keptFor(k.retention.max_age_s)}` : ''}.
                     {k.subjects.length > 0 && <> May send: {[...new Set(k.subjects.flatMap((s) => s.publishers))].join(', ')}.</>}
                   </li>
                 ))}

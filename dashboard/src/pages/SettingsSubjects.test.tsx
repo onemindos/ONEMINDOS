@@ -16,12 +16,13 @@ const tree = {
   reserved: [{ kind: 'secret', reason: 'never on the bus' }], envelopes: [], mappings: [],
 };
 
-function mount(check: () => Response = () => json({ subject: 'om.sensor.x', publisher: 'app', ok: true, reason: 'allowed by om.sensor.>', kind: 'sensor', pattern: 'om.sensor.>' })) {
+function mount(check: () => Response = () => json({ subject: 'om.sensor.x', publisher: 'app', ok: true, reason: 'allowed by om.sensor.>', kind: 'sensor', pattern: 'om.sensor.>' }), body: unknown = tree) {
   const calls: string[] = [];
+  const treeNow = body;
   vi.stubGlobal('fetch', vi.fn(async (url: string | URL | Request) => {
     const u = new URL(String(url));
     calls.push(u.pathname + u.search);
-    if (u.pathname === '/v1/subjects') return json(tree);
+    if (u.pathname === '/v1/subjects') return json(treeNow);
     if (u.pathname === '/v1/subjects/check') return check();
     if (u.pathname === '/v1/instance') return json({ name: 'Box', version: '0.1.0', hub_node_id: 'n' });
     return json({ error: 'not_found', message: u.pathname }, 404);
@@ -65,4 +66,18 @@ it('says not allowed with the reason', async () => {
   await u.type(card.getByLabelText('Subject to check'), 'om.node.x');
   await u.click(card.getByRole('button', { name: 'Check' }));
   expect(await card.findByText(/Not allowed: apps may not send on om.node/)).toBeInTheDocument();
+});
+
+it('shows minutes for a kind kept under an hour, and days for a long one, never "0 h"', async () => {
+  const kind = tree.kinds[0]!;
+  mount(undefined, { ...tree, kinds: [
+    { ...kind, kind: 'event', description: 'Short.', retention: { policy: 'limits', max_age_s: 1800 } },
+    { ...kind, kind: 'log', description: 'Long.', retention: { policy: 'limits', max_age_s: 7 * 86400 } },
+  ] });
+  const card = within(await screen.findByRole('article', { name: 'Message subjects' }));
+  await userEvent.setup().click(card.getByText('Who may send which messages (technical)'));
+  const kinds = within(await card.findByRole('list', { name: 'Message kinds' }));
+  expect(kinds.getByText(/up to 30 min/)).toBeInTheDocument();
+  expect(kinds.getByText(/up to 7 days/)).toBeInTheDocument();
+  expect(kinds.queryByText(/up to 0 h/)).not.toBeInTheDocument();
 });
