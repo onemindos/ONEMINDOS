@@ -110,7 +110,7 @@ class Target(BaseModel):
     locations: list[str] = Field(min_length=1, max_length=20)
 
 
-class PolicyBody(BaseModel):
+class PolicyBody(JsonBody):
     model_config = ConfigDict(extra="forbid")
     name: str | None = Field(default=None, max_length=120)
     allow: Allow
@@ -125,7 +125,7 @@ class PolicyBody(BaseModel):
     accept_injection_risk: bool = Field(default=False, description="needs a proven key (L2, design PR 11): refused for now")
 
 
-class PolicyPatch(BaseModel):
+class PolicyPatch(JsonBody):
     """A new revision. Fields left out keep their value. Narrowing applies at once; widening needs a
     fresh passkey (the route asks); either way the revision goes up."""
 
