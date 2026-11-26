@@ -451,7 +451,8 @@ POLICY |= {
     ("GET", "/v1/restores"): Row(HOUSEHOLD, w.p_static("/v1/restores"), f"{_BACKUPS}: household read"),
     ("GET", "/v1/restores/{restore_id}"): Row(HOUSEHOLD_404, w.p_missing("/v1/restores/{restore}"), f"{_BACKUPS}: household read"),
     ("GET", "/v1/backups/kit"): Row(ONLY_OWNER, w.p_static("/v1/backups/kit"), f"{_BACKUPS}: the emergency kit is owner only"),
-    ("POST", "/v1/backups/kit"): Row(OFF_OWNER_ONLY, w.p_static("/v1/backups/kit"), f"{_BACKUPS}: the emergency kit is owner only"),
+    # #1124: the kit is issued even with backups off (a kit without a destination), so the owner gets 201
+    ("POST", "/v1/backups/kit"): Row(grid(201, 403, 403, 403, 403), w.p_static("/v1/backups/kit"), f"{_BACKUPS}: the emergency kit is owner only"),
     ("POST", "/v1/backups/kit/confirm"): Row(OWNER_ONLY_404, w.p_missing("/v1/backups/kit/confirm", json={"answers": {}}),
                                              f"{_BACKUPS}: the emergency kit is owner only"),
     # ---- first-run settings (contract 12.41) ----------------------------------------------------------------
@@ -1180,4 +1181,20 @@ POLICY |= {
         grid(404, 403, 403, 403, 404),
         w.p_missing("/v1/agent-browser/sessions/abs_missing/visit", json={"url": "https://example.org/"}),
         f"{_AB}: owner or agent opens a page in its own session; none exists"),
+}
+
+# ---- desktop apps (#1097, PR #1142: core/onemind_core/routers/desktop_apps.py) and the NATS observer (N3, PR #1135) --
+POLICY |= {
+    ("GET", "/v1/desktop-apps"): Row(OWNER_ONLY, w.p_static("/v1/desktop-apps"),
+                                     "core/onemind_core/routers/desktop_apps.py: owner-only list of desktop apps"),
+    # owner only; no host socket in this world, so the owner's search is refused with 409 (nothing to ask)
+    ("GET", "/v1/desktop-apps/search"): Row({**OWNER_ONLY, "owner": 409}, lambda _w: w.Req("/v1/desktop-apps/search?q=ob"),
+                                            "core/onemind_core/routers/desktop_apps.py: owner-only Flathub search"),
+    ("POST", "/v1/desktop-apps/{app_id}/launch"): Row(
+        cells(403, **GONE, owner=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        lambda _w: w.Req("/v1/desktop-apps/org.example.App/launch", json={}),
+        "core/onemind_core/routers/desktop_apps.py: only the owner launches an installed app on the box"),
+    # owners and adults (audit:read); unlike the audit log, agents get no own-scope view of the bus's sign-ins
+    ("GET", "/v1/fabric/events"): Row({**AUDIT_READ, "agent": 403, "app-agent": 403}, w.p_static("/v1/fabric/events"),
+                                      "core/onemind_core/routers/fabric_events.py: owners and adults (audit:read)"),
 }

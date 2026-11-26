@@ -22,6 +22,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from .executors import ExecResult
+from .jsonbody import JsonBody
 from .storage import StorageClient, StorageTimeout, StorageUnavailable
 
 ACTION = "firewall.allow"
@@ -29,7 +30,7 @@ RULE_ID_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 SCOPE_WORDS = {"lan": "devices on your home network (LAN)", "mesh": "other machines on your OneMind mesh"}
 
 
-class AllowParams(BaseModel):
+class AllowParams(JsonBody):
     """What the owner approves: one port, one protocol, one audience. Nothing wider can be said."""
 
     model_config = ConfigDict(extra="forbid")

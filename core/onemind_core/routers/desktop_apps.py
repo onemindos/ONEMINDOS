@@ -32,20 +32,20 @@ def register(app: FastAPI, gw: Gateway) -> None:
             raise ApiError(403, "permission_denied", "only an owner may manage desktop apps")
         return p
 
-    @app.get("/v1/desktop-apps", tags=["apps"], operation_id="desktop_apps.list", response_model=DesktopAppsView, responses=error_responses(401, 403))
+    @app.get("/v1/desktop-apps", tags=["apps"], operation_id="desktopapps.list", response_model=DesktopAppsView, responses=error_responses(401, 403))
     def desktop_apps_list(p: Principal = Depends(gw.principal)):
         """Whether the box can run Flathub desktop apps, the installed ones (with their folder and whether an
         update is waiting), the sandbox every app gets, and whether the streaming session app is installed."""
         owner(p, "read desktop apps")
         return svc.view()
 
-    @app.get("/v1/desktop-apps/search", tags=["apps"], operation_id="desktop_apps.search", response_model=SearchResult, responses=error_responses(401, 403, 409, 422))
+    @app.get("/v1/desktop-apps/search", tags=["apps"], operation_id="desktopapps.search", response_model=SearchResult, responses=error_responses(401, 403, 409, 422))
     def desktop_apps_search(q: str = Query(min_length=2, max_length=64), p: Principal = Depends(gw.principal)):
         """Flathub apps whose id, name or summary contains `q`, best name matches first (at most 50)."""
         owner(p, "search desktop apps")
         return svc.search(q)
 
-    @app.post("/v1/desktop-apps/{app_id}/launch", tags=["apps"], operation_id="desktop_apps.launch",
+    @app.post("/v1/desktop-apps/{app_id}/launch", tags=["apps"], operation_id="desktopapps.launch",
               response_model=LaunchResult, responses=error_responses(401, 403, 404, 409))
     def desktop_apps_launch(app_id: str, p: Principal = Depends(gw.principal)):
         """Start an installed app in the streaming session. Owner only, audited. It is not an approval:
