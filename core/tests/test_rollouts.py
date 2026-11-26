@@ -43,6 +43,8 @@ def fleet(settings, clock, executor, monkeypatch):
             doc = json.loads(data)
             # D-029 N2: each job is named by its job id, so the hub's job stream stores a retry once.
             assert headers == {"Nats-Msg-Id": doc["job_id"]}
+            # D-029 N7: signed under the live policy epoch, so a newer stop snapshot refuses it
+            assert doc["policy_epoch"] == app.state.gateway.policy.epoch()
             sent.append((subject, doc))
 
         gw_bus.publish_threadsafe = publish

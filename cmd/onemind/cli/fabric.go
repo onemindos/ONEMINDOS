@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -38,6 +39,7 @@ func fabricCommands(a *App) []*cobra.Command {
 		sub("ticket [--hub URL] [--role worker|leaf] [--ttl 15m] [--token T] [--json]", "Mint a one-use join code", fabricTicket),
 		sub("approve ACTION_ID [--hub URL] [--token T]", "Approve a node join request", fabricApprove),
 		sub("status [--hub URL] [--token T] [--json]", "Nodes and pending joins", fabricStatus),
+		sub("policy [--hub URL] [--token T] [--json]", "The signed stop and revoke snapshot every machine enforces, also offline", fabricPolicy),
 		sub("outbox init|status|send", "Leaf node: queue messages for the hub through hub outages", fabricOutbox),
 	)
 	return []*cobra.Command{fab}
@@ -324,6 +326,58 @@ func fabricApprove(args []string, out io.Writer) error {
 		return err
 	}
 	fmt.Fprintf(out, "%s\n", a.State)
+	return nil
+}
+
+// fabricPolicy is `onemind fabric policy`: GET /v1/fabric/policy (D-029 N7), read-only. The switches
+// are `onemind physical lockout` and the agent kill switch.
+func fabricPolicy(args []string, out io.Writer) error {
+	fs := flag.NewFlagSet("fabric policy", flag.ContinueOnError)
+	hub, token := hubAndToken(fs)
+	asJSON := fs.Bool("json", false, "print JSON")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	var v struct {
+		Epoch int `json:"epoch"`
+		Stop  struct {
+			MotionLockout bool `json:"motion_lockout"`
+			Agents        bool `json:"agents"`
+		} `json:"stop"`
+		RevokedKids  []string       `json:"revoked_kids"`
+		AllowedKinds []string       `json:"allowed_kinds"`
+		Published    map[string]int `json:"published"`
+		Error        *string        `json:"error"`
+	}
+	raw := map[string]any{}
+	if err := httpSend(http.MethodGet, strings.TrimSuffix(*hub, "/")+"/v1/fabric/policy", *token, nil, &raw); err != nil {
+		return err
+	}
+	if *asJSON {
+		return printJSON(out, raw)
+	}
+	b, _ := json.Marshal(raw)
+	_ = json.Unmarshal(b, &v)
+	fmt.Fprintf(out, "Epoch %d. Motion lockout: %v. Agents stopped: %v. Revoked job keys: %d.\n",
+		v.Epoch, v.Stop.MotionLockout, v.Stop.Agents, len(v.RevokedKids))
+	nodes := make([]string, 0, len(v.Published))
+	for n := range v.Published {
+		nodes = append(nodes, n)
+	}
+	sort.Strings(nodes)
+	for _, n := range nodes {
+		state := "current"
+		if v.Published[n] != v.Epoch {
+			state = fmt.Sprintf("has epoch %d", v.Published[n])
+		}
+		fmt.Fprintf(out, "  node %s: %s\n", n, state)
+	}
+	switch {
+	case v.Error != nil && v.Epoch == 0: // the gateway cannot read its epoch file: it signs no job until fixed
+		fmt.Fprintf(out, "The gateway signs no job until this is fixed: %s\n", *v.Error)
+	case v.Error != nil:
+		fmt.Fprintf(out, "Not yet on the hub: %s\n", *v.Error)
+	}
 	return nil
 }
 

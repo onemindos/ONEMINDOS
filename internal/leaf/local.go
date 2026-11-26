@@ -86,7 +86,7 @@ var outboxAPI = []string{"$JS.API.STREAM.INFO." + OutboxStream, "$JS.API.STREAM.
 func OnemindUser(nodeID, pub string) LocalUser {
 	p := "onemind.node." + nodeID + "."
 	return LocalUser{Name: LocalOnemindd, Nkey: pub,
-		Publish: append([]string{p + "status", p + "jobresult.>", p + "jobpull",
+		Publish: append([]string{p + "status", p + "jobresult.>", p + "jobpull", p + "policyget",
 			"$JS.ACK.ONEMIND_JOBS.node-" + nodeID + ".>"}, outboxAPI...),
 		Subscribe: []string{InboxPrefix(LocalOnemindd) + ".>"}}
 }

@@ -32,9 +32,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from .actions import FeatureAction
 from .auth import Principal
-from .backups.jobs import gateway_job_key_path, load_or_create_job_key, sign_job_v2
+from .backups.jobs import POLICY_EPOCH, gateway_job_key_path, load_or_create_job_key, sign_job_v2
 from .errors import ApiError
 from .executors import ExecResult
+from .fabric_policy import EpochError
 from .ledger import Base, iso, utc
 from .store import FeatureSchema, SqlRepository
 
@@ -342,8 +343,16 @@ class RolloutService:
             # the fabric join reply hands each machine to pin (job.pub), so a machine trusts one key.
             self._key = load_or_create_job_key(gateway_job_key_path(self.gw.settings))
         # v2: addressed to this one machine (aud), with the key id and policy epoch the machine checks.
+        # The current policy epoch (D-029 N7): a machine refuses this offer once a newer stop or revoke
+        # snapshot exists, so an offer made before "Stop" never runs after it.
+        try:
+            epoch = self.gw.policy.epoch() if getattr(self.gw, "policy", None) is not None else POLICY_EPOCH
+        except EpochError as exc:  # never sign with a guessed epoch: the next pass retries, loudly
+            log.error("update offer to %s not signed: %s", node_id, exc)
+            return False
         job = sign_job_v2(self._key, JOB_KIND, {"version": version, "rollout_id": rid, "node_id": node_id},
-                          self.gw.clock(), node_id=node_id, action_id=action_id, ttl=timedelta(hours=1))
+                          self.gw.clock(), node_id=node_id, action_id=action_id, ttl=timedelta(hours=1),
+                          policy_epoch=epoch)
         # Kept by the hub's ONEMIND_JOBS work queue in this machine's own consumer until it is back
         # (D-029 N2), named by job id so a retried publish is stored once.
         self.gw.bus.publish_threadsafe(job_subject(node_id), json.dumps(job).encode(),

@@ -57,7 +57,8 @@ def test_plan_covers_every_registry_stream_once():
     assert core == {"ONEMIND_AUDIT", "ONEMIND_EVENTS", "ONEMIND_INTEL", "ONEMIND_JOBS", "ONEMIND_JOBRESULTS",
                     "ONEMIND_REQUESTS"}
     assert {b.bucket for b in p.buckets} == {"asset-state", "layer-meta"}
-    assert core | kv | set(jetstream.PER_NODE_STREAMS) == named
+    # ONEMIND_POLICY (D-029 N7) is made by fabric_policy.py with its own config (last per subject, direct get)
+    assert core | kv | set(jetstream.PER_NODE_STREAMS) | set(jetstream.SELF_MANAGED_STREAMS) == named
     assert not core & kv
 
 

@@ -54,7 +54,9 @@ func (s *Signer) Job(node, kind string, params map[string]any, epoch int, now ti
 	}
 	pb, _ := json.Marshal(params)
 	var pv map[string]any
-	_ = json.Unmarshal(pb, &pv)
+	d := json.NewDecoder(bytes.NewReader(pb))
+	d.UseNumber() // integers stay integers (the envelope has no floats)
+	_ = d.Decode(&pv)
 	pc, err := backup.CanonicalJSON(pv)
 	if err != nil {
 		panic(err)
@@ -92,4 +94,19 @@ func (s *Signer) Sign(env map[string]any) []byte {
 	m["sig"] = base64.StdEncoding.EncodeToString(ed25519.Sign(s.Priv, msg))
 	out, _ := json.Marshal(m)
 	return out
+}
+
+// Policy signs an onemind.policy/v1 snapshot for node the way core/onemind_core/fabric_policy.py
+// sign_snapshot does.
+func (s *Signer) Policy(node string, epoch int, motionLockout, agents bool, revoked []string, allowed []string, now time.Time) []byte {
+	if revoked == nil {
+		revoked = []string{}
+	}
+	env := map[string]any{"schema": "onemind.policy/v1", "aud": "node:" + node, "kid": s.Kid, "epoch": epoch,
+		"issued_at": now.UTC().Format(time.RFC3339), "stop": map[string]any{"motion_lockout": motionLockout, "agents": agents},
+		"revoked_kids": revoked, "allowed_kinds": nil}
+	if allowed != nil {
+		env["allowed_kinds"] = allowed
+	}
+	return s.Sign(env)
 }

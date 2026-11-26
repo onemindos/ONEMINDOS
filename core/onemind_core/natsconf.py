@@ -96,6 +96,20 @@ def job_pull_subject(node_id: str) -> str:
     return f"onemind.node.{node_id}.jobpull"
 
 
+POLICY_STREAM = "ONEMIND_POLICY"  # fabric_policy.py: the newest stop and revoke snapshot per machine
+
+
+def policy_get_subject(node_id: str) -> str:
+    """Where a node reads its newest policy snapshot (internal/jobs PolicyGetSubject)."""
+    return f"onemind.node.{node_id}.policyget"
+
+
+def policy_service(node_id: str) -> str:
+    """The one hub service that returns a node's own snapshot: JetStream direct get, last message of
+    its subject (allow_direct on ONEMIND_POLICY). Read-only; a node reads no other node's note."""
+    return f"$JS.API.DIRECT.GET.{POLICY_STREAM}.onemind.node.{node_id}.policy"
+
+
 def job_services(node_id: str) -> tuple[str, str]:
     """The two hub services one node may call: next message, and acknowledge, of its own consumer only.
     The ack subject is the catch-all form under the consumer (`$JS.ACK.<stream>.<consumer>.>`), which
@@ -258,7 +272,8 @@ def render_agents_account(agents: list[AgentUser], callout: bool = False) -> lis
 def _job_imports(node_id: str) -> list[str]:
     nxt, ack = job_services(node_id)
     return [f'      {{service: {{account: "{HUB_ACCOUNT}", subject: "{nxt}"}}, to: "{job_pull_subject(node_id)}"}}',
-            f'      {{service: {{account: "{HUB_ACCOUNT}", subject: "{ack}"}}}}']
+            f'      {{service: {{account: "{HUB_ACCOUNT}", subject: "{ack}"}}}}',
+            f'      {{service: {{account: "{HUB_ACCOUNT}", subject: "{policy_service(node_id)}"}}, to: "{policy_get_subject(node_id)}"}}']
 
 
 # What the hub account may keep in JetStream: file storage only (no memory store: a restart must not
@@ -341,6 +356,8 @@ def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey]
     ]
     if jetstream_max_bytes > 0:  # D-029 N2: each node reads and acknowledges its own job consumer only
         exports += [f'      {{service: "{s}", accounts: ["{n.account}"]}}' for n in nodes for s in job_services(n.node_id)]
+        # D-029 N7: and reads its own stop and revoke snapshot
+        exports += [f'      {{service: "{policy_service(n.node_id)}", accounts: ["{n.account}"]}}' for n in nodes]
     if wire_agents:  # the gateway prompts agents and hears them; agents send requests (static or callout)
         imports += [
             f'      {{service: {{account: "{AGENTS_ACCOUNT}", subject: "agents.prompt.>"}}}}',

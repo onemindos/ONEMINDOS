@@ -29,6 +29,9 @@ type fakeHub struct {
 	queue [][]byte
 	acks  []string
 	pulls []map[string]any
+	// onPull runs while a pull is being answered, before the job goes out (a change on the hub in
+	// between the intake's note read and the job's arrival).
+	onPull func()
 }
 
 func startFake(t *testing.T) (*nats.Conn, *fakeHub) {
@@ -53,6 +56,9 @@ func startFake(t *testing.T) (*nats.Conn, *fakeHub) {
 		_ = json.Unmarshal(m.Data, &req)
 		h.mu.Lock()
 		h.pulls = append(h.pulls, req)
+		if h.onPull != nil {
+			h.onPull()
+		}
 		var body []byte
 		if len(h.queue) > 0 {
 			body, h.queue = h.queue[0], h.queue[1:]
@@ -163,5 +169,117 @@ func TestIntakeNeedsMatchingNodeAndHubErrors(t *testing.T) {
 	}
 	if r := Builtin("n1")["host.check"](context.Background(), backup.Job{}); r.State != StateSucceeded || !strings.Contains(r.Summary, "node-n1") {
 		t.Fatalf("host.check: %+v", r)
+	}
+}
+
+// #1210 review: "a job queued before Stop can never run after it". The stop note reaches the hub while a
+// pre-stop actuating job is already on its way: the intake read epoch 1 before the pull, the hub answers
+// the pull with the old job, and by then it holds epoch 2 with the motion lockout on. The intake reads the
+// note again right before anything actuates, so the job is refused (stale_epoch) and never runs. With no
+// note on the hub at all (404), or the hub's note service gone, an actuating job is refused too, and a
+// read-only job still runs.
+func TestIntakeReadsTheStopNoteAgainRightBeforeAnActuatingJob(t *testing.T) {
+	nc, h := startFake(t)
+	dir := t.TempDir()
+	s, pub, err := jobtest.New(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	var pmu sync.Mutex
+	note := s.Policy("n1", 1, false, false, nil, nil, now)
+	gets := 0
+	sub, err := nc.Subscribe(PolicyGetSubject("n1"), func(m *nats.Msg) {
+		pmu.Lock()
+		body := note
+		gets++
+		pmu.Unlock()
+		out := nats.NewMsg(m.Reply)
+		if body == nil {
+			out.Header.Set("Status", "404")
+		} else {
+			out.Data = body
+		}
+		_ = nc.PublishMsg(out)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reports := map[string]string{}
+	var rmu sync.Mutex
+	if _, err := nc.Subscribe("onemind.node.n1.jobresult.*", func(m *nats.Msg) {
+		var r Report
+		_ = json.Unmarshal(m.Data, &r)
+		rmu.Lock()
+		reports[r.JobID] = r.State + "/" + r.Reason
+		rmu.Unlock()
+	}); err != nil {
+		t.Fatal(err)
+	}
+	ran := map[string]int{}
+	in := &Intake{NC: nc, NodeID: "n1", Verifier: backup.NewNodeJobVerifier("n1", pub, dir),
+		Policy: &PolicyStore{Path: filepath.Join(dir, "policy.json"), NodeID: "n1", PubKeyFile: pub},
+		Handlers: map[string]Handler{
+			"relay.set":  func(context.Context, backup.Job) Result { ran["relay.set"]++; return Result{State: StateSucceeded} },
+			"host.check": func(context.Context, backup.Job) Result { ran["host.check"]++; return Result{State: StateSucceeded} },
+		},
+		Log: slog.New(slog.NewTextHandler(io.Discard, nil)), PollWait: 200 * time.Millisecond}
+	ctx := context.Background()
+
+	// 1. Stop lands while the job is in flight: the pull answer comes after the note changed.
+	pre, preID := s.Job("n1", "relay.set", map[string]any{"on": true}, 1, now, nil)
+	h.queue = [][]byte{pre}
+	stopNote := s.Policy("n1", 2, true, false, nil, nil, now)
+	h.mu.Lock()
+	h.onPull = func() { pmu.Lock(); note = stopNote; pmu.Unlock() } // the gateway published during the pull
+	h.mu.Unlock()
+	if got, err := in.PullOnce(ctx); err != nil || !got {
+		t.Fatalf("pull: %v %v", got, err)
+	}
+	if p := in.Policy.Current(); p == nil || p.Epoch != 2 {
+		t.Fatalf("the second read did not apply the stop note: %+v", p)
+	}
+
+	// 2. No note on the hub for this machine, on a fresh store: actuating refused, read-only runs.
+	pmu.Lock()
+	note = nil
+	pmu.Unlock()
+	h.mu.Lock()
+	h.onPull = nil
+	h.mu.Unlock()
+	in.Policy = &PolicyStore{Path: filepath.Join(dir, "fresh", "policy.json"), NodeID: "n1", PubKeyFile: pub}
+	act, actID := s.Job("n1", "relay.set", nil, 2, now, nil)
+	chk, chkID := s.Job("n1", "host.check", nil, 2, now, nil)
+	h.queue = [][]byte{act, chk}
+	for i := 0; i < 2; i++ {
+		if got, err := in.PullOnce(ctx); err != nil || !got {
+			t.Fatalf("pull %d: %v %v", i, got, err)
+		}
+	}
+
+	// 3. The note service goes away between the pull and the job: fail closed.
+	pmu.Lock()
+	note = s.Policy("n1", 2, false, false, nil, nil, now)
+	pmu.Unlock()
+	gone, goneID := s.Job("n1", "relay.set", nil, 2, now, nil)
+	h.queue = [][]byte{gone}
+	h.mu.Lock()
+	h.onPull = func() { _ = sub.Unsubscribe() }
+	h.mu.Unlock()
+	if got, err := in.PullOnce(ctx); err != nil || !got {
+		t.Fatalf("pull: %v %v", got, err)
+	}
+
+	_ = nc.Flush()
+	time.Sleep(200 * time.Millisecond)
+	if ran["relay.set"] != 0 || ran["host.check"] != 1 {
+		t.Fatalf("handlers ran %v: an actuating job ran", ran)
+	}
+	rmu.Lock()
+	defer rmu.Unlock()
+	for id, want := range map[string]string{preID: "failed/stale_epoch", actID: "failed/no_policy", chkID: "succeeded/", goneID: "failed/policy_unreachable"} {
+		if reports[id] != want {
+			t.Errorf("%s: %q, want %q", id, reports[id], want)
+		}
 	}
 }

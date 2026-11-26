@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -53,6 +54,23 @@ func jobConsumerFor(t *testing.T, nodeID string) jetstream.ConsumerConfig {
 	return c
 }
 
+// policyStream is ONEMIND_POLICY as the gateway makes it (core/onemind_core/fabric_policy.py stream_json).
+func policyStream(t *testing.T) jetstream.StreamConfig {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join("testdata", "policy-stream.golden.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var c jetstream.StreamConfig
+	if err := json.Unmarshal(raw, &c); err != nil {
+		t.Fatal(err)
+	}
+	if c.MaxMsgsPerSubject != 1 || !c.AllowDirect {
+		t.Fatalf("policy stream must keep the last note per machine with direct get: %+v", c)
+	}
+	return c
+}
+
 type jobsLab struct {
 	*sourcingLab
 	hub    jetstream.JetStream
@@ -67,10 +85,16 @@ func newJobsLab(t *testing.T) *jobsLab {
 	t.Helper()
 	// Node A's leaf has local sign-in (local.go): the intake signs in as onemindd, as on a machine.
 	seed, pub := localKey(t, t.TempDir(), LocalOnemindd)
-	l := &jobsLab{sourcingLab: newSourcingLabWith(t, []LocalUser{OnemindUser("aaa111", pub)}), odSeed: seed}
+	return jobsLabOn(t, newSourcingLabWith(t, []LocalUser{OnemindUser("aaa111", pub)}), seed)
+}
+
+// jobsLabOn adds the gateway's job and policy streams to a started lab; odSeed is onemindd's local key.
+func jobsLabOn(t *testing.T, sl *sourcingLab, odSeed string) *jobsLab {
+	t.Helper()
+	l := &jobsLab{sourcingLab: sl, odSeed: odSeed}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	nc, err := nats.Connect(l.hubURL, nats.Timeout(5*time.Second))
+	nc, err := nats.Connect(l.hubURL, append([]nats.Option{nats.Timeout(5 * time.Second)}, l.hubOpts...)...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,6 +105,9 @@ func newJobsLab(t *testing.T) *jobsLab {
 	}
 	if _, err := l.hub.CreateOrUpdateStream(ctx, jobsStream()); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := l.hub.CreateOrUpdateStream(ctx, policyStream(t)); err != nil {
+		t.Fatalf("policy stream: %v", err)
 	}
 	for _, n := range []string{"aaa111", "bbb222"} {
 		if _, err := l.hub.CreateOrUpdateConsumer(ctx, "ONEMIND_JOBS", jobConsumerFor(t, n)); err != nil {
@@ -113,6 +140,22 @@ func (l *jobsLab) publish(t *testing.T, node string, body []byte, id string) {
 	}
 }
 
+// publishKind is publish on the job's own kind subject (onemind.node.<node>.job.<kind>), as the gateway
+// does, so a purge by subject filter (fabric_policy.purge_actuating_jobs) can tell kinds apart.
+func (l *jobsLab) publishKind(t *testing.T, node, kind string, body []byte, id string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	m := nats.NewMsg("onemind.node." + node + ".job." + kind)
+	m.Data = body
+	if id != "" {
+		m.Header.Set(jetstream.MsgIDHeader, id)
+	}
+	if _, err := l.hub.PublishMsg(ctx, m); err != nil {
+		t.Fatalf("publish %s: %v", kind, err)
+	}
+}
+
 func (l *jobsLab) intakeA(t *testing.T, ran *atomic.Int32) *jobs.Intake {
 	t.Helper()
 	nk, err := nats.NkeyOptionFromSeed(l.odSeed)
@@ -126,10 +169,17 @@ func (l *jobsLab) intakeA(t *testing.T, ran *atomic.Int32) *jobs.Intake {
 	}
 	t.Cleanup(nc.Close)
 	return &jobs.Intake{NC: nc, NodeID: "aaa111", Verifier: backup.NewNodeJobVerifier("aaa111", l.pubA, l.stateA),
-		Handlers: map[string]jobs.Handler{"host.check": func(context.Context, backup.Job) jobs.Result {
-			ran.Add(1)
-			return jobs.Result{State: jobs.StateSucceeded, Summary: "ok"}
-		}},
+		Policy: &jobs.PolicyStore{Path: filepath.Join(l.stateA, "policy.json"), NodeID: "aaa111", PubKeyFile: l.pubA},
+		Handlers: map[string]jobs.Handler{
+			"host.check": func(context.Context, backup.Job) jobs.Result {
+				ran.Add(1)
+				return jobs.Result{State: jobs.StateSucceeded, Summary: "ok"}
+			},
+			"relay.set": func(context.Context, backup.Job) jobs.Result { // an actuating kind (stop refuses it)
+				ran.Add(100)
+				return jobs.Result{State: jobs.StateSucceeded, Summary: "switched"}
+			},
+		},
 		Log: slog.New(slog.NewTextHandler(io.Discard, nil)), PollWait: 2 * time.Second, Retry: 200 * time.Millisecond}
 }
 
@@ -312,5 +362,73 @@ func TestJobRefusalsAndNodeIsolation(t *testing.T) {
 	time.Sleep(2 * time.Second)
 	if n := pending(t, l.hub, "node-aaa111"); n != 0 || ran.Load() != 0 {
 		t.Fatalf("a job published by the node itself reached its queue: pending %d ran %d", n, ran.Load())
+	}
+}
+
+// publishPolicy is the gateway publishing node A's newest snapshot (fabric_policy.py PolicyPublisher).
+func (l *jobsLab) publishPolicy(t *testing.T, body []byte) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if _, err := l.hub.Publish(ctx, "onemind.node.aaa111.policy", body); err != nil {
+		t.Fatalf("publish policy: %v", err)
+	}
+}
+
+// D-029 N7: "Stop" pressed while a machine is cut off. On reconnect the machine reads the newest signed
+// snapshot before it takes any queued job: the job signed before the stop is refused (stale epoch), an
+// actuating job signed after it is refused (stopped), a read-only job still runs, and the newest snapshot
+// stays on the machine's disk. (A forged or older snapshot is refused in internal/jobs/policy_test.go;
+// only the gateway can publish into ONEMIND_POLICY.)
+func TestStopSnapshotWinsOverQueuedJobsAfterReconnect(t *testing.T) {
+	t.Parallel()
+	l := newJobsLab(t)
+	results := l.results(t)
+	now := time.Now()
+	l.publishPolicy(t, l.signer.Policy("aaa111", 1, false, false, nil, nil, now))
+	l.relayA.cut()
+	if h := waitHealth(t, l.supA, StateDown, 30*time.Second); h.State == StateUp {
+		t.Fatalf("leaf A still up after the cut: %+v", h)
+	}
+	before, beforeID := l.signer.Job("aaa111", "relay.set", map[string]any{"on": true}, 1, now, nil)
+	l.publish(t, "aaa111", before, beforeID) // queued for the machine before the stop
+	// The owner presses Stop (motion lockout): epoch 2.
+	l.publishPolicy(t, l.signer.Policy("aaa111", 2, true, false, nil, nil, now))
+	afterStop, afterID := l.signer.Job("aaa111", "relay.set", map[string]any{"on": true}, 2, now, nil)
+	check, checkID := l.signer.Job("aaa111", "host.check", nil, 2, now, nil)
+	l.publish(t, "aaa111", afterStop, afterID)
+	l.publish(t, "aaa111", check, checkID)
+
+	var ran atomic.Int32
+	in := l.intakeA(t, &ran)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- in.Run(ctx) }()
+	defer func() { cancel(); <-done }()
+	l.relayA.restore()
+	want := map[string]string{beforeID: "stale_epoch", afterID: "stopped"}
+	defer func() {
+		if t.Failed() {
+			t.Logf("results %+v stats %+v policy %+v", results(), in.Stats(), in.Policy.Current())
+		}
+	}()
+	waitUntil(t, 60*time.Second, "both actuating jobs refused and host.check run", func() bool {
+		got := results()
+		for id, code := range want {
+			if r := last(got[id]); r.State != jobs.StateFailed || r.Reason != code {
+				return false
+			}
+		}
+		return last(got[checkID]).State == jobs.StateSucceeded
+	})
+	if ran.Load() != 1 {
+		t.Fatalf("handlers ran %d (an actuating job ran under the stop)", ran.Load())
+	}
+	if p := in.Policy.Current(); p == nil || p.Epoch != 2 || !p.Stop.MotionLockout {
+		t.Fatalf("snapshot held: %+v", p)
+	}
+	raw, err := os.ReadFile(filepath.Join(l.stateA, "policy.json"))
+	if err != nil || !strings.Contains(string(raw), `"motion_lockout":true`) {
+		t.Fatalf("snapshot not kept on disk: %v %s", err, raw)
 	}
 }

@@ -164,6 +164,7 @@ func (r *cutRelay) restore() {
 
 type sourcingLab struct {
 	hubURL       string
+	hubOpts      []nats.Option // how the gateway signs in to the hub (none on the passwordless lab hub)
 	leafA, leafB string
 	relayA       *cutRelay
 	supA         *Supervisor
@@ -173,15 +174,20 @@ func newSourcingLab(t *testing.T) *sourcingLab { return newSourcingLabWith(t, ni
 
 // newSourcingLabWith starts the lab with local sign-in on node A's leaf (localA, local.go).
 func newSourcingLabWith(t *testing.T, localA []LocalUser) *sourcingLab {
+	return newLabFrom(t, "hub-accounts-jetstream.golden.conf", nil, localA)
+}
+
+// newLabFrom starts the lab on another accounts golden; repl swaps more of its public keys.
+func newLabFrom(t *testing.T, goldenName string, repl []string, localA []LocalUser) *sourcingLab {
 	t.Helper()
 	dir := t.TempDir()
 	seedA, pubA := userKey(t)
 	seedB, pubB := userKey(t)
-	golden, err := os.ReadFile(filepath.Join("testdata", "hub-accounts-jetstream.golden.conf"))
+	golden, err := os.ReadFile(filepath.Join("testdata", goldenName))
 	if err != nil {
 		t.Fatal(err)
 	}
-	acc := strings.NewReplacer(goldenPubA, pubA, goldenPubB, pubB).Replace(string(golden))
+	acc := strings.NewReplacer(append([]string{goldenPubA, pubA, goldenPubB, pubB}, repl...)...).Replace(string(golden))
 	if err := os.WriteFile(filepath.Join(dir, "accounts.conf"), []byte(acc), 0o600); err != nil {
 		t.Fatal(err)
 	}
