@@ -1547,6 +1547,11 @@
             "title": "Challenge",
             "type": "string"
           },
+          "decided_by": {
+            "description": "the verification-table row that set the level",
+            "title": "Decided By",
+            "type": "string"
+          },
           "device_payload": {
             "title": "Device Payload",
             "type": "string"
@@ -1554,6 +1559,10 @@
           "expires_at": {
             "title": "Expires At",
             "type": "string"
+          },
+          "grace": {
+            "title": "Grace",
+            "type": "boolean"
           },
           "plan_sha256": {
             "anyOf": [
@@ -1570,6 +1579,16 @@
             "additionalProperties": true,
             "title": "Publickey",
             "type": "object"
+          },
+          "required_level": {
+            "enum": [
+              "L0",
+              "L1",
+              "L2",
+              "L3"
+            ],
+            "title": "Required Level",
+            "type": "string"
           }
         },
         "required": [
@@ -1578,7 +1597,10 @@
           "plan_sha256",
           "expires_at",
           "device_payload",
-          "publicKey"
+          "publicKey",
+          "required_level",
+          "grace",
+          "decided_by"
         ],
         "title": "ApprovalChallenge",
         "type": "object"
@@ -5364,6 +5386,7 @@
             "enum": [
               "app.disable",
               "app.enable",
+              "authenticator.allowlist.add",
               "data.grant",
               "exposure.mesh",
               "exposure.private",
@@ -5396,7 +5419,8 @@
               "plugin.key.revoke",
               "source.add",
               "source.move",
-              "source.remove"
+              "source.remove",
+              "verification.requirement.set"
             ],
             "title": "Type",
             "type": "string"
@@ -9697,6 +9721,127 @@
         "title": "ParsedLine",
         "type": "object"
       },
+      "Passkey": {
+        "properties": {
+          "aaguid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the authenticator model id (never identifies a person)",
+            "title": "Aaguid"
+          },
+          "attestation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attestation"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "credential_id": {
+            "title": "Credential Id",
+            "type": "string"
+          },
+          "device_bound": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "false for a passkey that syncs between devices",
+            "title": "Device Bound"
+          },
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "level": {
+            "description": "L1 Device check, L2 Proven key, L3 Biometric-only key",
+            "enum": [
+              "L0",
+              "L1",
+              "L2",
+              "L3"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "level_reason": {
+            "description": "no_attestation | synced | model_not_trusted | chain_untrusted | not_biometric_capable | proven | legacy",
+            "title": "Level Reason",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the trusted model name, for a proven key",
+            "title": "Model"
+          },
+          "synced": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Synced"
+          }
+        },
+        "required": [
+          "credential_id",
+          "label",
+          "created_at",
+          "last_used_at",
+          "level",
+          "level_reason",
+          "explanation",
+          "model",
+          "aaguid",
+          "attestation",
+          "device_bound",
+          "synced"
+        ],
+        "title": "Passkey",
+        "type": "object"
+      },
       "PasskeyRegisterBody": {
         "properties": {
           "credential": {
@@ -9733,6 +9878,50 @@
           "credential"
         ],
         "title": "PasskeyRegisterBody",
+        "type": "object"
+      },
+      "PasskeyRegistered": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "credential_id": {
+            "title": "Credential Id",
+            "type": "string"
+          },
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "level": {
+            "enum": [
+              "L0",
+              "L1",
+              "L2",
+              "L3"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "level_reason": {
+            "title": "Level Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "credential_id",
+          "label",
+          "created_at",
+          "level",
+          "level_reason",
+          "explanation"
+        ],
+        "title": "PasskeyRegistered",
         "type": "object"
       },
       "PasswordBody": {
@@ -13143,6 +13332,118 @@
         "title": "StatusView",
         "type": "object"
       },
+      "StepUpBody": {
+        "properties": {
+          "credential": {
+            "additionalProperties": true,
+            "title": "Credential",
+            "type": "object"
+          }
+        },
+        "required": [
+          "credential"
+        ],
+        "title": "StepUpBody",
+        "type": "object"
+      },
+      "StepUpGrant": {
+        "properties": {
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "level": {
+            "enum": [
+              "L0",
+              "L1",
+              "L2",
+              "L3"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "step_up": {
+            "description": "send as the OneMind-Step-Up header on the change, once, within 2 minutes",
+            "title": "Step Up",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step_up",
+          "expires_at",
+          "level"
+        ],
+        "title": "StepUpGrant",
+        "type": "object"
+      },
+      "StepUpOptions": {
+        "properties": {
+          "challenge_id": {
+            "title": "Challenge Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "grace": {
+            "title": "Grace",
+            "type": "boolean"
+          },
+          "publicKey": {
+            "additionalProperties": true,
+            "title": "Publickey",
+            "type": "object"
+          },
+          "required_level": {
+            "enum": [
+              "L0",
+              "L1",
+              "L2",
+              "L3"
+            ],
+            "title": "Required Level",
+            "type": "string"
+          }
+        },
+        "required": [
+          "challenge_id",
+          "expires_at",
+          "required_level",
+          "grace",
+          "publicKey"
+        ],
+        "title": "StepUpOptions",
+        "type": "object"
+      },
+      "StepUpOptionsBody": {
+        "properties": {
+          "body": {
+            "additionalProperties": true,
+            "description": "the request body with every field (defaults filled in)",
+            "title": "Body",
+            "type": "object"
+          },
+          "op": {
+            "description": "the owner route's operation id, e.g. users.update",
+            "maxLength": 64,
+            "title": "Op",
+            "type": "string"
+          },
+          "target": {
+            "default": "",
+            "description": "its path id (user id, app id, ...), or empty",
+            "maxLength": 200,
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "op"
+        ],
+        "title": "StepUpOptionsBody",
+        "type": "object"
+      },
       "StorageActionRequest": {
         "additionalProperties": false,
         "properties": {
@@ -15650,6 +15951,63 @@
         "title": "TrashOp",
         "type": "object"
       },
+      "TrustedModel": {
+        "properties": {
+          "aaguid": {
+            "title": "Aaguid",
+            "type": "string"
+          },
+          "added_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added At"
+          },
+          "biometric": {
+            "title": "Biometric",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "roots": {
+            "title": "Roots",
+            "type": "integer"
+          },
+          "source": {
+            "enum": [
+              "shipped",
+              "owner"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "user_verification": {
+            "items": {
+              "type": "string"
+            },
+            "title": "User Verification",
+            "type": "array"
+          }
+        },
+        "required": [
+          "aaguid",
+          "name",
+          "user_verification",
+          "biometric",
+          "roots",
+          "source",
+          "added_at"
+        ],
+        "title": "TrustedModel",
+        "type": "object"
+      },
       "UpdatePolicyBody": {
         "additionalProperties": false,
         "properties": {
@@ -16120,6 +16478,170 @@
           }
         },
         "title": "UserPatchBody",
+        "type": "object"
+      },
+      "VerificationRow": {
+        "properties": {
+          "current": {
+            "enum": [
+              "L0",
+              "L1",
+              "L2",
+              "L3"
+            ],
+            "title": "Current",
+            "type": "string"
+          },
+          "default": {
+            "enum": [
+              "L0",
+              "L1",
+              "L2",
+              "L3"
+            ],
+            "title": "Default",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "maximum": {
+            "enum": [
+              "L0",
+              "L1",
+              "L2",
+              "L3"
+            ],
+            "title": "Maximum",
+            "type": "string"
+          },
+          "minimum": {
+            "enum": [
+              "L0",
+              "L1",
+              "L2",
+              "L3"
+            ],
+            "title": "Minimum",
+            "type": "string"
+          },
+          "strict": {
+            "description": "never eased while the household has no proven key",
+            "title": "Strict",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "default",
+          "current",
+          "minimum",
+          "maximum",
+          "strict"
+        ],
+        "title": "VerificationRow",
+        "type": "object"
+      },
+      "VerificationTable": {
+        "properties": {
+          "grace": {
+            "description": "no owner has a proven key yet, so L2 rows accept L1 (not strict rows)",
+            "title": "Grace",
+            "type": "boolean"
+          },
+          "household_level": {
+            "anyOf": [
+              {
+                "enum": [
+                  "L0",
+                  "L1",
+                  "L2",
+                  "L3"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the strongest key any owner holds",
+            "title": "Household Level"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/VerificationRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "types": {
+            "description": "per-action-type opt-ins above their tier (type:<action>)",
+            "items": {
+              "$ref": "#/components/schemas/VerificationType"
+            },
+            "title": "Types",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows",
+          "types",
+          "household_level",
+          "grace"
+        ],
+        "title": "VerificationTable",
+        "type": "object"
+      },
+      "VerificationType": {
+        "properties": {
+          "current": {
+            "enum": [
+              "L0",
+              "L1",
+              "L2",
+              "L3"
+            ],
+            "title": "Current",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "maximum": {
+            "enum": [
+              "L0",
+              "L1",
+              "L2",
+              "L3"
+            ],
+            "title": "Maximum",
+            "type": "string"
+          },
+          "minimum": {
+            "enum": [
+              "L0",
+              "L1",
+              "L2",
+              "L3"
+            ],
+            "title": "Minimum",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "current",
+          "minimum",
+          "maximum"
+        ],
+        "title": "VerificationType",
         "type": "object"
       },
       "VerifyBody": {
@@ -21006,6 +21528,142 @@
         ]
       }
     },
+    "/v1/auth/authenticator-allowlist": {
+      "get": {
+        "description": "Key models that can be proven keys (L2). Add one by requesting authenticator.allowlist.add.",
+        "operationId": "auth.trusted_models.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TrustedModel"
+                  },
+                  "title": "Response Auth.Trusted Models.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "actions:approve"
+            ]
+          }
+        ],
+        "summary": "Trusted Models",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/authenticator-allowlist/{aaguid}": {
+      "delete": {
+        "description": "Stop trusting a model you added. Its keys drop to L1 at once; taking trust away needs no step-up.",
+        "operationId": "auth.trusted_models.remove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "aaguid",
+            "required": true,
+            "schema": {
+              "title": "Aaguid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "actions:approve"
+            ]
+          }
+        ],
+        "summary": "Trusted Model Remove",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/v1/auth/enrol": {
       "post": {
         "operationId": "auth.enrol",
@@ -21301,7 +21959,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Passkey"
+                  },
+                  "title": "Response Auth.Passkeys.List",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -21350,7 +22014,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyRegistered"
+                }
               }
             },
             "description": "Successful Response"
@@ -21848,6 +22514,173 @@
           }
         },
         "summary": "Setup",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/step-up": {
+      "post": {
+        "operationId": "auth.step_up.verify",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StepUpBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StepUpGrant"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Step Up Verify",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/step-up/options": {
+      "post": {
+        "description": "A passkey challenge for one owner change that needs L2 or more; only keys at that level answer.",
+        "operationId": "auth.step_up.options",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StepUpOptionsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StepUpOptions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Step Up Options",
         "tags": [
           "auth"
         ]
@@ -42359,6 +43192,55 @@
         "summary": "Disable User",
         "tags": [
           "users"
+        ]
+      }
+    },
+    "/v1/verification-requirements": {
+      "get": {
+        "description": "The level each kind of approval and change needs. Change a row by requesting\nverification.requirement.set (POST /v1/actions); an owner approves it at the table's own level.",
+        "operationId": "verification.requirements.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationTable"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "actions:approve"
+            ]
+          }
+        ],
+        "summary": "Verification Requirements",
+        "tags": [
+          "auth"
         ]
       }
     },

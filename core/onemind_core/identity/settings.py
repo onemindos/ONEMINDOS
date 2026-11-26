@@ -32,6 +32,12 @@ class IdentitySettings:
     approver_key_high_risk: bool = False
     # §12.6 / F-14: role default scopes for sessions. Static-file tokens always keep v0 behaviour.
     enforce_role_scopes: bool = True
+    # D-028 / design 3.11, open question N-1: until any owner has a proven (L2) key, an L2 requirement is
+    # met by an L1 key, and the API says so (`grace`). Off = strict: L2 actions wait for a proven key.
+    # Physical actions, the motion lockout and L3 opt-ins are never eased.
+    l2_grace: bool = True
+    # The authenticator allow-list; empty = the file shipped with the gateway (identity/levels.py).
+    allowlist_file: Path | None = None
     # How recent a passkey sign-in must be for user, passkey and access administration.
     step_up_s: int = 300
     # §12.1: failed logins per source per minute before a back-off.

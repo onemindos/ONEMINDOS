@@ -1,0 +1,448 @@
+# SPDX-License-Identifier: Apache-2.0
+"""Verification levels (D-028; gateway permissions design 3.11, PR 11): attestation at enrolment, the
+level each approval needs, the owner-editable table with its floor, trusted key models, and the
+body-bound step-up for owner changes at L2. Runs the real WebAuthn verification (py_webauthn)."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import struct
+from datetime import UTC, datetime, timedelta
+
+import cbor2
+import pytest
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.x509.oid import NameOID
+from fastapi.testclient import TestClient
+
+from conftest import OWNER, action_body
+from onemind_core.app import create_app
+from onemind_core.identity.crypto import b64url
+from test_identity import (
+    SoftAuthenticator,
+    audit_events,
+    csrf,
+    id_settings,
+    new_session_client,
+    register_passkey,
+    setup_owner,
+)
+
+BIO_AAGUID = "a1b2c3d4-0000-4000-8000-00000000b10e"  # a made-up model id for the test root
+PIN_AAGUID = "a1b2c3d4-0000-4000-8000-0000000000a1"
+AAGUID_OID = x509.ObjectIdentifier("1.3.6.1.4.1.45724.1.1.4")
+
+
+def _name(cn: str, ou: str | None = None) -> x509.Name:
+    attrs = [x509.NameAttribute(NameOID.COUNTRY_NAME, "US"), x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Test")]
+    if ou:
+        attrs.append(x509.NameAttribute(NameOID.ORGANIZATIONAL_UNIT_NAME, ou))
+    return x509.Name([*attrs, x509.NameAttribute(NameOID.COMMON_NAME, cn)])
+
+
+class FakeRoot:
+    """A test attestation CA standing in for a vendor root from FIDO MDS."""
+
+    def __init__(self, cn: str = "Test Attestation Root"):
+        self.key = ec.generate_private_key(ec.SECP256R1())
+        now = datetime.now(UTC)
+        self.cert = (x509.CertificateBuilder().subject_name(_name(cn)).issuer_name(_name(cn))
+                     .public_key(self.key.public_key()).serial_number(x509.random_serial_number())
+                     .not_valid_before(now - timedelta(days=1)).not_valid_after(now + timedelta(days=30))
+                     .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+                     .sign(self.key, hashes.SHA256()))
+        self.pem = self.cert.public_bytes(serialization.Encoding.PEM).decode()
+
+    def leaf(self, key, aaguid: str) -> bytes:
+        now = datetime.now(UTC)
+        ext = x509.UnrecognizedExtension(AAGUID_OID, b"\x04\x10" + bytes.fromhex(aaguid.replace("-", "")))
+        cert = (x509.CertificateBuilder().subject_name(_name("Test Key", "Authenticator Attestation"))
+                .issuer_name(self.cert.subject).public_key(key.public_key())
+                .serial_number(x509.random_serial_number())
+                .not_valid_before(now - timedelta(days=1)).not_valid_after(now + timedelta(days=30))
+                .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+                .add_extension(ext, critical=False).sign(self.key, hashes.SHA256()))
+        return cert.public_bytes(serialization.Encoding.DER)
+
+
+class AttestedAuthenticator(SoftAuthenticator):
+    """A software security key that sends "packed" attestation signed by a test root."""
+
+    def __init__(self, root: FakeRoot | None, aaguid: str = BIO_AAGUID, synced: bool = False,
+                 fmt: str = "packed", claimed_aaguid: str | None = None):
+        super().__init__()
+        self.root, self.aaguid, self.synced, self.fmt = root, aaguid, synced, fmt
+        self.claimed = claimed_aaguid or aaguid  # the AAGUID written into authenticatorData
+        self.att_key = ec.generate_private_key(ec.SECP256R1())
+
+    def register(self, options: dict) -> dict:
+        nums = self.key.public_key().public_numbers()
+        cose = cbor2.dumps({1: 2, 3: -7, -1: 1, -2: nums.x.to_bytes(32, "big"), -3: nums.y.to_bytes(32, "big")})
+        flags = 0x45 | (0x18 if self.synced else 0)  # UP, UV, AT (+ BE, BS when synced)
+        auth_data = (hashlib.sha256(self.rp_id.encode()).digest() + bytes([flags]) + struct.pack(">I", 0)
+                     + bytes.fromhex(self.claimed.replace("-", "")) + struct.pack(">H", len(self.cred_id))
+                     + self.cred_id + cose)
+        cd = self._client_data("webauthn.create", options["publicKey"]["challenge"])
+        if self.fmt == "packed":
+            stmt: dict = {"alg": -7}
+            if self.root is None:  # self attestation: signed by the credential key, proves no model
+                stmt["sig"] = self.key.sign(auth_data + hashlib.sha256(cd).digest(), ec.ECDSA(hashes.SHA256()))
+            else:
+                stmt["sig"] = self.att_key.sign(auth_data + hashlib.sha256(cd).digest(), ec.ECDSA(hashes.SHA256()))
+                stmt["x5c"] = [self.root.leaf(self.att_key, self.aaguid)]
+        else:  # a format py_webauthn does not know (e.g. a newer one): it must still enrol, at L1
+            stmt = {"whatever": b"\x00"}
+        att = cbor2.dumps({"fmt": self.fmt, "attStmt": stmt, "authData": auth_data})
+        return {"id": b64url(self.cred_id), "rawId": b64url(self.cred_id), "type": "public-key",
+                "response": {"clientDataJSON": b64url(cd), "attestationObject": b64url(att), "transports": ["usb"]}}
+
+    def assert_(self, challenge: str, flat: bool = False) -> dict:
+        out = super().assert_(challenge, flat)
+        if self.synced:  # keep BE/BS on every assertion, as a synced passkey does
+            body = out if flat else out["response"]
+            from onemind_core.identity.crypto import unb64url
+
+            ad = bytearray(unb64url(body["authenticatorData"]))
+            ad[32] |= 0x18
+            cd = unb64url(body["clientDataJSON"])
+            body["authenticatorData"] = b64url(bytes(ad))
+            body["signature"] = b64url(self.key.sign(bytes(ad) + hashlib.sha256(cd).digest(), ec.ECDSA(hashes.SHA256())))
+        return out
+
+
+@pytest.fixture
+def root():
+    return FakeRoot()
+
+
+@pytest.fixture
+def lvc(settings, clock, executor, tmp_path, root):
+    """A gateway whose shipped allow-list trusts the test root for a biometric model and a PIN-only one."""
+    allow = tmp_path / "allowlist.json"
+    allow.write_text(json.dumps({"version": 1, "entries": [
+        {"kind": "fido_aaguid", "aaguid": BIO_AAGUID, "name": "Test Bio Key", "roots": [root.pem],
+         "user_verification": ["fingerprint_internal", "passcode_internal"]},
+        {"kind": "fido_aaguid", "aaguid": PIN_AAGUID, "name": "Test PIN Key", "roots": [root.pem],
+         "user_verification": ["passcode_internal"]},
+    ]}))
+    with TestClient(create_app(id_settings(settings, allowlist_file=allow), clock=clock, executor=executor)) as c:
+        add_wipe_type(c)
+        yield c
+
+
+def add_wipe_type(c: TestClient) -> None:
+    """A destructive (T3) feature type, standing in for backup.restore over live data."""
+    from pydantic import BaseModel
+
+    from onemind_core.actions import FeatureAction
+    from onemind_core.executors import ExecResult
+
+    class WipeParams(BaseModel):
+        target: str
+
+    c.app.state.gateway.actions.register_type("test.wipe", FeatureAction(
+        "destructive", lambda a, finish: finish(ExecResult("succeeded", "wiped")), frozenset({"person"}),
+        params_model=WipeParams))
+
+
+def keys(c: TestClient) -> dict:
+    return {k["label"]: k for k in c.get("/v1/auth/passkeys").json()}
+
+
+def add_key(c: TestClient, auth, label: str, grant: str | None = None) -> dict:
+    """Register with a step-up grant when the owner already holds a proven key."""
+    h = {**csrf(c), **({"OneMind-Step-Up": grant} if grant else {})}
+    opts = c.post("/v1/auth/passkeys/register/options", headers=h)
+    assert opts.status_code == 200, opts.text
+    assert opts.json()["publicKey"]["attestation"] == "direct"
+    r = c.post("/v1/auth/passkeys/register", json={"credential": auth.register(opts.json()), "label": label},
+               headers=csrf(c))
+    assert r.status_code == 201, r.text
+    return r.json()
+
+
+def grant(c: TestClient, auth, op: str, target: str = "", body: dict | None = None) -> str:
+    opts = c.post("/v1/auth/step-up/options", json={"op": op, "target": target, "body": body or {}}, headers=csrf(c))
+    assert opts.status_code == 200, opts.text
+    r = c.post("/v1/auth/step-up", json={"credential": auth.assert_(opts.json()["publicKey"]["challenge"])},
+               headers=csrf(c))
+    assert r.status_code == 200, r.text
+    return r.json()["step_up"]
+
+
+def file_action(c: TestClient, clock, type_: str, params: dict, key: str) -> str:
+    r = c.post("/v1/actions", json={**action_body(clock, type_=type_, key=key), "params": params}, headers=csrf(c))
+    assert r.status_code in (201, 202), r.text
+    return r.json()["id"]
+
+
+def approve(c: TestClient, aid: str, auth) -> object:
+    opts = c.post(f"/v1/actions/{aid}/approve-options", headers=csrf(c))
+    if opts.status_code != 200:
+        return opts
+    return c.post(f"/v1/actions/{aid}/approve", json={"webauthn": auth.assert_(opts.json()["challenge"], flat=True)},
+                  headers=csrf(c))
+
+
+# ---- enrolment: what each kind of key proves ------------------------------------------------------
+def test_attested_biometric_key_is_l2_and_a_none_passkey_is_l1(lvc, root, settings):
+    setup_owner(lvc)
+    phone = SoftAuthenticator()  # attestation "none", like an iCloud or Google passkey
+    out = add_key(lvc, phone, "phone")
+    assert out["level"] == "L1" and out["level_reason"] == "no_attestation"
+    assert "can't prove its make and model" in out["explanation"]
+    key = AttestedAuthenticator(root)
+    out = add_key(lvc, key, "bio key")
+    assert out["level"] == "L2" and out["level_reason"] == "proven"
+    listed = keys(lvc)
+    assert listed["bio key"]["model"] == "Test Bio Key" and listed["bio key"]["device_bound"] is True
+    assert listed["phone"]["level"] == "L1" and listed["phone"]["model"] is None
+    ev = [e for e in audit_events(settings) if e["event"] == "auth.passkey.registered"]
+    assert {e["data"]["payload"]["level"] for e in ev} == {"L1", "L2"}
+    # OneMind stores no biometric data: only the model id, format, chain digest, flags and level.
+    assert not any("fingerprint" in json.dumps(e) for e in ev)
+
+
+@pytest.mark.parametrize("make,reason", [
+    (lambda root: AttestedAuthenticator(root, synced=True), "synced"),
+    (lambda root: AttestedAuthenticator(FakeRoot("Someone Else")), "chain_untrusted"),
+    (lambda root: AttestedAuthenticator(root, aaguid=PIN_AAGUID), "not_biometric_capable"),
+    (lambda root: AttestedAuthenticator(root, aaguid="a1b2c3d4-0000-4000-8000-00000000ffff"), "model_not_trusted"),
+    (lambda root: AttestedAuthenticator(None), "no_attestation"),  # packed self attestation
+    (lambda root: AttestedAuthenticator(root, fmt="compound-v9"), "no_attestation"),  # unknown format
+    # a trusted model's certificate, but authenticatorData claims the biometric model
+    (lambda root: AttestedAuthenticator(root, aaguid=PIN_AAGUID, claimed_aaguid=BIO_AAGUID), "chain_untrusted"),
+])
+def test_keys_that_cannot_prove_a_proven_key_still_enrol_at_l1(lvc, root, make, reason):
+    setup_owner(lvc)
+    out = add_key(lvc, make(root), "key")
+    assert (out["level"], out["level_reason"]) == ("L1", reason)
+
+
+# ---- approvals --------------------------------------------------------------------------------------
+def test_grace_until_the_first_proven_key_then_l1_cannot_approve_t3(lvc, root, clock):
+    setup_owner(lvc)
+    phone = SoftAuthenticator()
+    add_key(lvc, phone, "phone")
+    aid = file_action(lvc, clock, "test.wipe", {"target": "photos"}, "t3a")
+    opts = lvc.post(f"/v1/actions/{aid}/approve-options", headers=csrf(lvc)).json()
+    # No proven key yet (open question N-1): L2 is eased to L1, and the answer says so.
+    assert (opts["required_level"], opts["grace"], opts["decided_by"]) == ("L1", True, "tier.T3")
+    bio = AttestedAuthenticator(root)
+    add_key(lvc, bio, "bio")  # the household's first proven key: the grace ends
+    opts = lvc.post(f"/v1/actions/{aid}/approve-options", headers=csrf(lvc)).json()
+    assert (opts["required_level"], opts["grace"]) == ("L2", False)
+    assert [c["id"] for c in opts["publicKey"]["allowCredentials"]] == [b64url(bio.cred_id)]
+    # An L1 key's assertion is refused even if a client offers it anyway.
+    r = lvc.post(f"/v1/actions/{aid}/approve", json={"webauthn": phone.assert_(opts["challenge"], flat=True)},
+                 headers=csrf(lvc))
+    assert r.status_code == 401 and r.json()["reason"] == "step_up_required"
+    assert lvc.get(f"/v1/actions/{aid}").json()["state"] == "awaiting_approval"
+    r = approve(lvc, aid, bio)
+    assert r.status_code == 200, r.text
+    # Everyday approvals stay L1: the phone approves an install.
+    aid2 = file_action(lvc, clock, "app.install", {"app_id": "uptime-kuma"}, "t2a")
+    assert approve(lvc, aid2, phone).status_code == 200
+
+
+def test_owner_with_only_l1_keys_is_told_plainly_when_strict(settings, clock, executor, root, tmp_path):
+    s = id_settings(settings, l2_grace=False)
+    with TestClient(create_app(s, clock=clock, executor=executor)) as c:
+        add_wipe_type(c)
+        setup_owner(c)
+        add_key(c, SoftAuthenticator(), "phone")
+        aid = file_action(c, clock, "test.wipe", {"target": "photos"}, "t3s")
+        r = c.post(f"/v1/actions/{aid}/approve-options", headers=csrf(c))
+        assert r.status_code == 409 and r.json()["reason"] == "verification_level_unmet"
+        assert "proven key" in r.json()["message"]
+
+
+def test_a_synced_attested_key_is_capped_at_l1(lvc, root, clock):
+    setup_owner(lvc)
+    synced = AttestedAuthenticator(root, synced=True)
+    assert add_key(lvc, synced, "synced")["level"] == "L1"
+    bio = AttestedAuthenticator(root)
+    add_key(lvc, bio, "bio", grant=None)
+    aid = file_action(lvc, clock, "test.wipe", {"target": "photos"}, "t3b")
+    opts = lvc.post(f"/v1/actions/{aid}/approve-options", headers=csrf(lvc)).json()
+    assert b64url(synced.cred_id) not in [c["id"] for c in opts["publicKey"]["allowCredentials"]]
+
+
+def test_device_approver_key_cannot_approve_an_l2_action(lvc, root, clock):
+    setup_owner(lvc)
+    add_key(lvc, AttestedAuthenticator(root), "bio")
+    aid = file_action(lvc, clock, "test.wipe", {"target": "photos"}, "t3c")
+    opts = lvc.post(f"/v1/actions/{aid}/approve-options", headers=csrf(lvc)).json()
+    body = {"device_signature": {"key_id": "apk_x", "challenge": opts["challenge"], "signature": "AA"}}
+    r = lvc.post(f"/v1/actions/{aid}/approve", json=body, headers=csrf(lvc))
+    assert r.status_code == 401 and "proven key" in r.json()["message"]
+
+
+# ---- the owner-editable table -----------------------------------------------------------------------
+def test_table_edits_go_through_the_queue_at_l2_and_keep_the_floor(lvc, root, clock, settings):
+    setup_owner(lvc)
+    phone, bio = SoftAuthenticator(), AttestedAuthenticator(root)
+    add_key(lvc, phone, "phone")
+    add_key(lvc, bio, "bio")
+    table = lvc.get("/v1/verification-requirements").json()
+    rows = {r["key"]: r for r in table["rows"]}
+    assert rows["tier.T3"]["current"] == "L2" and rows["tier.P"]["minimum"] == "L2"
+    assert rows["data.access"]["maximum"] == "L1" and table["grace"] is False
+    assert table["household_level"] == "L2"
+    for key, level, reason in [("tier.P", "L1", "below_floor"), ("security.settings", "L1", "below_floor"),
+                               ("verification.table", "L1", "below_floor"), ("data.access", "L2", "above_ceiling"),
+                               ("type:no.such", "L2", "unknown_row")]:
+        r = lvc.post("/v1/actions", json={**action_body(clock, type_="verification.requirement.set", key=key + level),
+                                          "params": {"key": key, "level": level}}, headers=csrf(lvc))
+        assert r.status_code == 422 and r.json()["reason"] == reason, (key, r.text)
+    r = lvc.post("/v1/actions", json={**action_body(clock, type_="verification.requirement.set", key="l3"),
+                                      "params": {"key": "type:backup.restore", "level": "L3"}}, headers=csrf(lvc))
+    assert r.status_code == 409 and r.json()["reason"] == "level_unreachable"
+    # Lowering T3 to L1 (N-3 = a) is allowed, but only an L2 key approves the change.
+    aid = file_action(lvc, clock, "verification.requirement.set", {"key": "tier.T3", "level": "L1"}, "edit1")
+    assert lvc.post(f"/v1/actions/{aid}/approve-options", headers=csrf(lvc)).json()["required_level"] == "L2"
+    r = approve(lvc, aid, phone)
+    assert r.status_code == 401
+    assert approve(lvc, aid, bio).status_code == 200
+    rows = {r["key"]: r for r in lvc.get("/v1/verification-requirements").json()["rows"]}
+    assert rows["tier.T3"]["current"] == "L1"
+    ev = [e for e in audit_events(settings) if e["event"] == "verification.requirement.changed"]
+    assert ev and {"key": "tier.T3", "from": "L2", "to": "L1"}.items() <= ev[-1]["data"]["payload"].items()
+    # A per-type opt-in only raises: app.install now needs the proven key.
+    aid = file_action(lvc, clock, "verification.requirement.set", {"key": "type:app.install", "level": "L2"}, "edit2")
+    assert approve(lvc, aid, bio).status_code == 200
+    aid = file_action(lvc, clock, "app.install", {"app_id": "uptime-kuma"}, "inst")
+    opts = lvc.post(f"/v1/actions/{aid}/approve-options", headers=csrf(lvc)).json()
+    assert (opts["required_level"], opts["decided_by"]) == ("L2", "type:app.install")
+
+
+def test_only_owners_read_and_request_table_changes(lvc, clock):
+    setup_owner(lvc)
+    r = lvc.post("/v1/users", json={"display_name": "A", "role": "adult"}, headers=csrf(lvc))
+    code = r.json()["one_time"]["enrolment_code"]
+    adult = new_session_client(lvc)
+    adult.post("/v1/auth/enrol", json={"code": code, "username": "ana", "password": "correct horse battery"})
+    assert adult.get("/v1/verification-requirements").status_code == 403
+    r = adult.post("/v1/actions", json={**action_body(clock, type_="verification.requirement.set", key="x"),
+                                        "params": {"key": "tier.T1", "level": "L2"}}, headers=csrf(adult))
+    assert r.status_code == 403
+    assert adult.get("/v1/auth/authenticator-allowlist").status_code == 403
+
+
+# ---- trusted key models -------------------------------------------------------------------------------
+def test_owner_adds_a_trusted_model_at_l2_and_removing_it_drops_keys_to_l1(settings, clock, executor, root):
+    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor)) as c:
+        setup_owner(c)
+        bio = AttestedAuthenticator(root)
+        assert add_key(c, bio, "bio")["level_reason"] == "model_not_trusted"  # nothing shipped yet
+        params = {"aaguid": BIO_AAGUID, "name": "Test Bio Key", "roots": [root.pem],
+                  "user_verification": ["fingerprint_internal"]}
+        bad = c.post("/v1/actions", json={**action_body(clock, type_="authenticator.allowlist.add", key="bad"),
+                                          "params": {**params, "roots": [_leaf_pem(root)]}}, headers=csrf(c))
+        assert bad.status_code == 422 and bad.json()["reason"] == "invalid_root"
+        aid = file_action(c, clock, "authenticator.allowlist.add", params, "m1")
+        assert approve(c, aid, bio).status_code == 200  # grace: nobody holds a proven key yet
+        models = c.get("/v1/auth/authenticator-allowlist").json()
+        assert models[0]["source"] == "owner" and models[0]["biometric"] is True
+        bio2 = AttestedAuthenticator(root)
+        assert add_key(c, bio2, "bio2")["level"] == "L2"
+        assert keys(c)["bio"]["level"] == "L1"  # enrolled before the model was trusted
+        assert c.delete(f"/v1/auth/authenticator-allowlist/{BIO_AAGUID}", headers=csrf(c)).status_code == 204
+        listed = keys(c)["bio2"]
+        assert (listed["level"], listed["level_reason"]) == ("L1", "model_not_trusted")
+
+
+def _leaf_pem(root: FakeRoot) -> str:
+    der = root.leaf(ec.generate_private_key(ec.SECP256R1()), BIO_AAGUID)
+    return x509.load_der_x509_certificate(der).public_bytes(serialization.Encoding.PEM).decode()
+
+
+# ---- body-bound step-up for owner changes (gap 20) ------------------------------------------------------
+def test_security_setting_with_an_l1_key_needs_a_body_bound_l2_step_up(lvc, root):
+    setup_owner(lvc)
+    phone, bio = SoftAuthenticator(), AttestedAuthenticator(root)
+    add_key(lvc, phone, "phone")
+    add_key(lvc, bio, "bio")
+    share = {"roles": ["guest"], "people": [], "auth": None}
+    # A fresh passkey sign-in (the 5-minute window) is not enough for an L2 row.
+    r = lvc.put("/v1/apps/uptime-kuma/access", json=share, headers=csrf(lvc))
+    assert r.status_code == 401 and r.json()["reason"] == "step_up_required" and "L2" in r.json()["message"]
+    # The phone can't even start the step-up: only proven keys are offered.
+    opts = lvc.post("/v1/auth/step-up/options", json={"op": "apps.access.set", "target": "uptime-kuma", "body": share},
+                    headers=csrf(lvc)).json()
+    assert [k["id"] for k in opts["publicKey"]["allowCredentials"]] == [b64url(bio.cred_id)]
+    r = lvc.post("/v1/auth/step-up", json={"credential": phone.assert_(opts["publicKey"]["challenge"])},
+                 headers=csrf(lvc))
+    assert r.status_code == 401
+    # A grant made for a different body is refused, and a grant is single use.
+    other = grant(lvc, bio, "apps.access.set", "uptime-kuma", {**share, "roles": ["child"]})
+    r = lvc.put("/v1/apps/uptime-kuma/access", json=share, headers={**csrf(lvc), "OneMind-Step-Up": other})
+    assert r.status_code == 401
+    g = grant(lvc, bio, "apps.access.set", "uptime-kuma", share)
+    assert lvc.put("/v1/apps/uptime-kuma/access", json=share, headers={**csrf(lvc), "OneMind-Step-Up": g}).status_code == 200
+    share2 = {"roles": ["guest", "child"], "people": [], "auth": None}
+    r = lvc.put("/v1/apps/uptime-kuma/access", json=share2, headers={**csrf(lvc), "OneMind-Step-Up": g})
+    assert r.status_code == 401
+
+
+def test_adding_a_key_needs_a_proven_key_once_one_exists(lvc, root, clock):
+    setup_owner(lvc)
+    bio = AttestedAuthenticator(root)
+    add_key(lvc, bio, "bio")
+    r = lvc.post("/v1/auth/passkeys/register/options", headers=csrf(lvc))
+    assert r.status_code == 401 and r.json()["reason"] == "step_up_required"
+    add_key(lvc, SoftAuthenticator(), "phone", grant=grant(lvc, bio, "auth.passkeys.register"))
+
+
+def test_the_motion_lockout_stays_strict_without_a_proven_key(lvc):
+    setup_owner(lvc)
+    add_key(lvc, SoftAuthenticator(), "phone")
+    r = lvc.put("/v1/physical/lockout", json={"locked": False, "reason": None}, headers=csrf(lvc))
+    assert r.status_code == 401 and r.json()["reason"] == "step_up_required"
+    r = lvc.post("/v1/auth/step-up/options", json={"op": "physical.lockout.set", "body": {"locked": False, "reason": None}},
+                 headers=csrf(lvc))
+    assert r.status_code == 409 and r.json()["reason"] == "verification_level_unmet"
+
+
+def test_grace_keeps_l1_owner_changes_working_and_says_so(lvc, settings):
+    setup_owner(lvc)
+    add_key(lvc, SoftAuthenticator(), "phone")  # fresh passkey proof on this session
+    assert lvc.post("/v1/users", json={"display_name": "B", "role": "adult"}, headers=csrf(lvc)).status_code == 201
+    assert lvc.get("/v1/verification-requirements").json()["grace"] is True
+
+
+def test_the_session_records_which_key_stepped_up(lvc, root):
+    setup_owner(lvc)
+    bio = AttestedAuthenticator(root)
+    add_key(lvc, bio, "bio")
+    other = new_session_client(lvc)
+    opts = other.post("/v1/auth/login/options").json()
+    assert other.post("/v1/auth/login", json={"passkey": bio.assert_(opts["publicKey"]["challenge"])}).status_code == 200
+    svc = lvc.app.state.identity
+    from sqlalchemy import select
+
+    from onemind_core.identity.models import SessionRow
+
+    rows = svc.repo.all(select(SessionRow).where(SessionRow.auth_method == "passkey"))
+    assert [r.step_up_credential_id for r in rows] == [b64url(bio.cred_id)]
+
+
+def test_shipped_allowlist_is_valid_and_empty_until_the_mds_seed():
+    from onemind_core.identity import levels as lv
+
+    doc = json.loads(lv.SHIPPED_ALLOWLIST.read_text())
+    assert doc["version"] == 1 and doc["entries"] == []
+    assert lv.load_file(lv.SHIPPED_ALLOWLIST) == []
+
+
+def test_every_step_up_row_and_type_row_is_a_real_row():
+    from onemind_core.identity import levels as lv
+
+    assert set(lv.STEP_UP_ROWS.values()) <= set(lv.ROWS)
+    assert set(lv.TYPE_ROWS.values()) <= set(lv.ROWS)
+    for key, row in lv.ROWS.items():
+        assert lv.rank(row.minimum) <= lv.rank(row.default) <= lv.rank(row.maximum), key
+    assert lv.ROWS["data.access"].maximum == "L1"  # data access never depends on a strong key (B-4)
