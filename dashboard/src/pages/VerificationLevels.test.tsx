@@ -6,8 +6,10 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { OneMindError } from '@onemind/sdk';
 import { offeredLevels, ownWaiting, requestErrorText, VerificationLevels, waitingChanges } from './VerificationLevels';
 
-const state = vi.hoisted(() => ({ role: 'owner', signOut: vi.fn() }));
-vi.mock('../session', () => ({ useSignedIn: () => ({ token: 'fixture', mock: false, principal: { id: 'zeus', kind: 'person', role: state.role }, signOut: state.signOut }), useSession: () => ({ signOut: state.signOut }) }));
+const state = vi.hoisted(() => ({ role: 'owner' as string | undefined, signOut: vi.fn() }));
+// The shape a real gateway gives: no principal on the session, the account from GET /v1/me, the role from the shell.
+vi.mock('../session', () => ({ useSignedIn: () => ({ token: 'fixture', mock: false, principal: undefined, account: { id: 'zeus', kind: 'person', role: state.role }, signOut: state.signOut }), useSession: () => ({ signOut: state.signOut }) }));
+vi.mock('../shell/Shell', () => ({ useShell: () => ({ role: state.role }) }));
 vi.mock('../lib/webauthn', () => ({ getPasskey: vi.fn() }));
 vi.mock('../lib/boxcode', () => ({ askBoxCode: vi.fn() }));
 afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks(); state.role = 'owner'; });
@@ -134,6 +136,15 @@ it('tells a non-owner the table is the owner\'s and reads nothing', async () => 
   const calls = gateway(() => undefined);
   mount();
   expect(screen.getByRole('status')).toHaveTextContent('Only an owner');
+  expect(calls).toEqual([]);
+});
+
+it('waits for the role from GET /v1/me instead of refusing the owner, and reads nothing yet', () => {
+  state.role = undefined;
+  const calls = gateway(() => undefined);
+  mount();
+  expect(screen.getByRole('status')).toHaveTextContent('Checking who is signed in');
+  expect(screen.queryByText(/Only an owner/)).toBeNull();
   expect(calls).toEqual([]);
 });
 
