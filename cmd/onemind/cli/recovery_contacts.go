@@ -13,7 +13,10 @@ import (
 	onemind "github.com/onemindos/onemindos/sdk/go"
 )
 
-// recoveryCommands is `onemind recovery` (gateway permissions design 25d, D-028): the people who can
+// recoveryCommands is `onemind recovery` (gateway permissions design 25d, D-028). Merge note: PR #1194 (25c)
+// also defines recoveryCommands (with the at-the-box `kit` subcommand) in recovery.go; whichever lands second
+// keeps one root and adds the other's subcommands to it, so `onemind recovery` stays one command group.
+// It covers the people who can
 // help a locked-out owner get back in. Adding a contact is a security setting (owner, signed-in
 // session, passkey step-up); removing one takes power away and needs no step-up. A contact never
 // sees or approves anything: they only confirm, later, that a recovery really is the owner.
