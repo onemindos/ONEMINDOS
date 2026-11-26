@@ -63,6 +63,8 @@ export function explain(e: unknown): string {
       return 'This needs a proven hardware key, which is not available yet. Approve the request once instead.';
     case 'mode_ignores_rules':
       return 'This requester is on Locked or Always ask, which ignore rules. Change its mode first.';
+    case 'passkey_other_account':
+      return err.message;
     case 'bypass_not_built':
       return 'Bypass in a sandbox is not available yet.';
   }
@@ -75,7 +77,7 @@ export function explain(e: unknown): string {
  * ceremony as the sign-in page), switches this tab to that session and sends the change once more.
  */
 export function useStepUp() {
-  const { anon, signIn, api } = useSignedIn();
+  const { anon, signIn, principal } = useSignedIn();
   return useCallback(async <T,>(fn: (sdk: OneMind) => Promise<T>, sdk: OneMind): Promise<T> => {
     try {
       return await fn(sdk);
@@ -84,17 +86,22 @@ export function useStepUp() {
       if (!webauthnSupported()) throw new ApiError(401, 'unauthenticated', 'This needs a passkey, and this browser cannot use one. Use a browser with your passkey.', 'step_up_required');
       const options = await anon.loginOptions();
       const result = await anon.loginPasskey(await getPasskey(options.publicKey));
-      const previous = api;
-      await signIn(result.access_token);
-      void previous.logout().catch(() => undefined); // the session the passkey replaced
       const fresh = new OneMind({ baseUrl: window.location.origin, token: result.access_token, retries: 1 });
+      if (principal?.id && result.principal?.id !== principal.id) {
+        // Someone else's passkey: never switch this tab to another person's session.
+        void fresh.call({ method: 'POST', path: '/v1/auth/logout', body: {} }).catch(() => undefined);
+        throw new ApiError(403, 'permission_denied', 'That passkey belongs to another account. Use your own passkey.', 'passkey_other_account');
+      }
+      // The earlier session is not logged out here: polls still in flight with its token would get a 401
+      // and sign the person out. It is forgotten by this tab and ends at its expiry (Account, Signed-in devices).
+      await signIn(result.access_token);
       try {
         return await fn(fresh);
       } catch (again) {
         throw asApiError(again);
       }
     }
-  }, [anon, signIn, api]);
+  }, [anon, signIn, principal]);
 }
 
 /** "agent:notes" for an agent id the agents list returns ("notes" or "agent:notes"). */
