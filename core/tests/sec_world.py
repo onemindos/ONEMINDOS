@@ -565,6 +565,10 @@ def p_policy_create(w: World) -> Req:
         "expires_at": _in_a_day(w)})
 
 
+def p_deny_create(w: World) -> Req:
+    return Req("/v1/approval-denies", json={"principal": "agent:hermes", "tier": "T3", "reason": "matrix"})
+
+
 def p_rule_create(w: World) -> Req:
     return Req("/v1/automation/rules", json={
         "name": "probe", "trigger": {"schedule": {"cron": "0 3 * * *"}},
