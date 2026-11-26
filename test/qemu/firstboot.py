@@ -36,6 +36,22 @@ def record(tid, ok, detail):
     print(f"===> {tid}: {verdict} {detail}", flush=True)
 
 
+def reboot_and_wait(vm, timeout=900, gate_timeout=1800):
+    """Reboot a configured box; return (segment start, its first-boot line, its gate result).
+
+    On a committed boot the health gate decides at once (os/gate/onemind-health-gate, "committed-boot"), and
+    nothing orders onemind-health-gate.service against onemind-firstboot.service, which waits for cloud-init.
+    So on a fast host the gate's line can come BEFORE "already configured". expect() moves the read position past
+    the line it matched, so waiting for the gate after ALREADY skipped that boot's only gate line and hung for
+    wait_gate's 1800 s (#1159). Search for the gate from the reboot on instead, as F1 (vm.pos = 0), edge.py and
+    cloudboot.py already do. Both lines are still required, and both must come from this boot."""
+    seg = vm.here()
+    vm.send("systemctl reboot")
+    al = vm.expect(ALREADY, timeout).group(0)
+    vm.pos = seg                # this boot's buffer only: the earlier boots' gate lines lie before seg
+    return seg, al, vm.wait_gate(gate_timeout)
+
+
 def make_work(fx, work):
     os.makedirs(work, exist_ok=True)
     subprocess.run(["cp", "--sparse=always", os.path.join(fx, "disk.img"), os.path.join(work, "disk.img")], check=True)
@@ -847,9 +863,7 @@ def main():
 
         if a.upto in ("F3", "F4"):
             vm.mark("F3 reboot keeps state")
-            seg = vm.here(); vm.send("systemctl reboot")
-            al = vm.expect(ALREADY, 900).group(0)
-            g3 = vm.wait_gate(); vm.shell_ready()
+            seg, al, g3 = reboot_and_wait(vm); vm.shell_ready()
             new_toks = TOKEN.findall(vm.since(seg))
             ids3 = ident(vm)
             hz3 = http_code(vm, f"{GW}/healthz", timeout=900)
