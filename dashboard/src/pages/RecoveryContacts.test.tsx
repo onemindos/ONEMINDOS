@@ -15,15 +15,19 @@ const contact = {
   accepted_at: '2026-11-25T01:00:00Z', usable_at: '2026-12-02T01:00:00Z', ended_at: null, device_label: 'phone',
   key_kind: 'hardware-reported', key_fingerprint: 'sha256:aa', last_seen_at: null,
 };
+let handlesLegacy = false;
 const waits = { values: { cooling_off_days: 7 }, defaults: { cooling_off_days: 7 }, options: { cooling_off_days: [3, 7, 14] }, updated_at: null };
 
 function gateway(handler: (method: string, path: string, body: unknown) => Response) {
   const calls: { method: string; path: string; body: unknown }[] = [];
+  const legacyEmpty = (path: string) => path.startsWith('/v1/auth/legacy/');
   vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
     const path = new URL(url).pathname;
     const body = typeof init.body === 'string' ? JSON.parse(init.body) : undefined;
     calls.push({ method: init.method ?? 'GET', path, body });
-    return handler(init.method ?? 'GET', path, body);
+    // Tests written before legacy contacts (25f) see an empty legacy list unless they answer it themselves.
+    const answer = handler(init.method ?? 'GET', path, body);
+    return legacyEmpty(path) && !handlesLegacy ? Response.json([]) : answer;
   }));
   return calls;
 }
@@ -69,7 +73,7 @@ it('shows a household adult the invitations addressed to them and nothing to man
   render(<RecoveryContacts />);
   expect(await screen.findByText(/Zeus asked you to be a recovery contact/)).toBeVisible();
   expect(screen.queryByLabelText('Name')).toBeNull();
-  expect(calls.every((c) => c.path === '/v1/auth/recovery/invitations')).toBe(true);
+  expect(calls.every((c) => c.path === '/v1/auth/recovery/invitations' || c.path === '/v1/auth/legacy/claims')).toBe(true);
 });
 
 it('shows a running recovery to an owner and stops it without a step-up; the waits come from the gateway', async () => {
@@ -89,4 +93,28 @@ it('shows a running recovery to an owner and stops it without a step-up; the wai
   await user.click(screen.getByRole('button', { name: 'Stop recovery rr_1' }));
   expect(calls.some((c) => c.method === 'POST' && c.path === '/v1/auth/recovery/requests/rr_1/cancel')).toBe(true);
   expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ remote_wait_hours: 168 });
+});
+
+it('shows an open legacy claim to the owner, who cancels and blocks; an adult confirms as the second person', async () => {
+  handlesLegacy = true;
+  const claim = { id: 'lcl_1', contact_id: 'rc_9', state: 'waiting', created_at: '2026-11-25T00:00:00Z', ends_at: '2026-12-25T00:00:00Z', needs_second: true, second_confirmed: false, granted_at: null, access_until: null, ended_at: null, end_reason: null, certificate_type: 'application/pdf', contact_display_name: 'Ana' };
+  state.role = 'owner';
+  let calls = gateway((_method, path) => {
+    if (path === '/v1/auth/legacy/claims') return Response.json([claim]);
+    if (path === '/v1/auth/recovery/settings') return Response.json(waits);
+    if (path.endsWith('/cancel')) return Response.json({ ...claim, state: 'cancelled' });
+    return Response.json([]);
+  });
+  const { unmount } = render(<RecoveryContacts />);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Cancel and block lcl_1' }));
+  expect(calls.find((c) => c.path === '/v1/auth/legacy/claims/lcl_1/cancel')?.body).toEqual({ block: true });
+  unmount();
+  state.role = 'adult';
+  calls = gateway((_method, path) => (path === '/v1/auth/legacy/claims' ? Response.json([claim]) : path.endsWith('/confirm') ? Response.json(claim) : Response.json([])));
+  render(<RecoveryContacts />);
+  await user.click(await screen.findByRole('button', { name: 'Confirm claim lcl_1' }));
+  expect(calls.some((c) => c.method === 'POST' && c.path === '/v1/auth/legacy/claims/lcl_1/confirm')).toBe(true);
+  expect(screen.queryByRole('button', { name: 'Cancel claim lcl_1' })).toBeNull();
+  handlesLegacy = false;
 });

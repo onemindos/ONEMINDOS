@@ -56,6 +56,8 @@ CONTACT_PATHS: list[re.Pattern[str]] = [
     re.compile(r"/v1/recovery/contact(/[a-z-]+)?"),
     re.compile(r"/v1/recovery/requests(/rr_[0-9A-Z]{26}/(vouch|cancel))?"),  # 25e: confirm or stop a recovery
 ]
+# Per contact role, the only routes its principal reaches (25f adds "legacy").
+ROLE_PATHS: dict[str, list[re.Pattern[str]]] = {"recovery": CONTACT_PATHS}
 CONTACT_KINDS = ("household", "outside")
 HOUSEHOLD_CONTACT_ROLES = ("adult",)  # never child, teen or guest (§3.13); another owner already has power
 LIVE_STATES = ("invited", "active")
@@ -329,6 +331,7 @@ class RecoveryContacts:
                 token_hash=token_hash(token), last_seen_at=now)).rowcount
             if done != 1:
                 raise ApiError(409, "conflict", "this invite was already used or withdrawn", reason="invite_used")
+        one_time = {"contact_token": token, "contact_secret": b64(secret), **self.on_accept(row.id)}
         self.tell(row.owner_user_id, f"{self.role}.contact.accepted",
                   {"contact_id": row.id, "usable_at": iso(usable)}, Principal(f"{self.principal_kind}:{row.id}",
                                                                               self.principal_kind, self.principal_kind))
@@ -336,8 +339,12 @@ class RecoveryContacts:
         return {
             "contact_id": row.id, "role": self.role, "owner_display_name": owner.display_name if owner else None,
             "usable_at": iso(usable), "box_key_fingerprint": self.box.fingerprint,
-            "one_time": {"contact_token": token, "contact_secret": b64(secret)},
+            "one_time": one_time,
         }
+
+    def on_accept(self, contact_id: str) -> dict:
+        """Extra one-time values for the contact's phone at accept time (25f: the legacy access key)."""
+        return {}
 
     def allowed_path(self, path: str) -> bool:
         return any(rx.fullmatch(path) for rx in CONTACT_PATHS)
@@ -365,8 +372,8 @@ class RecoveryContacts:
         return p
 
     def path_allowed_for(self, row: ContactRow, path: str) -> bool:
-        """Overridden per role in a later PR (legacy contacts reach the legacy routes instead)."""
-        return row.role == "recovery" and self.allowed_path(path)
+        """A recovery contact reaches the recovery contact routes, a legacy contact the legacy ones."""
+        return any(rx.fullmatch(path) for rx in ROLE_PATHS.get(row.role, ()))
 
     def contact_row(self, request: Request, p: Principal) -> ContactRow:
         row = getattr(request.state, "recovery_contact", None)
