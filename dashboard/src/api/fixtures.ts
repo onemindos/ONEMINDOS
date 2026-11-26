@@ -157,6 +157,7 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
       description: 'Self-hosted uptime monitoring',
       category: 'monitoring',
       license: 'MIT',
+      licence_class: 'L1', // apps/uptime-kuma/onemind.app.yaml metadata.licenceClass
       source: 'https://github.com/louislam/uptime-kuma',
       requires: { gpu: false, minMemoryMb: 256 },
       web_port: 3001,
@@ -175,6 +176,7 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
       description: 'Stream your own films, shows and music',
       category: 'media',
       license: 'GPL-2.0-only',
+      licence_class: 'L2', // apps/jellyfin/onemind.app.yaml metadata.licenceClass
       source: 'https://github.com/jellyfin/jellyfin',
       requires: { gpu: false, minMemoryMb: 1024 },
       web_port: 8096,
@@ -191,6 +193,7 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
       description: 'Firefox in a window you open from the dashboard, streamed from your box with Neko. One profile that stays on the box.',
       category: 'developer',
       license: 'Apache-2.0',
+      licence_class: 'L1', // apps/firefox/onemind.app.yaml metadata.licenceClass
       source: 'https://github.com/m1k1o/neko',
       requires: { gpu: false, minMemoryMb: 1024 },
       web_port: 8080,
@@ -207,6 +210,7 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
       description: 'Chromium in a window you open from the dashboard, streamed from your box with Neko. One profile that stays on the box.',
       category: 'developer',
       license: 'Apache-2.0',
+      licence_class: 'unknown', // apps/chromium/onemind.app.yaml metadata.licenceClass
       source: 'https://github.com/m1k1o/neko',
       requires: { gpu: false, minMemoryMb: 1024 },
       web_port: 8080,
@@ -223,6 +227,7 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
       description: 'Run local AI language models on your own hardware',
       category: 'ai',
       license: 'MIT',
+      licence_class: 'L1', // apps/ollama/onemind.app.yaml metadata.licenceClass
       source: 'https://github.com/ollama/ollama',
       requires: { gpu: true, minMemoryMb: 4096 },
       web_port: 11434,
@@ -239,6 +244,7 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
       description: 'Wire devices and services together with flows',
       category: 'automation',
       license: 'Apache-2.0',
+      licence_class: 'L1', // apps/node-red/onemind.app.yaml metadata.licenceClass
       source: 'https://github.com/node-red/node-red',
       requires: { gpu: false, minMemoryMb: 256 },
       web_port: 1880,
@@ -255,6 +261,7 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
       description: 'Lightweight MQTT message broker',
       category: 'automation',
       license: 'EPL-2.0',
+      licence_class: 'L1', // apps/mosquitto/onemind.app.yaml metadata.licenceClass
       source: 'https://github.com/eclipse-mosquitto/mosquitto',
       requires: { gpu: false, minMemoryMb: 32 },
       web_port: null,
@@ -271,6 +278,7 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
       description: 'Use Zigbee devices without the vendor hub',
       category: 'automation',
       license: 'GPL-3.0-only',
+      licence_class: 'L2', // apps/zigbee2mqtt/onemind.app.yaml metadata.licenceClass
       source: 'https://github.com/Koenkk/zigbee2mqtt',
       requires: { gpu: false, minMemoryMb: 128 },
       web_port: 8080,
@@ -288,6 +296,7 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
       description: 'Open-source home automation that puts local control first',
       category: 'home-automation',
       license: 'Apache-2.0',
+      licence_class: 'L1', // apps/home-assistant/onemind.app.yaml metadata.licenceClass
       source: 'https://github.com/home-assistant/core',
       requires: { gpu: false, minMemoryMb: 1024 },
       web_port: 8123,
@@ -304,6 +313,7 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
       description: 'Password manager server compatible with Bitwarden apps',
       category: 'passwords',
       license: 'AGPL-3.0-only',
+      licence_class: 'L2', // apps/vaultwarden/onemind.app.yaml metadata.licenceClass
       source: 'https://github.com/dani-garcia/vaultwarden',
       requires: { gpu: false, minMemoryMb: 128 },
       web_port: 8081,
@@ -320,6 +330,7 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
       description: 'Send push notifications to your phone from scripts and apps',
       category: 'notifications',
       license: 'Apache-2.0',
+      licence_class: 'L1', // apps/ntfy/onemind.app.yaml metadata.licenceClass
       source: 'https://github.com/binwiederhier/ntfy',
       requires: { gpu: false, minMemoryMb: 64 },
       web_port: 8082,
@@ -336,6 +347,7 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
       description: 'Local-first personal finance and envelope budgeting',
       category: 'finance',
       license: 'MIT',
+      licence_class: 'L1', // apps/actual-budget/onemind.app.yaml metadata.licenceClass
       source: 'https://github.com/actualbudget/actual',
       requires: { gpu: false, minMemoryMb: 256 },
       web_port: 5006,
