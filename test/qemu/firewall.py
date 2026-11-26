@@ -82,6 +82,9 @@ def addr_cmd(who):
     """Bring up the link NIC (found by MAC) with both of this side's addresses."""
     a = [ADDR[k][who] for k in ("lan", "pub")]
     return (f"IF=$(ip -o link | awk '/{MAC[who]}/ {{sub(\":\",\"\",$2); print $2; exit}}'); echo IF=$IF; "
+            # NetworkManager boards: the test link is not the box's network, so NetworkManager must leave it alone (else its
+            # default DHCP profile re-activates the NIC and flushes the addresses set here while the scan runs)
+            f"if command -v nmcli >/dev/null; then nmcli device set $IF managed no; fi; "
             f"ip link set $IF up && ip addr add {a[0]}/24 dev $IF && ip addr add {a[1]}/24 dev $IF; echo ADDR-RC=$?")
 
 
