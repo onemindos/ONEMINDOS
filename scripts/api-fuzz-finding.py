@@ -34,7 +34,16 @@ ROLES = {
 CHECK_LINE = re.compile(r"^\s*- (ST\d+ .+)$")
 CASE_ID = re.compile(r"Test Case ID: (\S+)")
 MAX_FINDINGS = 40
+ZWSP = "\u200b"
+# "@name" would ping someone and "#123" would cross-link an issue or PR; generated data and log
+# lines can contain either, so a zero-width space breaks the pattern without changing what it reads.
+QUIET = re.compile(r"([@#])(?=[\w-])")
 MAX_BODY = 60000  # GitHub caps an issue body or comment at 65536 characters
+
+
+def quiet(text: str) -> str:
+    """Generated data and log lines, safe to paste into an issue: no mentions, no cross-links."""
+    return QUIET.sub(lambda m: m.group(1) + ZWSP, text)
 
 
 def findings(fuzz_dir: Path) -> list[dict]:
@@ -52,8 +61,7 @@ def findings(fuzz_dir: Path) -> list[dict]:
                 out.append({
                     "kind": kind,
                     "endpoint": case.get("name", "?"),
-                    # Generated data can contain "@name"; a zero-width space keeps the issue from pinging anyone.
-                    "checks": [c.replace("@", "@​") for c in checks],
+                    "checks": [quiet(c) for c in checks],
                     "case_ids": CASE_ID.findall(text),
                 })
     return out
@@ -79,7 +87,7 @@ def failed_checks(fuzz_dir: Path) -> list[str]:
     lines = []
     for log in sorted(fuzz_dir.glob("check-*.log")):
         phase = log.stem.removeprefix("check-")
-        lines += [f"{phase}: {ln.strip()}" for ln in log.read_text(errors="replace").splitlines() if ln.startswith("FAIL")]
+        lines += [f"{phase}: {quiet(ln.strip())}" for ln in log.read_text(errors="replace").splitlines() if ln.startswith("FAIL")]
     return lines
 
 

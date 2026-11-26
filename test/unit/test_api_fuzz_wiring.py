@@ -7,9 +7,12 @@ Locks in .github/workflows/api-fuzz.yml so nobody silently drops a part of it:
   - the nightly schedule and a manual run draw a random seed (or replay a given one), print it, fuzz
     the larger budget, and on a failure ONE "api-fuzz nightly finding" issue is opened or commented
     on, by the only job that may write issues;
-  - scripts/api-fuzz-finding.py writes that issue's seed, endpoint, check and reproduce commands.
+  - scripts/api-fuzz-finding.py writes that issue's seed, endpoint, check and reproduce commands;
+  - each job's `if:` is evaluated for each event (GitHub's expression rules, status functions included),
+    so a condition, a removed trigger or a cron that never fires cannot switch the nightly off unseen.
 """
 import importlib.util
+import json
 import os
 import re
 import subprocess
@@ -39,17 +42,124 @@ def finding_module():
     return mod
 
 
-def evaluate(expr: str, event: str):
-    """Evaluate a `${{ }}` expression made only of github.event_name comparisons, && and || and literals."""
-    m = re.fullmatch(r"\$\{\{(.*)\}\}", str(expr).strip())
-    assert m, f"not a single expression: {expr}"
-    body = m.group(1)
-    pattern = r"github\.event_name|'[^']*'|\d+|==|!=|&&|\|\||\(|\)"
-    rest = re.sub(pattern + r"|\s+", "", body)
-    assert rest == "", f"evaluator does not understand {rest!r} in {body!r}"
-    words = {"&&": " and ", "||": " or ", "github.event_name": repr(event)}
-    py = "".join(words.get(t, f" {t} ") for t in re.findall(pattern, body))
-    return eval(py, {"__builtins__": {}})  # noqa: S307 (tokens checked above: literals and operators only)
+TOKEN = re.compile(r"\s*(?:(?P<str>'[^']*')|(?P<num>\d+)|(?P<op>==|!=|&&|\|\||!|\(|\))"
+                   r"|(?P<fn>always|success|failure|cancelled)\(\)|(?P<ref>[A-Za-z_][\w.-]*))")
+STATUS_FUNCTIONS = ("always()", "success()", "failure()", "cancelled()")
+
+
+def evaluate(expr, event: str, *, ctx: dict | None = None, needs: dict | None = None,
+             job_if: bool = False, workflow_cancelled: bool = False):
+    """Evaluate a GitHub Actions expression the way the runner does, for one event.
+
+    Supports literals, context references, the four status functions, !, ==, !=, && and || with GitHub's
+    precedence and value semantics (`a && b || c` yields a value, strings compare case-insensitively).
+    `needs` maps a needed job to {"result": ..., "outputs": {...}}. A job-level `if:` (job_if) without a
+    status function gets GitHub's implicit `success() &&`. An unknown reference fails the test, so a new
+    condition must be taught here, and checked, before it can pass.
+    """
+    text = str(expr).strip()
+    m = re.fullmatch(r"\$\{\{(.*)\}\}", text, re.S)
+    body = m.group(1) if m else text
+    needs = needs or {}
+    values = {"github.event_name": event, "github.event.pull_request.draft": None, **(ctx or {})}
+    for job, n in needs.items():
+        values[f"needs.{job}.result"] = n["result"]
+        for k, v in n.get("outputs", {}).items():
+            values[f"needs.{job}.outputs.{k}"] = v
+    results = [n["result"] for n in needs.values()]
+    status = {"always": True, "cancelled": workflow_cancelled,
+              "success": not workflow_cancelled and all(r == "success" for r in results),
+              "failure": any(r == "failure" for r in results)}
+
+    tokens, pos = [], 0
+    while pos < len(body):
+        t = TOKEN.match(body, pos)
+        if not t or t.end() == pos:
+            if body[pos:].strip() == "":
+                break
+            raise AssertionError(f"evaluator does not understand {body[pos:]!r} in {body!r}")
+        pos = t.end()
+        tokens.append((t.lastgroup, t.group(t.lastgroup)))
+    i = 0
+
+    def peek():
+        return tokens[i] if i < len(tokens) else (None, None)
+
+    def take():
+        nonlocal i
+        i += 1
+        return tokens[i - 1]
+
+    def truthy(v):
+        return v not in (None, False, 0, "")
+
+    def primary():
+        kind, val = take()
+        if kind == "op" and val == "!":
+            return not truthy(primary())
+        if kind == "op" and val == "(":
+            v = disjunction()
+            assert take() == ("op", ")"), body
+            return v
+        if kind == "str":
+            return val[1:-1]
+        if kind == "num":
+            return int(val)
+        if kind == "fn":
+            return status[val]
+        if kind == "ref":
+            literal = {"true": True, "false": False, "null": None}
+            if val in literal:
+                return literal[val]
+            assert val in values, f"unknown context {val!r} in {body!r}: teach the test what it means"
+            return values[val]
+        raise AssertionError(f"unexpected {val!r} in {body!r}")
+
+    def comparison():
+        v = primary()
+        while peek() in (("op", "=="), ("op", "!=")):
+            op = take()[1]
+            w = primary()
+            a, b = (x.lower() if isinstance(x, str) else x for x in (v, w))
+            v = (a == b) if op == "==" else (a != b)
+        return v
+
+    def conjunction():
+        v = comparison()
+        while peek() == ("op", "&&"):
+            take()
+            w = comparison()
+            v = w if truthy(v) else v
+        return v
+
+    def disjunction():
+        v = conjunction()
+        while peek() == ("op", "||"):
+            take()
+            w = conjunction()
+            v = v if truthy(v) else w
+        return v
+
+    v = disjunction()
+    assert i == len(tokens), f"trailing tokens in {body!r}"
+    if job_if and not any(f in body.replace(" ", "") for f in STATUS_FUNCTIONS):
+        v = status["success"] and truthy(v)
+    return truthy(v) if job_if else v
+
+
+def job_runs(job: dict, event: str, **kw) -> bool:
+    """Would GitHub start this job for this event? A job without `if:` runs when its needs succeeded."""
+    return evaluate(job.get("if", "true"), event, job_if=True, **kw)
+
+
+def cron_fires_daily(cron: str) -> bool:
+    """A five-field cron that fires at least once every day: fixed minute and hour, every day/month/weekday."""
+    fields = cron.split()
+    if len(fields) != 5:
+        return False
+    minute, hour, dom, month, dow = fields
+    return (minute.isdigit() and int(minute) < 60 and hour.isdigit() and int(hour) < 24
+            and (dom, month, dow) == ("*", "*", "*"))
 
 
 class Triggers(unittest.TestCase):
@@ -59,6 +169,8 @@ class Triggers(unittest.TestCase):
             self.assertIn(event, on, f"api-fuzz no longer runs on {event}")
         self.assertEqual(on["push"]["branches"], ["main"])
         self.assertTrue(on["schedule"] and on["schedule"][0]["cron"], "the nightly schedule is gone")
+        self.assertTrue(any(cron_fires_daily(c["cron"]) for c in on["schedule"]),
+                        f"no schedule fires every night: {on['schedule']}")
         seed = on["workflow_dispatch"]["inputs"]["seed"]
         self.assertFalse(seed.get("required", False), "a manual run must be able to draw a random seed")
 
@@ -71,6 +183,98 @@ class Triggers(unittest.TestCase):
                 self.assertEqual(perms, {"issues": "write"})
             else:
                 self.assertNotIn("issues", perms, name)
+
+
+class JobsRunOnTheirEvents(unittest.TestCase):
+    """The job-level `if:` of every job, evaluated per event: nothing can switch a run off by condition."""
+
+    def setUp(self):
+        d, on = load()
+        self.jobs, self.on = d["jobs"], on
+
+    def changes_needs(self, event: str, fuzz: str = "true", result: str = "success") -> dict:
+        if event != "merge_group":  # the changes job is merge-queue only, so it is skipped
+            self.assertFalse(job_runs(self.jobs["changes"], event), f"changes runs on {event}")
+            return {"changes": {"result": "skipped", "outputs": {"fuzz": ""}}}
+        self.assertTrue(job_runs(self.jobs["changes"], event))
+        return {"changes": {"result": result, "outputs": {"fuzz": fuzz}}}
+
+    def test_schemathesis_runs_on_every_event(self):
+        job = self.jobs["schemathesis"]
+        for event in (*GATED, *EXPLORE):
+            ctx = {"github.event.pull_request.draft": False} if event == "pull_request" else {}
+            self.assertTrue(job_runs(job, event, ctx=ctx, needs=self.changes_needs(event)),
+                            f"the fuzz job no longer runs on {event}")
+        self.assertFalse(job_runs(job, "pull_request", ctx={"github.event.pull_request.draft": True},
+                                  needs=self.changes_needs("pull_request")), "draft PRs stay quiet")
+        self.assertFalse(job_runs(job, "schedule", needs=self.changes_needs("schedule"), workflow_cancelled=True))
+
+    def test_the_queue_skips_only_merge_groups_that_touch_nothing_fuzzed(self):
+        job = self.jobs["schemathesis"]
+        self.assertFalse(job_runs(job, "merge_group", needs=self.changes_needs("merge_group", fuzz="false")))
+        # A changes job that failed or wrote nothing counts as a change: the fuzz still runs.
+        self.assertTrue(job_runs(job, "merge_group", needs=self.changes_needs("merge_group", fuzz="", result="failure")))
+
+    def test_changes_job_matches_the_push_paths_and_fails_safe(self):
+        step = self.jobs["changes"]["steps"][0]
+        paths = json.loads(step["env"]["FUZZ_PATHS"])
+        self.assertEqual(paths, self.on["push"]["paths"], "the queue filter must equal on.push.paths")
+        self.assertEqual(self.jobs["changes"]["outputs"]["fuzz"], "${{ steps.diff.outputs.fuzz }}")
+        cases = {
+            "docs/README.md\nchanges/x.md\n": "false",
+            "docs/README.md\ncore/onemind_core/app.py\n": "true",
+            "apps/freshrss/onemind.app.yaml\n": "true",
+            "sdk/schema/app.schema.json\n": "true",
+            ".github/workflows/api-fuzz.yml\n": "true",
+            "".join(f"docs/f{n}.md\n" for n in range(300)): "true",  # the compare API's 300-file cap
+            None: "true",  # the compare call failed
+        }
+        for files, want in cases.items():
+            with tempfile.TemporaryDirectory() as tmp:
+                gh = Path(tmp, "gh")
+                if files is None:
+                    gh.write_text("#!/bin/sh\nexit 1\n")
+                else:
+                    Path(tmp, "files").write_text(files)
+                    gh.write_text(f"#!/bin/sh\ncat '{tmp}/files'\n")
+                gh.chmod(0o755)
+                out = Path(tmp, "out")
+                env = {**os.environ, **step["env"], "PATH": f"{tmp}:{os.environ['PATH']}",
+                       "GITHUB_OUTPUT": str(out), "GITHUB_REPOSITORY": "o/r", "BASE_SHA": "a", "HEAD_SHA": "b"}
+                p = subprocess.run(["bash", "-e", "-c", step["run"]], env=env, capture_output=True, text=True)
+                self.assertEqual(p.returncode, 0, p.stderr)
+                self.assertEqual(out.read_text().strip(), f"fuzz={want}", (files or "")[:80])
+
+    def test_properties_runs_on_main_nightly_and_manual(self):
+        job = self.jobs["properties"]
+        for event in ("push", *EXPLORE):
+            self.assertTrue(job_runs(job, event), f"the deep property run no longer runs on {event}")
+        for event in ("pull_request", "merge_group"):
+            self.assertFalse(job_runs(job, event, ctx={"github.event.pull_request.draft": False}), event)
+
+    def test_report_files_on_a_failed_or_timed_out_exploration_only(self):
+        job = self.jobs["report"]
+        for event in EXPLORE:
+            for result in ("failure", "cancelled"):  # a job stopped by timeout-minutes may read as cancelled
+                self.assertTrue(job_runs(job, event, needs={"schemathesis": {"result": result}}), (event, result))
+            for result in ("success", "skipped"):
+                self.assertFalse(job_runs(job, event, needs={"schemathesis": {"result": result}}), (event, result))
+        for event in GATED:
+            self.assertFalse(job_runs(job, event, needs={"schemathesis": {"result": "failure"}}),
+                             "gated runs report on the PR, never as an issue")
+
+    def test_the_evaluator_follows_github_rules(self):
+        self.assertTrue(job_runs({"if": "${{ !github.event.pull_request.draft }}"}, "push"))
+        self.assertFalse(job_runs({"if": "github.event_name == 'push'"}, "push", needs={"a": {"result": "failure"}}),
+                         "a job-level if without a status function gets success() &&")
+        self.assertTrue(job_runs({"if": "failure()"}, "push", needs={"a": {"result": "failure"}}))
+        self.assertEqual(evaluate("${{ github.event_name == 'push' && '4' || '9' }}", "PUSH"), "4")
+        self.assertFalse(job_runs({"if": "false"}, "schedule"))
+        with self.assertRaises(AssertionError):
+            evaluate("${{ github.actor == 'x' }}", "push")
+        for bad in ("0 0 31 2 *", "*/5 * * * *", "0 3 * * 1", "17 3 * *"):
+            self.assertFalse(cron_fires_daily(bad), bad)
+        self.assertTrue(cron_fires_daily("17 3 * * *"))
 
 
 class GatedRunsAreDeterministic(unittest.TestCase):
@@ -127,8 +331,11 @@ class GatedRunsAreDeterministic(unittest.TestCase):
         for event in ("push", *EXPLORE):
             self.assertGreaterEqual(int(evaluate(examples, event)), 400, event)
             self.assertGreaterEqual(int(evaluate(timeout, event)), 180, event)
-        for event in EXPLORE:
-            self.assertGreater(int(evaluate(examples, event)), int(evaluate(examples, "pull_request")))
+        for event in EXPLORE:  # exploration fuzzes more than any gated run, with time to finish
+            self.assertGreater(int(evaluate(examples, event)), int(evaluate(examples, "push")))
+            # 400 cases take ~80 of main's 180 minutes; a larger budget needs a longer timeout.
+            self.assertGreater(int(evaluate(timeout, event)), int(evaluate(timeout, "push")), event)
+            self.assertLessEqual(int(evaluate(timeout, event)), 360, "a GitHub-hosted job stops at 360 minutes")
 
     def pick(self, event: str, input_seed: str = "") -> tuple[int, str, str]:
         step = next(s for s in self.steps if s.get("id") == "seed")
@@ -185,12 +392,7 @@ class NightlyFindingIssue(unittest.TestCase):
 
     def test_report_job_opens_or_updates_one_issue_by_title(self):
         job = self.jobs["report"]
-        self.assertEqual(job["needs"], "schemathesis")
-        self.assertIn("failure()", job["if"])
-        for event in EXPLORE:
-            self.assertIn(event, job["if"])
-        for event in GATED:
-            self.assertNotIn(event, job["if"], "gated runs report on the PR, never as an issue")
+        self.assertEqual(job["needs"], "schemathesis")  # when it runs: JobsRunOnTheirEvents
         step = next(s for s in job["steps"] if "run" in s)
         self.assertEqual(step["env"]["TITLE"], TITLE)
         self.assertEqual(finding_module().TITLE, TITLE)
@@ -230,7 +432,8 @@ class FindingScript(unittest.TestCase):
         self.dir = Path(self.tmp.name)
         (self.dir / "report-owner").mkdir()
         (self.dir / "report-owner" / "junit.xml").write_text(JUNIT)
-        (self.dir / "check-owner.log").write_text("owner phase: audit 9 lines\nFAIL: owner run never exercised action.denied\n")
+        (self.dir / "check-owner.log").write_text("owner phase: audit 9 lines\nFAIL: owner run never exercised action.denied\n"
+                                                    "FAIL: decided by @mallory, see #42\n")
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -244,6 +447,9 @@ class FindingScript(unittest.TestCase):
         self.assertIn("test case: qUhYAY", text)
         self.assertIn("gh workflow run api-fuzz.yml --ref main -f seed=424242", text)
         self.assertIn("owner: FAIL: owner run never exercised action.denied", text)
+        # Audit FAIL lines are generated data too: no @-mention, no #NNN cross-link in the issue.
+        self.assertIn("owner: FAIL: decided by @\u200bmallory, see #\u200b42", text)
+        self.assertNotRegex(text, r"[@#][\w-]", "a mention or cross-link reached the issue body")
         self.assertIn("Failed steps:** fuzz-owner", text)
         self.assertNotIn("@someone", text.replace("@​someone", ""))  # no pings from generated data
         local = [ln for ln in text.splitlines() if ln.startswith(".venv/bin/schemathesis")]
