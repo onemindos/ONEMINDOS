@@ -1,0 +1,417 @@
+# SPDX-License-Identifier: Apache-2.0
+# Surface parity exemptions (sdk/tools/surface-parity; BUILDER-BRIEFING item 6; #1232).
+#
+# The rule: every API operation has a dashboard caller, every operation that changes something
+# (POST, PUT, PATCH, DELETE) has an `onemind` command, and every operation in the phone's scope
+# below has a phone caller. Anything that does not is listed here, under a group with a reason and
+# an owner issue. This list only shrinks:
+#   - a new operation never goes here to get green: build its screen and command in the same PR,
+#     or argue a group in review ("Not done" in the PR body);
+#   - when a caller lands, the test reports the line as stale: delete it in that PR;
+#   - an operation that leaves the spec must leave this file too.
+#
+# Lines:
+#   mobile-scope <tag> [/path/prefix ...]   the phone checks this OpenAPI tag (narrowed to the prefixes)
+#   group <name> issue=#<n> <reason>        a reason and the issue that owns closing it
+#   <dashboard|cli|mobile> <operationId> <group>
+#
+# Run `python3 -I sdk/tools/surface-parity --report` for the whole matrix.
+
+# ---- Mobile scope for 1.0 (FOUNDER TO CONFIRM, #1232) -------------------------------------------
+# The phone covers approvals, files, photos and the person's own devices (with their push
+# registrations). Market, Work, Machines, Storage and Troubleshoot are dashboard-only for 1.0, and so
+# is every other tag not listed here: the phone is not checked for them at all.
+mobile-scope actions /v1/actions
+mobile-scope files /v1/files
+mobile-scope photos
+mobile-scope auth /v1/me/devices
+mobile-scope push
+
+
+# ---- must-have gaps: the #1232 checklist -------------------------------------------------------------
+group m1-password-totp issue=#1232 M1: password change and authenticator (TOTP) setup, confirm, disable have no screen or command.
+dashboard auth.password.change m1-password-totp
+dashboard auth.totp.confirm m1-password-totp
+dashboard auth.totp.disable m1-password-totp
+dashboard auth.totp.setup m1-password-totp
+cli auth.password.change m1-password-totp
+cli auth.totp.confirm m1-password-totp
+cli auth.totp.disable m1-password-totp
+cli auth.totp.setup m1-password-totp
+group m2-radio-confirm issue=#1232 M2: confirming what a found radio is (human-only) has no screen or command; the list has no screen.
+dashboard radios.confirm m2-radio-confirm
+dashboard radios.list m2-radio-confirm
+cli radios.confirm m2-radio-confirm
+group m3-grants issue=#1232 M3: data-commons grants and plugin host-grants cannot be seen or revoked by a person.
+dashboard data.grants.list m3-grants
+dashboard data.grants.revoke m3-grants
+dashboard plugins.host_grants.list m3-grants
+dashboard plugins.host_grants.revoke m3-grants
+cli data.grants.revoke m3-grants
+cli plugins.host_grants.revoke m3-grants
+group m4-my-devices issue=#1232 M4: a person's own devices (list, sign out one) have no dashboard screen or command; the phone has MyDevices.
+dashboard me.devices.list m4-my-devices
+dashboard me.devices.remove m4-my-devices
+cli me.devices.remove m4-my-devices
+group m5-step-up-owner-screens issue=#1214 M5: app sharing and standing approvals are written through the body-bound step-up, which no dashboard screen or command does yet.
+dashboard approvals.policies.create m5-step-up-owner-screens
+dashboard approvals.policies.delete m5-step-up-owner-screens
+dashboard apps.access.set m5-step-up-owner-screens
+cli approvals.policies.create m5-step-up-owner-screens
+cli approvals.policies.delete m5-step-up-owner-screens
+cli apps.access.set m5-step-up-owner-screens
+group m7-approver-keys issue=#1213 M7: proven approver keys: the Sign-in keys screen is in PR #1186 and the `keys` command in PR #1184, not merged.
+dashboard auth.approver_keys.list m7-approver-keys
+dashboard auth.approver_keys.register m7-approver-keys
+dashboard auth.approver_keys.revoke m7-approver-keys
+cli auth.approver_keys.revoke m7-approver-keys
+group m8-cli-tokens-secrets issue=#1232 M8: access tokens and app secrets can be changed on the dashboard but have no `onemind` command.
+cli apps.secrets.change m8-cli-tokens-secrets
+cli tokens.create m8-cli-tokens-secrets
+cli tokens.revoke m8-cli-tokens-secrets
+cli tokens.rotate m8-cli-tokens-secrets
+
+# ---- should-have gaps named in the report (#1232 S-rows) ---------------------------------------------
+group s3-notifications issue=#1232 S3: notification sources, send and channel edits have no screen; preferences, sources, inbox and channel edits have no command.
+dashboard notifications.channels.update s3-notifications
+dashboard notifications.get s3-notifications
+dashboard notifications.send s3-notifications
+dashboard notifications.sources.list s3-notifications
+dashboard notifications.sources.set s3-notifications
+cli notifications.channels.delete s3-notifications
+cli notifications.channels.update s3-notifications
+cli notifications.preferences.set s3-notifications
+cli notifications.read s3-notifications
+cli notifications.read_all s3-notifications
+cli notifications.send s3-notifications
+cli notifications.sources.set s3-notifications
+group s4-storage-domains issue=#1232 S4: storage plans, actions and the recovery key, and domain names (ask, approve, remove a host) have no screen; StorageCare is in PR #1190.
+dashboard domains.host_approve s4-storage-domains
+dashboard domains.host_remove s4-storage-domains
+dashboard domains.host_request s4-storage-domains
+dashboard storage.actions.create s4-storage-domains
+dashboard storage.operations.get s4-storage-domains
+dashboard storage.plans.create s4-storage-domains
+dashboard storage.recovery_key.take s4-storage-domains
+cli domains.check s4-storage-domains
+cli domains.host_approve s4-storage-domains
+cli domains.host_remove s4-storage-domains
+cli domains.host_request s4-storage-domains
+cli domains.remove s4-storage-domains
+cli storage.actions.create s4-storage-domains
+cli storage.plans.create s4-storage-domains
+cli storage.recovery_key.take s4-storage-domains
+group s5-backups issue=#1232 S5: backup content selection, verification history, run and snapshot detail and destination removal have no screen; several backup writes have no command.
+dashboard backups.content.list s5-backups
+dashboard backups.content.set s5-backups
+dashboard backups.destinations.remove s5-backups
+dashboard backups.runs.get s5-backups
+dashboard backups.snapshots.file s5-backups
+dashboard backups.snapshots.get s5-backups
+dashboard backups.snapshots.tree s5-backups
+dashboard backups.verifications.list s5-backups
+dashboard backups.verify s5-backups
+dashboard restores.get s5-backups
+cli backups.content.set s5-backups
+cli backups.destinations.add s5-backups
+cli backups.destinations.remove s5-backups
+cli backups.kit.confirm s5-backups
+cli backups.kit.issue s5-backups
+group s6-work issue=#1232 S6: Work projects, quick-add and task edit and delete have no screen (PR #1166 covers part); some have no command.
+dashboard work.project_create s6-work
+dashboard work.quick_add s6-work
+dashboard work.task_delete s6-work
+dashboard work.task_get s6-work
+dashboard work.task_update s6-work
+cli work.capture s6-work
+cli work.project_create s6-work
+cli work.task_delete s6-work
+group s7-windows issue=#1232 S7: windows (/v1/windows) have no caller on any surface.
+dashboard windows.list s7-windows
+dashboard windows.put s7-windows
+cli windows.put s7-windows
+group s8-cli-groups issue=#1232 S8: these settings have a dashboard screen but no `onemind` command group yet (automation, alerts, family, onboarding, files, sharing, plugins and others).
+cli alerts.ack s8-cli-groups
+cli alerts.fix s8-cli-groups
+cli alerts.resolve s8-cli-groups
+cli auth.passkeys.delete s8-cli-groups
+cli automation.pause s8-cli-groups
+cli automation.resume s8-cli-groups
+cli automation.rules.create s8-cli-groups
+cli automation.rules.delete s8-cli-groups
+cli automation.rules.disable s8-cli-groups
+cli automation.rules.dry_run s8-cli-groups
+cli automation.rules.enable s8-cli-groups
+cli automation.rules.update s8-cli-groups
+cli deploy.compose s8-cli-groups
+cli fabric.ticket_revoke s8-cli-groups
+cli family.apps.set s8-cli-groups
+cli family.profiles.set s8-cli-groups
+cli files.app_passwords.create s8-cli-groups
+cli files.app_passwords.revoke s8-cli-groups
+cli files.downloads.discard s8-cli-groups
+cli files.downloads.release s8-cli-groups
+cli files.grants.request s8-cli-groups
+cli files.grants.revoke s8-cli-groups
+cli files.ops s8-cli-groups
+cli files.quotas.set s8-cli-groups
+cli files.requests.approve s8-cli-groups
+cli files.requests.cancel s8-cli-groups
+cli files.requests.deny s8-cli-groups
+cli files.shares.create s8-cli-groups
+cli files.trash.empty s8-cli-groups
+cli files.uploads.create s8-cli-groups
+cli files.uploads.delete s8-cli-groups
+cli files.uploads.patch s8-cli-groups
+cli instance.kiosk.set s8-cli-groups
+cli machines.disable s8-cli-groups
+cli machines.enable s8-cli-groups
+cli machines.upload s8-cli-groups
+cli me.update s8-cli-groups
+cli migrate.copy s8-cli-groups
+cli migrate.cutover s8-cli-groups
+cli migrate.import s8-cli-groups
+cli migrate.revert s8-cli-groups
+cli onboarding.settings.save s8-cli-groups
+cli physical.lockout.set s8-cli-groups
+cli plans.create s8-cli-groups
+cli plugins.keys.enroll s8-cli-groups
+cli plugins.keys.revoke s8-cli-groups
+cli plugins.settings.request s8-cli-groups
+cli shares.smb.password s8-cli-groups
+cli system.actions.create s8-cli-groups
+cli tips.set_state s8-cli-groups
+cli updates.policy.resume s8-cli-groups
+cli users.update s8-cli-groups
+
+# ---- later (report section 4) ------------------------------------------------------------------------
+group later-agent-browser issue=#1232 Later: the agent browser (sessions and allowed sites) has no owner screen or command.
+dashboard agentbrowser.sessions.end later-agent-browser
+dashboard agentbrowser.sessions.list later-agent-browser
+dashboard agentbrowser.sessions.start later-agent-browser
+dashboard agentbrowser.sessions.visit later-agent-browser
+dashboard agentbrowser.sites.list later-agent-browser
+dashboard agentbrowser.sites.remove later-agent-browser
+dashboard agentbrowser.sites.request later-agent-browser
+cli agentbrowser.sessions.end later-agent-browser
+cli agentbrowser.sessions.start later-agent-browser
+cli agentbrowser.sessions.visit later-agent-browser
+cli agentbrowser.sites.remove later-agent-browser
+cli agentbrowser.sites.request later-agent-browser
+group later-sites-map issue=#1232 Later: sites, map packs and subjects have no screen or command.
+dashboard geo.create_site later-sites-map
+dashboard geo.list_sites later-sites-map
+dashboard map.packs_list later-sites-map
+dashboard subjects.check later-sites-map
+dashboard subjects.list later-sites-map
+cli geo.create_site later-sites-map
+group later-file-transfer issue=#1232 Later: file downloads, quotas and stat have no dashboard screen.
+dashboard files.downloads.discard later-file-transfer
+dashboard files.downloads.list later-file-transfer
+dashboard files.downloads.release later-file-transfer
+dashboard files.quotas.list later-file-transfer
+dashboard files.quotas.set later-file-transfer
+dashboard files.requests.get later-file-transfer
+dashboard files.shares.create later-file-transfer
+dashboard files.shares.list later-file-transfer
+dashboard files.shares.revoke later-file-transfer
+dashboard files.stat later-file-transfer
+group later-os-fleet issue=#1232 Later: the OS fleet and staged rollouts console has no screen or command.
+dashboard os.fleet later-os-fleet
+dashboard os.rollouts.cancel later-os-fleet
+dashboard os.rollouts.get later-os-fleet
+dashboard os.rollouts.list later-os-fleet
+cli os.rollouts.cancel later-os-fleet
+group later-search-share-restore-tips issue=#1232 Later: search, the Send to menu (share targets and types), onboarding restore and tips state and what's new have no dashboard screen.
+dashboard onboarding.restore.app later-search-share-restore-tips
+dashboard onboarding.restore.candidates later-search-share-restore-tips
+dashboard search.query later-search-share-restore-tips
+dashboard share.send later-search-share-restore-tips
+dashboard share.targets later-search-share-restore-tips
+dashboard share.types later-search-share-restore-tips
+dashboard tips.set_state later-search-share-restore-tips
+dashboard tips.whats_new later-search-share-restore-tips
+cli onboarding.restore.app later-search-share-restore-tips
+cli onboarding.restore.candidates later-search-share-restore-tips
+cli share.send later-search-share-restore-tips
+
+# ---- found by this ratchet, not in the report (#1244) ------------------------------------------------
+group found-owner-screens issue=#1244 Found by the ratchet (not in the 2026-11-26 report): owner controls with an API but no dashboard screen.
+dashboard agents.budget.set found-owner-screens
+dashboard agents.cancel found-owner-screens
+dashboard agents.get found-owner-screens
+dashboard agents.nats_key.delete found-owner-screens
+dashboard agents.nats_key.get found-owner-screens
+dashboard agents.nats_key.set found-owner-screens
+dashboard agents.resume found-owner-screens
+dashboard alerts.get found-owner-screens
+dashboard apps.credentials found-owner-screens
+dashboard apps.owner_override.get found-owner-screens
+dashboard audit.events.get found-owner-screens
+dashboard auth.app_session_clear found-owner-screens
+dashboard automation.pause found-owner-screens
+dashboard automation.resume found-owner-screens
+dashboard automation.rules.create found-owner-screens
+dashboard automation.rules.delete found-owner-screens
+dashboard automation.rules.disable found-owner-screens
+dashboard automation.rules.dry_run found-owner-screens
+dashboard automation.rules.enable found-owner-screens
+dashboard automation.rules.get found-owner-screens
+dashboard automation.rules.update found-owner-screens
+dashboard bridges.get found-owner-screens
+dashboard bridges.resume found-owner-screens
+dashboard customapps.get found-owner-screens
+dashboard fabric.ticket_list found-owner-screens
+dashboard fabric.ticket_revoke found-owner-screens
+dashboard family.apps.get found-owner-screens
+dashboard family.apps.set found-owner-screens
+dashboard family.profiles.set found-owner-screens
+dashboard machines.devices found-owner-screens
+dashboard machines.disable found-owner-screens
+dashboard machines.enable found-owner-screens
+dashboard machines.get found-owner-screens
+dashboard me.update found-owner-screens
+dashboard mesh.settings_update found-owner-screens
+dashboard nodes.metrics found-owner-screens
+dashboard physical.lockout.set found-owner-screens
+dashboard plugins.get found-owner-screens
+dashboard plugins.list found-owner-screens
+dashboard plugins.settings.get found-owner-screens
+dashboard plugins.settings.request found-owner-screens
+dashboard plugins.tools found-owner-screens
+dashboard push.registrations.delete found-owner-screens
+dashboard sources.get found-owner-screens
+dashboard system.services.logs found-owner-screens
+dashboard system.services.restart found-owner-screens
+cli agents.budget.set found-owner-screens
+cli agents.cancel found-owner-screens
+cli agents.nats_key.delete found-owner-screens
+cli agents.nats_key.set found-owner-screens
+cli agents.resume found-owner-screens
+
+# ---- not a person's screen or command, by design -----------------------------------------------------
+group door issue=#1232 A door for machines, not a person's screen: the MCP endpoint, the protocol and surface registries, Prometheus metrics, the built-in and database listings for operators, loopback forward-auth, token refresh and the web-push key. Confirm per row when a screen is wanted.
+dashboard auth.forward door
+dashboard auth.refresh door
+dashboard builtins.list door
+dashboard databases.list door
+dashboard mcp.post door
+dashboard meta.protocol door
+dashboard monitoring.metrics door
+dashboard push.vapid_key door
+dashboard surfaces.list door
+group outsider-share-link issue=#1232 The page an outsider opens from a share link is served by the gateway itself, not the signed-in dashboard.
+dashboard share.download outsider-share-link
+dashboard share.open outsider-share-link
+group app-and-agent-door issue=#1232 Called by apps, bridges, plugins and agents through their own grants, never by a person; people see and revoke the grants (M3) and approve what they file.
+dashboard bridges.events.post app-and-agent-door
+dashboard data.classes.get app-and-agent-door
+dashboard data.classes.list app-and-agent-door
+dashboard data.records.create app-and-agent-door
+dashboard data.records.list app-and-agent-door
+dashboard data.records.stream app-and-agent-door
+dashboard plugins.call app-and-agent-door
+dashboard plugins.host_grants.request app-and-agent-door
+cli bridges.events.post app-and-agent-door
+cli data.records.create app-and-agent-door
+cli plugins.call app-and-agent-door
+cli plugins.host_grants.request app-and-agent-door
+group client-protocol issue=#1232 A client protocol another program speaks: the desktop sync client (sync), the office editor (WOPI), the phone's photo backup and the device's own push registration. The program, not a screen, is the caller.
+dashboard files.wopi.check_file_info client-protocol
+dashboard files.wopi.get_file client-protocol
+dashboard files.wopi.lock client-protocol
+dashboard files.wopi.put_file client-protocol
+dashboard files.wopi.tokens.create client-protocol
+dashboard photos.append client-protocol
+dashboard photos.check client-protocol
+dashboard photos.coverage client-protocol
+dashboard photos.create_upload client-protocol
+dashboard photos.receipts client-protocol
+dashboard photos.register_source client-protocol
+dashboard push.registrations.create client-protocol
+dashboard sync.changes.list client-protocol
+dashboard sync.chunks.missing client-protocol
+dashboard sync.chunks.put client-protocol
+dashboard sync.commit client-protocol
+dashboard sync.locks.create client-protocol
+dashboard sync.locks.delete client-protocol
+dashboard sync.locks.list client-protocol
+dashboard sync.locks.refresh client-protocol
+dashboard sync.versions.list client-protocol
+cli files.wopi.lock client-protocol
+cli files.wopi.put_file client-protocol
+cli files.wopi.tokens.create client-protocol
+cli photos.append client-protocol
+cli photos.check client-protocol
+cli photos.create_upload client-protocol
+cli photos.register_source client-protocol
+cli push.registrations.create client-protocol
+cli push.registrations.delete client-protocol
+cli sync.chunks.missing client-protocol
+cli sync.chunks.put client-protocol
+cli sync.commit client-protocol
+cli sync.locks.create client-protocol
+cli sync.locks.delete client-protocol
+cli sync.locks.refresh client-protocol
+group node-join issue=#1232 Sent by the joining machine with its one-time code (onemind fabric join, the node daemon), not by a signed-in person.
+dashboard fabric.join_request node-join
+dashboard fabric.join_status node-join
+group cli-browser-ceremony issue=#1232 A browser ceremony a terminal cannot do: passkey (WebAuthn) sign-in and registration, the first-owner setup, cookie sessions for app hosts and the person's own browser pod. The CLI signs in with a token (`onemind login`).
+cli actions.approve_options cli-browser-ceremony
+cli auth.app_session_clear cli-browser-ceremony
+cli auth.app_session_set cli-browser-ceremony
+cli auth.approver_keys.register cli-browser-ceremony
+cli auth.enrol cli-browser-ceremony
+cli auth.login cli-browser-ceremony
+cli auth.login_options cli-browser-ceremony
+cli auth.logout cli-browser-ceremony
+cli auth.passkeys.register cli-browser-ceremony
+cli auth.passkeys.register_options cli-browser-ceremony
+cli auth.refresh cli-browser-ceremony
+cli auth.setup cli-browser-ceremony
+cli browsers.profile_reset cli-browser-ceremony
+cli browsers.session_close cli-browser-ceremony
+cli browsers.session_open cli-browser-ceremony
+group cli-visual-layout issue=#1232 A layout a person arranges on screen (Home, the dashboard card); a terminal has nothing to arrange. Founder to confirm.
+cli me.dashboard_card.save cli-visual-layout
+cli me.home.save cli-visual-layout
+
+# ---- the phone's 1.0 scope: what the phone leaves to the dashboard (FOUNDER TO CONFIRM) --------------
+group mobile-files-browse-only issue=#1232 Mobile 1.0 scope (founder to confirm): the phone browses, downloads and uploads files and handles Send to; file requests, sharing, trash, quotas, app passwords, the office editor and resumable-upload follow-ups (sent to the Location the upload returns) are dashboard-only.
+mobile files.app_passwords.create mobile-files-browse-only
+mobile files.app_passwords.list mobile-files-browse-only
+mobile files.app_passwords.revoke mobile-files-browse-only
+mobile files.downloads.discard mobile-files-browse-only
+mobile files.downloads.list mobile-files-browse-only
+mobile files.downloads.release mobile-files-browse-only
+mobile files.grants.list mobile-files-browse-only
+mobile files.grants.request mobile-files-browse-only
+mobile files.grants.revoke mobile-files-browse-only
+mobile files.ops mobile-files-browse-only
+mobile files.preview mobile-files-browse-only
+mobile files.quotas.list mobile-files-browse-only
+mobile files.quotas.set mobile-files-browse-only
+mobile files.requests.approve mobile-files-browse-only
+mobile files.requests.cancel mobile-files-browse-only
+mobile files.requests.deny mobile-files-browse-only
+mobile files.requests.get mobile-files-browse-only
+mobile files.requests.list mobile-files-browse-only
+mobile files.shares.create mobile-files-browse-only
+mobile files.shares.list mobile-files-browse-only
+mobile files.shares.revoke mobile-files-browse-only
+mobile files.stat mobile-files-browse-only
+mobile files.trash.empty mobile-files-browse-only
+mobile files.trash.list mobile-files-browse-only
+mobile files.uploads.delete mobile-files-browse-only
+mobile files.uploads.patch mobile-files-browse-only
+mobile files.uploads.status mobile-files-browse-only
+mobile files.wopi.check_file_info mobile-files-browse-only
+mobile files.wopi.get_file mobile-files-browse-only
+mobile files.wopi.lock mobile-files-browse-only
+mobile files.wopi.put_file mobile-files-browse-only
+mobile files.wopi.tokens.create mobile-files-browse-only
+group mobile-photos-backup-only issue=#1232 Mobile 1.0 scope (founder to confirm): the phone backs photos up; the library view is on the dashboard. Upload chunks go to the Location the upload returns, so photos.append has no path literal.
+mobile photos.append mobile-photos-backup-only
+mobile photos.asset_content mobile-photos-backup-only
+mobile photos.library mobile-photos-backup-only
+mobile photos.receipts mobile-photos-backup-only
