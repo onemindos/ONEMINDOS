@@ -30,9 +30,9 @@
 
 ## Branches and landing
 - **Branch from `origin/release/next` and open the PR (draft first) with base `release/next`.** `release/next` lands on `main` through the GitHub merge queue.
-- **Merge commits only. Never rebase or force-push** (not without the founder's explicit permission); to catch up, merge `origin/release/next` into your branch.
+- **Merge commits only (gate practice; repo settings also allow squash and rebase). Never rebase or force-push** (not without the founder's explicit permission); to catch up, merge `origin/release/next` into your branch.
 - **Write `Refs #n`, never `Closes #n`.** Issues are closed by hand once the work is truly done.
-- **Informational CI workflows block nothing** and run only when a PR touches their area (and in the merge queue and on `main`): `api-fuzz` (fixed seed; replay with `gh workflow run api-fuzz.yml -f seed=N`), `go-fuzz`, `net-2vm`, `perf-smoke`, `nightly`. The apps CI runs only on changed apps. Runner routing is set by the repo variables `LOCAL_RUNNER` and `MQ_RUNNER` (see [docs/learning/self-hosted-runner.md](docs/learning/self-hosted-runner.md)).
+- **Informational CI workflows** are listed in `INFORMATIONAL` in `scripts/ci-gate.py`: `api-fuzz`, `go-fuzz`, `perf-smoke`, `net-2vm`, `security-nightly`, `apps-gate-all`, `restore-drill`. The merge gate reports them and never waits on or fails for them. On a pull request each one runs only when the PR touches that workflow's own harness paths (for example `core/tests/api_fuzz_check.py`, `test/perf/**`, `test/net/**`, `test/restore-drill/**`) or its workflow file; otherwise they run on pushes to `main` (api-fuzz, go-fuzz, perf-smoke and net-2vm, on their own path filters), nightly or weekly or monthly on a schedule (api-fuzz, go-fuzz, security-nightly, apps-gate-all, restore-drill), by hand, and api-fuzz also in the merge queue. The `nightly` workflow is not informational: it runs on a schedule or by hand only and never on a PR. Replay an api-fuzz seed with `gh workflow run api-fuzz.yml -f seed=N`. The apps CI runs only on changed apps. Runner routing is set by the repo variables `LOCAL_RUNNER` and `MQ_RUNNER` (see [docs/learning/self-hosted-runner.md](docs/learning/self-hosted-runner.md)).
 
 ## Engineering: where code lives and how to build it
 Run every command from the repo root. On a Mac, install the tools once:
