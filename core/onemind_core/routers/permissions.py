@@ -168,6 +168,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     svc = getattr(app.state, "automation", None)
     if svc is not None:
         svc.policies.loosen_guard = no_rule_before_a_passkey
+        svc.policies.mode_of = modes.effective  # each rule shows whether its principal's mode lets it fire
 
         def live_rule_principals() -> set[str]:
             return {w for p in svc.repo.list_policies() for w in p["allow"]["requested_by"] if not w.endswith(":*")}

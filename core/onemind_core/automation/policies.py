@@ -284,6 +284,9 @@ class PolicyService:
         # PR 10 (F-8): why nothing may be loosened yet (no owner passkey), or None. Creating, widening or
         # re-confirming a rule loosens.
         self.loosen_guard: Callable[[], str | None] = lambda: None
+        # PR 10: (display id) -> its permission mode, shown on each rule: a rule for a principal on Always ask
+        # (the default) or Locked never fires until its mode lets rules apply.
+        self.mode_of: Callable[[str], str] | None = None
 
     def _check_loosen(self) -> None:
         why = self.loosen_guard()
@@ -377,6 +380,7 @@ class PolicyService:
             "uses": p.get("uses") or 0, "last_used_at": iso(p["last_used_at"]) if p.get("last_used_at") else None,
             "uses_24h": self.repo.count_uses(p["id"], now - timedelta(days=1)),
             "review_due": forever and state == "active" and self._review_base(p) + REVIEW_EVERY <= now,
+            "modes": {w: self.mode_of(w) for w in p["allow"]["requested_by"]} if self.mode_of is not None else {},
         }
 
     @staticmethod

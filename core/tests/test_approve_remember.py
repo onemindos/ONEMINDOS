@@ -139,3 +139,11 @@ def test_a_dated_read_only_rule_needs_l1_and_everything_else_l2():
     write = rm.narrowest_rule({"id": "a", "type": "app.restart", "params": {"app_id": "x"}, "requested_by": AGENT_REQ},
                               rm.RememberChoice(lifetime="90d"), NOW)
     assert rm.required_level(write) == "L2" and write["expires_at"] == "2027-02-23T00:00:00Z"
+
+
+def test_remember_is_refused_while_the_agent_is_on_always_ask(box, clock):
+    c, _ = box
+    c.put("/v1/permission-modes/agent:hermes", headers=OWNER, json={"mode": "ask"})
+    a = ask(c, clock, "m0")
+    r = c.post(f"/v1/actions/{a['id']}/approve-options", json={"remember": {}}, headers=csrf(c))
+    assert r.status_code == 409 and r.json()["reason"] == "mode_ignores_rules"

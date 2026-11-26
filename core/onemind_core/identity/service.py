@@ -1194,6 +1194,12 @@ class IdentityService:
         why = rm.why_not(action, self.gw.actions.is_physical(str(action.get("type"))))
         if why:
             raise ApiError(422, "conflict", f"this request cannot be remembered: {why}", reason="remember_refused")
+        engine = getattr(self.gw.actions, "permissions", None)
+        modes = getattr(engine, "modes", None)
+        mode = modes.effective(rm.requester_key(action.get("requested_by") or {})) if modes is not None else "auto"
+        if mode in ("locked", "ask"):  # a remembered rule would never fire: say so instead of storing a dead rule
+            raise ApiError(409, "conflict", f"this agent is on {'Locked' if mode == 'locked' else 'Always ask'}, which ignores "
+                           "rules: set it to Ask once, then remember (or Auto within rules) first", reason="mode_ignores_rules")
         try:
             rule = rm.narrowest_rule(action, choice, self.now())
         except ValueError as exc:
