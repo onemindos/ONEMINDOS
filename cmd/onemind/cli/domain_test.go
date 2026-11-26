@@ -161,7 +161,10 @@ func TestDomainHostRequestApproveRemove(t *testing.T) {
 	if r.code != 0 || !strings.Contains(r.out, "Approved ntfy.example.org") || !strings.Contains(r.out, "nothing is served") {
 		t.Fatalf("approve %+v", r)
 	}
-	r = run(t, "", false, "domain", "host", "remove", "ntfy.example.org")
+	if r = run(t, "", false, "domain", "host", "remove", "ntfy.example.org"); r.code == 0 || !strings.Contains(r.errOut, "--yes") {
+		t.Fatalf("remove without --yes must be refused before any call: %+v", r)
+	}
+	r = run(t, "", false, "domain", "host", "remove", "ntfy.example.org", "--yes")
 	if r.code != 0 || !strings.Contains(r.out, "Removed ntfy.example.org") {
 		t.Fatalf("remove %+v", r)
 	}

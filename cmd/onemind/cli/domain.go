@@ -117,11 +117,16 @@ func domainHostCommands(a *App) *cobra.Command {
 	}
 	approve.Flags().StringVar(&confirm, "confirm", "", "the hostname again, in full")
 	h.AddCommand(approve)
-	h.AddCommand(&cobra.Command{
-		Use:   "remove HOSTNAME",
-		Short: "Withdraw a requested or approved name (DELETE /v1/domains/hosts/HOSTNAME)",
+	// Removing a name asks for --yes, as the dashboard asks in a dialog: it drops an approval at once.
+	var yes bool
+	remove := &cobra.Command{
+		Use:   "remove HOSTNAME --yes",
+		Short: "Withdraw a requested or approved name (DELETE /v1/domains/hosts/HOSTNAME); needs --yes",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if !yes {
+				return usageErr(cmd, "removing "+strings.TrimSpace(args[0])+" drops its approval at once: repeat with --yes to confirm")
+			}
 			cl, _, err := a.client()
 			if err != nil {
 				return err
@@ -135,7 +140,9 @@ func domainHostCommands(a *App) *cobra.Command {
 			fmt.Fprintf(a.Stdout, "Removed %s.\n", sanitize(args[0]))
 			return nil
 		},
-	})
+	}
+	remove.Flags().BoolVar(&yes, "yes", false, "confirm the removal")
+	h.AddCommand(remove)
 	return h
 }
 

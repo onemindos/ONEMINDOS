@@ -153,6 +153,11 @@ it('asks for a name under a verified domain and removes a name', async () => {
   await screen.findByText('kuma.example.org');
   expect(calls.some((c) => c.method === 'POST' && c.path === '/v1/domains/example.org/hosts' && JSON.stringify(c.body) === '{"app_id":"kuma"}')).toBe(true);
   await user.click(screen.getByRole('button', { name: 'Remove the name ntfy.example.org' }));
+  expect(calls.some((c) => c.method === 'DELETE')).toBe(false); // nothing happens before the confirmation
+  await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Keep it' }));
+  expect(calls.some((c) => c.method === 'DELETE')).toBe(false);
+  await user.click(screen.getByRole('button', { name: 'Remove the name ntfy.example.org' }));
+  await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Remove name' }));
   await vi.waitFor(() => expect(screen.queryByText('ntfy.example.org')).not.toBeInTheDocument());
   expect(calls.some((c) => c.method === 'DELETE' && c.path === '/v1/domains/hosts/ntfy.example.org')).toBe(true);
 });
@@ -161,4 +166,13 @@ it('offers no name request for a domain that is not verified', async () => {
   mount({ domains: [dom('example.org')] });
   await screen.findByRole('button', { name: 'Check example.org' });
   expect(screen.queryByLabelText('App to give a name under example.org')).not.toBeInTheDocument();
+});
+
+it('accepts the confirmation in any case and with spaces around it, as the gateway does', async () => {
+  const calls = mount({ domains: [dom('example.org', true, true)] });
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Approve ntfy.example.org' }));
+  await user.type(screen.getByLabelText(/^Type ntfy.example.org to confirm/), ' NTFY.Example.ORG ');
+  await user.click(screen.getByRole('button', { name: 'Approve name' }));
+  await vi.waitFor(() => expect(calls.filter((c) => c.path.endsWith('/approve')).map((c) => c.body)).toEqual([{ confirm: 'NTFY.Example.ORG' }]));
 });

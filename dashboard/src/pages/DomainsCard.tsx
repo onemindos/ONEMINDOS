@@ -20,6 +20,7 @@ export function DomainsCard({ token }: { token: string }) {
   const [note, setNote] = useState<string>();
   const [approving, setApproving] = useState<string>();
   const [typed, setTyped] = useState('');
+  const [removingHost, setRemovingHost] = useState<string>();
 
   async function act(job: () => Promise<unknown>, title: string) {
     setBusy(true);
@@ -75,7 +76,7 @@ export function DomainsCard({ token }: { token: string }) {
             {d.domains.length === 0 ? (
               <p className="om-hint">No domains yet.</p>
             ) : (
-              d.domains.map((v) => <DomainRow key={v.domain} v={v} busy={busy} enabled={d.enabled} onCheck={() => void check(v.domain)} onRemove={() => setRemoving(v.domain)} onAsk={(app) => void act(() => viaSdk(() => client.domains.requestHost(v.domain, app)), 'Could not ask for the name')} onApprove={(h) => { setTyped(''); setApproving(h); }} onRemoveHost={(h) => void act(() => viaSdk(() => client.domains.removeHost(h)), 'Could not remove the name')} />)
+              d.domains.map((v) => <DomainRow key={v.domain} v={v} busy={busy} enabled={d.enabled} onCheck={() => void check(v.domain)} onRemove={() => setRemoving(v.domain)} onAsk={(app) => void act(() => viaSdk(() => client.domains.requestHost(v.domain, app)), 'Could not ask for the name')} onApprove={(h) => { setTyped(''); setApproving(h); }} onRemoveHost={(h) => setRemovingHost(h)} />)
             )}
           </>
         )}
@@ -91,6 +92,7 @@ export function DomainsCard({ token }: { token: string }) {
               Cancel
             </Button>
             <Button
+              // The same test the gateway makes (domains.approve_host: confirm.strip().lower() == hostname).
               disabled={typed.trim().toLowerCase() !== (approving ?? '').toLowerCase()}
               onClick={() => {
                 const h = approving;
@@ -106,6 +108,29 @@ export function DomainsCard({ token }: { token: string }) {
         <label htmlFor="host-confirm">Type {approving} to confirm</label>
         <input id="host-confirm" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />
       </Dialog>
+      <Dialog
+        open={removingHost !== undefined}
+        onClose={() => setRemovingHost(undefined)}
+        role="alertdialog"
+        title={`Remove the name ${removingHost ?? ''}?`}
+        description="The box forgets this name and its approval. The app keeps running; ask for the name again to get it back. Your DNS provider is not touched."
+        actions={
+          <>
+            <Button variant="ghost" onClick={() => setRemovingHost(undefined)}>
+              Keep it
+            </Button>
+            <Button
+              onClick={() => {
+                const h = removingHost;
+                setRemovingHost(undefined);
+                if (h) void act(() => viaSdk(() => client.domains.removeHost(h)), 'Could not remove the name');
+              }}
+            >
+              Remove name
+            </Button>
+          </>
+        }
+      />
       <Dialog
         open={removing !== undefined}
         onClose={() => setRemoving(undefined)}
