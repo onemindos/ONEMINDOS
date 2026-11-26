@@ -128,7 +128,15 @@ install_probe() {
     "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > /opt/onemind/apps/backup-probe/scan.json
   local exp a
   exp=$(date -u -d '+1 hour' +%Y-%m-%dT%H:%M:%SZ)
-  a=$(api -X POST "$GW/v1/actions" -d "{\"type\":\"app.install\",\"params\":{\"app_id\":\"backup-probe\"},\"idempotency_key\":\"drill-install-$MODE\",\"expires_at\":\"$exp\"}" | jq -r .id)
+  local resp
+  # Not api(): curl -f drops the error body, and the body is the reason (a 404 "unknown app" names the manifest problem).
+  resp=$(curl -sS -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -X POST "$GW/v1/actions" \
+    -d "{\"type\":\"app.install\",\"params\":{\"app_id\":\"backup-probe\"},\"idempotency_key\":\"drill-install-$MODE\",\"expires_at\":\"$exp\"}")
+  a=$(echo "$resp" | jq -r '.id // empty' 2>/dev/null)
+  if [ -z "$a" ]; then
+    echo "app.install was not filed: $(echo "$resp" | cut -c1-700)"
+    return 1
+  fi
   if [ "$(api -X POST "$GW/v1/actions/$a/approve" | jq -r .state)" != succeeded ]; then
     echo "app.install did not succeed: $(api "$GW/v1/actions/$a" | jq -c '{state, result}' | cut -c1-700)"
     return 1
