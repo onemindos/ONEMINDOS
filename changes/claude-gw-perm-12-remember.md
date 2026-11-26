@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 1204
 branch: claude/gw-perm-12-remember
 ---
 Approve and remember: the owner approves a request and, in the same passkey ceremony, makes a standing approval for requests like it. POST /v1/actions/id/approve-options with a remember body returns the narrowest rule (same agent and type, every parameter pinned, 30 days, at most 10 a day, end if unused for 14 days, digest notices; the sheet may choose 90 or 180 days or forever, a per-day number, unpin a parameter, or each-use notices), a summary the gateway writes from that rule, and its hash bound into the passkey challenge. On approve the rule is stored only if the body sent hashes to the bound value (409 rule_changed otherwise), only with a passkey assertion (the phone key and a bare token answer step_up_required until the phone shows the rule, PR 18a), and is refused for tainted or exposed requests, physical actions, anything above write, hard-floor items and a person's own requests. The rule records created_from. D-028 asks L2 for T1 and forever rules; until the verification levels land (PR 11) the gateway's passkey step-up (L1) applies and the answer says required_level. Gateway permissions design PR 12, fix 4, D-028.
