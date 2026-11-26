@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 1265
 branch: claude/dashboard-standing-approvals
 ---
 Settings, Standing approvals in the dashboard and the CLI (issue 1214). An owner sees each standing approval (what it covers, who may ask, today's use against its daily limit, the maintenance window, when it ends and whether it is on, paused or ended) and can create one, turn a paused legacy one back on, or remove one after a second click. The page says in plain words what a standing approval can never cover (sensitive or destructive requests, everyone at once, more than 90 days, an agent that reads outside text) and checks a new one before sending it. Creating and turning back on are confirmed in place through the SDK's shared step-up helper (the proven key, or before the box's first proven key any passkey plus the code on the box's own screen); removing goes through at once. The CLI gets onemind actions policies list, create, confirm and remove (--json); create and confirm point to the dashboard when the hub wants a passkey. The gateway documents the ApprovalPolicy answer of the list, create and confirm routes in the OpenAPI spec (answers unchanged), so the dashboard reads it through generated SDK types. The Security overview and the Automation page link here.
