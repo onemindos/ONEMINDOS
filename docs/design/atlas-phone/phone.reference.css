@@ -1,0 +1,20 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* REFERENCE ONLY: the phone rules from the 2026-11-21 design pack (HTML mock-ups). Not loaded by any app.
+   React Native builds the same look from mobile/src/ui/theme.ts and the design tokens; read sizes and spacing here. */
+.pbody { position: absolute; top: 47px; left: 0; right: 0; bottom: 84px; padding: 6px 16px 16px; overflow: hidden; }
+.ptop { display: flex; align-items: center; gap: 9px; font-weight: 650; font-size: 15px; margin-bottom: 14px; }
+.ptop .avatar { margin-left: auto; width: 32px; height: 32px; font-size: 12px; }
+.pcard { background: var(--panel); backdrop-filter: blur(18px); border: 1px solid var(--line); border-radius: 18px; padding: 14px; margin-bottom: 12px; }
+.pcard h4 { font-size: 13px; text-transform:none; letter-spacing: 0; color: var(--text-2); display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.pcard h4 .r { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 500; }
+
+/* On a photo: a soft shade at the top so the status bar and headings stay readable. */
+[data-wall="photo"] .phone::after { content: ""; position: absolute; inset: 0 0 auto 0; height: 240px; background: linear-gradient(rgba(8,10,16,.6), rgba(8,10,16,0)); pointer-events: none; }
+.pbody { z-index: 1; } .phone .sb { position: relative; z-index: 1; }
+[data-wall="photo"] .phone .sb { color: #fff; }
+/* final round: phone parts */
+.phone h1 { font-size: 26px; letter-spacing: -0.03em; line-height: 1.1; }
+.phone .sub { font-size: 14px; color: var(--text-2); margin: 4px 0 14px; }
+.phone .btn { min-height: 48px; }
+.phone .btn.sm { min-height: 44px; height: 44px; }
+.tabs div .ic { margin-top: 2px; }
