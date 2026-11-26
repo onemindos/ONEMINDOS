@@ -26,7 +26,8 @@ func accountHub(t *testing.T, got *[]string) {
 			return
 		}
 		if r.Method == http.MethodPost && auth == "Bearer pat-token" {
-			jsonOut(w, 403, map[string]string{"error": "permission_denied", "message": "change the password needs a session", "reason": "session_required"})
+			// The real body (IdentityService._account -> deny(..., tell=True)), checked by core test_identity.
+			jsonOut(w, 403, map[string]string{"error": "permission_denied", "message": "not allowed to change the password", "reason": "session_required"})
 			return
 		}
 		var in map[string]string
@@ -99,6 +100,21 @@ func TestAccountRefusedForAnAPIToken(t *testing.T) {
 	t.Setenv("ONEMIND_TOKEN", "pat-token")
 	r := run(t, "old password 1\nnew password 22\n", false, "account", "password", "--password-stdin")
 	if r.code != ExitPermissionDenied || !strings.Contains(r.errOut, "dashboard (Settings > Account and security)") {
+		t.Fatalf("%+v", r)
+	}
+}
+
+// A gateway from before reason=session_required was sent answers a bare 403; the CLI still says what to do.
+func TestAccountExplainsABare403FromAnOlderGateway(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		jsonOut(w, 403, map[string]string{"error": "permission_denied", "message": "not allowed to set up an authenticator"})
+	}))
+	t.Cleanup(srv.Close)
+	isolate(t)
+	t.Setenv("ONEMIND_HUB", srv.URL)
+	t.Setenv("ONEMIND_TOKEN", "pat-token")
+	r := run(t, "", false, "account", "totp", "setup")
+	if r.code != ExitPermissionDenied || !strings.Contains(r.errOut, "not an API token") {
 		t.Fatalf("%+v", r)
 	}
 }

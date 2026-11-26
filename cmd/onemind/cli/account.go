@@ -48,10 +48,11 @@ func accountCommands(a *App) []*cobra.Command {
 	return []*cobra.Command{g}
 }
 
-// explainAccount adds what to do when the gateway refuses a credential change from a token.
+// explainAccount adds what to do when the gateway refuses a credential change from a token. The gateway sends
+// reason=session_required; an older one sent a bare 403, which on these commands means the same thing.
 func explainAccount(err error) error {
 	var e *onemind.Error
-	if errors.As(err, &e) && e.Reason == "session_required" {
+	if errors.As(err, &e) && e.Status == 403 && (e.Reason == "session_required" || e.Reason == "") {
 		return fmt.Errorf("%w\nChanging your sign-in needs a signed-in session, not an API token. Do it in the dashboard (Settings > Account and security)", err)
 	}
 	return explainGateway(err)

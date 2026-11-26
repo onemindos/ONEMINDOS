@@ -70,6 +70,34 @@ it('says in plain words when the current password is wrong', async () => {
   expect(await screen.findByRole('alert')).toHaveTextContent('That password is not right. Nothing was changed.');
 });
 
+async function changePassword() {
+  const user = userEvent.setup();
+  render(<AccountSignIn />);
+  await user.type(await screen.findByLabelText('Current password'), 'old password 1');
+  await user.type(screen.getByLabelText('New password'), 'new password 22');
+  await user.type(screen.getByLabelText('New password again'), 'new password 22');
+  await user.click(screen.getByRole('button', { name: 'Change password' }));
+}
+
+it('says to sign in when the gateway refuses an API token (the real 403 body)', async () => {
+  // IdentityService._account -> deny(..., tell=True): the body core test_identity asserts.
+  gateway({ password: true, totp: false, passkeys: 0, passkeys_active: false }, (c) =>
+    c.path === '/v1/auth/password' ? Response.json({ error: 'permission_denied', message: 'not allowed to change the password', reason: 'session_required' }, { status: 403 }) : undefined);
+  await changePassword();
+  expect(await screen.findByRole('alert')).toHaveTextContent('This needs you to be signed in on this device.');
+});
+
+it('says nothing was changed when the box does not answer', async () => {
+  gateway({ password: true, totp: false, passkeys: 0, passkeys_active: false });
+  const answered = globalThis.fetch;
+  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    if (new URL(url).pathname === '/v1/auth/password') throw new TypeError('Failed to fetch');
+    return answered(url, init);
+  }));
+  await changePassword();
+  expect(await screen.findByRole('alert', {}, { timeout: 5000 })).toHaveTextContent('The box did not answer. Nothing was changed; try again.');
+});
+
 it('sets up an authenticator code: shows the key once, then turns it on with a code', async () => {
   const calls = gateway({ password: true, totp: false, passkeys: 0, passkeys_active: false });
   const user = userEvent.setup();

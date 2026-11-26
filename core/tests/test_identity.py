@@ -526,6 +526,8 @@ def test_api_tokens_cannot_change_sign_in_credentials(idc):
                        ("/v1/auth/totp/disable", {"password": PASSWORD})):
         r = idc.post(path, json=body, headers=h)
         assert r.status_code == 403, (path, r.text)
+        # The reason reaches the caller, so the CLI and the dashboard can say "sign in, a token cannot do this".
+        assert r.json()["error"] == "permission_denied" and r.json()["reason"] == "session_required", (path, r.text)
     assert idc.get("/v1/auth/passkeys", headers=h).status_code == 200  # reading own list is fine
     # A narrowed owner PAT sees and revokes only its own person's sessions, not everyone's.
     adult = enrol(idc, "adult", "ana")
