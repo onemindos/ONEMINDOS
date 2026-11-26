@@ -33,6 +33,7 @@ from pydantic import ConfigDict, Field, field_validator
 from ..auth import Principal
 from ..backups.jobs import gateway_job_key_path, lazy_job_key
 from ..ca import BoxCA, box_name_from_hostname
+from ..callout import load_keys as load_callout_keys
 from ..context import Gateway
 from ..errors import ApiError, error_responses
 from ..fabric import FabricDeps, FabricService, JoinRequestBody, K3sBootstrapTokens, TicketRequest
@@ -185,6 +186,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
         k3s=K3sBootstrapTokens(settings.kubectl, fab_cfg.k3s_ca_hash) if fab_cfg.k3s else None,
         hub_node_id=settings.node_id,
         job_key=lazy_job_key(gateway_job_key_path(settings)),
+        # D-029 hybrid: the callout's keys sit with the job key (one key per purpose, the custodian dir).
+        callout=(lambda: load_callout_keys(gateway_job_key_path(settings).parent).account) if fab_cfg.nats_callout else None,
     ))
     gw.actions.register_handler("node.join", fabric)
 

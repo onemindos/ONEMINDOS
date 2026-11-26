@@ -41,3 +41,8 @@ research-output/evidence/lab/acct-kanidm/run-1/AK-3.txt:generic-api-key:68
 dd47c170b08577f4b352d8a3c1f4792cba9326f4:research-output/evidence/lab/acct-kanidm/run-1/AK-3.txt:generic-api-key:68
 # NATS user public nkey in the JetStream account golden, line moved by the per-node job-consumer imports (D-029 N2); public by design, no seed is committed
 internal/leaf/testdata/hub-accounts-jetstream.golden.conf:generic-api-key:37
+# D-029 auth callout test data: public nkeys in the callout accounts golden, and a fixed answer JWT signed by a test-only key (32 bytes of 0x01, expired 2026-11) in the jwt/v2 vector; no seed and no live credential is committed
+internal/leaf/testdata/hub-accounts-callout.golden.conf:generic-api-key:27
+internal/leaf/testdata/hub-accounts-callout.golden.conf:generic-api-key:56
+internal/leaf/testdata/callout-vector.json:generic-api-key:4
+internal/leaf/testdata/callout-vector.json:jwt:6

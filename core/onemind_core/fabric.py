@@ -58,7 +58,7 @@ from .executors import ExecResult
 from .jsonbody import JsonBody
 from .ledger import Action, Base, iso, utc
 from .mesh import ROLE_TAGS, MeshRefused, MeshService
-from .natsconf import NodeAccount, is_user_public_nkey, load_service_keys, write_accounts
+from .natsconf import CalloutAccount, NodeAccount, is_user_public_nkey, load_service_keys, write_accounts
 from .netconf import FabricSettings, MeshSettings, NetSettings
 from .store import Database, FeatureSchema, SqlRepository
 
@@ -618,6 +618,9 @@ class FabricDeps:
     # The gateway's job key (backups/jobs.py gateway_job_key_path), loaded on first use. Its public half
     # goes into the join reply so the machine pins it and can check every job the gateway signs (D-029).
     job_key: Callable[[], Ed25519PrivateKey] | None = None
+    # The auth callout's keys (callout.py), when ONEMIND_FABRIC_NATS_CALLOUT is on: the accounts file
+    # then gets account AUTH and the auth_callout block, and AGENTS keeps no static user.
+    callout: Callable[[], CalloutAccount] | None = None
 
 
 class FabricService:
@@ -656,8 +659,9 @@ class FabricService:
             return False
         accounts = [NodeAccount(n["node_id"], n["nats_pubkey"]) for n in self.repo.nodes()]
         agents = agent_users(self.d.db)  # the AGENTS account (#627): one user per registered agent key
+        callout = self.d.callout() if self.d.callout is not None else None
         changed = write_accounts(path, accounts, load_service_keys(self.d.fabric.nats_service_keys),
-                                 self.d.fabric.jetstream_max_bytes, agents)
+                                 self.d.fabric.jetstream_max_bytes, agents, callout)
         if changed:
             log.info("NATS accounts updated (%d nodes, %d agents)", len(accounts), len(agents))
         return changed
