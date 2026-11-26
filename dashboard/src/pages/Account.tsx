@@ -12,6 +12,7 @@ import { formatAgo, secondsSince } from '../lib/time';
 import { useSignedIn } from '../session';
 import { AppPasswords } from './AppPasswords';
 import { Load, useRun } from './parts';
+import { MyDevices } from './MyDevices';
 
 const ago = (iso: string | null | undefined, now: number) => (iso ? formatAgo(secondsSince(iso, now)) : t('common.never'));
 
@@ -101,6 +102,7 @@ export function Account() {
           )}
         </Load>
       </Card>
+      <MyDevices />
       <AppPasswords />
     </div>
   );

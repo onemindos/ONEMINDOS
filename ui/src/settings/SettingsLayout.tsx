@@ -24,7 +24,7 @@ export const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
   { id: 'accessibility', label: 'Accessibility and motion', icon: 'eye', group: 'You', keywords: ['reduce motion', 'text size', 'contrast', 'focus', 'underline'] },
   { id: 'appearance', label: 'Appearance', icon: 'eye', group: 'You', keywords: ['theme', 'dark', 'light', 'accent', 'wallpaper', 'colour', 'color', 'density', 'font'] },
   { id: 'default-apps', label: 'Default apps', icon: 'settings', group: 'You', keywords: ['open with', 'preferred', 'browser'] },
-  { id: 'account', label: 'Account & security', icon: 'lock', group: 'People and access', keywords: ['passkey', 'password', 'sessions', 'tokens', 'sign in', '2fa', 'totp'] },
+  { id: 'account', label: 'Account & security', icon: 'lock', group: 'People and access', keywords: ['passkey', 'password', 'sessions', 'tokens', 'sign in', '2fa', 'totp', 'my devices', 'lost phone'] },
   { id: 'users', label: 'Users & roles', icon: 'users', group: 'People and access', keywords: ['people', 'family', 'invite', 'owner', 'guest'] },
   { id: 'agents', label: 'Agents & MCP', icon: 'agent', group: 'People and access', keywords: ['ai', 'hermes', 'mcp', 'tools', 'revoke', 'suspend'] },
   { id: 'security', label: 'Security overview', icon: 'lock', group: 'Security', keywords: ['passkeys', 'devices', 'tokens', 'audit', 'approval', 'exposure'] },
