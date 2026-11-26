@@ -17,6 +17,10 @@ Rules:
 - every change writes an `agents.stopped` / `agents.resumed` event (audit line plus NATS), and a
   refused change writes `authz.denied`;
 - the state lives in the database (table `agent_stop_state`), so it survives a gateway restart;
+- every change also runs the listeners (`listeners`): on a hub with NATS, the accounts file is
+  rewritten without the AGENTS account, so NATS cuts every agent already on the bus at the reload
+  (D-029 "Stop everything also cuts AI agents off the bus"; natsconf.render_accounts). A listener
+  that fails is logged and audited (`agents.stop_listener_failed`) and never undoes the switch;
 - a refused agent request writes at most one `agents.refused` audit line a minute, with the count
   of refusals suppressed since the previous line, so a looping agent cannot flood the log;
 - enforcement state (the switch's in-memory copy and the refusal throttle) is per process: correct
@@ -25,7 +29,9 @@ Rules:
 
 from __future__ import annotations
 
+import logging
 import threading
+from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
@@ -36,6 +42,8 @@ from .auth import Principal
 from .errors import ApiError
 from .ledger import Base, iso, utc
 from .store import Database, FeatureSchema, SqlRepository
+
+log = logging.getLogger("onemind.agent_stop")
 
 SCHEMA = FeatureSchema("agent_stop")
 REASON = "agents_stopped"
@@ -84,6 +92,8 @@ class AgentStop:
         self._lock = threading.Lock()
         self._on = bool(self.repo.state()["on"])  # read once at start: the switch survives a restart
         self._refused: dict[str, Any] = {"last": None, "suppressed": 0}
+        # Called with the new state after every change (routers/agents.py: rewrite the NATS accounts).
+        self.listeners: list[Callable[[bool], None]] = []
 
     # ---- state -----------------------------------------------------------------------------
     @property
@@ -110,6 +120,13 @@ class AgentStop:
             principal=principal.as_dict(), severity="warning" if on else "info",
             resource={"kind": "agents", "id": "all"}, dedupe_key="agents:kill_switch",
         )
+        for listener in list(self.listeners):
+            try:
+                listener(on)
+            except Exception as exc:  # noqa: BLE001 - the switch itself already holds in the gateway
+                log.warning("agent kill switch listener failed: %s", exc.__class__.__name__)
+                self.gw.audit.append("agents.stop_listener_failed", principal.as_dict(), None,
+                                     {"on": on, "error": f"{exc.__class__.__name__}: {exc}"[:300]})
         return self.state()
 
     # ---- enforcement -----------------------------------------------------------------------

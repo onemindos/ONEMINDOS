@@ -216,23 +216,31 @@ class AgentUser:
         """The only request subject this agent may send on: the subject itself names the sender."""
         return f"onemind.request.agent.{self.token}.*"
 
-    def permissions(self) -> str:
+    def allow(self) -> tuple[list[str], list[str]]:
+        """(publish, subscribe) allow lists: the same in the static file and in a callout user JWT."""
         own = self.subjects()
-        pub = [*own, self.request_subject()]
         srv = ["$SRV.PING", "$SRV.INFO", "$SRV.STATS", f"$SRV.*.{self.token}", f"$SRV.*.{self.token}.*"]
+        return [*own, self.request_subject()], [*own, *srv]
+
+    def permissions(self) -> str:
+        pub, sub = self.allow()
         q = lambda xs: ", ".join(f'"{x}"' for x in xs)  # noqa: E731
         n, ttl = AGENT_RESPONSES
-        return (f"permissions: {{publish: {{allow: [{q(pub)}]}}, subscribe: {{allow: [{q([*own, *srv])}]}}, "
+        return (f"permissions: {{publish: {{allow: [{q(pub)}]}}, subscribe: {{allow: [{q(sub)}]}}, "
                 f'allow_responses: {{max: {n}, expires: "{ttl}"}}}}')
 
 
-def render_agents_account(agents: list[AgentUser]) -> list[str]:
-    """The AGENTS account block: one user per line, so removing a line removes exactly one agent."""
+def render_agents_account(agents: list[AgentUser], callout: bool = False) -> list[str]:
+    """The AGENTS account block: one user per line, so removing a line removes exactly one agent. With
+    the auth callout (D-029 hybrid) it has no static user: the gateway answers each agent's connect
+    with a short-lived user JWT placed in this account (callout.py)."""
+    users = [] if callout else [
+        f'      {{nkey: "{a.nkey}", allowed_connection_types: ["STANDARD"], {a.permissions()}}}  # {a.principal_id}'
+        for a in agents]
     return [
         f"  {AGENTS_ACCOUNT}: {{",
         "    users: [",
-        *[f'      {{nkey: "{a.nkey}", allowed_connection_types: ["STANDARD"], {a.permissions()}}}  # {a.principal_id}'
-          for a in agents],
+        *users,
         "    ]",
         "    limits: {" + ", ".join(f"{k}: {v}" for k, v in AGENTS_LIMITS) + "}",
         "    exports: [",
@@ -259,16 +267,51 @@ JETSTREAM_MAX_STREAMS = 32
 JETSTREAM_MAX_CONSUMERS = 128
 
 
+@dataclass(frozen=True)
+class CalloutAccount:
+    """The auth callout (D-029: "NATS asks the gateway who may connect", for agents; callout.py).
+
+    `issuer` is the public account nkey (A...) that signs the gateway's answers; `service` the user
+    nkey the gateway's responder signs in with, alone in account AUTH. Everything static (hub services,
+    machines, the responder) is on `auth_users`, the pinned list that never waits for the gateway, so
+    machines and hub services reconnect with the gateway down; everyone else is asked about."""
+    issuer: str
+    service: str
+
+    def __post_init__(self):
+        from .natsjwt import PREFIX_ACCOUNT, JwtError, decode_public
+
+        try:
+            decode_public(self.issuer, PREFIX_ACCOUNT)
+        except JwtError:
+            raise ValueError("callout issuer: not a NATS account public nkey") from None
+        if not is_user_public_nkey(self.service):
+            raise ValueError("callout service: not a NATS user public nkey")
+
+
+CALLOUT_ACCOUNT = "AUTH"
+
+
 def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey] = (),
-                    jetstream_max_bytes: int = 0, agents: Iterable[AgentUser] = ()) -> str:
+                    jetstream_max_bytes: int = 0, agents: Iterable[AgentUser] = (),
+                    callout: CalloutAccount | None = None, agents_stopped: bool = False) -> str:
     """The accounts include file. Deterministic: same nodes, services and agents, same bytes (no reload churn).
 
     jetstream_max_bytes > 0 turns JetStream on for the hub account with that file-storage cap. Node
     and agent accounts never get JetStream: a leaf's events are kept by its own outbox and by the hub
-    account. With no agents the AGENTS account is left out and the file is byte for byte as before."""
+    account. With no agents the AGENTS account is left out and the file is byte for byte as before.
+
+    agents_stopped (the agent kill switch, D-029 "Stop everything also cuts AI agents off the bus"):
+    the AGENTS account and everything that names it are left out. The reload that follows makes
+    nats-server close every connection in AGENTS at once, static users and callout users alike (an
+    account that is gone takes its clients with it), instead of waiting for a callout JWT to expire.
+    The callout block stays, so a new agent connect is still asked about, and refused."""
     nodes = sorted({n.node_id: n for n in nodes}.values(), key=lambda n: n.node_id)
     agents = sorted({a.token: a for a in agents}.values(), key=lambda a: a.token)
     services = sorted({s.name: s for s in services}.values(), key=lambda s: s.name)
+    if not services:
+        callout = None  # a passwordless dev hub is never asked about: the callout needs strict sign-in
+    wire_agents = bool(agents or callout) and not agents_stopped
     if services:  # strict: every hub-local client signs with its own key
         hub_users = [f'      {{nkey: "{s.nkey}", allowed_connection_types: ["STANDARD"]}}  # {s.name}'
                      for s in services]
@@ -298,7 +341,7 @@ def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey]
     ]
     if jetstream_max_bytes > 0:  # D-029 N2: each node reads and acknowledges its own job consumer only
         exports += [f'      {{service: "{s}", accounts: ["{n.account}"]}}' for n in nodes for s in job_services(n.node_id)]
-    if agents:  # the gateway prompts agents and hears their status and heartbeats; agents send requests
+    if wire_agents:  # the gateway prompts agents and hears them; agents send requests (static or callout)
         imports += [
             f'      {{service: {{account: "{AGENTS_ACCOUNT}", subject: "agents.prompt.>"}}}}',
             f'      {{stream: {{account: "{AGENTS_ACCOUNT}", subject: "agents.status.>"}}}}',
@@ -324,9 +367,24 @@ def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey]
             "    ]",
             "  }",
         ]
-    if agents:
-        out += render_agents_account(agents)
+    if wire_agents:
+        out += render_agents_account(agents, callout is not None)
+    if callout:
+        out += [f"  {CALLOUT_ACCOUNT}: {{",
+                f'    users: [{{nkey: "{callout.service}", allowed_connection_types: ["STANDARD"]}}]  # the gateway\'s callout responder',
+                "  }"]
     out.append("}")
+    if callout:
+        pinned = [callout.service, *[s.nkey for s in services], *[n.nkey for n in nodes]]
+        out += ["# D-029: NATS asks the gateway who may connect, except the pinned list below (hub services,",
+                "# machines, the responder), which never waits for the gateway. No answer: refused.",
+                "authorization {",
+                "  auth_callout {",
+                f'    issuer: "{callout.issuer}"',
+                f"    account: {CALLOUT_ACCOUNT}",
+                "    auth_users: [" + ", ".join(f'"{k}"' for k in pinned) + "]",
+                "  }",
+                "}"]
     if not services:
         out.append(f'no_auth_user: "{HUB_LOCAL_USER}"')
     out.append("")
@@ -403,9 +461,10 @@ def make_service_key(directory: Path, name: str) -> str:
 
 
 def write_accounts(path: Path, nodes: Iterable[NodeAccount], services: Iterable[ServiceKey] = (),
-                   jetstream_max_bytes: int = 0, agents: Iterable[AgentUser] = ()) -> bool:
+                   jetstream_max_bytes: int = 0, agents: Iterable[AgentUser] = (),
+                   callout: CalloutAccount | None = None, agents_stopped: bool = False) -> bool:
     """Write the include file atomically (0644: public keys only). True if the content changed."""
-    body = render_accounts(nodes, services, jetstream_max_bytes, agents).encode()
+    body = render_accounts(nodes, services, jetstream_max_bytes, agents, callout, agents_stopped).encode()
     try:
         if path.read_bytes() == body:
             return False

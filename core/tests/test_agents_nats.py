@@ -43,6 +43,16 @@ def test_agents_golden_matches_the_go_acceptance_test():
     assert render_accounts([], [], 0, AGENTS) == GOLDEN.read_text()
 
 
+STOPPED_GOLDEN = GOLDEN.with_name("hub-accounts-agents-stopped.golden.conf")
+
+
+def test_agents_stopped_golden_matches_the_go_acceptance_test():
+    """#1199 review: with the kill switch on, the file has no AGENTS account at all; the Go test reloads
+    nats-server with it and sees connected agents cut off."""
+    assert render_accounts([], [], 0, AGENTS, agents_stopped=True) == STOPPED_GOLDEN.read_text()
+    assert "AGENTS" not in STOPPED_GOLDEN.read_text()
+
+
 def test_removing_an_agent_removes_exactly_its_line():
     """The Go test revokes B by deleting B's line and reloading; that must be what the gateway writes."""
     without_b = "".join(line for line in GOLDEN.read_text().splitlines(keepends=True) if PUB_B not in line)
