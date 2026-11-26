@@ -141,7 +141,7 @@ func agentInputsCommands(a *App) *cobra.Command {
 			if err := c.Do(bg(), http.MethodPut, path(args[0]), body, &raw); err != nil {
 				var ge *onemind.Error
 				if errors.As(err, &ge) && ge.Reason == "step_up_required" {
-					return exitWith(ExitUsage, "usage", "loosening an agent needs a fresh passkey sign-in: sign in with your passkey in the dashboard, then run this again")
+					return exitWith(ExitUsage, "usage", "loosening an agent needs you to confirm with your passkey in the dashboard (Agents); the CLI cannot make that confirmation")
 				}
 				return err
 			}

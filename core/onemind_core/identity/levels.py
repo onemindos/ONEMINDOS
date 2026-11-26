@@ -96,6 +96,10 @@ STEP_UP_ROWS = {
     "physical.lockout.set": "physical.lockout_off",
 }
 
+# Owner and member routes that only need a fresh passkey (L1), never more: taking power away (design
+# 3.11, revoke is L0 plus the session's own proof). A step-up made in place stands in for signing in again.
+FRESH_OPS = frozenset({"auth.passkeys.delete"})
+
 TYPE_KEY_PREFIX = "type:"
 
 
