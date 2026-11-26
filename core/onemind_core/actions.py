@@ -884,8 +884,11 @@ class ActionService:
         taint = self.taint.get(principal.id, principal.kind)
         if taint is not None:
             self._tainted_target_check(principal, app)
-        self._gate({"id": principal.id, "kind": principal.kind}, req.type, params, lc.TYPES[req.type].risk,
-                   plan=rendered["plan"])
+        from .automation import registry  # imported late: the registry imports ActionType from here
+
+        # the effective risk, with the parameter upgrades (app.remove with delete_data is destructive)
+        self._gate({"id": principal.id, "kind": principal.kind}, req.type, params,
+                   registry.effective_risk(req.type, params, lc.TYPES[req.type].risk), plan=rendered["plan"])
         action = Action(
             id=new_action_id(),
             type=req.type,
