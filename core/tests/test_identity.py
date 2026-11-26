@@ -70,6 +70,12 @@ def id_settings(settings, **changes):
     return replace(settings, sections={**settings.sections, "identity": cfg})
 
 
+def at_box(c: TestClient, opts: dict) -> dict:
+    """{"box_code": ...} when approve-options or step-up options asked for it (N-1 b), as a person standing
+    at the box adds it; otherwise nothing."""
+    return {"box_code": box_code(c)} if opts.get("box_code_required") else {}
+
+
 def box_code(c: TestClient) -> str:
     """The code the box's own screen shows now (what onemind-screen reads)."""
     import json as _json
