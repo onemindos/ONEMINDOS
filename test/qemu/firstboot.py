@@ -548,7 +548,11 @@ def login(password, shell):
                 try:
                     d = os.read(fd, 4096)
                 except OSError:
-                    return any(m in buf for m in marks)
+                    # login(1) calls vhangup() on its terminal when it starts, so the master reads EIO for a moment.
+                    # Giving up there sent the password before the prompt (echoed, then lost, and login timed out
+                    # after 60 s): F15's intermittent tty2_login or wrong-password failures. Keep waiting instead.
+                    time.sleep(0.2)
+                    continue
                 if not d:
                     return any(m in buf for m in marks)
                 buf += d

@@ -142,6 +142,13 @@ class F15OwnerShell(unittest.TestCase):
             with self.subTest(change=new):
                 self.assertFalse(self.mutate(old, new)[key], key)
 
+    def test_f15_login_waits_through_the_vhangup_eio(self):
+        # login(1)'s vhangup() makes the pty master read EIO for a moment; returning there sent the password early.
+        py = self.fb.F15_PY
+        handler = py.split("except OSError:", 1)[1].split("if not d:", 1)[0]
+        self.assertIn("continue", handler)
+        self.assertNotIn("return", handler)
+
     def test_f15_never_prints_the_password_or_key(self):
         src = open(os.path.join(ROOT, "test", "qemu", "firstboot.py")).read()
         body = src[src.index("def f15("):src.index("def main(")]
