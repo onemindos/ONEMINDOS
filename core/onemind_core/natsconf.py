@@ -34,6 +34,14 @@ join and removal, and a systemd path unit reloads NATS):
   of its outbox in its own JetStream domain and the flow-control replies as service exports, and the
   delivery subject as a stream export. The delivery subject sits under the node's own prefix, so a
   node can feed only its own source stream, and ONEMIND exports nothing back for it.
+- durable jobs (D-029 plan N2), only with JetStream on: the hub keeps every job in ONEMIND_JOBS (a
+  work queue) and the gateway makes one durable pull consumer per node, `node-<node_id>`, filtered to
+  that node's own `onemind.node.<node_id>.job.>`. ONEMIND exports to NODE_<id> exactly two services:
+  "next message" of that one consumer, and the acknowledgements of that one consumer. The node imports
+  "next" under `onemind.node.<node_id>.jobpull`, because nats-server denies `$JS.API.>` across a leaf
+  link whose JetStream domain differs (server/leafnode.go, denyAllClientJs), and the leaf's own
+  JetStream would answer a local `$JS.API` request itself. A node can read and acknowledge only its
+  own jobs, can create, delete or reconfigure no consumer, and still can never publish a job.
 
 The file holds public keys only; no secret is written.
 """
@@ -73,6 +81,27 @@ AGENT_RESPONSES = (1000, "10m")
 # Hub sourcing of a leaf's outbox (#747). OUTBOX_STREAM is internal/leaf OutboxStream; a node's leaf
 # runs JetStream in the domain node-<node_id> (internal/leaf Config.Domain).
 OUTBOX_STREAM = "OUTBOX"
+# Durable jobs (D-029 N2): the hub's work-queue stream of jobs (sdk/schema/onemind.subjects.json).
+JOBS_STREAM = "ONEMIND_JOBS"
+
+
+def job_consumer(node_id: str) -> str:
+    """The durable pull consumer on ONEMIND_JOBS that holds one node's jobs."""
+    return f"node-{node_id}"
+
+
+def job_pull_subject(node_id: str) -> str:
+    """Where a node asks for its next job (imported from the hub's `$JS.API...MSG.NEXT` of its consumer).
+    internal/jobs PullSubject makes the same string."""
+    return f"onemind.node.{node_id}.jobpull"
+
+
+def job_services(node_id: str) -> tuple[str, str]:
+    """The two hub services one node may call: next message, and acknowledge, of its own consumer only.
+    The ack subject is the catch-all form under the consumer (`$JS.ACK.<stream>.<consumer>.>`), which
+    covers the 2.16 format change too (the stream and consumer stay its first tokens)."""
+    c = job_consumer(node_id)
+    return (f"$JS.API.CONSUMER.MSG.NEXT.{JOBS_STREAM}.{c}", f"$JS.ACK.{JOBS_STREAM}.{c}.>")
 
 
 def node_domain(node_id: str) -> str:
@@ -218,6 +247,12 @@ def render_agents_account(agents: list[AgentUser]) -> list[str]:
     ]
 
 
+def _job_imports(node_id: str) -> list[str]:
+    nxt, ack = job_services(node_id)
+    return [f'      {{service: {{account: "{HUB_ACCOUNT}", subject: "{nxt}"}}, to: "{job_pull_subject(node_id)}"}}',
+            f'      {{service: {{account: "{HUB_ACCOUNT}", subject: "{ack}"}}}}']
+
+
 # What the hub account may keep in JetStream: file storage only (no memory store: a restart must not
 # lose events silently), capped in total. App streams are carved out of this (streams.py).
 JETSTREAM_MAX_STREAMS = 32
@@ -261,6 +296,8 @@ def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey]
         f'      {{stream: "onemind.node.{n.node_id}.{s}", accounts: ["{n.account}"]}}'
         for n in nodes for s in NODE_IMPORTS
     ]
+    if jetstream_max_bytes > 0:  # D-029 N2: each node reads and acknowledges its own job consumer only
+        exports += [f'      {{service: "{s}", accounts: ["{n.account}"]}}' for n in nodes for s in job_services(n.node_id)]
     if agents:  # the gateway prompts agents and hears their status and heartbeats; agents send requests
         imports += [
             f'      {{service: {{account: "{AGENTS_ACCOUNT}", subject: "agents.prompt.>"}}}}',
@@ -283,6 +320,7 @@ def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey]
             "    imports: [",
             *[f'      {{stream: {{account: "{HUB_ACCOUNT}", subject: "onemind.node.{n.node_id}.{s}"}}}}'
               for s in NODE_IMPORTS],
+            *(_job_imports(n.node_id) if jetstream_max_bytes > 0 else []),
             "    ]",
             "  }",
         ]

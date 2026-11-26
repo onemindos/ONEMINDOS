@@ -39,7 +39,13 @@ def fleet(settings, clock, executor, monkeypatch):
     with TestClient(app) as c:
         sent: list[tuple[str, dict]] = []
         gw_bus = app.state.rollouts.gw.bus
-        gw_bus.publish_threadsafe = lambda subject, data: sent.append((subject, json.loads(data)))
+        def publish(subject, data, headers=None):
+            doc = json.loads(data)
+            # D-029 N2: each job is named by its job id, so the hub's job stream stores a retry once.
+            assert headers == {"Nats-Msg-Id": doc["job_id"]}
+            sent.append((subject, doc))
+
+        gw_bus.publish_threadsafe = publish
         monkeypatch.setattr(type(gw_bus), "connected", property(lambda self: True))
 
         def report(node_id, **kw):

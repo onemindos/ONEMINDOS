@@ -344,7 +344,10 @@ class RolloutService:
         # v2: addressed to this one machine (aud), with the key id and policy epoch the machine checks.
         job = sign_job_v2(self._key, JOB_KIND, {"version": version, "rollout_id": rid, "node_id": node_id},
                           self.gw.clock(), node_id=node_id, action_id=action_id, ttl=timedelta(hours=1))
-        self.gw.bus.publish_threadsafe(job_subject(node_id), json.dumps(job).encode())
+        # Kept by the hub's ONEMIND_JOBS work queue in this machine's own consumer until it is back
+        # (D-029 N2), named by job id so a retried publish is stored once.
+        self.gw.bus.publish_threadsafe(job_subject(node_id), json.dumps(job).encode(),
+                                       headers={"Nats-Msg-Id": job["job_id"]})
         return True
 
     # ---- wiring ---------------------------------------------------------------------------
