@@ -100,7 +100,7 @@ Strong: the session engine (audiences, derived URL tokens, issuance revision, im
 | Agent principals per app (`agent:<app-id>`, hashed tokens, revoked at removal), `/mcp` with no approve tool | `core/onemind_core/{auth,mcp}.py` | branch `feat/gateway-agent-mcp`, not merged |
 | Users API shape (`/v1/me`, `/v1/users`, enrolment link, disable), token lifecycle, scopes and role defaults, step-up | [API.md](../leap/dev/API.md) §5.8, §5.9, §8 | spec |
 | Owner passkey, sessions, passkey-signed approvals | [SECURITY.md](../leap/core/SECURITY.md) §3.2, CORE-SEC-2 | spec |
-| Kanidm v1.12.0 on the box, household roles owner/adult/child/guest/operator | BD-03, D-B9.1 in research 30 | decision, not built |
+| Kanidm v1.12.1 on the box (D-030), household roles owner/adult/child/guest/operator | BD-03, D-B9.1 in research 30 | decision, not built |
 | Agent rights = owning person ∩ grant | [MCP.md](../leap/dev/MCP.md) §5.1, DEV-MCP-2 | spec |
 | Edge with forward-auth, `X-OneMind-Principal`/`X-OneMind-Role` headers, per-app `access` (owner only, adults, everyone) | `docs/architecture/NETWORKING.md` §9.3, CORE-NET-5, CORE-NET-8 | branch `feat/net`, design only |
 | Dashboard sign-in by pasting a token; People mock in Settings | `dashboard/`, `ui/demo/src/screens/Settings.tsx` | `main` |
@@ -152,7 +152,7 @@ Nothing yet implements people, sessions, 2FA, app sharing or SSO.
 
 | Component | Role | Licence (pinned) | Notes |
 |---|---|---|---|
-| **Kanidm** `v1.12.0` (commit `a52b723ce8ef`) | Identity provider: persons, groups, passkeys, TOTP fallback, OAuth2/OIDC provider for the gateway, the phone and OIDC-capable apps | MPL-2.0, file-level copyleft; shipped as a separate component, notices kept (`research-output/evidence/license-matrix.csv`) | Runs as a **host service on the hub** (systemd), not in k3s, so sign-in survives a k3s failure. Needs a placement decision (ACCT-D2) because research 30 lists a `kanidm` chart |
+| **Kanidm** `v1.12.1` (commit `fb052e5357cf`; D-030, pinned in `os/versions.lock.yaml`) | Identity provider: persons, groups, passkeys, TOTP fallback, OAuth2/OIDC provider for the gateway, the phone and OIDC-capable apps | MPL-2.0, file-level copyleft; shipped as a separate component, notices kept (`research-output/evidence/license-matrix.csv`) | Runs as a **host service on the hub** (systemd), not in k3s, so sign-in survives a k3s failure. Needs a placement decision (ACCT-D2) because research 30 lists a `kanidm` chart |
 | OneMind gateway (FastAPI `0.162.5`, MIT) | Sessions, roles → scopes, app access policy, forward-auth decisions, step-up, audit; the MCP authorization façade (D-B9.2) | our code, Apache-2.0 | New modules in §5 |
 | `onemind-edge` (Go `1.26`, standard library) | TLS front door, calls `/v1/auth/forward`, injects identity headers, strips client copies | our code, Apache-2.0 | CORE-NET-5 (branch `feat/net`) |
 | WebAuthn verifier in the gateway | Passkey-signed approvals bound to `plan_sha256` (Kanidm cannot sign an arbitrary challenge) | chosen by CORE-SEC-2; candidate `py_webauthn` (BSD-3-Clause per upstream) | **Version not pinned yet;** pin in `os/versions.lock.yaml` on adoption |

@@ -85,5 +85,26 @@ for arch in ("amd64", "arm64"):
         if not got or got.group(1) != value:
             errors.append(f"deploy/pins.env {key}={got.group(1) if got else None!r}, internal/backup/pins.go says {value!r}")
 
+# Kanidm (D-015 host service, D-030 bump to 1.12.1): the provisioning plan and anything in deploy/ that names a
+# Kanidm version use the lock's version. The compose bundle does not run Kanidm today; this keeps it from drifting.
+kanidm = re.search(r"\n  kanidm:\n    version:\s*(\S+)", lock)
+if not kanidm:
+    errors.append("os/versions.lock.yaml has no identity.kanidm.version")
+else:
+    kanidm = kanidm.group(1)
+    plan = re.search(r"^kanidm_version:\s*(\S+)", read("os/identity/kanidm/provision.yaml"), re.M)
+    if not plan or plan.group(1) != kanidm:
+        errors.append(f"os/identity/kanidm/provision.yaml kanidm_version={plan.group(1) if plan else None!r}, lock says {kanidm!r}")
+    for base, _, files in os.walk(os.path.join(ROOT, "deploy")):
+        for name in files:
+            rel = os.path.relpath(os.path.join(base, name), ROOT)
+            try:
+                text = read(rel)
+            except UnicodeDecodeError:
+                continue
+            for v in re.findall(r"kanidm\S*?[:=@ _-]v?(\d+\.\d+\.\d+)", text, re.I):
+                if v != kanidm:
+                    errors.append(f"{rel} names Kanidm {v}, lock says {kanidm}")
+
 print("\n".join(errors) if errors else "deploy pins match os/versions.lock.yaml and internal/backup/pins.go")
 sys.exit(1 if errors else 0)
