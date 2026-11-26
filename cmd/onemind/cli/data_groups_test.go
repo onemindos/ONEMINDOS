@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -143,9 +144,21 @@ func TestPhotosAndOnboarding(t *testing.T) {
 func TestNotifyPrefsAndSources(t *testing.T) {
 	prefs := map[string]any{"quiet_hours": map[string]any{"from": "22:00", "to": "07:00", "tz": "UTC"}, "routes": []any{map[string]any{"match": map[string]any{}, "channels": []any{"*"}}},
 		"digest": map[string]any{"enabled": true, "at": "08:00"}, "mutes": []any{map[string]any{"topic": "tips", "channel": "*"}}, "retention_days": 90.0}
-	g := newRouteGW(t, map[string]func(map[string]any) (int, any){
-		"GET /v1/notifications/preferences": func(map[string]any) (int, any) { return 200, prefs },
-		"PUT /v1/notifications/preferences": func(b map[string]any) (int, any) { prefs = b; return 200, b },
+	// The gateway's ETag rule (routers/notifications.py put_preferences): a stale If-Match is a 409.
+	etag, edits := `"e1"`, 0
+	var g *routeGW
+	g = newRouteGW(t, map[string]func(map[string]any) (int, any){
+		"GET /v1/notifications/preferences": func(map[string]any) (int, any) {
+			return 200, withHeaders{prefs, map[string]string{"ETag": etag}}
+		},
+		"PUT /v1/notifications/preferences": func(b map[string]any) (int, any) {
+			if im := g.cur.Header.Get("If-Match"); im != "" && im != etag {
+				return 409, map[string]any{"error": "conflict", "message": "preferences changed since you read them (ETag mismatch)"}
+			}
+			edits++
+			prefs, etag = b, fmt.Sprintf(`"e%d"`, edits+1)
+			return 200, withHeaders{b, map[string]string{"ETag": etag}}
+		},
 		"GET /v1/notifications/sources": ok([]any{map[string]any{"id": "src_app_photos", "name": "Photos", "kind": "app", "posts_last_hour": 4.0, "muted": true},
 			map[string]any{"id": "src_system", "name": "System", "kind": "system", "posts_last_hour": 0.0, "muted": false}}),
 		"PUT /v1/notifications/sources/src_system": func(b map[string]any) (int, any) { return 200, b },
@@ -165,6 +178,26 @@ func TestNotifyPrefsAndSources(t *testing.T) {
 	if got := g.sent("PUT", "/v1/notifications/preferences")[3].body; len(list(got["mutes"])) != 0 {
 		t.Fatalf("unmute %+v", got)
 	}
+	// Every mute and unmute sent back the ETag it read.
+	if im := g.header("PUT", "/v1/notifications/preferences", "If-Match"); len(im) != 4 || im[0] != `"e1"` || im[3] != `"e4"` {
+		t.Fatalf("If-Match %v", im)
+	}
+	// A dashboard edit between the read and the write: 409, nothing saved, plain words, ExitConflict.
+	var r result
+	g.routes["GET /v1/notifications/preferences"] = func(map[string]any) (int, any) {
+		cur := etag
+		etag = `"dashboard"`
+		return 200, withHeaders{prefs, map[string]string{"ETag": cur}}
+	}
+	r = run(t, "", false, "notify", "prefs", "mute", "photos")
+	if r.code != ExitConflict || !strings.Contains(r.errOut, "nothing was saved") || len(g.sent("PUT", "/v1/notifications/preferences")) != 5 || edits != 4 {
+		t.Fatalf("stale write %+v edits %d", r, edits)
+	}
+	// No ETag at all: refuse rather than write blind.
+	g.routes["GET /v1/notifications/preferences"] = ok(prefs)
+	if r = run(t, "", false, "notify", "prefs", "unmute", "photos"); r.code == 0 || len(g.sent("PUT", "/v1/notifications/preferences")) != 5 {
+		t.Fatalf("no etag %+v", r)
+	}
 	if r := run(t, `{"digest": {"enabled": false}}`, false, "notify", "prefs", "set", "--file", "-"); r.code != 0 {
 		t.Fatalf("set %+v", r)
 	}
@@ -180,5 +213,75 @@ func TestNotifyPrefsAndSources(t *testing.T) {
 	// the existing channel commands still exist beside the new ones
 	if r := run(t, "", false, "notify", "channel", "list"); r.code == ExitUsage {
 		t.Fatalf("channel list gone %+v", r)
+	}
+}
+
+// The files request key is the same all day, and the gateway replays the stored request for it. After
+// a deny or cancel, asking again must say nothing new was filed and exit ExitConflict, not "Requested".
+func TestFilesRequestReplayedAfterDecision(t *testing.T) {
+	state := "denied"
+	newRouteGW(t, map[string]func(map[string]any) (int, any){
+		"POST /v1/files/trash/empty": func(map[string]any) (int, any) {
+			return 202, map[string]any{"id": "frq_x", "state": state}
+		},
+	})
+	for _, s := range []string{"denied", "cancelled", "expired", "executed"} {
+		state = s
+		r := run(t, "", false, "files", "trash", "empty")
+		if r.code != ExitConflict || strings.Contains(r.out, "Requested") || !strings.Contains(r.errOut, "nothing new filed") || !strings.Contains(r.errOut, s) {
+			t.Fatalf("%s: %+v", s, r)
+		}
+		if r := run(t, "", false, "files", "trash", "empty", "--json"); r.code != ExitConflict || obj(jsonOf(t, r.out))["state"] != s {
+			t.Fatalf("%s --json: %+v", s, r)
+		}
+	}
+	state = "awaiting_approval"
+	if r := run(t, "", false, "files", "trash", "empty"); r.code != 0 || !strings.Contains(r.out, "Requested") {
+		t.Fatalf("waiting %+v", r)
+	}
+}
+
+// files list, trash list and requests list follow the gateway's Link rel=next pages (§12.1), so a
+// folder with more entries than one page is shown whole, and --json prints every entry.
+func TestFilesListFollowsNextPages(t *testing.T) {
+	var g *routeGW
+	page := func(name string) func(map[string]any) (int, any) {
+		return func(map[string]any) (int, any) {
+			q := g.cur.URL.Query()
+			if q.Get("cursor") == "" {
+				next := g.cur.URL.Path + "?" + q.Encode() + "&cursor=bzox"
+				return 200, withHeaders{[]any{map[string]any{"name": name + "-1", "id": name + "-1"}}, map[string]string{"Link": "<" + next + ">; rel=\"next\""}}
+			}
+			return 200, []any{map[string]any{"name": name + "-2", "id": name + "-2"}}
+		}
+	}
+	g = newRouteGW(t, map[string]func(map[string]any) (int, any){
+		"GET /v1/files/list":     page("f"),
+		"GET /v1/files/trash":    page("t"),
+		"GET /v1/files/requests": page("r"),
+	})
+	outHas(t, run(t, "", false, "files", "list", "--root", "shared").out, "f-1", "f-2")
+	if q := g.sent("GET", "/v1/files/list")[1].query; !strings.Contains(q, "cursor=bzox") || !strings.Contains(q, "root=shared") {
+		t.Fatalf("second page query %q", q)
+	}
+	if r := run(t, "", false, "files", "list", "--root", "shared", "--json"); len(jsonOf(t, r.out).([]any)) != 2 {
+		t.Fatalf("json %+v", r)
+	}
+	outHas(t, run(t, "", false, "files", "trash", "list").out, "t-1", "t-2")
+	outHas(t, run(t, "", false, "files", "requests", "list").out, "r-1", "r-2")
+}
+
+// A next link that leaves the gateway's /v1/ paths is not followed, and stopping is said on stderr.
+func TestPagingRefusesForeignLink(t *testing.T) {
+	g := newRouteGW(t, map[string]func(map[string]any) (int, any){
+		"GET /v1/files/trash": func(map[string]any) (int, any) {
+			return 200, withHeaders{[]any{map[string]any{"id": "t-1"}}, map[string]string{"Link": `<https://elsewhere.example/v1/x>; rel="next"`}}
+		},
+	})
+	r := run(t, "", false, "files", "trash", "list")
+	outHas(t, r.out, "t-1")
+	outHas(t, r.errOut, "more remain")
+	if len(g.sent("GET", "/v1/files/trash")) != 1 {
+		t.Fatal("followed a foreign link")
 	}
 }

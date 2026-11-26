@@ -19,6 +19,14 @@ type routeGW struct {
 	mu     sync.Mutex
 	routes map[string]func(body map[string]any) (int, any)
 	log    []rec
+	hdrs   []http.Header // the request headers of log[i]
+	cur    *http.Request // the request being answered (a handler may read its headers)
+}
+
+// withHeaders lets a route answer with response headers (ETag, Link): return it as the body.
+type withHeaders struct {
+	body    any
+	headers map[string]string
 }
 
 func newRouteGW(t *testing.T, routes map[string]func(body map[string]any) (int, any)) *routeGW {
@@ -40,6 +48,8 @@ func (g *routeGW) serve(w http.ResponseWriter, r *http.Request) {
 		_ = json.Unmarshal(raw, &body)
 	}
 	g.log = append(g.log, rec{r.Method, r.URL.Path, r.URL.RawQuery, body, r.Header.Get("Idempotency-Key")})
+	g.hdrs = append(g.hdrs, r.Header.Clone())
+	g.cur = r
 	if r.Header.Get("Authorization") != "Bearer "+ownerTok {
 		jsonOut(w, 401, map[string]string{"error": "unauthenticated", "message": "unknown token"})
 		return
@@ -50,6 +60,12 @@ func (g *routeGW) serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	status, v := h(body)
+	if wh, ok := v.(withHeaders); ok {
+		for k, hv := range wh.headers {
+			w.Header().Set(k, hv)
+		}
+		v = wh.body
+	}
 	if status == http.StatusNoContent {
 		w.WriteHeader(status)
 		return
@@ -64,6 +80,19 @@ func (g *routeGW) sent(method, path string) []rec {
 	for _, r := range g.log {
 		if r.method == method && r.path == path {
 			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// header is a request header of every call to method+path, in order.
+func (g *routeGW) header(method, path, name string) []string {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	var out []string
+	for i, r := range g.log {
+		if r.method == method && r.path == path {
+			out = append(out, g.hdrs[i].Get(name))
 		}
 	}
 	return out

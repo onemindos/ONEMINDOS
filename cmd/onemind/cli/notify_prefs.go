@@ -8,10 +8,12 @@ package cli
 // quietens delivery; the item still lands in the inbox, and a critical alert is never hidden by it.
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 
+	onemind "github.com/onemindos/onemindos/sdk/go"
 	"github.com/spf13/cobra"
 )
 
@@ -52,9 +54,15 @@ func notifyPrefsCmd(a *App) *cobra.Command {
 			Short: short,
 			Args:  cobra.ExactArgs(1),
 			RunE: func(_ *cobra.Command, args []string) error {
-				cur, err := a.gwDo(http.MethodGet, "/v1/notifications/preferences", nil)
+				// Read, change, write back with If-Match: the gateway sends an ETag and answers 409 when
+				// the document changed in between (a dashboard or phone edit), so nothing is overwritten.
+				cur, hdr, err := a.gwDoHeaders(http.MethodGet, "/v1/notifications/preferences", nil, nil)
 				if err != nil {
 					return err
+				}
+				etag := hdr.Get("ETag")
+				if etag == "" {
+					return exitWith(ExitError, "unexpected_response", "the box sent your notification settings without an ETag, so they cannot be changed safely from here; use the dashboard")
 				}
 				doc := obj(cur)
 				var mutes []any
@@ -75,7 +83,12 @@ func notifyPrefsCmd(a *App) *cobra.Command {
 					mutes = []any{}
 				}
 				doc["mutes"] = mutes
-				v, err := a.gwDo(http.MethodPut, "/v1/notifications/preferences", doc)
+				v, _, err := a.gwDoHeaders(http.MethodPut, "/v1/notifications/preferences", map[string]string{"If-Match": etag}, doc)
+				// put_preferences answers 409 only for a stale If-Match (bad input is a 422).
+				if e := (*onemind.Error)(nil); errors.As(err, &e) && e.Status == http.StatusConflict {
+					return exitWith(ExitConflict, "conflict", "your notification settings changed while this command ran (an edit in the dashboard "+
+						"or the phone app), so nothing was saved and that edit is kept. Run the command again")
+				}
 				if err != nil {
 					return err
 				}

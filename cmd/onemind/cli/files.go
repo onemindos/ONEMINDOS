@@ -54,7 +54,7 @@ func filesCommands(a *App) []*cobra.Command {
 		},
 	}
 	ls.Flags().StringVar(&rootID, "root", "", "the space to look in")
-	ls.Flags().IntVar(&limit, "limit", 100, "at most this many entries (1 to 500)")
+	ls.Flags().IntVar(&limit, "limit", 100, "entries per page (1 to 500); every page is fetched")
 
 	var sRoot string
 	stat := &cobra.Command{
@@ -264,16 +264,25 @@ func (a *App) requestFiles(what, path string, body map[string]any) error {
 	if err != nil {
 		return err
 	}
-	if a.G.JSON {
-		return printJSON(a.Stdout, v)
-	}
 	id := str(obj(v)["id"])
-	if a.G.Quiet {
+	state := str(obj(v)["state"])
+	if a.G.JSON {
+		if err := printJSON(a.Stdout, v); err != nil {
+			return err
+		}
+	} else if a.G.Quiet {
 		fmt.Fprintln(a.Stdout, id)
+	}
+	// The key is the same all day, so after a deny, cancel or expiry the gateway replays that old
+	// request instead of filing a new one. Say nothing new was filed, as printRequested does.
+	if state != "" && state != "awaiting_approval" {
+		return exitWith(ExitConflict, "conflict", fmt.Sprintf("%s: already %s today, nothing new filed (%s). Ask again tomorrow, or see `onemind files requests show %s`", what, state, id, id))
+	}
+	if a.G.JSON || a.G.Quiet {
 		return nil
 	}
 	fmt.Fprintf(a.Stdout, "Requested %s (%s, %s). An owner decides it in the dashboard (Files, Requests); see it with: onemind files requests show %s\n",
-		what, id, dash(str(obj(v)["state"])), id)
+		what, id, dash(state), id)
 	return nil
 }
 
