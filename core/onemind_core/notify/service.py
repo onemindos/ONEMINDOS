@@ -149,6 +149,10 @@ class NotifyService:
                 self.pump()
             except Exception:
                 log.exception("notify worker pass failed")
+            try:  # gateway permissions PR 13: yesterday's list of what rules approved, once
+                self.digest_tick(self.clock())
+            except Exception:
+                log.exception("approval digest failed")
             self._kick.wait(self.cfg.poll_s)
             self._kick.clear()
 
@@ -196,7 +200,6 @@ class NotifyService:
 
     # ---- gateway permissions PR 13: approval.auto ---------------------------------------------
     AUTO_PREFIX = "approval.auto."
-    DIGEST_HOUR = 18  # UTC: the daily list of what rules approved goes out once after this hour
 
     def _approval_auto(self, rec: dict) -> None:
         """A standing approval accepted a request: tell the owners, with a Revoke rule action (never Approve)."""
@@ -223,6 +226,8 @@ class NotifyService:
                 inapp_only=mode != "each", group_key=f"{self.AUTO_PREFIX}{mode}:{pid}", actions=actions)
         if mode == "each" and not any(self.repo.deliveries_for(n) for n in ids):
             self._auto_push_failed(pid, "no_push_target")  # an `each` rule nobody can be told about pauses
+        if mode == "digest":
+            self.digest_tick(self.clock())  # a new day's first approval sends yesterday's list if not yet sent
 
     def _auto_push_failed(self, policy_id: str, reason: str) -> None:
         hook = self.auto_push_failed
@@ -233,13 +238,15 @@ class NotifyService:
                 log.exception("pausing a standing approval after a failed push failed")
 
     def digest_tick(self, now: datetime) -> list[str]:
-        """Once a day per owner (after DIGEST_HOUR UTC): one notice counting the requests rules approved in
-        the last day, with the rules in force (forever rules counted). Returns the notification ids."""
-        day = now.date().isoformat()
-        if now.hour < self.DIGEST_HOUR or self._digest_day == day:
+        """Once a day per owner: one notice counting the requests rules approved on the previous UTC day,
+        with the rules in force (forever rules counted). Sent by the worker after midnight UTC, or at the
+        first approval of the new day; never for a day that is still running. Returns the notification ids."""
+        start = datetime.combine(now.date(), datetime.min.time(), tzinfo=now.tzinfo) - timedelta(days=1)
+        day = start.date().isoformat()
+        if self._digest_day == day:
             return []
         self._digest_day = day
-        since = now - timedelta(days=1)
+        since, until = start, start + timedelta(days=1)
         rules = self.rules_in_force() if self.rules_in_force is not None else []
         made = []
         with self._lock:
@@ -248,7 +255,8 @@ class NotifyService:
                                                     limit=500, cursor=None)
                 if any(r.group_key == f"{self.AUTO_PREFIX}daily:{day}" for r in rows):
                     continue
-                count = sum(1 for r in rows if (r.group_key or "").startswith(self.AUTO_PREFIX + "digest:"))
+                count = sum(1 for r in rows if (r.group_key or "").startswith(self.AUTO_PREFIX + "digest:")
+                            and utc(r.created_at) < until)
                 if not count:
                     continue
                 facts = {"count": count, "rules": len(rules), "forever": sum(1 for r in rules if r.get("forever"))}
@@ -527,10 +535,6 @@ class NotifyService:
         """One worker pass: release held items as summaries, send what is due. Returns sends tried."""
         with self._pump_lock:
             now = self.clock()
-            try:
-                self.digest_tick(now)
-            except Exception:
-                log.exception("approval digest failed")
             groups: dict[str, list[DeliveryRow]] = defaultdict(list)
             for d in self.repo.released_held(now):
                 n = self.repo.get_notification(d.notification_id)

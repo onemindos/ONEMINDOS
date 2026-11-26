@@ -80,9 +80,10 @@ def test_digest_rules_go_to_the_inbox_and_the_daily_list_and_silent_rules_say_no
     restart(nc, clock, "d1")
     items = autos(nc)
     assert len(items) == 2 and all(nc.app.state.notify.repo.deliveries_for(n["id"]) == [] for n in items)
-    clock.now = clock.now.replace(hour=19)
+    assert nc.app.state.notify.digest_tick(clock.now) == []  # never for a day that is still running
+    clock.advance(86400)  # the next day: yesterday's list goes out once
     made = nc.app.state.notify.digest_tick(clock.now)
-    assert len(made) == 1 and nc.app.state.notify.digest_tick(clock.now) == []  # once a day
+    assert len(made) == 1 and nc.app.state.notify.digest_tick(clock.now) == []
     daily = next(n for n in inbox(nc, OWNER) if n["id"] == made[0])
     assert daily["title"] == "Approved by your rules today: 2" and "Rules in force: 1" in daily["body"]
 
