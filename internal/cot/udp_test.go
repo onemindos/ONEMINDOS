@@ -123,7 +123,17 @@ func TestMulticastLoopback(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	got := make(chan *Event, 4)
-	go func() { _ = r.Run(ctx, func(e *Event, _ net.Addr) { got <- e }) }()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = r.Run(ctx, func(e *Event, _ net.Addr) {
+			select {
+			case got <- e:
+			default:
+			}
+		})
+	}()
+	defer func() { cancel(); <-done }()
 	tick := time.NewTicker(100 * time.Millisecond)
 	defer tick.Stop()
 	for {

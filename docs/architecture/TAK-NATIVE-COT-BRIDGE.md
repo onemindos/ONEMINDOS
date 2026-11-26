@@ -58,7 +58,7 @@ The base schema is MITRE's *CoT Base-Event Schema*, version 2.0 (13 June 2003), 
 
 **Type taxonomy** (`AC` `takcot/mitre/types.txt`, **VERIFIED**): the first atom is `a` (atoms: things on the map), `b` (bits: chat, markers, images...) or `t` (tasking). For atoms, the second letter is the affiliation (`p u a f n s h j k o`, e.g. `f` friendly, `h` hostile, `u` unknown), the third the battle dimension from MIL-STD-2525 (`P` space, `A` air, `G` ground, `S` sea surface, `U` subsurface, `X` other), then the 2525 function tree (e.g. `U-C` combat unit). GeoChat is `b-t-f` (real capture in `AC` `commoncommo/core/atakcotcaptures.txt`, **VERIFIED**); the spot marker sample is `b-m-p-s-m` (**VERIFIED**).
 
-**Detail elements OneMind models now:** `contact` (callsign, endpoint), `__group` (name, role), `takv` (device, platform, os, version), `track` (course, speed), `status` (battery), `remarks`, `link`, `usericon`. The first five have protobuf equivalents in TAK Protocol v1 (§2.2); `remarks`, `link` and `usericon` stay XML (**VERIFIED**, `AC` `commoncommo/core/impl/protobuf/`). Every other detail element is kept as raw XML so a decoded event re-encodes without loss, and is never interpreted.
+**Detail elements OneMind models now:** `contact` (callsign, endpoint), `__group` (name, role), `takv` (device, platform, os, version), `track` (course, speed), `status` (battery), `remarks`, `link`, `usericon`. The first five have protobuf equivalents in TAK Protocol v1 (§2.2); `remarks`, `link` and `usericon` stay XML (**VERIFIED**, `AC` `commoncommo/core/impl/protobuf/`). Every other detail element is read into a raw list for display and debugging, never interpreted, and never re-emitted by `Encode` (OneMind never re-sends inbound events, so untrusted XML never goes back out).
 
 ### 2.2 TAK Protocol version 0 and version 1
 
@@ -77,7 +77,7 @@ Source: `AC` `commoncommo/core/impl/protobuf/protocol.txt` (**VERIFIED**).
 
 | What | Default | Source |
 |---|---|---|
-| SA (situational awareness) multicast | `239.2.3.1:6969` UDP | `SV` `src/takserver-core/example/CoreConfig.example.xml` (as a commented-out multicast proxy input), **VERIFIED** |
+| SA (situational awareness) multicast | `239.2.3.1:6969` UDP | `SV` `src/takserver-core/example/CoreConfig.example.xml` (as a commented-out multicast proxy input), **VERIFIED** there; that ATAK/iTAK/WinTAK join it by default is **UNVERIFIED** from a client source |
 | GeoChat multicast | `224.10.10.1:17012` UDP | same file (commented out) and the chat capture in `atakcotcaptures.txt`, **VERIFIED** |
 | TCP streaming (plain) | 8087 (commented out by default) | CoreConfig example, **VERIFIED** |
 | TLS streaming | 8089 (enabled, `coreVersion="2"`) | CoreConfig example, **VERIFIED** |
@@ -234,9 +234,9 @@ No new top-level kind and no `tak.*` root. `cot-bridge` is the built-in's app id
 - **LAN only for multicast.** TTL 1; the receiver joins only on interfaces the owner picked (default: the main LAN, never the Headscale mesh or a guest network). The firewall keeps 6969/UDP closed unless the feature is on.
 - **Server links use TLS with client certificates.** OneMind generates the key on the box; the certificate comes from the TAK Server's enrollment API (`/Marti/api/tls`, port 8446) or an imported `.p12` / data package the owner uploads. Keys and truststores live on `/data` (read-only root, BUILDER-BRIEFING item 3), are never exported to an agent, and rotate on the owner's request. Plain TCP 8087 is refused unless the owner explicitly allows it for a lab link.
 - **Per-feed allow lists.** A feed is a named direction + destination + set of assets (or senders, inbound). Nothing is shared by default; the owner picks which machines, sensors and cameras go out.
-- **People and children.** A person is shared only after the owner turns it on for that person; a child's or teen's location (family roles, `core/onemind_core/family.py`) is **never** sent, whatever any other setting says. This is enforced in the gateway policy **and** in `cot.ToEvent` (defence in depth: `Minor` always refuses, `KindPerson` needs `OwnerOptIn`).
+- **People and children.** A person is shared only after the owner turns it on for that person; a child's or teen's location (family roles, `core/onemind_core/family.py`) is **never** sent, whatever any other setting says. This is enforced in the gateway policy **and** in `cot.ToEvent` (defence in depth: `Minor` always refuses, and `KindPerson` needs both `Adult` and `OwnerOptIn`, so a caller that forgets a flag sends nothing).
 - **No echo loops:** markers that came in from TAK are never re-sent (`ToEvent` refuses them), and OneMind's own uids are dropped on the way in.
-- **Hostile packets:** a 64 KiB size cap, no DOCTYPE or entity declarations, strict XML, a single root element, coordinate and time checks, and a 5-minute future-clock limit. Invalid packets are counted and dropped; they never stop the receiver. TAK Protocol v1 packets are counted and skipped until P6. A fuzz test (`FuzzDecode`) checks that anything accepted re-encodes and re-decodes.
+- **Hostile packets:** a 16 KiB inbound cap (8 KiB for what OneMind sends, so one event fits one datagram), no DOCTYPE or entity declarations, strict XML, a single root element, coordinate and time checks (nothing before 2000), a 5-minute future-clock limit on `time` and `start`, and no namespaced root element. Invalid packets are counted and dropped; they never stop the receiver. TAK Protocol v1 packets are counted and skipped until P6. A fuzz test (`FuzzDecode`) checks that anything accepted re-encodes and re-decodes; an input it found (a namespaced detail element re-encoded as malformed XML) is kept as a regression seed in `testdata/fuzz/`.
 - **Audit:** every feed created, changed, started or stopped, and every inbound tasking request, is an audit line. A per-feed counter (sent, received, refused) is visible in Settings and `onemind cot status`.
 - **AI:** agents can read the CoT layer like any other map data (it is outside text, so tainted per D-028). They can request a feed change; they cannot approve one, and they can never send tasking out.
 
@@ -262,7 +262,7 @@ Neither is needed for "TAK native": ATAK/iTAK/WinTAK devices on the same network
 | Item | Budget |
 |---|---|
 | Outbound rate | 1 event per asset per 10 s by default, never more than 1/s per asset; a global cap of 50 events/s |
-| Event size | typically under 1 KB; hard cap 64 KiB |
+| Event size | typically under 1 KB; hard cap 8 KiB out, 16 KiB in |
 | CPU | under 1% of one core on a Pi 5 at 200 assets in + out |
 | Memory | under 20 MB resident for the service at 1,000 tracked markers |
 | Latency | position published to CoT on the wire in under 1 s on the LAN |
@@ -305,8 +305,8 @@ These are targets for P1's benchmarks, not measured yet.
 
 | File | What |
 |---|---|
-| `event.go` | `Event`, `Point`, `Detail` and the detail elements; `Decode` (size cap, DOCTYPE refusal, strict XML, single root), `Encode` (TAK's XML header, millisecond UTC times), `Validate` |
-| `position.go` | `Position` and `ToEvent` / `FromEvent`, with the privacy, echo and 0,0 rules |
+| `event.go` | `Event`, `Point`, `Detail` and the detail elements; `Decode` (size cap, DOCTYPE refusal, strict XML, single root), `Encode` (TAK's XML header, millisecond UTC times, modelled fields only), `Validate` |
+| `position.go` | `Position` and `ToEvent` / `FromEvent`, with the privacy (adult + opt-in, never a minor), echo and 0,0 rules |
 | `udp.go` | `Sender` (TTL 1, loopback off by default) and `Receiver` (counts invalid, oversized and protobuf packets) |
 | `*_test.go`, `testdata/` | the tests in §11, with hand-written fixtures |
 

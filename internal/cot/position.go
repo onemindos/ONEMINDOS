@@ -62,9 +62,12 @@ type Position struct {
 	Stale time.Duration // how long it stays valid; DefaultStale when 0
 	Note  string        // optional remarks
 
-	// Privacy flags. A person is only ever sent with OwnerOptIn set, and a
+	// Privacy flags. A person is sent only when the caller confirms both that
+	// the person is an adult (Adult, from the family roles) and that the owner
+	// opted them in (OwnerOptIn): a forgotten flag means "not sent". A
 	// position marked Minor is never sent at all, whatever the other flags say.
 	OwnerOptIn bool
+	Adult      bool
 	Minor      bool
 
 	// Set on positions that came in from TAK.
@@ -82,8 +85,8 @@ func ToEvent(p Position) (*Event, error) {
 	if p.Minor {
 		return nil, fmt.Errorf("%w: a child's location never leaves the box", ErrNotShareable)
 	}
-	if p.Kind == KindPerson && !p.OwnerOptIn {
-		return nil, fmt.Errorf("%w: a person is shared only with the owner's opt-in", ErrNotShareable)
+	if p.Kind == KindPerson && !(p.OwnerOptIn && p.Adult) {
+		return nil, fmt.Errorf("%w: a person is shared only if confirmed adult and opted in by the owner", ErrNotShareable)
 	}
 	if p.Kind == KindMarker || p.SourceUID != "" {
 		return nil, fmt.Errorf("%w: positions received from TAK are not re-sent", ErrNotShareable)
@@ -119,7 +122,7 @@ func ToEvent(p Position) (*Event, error) {
 			HAE: orUnknown(p.HAE), CE: orUnknown(p.Accuracy), LE: orUnknown(p.VerticalAccuracy),
 		},
 		Detail: &Detail{
-			Takv: &Takv{Device: "OneMind", Platform: "OneMind OS", OS: "Debian"},
+			Takv: &Takv{Device: "OneMind", Platform: "OneMind OS"},
 		},
 	}
 	label := p.Label

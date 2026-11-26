@@ -62,7 +62,11 @@ func TestToEventPrivacy(t *testing.T) {
 	if _, err := ToEvent(person); !errors.Is(err, ErrNotShareable) {
 		t.Fatalf("person without opt-in: %v", err)
 	}
-	person.OwnerOptIn = true
+	person.OwnerOptIn = true // opt-in without an adult confirmation: still refused
+	if _, err := ToEvent(person); !errors.Is(err, ErrNotShareable) {
+		t.Fatalf("person with opt-in but no adult confirmation: %v", err)
+	}
+	person.Adult = true
 	if e, err := ToEvent(person); err != nil || e.Type != "a-f-G-U-C" {
 		t.Fatalf("person with opt-in: %v %v", e, err)
 	}

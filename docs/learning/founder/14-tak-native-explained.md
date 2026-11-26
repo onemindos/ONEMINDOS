@@ -25,7 +25,7 @@ You asked for "as native as we can". A Market app would have three problems toda
 2. **It would stop when the app platform stops.** The built-in bridge runs inside `onemindd`, the small program that runs on every OneMind machine, even a Raspberry Pi in a vehicle, even when the app platform (k3s) is down.
 3. **"TAK native" would really mean "TAK installable".**
 
-So the bridge is part of OneMind, but **off until you turn it on** in Settings → Apps. Its only connection to the rest of OneMind is the gateway, so it could still become a separately updated plugin later without changing anything else.
+So **the design recommends** making the bridge part of OneMind, but **off until you turn it on** in Settings → Apps. This is a recommendation, not yet your decision: built-in vs plugin is listed as open in D-032 and the design doc §13. Its only connection to the rest of OneMind is the gateway, so it could still become a separately updated plugin later without changing anything else.
 
 TAK Server and TAKX are different: they are big (TAK Server needs at least 4 CPU cores and 8 GB of memory, plus a database) and they are GPL-3.0 licensed, so they stay **out of the base image** and become optional Market apps, each built in its own repo. OneMind's own code stays Apache-2.0 and never copies GPL code.
 
@@ -38,8 +38,8 @@ TAK Server and TAKX are different: they are big (TAK Server needs at least 4 CPU
 
 **Will never:**
 - **Act on a TAK message.** If a TAK device sends something that asks OneMind to *do* something (a task, a route, "point the camera here"), it becomes an approval card. Only a person approves (D-027).
-- **Share a person's location** unless you opt that person in.
-- **Share a child's location.** Never, whatever any other setting says. This rule is written into the code itself, not only into the settings.
+- **Share a person's location** unless you opt that person in and they are an adult.
+- **Share a child's location.** Never, whatever any other setting says. This rule is written into the code itself, not only into the settings: the translator refuses a person unless it is told both "adult" and "opted in", so a forgotten setting means nothing is sent.
 - **Make a radio transmit.** Radios still transmit only on your tap (D-024).
 - **Share anything until you turn it on.** It is off by default, and it stays on your local network unless you link a TAK Server.
 

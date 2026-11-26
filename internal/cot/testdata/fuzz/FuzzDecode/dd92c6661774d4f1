@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("<event version=\"2.0\"uid=\"0\"type=\"a\"how=\"a\"time=\"0000-01-01T0:00:00Z\"start=\"2026-01-01T0:00:00Z\"stale=\"2026-01-01T0:00:00Z\"><detail><A:0/></detail></event>")

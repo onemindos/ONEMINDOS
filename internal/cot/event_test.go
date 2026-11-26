@@ -4,6 +4,7 @@ package cot
 
 import (
 	"bytes"
+	"encoding/xml"
 	"errors"
 	"os"
 	"path/filepath"
@@ -59,7 +60,7 @@ func TestDecodeSpotMarkerEntitiesAndLinks(t *testing.T) {
 	}
 }
 
-func TestRoundTripKeepsUnknownDetail(t *testing.T) {
+func TestRoundTripDropsUnknownDetail(t *testing.T) {
 	for _, name := range []string{"sa-team-member.xml", "spot-marker.xml", "unknown-detail.xml"} {
 		t.Run(name, func(t *testing.T) {
 			e, err := Decode(fixture(t, name), fixtureNow)
@@ -81,8 +82,9 @@ func TestRoundTripKeepsUnknownDetail(t *testing.T) {
 				t.Fatalf("round trip changed the event:\n%+v\n%+v", e, again)
 			}
 			if name == "unknown-detail.xml" {
-				if len(again.Detail.Extra) != 2 || !bytes.Contains(out, []byte(`geopointsrc="USER"`)) {
-					t.Fatalf("unknown detail lost: %s", out)
+				// Unknown detail is read (Extra) but never re-emitted.
+				if len(e.Detail.Extra) != 2 || len(again.Detail.Extra) != 0 || bytes.Contains(out, []byte(`geopointsrc`)) {
+					t.Fatalf("unknown detail handling wrong: %s", out)
 				}
 			}
 		})
@@ -126,6 +128,11 @@ func TestValidate(t *testing.T) {
 		"lon":           func(e *Event) { e.Point.Lon = -180.5 },
 		"negative ce":   func(e *Event) { e.Point.CE = -1 },
 		"hae":           func(e *Event) { e.Point.HAE = 1e6 },
+		"year zero":     func(e *Event) { e.Time = Time{time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC)} },
+		"future start": func(e *Event) {
+			e.Start = Time{fixtureNow.Add(time.Hour)}
+			e.Stale = Time{fixtureNow.Add(2 * time.Hour)}
+		},
 	}
 	if err := validEvent().Validate(fixtureNow); err != nil {
 		t.Fatalf("valid event refused: %v", err)
@@ -160,6 +167,50 @@ func TestDecodeRefusesHostileInput(t *testing.T) {
 				t.Fatalf("want %v, got %v", c.want, err)
 			}
 		})
+	}
+}
+
+// Inputs found by FuzzDecode and review: namespaces and raw detail must never
+// produce malformed or injected output.
+func TestEncodeNeverEmitsUntrustedXML(t *testing.T) {
+	ok := string(fixture(t, "spot-marker.xml"))
+	for name, in := range map[string]string{
+		"prefixed child":  strings.Replace(ok, "<detail>", `<detail><A:0/>`, 1),
+		"default ns":      strings.Replace(ok, "<detail>", `<detail><foo xmlns="urn:y"/>`, 1),
+		"prefixed attr":   strings.Replace(ok, "<detail>", `<detail><foo xmlns:x="urn:x" x:a="1"><x:bar/></foo>`, 1),
+		"namespaced root": strings.Replace(strings.Replace(ok, "<event ", `<x:event xmlns:x="urn:x" `, 1), "</event>", "</x:event>", 1),
+	} {
+		t.Run(name, func(t *testing.T) {
+			e, err := Decode([]byte(in), fixtureNow)
+			if err != nil {
+				return // refusing is fine
+			}
+			out, err := Encode(e)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if bytes.Contains(out, []byte("xmlns")) || bytes.Contains(out, []byte("foo")) || bytes.Contains(out, []byte("<0")) {
+				t.Fatalf("untrusted XML re-emitted: %s", out)
+			}
+		})
+	}
+	// A caller-built Extra is never written either.
+	e := validEvent()
+	e.Detail = &Detail{Extra: []RawXML{{XMLName: xml.Name{Local: "bad name"}, Inner: "</detail></event><event>"}}}
+	out, err := Encode(e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(out, []byte("bad name")) || bytes.Count(out, []byte("<event")) != 1 {
+		t.Fatalf("raw extra written: %s", out)
+	}
+}
+
+func TestEncodeSizeCap(t *testing.T) {
+	e := validEvent()
+	e.Detail = &Detail{Remarks: &Remarks{Text: strings.Repeat("x", MaxSendBytes)}}
+	if _, err := Encode(e); !errors.Is(err, ErrTooLarge) {
+		t.Fatalf("want ErrTooLarge, got %v", err)
 	}
 }
 

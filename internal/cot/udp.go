@@ -14,7 +14,9 @@ import (
 )
 
 // DefaultSAGroup is the TAK situational-awareness ("SA") multicast group and
-// port that ATAK, iTAK and WinTAK join on a local network by default.
+// port. It appears in TAK Server's example CoreConfig (commented out) as the
+// SA multicast input; that TAK clients join it by default is UNVERIFIED from
+// a primary client source (see the design doc, section 2.3).
 const DefaultSAGroup = "239.2.3.1:6969"
 
 // ProtoMagic is the first byte of a TAK Protocol version 1 (protobuf) packet.
@@ -88,10 +90,10 @@ func (s *Sender) Close() error { return s.conn.Close() }
 
 // Stats counts what a Receiver saw. Read it with Receiver.Stats.
 type Stats struct {
-	Accepted  uint64 // valid version-0 events handed to the callback
-	Invalid   uint64 // refused by Decode (bad XML, bad fields, too large)
-	Protobuf  uint64 // TAK Protocol v1 packets, not decoded yet (phase 6)
-	Truncated uint64 // datagrams larger than the read buffer
+	Accepted uint64 // valid version-0 events handed to the callback
+	Invalid  uint64 // refused by Decode (bad XML, bad fields, too large)
+	Protobuf uint64 // TAK Protocol v1 packets, not decoded yet (phase 6)
+	Oversize uint64 // datagrams larger than MaxEventBytes, dropped unparsed
 }
 
 // Receiver reads CoT events from a UDP address. A multicast address is
@@ -100,7 +102,7 @@ type Receiver struct {
 	conn *net.UDPConn
 	now  func() time.Time
 
-	accepted, invalid, protobuf, truncated atomic.Uint64
+	accepted, invalid, protobuf, oversize atomic.Uint64
 }
 
 // NewReceiver listens on addr ("host:port"). For a multicast group, ifi picks
@@ -129,7 +131,7 @@ func (r *Receiver) LocalAddr() net.Addr { return r.conn.LocalAddr() }
 func (r *Receiver) Stats() Stats {
 	return Stats{
 		Accepted: r.accepted.Load(), Invalid: r.invalid.Load(),
-		Protobuf: r.protobuf.Load(), Truncated: r.truncated.Load(),
+		Protobuf: r.protobuf.Load(), Oversize: r.oversize.Load(),
 	}
 }
 
@@ -139,7 +141,7 @@ func (r *Receiver) Stats() Stats {
 func (r *Receiver) Run(ctx context.Context, fn func(*Event, net.Addr)) error {
 	stop := context.AfterFunc(ctx, func() { r.conn.Close() })
 	defer stop()
-	buf := make([]byte, MaxEventBytes+1)
+	buf := make([]byte, 64*1024) // larger than any UDP payload
 	for {
 		n, from, err := r.conn.ReadFromUDP(buf)
 		if err != nil {
@@ -149,7 +151,7 @@ func (r *Receiver) Run(ctx context.Context, fn func(*Event, net.Addr)) error {
 			return fmt.Errorf("cot: receive: %w", err)
 		}
 		if n > MaxEventBytes {
-			r.truncated.Add(1)
+			r.oversize.Add(1)
 			continue
 		}
 		if n > 0 && buf[0] == ProtoMagic {

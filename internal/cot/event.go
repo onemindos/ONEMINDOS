@@ -28,9 +28,17 @@ const unknownProto = 999999.0
 // IsUnknown reports whether v is one of the two "unknown" conventions.
 func IsUnknown(v float64) bool { return v == Unknown || v == unknownProto }
 
-// MaxEventBytes caps one encoded event. A TAK situational-awareness packet is
-// usually well under 2 KB; a larger one is refused before it is parsed.
-const MaxEventBytes = 64 * 1024
+// MaxEventBytes caps one received event. A TAK situational-awareness packet
+// is usually well under 2 KB; a larger one is refused before it is parsed.
+const MaxEventBytes = 16 * 1024
+
+// MaxSendBytes caps one event OneMind encodes, so it fits a single UDP
+// datagram without heavy IP fragmentation.
+const MaxSendBytes = 8 * 1024
+
+// minTime is the earliest event time accepted; anything earlier is a broken
+// clock or a crafted packet.
+var minTime = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 
 // MaxUIDLen caps the uid attribute.
 const MaxUIDLen = 256
@@ -92,8 +100,9 @@ type Point struct {
 }
 
 // Detail holds the detail elements OneMind reads and writes. Elements this
-// package does not model are kept as raw XML in Extra so that a decoded event
-// re-encodes without losing them; Extra is never interpreted.
+// package does not model are kept as raw XML in Extra for display and
+// debugging only: Extra is never interpreted and Encode never writes it, so
+// untrusted XML is never re-emitted (OneMind never re-sends inbound events).
 type Detail struct {
 	Contact  *Contact  `xml:"contact,omitempty"`
 	Group    *Group    `xml:"__group,omitempty"`
@@ -206,6 +215,9 @@ func (e *Event) Validate(now time.Time) error {
 	if e.Time.IsZero() || e.Start.IsZero() || e.Stale.IsZero() {
 		return invalid("time, start and stale are required")
 	}
+	if e.Time.Before(minTime) || e.Start.Before(minTime) {
+		return invalid("time and start must be after %s", minTime.Format("2006"))
+	}
 	if e.Stale.Before(e.Start.Time) {
 		return invalid("stale is before start")
 	}
@@ -214,6 +226,9 @@ func (e *Event) Validate(now time.Time) error {
 	}
 	if !now.IsZero() && e.Time.Sub(now) > MaxClockSkew {
 		return invalid("time is more than %s in the future", MaxClockSkew)
+	}
+	if !now.IsZero() && e.Start.Sub(now) > MaxClockSkew {
+		return invalid("start is more than %s in the future", MaxClockSkew)
 	}
 	return e.Point.validate()
 }
@@ -279,6 +294,9 @@ func Decode(data []byte, now time.Time) (*Event, error) {
 			return nil, invalid("data after the event")
 		}
 	}
+	if e.XMLName.Space != "" {
+		return nil, invalid("namespaced event element")
+	}
 	if err := e.Validate(now); err != nil {
 		return nil, err
 	}
@@ -295,19 +313,29 @@ func containsDecl(data []byte) bool {
 // xmlHeader is the declaration TAK clients put in front of every event.
 const xmlHeader = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
 
-// Encode validates the event (clock checks skipped) and returns its XML.
+// Encode validates the event (clock checks skipped) and returns its XML. It
+// writes only the modelled fields: Detail.Extra and any namespace a decoded
+// event carried are dropped, so the output is always well-formed and never
+// echoes untrusted raw XML.
 func Encode(e *Event) ([]byte, error) {
 	if err := e.Validate(time.Time{}); err != nil {
 		return nil, err
 	}
-	body, err := xml.Marshal(e)
+	c := *e
+	c.XMLName = xml.Name{Local: "event"}
+	if e.Detail != nil {
+		d := *e.Detail
+		d.Extra = nil
+		c.Detail = &d
+	}
+	body, err := xml.Marshal(&c)
 	if err != nil {
 		return nil, fmt.Errorf("cot: encode: %w", err)
 	}
 	out := make([]byte, 0, len(xmlHeader)+len(body))
 	out = append(out, xmlHeader...)
 	out = append(out, body...)
-	if len(out) > MaxEventBytes {
+	if len(out) > MaxSendBytes {
 		return nil, ErrTooLarge
 	}
 	return out, nil
