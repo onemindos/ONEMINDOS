@@ -3263,8 +3263,8 @@
             "type": "string"
           },
           "certificate": {
-            "description": "the death certificate, base64 (at most 4 MB)",
-            "maxLength": 6000000,
+            "description": "the death certificate, base64 (at most 180 KiB: a downsized photo or a small PDF)",
+            "maxLength": 250000,
             "title": "Certificate",
             "type": "string"
           },

@@ -59,7 +59,9 @@ WAIT_OPTIONS = (14, 30, 60, 90)  # D-028: the owner picks 14 to 90; 30 by defaul
 DEFAULT_WAIT_DAYS = 30
 EXPORT_WINDOW = timedelta(days=365)  # D-028: 12 months; the data is never deleted afterwards
 NOTICE_EVERY = timedelta(days=7)
-MAX_CERTIFICATE_BYTES = 4 * 1024 * 1024
+# The gateway takes request bodies up to 256 KiB (guard.py); base64 grows a file by a third, so the phone app
+# sends a downsized photo or a small PDF. Chunked uploads of bigger files are a follow-up.
+MAX_CERTIFICATE_BYTES = 180 * 1024
 MAX_EXPORT_BYTES = 20 * 1024 * 1024 * 1024
 ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ"  # no I, L, O: easy to read back
 CERT_TYPES = {b"%PDF-": ("application/pdf", "pdf"), b"\xff\xd8\xff": ("image/jpeg", "jpg"),
@@ -228,7 +230,7 @@ class LegacyContacts(RecoveryContacts):
         except (binascii.Error, ValueError):
             raise ApiError(422, "conflict", "certificate: base64 expected", reason="certificate_invalid") from None
         if not raw or len(raw) > MAX_CERTIFICATE_BYTES:
-            raise ApiError(422, "conflict", f"certificate: 1 byte to {MAX_CERTIFICATE_BYTES // (1024 * 1024)} MB",
+            raise ApiError(422, "conflict", f"certificate: 1 byte to {MAX_CERTIFICATE_BYTES // 1024} KiB",
                            reason="certificate_size")
         for magic, (ctype, ext) in CERT_TYPES.items():
             if raw.startswith(magic):

@@ -254,7 +254,7 @@ class ClaimBody(JsonBody):
     model_config = ConfigDict(extra="forbid")
     access_key: str = Field(max_length=200)
     certificate_type: Literal["application/pdf", "image/jpeg", "image/png"]
-    certificate: str = Field(max_length=6_000_000, description="the death certificate, base64 (at most 4 MB)")
+    certificate: str = Field(max_length=250_000, description="the death certificate, base64 (at most 180 KiB: a downsized photo or a small PDF)")
 
 
 class ClaimView(BaseModel):
