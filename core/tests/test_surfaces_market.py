@@ -10,6 +10,7 @@ import pytest
 import yaml
 
 from conftest import OWNER, make_client
+from onemind_core.builtins import Builtins
 from onemind_core.identity.models import TokenRow, UserRow
 from onemind_core.identity.crypto import new_secret, sha256_hex
 from onemind_core.plugins.models import PluginInstallRow
@@ -162,7 +163,7 @@ def test_market_topics_must_route_and_pages_follow_the_settings_block():
                        "widgets": [{"id": "frame", "title": "Frame", "render": "iframe", "entry": "w.html",
                                     "surfaces": ["dashboard"]}]},
     })
-    reg = SurfaceRegistry(type("B", (), {"enabled": lambda self: []})(), known_action=lambda t: False,
+    reg = SurfaceRegistry(Builtins({}, frozenset), known_action=lambda t: False,
                           event_topic=lambda e: None, openapi=dict, market=lambda: [m])
     view = reg.view(lambda _: True)
     assert view["notifications"] == [] and view["cards"] == []
