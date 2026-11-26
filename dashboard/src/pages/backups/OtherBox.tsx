@@ -4,7 +4,7 @@
 // /v1/onboarding/restore/apps files the ordinary `backup.restore` request, never approved here: it waits in Approvals.
 // The recovery key from the kit opens the old box's backup. It lives in this form's memory only, is sent once per call,
 // is never put in a URL, storage or log, and is cleared as soon as a request is filed. The CLI twin is
-// `onemind onboarding restore`.
+// `onemind box-restore`.
 import { useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { OneMind, OneMindError, uuid4 } from '@onemind/sdk';

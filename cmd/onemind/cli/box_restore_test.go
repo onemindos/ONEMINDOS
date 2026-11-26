@@ -57,7 +57,7 @@ func startRestoreHub(t *testing.T) *restoreHub {
 
 func TestOnboardingRestoreCandidates(t *testing.T) {
 	h := startRestoreHub(t)
-	r := run(t, testRecoveryKey+"\n", false, "onboarding", "restore", "candidates", "--destination", testDest, "--box", "box-old", "--recovery-key-stdin")
+	r := run(t, testRecoveryKey+"\n", false, "box-restore", "candidates", "--destination", testDest, "--box", "box-old", "--recovery-key-stdin")
 	if r.code != 0 || !strings.Contains(r.out, "run1") || !strings.Contains(r.out, "notes, kuma") {
 		t.Fatalf("candidates %+v", r)
 	}
@@ -71,7 +71,7 @@ func TestOnboardingRestoreCandidates(t *testing.T) {
 
 func TestOnboardingRestoreAppOnlyFilesARequest(t *testing.T) {
 	h := startRestoreHub(t)
-	r := run(t, testRecoveryKey+"\n", false, "onboarding", "restore", "app", "--destination", testDest, "--box", "box-old", "--run", "run1", "--app", "notes", "--recovery-key-stdin")
+	r := run(t, testRecoveryKey+"\n", false, "box-restore", "app", "--destination", testDest, "--box", "box-old", "--run", "run1", "--app", "notes", "--recovery-key-stdin")
 	if r.code != 0 || !strings.Contains(r.out, "act-5") || !strings.Contains(r.out, "Waiting for an owner") {
 		t.Fatalf("app %+v", r)
 	}
@@ -97,12 +97,12 @@ func TestOnboardingRestoreRefusesBeforeAnyCall(t *testing.T) {
 		{testRecoveryKey, []string{"--destination", testDest, "--box", "b"}},
 		{"short\n", []string{"--destination", testDest, "--box", "b", "--recovery-key-stdin"}},
 	} {
-		args := append([]string{"onboarding", "restore", "candidates"}, tc.args...)
+		args := append([]string{"box-restore", "candidates"}, tc.args...)
 		if r := run(t, tc.stdin, false, args...); r.code == 0 {
 			t.Fatalf("%v must be refused: %+v", tc.args, r)
 		}
 	}
-	if r := run(t, testRecoveryKey+"\n", false, "onboarding", "restore", "app", "--destination", testDest, "--box", "b", "--recovery-key-stdin"); r.code == 0 {
+	if r := run(t, testRecoveryKey+"\n", false, "box-restore", "app", "--destination", testDest, "--box", "b", "--recovery-key-stdin"); r.code == 0 {
 		t.Fatalf("app without --run and --app must be refused: %+v", r)
 	}
 	if len(h.paths) != 0 {

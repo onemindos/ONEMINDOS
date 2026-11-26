@@ -2,7 +2,7 @@
 
 package cli
 
-// onemind onboarding restore: bring one app's data back from another box's backup (new hardware, UMB-P08).
+// onemind box-restore: bring one app's data back from another box's backup (new hardware, UMB-P08).
 // `candidates` lists what a backup destination holds (read only). `app` only FILES the ordinary backup.restore request,
 // never approved by this command: an owner approves it (`onemind actions approve ID`). The recovery key from the kit
 // is read from standard input (--recovery-key-stdin), never from a flag, so it does not land in shell history or the
@@ -20,9 +20,8 @@ import (
 
 var destIDRe = regexp.MustCompile(`^dst_[0-9a-f]{16}$`)
 
-func onboardingCommands(a *App) []*cobra.Command {
-	root := &cobra.Command{Use: "onboarding", Short: "First-run helpers (owner)"}
-	restore := &cobra.Command{Use: "restore", Short: "Restore from another box's backup (new hardware); needs its box ID and recovery key"}
+func boxRestoreCommands(a *App) []*cobra.Command {
+	restore := &cobra.Command{Use: "box-restore", Short: "Restore an app from another box's backup (new hardware); needs its box ID and recovery key (owner)"}
 
 	var dest, box string
 	var keyStdin bool
@@ -115,6 +114,5 @@ func onboardingCommands(a *App) []*cobra.Command {
 	appCmd.Flags().StringVar(&reason, "reason", "", "why, shown to the owner")
 	restore.AddCommand(appCmd)
 
-	root.AddCommand(restore)
-	return []*cobra.Command{root}
+	return []*cobra.Command{restore}
 }
