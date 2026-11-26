@@ -83,6 +83,14 @@ class RC1(unittest.TestCase):
         self.assertLess(src.index("f15(vm)"), src.index("recoveryconsole.rc1(vm, record)"))
         self.assertLess(src.index("recoveryconsole.rc1(vm, record)"), src.index('vm.mark("F3 reboot keeps state")'))
 
+    def test_the_image_enables_the_console_like_the_tty2_login(self):
+        # RC1's first run: a link in /usr/lib/.../multi-user.target.wants started the unit but `systemctl is-enabled`
+        # said disabled. The Containerfile enables it, as it does getty@tty2.
+        cf = Path(ROOT, "os", "rootfs", "Containerfile").read_text()
+        self.assertIn("systemctl enable onemind-recovery-console.service", cf)
+        self.assertFalse(Path(ROOT, "os/rootfs/layers/onemind/usr/lib/systemd/system/multi-user.target.wants",
+                              "onemind-recovery-console.service").exists())
+
     def test_criteria_are_preregistered(self):
         data = Path(QEMU, "CRITERIA-RECOVERY.md").read_bytes()
         log = Path(QEMU, "PREREGISTRATION.sha256").read_text()
