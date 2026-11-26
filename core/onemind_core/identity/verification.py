@@ -7,9 +7,15 @@ Writes go through the approval queue (BUILDER-BRIEFING item 6): changing a row f
 approves each with a key at the level the table asks for (L2 by default). Removing a trusted model
 only tightens, so it is a direct owner call.
 
-Before the household has its first proven key (open question N-1), an L2 requirement is met by an
-L1 key and every answer says `grace: true`, so a box with only phone passkeys keeps working as it did.
+Before the household has its first proven key (open question N-1 = b, founder 2026-11-25: "go with your
+recommendations on gateway and nats"), an L2 requirement is met by an L1 key **plus** the code the box's
+own screen shows (presence.py), and every answer says `grace: true`. Remotely it still needs L2.
 Physical actions, turning the motion lockout off and any L3 opt-in are never eased.
+
+The grace is one-way: once any owner has held a proven key, a household flag (`proven_key_seen`) is set
+and the grace never comes back, not by deleting keys, removing a trusted model or demoting an owner.
+Without a proven key after that, L2 actions need a recovery path (design 3.13; until it lands, an owner
+at the box can enrol a new key or revoke a lost one) instead of falling back to L1.
 """
 
 from __future__ import annotations
@@ -21,13 +27,14 @@ from sqlalchemy import select
 
 from ..errors import ApiError
 from . import levels as lv
-from .models import PasskeyRow, TrustedModelRow, VerificationLevelRow, iso
+from .models import HouseholdFlagRow, PasskeyRow, TrustedModelRow, VerificationLevelRow, iso
 
 if TYPE_CHECKING:
     from ..actions import Action
     from .service import IdentityService
 
 SET_TYPE = "verification.requirement.set"
+PROVEN_SEEN = "proven_key_seen"
 ADD_MODEL_TYPE = "authenticator.allowlist.add"
 
 
@@ -82,6 +89,30 @@ class Verification:
         rows = self.repo.all(select(PasskeyRow).where(PasskeyRow.user_id.in_(owners))) if owners else []
         return max((self.cred_level(r, models) for r in rows), default=0)
 
+    # ---- the one-way latch (the grace never returns) ---------------------------------------------------
+    def latched(self) -> bool:
+        return self.repo.get(HouseholdFlagRow, PROVEN_SEEN) is not None
+
+    def note_proven(self, why: str) -> bool:
+        """Set the latch when an owner holds a proven key now (after an enrolment or a trusted model is
+        added). Returns whether the household is past the grace. Idempotent."""
+        if self.latched():
+            return True
+        if self.household_level() < 2:
+            return False
+        try:
+            self.repo.add(HouseholdFlagRow(key=PROVEN_SEEN, set_at=self.svc.now(), detail=why[:200]))
+        except Exception:  # noqa: BLE001 - a concurrent first writer already set it
+            if not self.latched():
+                raise
+            return True
+        self.svc.emit("auth", "grace.ended", {"why": why[:200]})
+        return True
+
+    def recovery_needed(self) -> bool:
+        """A proven key existed and none is left: L2 actions wait for a recovery path (design 3.13)."""
+        return self.latched() and self.household_level() < 2
+
     # ---- the table ---------------------------------------------------------------------------------
     def overrides(self) -> dict[str, str]:
         return {r.key: r.level for r in self.repo.all(select(VerificationLevelRow))}
@@ -90,11 +121,16 @@ class Verification:
         o = self.overrides() if overrides is None else overrides
         return lv.rank(o.get(key) or lv.bounds(key)[0])
 
+    def in_grace(self) -> bool:
+        """No owner has ever held a proven key (and the grace is on). Checks, and sets, the latch."""
+        return self.svc.cfg.l2_grace and not self.note_proven("household_level")
+
     def grace(self, need: int, strict: bool) -> bool:
-        return (self.svc.cfg.l2_grace and need == 2 and not strict and self.household_level() < 2)
+        return need == 2 and not strict and self.in_grace()
 
     def effective(self, need: int, strict: bool) -> tuple[int, bool]:
-        """(level actually asked for, whether the no-proven-key grace eased it)."""
+        """(level actually asked for, whether the no-proven-key grace eased it). Eased means an L1 key
+        **plus** the code on the box's own screen (N-1 = b): callers must ask for both."""
         if self.grace(need, strict):
             return 1, True
         return need, False
@@ -134,8 +170,10 @@ class Verification:
         types = [{"key": k, "current": v, "minimum": "L1", "maximum": "L3"} for k, v in sorted(o.items())
                  if k.startswith(lv.TYPE_KEY_PREFIX)]
         have = self.household_level()
+        latched = self.note_proven("household_level")
         return {"rows": rows, "types": types, "household_level": lv.name(have) if have else None,
-                "grace": self.svc.cfg.l2_grace and have < 2}
+                "grace": self.svc.cfg.l2_grace and not latched, "recovery_needed": latched and have < 2,
+                "box_confirm": self.svc.presence.available}
 
     # ---- writes, through the approval queue -------------------------------------------------------
     def _owner_request(self, p, what: str) -> None:
@@ -152,8 +190,14 @@ class Verification:
                            reason="level_unreachable")
 
     def recheck_set(self, a: Action) -> str | None:
+        """Judged again when the approved edit runs: the floor, and that L3 is still reachable (a key may
+        have been removed since it was filed)."""
         refused = lv.check_edit(a.params["key"], a.params["level"])
-        return refused[1] if refused else None
+        if refused:
+            return refused[1]
+        if a.params["level"] == "L3" and self.household_level() < 3:
+            return "no key on this box reaches L3 any more, so nobody could approve it"
+        return None
 
     def run_set(self, a: Action, finish) -> None:
         from ..executors import ExecResult
@@ -197,6 +241,7 @@ class Verification:
                     setattr(row, k, v)
         self.svc.emit("auth", "trusted_model.added", {"aaguid": aaguid, "name": prm["name"], "action_id": a.id,
                                                       "approved_by": a.approved_by})
+        self.note_proven(f"trusted model {aaguid}")  # its keys may be proven now: the grace ends for good
         finish(ExecResult("succeeded", f"{prm['name']} is a trusted key model"))
 
     def list_models(self, p) -> list[dict]:
@@ -208,8 +253,19 @@ class Verification:
             out.append({**m.json(), "added_at": iso(row.added_at) if row else None})
         return sorted(out, key=lambda x: (x["source"], x["name"]))
 
-    def remove_model(self, p, aaguid: str) -> None:
-        """Taking trust away only tightens (L0, design 3.11): keys of that model drop to L1 at once."""
+    def holds_last_proven(self, aaguid: str) -> bool:
+        """Removing this owner-added model would leave no owner with a proven key."""
+        if self.household_level() < 2:
+            return False
+        models = {k: m for k, m in self.models().items() if k != aaguid or m.source == "shipped"}
+        owners = self.svc.active_owner_ids()
+        rows = self.repo.all(select(PasskeyRow).where(PasskeyRow.user_id.in_(owners))) if owners else []
+        return max((self.cred_level(r, models) for r in rows), default=0) < 2
+
+    def remove_model(self, p, aaguid: str, ctx=None) -> None:
+        """Taking trust away only tightens (L0, design 3.11): keys of that model drop to L1 at once. The
+        latch keeps that from re-opening the grace. Removing the model behind the household's last proven
+        key needs that key (L2), or an owner at the box (a lost key), like revoking the last proven key."""
         self._owner_request(p, "remove a trusted key model")
         clean = lv.clean_aaguid(aaguid) or ""
         if self.repo.get(TrustedModelRow, clean) is None:
@@ -217,6 +273,9 @@ class Verification:
                 raise ApiError(409, "conflict", "this model comes with the OS; an update removes it",
                                reason="shipped_model")
             raise ApiError(404, "not_found", "no such trusted key model")
+        if self.holds_last_proven(clean):
+            self.svc.require_step_up(ctx, p, "stop trusting the model of your last proven key",
+                                     op="auth.trusted_models.remove", target=clean)
         self.repo.delete(TrustedModelRow, TrustedModelRow.aaguid == clean)
         self.svc.emit("auth", "trusted_model.removed", {"aaguid": clean}, p)
 

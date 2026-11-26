@@ -24,6 +24,7 @@ from onemind_core.identity.crypto import b64url
 from test_identity import (
     SoftAuthenticator,
     audit_events,
+    box_code,
     csrf,
     id_settings,
     new_session_client,
@@ -152,23 +153,30 @@ def keys(c: TestClient) -> dict:
     return {k["label"]: k for k in c.get("/v1/auth/passkeys").json()}
 
 
-def add_key(c: TestClient, auth, label: str, grant: str | None = None) -> dict:
-    """Register with a step-up grant when the owner already holds a proven key."""
+def add_key(c: TestClient, auth, label: str, grant: str | None = None, at_box: bool = True) -> dict:
+    """Register with a step-up grant when the owner already holds a proven key. at_box: the person reads
+    the code the box's screen shows (N-1 b: the household's first proven key is added at the box)."""
     h = {**csrf(c), **({"OneMind-Step-Up": grant} if grant else {})}
     opts = c.post("/v1/auth/passkeys/register/options", headers=h)
     assert opts.status_code == 200, opts.text
     assert opts.json()["publicKey"]["attestation"] == "direct"
-    r = c.post("/v1/auth/passkeys/register", json={"credential": auth.register(opts.json()), "label": label},
-               headers=csrf(c))
+    body = {"credential": auth.register(opts.json()), "label": label}
+    if at_box and opts.json()["box_code_if_proven"]:
+        body["box_code"] = box_code(c)
+    r = c.post("/v1/auth/passkeys/register", json=body, headers=csrf(c))
     assert r.status_code == 201, r.text
     return r.json()
 
 
-def grant(c: TestClient, auth, op: str, target: str = "", body: dict | None = None) -> str:
-    opts = c.post("/v1/auth/step-up/options", json={"op": op, "target": target, "body": body or {}}, headers=csrf(c))
+def grant(c: TestClient, auth, op: str, target: str = "", body: dict | None = None, at_box: bool = False) -> str:
+    """A step-up grant; when the hub asks for the box's code (the grace), the person at the box types it."""
+    opts = c.post("/v1/auth/step-up/options", json={"op": op, "target": target, "body": body or {}, "at_box": at_box},
+                  headers=csrf(c))
     assert opts.status_code == 200, opts.text
-    r = c.post("/v1/auth/step-up", json={"credential": auth.assert_(opts.json()["publicKey"]["challenge"])},
-               headers=csrf(c))
+    sent = {"credential": auth.assert_(opts.json()["publicKey"]["challenge"])}
+    if opts.json()["box_code_required"]:
+        sent["box_code"] = box_code(c)
+    r = c.post("/v1/auth/step-up", json=sent, headers=csrf(c))
     assert r.status_code == 200, r.text
     return r.json()["step_up"]
 
@@ -179,12 +187,15 @@ def file_action(c: TestClient, clock, type_: str, params: dict, key: str) -> str
     return r.json()["id"]
 
 
-def approve(c: TestClient, aid: str, auth) -> object:
+def approve(c: TestClient, aid: str, auth, at_box: bool = True) -> object:
+    """Approve with a passkey; at_box: also type the code the box's screen shows when the hub asks (grace)."""
     opts = c.post(f"/v1/actions/{aid}/approve-options", headers=csrf(c))
     if opts.status_code != 200:
         return opts
-    return c.post(f"/v1/actions/{aid}/approve", json={"webauthn": auth.assert_(opts.json()["challenge"], flat=True)},
-                  headers=csrf(c))
+    body = {"webauthn": auth.assert_(opts.json()["challenge"], flat=True)}
+    if at_box and opts.json()["box_code_required"]:
+        body["box_code"] = box_code(c)
+    return c.post(f"/v1/actions/{aid}/approve", json=body, headers=csrf(c))
 
 
 # ---- enrolment: what each kind of key proves ------------------------------------------------------
@@ -229,8 +240,11 @@ def test_grace_until_the_first_proven_key_then_l1_cannot_approve_t3(lvc, root, c
     add_key(lvc, phone, "phone")
     aid = file_action(lvc, clock, "test.wipe", {"target": "photos"}, "t3a")
     opts = lvc.post(f"/v1/actions/{aid}/approve-options", headers=csrf(lvc)).json()
-    # No proven key yet (open question N-1): L2 is eased to L1, and the answer says so.
+    # No proven key yet (N-1 = b): L2 is eased to L1 plus the code on the box's own screen, and the answer
+    # says so. The code itself is never in an API answer.
     assert (opts["required_level"], opts["grace"], opts["decided_by"]) == ("L1", True, "tier.T3")
+    assert opts["box_code_required"] is True and box_code(lvc) not in json.dumps(opts)
+    assert lvc.get(f"/v1/actions/{aid}").json()["required_level"] == "L2"  # the card says what remote needs
     bio = AttestedAuthenticator(root)
     add_key(lvc, bio, "bio")  # the household's first proven key: the grace ends
     opts = lvc.post(f"/v1/actions/{aid}/approve-options", headers=csrf(lvc)).json()
@@ -350,9 +364,199 @@ def test_owner_adds_a_trusted_model_at_l2_and_removing_it_drops_keys_to_l1(setti
         bio2 = AttestedAuthenticator(root)
         assert add_key(c, bio2, "bio2")["level"] == "L2"
         assert keys(c)["bio"]["level"] == "L1"  # enrolled before the model was trusted
-        assert c.delete(f"/v1/auth/authenticator-allowlist/{BIO_AAGUID}", headers=csrf(c)).status_code == 204
+        # bio2 is the household's only proven key: untrusting its model takes that key (or the box).
+        r = c.delete(f"/v1/auth/authenticator-allowlist/{BIO_AAGUID}", headers=csrf(c))
+        step = step_up_of(r)
+        assert (step["op"], step["required_level"], step["box"]) == ("auth.trusted_models.remove", "L2", "alt")
+        g = grant_from(c, bio2, step)
+        r = c.delete(f"/v1/auth/authenticator-allowlist/{BIO_AAGUID}", headers={**csrf(c), "OneMind-Step-Up": g})
+        assert r.status_code == 204, r.text
         listed = keys(c)["bio2"]
         assert (listed["level"], listed["level_reason"]) == ("L1", "model_not_trusted")
+        # The grace never comes back: L2 actions now wait for a recovery path, not for an L1 key.
+        table = c.get("/v1/verification-requirements").json()
+        assert (table["grace"], table["recovery_needed"]) == (False, True)
+
+
+# ---- the grace is one-way (review of #1184: the D-028 L2 bypass) ---------------------------------------
+def test_an_l1_key_cannot_delete_the_last_proven_key_to_reopen_the_grace(lvc, root, clock):
+    """The reviewer's repro: phone (L1) plus bio (L2); the phone deletes bio, then approves T3 with L1."""
+    setup_owner(lvc)
+    phone, bio = SoftAuthenticator(), AttestedAuthenticator(root)
+    add_key(lvc, phone, "phone")
+    add_key(lvc, bio, "bio")
+    aid = file_action(lvc, clock, "test.wipe", {"target": "photos"}, "t3x")
+    assert lvc.post(f"/v1/actions/{aid}/approve-options", headers=csrf(lvc)).json()["required_level"] == "L2"
+    bio_id = b64url(bio.cred_id)
+    # Deleting the last proven key needs that key (L2); the phone can't even start the step-up remotely.
+    step = step_up_of(lvc.delete(f"/v1/auth/passkeys/{bio_id}", headers=csrf(lvc)))
+    assert (step["required_level"], step["box"]) == ("L2", "alt")
+    opts = lvc.post("/v1/auth/step-up/options", json={"op": step["op"], "target": bio_id, "body": {}},
+                    headers=csrf(lvc)).json()
+    assert [k["id"] for k in opts["publicKey"]["allowCredentials"]] == [bio_id]
+    r = lvc.post("/v1/auth/step-up", json={"credential": phone.assert_(opts["publicKey"]["challenge"])},
+                 headers=csrf(lvc))
+    assert r.status_code == 401
+    # A grant the phone made for removing some other key does not stretch to this one.
+    spare = SoftAuthenticator()
+    add_key(lvc, spare, "spare", grant=grant(lvc, bio, "auth.passkeys.register"))
+    other = grant(lvc, phone, "auth.passkeys.delete", b64url(spare.cred_id))
+    r = lvc.delete(f"/v1/auth/passkeys/{bio_id}", headers={**csrf(lvc), "OneMind-Step-Up": other})
+    assert r.status_code == 401
+    assert keys(lvc)["bio"]["level"] == "L2"
+    # The owner removes it with the key itself: allowed, and the grace stays over.
+    g = grant(lvc, bio, "auth.passkeys.delete", bio_id)
+    assert lvc.delete(f"/v1/auth/passkeys/{bio_id}", headers={**csrf(lvc), "OneMind-Step-Up": g}).status_code == 204
+    table = lvc.get("/v1/verification-requirements").json()
+    assert (table["grace"], table["recovery_needed"], table["household_level"]) == (False, True, "L1")
+    r = lvc.post(f"/v1/actions/{aid}/approve-options", headers=csrf(lvc))
+    assert r.status_code == 409 and r.json()["reason"] == "verification_level_unmet"
+    assert approve(lvc, aid, phone).status_code == 409
+    assert lvc.get(f"/v1/actions/{aid}").json()["state"] == "awaiting_approval"
+    # Security settings and table edits wait too: no L1 fallback anywhere.
+    share = {"roles": ["guest"], "people": [], "auth": None}
+    step = step_up_of(lvc.put("/v1/apps/uptime-kuma/access", json=share, headers=csrf(lvc)))
+    assert (step["required_level"], step["box"]) == ("L2", None)
+
+
+def test_a_lost_last_proven_key_is_revoked_at_the_box_and_a_new_one_enrolled_there(lvc, root, clock):
+    """Revoking stays possible without the key (design 3.11): an owner at the box, then recovery at the box."""
+    setup_owner(lvc)
+    phone, lost = SoftAuthenticator(), AttestedAuthenticator(root)
+    add_key(lvc, phone, "phone")
+    add_key(lvc, lost, "lost")
+    lost_id = b64url(lost.cred_id)
+    # Remotely (no box code) the phone can't use the at-the-box path.
+    opts = lvc.post("/v1/auth/step-up/options", json={"op": "auth.passkeys.delete", "target": lost_id, "body": {},
+                                                      "at_box": True}, headers=csrf(lvc)).json()
+    assert opts["box_code_required"] is True and opts["required_level"] == "L1"
+    r = lvc.post("/v1/auth/step-up", json={"credential": phone.assert_(opts["publicKey"]["challenge"])},
+                 headers=csrf(lvc))
+    assert r.status_code == 401 and r.json()["reason"] == "box_code_required"
+    g = grant(lvc, phone, "auth.passkeys.delete", lost_id, at_box=True)  # at the box: reads the code
+    assert lvc.delete(f"/v1/auth/passkeys/{lost_id}", headers={**csrf(lvc), "OneMind-Step-Up": g}).status_code == 204
+    assert lvc.get("/v1/verification-requirements").json()["recovery_needed"] is True
+    # Adding a key now needs L2, which nobody has: the interim recovery path is the box.
+    step = step_up_of(lvc.post("/v1/auth/passkeys/register/options", headers=csrf(lvc)))
+    assert (step["required_level"], step["box"]) == ("L1", "required")
+    new = AttestedAuthenticator(root)
+    assert add_key(lvc, new, "new", grant=grant_from(lvc, phone, step))["level"] == "L2"
+    assert lvc.get("/v1/verification-requirements").json()["recovery_needed"] is False
+
+
+def test_demoting_the_owner_who_holds_the_proven_key_does_not_reopen_the_grace(lvc, root, clock):
+    setup_owner(lvc)
+    add_key(lvc, AttestedAuthenticator(root), "bio")
+    svc = lvc.app.state.identity
+    assert svc.levels.latched()
+    from onemind_core.identity.models import PasskeyRow
+
+    svc.repo.delete(PasskeyRow, PasskeyRow.label == "bio")  # however the key goes away
+    assert svc.levels.in_grace() is False
+    assert svc.levels.effective(2, False) == (2, False)
+
+
+# ---- the grace is at the box (N-1 = b) -------------------------------------------------------------------
+def test_during_grace_a_remote_l1_key_cannot_approve_an_l2_action(lvc, clock, settings):
+    setup_owner(lvc)
+    phone = SoftAuthenticator()
+    add_key(lvc, phone, "phone")
+    aid = file_action(lvc, clock, "test.wipe", {"target": "photos"}, "t3r")
+    r = approve(lvc, aid, phone, at_box=False)
+    assert r.status_code == 401 and r.json()["reason"] == "box_code_required"
+    # A wrong code burns the challenge; the next try shows a new code.
+    opts = lvc.post(f"/v1/actions/{aid}/approve-options", headers=csrf(lvc)).json()
+    shown = box_code(lvc)
+    wrong = f"{(int(shown) + 1) % 10 ** 6:06d}"
+    r = lvc.post(f"/v1/actions/{aid}/approve", json={"webauthn": phone.assert_(opts["challenge"], flat=True),
+                                                     "box_code": wrong}, headers=csrf(lvc))
+    assert r.status_code == 401 and r.json()["reason"] == "box_code_required"
+    assert lvc.get(f"/v1/actions/{aid}").json()["state"] == "awaiting_approval"
+    # A phone approver key can't stand in either (it has no way to send the box's code).
+    opts = lvc.post(f"/v1/actions/{aid}/approve-options", headers=csrf(lvc)).json()
+    body = {"device_signature": {"key_id": "apk_x", "challenge": opts["challenge"], "signature": "AA"}}
+    r = lvc.post(f"/v1/actions/{aid}/approve", json=body, headers=csrf(lvc))
+    assert r.status_code == 401 and "box" in r.json()["message"]
+    # At the box it goes through.
+    assert approve(lvc, aid, phone).status_code == 200
+    ev = [e["data"]["payload"] for e in audit_events(settings) if e["event"] == "auth.step_up.succeeded"]
+    assert ev[-1]["at_box"] is True and ev[-1]["grace"] is True
+    assert any(e["event"] == "auth.box_code.failed" for e in audit_events(settings))
+
+
+def test_wrong_box_codes_lock_the_box_confirmation_for_a_while(lvc, clock):
+    setup_owner(lvc)
+    phone = SoftAuthenticator()
+    add_key(lvc, phone, "phone")
+    aid = file_action(lvc, clock, "test.wipe", {"target": "photos"}, "t3l")
+    for _ in range(5):
+        opts = lvc.post(f"/v1/actions/{aid}/approve-options", headers=csrf(lvc)).json()
+        lvc.post(f"/v1/actions/{aid}/approve", json={"webauthn": phone.assert_(opts["challenge"], flat=True),
+                                                     "box_code": "000000" if box_code(lvc) != "000000" else "111111"},
+                 headers=csrf(lvc))
+    r = lvc.post(f"/v1/actions/{aid}/approve-options", headers=csrf(lvc))
+    assert r.status_code == 429 and r.json()["reason"] == "box_code_locked"
+    clock.advance(16 * 60)  # the window passes (the request itself has expired by now): codes are made again
+    aid = file_action(lvc, clock, "test.wipe", {"target": "photos"}, "t3l2")
+    r = approve(lvc, aid, phone)
+    assert r.status_code == 200, r.text
+
+
+def test_during_grace_an_l1_key_cannot_trust_a_model_remotely_to_make_itself_l2(settings, clock, executor, root):
+    """The related hole: authenticator.allowlist.add approved by L1 would turn the approver's own key L2."""
+    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor)) as c:
+        setup_owner(c)
+        mine = AttestedAuthenticator(root)
+        assert add_key(c, mine, "mine")["level_reason"] == "model_not_trusted"
+        params = {"aaguid": BIO_AAGUID, "name": "Test Bio Key", "roots": [root.pem],
+                  "user_verification": ["fingerprint_internal"]}
+        aid = file_action(c, clock, "authenticator.allowlist.add", params, "m2")
+        r = approve(c, aid, mine, at_box=False)
+        assert r.status_code == 401 and r.json()["reason"] == "box_code_required"
+        assert c.get("/v1/auth/authenticator-allowlist").json() == []
+        assert approve(c, aid, mine).status_code == 200  # an owner at the box
+        assert keys(c)["mine"]["level"] == "L1"  # enrolled before the model was trusted: it stays L1
+
+
+def test_the_first_proven_key_is_added_at_the_box(lvc, root):
+    setup_owner(lvc)
+    add_key(lvc, SoftAuthenticator(), "phone")
+    bio = AttestedAuthenticator(root)
+    opts = lvc.post("/v1/auth/passkeys/register/options", headers=csrf(lvc)).json()
+    assert opts["box_code_if_proven"] is True
+    r = lvc.post("/v1/auth/passkeys/register", json={"credential": bio.register(opts), "label": "bio"},
+                 headers=csrf(lvc))
+    assert r.status_code == 401 and r.json()["reason"] == "box_code_required"
+    assert "bio" not in keys(lvc) and lvc.get("/v1/verification-requirements").json()["grace"] is True
+    # Another phone passkey (L1) still enrols remotely, without the code.
+    assert add_key(lvc, SoftAuthenticator(), "laptop", at_box=False)["level"] == "L1"
+    assert add_key(lvc, AttestedAuthenticator(root), "bio")["level"] == "L2"
+
+
+def test_a_box_without_a_screen_waits_for_a_proven_key(settings, clock, executor):
+    with TestClient(create_app(id_settings(settings, box_code_file=None), clock=clock, executor=executor)) as c:
+        add_wipe_type(c)
+        setup_owner(c)
+        add_key(c, SoftAuthenticator(), "phone")
+        aid = file_action(c, clock, "test.wipe", {"target": "photos"}, "t3n")
+        r = c.post(f"/v1/actions/{aid}/approve-options", headers=csrf(c))
+        assert r.status_code == 409 and r.json()["reason"] == "box_presence_unavailable"
+        assert c.get("/v1/verification-requirements").json()["box_confirm"] is False
+
+
+def test_an_approved_l3_edit_is_judged_again_when_no_key_reaches_l3(lvc, root, clock):
+    setup_owner(lvc)
+    add_key(lvc, bio := AttestedAuthenticator(root), "bio")
+    svc = lvc.app.state.identity
+    from onemind_core.identity.models import PasskeyRow
+
+    bio_id = b64url(bio.cred_id)
+    svc.repo.update(PasskeyRow, [PasskeyRow.id == bio_id], {"level": "L3"})  # a future L3 device
+    aid = file_action(lvc, clock, "verification.requirement.set", {"key": "type:app.install", "level": "L3"}, "l3")
+    svc.repo.update(PasskeyRow, [PasskeyRow.id == bio_id], {"level": "L2"})  # gone before the approval
+    r = approve(lvc, aid, bio)
+    assert r.status_code == 409 and "L3" in r.json()["message"], r.text
+    assert lvc.get(f"/v1/actions/{aid}").json()["state"] == "awaiting_approval"
 
 
 def _leaf_pem(root: FakeRoot) -> str:
@@ -407,11 +611,18 @@ def test_the_motion_lockout_stays_strict_without_a_proven_key(lvc):
     assert r.status_code == 409 and r.json()["reason"] == "verification_level_unmet"
 
 
-def test_grace_keeps_l1_owner_changes_working_and_says_so(lvc, settings):
+def test_grace_keeps_l1_owner_changes_working_at_the_box_and_says_so(lvc, settings):
     setup_owner(lvc)
-    add_key(lvc, SoftAuthenticator(), "phone")  # fresh passkey proof on this session
-    assert lvc.post("/v1/users", json={"display_name": "B", "role": "adult"}, headers=csrf(lvc)).status_code == 201
-    assert lvc.get("/v1/verification-requirements").json()["grace"] is True
+    phone = SoftAuthenticator()
+    add_key(lvc, phone, "phone")  # fresh passkey proof on this session
+    body = {"display_name": "B", "role": "adult"}
+    # N-1 = b: the fresh sign-in alone is not enough for an L2 row during the grace; the box must confirm.
+    step = step_up_of(lvc.post("/v1/users", json=body, headers=csrf(lvc)))
+    assert (step["required_level"], step["box"]) == ("L1", "required")
+    g = grant_from(lvc, phone, step)
+    assert lvc.post("/v1/users", json=body, headers={**csrf(lvc), "OneMind-Step-Up": g}).status_code == 201
+    table = lvc.get("/v1/verification-requirements").json()
+    assert (table["grace"], table["recovery_needed"], table["box_confirm"]) == (True, False, True)
 
 
 def test_the_session_records_which_key_stepped_up(lvc, root):
@@ -494,7 +705,7 @@ def test_the_step_up_digest_is_pinned():
     assert S.step_up_sha256("x", "", {"n": 1.5}) != S.step_up_sha256("x", "", {"n": 1})
     assert S.step_up_sha256("x", "a", {}) != S.step_up_sha256("x", "b", {})
     assert S._step_up_details("x", "", {"n": 2.0}, 2) == [{"step_up": {"op": "x", "target": "", "body": {"n": 2},
-                                                                      "required_level": "L2"}}]
+                                                                      "required_level": "L2", "box": None}}]
 
 
 def test_during_grace_a_step_up_in_place_replaces_signing_in_again(lvc, clock, settings):
@@ -504,7 +715,7 @@ def test_during_grace_a_step_up_in_place_replaces_signing_in_again(lvc, clock, s
     clock.advance(lvc.app.state.identity.cfg.step_up_s + 60)  # the sign-in proof has gone stale
     body = {"display_name": "Cy", "role": "adult"}
     step = step_up_of(lvc.post("/v1/users", json=body, headers=csrf(lvc)))
-    assert step["required_level"] == "L1"
+    assert (step["required_level"], step["box"]) == ("L1", "required")
     g = grant_from(lvc, phone, step)
     assert lvc.post("/v1/users", json=body, headers={**csrf(lvc), "OneMind-Step-Up": g}).status_code == 201
     # Removing a key is the same: a fresh L1 proof made in place, never more.
@@ -513,7 +724,7 @@ def test_during_grace_a_step_up_in_place_replaces_signing_in_again(lvc, clock, s
     clock.advance(lvc.app.state.identity.cfg.step_up_s + 60)
     spare = keys(lvc)["spare"]["credential_id"]
     step = step_up_of(lvc.delete(f"/v1/auth/passkeys/{spare}", headers=csrf(lvc)))
-    assert (step["op"], step["target"], step["required_level"]) == ("auth.passkeys.delete", spare, "L1")
+    assert (step["op"], step["target"], step["required_level"], step["box"]) == ("auth.passkeys.delete", spare, "L1", None)
     g = grant_from(lvc, phone, step)
     r = lvc.delete(f"/v1/auth/passkeys/{spare}", headers={**csrf(lvc), "OneMind-Step-Up": g})
     assert r.status_code == 204, r.text

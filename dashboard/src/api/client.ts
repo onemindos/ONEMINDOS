@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { WiringApi } from './wiring';
 import { getPasskey } from '../lib/webauthn';
+import { askBoxCode } from '../lib/boxcode';
 import { withProtocol } from '../lib/protocol';
 import type * as W from './wiring';
 import { completeStepUp, OneMind, OneMindError, STEP_UP_HEADER, stepUpOf, type components, type operations, type StepUpRequest } from '@onemind/sdk';
@@ -137,6 +138,9 @@ export interface ApproveOptions {
   plan_sha256: string | null;
   expires_at: string;
   publicKey: Record<string, unknown>;
+  /** D-028: the key level this approval needs, and (N-1 b) whether the box's own screen now shows a code. */
+  required_level?: 'L0' | 'L1' | 'L2' | 'L3';
+  box_code_required?: boolean;
 }
 export interface FirstRunSettingsBody {
   box_name: string;
@@ -215,7 +219,7 @@ export class HttpApi implements OneMindApi {
     this.token = opts.token;
     // Declares this build's protocol generation and watches the hub's range (lib/protocol.ts).
     this.fetchFn = withProtocol(opts.fetchFn ?? ((input, init) => fetch(input, init)));
-    this.sdk = new OneMind({ baseUrl: new URL(this.base || '/', globalThis.location?.origin ?? 'http://localhost').href, token: opts.token, fetch: (input, init) => this.fetchFn(String(input), init), retries: 1, stepUp: getPasskey });
+    this.sdk = new OneMind({ baseUrl: new URL(this.base || '/', globalThis.location?.origin ?? 'http://localhost').href, token: opts.token, fetch: (input, init) => this.fetchFn(String(input), init), retries: 1, stepUp: getPasskey, boxCode: askBoxCode });
   }
 
   /**
@@ -278,7 +282,7 @@ export class HttpApi implements OneMindApi {
 
   /** options -> the browser's passkey prompt -> verify (the SDK's shared helper); SDK errors read as ApiError. */
   private async stepUp(step: StepUpRequest): Promise<string> {
-    try { return await completeStepUp(this.sdk, step, getPasskey); }
+    try { return await completeStepUp(this.sdk, step, getPasskey, { boxCode: askBoxCode }); }
     catch (e) {
       if (e instanceof OneMindError) throw new ApiError(e.status, KNOWN_CODES.has(e.code) || e.code === 'network' ? e.code as ApiError['code'] : 'unknown', e.message, e.reason);
       throw e;
@@ -474,9 +478,11 @@ export class HttpApi implements OneMindApi {
     catch (error) {
       if (!(error instanceof ApiError) || error.reason !== 'step_up_required') throw error;
       const options = await this.sdkCall<components['schemas']['ApprovalChallenge']>('POST', path + '-options', {}, false, undefined, false);
+      // N-1 b: during the grace an L2 approval also needs the code the box's own screen now shows.
+      const box_code = options.box_code_required ? await askBoxCode(`approve ${id}`) : undefined;
       const assertion = await getPasskey(options.publicKey);
       return this.sdkCall<Action>('POST', path, {
-        webauthn: assertion, ...(options.plan_sha256 ? { plan_sha256: options.plan_sha256 } : {}),
+        webauthn: assertion, ...(options.plan_sha256 ? { plan_sha256: options.plan_sha256 } : {}), ...(box_code ? { box_code } : {}),
       }, false, undefined, false); // a consumed authenticator assertion must never be retried automatically
     }
   }
