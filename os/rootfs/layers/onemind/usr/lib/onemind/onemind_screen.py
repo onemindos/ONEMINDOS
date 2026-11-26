@@ -5,6 +5,10 @@ Setup address and a QR code of it, the role, and whether OneMind is ready. Nothi
 the owner token is shown once on the setup page (onemind_setup.py), never here. Read-only: it only reads
 files and asks the local gateway or the setup wizard for /healthz. Run by onemind-screen.service on tty1.
 
+It also shows the box confirmation code (D-028, N-1 b): a 6-digit code the gateway writes to
+/data/onemind/gateway/box-code.json when an L2 approval needs a person standing at the box. It is good
+once, for 2 minutes, and no network API ever returns it; reading it here is the proof of presence.
+
 The QR encoder is here too (byte mode, error level L or M, versions 1-6: up to 134 bytes), so the image
 needs no QR package. It follows ISO/IEC 18004; test/unit/test_screen.py pins its output and the PR notes
 how it was checked with a real decoder.
@@ -12,6 +16,7 @@ how it was checked with a real decoder.
 import json, os, socket, subprocess, sys, time, urllib.request
 
 PORT = 8080
+BOX_CODE = ("data", "onemind", "gateway", "box-code.json")  # written by the gateway (identity/presence.py)
 
 # ------------------------------------------------------------------ QR code
 # version -> (data codewords total, ec codewords per block, blocks) for levels L and M.
@@ -242,7 +247,15 @@ def gather(root="/"):
                 code = f.read().strip() or None
         except OSError:
             pass
-    return {"tls": tls, "setup_code": code, "host": socket.gethostname(), "addrs": addresses(),
+    box = None
+    try:
+        with open(j(*BOX_CODE)) as f:
+            doc = json.load(f)
+        if str(doc.get("code", "")).isdigit() and int(doc.get("expires_at", 0)) > time.time():
+            box = {"code": str(doc["code"]), "what": str(doc.get("what") or "")[:120]}
+    except (OSError, ValueError, TypeError, AttributeError):
+        pass
+    return {"tls": tls, "setup_code": code, "box_code": box, "host": socket.gethostname(), "addrs": addresses(),
             "role": state.get("role") if isinstance(state, dict) else None,
             "name": state.get("name") if isinstance(state, dict) else None,
             "setup_open": status == 200 and body.strip() == "setup",
@@ -285,6 +298,13 @@ def view(info):
         head = "ONEMIND IS STARTING"
         lines = ["The first start takes a few minutes.", "",
                  f"The address will be: {url}" if url else "Waiting for a network address."]
+    box = info.get("box_code")
+    if box:  # a person at the box confirms an approval or a change that needs a proven key (N-1 b)
+        code = box["code"]
+        head = "CONFIRM AT THE BOX"
+        lines = [f"Code:  {code[:3]} {code[3:]}", "", f"For: {box['what']}" if box.get("what") else "",
+                 "Type it where OneMind asks for it. It works once, for 2 minutes.",
+                 "Didn't ask for this? Ignore it: nothing happens without the code.", "", *lines]
     return head, lines, url
 
 

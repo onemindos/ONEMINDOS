@@ -57,6 +57,7 @@ from .models import (
     iso,
     utc,
 )
+from .presence import BoxPresence
 from .settings import IdentitySettings
 from .verification import Verification
 
@@ -165,6 +166,8 @@ class IdentityService:
         self.cookie = "__Host-onemind_session" if secure else "onemind_session"
         self.csrf_cookie = "__Host-onemind_csrf" if secure else "onemind_csrf"
         self.levels = Verification(self)
+        self.presence = BoxPresence(self.cfg.box_code_file, self.now,
+                                    lambda name, payload, sev: self.emit("auth", name, payload, severity=sev))
 
     # ---- helpers ---------------------------------------------------------------------------------
     def now(self) -> datetime:
@@ -624,21 +627,20 @@ class IdentityService:
         """Administration that adds power: once passkeys are active, a passkey sign-in in the last
         step_up_s seconds. Returns how the caller proved presence (audited by the caller).
 
-        op names the owner route (levels.STEP_UP_ROWS, or levels.FRESH_OPS). When its row asks an owner
-        for L2 or more, the 5-minute window is not enough: the request must carry a step-up made for this
-        exact change (op, target and body) with a key at that level (design 3.11, gap 20). Below L2 a
-        step-up grant also stands in for signing in again. Either way the 401 names the step-up in
-        `details` ({"step_up": {op, target, body, required_level}}), so a client can make it in place and
-        repeat the request with the OneMind-Step-Up header (SDK `completeStepUp`)."""
+        op names the owner route (levels.STEP_UP_ROWS, levels.FRESH_OPS or a guarded removal). When its
+        rule asks an owner for L2 or more, or for a confirmation at the box (_op_rule), the 5-minute window
+        is not enough: the request must carry a step-up made for this exact change (op, target and body)
+        with a key at that level (design 3.11, gap 20). Below L2 a step-up grant also stands in for signing
+        in again. Either way the 401 names the step-up in `details` ({"step_up": {op, target, body,
+        required_level, box}}), so a client can make it in place and repeat the request with the
+        OneMind-Step-Up header (SDK `completeStepUp`)."""
         if not self.passkeys_active():
             return "token" if ctx is None or ctx.session is None else ctx.session.auth_method
-        need, inplace = 1, op is not None and (p.is_owner or op in lv.FRESH_OPS)
+        need, box, inplace = 1, "", op is not None and (p.is_owner or op in lv.FRESH_OPS)
         if inplace:
-            need, eased = self._op_need(op)
-            if need >= 2:
-                return self._use_step_up_grant(ctx, p, what, op, target, body or {}, need)
-            if eased:
-                what = f"{what} (grace: no proven key yet)"
+            need, box = self._op_rule(op, target)
+            if need >= 2 or box:
+                return self._use_step_up_grant(ctx, p, what, op, target, body or {}, need, box)
             if ctx is not None and ctx.step_up_grant:  # a step-up made in place, instead of signing in again
                 return self._use_step_up_grant(ctx, p, what, op, target, body or {}, 1)
         s = ctx.session if ctx else None
@@ -650,13 +652,44 @@ class IdentityService:
             raise ApiError(401, "unauthenticated", "sign in again with your passkey to do this",
                            reason="step_up_required")
         raise ApiError(401, "unauthenticated", "confirm it's you with your passkey to do this",
-                       reason="step_up_required", details=self._step_up_details(op, target, body or {}, need))
+                       reason="step_up_required", details=self._step_up_details(op, target, body or {}, need, box))
 
-    def _op_need(self, op: str) -> tuple[int, bool]:
-        """(level asked for, whether the grace eased it) for an owner route's step-up."""
-        if op in lv.FRESH_OPS:
-            return 1, False
-        return self.levels.effective(*self.levels.for_row(lv.STEP_UP_ROWS[op]))
+    # The confirmation an owner change needs (design 3.11, N-1 = b):
+    #   box ""         a key at `need`;
+    #   box "required" an L1 key plus the code on the box's own screen (the grace, or the interim recovery);
+    #   box "alt"      a key at `need`, or an L1 key plus the box code when that key is lost.
+    def _op_rule(self, op: str, target: str = "") -> tuple[int, str]:
+        if op == "auth.passkeys.delete":
+            # Revoking the household's last proven key would leave L2 actions without a key: it takes that
+            # key, or an owner at the box (a lost or stolen key must always be stoppable, design 3.11).
+            return (2, "alt") if self._last_proven(target) else (1, "")
+        if op == "auth.trusted_models.remove":  # only asked for when it holds the last proven key
+            return 2, "alt"
+        row = lv.STEP_UP_ROWS[op]
+        if op == "auth.passkeys.register":
+            # Design 3.11: adding a key needs L1 until a proven key exists (a proven key enrolled then needs
+            # the box code, passkey_register), and an existing L2 key afterwards, so a new device can't vouch
+            # for itself. With none left, an owner at the box enrols one (the interim recovery path).
+            if not self.levels.note_proven("household_level"):
+                return 1, ""
+            need = self.levels.row_level(row)
+            if need >= 2 and self.levels.recovery_needed():
+                return 1, "required"
+            return need, ""
+        need, eased = self.levels.effective(*self.levels.for_row(row))
+        return (1, "required") if eased else (need, "")
+
+    def _last_proven(self, credential_id: str) -> bool:
+        """This credential is the only proven key any active owner holds."""
+        row = self.repo.get(PasskeyRow, credential_id)
+        owners = self.active_owner_ids()
+        if row is None or row.user_id not in owners:
+            return False
+        models = self.levels.models()
+        if self.levels.cred_level(row, models) < 2:
+            return False
+        others = self.repo.all(select(PasskeyRow).where(PasskeyRow.user_id.in_(owners), PasskeyRow.id != row.id))
+        return not any(self.levels.cred_level(r, models) >= 2 for r in others)
 
     @staticmethod
     def _canon(v):
@@ -677,28 +710,37 @@ class IdentityService:
         return "sha256:" + hashlib.sha256(canon.encode()).hexdigest()
 
     @staticmethod
-    def _step_up_details(op: str, target: str, body: dict, need: int) -> list[dict]:
+    def _step_up_details(op: str, target: str, body: dict, need: int, box: str = "") -> list[dict]:
         return [{"step_up": {"op": op, "target": target, "body": IdentityService._canon(body),
-                             "required_level": lv.name(max(need, 1))}}]
+                             "required_level": lv.name(max(need, 1)), "box": box or None}}]
 
-    def step_up_options(self, request: Request, ctx: AuthContext | None, op: str, target: str, body: dict) -> dict:
-        """A challenge for one owner change: only keys that meet its row's level may answer."""
+    def step_up_options(self, request: Request, ctx: AuthContext | None, op: str, target: str, body: dict,
+                        at_box: bool = False) -> dict:
+        """A challenge for one owner change: only keys that meet its rule may answer. When the rule asks for
+        the box (or allows it and at_box is set), an L1 key answers and the box's screen shows a code."""
         user = self._account(ctx, "step up")  # a session, never an API token: a grant is bound to it
-        if op not in lv.STEP_UP_ROWS and op not in lv.FRESH_OPS:
-            ops = sorted(set(lv.STEP_UP_ROWS) | lv.FRESH_OPS)
-            raise ApiError(422, "conflict", f"op must be one of {', '.join(ops)}", reason="invalid_op")
-        need, eased = self._op_need(op)
-        allow = self._keys_meeting(user.id, max(need, 1))
+        ops = set(lv.STEP_UP_ROWS) | lv.FRESH_OPS | {"auth.trusted_models.remove"}
+        if op not in ops:
+            raise ApiError(422, "conflict", f"op must be one of {', '.join(sorted(ops))}", reason="invalid_op")
+        need, box = self._op_rule(op, target)
+        use_box = box == "required" or (box == "alt" and at_box)
+        key_need = 1 if use_box else max(need, 1)
+        allow = self._keys_meeting(user.id, key_need)
         if not allow:
             raise self._level_unmet(ctx.principal, op, need)
-        row, raw = self._new_challenge("stepup", user_id=user.id, data={
-            "op": op, "sha256": self.step_up_sha256(op, target, body), "need": max(need, 1)})
+        data = {"op": op, "sha256": self.step_up_sha256(op, target, body), "need": key_need}
+        if use_box:
+            data["box_sha256"] = self.presence.issue(f"confirm {op}", self.now() + CHALLENGE_TTL)
+        row, raw = self._new_challenge("stepup", user_id=user.id, data=data)
         rp_id, _ = self.rp(request)
-        return {"challenge_id": row.id, "expires_at": iso(row.expires_at), "required_level": lv.name(max(need, 1)),
-                "grace": eased, "publicKey": pk.authentication_options(rp_id=rp_id, challenge=raw, allow=allow)}
+        return {"challenge_id": row.id, "expires_at": iso(row.expires_at), "required_level": lv.name(key_need),
+                "grace": use_box and not self.levels.latched(), "box_code_required": use_box,
+                "publicKey": pk.authentication_options(rp_id=rp_id, challenge=raw, allow=allow)}
 
-    def step_up_verify(self, request: Request, ctx: AuthContext | None, credential: dict) -> dict:
-        """Check the assertion; answer a single-use grant (send it as OneMind-Step-Up within 2 minutes)."""
+    def step_up_verify(self, request: Request, ctx: AuthContext | None, credential: dict,
+                       box_code: str | None = None) -> dict:
+        """Check the assertion (and the box code when the challenge showed one); answer a single-use grant
+        (send it as OneMind-Step-Up within 2 minutes)."""
         user = self._account(ctx, "step up")
         session = ctx.session
         try:
@@ -715,36 +757,43 @@ class IdentityService:
                                                  "credential_id": cred.id}, ctx.principal, severity="warning")
             raise ApiError(401, "unauthenticated", "this key doesn't meet the level this change needs",
                            reason="step_up_required")
+        self.presence.check(row.data.get("box_sha256"), box_code, f"confirm {row.data.get('op')}")
         now = self.now()
         self.repo.update(SessionRow, [SessionRow.id == session.id], {"passkey_at": now,
                                                                      "step_up_credential_id": cred.id})
+        data = {k: v for k, v in row.data.items() if k != "box_sha256"}
         grant, _ = self._new_challenge("stepup-grant", user_id=user.id, data={
-            **row.data, "credential_id": cred.id, "level": lv.name(level), "session_id": session.id})
+            **data, "credential_id": cred.id, "level": lv.name(level), "session_id": session.id,
+            "box": bool(row.data.get("box_sha256"))})
         return {"step_up": grant.challenge, "expires_at": iso(grant.expires_at), "level": lv.name(level)}
 
     def _use_step_up_grant(self, ctx: AuthContext | None, p: Principal, what: str, op: str, target: str,
-                           body: dict, need: int) -> str:
+                           body: dict, need: int, box: str = "") -> str:
         grant = ctx.step_up_grant if ctx else None
-        details = self._step_up_details(op, target, body, need)
+        details = self._step_up_details(op, target, body, need, box)
         if not grant:
             self.emit("auth", "step_up.required", {"attempted": what, "required_level": lv.name(need)}, p,
                       severity="warning")
-            raise ApiError(401, "unauthenticated", f"this change needs your proven key ({lv.name(need)}): "
-                           f"POST /v1/auth/step-up/options with op {op!r}, then send the grant as "
-                           "OneMind-Step-Up", reason="step_up_required", details=details)
+            ask = "your passkey and the code on the box's own screen" if box == "required" else \
+                f"your proven key ({lv.name(need)})" if need >= 2 else "your passkey"
+            raise ApiError(401, "unauthenticated", f"this change needs {ask}: POST /v1/auth/step-up/options "
+                           f"with op {op!r}, then send the grant as OneMind-Step-Up", reason="step_up_required",
+                           details=details)
         try:
             row = self._claim_challenge(grant, "stepup-grant")
         except ApiError:
             raise ApiError(401, "unauthenticated", "step-up expired or already used", reason="step_up_required",
                            details=details) from None
         d = row.data
+        have, at_box = lv.rank(d.get("level") or "L0"), bool(d.get("box"))
+        level_ok = (have >= 1 and at_box) if box == "required" else \
+            (have >= need or (have >= 1 and at_box)) if box == "alt" else have >= need
         if (d.get("op") != op or d.get("sha256") != self.step_up_sha256(op, target, body)
-                or ctx.session is None or d.get("session_id") != ctx.session.id
-                or lv.rank(d.get("level") or "L0") < need):
+                or ctx.session is None or d.get("session_id") != ctx.session.id or not level_ok):
             self.emit("auth", "step_up.failed", {"attempted": what, "reason": "grant_mismatch"}, p, severity="warning")
             raise ApiError(401, "unauthenticated", "this step-up was made for a different change",
                            reason="step_up_required", details=details)
-        return f"passkey:{d.get('level')}"
+        return f"passkey:{d.get('level')}{'+box' if at_box else ''}"
 
     def _keys_meeting(self, user_ids: str | list[str], need: int) -> list[str]:
         ids = [user_ids] if isinstance(user_ids, str) else user_ids
@@ -792,14 +841,23 @@ class IdentityService:
         if existing:  # adding a second key is adding power: prove you hold the first (L2 once one exists)
             self.require_step_up(ctx, ctx.principal, "register a passkey", op="auth.passkeys.register")
         rp_id, _ = self.rp(request)
-        row, raw = self._new_challenge("register", user_id=user.id)
+        # N-1 = b: until the household has had a proven key, the first one is added at the box, so an L1 key
+        # (a synced phone passkey somewhere else) can't enrol a key of its own that would be L2. The screen
+        # shows a code now; an L1 key (a phone or computer passkey) enrols without it.
+        box = self.passkeys_active() and not self.levels.note_proven("household_level")
+        data, shown = {"box_for_proven": box}, False
+        if box and self.presence.available:
+            data["box_sha256"] = self.presence.issue("add a proven key", self.now() + CHALLENGE_TTL)
+            shown = True
+        row, raw = self._new_challenge("register", user_id=user.id, data=data)
         opts = pk.registration_options(rp_id=rp_id, rp_name=self.cfg.rp_name, user_id=user.id,
                                        user_name=user.username or user.id, display_name=user.display_name,
                                        challenge=raw, exclude=existing)
-        return {"challenge_id": row.id, "expires_at": iso(row.expires_at), "publicKey": opts}
+        return {"challenge_id": row.id, "expires_at": iso(row.expires_at), "publicKey": opts,
+                "box_code_if_proven": shown}
 
     def passkey_register(self, request: Request, ctx: AuthContext | None, credential: dict, label: str | None,
-                         install_id: str | None = None) -> dict:
+                         install_id: str | None = None, box_code: str | None = None) -> dict:
         user = self._account(ctx, "register a passkey")
         self._refuse_onion_enrolment(request, ctx)
         try:
@@ -826,6 +884,11 @@ class IdentityService:
         model = self.levels.models().get(v["aaguid"])
         level, why = lv.credential_level(fmt=v["fmt"], has_chain=v["has_chain"], backup_eligible=v["backup_eligible"],
                                          model=model, chain_ok=v["chain_ok"])
+        if lv.rank(level) >= 2 and row.data.get("box_for_proven"):
+            if not row.data.get("box_sha256"):
+                raise ApiError(409, "conflict", "this is a proven key, and the first one is added at the box, which "
+                               "this install has no screen for; nothing was saved", reason="box_presence_unavailable")
+            self.presence.check(row.data["box_sha256"], box_code, "add a proven key")
         self.repo.add(PasskeyRow(id=v["id"], user_id=user.id, label=label, public_key=v["public_key"],
                                  sign_count=v["sign_count"], transports=v["transports"], created_at=now,
                                  install_id=install_id, aaguid=v["aaguid"], att_fmt=v["fmt"][:24],
@@ -838,6 +901,8 @@ class IdentityService:
         self.emit("auth", "passkey.registered", {"user_id": user.id, "credential_id": v["id"], "label": label,
                                                  "level": level, "level_reason": why, "aaguid": v["aaguid"],
                                                  "attestation": v["fmt"]}, ctx.principal)
+        if lv.rank(level) >= 2:
+            self.levels.note_proven(f"passkey {v['id'][:32]}")  # the grace ends for good
         return {"credential_id": v["id"], "label": label, "created_at": iso(now), "level": level,
                 "level_reason": why, "explanation": lv.REASON_TEXT[why]}
 
@@ -893,10 +958,10 @@ class IdentityService:
         user = self._account(ctx, "register an approver key")
         if user.role != "owner":
             raise self.deny(ctx.principal, "register an approver key", reason="owner_only")
-        need = self.levels.effective(*self.levels.for_row("admin.high_risk"))[0]
-        if need >= 2:  # once a proven key exists; the L2 grant is itself a fresh passkey proof
+        need, box = self._op_rule("auth.approver_keys.register")
+        if need >= 2 or box:  # a proven key, or the grace's L1 + box code; the grant is itself a fresh passkey proof
             self._use_step_up_grant(ctx, ctx.principal, "register an approver key", "auth.approver_keys.register",
-                                    "", {"public_key": public_key, "label": label, "key_kind": key_kind}, need)
+                                    "", {"public_key": public_key, "label": label, "key_kind": key_kind}, need, box)
         else:
             self._require_fresh_passkey(ctx, ctx.principal, "register an approver key")
         if key_kind not in ak.KEY_KINDS:
@@ -1318,15 +1383,27 @@ class IdentityService:
         allow = self._keys_meeting(allow_users, need)
         if self.passkeys_active() and not allow:
             raise self._level_unmet(p, f"approve {action.get('type')}", need)
-        row, _ = self._new_challenge("approve", user_id=user_id, action_id=action_id,
-                                     data={"action_sha256": a_sha, "plan_sha256": p_sha or None, "need": need},
-                                     raw=raw)
+        data = {"action_sha256": a_sha, "plan_sha256": p_sha or None, "need": need}
+        box = eased and self.passkeys_active()  # N-1 = b: the grace's L1 approval also needs the box's code
+        if box:
+            data["box_sha256"] = self.presence.issue(f"approve {action.get('type')}", self.now() + CHALLENGE_TTL)
+        row, _ = self._new_challenge("approve", user_id=user_id, action_id=action_id, data=data, raw=raw)
         rp_id, _ = self.rp(request)
         return {"challenge": row.challenge, "action_sha256": a_sha, "plan_sha256": p_sha or None,
                 "expires_at": iso(row.expires_at), "required_level": lv.name(need), "grace": eased,
+                "box_code_required": box,
                 "decided_by": decided_by,
                 "device_payload": ak.signing_payload(row.challenge, action_id, a_sha, p_sha or None).decode(),
                 "publicKey": pk.authentication_options(rp_id=rp_id, challenge=raw, allow=allow)}
+
+    def action_view(self, row: dict) -> dict:
+        """required_level on a request waiting for approval (D-028), so a card shows "Needs L2" before the
+        owner tries. It is the table's level: during the grace an L1 key plus the box's code stands in for
+        L2, and approve-options says so (box_code_required)."""
+        if row.get("state") != "awaiting_approval" or not self.passkeys_active():
+            return row
+        need = self.levels.for_action(row)[0]
+        return {**row, "required_level": lv.name(max(need, 1))}
 
     def approval_guard(self, p: Principal, action_id: str, body: dict, request: Request) -> None:
         if not p.is_owner:
@@ -1369,13 +1446,18 @@ class IdentityService:
         if have < need:
             raise self._step_up_failed(p, action_id, f"this approval needs your proven key ({lv.name(need)}); "
                                        f"this key is {lv.name(have)}", reason="level_unmet")
+        if eased:  # an L2 approval during the grace: L1 plus the code shown on the box's own screen (N-1 = b)
+            if not row.data.get("box_sha256"):
+                raise self._step_up_failed(p, action_id, "this approval now needs the code on the box's screen; "
+                                           "ask for the approval again", reason="level_unmet")
+            self.presence.check(row.data["box_sha256"], body.get("box_code"), f"approve {action_id}")
         if ctx is not None and ctx.session is not None:
             self.repo.update(SessionRow, [SessionRow.id == ctx.session.id], {"passkey_at": self.now(),
                                                                              "step_up_credential_id": cred.id})
         self.emit("auth", "step_up.succeeded", {"action_id": action_id, "credential_id": cred.id,
                                                 "passkey_user_id": owner.id, "approval": "passkey",
                                                 "level": lv.name(have), "required_level": lv.name(need),
-                                                "grace": eased}, p)
+                                                "grace": eased, "at_box": eased}, p)
 
     def _check_bound(self, p: Principal, action_id: str, row: ChallengeRow, body: dict) -> None:
         """The claimed challenge was made for this action, and neither the action nor its plan changed."""
@@ -1393,9 +1475,11 @@ class IdentityService:
         action_type = str(action.get("type"))
         if self.gw.actions.is_physical(action_type):
             return "it moves something physical"
-        need, _ = self.levels.effective(*self.levels.for_action(action)[:2])
+        need, eased = self.levels.effective(*self.levels.for_action(action)[:2])
         if need >= 2:  # an approver key is L1 until its attestation is verified (design PR 18b)
             return f"it needs your proven key ({lv.name(need)})"
+        if eased:  # the grace's L1 approval also needs the code on the box's own screen, which a phone can't send
+            return "it needs your passkey and the code on the box's own screen"
         risk = action.get("risk")
         if risk is None:
             from ..automation import registry  # late, as in actions.py

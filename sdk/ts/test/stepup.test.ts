@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // The step-up an owner change names (D-028, design 3.11): made in place, then the change is sent once more.
 import { describe, expect, it } from "vitest";
-import { OneMind, OneMindError, STEP_UP_HEADER, stepUpOf } from "../src/index.js";
+import { completeStepUp, OneMind, OneMindError, STEP_UP_HEADER, stepUpOf, type StepUpTransport } from "../src/index.js";
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -68,5 +68,42 @@ describe("step-up in place", () => {
       expect(e).toBeInstanceOf(OneMindError);
       expect(stepUpOf(e)).toBeUndefined();
     }
+  });
+
+  it("during the grace: asks for the box's code after the hub shows it, and sends it with the assertion", async () => {
+    const order: string[] = [];
+    const calls: { path: string; body: unknown }[] = [];
+    const t: StepUpTransport = {
+      call: async <T>(r: { path: string; body: unknown }) => {
+        calls.push(r); order.push(r.path);
+        if (r.path === "/v1/auth/step-up/options") return { publicKey: { challenge: "abc" }, box_code_required: true } as T;
+        return { step_up: "g" } as T;
+      },
+    };
+    const g = await completeStepUp(t, { ...STEP, required_level: "L1", box: "required" },
+      async () => { order.push("passkey"); return { id: "cred" }; },
+      { boxCode: async (what) => { order.push(`code:${what}`); return "482 913"; } });
+    expect(g).toBe("g");
+    expect(order).toEqual(["/v1/auth/step-up/options", "code:users.create", "passkey", "/v1/auth/step-up"]);
+    expect(calls[1]!.body).toEqual({ credential: { id: "cred" }, box_code: "482913" });
+  });
+
+  it("a lost last proven key: atBox asks the hub for the box path; without it the key's own level is used", async () => {
+    const bodies: unknown[] = [];
+    const t: StepUpTransport = { call: async <T>(r: { path: string; body: unknown }) => { bodies.push(r.body); return (r.path.endsWith("options") ? { publicKey: {}, box_code_required: false } : { step_up: "g" }) as T; } };
+    const step = { op: "auth.passkeys.delete", target: "k1", body: {}, required_level: "L2", box: "alt" as const };
+    await completeStepUp(t, step, async () => ({}), { atBox: true, boxCode: async () => "1" });
+    await completeStepUp(t, step, async () => ({}));
+    expect(bodies[0]).toEqual({ op: "auth.passkeys.delete", target: "k1", body: {}, at_box: true });
+    expect(bodies[2]).toEqual({ op: "auth.passkeys.delete", target: "k1", body: {} });
+  });
+
+  it("no way to ask for the box's code: fails before the hub shows one", async () => {
+    let asked = false;
+    const t: StepUpTransport = { call: async <T>() => { asked = true; return {} as T; } };
+    const e = await completeStepUp(t, { ...STEP, box: "required" }, async () => ({})).catch((x: unknown) => x);
+    expect(e).toBeInstanceOf(OneMindError);
+    expect((e as OneMindError).reason).toBe("box_code_required");
+    expect(asked).toBe(false);
   });
 });
