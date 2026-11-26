@@ -663,7 +663,10 @@ class PolicyService:
         return hit
 
     def pause(self, policy_id: str, reason: str) -> bool:
-        """PR 13: an `each` rule whose notice could not be pushed pauses (suspended; one tap re-confirms it)."""
+        """PR 13: an `each` rule whose notice could not be pushed pauses (suspended; one tap re-confirms it).
+
+        Called on the first failed push attempt, before any retry: a transient failure pauses the rule too.
+        That fails closed by design (an `each` rule must not keep approving while the owner is not told)."""
         p = self.repo.get_policy(policy_id)
         if p is None or p["state"] != "active" or p.get("suspended_at"):
             return False

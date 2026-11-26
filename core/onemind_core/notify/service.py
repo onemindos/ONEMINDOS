@@ -238,7 +238,8 @@ class NotifyService:
                 log.exception("pausing a standing approval after a failed push failed")
 
     def digest_tick(self, now: datetime) -> list[str]:
-        """Once a day per owner: one notice counting the requests rules approved on the previous UTC day,
+        """Once a day per owner: one notice counting the requests rules approved on the previous UTC day
+        (the UTC day, not the box's time zone, for now: a tracked follow-up),
         with the rules in force (forever rules counted). Sent by the worker after midnight UTC, or at the
         first approval of the new day; never for a day that is still running. Returns the notification ids."""
         start = datetime.combine(now.date(), datetime.min.time(), tzinfo=now.tzinfo) - timedelta(days=1)
@@ -660,7 +661,11 @@ class NotifyService:
             self.repo.save_delivery(d)
             self._target_failed(d.target_id, d.person_id, d.last_error, now)
             if n is not None and (n.group_key or "").startswith(self.AUTO_PREFIX + "each:"):
-                self._auto_push_failed(n.group_key.split(":", 1)[1], "push_failed")  # PR 13: the rule pauses
+                # PR 13: the rule pauses on the FIRST failed attempt, before the retry above runs. That is
+                # deliberate and fails closed: an `each` rule promises a notice per use, so it stops approving
+                # while the owner cannot be told, even if the retry later delivers this notice. One tap
+                # (reconfirm) resumes it; the delivery itself still retries on the normal back-off.
+                self._auto_push_failed(n.group_key.split(":", 1)[1], "push_failed")
             return
         except Exception as exc:  # a bug in a sender must not kill the worker
             log.exception("sender crashed")
