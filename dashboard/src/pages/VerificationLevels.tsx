@@ -14,7 +14,7 @@ import { Link } from 'react-router';
 import { OneMindError, type Action, type components } from '@onemind/sdk';
 import { Button, Card, PageHeader, StatusPill, Table, VerificationBadge, LEVEL_NAME, levelRank, type VerificationLevel } from '@onemind/ui';
 import { usePoll } from '../lib/hooks';
-import { useGateway } from '../lib/gateway';
+import { useGateway, viaSdk } from '../lib/gateway';
 import { useSignedIn } from '../session';
 import { Load } from './parts';
 
@@ -68,10 +68,11 @@ export function VerificationLevels() {
 
 function LiveTable({ token }: { token: string }) {
   const client = useGateway(token);
-  const table = usePoll(() => client.call<VTable>({ method: 'GET', path: '/v1/verification-requirements' }), 0);
+  // viaSdk keeps the hub's status and reason, so a 401 signs out and a 403 reads as such.
+  const table = usePoll(() => viaSdk(() => client.call<VTable>({ method: 'GET', path: '/v1/verification-requirements' })), 0);
   // Requests this box has filed: changes already waiting in Approvals (so a row is not asked twice), and the
   // kinds of request it knows, as suggestions for a per-type check (real data; the hub checks the name again).
-  const actions = usePoll(() => client.actions.list(), 0);
+  const actions = usePoll(() => viaSdk(() => client.actions.list()), 0);
   const pending = waitingChanges(actions.data ?? []);
   const seenTypes = [...new Set((actions.data ?? []).map((a) => a.type).filter((x) => x !== SET_TYPE))].sort();
   const [note, setNote] = useState<{ tone: 'ok' | 'bad'; text: string; id?: string }>();

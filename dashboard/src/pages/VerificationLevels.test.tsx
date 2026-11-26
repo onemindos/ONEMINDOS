@@ -124,3 +124,10 @@ it('tells a non-owner the table is the owner\'s and reads nothing', async () => 
   expect(screen.getByRole('status')).toHaveTextContent('Only an owner');
   expect(calls).toEqual([]);
 });
+
+it('says a refusal of the table plainly instead of a raw error', async () => {
+  gateway(({ path }) => (path === '/v1/verification-requirements' ? Response.json({ error: 'permission_denied', message: 'owner only' }, { status: 403 }) : path === '/v1/actions' ? [] : undefined));
+  mount();
+  expect(await screen.findByText('Your account is not allowed to see this.')).toBeVisible();
+  expect(screen.queryByText(/OneMindError|\[object/)).toBeNull();
+});
