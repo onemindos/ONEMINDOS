@@ -94,6 +94,41 @@ This is already the most native way to extend a read-only Debian image; Flatcar 
 
 **Worth researching (UNVERIFIED, not in the research yet):** systemd **portable services** (`portablectl`) run a small service directly on the host under systemd's own sandbox (`DeviceAllow=`, `DynamicUser=`), with no container and no k3s. It could fit tiny hardware adapters (a serial or CAN reader on a Pi) where a k3s pod is heavy. Trade-off: a second way to run plugins next to k3s. Zeus's call; it reopens no decision.
 
+## Is there a more native way to run containers than k3s?
+
+The most Debian-native way is **Podman + Quadlet**: Podman runs containers without a daemon and comes from Debian's own repositories; Quadlet lets systemd start and watch each container like any service. The research measured it against k3s ([`05-kubernetes-cluster-conversion-nvidia.md`](../../../research-output/05-kubernetes-cluster-conversion-nvidia.md), lab W4-1, Debian 13, same two apps):
+
+| | k3s | Podman + Quadlet |
+|---|---|---|
+| Extra RAM | about 0.95 GiB more | baseline |
+| Extra writes | about 2.7 GB/day more | about 0.07 GB/day |
+| Native to Debian | no, a separate binary | yes, Debian package run by systemd |
+| Many boxes as one system | yes | **no, one host only** |
+
+**Why k3s stays:** the fabric joins many machines into one OneMind, and Podman manages one host. Two runtimes would mean two app formats and two management planes, which breaks F-14 ("no product switch") and doubles the test matrix. On a 4 GB box k3s still leaves about 2.5 GiB free (PASS).
+
+**Where Podman is already planned:** leaf devices without Kubernetes (Pi Zero 2 W, ESP32 gateways, drones) run systemd + NATS leaf, with Quadlet for one or two containers.
+
+**What would flip it:** on a **real Pi 5 4 GB**, k3s leaving under 2 GiB for apps or writing over about 5 GB/day to flash moves the Lite tier to Quadlet. That real-board test has not run; it is the evidence that settles "more native".
+
+## What is Flatpak, and does it run our apps?
+
+[Flatpak](https://flatpak.org/) installs **desktop apps** on Linux (Firefox, VLC, GIMP), each in its own sandbox with what it needs, so one package works on Debian, Fedora, Ubuntu and others. Flathub is its main store.
+
+| | Flatpak apps | OneMind apps (Market and custom) |
+|---|---|---|
+| Runs | in a window on that computer's screen | in the background on the box, no screen |
+| Used from | the person at that machine | OneMind desktop in a browser, phone app, CLI, from anywhere |
+| Run by | Flatpak | k3s, sandboxed, owner-approved |
+
+So Flatpak does not replace how OneMind runs apps. The D-016 desktop is a web desktop in a browser, and a Flatpak app draws a local Linux window, so it cannot appear inside it. Flatpak would matter only if a OneMind box is also used as a normal PC with a monitor and a local desktop session, which is not decided. The research mentions Flathub only as a pattern for offline install links ([`14-family-education-community-website.md`](../../../research-output/14-family-education-community-website.md)).
+
+## Custom apps (D-026)
+
+D-026 (2026-11-25): anyone can run any app on OneMind, not only Market apps. A custom app takes the same path as a Market app: container, scan, signing, owner approval, sandbox, backups, updates. Backstage on the box is the first proof. Tracked in #643 (pack, sideload, publish) and #252 (deploy from a Git repo with history and rollback). **Open for Zeus:** the signing policy for custom apps (does an app you build yourself need a signature, or is owner approval enough?).
+
+A custom app can carry the same plugin blocks (bridge, tools, connector), so a vendor SDK you wrap yourself plugs in through the same sockets without being in the Market.
+
 ## How an outside SDK becomes an integration (the recipe)
 
 1. `onemind app scaffold <image|compose|repo>` or `onemind plugin init --kind app` makes the folder (CLI plan: [`docs/leap/dev/CLI.md`](../../leap/dev/CLI.md)).
