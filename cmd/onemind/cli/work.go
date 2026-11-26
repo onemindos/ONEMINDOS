@@ -77,6 +77,7 @@ func workCommands(a *App) []*cobra.Command {
 			return nil
 		}}
 	root.AddCommand(a.workManage()...)
+	root.AddCommand(a.workEdit()...)
 	root.AddCommand(add, ls, view("today", "today", "Tasks due today or overdue"),
 		view("upcoming", "upcoming", "Tasks due after today"), view("inbox", "inbox", "Your Inbox"), done)
 	return []*cobra.Command{root}

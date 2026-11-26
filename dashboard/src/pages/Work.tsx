@@ -5,6 +5,7 @@ import { Button, Card, PageHeader } from '@onemind/ui';
 import { usePoll } from '../lib/hooks';
 import { uuidv4 } from '../lib/uuid';
 import { useSignedIn } from '../session';
+import { Projects, TaskTools } from './work/Manage';
 
 type Task = operations['work.task_get']['responses'][200]['content']['application/json'];
 type QuickAdd = operations['work.quick_add']['requestBody']['content']['application/json'];
@@ -103,6 +104,7 @@ function WorkList({ client }: { client: OneMind }) {
             {task.priority < 4 && <> · p{task.priority}</>}
             {task.labels.length > 0 && <> · {task.labels.map((l) => `@${l}`).join(' ')}</>}
             {task.status === 'done' ? ' · Done' : <> <Button type="button" onClick={() => void finish(task)}>Done</Button></>}
+            <TaskTools client={client} task={task} onChanged={tasks.reload} />
           </li>
         ))}</ul>
       )}
@@ -116,7 +118,7 @@ export function Work() {
   return (
     <div className="dash-stack">
       <PageHeader title="Work" />
-      {mock ? <p>Connect to a hub to open Work.</p> : <WorkList key={person} client={client} />}
+      {mock ? <p>Connect to a hub to open Work.</p> : <><WorkList key={person} client={client} /><Projects key={`p-${person}`} client={client} onChanged={() => undefined} /></>}
     </div>
   );
 }
