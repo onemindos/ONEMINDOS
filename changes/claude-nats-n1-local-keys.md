@@ -1,0 +1,5 @@
+---
+pr: pending
+branch: claude/nats-n1-local-keys
+---
+On a joined machine, programs must now sign in to the local NATS (D-029 "first fix", design gap G1). Before, anything running on the machine could publish into its account with no sign-in: fake heartbeats, fake job results, or a read of its job queue. `onemind fabric join` now makes one nkey per local program (onemindd and the owner's `onemind fabric outbox` command), keeps each seed in a root-only 0600 file under the identity directory on /data, and writes only the public keys into leaf.conf, with least-privilege allow lists: onemindd may publish its own heartbeat, job results, job pull and job acknowledgements and its outbox; the CLI only the outbox; each reads only its own reply inbox. There is no passwordless user, so a client with no key or an unknown key is refused. onemindd learns its seed through ONEMIND_NATS_NKEY_SEED. Together with the per-machine accounts and the per-agent keys already on the hub, every NATS identity is now one key per principal; people never get one (they use the gateway over HTTPS). A machine joined before this keeps its open local port until it joins again.

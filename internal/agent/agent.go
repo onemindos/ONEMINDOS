@@ -24,6 +24,7 @@ import (
 
 	"github.com/onemindos/onemindos/internal/detect"
 	"github.com/onemindos/onemindos/internal/heartbeat"
+	"github.com/onemindos/onemindos/internal/leaf"
 	"github.com/onemindos/onemindos/internal/mesh"
 	"github.com/onemindos/onemindos/internal/version"
 )
@@ -305,6 +306,8 @@ func (a *Agent) depart() {
 func (a *Agent) connectNATS() {
 	opts := []nats.Option{
 		nats.Name("onemindd/" + version.Version),
+		// Its own reply inboxes: on a joined machine's leaf it may subscribe to nothing else (internal/leaf local.go).
+		nats.CustomInboxPrefix(leaf.InboxPrefix(leaf.LocalOnemindd)),
 		nats.RetryOnFailedConnect(true),
 		nats.MaxReconnects(-1),
 		nats.ReconnectWait(2 * time.Second),

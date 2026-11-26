@@ -169,7 +169,10 @@ type sourcingLab struct {
 	supA         *Supervisor
 }
 
-func newSourcingLab(t *testing.T) *sourcingLab {
+func newSourcingLab(t *testing.T) *sourcingLab { return newSourcingLabWith(t, nil) }
+
+// newSourcingLabWith starts the lab with local sign-in on node A's leaf (localA, local.go).
+func newSourcingLabWith(t *testing.T, localA []LocalUser) *sourcingLab {
 	t.Helper()
 	dir := t.TempDir()
 	seedA, pubA := userKey(t)
@@ -212,13 +215,13 @@ include "accounts.conf"
 	l := &sourcingLab{hubURL: fmt.Sprintf("nats://127.0.0.1:%d", cport)}
 	hubLeaf := fmt.Sprintf("127.0.0.1:%d", leafPort)
 	l.relayA = newCutRelay(t, hubLeaf)
-	l.leafA, l.supA = startSourcedLeaf(t, dir, "aaa111", p, l.relayA.addr, seedA)
+	l.leafA, l.supA = startSourcedLeaf(t, dir, "aaa111", p, l.relayA.addr, seedA, localA...)
 	l.leafB, _ = startSourcedLeaf(t, dir, "bbb222", p, hubLeaf, seedB)
 	return l
 }
 
 // startSourcedLeaf starts a node's leaf as onemindd renders it (Apply), dialling the hub at addr.
-func startSourcedLeaf(t *testing.T, dir, name string, p *pki, addr string, seed []byte) (string, *Supervisor) {
+func startSourcedLeaf(t *testing.T, dir, name string, p *pki, addr string, seed []byte, local ...LocalUser) (string, *Supervisor) {
 	t.Helper()
 	nd := filepath.Join(dir, name)
 	nkeyFile := filepath.Join(nd, "leaf.nkey")
@@ -228,7 +231,7 @@ func startSourcedLeaf(t *testing.T, dir, name string, p *pki, addr string, seed 
 	c := &Config{
 		ServerName: "node-" + name, Listen: fmt.Sprintf("127.0.0.1:%d", freePort(t)),
 		Monitor: fmt.Sprintf("127.0.0.1:%d", freePort(t)), StoreDir: filepath.Join(nd, "store"),
-		HubURLs: []string{"tls://" + addr}, CAFile: p.caFile, NkeyFile: nkeyFile,
+		HubURLs: []string{"tls://" + addr}, CAFile: p.caFile, NkeyFile: nkeyFile, LocalUsers: local,
 	}
 	c.CertFile, c.KeyFile = p.issue(t, "node-"+name, false)
 	confPath := filepath.Join(nd, "leaf.conf")

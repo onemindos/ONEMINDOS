@@ -16,6 +16,7 @@ import (
 	"github.com/onemindos/onemindos/internal/etcdir"
 	"github.com/onemindos/onemindos/internal/fabric"
 	"github.com/onemindos/onemindos/internal/jobs"
+	"github.com/onemindos/onemindos/internal/leaf"
 	"github.com/onemindos/onemindos/internal/service"
 	"github.com/onemindos/onemindos/internal/version"
 )
@@ -58,6 +59,7 @@ func runJobs(ctx context.Context, log *slog.Logger) error {
 		return err
 	}
 	opts := []nats.Option{nats.Name("onemindd-jobs/" + version.Version), nats.RetryOnFailedConnect(true),
+		nats.CustomInboxPrefix(leaf.InboxPrefix(leaf.LocalOnemindd)), // onemindd's local leaf user (D-029 first fix)
 		nats.MaxReconnects(-1), nats.ReconnectWait(2 * time.Second), nats.ReconnectBufSize(-1)}
 	if seed := os.Getenv("ONEMIND_NATS_NKEY_SEED"); seed != "" {
 		nk, err := nats.NkeyOptionFromSeed(seed)

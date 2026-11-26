@@ -71,6 +71,10 @@ type Config struct {
 	// operator-mode hub) authenticates the leaf.
 	NkeyFile  string
 	CredsFile string
+	// LocalUsers sign in to this leaf from the machine itself (local.go). With any, leaf.conf gets
+	// an authorization block and a client with no key or an unknown key is refused. A join always
+	// sets them; only a config persisted before local sign-in has none.
+	LocalUsers []LocalUser `json:",omitempty"`
 }
 
 var nameRe = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
@@ -176,6 +180,16 @@ func (c *Config) Validate() error {
 	if (d.NkeyFile == "") == (d.CredsFile == "") {
 		return errors.New("exactly one of nkey file or creds file is required (per-node leaf credentials, H-06)")
 	}
+	seen := map[string]bool{}
+	for _, u := range d.LocalUsers {
+		if err := u.validate(); err != nil {
+			return err
+		}
+		if seen[u.Name] || seen[u.Nkey] {
+			return fmt.Errorf("local user %s: name and key must be unique", u.Name)
+		}
+		seen[u.Name], seen[u.Nkey] = true, true
+	}
 	return nil
 }
 
@@ -215,6 +229,14 @@ func (c *Config) Render(confPath string) ([]byte, error) {
 		fmt.Fprintf(&b, "        cert_file: %q\n        key_file: %q\n", d.CertFile, d.KeyFile)
 	}
 	b.WriteString("        timeout: 5\n      }\n    }\n  ]\n}\n")
+	if len(d.LocalUsers) > 0 {
+		// Local programs sign in with their own key (D-029 first fix); no passwordless user.
+		b.WriteString("authorization {\n  users: [\n")
+		for _, u := range d.LocalUsers {
+			b.WriteString(u.render())
+		}
+		b.WriteString("  ]\n}\n")
+	}
 	if err := CheckConf(b.Bytes()); err != nil {
 		return nil, err
 	}

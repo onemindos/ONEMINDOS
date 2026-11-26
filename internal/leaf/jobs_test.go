@@ -60,11 +60,14 @@ type jobsLab struct {
 	signer *jobtest.Signer
 	pubA   string
 	stateA string
+	odSeed string // onemindd's local nkey seed on node A's leaf
 }
 
 func newJobsLab(t *testing.T) *jobsLab {
 	t.Helper()
-	l := &jobsLab{sourcingLab: newSourcingLab(t)}
+	// Node A's leaf has local sign-in (local.go): the intake signs in as onemindd, as on a machine.
+	seed, pub := localKey(t, t.TempDir(), LocalOnemindd)
+	l := &jobsLab{sourcingLab: newSourcingLabWith(t, []LocalUser{OnemindUser("aaa111", pub)}), odSeed: seed}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	nc, err := nats.Connect(l.hubURL, nats.Timeout(5*time.Second))
@@ -112,7 +115,12 @@ func (l *jobsLab) publish(t *testing.T, node string, body []byte, id string) {
 
 func (l *jobsLab) intakeA(t *testing.T, ran *atomic.Int32) *jobs.Intake {
 	t.Helper()
-	nc, err := nats.Connect(l.leafA, nats.MaxReconnects(-1), nats.ReconnectWait(200*time.Millisecond))
+	nk, err := nats.NkeyOptionFromSeed(l.odSeed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nc, err := nats.Connect(l.leafA, nk, nats.CustomInboxPrefix(InboxPrefix(LocalOnemindd)),
+		nats.MaxReconnects(-1), nats.ReconnectWait(200*time.Millisecond))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -283,7 +291,7 @@ func TestJobRefusalsAndNodeIsolation(t *testing.T) {
 	})
 
 	// Node A's leaf: node B's queue has no responder for it, and a job A writes stays in A's account.
-	ncA, err := nats.Connect(l.leafA)
+	ncA, err := connectAs(l.leafA, l.odSeed, LocalOnemindd) // a program on node A, signed in as onemindd
 	if err != nil {
 		t.Fatal(err)
 	}
