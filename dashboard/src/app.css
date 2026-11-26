@@ -45,6 +45,9 @@
 .dash-form label { font-weight: var(--om-font-weight-semibold); }
 .dash-form input, .dash-form select { min-height: var(--om-layout-touch-target); padding: 0 var(--om-space-3); border-radius: var(--om-radius-md); border: 1px solid var(--om-color-control-border); background: var(--om-color-surface); color: var(--om-color-text); font: inherit; }
 .dash-form input:focus-visible, .dash-form select:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
+/* One search box and its button on a line; the button wraps under the box on a narrow phone. */
+.dash-search { display: flex; flex-wrap: wrap; gap: var(--om-space-2); align-items: center; }
+.dash-search input { flex: 1 1 14rem; min-width: 0; }
 .dash-actions { display: flex; flex-wrap: wrap; gap: var(--om-space-2); align-items: center; }
 .dash-stack { display: flex; flex-direction: column; gap: var(--om-space-4); }
 .dash-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--om-space-3); }

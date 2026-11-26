@@ -4,19 +4,22 @@
 // decides who may see what. The words typed are sent to the hub and nowhere else.
 import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
-import { OneMind, OneMindError } from '@onemind/sdk';
+import { OneMind, type components } from '@onemind/sdk';
+import { ApiError } from '../api/types';
 import { Button, Card, EmptyState, PageHeader } from '@onemind/ui';
 import { useSignedIn } from '../session';
 import { toRoute } from '../shell/routes';
-import { records, str } from './records';
+import { getJson } from './records';
 
-interface Hit { provider: string; type: string; id: string; title: string; subtitle: string; link: string }
+type Hit = components['schemas']['SearchHit'];
 
-function hits(value: unknown): Hit[] {
-  return records(value).map((h) => ({ provider: str(h.provider, ''), type: str(h.type, 'other'), id: str(h.id, ''), title: str(h.title, 'Untitled'), subtitle: str(h.subtitle, ''), link: str(h.link, '') }));
+/** The hub's answer, checked to be a list before anything is drawn from it. */
+function hits(value: Hit[]): Hit[] {
+  if (!Array.isArray(value)) throw new Error('The hub returned something this page does not understand.');
+  return value;
 }
 function why(e: unknown): string {
-  if (e instanceof OneMindError) {
+  if (e instanceof ApiError) {
     if (e.status === 503) return 'Search is not ready yet. It is building its index; try again in a minute.';
     if (e.status === 422) return 'That search was not understood. Try fewer or different words.';
     if (e.status === 403) return 'You are not allowed to search on this hub.';
@@ -51,7 +54,7 @@ function LiveSearch({ token }: { token: string }) {
     const mine = ++latest.current;
     setBusy(true); setError('');
     try {
-      const out = hits(await sdk.call<unknown>({ method: 'GET', path: `/v1/search?q=${encodeURIComponent(text)}&limit=50` }));
+      const out = hits(await getJson<Hit[]>(sdk, `/v1/search?q=${encodeURIComponent(text)}&limit=50`));
       if (mine !== latest.current) return; // a newer search is on its way
       setFound(out); setAsked(text);
     } catch (err) { if (mine === latest.current) { setError(why(err)); setFound(undefined); } }
@@ -64,7 +67,7 @@ function LiveSearch({ token }: { token: string }) {
   }, [found]);
   return <div className="dash-stack">
     <PageHeader title="Search" lede="Find files, apps' own items and settings you are allowed to see." />
-    <form role="search" aria-label="Search your hub" onSubmit={(e) => void run(e)} className="om-cz-swatches">
+    <form role="search" aria-label="Search your hub" onSubmit={(e) => void run(e)} className="dash-search">
       <label htmlFor="search-q" className="om-visually-hidden">What are you looking for?</label>
       <input id="search-q" className="om-input" type="search" value={q} maxLength={200} placeholder="What are you looking for?" onChange={(e) => setQ(e.target.value)} autoComplete="off" />
       <Button type="submit" disabled={busy || !q.trim()}>{busy ? 'Searching…' : 'Search'}</Button>
@@ -75,7 +78,7 @@ function LiveSearch({ token }: { token: string }) {
     {groups.map(([type, items]) => <Card key={type} title={kindLabel(type)} as="section">
       <ul>{items.map((h) => {
         const to = toRoute(h.link);
-        return <li key={`${h.provider}:${h.id}`}>{to ? <Link to={to}>{h.title}</Link> : <strong>{h.title}</strong>}{h.subtitle ? <> · <span>{h.subtitle}</span></> : null}</li>;
+        return <li key={`${h.provider}:${h.id}`}>{to ? <Link to={to}>{h.title || 'Untitled'}</Link> : <strong>{h.title || 'Untitled'}</strong>}{h.subtitle ? <> · <span>{h.subtitle}</span></> : null}</li>;
       })}</ul>
     </Card>)}
   </div>;
