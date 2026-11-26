@@ -21,8 +21,8 @@ concurrency:
 
 jobs:
   # Which shards run (scripts/ci-core-matrix.py): a PR push runs the 3 SQLite shards; the merge
-  # queue runs the 4 PostgreSQL shards once per merge (founder, 2026-11-15: the org's 20 shared
-  # runners were the bottleneck); pushes to main and manual runs run all 7.
+  # queue runs the 6 PostgreSQL shards once per merge (founder, 2026-11-15: the org's 20 shared
+  # runners were the bottleneck); pushes to main and manual runs run all 9.
   plan:
     if: ${{ !github.event.pull_request.draft }}
     # CI-13 (#299): arm64-safe, no secrets, no Docker. Local Mac runner when LOCAL_RUNNER=on and the event is
@@ -52,9 +52,9 @@ jobs:
         run: python3 scripts/ci-core-matrix.py
 
   # CI-03 (#228): the suite used to run twice in one job, SQLite (~33 min) then PostgreSQL + NATS
-  # (~106 min). Now each backend is split into shards (3 SQLite, 4 PostgreSQL; one SQLite job on
-  # 4 cores still took over 30 min in CI)
-  # (ONEMIND_TEST_SHARD, tests/conftest.py), and every job runs pytest-xdist on all runner cores.
+  # (~106 min). Now each backend is split into shards (3 SQLite, 6 PostgreSQL)
+  # (ONEMIND_TEST_SHARD, tests/conftest.py), and every job runs pytest-xdist on all runner cores
+  # (PYTEST_ARGS; core/Makefile passes it to pytest, which it did not do before 2026-11-25).
   # Each xdist worker gets its own PostgreSQL database; real-NATS tests share one worker.
   # Together the jobs run exactly the tests the old single job ran.
   # CI-13 (#299): one job per backend. The SQLite shards need no service containers, so they may run
@@ -68,7 +68,8 @@ jobs:
     # GitHub-hosted. docs/learning/self-hosted-runner.md
     # merge_group only runs code already approved into the queue, so it is always trusted (no fork check); MQ_RUNNER unset keeps the old routing.
     runs-on: ${{ (vars.MQ_RUNNER == 'on' && github.event_name == 'merge_group') && fromJSON('["self-hosted","onemind-mq"]') || (vars.DO_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-do"]') || (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
-    timeout-minutes: 60   # a safety net (raised from 40, founder 2026-11-23); a shard takes about 15 min (CI-03 target: under 20)
+    timeout-minutes: 30   # a safety net for a hang: a shard takes 10 to 16 min on 4 cores (CI-03 target: under 20).
+                          # It was raised to 60 (founder 2026-11-23) while the shards ran on one core by mistake.
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.sqlite) }}
@@ -118,7 +119,8 @@ jobs:
     needs: plan
     if: needs.plan.outputs.run_postgresql == 'true'
     runs-on: ubuntu-24.04   # service containers need Docker; the local runner has none
-    timeout-minutes: 60   # a safety net (raised from 40, founder 2026-11-23); a shard takes about 15 min (CI-03 target: under 20)
+    timeout-minutes: 30   # a safety net for a hang: a shard takes 10 to 16 min on 4 cores (CI-03 target: under 20).
+                          # It was raised to 60 (founder 2026-11-23) while the shards ran on one core by mistake.
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.postgresql) }}

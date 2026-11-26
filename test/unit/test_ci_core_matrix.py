@@ -23,26 +23,26 @@ class Shards(unittest.TestCase):
     def test_pr_runs_only_the_three_sqlite_shards(self):
         self.assertEqual(backends(cm.shards("pull_request")), (["sqlite"], 3))
 
-    def test_merge_queue_runs_the_four_postgres_shards_for_a_core_change(self):
-        self.assertEqual(backends(cm.shards("merge_group", ["core/onemind_core/app.py"])), (["postgresql"], 4))
-        self.assertEqual(len(cm.shards("merge_group", ["sdk/python/x.py"])), 4)
-        self.assertEqual(len(cm.shards("merge_group", [".github/workflows/ci-core.yml"])), 4)
+    def test_merge_queue_runs_the_six_postgres_shards_for_a_core_change(self):
+        self.assertEqual(backends(cm.shards("merge_group", ["core/onemind_core/app.py"])), (["postgresql"], 6))
+        self.assertEqual(len(cm.shards("merge_group", ["sdk/python/x.py"])), 6)
+        self.assertEqual(len(cm.shards("merge_group", [".github/workflows/ci-core.yml"])), 6)
 
     def test_merge_queue_skips_a_change_outside_core(self):
         self.assertEqual(cm.shards("merge_group", ["docs/README.md", "os/rootfs/Containerfile"]), [])
         self.assertEqual(cm.shards("merge_group", ["score/x"]), [])  # prefix match, not substring
 
     def test_merge_queue_runs_when_the_change_list_is_unknown_or_truncated(self):
-        self.assertEqual(len(cm.shards("merge_group", None)), 4)
-        self.assertEqual(len(cm.shards("merge_group", ["docs/x"] * cm.COMPARE_LIMIT)), 4)
+        self.assertEqual(len(cm.shards("merge_group", None)), 6)
+        self.assertEqual(len(cm.shards("merge_group", ["docs/x"] * cm.COMPARE_LIMIT)), 6)
 
-    def test_main_and_manual_runs_run_all_seven(self):
+    def test_main_and_manual_runs_run_all_nine(self):
         for ev in ("push", "workflow_dispatch"):
-            self.assertEqual(backends(cm.shards(ev)), (["postgresql", "sqlite"], 7))
+            self.assertEqual(backends(cm.shards(ev)), (["postgresql", "sqlite"], 9))
 
     def test_shards_cover_what_the_suite_splits_into(self):
         # conftest.py splits by ONEMIND_TEST_SHARD=k/n; every k from 1..n must be present once.
-        for backend, n in (("sqlite", 3), ("postgresql", 4)):
+        for backend, n in (("sqlite", 3), ("postgresql", 6)):
             got = sorted(j["shard"] for j in cm.shards("push") if j["backend"] == backend)
             self.assertEqual(got, [f"{k}/{n}" for k in range(1, n + 1)])
 
@@ -67,7 +67,7 @@ class Main(unittest.TestCase):
 
     def test_writes_one_matrix_per_backend(self):
         """CI-13: the SQLite job (may run on the Mac) and the PostgreSQL job (hosted) each get their own."""
-        for event, want in (("pull_request", (3, 0)), ("push", (3, 4))):
+        for event, want in (("pull_request", (3, 0)), ("push", (3, 6))):
             out = self.run_main({"EVENT": event})
             sq, pg = json.loads(out["sqlite"])["include"], json.loads(out["postgresql"])["include"]
             self.assertEqual((len(sq), len(pg)), want, event)
