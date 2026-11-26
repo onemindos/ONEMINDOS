@@ -12,6 +12,7 @@ import type { ApproveOpts } from '../lib/approve';
 import { usePoll } from '../lib/hooks';
 import { webauthnSupported } from '../lib/webauthn';
 import { useSignedIn } from '../session';
+import { RememberSheet } from './permissions/RememberSheet';
 
 /** Shown when the gateway computed no plan for a request. */
 export const NO_PLAN_NOTE = 'The hub has not described what this request will change. Approve it only if you know what it does.';
@@ -51,6 +52,8 @@ export function Approvals() {
   const [sealing, setSealing] = useState(false);
   // #173: the gateway refused an install whose licence is not green until the owner types the app id.
   const [licence, setLicence] = useState<{ action: ActionSummary; appId: string; message: string; sealed?: ApproveOpts['sealed']; typed: string }>();
+  // Gateway permissions PR 12: "Approve and remember" for one request (a passkey binds the rule).
+  const [remember, setRemember] = useState<ActionSummary>();
 
   const fail = (how: string, e: unknown) => {
     const { code, message } = errorText(e);
@@ -128,6 +131,8 @@ export function Approvals() {
         : { allowed: false, reason: 'Only the owner can approve or deny. Agents can ask and only a person can approve.' }}
       onApprove={(a, elapsedMs) => void approve(a, elapsedMs)}
       onDeny={(a) => void decide(a, 'deny')}
+      onRemember={passkey && hub.canDecide === 'yes' ? setRemember : undefined}
+      canRemember={(a) => a.requested_by?.kind === 'agent' && !a.hold}
       onRetry={hub.reloadAll}
       initialId={params.get('highlight') ?? undefined}
       key={params.get('highlight') ?? ''}
@@ -152,6 +157,14 @@ export function Approvals() {
       <Dialog open title={`Secrets for ${form.name}`} description="Typed here, encrypted in this browser to your hub, and sent with your approval. They are never shown again." size="lg" onClose={() => (sealing ? undefined : setForm(undefined))}>
         <SecretsForm app={{ id: form.appId, name: form.name }} secrets={form.secrets} mode="install" submitLabel="Approve and install" busy={sealing} error={form.error} onSubmit={(s) => void submitSecrets(s)} onCancel={() => setForm(undefined)} />
       </Dialog>
+    )}
+    {remember && (
+      <RememberSheet action={remember} onClose={() => setRemember(undefined)} onDone={() => {
+        setLast({ id: remember.id, title: actionTitle(remember) });
+        setRemember(undefined);
+        toast.show({ tone: 'ok', title: 'Approved and remembered', body: 'Requests like this now go through within your limits. See or revoke the rule under Settings, Permissions, Rules.' });
+        hub.reloadAll();
+      }} />
     )}
     {licence && (
       <Dialog
