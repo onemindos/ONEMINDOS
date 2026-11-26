@@ -1011,7 +1011,8 @@ class IdentityService:
     def _check_agent_id(self, principal_id: str, user: UserRow | None, p: Principal) -> None:
         """A personal agent id must not reuse an app's agent principal (agent:<app-id>, §11.2), a
         static-file principal, or another person's agent: its requests would be shown and audited
-        as that principal's."""
+        as that principal's. Revoked tokens count too: approval rules bound to an agent's uid
+        (AutomationPolicyService._bound_ok) rely on a uid never passing to another owner."""
         app_id = principal_id.partition(":")[2]
         taken = app_id in self.gw.catalog.load() or any(fp.id == principal_id for _, fp in self.gw.tokens.entries())
         if not taken:
