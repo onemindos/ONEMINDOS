@@ -1,4 +1,6 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
+
+> **Historical (marked 2026-11-26).** This page is the 2026-11-12 state; it lists work as of that day (PRs #1 to #64 and the Agent A / Agent B split), which has ended. Do not follow it. Current pointers: [STATUS.md](STATUS.md), [AGENT-QUEUE.md](AGENT-QUEUE.md), [BUILDER-BRIEFING.md](BUILDER-BRIEFING.md), [ALPHA-CHECKLIST.md](ALPHA-CHECKLIST.md).
 # Hand-off: everything left, who does it, and the prompts
 
 **Written:** 2026-11-12, when the build session on the founder's Mac ended. Nothing depends on that Mac any more: all work is on GitHub (merged, open PR, or pushed branch).
