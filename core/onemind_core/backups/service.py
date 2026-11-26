@@ -1067,6 +1067,9 @@ class BackupService:
     def will_show(self, action_id: str) -> None:
         self._shown.add(action_id)
 
+    def forget_show(self, action_id: str) -> None:
+        self._shown.discard(action_id)
+
     def _disk_key(self, previous: KitRow | None, action_id: str) -> tuple[str, str | None]:
         """The /data recovery key for the kit, taken once from onemindd (D-020). Never stored or logged."""
         state, key = "not_available", None
