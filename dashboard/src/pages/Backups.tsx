@@ -11,6 +11,7 @@ import { Load } from './parts';
 import { object, read, rows, text } from './backups/shared';
 import { RestoreSection } from './backups/Restore';
 import { DestinationForm } from './backups/Destinations';
+import { ContentSection, VerificationsSection } from './backups/Content';
 
 type PendingBackup = { key: string; body: components['schemas']['RunBody'] };
 // In-tab navigation must not turn a lost reply into a second logical request. No tokens here.
@@ -103,6 +104,8 @@ function LiveBackups({ token, person }: { token: string; person: string }) {
       <DestinationForm sdk={sdk} token={token} />
     </Card>}</Load>
     <RestoreSection sdk={sdk} token={token} />
+    <VerificationsSection sdk={sdk} token={token} />
+    <ContentSection sdk={sdk} token={token} />
     <Load res={runs} what="Loading backup runs">{(items) => <Card title="Backup runs">
       {items.length === 0 ? <p>No backup runs reported.</p> : <ul>{items.map((r) => <li key={text(r.id)}><strong>{text(r.id)}</strong> — {text(r.state)}{typeof r.finished_at === 'string' ? ` · finished ${r.finished_at}` : ''}{typeof r.error === 'string' ? ` · ${r.error}` : ''}</li>)}</ul>}
     </Card>}</Load>
