@@ -28,6 +28,12 @@ the person who started it can cancel (L0). Data access carries on throughout.
 **The end.** After the wait, the person who started it enrols a new passkey (and, on the contact
 path, may set a new password), then gets a normal session. Recovery approves nothing, deletes
 nothing and never touches the disk key or a backup key: there is no such step in this module.
+
+**Known limit (flagged, not fixed here).** The one-contact-request-a-day rule counts every start, so
+anyone who knows an owner's username can start the day's request first (it then expires unconfirmed)
+and so delay the owner's own contact recovery by a day. It never lets them in, every owner and contact
+is told of each start, and the remote path and the owner kit at the box stay open. A per-source
+allowance is a follow-up for the recovery UI work (25j).
 """
 
 from __future__ import annotations
@@ -270,8 +276,15 @@ class Recoveries:
         return out
 
     def _one_try(self, row: RequestRow, what: str) -> ApiError:
-        tries = row.tries + 1
-        row = self._set(row, tries=tries)
+        # One atomic UPDATE ... SET tries = tries + 1 ... RETURNING, not read-change-write: parallel wrong
+        # answers each count, so nobody gets more than MAX_TRIES by sending them at the same moment.
+        with self.db.session.begin() as s:
+            tries = s.execute(update(RequestRow)
+                              .where(RequestRow.id == row.id, RequestRow.state == "awaiting_contact")
+                              .values(tries=RequestRow.tries + 1).returning(RequestRow.tries)).scalar()
+        if tries is None:
+            return ApiError(409, "conflict", "this request is no longer waiting for a contact", reason="not_awaiting")
+        row = self._get(row.id)
         if tries >= MAX_TRIES:
             self._end(row, "failed", "too_many_tries", None)
             return ApiError(409, "conflict", f"{what}; this request is closed after {MAX_TRIES} tries", reason="request_closed")
@@ -421,7 +434,10 @@ class Recoveries:
         if owner is None or owner.disabled:
             raise ApiError(409, "conflict", "this account is disabled", reason="account_disabled")
         now = self.now()
-        added = None
+        # Check everything first, then claim the request and write the credentials in ONE transaction.
+        # The claim (waiting -> completed) comes first in it, so a cancel that lands at any moment either
+        # wins (nothing is written) or loses (the request is completed): never "cancelled but changed".
+        new_key = None
         if credential is not None:
             try:
                 credential = pk.normalize(credential)
@@ -439,25 +455,29 @@ class Recoveries:
             if self.ident.repo.get(PasskeyRow, v["id"]) is not None:
                 raise ApiError(409, "conflict", "this passkey is already registered")
             added = (label or "recovered passkey").strip()[:100] or "recovered passkey"
-            self.ident.repo.add(PasskeyRow(id=v["id"], user_id=owner.id, label=added, public_key=v["public_key"],
-                                           sign_count=v["sign_count"], transports=v["transports"], created_at=now))
-        if new_password is not None:
-            if not PASSWORD_MIN <= len(new_password) <= PASSWORD_MAX:
-                raise ApiError(422, "conflict", f"password must be {PASSWORD_MIN} to {PASSWORD_MAX} characters",
-                               reason="weak_password")
-            self.ident.repo.update(UserRow, [UserRow.id == owner.id],
-                                   {"password_hash": hash_password(new_password), "updated_at": now})
-            # Whoever held the old password's sessions is signed out (as a password change does).
-            self.ident.repo.update(SessionRow, [SessionRow.user_id == owner.id, SessionRow.revoked_at.is_(None)],
-                                   {"revoked_at": now})
+            new_key = PasskeyRow(id=v["id"], user_id=owner.id, label=added, public_key=v["public_key"],
+                                 sign_count=v["sign_count"], transports=v["transports"], created_at=now)
+        if new_password is not None and not PASSWORD_MIN <= len(new_password) <= PASSWORD_MAX:
+            raise ApiError(422, "conflict", f"password must be {PASSWORD_MIN} to {PASSWORD_MAX} characters",
+                           reason="weak_password")
+        password_hash = hash_password(new_password) if new_password is not None else None
         with self.db.session.begin() as s:
-            done = s.execute(update(RequestRow).where(RequestRow.id == row.id, RequestRow.state == "waiting")
-                             .values(state="completed", ended_at=now, end_reason="completed")).rowcount
-        if done != 1:
-            raise ApiError(409, "conflict", "this request is no longer waiting", reason="not_waiting")
+            claimed = s.execute(update(RequestRow).where(RequestRow.id == row.id, RequestRow.state == "waiting")
+                                .values(state="completed", ended_at=now, end_reason="completed")
+                                .returning(RequestRow.id)).scalar()
+            if claimed is None:  # cancelled (or finished) meanwhile: the whole transaction rolls back
+                raise ApiError(409, "conflict", "this request is no longer waiting", reason="not_waiting")
+            if new_key is not None:
+                s.add(new_key)
+            if password_hash is not None:
+                s.execute(update(UserRow).where(UserRow.id == owner.id)
+                          .values(password_hash=password_hash, updated_at=now))
+                # Whoever held the old password's sessions is signed out (as a password change does).
+                s.execute(update(SessionRow).where(SessionRow.user_id == owner.id, SessionRow.revoked_at.is_(None))
+                          .values(revoked_at=now))
         row = self._get(row.id)
         self.contacts.tell(row.owner_user_id, "recovery.request.completed",
-                           {"request_id": row.id, "path": row.path, "passkey_added": added is not None,
+                           {"request_id": row.id, "path": row.path, "passkey_added": new_key is not None,
                             "password_reset": new_password is not None}, severity="warning")
         return row, self.ident.user(owner.id)
 
