@@ -9,6 +9,7 @@ import { useHubData, useNow } from '../data';
 import { HEALTH_TONE, HEALTH_WORD, LIVE_WORD, healthRows, liveIndicator, type HealthTarget } from '../lib/health';
 import { actionTitle, isPending, principalLabel, sortByRecent } from '../lib/approvals';
 import { effectiveStatus, formatAgo, formatIn, secondsSince, STALE_AFTER_S } from '../lib/time';
+import { requiresHold } from '../ui/HoldButton';
 import { useLoad } from '../lib/useLoad';
 import { useSignedIn } from '../session';
 import { Badge, Button, Card, Loading, P, Screen, s } from '../ui/bits';
@@ -189,7 +190,7 @@ export function HomeScreen() {
             <P muted small>{principalLabel(first.requested_by)}{expiry === 'unknown' ? '' : expiry === 'expired' ? ' · expired' : ` · expires ${expiry}`}</P>
             <Text style={{ color: t.text, fontSize: 20, fontWeight: font.bold }}>{first.plan?.summary || actionTitle(first)}</Text>
             <Button testID="review-first" label="Review and decide" onPress={() => nav.navigate('Tabs', { screen: 'Approvals', params: { id: first.id } })} />
-            {(first.risk === 'actuate' || first.risk === 'destructive') &&
+            {requiresHold(first) &&
               <P muted small>Hold to approve on the next screen, then sign.</P>}
           </Card>
         )}

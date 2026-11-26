@@ -2,13 +2,14 @@
 import { useContext, useRef, useState } from 'react';
 import { NavigationRouteContext } from '@react-navigation/native';
 import type { TabParams } from '../nav';
-import { OP } from '../api/client';
-import { HoldButton } from '../ui/HoldButton';
+import type { components } from '@onemind/sdk';
+import { OP, type OneMindApi } from '../api/client';
+import { HoldButton, requiresHold } from '../ui/HoldButton';
 import { approvalKeyNative, type ApprovalKeyNative } from '../../modules/onemind-approval-key';
 import { forget } from '../approvalKey';
 import { ApprovalKeySection, useApprovalKey } from '../approvalKey/ApprovalKeySection';
 import { Text, View } from 'react-native';
-import type { Action, Risk } from '../api/types';
+import type { Action, ApproveBody, Risk } from '../api/types';
 import { useHubData, useNow } from '../data';
 import { actionTitle, decide, isPending, keyCovers, needsPasskey, RISK_LABEL, sortByRecent, type Decision, type StepUp } from '../lib/approvals';
 import { platformPasskeys } from '../lib/passkeys';
@@ -16,10 +17,6 @@ import { formatAgo, formatIn, secondsSince } from '../lib/time';
 import { useSignedIn, type Ability } from '../session';
 import { Badge, Button, Card, H1, KindBadge, Loading, Notice, P, Row, Screen, s, type Tone } from '../ui/bits';
 import { space, useTheme } from '../ui/theme';
-
-export function requiresHold(risk: Action['risk']): boolean {
-  return risk === 'actuate' || risk === 'destructive';
-}
 
 const RISK_TONE: Record<Risk, Tone> = { read: 'neutral', write: 'info', sensitive: 'warn', destructive: 'bad', actuate: 'bad' };
 
@@ -104,11 +101,11 @@ function PendingCard({
   passkey: boolean;
   keyed: boolean;
   canSign: boolean;
-  onDecide: (a: Action, d: Decision) => void;
+  onDecide: (a: Action, d: Decision, holdMs?: number) => void;
 }) {
   const t = useTheme();
   const expired = Date.parse(a.expires_at) <= now;
-  const hold = requiresHold(a.risk);
+  const hold = requiresHold(a);
   const off = busy || canDecide === 'no' || expired || offline;
   return (
     <Card testID={`pending-${a.id}`}>
@@ -141,7 +138,7 @@ function PendingCard({
         ))}
       <View style={s.wrap}>
         {hold ? (
-          <HoldButton key={`${a.updated_at}:${a.plan_sha256}`} testID={`approve-${a.id}`} label="Hold to approve" disabled={off || !canSign} onComplete={() => onDecide(a, 'approve')} />
+          <HoldButton key={`${a.updated_at}:${a.plan_sha256}`} testID={`approve-${a.id}`} label="Hold to approve" disabled={off || !canSign} onComplete={(holdMs) => onDecide(a, 'approve', holdMs)} />
         ) : (
           <Button testID={`approve-${a.id}`} label="Approve" disabled={off} onPress={() => onDecide(a, 'approve')} />
         )}
@@ -166,13 +163,23 @@ export function ApprovalsScreen({ keyNative = approvalKeyNative }: { keyNative?:
   const key = useApprovalKey(keyNative, hubUrl);
   const ctx: StepUp = { features, passkeys: platformPasskeys(), ownerHasPasskey, hubUrl, approvalKey: key.signer };
 
-  async function onDecide(a: Action, d: Decision) {
+  async function onDecide(a: Action, d: Decision, holdMs?: number) {
     if (deciding.current || error || canDecide === 'no' || Date.parse(a.expires_at) <= Date.now() + (hubOffsetMs ?? 0)) return;
-    if (d === 'approve' && requiresHold(a.risk) && !features.has(OP.approveOptions)) return;
+    if (d === 'approve' && requiresHold(a) && (holdMs === undefined || !features.has(OP.approveOptions))) return;
+    // The gateway requires the hold duration alongside the signed approval. Leave the challenge,
+    // plan binding and signer untouched. Only decorate the final write after the completed hold.
+    const decisionApi = holdMs === undefined ? api : Object.assign(Object.create(api) as OneMindApi, {
+      approveOptions: api.approveOptions.bind(api),
+      approve(id: string, body?: ApproveBody) {
+        const request = { ...body, hold_ms: holdMs } satisfies ApproveBody &
+          Pick<components['schemas']['onemind_core__routers__actions__ApproveBody'], 'hold_ms'>;
+        return api.approve(id, request);
+      },
+    });
     deciding.current = true;
     setBusy(a.id);
     setMsg(undefined);
-    const r = await decide(api, a, d, ctx);
+    const r = await decide(decisionApi, a, d, holdMs === undefined ? ctx : { ...ctx, ownerHasPasskey: true });
     if (!r.ok && r.forbidden) markForbidden();
     // A new fingerprint or face killed the key: revoke it on the hub (best effort) and offer set-up again.
     if (!r.ok && r.reason === 'invalidated' && key.rec) {
@@ -213,7 +220,7 @@ export function ApprovalsScreen({ keyNative = approvalKeyNative }: { keyNative?:
             passkey={needsPasskey(a, ownerHasPasskey)}
             keyed={!!key.signer}
             canSign={features.has(OP.approveOptions)}
-            onDecide={(x, d) => void onDecide(x, d)}
+            onDecide={(x, d, holdMs) => void onDecide(x, d, holdMs)}
           />
         ))
       )}

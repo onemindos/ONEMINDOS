@@ -90,7 +90,7 @@ describe('Approvals screen', () => {
       await fireEvent(button, 'longPress');
       expect(await screen.findByText(/Approved.*Install ollama/)).toBeTruthy();
       expect(approve).toHaveBeenCalledTimes(1);
-      expect(approve).toHaveBeenCalledWith(a.id, expect.objectContaining({ webauthn: expect.objectContaining({ signature: 'sig' }) }));
+      expect(approve).toHaveBeenCalledWith(a.id, expect.objectContaining({ hold_ms: 2000, webauthn: expect.objectContaining({ signature: 'sig' }) }));
       await fireEvent.press(screen.getByTestId('deny-act-0001'));
       expect(deny).toHaveBeenCalledTimes(1);
     } finally {

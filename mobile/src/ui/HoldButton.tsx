@@ -2,14 +2,19 @@
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { NavigationContext } from '@react-navigation/native';
 import { AccessibilityInfo, Animated, AppState, Pressable, StyleSheet, Text } from 'react-native';
+import type { Action } from '../api/types';
 import { s } from './bits';
 import { font, useTheme } from './theme';
 
 const HOLD_MS = 2000;
 
+export function requiresHold(a: Pick<Action, 'risk' | 'approval'>): boolean {
+  return a.risk === 'actuate' || a.risk === 'destructive' || (typeof a.approval === 'object' && a.approval?.physical === true);
+}
+
 export function HoldButton({ label, onComplete, disabled, testID }: {
   label: string;
-  onComplete: () => void;
+  onComplete: (holdMs: number) => void;
   disabled: boolean;
   testID: string;
 }) {
@@ -72,7 +77,7 @@ export function HoldButton({ label, onComplete, disabled, testID }: {
       onLongPress={() => {
         if (disabled || start.current === null || performance.now() - start.current < HOLD_MS) return;
         cancel();
-        onComplete();
+        onComplete(HOLD_MS);
       }}
       style={[s.btn, { minHeight: 48, backgroundColor: t.action, borderColor: t.action, opacity: disabled ? 0.55 : 1, overflow: 'hidden' }]}
     >
