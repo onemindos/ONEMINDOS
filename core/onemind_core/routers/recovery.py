@@ -271,6 +271,11 @@ class ClaimView(BaseModel):
     end_reason: str | None
     certificate_type: str
     contact_display_name: str | None = None
+    confirmed_by_display_name: str | None = Field(
+        default=None, description="household view: who confirmed as the second person, shown next to the claimant")
+    claimant_accepted_signed_in: bool | None = Field(
+        default=None, description="household view: false when the claimant accepted the invite on a signed-out "
+                                  "device, so the box cannot tell whether a confirming adult is the claimant")
 
 
 class CancelClaimBody(JsonBody):

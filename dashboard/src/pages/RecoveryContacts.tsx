@@ -262,6 +262,8 @@ function LegacyClaims({ owner }: { owner: boolean }) {
           <li key={c.id}>
             {c.contact_display_name ?? 'A legacy contact'} · can be granted after {new Date(c.ends_at).toLocaleDateString()}
             {c.needs_second && !c.second_confirmed ? ' · needs a second person' : ''}
+            {c.second_confirmed && c.confirmed_by_display_name ? ` · confirmed by ${c.confirmed_by_display_name}` : ''}
+            {c.claimant_accepted_signed_in === false ? ' · accepted on a signed-out phone: make sure the second person is someone else' : ''}
             {owner && <Button size="sm" aria-label={`Cancel claim ${c.id}`} onClick={() => void act(`/v1/auth/legacy/claims/${encodeURIComponent(c.id)}/cancel`, { block: false })}>Cancel</Button>}
             {owner && <Button size="sm" variant="ghost" aria-label={`Cancel and block ${c.id}`} onClick={() => void act(`/v1/auth/legacy/claims/${encodeURIComponent(c.id)}/cancel`, { block: true })}>Cancel and block</Button>}
             {!owner && c.needs_second && !c.second_confirmed && <Button size="sm" variant="ghost" aria-label={`Confirm claim ${c.id}`} onClick={() => void act(`/v1/auth/legacy/claims/${encodeURIComponent(c.id)}/confirm`)}>Confirm as second person</Button>}

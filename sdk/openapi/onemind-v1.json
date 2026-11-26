@@ -3304,6 +3304,30 @@
             "title": "Certificate Type",
             "type": "string"
           },
+          "claimant_accepted_signed_in": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "household view: false when the claimant accepted the invite on a signed-out device, so the box cannot tell whether a confirming adult is the claimant",
+            "title": "Claimant Accepted Signed In"
+          },
+          "confirmed_by_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "household view: who confirmed as the second person, shown next to the claimant",
+            "title": "Confirmed By Display Name"
+          },
           "contact_display_name": {
             "anyOf": [
               {

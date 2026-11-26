@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import contextvars
 import hashlib
 import hmac
 import io
@@ -76,6 +77,10 @@ LEGACY_PATHS = [
     re.compile(r"/v1/legacy/export(/download)?"),
 ]
 ROLE_PATHS["legacy"] = LEGACY_PATHS
+# Who was signed in on the device that is accepting a legacy invite (resolved before the accept runs, read by
+# on_accept so it is written in the same transaction as the access key). A ContextVar, so each request has its own.
+_ACCEPTED_BY: contextvars.ContextVar[tuple[bool, str | None] | None] = contextvars.ContextVar("legacy_accepted_by",
+                                                                                              default=None)
 
 
 class ClaimRow(Base):
@@ -141,33 +146,45 @@ class LegacyContacts(RecoveryContacts):
         return {**super().view(r), "wait_days": int((r.extra or {}).get("wait_days", DEFAULT_WAIT_DAYS))}
 
     def on_accept(self, contact_id: str) -> dict:
+        """The access key, and who accepted, written in ONE transaction: a contact that has an access key
+        always has `accepted_signed_in` recorded (True with `accepted_by_user_id`, or False)."""
         key, salt = new_access_key(), secrets.token_bytes(16)
+        signed_in, who = _ACCEPTED_BY.get() or (False, None)
         with self.db.session.begin() as s:
             row = s.get(ContactRow, contact_id)
-            row.extra = {**(row.extra or {}), "access_salt": salt.hex(), "access_verifier": verifier(salt, key)}
+            row.extra = {**(row.extra or {}), "access_salt": salt.hex(), "access_verifier": verifier(salt, key),
+                         "accepted_signed_in": signed_in, "accepted_by_user_id": who}
         return {"access_key": key}
 
     def accept(self, request, invite_id: str, *args, **kwargs) -> dict:
-        """As for a recovery contact; also note which household account (if any) was signed in on the
-        device that accepted, so that adult can never be the second person on this contact's claim."""
-        out = super().accept(request, invite_id, *args, **kwargs)
-        who = self._session_user(request)
-        if who is not None:
-            with self.db.session.begin() as s:
-                row = s.get(ContactRow, invite_id)
-                row.extra = {**(row.extra or {}), "accepted_by_user_id": who}
-        return out
+        """As for a recovery contact; also record which household account (if any) was signed in on the
+        device that accepted, so that adult can never be the second person on this contact's claim.
 
-    def _session_user(self, request) -> str | None:
+        When it is recorded, precisely: the accept request carries a valid OneMind session, that is a
+        bearer session (the phone app or the CLI signed in) or a browser cookie session WITH its CSRF
+        header (every @onemind/sdk client sends it). It is resolved before the accept runs and written with
+        the access key. When it is not: a signed-out device, or a cookie without its CSRF header, which
+        identity refuses on purpose (H-16: a cross-site page can make a browser send the cookie) and this
+        code must not read itself. Such an accept is recorded as `accepted_signed_in: False`, and the
+        household's claim view shows it, so owners and adults know the second person cannot be checked
+        against the claimant's account (see `_is_claimant`)."""
+        token = _ACCEPTED_BY.set(self._session_user(request))
+        try:
+            return super().accept(request, invite_id, *args, **kwargs)
+        finally:
+            _ACCEPTED_BY.reset(token)
+
+    def _session_user(self, request) -> tuple[bool, str | None]:
+        """(signed in as a household person?, that person's user id)."""
         # Only skip the lookup for a bare phone (no credentials at all), so it leaves no auth.rejected line.
         # The session itself is resolved by identity (its cookie and CSRF rules, H-16), never read here.
         if not request.headers.get("authorization") and not request.headers.get("cookie"):
-            return None
+            return False, None
         try:
             p = self.gw.principal(request)
         except ApiError:
-            return None
-        return p.id if p.kind == "person" else None
+            return False, None
+        return (True, p.id) if p.kind == "person" else (False, None)
 
     def contact_view(self, row: ContactRow) -> dict:
         return {**super().contact_view(row), "wait_days": int((row.extra or {}).get("wait_days", DEFAULT_WAIT_DAYS))}
@@ -177,10 +194,16 @@ class LegacyContacts(RecoveryContacts):
         with self.db.session() as s:
             return s.get(ClaimRow, claim_id)
 
-    def _set(self, row: ClaimRow, **values) -> ClaimRow:
+    def _set(self, row: ClaimRow, expect: tuple[str, ...], *where, **values) -> bool:
+        """Compare-and-set: write only while the claim is still in one of the `expect` states (and any extra
+        `where` conditions hold), checked by the database at the write. So a sign-in that cancels a claim
+        while tick() is granting it can never be overwritten back to `granted`: whichever commits second
+        changes nothing (or, for a grant that commits first, the cancel still ends it). Returns whether this
+        call made the change."""
         with self.db.session.begin() as s:
-            s.execute(update(ClaimRow).where(ClaimRow.id == row.id).values(**values))
-        return self._claim(row.id)
+            done = s.execute(update(ClaimRow).where(ClaimRow.id == row.id, ClaimRow.state.in_(expect), *where)
+                             .values(**values).returning(ClaimRow.id)).scalar()
+        return done is not None
 
     def claim_view(self, c: ClaimRow, *, for_household: bool = False) -> dict:
         contact = self._get(c.contact_id)
@@ -189,8 +212,20 @@ class LegacyContacts(RecoveryContacts):
                "granted_at": iso(c.granted_at), "access_until": iso(c.access_until), "ended_at": iso(c.ended_at),
                "end_reason": c.end_reason, "certificate_type": c.certificate_type}
         if for_household:
+            # Shown side by side so owners and adults can see the confirmer is someone else (Opus review, #1208).
             out["contact_display_name"] = contact.display_name if contact else None
+            out["confirmed_by_display_name"] = self._display_name_of(c.second_by)
+            out["claimant_accepted_signed_in"] = bool((contact.extra or {}).get("accepted_signed_in")) if contact else False
         return out
+
+    def _display_name_of(self, who: str | None) -> str | None:
+        if not who:
+            return None
+        if who.startswith("legacy:"):
+            other = self._get(who.removeprefix("legacy:"))
+            return other.display_name if other else None
+        u = self.ident.user(who)
+        return (u.display_name or u.username) if u else None
 
     def _second_people(self, owner_id: str, claimant: ContactRow) -> bool:
         """Is there someone who can confirm: another usable legacy contact, or an active household adult?"""
@@ -305,7 +340,7 @@ class LegacyContacts(RecoveryContacts):
         c = self._claim(claim_id)
         if c is None:
             raise ApiError(404, "not_found", "no such claim")
-        if c.state in OPEN_STATES or c.state == "granted":
+        if c.state in LIVE_STATES:
             c = self._end_claim(c, "cancelled", "owner_cancelled", p.id)
         if block:
             contact = self._get(c.contact_id)
@@ -314,9 +349,14 @@ class LegacyContacts(RecoveryContacts):
                 self.tell(c.owner_user_id, "legacy.contact.removed", {"contact_id": contact.id}, p)
         return self.claim_view(c, for_household=True)
 
-    def _end_claim(self, c: ClaimRow, state: str, reason: str, by: str | None) -> ClaimRow:
-        c = self._set(c, state=state, ended_at=self.now(), end_reason=reason, ended_by=by)
-        self.tell(c.owner_user_id, f"legacy.claim.{state}", {"claim_id": c.id, "reason": reason}, severity="warning")
+    def _end_claim(self, c: ClaimRow, state: str, reason: str, by: str | None,
+                   expect: tuple[str, ...] = LIVE_STATES) -> ClaimRow:
+        """End a live claim, only if it is still in `expect`; the notice goes out only when this call ended
+        it, so the state and the notices always agree. Returns the claim as it really is."""
+        ended = self._set(c, expect, state=state, ended_at=self.now(), end_reason=reason, ended_by=by)
+        c = self._claim(c.id)
+        if ended:
+            self.tell(c.owner_user_id, f"legacy.claim.{state}", {"claim_id": c.id, "reason": reason}, severity="warning")
         return c
 
     def confirm(self, p: Principal, claim_id: str, contact: ContactRow | None) -> dict:
@@ -336,17 +376,25 @@ class LegacyContacts(RecoveryContacts):
                 raise self.ident.deny(p, "confirm your own legacy claim", reason="not_a_second_person")
         if c.state not in OPEN_STATES:
             raise ApiError(409, "conflict", f"this claim is {c.state}", reason=c.state)
-        if c.second_at is None:
-            c = self._set(c, second_by=p.id, second_at=self.now())
+        if c.second_at is None and self._set(c, OPEN_STATES, ClaimRow.second_at.is_(None),
+                                             second_by=p.id, second_at=self.now()):
             self.tell(c.owner_user_id, "legacy.claim.confirmed", {"claim_id": c.id}, p, severity="warning")
         self.tick()
         return self.claim_view(self._claim(c.id))
 
     def _is_claimant(self, claimant: ContactRow, user_id: str) -> bool:
-        """Is this household account the claimant itself? Linked as a household contact, signed in on the
-        phone that accepted the invite, or holding the claimant's contact key as one of its approver keys.
-        (An adult who accepted an outside invite on a separate, signed-out phone with a new key cannot be
-        told apart; the wait, the notices to every owner and the owner-silence check still stand.)"""
+        """Is this household account the claimant itself? Refused when it is:
+        1. linked as the claimant's household contact;
+        2. the account that was signed in on the device that accepted the claimant's invite; or
+        3. holding the claimant's contact key as one of its approver keys.
+        Not refused by a matching name, on purpose: two real people can share a name, and refusing the only
+        adult would leave a genuine heir's claim waiting for a second person forever (while excluding that
+        adult from "is there a second person" would let anyone skip the second person by copying a name).
+        The gap that stays, stated precisely: an adult who accepted an outside invite on a signed-out device
+        with a new key cannot be told apart by the box. For that case the household view shows the claimant
+        and the confirmer side by side and flags a claimant who accepted signed out
+        (`claimant_accepted_signed_in: false`); every owner is told of the confirmation (the event carries the confirmer's account);
+        and the wait and the owner-silence check (any sign-in ends the claim, granted or not) still stand."""
         if claimant.household_user_id == user_id or (claimant.extra or {}).get("accepted_by_user_id") == user_id:
             return True
         if not claimant.key_fingerprint:
@@ -365,7 +413,7 @@ class LegacyContacts(RecoveryContacts):
             rows = list(s.scalars(select(ClaimRow).where(ClaimRow.owner_user_id == user_id,
                                                          ClaimRow.state.in_(LIVE_STATES))))
         for c in rows:
-            self._end_claim(c, "cancelled", "owner_signed_in", user_id)
+            self._end_claim(c, "cancelled", "owner_signed_in", user_id, expect=LIVE_STATES)
 
     def _owner_active_since(self, owner_id: str, since: datetime) -> bool:
         with self.db.session() as s:
@@ -381,9 +429,9 @@ class LegacyContacts(RecoveryContacts):
             return
         with self.db.session() as s:
             rows = list(s.scalars(select(ClaimRow).where(ClaimRow.contact_id == contact.id,
-                                                         ClaimRow.state.in_((*OPEN_STATES, "granted")))))
+                                                         ClaimRow.state.in_(LIVE_STATES))))
         for c in rows:
-            self._end_claim(c, "cancelled", "contact_ended", f"legacy:{contact.id}")
+            self._end_claim(c, "cancelled", "contact_ended", f"legacy:{contact.id}", expect=LIVE_STATES)
 
     # ---- the clock ------------------------------------------------------------------------------------
     def tick(self) -> int:
@@ -395,12 +443,12 @@ class LegacyContacts(RecoveryContacts):
         for c in rows:
             if c.state == "granted":  # the owner came back after the grant: the export ends
                 if c.granted_at is not None and self._owner_active_since(c.owner_user_id, utc(c.granted_at)):
-                    self._end_claim(c, "cancelled", "owner_active", None)
+                    self._end_claim(c, "cancelled", "owner_active", None, expect=("granted",))
                     done += 1
                 continue
             start = utc(c.created_at)
             if self._owner_active_since(c.owner_user_id, start):
-                self._end_claim(c, "cancelled", "owner_active", None)
+                self._end_claim(c, "cancelled", "owner_active", None, expect=OPEN_STATES)
                 done += 1
                 continue
             if now < utc(c.ends_at):
@@ -408,19 +456,22 @@ class LegacyContacts(RecoveryContacts):
                 if utc(c.ends_at) - now <= timedelta(days=1):
                     due.append("last_day")
                 new = [d for d in due if d not in (c.notices_sent or [])]
-                if new:
-                    self._set(c, notices_sent=[*(c.notices_sent or []), *new])
+                if new and self._set(c, ("waiting",), notices_sent=[*(c.notices_sent or []), *new]):
                     self.tell(c.owner_user_id, "legacy.claim.reminder",
                               {"claim_id": c.id, "ends_at": iso(c.ends_at), "notice": new[-1]}, severity="critical")
                     done += 1
                 continue
             if c.needs_second and c.second_at is None:
-                if c.state != "awaiting_second":
-                    self._set(c, state="awaiting_second")
+                if c.state != "awaiting_second" and self._set(c, ("waiting",), state="awaiting_second"):
                     self.tell(c.owner_user_id, "legacy.claim.awaiting_second", {"claim_id": c.id}, severity="warning")
                     done += 1
                 continue
-            self._set(c, state="granted", granted_at=now, access_until=now + EXPORT_WINDOW)
+            # Only from an open state, and only with the second person's confirmation when one is needed:
+            # a sign-in cancel that committed first leaves this write with nothing to change (no grant, no
+            # notice); one that commits after it ends the fresh grant (LIVE_STATES includes granted).
+            if not self._set(c, OPEN_STATES, (ClaimRow.needs_second.is_(False)) | ClaimRow.second_at.is_not(None),
+                             state="granted", granted_at=now, access_until=now + EXPORT_WINDOW):
+                continue
             self.tell(c.owner_user_id, "legacy.claim.granted",
                       {"claim_id": c.id, "access_until": iso(now + EXPORT_WINDOW)}, severity="critical")
             done += 1
@@ -435,7 +486,7 @@ class LegacyContacts(RecoveryContacts):
         if c is None:
             raise ApiError(403, "permission_denied", "no granted legacy claim", reason="no_granted_claim")
         if c.granted_at is None or self._owner_active_since(c.owner_user_id, utc(c.granted_at)):
-            self._end_claim(c, "cancelled", "owner_active", None)
+            self._end_claim(c, "cancelled", "owner_active", None, expect=("granted",))
             raise ApiError(403, "permission_denied", "the owner was active after the grant; the claim has ended",
                            reason="owner_active")
         if c.access_until is None or utc(c.access_until) <= self.now():

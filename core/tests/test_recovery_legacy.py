@@ -303,8 +303,17 @@ def test_the_access_key_never_reaches_the_audit_the_events_or_the_notices(rc, cl
     try:
         phone, key = legacy_phone(rc)
         assert claim(rc, phone, "AAAA-BBBB").status_code in (401, 409)  # a refused key is audited too
+        # After the cooling-off, a near miss (the real key with its last letter changed) takes the
+        # key_refused path, which writes an audit line: the attempted key must not be in it.
+        clock.advance(7 * DAY + 1)
+        near = key[:-1] + ("A" if key[-1] != "A" else "B")
+        assert claim(rc, phone, near).status_code == 401
         granted(rc, clock, phone, key)
         TestClient(rc.app).get("/v1/legacy/export", headers=phone.auth)
+        own = TestClient(rc.app).get("/v1/legacy/contact", headers=phone.auth)
+        listed = TestClient(rc.app).get("/v1/auth/legacy/claims", headers=OWNER)
+        assert own.status_code == 200 and listed.status_code == 200
+        feed, household = own.text, listed.text  # the contact's own view, and the household's claims list
     finally:
         legacy.gw.events.publish_event = real_publish
     from onemind_core.recovery.models import NoticeRow
@@ -313,6 +322,208 @@ def test_the_access_key_never_reaches_the_audit_the_events_or_the_notices(rc, cl
         notices = json.dumps([[n.event, n.data] for n in s.query(NoticeRow).all()], default=str)
     audit = "\n".join(json.dumps(e) for e in audit_events(settings))
     events = "\n".join(published)
-    assert published and "claim.granted" in events
-    for secret in (key, key.replace("-", ""), key.lower(), phone.token):
-        assert secret not in audit and secret not in events and secret not in notices
+    assert published and "claim.granted" in events and "legacy.claim.key_refused" in audit
+    for secret in (key, key.replace("-", ""), key.lower(), near, near.replace("-", ""), phone.token):
+        for where in (audit, events, notices, feed, household):
+            assert secret not in where
+
+
+# ---- compare-and-set on every claim write (Opus review round 2, #1208) -----------------------------------
+
+def _record_claim_notices(legacy) -> list[tuple[str, str]]:
+    import threading
+
+    log: list[tuple[str, str]] = []
+    lock = threading.Lock()
+    real = legacy.tell
+
+    def tell(owner_id, event, data, *a, **kw):
+        with lock:
+            log.append((event, data.get("claim_id")))
+        return real(owner_id, event, data, *a, **kw)
+
+    legacy.tell = tell
+    return log
+
+
+def _endings(log, claim_id) -> list[str]:
+    return [e.removeprefix("legacy.claim.") for e, cid in log
+            if cid == claim_id and e in ("legacy.claim.granted", "legacy.claim.cancelled")]
+
+
+def _owner_id(rc) -> str:
+    return rc.get("/v1/me").json()["principal"]["id"]
+
+
+def _due_claim(rc, contact_id: str, owner_id: str) -> str:
+    """A claim whose wait is over, nobody else to confirm, the owner silent since it started: tick grants it."""
+    from onemind_core.identity.crypto import new_id
+    from onemind_core.recovery.legacy import ClaimRow
+
+    legacy = rc.app.state.legacy_contacts
+    now = legacy.now()
+    row = ClaimRow(id=new_id("lcl"), owner_user_id=owner_id, contact_id=contact_id, state="waiting",
+                   created_at=now - timedelta(seconds=10), ends_at=now - timedelta(seconds=1), needs_second=False,
+                   certificate_type="application/pdf", certificate_sha256="0" * 64, notices_sent=["start"])
+    with legacy.db.session.begin() as s:
+        s.add(row)
+    return row.id
+
+
+def test_a_sign_in_that_lands_while_tick_is_granting_is_never_overwritten_back_to_granted(rc, clock):
+    """The owner signs in between tick()'s activity check and its grant write. Before the fix the grant
+    wrote `granted` over the cancel; now the grant finds the claim cancelled and writes nothing."""
+    owner_with_passkey(rc)
+    owner_id = _owner_id(rc)  # the owner's last activity, before the claim
+    phone, _key = legacy_phone(rc)
+    clock.advance(7 * DAY + 1)
+    legacy = rc.app.state.legacy_contacts
+    log = _record_claim_notices(legacy)
+    cid = _due_claim(rc, phone.contact_id, owner_id)
+    real = legacy._owner_active_since
+
+    def silent_then_sign_in(owner, since):
+        answer = real(owner, since)  # "silent" for the whole wait...
+        legacy._owner_signed_in({"data": {"user_id": owner_id}})  # ...then the sign-in lands, before the grant
+        return answer
+
+    legacy._owner_active_since = silent_then_sign_in
+    try:
+        legacy.tick()
+    finally:
+        legacy._owner_active_since = real
+    c = legacy._claim(cid)
+    assert c.state == "cancelled" and c.end_reason == "owner_signed_in" and c.granted_at is None
+    assert _endings(log, cid) == ["cancelled"]
+    assert TestClient(rc.app).get("/v1/legacy/export", headers=phone.auth).status_code == 403
+
+
+def test_stale_claim_writes_change_nothing_once_the_claim_ended(rc, clock):
+    owner_with_passkey(rc)
+    owner_id = _owner_id(rc)
+    phone, _key = legacy_phone(rc)
+    clock.advance(60)
+    legacy = rc.app.state.legacy_contacts
+    log = _record_claim_notices(legacy)
+    cid = _due_claim(rc, phone.contact_id, owner_id)
+    stale = legacy._claim(cid)
+    legacy._owner_signed_in({"data": {"user_id": owner_id}})
+    from onemind_core.recovery.legacy import OPEN_STATES, ClaimRow
+
+    assert legacy._set(stale, OPEN_STATES, state="granted") is False
+    assert legacy._set(stale, OPEN_STATES, ClaimRow.second_at.is_(None), second_by="usr_x") is False
+    assert legacy._end_claim(stale, "cancelled", "owner_active", None).end_reason == "owner_signed_in"
+    assert legacy._claim(cid).state == "cancelled" and legacy._claim(cid).second_by is None
+    assert _endings(log, cid) == ["cancelled"]
+
+
+def test_sign_in_and_tick_truly_at_once_always_end_cancelled_with_agreeing_notices(rc, clock):
+    """Two threads (two database sessions; two PostgreSQL connections with ONEMIND_TEST_DB_URL), released
+    together, many rounds with jitter. Whatever the order the claim ends `cancelled`; a grant notice is only
+    ever followed by a cancel notice, and the last notice always matches the final state."""
+    import random
+    import threading
+    import time
+
+    owner_with_passkey(rc)
+    owner_id = _owner_id(rc)
+    phone, _key = legacy_phone(rc)
+    legacy = rc.app.state.legacy_contacts
+    log = _record_claim_notices(legacy)
+    clock.advance(60)
+    rng = random.Random(1208)
+    orders = []
+    for _ in range(12):
+        cid = _due_claim(rc, phone.contact_id, owner_id)
+        barrier = threading.Barrier(2)
+        delays = (rng.uniform(0, 0.03), rng.uniform(0, 0.03))
+
+        def grant():
+            barrier.wait()
+            time.sleep(delays[0])
+            legacy.tick()
+
+        def sign_in():
+            barrier.wait()
+            time.sleep(delays[1])
+            legacy._owner_signed_in({"data": {"user_id": owner_id}})
+
+        threads = [threading.Thread(target=grant), threading.Thread(target=sign_in)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(30)
+        assert not any(t.is_alive() for t in threads)
+        c = legacy._claim(cid)
+        endings = _endings(log, cid)
+        assert c.state == "cancelled", (c.state, endings)
+        assert endings in (["cancelled"], ["granted", "cancelled"]), endings
+        assert endings[-1] == c.state
+        orders.append(tuple(endings))
+    assert TestClient(rc.app).get("/v1/legacy/export", headers=phone.auth).status_code == 403
+
+
+# ---- who accepted, and the second person (Opus review, #1208 non-blocking items) ------------------------
+
+def _accept_outside(rc, name, client: TestClient, headers=None):
+    r = add_legacy(rc, name)
+    invite = r.json()["invite"]
+    payload = json.loads(base64.urlsafe_b64decode(invite.split(".")[1] + "=="))
+    phone = ContactPhone()
+    r = client.post(f"/v1/legacy/invites/{payload['invite_id']}/accept", json=phone.accept_body(invite),
+                    headers=headers or {})
+    assert r.status_code == 201, r.text
+    phone.token, phone.contact_id = r.json()["one_time"]["contact_token"], r.json()["contact_id"]
+    return phone, r.json()["one_time"]["access_key"]
+
+
+def _extra(rc, contact_id):
+    from onemind_core.recovery.models import ContactRow
+
+    with rc.app.state.legacy_contacts.db.session() as s:
+        return dict(s.get(ContactRow, contact_id).extra or {})
+
+
+def test_who_accepted_is_recorded_with_the_access_key_for_every_session_kind(rc, clock):
+    owner_with_passkey(rc)
+    adult = enrol(rc, "adult", "ben")
+    ben_id = adult.get("/v1/me").json()["principal"]["id"]
+    # A bearer session (the phone app or the CLI signed in).
+    bearer = TestClient(rc.app)
+    tok = bearer.post("/v1/auth/login", json={"username": "ben", "password": PASSWORD, "client": "cli"}).json()
+    phone, _ = _accept_outside(rc, "B1", TestClient(rc.app), {"Authorization": f"Bearer {tok['access_token']}"})
+    e = _extra(rc, phone.contact_id)
+    assert e["accepted_signed_in"] is True and e["accepted_by_user_id"] == ben_id and e["access_verifier"]
+    # A browser cookie session with its CSRF header.
+    phone, _ = _accept_outside(rc, "B2", adult, csrf(adult))
+    assert _extra(rc, phone.contact_id)["accepted_by_user_id"] == ben_id
+    # A cookie WITHOUT the CSRF header: identity refuses it (H-16), so it counts as signed out; the accept works.
+    phone, _ = _accept_outside(rc, "B3", adult)
+    e = _extra(rc, phone.contact_id)
+    assert e["accepted_signed_in"] is False and e["accepted_by_user_id"] is None and e["access_verifier"]
+    # A bare, signed-out phone.
+    phone, _ = _accept_outside(rc, "B4", TestClient(rc.app))
+    e = _extra(rc, phone.contact_id)
+    assert e["accepted_signed_in"] is False and e["accepted_by_user_id"] is None
+
+
+def test_the_household_sees_the_confirmer_next_to_the_claimant_and_a_signed_out_accept(rc, clock):
+    owner_with_passkey(rc)
+    adult = enrol(rc, "adult", "ben")
+    phone, key = _accept_outside(rc, "Ana", TestClient(rc.app))  # signed out
+    clock.advance(7 * DAY + 1)
+    c = claim(rc, phone, key).json()
+    view = next(x for x in TestClient(rc.app).get("/v1/auth/legacy/claims", headers=OWNER).json() if x["id"] == c["id"])
+    assert view["contact_display_name"] == "Ana" and view["claimant_accepted_signed_in"] is False
+    assert view["confirmed_by_display_name"] is None
+    fresh = TestClient(rc.app)
+    assert fresh.post("/v1/auth/login", json={"username": "ben", "password": PASSWORD}).status_code == 200
+    r = fresh.post(f"/v1/auth/legacy/claims/{c['id']}/confirm", headers=csrf(fresh))
+    assert r.status_code == 200, r.text
+    view = next(x for x in fresh.get("/v1/auth/legacy/claims").json() if x["id"] == c["id"])
+    assert view["confirmed_by_display_name"] == "Ben" and view["second_confirmed"] is True
+    # A second confirmation changes nothing and sends no second notice.
+    log = _record_claim_notices(rc.app.state.legacy_contacts)
+    assert fresh.post(f"/v1/auth/legacy/claims/{c['id']}/confirm", headers=csrf(fresh)).status_code == 200
+    assert [e for e, cid in log if e == "legacy.claim.confirmed"] == []
+    assert adult is not None

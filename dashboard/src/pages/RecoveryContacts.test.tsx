@@ -118,3 +118,18 @@ it('shows an open legacy claim to the owner, who cancels and blocks; an adult co
   expect(screen.queryByRole('button', { name: 'Cancel claim lcl_1' })).toBeNull();
   handlesLegacy = false;
 });
+
+it('shows who confirmed next to the claimant and flags a claimant who accepted signed out', async () => {
+  handlesLegacy = true;
+  const claim = { id: 'lcl_2', contact_id: 'rc_9', state: 'awaiting_second', created_at: '2026-11-25T00:00:00Z', ends_at: '2026-12-25T00:00:00Z', needs_second: true, second_confirmed: true, granted_at: null, access_until: null, ended_at: null, end_reason: null, certificate_type: 'application/pdf', contact_display_name: 'Ana', confirmed_by_display_name: 'Ben', claimant_accepted_signed_in: false };
+  state.role = 'owner';
+  gateway((_method, path) => {
+    if (path === '/v1/auth/legacy/claims') return Response.json([claim]);
+    if (path === '/v1/auth/recovery/settings') return Response.json(waits);
+    return Response.json([]);
+  });
+  render(<RecoveryContacts />);
+  expect(await screen.findByText(/confirmed by Ben/)).toBeTruthy();
+  expect(screen.getByText(/accepted on a signed-out phone/)).toBeTruthy();
+  handlesLegacy = false;
+});
