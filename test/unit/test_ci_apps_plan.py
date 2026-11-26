@@ -140,7 +140,7 @@ class EndToEnd(unittest.TestCase):
         path.write_text(text, encoding="utf-8")
 
     def git(self, *args) -> str:
-        return subprocess.run(["git", "-C", str(self.repo), "-c", "user.name=t", "-c", "user.email=t@example.invalid",
+        return subprocess.run(["git", "-C", str(self.repo), "-c", "user.name=t", "-c", "user.email=ci",
                                "-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null", *args],
                               check=True, capture_output=True, text=True, env=self.env).stdout.strip()
 
