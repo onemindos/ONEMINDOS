@@ -299,3 +299,19 @@ def test_a_task_change_uses_the_same_title_and_label_rule(client):
         assert r.status_code == 422, (bad, r.text)
     r = client.patch(url, headers={**OWNER, "If-Match": f'"{task["revision"]}"'}, json={"title": " New ", "labels": [" x "]})
     assert r.status_code == 200 and (r.json()["title"], r.json()["labels"]) == ("New", ["x"]), r.text
+
+
+def test_a_task_change_offers_null_only_where_it_clears(client):
+    doc = spec(client)
+    props = resolve(doc, doc["paths"]["/v1/work/projects/{project_id}/tasks/{task_id}"]["patch"]["requestBody"]
+                    ["content"]["application/json"]["schema"])["properties"]
+    for name in ("title", "body", "status", "priority", "labels"):
+        assert "anyOf" not in props[name] and "default" not in props[name], (name, props[name])
+    for name in ("assignee", "due_at"):
+        assert {"type": "null"} in props[name]["anyOf"], name
+    task = client.post("/v1/work/capture", headers={**OWNER, "Idempotency-Key": "fz-null"}, json={"title": "t"}).json()
+    url = f"/v1/work/projects/{task['project_id']}/tasks/{task['id']}"
+    r = client.patch(url, headers={**OWNER, "If-Match": f'"{task["revision"]}"'}, json={"labels": None, "priority": 4})
+    assert r.status_code == 422 and r.json().get("reason") != "bad_task", r.text  # a schema violation, not a refusal
+    r = client.patch(url, headers={**OWNER, "If-Match": f'"{task["revision"]}"'}, json={"due_at": None, "priority": 2})
+    assert r.status_code == 200 and r.json()["priority"] == 2, r.text

@@ -2591,16 +2591,9 @@
             ]
           },
           "body": {
-            "anyOf": [
-              {
-                "maxLength": 10000,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Body"
+            "maxLength": 10000,
+            "title": "Body",
+            "type": "string"
           },
           "dependencies": {
             "anyOf": [
@@ -2630,65 +2623,37 @@
             "title": "Due At"
           },
           "labels": {
-            "anyOf": [
-              {
-                "items": {
-                  "maxLength": 64,
-                  "minLength": 1,
-                  "pattern": "[^\t\n\u000b\f\r\u001c\u001d\u001e\u001f                  　]",
-                  "type": "string"
-                },
-                "maxItems": 32,
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Labels"
+            "items": {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "[^\t\n\u000b\f\r\u001c\u001d\u001e\u001f                  　]",
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Labels",
+            "type": "array"
           },
           "priority": {
-            "anyOf": [
-              {
-                "maximum": 4.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Priority"
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Priority",
+            "type": "integer"
           },
           "status": {
-            "anyOf": [
-              {
-                "enum": [
-                  "todo",
-                  "in_progress",
-                  "done"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
+            "enum": [
+              "todo",
+              "in_progress",
+              "done"
             ],
-            "title": "Status"
+            "title": "Status",
+            "type": "string"
           },
           "title": {
-            "anyOf": [
-              {
-                "maxLength": 160,
-                "minLength": 1,
-                "pattern": "[^\t\n\u000b\f\r\u001c\u001d\u001e\u001f                  　]",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title"
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "[^\t\n\u000b\f\r\u001c\u001d\u001e\u001f                  　]",
+            "title": "Title",
+            "type": "string"
           }
         },
         "title": "ChangeBody",

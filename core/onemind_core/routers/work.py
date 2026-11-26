@@ -48,14 +48,22 @@ class QuickAddBody(JsonBody):
     tz: str | None = Field(default=None, max_length=64)
 
 
+def _no_default(schema: dict) -> None:
+    """A left-out field means "keep it": its Python default None is not a value the schema offers."""
+    schema.pop("default", None)
+
+
 class ChangeBody(JsonBody):
     model_config = ConfigDict(extra="forbid")
 
-    title: Name | None = None  # the same rule as on capture (work/service.py)
-    body: str | None = Field(default=None, max_length=10_000)
-    status: Literal["todo", "in_progress", "done"] | None = None
-    priority: int | None = Field(default=None, ge=1, le=4)
-    labels: list[Label] | None = Field(default=None, max_length=32)
+    # Leave a field out to keep it. Only assignee and due_at can be cleared with null; the others are not
+    # nullable in the schema either (`labels: null` passed it and then failed as 422 bad_task), so null
+    # there is a validation error like any other wrong type. The same title and label rules as capture.
+    title: Name = Field(default=None, json_schema_extra=_no_default)
+    body: str = Field(default=None, max_length=10_000, json_schema_extra=_no_default)
+    status: Literal["todo", "in_progress", "done"] = Field(default=None, json_schema_extra=_no_default)
+    priority: int = Field(default=None, ge=1, le=4, json_schema_extra=_no_default)
+    labels: list[Label] = Field(default=None, max_length=32, json_schema_extra=_no_default)
     assignee: PersonAssignee | None = None
     due_at: AwareDatetime | None = None
     dependencies: list[str] | None = Field(default=None, max_length=100)
