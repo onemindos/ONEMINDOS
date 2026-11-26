@@ -67,13 +67,13 @@ class BoxKey:
 
     def __init__(self, path: Path):
         self.path = path
-        self._key: Ed25519PrivateKey | None = None
+        self._signer: Ed25519PrivateKey | None = None  # loaded (or made) on first use
 
     @property
     def key(self) -> Ed25519PrivateKey:
-        if self._key is None:
-            self._key = load_or_create_job_key(self.path)
-        return self._key
+        if self._signer is None:
+            self._signer = load_or_create_job_key(self.path)
+        return self._signer
 
     @property
     def public_raw(self) -> bytes:
