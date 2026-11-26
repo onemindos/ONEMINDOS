@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
+import { AccessibilityInfo } from 'react-native';
+import { Passkey } from 'react-native-passkey';
 import { ApiError } from '../api/types';
 import { v0Api } from '../test/fakes';
 import { mockApi, mockConnection } from '../test/mockHub';
@@ -13,6 +15,9 @@ import { signingPayload } from '../approvalKey';
 import { fakeKey } from '../approvalKey/testKey';
 import { makeActions } from '../api/fixtures';
 import type { ApprovalKeyNative } from '../../modules/onemind-approval-key';
+
+beforeEach(() => jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true));
+afterEach(() => jest.restoreAllMocks());
 
 const PLAN = makeActions(Date.now())[0]!.plan_sha256 ?? null;
 
@@ -51,6 +56,48 @@ describe('Approvals screen', () => {
     expect(await screen.findByText('Approved (without a passkey) and done: Install ollama.')).toBeTruthy();
     expect(screen.queryByTestId('pending-act-0001')).toBeNull();
     expect(screen.getByText('Nothing is waiting.')).toBeTruthy();
+  });
+
+  it.each(['actuate', 'destructive'] as const)('requires a full hold before signing %s', async (risk) => {
+    const a = { ...makeActions(Date.now())[0]!, risk };
+    const signed = { id: 'credential', response: { clientDataJSON: 'client', authenticatorData: 'auth', signature: 'sig' } };
+    const approve = jest.fn(async () => ({ ...a, state: 'succeeded' as const }));
+    const deny = jest.fn(async () => ({ ...a, state: 'cancelled' as const }));
+    const approveOptions = jest.fn(async () => ({ challenge: 'challenge', plan_sha256: PLAN, action_sha256: 'sha256:a', expires_at: a.expires_at }));
+    jest.mocked(Passkey.isSupported).mockReturnValue(true);
+    jest.mocked(Passkey.get).mockResolvedValue(signed as Awaited<ReturnType<typeof Passkey.get>>);
+    const clock = jest.spyOn(performance, 'now').mockReturnValue(0);
+    try {
+      const api = v0Api({ features: async () => new Features([OP.approveOptions], 'openapi'), actions: async () => [a], approve, approveOptions, deny });
+      await renderApprovals(deps(mockConnection('owner-demo'), () => api));
+      const button = screen.getByTestId('approve-act-0001');
+      const pressIn = () => fireEvent(button, 'pressIn', { nativeEvent: { touches: [{}] } });
+
+      await fireEvent.press(button);
+      await pressIn();
+      expect(screen.getByText('Keep holding for 2 seconds')).toBeTruthy();
+      clock.mockReturnValue(1999);
+      await fireEvent(button, 'longPress');
+      await fireEvent(button, 'pressOut');
+      clock.mockReturnValue(2000);
+      await fireEvent(button, 'longPress');
+      expect(approveOptions).not.toHaveBeenCalled();
+      expect(approve).not.toHaveBeenCalled();
+
+      await pressIn();
+      clock.mockReturnValue(4000);
+      await fireEvent(button, 'longPress');
+      await fireEvent(button, 'longPress');
+      expect(await screen.findByText(/Approved.*Install ollama/)).toBeTruthy();
+      expect(approve).toHaveBeenCalledTimes(1);
+      expect(approve).toHaveBeenCalledWith(a.id, expect.objectContaining({ webauthn: expect.objectContaining({ signature: 'sig' }) }));
+      await fireEvent.press(screen.getByTestId('deny-act-0001'));
+      expect(deny).toHaveBeenCalledTimes(1);
+    } finally {
+      clock.mockRestore();
+      jest.mocked(Passkey.isSupported).mockReturnValue(false);
+      jest.mocked(Passkey.get).mockReset();
+    }
   });
 
   it('the owner denies', async () => {
