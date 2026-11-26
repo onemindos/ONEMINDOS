@@ -184,6 +184,18 @@ class Script(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(args, self.BASE)
 
+    def test_a_live_archive_build_never_gets_a_cache(self):
+        # The Ubuntu 26.04 leg (SNAPSHOT=none) installs from the live archive with fixed step inputs: a cached layer
+        # would replay old packages every night and the nightly would stop testing today's archive (D-007).
+        e = {"PATH": os.environ["PATH"], "STUB_LOG": self.log, "STUB_RC": "0", "STUB_TAG": "1",
+             "BUILDX_CACHE": self.cache, "BUILDX_CACHE_WRITE": "true", **self.GHA}
+        live = self.BASE[:-1] + ["--build-arg", "SNAPSHOT=none", "."]
+        r = subprocess.run(["sh", str(SCRIPT), "rootfs-ubuntu-x86_64-efi", "--", self.stub] + live,
+                           capture_output=True, text=True, env=e)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(text(self.log).splitlines(), live)
+        self.assertFalse(os.path.exists(os.path.join(self.cache, "rootfs-ubuntu-x86_64-efi")))
+
     def test_gha_without_the_token_adds_nothing(self):
         # What every old inline-flag step really did: no token, no cache. The script says so by adding nothing.
         r, args = self.run_it(BUILDX_CACHE_WRITE="true", ACTIONS_RESULTS_URL="https://results.example/")

@@ -24,6 +24,16 @@ ro=0; [ "$1" = --read-only ] && { ro=1; shift; }
 [ "$1" = -- ] || { echo "buildx-cache.sh: expected -- before the build command" >&2; exit 2; }
 shift
 
+# A build from a live archive (SNAPSHOT=none, the Ubuntu 26.04 leg) gets no cache at all: its package steps have
+# fixed inputs, so a cached layer would replay yesterday's packages and the nightly would stop testing today's
+# archive (D-007). Only date-pinned (snapshot) builds may reuse layers.
+for a in "$@"; do
+  if [ "$a" = SNAPSHOT=none ]; then
+    echo "buildx-cache: SNAPSHOT=none (live archive), no cache" >&2
+    exec "$@"
+  fi
+done
+
 if [ -n "${ACTIONS_RUNTIME_TOKEN:-}" ] && [ -n "${ACTIONS_RESULTS_URL:-}${ACTIONS_CACHE_URL:-}" ]; then
   set -- "$@" --cache-from "type=gha,scope=$scope"
   if [ "$ro" = 0 ] && [ "${BUILDX_CACHE_WRITE:-}" = true ]; then
