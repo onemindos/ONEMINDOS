@@ -21,6 +21,9 @@ type ApproveBody = components['schemas']['onemind_core__routers__actions__Approv
 interface Bound { rule: Record<string, unknown>; summary: string; required_level?: string }
 
 const LIFETIMES: Array<[NonNullable<Choice['lifetime']>, string]> = [['30d', '30 days'], ['90d', '90 days'], ['180d', '180 days'], ['forever', 'Forever']];
+const MAX_PER_DAY = 1000; // the gateway answers 422 above this
+/** The daily limit typed so far, as a number the gateway takes (1 to 1000). */
+const perDayOf = (text: string) => Math.min(MAX_PER_DAY, Math.max(1, Math.round(Number(text)) || 1));
 const NOTICES: Array<[NonNullable<Choice['notify_after']>, string]> = [['digest', 'In my daily summary'], ['each', 'Every time'], ['silent', 'Never (read-only requests only)']];
 
 export function RememberSheet({ action, onClose, onDone, sign = getPasskey }: {
@@ -29,6 +32,7 @@ export function RememberSheet({ action, onClose, onDone, sign = getPasskey }: {
 }) {
   const sdk = usePermSdk();
   const [choice, setChoice] = useState<Choice>({ lifetime: '30d', lapse_unused: true, per_day: 10, notify_after: 'digest', unpin: [] });
+  const [perDay, setPerDay] = useState('10'); // as typed: clamped on blur and when sent, never per keystroke
   const [challenge, setChallenge] = useState<Challenge>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -40,10 +44,13 @@ export function RememberSheet({ action, onClose, onDone, sign = getPasskey }: {
   };
   const path = `/v1/actions/${encodeURIComponent(action.id)}`;
   const preview = async () => {
+    const remember = { ...choice, per_day: perDayOf(perDay) };
+    setChoice(remember);
+    setPerDay(String(remember.per_day));
     setBusy(true);
     setError(undefined);
     try {
-      setChallenge(await read(sdk.call<Challenge>({ method: 'POST', path: `${path}/approve-options`, body: { remember: choice } })));
+      setChallenge(await read(sdk.call<Challenge>({ method: 'POST', path: `${path}/approve-options`, body: { remember } })));
     } catch (e) {
       setError(explain(e));
     } finally {
@@ -89,7 +96,11 @@ export function RememberSheet({ action, onClose, onDone, sign = getPasskey }: {
         <p className="om-note om-tone-warn">This rule never ends by itself. You can see it under Rules and end it with one tap. OneMind reminds you about it every 90 days.</p>
       )}
       <label><input type="checkbox" checked={choice.lapse_unused ?? true} onChange={(e) => pick({ lapse_unused: e.target.checked })} /> End if unused for 14 days</label>
-      <label>At most this many a day <input type="number" min={1} max={1000} value={choice.per_day ?? 10} onChange={(e) => pick({ per_day: Math.max(1, Number(e.target.value) || 1) })} /></label>
+      <label>At most this many a day (1 to {MAX_PER_DAY})
+        <input type="number" inputMode="numeric" min={1} max={MAX_PER_DAY} value={perDay}
+          onChange={(e) => { setPerDay(e.target.value); pick({}); }}
+          onBlur={() => { const n = perDayOf(perDay); setPerDay(String(n)); pick({ per_day: n }); }} />
+      </label>
       <label>Tell me when it is used
         <select value={choice.notify_after ?? 'digest'} onChange={(e) => pick({ notify_after: e.target.value as Choice['notify_after'] })}>
           {NOTICES.map(([v, label]) => <option key={v} value={v}>{label}</option>)}

@@ -67,3 +67,26 @@ it('says in plain words why the gateway refused to remember', async () => {
   await userEvent.setup().click(screen.getByRole('button', { name: 'Show the rule' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('needs a proven hardware key');
 });
+
+it('lets the daily limit be typed freely, then keeps it between 1 and 1000', async () => {
+  render(<RememberSheet action={action} onClose={vi.fn()} onDone={vi.fn()} sign={vi.fn()} />);
+  const user = userEvent.setup();
+  const box = screen.getByLabelText(/At most this many a day/);
+  await user.clear(box);
+  await user.type(box, '25');
+  expect(box).toHaveValue(25); // not 1, then 12
+  await user.click(screen.getByRole('button', { name: 'Show the rule' }));
+  await screen.findByRole('button', { name: 'Approve and remember with passkey' });
+  expect(calls[0]!.body).toEqual({ remember: expect.objectContaining({ per_day: 25 }) });
+  await user.clear(box);
+  expect(screen.queryByRole('button', { name: 'Approve and remember with passkey' })).toBeNull(); // typing drops the old rule
+  await user.type(box, '5000');
+  await user.tab();
+  expect(box).toHaveValue(1000);
+  await user.clear(box);
+  await user.tab();
+  expect(box).toHaveValue(1);
+  await user.click(screen.getByRole('button', { name: 'Show the rule' }));
+  await screen.findByRole('button', { name: 'Approve and remember with passkey' });
+  expect(calls.at(-1)!.body).toEqual({ remember: expect.objectContaining({ per_day: 1 }) });
+});
