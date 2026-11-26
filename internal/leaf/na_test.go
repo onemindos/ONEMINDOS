@@ -160,7 +160,15 @@ func TestNA(t *testing.T) {
 		defer func() { cancel(); <-done }()
 		l.relayA.restore()
 		want := map[string]string{oldID: "stale_epoch", actID: "stopped"}
-		waitUntil(t, 60*time.Second, "NA4 verdicts at the hub", func() bool {
+		defer func() {
+			if t.Failed() {
+				t.Logf("NA4 results %+v want %v check %s stats %+v policy %+v", results(), want, checkID, in.Stats(), in.Policy.Current())
+			}
+		}()
+		// A pull still waiting on the hub from before the cut can take the first job and lose it with
+		// the link; the hub then redelivers it after the consumer's 60 s ack wait (never twice: the
+		// machine refuses a seen job id). Hence the longer wait here.
+		waitUntil(t, 150*time.Second, "NA4 verdicts at the hub", func() bool {
 			got := results()
 			for id, code := range want {
 				if r := last(got[id]); r.State != jobs.StateFailed || r.Reason != code {

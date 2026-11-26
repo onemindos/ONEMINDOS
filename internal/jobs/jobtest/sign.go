@@ -54,7 +54,9 @@ func (s *Signer) Job(node, kind string, params map[string]any, epoch int, now ti
 	}
 	pb, _ := json.Marshal(params)
 	var pv map[string]any
-	_ = json.Unmarshal(pb, &pv)
+	d := json.NewDecoder(bytes.NewReader(pb))
+	d.UseNumber() // integers stay integers (the envelope has no floats)
+	_ = d.Decode(&pv)
 	pc, err := backup.CanonicalJSON(pv)
 	if err != nil {
 		panic(err)
