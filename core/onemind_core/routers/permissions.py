@@ -185,7 +185,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return HOUSEHOLD if raw in ("default", HOUSEHOLD) else raw
 
     @app.get("/v1/permission-modes", operation_id="permissions.modes.list", tags=TAGS,
-             responses={200: {"model": list[PermissionMode]}, **error_responses(401, 403)})
+             responses={200: {"model": list[PermissionMode]}, **error_responses(401, 403)},
+             openapi_extra={"security": [{"bearer": ["instance:read"]}]})
     def list_modes(request: Request, p: Principal = Depends(gw.principal)):
         """The household default first, then every principal with a mode of its own (owner: all; a person:
         the agents they own; an agent: only its own)."""
@@ -194,7 +195,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return [r for r in rows if r["principal"] == HOUSEHOLD or modes.may_read(p, r["principal"], uid)]
 
     @app.get("/v1/permission-modes/{principal}", operation_id="permissions.modes.get", tags=TAGS,
-             responses={200: {"model": PermissionMode}, **error_responses(401, 403, 422)})
+             responses={200: {"model": PermissionMode}, **error_responses(401, 403, 422)},
+             openapi_extra={"security": [{"bearer": ["instance:read"]}]})
     def get_mode(principal: str, request: Request, p: Principal = Depends(gw.principal)):
         name = name_of(principal)
         if name == HOUSEHOLD:
@@ -212,12 +214,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return modes.set(p, name, body.mode, body.reason, direction, via)
 
     @app.put("/v1/permission-modes", operation_id="permissions.modes.set_default", tags=TAGS,
-             responses={200: {"model": PermissionMode}, **error_responses(401, 403, 409, 422)})
+             responses={200: {"model": PermissionMode}, **error_responses(401, 403, 409, 422)},
+             openapi_extra={"security": [{"bearer": ["tokens:self"]}]})
     def set_default_mode(body: PermissionModeBody, request: Request, p: Principal = Depends(gw.principal)):
         return put(HOUSEHOLD, body, request, p)
 
     @app.put("/v1/permission-modes/{principal}", operation_id="permissions.modes.set", tags=TAGS,
-             responses={200: {"model": PermissionMode}, **error_responses(401, 403, 409, 422)})
+             responses={200: {"model": PermissionMode}, **error_responses(401, 403, 409, 422)},
+             openapi_extra={"security": [{"bearer": ["tokens:self"]}]})
     def set_mode(principal: str, body: PermissionModeBody, request: Request, p: Principal = Depends(gw.principal)):
         return put(name_of(principal), body, request, p)
 

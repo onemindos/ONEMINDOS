@@ -36531,6 +36531,13 @@
             "description": "The principal may not do this (permission_denied)"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "instance:read"
+            ]
+          }
+        ],
         "summary": "List Modes",
         "tags": [
           "permissions"
@@ -36610,6 +36617,13 @@
             "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "tokens:self"
+            ]
+          }
+        ],
         "summary": "Set Default Mode",
         "tags": [
           "permissions"
@@ -36672,6 +36686,13 @@
             "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "instance:read"
+            ]
+          }
+        ],
         "summary": "Get Mode",
         "tags": [
           "permissions"
@@ -36762,6 +36783,13 @@
             "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "tokens:self"
+            ]
+          }
+        ],
         "summary": "Set Mode",
         "tags": [
           "permissions"
