@@ -22,6 +22,7 @@ FILES_SEMANTIC_REFUSALS = {
     "invalid_manifest",  # sync commit: the chunk sizes add up to the file size, a stored manifest is whole records
     "invalid_scopes",    # app passwords: each space (home, shared) at most once
     "bad_quick_add",     # work quick-add: the free-text grammar and a known time zone
+    "unknown_item",      # home: an item or default app this person can see (installed and shared to them)
 }
 UNAVAILABLE_REASONS ={"backups_disabled", "target_unreachable", "agent_refused", "agent_failed"}
 

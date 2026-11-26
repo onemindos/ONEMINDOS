@@ -213,7 +213,8 @@ def test_the_fuzz_hook_lists_these_reasons_and_still_fails_any_other():
     from types import SimpleNamespace
 
     from api_fuzz_hooks import FILES_SEMANTIC_REFUSALS, semantic_refusal_names_its_reason
-    assert {"invalid_expiry", "invalid_manifest", "invalid_scopes", "bad_quick_add", "invalid_cursor"} <= FILES_SEMANTIC_REFUSALS
+    assert {"invalid_expiry", "invalid_manifest", "invalid_scopes", "bad_quick_add", "invalid_cursor",
+            "unknown_item"} <= FILES_SEMANTIC_REFUSALS
     assert "invalid_precondition" not in FILES_SEMANTIC_REFUSALS  # If-Match is described by its pattern instead
     positive = SimpleNamespace(meta=SimpleNamespace(generation=SimpleNamespace(mode=SimpleNamespace(is_positive=True))))
     for reason, ok in (("invalid_scopes", True), (None, False), ("bad_subject", False), ("invalid_precondition", False)):
