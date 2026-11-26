@@ -12,6 +12,7 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -42,7 +43,7 @@ func automationCommands(a *App) []*cobra.Command {
 		Short: "One rule in full (GET /v1/automation/rules/ID)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			return a.read("/v1/automation/rules/"+pathID(args[0]), func(w io.Writer, v any) error { return printJSON(w, v) })
+			return a.read("/v1/automation/rules/"+pathID(args[0]), ruleText)
 		},
 	})
 	var file string
@@ -88,7 +89,7 @@ func automationCommands(a *App) []*cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printJSON(a.Stdout, v)
+			return a.withJSONOrText(v, dryRunText)
 		},
 	}
 	var yes bool
@@ -226,7 +227,7 @@ func automationCommands(a *App) []*cobra.Command {
 	var wFile string
 	wset := &cobra.Command{
 		Use:   "set WINDOW_ID --file window.json",
-		Short: "Create or replace a window (PUT /v1/windows/ID); owner only, with a passkey sign-in",
+		Short: "Create or replace a window (PUT /v1/windows/ID); ids look like win_<lower-case name>; owner only, with a passkey sign-in",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			body, err := a.readJSONInput(cmd, wFile)
@@ -248,6 +249,57 @@ func automationCommands(a *App) []*cobra.Command {
 }
 
 // triggerText says in words what starts a rule.
+// ruleText prints one rule for a person; --json prints the gateway's document instead.
+func ruleText(w io.Writer, v any) error {
+	m := obj(v)
+	on := "off"
+	if m["enabled"] == true {
+		on = "on"
+	}
+	var acts []any
+	for _, x := range list(m["actions"]) {
+		acts = append(acts, str(obj(x)["type"]))
+	}
+	if err := kv(w, [][2]string{{"id", str(m["id"])}, {"name", str(m["name"])}, {"state", on}, {"trigger", triggerText(obj(m["trigger"]))},
+		{"conditions", jnum(float64(len(list(m["conditions"]))))}, {"actions", joinStrs(acts, 0)}, {"window", dash(str(obj(m["options"])["window_id"]))},
+		{"last fired", dash(str(m["last_fired_at"]))}, {"breaker", dash(str(m["breaker"]))}, {"revision", dash(jnum(m["revision"]))}}); err != nil {
+		return err
+	}
+	fmt.Fprintln(w, "\nThe whole rule (conditions, action parameters): add --json.")
+	return nil
+}
+
+// dryRunText prints what a rule would have asked for, in words. A dry run never acts.
+func dryRunText(w io.Writer, v any) error {
+	m := obj(v)
+	would, skipped := list(m["would_request"]), list(m["skipped"])
+	fmt.Fprintf(w, "Dry run %s of %s, %s to %s: nothing was done.\n", str(m["id"]), str(m["rule_id"]), str(m["from"]), str(m["to"]))
+	if len(would) == 0 {
+		fmt.Fprintln(w, "It would not have asked for anything in that time.")
+	} else {
+		var rows [][]string
+		for _, x := range would {
+			r := obj(x)
+			rows = append(rows, []string{str(r["at"]), str(r["type"]), dash(str(r["risk"])), str(r["verdict"]), dash(str(r["reason"]))})
+		}
+		if err := table(w, "WHEN\tWOULD ASK FOR\tRISK\tWHAT HAPPENS\tWHY", rows); err != nil {
+			return err
+		}
+	}
+	if len(skipped) > 0 {
+		fmt.Fprintf(w, "Skipped %d time(s) (outside its window, a loop or too soon after the last).\n", len(skipped))
+	}
+	if m["truncated"] == true {
+		fmt.Fprintln(w, "Only the first part of the range is shown; the rest was cut off.")
+	}
+	if str(m["policy_outcome"]) == "auto_approved" {
+		fmt.Fprintln(w, "Every request would be approved by a standing approval you set up.")
+	} else {
+		fmt.Fprintln(w, "A person would have to approve these requests.")
+	}
+	return nil
+}
+
 func triggerText(t map[string]any) string {
 	for k, v := range t {
 		switch k {

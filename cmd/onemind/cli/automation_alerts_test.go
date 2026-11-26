@@ -14,38 +14,55 @@ func TestAutomationRulesRunsAndSwitch(t *testing.T) {
 		"GET /v1/automation/rules": ok([]any{
 			map[string]any{"id": "rul_1", "name": "Nightly backup", "enabled": true, "trigger": map[string]any{"schedule": map[string]any{"cron": "0 2 * * *"}}, "last_fired_at": "2026-11-25T02:00:00Z", "breaker": nil},
 			map[string]any{"id": "rul_2", "name": "On alert", "enabled": false, "trigger": map[string]any{"event": map[string]any{"type": "alert.opened"}}}}),
-		"GET /v1/automation/rules/rul_1": ok(map[string]any{"id": "rul_1", "name": "Nightly backup"}),
-		"POST /v1/automation/rules":      func(b map[string]any) (int, any) { return 201, map[string]any{"id": "rul_3", "name": b["name"]} },
+		"GET /v1/automation/rules/rul_1": ok(map[string]any{"id": "rul_1", "name": "Nightly backup", "enabled": true, "revision": 2.0,
+			"trigger": map[string]any{"schedule": map[string]any{"cron": "0 2 * * *", "tz": "box"}}, "conditions": []any{},
+			"actions": []any{map[string]any{"type": "backup.run", "params": map[string]any{}}}, "options": map[string]any{"window_id": "win_nightly"}}),
+		"POST /v1/automation/rules": func(b map[string]any) (int, any) { return 201, map[string]any{"id": "rul_3", "name": b["name"]} },
 		"POST /v1/automation/rules/rul_2/enable": func(map[string]any) (int, any) {
 			return 409, map[string]any{"error": "conflict", "message": "dry-run it first"}
 		},
 		"POST /v1/automation/rules/rul_1/disable": ok(map[string]any{"id": "rul_1", "enabled": false}),
-		"POST /v1/automation/rules/rul_1/dry-run": ok(map[string]any{"would_fire": []any{}}),
-		"DELETE /v1/automation/rules/rul_1":       func(map[string]any) (int, any) { return 204, nil },
-		"GET /v1/automation/runs":                 ok([]any{map[string]any{"fired_at": "2026-11-25T02:00:00Z", "rule_id": "rul_1", "outcome": "filed", "action_ids": []any{"act_1"}}}),
-		"GET /v1/automation/schedules":            ok([]any{map[string]any{"rule_id": "rul_1", "name": "Nightly backup", "enabled": true, "cron": "0 2 * * *", "tz": "box", "next_fire_at": "2026-11-26T02:00:00Z"}}),
-		"GET /v1/automation/state":                ok(map[string]any{"paused": true, "changed_by": "usr_1", "changed_at": "2026-11-26T00:00:00Z", "reason": "away"}),
-		"POST /v1/automation/pause":               ok(map[string]any{"paused": true}),
-		"POST /v1/automation/resume":              ok(map[string]any{"paused": false}),
-		"GET /v1/approval-policies":               ok([]any{map[string]any{"id": "pol_1", "name": "Nightly restart", "state": "active", "limits": map[string]any{"per_day": 3.0}, "uses_24h": 1.0, "expires_at": "2027-01-01T00:00:00Z"}}),
-		"DELETE /v1/approval-policies/pol_1":      func(map[string]any) (int, any) { return 204, nil },
-		"GET /v1/windows":                         ok([]any{map[string]any{"id": "win_nightly", "name": "Nights", "tz": "box", "open_now": true, "ranges": []any{map[string]any{"days": []any{"mon"}, "start": "01:00", "end": "05:00"}}}}),
+		"POST /v1/automation/rules/rul_1/dry-run": ok(map[string]any{"id": "dry_1", "rule_id": "rul_1", "revision": 2.0, "from": "2026-11-26T00:00:00Z",
+			"to": "2026-12-03T00:00:00Z", "would_request": []any{map[string]any{"at": "2026-11-27T02:00:00Z", "index": 0.0, "type": "backup.run",
+				"params": map[string]any{}, "risk": "low", "verdict": "needs_approval"}}, "skipped": []any{map[string]any{"at": "2026-11-28T02:00:00Z", "reason": "skipped_window"}},
+			"policy_outcome": "needs_approval", "truncated": false, "source": "schedule"}),
+		"DELETE /v1/automation/rules/rul_1":  func(map[string]any) (int, any) { return 204, nil },
+		"GET /v1/automation/runs":            ok([]any{map[string]any{"fired_at": "2026-11-25T02:00:00Z", "rule_id": "rul_1", "outcome": "filed", "action_ids": []any{"act_1"}}}),
+		"GET /v1/automation/schedules":       ok([]any{map[string]any{"rule_id": "rul_1", "name": "Nightly backup", "enabled": true, "cron": "0 2 * * *", "tz": "box", "next_fire_at": "2026-11-26T02:00:00Z"}}),
+		"GET /v1/automation/state":           ok(map[string]any{"paused": true, "changed_by": "usr_1", "changed_at": "2026-11-26T00:00:00Z", "reason": "away"}),
+		"POST /v1/automation/pause":          ok(map[string]any{"paused": true}),
+		"POST /v1/automation/resume":         ok(map[string]any{"paused": false}),
+		"GET /v1/approval-policies":          ok([]any{map[string]any{"id": "pol_1", "name": "Nightly restart", "state": "active", "limits": map[string]any{"per_day": 3.0}, "uses_24h": 1.0, "expires_at": "2027-01-01T00:00:00Z"}}),
+		"DELETE /v1/approval-policies/pol_1": func(map[string]any) (int, any) { return 204, nil },
+		"GET /v1/windows":                    ok([]any{map[string]any{"id": "win_nightly", "name": "Nights", "tz": "box", "open_now": true, "ranges": []any{map[string]any{"days": []any{"mon"}, "start": "01:00", "end": "05:00"}}}}),
 		"PUT /v1/windows/win_nightly": func(map[string]any) (int, any) {
 			return 401, map[string]any{"error": "unauthenticated", "reason": "step_up_required", "message": "sign in again"}
 		},
 	})
 	outHas(t, run(t, "", false, "automation", "rules", "list").out, "rul_1", "schedule 0 2 * * *", "event alert.opened", "yes", "no")
-	outHas(t, run(t, "", false, "automation", "rules", "show", "rul_1").out, "Nightly backup")
+	r := run(t, "", false, "automation", "rules", "show", "rul_1")
+	outHas(t, r.out, "Nightly backup", "schedule 0 2 * * *", "backup.run", "win_nightly", "--json")
+	if strings.Contains(r.out, "{") {
+		t.Fatalf("show prints text, not JSON: %s", r.out)
+	}
+	if obj(jsonOf(t, run(t, "", false, "automation", "rules", "show", "rul_1", "--json").out))["revision"] != 2.0 {
+		t.Fatal("show --json")
+	}
 	f := filepath.Join(t.TempDir(), "r.json")
 	_ = os.WriteFile(f, []byte(`{"name": "Mine", "trigger": {"manual": {}}}`), 0o600)
 	outHas(t, run(t, "", false, "automation", "rules", "create", "--file", f).out, "rul_3", "off", "dry-run")
-	r := run(t, "", false, "automation", "rules", "enable", "rul_2")
+	r = run(t, "", false, "automation", "rules", "enable", "rul_2")
 	if r.code == 0 || !strings.Contains(r.errOut, "dry-run") {
 		t.Fatalf("enable must report the gateway's refusal: %+v", r)
 	}
 	outHas(t, run(t, "", false, "automation", "rules", "disable", "rul_1").out, "Turned off rul_1")
-	if r := run(t, "", false, "automation", "rules", "dry-run", "rul_1"); r.code != 0 || !strings.Contains(r.out, "would_fire") {
-		t.Fatalf("dry-run %+v", r)
+	r = run(t, "", false, "automation", "rules", "dry-run", "rul_1")
+	outHas(t, r.out, "nothing was done", "backup.run", "needs_approval", "Skipped 1", "A person would have to approve")
+	if strings.Contains(r.out, "{") {
+		t.Fatalf("dry-run prints text, not JSON: %s", r.out)
+	}
+	if obj(jsonOf(t, run(t, "", false, "automation", "rules", "dry-run", "rul_1", "--json").out))["policy_outcome"] != "needs_approval" {
+		t.Fatal("dry-run --json")
 	}
 	if r := run(t, "", false, "automation", "rules", "delete", "rul_1"); r.code != ExitUsage || len(g.sent("DELETE", "/v1/automation/rules/rul_1")) != 0 {
 		t.Fatalf("needs --yes %+v", r)

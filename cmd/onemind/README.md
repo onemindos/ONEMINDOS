@@ -70,6 +70,11 @@ Each of these calls an existing gateway route with your token, takes `--json` (t
 ## More groups over the gateway
 The same rules: each command calls an existing gateway route, takes `--json`, and never approves anything. A change either files a request that waits for an owner (it prints the request id and `onemind actions approve ID`) or is a direct call the gateway already limits to the right person.
 
+### Automation, alerts, monitoring
+- `onemind automation rules list|show ID|create --file F|enable ID|disable ID|dry-run ID|delete ID --yes`: a rule only files requests; it starts off, and the box turns it on only after a dry run. `show` and `dry-run` print plain text; add `--json` for the whole document.
+- `onemind automation runs [--rule ID]|schedules|state|pause|resume`, `automation policies list|revoke ID --yes` (creating a standing approval stays in the dashboard, with its passkey step), `automation windows list|set win_NAME --file F` (window ids look like `win_<lower-case name>`).
+- `onemind alerts list|show ID|ack ID|resolve ID|fix ID`: `fix` files the alert's suggested fix as a request a person approves. `onemind monitoring summary`: machines, apps and open alerts at a glance.
+
 ### Tokens, secrets, family, browsers
 - `onemind tokens list|create NAME [--agent A] [--scopes s,t] [--days N]|rotate ID [--grace S]|revoke ID --yes`: a new token is printed once.
 - `onemind secrets show APP|public-key|generate APP NAME/KEY|clear APP NAME/KEY`: never shows or sends a value; `generate` and `clear` file a request. Typing a value stays in the dashboard, where the browser seals it.
