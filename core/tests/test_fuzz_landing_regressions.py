@@ -264,3 +264,37 @@ def test_a_list_query_parameter_still_takes_many_values():
     for q in ("limit=1&limit=2", "cursor=a&cursor=b"):  # a route's own and a dependency's parameter
         r = c.get(f"/t?{q}")
         assert r.status_code == 422 and r.json()["reason"] == "invalid_request", (q, r.text)
+
+
+# ---- work names and labels: length on what was sent, at least one non-space character -----------------
+def test_work_labels_and_titles_document_and_enforce_a_non_blank_value(client):
+    import sys
+
+    from onemind_core.work.service import NONBLANK, SPACE_CHARS
+    assert set(SPACE_CHARS) == {chr(i) for i in range(sys.maxunicode + 1) if chr(i).isspace()}
+    doc = spec(client)
+    capture = resolve(doc, doc["paths"]["/v1/work/capture"]["post"]["requestBody"]["content"]["application/json"]["schema"])
+    assert capture["properties"]["title"]["pattern"] == NONBLANK
+    for bad in ({"labels": ["\u0085"]}, {"title": "   "}, {"title": "\x1c"}, {"title": " " * 10 + "x" * 155}):
+        r = client.post("/v1/work/capture", headers={**OWNER, "Idempotency-Key": f"fz-blank-{len(str(bad))}-{bad!r}"[:80]},
+                        json={"title": "t", **bad})
+        assert r.status_code == 422, (bad, r.text)
+    r = client.post("/v1/work/capture", headers={**OWNER, "Idempotency-Key": "fz-blank-ok"},
+                    json={"title": "  Pay rent  ", "labels": [" home "]})
+    assert r.status_code == 201 and (r.json()["title"], r.json()["labels"]) == ("Pay rent", ["home"]), r.text
+
+
+def resolve(doc, schema):
+    while "$ref" in schema:
+        schema = doc["components"]["schemas"][schema["$ref"].rsplit("/", 1)[1]]
+    return schema
+
+
+def test_a_task_change_uses_the_same_title_and_label_rule(client):
+    task = client.post("/v1/work/capture", headers={**OWNER, "Idempotency-Key": "fz-chg"}, json={"title": "t"}).json()
+    url = f"/v1/work/projects/{task['project_id']}/tasks/{task['id']}"
+    for bad in ({"labels": [""]}, {"labels": ["\u0085"]}, {"title": "  "}):
+        r = client.patch(url, headers={**OWNER, "If-Match": f'"{task["revision"]}"'}, json=bad)
+        assert r.status_code == 422, (bad, r.text)
+    r = client.patch(url, headers={**OWNER, "If-Match": f'"{task["revision"]}"'}, json={"title": " New ", "labels": [" x "]})
+    assert r.status_code == 200 and (r.json()["title"], r.json()["labels"]) == ("New", ["x"]), r.text

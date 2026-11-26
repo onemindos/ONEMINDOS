@@ -14,7 +14,8 @@ from ..identity.scopes import has_any, register_route_scope
 from ..jsonbody import JsonBody
 from ..work.access import WORK_ROLES, delegated_reader
 from ..work.parse import parse_quick_add
-from ..work.service import CaptureFields, PersonAssignee, Project, ProjectFields, Task, TaskFields, TaskView, WorkService
+from ..work.service import (CaptureFields, Label, Name, PersonAssignee, Project, ProjectFields, Task, TaskFields, TaskView,
+                            WorkService)
 
 ORDER = 260
 BASE = "/v1/work"
@@ -50,11 +51,11 @@ class QuickAddBody(JsonBody):
 class ChangeBody(JsonBody):
     model_config = ConfigDict(extra="forbid")
 
-    title: str | None = Field(default=None, max_length=160)
+    title: Name | None = None  # the same rule as on capture (work/service.py)
     body: str | None = Field(default=None, max_length=10_000)
     status: Literal["todo", "in_progress", "done"] | None = None
     priority: int | None = Field(default=None, ge=1, le=4)
-    labels: list[str] | None = Field(default=None, max_length=32)
+    labels: list[Label] | None = Field(default=None, max_length=32)
     assignee: PersonAssignee | None = None
     due_at: AwareDatetime | None = None
     dependencies: list[str] | None = Field(default=None, max_length=100)
