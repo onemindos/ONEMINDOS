@@ -95,6 +95,17 @@ _SPECS = [
          dedupe="approval:{action_id}", link="/approvals/{action_id}",
          learn_more=f"{_DOCS}/learning/09-gateway-approvals-agents-mcp.md"),
     Spec("approval.closed", "resolve", "approvals", resolves=("approval:{action_id}",)),
+    # Gateway permissions PR 13: an owner's standing approval accepted a request. It carries a Revoke rule
+    # action and never an approve one. `each` rules are pushed; `digest` rules go to the inbox and the
+    # daily list; `silent` (read-only rules) is not notified at all.
+    Spec("approval.auto", "notify", "approvals", "info",
+         "Approved by your rule: {action_type} {app_id}",
+         "{requested_by} asked; rule {policy_id} approved it ({uses} today). Revoke the rule if this is not what you meant.",
+         link="/settings/permissions/rules/{policy_id}"),
+    Spec("approval.auto.digest", "notify", "approvals", "info",
+         "Approved by your rules today: {count}",
+         "{count} requests went through on rules you made. Rules in force: {rules} ({forever} with no end date).",
+         link="/settings/permissions/auto-approved"),
     Spec("action.succeeded", "notify", "apps", "info",
          "Done: {action_type} {app_id}", "{message}", audience=OWNERS_AND_REQUESTER,
          link="/activity/{action_id}", resolves=("approval:{action_id}",)),

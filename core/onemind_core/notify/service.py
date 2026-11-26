@@ -29,6 +29,7 @@ import logging
 import threading
 import time
 from collections import defaultdict, deque
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -98,6 +99,11 @@ class NotifyService:
         self._nats_task: asyncio.Task | None = None
         self._sends: dict[str, deque] = defaultdict(deque)
         self._send_dedupe: dict[tuple[str, str], datetime] = {}
+        # Gateway permissions PR 13, set by routers/permissions.py: pause an `each` standing approval whose
+        # notice could not be pushed (policy id, reason), and list the rules in force for the daily digest.
+        self.auto_push_failed: Callable[[str, str], None] | None = None
+        self.rules_in_force: Callable[[], list[dict]] | None = None
+        self._digest_day: str | None = None
         self._last_prune: datetime | None = None
         self.topics = topics.TopicRegistry()  # the built-ins' topics; routers/notifications.py wires the registry
         self._meter: dict[str, deque] = defaultdict(lambda: deque(maxlen=4096))  # source id -> post times, 1 h
@@ -184,8 +190,76 @@ class NotifyService:
                 spec = catalogue.lookup(mapped[0])
                 if spec is not None:
                     self.ingest(spec, mapped[1], source="gateway")
+            self._approval_auto(rec)
         except Exception:  # never break the ledger's audit append
             log.exception("notifier failed on an audit line")
+
+    # ---- gateway permissions PR 13: approval.auto ---------------------------------------------
+    AUTO_PREFIX = "approval.auto."
+    DIGEST_HOUR = 18  # UTC: the daily list of what rules approved goes out once after this hour
+
+    def _approval_auto(self, rec: dict) -> None:
+        """A standing approval accepted a request: tell the owners, with a Revoke rule action (never Approve)."""
+        data = rec.get("data") or {}
+        if rec.get("event") != "action.approved" or data.get("approved_via") != "policy" or not data.get("policy_id"):
+            return
+        mode = data.get("notify_after") or "digest"
+        if mode == "silent":
+            return
+        a = self.gw.repo.get(rec.get("action_id"))
+        if a is None:
+            return
+        pid = str(data["policy_id"])
+        facts = {"action_id": a.id, "action_type": a.type, "app_id": (a.params or {}).get("app_id") or "",
+                 "requested_by": (a.requested_by or {}).get("id"), "policy_id": pid, "uses": data.get("uses") or "?"}
+        spec = catalogue.lookup("approval.auto")
+        actions = [{"id": "revoke", "label": "Revoke rule", "kind": "revoke", "policy_id": pid},
+                   {"id": "rule", "label": "See the rule", "kind": "open", "link": f"/settings/permissions/rules/{pid}"}]
+        with self._lock:
+            ids = self._fanout(
+                self._recipients({"roles": ["owner"], "persons": []}), severity="info", topic="approvals",
+                title=catalogue.render(spec.title, facts), body=catalogue.render(spec.body, facts),
+                link=catalogue.render(spec.link or "", facts), source="gateway", action_id=a.id, alert_id=None,
+                inapp_only=mode != "each", group_key=f"{self.AUTO_PREFIX}{mode}:{pid}", actions=actions)
+        if mode == "each" and not any(self.repo.deliveries_for(n) for n in ids):
+            self._auto_push_failed(pid, "no_push_target")  # an `each` rule nobody can be told about pauses
+
+    def _auto_push_failed(self, policy_id: str, reason: str) -> None:
+        hook = self.auto_push_failed
+        if hook is not None:
+            try:
+                hook(policy_id, reason)
+            except Exception:
+                log.exception("pausing a standing approval after a failed push failed")
+
+    def digest_tick(self, now: datetime) -> list[str]:
+        """Once a day per owner (after DIGEST_HOUR UTC): one notice counting the requests rules approved in
+        the last day, with the rules in force (forever rules counted). Returns the notification ids."""
+        day = now.date().isoformat()
+        if now.hour < self.DIGEST_HOUR or self._digest_day == day:
+            return []
+        self._digest_day = day
+        since = now - timedelta(days=1)
+        rules = self.rules_in_force() if self.rules_in_force is not None else []
+        made = []
+        with self._lock:
+            for pid in self._recipients({"roles": ["owner"], "persons": []}):
+                rows = self.repo.list_notifications(pid, unread=None, severities=None, topics=["approvals"], since=since,
+                                                    limit=500, cursor=None)
+                if any(r.group_key == f"{self.AUTO_PREFIX}daily:{day}" for r in rows):
+                    continue
+                count = sum(1 for r in rows if (r.group_key or "").startswith(self.AUTO_PREFIX + "digest:"))
+                if not count:
+                    continue
+                facts = {"count": count, "rules": len(rules), "forever": sum(1 for r in rules if r.get("forever"))}
+                spec = catalogue.lookup("approval.auto.digest")
+                made += self._fanout([pid], severity="info", topic="approvals", title=catalogue.render(spec.title, facts),
+                                     body=catalogue.render(spec.body, facts), link=spec.link, source="gateway",
+                                     action_id=None, alert_id=None, inapp_only=False,
+                                     group_key=f"{self.AUTO_PREFIX}daily:{day}",
+                                     actions=[{"id": "log", "label": "See what went through", "kind": "open",
+                                               "link": "/settings/permissions/auto-approved"}])
+        return made
 
     def on_node_event(self, subject: str, raw: bytes) -> bool:
         """A node outbox event (§12.9). The node id comes from the subject, never from the body."""
@@ -453,6 +527,10 @@ class NotifyService:
         """One worker pass: release held items as summaries, send what is due. Returns sends tried."""
         with self._pump_lock:
             now = self.clock()
+            try:
+                self.digest_tick(now)
+            except Exception:
+                log.exception("approval digest failed")
             groups: dict[str, list[DeliveryRow]] = defaultdict(list)
             for d in self.repo.released_held(now):
                 n = self.repo.get_notification(d.notification_id)
@@ -577,6 +655,8 @@ class NotifyService:
                 d.state, d.next_attempt_at = "failed", now + timedelta(seconds=BACKOFF_S[d.attempts - 1])
             self.repo.save_delivery(d)
             self._target_failed(d.target_id, d.person_id, d.last_error, now)
+            if n is not None and (n.group_key or "").startswith(self.AUTO_PREFIX + "each:"):
+                self._auto_push_failed(n.group_key.split(":", 1)[1], "push_failed")  # PR 13: the rule pauses
             return
         except Exception as exc:  # a bug in a sender must not kill the worker
             log.exception("sender crashed")
