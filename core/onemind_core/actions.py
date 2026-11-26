@@ -60,6 +60,7 @@ from .scan import scan_problem
 from .approvalcard import APPROVAL_LIMIT_VALUE, HOLD_MIN_MS, approval_card, hold_required  # noqa: F401 (re-exported)
 from .ledger import Action, ActionRepository, iso, new_action_id, utc
 from .taint import PLAN_KEY, TaintLedger, plan_taint
+from .taint_store import NODE_JOIN_REQUESTER
 
 log = logging.getLogger("onemind.actions")
 
@@ -434,6 +435,11 @@ class FeatureAction:
     # derived from the request's params (part of plan_sha256).
     limits_for: Callable[[dict], list[dict]] | None = None
     preview_for: Callable[[dict], dict | None] | None = None
+    # Design 25b (data-first recovery, D-028): reaching the owner's own data never needs a strong key. An owner who
+    # lost every passkey and signs in with password and authenticator code may still APPROVE a data_access type
+    # without a passkey, even when require_passkey_approval is on. Only read and write types that change nothing
+    # that exists qualify (a restore copy into a new folder); never physical.
+    data_access: bool = False
 
 
 FEATURE_OUTCOMES = ("succeeded", "failed", "outcome_unknown")
@@ -537,6 +543,8 @@ class ActionService:
             raise ValueError(f"{action_type}: unknown risk class {spec.risk!r}")
         from .automation import registry  # imported late: the registry imports ActionType from here
 
+        if spec.data_access and (spec.physical or spec.risk not in ("read", "write") or spec.risk_for is not None):
+            raise ValueError(f"{action_type}: only a fixed read or write type that is not physical can be data access")
         if spec.physical:
             if spec.requesters & {"automation", "policy"}:
                 raise ValueError(f"{action_type}: a physical type is never requested by an automation or policy")
@@ -547,6 +555,10 @@ class ActionService:
     def can_file(self, action_type: str) -> bool:
         """True when a request of this type can be filed here (so a standing approval can fire on it)."""
         return action_type in APP_CLAIMS or action_type in self.handlers or action_type in self.feature_types
+
+    def is_data_access(self, action_type: str) -> bool:
+        spec = self.feature_types.get(action_type)
+        return spec is not None and spec.data_access
 
     def is_physical(self, action_type: str) -> bool:
         spec = self.feature_types.get(action_type)
@@ -614,7 +626,12 @@ class ActionService:
         risk = registry.risk_of(action_type, params) if registry.known(action_type) else None
         # A requester that read third-party text is tainted here as on every other path, and a request
         # a standing approval could cover carries a plan, so an approval is bound to these parameters.
-        taint = self.taint.get(str(requested_by.get("id") or ""), requested_by.get("kind"))
+        # Only the fabric's node.join request skips a node's default exposure; any other request a
+        # node files counts as exposed, as on every other path (#1133 fails closed).
+        kind = requested_by.get("kind")
+        if kind == "node" and action_type == "node.join":
+            kind = NODE_JOIN_REQUESTER
+        taint = self.taint.get(str(requested_by.get("id") or ""), kind)
         plan, plan_sha = None, None
         if taint is not None or registry.policy_may_cover(action_type, params, risk) is None:
             plan, plan_sha = feature_plan(action_type, params)

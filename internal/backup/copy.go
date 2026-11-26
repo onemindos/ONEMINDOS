@@ -78,21 +78,34 @@ func (a *Agent) RestoreCopy(ctx context.Context, req CopyRequest) (CopyResult, e
 	if len(sources) == 0 {
 		return CopyResult{}, errors.New("the snapshot has no saved folders")
 	}
+	nodes := make([]Node, len(sources))
+	var total, largest int64
+	for i, src := range sources {
+		n, err := lookupNode(ctx, repo, snap.ID, src)
+		if err != nil {
+			return CopyResult{}, err
+		}
+		size, err := nodeBytes(ctx, repo, snap.ID, n)
+		if err != nil {
+			return CopyResult{}, err
+		}
+		nodes[i], total, largest = n, total+size, max(largest, size)
+	}
+	if err := os.MkdirAll(a.Cfg.StateDir, 0o700); err != nil {
+		return CopyResult{}, err
+	}
+	if msg := a.copySpaceCheck(dest, total, largest); msg != "" {
+		return CopyResult{}, errors.New(msg)
+	}
 	dfd, err := openEmptyDir(dest)
 	if err != nil {
 		return CopyResult{}, err
 	}
 	defer closeDir(dfd)
-	if err := os.MkdirAll(a.Cfg.StateDir, 0o700); err != nil {
-		return CopyResult{}, err
-	}
 	res := CopyResult{Dest: dest, SnapshotID: snap.ID}
 	seen := map[string]int{}
-	for _, src := range sources {
-		n, err := lookupNode(ctx, repo, snap.ID, src)
-		if err != nil {
-			return res, err
-		}
+	for i, src := range sources {
+		n := nodes[i]
 		if n.Type != "file" && n.Type != "dir" {
 			res.Skipped++
 			continue
@@ -122,6 +135,46 @@ func (a *Agent) RestoreCopy(ctx context.Context, req CopyRequest) (CopyResult, e
 	}
 	a.Log.Info("restore copy", "snapshot", snap.ID, "dest", dest, "files", res.Files, "skipped", res.Skipped)
 	return res, nil
+}
+
+// nodeBytes is how much a copy of n writes: its size for a file, the sum of the
+// files below it for a folder. Symlinks and special files are skipped, so 0.
+func nodeBytes(ctx context.Context, repo Repo, id string, n Node) (int64, error) {
+	switch n.Type {
+	case "file":
+		return n.Size, nil
+	case "dir":
+		below, err := repo.Ls(ctx, id, cleanSnapPath(n.Path), true)
+		if err != nil {
+			return 0, err
+		}
+		var sum int64
+		for _, b := range below {
+			if b.Type == "file" {
+				sum += b.Size
+			}
+		}
+		return sum, nil
+	}
+	return 0, nil
+}
+
+// copySpaceCheck refuses a copy before it starts when it cannot fit (review of
+// #1193): the folder needs every byte plus 10 %, and the staging folder (where
+// restic writes each saved folder before it is copied) needs the largest one
+// plus 10 %. Staging and the Files root are usually the same /data disk, so the
+// folder's disk is asked for both. Unknown free space never blocks a copy, as
+// for a backup (spaceCheck).
+func (a *Agent) copySpaceCheck(dest string, total, largest int64) string {
+	pad := func(n int64) int64 { return n + n/10 }
+	need := pad(total) + pad(largest)
+	if free, err := a.FreeBytes(dest); err == nil && free < need {
+		return fmt.Sprintf("not enough space for this copy: %d bytes free, %d bytes needed (the copy plus room to unpack it)", free, need)
+	}
+	if free, err := a.FreeBytes(a.Cfg.StateDir); err == nil && free < pad(largest) {
+		return fmt.Sprintf("not enough space to unpack this copy: %d bytes free, %d bytes needed", free, pad(largest))
+	}
+	return ""
 }
 
 func dumpTo(ctx context.Context, repo Repo, id, p, file string) error {

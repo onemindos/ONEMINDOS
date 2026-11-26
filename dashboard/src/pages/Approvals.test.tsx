@@ -157,6 +157,17 @@ describe('approveWithStepUp', () => {
     expect(approve).toHaveBeenNthCalledWith(2, 'x', { plan_sha256: SHA, hold_ms: 2000, webauthn: { id: 'sig' } });
   });
 
+  it('a restore copy goes unsigned even with a passkey (data-first, design 25b); other types still sign', async () => {
+    const sign = vi.fn(async () => ({ id: 'sig' }));
+    const approve = vi.fn(async () => ({ id: 'x' }));
+    const api = { approveOptions: async () => opts, approve } as never;
+    await approveWithStepUp(api, { ...act, type: 'backup.restore.copy' }, { passkey: true, sign });
+    expect(sign).not.toHaveBeenCalled();
+    expect(approve).toHaveBeenLastCalledWith('x', { plan_sha256: SHA });
+    await approveWithStepUp(api, { ...act, type: 'backup.restore' }, { passkey: true, sign });
+    expect(approve).toHaveBeenLastCalledWith('x', { plan_sha256: SHA, webauthn: { id: 'sig' } });
+  });
+
   it('a hold on an action with no plan carries hold_ms and no plan binding', async () => {
     const approve = vi.fn(async () => ({ id: 'x' }));
     await approveWithStepUp({ approveOptions: async () => ({ ...opts, plan_sha256: undefined }), approve } as never, { id: 'x', plan_sha256: undefined }, { hold: { ms: 2000 } });

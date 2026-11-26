@@ -1171,13 +1171,14 @@ class IdentityService:
                 raise ApiError(422, "conflict", "send a passkey assertion or a device signature, not both")
             return self._approve_with_device_key(p, ctx, action_id, body)
         if assertion is None:
-            if self.cfg.require_passkey_approval and self.passkeys_active():
+            if self.cfg.require_passkey_approval and self.passkeys_active() and not self._data_access(action_id):
                 self.emit("auth", "step_up.required", {"attempted": "approve", "action_id": action_id}, p,
                           severity="warning")
                 raise ApiError(401, "unauthenticated", "approvals need a passkey on this box", reason="step_up_required")
             if ctx is not None:  # F-12: shown as "approved without passkey"
                 self.emit("auth", "approval.token", {"action_id": action_id, "via": ctx.session.auth_method
-                                                     if ctx.session else "token"}, p)
+                                                     if ctx.session else "token",
+                                                     "data_access": self._data_access(action_id)}, p)
             return
         try:
             credential = pk.normalize(assertion)
@@ -1200,6 +1201,15 @@ class IdentityService:
             self.repo.update(SessionRow, [SessionRow.id == ctx.session.id], {"passkey_at": self.now()})
         self.emit("auth", "step_up.succeeded", {"action_id": action_id, "credential_id": cred.id,
                                                 "passkey_user_id": owner.id, "approval": "passkey"}, p)
+
+    def _data_access(self, action_id: str) -> bool:
+        """Design 25b: the action only reaches the owner's own data (a restore copy into a new folder), so it is
+        approved with the everyday sign-in, never a passkey: losing every strong key never locks the owner out of
+        their data. An unknown id answers False (the approve route then says 404)."""
+        try:
+            return self.gw.actions.is_data_access(str(self.gw.actions.get(action_id).get("type")))
+        except ApiError:
+            return False
 
     def _check_bound(self, p: Principal, action_id: str, row: ChallengeRow, body: dict) -> None:
         """The claimed challenge was made for this action, and neither the action nor its plan changed."""

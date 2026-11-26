@@ -129,6 +129,24 @@ def test_a_kit_approved_where_nobody_sees_it_leaves_the_disk_key_alone(client, b
     assert client.post("/v1/backups/kit", headers=OWNER).json()["one_time"]["disk_key"] == DISK_KEY
 
 
+def test_a_kit_stopped_by_a_passkey_step_up_never_takes_the_disk_key_later(client, bk):
+    """Review of #1191: with a passkey registered, POST /v1/backups/kit stops at the step-up. The action stays
+    pending; approving it later in Approvals must not take the disk key (destroying onemindd's copy) into a one-time
+    answer that no route returns."""
+    bk.disk_key_source = storage = FakeStorage()
+    client.app.state.identity.passkeys_active = lambda: True  # as if an owner had registered a passkey
+    r = client.post("/v1/backups/kit", headers=OWNER)
+    assert r.status_code == 401 and r.json()["reason"] == "step_up_required", r.text
+    assert bk._shown == set(), "the show mark ends with the request that set it"
+    pending = [a for a in client.get("/v1/actions", headers=OWNER).json() if a["type"] == "backup.kit.issue"]
+    assert [a["state"] for a in pending] == ["awaiting_approval"]
+    client.app.state.identity.passkeys_active = lambda: False  # the approval passes its step-up elsewhere
+    assert approve(client, pending[0]["id"])["state"] == "succeeded"
+    assert storage.calls == [] and storage.key == DISK_KEY, "the disk key stays with onemindd"
+    assert client.get("/v1/backups/kit", headers=OWNER).json()["disk_key"] == "not_available"
+    assert client.post("/v1/backups/kit", headers=OWNER).json()["one_time"]["disk_key"] == DISK_KEY
+
+
 def test_a_storage_failure_never_blocks_the_kit(client, bk):
     def broken():
         raise RuntimeError("socket gone")

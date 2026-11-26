@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths: ["cmd/onemind/**", "cmd/onemind-mangen/**", "internal/**", "sdk/go/**", "sdk/openapi/**", "sdk/scripts/**", ".github/actions/sdk-gen/**", "LICENSE", "go.mod", "go.sum", "scripts/release/cli-packages.py", "scripts/release/build-cli-packages.sh", "test/unit/test_cli_packages.py", ".github/workflows/cli-packages.yml"]
+    paths: ["cmd/onemind/**", "cmd/onemind-mangen/**", "internal/**", "sdk/go/**", "sdk/openapi/**", "sdk/scripts/**", ".github/actions/sdk-gen/**", "LICENSE", "go.mod", "go.sum", "scripts/release/cli-packages.py", "scripts/release/build-cli-packages.sh", "scripts/release/check-cli-paths.py", "test/unit/test_cli_packages.py", ".github/workflows/cli-packages.yml"]
 permissions:
   contents: read
 concurrency:
@@ -54,17 +54,16 @@ jobs:
           test -s arm64-onemind
           file arm64-onemind | grep -q 'ARM aarch64'
       - name: No build machine paths in the binaries
+        # The check reads each archive's bin/onemind and fails on any of the build folders below, or on a string that
+        # starts an absolute path under /home, /Users, /runner or /work. Gateway routes such as /v1/work/tasks are not
+        # paths (scripts/release/check-cli-paths.py says why; the old grep matched them once `onemind work` landed).
         shell: bash
         run: |
           set -euo pipefail
-          n=0
-          for f in dist/cli/*.tar.gz; do
-            tar -xzOf "$f" --wildcards '*/bin/onemind' > bin.tmp
-            test -s bin.tmp   # fail loudly if the binary was not found, so the grep below never runs on nothing
-            if strings bin.tmp | grep -E '/(home|Users|runner|work)/'; then echo "path leaked in $f"; exit 1; fi
-            n=$((n+1))
-          done
-          test "$n" -eq 4
+          python3 -I scripts/release/check-cli-paths.py --expect 4 \
+            --forbid "$GITHUB_WORKSPACE" --forbid "$HOME" --forbid "$RUNNER_TEMP" --forbid "$RUNNER_TOOL_CACHE" \
+            --forbid "$(go env GOROOT)" --forbid "$(go env GOPATH)" --forbid "$(go env GOMODCACHE)" \
+            dist/cli/*.tar.gz
       - name: Homebrew formula parses
         run: ruby -c dist/cli/onemind.rb
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

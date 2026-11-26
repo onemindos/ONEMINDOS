@@ -1,5 +1,6 @@
 <!-- Rules: docs/leap/AGENT-QUEUE.md. One issue per PR, under about 600 changed lines. -->
-Closes #
+<!-- Write "Refs #n", never "Closes #n": issues are closed by hand once the work is truly done. -->
+Refs #
 
 ## Why
 
