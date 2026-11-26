@@ -28,6 +28,10 @@ permissions:
 concurrency:
   group: battery-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}-${{ inputs.board }}-${{ inputs.leg }}-${{ inputs.upto }}-${{ inputs.snapshot != '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+# Build cache (os/rootfs/buildx-cache.sh): every image build reads the GitHub Actions cache; pushes, the nightly and
+# manual runs also write it. Pull requests write none, so they cannot push the base branch's layers out of the 10 GB.
+env:
+  BUILDX_CACHE_WRITE: ${{ contains(fromJSON('["push","schedule","workflow_dispatch"]'), github.event_name) }}
 jobs:
   battery:
     # CI-14: x86 + KVM on a Proxmox VE host when KVM_RUNNER=on and the event is trusted (allow-list); the release-signing
@@ -54,19 +58,18 @@ jobs:
           SNAPSHOT: ${{ inputs.snapshot }}
         run: python3 -I os/update/pick-snapshot.py apply --snapshot "$SNAPSHOT" && git diff --stat
       - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+      # Lets `docker buildx` in run steps reach the GitHub Actions cache (without it buildx skips type=gha silently).
+      - uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
       - name: Build rootfs (${{ inputs.leg }}, ${{ inputs.board }})
         run: |
           mkdir -p out
-          docker buildx build -f os/rootfs/Containerfile --target rootfs --progress plain \
+          sh os/rootfs/buildx-cache.sh rootfs-${{ inputs.leg }}-${{ inputs.board }} -- docker buildx build -f os/rootfs/Containerfile --target rootfs --progress plain \
             --build-arg BOARD=${{ inputs.board }} $(sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/${{ inputs.leg }}.args) \
-            --cache-from type=gha,scope=rootfs-${{ inputs.leg }}-${{ inputs.board }} \
-            --cache-to type=gha,mode=max,scope=rootfs-${{ inputs.leg }}-${{ inputs.board }} \
             --output type=tar,dest=out/rootfs-${{ inputs.leg }}-${{ inputs.board }}.tar .
       - name: Build tools image
         run: |
-          docker buildx build -f os/rootfs/Containerfile --target tools --progress plain \
+          sh os/rootfs/buildx-cache.sh tools-${{ inputs.runner }} -- docker buildx build -f os/rootfs/Containerfile --target tools --progress plain \
             $(sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/debian.args) \
-            --cache-from type=gha,scope=tools-${{ inputs.runner }} --cache-to type=gha,mode=max,scope=tools-${{ inputs.runner }} \
             --load -t onemind-tools:ci .
       - name: Fixtures (T0 build checks)
         run: make fixtures BOARD=${{ inputs.board }} LEG=${{ inputs.leg }} UPTO=${{ inputs.upto }} TOOLS=onemind-tools:ci
