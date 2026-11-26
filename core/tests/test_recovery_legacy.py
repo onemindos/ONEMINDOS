@@ -221,3 +221,98 @@ def test_removing_a_legacy_contact_ends_their_claim_and_is_l0(rc, clock):
     r = fresh.delete(f"/v1/auth/legacy/contacts/{phone.contact_id}", headers=csrf(fresh))
     assert r.status_code == 200 and r.json()["state"] == "removed"
     assert timedelta(days=1)
+
+
+def granted(rc, clock, phone, key) -> dict:
+    """A claim that ran its 30-day wait with the owner silent and nobody else to confirm: granted."""
+    clock.advance(7 * DAY + 1)
+    c = claim(rc, phone, key).json()
+    clock.advance(30 * DAY + 1)
+    rc.app.state.legacy_contacts.tick()
+    got = TestClient(rc.app).get("/v1/legacy/claims", headers=phone.auth).json()[0]
+    assert got["state"] == "granted", got
+    return c
+
+
+def test_an_owner_who_signs_in_after_the_grant_ends_it_and_the_export_refuses(rc, clock):
+    """The owner was away (a trip), a claim was granted; the owner signs in again: the export ends at once."""
+    owner_with_passkey(rc)
+    put_home_file(rc, "letters.txt", b"to my family")
+    phone, key = legacy_phone(rc)
+    granted(rc, clock, phone, key)
+    assert TestClient(rc.app).get("/v1/legacy/export", headers=phone.auth).status_code == 200
+    assert TestClient(rc.app).post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD}).status_code == 200
+    for path in ("/v1/legacy/export", "/v1/legacy/export/download"):
+        assert TestClient(rc.app).get(path, headers=phone.auth).status_code == 403
+    got = TestClient(rc.app).get("/v1/legacy/claims", headers=phone.auth).json()[0]
+    assert got["state"] == "cancelled" and got["end_reason"] == "owner_signed_in"
+
+
+def test_owner_activity_after_the_grant_without_a_sign_in_event_also_ends_it(rc, clock):
+    """Defence in depth: a key used after the grant (no auth.login event) ends the claim before any export."""
+    owner_with_passkey(rc)
+    phone, key = legacy_phone(rc)
+    granted(rc, clock, phone, key)
+    from onemind_core.identity.models import PasskeyRow
+    from onemind_core.ledger import utc
+
+    legacy = rc.app.state.legacy_contacts
+    clock.advance(60)
+    with legacy.db.session.begin() as s:
+        for row in s.query(PasskeyRow).all():
+            row.last_used_at = utc(clock.now)
+    r = TestClient(rc.app).get("/v1/legacy/export", headers=phone.auth)
+    assert r.status_code == 403
+    got = TestClient(rc.app).get("/v1/legacy/claims", headers=phone.auth).json()[0]
+    assert got["state"] == "cancelled" and got["end_reason"] == "owner_active"
+
+
+def test_an_adult_who_accepted_an_outside_invite_cannot_confirm_their_own_claim(rc, clock):
+    owner_with_passkey(rc)
+    adult = enrol(rc, "adult", "ben")
+    # The adult accepts an *outside* legacy invite while signed in on that device.
+    r = add_legacy(rc, "Ben (outside)")
+    invite = r.json()["invite"]
+    payload = json.loads(base64.urlsafe_b64decode(invite.split(".")[1] + "=="))
+    phone = ContactPhone()
+    r = adult.post(f"/v1/legacy/invites/{payload['invite_id']}/accept", json=phone.accept_body(invite),
+                   headers=csrf(adult))
+    assert r.status_code == 201, r.text
+    phone.token, key = r.json()["one_time"]["contact_token"], r.json()["one_time"]["access_key"]
+    clock.advance(7 * DAY + 1)
+    c = claim(rc, phone, key).json()
+    clock.advance(30 * DAY + 1)
+    rc.app.state.legacy_contacts.tick()
+    fresh = TestClient(rc.app)
+    assert fresh.post("/v1/auth/login", json={"username": "ben", "password": PASSWORD}).status_code == 200
+    r = fresh.post(f"/v1/auth/legacy/claims/{c['id']}/confirm", headers=csrf(fresh))
+    assert r.status_code == 403 and "your own legacy claim" in r.text, r.text
+
+
+def test_the_access_key_never_reaches_the_audit_the_events_or_the_notices(rc, clock, settings):
+    owner_with_passkey(rc)
+    legacy = rc.app.state.legacy_contacts
+    published: list[str] = []
+    real_publish = legacy.gw.events.publish_event
+
+    def capture(*a, **kw):
+        published.append(json.dumps([a, kw], default=str))
+        return real_publish(*a, **kw)
+
+    legacy.gw.events.publish_event = capture
+    try:
+        phone, key = legacy_phone(rc)
+        assert claim(rc, phone, "AAAA-BBBB").status_code in (401, 409)  # a refused key is audited too
+        granted(rc, clock, phone, key)
+        TestClient(rc.app).get("/v1/legacy/export", headers=phone.auth)
+    finally:
+        legacy.gw.events.publish_event = real_publish
+    from onemind_core.recovery.models import NoticeRow
+
+    with legacy.db.session() as s:
+        notices = json.dumps([[n.event, n.data] for n in s.query(NoticeRow).all()], default=str)
+    audit = "\n".join(json.dumps(e) for e in audit_events(settings))
+    events = "\n".join(published)
+    assert published and "claim.granted" in events
+    for secret in (key, key.replace("-", ""), key.lower(), phone.token):
+        assert secret not in audit and secret not in events and secret not in notices

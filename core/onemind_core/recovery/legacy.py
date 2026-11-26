@@ -15,7 +15,9 @@ nobody in the loop, so the claim rests on time, notices and the owner's own sile
 4. **Notices** at the start, every 7 days and on the last day, to every owner, every other recovery
    and legacy contact and every household adult.
 5. **Any sign-in by the owner cancels the claim at once,** and the claim completes only if the owner
-   did not sign in, use a key or approve anything for the whole wait (Google's inactivity idea).
+   did not sign in, use a key or approve anything for the whole wait (Google's inactivity idea). This
+   holds after a grant too: an owner who signs in again (back from a trip, say) ends a granted claim,
+   and the export refuses as soon as the owner was active after the grant.
 6. **A second person** (another legacy contact or a household adult) must confirm when one exists
    (D-028); with nobody else, the wait, the notices and the inactivity check stand alone.
 7. **Then** the contact gets a read-only export of the owner's Files home for 12 months. The data
@@ -67,6 +69,7 @@ ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ"  # no I, L, O: easy to read back
 CERT_TYPES = {b"%PDF-": ("application/pdf", "pdf"), b"\xff\xd8\xff": ("image/jpeg", "jpg"),
               b"\x89PNG\r\n\x1a\n": ("image/png", "png")}
 OPEN_STATES = ("waiting", "awaiting_second")
+LIVE_STATES = (*OPEN_STATES, "granted")  # every state the owner's return must end
 LEGACY_PATHS = [
     re.compile(r"/v1/legacy/contact(/[a-z-]+)?"),
     re.compile(r"/v1/legacy/claims(/lcl_[0-9A-Z]{26}/confirm)?"),
@@ -143,6 +146,26 @@ class LegacyContacts(RecoveryContacts):
             row = s.get(ContactRow, contact_id)
             row.extra = {**(row.extra or {}), "access_salt": salt.hex(), "access_verifier": verifier(salt, key)}
         return {"access_key": key}
+
+    def accept(self, request, invite_id: str, *args, **kwargs) -> dict:
+        """As for a recovery contact; also note which household account (if any) was signed in on the
+        device that accepted, so that adult can never be the second person on this contact's claim."""
+        out = super().accept(request, invite_id, *args, **kwargs)
+        who = self._session_user(request)
+        if who is not None:
+            with self.db.session.begin() as s:
+                row = s.get(ContactRow, invite_id)
+                row.extra = {**(row.extra or {}), "accepted_by_user_id": who}
+        return out
+
+    def _session_user(self, request) -> str | None:
+        if not request.headers.get("authorization") and not request.cookies:
+            return None
+        try:
+            p = self.gw.principal(request)
+        except ApiError:
+            return None
+        return p.id if p.kind == "person" else None
 
     def contact_view(self, row: ContactRow) -> dict:
         return {**super().contact_view(row), "wait_days": int((row.extra or {}).get("wait_days", DEFAULT_WAIT_DAYS))}
@@ -307,7 +330,7 @@ class LegacyContacts(RecoveryContacts):
                 raise self.ident.deny(p, "confirm this legacy claim", reason="not_a_second_person")
         else:
             claimant = self._get(c.contact_id)
-            if claimant is not None and claimant.household_user_id == p.id:
+            if claimant is not None and self._is_claimant(claimant, p.id):
                 raise self.ident.deny(p, "confirm your own legacy claim", reason="not_a_second_person")
         if c.state not in OPEN_STATES:
             raise ApiError(409, "conflict", f"this claim is {c.state}", reason=c.state)
@@ -317,14 +340,28 @@ class LegacyContacts(RecoveryContacts):
         self.tick()
         return self.claim_view(self._claim(c.id))
 
+    def _is_claimant(self, claimant: ContactRow, user_id: str) -> bool:
+        """Is this household account the claimant itself? Linked as a household contact, signed in on the
+        phone that accepted the invite, or holding the claimant's contact key as one of its approver keys.
+        (An adult who accepted an outside invite on a separate, signed-out phone with a new key cannot be
+        told apart; the wait, the notices to every owner and the owner-silence check still stand.)"""
+        if claimant.household_user_id == user_id or (claimant.extra or {}).get("accepted_by_user_id") == user_id:
+            return True
+        if not claimant.key_fingerprint:
+            return False
+        with self.db.session() as s:
+            return s.scalar(select(ApproverKeyRow.id).where(ApproverKeyRow.user_id == user_id,
+                                                            ApproverKeyRow.fingerprint == claimant.key_fingerprint)) is not None
+
     # ---- the owner's own activity ----------------------------------------------------------------------
     def _owner_signed_in(self, envelope: dict) -> None:
+        """Any sign-in by the owner ends every claim on them, a granted one included."""
         user_id = (envelope.get("data") or {}).get("user_id")
         if not user_id:
             return
         with self.db.session() as s:
             rows = list(s.scalars(select(ClaimRow).where(ClaimRow.owner_user_id == user_id,
-                                                         ClaimRow.state.in_(OPEN_STATES))))
+                                                         ClaimRow.state.in_(LIVE_STATES))))
         for c in rows:
             self._end_claim(c, "cancelled", "owner_signed_in", user_id)
 
@@ -352,8 +389,13 @@ class LegacyContacts(RecoveryContacts):
         or grant the 12-month read-only export. Idempotent."""
         now, done = self.now(), 0
         with self.db.session() as s:
-            rows = list(s.scalars(select(ClaimRow).where(ClaimRow.state.in_(OPEN_STATES))))
+            rows = list(s.scalars(select(ClaimRow).where(ClaimRow.state.in_(LIVE_STATES))))
         for c in rows:
+            if c.state == "granted":  # the owner came back after the grant: the export ends
+                if c.granted_at is not None and self._owner_active_since(c.owner_user_id, utc(c.granted_at)):
+                    self._end_claim(c, "cancelled", "owner_active", None)
+                    done += 1
+                continue
             start = utc(c.created_at)
             if self._owner_active_since(c.owner_user_id, start):
                 self._end_claim(c, "cancelled", "owner_active", None)
@@ -390,6 +432,10 @@ class LegacyContacts(RecoveryContacts):
                          .order_by(ClaimRow.granted_at.desc()))
         if c is None:
             raise ApiError(403, "permission_denied", "no granted legacy claim", reason="no_granted_claim")
+        if c.granted_at is None or self._owner_active_since(c.owner_user_id, utc(c.granted_at)):
+            self._end_claim(c, "cancelled", "owner_active", None)
+            raise ApiError(403, "permission_denied", "the owner was active after the grant; the claim has ended",
+                           reason="owner_active")
         if c.access_until is None or utc(c.access_until) <= self.now():
             raise ApiError(403, "permission_denied", "the 12-month export window has ended; the data is still on the box",
                            reason="export_window_ended")
