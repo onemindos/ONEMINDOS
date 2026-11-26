@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<event version="2.0" uid="marker-3" type="a-u-G" how="h-g-i-g-o" time="2026-11-26T15:02:00.000Z" start="2026-11-26T15:02:00.000Z" stale="2026-11-26T16:02:00.000Z">
+  <point lat="-33.856784" lon="151.215297" hae="5" ce="20" le="10"/>
+  <detail>
+    <contact callsign="Unknown truck"/>
+    <color argb="-1"/>
+    <precisionlocation geopointsrc="USER" altsrc="DTED0"/>
+  </detail>
+</event>
