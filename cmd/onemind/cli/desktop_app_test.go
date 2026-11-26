@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 // desktopHub answers like core/onemind_core/routers/desktop_apps.py and files desktop.app.* actions.
@@ -78,7 +79,7 @@ func TestDesktopAppInstallUpdateRemoveOnlyFileARequest(t *testing.T) {
 			}
 		}
 		if !strings.Contains(posted, `"type":"desktop.app.`+verb+`"`) || !strings.Contains(posted, `"app_id":"md.obsidian.Obsidian"`) ||
-			!strings.Contains(posted, `"expires_at":"2026-11-26T`) {
+			!strings.Contains(posted, `"expires_at":"`+time.Now().UTC().Add(24*time.Hour).Format("2006-01-02")+`T`) {
 			t.Fatalf("%s posted %q", verb, posted)
 		}
 	}
