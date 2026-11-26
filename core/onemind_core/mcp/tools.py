@@ -64,6 +64,7 @@ class Services:
     builtin_actions: Callable[[], dict[str, tuple[str, str, str]]] = lambda: {}
     # The area read tools' services (mcp/read_tools.py AreaReads, #632); None serves them as unavailable.
     area_reads: Any = None
+    route_enabled: Callable[[str], bool] = lambda _: True
 
 
 # ---- the catalogue: generated from the surface registry (surfaces/core.py, #605) -------------------
@@ -72,6 +73,7 @@ _obj = obj
 # this list is generated from it. Do not add a tool here: add a ToolSurface there.
 TOOLS: list[dict] = [t.mcp_tool() for t in CORE_TOOLS if "mcp" in t.exposure]
 TOOL_NAMES = [t["name"] for t in TOOLS]
+TOOL_ROUTES = {t.name: t.route for t in CORE_TOOLS if t.name in TOOL_NAMES}
 READ_TOOLS = {t.name for t in CORE_TOOLS if t.effect == "read" and t.name in TOOL_NAMES}
 AREA_TOOL_NAMES = frozenset(t.name for t in AREA_TOOLS)
 
@@ -197,6 +199,9 @@ class Catalogue:
         found = self.svc.builtin_actions().get(name) if isinstance(name, str) else None
         return found[0] if found else None
 
+    def core_tool_enabled(self, name: str) -> bool:
+        return self.svc.route_enabled(TOOL_ROUTES[name])
+
     def call(self, p: Principal, name: object, args: object) -> dict:
         builtin = None if name in TOOL_NAMES else self.builtin_type(name)
         if name not in TOOL_NAMES and builtin is None:
@@ -205,6 +210,8 @@ class Catalogue:
             raise RpcError(INVALID_PARAMS, "arguments must be an object")
         if builtin is not None:
             return self.t_builtin(p, builtin, args)
+        if not self.core_tool_enabled(name):
+            return refusal("app_disabled", "the app that serves this tool is switched off")
         if name in READ_TOOLS:
             wait = self.limits.reads.hit(p.id)
             if wait:

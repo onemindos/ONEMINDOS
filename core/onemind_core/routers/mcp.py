@@ -52,6 +52,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         # Request-only tools of switched-on built-ins, from the surface registry (#605): read on every
         # call, so a switched-off app's tools leave tools/list at once; refused declarations never appear.
         builtin_actions=app.state.surfaces.mcp_actions,
+        route_enabled=app.state.surfaces.route_enabled,
         area_reads=AreaReads(app.state, gw, lambda: app_rows(gw), can_see_alert),  # backups, logs, ... (#632)
     )
     limits = Limits(gw.settings.section(McpSettings), gw.clock)

@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: onemind.app/v1
+kind: App
+metadata:
+  id: work
+  name: Work
+  description: Tasks, projects and personal inboxes.
+spec:
+  routes:
+    owns: [/v1/work]
+    calls:
+      - GET /v1/work/tasks
+      - POST /v1/work/capture
+  backup:
+    units:
+      - {kind: table, name: work_projects}
+      - {kind: table, name: work_project_members}
+      - {kind: table, name: work_tasks}
+      - {kind: table, name: work_dependencies}
+      - {kind: table, name: work_inboxes}
+      - {kind: table, name: work_create_receipts}
+  data: {owns: [private], reads: []}
+  phone: {entry: web}
