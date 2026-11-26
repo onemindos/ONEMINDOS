@@ -54,7 +54,7 @@ class TaskFields(BaseModel):
     title: Name
     body: str = Field(default="", max_length=10_000)
     status: Literal["todo", "in_progress", "done"] = "todo"
-    priority: int = Field(default=4, ge=1, le=4, strict=True)
+    priority: int = Field(default=4, ge=1, le=4)
     labels: tuple[Label, ...] = Field(default=(), max_length=32)
     assignee: PersonAssignee | None = None
     due_at: AwareDatetime | None = None

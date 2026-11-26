@@ -94,6 +94,9 @@ jobs:
           # The files spaces live here, so the /v1/files routes are fuzzed against real storage
           # instead of answering 503 storage_unavailable (the default root is /data/onemind/files).
           ONEMIND_FILES_ROOT: ${{ env.FUZZ }}/files
+          # Same for the kiosk flag: on a box the gateway unit creates /data/onemind/kiosk for it; the runner
+          # has no /data, so PUT /v1/instance/kiosk answered 503 Permission denied instead of switching.
+          ONEMIND_KIOSK_FLAG: ${{ env.FUZZ }}/kiosk/enabled
           ONEMIND_EXECUTOR: noop
           ONEMIND_NATS_URL: ""
           ONEMIND_NODE_ID: fuzz-hub

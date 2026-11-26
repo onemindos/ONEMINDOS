@@ -16,6 +16,12 @@ FILES_SEMANTIC_REFUSALS = {
     "invalid_path", "invalid_cursor", "invalid_metadata", "invalid_digest",
     "invalid_subject", "expiry_too_far", "invalid_quota", "invalid_kubeconfig",
     "invalid_settings", "confirm_mismatch", "invalid_root", "invalid_request",
+    # Judged against the clock, the hub's stored chunks, the time zone database or other items in the
+    # same list, which a schema cannot express (each one has a test in test_fuzz_landing_regressions.py):
+    "invalid_expiry",    # files shares: between 5 minutes and 30 days from now
+    "invalid_manifest",  # sync commit: the chunk sizes add up to the file size, a stored manifest is whole records
+    "invalid_scopes",    # app passwords: each space (home, shared) at most once
+    "bad_quick_add",     # work quick-add: the free-text grammar and a known time zone
 }
 UNAVAILABLE_REASONS ={"backups_disabled", "target_unreachable", "agent_refused", "agent_failed"}
 

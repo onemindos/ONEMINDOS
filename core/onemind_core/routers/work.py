@@ -23,7 +23,11 @@ register_route_scope("GET,HEAD", r"/v1/work(/.*)?", ("work:read",))
 register_route_scope("POST,PATCH,DELETE", r"/v1/work(/.*)?", ("work:write",))
 
 IdempotencyKey = Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=200)]
-RevisionHeader = Annotated[str, Header(alias="If-Match", min_length=1, max_length=12)]
+# The task revision (1 or more), quoted as an ETag or bare: the schema says so, so anything else being the
+# handler's 422 bad_revision is documented rather than a surprise (_revision below is the same rule).
+REVISION_RE = r'^("0*[1-9][0-9]*"|0*[1-9][0-9]*)$'
+RevisionHeader = Annotated[str, Header(alias="If-Match", min_length=1, max_length=12,
+                                       json_schema_extra={"pattern": REVISION_RE})]
 
 
 class ProjectBody(ProjectFields, JsonBody):
@@ -49,7 +53,7 @@ class ChangeBody(JsonBody):
     title: str | None = Field(default=None, max_length=160)
     body: str | None = Field(default=None, max_length=10_000)
     status: Literal["todo", "in_progress", "done"] | None = None
-    priority: int | None = Field(default=None, ge=1, le=4, strict=True)
+    priority: int | None = Field(default=None, ge=1, le=4)
     labels: list[str] | None = Field(default=None, max_length=32)
     assignee: PersonAssignee | None = None
     due_at: AwareDatetime | None = None
@@ -101,7 +105,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
                    cursor: str | None = Query(None, pattern=r"^[A-Za-z0-9_-]{1,40}/[A-Za-z0-9_-]{1,40}$")) -> list[Task]:
         after_project, after = cursor.split("/") if cursor else (None, "")
         if project_id and after_project not in (None, project_id):
-            raise ApiError(422, "conflict", "Cursor does not belong to this project", reason="bad_cursor")
+            raise ApiError(422, "conflict", "Cursor does not belong to this project", reason="invalid_cursor")
         rows = service.list_tasks(p, project_id, after=after, after_project=after_project, limit=limit + 1,
                                   view=view, delegated=delegated_reader(request, p))
         if len(rows) > limit:

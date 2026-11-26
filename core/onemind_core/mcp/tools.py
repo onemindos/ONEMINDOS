@@ -261,7 +261,7 @@ class Catalogue:
         if installed is not None and not isinstance(installed, bool):
             raise RpcError(INVALID_PARAMS, "installed must be a boolean")
         cursor = _str(args, "cursor", max_len=20)
-        start = int(cursor) if cursor and cursor.isdigit() else 0
+        start = int(cursor) if cursor and cursor.isascii() and cursor.isdigit() else 0
         rows = self._apps(_str(args, "category", max_len=80), installed)
         page = rows[start: start + APPS_PAGE]
         s: dict[str, Any] = {"apps": page}

@@ -271,7 +271,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             return True
 
         resume = since_id
-        if resume is None and last_event_id and last_event_id.isdigit():
+        if resume is None and last_event_id and last_event_id.isascii() and last_event_id.isdigit():
             resume = int(last_event_id)
         return start_stream(request, p, types=types, since_id=resume, resource_allowed=resource_allowed,
                             kinds=kinds, bbox=box, asset_allowed=asset_allowed)

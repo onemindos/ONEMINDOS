@@ -79,7 +79,7 @@ def totp_code(secret: str, step: int) -> str:
 def totp_match(secret: str, code: str, now: float | None = None, last_step: int | None = None) -> int | None:
     """The time step `code` matches (window ±1), or None. A step at or before last_step is a replay."""
     code = (code or "").strip().replace(" ", "")
-    if len(code) != TOTP_DIGITS or not code.isdigit():
+    if len(code) != TOTP_DIGITS or not (code.isascii() and code.isdigit()):
         return None
     current = int((time.time() if now is None else now) // TOTP_STEP)
     for step in (current - 1, current, current + 1):
