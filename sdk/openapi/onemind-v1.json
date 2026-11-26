@@ -10533,7 +10533,7 @@
           },
           "forever": {
             "default": false,
-            "description": "no end date (read and write types only; never a floor item)",
+            "description": "no end date (read and write types only; never a floor item); needs a proven key (L2, design PR 11): refused for now",
             "title": "Forever",
             "type": "boolean"
           },

@@ -110,8 +110,8 @@ def test_a_teen_cannot_loosen_their_own_agent(client):
 
 
 def test_nobody_loosens_their_own_requests(client, passkey):
-    r = mode(client, "person:owner", "auto")
-    assert r.status_code == 403 and "your own requests" in r.json()["message"]
+    r = mode(client, "person:owner", "auto")  # the owner has no mode at all (design 3.5.1)
+    assert r.status_code == 422 and r.json()["reason"] == "owner_exempt"
     assert mode(client, "person:adult", "auto", headers=ADULT).status_code == 403
     assert mode(client, "person:adult", "auto").status_code == 200  # a different approver sets it
 
@@ -154,3 +154,43 @@ def test_live_rules_keep_firing_after_the_upgrade(client, clock, passkey):
     migrated = [e for e in audit(client) if e["event"] == "permission.mode.migrated"]
     assert migrated and migrated[-1]["data"]["principals"] == ["agent:hermes"]
     _ = iso
+
+
+def test_the_owner_cannot_lock_themselves_out(client, clock, passkey):
+    """Opus review on #1203: Locked on person:owner used to answer 200, then every owner request got
+    403 mode_locked and setting it back got 403 "your own requests": only a database edit undid it."""
+    install(client, clock)
+    for m in ("locked", "headless", "ask"):
+        r = mode(client, "person:owner", m)
+        assert r.status_code == 422 and r.json()["reason"] == "owner_exempt", (m, r.text)
+    assert client.get("/v1/permission-modes/person:owner", headers=OWNER).json()["own"] is False
+    r = restart(client, clock, "o0", headers=OWNER)
+    assert r.status_code in (200, 201) and r.json()["state"] != "refused", r.text
+    assert client.get("/v1/permission-modes", headers=OWNER).status_code == 200  # still in charge
+
+
+@pytest.mark.parametrize("default", ["locked", "headless"])
+def test_a_locked_or_headless_household_default_never_touches_the_owner(client, clock, passkey, default):
+    install(client, clock)
+    assert client.put("/v1/permission-modes", headers=OWNER, json={"mode": default}).status_code == 200
+    r = restart(client, clock, "h0", headers=OWNER)
+    assert r.status_code in (200, 201), r.text  # the owner's own request runs as before modes
+    r = restart(client, clock, "h1")  # an agent on the default is refused (locked; headless with no rule)
+    assert r.status_code == 403
+    # and the owner can always put the default back
+    assert client.put("/v1/permission-modes", headers=OWNER, json={"mode": "ask"}).status_code == 200
+
+
+def test_the_migration_lists_wildcard_rules_it_could_not_move(client, clock, passkey):
+    svc = client.app.state.automation
+    svc.repo.add_policy(id="pol_wild", name=None, per_day=5, window_id=None, expires_at=clock.now + timedelta(days=5),
+                        allow={"types": ["backup.run"], "requested_by": ["person:*"], "params": {}},
+                        created_by={"id": "owner"}, created_at=clock.now)
+    modes = client.app.state.permissions.modes
+    with svc.repo.db.session.begin() as s:  # a box upgraded from before modes: no marker yet
+        from sqlalchemy import delete
+        from onemind_core.permissions.modes import MIGRATED, ModeRow
+        s.execute(delete(ModeRow).where(ModeRow.principal == MIGRATED))
+    assert modes.migrate(lambda: set(), lambda: ["pol_wild"]) == []
+    migrated = [e for e in audit(client) if e["event"] == "permission.mode.migrated"]
+    assert migrated[-1]["data"]["wildcard_rules_not_moved"] == ["pol_wild"]

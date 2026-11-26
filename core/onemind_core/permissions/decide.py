@@ -52,6 +52,10 @@ class Facts:
     motion_lockout: bool = False
     automation_paused: bool = False
     deny: str | None = None  # id of a deny rule that matches
+    # Step 4. On today's request paths the route's require_scope dependency has already refused a
+    # missing scope (403) before any handler runs, so every caller passes the default True and step 4
+    # never fires there; an audit line with step 4 can only come from a caller that sets it. The step
+    # is kept so the order matches the design (3.4) for a caller that checks scope itself.
     scope_ok: bool = True
     clock_trusted: bool = True
     floor_settings_on: bool = True
