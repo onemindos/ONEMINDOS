@@ -13,9 +13,9 @@ still run all of them.
                    workflow (merge_group events have no `paths:` filter, so we filter here)
   push, workflow_dispatch -> all 9
 
-Shard sizes (2026-11-25, pytest-xdist on a 4-core ubuntu-24.04 runner): with 4 PostgreSQL shards one
-shard took 15 to 28 minutes (the per-example property tests and a slower runner), over the CI-03 target
-of 20; 6 shards keep every shard under it. The PostgreSQL shards run only in the merge queue, so the
+Shard sizes (2026-11-25, pytest-xdist on 4-core ubuntu-24.04 runners): 4 PostgreSQL shards took 15 to
+28 minutes each (the per-example property tests, and one slower runner), over the CI-03 target of 20;
+6 shards took 10.5 to 16.5 minutes (runs 45731312430 and 45734929171). The PostgreSQL shards run only in the merge queue, so the
 two extra jobs cost the shared 20-job pool once per merge, never on PR pushes.
 
 CI-13 (issue 299): the SQLite shards need no Docker services, so they may run on the Mac's local
