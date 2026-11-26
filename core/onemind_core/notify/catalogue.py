@@ -167,6 +167,20 @@ _SPECS = [
     Spec("auth.recovery.kit.failed", "notify", "security", "warning", "Wrong emergency kit key at the box",
          "Someone typed a wrong kit key on the box's own console. After five wrong keys the box waits before the "
          "next try; nothing is deleted.", link="/activity"),
+    # What the kit session then changed: each step is its own notice, so an owner who did not do it sees exactly what.
+    Spec("auth.recovery.kit.password_set", "notify", "security", "critical", "Owner password changed at the box",
+         "An owner's password was set from the box's console with the emergency kit, and every device signed in with "
+         "it was signed out. If it was not you, recover access with your kit and change it again.", link="/activity"),
+    Spec("auth.recovery.kit.passkey_removed", "notify", "security", "critical", "Passkey removed at the box",
+         "A passkey was removed from the box's console with the emergency kit. It no longer signs in or approves "
+         "anything.", link="/activity"),
+    Spec("auth.recovery.kit.authenticator_cleared", "notify", "security", "critical",
+         "Authenticator code turned off at the box",
+         "An owner's authenticator code was turned off from the box's console with the emergency kit. Set it up "
+         "again after you sign in.", link="/activity"),
+    Spec("auth.recovery.kit.code_issued", "notify", "security", "warning", "Passkey sign-in code made at the box",
+         "A one-time code to add a passkey was made on the box's console with the emergency kit. It works once, "
+         "for 15 minutes.", link="/activity"),
     # ---- apps ----------------------------------------------------------------------------
     Spec("app.unhealthy", "open", "apps", "warning", "{app_id} is not working",
          "{reason}", dedupe="app:{app_id}:health", audience=OWNERS_AND_ADULTS,

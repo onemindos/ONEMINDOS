@@ -144,3 +144,25 @@ def test_the_console_key_is_private_and_survives_a_restart(client, settings):
     from onemind_core.identity.kit_recovery import load_or_create_console_key
 
     assert load_or_create_console_key(path) == key
+
+
+def test_every_owner_is_told_in_their_inbox(client, box):
+    """Review of #1194: the unlock and each change it made reach the owners' notifications, not only the audit log."""
+    one, console = box
+    r = unlock(console, one).json()
+    s, owner = {"OneMind-Kit-Session": r["session"]}, r["owners"][0]
+    uid = owner["user_id"]
+    cred = owner["passkeys"][0]["credential_id"]
+    assert console.post("/v1/auth/recovery/kit/passkeys/remove", headers=s,
+                        json={"user_id": uid, "credential_id": cred}).status_code == 204
+    assert console.post("/v1/auth/recovery/kit/authenticator/clear", headers=s, json={"user_id": uid}).status_code == 204
+    assert console.post("/v1/auth/recovery/kit/sign-in-code", headers=s, json={"user_id": uid}).status_code == 200
+    assert console.post("/v1/auth/recovery/kit/password", headers=s,
+                        json={"user_id": uid, "password": NEW_PASSWORD}).status_code == 204
+    other = TestClient(client.app)
+    assert other.post("/v1/auth/login", json={"username": "zeus", "password": NEW_PASSWORD}).status_code == 200
+    items = other.get("/v1/notifications").json()
+    titles = {n["title"] for n in items if n["topic"] == "security"}
+    assert {"Owner access recovered at the box", "Passkey removed at the box", "Authenticator code turned off at the box",
+            "Passkey sign-in code made at the box", "Owner password changed at the box"} <= titles, titles
+    assert "-".join(one["groups"][:3]) not in json.dumps(items), "the kit key is in no notice"

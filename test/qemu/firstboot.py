@@ -19,6 +19,9 @@ _spec.loader.exec_module(battery)
 _spec = importlib.util.spec_from_file_location("netcheck", os.path.join(HERE, "netcheck.py"))
 netcheck = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(netcheck)       # NW1-NW4, CRITERIA-NETWORK.md
+_spec = importlib.util.spec_from_file_location("recoveryconsole", os.path.join(HERE, "recoveryconsole.py"))
+recoveryconsole = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(recoveryconsole)  # RC1, CRITERIA-RECOVERY.md
 
 PY = "/usr/lib/onemind/gateway/venv/bin/python3"
 GW = "http://127.0.0.1:8080"
@@ -842,6 +845,7 @@ def main():
         netcheck.nw1(vm, record); netcheck.nw2(vm, record); netcheck.nw3(vm, record)
         nw4 = netcheck.nw4_before(vm)
         vm.mark("F15 the owner shell: key-only SSH, tty2 login, no baked password"); f15(vm)
+        vm.mark("RC1 the owner recovery menu on tty3, the admin login on tty2 (design 25c)"); recoveryconsole.rc1(vm, record)
         vm.mark("F16 audio and Bluetooth on the screen boards (Step 3)"); btmark = f16(vm, a.board)
         vm.mark("F14 onemind completion and man pages (#882)"); f14(vm)
 

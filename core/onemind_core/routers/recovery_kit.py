@@ -3,8 +3,10 @@
 
 The console routes are not in the OpenAPI, the SDK or the MCP tools: only `onemindd recover-owner` and
 `onemind recovery kit` on the box call them, with the console key (identity/kit_recovery.py). The one network
-route, POST /v1/auth/recovery/kit/redeem, turns a one-time code made at the console into a short session that may
-add a passkey, so a phone can be enrolled after every key was lost.
+route, POST /v1/auth/recovery/kit/redeem, turns a one-time code made at the console into an owner sign-in (design
+path 2: a normal owner session at password level, with the normal lifetime, marked auth_method "kit"), so a phone
+can be enrolled with a new passkey after every key was lost. Like any password-level session it is not a passkey
+step-up: approvals that need a passkey still need one.
 """
 
 from __future__ import annotations
@@ -96,7 +98,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.post("/v1/auth/recovery/kit/redeem", include_in_schema=False, responses=error_responses(401, 422, 429))
     def kit_redeem(body: RedeemBody, request: Request):
-        """From any device: a code from the box's console signs its owner in to add a passkey (no other power)."""
+        """From any device: a one-time code from the box's console signs its owner in, as a normal owner session at
+        password level (auth_method "kit", the normal lifetime; design path 2), so they can add a new passkey. It is
+        not a passkey step-up, so approvals that need a passkey still ask for one."""
         now, src = identity.now(), request.client.host if request.client else "unknown"
         identity.limiter.check(src, now)
         try:
