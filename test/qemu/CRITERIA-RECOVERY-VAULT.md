@@ -30,3 +30,10 @@
 - The OneMind image itself (its own `/data` layout, RAUC, the gateway). The mechanism is tested on the same kernel and file system, not wired into the product (that is PR 25h).
 - TPM 2.0 with a PIN (`systemd-cryptenroll --tpm2-with-pin`) and the TPM's dictionary-attack lockout figures, which are vendor-specific; WebAuthn PRF support per browser and phone. The design note records these as follow-ups with sources, labelled UNVERIFIED where nobody ran them.
 - Performance on the reference hardware (Dell AIO, R530); the figures here are from a KVM guest.
+
+## 4. Amendment, 2026-11-25 (written before any run)
+
+- **Marker.** The marker file holds the hex text of 32 random bytes (64 bytes of text), so a plain byte search of a raw file, a repository or a dump finds it; the search pattern is read from a file, never passed on a command line.
+- **The keys stay outside the box.** The vault key and the second ("recovery") key are made on the host and handed to the guest through QEMU `fw_cfg` (`opt/onemind/vaultkey`, `opt/onemind/recoverykey`), read only from `/sys/firmware/qemu_fw_cfg`; no key file is ever written to either disk. RC3's locked checks run before the guest reads them.
+- **RC5 also covers the kit's restic key.** Restic encrypts its repository, so "absent from every file of the repository" alone would pass for a plain folder too. RC5 additionally requires the marker to be **absent from `restic dump` of the snapshot, read with the repository password** (the key the printed kit holds). That is the property Advanced protection needs ("the kit's restic key opens the repository but not the vault inside it"), and it is where `--naive` must fail RC5.
+- **RC4 in `--naive` mode** has no keyslots and reports FAIL ("no keyslots").
