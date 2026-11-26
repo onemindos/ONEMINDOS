@@ -121,12 +121,12 @@ function LiveChanges({ token, owner, summary: s, disks: all }: { token: string; 
         {/* devid:N for every member, missing ones too: "missing" names only the one missing member, so two missing members would read the same. */}
         {members.map((m) => <option key={String(m.devid)} value={`devid:${String(m.devid)}`}>Member {String(m.devid)}{m.missing === true ? ' (missing)' : ''} · {gb(m.size_bytes)}</option>)}
       </select></p>}
-    {canUnprotect && <p><label><input type="checkbox" checked={unprotect} onChange={(e) => { setUnprotect(e.target.checked); reset(); }} />{' '}
+    {canUnprotect && <p><label><input type="checkbox" aria-describedby="stor-unprotect-note" checked={unprotect} onChange={(e) => { setUnprotect(e.target.checked); reset(); }} />{' '}
       Allow the mirror to drop to one disk</label><br />
-      <span className="om-note">Needed to take a member out of a two-disk mirror. Your data is then kept on one disk only, so a disk failure loses it until you add another disk.</span></p>}
-    {canWipe && <p><label><input type="checkbox" checked={wipe} onChange={(e) => { setWipe(e.target.checked); reset(); }} />{' '}
+      <span id="stor-unprotect-note" className="om-note">Needed to take a member out of a two-disk mirror. Your data is then kept on one disk only, so a disk failure loses it until you add another disk.</span></p>}
+    {canWipe && <p><label><input type="checkbox" aria-describedby="stor-wipe-note" checked={wipe} onChange={(e) => { setWipe(e.target.checked); reset(); }} />{' '}
       Erase the old disk afterwards</label><br />
-      <span className="om-note">Everything on the disk that leaves the mirror is erased, so it can be given away or reused. Leave this off to keep it as it is. A missing disk cannot be erased.</span></p>}
+      <span id="stor-wipe-note" className="om-note">Everything on the disk that leaves the mirror is erased, so it can be given away or reused. Leave this off to keep it as it is. A missing disk cannot be erased.</span></p>}
     <Button disabled={!ready || busy} onClick={() => void preview()}>{busy && !shown ? 'Checking…' : 'Show what would happen'}</Button>
     {error && <p role="alert" className="om-note om-tone-bad">{error}</p>}
     {shown && <section aria-label="Plan">
