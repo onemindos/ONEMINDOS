@@ -84,6 +84,11 @@ class Config(unittest.TestCase):
         self.assertEqual(self.CONF["main"]["dns"], "systemd-resolved")
         self.assertEqual(self.CONF["main"]["plugins"], "keyfile")
 
+    def test_networkmanager_never_sets_the_host_name(self):
+        # P-05: the owner's name is put back at boot from /data; NetworkManager would reset it to the image's
+        # static name (found when #1143 met the NetworkManager boards in the round-2 integration, F22).
+        self.assertEqual(self.CONF["main"]["hostname-mode"], "none")
+
     def test_cluster_and_mesh_links_are_unmanaged_and_cover_what_the_firewall_names(self):
         un = self.CONF["keyfile"]["unmanaged-devices"].split(";")
         for want in ("flannel*", "cni0", "veth*", "tailscale0"):
