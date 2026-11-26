@@ -4,9 +4,11 @@
 import { useMemo } from 'react';
 import { OneMind, OneMindError } from '@onemind/sdk';
 import { ApiError } from '../api/types';
+import { getPasskey } from './webauthn';
 
+/** stepUp: a change the hub wants confirmed with a passkey (D-028) is confirmed in place and sent once more. */
 export function useGateway(token: string): OneMind {
-  return useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1 }), [token]);
+  return useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1, stepUp: getPasskey }), [token]);
 }
 
 /** Run an SDK call; a OneMindError becomes an ApiError (401, 403 and the gateway's reason are kept). */

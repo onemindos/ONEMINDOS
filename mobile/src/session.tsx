@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Features, HttpApi, normalizeHubUrl, OP, type OneMindApi, type TokenSource } from './api/client';
+import { platformPasskeys } from './lib/passkeys';
 import type { LoginResult, Me, Principal } from './api/types';
 import { clearConnection, loadConnection, saveConnection, type Connection, type LiveConnection } from './storage';
 
@@ -62,7 +63,7 @@ export function onForgetHub(fn: (api: OneMindApi, hubUrl: string) => Promise<voi
 }
 
 function defaultApi(c: Connection, tokens: TokenSource): OneMindApi {
-  return new HttpApi({ tokens, baseUrl: c.hubUrl });
+  return new HttpApi({ tokens, baseUrl: c.hubUrl, passkeys: platformPasskeys() });
 }
 
 /** Abilities from §12.6 `/v1/me`. Unknown roles count as the least privileged (§12.6). */
