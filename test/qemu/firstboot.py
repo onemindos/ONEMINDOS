@@ -1543,6 +1543,8 @@ def main():
         vm.mark("F17 the clock: timesyncd, tzdata, C.UTF-8"); f17(vm)
         vm.mark("F18 the host applies a time zone (P-04)"); f18(vm)
         vm.mark("F21 renaming the box: hostnamed, the data partition and avahi (P-05)"); f21(vm)
+        # the host restarts the gateway a few seconds after a rename (P-05): the next checks need it answering again
+        time.sleep(10); http_code(vm, f"{GW}/healthz", timeout=300)
         vm.mark("F23 SSH keys and the SSH switch through the approval queue (P-06)"); f23(vm, token)
         vm.mark("F24 box care: fwupd, fstrim, sensors, rasdaemon, udisks2 without automount (Step 2b)"); box_marker = f24(vm, a.board)
         vm.mark("F25 storage housekeeping: TRIM status, smartd warnings, eject refusal (P-10)"); smart_marker = f25(vm)
