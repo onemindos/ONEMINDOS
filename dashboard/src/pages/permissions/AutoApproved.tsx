@@ -3,6 +3,10 @@
 // your rules approved in the last 30 days, newest first, each with Revoke rule (one tap, no passkey).
 // Read from the audit log: GET /v1/audit/events?event=action.approved, the lines with approved_via=policy.
 // The daily summary notice (approval.auto.digest) links here.
+//
+// It reads up to 10 pages of audit lines, so it loads once and on Refresh rather than on a timer.
+// Revoke rule is offered only for a rule the gateway still lists as in force (GET /v1/approval-policies);
+// a rule already revoked or ended says so instead of offering a button the gateway would refuse.
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { Button, Card, StatusPill } from '@onemind/ui';
@@ -10,7 +14,7 @@ import type { OneMind } from '@onemind/sdk';
 import { usePoll } from '../../lib/hooks';
 import { explain, read, usePermSdk } from '../../lib/permissions';
 import { Load } from '../parts';
-import { day, type AuditRecord } from './ruleText';
+import { day, live, type AuditRecord, type Rule } from './ruleText';
 
 export const DAYS = 30;
 
@@ -37,7 +41,14 @@ export async function autoApproved(sdk: OneMind, now = Date.now()): Promise<Use[
 
 export function AutoApproved() {
   const sdk = usePermSdk();
-  const log = usePoll(() => read(autoApproved(sdk)), 60_000);
+  const log = usePoll(async () => {
+    const [rows, rules] = await Promise.all([
+      read(autoApproved(sdk)),
+      // Not this person's to list: leave the button to the gateway's own check.
+      sdk.call<Rule[]>({ method: 'GET', path: '/v1/approval-policies' }).catch(() => null),
+    ]);
+    return { rows, inForce: rules ? new Set(rules.filter(live).map((r) => r.id)) : null };
+  }, 0);
   const [ended, setEnded] = useState<Record<string, true>>({});
   const [note, setNote] = useState<{ tone: 'ok' | 'bad'; text: string }>();
   const revoke = async (policyId: string) => {
@@ -51,10 +62,11 @@ export function AutoApproved() {
   };
   return (
     <Load res={log} what="Loading what your rules approved">
-      {(rows) => (
+      {({ rows, inForce }) => (
         <>
           {note && <p className={`om-note om-tone-${note.tone}`} role={note.tone === 'bad' ? 'alert' : 'status'}>{note.text}</p>}
-          <Card title={`Approved by your rules (${rows.length})`} subtitle={`Every request a rule approved for you in the last ${DAYS} days. If one is not what you meant, revoke the rule.`}>
+          <Card title={`Approved by your rules (${rows.length})`} subtitle={`Every request a rule approved for you in the last ${DAYS} days. If one is not what you meant, revoke the rule.`}
+            aside={<Button size="sm" variant="secondary" onClick={() => void log.reload()}>Refresh</Button>}>
             {rows.length === 0 ? <p className="om-hint">Nothing was approved by a rule in the last {DAYS} days.</p> : (
               <ul className="dash-list" aria-label="Approved by your rules">
                 {rows.map((u) => (
@@ -66,6 +78,8 @@ export function AutoApproved() {
                     </span>
                     {ended[u.policyId]
                       ? <span className="om-hint">Rule revoked</span>
+                      : inForce && !inForce.has(u.policyId)
+                      ? <span className="om-hint">Rule already ended</span>
                       : <Button size="sm" variant="secondary" aria-label={`Revoke the rule that approved ${u.type} on ${day(u.ts)}`} onClick={() => void revoke(u.policyId)}>Revoke rule</Button>}
                   </li>
                 ))}
