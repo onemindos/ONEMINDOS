@@ -14,7 +14,7 @@ import { Link } from 'react-router';
 import { OneMindError, type Action, type components } from '@onemind/sdk';
 import { Button, Card, PageHeader, StatusPill, Table, VerificationBadge, LEVEL_NAME, levelRank, type VerificationLevel } from '@onemind/ui';
 import { usePoll } from '../lib/hooks';
-import { useGateway, viaSdk } from '../lib/gateway';
+import { sessionLapsed, useGateway, viaSdk } from '../lib/gateway';
 import { useSignedIn } from '../session';
 import { Load } from './parts';
 
@@ -105,7 +105,7 @@ function LiveTable({ token, me, signOut }: { token: string; me: Asker; signOut: 
       return true;
     } catch (e) {
       // A lapsed sign-in signs out, as every read on this page does (usePoll); anything else is said plainly.
-      if (e instanceof OneMindError && e.status === 401) { signOut(); return false; }
+      if (sessionLapsed(e)) { signOut(); return false; }
       setNote({ tone: 'bad', text: `Changing "${what}": ${requestErrorText(e)}` });
       return false;
     } finally { setBusy(false); void actions.reload(); }
