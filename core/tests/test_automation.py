@@ -582,3 +582,19 @@ def test_standing_approvals_and_windows_need_a_passkey_once_passkeys_are_active(
     assert policy(client, clock).status_code == 201
     made = [e for e in audit_events(client) if e["event"] == "automation.policy.created"]
     assert made and made[-1]["data"]["approval"] == "token"
+
+
+def test_standing_approval_answers_match_the_documented_schema(client, clock):
+    """The dashboard's standing approvals screen reads these through the generated SDK types (#1214)."""
+    from onemind_core.routers.automation import ApprovalPolicy
+
+    spec = client.get("/openapi.json").json()["paths"]
+    ref = {"$ref": "#/components/schemas/ApprovalPolicy"}
+    assert spec["/v1/approval-policies"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]["items"] == ref
+    assert spec["/v1/approval-policies"]["post"]["responses"]["201"]["content"]["application/json"]["schema"] == ref
+    assert spec["/v1/approval-policies/{policy_id}/confirm"]["post"]["responses"]["200"]["content"]["application/json"]["schema"] == ref
+    made = policy(client, clock)
+    assert made.status_code == 201, made.text
+    assert ApprovalPolicy.model_validate(made.json()).state == "active"
+    listed = client.get("/v1/approval-policies", headers=OWNER).json()
+    assert [ApprovalPolicy.model_validate(p).id for p in listed] == [made.json()["id"]]

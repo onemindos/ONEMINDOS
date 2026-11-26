@@ -162,7 +162,7 @@ func actionsCommands(a *App) []*cobra.Command {
 		},
 	}
 	watch.Flags().BoolVar(&pending, "pending", false, "only new requests waiting for approval")
-	acts.AddCommand(list, info, watch, decide("approve"), decide("deny"))
+	acts.AddCommand(list, info, watch, decide("approve"), decide("deny"), policiesCommand(a))
 	return []*cobra.Command{acts}
 }
 
