@@ -439,6 +439,23 @@
           "requested_by": {
             "$ref": "#/components/schemas/PrincipalRef"
           },
+          "required_level": {
+            "anyOf": [
+              {
+                "enum": [
+                  "L1",
+                  "L2",
+                  "L3"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "D-028: the key level approving this needs now (awaiting_approval only, when read by a person); approve-options says the same and whether the box's code is needed",
+            "title": "Required Level"
+          },
           "result": {
             "anyOf": [
               {
@@ -1542,6 +1559,12 @@
           "action_sha256": {
             "title": "Action Sha256",
             "type": "string"
+          },
+          "box_code_required": {
+            "default": false,
+            "description": "N-1 b: during the grace an L2 approval also needs the code the box's own screen now shows; send it as box_code",
+            "title": "Box Code Required",
+            "type": "boolean"
           },
           "challenge": {
             "title": "Challenge",
@@ -9844,6 +9867,19 @@
       },
       "PasskeyRegisterBody": {
         "properties": {
+          "box_code": {
+            "anyOf": [
+              {
+                "maxLength": 12,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "N-1 b: the code on the box's own screen (register/options box_code_if_proven); the first proven key is added at the box",
+            "title": "Box Code"
+          },
           "credential": {
             "additionalProperties": true,
             "title": "Credential",
@@ -13334,6 +13370,19 @@
       },
       "StepUpBody": {
         "properties": {
+          "box_code": {
+            "anyOf": [
+              {
+                "maxLength": 12,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the code on the box's own screen",
+            "title": "Box Code"
+          },
           "credential": {
             "additionalProperties": true,
             "title": "Credential",
@@ -13378,6 +13427,11 @@
       },
       "StepUpOptions": {
         "properties": {
+          "box_code_required": {
+            "description": "D-028 / N-1 b: the box's own screen now shows a code; send it as box_code with the assertion",
+            "title": "Box Code Required",
+            "type": "boolean"
+          },
           "challenge_id": {
             "title": "Challenge Id",
             "type": "string"
@@ -13396,6 +13450,7 @@
             "type": "object"
           },
           "required_level": {
+            "description": "the level the key that answers must meet",
             "enum": [
               "L0",
               "L1",
@@ -13411,6 +13466,7 @@
           "expires_at",
           "required_level",
           "grace",
+          "box_code_required",
           "publicKey"
         ],
         "title": "StepUpOptions",
@@ -13418,6 +13474,12 @@
       },
       "StepUpOptionsBody": {
         "properties": {
+          "at_box": {
+            "default": false,
+            "description": "when the step-up allows it (details box: alt, e.g. revoking a lost last proven key): confirm with any passkey plus the code on the box's own screen",
+            "title": "At Box",
+            "type": "boolean"
+          },
           "body": {
             "additionalProperties": true,
             "description": "the request body with every field (defaults filled in)",
@@ -16550,8 +16612,13 @@
       },
       "VerificationTable": {
         "properties": {
+          "box_confirm": {
+            "description": "this install has a box screen that can show confirmation codes",
+            "title": "Box Confirm",
+            "type": "boolean"
+          },
           "grace": {
-            "description": "no owner has a proven key yet, so L2 rows accept L1 (not strict rows)",
+            "description": "no owner has had a proven key yet, so L2 rows accept L1 plus the code on the box's own screen (not strict rows)",
             "title": "Grace",
             "type": "boolean"
           },
@@ -16573,6 +16640,11 @@
             "description": "the strongest key any owner holds",
             "title": "Household Level"
           },
+          "recovery_needed": {
+            "description": "a proven key existed and none is left: L2 rows wait for a recovery path (an owner at the box can enrol a new key); the grace never returns",
+            "title": "Recovery Needed",
+            "type": "boolean"
+          },
           "rows": {
             "items": {
               "$ref": "#/components/schemas/VerificationRow"
@@ -16593,7 +16665,9 @@
           "rows",
           "types",
           "household_level",
-          "grace"
+          "grace",
+          "recovery_needed",
+          "box_confirm"
         ],
         "title": "VerificationTable",
         "type": "object"
@@ -16949,6 +17023,19 @@
             ],
             "description": "#173: the app id typed by the owner to accept a licence class that is not green (blocked or unknown). Required to approve app.install for such an app; ignored otherwise.",
             "title": "Accept Licence"
+          },
+          "box_code": {
+            "anyOf": [
+              {
+                "maxLength": 12,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "D-028 / N-1 b: the code the box's own screen shows, when approve-options said box_code_required",
+            "title": "Box Code"
           },
           "device_signature": {
             "anyOf": [
@@ -21583,7 +21670,7 @@
     },
     "/v1/auth/authenticator-allowlist/{aaguid}": {
       "delete": {
-        "description": "Stop trusting a model you added. Its keys drop to L1 at once; taking trust away needs no step-up.",
+        "description": "Stop trusting a model you added. Its keys drop to L1 at once; taking trust away needs no step-up,\nexcept for the model behind the household's last proven key (that key, or an owner at the box).",
         "operationId": "auth.trusted_models.remove",
         "parameters": [
           {

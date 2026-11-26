@@ -7,6 +7,7 @@
 import type { OneMindApi } from '../api/client';
 import { ApiError, type Action, type ApproveBody } from '../api/types';
 import { getPasskey } from './webauthn';
+import { askBoxCode } from './boxcode';
 
 export interface ApproveOpts {
   /** The owner has a passkey (GET /v1/me step_up.passkeys_active): sign every approval (F-2). */
@@ -19,6 +20,8 @@ export interface ApproveOpts {
   hold?: { ms: number; plan?: string };
   /** Test seam; defaults to the browser's WebAuthn. */
   sign?: (publicKey: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  /** Test seam; defaults to the dialog asking for the code the box's own screen shows (N-1 b). */
+  boxCode?: (what: string) => Promise<string>;
 }
 
 export async function approveWithStepUp(api: OneMindApi, action: Pick<Action, 'id' | 'plan_sha256'>, opts: ApproveOpts = {}): Promise<Action> {
@@ -37,6 +40,9 @@ export async function approveWithStepUp(api: OneMindApi, action: Pick<Action, 'i
     throw new ApiError(409, 'stale_precondition', 'The plan changed since you opened this request. Review it again before approving.', 'plan_changed');
   const body: ApproveBody = { ...extra };
   if (challenge.plan_sha256) body.plan_sha256 = challenge.plan_sha256;
+  // D-028, N-1 b: before the first proven key, an L2 approval is a passkey plus the code the box's own
+  // screen shows now. Asked before the passkey prompt, while the code is fresh.
+  if (challenge.box_code_required) body.box_code = await (opts.boxCode ?? askBoxCode)(`approve ${action.id}`);
   const signed = async () => ({ ...body, webauthn: await sign(challenge.publicKey) });
   // A hold does not force a passkey: only physical actions need one, and the gateway answers those with
   // step_up_required (retried signed below). A destructive action on a box with no passkey goes unsigned.

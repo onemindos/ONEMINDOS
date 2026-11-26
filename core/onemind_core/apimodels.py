@@ -318,6 +318,7 @@ class Action(BaseModel):
     plan_sha256: str | None = Field(default=None, description="§12.4: fingerprint the approval is bound to")
     progress: dict[str, Any] | None = Field(default=None, description="{step, pct} while an executor runs")
     approval: ApprovalCard | None = Field(default=None, description="#723: the approval card; set on every action (hold for destructive or physical)")
+    required_level: Literal["L1", "L2", "L3"] | None = Field(default=None, description="D-028: the key level approving this needs now (awaiting_approval only, when read by a person); approve-options says the same and whether the box's code is needed")
 
 
 class AuditRecord(BaseModel):

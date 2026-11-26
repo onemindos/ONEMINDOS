@@ -144,6 +144,16 @@ describe('approveWithStepUp', () => {
     expect(approve).toHaveBeenCalledTimes(1);
   });
 
+  it('during the grace (N-1 b) the code on the box\'s screen goes with the passkey', async () => {
+    const approve = vi.fn(async () => ({ id: 'x' }));
+    const sign = vi.fn(async () => ({ id: 'sig' }));
+    const boxCode = vi.fn(async () => '482913');
+    const api = { approveOptions: async () => ({ ...opts, required_level: 'L1', box_code_required: true }), approve } as never;
+    await approveWithStepUp(api, act, { passkey: true, sign, boxCode });
+    expect(boxCode).toHaveBeenCalledExactlyOnceWith('approve x');
+    expect(approve).toHaveBeenCalledExactlyOnceWith('x', { plan_sha256: SHA, box_code: '482913', webauthn: { id: 'sig' } });
+  });
+
   it('a hold without a passkey goes unsigned, and is retried signed only when the gateway asks for step-up', async () => {
     const sign = vi.fn(async () => ({ id: 'sig' }));
     const ok = vi.fn(async () => ({ id: 'x' }));

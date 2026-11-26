@@ -138,6 +138,16 @@ class TrustedModelRow(Base):
     action_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
+class HouseholdFlagRow(Base):
+    """A one-way household fact (design 3.11). `proven_key_seen`: an owner has held a proven (L2) key, so
+    the no-proven-key grace (N-1) never comes back by removing keys, models or owners."""
+
+    __tablename__ = "identity_household_flags"
+    key: Mapped[str] = mapped_column(String(40), primary_key=True)
+    set_at: Mapped[datetime] = mapped_column(TS)
+    detail: Mapped[str] = mapped_column(String(200), default="")
+
+
 class ApproverKeyRow(Base):
     """#702: a phone's device-bound P-256 approver key. Revoked rows stay, so the audit can name them."""
 
