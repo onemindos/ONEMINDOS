@@ -27,7 +27,7 @@
 #                  Only the gateway's own fresh ids, tokens and clock still differ between runs, and
 #                  the checks never depend on them.
 #   exploration    the nightly schedule and a manual run draw a fresh random seed (the first step prints
-#                  it) and fuzz 800 cases per operation, twice main's budget; that is where new inputs
+#                  it) and fuzz 600 cases per operation, 1.5x main's budget; that is where new inputs
 #                  are found. A manual run can take a seed
 #                  (`gh workflow run api-fuzz.yml --ref main -f seed=N`) to replay a finding.
 #   reproduce      a gated failure: rerun the job, or locally use --seed with API_FUZZ_SEED. Any run:
@@ -106,15 +106,15 @@ jobs:
     if: ${{ !cancelled() && !github.event.pull_request.draft && (github.event_name != 'merge_group' || needs.changes.outputs.fuzz != 'false') }}
     runs-on: ubuntu-24.04
     # PRs and the merge queue fuzz 40 cases per operation (~7 min a phase). Main fuzzes 400, about 10x as
-    # long over three phases (~80 min); 45 minutes cancelled the first full run on main (run 43558739985,
-    # A9). Nightly and manual runs fuzz 800, twice main, so they get 300 minutes (a hosted job may run 360).
+    # long over three phases (nightly at 400: 82, 105 and 130 min on 2026-11-23..25, growing with the API); 45 minutes cancelled the first full run on main (run 43558739985,
+    # A9). Nightly and manual runs fuzz 600 (about 195 min projected from those runs), so they get 300 minutes (a hosted job may run 360).
     timeout-minutes: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') && 45 || (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 300 || 180 }}
     outputs:
       seed: ${{ steps.seed.outputs.seed }}
     env:
       # Generated cases per operation in the fuzzing phase: quick on PRs and in the queue, deep on main,
       # deeper when exploring with a random seed (nightly, manual).
-      EXAMPLES: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') && '40' || (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '800' || '400' }}
+      EXAMPLES: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') && '40' || (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '600' || '400' }}
       # The committed seed of every gated run (pull_request, merge_group, push to main). Changing it is a
       # reviewed change like any other: the new seed must pass on the PR that sets it.
       API_FUZZ_SEED: "20261125"
