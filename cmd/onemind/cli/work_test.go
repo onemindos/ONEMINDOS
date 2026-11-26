@@ -8,6 +8,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	onemind "github.com/onemindos/onemindos/sdk/go"
 )
 
 const workTask = `{"id":"tsk_1","project_id":"prj_1","revision":3,"title":"Pay rent","body":"","status":"todo",` +
@@ -157,5 +160,80 @@ func TestWorkNotesAndSections(t *testing.T) {
 	}
 	if got := strings.Join(*seen, "\n"); !strings.Contains(got, "POST /v1/work/projects/prj_1/tasks/tsk_1/comments n1|") {
 		t.Fatalf("requests %s", got)
+	}
+}
+
+// repeatHub is a hub with one repeating task; it records the PATCH body and If-Match it is sent.
+func repeatHub(t *testing.T, repeat string) *[]string {
+	t.Helper()
+	isolate(t)
+	seen := &[]string{}
+	task := strings.Replace(workTask, `"dependencies":[]`, `"repeat":`+repeat+`,"dependencies":[]`, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path != "/v1/work/projects/prj_1/tasks/tsk_1" {
+			w.WriteHeader(404)
+			_, _ = w.Write([]byte(`{"error":"not_found","message":"no"}`))
+			return
+		}
+		if r.Method == http.MethodPatch {
+			var body map[string]map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			raw, _ := json.Marshal(body["repeat"])
+			*seen = append(*seen, "PATCH If-Match "+r.Header.Get("If-Match")+" "+string(raw))
+			if body["repeat"]["tz"] == "Mars/Base" {
+				w.WriteHeader(422)
+				_, _ = w.Write([]byte(`{"error":"conflict","message":"Invalid Work task fields"}`))
+				return
+			}
+			tz, _ := body["repeat"]["tz"].(string)
+			updated := strings.Replace(task, repeat, `{"every":"week","interval":2,"tz":"`+tz+`"}`, 1)
+			_, _ = w.Write([]byte(updated))
+			return
+		}
+		_, _ = w.Write([]byte(task))
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("ONEMIND_HUB", srv.URL)
+	t.Setenv("ONEMIND_TOKEN", ownerTok)
+	return seen
+}
+
+func TestWorkRepeatZoneKeepsTheRuleAndSendsTheRevision(t *testing.T) {
+	seen := repeatHub(t, `{"every":"week","interval":2,"tz":null}`)
+	r := run(t, "", false, "work", "repeat-zone", "prj_1", "tsk_1", "Europe/Paris")
+	if r.code != 0 || !strings.Contains(r.out, "tsk_1 repeats every 2 week, counted in Europe/Paris") {
+		t.Fatalf("repeat-zone %+v", r)
+	}
+	if got := strings.Join(*seen, "\n"); got != `PATCH If-Match 3 {"every":"week","interval":2,"tz":"Europe/Paris"}` {
+		t.Fatalf("requests %s", got)
+	}
+	t.Setenv("TZ", "America/New_York")
+	if r := run(t, "", false, "work", "repeat-zone", "prj_1", "tsk_1", "local"); r.code != 0 ||
+		!strings.Contains((*seen)[len(*seen)-1], `"tz":"America/New_York"`) {
+		t.Fatalf("local %+v %v", r, *seen)
+	}
+}
+
+func TestWorkRepeatZoneRefusesATaskThatDoesNotRepeatAndAnUnknownZone(t *testing.T) {
+	seen := repeatHub(t, "null")
+	r := run(t, "", false, "work", "repeat-zone", "prj_1", "tsk_1", "UTC")
+	if r.code != ExitConflict || len(*seen) != 0 {
+		t.Fatalf("no rule %+v %v", r, *seen)
+	}
+	repeatHub(t, `{"every":"day","interval":1}`)
+	if r := run(t, "", false, "work", "repeat-zone", "prj_1", "tsk_1", "Mars/Base"); r.code == 0 {
+		t.Fatalf("unknown zone accepted %+v", r)
+	}
+}
+
+func TestDueSuffixNamesTheZoneARepeatCountsIn(t *testing.T) {
+	due := time.Date(2026, 11, 26, 22, 0, 0, 0, time.UTC)
+	t.Setenv("TZ", "UTC")
+	for tz, want := range map[string]string{"": "(UTC)", "America/New_York": "(America/New_York)"} {
+		got := dueSuffix(&onemind.WorkTask{DueAt: &due, Repeat: &onemind.WorkRepeat{Every: "week", Interval: 2, Tz: tz}})
+		if !strings.Contains(got, "repeats every 2 week "+want) {
+			t.Fatalf("tz %q: %q", tz, got)
+		}
 	}
 }

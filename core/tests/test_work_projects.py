@@ -316,3 +316,75 @@ def test_an_adult_can_edit_a_task_a_child_assigned_to_themselves(client, role):
         service.replace_task(owner, project.id, other.id, expected_revision=other.revision,
                              fields=TaskFields(title="Dishes", assignee=PersonAssignee(id="p-kid")))
     assert failure.value.status == 422
+
+
+def test_a_monthly_repeat_clamps_to_a_short_month_and_returns_to_its_day():
+    from datetime import UTC, datetime
+    from onemind_core.work.parse import next_due
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    rule = {"every": "month", "interval": 1, "anchor_day": 31}
+    due = datetime(2026, 1, 31, 9, 0, tzinfo=UTC)
+    seen = []
+    for _ in range(6):
+        due = next_due(due, rule, now)
+        seen.append(due.date().isoformat())
+    assert seen == ["2026-02-28", "2026-03-31", "2026-04-30", "2026-05-31", "2026-06-30", "2026-07-31"]
+    # leap February, and a 30th that is clamped only in February
+    assert next_due(datetime(2028, 1, 31, 9, tzinfo=UTC), rule, now).date().isoformat() == "2028-02-29"
+    assert next_due(datetime(2026, 1, 30, 9, tzinfo=UTC), {**rule, "anchor_day": 30}, now).date().isoformat() == "2026-02-28"
+    assert next_due(datetime(2026, 2, 28, 9, tzinfo=UTC), {**rule, "anchor_day": 30}, now).date().isoformat() == "2026-03-30"
+    # every 2 months and every year keep the anchor too; without one the due date's own day is used
+    assert next_due(datetime(2026, 12, 31, 9, tzinfo=UTC), {**rule, "interval": 2}, now).date().isoformat() == "2027-02-28"
+    assert next_due(datetime(2027, 2, 28, 9, tzinfo=UTC), {**rule, "interval": 2}, now).date().isoformat() == "2027-04-30"
+    leap = {"every": "year", "interval": 1, "anchor_day": 29}
+    assert next_due(datetime(2027, 2, 28, 9, tzinfo=UTC), leap, now).date().isoformat() == "2028-02-29"  # back on the 29th in a leap year
+    assert next_due(datetime(2028, 2, 29, 9, tzinfo=UTC), leap, now).date().isoformat() == "2029-02-28"
+    assert next_due(datetime(2026, 1, 31, 9, tzinfo=UTC), {"every": "month", "interval": 1}, now).date().isoformat() == "2026-02-28"
+
+
+def test_a_repeating_task_due_on_the_31st_comes_back_to_the_31st(client, clock):
+    from datetime import UTC, datetime
+    body = {"title": "Pay rent", "due_at": "2026-01-31T09:00:00Z", "repeat": {"every": "month"}}
+    task = client.post("/v1/work/capture", json=body, headers={**OWNER, "Idempotency-Key": "m31"}).json()
+    path = f"/v1/work/projects/{task['project_id']}/tasks/{task['id']}"
+    got, revision = [], 1
+    for i in range(4):
+        clock.now = datetime(2026, 1 + i, 20, tzinfo=UTC)  # each completion happens a few days before the due date
+        done = client.patch(path, json={"status": "done"}, headers={**OWNER, "If-Match": str(revision)})
+        assert done.status_code == 200, done.text
+        got.append(done.json()["due_at"][:10])
+        assert "anchor_day" not in done.json()["repeat"]  # internal, never in the public rule
+        revision = done.json()["revision"]
+    assert got == ["2026-02-28", "2026-03-31", "2026-04-30", "2026-05-31"]
+
+
+def test_moving_the_due_date_or_editing_the_rule_starts_a_new_anchor(client, clock):
+    from datetime import UTC, datetime
+    clock.now = datetime(2026, 1, 20, tzinfo=UTC)
+    body = {"title": "Pay rent", "due_at": "2026-01-31T09:00:00Z", "repeat": {"every": "month"}}
+    task = client.post("/v1/work/capture", json=body, headers={**OWNER, "Idempotency-Key": "m31b"}).json()
+    path = f"/v1/work/projects/{task['project_id']}/tasks/{task['id']}"
+    first = client.patch(path, json={"status": "done"}, headers={**OWNER, "If-Match": "1"}).json()
+    assert first["due_at"][:10] == "2026-02-28"
+    # the person moves the due date to the 15th: the next occurrences follow the 15th, not the old 31st
+    moved = client.patch(path, json={"due_at": "2026-03-15T09:00:00Z"}, headers={**OWNER, "If-Match": str(first["revision"])}).json()
+    nxt = client.patch(path, json={"status": "done"}, headers={**OWNER, "If-Match": str(moved["revision"])}).json()
+    assert nxt["due_at"][:10] == "2026-04-15"
+
+
+def test_a_repeat_rules_zone_can_be_changed_through_the_task_patch(client):
+    body = {"title": "Standup", "due_at": "2026-11-26T04:59:59Z", "repeat": {"every": "weekday", "tz": "America/New_York"}}
+    task = client.post("/v1/work/capture", json=body, headers={**OWNER, "Idempotency-Key": "z1"}).json()
+    path = f"/v1/work/projects/{task['project_id']}/tasks/{task['id']}"
+    rule = {"every": "weekday", "interval": 1, "tz": "Europe/Paris"}
+    changed = client.patch(path, json={"repeat": rule}, headers={**OWNER, "If-Match": "1"})
+    assert changed.status_code == 200 and changed.json()["repeat"] == rule and changed.json()["due_at"].startswith("2026-11-26T04:59:59")
+    log = client.get(path + "/activity", headers=OWNER).json()
+    assert log[0]["fields"] == ["repeat"]
+    bad = client.patch(path, json={"repeat": {**rule, "tz": "Mars/Base"}}, headers={**OWNER, "If-Match": "2"})
+    assert bad.status_code == 422
+    cleared = client.patch(path, json={"repeat": {"every": "weekday", "interval": 1}}, headers={**OWNER, "If-Match": "2"})
+    assert cleared.status_code == 200 and cleared.json()["repeat"]["tz"] is None
+    # with the zone cleared the rule counts in UTC again
+    done = client.patch(path, json={"status": "done"}, headers={**OWNER, "If-Match": "3"}).json()
+    assert done["due_at"].startswith("2026-11-27T04:59:59")  # UTC rule: next weekday, same UTC time

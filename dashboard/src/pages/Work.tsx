@@ -20,6 +20,59 @@ type View = (typeof VIEWS)[number]['id'];
 const zoneName = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const when = (iso: string) => new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
 
+const ZONES: string[] = (() => {
+  try {
+    return (Intl as unknown as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf?.('timeZone') ?? [];
+  } catch {
+    return [];
+  }
+})();
+
+/** The time zone a repeating task counts its days in ("every weekday" skips that zone's weekend). */
+function RepeatZone({ client, task, onSaved }: { client: OneMind; task: Task; onSaved: () => Promise<void> | void }) {
+  const rule = task.repeat!;
+  const current = rule.tz ?? 'UTC';
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(current);
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState('');
+
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const zone = draft.trim();
+    if (busy || !zone) return;
+    setBusy(true);
+    setProblem('');
+    try {
+      await client.call<Task>({
+        method: 'PATCH', path: `/v1/work/projects/${encodeURIComponent(task.project_id)}/tasks/${encodeURIComponent(task.id)}`,
+        body: { repeat: { every: rule.every, interval: rule.interval, tz: zone } }, headers: { 'If-Match': String(task.revision) },
+      });
+      setOpen(false);
+      await onSaved();
+    } catch (error) {
+      setProblem(error instanceof OneMindError && error.status === 422 ? 'That time zone is not known. Use a name such as Europe/Paris.'
+        : error instanceof OneMindError && error.status === 409 ? 'That task changed meanwhile. Reload and try again.'
+          : 'The time zone could not be saved. You can retry.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return <> ({current}) <Button type="button" onClick={() => { setDraft(current); setOpen(true); }} aria-label={`Change repeat time zone of ${task.title}`}>Zone</Button></>;
+  }
+  return (
+    <form className="dash-actions" onSubmit={(event) => void save(event)}>
+      <label>Repeat time zone <input value={draft} list="work-zones" maxLength={64} required disabled={busy} onChange={(event) => setDraft(event.target.value)} /></label>
+      <datalist id="work-zones">{ZONES.map((z) => <option key={z} value={z} />)}</datalist>
+      <Button type="submit" disabled={busy || !draft.trim()}>Save zone</Button>
+      <Button type="button" disabled={busy} onClick={() => setOpen(false)}>Cancel</Button>
+      {problem && <span role="status">{problem}</span>}
+    </form>
+  );
+}
+
 function WorkList({ client }: { client: OneMind }) {
   const [view, setView] = useState<View>('today');
   const [text, setText] = useState('');
@@ -99,7 +152,7 @@ function WorkList({ client }: { client: OneMind }) {
           <li key={`${task.project_id}/${task.id}`}>
             <strong>{task.title}</strong>
             {task.due_at && <> · due {when(task.due_at)}</>}
-            {task.repeat && <> · repeats every {task.repeat.interval > 1 ? `${task.repeat.interval} ` : ''}{task.repeat.every}</>}
+            {task.repeat && <> · repeats every {task.repeat.interval > 1 ? `${task.repeat.interval} ` : ''}{task.repeat.every}<RepeatZone client={client} task={task} onSaved={tasks.reload} /></>}
             {task.priority < 4 && <> · p{task.priority}</>}
             {task.labels.length > 0 && <> · {task.labels.map((l) => `@${l}`).join(' ')}</>}
             {task.status === 'done' ? ' · Done' : <> <Button type="button" onClick={() => void finish(task)}>Done</Button></>}
