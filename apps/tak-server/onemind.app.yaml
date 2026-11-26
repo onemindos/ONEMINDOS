@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # TAK Server: an optional Market app, never part of the base image (founder, 2026-11-26). It pairs with
-# OneMind's native CoT bridge (branch claude/tak-native-cot-bridge, "TAK native: CoT bridge" plan) and
+# OneMind's native CoT bridge (#1257; D-032 in PR #1260), tracks #1258, and
 # follows research W8-R8 (research-output/09-iot-mesh-offgrid-tak.md: TAK Server as a container on big
 # nodes, no GPL code in the Apache-2.0 core).
 # Primary sources, read 2026-11-26 at tag 5.7-RELEASE-14 (commit 5187abd46d827d37cfc5708805eced197a837e49):
