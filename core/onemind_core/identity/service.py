@@ -1001,9 +1001,13 @@ class IdentityService:
                      hash=sha256_hex(secret), kind=kind, principal_id=principal_id,
                      owner_user_id=user.id if user else None, scopes=wanted, source="api", created_by=p.id,
                      created_at=now, expires_at=expires_at)
+        reg = self._registry() if kind == "agent" else None
+        reminted = reg is not None and reg.live(principal_id) is not None
         self.repo.add(t)
-        if kind == "agent" and self._registry() is not None:  # PR 7: the agent's permanent id (kept on re-mint)
-            self._registry().register(principal_id, source="identity", owner_user_id=t.owner_user_id)
+        if reg is not None:  # PR 7: the agent's permanent id (kept on re-mint)
+            reg.register(principal_id, source="identity", owner_user_id=t.owner_user_id)
+            if reminted:  # PR 9: a second credential for the same agent suspends its rules
+                reg.notify(principal_id, "token_reminted")
         self.emit("auth", "token.created", {"token_id": t.id, "kind": kind, "principal_id": principal_id,
                                             "scopes": wanted, "expires_at": iso(t.expires_at)}, p)
         return {**self.token_json(t), "one_time": {"token": secret}}
@@ -1053,6 +1057,8 @@ class IdentityService:
         if not done:
             raise ApiError(409, "conflict", "token was rotated concurrently")
         self.emit("auth", "token.rotated", {"token_id": t.id, "grace_s": grace_s}, p)
+        if t.kind in ("agent", "plugin") and self._registry() is not None:  # PR 9: suspends its rules
+            self._registry().notify(t.principal_id, "token_rotated")
         return {**self.token_json(self.repo.get(TokenRow, t.id)), "one_time": {"token": secret}}
 
     def revoke_token(self, ctx: AuthContext | None, p: Principal, token_id: str) -> None:

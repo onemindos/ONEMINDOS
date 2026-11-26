@@ -13,14 +13,21 @@ from ..auth import Principal
 from ..automation import AutomationService
 from ..automation.cron import parse_ranges
 from ..automation.engine import DryRunBody, PauseBody, RuleBody, RulePatch
-from ..automation.policies import PolicyBody
+from ..automation.policies import PolicyBody, PolicyPatch
 from ..context import Gateway
 from ..errors import ApiError, error_responses
 from ..identity import ctx_of
+from ..identity.scopes import register_route_scope
 from ..ledger import iso
 from ..principals import BOUND_KINDS
 
 WINDOW_ID_RE = re.compile(r"^win_[a-z0-9_]{1,36}$")
+
+
+class RevokeAllBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    principal: str | None = Field(default=None, max_length=100,
+                                  description="revoke every rule naming this principal; null (owner only) revokes every rule")
 
 
 class WindowBody(BaseModel):
@@ -33,6 +40,12 @@ class WindowBody(BaseModel):
 # Route order in the app and in /openapi.json (routers/__init__.py).
 ORDER = 280
 
+# Gateway permissions PR 9. Revoking only narrows: the owner, or a person for rules naming only agents they
+# own (the handler checks). Editing, re-confirming and keeping are the owner's (the handler checks too).
+register_route_scope("PATCH", r"/v1/approval-policies/[^/]+", ("*",))
+register_route_scope("POST", r"/v1/approval-policies/[^/]+/(reconfirm|keep)", ("*",))
+register_route_scope("POST", r"/v1/approval-policies/([^/]+/revoke|revoke-all)", ("tokens:self",))
+
 
 def register(app: FastAPI, gw: Gateway) -> None:
     svc = AutomationService(gw)
@@ -44,6 +57,47 @@ def register(app: FastAPI, gw: Gateway) -> None:
     policies.principals = gw.actions.principals
     policies.file_ids = lambda: {fp.id for _, fp in gw.tokens.entries() if fp.kind in BOUND_KINDS}
     gw.on_startup(policies.adopt_unbound)
+    # Gateway permissions PR 9: what a request writes to and how much (FeatureAction.target_for / size_for),
+    # and the triggers that suspend a rule (design §3.6.2 item 7).
+
+    def target_of(action_type: str, params: dict | None):
+        spec = gw.actions.feature_types.get(action_type)
+        if spec is None or spec.target_for is None:
+            return None
+        return ("?", "?") if params is None else spec.target_for(params)
+
+    def size_of(action_type: str, params: dict) -> tuple[int, int]:
+        spec = gw.actions.feature_types.get(action_type)
+        return spec.size_for(params) if spec is not None and spec.size_for is not None else (0, 1)
+
+    policies.target_of = target_of
+    policies.size_of = size_of
+    if gw.actions.principals is not None:
+        gw.actions.principals.listeners.append(policies.suspend_for)
+
+    def owned_agents(user_id: str | None) -> set[str]:
+        if not user_id:
+            return set()
+        try:
+            from ..identity.models import TokenRow
+        except Exception:
+            return set()
+        from sqlalchemy import select
+
+        with gw.db.session() as s:
+            return set(s.scalars(select(TokenRow.principal_id).where(
+                TokenRow.owner_user_id == user_id, TokenRow.kind.in_(("agent", "plugin")), TokenRow.revoked_at.is_(None))))
+
+    def on_role_change(user_id: str, _role: str, _by) -> None:
+        for name in owned_agents(user_id) | {f"person:{user_id}"}:
+            policies.suspend_for(name, "owner_role_changed")
+
+    def wire_identity() -> None:
+        ident = getattr(app.state, "identity", None)
+        if ident is not None and on_role_change not in ident.role_hooks:
+            ident.role_hooks.append(on_role_change)
+
+    wire_identity()
     gw.events.subscribe(">", svc.on_event)
     gw.on_startup(svc.start)
     gw.on_shutdown(svc.stop)
@@ -123,6 +177,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         if not p.is_owner:
             gw.audit.append("authz.denied", p.as_dict(), None, {"attempted": "list standing approvals", "reason": "permission_denied"})
             raise ApiError(403, "permission_denied", f"{p.kind}/{p.role} may not list standing approvals")
+        policies.lapse_due(gw.clock())
         return [policies.to_json(x) for x in svc.repo.list_policies(with_paused=True)]
 
     @app.post("/v1/approval-policies", operation_id="approvals.policies.create", tags=tags, status_code=201, responses=error_responses(401, 403, 404, 422))
@@ -135,6 +190,47 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def confirm_policy(policy_id: str, request: Request, p: Principal = Depends(principal)):
         step_up(request, p, "confirm standing approval")
         return policies.confirm(p, policy_id)
+
+    def caller_user(request: Request) -> str | None:
+        ctx = ctx_of(request)
+        return ctx.user.id if ctx is not None and ctx.user is not None else None
+
+    @app.patch("/v1/approval-policies/{policy_id}", operation_id="approvals.policies.update", tags=tags,
+               responses=error_responses(401, 403, 404, 409, 422), openapi_extra={"security": [{"bearer": ["*"]}]})
+    def update_policy(policy_id: str, body: PolicyPatch, request: Request, p: Principal = Depends(principal)):
+        # Narrowing applies at once: the owner editing it is the approval. Widening needs a fresh passkey
+        # (L1 today; D-028 sets L2 as the target for rules, design PR 11).
+        if not p.is_owner:
+            policies._owner_only(p, "edit standing approvals")
+        direction, _ = policies.plan_revision(policy_id, body)
+        via = step_up(request, p, "widen a standing approval") if direction == "widen" else None
+        return policies.revise(p, policy_id, body, via)
+
+    @app.post("/v1/approval-policies/{policy_id}/revoke", operation_id="approvals.policies.revoke", tags=tags,
+              responses=error_responses(401, 403, 404), openapi_extra={"security": [{"bearer": ["tokens:self"]}]})
+    def revoke_policy(policy_id: str, request: Request, p: Principal = Depends(principal)):
+        # One tap, no step-up (L0): ending a rule only narrows (design §3.6.2 item 3).
+        if not (p.kind == "person" and p.role in ("owner", "adult")):  # people who can own an agent
+            policies._owner_only(p, "revoke standing approvals")
+        return policies.revoke(p, policy_id, owned_agents(caller_user(request)))
+
+    @app.post("/v1/approval-policies/revoke-all", operation_id="approvals.policies.revoke_all", tags=tags,
+              responses=error_responses(401, 403, 422), openapi_extra={"security": [{"bearer": ["tokens:self"]}]})
+    def revoke_all(body: RevokeAllBody, request: Request, p: Principal = Depends(principal)):
+        if not (p.kind == "person" and p.role in ("owner", "adult")):
+            policies._owner_only(p, "revoke standing approvals")
+        return {"revoked": policies.revoke_all(p, body.principal, owned_agents(caller_user(request)))}
+
+    @app.post("/v1/approval-policies/{policy_id}/reconfirm", operation_id="approvals.policies.reconfirm", tags=tags,
+              responses=error_responses(401, 403, 404, 409, 422), openapi_extra={"security": [{"bearer": ["*"]}]})
+    def reconfirm_policy(policy_id: str, request: Request, p: Principal = Depends(principal)):
+        via = step_up(request, p, "re-confirm a suspended standing approval")  # one tap at L1
+        return policies.reconfirm(p, policy_id, via)
+
+    @app.post("/v1/approval-policies/{policy_id}/keep", operation_id="approvals.policies.keep", tags=tags,
+              responses=error_responses(401, 403, 404), openapi_extra={"security": [{"bearer": ["*"]}]})
+    def keep_policy(policy_id: str, p: Principal = Depends(principal)):
+        return policies.keep(p, policy_id)
 
     @app.delete("/v1/approval-policies/{policy_id}", operation_id="approvals.policies.delete", tags=tags, status_code=204,
                 responses=error_responses(401, 403, 404))

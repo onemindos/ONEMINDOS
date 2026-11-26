@@ -18,7 +18,7 @@ import (
 // signed-in person's own, checked by the gateway (owner only where it loosens anything).
 func permissionsCommands(a *App) []*cobra.Command {
 	root := &cobra.Command{Use: "permissions", Short: "Deny rules, standing approvals and modes: what may happen without asking"}
-	root.AddCommand(permissionsDenyCommands(a))
+	root.AddCommand(permissionsDenyCommands(a), permissionsRulesCommands(a))
 	return []*cobra.Command{root}
 }
 
@@ -118,5 +118,112 @@ func permissionsDenyCommands(a *App) *cobra.Command {
 			return nil
 		}}
 	root.AddCommand(list, add, remove)
+	return root
+}
+
+// permissionsRulesCommands is `onemind permissions rules` (PR 9): the owner's standing approvals.
+// Revoking is one step and needs no passkey (it only narrows); narrowing applies at once; anything
+// that widens a rule is done in the dashboard, where the passkey binds the change.
+func permissionsRulesCommands(a *App) *cobra.Command {
+	root := &cobra.Command{Use: "rules", Short: "Standing approvals: list, revoke, narrow, re-confirm, keep"}
+	const path = "/v1/approval-policies"
+	line := func(p map[string]any) {
+		life := "until " + fmt.Sprint(p["expires_at"])
+		if f, _ := p["forever"].(bool); f {
+			life = "FOREVER"
+		}
+		allow, _ := p["allow"].(map[string]any)
+		fmt.Fprintf(a.Stdout, "%s  rev %v  %s  %s may %s  %s", sanitize(fmt.Sprint(p["id"])), p["revision"], sanitize(fmt.Sprint(p["state"])),
+			sanitize(joinAny(allow["requested_by"])), sanitize(joinAny(allow["types"])), sanitize(life))
+		if r, ok := p["suspended_reason"].(string); ok && r != "" {
+			fmt.Fprintf(a.Stdout, "  (suspended: %s)", sanitize(r))
+		}
+		if d, _ := p["review_due"].(bool); d {
+			fmt.Fprint(a.Stdout, "  (review due)")
+		}
+		fmt.Fprintln(a.Stdout)
+	}
+	call := func(method, p string, body any) (map[string]any, error) {
+		c, _, err := a.client()
+		if err != nil {
+			return nil, err
+		}
+		var out map[string]any
+		return out, c.Do(bg(), method, p, body, &out)
+	}
+	print1 := func(out map[string]any, err error, what string) error {
+		if err != nil {
+			return stepUpHint(err, what)
+		}
+		if a.G.JSON {
+			return printJSON(a.Stdout, out)
+		}
+		line(out)
+		return nil
+	}
+	list := &cobra.Command{Use: "list", Short: "List standing approvals (forever rules first)", Args: cobra.NoArgs,
+		RunE: func(*cobra.Command, []string) error {
+			c, _, err := a.client()
+			if err != nil {
+				return err
+			}
+			var out []map[string]any
+			if err := c.Do(bg(), http.MethodGet, path, nil, &out); err != nil {
+				return err
+			}
+			if a.G.JSON {
+				return printJSON(a.Stdout, out)
+			}
+			if len(out) == 0 {
+				fmt.Fprintln(a.Stdout, "No standing approvals.")
+			}
+			for _, forever := range []bool{true, false} {
+				for _, p := range out {
+					if f, _ := p["forever"].(bool); f == forever {
+						line(p)
+					}
+				}
+			}
+			return nil
+		}}
+	one := func(use, short, suffix, what string) *cobra.Command {
+		return &cobra.Command{Use: use + " <rule-id>", Short: short, Args: cobra.ExactArgs(1),
+			RunE: func(_ *cobra.Command, args []string) error {
+				out, err := call(http.MethodPost, path+"/"+url.PathEscape(args[0])+"/"+suffix, nil)
+				return print1(out, err, what)
+			}}
+	}
+	var perDay, maxUses int
+	var expires string
+	narrow := &cobra.Command{Use: "narrow <rule-id>", Short: "Narrow a rule now (lower --per-day or --max-uses, earlier --expires)", Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			body := map[string]any{}
+			limits := map[string]any{}
+			if perDay > 0 {
+				limits["per_day"] = perDay
+			}
+			if maxUses > 0 {
+				limits["max_uses"] = maxUses
+			}
+			if expires != "" {
+				body["expires_at"] = expires
+			}
+			if len(limits) == 0 && len(body) == 0 {
+				return usageErr(cmd, "say what to narrow: --per-day, --max-uses or --expires")
+			}
+			if len(limits) > 0 {
+				body["limits"] = limits // the gateway keeps the limits left out
+			}
+			out, err := call(http.MethodPatch, path+"/"+url.PathEscape(args[0]), body)
+			return print1(out, err, "this change widens the rule, so it")
+		}}
+	narrow.Flags().IntVar(&perDay, "per-day", 0, "a lower number of uses per 24 hours")
+	narrow.Flags().IntVar(&maxUses, "max-uses", 0, "end the rule after this many uses in total")
+	narrow.Flags().StringVar(&expires, "expires", "", "an earlier end, RFC 3339 (e.g. 2026-12-31T00:00:00Z)")
+	root.AddCommand(list,
+		one("revoke", "End a rule now (one step; no passkey needed)", "revoke", "revoking"),
+		one("reconfirm", "Re-confirm a suspended rule after its agent changed (owner; passkey)", "reconfirm", "re-confirming a rule"),
+		one("keep", "Keep a forever rule at its 90-day review", "keep", "keeping a rule"),
+		narrow)
 	return root
 }

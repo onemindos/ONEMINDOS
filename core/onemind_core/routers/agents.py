@@ -216,7 +216,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
         if (ident is not None and p.is_owner and NAME_RE.fullmatch(pid)
                 and inputs.loosens(pid, body.external_inputs, body.accept_injection_risk)):
             via = ident.require_step_up(ctx_of(request), p, "declare what an agent reads")
-        return inputs.set(p, pid, body.external_inputs, body.accept_injection_risk, via=via)
+        before = set(inputs.inputs(pid, "agent")) if NAME_RE.fullmatch(pid) else set()
+        out = inputs.set(p, pid, body.external_inputs, body.accept_injection_risk, via=via)
+        if set(body.external_inputs) - before:  # PR 9: it now reads more outside text: its rules are suspended
+            registry.notify(pid if ":" in pid else f"agent:{pid}", "became_exposed")
+        return out
 
     @app.put("/v1/agents/{name}/budget", operation_id="agents.budget.set", tags=TAGS,
              responses={200: {"model": AgentView}, **error_responses(401, 403, 422)})

@@ -549,6 +549,10 @@ class AutomationService:
         fired: list[dict] = []
         with self._lock:
             now = now or self.clock()
+            try:  # gateway permissions PR 9: unused rules lapse; forever rules get their 90-day review
+                self.policies.review_tick(now)
+            except Exception:
+                log.exception("standing approval upkeep failed")
             self._check_outcomes(now)
             paused = self.paused()
             grace = timedelta(seconds=max(120.0, 2 * self.settings.tick_s))

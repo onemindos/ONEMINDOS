@@ -434,6 +434,11 @@ class FeatureAction:
     # derived from the request's params (part of plan_sha256).
     limits_for: Callable[[dict], list[dict]] | None = None
     preview_for: Callable[[dict], dict | None] | None = None
+    # Gateway permissions PR 9: what a request writes to, matched against a rule's `target`
+    # (("notes", "vault:<owner>/Agent Inbox/x.md")), and how much it writes ((bytes, items)) for a rule's
+    # size caps. A type without target_for can never match a rule that names a target.
+    target_for: Callable[[dict], tuple[str, str] | None] | None = None
+    size_for: Callable[[dict], tuple[int, int]] | None = None
 
 
 FEATURE_OUTCOMES = ("succeeded", "failed", "outcome_unknown")
