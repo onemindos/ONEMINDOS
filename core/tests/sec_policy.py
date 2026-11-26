@@ -177,6 +177,22 @@ POLICY |= {
                                               "D-014 owner; 409 until a passkey is registered", ID),
     ("POST", "/v1/auth/rescue/verify"): Row({**OWNER_ONLY, "owner": 401}, w.p_rescue_verify,
                                              "D-014 owner; the probe's assertion does not verify", ID),
+    # Design 25c: owner recovery with the kit at the box. Only the box's own console (loopback plus the console key)
+    # gets past the gate, so every bearer token, the owner's included, gets 403; the console is tested in
+    # test_recovery_kit_console.py. The redeem route takes a one-time code made at the console: 401 without one.
+    ("POST", "/v1/auth/recovery/kit"): Row(cells(403), w.p_missing("/v1/auth/recovery/kit", json={"groups": ["AAAA"] * 13, "check": "AAAA"}),
+                                           "25c console only", ID),
+    ("GET", "/v1/auth/recovery/kit/owners"): Row(cells(403), w.p_static("/v1/auth/recovery/kit/owners"), "25c console only", ID),
+    ("POST", "/v1/auth/recovery/kit/password"): Row(cells(403), w.p_missing("/v1/auth/recovery/kit/password",
+                                                    json={"user_id": "usr_x", "password": "a long password"}), "25c console only", ID),
+    ("POST", "/v1/auth/recovery/kit/authenticator/clear"): Row(cells(403), w.p_missing(
+        "/v1/auth/recovery/kit/authenticator/clear", json={"user_id": "usr_x"}), "25c console only", ID),
+    ("POST", "/v1/auth/recovery/kit/passkeys/remove"): Row(cells(403), w.p_missing(
+        "/v1/auth/recovery/kit/passkeys/remove", json={"user_id": "usr_x", "credential_id": "c"}), "25c console only", ID),
+    ("POST", "/v1/auth/recovery/kit/sign-in-code"): Row(cells(403), w.p_missing(
+        "/v1/auth/recovery/kit/sign-in-code", json={"user_id": "usr_x"}), "25c console only", ID),
+    ("POST", "/v1/auth/recovery/kit/redeem"): Row(cells(401), w.p_missing("/v1/auth/recovery/kit/redeem",
+                                                  json={"code": "AAAA-BBBB-CCCC"}), "25c a code made at the console", ID),
     ("GET", "/signin"): Row(OPEN, w.p_static("/signin"), "the sign-in page is public", ID),
 }
 

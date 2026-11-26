@@ -1,0 +1,5 @@
+---
+pr: pending
+branch: claude/recovery-25c-kit-at-the-box
+---
+Recover owner access at the box with the printed emergency kit (gateway permissions design 25c, D-028). An owner who lost every passkey presses Ctrl+Alt+F2 on a keyboard plugged into the box (or runs onemind recovery kit as root on the box) and types the kit key. The console proves it is the box's own console with a console key the gateway keeps in a private file, on loopback only; every network caller is refused. Wrong keys get five tries, then a wait of 15 minutes that doubles up to 24 hours; nothing is ever wiped. The 15-minute kit session can set a new password (signing out every old session), turn off the authenticator code, remove lost passkeys and make a one-time code that lets a phone add a new passkey from the sign-in page (Can't use your key?). It cannot approve, change settings, delete anything or show any key, and every owner is notified. This replaces the rescue console's no-passkey dead end for the in-person path.

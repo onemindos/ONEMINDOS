@@ -160,6 +160,13 @@ _SPECS = [
     Spec("app.owner_override", "notify", "security", "critical", "Owner override for {app_id}",
          "An owner approved the install despite a failed scan. Review the audit entry in Activity.",
          link="/activity"),
+    # Design 25c: owner access recovered with the printed kit at the box's console. Every owner is told.
+    Spec("auth.recovery.kit.unlocked", "notify", "security", "critical", "Owner access recovered at the box",
+         "Someone typed this box's emergency kit key on its own console. If it was not you, change your password, "
+         "remove passkeys you do not recognise and keep the kit somewhere safer.", link="/activity"),
+    Spec("auth.recovery.kit.failed", "notify", "security", "warning", "Wrong emergency kit key at the box",
+         "Someone typed a wrong kit key on the box's own console. After five wrong keys the box waits before the "
+         "next try; nothing is deleted.", link="/activity"),
     # ---- apps ----------------------------------------------------------------------------
     Spec("app.unhealthy", "open", "apps", "warning", "{app_id} is not working",
          "{reason}", dedupe="app:{app_id}:health", audience=OWNERS_AND_ADULTS,

@@ -623,6 +623,13 @@ class IdentityService:
         raise ApiError(401, "unauthenticated", "sign in again with your passkey to do this", reason="step_up_required")
 
     # ---- passkeys --------------------------------------------------------------------------------
+    def _fresh_kit_session(self, ctx: AuthContext | None) -> bool:
+        """Design 25c: a session made from a sign-in code typed at the box's console after the owner proved the
+        printed kit there. For 15 minutes it may add a passkey without a step-up, because the owner lost the keys a
+        step-up would need. It gets no other exemption."""
+        s = ctx.session if ctx else None
+        return s is not None and s.auth_method == "kit" and (self.now() - utc(s.created_at)) <= timedelta(minutes=15)
+
     def _person(self, ctx: AuthContext | None) -> UserRow:
         if ctx is None or ctx.user is None:
             raise ApiError(403, "permission_denied", "sign in with a household account (not a static token) to do this")
@@ -653,7 +660,7 @@ class IdentityService:
         user = self._account(ctx, "register a passkey")
         self._refuse_onion_enrolment(request, ctx)
         existing = list(self.repo.all(select(PasskeyRow.id).where(PasskeyRow.user_id == user.id)))
-        if existing:  # adding a second key is adding power: prove you hold the first
+        if existing and not self._fresh_kit_session(ctx):  # adding a second key is adding power: prove you hold the first
             self.require_step_up(ctx, ctx.principal, "register a passkey")
         rp_id, _ = self.rp(request)
         row, raw = self._new_challenge("register", user_id=user.id)

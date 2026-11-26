@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: Apache-2.0
+# Owner recovery with the printed emergency kit, on the box's own screen (gateway permissions design 25c, D-028):
+# Ctrl+Alt+F2 on a keyboard plugged into the box shows it. The owner types the kit key; the gateway checks it,
+# limits wrong tries (a doubling wait, never a wipe) and opens a 15-minute session that can set a new password, turn
+# off the authenticator code, remove lost passkeys and make a one-time code for adding a new passkey. It deletes
+# nothing and shows no key. It runs as the gateway's user, only to read the console key the gateway made, and talks
+# to the gateway on loopback. No login here: the root account stays locked.
+[Unit]
+Description=OneMind: owner recovery with the emergency kit (tty2)
+After=onemind-gateway.service systemd-user-sessions.service
+ConditionPathExists=/data/onemind/firstboot/state.json
+RequiresMountsFor=/data
+Conflicts=getty@tty2.service
+Before=getty@tty2.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/onemindd recover-owner --loop
+StandardInput=tty-force
+StandardOutput=tty
+StandardError=journal
+TTYPath=/dev/tty2
+TTYReset=yes
+TTYVHangup=yes
+Restart=always
+RestartSec=2s
+User=onemind
+Group=onemind
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+DevicePolicy=closed
+DeviceAllow=/dev/tty2 rw
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+# The gateway's loopback HTTP port only.
+RestrictAddressFamilies=AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=localhost
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
