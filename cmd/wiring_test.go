@@ -35,7 +35,7 @@ func TestEveryInternalPackageIsReachableFromABinary(t *testing.T) {
 	}
 	for _, p := range goList(t, "list", "../internal/...") {
 		name := strings.TrimPrefix(p, mod+"internal/")
-		if strings.Contains(name, "tuftest") { // test helpers
+		if strings.Contains(name, "tuftest") || strings.HasSuffix(name, "internal/jobs/jobtest") { // test helpers
 			continue
 		}
 		if deps[p] {
