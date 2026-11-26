@@ -16,7 +16,7 @@
 |---|---|---|---|---|
 | Gateway and SDK properties | Hypothesis 6.170.15 | `core/tests/test_properties_*.py`, resource and action-model controls | every `make -C core test`, so every PR touching `core/` or `sdk/` (`ci-core.yml`, actual SQLite and PostgreSQL legs) | PR example budgets; runtime depends on backend |
 | Same, deep | Hypothesis | same | nightly, `api-fuzz.yml` job `properties` (SQLite; PostgreSQL runs at PR depth in `ci-core`) | 20x property examples; deterministic boundary controls unchanged |
-| API fuzzing | Schemathesis 4.33.1 | `.github/workflows/api-fuzz.yml`, `core/tests/api_fuzz_check.py` | PRs touching `core/`, `sdk/schema/`, `sdk/tools/applib/` or app manifests; nightly | 40 cases per operation on a PR, 400 at night |
+| API fuzzing | Schemathesis 4.33.1 | `.github/workflows/api-fuzz.yml`, `core/tests/api_fuzz_check.py` | PRs touching the fuzz harness (`core/tests/api_fuzz_check.py`, the workflow); the merge queue and pushes to `main` that touch `core/`, `sdk/schema/`, `sdk/tools/applib/` or app manifests, all with the fixed seed `API_FUZZ_SEED` (same code, same verdict); nightly and manual runs with a random seed they print, a finding opens or updates the issue "api-fuzz nightly finding" | 40 cases per operation on a PR and in the queue, 400 on `main`, 800 nightly and manual |
 | Go fuzz targets | `go test -fuzz` | `internal/{heartbeat,detect,update}/fuzz_test.go` | seed corpus in every `go test` (`ci-onemindd.yml`); exploration in `go-fuzz.yml` on PRs touching `internal/` or `go.mod`, and nightly | 30 s per target on a PR, 8 min at night |
 | Dependency licences | pytest | `core/tests/test_dependency_licences.py` | every core test run; again after the fuzz group is installed | – |
 
@@ -72,8 +72,10 @@ go test -run '^$' -fuzz '^FuzzTUFMetadataTampering$' -fuzztime 60s ./internal/up
 # A failing input is saved under internal/<pkg>/testdata/fuzz/<Target>/; commit it with the fix
 # and it becomes a permanent regression case of `go test`.
 
-# API fuzzing: in CI
+# API fuzzing: in CI (a fresh random seed, printed in the log and the job summary)
 gh workflow run api-fuzz.yml --ref <branch>
+# replay a seed, e.g. one from an "api-fuzz nightly finding" issue (it has the exact commands)
+gh workflow run api-fuzz.yml --ref <branch> -f seed=<seed>
 # or inside a throwaway Lima VM (not on the Mac): uv sync --locked --group fuzz in core/, then
 # follow the steps of .github/workflows/api-fuzz.yml (tokens, gateway, two schemathesis runs, checks).
 ```
