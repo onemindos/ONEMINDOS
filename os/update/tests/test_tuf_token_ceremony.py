@@ -16,7 +16,7 @@ What is tested, all with throwaway keys made in a temp directory (no real key, P
 
 Needs the pinned python-tuf and python-pkcs11 (os/update/requirements-tuf.txt) and SoftHSM; the token
 parts skip without them (CI sets ONEMIND_TUF_REQUIRE_HSM so they cannot skip there)."""
-import datetime, json, os, shutil, stat, subprocess, sys, tempfile, textwrap, unittest
+import datetime, importlib.util, io, json, os, shutil, stat, subprocess, sys, tempfile, textwrap, unittest
 import unittest.mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -84,13 +84,35 @@ def pem(c):
     return c.public_bytes(serialization.Encoding.PEM)
 
 
-def write_attestation(d, holder_pub, pin=3, touch=2, serial=12345678, policy=True, signer="f9"):
+def make_ca():
+    """A throwaway stand-in for Yubico's PIV root CA: (certificate, private key)."""
+    key = ec.generate_private_key(ec.SECP256R1())
+    return _cert("Test PIV Root CA", key.public_key(), _name("Test PIV Root CA"), key, ca=True), key
+
+
+def write_ca(d):
+    """Write a throwaway CA as <d>/ca.pem (certificate) and <d>/ca.key (its key, for the stand-in ykman)."""
+    cert, key = make_ca()
+    open(os.path.join(d, "ca.pem"), "wb").write(pem(cert))
+    open(os.path.join(d, "ca.key"), "wb").write(key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
+                                                                  serialization.NoEncryption()))
+    return os.path.join(d, "ca.pem")
+
+
+def read_ca(d):
+    return (x509.load_pem_x509_certificate(open(os.path.join(d, "ca.pem"), "rb").read()),
+            serialization.load_pem_private_key(open(os.path.join(d, "ca.key"), "rb").read(), None))
+
+
+def write_attestation(d, holder_pub, pin=3, touch=2, serial=12345678, policy=True, signer="f9", ca=None, serial_ext=True):
     """Write <d>/ca.pem, f9.pem, attest.pem as a YubiKey would (Yubico's documented layout), attesting
-    holder_pub (a cryptography public key). Returns the paths."""
-    ca_key, f9_key, other_key = (ec.generate_private_key(ec.SECP256R1()) for _ in range(3))
-    ca = _cert("Test PIV Root CA", ca_key.public_key(), _name("Test PIV Root CA"), ca_key, ca=True)
+    holder_pub (a cryptography public key). ca=(certificate, key) reuses a CA (else a new one). Returns the paths."""
+    ca, ca_key = ca or make_ca()
+    f9_key, other_key = (ec.generate_private_key(ec.SECP256R1()) for _ in range(2))
     f9 = _cert("Test PIV Attestation", f9_key.public_key(), ca.subject, ca_key, ca=True)
-    exts = [(att.OID_FIRMWARE, bytes([5, 7, 1])), (att.OID_SERIAL, b"\x02\x04" + serial.to_bytes(4, "big"))]
+    exts = [(att.OID_FIRMWARE, bytes([5, 7, 1]))]
+    if serial_ext:
+        exts.append((att.OID_SERIAL, b"\x02\x04" + serial.to_bytes(4, "big")))
     if policy:
         exts.append((att.OID_POLICY, bytes([pin, touch])))
     sign_key = f9_key if signer == "f9" else other_key
@@ -112,9 +134,9 @@ class Attestation(unittest.TestCase):
         open(self.pub, "wb").write(self.key.public_key().public_bytes(
             serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo))
 
-    def check(self, **kw):
+    def check(self, want_serial=None, **kw):
         p = write_attestation(self.d, kw.pop("attested", self.key.public_key()), **kw)
-        return att.check(self.pub, p["attest"], [p["f9"]], p["ca"])
+        return att.check(self.pub, p["attest"], [p["f9"]], p["ca"], serial=want_serial)
 
     def test_a_key_made_on_the_device_with_both_policies_passes(self):
         lines, problems = self.check()
@@ -130,6 +152,31 @@ class Attestation(unittest.TestCase):
             self.assertEqual(att.main(["--pub", self.pub, "--attestation", p["attest"], "--chain", p["f9"], "--ca", p["ca"]]), 0)
             self.assertEqual(att.main(["--pub", self.pub, "--attestation", p["attest"], "--chain", p["f9"], "--ca", p["ca"],
                                        "--touch-policy", "cached"]), 1)
+
+    def test_no_ca_fails_closed_and_only_the_spare_trial_may_skip_it_out_loud(self):
+        p = write_attestation(self.d, self.key.public_key())
+        lines, problems = att.check(self.pub, p["attest"], [p["f9"]], None)
+        self.assertTrue(any("no Yubico PIV CA given" in x for x in problems), problems)
+        lines, problems = att.check(self.pub, p["attest"], [p["f9"]], None, allow_no_ca=True)
+        self.assertEqual(problems, [])
+        self.assertIn("SPARE TRIAL ONLY", "\n".join(lines))
+        base = ["--pub", self.pub, "--attestation", p["attest"], "--chain", p["f9"]]
+        with unittest.mock.patch("sys.stdout", new_callable=io.StringIO) as out:
+            self.assertEqual(att.main(base), 1)
+            self.assertIn("attestation FAILED", out.getvalue())
+        with unittest.mock.patch("sys.stdout", new_callable=io.StringIO) as out:
+            self.assertEqual(att.main(base + ["--no-ca-spare-trial"]), 0)
+            self.assertIn("WITHOUT Yubico's CA (spare trial only)", out.getvalue())
+            self.assertNotIn("cannot leave it", out.getvalue())
+        with unittest.mock.patch("sys.stderr"), self.assertRaises(SystemExit):
+            att.main(base + ["--no-ca-spare-trial", "--ca", p["ca"]])
+
+    def test_the_attestation_must_name_the_yubikey_that_was_meant(self):
+        self.assertEqual(self.check(want_serial=12345678)[1], [])
+        _, problems = self.check(want_serial=87654321)
+        self.assertTrue(any("from YubiKey 12345678, not the YubiKey 87654321" in p for p in problems), problems)
+        _, problems = self.check(want_serial=12345678, serial_ext=False)
+        self.assertTrue(any("no device serial" in p for p in problems), problems)
 
     def test_an_attestation_of_another_key_fails(self):
         _, problems = self.check(attested=ec.generate_private_key(ec.SECP256R1()).public_key())
@@ -156,9 +203,6 @@ class Attestation(unittest.TestCase):
         q = write_attestation(other, self.key.public_key())
         _, problems = att.check(self.pub, p["attest"], [p["f9"]], q["ca"])
         self.assertTrue(any("does not end at the CA" in x for x in problems), problems)
-        lines, problems = att.check(self.pub, p["attest"], [p["f9"]], None)      # no CA: allowed, but said
-        self.assertEqual(problems, [])
-        self.assertIn("WARNING: no --ca given", "\n".join(lines))
 
 
 # ---------------------------------------------------------------- tokens (SoftHSM)
@@ -338,9 +382,12 @@ FAKE_YKMAN = textwrap.dedent('''\
         from test_tuf_token_ceremony import write_attestation
         d = os.path.join(os.environ["FAKE_YK_STATE"], serial)
         if not os.path.exists(os.path.join(d, "attest.pem")):
+            from test_tuf_token_ceremony import read_ca
             os.makedirs(d, exist_ok=True)
-            write_attestation(d, pub_pem(), pin={"ALWAYS": 3, "ONCE": 2}[st["pin"]], touch={"ALWAYS": 2, "CACHED": 3}[st["touch"]],
-                              serial=int(serial))
+            bad = os.environ.get("FAKE_YK_BAD", "")          # a device that answers wrongly: another key, another serial
+            attested = ec.generate_private_key(ec.SECP256R1()).public_key() if bad == "otherkey" else pub_pem()
+            write_attestation(d, attested, pin={"ALWAYS": 3, "ONCE": 2}[st["pin"]], touch={"ALWAYS": 2, "CACHED": 3}[st["touch"]],
+                              serial=99999999 if bad == "serial" else int(serial), ca=read_ca(os.environ["FAKE_YK_STATE"]))
         src = "attest.pem" if a[2] == "attest" else "f9.pem"
         open(a[-1], "wb").write(open(os.path.join(d, src), "rb").read()); sys.exit(0)
     sys.exit("fake ykman: unexpected " + " ".join(a))
@@ -364,9 +411,10 @@ class YubikeyKeyScript(unittest.TestCase):
         open(yk, "w").write(FAKE_YKMAN.replace("PYTHON", sys.executable, 1))
         os.chmod(yk, os.stat(yk).st_mode | stat.S_IEXEC)
         self.log = os.path.join(self.d, "ykman.log")
+        self.ca = write_ca(os.path.join(self.d, "state"))           # the stand-in for Yubico's PIV CA
 
     def env(self, serials=None, **extra):
-        e = dict(SOFTHSM2_CONF=self.conf, PYKCS11LIB=SOFTHSM_LIB, ONEMIND_TUF_PIN=PIN, FAKE_YK_PIN=PIN,
+        e = dict(SOFTHSM2_CONF=self.conf, PYKCS11LIB=SOFTHSM_LIB, ONEMIND_TUF_PIN=PIN, FAKE_YK_PIN=PIN, YUBICO_PIV_CA=self.ca,
                  FAKE_YK_LOG=self.log, FAKE_YK_STATE=os.path.join(self.d, "state"),
                  FAKE_YK_SERIALS=",".join(serials or self.SERIALS[:1]), FAKE_YK_TESTDIR=os.path.dirname(os.path.abspath(__file__)),
                  PATH=os.path.join(self.d, "bin") + os.pathsep + os.environ.get("PATH", ""))
@@ -395,13 +443,64 @@ class YubikeyKeyScript(unittest.TestCase):
         self.assertEqual(other.returncode, 2)
         self.assertIn("already holds a key in slot 9c", other.stderr)
 
+    def test_a_failed_attestation_leaves_no_public_key(self):
+        for ser, bad, word in ((self.SERIALS[0], "otherkey", "NOT the key"),
+                               (self.SERIALS[1], "serial", f"from YubiKey 99999999, not the YubiKey {self.SERIALS[1]}")):
+            out = os.path.join(self.d, "pubs-" + bad)
+            r = run_script("yubikey-key", out, "a", ser, **self.env(FAKE_YK_BAD=bad))
+            self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+            self.assertIn(word, r.stdout)
+            self.assertIn("attestation FAILED", r.stdout)
+            self.assertIn("No " + os.path.join(out, "a.pub") + " was written", r.stderr)
+            self.assertEqual(sorted(os.listdir(out)), ["a-attestation-FAILED"], bad)    # no a.pub, no temp file
+            self.assertEqual(sorted(os.listdir(os.path.join(out, "a-attestation-FAILED"))),
+                             ["a-attest.pem", "a-f9.pem", "a-ykman.pub"])
+            again = run_script("yubikey-key", out, "a", ser, **self.env())
+            self.assertEqual(again.returncode, 2)
+            self.assertIn("refusing to overwrite", again.stderr)
+            self.assertFalse(os.path.exists(os.path.join(out, "a.pub")))
+
+    def test_no_yubico_ca_is_refused_before_the_device_is_touched(self):
+        out = os.path.join(self.d, "pubs")
+        r = run_script("yubikey-key", out, "a", **self.env(YUBICO_PIV_CA=""))
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn("set YUBICO_PIV_CA", r.stderr)
+        r = run_script("yubikey-key", out, "a", **self.env(YUBICO_PIV_CA=os.path.join(self.d, "missing.pem")))
+        self.assertEqual(r.returncode, 2)
+        r = run_script("yubikey-key", out, "a", **self.env(YUBICO_PIV_CA="", ONEMIND_ATTEST_WITHOUT_CA="spare-trial"))
+        self.assertEqual(r.returncode, 2)                          # the bypass is for the key named "spare" only
+        self.assertNotIn("piv keys generate", open(self.log).read() if os.path.exists(self.log) else "")
+        self.assertFalse(os.path.exists(out))
+
+    def test_the_spare_trial_may_skip_the_ca_and_it_is_recorded(self):
+        out = os.path.join(self.d, "spare-trial")
+        r = run_script("yubikey-key", out, "spare", **self.env(YUBICO_PIV_CA="", ONEMIND_ATTEST_WITHOUT_CA="spare-trial"))
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("WITHOUT Yubico's CA (spare trial only)", r.stdout)
+        self.assertIn("SPARE TRIAL ONLY", r.stdout)
+        record = open(os.path.join(out, "spare-NO-CA-RECORD.txt")).read()
+        self.assertIn(self.SERIALS[0], record)
+        self.assertIn("must never go into a real root", record)
+
+    def test_a_pin_in_the_environment_is_refused_for_a_real_token(self):
+        r = run_script("token-pub", f"hsm:2?yubikey={self.SERIALS[0]}", os.path.join(self.d, "x.pub"),
+                       **self.env(PYKCS11LIB="/usr/lib/x86_64-linux-gnu/libykcs11.so"))
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("ONEMIND_TUF_PIN is set, but it is for SoftHSM", r.stderr)
+        with unittest.mock.patch.dict(os.environ, {tr.PIN_ENV: PIN, "PYKCS11LIB": "/usr/lib/libykcs11.so"}):
+            with self.assertRaises(SystemExit) as e:
+                tr._env_pin()
+            self.assertIn("SoftHSM rehearsals and tests only", str(e.exception))
+        with unittest.mock.patch.dict(os.environ, {tr.PIN_ENV: PIN, "PYKCS11LIB": SOFTHSM_LIB}):
+            self.assertEqual(tr._env_pin(), PIN)
+
     def test_exactly_one_yubikey_and_the_tools_must_be_there(self):
         r = run_script("yubikey-key", os.path.join(self.d, "p"), "a", **self.env(serials=self.SERIALS[:2]))
         self.assertEqual(r.returncode, 2)
         self.assertIn("exactly ONE YubiKey", r.stderr)
         r = run_script("yubikey-key", os.path.join(self.d, "p"), "a", "12ab", **self.env())
         self.assertEqual(r.returncode, 2)
-        r = run_script("yubikey-key", os.path.join(self.d, "p"), "a", **self.env(PYKCS11LIB=""))
+        r = run_script("yubikey-key", os.path.join(self.d, "p"), "a", **self.env(PYKCS11LIB="", ONEMIND_TUF_PIN=""))
         self.assertEqual(r.returncode, 1)
         self.assertIn("PYKCS11LIB", r.stderr)
         r = run_script("yubikey-key", os.path.join(self.d, "p"), "a", **self.env(PATH="/usr/bin:/bin"))
@@ -457,6 +556,19 @@ class Guide(unittest.TestCase):
         r = self.guide("--yubikey", "--work", os.path.join(self.d, "w2"), ONEMIND_TUF_PIN="123456")
         self.assertEqual(r.returncode, 1)
         self.assertIn("never kept in the environment", r.stderr)
+
+    def test_the_real_yubikey_path_needs_yubicos_ca(self):
+        spec = importlib.util.spec_from_file_location("ceremony_guide", GUIDE)
+        g = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(g)
+        ca = os.path.join(self.d, "ca.pem")
+        open(ca, "w").write("-----BEGIN CERTIFICATE-----\n")
+        self.assertEqual(g.yubico_ca({"YUBICO_PIV_CA": ca}), ca)
+        for env, word in (({}, "set YUBICO_PIV_CA"), ({"YUBICO_PIV_CA": os.path.join(self.d, "none.pem")}, "set YUBICO_PIV_CA"),
+                          ({"YUBICO_PIV_CA": ca, "ONEMIND_ATTEST_WITHOUT_CA": "spare-trial"}, "spare trial only")):
+            with self.assertRaises(g.Stop) as e:
+                g.yubico_ca(env)
+            self.assertIn(word, str(e.exception))
 
 
 if __name__ == "__main__":

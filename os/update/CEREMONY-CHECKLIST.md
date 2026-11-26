@@ -41,7 +41,7 @@ Holders: A ______________  B ______________  C ______________  Witness (optional
 ## Ceremony on YubiKeys (proposed; needs the founder's decision entry, D-010 says sticks first): full steps in [CEREMONY.md](CEREMONY.md#ceremony-on-yubikeys-proposed-changes-d-010)
 Founder decision entry recorded (DECISIONS.md, date): ____________   Yubico PIV CA file sha256: ______________________________
 - [ ] Y0. Rehearsals passed: `rehearse-tokens` and `ceremony-guide.py --yubikey --rehearsal` printed `REHEARSAL PASSED`
-- [ ] Y1. Spare YubiKey trial: prepared, `yubikey-key /tmp/spare-trial spare` printed `attestation OK`, `PIN policy always, touch policy always`; spare reset
+- [ ] Y1. Spare YubiKey trial: prepared, `yubikey-key /tmp/spare-trial spare` printed `attestation OK` (with `YUBICO_PIV_CA` set; a run without the CA does not count), `PIN policy always, touch policy always`; spare reset
 - [ ] Y2. The day before, each holder prepared their own YubiKey alone: PIN and PUK changed, management key `--generate --protect`, slot 9c empty
 - [ ] Y3. Network off, commit checked (steps 1 and 2 above); `PYKCS11LIB` and `YUBICO_PIV_CA` set
 - [ ] Y4. Keys made ON each YubiKey (`yubikey-key pubs <a|b|c>`), each printed `attestation OK`. Serials (public): A ________ B ________ C ________

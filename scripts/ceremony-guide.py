@@ -82,8 +82,8 @@ WHAT YOU NEED AND HOW LONG IT TAKES  (YubiKey ceremony; one page, read it before
             - This computer with the network OFF, ideally a Debian live USB.
             - ykman (YubiKey Manager), Yubico's PKCS#11 module (libykcs11) and the python-tuf tools,
               installed BEFORE going offline. PYKCS11LIB set to the module's full path.
-            - Optional but recommended: Yubico's PIV attestation CA, downloaded and compared before going
-              offline, in YUBICO_PIV_CA (the guide then checks each key was made on a real YubiKey).
+            - Yubico's PIV attestation CA, downloaded and compared (sha256 on the checklist) before going
+              offline, in YUBICO_PIV_CA. Required: the guide checks each key was made on a real YubiKey.
   Each holder  types their own PIN at prompts that show nothing, and touches their YubiKey when it
             blinks. Three wrong PINs lock the PIN (the PUK unlocks it). Nobody else sees a PIN.
   The private keys never exist anywhere but inside the three YubiKeys. There is nothing to back up:
@@ -600,6 +600,21 @@ class Guide:
             io.say("\nCEREMONY COMPLETE. Thank you. Follow the list above, then wipe this computer.")
 
 
+def yubico_ca(environ):
+    """The Yubico PIV attestation CA file for a REAL YubiKey ceremony, or Stop. Required: without it the check
+    that each key was made on a real YubiKey proves nothing (any software can mint an f9-style certificate for
+    an imported key). The spare-trial bypass of scripts/tuf-bootstrap-root.sh is refused here."""
+    if environ.get("ONEMIND_ATTEST_WITHOUT_CA"):
+        raise Stop("ONEMIND_ATTEST_WITHOUT_CA is set. Skipping Yubico's CA is for the spare trial only, never the "
+                   "ceremony: unset it and run again.")
+    ca = environ.get("YUBICO_PIV_CA", "")
+    if not ca or not os.path.isfile(ca) or not os.path.getsize(ca):
+        raise Stop("set YUBICO_PIV_CA to Yubico's PIV attestation CA file, downloaded and compared (sha256 on the "
+                   "checklist) BEFORE going offline (CEREMONY.md). Without it the check that each key was made on a "
+                   "real YubiKey proves nothing.")
+    return ca
+
+
 class TokenGuide(Guide):
     """The same walk with the root keys made ON hardware tokens: three YubiKeys for real (ykman, PIV slot 9c,
     PIN and touch policy "always", attestation checked), three throwaway SoftHSM tokens in a rehearsal. The
@@ -643,10 +658,8 @@ class TokenGuide(Guide):
         lib = os.environ.get("PYKCS11LIB", "")
         if not lib or not os.path.exists(lib):
             raise Stop("set PYKCS11LIB to the full path of Yubico's PKCS#11 module (libykcs11.so or libykcs11.dylib).")
-        if not os.environ.get("YUBICO_PIV_CA"):
-            io.say("note: YUBICO_PIV_CA is not set, so each attestation is checked against its own device certificate "
-                   "only, not against Yubico's CA (CEREMONY.md says how to fetch and compare it before going offline).")
-        io.say("ok: ykman and the PKCS#11 module are there.")
+        ca = yubico_ca(os.environ)
+        io.say(f"ok: ykman, the PKCS#11 module and Yubico's CA ({ca}) are there.")
 
     def plugged(self):
         r = subprocess.run(["ykman", "list", "--serials"], capture_output=True, text=True)

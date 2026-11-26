@@ -11,7 +11,8 @@ Keys are ed25519, PEM (PKCS#8 private, SubjectPublicKeyInfo public). A key argum
 env:NAME (read from that environment variable, so CI secrets never touch the disk) or, for a ROOT key
 on a hardware token (a YubiKey, or SoftHSM in tests), hsm:<id>[?label=<token label>]: an ECDSA P-256
 key that never leaves the token, reached through the PKCS#11 module named by $PYKCS11LIB. The token's
-PIN is typed at a no-echo prompt (or $ONEMIND_TUF_PIN, tests only), never given as an argument.
+PIN is typed at a no-echo prompt (or $ONEMIND_TUF_PIN, SoftHSM rehearsals and tests only: refused with
+any other PKCS#11 module), never given as an argument.
 A YubiKey can be named by its serial, hsm:2?yubikey=<serial> (its PKCS#11 token label is
 "YubiKey PIV #<serial>"); a key whose PIN policy is "always" (CKA_ALWAYS_AUTHENTICATE, YubiKey slot
 9c) gets the PIN again for every signature, and a touch policy makes the device wait for a touch.
@@ -109,6 +110,19 @@ HSM_PREFIX = "hsm:"
 PIN_ENV = "ONEMIND_TUF_PIN"                   # tests only; a real ceremony types the PIN at a no-echo prompt
 
 
+def _env_pin():
+    """$ONEMIND_TUF_PIN, but only for a SoftHSM token (rehearsals and tests). With any other PKCS#11 module
+    (a YubiKey's libykcs11, a real HSM) a PIN in the environment is refused: a real PIN is typed at a
+    no-echo prompt, never kept where every child process and a shell history can see it."""
+    pin = os.environ.get(PIN_ENV)
+    if not pin:
+        return None
+    if not os.path.basename(os.environ.get("PYKCS11LIB", "")).startswith("libsofthsm2"):
+        raise SystemExit(f"refusing: {PIN_ENV} is for SoftHSM rehearsals and tests only. A real token's PIN is typed "
+                         f"at the prompt: unset {PIN_ENV} and run again.")
+    return pin
+
+
 YUBIKEY_LABEL = "YubiKey PIV #{}"          # the token label Yubico's PKCS#11 module (ykcs11) gives each device
 
 
@@ -169,7 +183,7 @@ def _hsm(spec):
 
     def pin_handler(_what):                       # typed once per key, however often it signs
         if not pin:
-            pin.append(os.environ.get(PIN_ENV) or getpass.getpass(f"PIN for token key {spec}: "))
+            pin.append(_env_pin() or getpass.getpass(f"PIN for token key {spec}: "))
         return pin[0]
 
     try:
@@ -198,7 +212,7 @@ def token_keygen(spec, pin_always=False):
         token = pkcs11.lib(lib).get_token(token_label=label)
     except Exception as e:
         raise SystemExit(f"token {label!r}: {e}")
-    pin = os.environ.get(PIN_ENV) or getpass.getpass(f"PIN for token {label}: ")
+    pin = _env_pin() or getpass.getpass(f"PIN for token {label}: ")
     cid = pkcs11.util.biginteger(keyid)
     with token.open(rw=True, user_pin=pin) as session:
         if list(session.get_objects({pkcs11.Attribute.ID: cid})):

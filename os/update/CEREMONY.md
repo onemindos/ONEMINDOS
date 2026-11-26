@@ -135,6 +135,10 @@ scripts/tuf-bootstrap-root.sh yubikey-key /tmp/spare-trial spare
 ```
 It must end with `attestation OK` and print `PIN policy always, touch policy always`. Then reset the spare (`ykman --device <serial> piv reset`). If this fails, stop: the real three are not touched until the spare works.
 
+`YUBICO_PIV_CA` is required. Without Yubico's CA the attestation proves nothing: any software can make a certificate that looks like the device's f9 certificate for a key that was imported, not made on the YubiKey. The script refuses to start without it. Only this spare trial may run without the CA (for example, to try ykman before the CA is downloaded): name the key `spare` and set `ONEMIND_ATTEST_WITHOUT_CA=spare-trial`. The script then writes `spare-NO-CA-RECORD.txt` (date, serial) and prints `attestation OK WITHOUT Yubico's CA (spare trial only)`. That does not count as Y1: run the trial again with the CA before the real day. The guide refuses the bypass.
+
+If an attestation fails, the script writes **no** `<name>.pub` (the public key stays under a temporary name until the check passes, then is renamed) and moves the attestation files to `<name>-attestation-FAILED/`. Do not use that YubiKey for a root key. The attestation must also name the YubiKey serial the script was pointed at.
+
 ### The ceremony with YubiKeys
 `python3 scripts/ceremony-guide.py --yubikey` walks all of it. By hand:
 1. Steps 1 and 2 of the ceremony above (network off, commit checked). `export PYKCS11LIB=<module path> YUBICO_PIV_CA=<CA file>`.
@@ -142,7 +146,7 @@ It must end with `attestation OK` and print `PIN policy always, touch policy alw
    ```sh
    scripts/tuf-bootstrap-root.sh yubikey-key pubs a      # holder A; then pubs b (holder B), pubs c (holder C)
    ```
-   ykman asks for the PIN (the management key is PIN-protected), the key blinks: touch it. The script refuses if slot 9c already holds a key. It writes `pubs/a.pub` (public) and the attestation files, and prints the device serial, `attestation OK` and both policies. Write each serial on the checklist.
+   ykman asks for the PIN (the management key is PIN-protected), the key blinks: touch it. The script refuses if slot 9c already holds a key. It refuses without `YUBICO_PIV_CA`. It prints the device serial (checked against the YubiKey it was pointed at), `attestation OK` and both policies, and only then writes `pubs/a.pub` (public) beside the attestation files. Write each serial on the checklist.
 3. **Online keys:** step 5 above (`online-keys online`).
 4. **Sign the root.** The two signers plug in their YubiKeys **together**; the third stays away:
    ```sh

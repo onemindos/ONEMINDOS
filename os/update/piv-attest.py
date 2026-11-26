@@ -9,13 +9,17 @@ the slot: its public key, that it was generated on the device (an imported key g
 device's serial and firmware, and the key's PIN and touch policy.
 
 This checks, offline, for one holder's key:
-  1. the attestation certificate is signed by the f9 certificate (and that one by --ca, when given:
-     Yubico's PIV root CA, downloaded and compared BEFORE the ceremony; see os/update/CEREMONY.md);
+  1. the attestation certificate is signed by the f9 certificate, and that one by --ca: Yubico's PIV
+     root CA, downloaded and compared BEFORE the ceremony (see os/update/CEREMONY.md). The CA is
+     REQUIRED: without it anyone's software can mint an f9-style certificate for an imported key, so
+     the check would prove nothing. Only the spare-YubiKey trial may skip it, with --no-ca-spare-trial,
+     and the result then says so on every line that matters;
   2. its public key is the exact key in <holder>.pub (the one that goes into root.json);
-  3. the PIN policy and touch policy are the ones asked for (default: always and always).
+  3. the device serial in the attestation is the YubiKey that was meant (--serial);
+  4. the PIN policy and touch policy are the ones asked for (default: always and always).
 
     python3 os/update/piv-attest.py --pub a.pub --attestation a-attest.pem --chain a-f9.pem \
-        [--ca yubico-piv-ca.pem] [--pin-policy always] [--touch-policy always]
+        --ca yubico-piv-ca.pem [--serial 12345678] [--pin-policy always] [--touch-policy always]
 
 Prints the device serial, firmware and policies (public values) and exits 1 on any problem.
 
@@ -62,8 +66,10 @@ def _spki(key):
     return key.public_bytes(serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
 
 
-def check(pub_path, attestation, chain, ca=None, pin_policy="always", touch_policy="always"):
-    """Returns (lines to print, problems). Nothing is trusted that does not chain to `chain` (and `ca`)."""
+def check(pub_path, attestation, chain, ca=None, pin_policy="always", touch_policy="always", serial=None,
+          allow_no_ca=False):
+    """Returns (lines to print, problems). Nothing is trusted that does not chain to `chain` and `ca`.
+    No `ca` is a problem unless allow_no_ca (the spare-YubiKey trial only), which is then said loudly."""
     lines, problems = [], []
     att = _certs(attestation)[0]
     links = [c for p in chain for c in _certs(p)]
@@ -82,18 +88,27 @@ def check(pub_path, attestation, chain, ca=None, pin_policy="always", touch_poli
             problems.append(f"the chain does not end at the CA in {ca} (last link: {issuer.subject.rfc4514_string()})")
         else:
             lines.append(f"chain ends at the CA in {ca}")
+    elif allow_no_ca:
+        lines.append("WARNING: SPARE TRIAL ONLY: no Yubico CA given, so the f9 certificate is not checked; this key "
+                     "must never go into a real root")
     else:
-        lines.append("WARNING: no --ca given, so the f9 certificate itself is not checked against Yubico's CA")
+        problems.append("no Yubico PIV CA given (--ca): without it any software can mint an f9-style certificate "
+                        "for an imported key, so the attestation proves nothing")
     want = serialization.load_pem_public_key(open(pub_path, "rb").read())
     if _spki(att.public_key()) != _spki(want):
         problems.append(f"the attested key is NOT the key in {pub_path}")
     else:
         lines.append(f"the attested key is the key in {pub_path}")
     fw = _ext(att, OID_FIRMWARE)
-    serial = _der_int(_ext(att, OID_SERIAL))
+    got_serial = _der_int(_ext(att, OID_SERIAL))
     pol = _ext(att, OID_POLICY)
-    lines.append(f"device serial {serial if serial is not None else '?'}, firmware "
+    lines.append(f"device serial {got_serial if got_serial is not None else '?'}, firmware "
                  f"{'.'.join(str(b) for b in fw) if fw and len(fw) == 3 else '?'}")
+    if serial is not None:
+        if got_serial is None:
+            problems.append("the attestation has no device serial extension (1.3.6.1.4.1.41482.3.7)")
+        elif got_serial != int(serial):
+            problems.append(f"the attestation is from YubiKey {got_serial}, not the YubiKey {serial} that was meant")
     if not pol or len(pol) != 2:
         problems.append("the attestation has no PIN/touch policy extension (1.3.6.1.4.1.41482.3.8)")
     else:
@@ -122,14 +137,25 @@ def main(argv=None):
     ap.add_argument("--attestation", required=True, help="ykman piv keys attest 9c <file>")
     ap.add_argument("--chain", action="append", required=True, help="the f9 certificate (ykman piv certificates export f9)")
     ap.add_argument("--ca", help="Yubico's PIV attestation root CA (PEM), fetched and compared before going offline")
+    ap.add_argument("--no-ca-spare-trial", action="store_true",
+                    help="ONLY the spare-YubiKey trial: run without the CA (the key must never go into a real root)")
+    ap.add_argument("--serial", type=int, help="the serial of the YubiKey that was meant (printed on its back)")
     ap.add_argument("--pin-policy", default="always", choices=sorted(PIN_POLICY.values()))
     ap.add_argument("--touch-policy", default="always", choices=sorted(TOUCH_POLICY.values()))
     a = ap.parse_args(argv)
-    lines, problems = check(a.pub, a.attestation, a.chain, a.ca, a.pin_policy, a.touch_policy)
+    if a.ca and a.no_ca_spare_trial:
+        ap.error("give --ca or --no-ca-spare-trial, not both")
+    lines, problems = check(a.pub, a.attestation, a.chain, a.ca, a.pin_policy, a.touch_policy, a.serial,
+                            allow_no_ca=a.no_ca_spare_trial)
     print("\n".join(lines))
     for p in problems:
         print("FAIL " + p)
-    print("attestation " + ("FAILED" if problems else "OK: the key was made on this YubiKey and cannot leave it"))
+    if problems:
+        print("attestation FAILED")
+    elif not a.ca:
+        print("attestation OK WITHOUT Yubico's CA (spare trial only): the device answered as asked; not proof for a real root")
+    else:
+        print("attestation OK: the key was made on this YubiKey and cannot leave it")
     return 1 if problems else 0
 
 
