@@ -97,7 +97,7 @@ Use the commands as written. `<stick-a>` is where holder A's stick is mounted (f
 - **YubiKey PIV:** the smart-card part of a YubiKey 5. Its slot `9c` ("digital signature") holds the root key. PKCS#11 key id `2`.
 - **PIN** (6 to 8 digits): unlocks the key. Three wrong tries lock it; the **PUK** unlocks the PIN; three wrong PUKs make the PIV part unusable until it is reset (which erases the key). Default PIN `123456`, PUK `12345678` (Yubico, "PIV PIN and Management Key"): change both before the day.
 - **Management key:** a third secret that protects *changes* to the YubiKey (making a key). `--protect` stores a random one on the device behind the PIN, so the holder only ever types the PIN.
-- **PIN policy "always":** the PIN is needed for every signature (slot 9c's default). **Touch policy "always":** every signature waits for a finger on the device, so malware on the computer cannot sign by itself.
+- **PIN policy "always":** the device wants the PIN for every signature (slot 9c's default). The holder types it **once per key** at the tool's prompt; the tool hands it to the device again before each signature it makes in that run. **Touch policy "always":** every signature waits for a finger on the device, so malware on the computer cannot sign by itself even while it holds the PIN. The touch is the per-signature human check.
 - **Attestation:** a certificate the YubiKey signs about its own key: "this public key was generated here, with this PIN and touch policy". It chains to Yubico's PIV CA. An imported key gets none.
 - **ykman:** Yubico's command-line tool (YubiKey Manager). **libykcs11:** Yubico's PKCS#11 module, which lets the signing tool use the key.
 
