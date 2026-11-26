@@ -42,8 +42,11 @@ def test_a_rule_binds_to_the_agents_permanent_id(client, clock):
     assert uid.startswith("prn_")
     assert client.get("/v1/agents/agent:notes", headers=OWNER).json()["principal_uid"] == uid
     assert covered(client, clock) == "auto_approved"
-    # re-minting under the same name while the first token lives keeps the identity (and the rule)
+    # re-minting under the same name while the first token lives keeps the identity; since PR 9 a second
+    # credential suspends the rule until the owner re-confirms it, and the binding stays the same
     mint(client)
+    assert covered(client, clock) == "needs_approval"
+    assert client.post(f"/v1/approval-policies/{r.json()['id']}/reconfirm", headers=OWNER).status_code == 200
     assert covered(client, clock) == "auto_approved"
     assert "principal.registered" in audit(client) and tok["principal_id"] == "agent:notes"
 
@@ -56,7 +59,7 @@ def test_a_rule_stops_when_its_token_is_revoked(client, clock):
     # a new token under the same name is a new principal: the old rule never covers it
     mint(client)
     v = client.app.state.automation.policies.evaluate("app.restart", {"app_id": "whoami"}, WHO, clock.now, paused=False)
-    assert v.outcome == "needs_approval" and v.reason == "principal_changed"
+    assert v.outcome == "needs_approval" and v.reason in ("principal_changed", "rule_suspended")  # PR 9 suspends it
     old = client.app.state.automation.repo.get_policy(pid)["principals"]["agent:notes"]["uid"]
     assert client.get("/v1/agents/agent:notes", headers=OWNER).json()["principal_uid"] not in (None, old)
     assert "principal.retired" in audit(client)

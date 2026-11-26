@@ -88,3 +88,60 @@ func TestPermissionsDenyAddListRemove(t *testing.T) {
 		t.Fatalf("both %+v", r)
 	}
 }
+
+// A stand-in for the rules routes: revoke needs nothing more; a PATCH that raises per_day widens and
+// answers step_up_required; lowering it applies.
+func TestPermissionsRulesListRevokeNarrow(t *testing.T) {
+	isolate(t)
+	var mu sync.Mutex
+	var patches []map[string]any
+	rule := map[string]any{"id": "pol_1", "revision": 1, "state": "active", "forever": true, "expires_at": nil,
+		"allow": map[string]any{"types": []any{"backup.run"}, "requested_by": []any{"agent:notes"}}, "review_due": true}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/approval-policies":
+			jsonOut(w, 200, []map[string]any{rule})
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/approval-policies/pol_1/revoke":
+			rule["state"] = "revoked"
+			jsonOut(w, 200, rule)
+		case r.Method == http.MethodPatch && r.URL.Path == "/v1/approval-policies/pol_1":
+			var b map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&b)
+			patches = append(patches, b)
+			if l, ok := b["limits"].(map[string]any); ok && l["per_day"].(float64) > 5 {
+				jsonOut(w, 401, map[string]string{"error": "unauthenticated", "message": "widen", "reason": "step_up_required"})
+				return
+			}
+			rule["revision"] = 2
+			jsonOut(w, 200, rule)
+		default:
+			jsonOut(w, 404, map[string]string{"error": "not_found", "message": r.URL.Path})
+		}
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("ONEMIND_HUB", srv.URL)
+	t.Setenv("ONEMIND_TOKEN", ownerTok)
+	r := run(t, "", false, "permissions", "rules", "list")
+	if r.code != 0 || !strings.Contains(r.out, "FOREVER") || !strings.Contains(r.out, "review due") || !strings.Contains(r.out, "agent:notes may backup.run") {
+		t.Fatalf("list %+v", r)
+	}
+	if r := run(t, "", false, "permissions", "rules", "narrow", "pol_1", "--per-day", "2"); r.code != 0 || !strings.Contains(r.out, "rev 2") {
+		t.Fatalf("narrow %+v", r)
+	}
+	if got, _ := json.Marshal(patches[0]); string(got) != `{"limits":{"per_day":2}}` {
+		t.Fatalf("patch %s", got)
+	}
+	if r := run(t, "", false, "permissions", "rules", "narrow", "pol_1", "--per-day", "9"); r.code != ExitUsage || !strings.Contains(r.errOut, "passkey") {
+		t.Fatalf("widen %+v", r)
+	}
+	if r := run(t, "", false, "permissions", "rules", "narrow", "pol_1"); r.code != ExitUsage {
+		t.Fatalf("nothing to narrow %+v", r)
+	}
+	r = run(t, "", false, "permissions", "rules", "revoke", "pol_1", "--json")
+	var out map[string]any
+	if r.code != 0 || json.Unmarshal([]byte(r.out), &out) != nil || out["state"] != "revoked" {
+		t.Fatalf("revoke %+v", r)
+	}
+}

@@ -74,6 +74,18 @@ class PrincipalRegistry:
     def __init__(self, db: Database, audit: AuditLog, clock: Callable[[], datetime]):
         self.db, self.audit, self.clock = db, audit, clock
         self._lock = threading.Lock()  # one gateway process per ledger database (as agent_stop.py)
+        # PR 9: fn(display id, reason) when an identity or its credential changes; standing approvals that
+        # name it are suspended until an approver re-confirms them (design §3.6.2 item 7).
+        self.listeners: list[Callable[[str, str], None]] = []
+
+    def notify(self, name: str, reason: str) -> None:
+        for fn in list(self.listeners):
+            try:
+                fn(name, reason)
+            except Exception:  # a listener failure must not undo the change that caused it
+                import logging
+
+                logging.getLogger("onemind.principals").exception("principal listener failed")
 
     def live(self, name: str) -> dict | None:
         """The live record of a display id, or None (no identity holds it now)."""
@@ -112,6 +124,7 @@ class PrincipalRegistry:
                           .values(retired_at=self.clock(), retired_reason=reason[:80]))
         self.audit.append("principal.retired", None, None,
                           {"principal_id": name, "uid": found["uid"], "reason": reason[:80]})
+        self.notify(name, reason)
         return found["uid"]
 
     def history(self, name: str) -> list[dict]:
