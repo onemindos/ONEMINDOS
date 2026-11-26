@@ -14,6 +14,7 @@ import { Button, Card, PageHeader, StatusPill, Table, formatDay } from '@onemind
 import { usePoll } from '../lib/hooks';
 import { sessionLapsed, useGateway, viaSdk } from '../lib/gateway';
 import { useSignedIn } from '../session';
+import { useShell } from '../shell/Shell';
 import { keyErrorText } from './SignInKeys';
 import { Load } from './parts';
 
@@ -53,9 +54,15 @@ export function buildPolicy(f: { name: string; types: string; from: string; perD
 }
 
 export function StandingApprovals() {
-  const { token, mock, principal, signOut } = useSignedIn();
-  if (mock) return <><PageHeader title="Standing approvals" /><Card title="Standing approvals"><p role="status">Connect to a real hub to see its standing approvals. Demo mode has none.</p></Card></>;
-  if (principal?.role !== 'owner') return <><PageHeader title="Standing approvals" /><Card title="Standing approvals"><p role="status">Only an owner can see and change standing approvals.</p></Card></>;
+  // The role comes from the shell, as on every other owner-only screen (SettingsSecurity, Care): a real
+  // gateway session carries no principal, so the shell reads GET /v1/me (roleOf). Core still refuses a
+  // non-owner on every route this page calls.
+  const { role } = useShell();
+  const { token, mock, signOut } = useSignedIn();
+  const notice = (text: string) => <><PageHeader title="Standing approvals" /><Card title="Standing approvals"><p role="status">{text}</p></Card></>;
+  if (mock) return notice('Connect to a real hub to see its standing approvals. Demo mode has none.');
+  if (role === undefined) return notice('Checking who is signed in…');
+  if (role !== 'owner') return notice('Only an owner can see and change standing approvals.');
   return <Live token={token} signOut={signOut} />;
 }
 
@@ -73,8 +80,9 @@ function Live({ token, signOut }: { token: string; signOut: () => void }) {
   const policies = usePoll(() => viaSdk(() => client.call<Policy[]>({ method: 'GET', path: '/v1/approval-policies' })), 0);
   // Suggestions from real data: the agents and automations on this box, and its maintenance windows.
   // A standing approval names a requester as <kind>:<id>; an agent id without its kind gets agent: in front.
-  const agents = usePoll(() => viaSdk(() => client.call<unknown>({ method: 'GET', path: '/v1/agents' }))
-    .then((r) => picks(r, () => undefined).map((p) => ({ id: p.id.includes(':') ? p.id : `agent:${p.id}`, label: p.label }))), 0);
+  // /v1/agents has a generated schema (AgentView); the rules and windows routes have none yet, so picks() reads them.
+  const agents = usePoll(() => viaSdk(() => client.call<components['schemas']['AgentView'][]>({ method: 'GET', path: '/v1/agents' }))
+    .then((r) => r.map((a) => ({ id: a.id.includes(':') ? a.id : `agent:${a.id}`, label: a.id }))), 0);
   const rules = usePoll(() => viaSdk(() => client.call<unknown>({ method: 'GET', path: '/v1/automation/rules' }))
     .then((r) => picks(r, (x) => (typeof x.name === 'string' ? x.name : undefined)).map((p) => ({ id: `automation:${p.id}`, label: p.label }))), 0);
   const windows = usePoll(() => viaSdk(() => client.call<unknown>({ method: 'GET', path: '/v1/windows' })).then((r) => picks(r, (x) => (typeof x.name === 'string' ? x.name : undefined))), 0);

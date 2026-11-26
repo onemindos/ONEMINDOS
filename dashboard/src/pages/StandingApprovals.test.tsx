@@ -5,8 +5,10 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { buildPolicy, StandingApprovals } from './StandingApprovals';
 
-const state = vi.hoisted(() => ({ role: 'owner', signOut: vi.fn() }));
-vi.mock('../session', () => ({ useSignedIn: () => ({ token: 'fixture', mock: false, principal: { id: 'zeus', kind: 'person', role: state.role }, signOut: state.signOut }), useSession: () => ({ signOut: state.signOut }) }));
+const state = vi.hoisted(() => ({ role: 'owner' as string | undefined, signOut: vi.fn() }));
+// The shape a real gateway gives: no principal on the session, the account from GET /v1/me, the role from the shell.
+vi.mock('../session', () => ({ useSignedIn: () => ({ token: 'fixture', mock: false, principal: undefined, account: { id: 'zeus', kind: 'person', role: state.role }, signOut: state.signOut }), useSession: () => ({ signOut: state.signOut }) }));
+vi.mock('../shell/Shell', () => ({ useShell: () => ({ role: state.role }) }));
 const webauthn = vi.hoisted(() => ({ get: vi.fn() }));
 vi.mock('../lib/webauthn', () => ({ getPasskey: webauthn.get }));
 const box = vi.hoisted(() => ({ ask: vi.fn() }));
@@ -132,6 +134,15 @@ it('removes one only after a second click, with no step-up', async () => {
   await waitFor(() => expect(gone).toBe(true));
   expect(await screen.findByText(/removed. Its requests wait for you again/)).toBeVisible();
   expect(calls.some((c) => c.path.startsWith('/v1/auth/step-up'))).toBe(false);
+});
+
+it('waits for the role from GET /v1/me instead of refusing the owner, and reads nothing yet', () => {
+  state.role = undefined;
+  const calls = gateway(() => undefined);
+  mount();
+  expect(screen.getByRole('status')).toHaveTextContent('Checking who is signed in');
+  expect(screen.queryByText(/Only an owner/)).toBeNull();
+  expect(calls).toEqual([]);
 });
 
 it('tells a non-owner the rules are the owner\'s and reads nothing', () => {
