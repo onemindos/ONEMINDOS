@@ -22,7 +22,7 @@ import (
 // signed-in person's own, checked by the gateway (owner only where it loosens anything).
 func permissionsCommands(a *App) []*cobra.Command {
 	root := &cobra.Command{Use: "permissions", Short: "Deny rules, standing approvals and modes: what may happen without asking"}
-	root.AddCommand(permissionsDenyCommands(a), permissionsRulesCommands(a), permissionsModeCommands(a))
+	root.AddCommand(permissionsDenyCommands(a), permissionsRulesCommands(a), permissionsModeCommands(a), permissionsLogCommand(a))
 	return []*cobra.Command{root}
 }
 
@@ -408,29 +408,36 @@ func ruleHistory(c *onemind.Client, rule map[string]any) ([]map[string]any, erro
 		since = t.Add(-time.Second).UTC().Format(time.RFC3339)
 	}
 	out := []map[string]any{}
-	after := ""
-	for page := 0; page < 5; page++ {
-		q := url.Values{"event": {"automation.policy.created,approval.policy.*"}, "since": {since}, "limit": {"500"}}
-		if after != "" {
-			q.Set("after_seq", after)
+	err := auditPages(c, url.Values{"event": {"automation.policy.created,approval.policy.*"}, "since": {since}}, 5, func(r map[string]any) {
+		if d, _ := r["data"].(map[string]any); d != nil && d["policy_id"] == rule["id"] {
+			out = append(out, r)
 		}
+	})
+	return out, err
+}
+
+// auditPages reads GET /v1/audit/events with query q, oldest first, in pages of 500 (at most `pages` of
+// them), and hands every line to each. Both `permissions rules show` and `permissions log` page with it.
+func auditPages(c *onemind.Client, q url.Values, pages int, each func(map[string]any)) error {
+	q.Set("limit", "500")
+	for page := 0; page < pages; page++ {
 		var recs []map[string]any
 		if err := c.Do(bg(), http.MethodGet, "/v1/audit/events?"+q.Encode(), nil, &recs); err != nil {
-			return nil, err
+			return err
 		}
 		for _, r := range recs {
-			if d, _ := r["data"].(map[string]any); d != nil && d["policy_id"] == rule["id"] {
-				out = append(out, r)
-			}
+			each(r)
 		}
 		if len(recs) < 500 {
-			break
+			return nil
 		}
-		if after = seqCursor(recs[len(recs)-1]["seq"]); after == "" {
-			break // a line with no usable seq: stop rather than ask for the same page again
+		after := seqCursor(recs[len(recs)-1]["seq"])
+		if after == "" {
+			return nil // a line with no usable seq: stop rather than ask for the same page again
 		}
+		q.Set("after_seq", after)
 	}
-	return out, nil
+	return nil
 }
 
 // seqCursor is an audit line's seq as the integer the gateway's after_seq expects. JSON numbers decode
@@ -453,4 +460,48 @@ func seqCursor(v any) string {
 		return strconv.FormatInt(n, 10)
 	}
 	return ""
+}
+
+// permissionsLogCommand is `onemind permissions log` (design §3.12 "Auto-approved log"): every request a
+// standing approval approved in the last --days days, newest first, read from the audit log
+// (action.approved lines with approved_via=policy). End a rule with `onemind permissions rules revoke`.
+func permissionsLogCommand(a *App) *cobra.Command {
+	var days int
+	cmd := &cobra.Command{Use: "log", Short: "What your rules approved without asking (newest first)", Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if days < 1 || days > 365 {
+				return usageErr(cmd, "--days is 1 to 365")
+			}
+			c, _, err := a.client()
+			if err != nil {
+				return err
+			}
+			since := time.Now().UTC().Add(-time.Duration(days) * 24 * time.Hour).Format(time.RFC3339)
+			out := []map[string]any{}
+			err = auditPages(c, url.Values{"event": {"action.approved"}, "since": {since}}, 10, func(r map[string]any) {
+				if d, _ := r["data"].(map[string]any); d != nil && d["approved_via"] == "policy" {
+					out = append(out, map[string]any{"ts": r["ts"], "action_id": r["action_id"], "type": d["type"],
+						"requested_by": d["requested_by"], "policy_id": d["policy_id"], "policy_revision": d["policy_revision"], "uses": d["uses"]})
+				}
+			})
+			if err != nil {
+				return err
+			}
+			for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
+				out[i], out[j] = out[j], out[i]
+			}
+			if a.G.JSON {
+				return printJSON(a.Stdout, out)
+			}
+			if len(out) == 0 {
+				fmt.Fprintf(a.Stdout, "Nothing was approved by a rule in the last %d days.\n", days)
+			}
+			for _, u := range out {
+				fmt.Fprintf(a.Stdout, "%s  %s  by %s  rule %s rev %v  (use %v)\n", sanitize(fmt.Sprint(u["ts"])), sanitize(fmt.Sprint(u["type"])),
+					sanitize(fmt.Sprint(u["requested_by"])), sanitize(fmt.Sprint(u["policy_id"])), u["policy_revision"], sanitize(fmt.Sprint(u["uses"])))
+			}
+			return nil
+		}}
+	cmd.Flags().IntVar(&days, "days", 30, "how many days back")
+	return cmd
 }

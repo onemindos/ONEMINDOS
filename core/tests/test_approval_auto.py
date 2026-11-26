@@ -115,3 +115,22 @@ def test_an_each_rule_with_nowhere_to_push_pauses(nc, clock):
     row = next(p for p in nc.get("/v1/approval-policies", headers=OWNER).json() if p["id"] == pid)
     assert row["suspended_reason"] == "no_push_target"
     assert restart(nc, clock, "n1")["state"] == "awaiting_approval"
+
+
+def test_the_inbox_documents_the_revoke_button_the_dashboard_shows(nc, clock, http):
+    """The dashboard's inbox reads notices through the generated SDK type: the list is documented as
+    NotificationView, its buttons include `revoke` with the rule id, and every field sent is in the model."""
+    from onemind_core.routers.notifications import NotificationView
+
+    add_channel(nc, {"kind": "webhook", "label": "hook", "config": {"url": http.url}})
+    pid = rule(nc, clock, "each")
+    restart(nc, clock, "v0")
+    [n] = autos(nc)
+    assert set(n) == set(NotificationView.model_fields), set(n) ^ set(NotificationView.model_fields)
+    view = NotificationView.model_validate(n)
+    assert [(a.kind, a.policy_id) for a in view.actions if a.kind == "revoke"] == [("revoke", pid)]
+    spec = nc.get("/openapi.json").json()
+    schema = spec["paths"]["/v1/notifications"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+    assert schema["items"]["$ref"] == "#/components/schemas/NotificationView"
+    kinds = spec["components"]["schemas"]["NotificationAction"]["properties"]["kind"]["enum"]
+    assert "revoke" in kinds and "approve" not in kinds

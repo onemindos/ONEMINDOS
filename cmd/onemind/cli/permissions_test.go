@@ -247,6 +247,42 @@ func TestPermissionsRulesShowWithHistoryAndRevokeAll(t *testing.T) {
 	}
 }
 
+func TestPermissionsLogListsOnlyRuleApprovalsNewestFirst(t *testing.T) {
+	isolate(t)
+	var query string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/audit/events" {
+			jsonOut(w, 404, map[string]string{"error": "not_found", "message": r.URL.Path})
+			return
+		}
+		query = r.URL.RawQuery
+		jsonOut(w, 200, []map[string]any{
+			{"seq": 1, "ts": "2026-11-20T00:00:00Z", "action_id": "a1", "data": map[string]any{"type": "backup.run", "requested_by": "agent:hermes", "approved_via": "policy", "policy_id": "pol_1", "policy_revision": 2, "uses": "1/5"}},
+			{"seq": 2, "ts": "2026-11-21T00:00:00Z", "action_id": "a2", "data": map[string]any{"type": "app.install", "approved_by": "owner"}},
+			{"seq": 3, "ts": "2026-11-22T00:00:00Z", "action_id": "a3", "data": map[string]any{"type": "notes.read", "requested_by": "agent:reader", "approved_via": "policy", "policy_id": "pol_2", "policy_revision": 1, "uses": "2/5"}},
+		})
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("ONEMIND_HUB", srv.URL)
+	t.Setenv("ONEMIND_TOKEN", ownerTok)
+	r := run(t, "", false, "permissions", "log", "--days", "7")
+	if r.code != 0 || strings.Contains(r.out, "app.install") || strings.Index(r.out, "notes.read") > strings.Index(r.out, "backup.run") ||
+		!strings.Contains(r.out, "rule pol_1 rev 2  (use 1/5)") {
+		t.Fatalf("log %+v", r)
+	}
+	if !strings.Contains(query, "event=action.approved") || !strings.Contains(query, "since=") {
+		t.Fatalf("query %q", query)
+	}
+	r = run(t, "", false, "permissions", "log", "--json")
+	var out []map[string]any
+	if r.code != 0 || json.Unmarshal([]byte(r.out), &out) != nil || len(out) != 2 || out[0]["policy_id"] != "pol_2" {
+		t.Fatalf("log --json %+v", r)
+	}
+	if r := run(t, "", false, "permissions", "log", "--days", "0"); r.code != ExitUsage {
+		t.Fatalf("bad --days %+v", r)
+	}
+}
+
 func TestSeqCursorIsAlwaysPlainDigits(t *testing.T) {
 	for in, want := range map[any]string{float64(1): "1", float64(1000000): "1000000", float64(1234567): "1234567",
 		float64(98765432101): "98765432101", json.Number("2000000"): "2000000", 7: "7", int64(3000000): "3000000",
@@ -300,5 +336,41 @@ func TestPermissionsRulesShowPagesPastAMillion(t *testing.T) {
 	}
 	if h := out["history"].([]any); len(h) != 2 || len(afters) != 2 || afters[1] != "1000500" {
 		t.Fatalf("history %d lines, after_seq sent %v", len(h), afters)
+	}
+}
+
+// `permissions log` pages with the same helper: more than 500 approvals and seq past a million.
+func TestPermissionsLogPagesPastAMillion(t *testing.T) {
+	isolate(t)
+	var afters []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/audit/events" {
+			jsonOut(w, 404, map[string]string{"error": "not_found", "message": r.URL.Path})
+			return
+		}
+		after := r.URL.Query().Get("after_seq")
+		afters = append(afters, after)
+		switch after {
+		case "":
+			page := make([]map[string]any, 500)
+			for i := range page {
+				page[i] = map[string]any{"seq": 1999501 + i, "ts": "2026-11-20T00:00:00Z", "action_id": fmt.Sprint("a", i),
+					"data": map[string]any{"type": "backup.run", "requested_by": "agent:hermes", "approved_via": "policy", "policy_id": "pol_1", "policy_revision": 1}}
+			}
+			jsonOut(w, 200, page)
+		case "2000000":
+			jsonOut(w, 200, []map[string]any{{"seq": 2000001, "ts": "2026-11-21T00:00:00Z", "action_id": "last",
+				"data": map[string]any{"type": "notes.read", "requested_by": "agent:reader", "approved_via": "policy", "policy_id": "pol_2", "policy_revision": 1}}})
+		default:
+			jsonOut(w, 422, map[string]string{"error": "conflict", "message": "after_seq must be an integer"})
+		}
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("ONEMIND_HUB", srv.URL)
+	t.Setenv("ONEMIND_TOKEN", ownerTok)
+	r := run(t, "", false, "permissions", "log", "--json")
+	var out []map[string]any
+	if r.code != 0 || json.Unmarshal([]byte(r.out), &out) != nil || len(out) != 501 || out[0]["action_id"] != "last" {
+		t.Fatalf("log --json %d lines, after_seq sent %v: %+v", len(out), afters, r.errOut)
 	}
 }
