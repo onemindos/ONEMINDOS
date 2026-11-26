@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Files > Storage limits (owner only): how much each person's files may use, and how much they use now.
 // GET /v1/files/quotas and PUT /v1/files/quotas/{person_id}. The shared space is read only here: its limit is a
-// box setting. The CLI twin is `onemind files quotas list|set`.
+// box setting. The CLI twin is `onemind files quotas list|set` (the CLI data groups change).
 import { useState } from 'react';
 import { Button, Card } from '@onemind/ui';
 import { human, type FilesApi, type Quota } from '../files/api';
