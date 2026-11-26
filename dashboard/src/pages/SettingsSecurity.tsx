@@ -7,6 +7,7 @@ import { ApiError } from '../api/types';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { useShell } from '../shell/Shell';
+import { AccessGrants } from './AccessGrants';
 
 const account = '/settings/account';
 const object = (value: unknown): Record<string, unknown> =>
@@ -171,6 +172,7 @@ export function SettingsPermissions() {
       </div>
       <PermissionList key={by} sdk={sdk} by={by} />
     </Card>
+    <AccessGrants />
   </>;
 }
 
