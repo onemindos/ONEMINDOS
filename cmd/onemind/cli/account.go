@@ -39,7 +39,7 @@ type totpSetup struct {
 	} `json:"one_time"`
 }
 
-const totpFallbackNote = "Passkeys are the main way to sign in to OneMind; new people sign in with a passkey only.\n" +
+const totpFallbackNote = "Passkeys are the main way to sign in to OneMind; new people should use a passkey only.\n" +
 	"An authenticator code is a fallback asked after your password, for people who already sign in with one."
 
 func accountCommands(a *App) []*cobra.Command {

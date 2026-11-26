@@ -149,7 +149,7 @@ function AuthenticatorCard({ sdk, methods, reload }: { sdk: Sdk; methods: Method
   return (
     <Card title="Authenticator code" subtitle="A fallback for password sign-in" aside={pill}>
       <p>
-        Passkeys are the main way to sign in to OneMind. New people on this box sign in with a passkey only. An authenticator code (a 6-digit number from an app such as
+        Passkeys are the main way to sign in to OneMind. New people should use a passkey only. An authenticator code (a 6-digit number from an app such as
         Google Authenticator or 1Password) is a fallback for people who already sign in with a password: the box asks for it after the password.
       </p>
       {failed && <p className="om-note om-tone-bad" role="alert">{failed}</p>}

@@ -107,7 +107,7 @@ func TestAccountTotpSetupConfirmDisable(t *testing.T) {
 	var got []string
 	accountHub(t, &got)
 	r := run(t, "", false, "account", "totp", "setup")
-	if r.code != 0 || !strings.Contains(r.out, "JBSWY3DPEHPK3PXP") || !strings.Contains(r.errOut, "new people sign in with a passkey only") {
+	if r.code != 0 || !strings.Contains(r.out, "JBSWY3DPEHPK3PXP") || !strings.Contains(r.errOut, "new people should use a passkey only") {
 		t.Fatalf("%+v", r)
 	}
 	if r = run(t, "", false, "--json", "account", "totp", "setup"); r.code != 0 || !strings.Contains(r.out, `"otpauth_uri"`) || strings.Contains(r.errOut, "passkey") {
