@@ -1,0 +1,5 @@
+---
+pr: pending
+branch: claude/api-fuzz-fixed-seed
+---
+The API fuzz run now gives the same verdict for the same code. Pull requests, the merge queue and pushes to main fuzz the gateway with a fixed seed committed in api-fuzz.yml (API_FUZZ_SEED), one worker and no example database, with the same budgets, both roles (agent and owner), every Schemathesis check and every custom check as before. The random exploration moved to the nightly and manual runs: they draw a fresh seed, print it, fuzz 400 cases per operation, and on any finding open or comment on ONE issue titled "api-fuzz nightly finding" with the seed, each failing endpoint and check, and the commands that replay it (scripts/api-fuzz-finding.py). Only that report job may write issues. A manual run can take a seed to replay a finding. A unit test (test/unit/test_api_fuzz_wiring.py) locks the wiring in so the nightly exploration cannot be dropped silently.
