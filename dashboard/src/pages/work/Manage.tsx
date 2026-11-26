@@ -48,10 +48,10 @@ export function TaskTools({ client, task, onChanged }: { client: OneMind; task: 
   const [form, setForm] = useState<Form>(() => formOf(task));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [notice, setNotice] = useState<{ text: string; urgent: boolean }>();
   const pathOf = (t: Task) => `/v1/work/projects/${encodeURIComponent(t.project_id)}/tasks/${encodeURIComponent(t.id)}` as const;
   const ifMatch = (t: Task) => ({ 'If-Match': String(t.revision) });
-  const open = () => { setError(''); setNotice(''); if (base) { setBase(undefined); return; } setBase(task); setForm(formOf(task)); };
+  const open = () => { setError(''); setNotice(undefined); if (base) { setBase(undefined); return; } setBase(task); setForm(formOf(task)); };
   const changed = (b: Task): Record<string, unknown> => {
     const was = formOf(b);
     const out: Record<string, unknown> = {};
@@ -60,12 +60,12 @@ export function TaskTools({ client, task, onChanged }: { client: OneMind; task: 
     if (form.due !== was.due) out.due_at = form.due ? new Date(form.due).toISOString() : null;
     return out;
   };
-  const stale = async () => { setNotice(`"${task.title}" was changed on another device meanwhile. It has been reloaded; open Edit again to make your change.`); await onChanged(); };
+  const stale = async () => { setNotice({ text: `"${task.title}" was changed on another device meanwhile. It has been reloaded; open Edit again to make your change.`, urgent: true }); await onChanged(); };
   const save = async (e: FormEvent) => {
     e.preventDefault();
     if (!base || busy || !form.title.trim()) return;
     const body = changed(base);
-    if (Object.keys(body).length === 0) { setBase(undefined); setNotice('Nothing was changed.'); return; }
+    if (Object.keys(body).length === 0) { setBase(undefined); setNotice({ text: 'Nothing was changed.', urgent: false }); return; }
     setBusy(true); setError('');
     try {
       await client.call<Task>({ method: 'PATCH', path: pathOf(base), headers: ifMatch(base), body });
@@ -87,8 +87,8 @@ export function TaskTools({ client, task, onChanged }: { client: OneMind; task: 
   const id = task.id;
   return <>
     {' '}<Button type="button" size="sm" variant="secondary" onClick={open} aria-label={`Edit ${task.title}`} aria-expanded={!!base}>Edit</Button>
-    {' '}<Button type="button" size="sm" variant="ghost" onClick={() => { setError(''); setNotice(''); setDeleting(task); }} aria-label={`Delete ${task.title}`}>Delete</Button>
-    {notice && <p role="alert" className="om-note">{notice}</p>}
+    {' '}<Button type="button" size="sm" variant="ghost" onClick={() => { setError(''); setNotice(undefined); setDeleting(task); }} aria-label={`Delete ${task.title}`}>Delete</Button>
+    {notice && <p role={notice.urgent ? 'alert' : 'status'} className="om-note">{notice.text}</p>}
     {base && <form aria-label={`Edit ${base.title}`} onSubmit={(e) => void save(e)}>
       <p><label htmlFor={`t-title-${id}`}>Title</label>{' '}<input id={`t-title-${id}`} className="om-input" value={form.title} maxLength={160} required onChange={(e) => setForm({ ...form, title: e.target.value })} /></p>
       <p><label htmlFor={`t-due-${id}`}>Due</label>{' '}<input id={`t-due-${id}`} type="datetime-local" step={1} className="om-input" value={form.due} onChange={(e) => setForm({ ...form, due: e.target.value })} />{' '}
