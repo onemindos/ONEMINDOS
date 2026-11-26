@@ -11,8 +11,11 @@ metadata:
   version: "1.0.0"
   description: Test fixture with a volume and a shared PostgreSQL database
   category: developer
+  age_rating: 18   # a developer test fixture, never shown in the Market; the higher number when unsure (apps/README.md)
+  age_reason: Developer test fixture for the backup and restore drills, not a Market app
   icon: icon.svg
   license: Apache-2.0
+  licenceClass: L1
   source: https://github.com/onemindos/ONEMINDOS
   links:
     docs: https://github.com/onemindos/ONEMINDOS/tree/main/test/backup-wire

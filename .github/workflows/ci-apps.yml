@@ -25,6 +25,7 @@ on:
       - "sdk/tools/**"
       - "sdk/schema/**"
       - "test/gui/**"   # the GUI runtime bake-off; its logic is tested in sdk/tools/tests (#786)
+      - "test/backup-wire/backup-probe/**"   # the drills' fixture app must load in the catalog (test_drill_fixture_apps.py)
       # validate-apps runs the gateway's own manifest check (PLAN-E6, #175).
       - "core/onemind_core/catalog.py"
       - "core/onemind_core/manifest_convert.py"
