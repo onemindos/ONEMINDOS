@@ -14,6 +14,7 @@
 | [DEPLOYMENTS.md](DEPLOYMENTS.md) | How core services and apps are deployed and updated; revisions, drift and rollback; health-gated app updates; your own services; the migration kit | 11, 12, 13, 14 (APP-P1…P4, APP-B1, DEP-P1, DEP-P2, DEP-B2) |
 | [AUTOMATION.md](AUTOMATION.md) | Schedules, event rules and webhooks that create actions; approval policies with limits; maintenance windows; dry run | 21 (AUT-*), parts of 10 and 20 |
 | [NOTIFICATIONS.md](NOTIFICATIONS.md) | Event catalogue, alerts and repairs, routing per person, quiet hours, channels (in-app, Web Push, ntfy/UnifiedPush, iOS relay, email, webhook, Telegram, Matrix), approval deep links | 8, 18, 19, 20 (NOT-*, MOB-P2, MOB-B1, SEC-B2) |
+| [BOX-EXPORT-IMPORT.md](BOX-EXPORT-IMPORT.md) | (2026-11-26, design, founder calls open) The box bundle: an encrypted, signed export of the whole box setup in layers, and its import onto the same box, new hardware or a clone | builds on BAK-P4, ONB-P3 (Refs #234) |
 | [CONTRACT-12-DRAFT.md](CONTRACT-12-DRAFT.md) | The proposed §12: REST paths, NATS subjects, payloads and errors for all of the above, in the style of §3 and §11 | all |
 
 Identity (backlog item 1, SEC-P1) and HTTPS (item 2, SEC-P2) are **prerequisites**, not part of this set. These docs assume they exist as described in the core-alignment page and the hardening backlog on branch `docs/security-threat-model` (`docs/security/HARDENING-BACKLOG.md`, items H-05 and H-09). Where an item here needs them, its build step says so.
