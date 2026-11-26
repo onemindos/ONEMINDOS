@@ -54,21 +54,21 @@ export function AppSharingEditor({ appId, appName }: { appId: string; appName: s
   const [note, setNote] = useState<Note>();
   return <Card title={`Who can open ${appName}`} subtitle="Owners and adults can always open every app. Choose who else can.">
     <Load res={access} what="Loading sharing">
-      {(a) => <SharingForm key={`${a.roles.join()}|${a.people.map((p) => p.id).join()}|${a.auth}`} access={a} users={users.data ?? []}
+      {(a) => <SharingForm key={`${a.roles.join()}|${a.people.map((p) => p.id).join()}|${a.auth}`} access={a} users={users.data ?? (users.error ? null : undefined)}
         onNote={setNote} save={(body) => viaSdk(() => client.call<Access>({ method: 'PUT', path, body })).then(() => { void access.reload(); })} />}
     </Load>
     {note && <p role="status" className={`om-note om-tone-${note.tone}`}>{note.text}</p>}
   </Card>;
 }
 
-function SharingForm({ access, users, save, onNote: setNote }: { access: Access; users: Person[]; onNote: (n?: Note) => void; save: (b: { roles: string[]; people: string[]; auth: string }) => Promise<void> }) {
+function SharingForm({ access, users, save, onNote: setNote }: { access: Access; users?: Person[] | null; onNote: (n?: Note) => void; save: (b: { roles: string[]; people: string[]; auth: string }) => Promise<void> }) {
   const [roles, setRoles] = useState(access.roles);
   const [chosen, setChosen] = useState(access.people.map((p) => p.id));
   const [auth, setAuth] = useState<string>(access.auth);
   const [busy, setBusy] = useState(false);
   const changed = !same(roles, access.roles) || !same(chosen, access.people.map((p) => p.id)) || auth !== access.auth;
   // People who need sharing to open it (owners and adults always can); anyone already shared stays listed.
-  const pickable = users.filter((u) => !ALWAYS.has(u.role) || chosen.includes(u.id));
+  const pickable = (users ?? []).filter((u) => !ALWAYS.has(u.role) || chosen.includes(u.id));
   const go = async () => {
     setBusy(true); setNote(undefined);
     try {
@@ -82,7 +82,9 @@ function SharingForm({ access, users, save, onNote: setNote }: { access: Access;
         onChange={(e) => setRoles(toggle(roles, id, e.target.checked))} /> {label}</label>)}
     </fieldset>
     <fieldset><legend>People by name</legend>
-      {pickable.length === 0 ? <p className="om-hint">No teens, children or guests on this box yet. Add people under Users &amp; roles.</p>
+      {users === undefined ? <p className="om-hint" role="status">Loading people…</p>
+        : users === null ? <p className="om-note om-tone-warn" role="status">Couldn’t load the people on this box, so only roles can be changed now. Reload to try again.</p>
+        : pickable.length === 0 ? <p className="om-hint">No teens, children or guests on this box yet. Add people under Users &amp; roles.</p>
         : pickable.map((u) => <label key={u.id}><input type="checkbox" checked={chosen.includes(u.id)} disabled={busy}
           onChange={(e) => setChosen(toggle(chosen, u.id, e.target.checked))} /> {u.name}</label>)}
     </fieldset>
