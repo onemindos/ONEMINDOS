@@ -224,3 +224,25 @@ def test_adding_the_same_deny_twice_returns_the_rule_already_there(client):
     a = client.post("/v1/approval-denies", headers=OWNER, json=body).json()
     b = client.post("/v1/approval-denies", headers=OWNER, json=body).json()
     assert a["id"] == b["id"] and len(client.get("/v1/approval-denies", headers=OWNER).json()) == 1
+
+
+
+def test_a_tier_deny_judges_the_risk_a_feature_derived(client, clock):
+    """A write type whose risk_for raises a request to destructive is refused by a T3 deny."""
+    from onemind_core.actions import FeatureAction
+    from onemind_core.auth import Principal
+    from onemind_core.errors import ApiError
+    gw = client.app.state.gateway
+    if "test.purge.run" not in gw.actions.feature_types:
+        gw.actions.register_type("test.purge.run", FeatureAction(
+            "write", lambda a, finish: None, frozenset({"person", "agent"}),
+            risk_for=lambda p: "destructive" if p.get("all") else "write"))
+    client.post("/v1/approval-denies", headers=OWNER, json={"principal": "agent:hermes", "tier": "T3"})
+    hermes = Principal("hermes", "agent", "agent")
+    out, _ = gw.actions.request_feature(hermes, "test.purge.run", {"all": False}, idempotency_key="pg0",
+                                        expires_at=clock.now + timedelta(hours=1))
+    assert out["state"] == "awaiting_approval"
+    with pytest.raises(ApiError) as exc:
+        gw.actions.request_feature(hermes, "test.purge.run", {"all": True}, idempotency_key="pg1",
+                                   expires_at=clock.now + timedelta(hours=1))
+    assert exc.value.reason == "denied_by_rule"
