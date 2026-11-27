@@ -101,12 +101,13 @@ class AccountSetup:
         if self.repo.count(UserRow):
             raise ApiError(409, "conflict", ALREADY_SET_UP, reason="already_set_up")
         self.svc._check_password(password)
-        user = UserRow(id=new_id("usr"), username=self.svc._new_username(username),
-                       display_name=clean_profile_name(display_name), email=clean_email(email), role="owner",
-                       password_hash=hash_password(password), setup_pending=True,
-                       created_at=now, updated_at=now, created_by="setup")
+        username = self.svc._new_username(username)
+        display_name, email = clean_profile_name(display_name), clean_email(email)
         if challenge_id is not None:
             self._verify_screen(challenge_id, box_code, "setup", "set up OneMind")
+        user = UserRow(id=new_id("usr"), username=username, display_name=display_name, email=email, role="owner",
+                       password_hash=hash_password(password), setup_pending=True,
+                       created_at=now, updated_at=now, created_by="setup")
         try:
             # The singleton and user are committed together. A second setup request, even on
             # another worker/process or with a different name and valid proof, cannot add an owner.

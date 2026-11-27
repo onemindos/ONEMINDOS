@@ -25,7 +25,7 @@ from onemind_core.storage import StorageService, StorageSettings
 
 from conftest import AGENT, GUEST, OWNER
 from onemind_core.identity import IdentitySettings
-from test_identity import ORIGIN, RP_ID, SoftAuthenticator, at_box, csrf, register_passkey, setup_owner
+from test_identity import LOCAL_PEER, ORIGIN, RP_ID, SoftAuthenticator, at_box, csrf, register_passkey, setup_owner
 
 SHA_A = "a" * 64
 SHA_B = "b" * 64
@@ -157,7 +157,7 @@ def _settings(settings, node, enabled=True, **storage):
 def booted(settings, clock, node, enabled=True, key=None, **storage):
     """A gateway with identity on and one owner with a passkey (`c.key`), as a real box has: the
     destructive storage types are approved only with that passkey. Pass `key` after a restart."""
-    with TestClient(create_app(_settings(settings, node, enabled, **storage), clock=clock)) as c:
+    with TestClient(create_app(_settings(settings, node, enabled, **storage), clock=clock), client=LOCAL_PEER) as c:
         if key is None:
             setup_owner(c)
             key = SoftAuthenticator()

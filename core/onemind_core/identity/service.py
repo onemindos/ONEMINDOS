@@ -926,15 +926,15 @@ class IdentityService:
     def _refuse_onion_enrolment(self, request: Request, ctx: AuthContext | None) -> None:
         """#284: an onion-bound passkey cannot assert on the LAN origin, yet its existence turns
         passkeys_active() on for the whole box and would lock LAN approvals. Until the owner-approved
-        enrolment design lands, passkeys are not registered over an onion address (sign-in by
-        password still works there)."""
+        enrolment design lands, passkeys are not registered over an onion address. An authenticator
+        code with the password can sign in there."""
         rp_id, _ = self.rp(request)
         if ONION_V3.fullmatch(rp_id):
             self.emit("authz", "denied", {"attempted": "register a passkey", "reason": "onion_origin"},
                       ctx.principal if ctx else None, severity="warning")
             raise ApiError(403, "permission_denied",
                            "passkeys cannot be added over a .onion address yet; add it on your home network "
-                           "(password sign-in works over Tor)", reason="passkey_enrolment_unavailable_on_onion")
+                           "(use your password and authenticator over Tor)", reason="passkey_enrolment_unavailable_on_onion")
 
     def passkey_register_options(self, request: Request, ctx: AuthContext | None, recovering: bool = False) -> dict:
         user = self._account(ctx, "register a passkey")

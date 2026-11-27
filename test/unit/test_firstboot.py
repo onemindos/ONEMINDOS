@@ -74,6 +74,11 @@ class Box(unittest.TestCase):
     def mode(self, path):
         return stat.S_IMODE(os.lstat(path).st_mode)
 
+    def etc(self, name):
+        return self.read(os.path.join(self.p.etc, name))
+
+
+class RecoveryKeyHandoff(Box):
     def test_disk_recovery_key_handoff_opens_only_the_root_owned_ram_file(self):
         fb.run_dir(self.p)
         with mock.patch.object(fb, "onemind_ids", return_value=(123, 456)):
@@ -90,9 +95,6 @@ class Box(unittest.TestCase):
             os.symlink(self.p.console, key)
             with self.assertRaises(OSError):
                 fb.gateway_recovery_key(self.p)
-
-    def etc(self, name):
-        return self.read(os.path.join(self.p.etc, name))
 
 
 class Parsing(unittest.TestCase):

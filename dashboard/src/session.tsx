@@ -35,6 +35,7 @@ export interface Session {
   /** Whose preferences this browser shows: the principal id, or a token fingerprint (prefs.ts). */
   person: string;
   account?: PrincipalInfo;
+  setupPending?: boolean;
   canDecide: DecideAbility;
   canRequest: DecideAbility;
   /** True once GET /v1/me has set the two abilities from the token's scopes (or the role was known). */
@@ -88,7 +89,8 @@ function build(token: string, deps: SessionDeps): Session {
       ? 'yes'
       : 'no'
     : 'unknown';
-  return { token, api, principal, person: personKey(principal?.id, token), canDecide, canRequest, scoped: !!principal, mock: deps.mock };
+  return { token, api, principal, person: personKey(principal?.id, token), canDecide, canRequest,
+    scoped: !!principal, setupPending: api.setupStatus ? undefined : false, mock: deps.mock };
 }
 
 export function SessionProvider({ deps, children }: { deps: SessionDeps; children: ReactNode }) {
@@ -102,10 +104,8 @@ export function SessionProvider({ deps, children }: { deps: SessionDeps; childre
   const authEpoch = useRef(0);
   sessionRef.current = session;
 
-  // A real gateway session does not carry the role: ask GET /v1/me once and take canDecide and
-  // canRequest from the scopes it reports, so a guest or child is not offered buttons that 403.
-  // If the lookup fails the abilities stay 'unknown' and the gateway still enforces every route.
-  const needsMe = !!session && !session.scoped;
+  // Reuse the same lookup for role abilities and the first-run recovery-kit gate.
+  const needsMe = !!session && (!session.scoped || session.setupPending === undefined);
   const meToken = session?.token;
   useEffect(() => {
     if (!needsMe) return;
@@ -115,10 +115,13 @@ export function SessionProvider({ deps, children }: { deps: SessionDeps; childre
         (me) => {
           if (!live) return;
           const a = abilitiesFromMe(me);
-          setSession((s) => (s && s.token === meToken ? { ...s, canDecide: s.canDecide === 'no' ? 'no' : a.canDecide, canRequest: a.canRequest, account: me.principal, scoped: true } : s));
+          setSession((s) => (s && s.token === meToken ? { ...s, canDecide: s.canDecide === 'no' ? 'no' : a.canDecide,
+            canRequest: a.canRequest, account: me.principal, scoped: true, setupPending: !!me.setup_pending } : s));
         },
         () => {
-          if (live && attempt < 3) timer = window.setTimeout(() => ask(attempt + 1), 1000 * 2 ** attempt);
+          if (!live) return;
+          if (!attempt) setSession((s) => s && s.token === meToken ? { ...s, setupPending: false } : s);
+          if (attempt < 3) timer = window.setTimeout(() => ask(attempt + 1), 1000 * 2 ** attempt);
         },
       );
     };

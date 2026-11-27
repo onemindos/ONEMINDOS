@@ -18,7 +18,7 @@ from conftest import AGENT, OWNER
 from onemind_core.app import create_app
 from onemind_core.identity import IdentitySettings
 from test_hostlink import NODE, ROLLBACK_RAUC, FakeHost, link_settings
-from test_identity import ORIGIN, RP_ID, SoftAuthenticator, at_box, register_passkey, setup_owner
+from test_identity import LOCAL_PEER, ORIGIN, RP_ID, SoftAuthenticator, at_box, register_passkey, setup_owner
 from test_os_updates import HB
 
 
@@ -35,7 +35,7 @@ def passkey_box(settings, clock, executor, host):
     s = link_settings(settings, host.path)
     s = replace(s, sections={**s.sections, "identity": IdentitySettings(rp_id=RP_ID, origins=(ORIGIN,), cookie_secure=False,
                                                                          box_code_file=settings.audit_path.parent / "box-code.json")})
-    with TestClient(create_app(s, clock=clock, executor=executor)) as c:
+    with TestClient(create_app(s, clock=clock, executor=executor), client=LOCAL_PEER) as c:
         setup_owner(c)
         c.key = SoftAuthenticator()
         register_passkey(c, c.key)

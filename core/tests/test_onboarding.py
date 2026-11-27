@@ -92,8 +92,8 @@ def test_unauthenticated_is_refused(client):
 
 
 def test_real_scoped_owner_token_cannot_read_or_save(settings, clock):
-    from test_identity import id_settings, setup_owner, csrf
-    with TestClient(create_app(id_settings(settings), clock=clock)) as c:
+    from test_identity import LOCAL_PEER, csrf, id_settings, setup_owner
+    with TestClient(create_app(id_settings(settings), clock=clock), client=LOCAL_PEER) as c:
         setup_owner(c)
         token = c.post("/v1/tokens", headers=csrf(c), json={"name": "reader",
             "scopes": ["instance:read"]}).json()["one_time"]["token"]

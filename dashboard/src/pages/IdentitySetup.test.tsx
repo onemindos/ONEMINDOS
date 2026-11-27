@@ -68,7 +68,8 @@ it('uses the screen during first run and waits for a file download and explicit 
   await user.type(await screen.findByLabelText(/Code on the box/), '012345');
   await user.click(screen.getByRole('button', { name: 'Continue' }));
   await user.type(screen.getByLabelText('Your name'), 'Bea Example');
-  await user.type(screen.getByLabelText(/^Password/), 'a long passphrase');
+  await user.click(screen.getByLabelText(/^Password/));
+  await user.paste('a long passphrase');
   await user.click(screen.getByRole('button', { name: 'Create the owner' }));
   expect(await screen.findByRole('heading', { name: 'Finish setting up your account' })).toBeVisible();
   expect(call.mock.calls.find(([, path]) => path === '/v1/auth/setup')?.[2]).toEqual({
