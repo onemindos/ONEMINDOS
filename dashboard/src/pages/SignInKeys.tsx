@@ -63,10 +63,12 @@ export function keyErrorText(e: unknown): string {
 
 export function SignInKeys() {
   const { token, mock } = useSignedIn();
-  // A real gateway session carries no role; the shell asks GET /v1/me for it (as SettingsSecurity does).
+  // A real gateway session carries no role; the shell asks GET /v1/me for it (as SettingsSecurity does). Refs #1284.
   const { role } = useShell();
   if (mock) return <><PageHeader title="Sign-in keys" /><Card title="Sign-in keys"><p role="status">Connect to a real hub to manage sign-in keys. Demo mode has none.</p></Card></>;
-  return <LiveSignInKeys token={token} owner={role === 'owner'} />;
+  // The key remounts when the role arrives, so the owner's verification table is fetched then, not skipped (GET /v1/me can answer after mount).
+  const owner = role === 'owner';
+  return <LiveSignInKeys key={owner ? 'owner' : 'other'} token={token} owner={owner} />;
 }
 
 function LiveSignInKeys({ token, owner }: { token: string; owner: boolean }) {
