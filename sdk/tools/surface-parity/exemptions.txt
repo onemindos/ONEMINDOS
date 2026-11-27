@@ -159,8 +159,6 @@ cli files.app_passwords.revoke s8-cli-groups
 cli files.downloads.discard s8-cli-groups
 cli files.downloads.release s8-cli-groups
 cli files.grants.request s8-cli-groups
-cli files.grants.revoke s8-cli-groups
-cli files.quotas.set s8-cli-groups
 cli files.requests.approve s8-cli-groups
 cli files.requests.cancel s8-cli-groups
 cli files.requests.deny s8-cli-groups
