@@ -1,0 +1,5 @@
+---
+pr: pending
+branch: ma/train-os-batch
+---
+The OS batch merge train (founder-authorized, Refs #234): release/next plus, in order, #1190 (claude/integration-os-2, 17 OS PRs), #1157 (power cut durability), #1155 (k3s state repair after a power cut), #1156 (wired static IP with automatic rollback), #1172 (YubiKey key ceremony), #1188 (signed update end-to-end battery), #1178 (Step 5 signed update runbook), #1182 (F3 reboot gate race) and #1183 (bootlock B2 gate race). Each branch keeps its own fragment. The power-cut checks keep #1190's numbering (F26-F28, CRITERIA-FIRSTBOOT sections 21 and 22); #1155's F19h and F20 are F28h and F33 in a new section 25, and the btrfs-safe data-durable remount from #1157 is kept. Train fixes: the base fstab gets back #1190's /data binds for box care, smartd and printing; a wiring test no longer depends on gofmt's column; two surface-parity exemptions that #1190's CLI made stale are removed. No QEMU run here (no KVM): the image and boot batteries run on a build machine.
