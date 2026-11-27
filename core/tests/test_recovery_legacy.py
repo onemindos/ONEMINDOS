@@ -8,13 +8,14 @@ the owner's wait, the cancel on any owner sign-in, the inactivity check, the sec
 from __future__ import annotations
 
 import base64
+import fcntl
 import io
 import json
 import tarfile
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from datetime import timedelta
-from threading import Event
+from threading import Event, get_ident
 
 import anyio
 import pytest
@@ -432,49 +433,64 @@ def test_stale_claim_writes_change_nothing_once_the_claim_ended(rc, clock):
     assert _endings(log, cid) == ["cancelled"]
 
 
-def test_sign_in_and_tick_truly_at_once_always_end_cancelled_with_agreeing_notices(rc, clock):
-    """Two threads (two database sessions; two PostgreSQL connections with ONEMIND_TEST_DB_URL), released
-    together, many rounds with jitter. Whatever the order the claim ends `cancelled`; a grant notice is only
-    ever followed by a cancel notice, and the last notice always matches the final state."""
-    import random
-    import threading
-    import time
+def test_sign_in_after_grant_commit_publishes_cancel_after_grant(rc, clock, monkeypatch):
+    """Pause the grant before delivery and let another worker try to cancel the committed grant."""
+    from onemind_core.recovery.legacy import LegacyContacts
 
     owner_with_passkey(rc)
     owner_id = _owner_id(rc)
     phone, _key = legacy_phone(rc)
     legacy = rc.app.state.legacy_contacts
-    log = _record_claim_notices(legacy)
+    cancel_worker = LegacyContacts(legacy.gw, legacy.ident)
     clock.advance(60)
-    rng = random.Random(1208)
-    orders = []
-    for _ in range(12):
-        cid = _due_claim(rc, phone.contact_id, owner_id)
-        barrier = threading.Barrier(2)
-        delays = (rng.uniform(0, 0.03), rng.uniform(0, 0.03))
+    cid = _due_claim(rc, phone.contact_id, owner_id)
+    log = []
+    unsubscribe = legacy.gw.events.subscribe(
+        "legacy.claim.*", lambda event: log.append((event["type"], event["data"]["claim_id"]))
+    )
+    cancel_reached_lock_or_finished = Event()
+    cancel_thread = None
+    flock = fcntl.flock
+    tell = legacy.tell
 
-        def grant(barrier=barrier, delays=delays):
-            barrier.wait()
-            time.sleep(delays[0])
-            legacy.tick()
+    def observe_lock(fd, operation):
+        if get_ident() == cancel_thread and operation == fcntl.LOCK_EX:
+            try:
+                return flock(fd, operation | fcntl.LOCK_NB)
+            except BlockingIOError:
+                cancel_reached_lock_or_finished.set()
+        return flock(fd, operation)
 
-        def sign_in(barrier=barrier, delays=delays, owner_id=owner_id):
-            barrier.wait()
-            time.sleep(delays[1])
-            legacy._owner_signed_in({"data": {"user_id": owner_id}})
+    def sign_in():
+        nonlocal cancel_thread
+        cancel_thread = get_ident()
+        try:
+            cancel_worker._owner_signed_in({"data": {"user_id": owner_id}})
+        finally:
+            # If the cancellation didn't contend for the lock, its notice has already gone out.
+            cancel_reached_lock_or_finished.set()
 
-        threads = [threading.Thread(target=grant), threading.Thread(target=sign_in)]
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join(30)
-        assert not any(t.is_alive() for t in threads)
-        c = legacy._claim(cid)
-        endings = _endings(log, cid)
-        assert c.state == "cancelled", (c.state, endings)
-        assert endings in (["cancelled"], ["granted", "cancelled"]), endings
-        assert endings[-1] == c.state
-        orders.append(tuple(endings))
+    try:
+        with ThreadPoolExecutor(max_workers=1) as pool, monkeypatch.context() as mp:
+            cancels = []
+
+            def pause_grant_notice(owner, event, data, *args, **kwargs):
+                if event == "legacy.claim.granted":
+                    assert legacy._claim(cid).state == "granted"
+                    cancels.append(pool.submit(sign_in))
+                    assert cancel_reached_lock_or_finished.wait(timeout=10)
+                return tell(owner, event, data, *args, **kwargs)
+
+            mp.setattr(legacy, "tell", pause_grant_notice)
+            mp.setattr(fcntl, "flock", observe_lock)
+            assert legacy.tick() == 1
+            assert len(cancels) == 1
+            cancels[0].result(timeout=10)
+    finally:
+        unsubscribe()
+    c = legacy._claim(cid)
+    assert c.state == "cancelled" and c.end_reason == "owner_signed_in"
+    assert _endings(log, cid) == ["granted", "cancelled"]
     assert TestClient(rc.app).get("/v1/legacy/export", headers=phone.auth).status_code == 403
 
 

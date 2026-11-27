@@ -220,6 +220,22 @@ class LegacyContacts(RecoveryContacts):
                              .values(**values).returning(ClaimRow.id)).scalar()
         return done is not None
 
+    def _set_and_tell(self, c: ClaimRow, expect: tuple[str, ...], *where,
+                      event: str, data: dict, severity: str, **values) -> bool:
+        """Order grant and end writes with their notices across gateway workers on this box."""
+        locks = self.dir / "claim-locks"
+        locks.mkdir(parents=True, exist_ok=True, mode=0o700)
+        # Every worker must lock the same inode, including workers that already opened it and are waiting.
+        fd = os.open(locks / c.id, os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            if not self._set(c, expect, *where, **values):
+                return False
+            self.tell(c.owner_user_id, event, {"claim_id": c.id, **data}, severity=severity)
+            return True
+        finally:
+            os.close(fd)
+
     def claim_view(self, c: ClaimRow, *, for_household: bool = False) -> dict:
         contact = self._get(c.contact_id)
         out = {"id": c.id, "contact_id": c.contact_id, "state": c.state, "created_at": iso(c.created_at),
@@ -378,13 +394,10 @@ class LegacyContacts(RecoveryContacts):
 
     def _end_claim(self, c: ClaimRow, state: str, reason: str, by: str | None,
                    expect: tuple[str, ...] = LIVE_STATES) -> ClaimRow:
-        """End a live claim, only if it is still in `expect`; the notice goes out only when this call ended
-        it, so the state and the notices always agree. Returns the claim as it really is."""
-        ended = self._set(c, expect, state=state, ended_at=self.now(), end_reason=reason, ended_by=by)
-        c = self._claim(c.id)
-        if ended:
-            self.tell(c.owner_user_id, f"legacy.claim.{state}", {"claim_id": c.id, "reason": reason}, severity="warning")
-        return c
+        """End a live claim, with a notice only if this call wins the transition. Return the current claim."""
+        self._set_and_tell(c, expect, event=f"legacy.claim.{state}", data={"reason": reason}, severity="warning",
+                           state=state, ended_at=self.now(), end_reason=reason, ended_by=by)
+        return self._claim(c.id)
 
     def confirm(self, p: Principal, claim_id: str, contact: ContactRow | None) -> dict:
         """The second person: another usable legacy contact of the same owner, or a household adult."""
@@ -511,12 +524,11 @@ class LegacyContacts(RecoveryContacts):
             # Only from an open state, and only with the second person's confirmation when one is needed:
             # a sign-in cancel that committed first leaves this write with nothing to change (no grant, no
             # notice); one that commits after it ends the fresh grant (LIVE_STATES includes granted).
-            if not self._set(c, OPEN_STATES, (ClaimRow.needs_second.is_(False)) | ClaimRow.second_at.is_not(None),
-                             state="granted", granted_at=now, access_until=now + EXPORT_WINDOW):
-                continue
-            self.tell(c.owner_user_id, "legacy.claim.granted",
-                      {"claim_id": c.id, "access_until": iso(now + EXPORT_WINDOW)}, severity="critical")
-            done += 1
+            access_until = now + EXPORT_WINDOW
+            if self._set_and_tell(c, OPEN_STATES, ClaimRow.needs_second.is_(False) | ClaimRow.second_at.is_not(None),
+                                  event="legacy.claim.granted", data={"access_until": iso(access_until)},
+                                  severity="critical", state="granted", granted_at=now, access_until=access_until):
+                done += 1
         return done
 
     # ---- the read-only export -----------------------------------------------------------------------------
