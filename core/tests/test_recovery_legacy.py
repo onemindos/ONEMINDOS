@@ -11,13 +11,18 @@ import base64
 import io
 import json
 import tarfile
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from datetime import timedelta
+from threading import Event
 
+import anyio
 import pytest
 from fastapi.testclient import TestClient
 
 from conftest import OWNER
 from onemind_core.app import create_app
+from onemind_core.errors import ApiError
 from recovery_support import ContactPhone, owner_with_passkey
 from test_identity import PASSWORD, audit_events, csrf, enrol, id_settings
 
@@ -590,7 +595,7 @@ def test_personal_token_use_after_the_grant_ends_the_export(rc, clock):
     assert got["state"] == "cancelled" and got["end_reason"] == "owner_active"
 
 
-def test_two_claims_at_once_leave_one_open_claim(rc, clock):
+def test_the_database_rejects_a_second_open_claim(rc, clock):
     from sqlalchemy.exc import IntegrityError
 
     from onemind_core.identity.crypto import new_id
@@ -630,3 +635,216 @@ def test_the_export_streams_a_valid_tar_and_allows_one_download_at_a_time(rc, cl
 class _Who:
     def as_dict(self):
         return {"id": "legacy:test", "kind": "legacy", "role": "legacy"}
+
+
+# ---- round 2 review fixes (#1208) -------------------------------------------------------------------------
+
+@pytest.mark.parametrize("revocation", ["sign_in", "cancel", "personal_token"])
+def test_revoking_a_grant_stops_the_current_file_and_later_files(rc, clock, settings, revocation):
+    owner_with_passkey(rc)
+    if revocation == "personal_token":
+        r = rc.post("/v1/tokens", json={"name": "cli", "scopes": ["instance:read"], "expires_in_days": 365},
+                    headers=csrf(rc))
+        assert r.status_code == 201, r.text
+        pat = {"Authorization": "Bearer " + r.json()["one_time"]["token"]}
+    block = b"a" * (1 << 20)
+    put_home_file(rc, "a-current.bin", block if revocation == "cancel" else block + b"last bytes of current file")
+    put_home_file(rc, "b-later.txt", b"later file")
+    phone, key = legacy_phone(rc)
+    c = granted(rc, clock, phone, key)
+    legacy = rc.app.state.legacy_contacts
+    client = TestClient(rc.app)
+    with closing(legacy.archive(legacy._get(phone.contact_id), _Who())) as stream:
+        assert next(stream).startswith(b"a-current.bin")
+        assert next(stream) == block
+        clock.advance(120)
+        if revocation == "sign_in":
+            r = client.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD})
+        elif revocation == "cancel":
+            r = client.post(f"/v1/auth/legacy/claims/{c['id']}/cancel", headers=OWNER)
+        else:
+            r = client.get("/v1/me", headers=pat)
+        assert r.status_code == 200, r.text
+        assert list(stream) == []
+    assert legacy._claim(c["id"]).state == "cancelled"
+    assert any(e["event"] == "legacy.export.stopped" for e in audit_events(settings))
+
+
+@pytest.mark.parametrize("preflight", ["ok", "too_large", "walk_error"])
+def test_a_download_holds_the_slot_during_preflight_across_workers(rc, clock, monkeypatch, preflight):
+    from onemind_core.recovery.legacy import MAX_EXPORT_BYTES, LegacyContacts
+
+    owner_with_passkey(rc)
+    put_home_file(rc, "letter.txt", b"private")
+    phone, key = legacy_phone(rc)
+    granted(rc, clock, phone, key)
+    legacy = rc.app.state.legacy_contacts
+    other_worker = LegacyContacts(legacy.gw, legacy.ident)
+    other_worker.files = legacy.files
+    walk = legacy._walk
+    walking, proceed = Event(), Event()
+
+    def slow_walk(owner_id):
+        walking.set()
+        assert proceed.wait(timeout=10)
+        if preflight == "too_large":
+            yield "big", MAX_EXPORT_BYTES + 1, -1, "big"
+        elif preflight == "walk_error":
+            raise OSError("failed to walk the home")
+        else:
+            yield from walk(owner_id)
+
+    contact = legacy._get(phone.contact_id)
+    with monkeypatch.context() as mp, ThreadPoolExecutor(max_workers=1) as pool:
+        mp.setattr(legacy, "_walk", slow_walk)
+        first = pool.submit(legacy.archive, contact, _Who())
+        try:
+            assert walking.wait(timeout=10)
+            clock.advance(7 * 3600)
+            with pytest.raises(ApiError) as busy:
+                with closing(other_worker.archive(contact, _Who())):
+                    pass
+            assert (busy.value.status, busy.value.reason) == (409, "download_running")
+        finally:
+            proceed.set()
+        if preflight == "ok":
+            with closing(first.result(timeout=10)) as stream:
+                assert next(stream).startswith(b"letter.txt")
+                with pytest.raises(ApiError) as busy:
+                    with closing(legacy.archive(contact, _Who())):
+                        pass
+                assert (busy.value.status, busy.value.reason) == (409, "download_running")
+        elif preflight == "too_large":
+            with pytest.raises(ApiError) as large:
+                first.result(timeout=10)
+            assert (large.value.status, large.value.reason) == (413, "export_too_large")
+        else:
+            with pytest.raises(OSError, match="failed to walk"):
+                first.result(timeout=10)
+    r = TestClient(rc.app).get("/v1/legacy/export/download", headers=phone.auth)
+    assert r.status_code == 200, r.text
+
+
+def test_closing_a_download_before_its_first_chunk_releases_the_slot(rc, clock):
+    owner_with_passkey(rc)
+    phone, key = legacy_phone(rc)
+    granted(rc, clock, phone, key)
+    legacy = rc.app.state.legacy_contacts
+    legacy.archive(legacy._get(phone.contact_id), _Who()).close()
+    r = TestClient(rc.app).get("/v1/legacy/export/download", headers=phone.auth)
+    assert r.status_code == 200, r.text
+
+
+def test_disconnect_before_the_first_chunk_releases_the_http_download(rc, clock, monkeypatch):
+    owner_with_passkey(rc)
+    phone, key = legacy_phone(rc)
+    granted(rc, clock, phone, key)
+    legacy = rc.app.state.legacy_contacts
+    archive = legacy.archive
+    streams = []  # Keep the iterator alive so garbage collection cannot hide a missing response cleanup.
+
+    def track_archive(*args):
+        stream = archive(*args)
+        streams.append(stream)
+        return stream
+
+    path = "/v1/legacy/export/download"
+
+    async def disconnect():
+        async def send(message):
+            assert message["type"] == "http.response.start" and message["status"] == 200
+            raise BrokenPipeError("client disconnected")
+
+        async def receive():
+            await anyio.sleep_forever()
+
+        scope = {"type": "http", "asgi": {"version": "3.0", "spec_version": "2.3"}, "http_version": "1.1",
+                 "method": "GET", "scheme": "http", "path": path, "raw_path": path.encode(), "query_string": b"",
+                 "headers": [(k.lower().encode(), v.encode()) for k, v in phone.auth.items()],
+                 "root_path": "", "client": ("testclient", 50000), "server": ("testserver", 80), "state": {}}
+        with anyio.fail_after(10), pytest.raises(BrokenPipeError, match="client disconnected"):
+            await rc.app(scope, receive, send)
+
+    try:
+        with monkeypatch.context() as mp:
+            mp.setattr(legacy, "archive", track_archive)
+            rc.portal.call(disconnect)
+        assert len(streams) == 1
+        r = TestClient(rc.app).get(path, headers=phone.auth)
+        assert r.status_code == 200, r.text
+    finally:
+        for stream in streams:
+            stream.close()
+
+
+def test_an_adult_enabled_during_the_wait_must_confirm_the_claim(rc, clock):
+    from onemind_core.identity.models import UserRow
+
+    owner_with_passkey(rc)
+    adult = enrol(rc, "adult", "ben")
+    adult_id = adult.get("/v1/me").json()["principal"]["id"]
+    legacy = rc.app.state.legacy_contacts
+    with legacy.db.session.begin() as s:
+        s.get(UserRow, adult_id).disabled = True
+    phone, key = legacy_phone(rc)
+    clock.advance(7 * DAY + 1)
+    r = claim(rc, phone, key)
+    assert r.status_code == 201 and r.json()["needs_second"] is False, r.text
+    cid = r.json()["id"]
+    with legacy.db.session.begin() as s:
+        s.get(UserRow, adult_id).disabled = False
+    clock.advance(30 * DAY + 1)
+    client = TestClient(rc.app)
+    got = client.get("/v1/legacy/claims", headers=phone.auth).json()[0]
+    assert got["state"] == "awaiting_second" and got["needs_second"] is True, got
+    assert client.get("/v1/legacy/export/download", headers=phone.auth).status_code == 403
+    assert client.post("/v1/auth/login", json={"username": "ben", "password": PASSWORD}).status_code == 200
+    r = client.post(f"/v1/auth/legacy/claims/{cid}/confirm", headers=csrf(client))
+    assert r.status_code == 200 and r.json()["state"] == "granted", r.text
+
+
+def test_losing_the_open_claim_race_returns_conflict_and_removes_its_certificate(rc, clock, monkeypatch):
+    owner_with_passkey(rc)
+    loser, loser_key = legacy_phone(rc, "Ana")
+    winner, winner_key = legacy_phone(rc, "Bea")
+    clock.advance(7 * DAY + 1)
+    legacy = rc.app.state.legacy_contacts
+    real = legacy._second_people
+    winning_id = None
+
+    def competing_claim(owner_id, contact):
+        nonlocal winning_id
+        if contact.id == loser.contact_id:
+            # The loser passed the pre-check and wrote its certificate, but hasn't inserted its claim.
+            assert len(list(legacy.dir.glob("*/certificate.pdf"))) == 1
+            r = claim(rc, winner, winner_key)
+            assert r.status_code == 201, r.text
+            winning_id = r.json()["id"]
+        return real(owner_id, contact)
+
+    with monkeypatch.context() as mp:
+        mp.setattr(legacy, "_second_people", competing_claim)
+        r = claim(rc, loser, loser_key)
+    assert r.status_code == 409 and r.json()["reason"] == "already_open", r.text
+    assert winning_id is not None
+    assert list(legacy.dir.glob("*/certificate.*")) == [legacy._cert_path(winning_id, "pdf")]
+
+
+@pytest.mark.parametrize("damage", ["missing_file", "unknown_type"])
+def test_an_unavailable_certificate_returns_404(rc, clock, damage):
+    from onemind_core.recovery.legacy import ClaimRow
+
+    owner_with_passkey(rc)
+    phone, key = legacy_phone(rc)
+    clock.advance(7 * DAY + 1)
+    r = claim(rc, phone, key)
+    assert r.status_code == 201, r.text
+    cid = r.json()["id"]
+    legacy = rc.app.state.legacy_contacts
+    if damage == "missing_file":
+        legacy._cert_path(cid, "pdf").unlink()
+    else:
+        with legacy.db.session.begin() as s:
+            s.get(ClaimRow, cid).certificate_type = "application/octet-stream"
+    r = TestClient(rc.app).get(f"/v1/auth/legacy/claims/{cid}/certificate", headers=OWNER)
+    assert r.status_code == 404, r.text

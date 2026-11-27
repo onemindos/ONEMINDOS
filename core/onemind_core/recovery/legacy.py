@@ -38,6 +38,7 @@ from __future__ import annotations
 import base64
 import binascii
 import contextvars
+import fcntl
 import hashlib
 import hmac
 import os
@@ -45,6 +46,7 @@ import re
 import secrets
 import stat
 import tarfile
+from collections.abc import Generator
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -74,7 +76,6 @@ ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ"  # no I, L, O: easy to read back
 CERT_TYPES = {b"%PDF-": ("application/pdf", "pdf"), b"\xff\xd8\xff": ("image/jpeg", "jpg"),
               b"\x89PNG\r\n\x1a\n": ("image/png", "png")}
 OPEN_STATES = ("waiting", "awaiting_second")
-DOWNLOAD_STALE = timedelta(hours=6)  # a download slot nobody released (client vanished before the first byte)
 LIVE_STATES = (*OPEN_STATES, "granted")  # every state the owner's return must end
 LEGACY_PATHS = [
     re.compile(r"/v1/legacy/contact(/[a-z-]+)?"),
@@ -144,7 +145,6 @@ class LegacyContacts(RecoveryContacts):
         super().__init__(gw, ident)
         self.dir = gw.settings.audit_path.parent / "recovery" / "legacy"
         self.files = None  # () -> the FilesService; set by the router (files registers after recovery)
-        self._downloads: dict[str, datetime] = {}  # contact id -> when its one download started
         self.ended_hooks.append(self._contact_ended)
         gw.events.subscribe("auth.login.succeeded", self._owner_signed_in)
 
@@ -329,8 +329,13 @@ class LegacyContacts(RecoveryContacts):
         c = self._claim(claim_id)
         if c is None:
             raise ApiError(404, "not_found", "no such claim")
-        ext = next(e for t, e in CERT_TYPES.values() if t == c.certificate_type)
-        return self._cert_path(c.id, ext).read_bytes(), c.certificate_type
+        ext = next((e for t, e in CERT_TYPES.values() if t == c.certificate_type), None)
+        if ext is None:
+            raise ApiError(404, "not_found", "certificate unavailable")
+        try:
+            return self._cert_path(c.id, ext).read_bytes(), c.certificate_type
+        except FileNotFoundError:
+            raise ApiError(404, "not_found", "certificate unavailable") from None
 
     def claims_of(self, contact: ContactRow) -> list[dict]:
         self.tick()
@@ -486,18 +491,23 @@ class LegacyContacts(RecoveryContacts):
                               {"claim_id": c.id, "ends_at": iso(c.ends_at), "notice": new[-1]}, severity="critical")
                     done += 1
                 continue
-            if c.needs_second and c.second_at is None:
+            if c.second_at is None:
                 claimant = self._get(c.contact_id)
-                if claimant is not None and not self._second_people(c.owner_user_id, claimant):
-                    # Everyone who could confirm was disabled or removed during the wait: do not wait forever.
-                    if self._set(c, OPEN_STATES, ClaimRow.second_at.is_(None), needs_second=False):
-                        c.needs_second = False
-                        self.tell(c.owner_user_id, "legacy.claim.no_second_person", {"claim_id": c.id},
+                if claimant is None or self._second_people(c.owner_user_id, claimant):
+                    if (c.state != "awaiting_second" or not c.needs_second) and self._set(
+                        c, (c.state,), ClaimRow.needs_second.is_(c.needs_second), ClaimRow.second_at.is_(None),
+                        state="awaiting_second", needs_second=True,
+                    ):
+                        self.tell(c.owner_user_id, "legacy.claim.awaiting_second", {"claim_id": c.id},
                                   severity="warning")
-                elif c.state != "awaiting_second" and self._set(c, ("waiting",), state="awaiting_second"):
-                    self.tell(c.owner_user_id, "legacy.claim.awaiting_second", {"claim_id": c.id}, severity="warning")
-                    done += 1
-                continue
+                        done += 1
+                    continue
+                if c.needs_second:
+                    # Everyone who could confirm was disabled or removed during the wait.
+                    if not self._set(c, (c.state,), ClaimRow.needs_second.is_(True), ClaimRow.second_at.is_(None),
+                                     needs_second=False):
+                        continue
+                    self.tell(c.owner_user_id, "legacy.claim.no_second_person", {"claim_id": c.id}, severity="warning")
             # Only from an open state, and only with the second person's confirmation when one is needed:
             # a sign-in cancel that committed first leaves this write with nothing to change (no grant, no
             # notice); one that commits after it ends the fresh grant (LIVE_STATES includes granted).
@@ -515,7 +525,10 @@ class LegacyContacts(RecoveryContacts):
         with self.db.session() as s:
             c = s.scalar(select(ClaimRow).where(ClaimRow.contact_id == contact.id, ClaimRow.state == "granted")
                          .order_by(ClaimRow.granted_at.desc()))
-        if c is None:
+        return self._check_export_access(c)
+
+    def _check_export_access(self, c: ClaimRow | None) -> ClaimRow:
+        if c is None or c.state != "granted":
             raise ApiError(403, "permission_denied", "no granted legacy claim", reason="no_granted_claim")
         if c.granted_at is None or self._owner_active_since(c.owner_user_id, utc(c.granted_at)):
             self._end_claim(c, "cancelled", "owner_active", None, expect=("granted",))
@@ -552,47 +565,65 @@ class LegacyContacts(RecoveryContacts):
         return {"claim_id": c.id, "access_until": iso(c.access_until), "files": items,
                 "total_bytes": sum(i["size"] for i in items), "read_only": True}
 
-    def archive(self, contact: ContactRow, p: Principal):
+    def archive(self, contact: ContactRow, p: Principal) -> Generator[bytes, None, None]:
         """A tar of the owner's Files home, streamed: nothing is staged on disk or in RAM beyond one block.
         Too large is refused before the first byte; one download per contact at a time. Read-only on the source.
         Returns an iterator of bytes; the slot is released when it ends or is closed."""
         c = self.granted_claim(contact)
-        now = self.now()
-        started = self._downloads.get(contact.id)
-        if started is not None and now - started < DOWNLOAD_STALE:
-            raise ApiError(409, "conflict", "a download for this contact is already running", reason="download_running")
-        total = 0
-        for _rel, size, _fd, _n in self._walk(c.owner_user_id):
-            total += size
-            if total > MAX_EXPORT_BYTES:
-                raise ApiError(413, "payload_too_large", "the export is larger than one download; use a USB copy",
-                               reason="export_too_large")
-        self._downloads[contact.id] = now
-        self.gw.audit.append("legacy.export.downloaded", p.as_dict(), None, {"claim_id": c.id, "bytes": total})
-        return self._stream(c.owner_user_id, contact.id)
+        stream = self._locked_archive(c, p)
+        next(stream)  # Run preflight before HTTP headers and arm cleanup even if no tar chunk is pulled.
+        return stream
 
-    def _stream(self, owner_id: str, contact_id: str):
-        block = 1 << 20
+    def _locked_archive(self, c: ClaimRow, p: Principal) -> Generator[bytes, None, None]:
+        slots = self.dir / "downloads"
+        slots.mkdir(parents=True, exist_ok=True, mode=0o700)
+        # Workers on the box share this lock file. Keep its inode so concurrent opens always contend.
+        slot = os.open(slots / c.contact_id, os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0o600)
         try:
-            for rel, _size, dfd, name in self._walk(owner_id):
-                try:
-                    fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=dfd)
-                except OSError:
-                    continue
-                with os.fdopen(fd, "rb") as f:
-                    size = os.fstat(f.fileno()).st_size
-                    info = tarfile.TarInfo(rel)
-                    info.size, info.mode = size, 0o644
-                    yield info.tobuf(tarfile.PAX_FORMAT)
-                    left = size
-                    while left > 0:  # exactly `size` bytes, so the tar stays valid if the file changes meanwhile
-                        data = f.read(min(block, left))
-                        if not data:
-                            data = b"\0" * min(block, left)
-                        left -= len(data)
-                        yield data
-                    if size % 512:
-                        yield b"\0" * (512 - size % 512)
-            yield b"\0" * 1024
+            try:
+                fcntl.flock(slot, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                raise ApiError(409, "conflict", "a download for this contact is already running",
+                               reason="download_running") from None
+            total = 0
+            for _rel, size, _fd, _n in self._walk(c.owner_user_id):
+                total += size
+                if total > MAX_EXPORT_BYTES:
+                    raise ApiError(413, "payload_too_large", "the export is larger than one download; use a USB copy",
+                                   reason="export_too_large")
+            self._check_export_access(self._claim(c.id))
+            self.gw.audit.append("legacy.export.downloaded", p.as_dict(), None, {"claim_id": c.id, "bytes": total})
+            yield b""  # Readiness marker consumed by archive(), before any response bytes.
+            try:
+                yield from self._stream(c)
+            except ApiError as exc:
+                self.gw.audit.append("legacy.export.stopped", p.as_dict(), None,
+                                     {"claim_id": c.id, "reason": exc.reason})
         finally:
-            self._downloads.pop(contact_id, None)
+            os.close(slot)  # Also releases the lock, even on preflight failure or disconnect.
+
+    def _stream(self, c: ClaimRow) -> Generator[bytes, None, None]:
+        block = 1 << 20
+        for rel, _size, dfd, name in self._walk(c.owner_user_id):
+            self._check_export_access(self._claim(c.id))
+            try:
+                fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=dfd)
+            except OSError:
+                continue
+            with os.fdopen(fd, "rb") as f:
+                size = os.fstat(f.fileno()).st_size
+                info = tarfile.TarInfo(rel)
+                info.size, info.mode = size, 0o644
+                yield info.tobuf(tarfile.PAX_FORMAT)
+                left = size
+                while left > 0:  # exactly `size` bytes, so the tar stays valid if the file changes meanwhile
+                    self._check_export_access(self._claim(c.id))
+                    data = f.read(min(block, left))
+                    if not data:
+                        data = b"\0" * min(block, left)
+                    left -= len(data)
+                    yield data
+                if size % 512:
+                    yield b"\0" * (512 - size % 512)
+        self._check_export_access(self._claim(c.id))
+        yield b"\0" * 1024

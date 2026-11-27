@@ -23,13 +23,13 @@ No MCP tool touches any of it (surfaces/parity.py: CREDENTIAL). Logic in recover
 
 from __future__ import annotations
 
-from typing import Literal
-
-from typing import Any
+from collections.abc import Generator
+from typing import Any, Literal
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
+from starlette.types import Receive, Scope, Send
 
 from ..auth import Principal
 from ..context import Gateway
@@ -42,6 +42,21 @@ from ..recovery.legacy import LegacyContacts
 from ..recovery.legacy import register_paths as register_legacy_paths
 from ..recovery.requests import REQUEST_TOKEN_PREFIX, Recoveries
 from ..recovery.ticker import Ticker
+
+
+class _LegacyExportResponse(StreamingResponse):
+    def __init__(self, archive: Generator[bytes, None, None]):
+        self.archive = archive
+        super().__init__(archive, media_type="application/x-tar",
+                         headers={"Content-Disposition": 'attachment; filename="onemind-legacy-export.tar"',
+                                  "Cache-Control": "no-store"})
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            self.archive.close()
+
 
 ORDER = 265  # after identity (260): it needs app.state.identity
 
@@ -563,6 +578,4 @@ def register(app: FastAPI, gw: Gateway) -> None:
              responses={200: {"content": {"application/x-tar": {}}}, **R(401, 403, 409, 413, 503)},
              openapi_extra=LEGACY_SECURITY)
     def legacy_download(request: Request, p: Principal = Depends(principal)):
-        return StreamingResponse(legacy.archive(legacy.contact_row(request, p), p), media_type="application/x-tar",
-                                 headers={"Content-Disposition": 'attachment; filename="onemind-legacy-export.tar"',
-                                          "Cache-Control": "no-store"})
+        return _LegacyExportResponse(legacy.archive(legacy.contact_row(request, p), p))
