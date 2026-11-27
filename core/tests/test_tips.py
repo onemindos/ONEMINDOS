@@ -95,7 +95,9 @@ def ids(r) -> list[str]:
 
 def test_search_uses_the_offline_pack_and_respects_role_and_switch(settings, clock, box):
     entries = Path(__file__).resolve().parents[2] / "tips" / "entries"
-    _, frontmatter, body = (entries / "inspect-backup.md").read_text().split("---", 2)
+    source = (entries / "inspect-backup.md").read_text()
+    assert source.startswith("---\n")
+    frontmatter, body = source.removeprefix("---\n").split("\n---\n", 1)
     backup = {"id": "inspect-backup", **yaml.safe_load(frontmatter), "body": body.strip()}
     restricted = tip("backup-owner-guide", "box-health", roles=["owner"])
     write_pack(box["dir"], {

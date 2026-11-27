@@ -221,7 +221,7 @@ export function CommandPalette({ open, onClose, commands, onRun, recent, state =
                     {(c.subtitle || c.disabledReason) && <span className="oms-option-sub">{c.disabledReason && !c.href ? c.disabledReason : c.subtitle}</span>}
                   </span>
                   {c.request && <span className="oms-req-tag">Request</span>}
-                  {c.group === 'Tips' && <span>Open</span>}
+                  {c.group === 'Tips' && <span className="oms-open-tag">Open</span>}
                   {c.pill && <StatusPill tone={c.pill.tone} label={c.pill.label} className="oms-option-pill" />}
                   <span className="oms-option-enter" aria-hidden="true">
                     <ShellIcon name="enter" size={16} />

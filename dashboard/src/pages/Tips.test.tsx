@@ -43,6 +43,8 @@ function mount(route: string, tip = market) {
           collections: [{ id: 'apps', title: 'Apps', count: 1 }, { id: 'start', title: 'Getting started', count: 1 }],
           checklist: [backup.id],
         });
+      case '/v1/tips/whats-new':
+        return Response.json({ os_version: '0.1.2', entries: [{ version: '0.1.2', title: 'Backups check themselves', body: 'Every backup is now verified.' }] });
       case '/v1/auth/passkeys':
         return Response.json([{ id: 'key-1' }]);
       case '/v1/users':
@@ -90,6 +92,15 @@ it.each(['global', 'settings'])('opens a matching tip from %s search', async sco
   expect(screen.getByRole('link', { name: 'Open' })).toHaveAttribute('href', '/backups');
 });
 
+it('announces Settings tip results in a live region mounted before the search', async () => {
+  const { user } = mount('/settings/appearance');
+  const announcement = await screen.findByRole('status', { name: 'Tips search' });
+  expect(announcement).toBeEmptyDOMElement();
+
+  await user.type(screen.getByRole('searchbox', { name: 'Search settings' }), 'backup');
+  expect(await screen.findByText('1 tip found.')).toBe(announcement);
+});
+
 it('browses collections and searches the loaded pack with / and no further requests', async () => {
   const { fetch, user } = mount('/tips');
   const search = await screen.findByRole('searchbox', { name: 'Search Tips' });
@@ -103,6 +114,9 @@ it('browses collections and searches the loaded pack with / and no further reque
   await user.clear(search);
   await user.selectOptions(collection.getByRole('combobox', { name: 'Collection' }), 'apps');
   expect(collection.queryByRole('link', { name: backup.title })).not.toBeInTheDocument();
+  const news = within(screen.getByRole('region', { name: 'What’s new' }));
+  expect(await news.findByText('Backups check themselves')).toBeInTheDocument();
+  expect(news.getByText(/You are running OneMind 0.1.2/)).toBeInTheDocument();
   const checklist = within(screen.getByRole('region', { name: 'Getting started checklist' }));
   expect(checklist.getByRole('link', { name: backup.title })).toBeInTheDocument();
   const states = await checklist.findByRole('list', { name: 'Setup status' });
@@ -116,6 +130,7 @@ it('browses collections and searches the loaded pack with / and no further reque
     `${window.location.origin}/v1/backups/status`,
     `${window.location.origin}/v1/tips`,
     `${window.location.origin}/v1/tips/collections`,
+    `${window.location.origin}/v1/tips/whats-new`,
     `${window.location.origin}/v1/users`,
   ]);
   await user.click(screen.getByRole('button', { name: 'Copy link' }));

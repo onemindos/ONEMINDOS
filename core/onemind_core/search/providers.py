@@ -7,6 +7,8 @@ files     every file and folder in the Files sync index (files/index.py), follow
           exactly who may list that folder through GET /v1/files/list.
 settings  every Settings page a built-in declares (descriptor spec.settingsPages). A page is shown to
           a person whose scopes allow the route the page reads; agents and apps do not browse Settings.
+tips      the signed image pack, snapshotted when the provider is built. Only people see hits,
+          filtered by role and OS version through TipsService.visible.
 """
 
 from __future__ import annotations
@@ -138,6 +140,8 @@ class TipsProvider(Provider):
     def __init__(self, descriptor: Descriptor, tips: TipsService):
         super().__init__(descriptor)
         self.tips = tips
+        # The image pack stays fixed for the life of this provider. When #790 adds a signed /data
+        # pack that can change at runtime, refresh() must rebuild from self.tips.loaded.
         pack = tips.loaded.pack
         self.items = [
             Item(id=tip.id, type="tip", app_id=self.app_id, scope=self.app_id, key=tip.id,

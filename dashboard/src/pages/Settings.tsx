@@ -49,18 +49,25 @@ export function Settings() {
       </EmptyState>
     );
   }
+  const tipResults = tips.length > 0 && (
+    <div className="om-set-nav-group">
+      <p className="om-set-nav-title">Tips</p>
+      <ul>{tips.map(tip => <li key={tip.id}>
+        <Link className="om-set-nav-link" to={tip.href} aria-label={`Open ${tip.title}`}>
+          <span className="om-set-nav-label">{tip.title}</span> Open
+        </Link>
+      </li>)}</ul>
+    </div>
+  );
   return (
-    <SettingsLayout current={current} explicit={explicit} hrefFor={(id) => href.setting(id)} indexHref={href.settings} hidden={view !== 'pro' ? PRO_SETTINGS : role === 'owner' ? undefined : new Set<SettingsSectionId>(['care'])}
-      onSearch={setQuery}
-      extraSearchResults={tips.length > 0 && <div className="om-set-nav-group" aria-live="polite">
-        <p className="om-set-nav-title">Tips</p>
-        <ul>{tips.map(tip => <li key={tip.id}>
-          <Link className="om-set-nav-link" to={tip.href} aria-label={`Open ${tip.title}`}>
-            <span className="om-set-nav-label">{tip.title}</span> Open
-          </Link>
-        </li>)}</ul>
-      </div>}>
-      {body}
-    </SettingsLayout>
+    <>
+      <SettingsLayout current={current} explicit={explicit} hrefFor={(id) => href.setting(id)} indexHref={href.settings} hidden={view !== 'pro' ? PRO_SETTINGS : role === 'owner' ? undefined : new Set<SettingsSectionId>(['care'])}
+        onSearch={setQuery} extraSearchResults={tipResults}>
+        {body}
+      </SettingsLayout>
+      <p className="om-visually-hidden" role="status" aria-label="Tips search">
+        {tips.length > 0 && `${tips.length} ${tips.length === 1 ? 'tip' : 'tips'} found.`}
+      </p>
+    </>
   );
 }
