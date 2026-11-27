@@ -6,11 +6,12 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { ApiError } from '../api/types';
 import { keyErrorText, LAST_PROVEN_WARNING, SignInKeys } from './SignInKeys';
 
-const state = vi.hoisted(() => ({ role: 'owner', signOut: vi.fn() }));
+const state = vi.hoisted(() => ({ role: 'owner' as string | null | undefined, signOut: vi.fn() }));
 vi.mock('../session', () => ({
-  useSignedIn: () => ({ token: 'fixture', mock: false, principal: { id: 'zeus', kind: 'person', role: state.role } }),
+  useSignedIn: () => ({ token: 'fixture', mock: false, principal: { id: 'zeus', kind: 'person' } }), // a real gateway session has no role on the principal
   useSession: () => ({ signOut: state.signOut }),
 }));
+vi.mock('../shell/Shell', () => ({ useShell: () => ({ role: state.role }) })); // the role GET /v1/me answered
 const webauthn = vi.hoisted(() => ({ create: vi.fn(), get: vi.fn() }));
 vi.mock('../lib/webauthn', () => ({
   webauthnSupported: () => true,
@@ -227,6 +228,28 @@ it('an owner asks to trust a key model through Approvals and can stop trusting o
 
 it('an adult manages their own keys and never sees the owner’s trusted models', async () => {
   state.role = 'adult';
+  try {
+    const calls = gateway(({ path }) => ({ '/v1/auth/passkeys': [phone] } as Record<string, unknown>)[path]);
+    mount();
+    expect(await screen.findByText('L1 · Device check')).toBeVisible();
+    expect(screen.queryByText('Trusted key models')).toBeNull();
+    expect(calls.every((c) => c.path === '/v1/auth/passkeys')).toBe(true);
+  } finally { state.role = 'owner'; }
+});
+
+it('hides the owner’s trusted models until GET /v1/me has named the role (fail closed)', async () => {
+  state.role = undefined;
+  try {
+    const calls = gateway(({ path }) => ({ '/v1/auth/passkeys': [phone] } as Record<string, unknown>)[path]);
+    mount();
+    expect(await screen.findByText('L1 · Device check')).toBeVisible();
+    expect(screen.queryByText('Trusted key models')).toBeNull();
+    expect(calls.every((c) => c.path === '/v1/auth/passkeys')).toBe(true);
+  } finally { state.role = 'owner'; }
+});
+
+it('shows nothing owner-only for an agent (role null)', async () => {
+  state.role = null;
   try {
     const calls = gateway(({ path }) => ({ '/v1/auth/passkeys': [phone] } as Record<string, unknown>)[path]);
     mount();
