@@ -74,10 +74,19 @@ class EngineRegister(unittest.TestCase):
         self.assertFalse(self.errors(spdx="AGPL-3.0-only", protocol="CalDAV"))
         self.assertIn("standard protocol", self.errors(spdx="AGPL-3.0-only"))
         self.assertIn("own container", self.errors(spdx="GPL-3.0-only", runs_as="debian-package", protocol="CalDAV"))
-        self.assertIn("missing fork_repo", self.errors(spdx="GPL-3.0-only", protocol="CalDAV", modified=True))
-        self.assertIn("must be unmodified", self.errors(
-            spdx="GPL-3.0-only", protocol="CalDAV", modified=True, fork_repo="https://example.test/fork",
-        ))
+
+    def test_modified_gpl_needs_a_published_fork(self):
+        gpl = {"spdx": "GPL-3.0-only", "protocol": "CalDAV"}
+        self.assertIn("missing fork_repo", self.errors(**gpl, modified=True))
+        self.assertIn("missing fork_repo", self.errors(**gpl, modified=True, fork_repo=" "))
+        self.assertFalse(self.errors(**gpl, modified=True, fork_repo="https://example.test/fork"))
+        self.assertFalse(self.errors(**gpl, modified=False))
+
+    def test_tag_only_images_are_found_whatever_the_tag(self):
+        for text in ("    image: docker.io/library/redis:bookworm\n", "FROM example/built:${TAG}\n"):
+            with self.subTest(text=text):
+                self.compose.write_text(text, encoding="utf-8")
+                self.assertTrue(list(check_engines.deploy_images(self.root)))
 
     def test_unverified_plans_cannot_include_a_deployment_pin(self):
         plan = {

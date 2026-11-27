@@ -97,8 +97,9 @@
     {
       "id": "libreoffice",
       "upstream": "https://github.com/LibreOffice/core",
-      "spdx": "GPL-3.0-only",
+      "spdx": "UNVERIFIED",
       "licence_url": "https://github.com/LibreOffice/core/blob/master/COPYING",
+      "note": "UNVERIFIED: the tree mixes MPL-2.0 source headers with COPYING.MPL, COPYING.LGPL and the GPLv3 text; no primary source settles one id. Treated as GPL for policy: own container behind a standard protocol.",
       "pinned": null,
       "runs_as": "container",
       "modified": false,

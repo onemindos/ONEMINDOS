@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""Validate D-032 engine metadata and deploy image coverage, offline."""
+"""Validate D-032 engine metadata and deploy image coverage, offline.
+
+The rules come from D-032, see docs/design/ONEMIND-APPS.md section 4 (rule 3 covers
+GPL/AGPL engines).
+"""
 
 import json
 import re
@@ -45,8 +49,9 @@ def deploy_images(root):
         references = {match.group(1) for match in DIGEST_IMAGE.finditer(content)}
         for match in TAGGED_IMAGE.finditer(content):
             reference = match.group(1)
-            _, _, tag = reference.rsplit("/", 1)[-1].partition(":")
-            if re.match(r"v?\d", tag):
+            # Any tag counts, including codename pins and build ARGs. Images that
+            # OneMind builds locally (onemind-core, onemindd) are not third-party engines.
+            if ":" in reference.rsplit("/", 1)[-1] and not reference.startswith("onemind"):
                 references.add(reference)
         for reference in sorted(references):
             yield path.relative_to(root), image_repository(reference)
@@ -116,10 +121,8 @@ def validate(root, register):
         if re.match(r"A?GPL-", spdx, re.IGNORECASE):
             if runtimes != {"container"} or not nonempty(entry.get("protocol")):
                 errors.append(f"{engine_id}: GPL/AGPL requires its own container and a standard protocol")
-            if modified:
-                if not nonempty(entry.get("fork_repo")):
-                    errors.append(f"{engine_id}: modified GPL/AGPL engine is missing fork_repo")
-                errors.append(f"{engine_id}: GPL/AGPL engines must be unmodified")
+            if modified is True and not nonempty(entry.get("fork_repo")):
+                errors.append(f"{engine_id}: modified GPL/AGPL engine is missing fork_repo")
         for repository in repositories:
             if "container" not in runtimes:
                 errors.append(f"{engine_id}: image requires a container runtime")
