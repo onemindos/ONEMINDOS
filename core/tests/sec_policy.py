@@ -417,6 +417,37 @@ POLICY |= {
                                                          f"{_AUTOMATION}: only the owner revokes one"),
     ("POST", "/v1/approval-policies/{policy_id}/confirm"): Row(OWNER_ONLY_404, w.p_missing("/v1/approval-policies/{policy}/confirm"),
                                                               f"{_AUTOMATION}: only the owner confirms a paused one"),
+    # Gateway permissions PR 8: deny rules. Adding one only tightens (the owner, or the person who owns that agent);
+    # removing one loosens (owner only). Agents never see them.
+    # Gateway permissions PR 10: modes. Anyone signed in sees the household default (an agent only its own mode
+    # besides); only someone with a say changes one, and only the owner loosens.
+    ("GET", "/v1/permission-modes"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/permission-modes"),
+                                         f"{_AUTOMATION}: the household default, plus the modes the caller may read"),
+    ("GET", "/v1/permission-modes/{principal}"): Row(ONLY_OWNER, w.p_static("/v1/permission-modes/agent:probe"),
+                                                     f"{_AUTOMATION}: the owner, the agent's owning person, or the agent itself"),
+    ("PUT", "/v1/permission-modes"): Row(ONLY_OWNER, lambda _: w.Req("/v1/permission-modes", json={"mode": "ask"}),
+                                         f"{_AUTOMATION}: only the owner sets the household default"),
+    ("PUT", "/v1/permission-modes/{principal}"): Row(ONLY_OWNER, lambda _: w.Req("/v1/permission-modes/agent:probe", json={"mode": "locked"}),
+                                                     f"{_AUTOMATION}: tightening by anyone with a say; loosening by the owner"),
+    ("GET", "/v1/approval-denies"): Row(grid(200, 200, 403, 403, 403), w.p_static("/v1/approval-denies"),
+                                        f"{_AUTOMATION}: the owner sees all, a person those on agents they own"),
+    ("POST", "/v1/approval-denies"): Row(grid(201, 403, 403, 403, 403), w.p_deny_create,
+                                         f"{_AUTOMATION}: the owner, or the person who owns that agent"),
+    ("DELETE", "/v1/approval-denies/{deny_id}"): Row(OWNER_ONLY_404, w.p_missing("/v1/approval-denies/{policy}"),
+                                                     f"{_AUTOMATION}: removing a deny loosens: owner only"),
+    # Gateway permissions PR 9: edit (owner; widening needs a passkey), one-tap revoke (owner, or a person for rules
+    # naming only agents they own), re-confirm a suspended rule and keep a forever rule (owner).
+    ("PATCH", "/v1/approval-policies/{policy_id}"): Row(OWNER_ONLY_404, w.p_missing("/v1/approval-policies/{policy}", json={"name": "x"}),
+                                                        f"{_AUTOMATION}: only the owner edits a rule"),
+    ("POST", "/v1/approval-policies/{policy_id}/revoke"): Row(grid(404, 404, 403, 403, 403), w.p_missing("/v1/approval-policies/{policy}/revoke"),
+                                                              f"{_AUTOMATION}: revoking narrows; a person may revoke rules for their own agents"),
+    ("POST", "/v1/approval-policies/revoke-all"): Row(grid(200, 200, 403, 403, 403),
+                                                      lambda _: w.Req("/v1/approval-policies/revoke-all", json={"principal": "agent:hermes"}),
+                                                      f"{_AUTOMATION}: revoking narrows"),
+    ("POST", "/v1/approval-policies/{policy_id}/reconfirm"): Row(OWNER_ONLY_404, w.p_missing("/v1/approval-policies/{policy}/reconfirm"),
+                                                                 f"{_AUTOMATION}: only the owner re-confirms a suspended rule"),
+    ("POST", "/v1/approval-policies/{policy_id}/keep"): Row(OWNER_ONLY_404, w.p_missing("/v1/approval-policies/{policy}/keep"),
+                                                            f"{_AUTOMATION}: only the owner keeps a forever rule"),
     ("GET", "/v1/automation/rules"): Row(READ_ANY, w.p_static("/v1/automation/rules"), f"{_AUTOMATION}: any reader"),
     ("POST", "/v1/automation/rules"): Row(grid(201, 403, 403, 403, 403), w.p_rule_create,
                                           f"{_AUTOMATION}: only the owner writes rules (an agent is refused)"),

@@ -278,9 +278,9 @@ def test_bad_standing_approvals_are_refused(client, clock, kw, status, needle):
 
 def test_standing_approval_expiry_is_bounded(client, clock):
     body = {"allow": {"types": ["app.restart"], "requested_by": ["automation:update-policy"]}, "limits": {"per_day": 1},
-            "expires_at": iso(clock.now + timedelta(days=91))}
+            "expires_at": iso(clock.now + timedelta(days=181))}
     r = client.post("/v1/approval-policies", json=body, headers=OWNER)
-    assert r.status_code == 422 and "90 days" in r.json()["message"]
+    assert r.status_code == 422 and "180 days" in r.json()["message"]  # D-028: 30, 90, 180 days or forever
 
 
 def test_policy_limit_is_counted_in_the_database(client, clock, auto_settings, executor):

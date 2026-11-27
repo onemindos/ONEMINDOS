@@ -27,6 +27,7 @@ from sqlalchemy import or_, select
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError
+from ..permissions import remember as rm
 from . import approver_keys as ak
 from . import passkeys as pk
 from . import scopes as sc
@@ -149,6 +150,7 @@ class FailureLimiter:
 class IdentityService:
     def __init__(self, gw: Gateway):
         self.gw = gw
+        self.gw_app_state = None  # the app's state, set by routers/identity.py (approve and remember reads automation)
         self.cfg = gw.settings.section(IdentitySettings)
         self.repo = IdentityRepository(gw.db)
         # SECURITY.md §3.2: the first-boot owner token stops working on the API once an owner exists.
@@ -931,6 +933,9 @@ class IdentityService:
                                     {"revoked_at": now})
         tokens = self.repo.update(TokenRow, [or_(TokenRow.owner_user_id == u.id, TokenRow.principal_id == u.id),
                                              TokenRow.revoked_at.is_(None)], {"revoked_at": now})
+        for name in {t.principal_id for t in self.repo.all(select(TokenRow).where(TokenRow.id.in_(tokens)))
+                     if t.kind in ("agent", "plugin")}:
+            self._retire(name, "owner_disabled")
         self.emit("user", "disabled", {"user_id": u.id, "sessions_revoked": len(sessions),
                                        "tokens_revoked": len(tokens)}, p, severity="warning")
         return self.user_json(self.user(u.id))
@@ -1009,7 +1014,13 @@ class IdentityService:
                      hash=sha256_hex(secret), kind=kind, principal_id=principal_id,
                      owner_user_id=user.id if user else None, scopes=wanted, source="api", created_by=p.id,
                      created_at=now, expires_at=expires_at)
+        reg = self._registry() if kind == "agent" else None
+        reminted = reg is not None and reg.live(principal_id) is not None
         self.repo.add(t)
+        if reg is not None:  # PR 7: the agent's permanent id (kept on re-mint)
+            reg.register(principal_id, source="identity", owner_user_id=t.owner_user_id)
+            if reminted:  # PR 9: a second credential for the same agent suspends its rules
+                reg.notify(principal_id, "token_reminted")
         self.emit("auth", "token.created", {"token_id": t.id, "kind": kind, "principal_id": principal_id,
                                             "scopes": wanted, "expires_at": iso(t.expires_at)}, p)
         return {**self.token_json(t), "one_time": {"token": secret}}
@@ -1017,7 +1028,8 @@ class IdentityService:
     def _check_agent_id(self, principal_id: str, user: UserRow | None, p: Principal) -> None:
         """A personal agent id must not reuse an app's agent principal (agent:<app-id>, §11.2), a
         static-file principal, or another person's agent: its requests would be shown and audited
-        as that principal's."""
+        as that principal's. Revoked tokens count too: approval rules bound to an agent's uid
+        (AutomationPolicyService._bound_ok) rely on a uid never passing to another owner."""
         app_id = principal_id.partition(":")[2]
         taken = app_id in self.gw.catalog.load() or any(fp.id == principal_id for _, fp in self.gw.tokens.entries())
         if not taken:
@@ -1059,12 +1071,26 @@ class IdentityService:
         if not done:
             raise ApiError(409, "conflict", "token was rotated concurrently")
         self.emit("auth", "token.rotated", {"token_id": t.id, "grace_s": grace_s}, p)
+        if t.kind in ("agent", "plugin") and self._registry() is not None:  # PR 9: suspends its rules
+            self._registry().notify(t.principal_id, "token_rotated")
         return {**self.token_json(self.repo.get(TokenRow, t.id)), "one_time": {"token": secret}}
 
     def revoke_token(self, ctx: AuthContext | None, p: Principal, token_id: str) -> None:
         t = self._token_for_write(ctx, p, token_id, "revoke tokens")
         self.repo.update(TokenRow, [TokenRow.id == t.id], {"revoked_at": self.now(), "prev_hash": None})
         self.emit("auth", "token.revoked", {"token_id": t.id, "principal_id": t.principal_id}, p)
+        if t.kind in ("agent", "plugin"):
+            # PR 7: revoking a token ends the identity it carried, so the standing approvals bound to
+            # it stop; a token minted later under the same name is a new principal id.
+            self._retire(t.principal_id, "token_revoked")
+
+    def _registry(self):
+        return getattr(self.gw.actions, "principals", None)
+
+    def _retire(self, name: str, reason: str) -> None:
+        reg = self._registry()
+        if reg is not None:
+            reg.retire(name, reason)
 
     # ---- per-app sharing ---------------------------------------------------------------------------
     DEFAULT_ROLES = ("owner", "adult")
@@ -1143,7 +1169,7 @@ class IdentityService:
         canon = json.dumps(bound, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
         return "sha256:" + hashlib.sha256(canon.encode()).hexdigest()
 
-    def approve_options(self, request: Request, p: Principal, action_id: str) -> dict:
+    def approve_options(self, request: Request, p: Principal, action_id: str, remember=None) -> dict:
         if not p.is_owner:
             raise self.deny(p, "approve actions", action_id=action_id)
         action = self.gw.actions.get(action_id)  # 404 when unknown
@@ -1152,24 +1178,78 @@ class IdentityService:
         ctx = ctx_of(request)
         a_sha = self.action_sha256(action)
         p_sha = action.get("plan_sha256") or ""
+        rule = self._remember_rule(action, remember) if remember is not None else None
+        r_sha = rm.rule_sha256(rule) if rule is not None else ""
         nonce = os.urandom(32)
-        raw = hashlib.sha256(action_id.encode() + a_sha.encode() + p_sha.encode() + nonce).digest()
+        # Gateway permissions PR 12: a remembered rule's hash is bound into the challenge itself.
+        raw = hashlib.sha256(action_id.encode() + a_sha.encode() + p_sha.encode() + r_sha.encode() + nonce).digest()
         user_id = ctx.user.id if ctx and ctx.user else None
         allow_users = [user_id] if user_id else self.active_owner_ids()
         allow = list(self.repo.all(select(PasskeyRow.id).where(PasskeyRow.user_id.in_(allow_users))))
-        row, _ = self._new_challenge("approve", user_id=user_id, action_id=action_id,
-                                     data={"action_sha256": a_sha, "plan_sha256": p_sha or None}, raw=raw)
+        data = {"action_sha256": a_sha, "plan_sha256": p_sha or None}
+        if rule is not None:
+            data |= {"rule_sha256": r_sha, "rule": rule}
+        row, _ = self._new_challenge("approve", user_id=user_id, action_id=action_id, data=data, raw=raw)
         rp_id, _ = self.rp(request)
-        return {"challenge": row.challenge, "action_sha256": a_sha, "plan_sha256": p_sha or None,
-                "expires_at": iso(row.expires_at),
-                "device_payload": ak.signing_payload(row.challenge, action_id, a_sha, p_sha or None).decode(),
-                "publicKey": pk.authentication_options(rp_id=rp_id, challenge=raw, allow=allow)}
+        out = {"challenge": row.challenge, "action_sha256": a_sha, "plan_sha256": p_sha or None,
+               "expires_at": iso(row.expires_at),
+               "device_payload": (ak.signing_payload_v2(row.challenge, action_id, a_sha, p_sha or None, r_sha) if rule
+                                  else ak.signing_payload(row.challenge, action_id, a_sha, p_sha or None)).decode(),
+               "publicKey": pk.authentication_options(rp_id=rp_id, challenge=raw, allow=allow)}
+        if rule is not None:
+            out["remember"] = {"rule": rule, "rule_sha256": r_sha, "summary": rm.summary(rule),
+                               "required_level": rm.required_level(rule), "enforced_level": "L1"}
+        return out
+
+    def _remember_rule(self, action: dict, choice) -> dict:
+        """The narrowest rule for this request with the person's choices, checked as a rule would be."""
+        why = rm.why_not(action, self.gw.actions.is_physical(str(action.get("type"))))
+        if why:
+            raise ApiError(422, "conflict", f"this request cannot be remembered: {why}", reason="remember_refused")
+        engine = getattr(self.gw.actions, "permissions", None)
+        modes = getattr(engine, "modes", None)
+        mode = modes.effective(rm.requester_key(action.get("requested_by") or {})) if modes is not None else "auto"
+        if mode in ("locked", "ask"):  # a remembered rule would never fire: say so instead of storing a dead rule
+            raise ApiError(409, "conflict", f"this agent is on {'Locked' if mode == 'locked' else 'Always ask'}, which ignores "
+                           "rules: set it to Ask once, then remember (or Auto within rules) first", reason="mode_ignores_rules")
+        try:
+            rule = rm.narrowest_rule(action, choice, self.now())
+        except ValueError as exc:
+            raise ApiError(422, "conflict", str(exc), reason="remember_refused") from None
+        self._remember_creatable(rule)
+        return rule
+
+    def _remember_creatable(self, rule: dict) -> None:
+        """Every check a standing approval meets when it is made (F-8, validation, binding), before any yes."""
+        svc = getattr(self.gw_app_state, "automation", None) if self.gw_app_state is not None else None
+        if svc is None:
+            raise ApiError(409, "conflict", "standing approvals are not available on this gateway", reason="remember_refused")
+        from ..automation.policies import PolicyBody
+
+        body = PolicyBody.model_validate(rule)
+        svc.policies._check_loosen()
+        if rm.required_level(rule) == "L2" and not svc.policies.proven_key():
+            # D-028: L1 (today's passkey) may make only a dated T0 rule. T1 and up, and any Forever rule,
+            # need a proven key (L2), which arrives with gateway permissions PR 11: refused until then.
+            raise ApiError(409, "conflict", "remembering this needs a proven key (L2, D-028): only a dated read-only "
+                                            "rule can be remembered until gateway permissions PR 11; approve it once "
+                                            "instead", reason="needs_proven_key")
+        svc.policies.validate(body)
+        svc.policies._bindings(body.allow.requested_by)
 
     def approval_guard(self, p: Principal, action_id: str, body: dict, request: Request) -> None:
         if not p.is_owner:
             return  # actions.approve refuses and audits non-owners itself
         ctx = ctx_of(request)
         assertion = body.get("webauthn")
+        remember = body.get("remember")
+        if remember is not None and assertion is None:
+            # PR 12: remembering is a loosening bound to the passkey. The phone key is refused until the phone
+            # shows the rule before signing (PR 18a); a token or cookie alone never remembers.
+            self.emit("auth", "step_up.required", {"attempted": "approve and remember", "action_id": action_id}, p,
+                      severity="warning")
+            raise ApiError(401, "unauthenticated", "approve and remember needs your passkey (not the phone key yet)",
+                           reason="step_up_required")
         if body.get("device_signature") is not None:
             if assertion is not None:
                 raise ApiError(422, "conflict", "send a passkey assertion or a device signature, not both")
@@ -1191,6 +1271,8 @@ class IdentityService:
         except ApiError as exc:
             raise self._step_up_failed(p, action_id, exc.message) from None
         self._check_bound(p, action_id, row, body)
+        if remember is not None or row.data.get("rule_sha256"):
+            self._check_rule_bound(p, action_id, row, remember, request)
         try:
             cred = self._assert(request, credential, row)
         except ApiError as exc:
@@ -1215,6 +1297,16 @@ class IdentityService:
             raise self._step_up_failed(p, action_id, "the action changed since the challenge", reason="plan_changed")
         if body.get("plan_sha256") and body["plan_sha256"] != (row.data.get("plan_sha256") or None):
             raise self._step_up_failed(p, action_id, "plan_sha256 differs from the one signed", reason="plan_changed")
+
+    def _check_rule_bound(self, p: Principal, action_id: str, row: ChallengeRow, remember: dict | None,
+                          request: Request) -> None:
+        """PR 12: store a rule only if its canonical hash is the one bound into the consumed challenge."""
+        want = row.data.get("rule_sha256")
+        sent = (remember or {}).get("rule")
+        if not want or not isinstance(sent, dict) or rm.rule_sha256(sent) != want:
+            raise self._step_up_failed(p, action_id, "the remembered rule differs from the one you were shown",
+                                       reason="rule_changed")
+        request.state.remember_rule = row.data["rule"]
 
     def _device_key_refusal(self, action: dict) -> str | None:
         """Why this action cannot be approved with a device key (F-2), or None when it can."""
@@ -1269,7 +1361,7 @@ class IdentityService:
     def _step_up_failed(self, p: Principal, action_id: str, why: str, reason: str = "assertion_invalid") -> ApiError:
         self.emit("auth", "step_up.failed", {"action_id": action_id, "reason": reason, "detail": why[:200]}, p,
                   severity="warning")
-        if reason == "plan_changed":
+        if reason in ("plan_changed", "rule_changed"):
             return ApiError(409, "stale_precondition", why, reason=reason)
         return ApiError(401, "unauthenticated", f"passkey check failed: {why}"[:300], reason="step_up_required")
 

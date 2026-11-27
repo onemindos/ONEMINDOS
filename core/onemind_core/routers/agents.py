@@ -25,6 +25,7 @@ from ..errors import ApiError, error_responses
 from ..identity import ctx_of
 from ..identity.scopes import register_route_scope
 from ..jsonbody import JsonBody
+from ..principals import PrincipalRegistry
 from ..taint_store import INPUT_KINDS, MAX_ACCEPT, NAME_RE, AgentInputs, TaintStore
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
@@ -76,6 +77,8 @@ class AgentView(BaseModel):
     pending_approvals: int
     cancelled: bool
     cancelled_at: str | None = None
+    principal_uid: str | None = Field(default=None, description="the agent's permanent principal id (prn_...); a new one "
+                                      "after a token is revoked or its app reinstalled, and standing approvals bind to it")
 
 
 class AgentCancelled(AgentView):
@@ -165,6 +168,24 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def get_agent(name: str, p: Principal = Depends(principal)):
         return svc.get(p, name)
 
+    # Gateway permissions PR 7: permanent principal ids, and no app takes an agent id a person or the
+    # tokens file already holds (it would inherit that agent's standing approvals and audit trail).
+    registry = PrincipalRegistry(gw.db, gw.audit, gw.clock)
+    gw.actions.principals = registry
+
+    def no_agent_id_collision(action_type: str, app_id: str) -> None:
+        if action_type != "app.install":
+            return
+        name = f"agent:{app_id}"
+        held = registry.collision(name, {fp.id for _, fp in gw.tokens.entries() if fp.kind in ("agent", "plugin")})
+        if held is not None:
+            gw.audit.append("authz.denied", None, None, {"attempted": f"install {app_id}", "principal_id": name,
+                                                         "reason": "agent_id_taken", "held_by": held})
+            raise ApiError(409, "conflict", f"the agent id {name!r} is held by {held}; revoke it before installing "
+                                            f"this app, so the app never inherits its rules", reason="agent_id_taken")
+
+    gw.actions.id_checks.append(no_agent_id_collision)
+
     inputs = AgentInputs(gw.db, gw.audit, gw.catalog, gw.clock)
     app.state.agent_inputs = inputs
     gw.actions.agent_forgotten = inputs.forget
@@ -195,7 +216,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
         if (ident is not None and p.is_owner and NAME_RE.fullmatch(pid)
                 and inputs.loosens(pid, body.external_inputs, body.accept_injection_risk)):
             via = ident.require_step_up(ctx_of(request), p, "declare what an agent reads")
-        return inputs.set(p, pid, body.external_inputs, body.accept_injection_risk, via=via)
+        before = set(inputs.inputs(pid, "agent")) if NAME_RE.fullmatch(pid) else set()
+        out = inputs.set(p, pid, body.external_inputs, body.accept_injection_risk, via=via)
+        if set(body.external_inputs) - before:  # PR 9: it now reads more outside text: its rules are suspended
+            registry.notify(pid if ":" in pid else f"agent:{pid}", "became_exposed")
+        return out
 
     @app.put("/v1/agents/{name}/budget", operation_id="agents.budget.set", tags=TAGS,
              responses={200: {"model": AgentView}, **error_responses(401, 403, 422)})

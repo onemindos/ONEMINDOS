@@ -435,6 +435,11 @@ class FeatureAction:
     # derived from the request's params (part of plan_sha256).
     limits_for: Callable[[dict], list[dict]] | None = None
     preview_for: Callable[[dict], dict | None] | None = None
+    # Gateway permissions PR 9: what a request writes to, matched against a rule's `target`
+    # (("notes", "vault:<owner>/Agent Inbox/x.md")), and how much it writes ((bytes, items)) for a rule's
+    # size caps. A type without target_for can never match a rule that names a target.
+    target_for: Callable[[dict], tuple[str, str] | None] | None = None
+    size_for: Callable[[dict], tuple[int, int]] | None = None
 
 
 FEATURE_OUTCOMES = ("succeeded", "failed", "outcome_unknown")
@@ -502,6 +507,12 @@ class ActionService:
         # fn(principal_id): an agent identity ended (app removed, failed install); what the owner
         # declared about it (agents_inputs) must not carry over to a new agent with the same id.
         self.agent_forgotten: Callable[[str], None] | None = None
+        # Gateway permissions PR 7: permanent ids of agent and plugin principals (principals.py), set by
+        # routers/agents.py. An app install gives its agent a new id; a removal retires it.
+        self.principals: Any = None
+        # Gateway permissions PR 8: decide() on every filing path (permissions/engine.py), set by
+        # routers/permissions.py. Without it the older checks below still hold on their own.
+        self.permissions: Any = None
         self.handlers: dict[str, ActionHandler] = {}
         # How a background feature action's run() is started after approval; tests make it synchronous.
         self.spawn: Callable[[Callable[[], None]], None] = _worker
@@ -626,6 +637,7 @@ class ActionService:
             plan, plan_sha = feature_plan(action_type, params)
             if taint is not None:
                 plan = {**plan, PLAN_KEY: taint.note()}
+        self._gate(requested_by, action_type, params, risk, plan=plan)
         action = Action(
             id=new_action_id(), type=action_type, params=params, state="requested",
             requested_by=requested_by, idempotency_key=idempotency_key,
@@ -883,6 +895,11 @@ class ActionService:
         taint = self.taint.get(principal.id, principal.kind)
         if taint is not None:
             self._tainted_target_check(principal, app)
+        from .automation import registry  # imported late: the registry imports ActionType from here
+
+        # the effective risk, with the parameter upgrades (app.remove with delete_data is destructive)
+        self._gate({"id": principal.id, "kind": principal.kind}, req.type, params,
+                   registry.effective_risk(req.type, params, lc.TYPES[req.type].risk), plan=rendered["plan"])
         action = Action(
             id=new_action_id(),
             type=req.type,
@@ -927,6 +944,17 @@ class ActionService:
         """
         if not self.standing_approvals or _never_by_policy(a):
             return None
+        if self.permissions is not None:
+            try:
+                decision = self.permissions.filed(a)
+            except Exception:  # a broken engine never approves
+                log.exception("permission decision failed")
+                return None
+            if decision.outcome != "approve":
+                return None
+            step = {"permission": {"step": decision.step, "reason": decision.reason}}
+        else:
+            step = {}
         if plan_taint(a.plan):  # AIG-04: a requester that read third-party text always waits for a person
             return None
         if (a.plan or {}).get("network_paths"):  # §12.22: opening a path between apps needs a person
@@ -942,7 +970,7 @@ class ActionService:
             try:
                 return self._audited(
                     grant.principal, "approve action", a.id, {},
-                    lambda: self._approve(grant.principal, a.id, standing=grant.audit),
+                    lambda: self._approve(grant.principal, a.id, standing={**grant.audit, **step}),
                 )
             except ApiError:  # e.g. a stale precondition: the action stays awaiting_approval
                 grant.release()
@@ -958,6 +986,15 @@ class ActionService:
                     return None
                 return now.to_json()
         return None
+
+    def _gate(self, requested_by: dict, action_type: str, params: dict, risk: str | None, *,
+              physical: bool = False, plan: dict | None = None) -> None:
+        """Gateway permissions PR 8: refuse before anything is filed when decide() says so (deny first).
+
+        scope_ok is left at its default (True): the route's scope check already ran before this
+        handler, so decide() step 4 cannot fire from here (see Facts.scope_ok)."""
+        if self.permissions is not None:
+            self.permissions.gate(requested_by, action_type, params, risk, physical=physical, plan=plan)
 
     @staticmethod
     def _check_tainted_approval(a: Action, plan_sha256: str | None, standing: dict | None,
@@ -1391,6 +1428,11 @@ class ActionService:
             # Secret would go stale. An update still needs the gateway address for its egress rule.
             return AgentSecret(spec.secret, spec.principal_id, gateway_url=self.gateway_url) if a.type == "app.update" else None
         token = new_agent_token()
+        if self.principals is not None:
+            # Every install is a new identity: rules bound to an earlier install, or to whoever held the
+            # id before, never cover this one (gateway permissions PR 7).
+            self.principals.retire(spec.principal_id, "app.install")
+            self.principals.register(spec.principal_id, source="app")
         self.repo.issue_agent_token(spec.principal_id, app.id, token_hash(token), self.clock())
         self.audit.append(
             "agent.principal.issued", None, a.id,
@@ -1407,6 +1449,8 @@ class ActionService:
                 self.agent_forgotten(principal_id)
             except Exception:  # best effort: the token is revoked either way
                 log.exception("forgetting the declared inputs of %s failed", principal_id)
+        if self.principals is not None:
+            self.principals.retire(principal_id, reason)
         if self.repo.revoke_agent_token(principal_id, self.clock()):
             self.audit.append(
                 "agent.principal.revoked", None, a.id, {"principal_id": principal_id, "reason": reason}
@@ -1573,6 +1617,8 @@ class ActionService:
             plan = {**plan, PLAN_KEY: taint.note()}
         if plan is None and self._rule_could_cover(action_type, params, risk):
             plan, plan_sha = feature_plan(action_type, params)  # an approval by rule is bound to these params
+        self._gate({"id": principal.id, "kind": principal.kind}, action_type, params, risk,
+                   physical=spec.physical, plan=plan)
         action = Action(
             id=new_action_id(), type=action_type, params=params, state="requested",
             requested_by={"id": principal.id, "kind": principal.kind}, idempotency_key=idempotency_key,

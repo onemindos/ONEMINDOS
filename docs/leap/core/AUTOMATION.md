@@ -101,7 +101,7 @@ Route names on this page follow [API.md](../dev/API.md) §5.5, which owns the HT
 - No automation and no policy can approve a grant-widening, destructive or actuate type: enforced in the gateway's action path, tested with fixtures.
 - Limits are counted in the ledger, not in memory, so a gateway restart cannot reset them.
 - Webhooks: per-hook secret shown once, HMAC + timestamp, rate limit, body ≤ 64 KiB; a webhook can only fire its one automation.
-- Expired policies stop covering at once; every policy has an expiry (max 1 year).
+- Expired policies stop covering at once. A policy expires within 30, 90 or 180 days, or is a forever rule (read and write types only, never a hard-floor item), with "end if unused for 14 days" on by default, a review reminder every 90 days, and automatic suspension when its agent's token or identity changes ([D-028](../../DECISIONS.md), gateway permissions PR 9; this replaced the earlier one-year cap).
 - A paused gateway (kill switch or maintenance) fires no automations.
 
 ## 5. Versioning and compatibility

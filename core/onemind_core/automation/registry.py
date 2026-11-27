@@ -65,6 +65,9 @@ TYPES: dict[str, TypeInfo] = {
     "system.check": TypeInfo("read", True),
     "system.restart_unit": TypeInfo("write", True),
     "catalog.refresh": TypeInfo("write", True),
+    # A handler type (routers/browsers.py): it wipes a person's browser profile, which cannot be undone.
+    # Listed so every filing path knows its risk (gateway permissions PR 8: unknown risk is refused).
+    "browser.profile.reset": TypeInfo("destructive", False),
 }
 
 

@@ -109,7 +109,13 @@ class AgentPrincipals:
             "pending_approvals": len(pending),
             "cancelled": bool(row and row.cancelled_at),
             "cancelled_at": iso(row.cancelled_at) if row else None,
+            "principal_uid": self._uid(pid),
         }
+
+    def _uid(self, pid: str) -> str | None:
+        reg = self.actions.principals
+        live = reg.live(pid if ":" in pid else f"agent:{pid}") if reg is not None else None
+        return live["uid"] if live else None
 
     def known_ids(self) -> list[str]:
         ids = {a.requested_by["id"] for a in self.actions.repo.list() if a.requested_by.get("kind") == "agent"}
@@ -146,6 +152,8 @@ class AgentPrincipals:
                 self.actions._release_feature(a)
                 self.audit.append("action.denied", p.as_dict(), a.id, {"params": a.params, "reason": "agent_cancelled"})
         revoked = self.revoke_tokens(pid, now)
+        if self.actions.principals is not None:  # PR 7: its standing approvals stop with it
+            self.actions.principals.retire(pid if ":" in pid else f"agent:{pid}", "agent_cancelled")
         self.audit.append("agent.cancelled", p.as_dict(), None,
                           {"agent": pid, "requests_cancelled": withdrawn, "tokens_revoked": revoked})
         return {**self.view(pid), "requests_cancelled": withdrawn, "tokens_revoked": revoked}
