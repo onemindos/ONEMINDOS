@@ -6,6 +6,7 @@
 #   make repro-check BOARD=x86_64-efi                   -> builds the rootfs twice and compares (reproducible build)
 #   make image   BOARD=x86_64-efi [VERSION=...]         -> out/image-<board>/ (disk .img, .raucb, SHA256SUMS)
 #   make image   BOARD=x86_64-efi SECUREBOOT=1          -> the Secure Boot route (efi backend, signed UKI per slot, dev key; off by default)
+#   make release-image BOARD=x86_64-efi VERSION=... TRUST=<dir>  -> out/image-<board>/ with the release CA as keyring (installer stick)
 #   make fixtures BOARD=x86_64-efi [UPTO=T5] [HW=1]     -> out/fx-<board>/ (battery inputs; HW=1 for founder kits)
 #   make fixtures ... DATA_FS=luks2                      -> data partition left blank, encrypted on first boot
 #   make dataenc BOARD=x86_64-efi                       -> out/dataenc-<board>/ (E1-E7 and the reset tests R1-R2; DATAENC_ARGS='--only reset' runs just R1-R2)
@@ -76,6 +77,17 @@ image: tools
 	@test -f $(ROOTFS) || $(MAKE) rootfs BOARD=$(BOARD) LEG=$(LEG)
 	$(DOCKER_RUN) -e VERSION=$(VERSION) -e BOARD=$(BOARD) -e SECUREBOOT=$(SECUREBOOT) -e ROOTFS=/out/$(notdir $(ROOTFS)) -e SOURCE_DATE_EPOCH=$(SOURCE_DATE_EPOCH) $(TOOLS) \
 	  /src/os/assemble/dev-image.sh /out/image-$(BOARD)
+
+# The installer stick's release payload (os/boards/installer-x86_64/UPDATES.md, #234): BOARD's disk image with the
+# release CA as its keyring. TRUST=<dir> holds ONLY keyring.pem, the public CA certificate; no signing key is used and no
+# bundle is made (the channel's bundles come from os/update/build-release.sh). Without release keys use `make image`.
+#   make release-image BOARD=x86_64-efi VERSION=0.1.20261112025704 TRUST=<dir>   -> out/image-<board>/ (disk .img, SHA256SUMS)
+.PHONY: release-image
+release-image: tools
+	@test -n "$(TRUST)" || { echo "usage: make release-image BOARD=x86_64-efi VERSION=<release> TRUST=<dir with keyring.pem only>"; exit 1; }
+	@test -f $(ROOTFS) || $(MAKE) rootfs BOARD=$(BOARD) LEG=$(LEG)
+	$(DOCKER_RUN) -v "$(abspath $(TRUST))":/trust:ro -e TRUSTDIR=/trust -e VERSION=$(VERSION) -e BOARD=$(BOARD) -e ROOTFS=/out/$(notdir $(ROOTFS)) -e SOURCE_DATE_EPOCH=$(SOURCE_DATE_EPOCH) $(TOOLS) \
+	  /src/os/assemble/release-image.sh /out/image-$(BOARD)
 
 fixtures: tools
 	@test -f $(ROOTFS) || $(MAKE) rootfs BOARD=$(BOARD) LEG=$(LEG)
