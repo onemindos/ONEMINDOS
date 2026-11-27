@@ -24,6 +24,7 @@ import { createPasskey, getPasskey, webauthnSupported } from '../lib/webauthn';
 import { askBoxCode } from '../lib/boxcode';
 import { formatAgo, secondsSince } from '../lib/time';
 import { useSignedIn } from '../session';
+import { useShell } from '../shell/Shell';
 import { Load } from './parts';
 
 type Key = components['schemas']['Passkey'];
@@ -61,9 +62,11 @@ export function keyErrorText(e: unknown): string {
 }
 
 export function SignInKeys() {
-  const { token, mock, principal } = useSignedIn();
+  const { token, mock } = useSignedIn();
+  // A real gateway session carries no role; the shell asks GET /v1/me for it (as SettingsSecurity does).
+  const { role } = useShell();
   if (mock) return <><PageHeader title="Sign-in keys" /><Card title="Sign-in keys"><p role="status">Connect to a real hub to manage sign-in keys. Demo mode has none.</p></Card></>;
-  return <LiveSignInKeys token={token} owner={principal?.role === 'owner'} />;
+  return <LiveSignInKeys token={token} owner={role === 'owner'} />;
 }
 
 function LiveSignInKeys({ token, owner }: { token: string; owner: boolean }) {
