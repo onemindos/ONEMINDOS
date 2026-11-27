@@ -102,6 +102,18 @@ class PreRegistered(unittest.TestCase):
                   "3d79aac266493d38ae566d56c421bdd31eada953312adab3f4dff1ce2b546ec5"):
             self.assertTrue([l for l in lines if l.startswith(h + " ") and "CRITERIA-FIRSTBOOT.md" in l], h)
 
+    def test_section_22_points_at_the_power_cut_section_21(self):
+        # Section 22 amends the F27 row of section 21 (PR 1323 review: one of its three cross-references still said
+        # "Section 9", the disk-and-admin-tools amendment, left over from #1157's own numbering).
+        crit = open(os.path.join(ROOT, "test", "qemu", "CRITERIA-FIRSTBOOT.md"), encoding="utf-8").read()
+        s21 = crit[crit.index("\n## 21. "):crit.index("\n## 22. ")]
+        s22 = crit[crit.index("\n## 22. "):crit.index("\n## 23. ")]
+        self.assertIn("F26 and F27, a power cut", s21.splitlines()[1])
+        self.assertIn("On the healthy box of F26", s21)                  # the words section 22 quotes
+        self.assertIn('Section 21 said "on the healthy box of F26"', s22)
+        self.assertEqual(s22.count("section 21") + s22.count("Section 21"), 3)
+        self.assertIsNone(re.search(r"\b[Ss]ection (9|12)\b", s22), "section 22 still names #1157's own numbering")
+
 
 if __name__ == "__main__":
     unittest.main()
