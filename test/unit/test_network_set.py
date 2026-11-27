@@ -40,7 +40,7 @@ class Wiring(unittest.TestCase):
 
     def test_the_host_service_starts_the_manager_and_recovers_before_listening(self):
         host = read("cmd", "onemindd", "host.go")
-        self.assertIn("Net:   nm}", host)
+        self.assertRegex(host, r"\n\s*Net:\s+nm\}")  # the Net field is the netset manager (gofmt aligns it with the other fields)
         self.assertLess(host.index("nm.Recover(ctx)"), host.index("host.ActivationListener"))
 
     def test_the_host_unit_still_cannot_change_the_network_itself(self):
