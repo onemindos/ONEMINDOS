@@ -427,7 +427,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return JSONResponse(status_code=201, headers={"Cache-Control": "no-store"},
                             content={"action": action, "kit": svc.kit_state(), "one_time": one_time})
 
-    @app.post("/v1/backups/kit/attach", operation_id="backups.kit.attach", tags=tags, responses=error_responses(401, 403, 404, 409, 422))
+    @app.post("/v1/backups/kit/attach", operation_id="backups.kit.attach", tags=tags, responses=error_responses(401, 403, 404, 409, 422),
+              openapi_extra={"security": [{"bearer": ["*"]}]})  # owner credentials only, as its route scope says
     def attach_kit(body: KitAttachBody, request: Request, p: Principal = Depends(owner), idem: IdemHeader = None):
         """Add the owner key from the printed kit to the destinations added after it was issued (`missing_on` in
         GET /v1/backups/kit). The key must be this box's current kit (its fingerprint); it is held in memory for the

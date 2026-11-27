@@ -23675,6 +23675,13 @@
             "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
         "summary": "Attach Kit",
         "tags": [
           "backups"
