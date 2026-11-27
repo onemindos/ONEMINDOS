@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"golang.org/x/term"
 
 	"github.com/onemindos/onemindos/internal/update"
@@ -159,6 +160,41 @@ func NewRoot(env Env) (*cobra.Command, *App) {
 	}
 	setUsageOnGroups(root)
 	return root, a
+}
+
+// takeLeadingGlobals is for commands that set DisableFlagParsing because they parse their own
+// flags (storage, mesh status). Cobra then leaves global flags that were typed before the
+// subcommand word (onemind --hub URL storage disks) in args. This applies those leading global
+// flags and returns the rest. Flags after the first non-flag word stay with the command, so
+// `storage disks --json` keeps its own --json.
+func takeLeadingGlobals(cmd *cobra.Command, args []string) ([]string, error) {
+	pf := cmd.Root().PersistentFlags()
+	for len(args) > 0 && strings.HasPrefix(args[0], "-") && args[0] != "-" && args[0] != "--" {
+		name, val, hasVal := strings.Cut(strings.TrimLeft(args[0], "-"), "=")
+		var f *pflag.Flag
+		if strings.HasPrefix(args[0], "--") {
+			f = pf.Lookup(name)
+		} else if len(name) == 1 {
+			f = pf.ShorthandLookup(name)
+		}
+		if f == nil {
+			break // not a global flag: the command's own parser reports it
+		}
+		args = args[1:]
+		if !hasVal {
+			if f.NoOptDefVal != "" {
+				val = f.NoOptDefVal
+			} else if len(args) == 0 {
+				return nil, usageErr(cmd, fmt.Sprintf("flag needs an argument: --%s", f.Name))
+			} else {
+				val, args = args[0], args[1:]
+			}
+		}
+		if err := pf.Set(f.Name, val); err != nil {
+			return nil, usageErr(cmd, err.Error())
+		}
+	}
+	return args, nil
 }
 
 // setUsageOnGroups makes a bare group (`onemind apps`) a usage error, not a silent help page.

@@ -82,6 +82,14 @@ describe('one app page', () => {
     expect(paths).toContain('/v1/apps/uptime-kuma/metrics');
   });
 
+  it('Usage tab says why a figure is missing instead of a bare "Not reported"', async () => {
+    mount((path) => path === '/v1/apps/uptime-kuma/metrics'
+      ? json({ app_id: 'uptime-kuma', at: '2026-11-21T12:00:00Z', reason: 'metrics-server did not answer, so the runtime has no CPU or memory figures (it may still be starting).', components: [{ name: 'web', cpu_millicores: null, mem_mb: null, restarts: 0 }] })
+      : hub(path));
+    expect(await screen.findByText(/metrics-server did not answer/)).toBeInTheDocument();
+    expect(screen.getAllByText('Not reported').length).toBeGreaterThanOrEqual(2);
+  });
+
   it('Logs tab shows the gateway log lines', async () => {
     mount(hub);
     await userEvent.setup().click(await screen.findByRole('tab', { name: 'Logs' }));

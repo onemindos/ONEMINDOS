@@ -70,7 +70,11 @@ func meshCommands(a *App) []*cobra.Command {
 		Use:                "mesh status [--json] [--leaf-monitor ADDR]",
 		Short:              "Show this machine's mesh and NATS leaf state, or the hub's mesh settings",
 		DisableFlagParsing: true,
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			args, err := takeLeadingGlobals(cmd, args)
+			if err != nil {
+				return err
+			}
 			return meshCmd(args, a.Stdout)
 		},
 	}

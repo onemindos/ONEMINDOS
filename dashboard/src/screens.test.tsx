@@ -174,10 +174,10 @@ describe('Approvals', () => {
 });
 
 describe('Installed', () => {
-  it('Manage identifies the direct port and removal reviews a keep-data plan before requesting', async () => {
+  it('Manage says Open goes through the OneMind sign-in and removal reviews a keep-data plan before requesting', async () => {
     const u = userEvent.setup();
     const { getApi } = renderApp({ token: 'owner-demo', route: '/installed/uptime-kuma' });
-    expect(await screen.findByText(/not behind the OneMind sign-in/, {}, T)).toBeInTheDocument();
+    expect(await screen.findByText(/Open goes through the OneMind sign-in/, {}, T)).toBeInTheDocument();
     await u.click(screen.getByRole('button', { name: /^Remove/ }));
     const dlg = await screen.findByRole('dialog', { name: 'Review app request' });
     expect(within(dlg).queryByRole('radio')).toBeNull();
