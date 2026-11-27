@@ -166,7 +166,9 @@ func NewRoot(env Env) (*cobra.Command, *App) {
 // flags (storage, mesh status). Cobra then leaves global flags that were typed before the
 // subcommand word (onemind --hub URL storage disks) in args. This applies those leading global
 // flags and returns the rest. Flags after the first non-flag word stay with the command, so
-// `storage disks --json` keeps its own --json.
+// `storage disks --json` keeps its own --json. Combined short flags (-qv) are not split: they fall
+// through and the command's own parser rejects them. A global --json is recorded in a.G.JSON; the
+// callers pass it on to the command's own --json.
 func takeLeadingGlobals(cmd *cobra.Command, args []string) ([]string, error) {
 	pf := cmd.Root().PersistentFlags()
 	for len(args) > 0 && strings.HasPrefix(args[0], "-") && args[0] != "-" && args[0] != "--" {

@@ -107,7 +107,7 @@ function UsageTab({ appId, sdk }: { appId: string; sdk?: OneMind }) {
         <div><dt>Sampled</dt><dd>{u.at ?? 'Not reported'}</dd></div>
       </dl>
       {u.reason && <p role="status">Not all figures are available: {u.reason}</p>}
-      {u.components.length === 0 && <p>The hub reports no running parts for this app, so there is nothing to measure.</p>}
+      {u.components.length === 0 && !u.reason && <p>The hub reports no running parts for this app, so there is nothing to measure.</p>}
     </>;
   }}</Load>;
 }

@@ -198,6 +198,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             pods = []
         usage = mon.kube.pod_metrics(ns) if pods else None
         comps: dict[str, dict] = {}
+        partial = False
         for pod in pods:
             name = H.component_of(pod)
             c = comps.setdefault(name, {"name": name, "cpu_millicores": None, "mem_mb": None, "restarts": 0})
@@ -205,6 +206,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
             # A pod metrics-server has no reading for adds nothing: a part with no reading at all stays
             # null, never 0 (0 would claim the part is idle).
             for cpu, mem in (usage or {}).get(pod["metadata"]["name"], {}).values():
+                if cpu is None or mem is None:
+                    partial = True  # a container without a full reading: the sum is not the whole part
                 if cpu is not None:
                     c["cpu_millicores"] = round((c["cpu_millicores"] or 0) + cpu, 1)
                 if mem is not None:
@@ -213,7 +216,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         if pods and out["reason"] is None:
             if usage is None:
                 out["reason"] = "metrics-server did not answer, so the runtime has no CPU or memory figures (it may still be starting)."
-            elif any(c["cpu_millicores"] is None or c["mem_mb"] is None for c in comps.values()):
+            elif partial or any(c["cpu_millicores"] is None or c["mem_mb"] is None for c in comps.values()):
                 out["reason"] = "metrics-server has no reading yet for some parts (a new or restarted part shows up after about a minute)."
         return out
 

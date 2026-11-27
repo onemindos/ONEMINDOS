@@ -90,6 +90,21 @@ describe('one app page', () => {
     expect(screen.getAllByText('Not reported').length).toBeGreaterThanOrEqual(2);
   });
 
+  it('Usage tab does not claim "no running parts" when the hub gave a reason for an empty list', async () => {
+    mount((path) => path === '/v1/apps/uptime-kuma/metrics'
+      ? json({ app_id: 'uptime-kuma', at: '2026-11-21T12:00:00Z', reason: "The hub could not read this app's pods from Kubernetes.", components: [] })
+      : hub(path));
+    expect(await screen.findByText(/could not read this app's pods/)).toBeInTheDocument();
+    expect(screen.queryByText(/no running parts/)).toBeNull();
+  });
+
+  it('Usage tab says no running parts when the list is empty and there is no reason', async () => {
+    mount((path) => path === '/v1/apps/uptime-kuma/metrics'
+      ? json({ app_id: 'uptime-kuma', at: '2026-11-21T12:00:00Z', reason: null, components: [] })
+      : hub(path));
+    expect(await screen.findByText(/no running parts/)).toBeInTheDocument();
+  });
+
   it('Logs tab shows the gateway log lines', async () => {
     mount(hub);
     await userEvent.setup().click(await screen.findByRole('tab', { name: 'Logs' }));

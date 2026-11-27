@@ -512,8 +512,20 @@ func TestGlobalFlagsBeforeStorageAndMesh(t *testing.T) {
 			t.Errorf("%v: exit %d out %q err %q", args, r.code, r.out, r.errOut)
 		}
 	}
-	if r := run(t, "", false, "--hub"); r.code != ExitUsage {
-		t.Errorf("missing flag value: exit %d", r.code)
+	// The global --json must give machine output, not a table, wherever it is typed.
+	for _, args := range [][]string{
+		{"--json", "storage", "disks"}, {"storage", "--json", "disks"},
+		{"--json", "mesh", "status", "--leaf-monitor", "127.0.0.1:1"}, {"mesh", "--json", "status", "--leaf-monitor", "127.0.0.1:1"},
+	} {
+		r := run(t, "", false, args...)
+		var v any
+		if r.code != 0 || json.Unmarshal([]byte(r.out), &v) != nil {
+			t.Errorf("%v: want JSON, exit %d out %q err %q", args, r.code, r.out, r.errOut)
+		}
+	}
+	// A leading global flag with no value is rejected by takeLeadingGlobals itself.
+	if r := run(t, "", false, "storage", "--hub"); r.code != ExitUsage {
+		t.Errorf("missing flag value: exit %d out %q err %q", r.code, r.out, r.errOut)
 	}
 	if r := run(t, "", false, "--hub", "x", "storage", "--bogus"); r.code == 0 {
 		t.Errorf("unknown storage flag accepted")
