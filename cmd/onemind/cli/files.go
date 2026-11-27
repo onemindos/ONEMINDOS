@@ -8,7 +8,8 @@ package cli
 // approves in `onemind actions` or the dashboard; the CLI never sends the owner shortcut
 // ("approve": true). Taking a folder back and setting a space limit are owner calls the gateway
 // already restricts and audits. Moving, renaming and uploading stay in the Files screen and in the
-// desktop and phone apps.
+// desktop and phone apps. `rename` and `share` (POST /v1/files/ops, /v1/files/shares) act on the
+// caller's own files and links at once, as the Files screen does; uploading stays in the apps.
 
 import (
 	"encoding/json"
@@ -16,6 +17,8 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -146,8 +149,107 @@ func filesCommands(a *App) []*cobra.Command {
 	qset.Flags().BoolVar(&unlimited, "unlimited", false, "remove the limit")
 	quotas.AddCommand(qset)
 
-	root.AddCommand(ls, stat, trash, quotas, filesGrantsCmd(a), filesRequestsCmd(a))
+	var rnRoot string
+	rename := &cobra.Command{
+		Use:   "rename PATH NEW_NAME --root ROOT",
+		Short: "Give a file or folder a new name in the same folder (POST /v1/files/ops)",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if rnRoot == "" {
+				return usageErr(cmd, "--root is required: see `onemind files roots`")
+			}
+			if strings.Contains(args[1], "/") {
+				return usageErr(cmd, "NEW_NAME is a name, not a path: use no \"/\"")
+			}
+			v, err := a.gwDo(http.MethodPost, "/v1/files/ops", map[string]any{"op": "rename", "root": rnRoot, "path": args[0], "name": args[1]})
+			if err != nil {
+				return err
+			}
+			return a.printDone(v, "Renamed %s to %s.", args[0], args[1])
+		},
+	}
+	rename.Flags().StringVar(&rnRoot, "root", "", "the space the path is in")
+
+	root.AddCommand(ls, stat, rename, trash, quotas, filesGrantsCmd(a), filesRequestsCmd(a), filesShareCmd(a))
 	return []*cobra.Command{root}
+}
+
+func filesShareCmd(a *App) *cobra.Command {
+	g := &cobra.Command{Use: "share", Short: "Links that let someone without an account download your files"}
+	g.AddCommand(&cobra.Command{
+		Use:   "list",
+		Short: "Your share links, without their secrets (GET /v1/files/shares); an owner sees everyone's",
+		Args:  cobra.NoArgs,
+		RunE: func(*cobra.Command, []string) error {
+			return a.getTable("/v1/files/shares", "ID\tNAME\tSTATE\tITEMS\tOPENED\tEXPIRES", func(m map[string]any) []string {
+				return []string{str(m["id"]), str(m["name"]), str(m["state"]), strconv.Itoa(len(list(m["items"]))), fmt.Sprint(m["opened_count"]), str(m["expires_at"])}
+			})
+		},
+	})
+	var root, name, password string
+	var expires time.Duration
+	create := &cobra.Command{
+		Use:   "create PATH... --root ROOT [--expires-in 168h] [--name NAME] [--password PW]",
+		Short: "Make a link to files (POST /v1/files/shares); the secret link is shown once",
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if root == "" {
+				return usageErr(cmd, "--root is required: see `onemind files roots`")
+			}
+			if expires < 5*time.Minute || expires > 30*24*time.Hour {
+				return usageErr(cmd, "--expires-in must be between 5m and 720h")
+			}
+			items := make([]any, 0, len(args))
+			for _, p := range args {
+				items = append(items, map[string]any{"root": root, "path": p})
+			}
+			body := map[string]any{"items": items, "expires_at": time.Now().UTC().Add(expires).Format(time.RFC3339)}
+			if name != "" {
+				body["name"] = name
+			}
+			if password != "" {
+				body["password"] = password
+			}
+			raw, _ := json.Marshal(items)
+			v, err := a.gwDoKeyed(http.MethodPost, "/v1/files/shares", idemKey("cli-share-", root, string(raw), name, expires.String()), body)
+			if err != nil {
+				return err
+			}
+			if a.G.JSON {
+				return printJSON(a.Stdout, v)
+			}
+			url := str(obj(obj(v)["one_time"])["url"])
+			if a.G.Quiet {
+				fmt.Fprintln(a.Stdout, url)
+				return nil
+			}
+			fmt.Fprintf(a.Stdout, "Created %s (expires %s).\nLink (shown only now): %s\n", str(obj(v)["id"]), str(obj(v)["expires_at"]), url)
+			return nil
+		},
+	}
+	create.Flags().StringVar(&root, "root", "", "the space the paths are in")
+	create.Flags().DurationVar(&expires, "expires-in", 7*24*time.Hour, "how long the link works (5m to 720h)")
+	create.Flags().StringVar(&name, "name", "", "a label for the link")
+	create.Flags().StringVar(&password, "password", "", "ask for this password (at least 8 characters)")
+	var yes bool
+	rev := &cobra.Command{
+		Use:   "revoke SHARE_ID --yes",
+		Short: "End a link now (DELETE /v1/files/shares/ID)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireYes(cmd, yes, "revoking "+args[0]+" stops the link for everyone who has it"); err != nil {
+				return err
+			}
+			v, err := a.gwDo(http.MethodDelete, "/v1/files/shares/"+pathID(args[0]), nil)
+			if err != nil {
+				return err
+			}
+			return a.printDone(v, "Revoked %s.", args[0])
+		},
+	}
+	rev.Flags().BoolVar(&yes, "yes", false, "confirm")
+	g.AddCommand(create, rev)
+	return g
 }
 
 func filesGrantsCmd(a *App) *cobra.Command {

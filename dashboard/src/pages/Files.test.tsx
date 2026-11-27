@@ -205,3 +205,53 @@ it('explains an empty list instead of showing nothing', async () => {
   await u.click(await screen.findByRole('button', { name: 'Storage limits' }));
   expect(await screen.findByText(/No person has a home space yet/)).toBeInTheDocument();
 });
+
+it('renames a file with the new name only, then reloads the folder', async () => {
+  const calls = mount((c) => c.path === '/v1/files/ops' ? json({}) : undefined);
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Rename notes.txt' }));
+  const dlg = screen.getByRole('dialog');
+  const field = within(dlg).getByLabelText('New name');
+  expect(field).toHaveValue('notes.txt');
+  expect(within(dlg).getByRole('button', { name: 'Rename' })).toBeDisabled();
+  await u.clear(field); await u.type(field, 'a/b');
+  expect(within(dlg).getByRole('button', { name: 'Rename' })).toBeDisabled();
+  await u.clear(field); await u.type(field, 'plan.txt');
+  await u.click(within(dlg).getByRole('button', { name: 'Rename' }));
+  await waitFor(() => expect(calls.some((c) => c.path === '/v1/files/ops')).toBe(true));
+  const op = calls.find((c) => c.path === '/v1/files/ops')!;
+  expect(op.method).toBe('POST');
+  expect(JSON.parse(op.body)).toEqual({ op: 'rename', root: 'home:owner', path: '/notes.txt', name: 'plan.txt' });
+});
+
+it('makes a share link for a file and shows its secret URL once', async () => {
+  const calls = mount((c) => c.path === '/v1/files/shares' && c.method === 'POST'
+    ? json({ id: 'shl_1', name: 'notes.txt', created_by: 'owner', state: 'active', items: [], password: false, created_at: '2026-11-27T10:00:00Z', expires_at: '2026-12-04T10:00:00Z', opened_count: 0, one_time: { token: 'oms_x', path: '/v1/share/oms_x', url: 'https://hub.test/v1/share/oms_x' } }, 201) : undefined);
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Share link for notes.txt' }));
+  expect(screen.queryByRole('button', { name: 'Share link for Docs' })).toBeNull();
+  const dlg = screen.getByRole('dialog');
+  await u.selectOptions(within(dlg).getByLabelText('Expires after'), '1 day');
+  await u.click(within(dlg).getByRole('button', { name: 'Create link' }));
+  expect(await within(screen.getByRole('dialog')).findByDisplayValue('https://hub.test/v1/share/oms_x')).toBeInTheDocument();
+  const post = calls.find((c) => c.path === '/v1/files/shares' && c.method === 'POST')!;
+  const body = JSON.parse(post.body);
+  expect(body.items).toEqual([{ root: 'home:owner', path: '/notes.txt' }]);
+  expect(body.password).toBeUndefined();
+  const ms = Date.parse(body.expires_at) - Date.now();
+  expect(ms).toBeGreaterThan(23 * 3_600_000); expect(ms).toBeLessThan(25 * 3_600_000);
+  expect(post.headers.get('Idempotency-Key')).toBeTruthy();
+});
+
+it('lists share links without secrets and ends one after a confirmation', async () => {
+  const link = { id: 'shl_1', name: 'trip photos', created_by: 'owner', state: 'active', items: [{ kind: 'file' }], password: true, created_at: '2026-11-27T10:00:00Z', expires_at: '2026-12-04T10:00:00Z', opened_count: 3 };
+  const calls = mount((c) => c.path === '/v1/files/shares' ? json([link]) : c.path === '/v1/files/shares/shl_1' && c.method === 'DELETE' ? json({ ...link, state: 'revoked' }) : undefined);
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Sharing' }));
+  expect(await screen.findByText('trip photos')).toBeInTheDocument();
+  await u.click(screen.getByRole('button', { name: 'End share link trip photos' }));
+  expect(calls.some((c) => c.method === 'DELETE')).toBe(false);
+  await u.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'End link' }));
+  await waitFor(() => expect(calls.some((c) => c.method === 'DELETE' && c.path === '/v1/files/shares/shl_1')).toBe(true));
+});
+

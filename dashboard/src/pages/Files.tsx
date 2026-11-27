@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { uuid4 } from '@onemind/sdk';
 import { Button, Card, Dialog, PageHeader, StatusPill } from '@onemind/ui';
-import { FilesApi, human, type Entry, type FileRequest, type FileRoot, type Preview, type TrashItem } from '../files/api';
+import { FilesApi, human, type CreatedShare, type Entry, type FileRequest, type FileRoot, type Preview, type ShareLink, type TrashItem } from '../files/api';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { FilesQuotas } from './FilesQuotas';
@@ -57,6 +57,9 @@ function Browser({ api, space, run, onChanged }: { api: FilesApi; space: FileRoo
   const [folderOpen, setFolderOpen] = useState(false);
   const [name, setName] = useState('');
   const [doomed, setDoomed] = useState<Entry>();
+  const [renaming, setRenaming] = useState<Entry>();
+  const [newName, setNewName] = useState('');
+  const [sharing, setSharing] = useState<Entry>();
   const [progress, setProgress] = useState<{ name: string; done: number; total: number }>();
   const [uploadError, setUploadError] = useState('');
   const input = useRef<HTMLInputElement>(null);
@@ -118,6 +121,8 @@ function Browser({ api, space, run, onChanged }: { api: FilesApi; space: FileRoo
         <td><Button size="sm" variant="ghost" aria-label={`${e.type === 'dir' ? 'Open folder' : 'Preview'} ${e.name}`} onClick={() => open(e)}>{e.type === 'dir' ? '📁 ' : ''}{e.name}</Button></td>
         <td>{e.type === 'dir' ? '' : human(e.size)}</td><td>{when(e.mtime)}</td>
         <td>{e.type !== 'dir' && <Button size="sm" variant="secondary" aria-label={`Download ${e.name}`} onClick={() => download(e)}>Download</Button>}{' '}
+          {space.writable && <><Button size="sm" variant="secondary" aria-label={`Rename ${e.name}`} onClick={() => { setNewName(e.name); setRenaming(e); }}>Rename</Button>{' '}</>}
+          {e.type !== 'dir' && <><Button size="sm" variant="secondary" aria-label={`Share link for ${e.name}`} onClick={() => setSharing(e)}>Share link</Button>{' '}</>}
           {space.writable && <Button size="sm" variant="secondary" aria-label={`Move ${e.name} to trash`} onClick={() => setDoomed(e)}>Move to trash</Button>}</td>
       </tr>)}</tbody>
     </table>}</Load>
@@ -134,11 +139,40 @@ function Browser({ api, space, run, onChanged }: { api: FilesApi; space: FileRoo
       actions={<Button disabled={!name.trim() || name.includes('/')} onClick={() => void run(async () => { await api.mkdir(space.root, dir === '/' ? `/${name.trim()}` : `${dir}/${name.trim()}`); setFolderOpen(false); await entries.reload(); }, 'Could not create the folder')}>Create folder</Button>}>
       <TextField id="files-new-folder" label="Folder name" value={name} onChange={setName} />
     </Dialog>
+    <Dialog open={!!renaming} onClose={() => setRenaming(undefined)} title={`Rename ${renaming?.name ?? ''}`} description="Gives it a new name in the same folder."
+      actions={<Button disabled={!newName.trim() || newName.includes('/') || newName.trim() === renaming?.name} onClick={() => void run(async () => { await api.rename(space.root, renaming!.path, newName.trim()); setRenaming(undefined); setSeen(undefined); await entries.reload(); }, 'Could not rename')}>Rename</Button>}>
+      <TextField id="files-rename" label="New name" value={newName} onChange={setNewName} />
+    </Dialog>
+    {sharing && <ShareDialog key={sharing.path} api={api} run={run} space={space} entry={sharing} onClose={() => setSharing(undefined)} />}
     <Dialog role="alertdialog" open={!!doomed} onClose={() => setDoomed(undefined)} title={`Move ${doomed?.name ?? ''} to the trash?`} description="It stays in the trash and can be restored until the trash is emptied or its retention ends."
       actions={<Button onClick={() => void run(async () => { await api.trash(space.root, doomed!.path); setDoomed(undefined); setSeen(undefined); await entries.reload(); onChanged(); }, 'Could not move to the trash')}>Move to trash</Button>}>
       <p>{doomed?.path}</p>
     </Dialog>
   </Card>;
+}
+
+const EXPIRIES = [['1 hour', 3_600_000], ['1 day', 86_400_000], ['7 days', 7 * 86_400_000], ['30 days', 30 * 86_400_000 - 60_000]] as const;
+
+function ShareDialog({ api, run, space, entry, onClose }: { api: FilesApi; run: Run; space: FileRoot; entry: Entry; onClose: () => void }) {
+  const [ttl, setTtl] = useState<number>(7 * 86_400_000);
+  const [password, setPassword] = useState('');
+  const [made, setMade] = useState<CreatedShare>();
+  const key = useRef(uuid4());
+  const create = () => void run(async () => {
+    setMade(await api.createShare({ name: entry.name, items: [{ root: space.root, path: entry.path }], expires_at: new Date(Date.now() + ttl).toISOString(), ...(password ? { password } : {}) }, key.current));
+  }, 'Could not create the share link');
+  return <Dialog open onClose={onClose} title={`Share link for ${entry.name}`}
+    description="Anyone who has the link can download this file until it expires or you end it. They need no account."
+    actions={made ? <Button onClick={onClose}>Done</Button> : <Button disabled={password.length > 0 && password.length < 8} onClick={create}>Create link</Button>}>
+    {made ? <>
+      <p role="status">The link is ready. It is shown only now: copy it before closing. Expires {when(made.expires_at)}.</p>
+      <TextField id="share-url" label="Share link" value={made.one_time.url} onChange={() => undefined} />
+    </> : <>
+      <label htmlFor="share-ttl">Expires after</label>
+      <select id="share-ttl" value={ttl} onChange={(e) => setTtl(Number(e.target.value))}>{EXPIRIES.map(([l, ms]) => <option key={l} value={ms}>{l}</option>)}</select>
+      <TextField id="share-password" label="Password (optional, at least 8 characters)" type="password" value={password} onChange={setPassword} />
+    </>}
+  </Dialog>;
 }
 
 function TrashTab({ api, run }: { api: FilesApi; run: Run }) {
@@ -165,6 +199,19 @@ function TrashTab({ api, run }: { api: FilesApi; run: Run }) {
     </ul>}</Load>
     <Dialog role="alertdialog" open={confirm} onClose={() => setConfirm(false)} title="Ask to empty the trash for good" description="This files a request. Nothing is deleted until it is approved, and what it deletes is shown to the approver first."
       actions={<Button onClick={ask}>File the request</Button>}><p>Trash: {which === 'home' ? 'mine' : 'shared'}.</p></Dialog>
+  </Card>;
+}
+
+function ShareLinks({ api, run }: { api: FilesApi; run: Run }) {
+  const links = usePoll(() => api.shares(), 30_000);
+  const [ending, setEnding] = useState<ShareLink>();
+  return <Card title="Share links" aside={<span className="om-hint">Create one from a file in Files, with Share link.</span>}>
+    <Load res={links} what="Loading share links">{(rows) => rows.length === 0 ? <p>No share links.</p> : <ul>
+      {rows.map((l) => <li key={l.id}><strong>{l.name}</strong> · <StatusPill tone={l.state === 'active' ? 'ok' : 'neutral'} label={l.state} /> · {l.items.length} item{l.items.length === 1 ? '' : 's'}{l.password ? ' · password' : ''} · opened {l.opened_count} time{l.opened_count === 1 ? '' : 's'} · expires {when(l.expires_at)}{' '}
+        {l.state === 'active' && <Button size="sm" variant="secondary" aria-label={`End share link ${l.name}`} onClick={() => setEnding(l)}>End link</Button>}</li>)}
+    </ul>}</Load>
+    <Dialog role="alertdialog" open={!!ending} onClose={() => setEnding(undefined)} title={`End the link ${ending?.name ?? ''}?`} description="It stops working now. Anyone who has it can no longer download."
+      actions={<Button onClick={() => void run(async () => { await api.revokeShare(ending!.id); setEnding(undefined); await links.reload(); }, 'Could not end the link')}>End link</Button>}><p>Created {ending ? when(ending.created_at) : ''}.</p></Dialog>
   </Card>;
 }
 
@@ -197,6 +244,7 @@ function Sharing({ api, run, person, roots }: { api: FilesApi; run: Run; person:
           <Button size="sm" variant="secondary" aria-label={`Revoke access for ${g.subject.id}`} onClick={() => void run(async () => { await api.revoke(g.id); reload(); }, 'Could not revoke')}>Revoke</Button></li>)}
       </ul>}</Load>
     </Card>
+    <ShareLinks api={api} run={run} />
     <Card title="Requests">
       <Load res={reqs} what="Loading requests">{(rows) => rows.length === 0 ? <p>No file requests.</p> : <ul>
         {rows.map((r) => <li key={r.id}><StatusPill tone={r.state === 'awaiting_approval' ? 'warn' : 'neutral'} label={r.state.replace('_', ' ')} /> {r.plan.summary ?? r.type}
