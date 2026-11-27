@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """Managed plugin credentials retire before effects and stay retired across retries."""
+import json
 from unittest.mock import patch
 
 import pytest
@@ -125,3 +126,38 @@ def test_failed_install_retires_credentials_created_during_preparation(plugin, c
     result = approve(client, request(client, clock, "app.install"))
     assert result["state"] == outcome
     assert revoked(client, row) is not None
+
+
+def _declare(client, name="uptime-kuma"):
+    r = client.put(f"/v1/agents/plugin:{name}/inputs", headers=OWNER, json={"external_inputs": ["web"]})
+    assert r.status_code == 200, r.text
+    return client.app.state.agent_inputs
+
+
+def test_removing_a_plugin_clears_what_the_owner_declared_for_it(plugin, clock, executor):
+    client, _, _ = plugin
+    ins = _declare(client)
+    assert ins.view("plugin:uptime-kuma")["declared"] is True
+    assert approve(client, request(client, clock, "app.remove"))["state"] == "succeeded"
+    v = ins.view("plugin:uptime-kuma")
+    assert v["declared"] is False and v["exposed"] is True  # a plugin installed later starts fail-closed again
+    cleared = [r for r in client.app.state.settings.audit_path.read_text().splitlines() if "agent.inputs.cleared" in r]
+    assert cleared and json.loads(cleared[-1])["principal"]["kind"] == "plugin"
+
+
+@pytest.mark.parametrize("outcome", ["failed", "outcome_unknown"])
+def test_a_failed_plugin_install_clears_the_declaration(plugin, clock, executor, outcome):
+    client, _, _ = plugin
+    client.app.state.repo.set_app_state("uptime-kuma", "removed", clock())
+    ins = _declare(client)
+    executor.outcome = outcome
+    approve(client, request(client, clock, "app.install"))
+    assert ins.view("plugin:uptime-kuma")["declared"] is False
+
+
+def test_a_successful_plugin_install_keeps_the_declaration(plugin, clock, executor):
+    client, _, _ = plugin
+    client.app.state.repo.set_app_state("uptime-kuma", "removed", clock())
+    ins = _declare(client)
+    assert approve(client, request(client, clock, "app.install"))["state"] == "succeeded"
+    assert ins.view("plugin:uptime-kuma")["declared"] is True

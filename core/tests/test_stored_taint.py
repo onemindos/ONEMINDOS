@@ -215,7 +215,7 @@ def test_the_inputs_audit_records_how_presence_was_proved_and_a_removed_app_forg
     ins = tclient.app.state.agent_inputs
     assert tclient.put(SCOUT, json={"external_inputs": []}, headers=OWNER).status_code == 200  # loosens
     e = [x for x in audit(tclient) if x["event"] == "agent.inputs.set"]
-    assert "via" in e[-1]["data"]
+    assert e[-1]["data"]["via"] == "token"  # the owner token, not a passkey: `in` would pass with None
     # the app is removed: what the owner declared must not carry over to a new agent with that id
     from onemind_core.agent_principals import AgentPrincipals
 
@@ -251,3 +251,70 @@ def test_only_the_fabric_node_join_request_skips_a_nodes_exposure(tclient, clock
     other = actions.file("test.node_other", {"x": 1}, req, expires_at=exp, idempotency_key="node:other")
     assert plan_taint(other.plan)["sources"] == ["input:agent"]
     assert other.state == "awaiting_approval"
+
+
+def test_removing_an_app_through_the_action_queue_clears_its_agent_declaration(tclient, clock):
+    """Drives a real app.remove (request, owner approval, executor) and checks the row is gone, not just that
+    the callback is wired."""
+    install_whoami(tclient, clock)
+    ins = tclient.app.state.agent_inputs
+    assert tclient.put("/v1/agents/agent:whoami/inputs", json={"external_inputs": ["web"]}, headers=OWNER).status_code == 200
+    pid = "agent:whoami"
+    assert ins.view(pid)["declared"] is True
+    from conftest import action_body
+
+    r = tclient.post("/v1/actions", json=action_body(clock, "whoami", "app.remove", key="rm-whoami"), headers=OWNER)
+    assert r.status_code == 201, r.text
+    done = tclient.post(f"/v1/actions/{r.json()['id']}/approve", headers=OWNER).json()
+    assert done["state"] == "succeeded", done
+    assert ins.view(pid)["declared"] is False and ins.view(pid)["exposed"] is True
+    from onemind_core.taint_store import InputsRow
+    from sqlalchemy import select
+
+    with tclient.app.state.gateway.db.session() as s:
+        assert s.scalars(select(InputsRow).where(InputsRow.principal_id == pid)).first() is None
+    cleared = [x for x in audit(tclient) if x["event"] == "agent.inputs.cleared"]
+    assert cleared and cleared[-1]["data"]["principal_id"] == pid
+
+
+def test_a_set_during_a_forget_cannot_leave_the_cache_and_the_database_apart(tclient, monkeypatch):
+    """forget pops the cache and then deletes the row; an owner set in between must wait, or the cache would
+    keep a declaration the database no longer has (until the next restart)."""
+    import threading
+    import time
+
+    from onemind_core.agent_principals import AgentPrincipals
+    from onemind_core.taint_store import AgentInputs
+
+    ins = tclient.app.state.agent_inputs
+    pid = AgentPrincipals.principal_id("scout")
+    assert tclient.put(SCOUT, json={"external_inputs": ["web"]}, headers=OWNER).status_code == 200
+    in_delete, release = threading.Event(), threading.Event()
+    real_begin = ins.db.session.begin
+    first = []
+
+    def slow_begin(*a, **k):
+        if not first:  # the forget's delete is the first write after this point
+            first.append(1)
+            in_delete.set()
+            assert release.wait(10)
+        return real_begin(*a, **k)
+
+    monkeypatch.setattr(ins.db.session, "begin", slow_begin)
+    forgetter = threading.Thread(target=ins.forget, args=(pid,))
+    forgetter.start()
+    assert in_delete.wait(10)
+    result: list[int] = []
+    setter = threading.Thread(
+        target=lambda: result.append(tclient.put(SCOUT, json={"external_inputs": ["email"]}, headers=OWNER).status_code))
+    setter.start()
+    time.sleep(0.4)
+    assert result == [], "the set must wait for the forget to finish"
+    assert ins.inputs(pid)  # readers (the request path) are never blocked by a write
+    release.set()
+    forgetter.join(10)
+    setter.join(10)
+    assert result == [200]
+    reloaded = AgentInputs(ins.db, ins.audit, ins.catalog, ins.clock)  # what a restart would see
+    assert reloaded.view(pid)["external_inputs"] == ins.view(pid)["external_inputs"] == ["email"]
+    assert reloaded.view(pid)["declared"] is ins.view(pid)["declared"] is True

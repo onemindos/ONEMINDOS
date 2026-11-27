@@ -105,7 +105,8 @@ class AgentInputs:
 
     def __init__(self, db: Database, audit: AuditLog, catalog: Catalog, clock: Callable[[], datetime]):
         self.db, self.audit, self.catalog, self.clock = db, audit, catalog, clock
-        self._lock = threading.Lock()
+        self._lock = threading.Lock()  # guards the cache; held for an instant, on every request
+        self._writes = threading.Lock()  # one writer at a time: the database write and the cache change stay in step
         self._rows: dict[str, dict] = {}
         self._since = utc(clock())  # when a defaulted agent's exposure started to count
         with db.session() as s:
@@ -144,13 +145,14 @@ class AgentInputs:
     def forget(self, pid: str) -> bool:
         """The agent's identity ended (its app was removed): drop what the owner declared, so a new
         agent with the same id starts at the fail-closed default (D-028: identity change resets)."""
-        with self._lock:
-            had = self._rows.pop(pid, None)
-        if had is None:
-            return False
-        with self.db.session.begin() as s:
-            s.execute(delete(InputsRow).where(InputsRow.principal_id == pid))
-        self.audit.append("agent.inputs.cleared", {"id": pid, "kind": "agent"}, None,
+        with self._writes:  # an owner `set` cannot land between the cache pop and the row delete
+            with self._lock:
+                had = self._rows.pop(pid, None)
+            if had is None:
+                return False
+            with self.db.session.begin() as s:
+                s.execute(delete(InputsRow).where(InputsRow.principal_id == pid))
+        self.audit.append("agent.inputs.cleared", {"id": pid, "kind": "plugin" if pid.startswith("plugin:") else "agent"}, None,
                           {"principal_id": pid, "was": had["external_inputs"], "reason": "identity_ended"})
         return True
 
@@ -203,12 +205,13 @@ class AgentInputs:
         before = self.view(pid)
         now = self.clock()
         values = {"external_inputs": names, "accept_injection_risk": accept, "updated_at": now, "updated_by": p.id}
-        with self.db.session.begin() as s:
-            s.execute(self.db.insert()(InputsRow).values(principal_id=pid, **values)
-                      .on_conflict_do_update(index_elements=[InputsRow.principal_id], set_=values))
-        with self._lock:
-            self._rows[pid] = {"external_inputs": names, "accept_injection_risk": accept,
-                               "updated_at": utc(now), "updated_by": p.id}
+        with self._writes:
+            with self.db.session.begin() as s:
+                s.execute(self.db.insert()(InputsRow).values(principal_id=pid, **values)
+                          .on_conflict_do_update(index_elements=[InputsRow.principal_id], set_=values))
+            with self._lock:
+                self._rows[pid] = {"external_inputs": names, "accept_injection_risk": accept,
+                                   "updated_at": utc(now), "updated_by": p.id}
         after = self.view(pid)
         self.audit.append("agent.inputs.set", p.as_dict(), None,
                           {"principal_id": pid, "external_inputs": after["external_inputs"],
