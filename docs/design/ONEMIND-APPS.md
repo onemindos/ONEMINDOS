@@ -30,7 +30,7 @@ Founder brief, 2026-11-26:
 | Smoothness while switching tabs and scrolling | 1,550 frames, 1.6% janky, typical frame 9 ms, 95% of frames at or under 18 ms | Smooth. Long lists (10,000 items) are not proven yet (spike 3). |
 | Memory | about 270 MB (PSS) | Normal for a React Native app; watch it as apps are added |
 | Box unreachable, then app opened | **Home is blank:** no cached data, and the box name is gone. A raw `java.net.ConnectException` message is shown. Approvals correctly refuses to approve or deny. | **Confirms the offline gap.** F1 must cache every read with its age and show plain words, not exceptions. |
-| iOS | Not tested: this Mac has Xcode 27.2, but no iOS simulator platform and no CocoaPods | Install both, then build for iOS before the app wave |
+| iOS (iPhone 18 Pro Max simulator, iOS 27.2, release build) | Builds (`expo prebuild` + CocoaPods 1.17 + `xcodebuild`), opens, connects to the box and shows the same live Atlas home | **The iOS path works today.** One fix: it asks for notification permission at first launch, and should ask only when needed (#1290). |
 
 ## 2. Principles
 
