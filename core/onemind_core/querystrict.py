@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import types
 import typing
+from collections import Counter
 from typing import Any
 
 from fastapi.routing import APIRoute
@@ -22,6 +23,8 @@ from .errors import ApiError
 
 _SEQUENCES = (list, set, frozenset, tuple)
 _ATTR = "_onemind_single_valued_query"
+_AUTH_CACHE = "_onemind_authenticates"
+AUTH_ATTR = "_onemind_runs_query_guard"  # set on the principal dependency, which calls the check itself
 
 
 def _is_sequence(annotation: Any) -> bool:
@@ -44,11 +47,22 @@ def _single_valued(route: APIRoute) -> frozenset[str]:
     return frozenset(names)
 
 
-def one_value_per_query_parameter(request: HTTPConnection) -> None:
-    """A dependency on every route: 422 when a single-valued query parameter arrives more than once.
-    HTTPConnection, not Request, so it also resolves on WebSocket routes (which it leaves alone)."""
-    keys = [k for k, _ in request.query_params.multi_items()]
-    if len(keys) == len(set(keys)):
+def _authenticates(route: APIRoute) -> bool:
+    """True when the route depends on the gateway's principal dependency, which runs the check itself
+    once the caller is authenticated (an unauthenticated caller gets 401, not a validation answer)."""
+    stack = [route.dependant]
+    while stack:
+        dependant = stack.pop()
+        if getattr(dependant.call, AUTH_ATTR, False):
+            return True
+        stack.extend(dependant.dependencies)
+    return False
+
+
+def refuse_repeated_query_parameters(request: HTTPConnection) -> None:
+    """422 when a single-valued query parameter arrives more than once (WebSocket routes are left alone)."""
+    counts = Counter(k for k, _ in request.query_params.multi_items())
+    if all(n == 1 for n in counts.values()):
         return
     route = request.scope.get("route")
     if not isinstance(route, APIRoute):
@@ -57,7 +71,22 @@ def one_value_per_query_parameter(request: HTTPConnection) -> None:
     if single is None:  # worked out once per route, kept on the route itself
         single = _single_valued(route)
         setattr(route, _ATTR, single)
-    repeated = sorted({k for k in keys if k in single and keys.count(k) > 1})
+    repeated = sorted(k for k, n in counts.items() if n > 1 and k in single)
     if repeated:
         raise ApiError(422, "conflict", f"query parameter {repeated[0]!r} takes one value; it was sent more than once",
                        reason="invalid_request")
+
+
+def one_value_per_query_parameter(request: HTTPConnection) -> None:
+    """The app-level dependency. Routes behind the principal dependency are checked there, after
+    authentication; this covers the routes with no authentication (health, setup, tokens in the body).
+    HTTPConnection, not Request, so it also resolves on WebSocket routes."""
+    route = request.scope.get("route")
+    if isinstance(route, APIRoute):
+        authed = getattr(route, _AUTH_CACHE, None)
+        if authed is None:
+            authed = _authenticates(route)
+            setattr(route, _AUTH_CACHE, authed)
+        if authed:
+            return
+    refuse_repeated_query_parameters(request)

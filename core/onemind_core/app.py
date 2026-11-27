@@ -22,7 +22,6 @@ from .catalog import Catalog
 from .config import Settings
 from .context import UNAUTH_AUDIT_INTERVAL_S, Gateway, principal_dependency
 from .errors import install_handlers
-from .querystrict import one_value_per_query_parameter
 from .events import EventHub
 from .lifecycle import CredentialStore
 from .executors import Executor, NoopExecutor, make_executor, mesh_static_hosts
@@ -31,6 +30,7 @@ from .netconf import FabricSettings, NetSettings
 from .nodes import NodeRegistry
 from .netconf import MeshSettings
 from .policy import SandboxSettings
+from .querystrict import one_value_per_query_parameter
 from .routers import Register, discover
 from .routers.static import API_EXACT, API_TREES, is_api_path
 from .store import Database, migrate

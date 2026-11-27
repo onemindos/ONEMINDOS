@@ -29,6 +29,7 @@ from .events import EventHub
 from .executors import Executor
 from .ledger import ActionRepository
 from .nodes import NodeRegistry
+from .querystrict import AUTH_ATTR, refuse_repeated_query_parameters
 from .store import Database
 
 if TYPE_CHECKING:
@@ -160,6 +161,7 @@ def principal_dependency(gw: Gateway) -> Callable[[Request], Principal]:
         p = authenticate(request)
         for guard in gw.principal_guards:  # e.g. the agent kill switch; raises to refuse
             guard(request, p)
+        refuse_repeated_query_parameters(request)  # after authentication: an unknown caller gets 401 first
         return p
 
     def authenticate(request: Request) -> Principal:
@@ -181,4 +183,5 @@ def principal_dependency(gw: Gateway) -> Callable[[Request], Principal]:
             raise reject_unauthenticated(request, "unknown token")
         return p
 
+    setattr(principal, AUTH_ATTR, True)
     return principal

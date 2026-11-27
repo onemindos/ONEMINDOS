@@ -17,10 +17,14 @@ FILES_SEMANTIC_REFUSALS = {
     "invalid_subject", "expiry_too_far", "invalid_quota", "invalid_kubeconfig",
     "invalid_settings", "confirm_mismatch", "invalid_root", "invalid_request",
     # Judged against the clock, the hub's stored chunks, the time zone database or other items in the
-    # same list, which a schema cannot express (each one has a test in test_fuzz_landing_regressions.py):
+    # same list. A schema cannot practically express these (generators do not follow them). Tests:
+    # test_fuzz_landing_regressions.py for invalid_scopes and bad_quick_add, test_files_shares.py for
+    # invalid_expiry, test_sync_transfer.py for invalid_manifest, test_home.py for unknown_item.
     "invalid_expiry",    # files shares: between 5 minutes and 30 days from now
     "invalid_manifest",  # sync commit: the chunk sizes add up to the file size, a stored manifest is whole records
-    "invalid_scopes",    # app passwords: each space (home, shared) at most once
+                         # (NOT the chunks-or-manifest rule: that is in the schema as a oneOf)
+    "invalid_scopes",    # app passwords: each space (home, shared) at most once (expressible with contains +
+                         # maxContains, but generators follow that poorly)
     "bad_quick_add",     # work quick-add: the free-text grammar and a known time zone
     "unknown_item",      # home: an item or default app this person can see (installed and shared to them)
 }

@@ -20,11 +20,11 @@ from typing import Annotated, Literal
 from fastapi import Depends, FastAPI, Header, Path, Query, Request, Response, Security
 from fastapi.concurrency import run_in_threadpool
 from fastapi.security import HTTPBearer
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ..auth import Principal
 from ..context import Gateway
-from ..errors import ErrorBody
+from ..errors import ErrorBody, SemanticValueError
 from ..files import errors as ferrors
 from ..files.errors import FilesError
 from ..files.index import CHANGES_MAX
@@ -111,16 +111,31 @@ class ChunkRef(_Body):
     size: int = Field(ge=1, le=CHUNK_LIMIT)
 
 
+def _commit_schema(schema: dict) -> None:
+    schema["oneOf"] = [{"required": ["chunks"]}, {"required": ["manifest_chunks"]}]
+    for name in ("chunks", "manifest_chunks"):  # absent, never null: drop the default pydantic prints
+        schema["properties"][name].pop("default", None)
+
+
 class CommitBody(_Body):
+    model_config = ConfigDict(extra="forbid", json_schema_extra=_commit_schema)
     root: Root
     path: str = Field(min_length=1, max_length=4096)
     size: int = Field(ge=0, le=MAX_QUOTA_BYTES)
     sha256: Hex                   # of the whole file
-    chunks: list[ChunkRef] | None = Field(None, max_length=MANIFEST_MAX_CHUNKS)
-    manifest_chunks: list[Hex] | None = Field(None, max_length=MISSING_MAX)
+    # Exactly one of the two: the schema says so (oneOf on "required"), and so does the model. Neither is
+    # nullable: absent means "not sent", and an explicit null would make the two readings differ.
+    chunks: list[ChunkRef] = Field(None, max_length=MANIFEST_MAX_CHUNKS)  # type: ignore[assignment]
+    manifest_chunks: list[Hex] = Field(None, max_length=MISSING_MAX)  # type: ignore[assignment]
     # The file's revision the client last saw (from /v1/sync/changes or a commit); null or absent:
     # the file must not exist yet. An If-Match header says the same and wins when both are sent.
     base_revision: int | None = Field(None, ge=0)
+
+    @model_validator(mode="after")
+    def _exactly_one_manifest(self):
+        if len(self.model_fields_set & {"chunks", "manifest_chunks"}) != 1:
+            raise SemanticValueError("send exactly one of chunks or manifest_chunks", reason="invalid_request")
+        return self
 
 
 class LockHolder(BaseModel):

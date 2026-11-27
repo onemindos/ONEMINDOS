@@ -2974,6 +2974,18 @@
       },
       "CommitBody": {
         "additionalProperties": false,
+        "oneOf": [
+          {
+            "required": [
+              "chunks"
+            ]
+          },
+          {
+            "required": [
+              "manifest_chunks"
+            ]
+          }
+        ],
         "properties": {
           "base_revision": {
             "anyOf": [
@@ -2988,36 +3000,22 @@
             "title": "Base Revision"
           },
           "chunks": {
-            "anyOf": [
-              {
-                "items": {
-                  "$ref": "#/components/schemas/ChunkRef"
-                },
-                "maxItems": 200000,
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Chunks"
+            "items": {
+              "$ref": "#/components/schemas/ChunkRef"
+            },
+            "maxItems": 200000,
+            "title": "Chunks",
+            "type": "array"
           },
           "manifest_chunks": {
-            "anyOf": [
-              {
-                "items": {
-                  "maxLength": 64,
-                  "pattern": "^[0-9a-f]{64}$",
-                  "type": "string"
-                },
-                "maxItems": 3000,
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Manifest Chunks"
+            "items": {
+              "maxLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "maxItems": 3000,
+            "title": "Manifest Chunks",
+            "type": "array"
           },
           "path": {
             "maxLength": 4096,

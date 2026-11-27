@@ -244,6 +244,27 @@ def test_a_repeated_single_valued_query_parameter_is_refused(client):
     assert client.get("/v1/audit/verify?x=1&x=2", headers=OWNER).status_code == 200
 
 
+def test_an_unauthenticated_repeated_parameter_is_401_not_422(client):
+    for q in ("from_seq=1&from_seq=2", "from_seq=abc"):
+        r = client.get(f"/v1/audit/verify?{q}")
+        assert r.status_code == 401 and r.json()["error"] == "unauthenticated", (q, r.text)
+    r = client.get("/v1/audit/verify?from_seq=1&from_seq=2", headers={"Authorization": "Bearer nope"})
+    assert r.status_code == 401, r.text
+
+
+def test_the_query_guard_is_linear_in_the_number_of_parameters():
+    import time
+
+    from starlette.requests import Request
+
+    from onemind_core.querystrict import refuse_repeated_query_parameters
+    qs = ("&".join(["x=1"] * 20000)).encode()
+    request = Request({"type": "http", "method": "GET", "path": "/", "query_string": qs, "headers": []})
+    started = time.monotonic()
+    refuse_repeated_query_parameters(request)  # no route in scope: nothing to refuse, and no quadratic scan
+    assert time.monotonic() - started < 2
+
+
 def test_a_list_query_parameter_still_takes_many_values():
     from fastapi import Depends, FastAPI, Query
     from fastapi.testclient import TestClient
@@ -315,3 +336,33 @@ def test_a_task_change_offers_null_only_where_it_clears(client):
     assert r.status_code == 422 and r.json().get("reason") != "bad_task", r.text  # a schema violation, not a refusal
     r = client.patch(url, headers={**OWNER, "If-Match": f'"{task["revision"]}"'}, json={"due_at": None, "priority": 2})
     assert r.status_code == 200 and r.json()["priority"] == 2, r.text
+
+
+# ---- sync commit: exactly one of chunks / manifest_chunks is in the schema, not only in the server ----
+def test_commit_schema_says_exactly_one_of_chunks_or_manifest_chunks(client):
+    doc = spec(client)
+    schema = doc["components"]["schemas"]["CommitBody"]
+    assert schema["oneOf"] == [{"required": ["chunks"]}, {"required": ["manifest_chunks"]}]
+    for name in ("chunks", "manifest_chunks"):
+        assert "null" not in json.dumps(schema["properties"][name]), schema["properties"][name]
+    validator = Draft202012Validator(schema)
+    base = {"root": "shared", "path": "/x.txt", "size": 0, "sha256": "0" * 64}
+    assert not validator.is_valid(base)
+    assert not validator.is_valid({**base, "chunks": [], "manifest_chunks": []})
+    assert validator.is_valid({**base, "chunks": []})
+    assert validator.is_valid({**base, "manifest_chunks": []})
+
+
+@pytest.mark.parametrize("extra", [{}, {"chunks": [], "manifest_chunks": []}])
+def test_commit_refuses_neither_or_both_with_422_invalid_request(client, extra):
+    r = client.post("/v1/sync/commit", headers=OWNER,
+                    json={"root": "shared", "path": "/x.txt", "size": 0, "sha256": "0" * 64, **extra})
+    assert r.status_code == 422 and r.json()["reason"] == "invalid_request", (extra, r.text)
+
+
+@pytest.mark.parametrize("extra", [{"chunks": None, "manifest_chunks": []}, {"chunks": [], "manifest_chunks": None},
+                                   {"chunks": None}])
+def test_commit_refuses_a_null_list_as_a_schema_violation(client, extra):
+    r = client.post("/v1/sync/commit", headers=OWNER,
+                    json={"root": "shared", "path": "/x.txt", "size": 0, "sha256": "0" * 64, **extra})
+    assert r.status_code == 422 and r.json().get("reason") is None, (extra, r.text)
