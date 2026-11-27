@@ -149,16 +149,16 @@ jobs:
           done
           [ "$bad" -eq 0 ] && echo "no blocked permission requested"
           exit "$bad"
-      - name: No Google Play Services auth library in the app (plugins/withoutPlayServicesCredentials.js)
-        run: |
-          export JAVA_HOME="$JAVA_HOME_17_X64"
-          cd android && ./gradlew --no-daemon -q :app:dependencies --configuration releaseRuntimeClasspath > deps.txt
-          if grep -E "play-services-auth|credentials-play-services-auth" deps.txt; then
-            echo "a proprietary Play Services auth library is linked" >&2
-            exit 1
-          fi
       - name: Release-mode APK builds too (no secrets here, debug-signed, same script as the dev release)
         run: scripts/android-release-build.sh "$RUNNER_TEMP/android-release" 1 ci
+      - name: Check the release dependency graph and manifest for Google SDKs
+        run: |
+          set -euo pipefail
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          (cd android && ./gradlew --no-daemon -q :app:dependencies --configuration releaseRuntimeClasspath) > "$RUNNER_TEMP/android-deps.txt"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" manifest print \
+            "$RUNNER_TEMP/android-release/onemind-android-ci-dev-unsigned.apk" > "$RUNNER_TEMP/android-manifest.xml"
+          python3 -I scripts/check-android-sdk-deps.py "$RUNNER_TEMP/android-deps.txt" "$RUNNER_TEMP/android-manifest.xml"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: onemind-mobile-debug-apk

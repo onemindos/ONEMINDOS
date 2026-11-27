@@ -1,6 +1,9 @@
 {
   "platforms": ["android"],
   "android": {
-    "modules": ["os.onemind.unifiedpush.UnifiedPushModule"]
+    "modules": [
+      "os.onemind.unifiedpush.UnifiedPushModule",
+      "os.onemind.unifiedpush.LocalNoticesModule"
+    ]
   }
 }

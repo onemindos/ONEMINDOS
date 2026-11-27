@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: Apache-2.0
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'os.onemind'
+version = '0.1.0'
+
+android {
+  namespace "os.onemind.qr"
+}
+
+dependencies {
+  // ZXing core is Apache-2.0 and decodes locally without requesting Android services.
+  implementation 'com.google.zxing:core:3.5.4'
+}
