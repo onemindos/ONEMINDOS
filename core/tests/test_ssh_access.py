@@ -162,6 +162,17 @@ def test_adding_a_key_waits_for_approval_then_reaches_the_host(web):
     assert k["fingerprint"] == fp_of(line) and k["comment"] == "alex@laptop" and k["id"] == key_id(fp_of(line))
 
 
+def test_the_key_list_read_and_the_ssh_view_list_the_same_keys(web):
+    # The dashboard shows keys from GET /v1/ssh and the CLI from GET /v1/ssh/keys; the surface-parity exemption
+    # for ssh.keys.list on the dashboard (group dashboard-wider-read) rests on both answering the same list.
+    assert web.get("/v1/ssh", headers=OWNER).json()["keys"] == web.get("/v1/ssh/keys", headers=OWNER).json()["keys"] == []
+    for seed, label in (("one", "alex@laptop"), ("two", "Work laptop")):
+        r = web.post("/v1/ssh/keys", headers=OWNER, json={"public_key": ed25519(seed, label)})
+        assert approve(web, r).json()["state"] == "succeeded"
+    keys = web.get("/v1/ssh/keys", headers=OWNER).json()["keys"]
+    assert len(keys) == 2 and web.get("/v1/ssh", headers=OWNER).json()["keys"] == keys
+
+
 def test_a_label_replaces_the_comment_and_is_checked(web):
     r = web.post("/v1/ssh/keys", headers=OWNER, json={"public_key": ed25519("x", "whatever"), "label": "Work laptop"})
     assert r.json()["params"]["comment"] == "Work laptop" and r.json()["params"]["public_key"].endswith(" Work laptop")
