@@ -8,7 +8,7 @@ kind: App
 metadata:
   id: hermes-agent
   name: Hermes Agent
-  version: "0.23.0"
+  version: "0.23.4"
   description: Self-hosted AI agent with memory, skills and messaging gateways, by Nous Research
   category: ai
   age_rating: 18   # proposed minimum age (apps/README.md rubric); the owner can override per app
@@ -24,7 +24,7 @@ metadata:
     github: https://github.com/NousResearch/hermes-agent
     website: https://hermes-agent.nousresearch.com
     support: https://github.com/NousResearch/hermes-agent/issues
-  upstream: {release: "v0.23.0", released_at: "2026-11-05T21:32:33Z", archived: false}
+  upstream: {release: "v0.23.4", released_at: "2026-11-24T08:17:06Z", archived: false}
   tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]

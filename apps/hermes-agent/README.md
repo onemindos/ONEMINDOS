@@ -7,7 +7,7 @@ Self-hosted AI agent with memory, skills and messaging gateways, by Nous Researc
 
 | | |
 |---|---|
-| Version | 0.23.0 (upstream release `v0.23.0`, published 2026-11-05) |
+| Version | 0.23.4 (upstream release `v0.23.4`, published 2026-11-24) |
 | Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-21) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | ai |
@@ -35,7 +35,7 @@ Storage: PVC `hermes-agent-data` 5Gi.
 
 Images:
 
-- `docker.io/nousresearch/hermes-agent:v0.23.0@sha256:adb7890916de63245523492be8f68f9d2095fecbec4e2a6dab7960381f0fc002`
+- `docker.io/nousresearch/hermes-agent:v0.23.4@sha256:ef0650d523ee1b5ab32c779acabc446d9936869a9932591553688a62bcf0c42f`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -80,6 +80,8 @@ The last scan of this image failed (see below), so the gateway refuses to instal
 4. Approve it as the owner. ntfy is installed into `app-ntfy`. The audit chain records requester `agent:hermes-agent` and approver `person:owner`.
 
 **Hold (apps/market-unblock-2, 2026-11-13):** 3 CRITICAL (1 with a fix) and 291 HIGH in `v0.23.0`, the newest release (the `v2026.9.x` tags are older). Unblock: a release that fixes the CRITICAL with a fix. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** Hermes Agent v0.23.0 to v0.23.4 (patch releases). The curated notes for this window ship only with v0.24.0, so the upgrade notes are incomplete; the v0.23.4 text mentions `hermes gateway migrate --backends` for old serve/dashboard backends, which does not apply because the manifest already runs `gateway run`. The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

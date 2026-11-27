@@ -33,7 +33,7 @@ Storage: PVC `bazarr-config` 2Gi.
 
 Images:
 
-- `lscr.io/linuxserver/bazarr:v1.6.2-ls372@sha256:832820dec70bce9e912c6eee7a95baf6551e03dbc63325a7208daaa455423752`
+- `lscr.io/linuxserver/bazarr:v1.6.2-ls374@sha256:b3db4247d3afa0c68bc5aa311bedd67b1caf4b3eabc3a85577682970435d5013`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -86,6 +86,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 
 **Hold (apps/market-unblock-2, 2026-11-13):** `certifi` GHSA-6q48-6c7w-9gw2 in the LinuxServer image. `v1.6.2-ls372` is the newest tag. Unblock: a LinuxServer rebuild with `certifi` 2026.10.18 or newer. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** LinuxServer rebuild `v1.6.2-ls372` to `v1.6.2-ls374` of the same Bazarr 1.6.2 (upstream 1.6.3 is beta only). No upstream change to read. The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

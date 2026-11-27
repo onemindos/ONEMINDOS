@@ -39,7 +39,7 @@ spec:
         # APP_KEY encrypts data at rest and has no safe default. It is generated once onto the data
         # volume (outside the upload directory) and read through APP_KEY_FILE.
         - name: app-key
-          image: docker.io/fireflyiii/core:version-6.7.9@sha256:d51ab6a3a7b91a5c892441578e0da7f2935f84f36bd1151fc3833acc6e060871
+          image: docker.io/fireflyiii/core:version-6.7.12@sha256:99319a6ce1370eba9e85f78e4d506e76267af0e7acc40fb4189b34d5fe83c874
           command:
             - sh
             - -c
@@ -66,7 +66,7 @@ spec:
             - name: data
               mountPath: /mnt
         - name: db
-          image: docker.io/library/postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
+          image: docker.io/library/postgres:18.7-trixie@sha256:64c8b0d31e4ab6ea665e8426ea406a94bf52de3c05b3a4a8bf713704eefa9328
           restartPolicy: Always
           args: ["postgres", "-c", "listen_addresses=127.0.0.1"]
           env:
@@ -109,7 +109,7 @@ spec:
               mountPath: /var/lib/postgresql
       containers:
         - name: firefly-iii
-          image: docker.io/fireflyiii/core:version-6.7.9@sha256:d51ab6a3a7b91a5c892441578e0da7f2935f84f36bd1151fc3833acc6e060871
+          image: docker.io/fireflyiii/core:version-6.7.12@sha256:99319a6ce1370eba9e85f78e4d506e76267af0e7acc40fb4189b34d5fe83c874
           env:
             - name: APP_KEY_FILE
               value: /onemind/app-key
