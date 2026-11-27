@@ -287,6 +287,26 @@ def test_a_crafted_destination_config_is_refused_by_the_schema(make_box, kind, c
                          ("usb", {"usb_uuid": "1234-ABCD"}), ("rest", {"url": "https://peer.example.test", "user": "u", "append_only": True})):
         doc["backups"]["destinations"][0].update(kind=good_kind, config=good)
         assert box_config.check(doc).doc["backups"]["destinations"][0]["config"] == good
+    doc["backups"]["destinations"][0].update(kind="box", config={"url": "https://peer.example.test", "user": "u"})
+    assert box_config.check(doc).doc["backups"]["destinations"][0]["config"]["user"] == "u"
+
+
+@pytest.mark.parametrize("kind,config,key", [
+    ("s3", {"endpoint": "s3.example.test", "storage_class": "GLACIER"}, "storage_class"),
+    ("usb", {"usb_uuid": "1234-ABCD", "label_hint": "x"}, "label_hint"),
+    ("box", {"url": "https://peer.example.test", "tls_pin": "abc"}, "tls_pin"),
+])
+def test_a_newer_minor_config_key_is_set_aside_not_fatal(make_box, kind, config, key):
+    a = make_box("a")
+    set_up(a)
+    doc = box_config.collect(a)[0]
+    doc["backups"]["destinations"][0].update(kind=kind, config=config)
+    with pytest.raises(BundleRefused, match=key):  # at the current minor nothing newer could have written it
+        box_config.check(doc)
+    checked = box_config.check(doc, newer_minor=True)
+    assert checked.skipped == [f"backups/destinations/0/config/{key}"]
+    assert key not in checked.doc["backups"]["destinations"][0]["config"]
+    assert checked.doc["box"] == doc["box"]
 
 
 def test_apply_writes_in_one_transaction(make_box, monkeypatch):

@@ -103,14 +103,26 @@ def layer(db: Database) -> tuple[Layer, list[dict]]:
     return make_layer(LAYER_ID, LAYER_SCHEMA, doc, items=items, sensitive=False), excluded
 
 
+def _branch_properties(node: dict, rules: dict) -> dict:
+    """Property rules from the `allOf` if/then branches that match this object (the `kind` -> config allow-list)."""
+    out: dict = {}
+    for branch in rules.get("allOf", []):
+        cond = branch.get("if", {}).get("properties", {})
+        if cond and all(k in node and ("const" in c and node[k] == c["const"] or "enum" in c and node[k] in c["enum"])
+                        for k, c in cond.items()):
+            out.update(branch.get("then", {}).get("properties", {}))
+    return out
+
+
 def _set_aside(node: object, rules: dict, defs: dict, path: str, skipped: list[str]) -> object:
     """Drop object keys the schema does not define (where it forbids extra keys), recording each path."""
-    # Walks `properties`, `items` and `$ref` only: that is all boxConfig uses. A future layer schema that adds
-    # oneOf/allOf branches with objects inside must extend this walk (the test for unknown fields would show it).
+    # Walks `properties`, `items`, `$ref` and the `allOf` if/then branches whose `if` is a const/enum on a sibling
+    # property (the per-kind destination config). A future layer schema that adds other branch shapes with objects
+    # inside (oneOf, anyOf) must extend this walk (the test for unknown fields would show it).
     if "$ref" in rules:
         rules = defs[rules["$ref"].rsplit("/", 1)[-1]]
     if isinstance(node, dict) and "properties" in rules:
-        props = rules["properties"]
+        props = {**rules["properties"], **_branch_properties(node, rules)}
         out = {}
         for key, value in node.items():
             here = f"{path}/{key}" if path else key
@@ -188,9 +200,9 @@ def apply(db: Database, incoming: Checked, *, now: datetime, by: dict, window_ex
           sections: frozenset[str] = SAFE_SECTIONS) -> list[str]:
     """Write the safe sections of the layer to this box; returns the fields written.
 
-    Only `box` and `updates` can be written here. Everything is checked before the first write, and the writes share one transaction, with the same
-    checks `UpdatePolicyService.put` makes (the update window exists on this box, the AI schedule parses), so a
-    refusal leaves the box as it was. The caller is an approved owner action (phase 4), never a route directly."""
+    Only `box` and `updates` can be written here. Everything is checked before the first write, with the same checks
+    `UpdatePolicyService.put` makes (the update window exists on this box, the AI schedule parses), and the writes
+    share one transaction, so a refusal or a database error leaves the box as it was. The caller is an approved owner action (phase 4), never a route directly."""
     if not sections <= SAFE_SECTIONS:
         raise ValueError(f"only {sorted(SAFE_SECTIONS)} can be written without the owner: {sorted(sections - SAFE_SECTIONS)}")
     new = incoming.doc
