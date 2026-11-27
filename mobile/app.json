@@ -86,7 +86,12 @@
       "versionCode": 1000001
     },
     "plugins": [
-      ["expo-secure-store", { "configureAndroidBackup": false }],
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": false
+        }
+      ],
       "./plugins/withPrivateDatabaseBackup",
       [
         "expo-camera",
