@@ -38,6 +38,8 @@ function mount(route: string, tip = market) {
           collections: [{ id: 'apps', title: 'Apps', count: 1 }, { id: 'start', title: 'Getting started', count: 1 }],
           checklist: [backup.id],
         });
+      case '/v1/tips/whats-new':
+        return Response.json({ os_version: '0.1.2', entries: [{ version: '0.1.2', title: 'Backups check themselves', body: 'Every backup is now verified.' }] });
       case '/v1/auth/passkeys':
         return Response.json([{ id: 'key-1' }]);
       case '/v1/users':
@@ -78,6 +80,9 @@ it('browses collections and searches the loaded pack with / and no further reque
   await user.clear(search);
   await user.selectOptions(collection.getByRole('combobox', { name: 'Collection' }), 'apps');
   expect(collection.queryByRole('link', { name: backup.title })).not.toBeInTheDocument();
+  const news = within(screen.getByRole('region', { name: 'What’s new' }));
+  expect(await news.findByText('Backups check themselves')).toBeInTheDocument();
+  expect(news.getByText(/You are running OneMind 0.1.2/)).toBeInTheDocument();
   const checklist = within(screen.getByRole('region', { name: 'Getting started checklist' }));
   expect(checklist.getByRole('link', { name: backup.title })).toBeInTheDocument();
   const states = await checklist.findByRole('list', { name: 'Setup status' });
@@ -91,6 +96,7 @@ it('browses collections and searches the loaded pack with / and no further reque
     `${window.location.origin}/v1/backups/status`,
     `${window.location.origin}/v1/tips`,
     `${window.location.origin}/v1/tips/collections`,
+    `${window.location.origin}/v1/tips/whats-new`,
     `${window.location.origin}/v1/users`,
   ]);
   await user.click(screen.getByRole('button', { name: 'Copy link' }));
