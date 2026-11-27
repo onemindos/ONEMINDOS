@@ -441,7 +441,7 @@ indirect dashboard files.download FilesApi.fetchBlob sends GET (fetch default) t
 indirect dashboard files.ops FilesApi.mkdir, rename, trash and restore send POST through post(P.ops)
 indirect dashboard files.shares.create FilesApi.createShare sends POST through post(P.shares)
 indirect dashboard files.shares.list FilesApi.shares sends GET through get(P.shares)
-indirect dashboard files.shares.revoke FilesApi.revokeShare sends DELETE to P.share through fetchImpl
+indirect dashboard files.shares.revoke FilesApi.revokeShare sends DELETE to P.share through sdk.call
 indirect dashboard files.trash.list FilesApi.trashList sends GET through get(P.trash)
 indirect dashboard files.trash.empty FilesApi.requestTrashEmpty sends POST through post(P.trashEmpty)
 indirect dashboard files.grants.request FilesApi.requestGrant sends POST through post(P.grants)

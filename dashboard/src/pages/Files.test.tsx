@@ -18,7 +18,7 @@ const request = { id: 'frq_1', type: 'files.grant.create', plan: { summary: 'app
 type Call = { method: string; path: string; search: URLSearchParams; headers: Headers; body: string };
 const json = (v: unknown, status = 200, headers: Record<string, string> = {}) => new Response(JSON.stringify(v), { status, headers: { 'content-type': 'application/json', ...headers } });
 
-function mount(handler: (c: Call) => Response | undefined = () => undefined) {
+function mount(handler: (c: Call) => Response | undefined = () => undefined, who = 'owner-demo') {
   const calls: Call[] = [];
   const fetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
     const u = new URL(String(url), 'http://hub.test');
@@ -35,8 +35,8 @@ function mount(handler: (c: Call) => Response | undefined = () => undefined) {
     return json({ error: 'not_found', message: 'no' }, 404);
   });
   vi.stubGlobal('fetch', fetch);
-  window.sessionStorage.setItem('onemind.token', 'owner-demo');
-  render(<MemoryRouter initialEntries={['/files']}><SessionProvider deps={{ mock: false, makeApi: () => new MockApi('owner-demo'), knownPrincipal: () => DEMO_TOKENS['owner-demo'] }}><App mock={false} /></SessionProvider></MemoryRouter>);
+  window.sessionStorage.setItem('onemind.token', who);
+  render(<MemoryRouter initialEntries={['/files']}><SessionProvider deps={{ mock: false, makeApi: () => new MockApi(who), knownPrincipal: () => DEMO_TOKENS[who] }}><App mock={false} /></SessionProvider></MemoryRouter>);
   return calls;
 }
 afterEach(() => vi.unstubAllGlobals());
@@ -222,6 +222,8 @@ it('renames a file with the new name only, then reloads the folder', async () =>
   const op = calls.find((c) => c.path === '/v1/files/ops')!;
   expect(op.method).toBe('POST');
   expect(JSON.parse(op.body)).toEqual({ op: 'rename', root: 'home:owner', path: '/notes.txt', name: 'plan.txt' });
+  const listsBefore = 1; // the folder was listed once when the screen opened
+  await waitFor(() => expect(calls.filter((c) => c.path === '/v1/files/list').length).toBeGreaterThan(listsBefore));
 });
 
 it('makes a share link for a file and shows its secret URL once', async () => {
@@ -233,14 +235,37 @@ it('makes a share link for a file and shows its secret URL once', async () => {
   const dlg = screen.getByRole('dialog');
   await u.selectOptions(within(dlg).getByLabelText('Expires after'), '1 day');
   await u.click(within(dlg).getByRole('button', { name: 'Create link' }));
-  expect(await within(screen.getByRole('dialog')).findByDisplayValue('https://hub.test/v1/share/oms_x')).toBeInTheDocument();
+  const url = await within(screen.getByRole('dialog')).findByDisplayValue('https://hub.test/v1/share/oms_x');
+  expect(url).toHaveAttribute('readonly');
+  await u.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Copy link' }));
+  expect(await navigator.clipboard.readText()).toBe('https://hub.test/v1/share/oms_x');
   const post = calls.find((c) => c.path === '/v1/files/shares' && c.method === 'POST')!;
   const body = JSON.parse(post.body);
   expect(body.items).toEqual([{ root: 'home:owner', path: '/notes.txt' }]);
   expect(body.password).toBeUndefined();
   const ms = Date.parse(body.expires_at) - Date.now();
   expect(ms).toBeGreaterThan(23 * 3_600_000); expect(ms).toBeLessThan(25 * 3_600_000);
-  expect(post.headers.get('Idempotency-Key')).toBeTruthy();
+  // the gateway does not replay share creates by key, so none is sent (a retry could make a second link)
+  expect(post.headers.get('Idempotency-Key')).toBeNull();
+});
+
+it('does not retry a share link create that failed with a server error', async () => {
+  const calls = mount((c) => c.path === '/v1/files/shares' && c.method === 'POST' ? json({ error: 'unavailable', message: 'busy' }, 502) : undefined);
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Share link for notes.txt' }));
+  await u.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Create link' }));
+  await screen.findByRole('alert');
+  expect(calls.filter((c) => c.path === '/v1/files/shares' && c.method === 'POST')).toHaveLength(1);
+});
+
+it('offers share links only to an owner or an adult', async () => {
+  mount(undefined, 'teen-demo');
+  await screen.findByRole('button', { name: 'Preview notes.txt' });
+  expect(screen.queryByRole('button', { name: /Share link for/ })).toBeNull();
+  const u = userEvent.setup();
+  await u.click(screen.getByRole('button', { name: 'Sharing' }));
+  await screen.findByRole('heading', { name: 'Requests' });
+  expect(screen.queryByRole('heading', { name: 'Share links' })).toBeNull();
 });
 
 it('lists share links without secrets and ends one after a confirmation', async () => {
@@ -253,5 +278,7 @@ it('lists share links without secrets and ends one after a confirmation', async 
   expect(calls.some((c) => c.method === 'DELETE')).toBe(false);
   await u.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'End link' }));
   await waitFor(() => expect(calls.some((c) => c.method === 'DELETE' && c.path === '/v1/files/shares/shl_1')).toBe(true));
+  const gets = () => calls.filter((c) => c.method === 'GET' && c.path === '/v1/files/shares').length;
+  await waitFor(() => expect(gets()).toBeGreaterThan(1)); // the list was reloaded after End link
 });
 

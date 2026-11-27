@@ -42,10 +42,10 @@ func TestFilesShareLinks(t *testing.T) {
 		t.Fatalf("a listed link never shows its secret: %s", out)
 	}
 	before := time.Now().UTC()
-	r := run(t, "", false, "files", "share", "create", "/a.txt", "/b.txt", "--root", "shared", "--expires-in", "24h", "--name", "pics", "--password", "longenough")
+	r := run(t, "longenough\n", false, "files", "share", "create", "/a.txt", "/b.txt", "--root", "shared", "--expires-in", "24h", "--name", "pics", "--password-stdin")
 	outHas(t, r.out, "shl_2", "https://hub.test/v1/share/oms_x", "shown only now")
 	b := g.sent("POST", "/v1/files/shares")[0]
-	if b.idem == "" || b.body["name"] != "pics" || b.body["password"] != "longenough" {
+	if b.idem != "" || b.body["name"] != "pics" || b.body["password"] != "longenough" {
 		t.Fatalf("create %+v", b)
 	}
 	items := list(b.body["items"])
@@ -59,14 +59,41 @@ func TestFilesShareLinks(t *testing.T) {
 	if r := run(t, "", false, "files", "share", "create", "/a.txt"); r.code != ExitUsage {
 		t.Fatalf("needs --root %+v", r)
 	}
-	if r := run(t, "", false, "files", "share", "create", "/a.txt", "--root", "shared", "--expires-in", "1m"); r.code != ExitUsage {
-		t.Fatalf("too short %+v", r)
+	for _, d := range []string{"1m", "5m", "359s", "719h1m", "720h", "800h"} {
+		if r := run(t, "", false, "files", "share", "create", "/a.txt", "--root", "shared", "--expires-in", d); r.code != ExitUsage {
+			t.Fatalf("%s must be refused %+v", d, r)
+		}
 	}
-	if r := run(t, "", false, "files", "share", "create", "/a.txt", "--root", "shared", "--expires-in", "800h"); r.code != ExitUsage {
-		t.Fatalf("too long %+v", r)
+	// a password is never a flag: it would land in shell history and in /proc/PID/cmdline
+	if r := run(t, "", false, "files", "share", "create", "/a.txt", "--root", "shared", "--password", "hunter2024"); r.code != ExitUsage {
+		t.Fatalf("--password must not exist %+v", r)
+	}
+	if r := run(t, "short\n", false, "files", "share", "create", "/a.txt", "--root", "shared", "--password-stdin"); r.code != ExitUsage {
+		t.Fatalf("short password %+v", r)
+	}
+	if r := run(t, "", false, "files", "share", "create", "/a.txt", "--root", "shared", "--password-stdin"); r.code != ExitUsage {
+		t.Fatalf("empty stdin %+v", r)
 	}
 	if n := len(g.sent("POST", "/v1/files/shares")); n != 1 {
 		t.Fatalf("refused calls must not reach the gateway, sent %d", n)
+	}
+	// the margins: the shortest and longest accepted choices stay inside the gateway's 5m..720h
+	for _, d := range []string{"6m", "719h"} {
+		if r := run(t, "", false, "files", "share", "create", "/a.txt", "--root", "shared", "--expires-in", d); r.code != 0 {
+			t.Fatalf("%s must be accepted %+v", d, r)
+		}
+	}
+	// the secret link: --json prints the gateway's body, -q prints only the URL
+	if r := run(t, "", false, "--json", "files", "share", "create", "/a.txt", "--root", "shared"); r.code != 0 || !strings.Contains(r.out, `"one_time"`) || !strings.Contains(r.out, "oms_x") || strings.Contains(r.out, "shown only now") {
+		t.Fatalf("--json %+v", r)
+	}
+	if r := run(t, "", false, "-q", "files", "share", "create", "/a.txt", "--root", "shared"); r.code != 0 || r.out != "https://hub.test/v1/share/oms_x\n" {
+		t.Fatalf("-q %+v", r)
+	}
+	for _, p := range g.sent("POST", "/v1/files/shares") {
+		if p.idem != "" {
+			t.Fatalf("no Idempotency-Key on a create the gateway cannot replay: %q", p.idem)
+		}
 	}
 	if r := run(t, "", false, "files", "share", "revoke", "shl_1"); r.code != ExitUsage {
 		t.Fatalf("needs --yes %+v", r)

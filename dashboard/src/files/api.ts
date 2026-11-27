@@ -38,7 +38,9 @@ export interface FileRequest { id: string; type: string; plan: { summary?: strin
  *  Hand-written because GET/PUT /v1/files/quotas declare no response_model, so the spec has no schema to
  *  generate from (the rows are checked at the edge below). Core follow-up: #1278. */
 export interface Quota { person_id: string | null; root: string; limit_bytes: number | null; used_bytes: number }
-/** One share link as the list returns it: never the secret (that comes once, at creation). */
+/** One share link as the list returns it: never the secret (that comes once, at creation).
+ *  Hand-written because GET/POST /v1/files/shares declare no response_model, so the spec has no schema to
+ *  generate from (the rows are checked at the edge below). Core follow-up: #1278. */
 export interface ShareLink { id: string; name: string; created_by: string; state: 'active' | 'expired' | 'revoked' | string; items: { kind: string; root?: string; path?: string; hidden?: boolean }[]; password: boolean; created_at: string; expires_at: string; opened_count: number }
 export interface CreatedShare extends ShareLink { one_time: { token: string; path: string; url: string } }
 export interface Preview { mime: string; kind: string; size: number; inline_safe: boolean; image?: { width: number; height: number } | null; text?: { excerpt: string; truncated: boolean } }
@@ -102,16 +104,16 @@ export class FilesApi {
   /** Rename in place: `name` is the new last segment only, never a path. */
   async rename(root: string, path: string, name: string) { await this.post(P.ops, { op: 'rename', root, path, name }); }
   async shares() { return list<ShareLink>(await this.get(P.shares), 'share link', (j) => str(j.id) && str(j.state) && str(j.expires_at)); }
-  /** Creates a link to files (the gateway returns its secret URL once). One key per logical create. */
-  async createShare(body: { name?: string; items: { root: string; path: string }[]; expires_at: string; password?: string }, key: string) {
-    const out = obj(await this.post(P.shares, body, key), 'share link');
+  /** Creates a link to files (the gateway returns its secret URL once). Sent without an Idempotency-Key and
+   *  never retried: the endpoint does not replay by key, so a retry could make a second, unseen link. */
+  async createShare(body: { name?: string; items: { root: string; path: string }[]; expires_at: string; password?: string }) {
+    const out = obj(await this.post(P.shares, body), 'share link');
     const one = obj(out.one_time, 'share link secret');
     if (!str(out.id) || !str(one.url)) throw new Error('The hub returned an invalid share link.');
     return out as unknown as CreatedShare;
   }
   async revokeShare(id: string) {
-    const res = await this.fetchImpl(fill(P.share, 'share_id', id), { method: 'DELETE', headers: this.auth() });
-    if (!res.ok) throw await failure(res);
+    try { await this.sdk.call<unknown>({ method: 'DELETE', path: fill(P.share, 'share_id', id) }); } catch (e) { throw toApiError(e); }
   }
   async mkdir(root: string, path: string) { await this.post(P.ops, { op: 'mkdir', root, path }); }
   async trash(root: string, path: string) { await this.post(P.ops, { op: 'trash', root, path }); }

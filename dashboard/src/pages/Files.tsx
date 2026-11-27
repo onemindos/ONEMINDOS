@@ -19,10 +19,10 @@ const when = (iso: string) => (Number.isNaN(Date.parse(iso)) ? iso : new Date(is
 export function Files() {
   const { token, person, mock, principal } = useSignedIn();
   if (mock) return <><PageHeader title="Files" /><p role="status">Connect to a real hub to browse files. Demo mode has no file storage.</p></>;
-  return <LiveFiles key={person} token={token} person={person} owner={principal?.role === 'owner'} />;
+  return <LiveFiles key={person} token={token} person={person} owner={principal?.role === 'owner'} canShare={principal?.role === 'owner' || principal?.role === 'adult'} />;
 }
 
-function LiveFiles({ token, person, owner }: { token: string; person: string; owner: boolean }) {
+function LiveFiles({ token, person, owner, canShare }: { token: string; person: string; owner: boolean; canShare: boolean }) {
   const api = useMemo(() => new FilesApi(token), [token]);
   const run = useRun();
   const roots = usePoll(() => api.roots(), 60_000);
@@ -39,18 +39,18 @@ function LiveFiles({ token, person, owner }: { token: string; person: string; ow
         <div role="group" aria-label="Spaces">
           {rs.map((r) => <Button key={r.root} variant={r.root === current?.root ? 'primary' : 'secondary'} aria-pressed={r.root === current?.root} onClick={() => setRoot(r)}>{r.name}</Button>)}
         </div>
-        {current && <Browser key={current.root} api={api} space={current} run={run} onChanged={() => void roots.reload()} />}
+        {current && <Browser key={current.root} api={api} space={current} run={run} canShare={canShare} onChanged={() => void roots.reload()} />}
       </>}
       {tab === 'trash' && <TrashTab api={api} run={run} />}
       {tab === 'quotas' && owner && <FilesQuotas api={api} run={run} />}
-      {tab === 'sharing' && <Sharing api={api} run={run} person={person} roots={rs} />}
+      {tab === 'sharing' && <Sharing api={api} run={run} person={person} roots={rs} canShare={canShare} />}
     </>}</Load>
   </div>;
 }
 
 type Run = ReturnType<typeof useRun>;
 
-function Browser({ api, space, run, onChanged }: { api: FilesApi; space: FileRoot; run: Run; onChanged: () => void }) {
+function Browser({ api, space, run, canShare, onChanged }: { api: FilesApi; space: FileRoot; run: Run; canShare: boolean; onChanged: () => void }) {
   const [dir, setDir] = useState(space.path);
   const entries = usePoll(() => api.list(space.root, dir), 30_000);
   const [seen, setSeen] = useState<{ entry: Entry; preview?: Preview; image?: string; error?: string }>();
@@ -122,7 +122,7 @@ function Browser({ api, space, run, onChanged }: { api: FilesApi; space: FileRoo
         <td>{e.type === 'dir' ? '' : human(e.size)}</td><td>{when(e.mtime)}</td>
         <td>{e.type !== 'dir' && <Button size="sm" variant="secondary" aria-label={`Download ${e.name}`} onClick={() => download(e)}>Download</Button>}{' '}
           {space.writable && <><Button size="sm" variant="secondary" aria-label={`Rename ${e.name}`} onClick={() => { setNewName(e.name); setRenaming(e); }}>Rename</Button>{' '}</>}
-          {e.type !== 'dir' && <><Button size="sm" variant="secondary" aria-label={`Share link for ${e.name}`} onClick={() => setSharing(e)}>Share link</Button>{' '}</>}
+          {canShare && e.type !== 'dir' && <><Button size="sm" variant="secondary" aria-label={`Share link for ${e.name}`} onClick={() => setSharing(e)}>Share link</Button>{' '}</>}
           {space.writable && <Button size="sm" variant="secondary" aria-label={`Move ${e.name} to trash`} onClick={() => setDoomed(e)}>Move to trash</Button>}</td>
       </tr>)}</tbody>
     </table>}</Load>
@@ -157,16 +157,22 @@ function ShareDialog({ api, run, space, entry, onClose }: { api: FilesApi; run: 
   const [ttl, setTtl] = useState<number>(7 * 86_400_000);
   const [password, setPassword] = useState('');
   const [made, setMade] = useState<CreatedShare>();
-  const key = useRef(uuid4());
-  const create = () => void run(async () => {
-    setMade(await api.createShare({ name: entry.name, items: [{ root: space.root, path: entry.path }], expires_at: new Date(Date.now() + ttl).toISOString(), ...(password ? { password } : {}) }, key.current));
+  const [copied, setCopied] = useState('');
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(made!.one_time.url); setCopied('Link copied.'); } catch { setCopied('Could not copy. Select the link and copy it by hand.'); }
+  };
+    const create = () => void run(async () => {
+    setMade(await api.createShare({ name: entry.name, items: [{ root: space.root, path: entry.path }], expires_at: new Date(Date.now() + ttl).toISOString(), ...(password ? { password } : {}) }));
   }, 'Could not create the share link');
   return <Dialog open onClose={onClose} title={`Share link for ${entry.name}`}
     description="Anyone who has the link can download this file until it expires or you end it. They need no account."
     actions={made ? <Button onClick={onClose}>Done</Button> : <Button disabled={password.length > 0 && password.length < 8} onClick={create}>Create link</Button>}>
     {made ? <>
       <p role="status">The link is ready. It is shown only now: copy it before closing. Expires {when(made.expires_at)}.</p>
-      <TextField id="share-url" label="Share link" value={made.one_time.url} onChange={() => undefined} />
+      <label htmlFor="share-url">Share link</label>
+      <input id="share-url" readOnly value={made.one_time.url} onFocus={(e) => e.currentTarget.select()} />
+      <Button variant="secondary" onClick={() => void copy()}>Copy link</Button>
+      {copied && <p role="status">{copied}</p>}
     </> : <>
       <label htmlFor="share-ttl">Expires after</label>
       <select id="share-ttl" value={ttl} onChange={(e) => setTtl(Number(e.target.value))}>{EXPIRIES.map(([l, ms]) => <option key={l} value={ms}>{l}</option>)}</select>
@@ -215,7 +221,7 @@ function ShareLinks({ api, run }: { api: FilesApi; run: Run }) {
   </Card>;
 }
 
-function Sharing({ api, run, person, roots }: { api: FilesApi; run: Run; person: string; roots: FileRoot[] }) {
+function Sharing({ api, run, person, roots, canShare }: { api: FilesApi; run: Run; person: string; roots: FileRoot[]; canShare: boolean }) {
   const grants = usePoll(() => api.grants(), 30_000);
   const reqs = usePoll(() => api.requests(), 15_000);
   const [form, setForm] = useState(false);
@@ -244,7 +250,7 @@ function Sharing({ api, run, person, roots }: { api: FilesApi; run: Run; person:
           <Button size="sm" variant="secondary" aria-label={`Revoke access for ${g.subject.id}`} onClick={() => void run(async () => { await api.revoke(g.id); reload(); }, 'Could not revoke')}>Revoke</Button></li>)}
       </ul>}</Load>
     </Card>
-    <ShareLinks api={api} run={run} />
+    {canShare && <ShareLinks api={api} run={run} />}
     <Card title="Requests">
       <Load res={reqs} what="Loading requests">{(rows) => rows.length === 0 ? <p>No file requests.</p> : <ul>
         {rows.map((r) => <li key={r.id}><StatusPill tone={r.state === 'awaiting_approval' ? 'warn' : 'neutral'} label={r.state.replace('_', ' ')} /> {r.plan.summary ?? r.type}

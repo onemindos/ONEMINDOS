@@ -7,9 +7,11 @@ package cli
 // read-only. Giving an app or an agent a folder, and emptying a trash, only FILE a request an owner
 // approves in `onemind actions` or the dashboard; the CLI never sends the owner shortcut
 // ("approve": true). Taking a folder back and setting a space limit are owner calls the gateway
-// already restricts and audits. Moving, renaming and uploading stay in the Files screen and in the
-// desktop and phone apps. `rename` and `share` (POST /v1/files/ops, /v1/files/shares) act on the
-// caller's own files and links at once, as the Files screen does; uploading stays in the apps.
+// already restricts and audits. `rename` and `share create|list|revoke` (POST /v1/files/ops,
+// /v1/files/shares) are the one deliberate exception: the gateway has no request path for them, so
+// they act at once on the caller's own files and links, exactly as the Files screen does, and the
+// gateway checks who may and audits it. Moving and uploading stay in the Files screen and in the
+// desktop and phone apps.
 
 import (
 	"encoding/json"
@@ -174,6 +176,13 @@ func filesCommands(a *App) []*cobra.Command {
 	return []*cobra.Command{root}
 }
 
+// The gateway accepts a share expiry 5m to 720h ahead of its own clock; the CLI keeps one minute off
+// each end so latency and a skewed clock never turn a valid choice into a 422.
+const (
+	shareMinTTL = 6 * time.Minute
+	shareMaxTTL = 719 * time.Hour
+)
+
 func filesShareCmd(a *App) *cobra.Command {
 	g := &cobra.Command{Use: "share", Short: "Links that let someone without an account download your files"}
 	g.AddCommand(&cobra.Command{
@@ -186,18 +195,21 @@ func filesShareCmd(a *App) *cobra.Command {
 			})
 		},
 	})
-	var root, name, password string
+	var root, name string
+	var fromStdin bool
 	var expires time.Duration
 	create := &cobra.Command{
-		Use:   "create PATH... --root ROOT [--expires-in 168h] [--name NAME] [--password PW]",
+		Use:   "create PATH... --root ROOT [--expires-in 168h] [--name NAME] [--password-stdin]",
 		Short: "Make a link to files (POST /v1/files/shares); the secret link is shown once",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if root == "" {
 				return usageErr(cmd, "--root is required: see `onemind files roots`")
 			}
-			if expires < 5*time.Minute || expires > 30*24*time.Hour {
-				return usageErr(cmd, "--expires-in must be between 5m and 720h")
+			// The gateway wants 5m to 720h counted from ITS clock when the call arrives, so keep a margin
+			// at both ends for latency and clock skew.
+			if expires < shareMinTTL || expires > shareMaxTTL {
+				return usageErr(cmd, "--expires-in must be between 6m and 719h")
 			}
 			items := make([]any, 0, len(args))
 			for _, p := range args {
@@ -207,11 +219,19 @@ func filesShareCmd(a *App) *cobra.Command {
 			if name != "" {
 				body["name"] = name
 			}
-			if password != "" {
-				body["password"] = password
+			if fromStdin {
+				got, err := a.secrets(true, "Link password")
+				if err != nil {
+					return err
+				}
+				if len(got[0]) < 8 {
+					return usageErr(cmd, "the link password needs at least 8 characters")
+				}
+				body["password"] = got[0]
 			}
-			raw, _ := json.Marshal(items)
-			v, err := a.gwDoKeyed(http.MethodPost, "/v1/files/shares", idemKey("cli-share-", root, string(raw), name, expires.String()), body)
+			// No Idempotency-Key and no retry: this endpoint does not replay by key, so a retried create
+			// could make a second link whose secret nobody sees.
+			v, err := a.gwDo(http.MethodPost, "/v1/files/shares", body)
 			if err != nil {
 				return err
 			}
@@ -228,9 +248,9 @@ func filesShareCmd(a *App) *cobra.Command {
 		},
 	}
 	create.Flags().StringVar(&root, "root", "", "the space the paths are in")
-	create.Flags().DurationVar(&expires, "expires-in", 7*24*time.Hour, "how long the link works (5m to 720h)")
+	create.Flags().DurationVar(&expires, "expires-in", 7*24*time.Hour, "how long the link works (6m to 719h)")
 	create.Flags().StringVar(&name, "name", "", "a label for the link")
-	create.Flags().StringVar(&password, "password", "", "ask for this password (at least 8 characters)")
+	create.Flags().BoolVar(&fromStdin, "password-stdin", false, "ask for a password on the link, read from the first line of stdin (at least 8 characters)")
 	var yes bool
 	rev := &cobra.Command{
 		Use:   "revoke SHARE_ID --yes",
