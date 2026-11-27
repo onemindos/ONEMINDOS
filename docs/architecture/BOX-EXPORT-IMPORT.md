@@ -137,7 +137,7 @@ The manifest (built in phase 1) lists each layer's path, schema id, size, item c
 - A new box checks the signature against the fabric root fingerprint printed in the kit. The kit already carries the box CA fingerprint (BACKUPS.md §5.2). A bundle from an unknown box can still be imported, but only as a clone, with a red warning, and never with layer g.
 
 ### 4.4 Versions
-- `format.major` must match the reader's. A higher `format.minor` is accepted: newer bundles only add optional fields and new layers. Unknown layers are set aside and named on the preview (`manifest.check_manifest`).
+- `format.major` must match the reader's. A higher `format.minor` is accepted: newer bundles only add optional fields and new layers. Unknown layers are set aside and named on the preview (`manifest.check_manifest`). At the reader's own minor or older, an unknown field in the manifest, `source` or a layer entry is refused instead, because nothing newer could have written it; a box-config layer is held to the same rule (`box_config.check`). A backup destination's `config` is checked against a per-kind allow-list in the schema (`usbLocation`, `peerLocation`, `s3Location`), so a credential under any name is refused, not shown.
 - Each layer has its own schema id (`onemind.io/box-bundle/box-config/v1`). Fields a newer OneMind added are set aside, named and never applied (`box_config.check`).
 - An older bundle on a newer box is always readable. Each layer reader keeps the converters for its older versions.
 - A bundle from a **newer** OneMind version than the box is accepted only when the format allows it. Otherwise the preview says "update this box first", as `units.py` already does for schema versions.
@@ -234,6 +234,7 @@ On the second box: import with mode *Clone*. Settings, rules and apps come over.
 5. **Import needs verification by what it does** (D-028):
    - first-run import onto an empty box: the kit typed in is the proof, as for today's first-run restore. This keeps "the owner's data first";
    - import onto a box that has data (destructive): **L2**. Before the first L2 key exists: L1 plus a confirmation at the box (D-028's stand-in rule);
+     **The printed kit at the box always works instead.** An owner who has lost every L2 key can still import by typing the printed emergency kit at the box, because restoring never depends on a strong key (D-028 "data first"). L2 is the way to approve an import remotely, not a lock on the owner's own data;
    - bringing back approver keys or recovery contacts is "adding an approver or contact": **L2** (D-028).
    - L2 is not in code yet (verification levels are in open PR #1184). Until then the gateway's existing passkey step-up applies (BUILDER-BRIEFING item 6).
 6. **Import cannot weaken security without the owner:** for every rule and mode the stricter of current and incoming wins. Standing approvals and Forever rules arrive paused, and bypass arrives off. Loosening anything is a separate line on the preview that needs L2 and an explicit tick.
@@ -270,7 +271,7 @@ On the second box: import with mode *Clone*. Settings, rules and apps come over.
 8. **Phase 8:** QEMU round trip (§11) and the hardware drill on the daily hub after Step 5.
 
 ## 11. Testing
-- **Unit (phase 1, in this PR):** `core/tests/test_boxbundle.py`: round trip box A → bundle → empty box B → identical layer; canonical bytes; credentials never in the layer; a changed or cut layer refused; newer minor read, newer major refused; unknown fields and layers set aside and named; a time zone the box lacks set aside; malformed layers refused; `apply` refuses unsafe sections.
+- **Unit (phase 1, in this PR):** `core/tests/test_boxbundle.py`: round trip box A → bundle → empty box B → box B's box settings and update policy equal box A's (destinations and the content tier stay for the owner to finish); canonical bytes; credentials never in the layer; a changed or cut layer refused; newer minor read, newer major refused; unknown fields and layers set aside and named; a time zone the box lacks set aside; malformed layers refused; `apply` refuses unsafe sections.
 - **Each later phase:** unit tests per layer (round trip and conflicts), the route matrix and `sec_policy` (owner only; agents, adults, teens and children refused), envelope tests (wrong kit, tampered chunk, truncated file, wrong signer, replayed header), and a "stricter of" property test for rules (Hypothesis, as `tests/test_properties_*.py` do).
 - **Round trip on the same box:** export → factory reset (`system.factory_reset`, `core/onemind_core/routers/system.py`) → first run → import → the box exports a bundle whose layer checksums match the first one (minus re-made keys) and every app passes the fresh health gate.
 - **QEMU check (phase 8, pre-registered before its code):** `test/qemu/CRITERIA-BOXBUNDLE.md` with the new prefix **BX** (checked free on 2026-11-26 against every `test/qemu/CRITERIA-*.md`):
@@ -289,7 +290,7 @@ On the second box: import with mode *Clone*. Settings, rules and apps come over.
 6. **Off-site schedule default:** every backup run (recommended; nearly free with restic) or daily?
 7. **Built-in apps' data inside the bundle** when small (Notes, home documents), or always by reference?
 8. **A secret-free "config as code" YAML export** for a private Git repository: build it, or leave it out?
-9. **Verification for a first-run import onto an empty box:** the kit alone (recommended, matches D-028 "data first" and today's first-run restore), or L2 as well? Note that the task brief said "L2 step-up" for import; this design applies L2 to imports onto a box with data and to adding approvers, and follows D-028 for an empty box. The founder decides.
+9. **Verification for a first-run import onto an empty box:** the kit alone (recommended, matches D-028 "data first" and today's first-run restore), or L2 as well? Note that the task brief said "L2 step-up" for import; this design applies L2 to imports onto a box with data and to adding approvers, and follows D-028 for an empty box. Either way, the printed kit at the box still imports when an owner has lost their L2 key. The founder decides.
 10. **Clone mode in 1.0** or 1.1?
 
 ## 13. Sources

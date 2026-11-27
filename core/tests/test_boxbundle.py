@@ -2,7 +2,8 @@
 """Box export and import, phase 1 (docs/architecture/BOX-EXPORT-IMPORT.md): the manifest and layer a.
 
 The round trip: box A's settings -> layer bytes -> manifest -> read back and checked -> written to an empty
-box B -> box B's layer is byte-for-byte box A's. Plus the refusals that keep an import safe.
+box B -> box B's box settings and update policy equal box A's (destinations and the content tier are
+left for the owner, so B has none). Plus the refusals that keep an import safe.
 """
 
 import json
@@ -162,7 +163,7 @@ def test_fields_from_a_newer_onemind_are_set_aside_not_applied(make_box):
     doc["box"]["hostname_suffix"] = "lan"
     doc["backups"]["destinations"][0]["tls_pin"] = "abc"
     doc["box"]["time_zone"] = "Mars/Olympus_Mons"
-    checked = box_config.check(doc)
+    checked = box_config.check(doc, newer_minor=True)
     assert checked.skipped == ["box/hostname_suffix", "backups/destinations/0/tls_pin",
                                "box/time_zone (Mars/Olympus_Mons is not installed on this box)"]
     actions = {(c["section"], c["field"]): c["action"] for c in box_config.plan(box_config.collect(b)[0], checked)}
@@ -245,3 +246,69 @@ def test_a_bundle_with_only_newer_layers_says_update_first(make_box):
     newer["layers"] = [{**newer["layers"][0], "id": "printers", "path": "layers/printers.json"}]
     with pytest.raises(BundleRefused, match="update this box first"):
         manifest.check_manifest(newer)
+
+
+def test_unknown_fields_are_refused_at_this_version_and_set_aside_at_a_newer_one(make_box):
+    a = make_box("a")
+    set_up(a)
+    doc, _ = bundle_of(a)
+    for edit, match in ((lambda d: d.update(extra=1), "extra: not a field"),
+                        (lambda d: d["source"].update(extra=1), "source/extra"),
+                        (lambda d: d["layers"][0].update(extra=1), "layers/0/extra")):
+        odd = json.loads(json.dumps(doc))
+        edit(odd)
+        with pytest.raises(BundleRefused, match=match):
+            manifest.check_manifest(odd)
+        odd["format"]["minor"] = 1
+        assert manifest.check_manifest(odd).newer_minor
+    layer = box_config.collect(a)[0]
+    layer["box"]["hostname_suffix"] = "lan"
+    with pytest.raises(BundleRefused, match="box/hostname_suffix: not a field"):
+        box_config.check(layer)
+    assert box_config.check(layer, newer_minor=True).skipped == ["box/hostname_suffix"]
+
+
+@pytest.mark.parametrize("kind,config", [
+    ("s3", {"endpoint": "s3.example.test", "password": "x"}),
+    ("usb", {"usb_uuid": "1234-ABCD", "secret_key": "x"}),
+    ("rest", {"url": "https://peer.example.test/repo", "token": "x"}),
+    ("box", {"url": "https://backup:pw" + "@" + "peer.example.test/repo"}),
+    ("s3", {"bucket": {"nested": "x"}}),
+    ("usb", {"url": "https://peer.example.test"}),
+])
+def test_a_crafted_destination_config_is_refused_by_the_schema(make_box, kind, config):
+    a = make_box("a")
+    set_up(a)
+    doc = box_config.collect(a)[0]
+    doc["backups"]["destinations"][0].update(kind=kind, config=config)
+    with pytest.raises(BundleRefused, match="config"):
+        box_config.check(doc)
+    for good_kind, good in (("s3", {"endpoint": "s3.example.test", "bucket": "b", "prefix": "p", "region": "r"}),
+                         ("usb", {"usb_uuid": "1234-ABCD"}), ("rest", {"url": "https://peer.example.test", "user": "u", "append_only": True})):
+        doc["backups"]["destinations"][0].update(kind=good_kind, config=good)
+        assert box_config.check(doc).doc["backups"]["destinations"][0]["config"] == good
+
+
+def test_apply_writes_in_one_transaction(make_box, monkeypatch):
+    a, b = make_box("a"), make_box("b")
+    set_up(a)
+    checked = box_config.check(box_config.collect(a)[0])
+    real = b.insert()
+    calls = []
+
+    def failing_insert():
+        def wrap(model):
+            calls.append(model.__tablename__)
+            if len(calls) == 2:  # the second write fails: the first must not stay
+                raise RuntimeError("disk full")
+            return real(model)
+        return wrap
+
+    monkeypatch.setattr(b, "insert", failing_insert)
+    with pytest.raises(RuntimeError, match="disk full"):
+        box_config.apply(b, checked, now=NOW, by=OWNER, window_exists=YES)
+    monkeypatch.undo()
+    assert len(calls) == 2
+    after = box_config.collect(b)[0]
+    assert after["box"] == {"box_name": None, "time_zone": None} and after["updates"] is None
+    assert box_config.apply(b, checked, now=NOW, by=OWNER, window_exists=YES) == ["box.box_name", "box.time_zone", "updates.policy"]

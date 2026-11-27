@@ -31,9 +31,13 @@ from zoneinfo import available_timezones
 from pydantic import ValidationError
 
 from ..automation.cron import parse_ranges
-from ..automation.updatepolicy import UpdatePolicyBody, UpdatePolicyRepository
+from ..automation.updatepolicy import (
+    UpdatePolicyBody,
+    UpdatePolicyRepository,
+    UpdatePolicyRow,
+)
 from ..backups.store import BackupsRepository
-from ..onboarding import OnboardingService
+from ..onboarding import OnboardingService, SettingsRow
 from ..store import Database
 from .manifest import BundleRefused, Layer, make_layer, problems_of, schema, validator
 
@@ -129,13 +133,18 @@ class Checked:
     skipped: list[str]  # fields a newer OneMind wrote that this box does not understand; never applied
 
 
-def check(doc: object) -> Checked:
-    """Accept or refuse a box-config layer read from a bundle."""
+def check(doc: object, *, newer_minor: bool = False) -> Checked:
+    """Accept or refuse a box-config layer read from a bundle.
+
+    `newer_minor` is `ManifestCheck.newer_minor`. Only a bundle from a newer OneMind may carry fields this box
+    does not know: those are set aside and named. At this version or older an unknown field is refused."""
     if not isinstance(doc, dict) or doc.get("schema") != LAYER_SCHEMA:
         raise BundleRefused([f"not a {LAYER_SCHEMA} layer"])
     defs = schema()["$defs"]
     skipped: list[str] = []
     clean = _set_aside(copy.deepcopy(doc), defs["boxConfig"], defs, "", skipped)
+    if skipped and not newer_minor:
+        raise BundleRefused([f"{path}: not a field of this layer version" for path in skipped])
     problems = problems_of(validator("boxConfig"), clean)
     if problems:
         raise BundleRefused(problems)
@@ -179,7 +188,7 @@ def apply(db: Database, incoming: Checked, *, now: datetime, by: dict, window_ex
           sections: frozenset[str] = SAFE_SECTIONS) -> list[str]:
     """Write the safe sections of the layer to this box; returns the fields written.
 
-    Only `box` and `updates` can be written here. Everything is checked before the first write, with the same
+    Only `box` and `updates` can be written here. Everything is checked before the first write, and the writes share one transaction, with the same
     checks `UpdatePolicyService.put` makes (the update window exists on this box, the AI schedule parses), so a
     refusal leaves the box as it was. The caller is an approved owner action (phase 4), never a route directly."""
     if not sections <= SAFE_SECTIONS:
@@ -210,10 +219,16 @@ def apply(db: Database, incoming: Checked, *, now: datetime, by: dict, window_ex
         current = repo.get()
         if current is None or current["doc"] != body.model_dump():
             policy = body.model_dump()
-    # Every check passed: write.
-    if written:
-        svc.save(values)
+    # Every check passed: write, both in one transaction, so a database error cannot leave half of it.
+    if written or policy is not None:
+        with db.session.begin() as session:
+            if written:
+                session.execute(db.insert()(SettingsRow).values(id="box", **values).on_conflict_do_update(
+                    index_elements=[SettingsRow.id], set_=values))
+            if policy is not None:
+                session.execute(db.insert()(UpdatePolicyRow).values(id="global", resumed={}, updated_at=now, doc=policy, updated_by=by)
+                                .on_conflict_do_update(index_elements=[UpdatePolicyRow.id],
+                                                       set_={"updated_at": now, "doc": policy, "updated_by": by}))
     if policy is not None:
-        UpdatePolicyRepository(db).put(now=now, doc=policy, updated_by=by)
         written.append("updates.policy")
     return written
