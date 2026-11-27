@@ -4,6 +4,7 @@ package onemind
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -98,6 +99,28 @@ func (s *WorkService) Complete(ctx context.Context, project, id string) (*WorkTa
 		return nil, err
 	}
 	_, err := s.c.do(ctx, request{method: http.MethodPatch, path: path, body: map[string]string{"status": "done"},
+		headers: map[string]string{"If-Match": strconv.Itoa(t.Revision)}}, &t)
+	return &t, err
+}
+
+// ErrNoRepeatRule is returned by SetRepeatZone for a task that does not repeat.
+var ErrNoRepeatRule = errors.New("the task has no repeat rule")
+
+// SetRepeatZone is operation work.task_update with a repeat rule whose zone is tz (an IANA name; "" means
+// UTC). It reads the task first for its rule and the revision the gateway wants in If-Match, and keeps the
+// rule's every and interval. The due date stays the same instant; only the zone the repeat days are counted
+// in changes, so the next occurrence keeps the local time of day in the new zone.
+func (s *WorkService) SetRepeatZone(ctx context.Context, project, id, tz string) (*WorkTask, error) {
+	path := "/v1/work/projects/" + url.PathEscape(project) + "/tasks/" + url.PathEscape(id)
+	var t WorkTask
+	if err := s.c.Do(ctx, http.MethodGet, path, nil, &t); err != nil {
+		return nil, err
+	}
+	if t.Repeat == nil {
+		return nil, ErrNoRepeatRule
+	}
+	rule := WorkRepeat{Every: t.Repeat.Every, Interval: max(t.Repeat.Interval, 1), Tz: tz}
+	_, err := s.c.do(ctx, request{method: http.MethodPatch, path: path, body: map[string]any{"repeat": rule},
 		headers: map[string]string{"If-Match": strconv.Itoa(t.Revision)}}, &t)
 	return &t, err
 }

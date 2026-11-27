@@ -73,3 +73,37 @@ it('completes a task with the revision it was read at, and reports a conflict', 
   await waitFor(() => expect(calls).toEqual([{ ifMatch: '3', body: { status: 'done' } }]));
   expect(await screen.findByText(/changed meanwhile/)).toBeInTheDocument();
 });
+
+it('shows the zone a repeating task counts in and changes it with the rule and revision it was read at', async () => {
+  const repeating = task('tsk_3', 'Standup', { revision: 5, repeat: { every: 'weekday', interval: 1, tz: 'America/New_York' } });
+  const calls: { ifMatch: string | null; body: unknown }[] = [];
+  mount((method, path, _q, body, headers) => {
+    if (method === 'PATCH') { calls.push({ ifMatch: headers.get('If-Match'), body }); return json({ ...repeating, revision: 6 }); }
+    return json(path === '/v1/work/tasks' ? [repeating] : {});
+  });
+  const user = userEvent.setup();
+  expect(await screen.findByText(/repeats every weekday/)).toBeInTheDocument();
+  expect(screen.getByText(/\(America\/New_York\)/)).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Change repeat time zone of Standup' }));
+  const box = screen.getByLabelText('Repeat time zone');
+  await user.clear(box);
+  await user.type(box, 'Europe/Paris');
+  await user.click(screen.getByRole('button', { name: 'Save zone' }));
+  await waitFor(() => expect(calls).toEqual([{ ifMatch: '5', body: { repeat: { every: 'weekday', interval: 1, tz: 'Europe/Paris' } } }]));
+});
+
+it('says so when the gateway does not know the time zone', async () => {
+  const repeating = task('tsk_3', 'Standup', { repeat: { every: 'day', interval: 2, tz: null } });
+  mount((method, path) => {
+    if (method === 'PATCH') return json({ error: 'conflict', message: 'bad' }, 422);
+    return json(path === '/v1/work/tasks' ? [repeating] : {});
+  });
+  const user = userEvent.setup();
+  expect(await screen.findByText(/\(UTC\)/)).toBeInTheDocument();
+  await user.click(await screen.findByRole('button', { name: 'Change repeat time zone of Standup' }));
+  const box = screen.getByLabelText('Repeat time zone');
+  await user.clear(box);
+  await user.type(box, 'Mars/Base');
+  await user.click(screen.getByRole('button', { name: 'Save zone' }));
+  expect(await screen.findByText(/time zone is not known/)).toBeInTheDocument();
+});

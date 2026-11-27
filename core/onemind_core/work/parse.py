@@ -38,10 +38,14 @@ def _wd(word: str) -> int:
     return [d[:3] for d in WEEKDAYS].index(w)
 
 
-def add_months(d: date, n: int) -> date:
+def add_months(d: date, n: int, day: int | None = None) -> date:
+    """`n` months on, aiming for `day` (default: `d`'s own day) and clamping to the month's last day."""
     m = d.month - 1 + n
     y, m = d.year + m // 12, m % 12 + 1
-    return date(y, m, min(d.day, calendar.monthrange(y, m)[1]))
+    return date(y, m, min(day or d.day, calendar.monthrange(y, m)[1]))
+
+
+ANCHOR = "anchor_day"  # kept by the service inside a month or year rule; not part of the public Repeat shape
 
 
 # ---- quick add ---------------------------------------------------------------------------------
@@ -72,8 +76,14 @@ def next_due(due: datetime, repeat: dict, now: datetime) -> datetime:
 
     The days are counted in the rule's own zone (`repeat["tz"]`, an IANA name, default UTC), so "every
     weekday" skips the local weekend and a task due at 23:59 local stays at 23:59 across a DST change.
+
+    A monthly or yearly rule aims for `repeat["anchor_day"]` (the day of the month it started on, when the
+    caller keeps it): a rule from the 31st lands on the last day of a short month and goes back to the 31st
+    as soon as a month has one, instead of drifting to the 28th for good. Without an anchor the due date's
+    own day is used.
     """
     every, step = repeat["every"], repeat.get("interval", 1)
+    anchor = repeat.get(ANCHOR)
     z = zone(repeat.get("tz"))
     wall = due.astimezone(z).replace(tzinfo=None)
     for _ in range(5000):
@@ -83,9 +93,9 @@ def next_due(due: datetime, repeat: dict, now: datetime) -> datetime:
         elif every == "week":
             d += timedelta(weeks=step)
         elif every == "month":
-            d = add_months(d, step)
+            d = add_months(d, step, anchor)
         elif every == "year":
-            d = add_months(d, 12 * step)
+            d = add_months(d, 12 * step, anchor)
         else:  # weekday: the next Monday-to-Friday
             d += timedelta(days=1)
             while d.weekday() > 4:
