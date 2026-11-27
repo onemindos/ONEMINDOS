@@ -11,6 +11,9 @@ config.watchFolders = [...(config.watchFolders ?? []), sdkSrc];
 config.resolver.nodeModulesPaths = [...(config.resolver.nodeModulesPaths ?? []), path.join(__dirname, 'node_modules')];
 const upstream = config.resolver.resolveRequest;
 config.resolver.resolveRequest = (context, moduleName, platform) =>
-  resolveSdk(context, moduleName, platform, upstream ?? context.resolveRequest);
+  // Yjs (notes spike): lib0's React Native crypto import is answered by a small shim, see the file.
+  moduleName === 'isomorphic-webcrypto/src/react-native'
+    ? { type: 'sourceFile', filePath: path.join(__dirname, 'src/spikes/notes/webcryptoShim.js') }
+    : resolveSdk(context, moduleName, platform, upstream ?? context.resolveRequest);
 
 module.exports = config;

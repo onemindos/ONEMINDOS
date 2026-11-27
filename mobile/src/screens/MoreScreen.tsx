@@ -9,6 +9,7 @@ import { OP } from '../api/client';
 import { useHubData } from '../data';
 import { useSignedIn } from '../session';
 import { Badge, Card, H1, H2, Screen, s } from '../ui/bits';
+import { spikesEnabled } from '../spikes/flag';
 import { font, useTheme } from '../ui/theme';
 
 type Target = Exclude<keyof RootParams, 'Tabs' | 'AppDetail' | 'PhotoAlbums'>;
@@ -66,6 +67,7 @@ export function MoreScreen() {
         )}
         {features.has(OP.mesh) && <Item to="Network" label="Network" detail="Box names and HTTPS, read only" />}
         <Item to="PhotoBackup" label="Photo backup" detail="This phone's photos to your box" />
+        {spikesEnabled() && <Item to="NotesEditorSpike" label="Notes editor (spike)" detail="Dev only: offline rich text with merge" />}
         <HealthCard />
       </Screen>
     </SafeAreaView>

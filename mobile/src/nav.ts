@@ -31,6 +31,8 @@ export type RootParams = {
   DeviceInfo: undefined;
   LiveUsage: undefined;
   Network: undefined;
+  /** Dev-only spike, see spikes/flag.ts. */
+  NotesEditorSpike: undefined;
 };
 
 declare global {

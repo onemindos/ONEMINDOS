@@ -48,6 +48,8 @@ import { useUpdateNeeded } from './src/lib/protocol';
 import { UpdateNeededScreen } from './src/screens/UpdateNeededScreen';
 import { onForgetHub, SessionProvider, useSession, useSignedIn, type SessionDeps } from './src/session';
 import { PrefsProvider } from './src/prefs';
+import { NotesEditorSpike } from './src/spikes/notes/NotesEditorSpike';
+import { spikesEnabled } from './src/spikes/flag';
 import { TabIcon } from './src/ui/TabIcon';
 import { useIsDark, useTheme } from './src/ui/theme';
 
@@ -90,6 +92,7 @@ const linking: LinkingOptions<RootParams> = {
       Migrate: 'migrate',
       People: 'people',
       Agents: 'agents',
+      NotesEditorSpike: 'spikes/notes-editor',
     },
   },
 };
@@ -187,6 +190,7 @@ function SignedIn() {
             <Stack.Screen name="Migrate" component={MigrateScreen} options={{ title: 'Migration' }} />
             <Stack.Screen name="People" component={PeopleScreen} />
             <Stack.Screen name="Agents" component={AgentsScreen} />
+            {spikesEnabled() && <Stack.Screen name="NotesEditorSpike" component={NotesEditorSpike} options={{ title: 'Notes editor (spike)' }} />}
             <Stack.Screen name="PhotoBackup" component={PhotoBackupScreen} options={{ title: 'Photo backup' }} />
             <Stack.Screen name="PhotoAlbums" component={PhotoAlbumsScreen} options={{ title: 'Albums to back up' }} />
           </Stack.Navigator>

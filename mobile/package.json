@@ -5,6 +5,10 @@
   "license": "Apache-2.0",
   "main": "index.ts",
   "scripts": {
+    "build:editor": "node scripts/build-notes-editor.mjs",
+    "prestart": "npm run build:editor",
+    "preandroid": "npm run build:editor",
+    "preios": "npm run build:editor",
     "start": "expo start",
     "ios": "expo run:ios",
     "android": "expo run:android",
@@ -41,20 +45,36 @@
     "react-native-passkey": "3.6.2",
     "react-native-safe-area-context": "5.11.1",
     "react-native-screens": "4.30.1",
-    "react-native-svg": "15.16.0"
+    "react-native-svg": "15.16.0",
+    "react-native-webview": "14.0.1",
+    "yjs": "13.6.33"
   },
   "devDependencies": {
     "@testing-library/react-native": "14.1.0",
     "@types/jest": "30.0.0",
     "@types/react": "19.3.0",
+    "esbuild": "0.28.2",
     "jest": "30.5.2",
     "jest-expo": "58.0.14",
+    "lib0": "0.2.120",
+    "prosemirror-commands": "1.7.2",
+    "prosemirror-history": "1.5.2",
+    "prosemirror-keymap": "1.2.3",
+    "prosemirror-model": "1.25.13",
+    "prosemirror-schema-basic": "1.2.5",
+    "prosemirror-schema-list": "1.6.1",
+    "prosemirror-state": "1.4.4",
+    "prosemirror-view": "1.44.0",
     "test-renderer": "1.3.1",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "y-prosemirror": "1.3.7",
+    "y-protocols": "1.0.7"
   },
   "jest": {
     "preset": "jest-expo",
     "moduleNameMapper": {
+      "^isomorphic-webcrypto/src/react-native$": "<rootDir>/src/spikes/notes/webcryptoShim.js",
+      "editorBundle\\.generated$": "<rootDir>/src/spikes/notes/editorBundleStub.js",
       "^@onemind/sdk$": "<rootDir>/../sdk/ts/src/index.ts"
     },
     "resolver": "./src/api/sdk/jest-resolver.js",

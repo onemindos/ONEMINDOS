@@ -28,3 +28,9 @@ jest.mock('react-native-passkey', () => ({
 jest.mock('expo-crypto', () => ({
   getRandomBytes: (n: number) => globalThis.crypto.getRandomValues(new Uint8Array(n)),
 }));
+
+// The WebView is a native view; the spike screen (spikes/notes) only needs it to exist.
+jest.mock('react-native-webview', () => {
+  const { View } = jest.requireActual('react-native');
+  return { WebView: View };
+});
