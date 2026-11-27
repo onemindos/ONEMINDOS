@@ -99,6 +99,29 @@ The real limits are in our own architecture, so these are the rules:
 2. **Editor:** a Notes editor on Android and iOS, offline, with two editors merging through the CRDT.
 3. **Speed:** a list of 10,000 items and the map scroll smoothly on the S24.
 
+## 3b. Sync: use what the OS already has, add only the phone layer
+
+Founder, 2026-11-26: "sync is a massive thing for us … see if Debian has something native." Rule from now on: **check for a Debian package or a Linux feature first, and build only what is missing.**
+
+Debian 13 (trixie) packages checked 2026-11-26 on packages.debian.org:
+- `nats-server` 2.10.27, `syncthing` 1.29.5, `radicale` 3.5.3, `restic` 0.18.0, `sqlite3` 3.46.1, `samba` 4.22, `rclone` 1.60.1, `unison` 2.53, `libreoffice-core` 25.2.3, `tesseract-ocr` 5.5.0;
+- `whisper.cpp`: the page did not show a package, so UNVERIFIED.
+
+**Four kinds of sync, one design:**
+
+| Between | Use | Native? | Why |
+|---|---|---|---|
+| **Machine and machine** (hub, workers, leaf nodes) | **NATS JetStream**, already the bus (D-029, FABRIC.md): streams and KV with revisions and watch, and leaf store-and-forward (lab: 600/600 delivered after an outage) | ✅ `nats-server` in Debian, already chosen | Nothing new to build |
+| **Box and the OneMind app** (phone, tablet, laptop, headset) | **OneMind Sync (F1):**<br>• each app's change log on the box is kept in JetStream (or the app's own tables)<br>• the gateway serves a changes feed with a cursor, over HTTPS and websocket<br>• the device keeps SQLite plus an outbox; writes use idempotency keys; conflicts are kept as copies | Built on JetStream and SQLite. Only the gateway feed and the client kit are new. | The gateway decides who sees what (D-029). Phones do not join NATS in 1.0. Because the feed is plain, the transport can move to NATS later (the D-029 auth callout) without touching apps. |
+| **Files** (folders on computers) | Files on the box. **Samba** (D-017) and WebDAV for computers, **Syncthing** for whole folders on computers. The phone gets Files through OneMind Sync, downloading on demand. | ✅ samba, syncthing | Proven tools, no custom file sync |
+| **Content several people edit** (Notes, Docs, Whiteboard) | **CRDT** updates (Yjs or Automerge) carried by OneMind Sync and stored in the app's log | Library (licence to confirm) | Edits merge, none are lost |
+
+**Calendar and Contacts** also get the standard CalDAV/CardDAV door through **Radicale** (a Debian package), so the phone's own calendar app syncs too. The OneMind app reads the same store.
+
+**Why this lasts:**
+- Machines use the bus we already run, devices get one plain protocol we own, files use tools Linux has had for years, and shared editing uses an open format.
+- Every layer can be swapped without changing any app's screens or data.
+
 ## 4. Engines and licences
 
 ### The rules (proposed)
