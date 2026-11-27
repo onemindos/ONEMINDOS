@@ -49,7 +49,7 @@ ID_RE = re.compile(r"^(src|upl)_[0-9A-Z]{26}$")
 ASSET_RE = re.compile(r"^ast_[0-9A-Z]{26}$")
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 CURSOR_RE = re.compile(r"^(\d{1,17})\.(ast_[0-9A-Z]{26})$")
-PERSON_ROLES = ("owner", "adult")
+PERSON_ROLES = ("owner", "adult", "teen", "child")  # every household role with a Home; a guest has none (#1232)
 MAX_CHECK = 500
 PHOTOS_UNIT = "photos"  # the backup unit that holds ONEMIND_PHOTOS_DIR (PHOTOS.md §5)
 LEVELS = ("on_box", "in_backup", "in_verified_backup")
@@ -209,7 +209,7 @@ class PhotosService:
                               {"attempted": "use photo backup", "reason": "permission_denied"})
             raise PhotosError(
                 403, "permission_denied",
-                "photo backup needs a person's own sign-in (owner or adult); guests and agents have no photo library",
+                "photo backup needs a person's own sign-in (owner, adult, teen or child); guests and agents have no photo library",
             )
         return p.id
 

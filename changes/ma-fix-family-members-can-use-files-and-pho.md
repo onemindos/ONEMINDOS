@@ -1,0 +1,5 @@
+---
+pr: pending
+branch: ma/fix-family-members-can-use-files-and-pho
+---
+Family members can use Files and Photos for their own data (Refs #1232, Refs #234). The gateway route table left every Files, Photos and Sync route on the fail-closed "every scope" default, so a signed-in adult, teen, child or guest was refused with "not allowed" although Files is in their dock; only the owner and static test tokens got through. A new person-only scope files:use (all five roles) and photos:use (owner, adult, teen, child) now opens those routes, while the handlers still decide per role and per root: a person reaches only their own Home, the household folder by role (read-only below adult), and never another person's files or photos; owner decisions such as quotas and approving a request stay owner-only; agents, apps and plugins cannot hold the new scopes. The Photos backup accepts teen and child as well as owner and adult (a guest has no library). In the dashboard, Photos no longer hides from children and teens, a guest sees no trash tab, and only an owner gets the Review button on a files request. Tests sign in each role for real in core and in the dashboard.

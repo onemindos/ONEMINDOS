@@ -27,9 +27,13 @@ from ..jsonbody import JsonBody
 from ..photos import MAX_CHECK, PhotosError, PhotosRepository, PhotosService, PhotosSettings
 from ..photos.files import LibraryEscape
 
-# Owner only (#323): every scope, the same answer as the fail-closed fallback.
-register_route_scope("GET,HEAD", r"/v1/photos/library", ("*",))
-register_route_scope("GET,HEAD", r"/v1/photos/assets/[^/]+/content", ("*",))
+# #1232: an owner, adult, teen or child backs up and sees their own photos (photos/service.py "person" refuses
+# guests and agents and scopes every read to the caller's own library).
+register_route_scope("POST", r"/v1/photos/(sources|uploads)", ("photos:use",))
+register_route_scope("POST,GET,HEAD", r"/v1/photos/sources/[^/]+/(check|coverage|receipts)", ("photos:use",))
+register_route_scope("GET,HEAD", r"/v1/photos/library", ("photos:use",))
+register_route_scope("GET,HEAD", r"/v1/photos/assets/[^/]+/content", ("photos:use",))
+register_route_scope("HEAD,GET,PATCH", r"/v1/photos/uploads/[^/]+", ("photos:use",))
 
 FLUSH_BYTES = 1024 * 1024
 HEX64 = r"^[0-9a-f]{64}$"

@@ -17,7 +17,7 @@ const page1 = { items: [
 const page2 = { items: [{ id: 'ast_4', file_name: 'OLD.JPG', taken_at: '2025-01-01T12:00:00Z', size: 100_000, level: 'on_box' }], next_cursor: null };
 const json = (v: unknown, status = 200) => new Response(JSON.stringify(v), { status, headers: { 'content-type': 'application/json' } });
 
-function mount(over?: (url: URL) => Response | undefined) {
+function mount(over?: (url: URL) => Response | undefined, who = 'owner-demo') {
   const fetch = vi.fn(async (input: string | URL | Request) => {
     const url = new URL(String(input), 'http://hub.test');
     const custom = over?.(url);
@@ -28,8 +28,8 @@ function mount(over?: (url: URL) => Response | undefined) {
   });
   vi.stubGlobal('fetch', fetch);
   vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: () => 'blob:photo', revokeObjectURL: () => undefined }));
-  window.sessionStorage.setItem('onemind.token', 'owner-demo');
-  render(<MemoryRouter initialEntries={['/photos']}><SessionProvider deps={{ mock: false, makeApi: () => new MockApi('owner-demo'), knownPrincipal: () => DEMO_TOKENS['owner-demo'] }}><App mock={false} /></SessionProvider></MemoryRouter>);
+  window.sessionStorage.setItem('onemind.token', who);
+  render(<MemoryRouter initialEntries={['/photos']}><SessionProvider deps={{ mock: false, makeApi: () => new MockApi(who), knownPrincipal: () => DEMO_TOKENS[who] }}><App mock={false} /></SessionProvider></MemoryRouter>);
   return fetch;
 }
 afterEach(() => vi.unstubAllGlobals());
@@ -75,4 +75,17 @@ it('says why when Photos is off or the account has no library, and when the libr
 it('invites a backup when the library is empty', async () => {
   mount((u) => (u.pathname === '/v1/photos/library' ? json({ items: [], next_cursor: null }) : undefined));
   await waitFor(() => expect(screen.getByText(/No photos yet/)).toBeInTheDocument());
+});
+
+// #1232: Photos is in every person's dock and shows their own library (the hub scopes it to the caller).
+it.each(['adult-demo', 'teen-demo', 'child-demo'])('shows %s their own library and reads only photo routes', async (who) => {
+  const fetch = mount(undefined, who);
+  expect(await screen.findByRole('button', { name: 'Open IMG_1.JPG' })).toBeInTheDocument();
+  expect(screen.queryByText(/does not have a photo library/)).not.toBeInTheDocument();
+  expect(fetch.mock.calls.every(([u]) => new URL(String(u), 'http://hub.test').pathname.startsWith('/v1/photos/'))).toBe(true);
+});
+
+it('tells a guest plainly that they have no photo library when the hub says so', async () => {
+  mount((url) => url.pathname === '/v1/photos/library' ? json({ error: 'permission_denied', message: 'no' }, 403) : undefined, 'guest-demo');
+  expect(await screen.findByText(/Your account does not have a photo library/)).toBeInTheDocument();
 });

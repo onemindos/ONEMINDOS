@@ -18,7 +18,7 @@ const request = { id: 'frq_1', type: 'files.grant.create', plan: { summary: 'app
 type Call = { method: string; path: string; search: URLSearchParams; headers: Headers; body: string };
 const json = (v: unknown, status = 200, headers: Record<string, string> = {}) => new Response(JSON.stringify(v), { status, headers: { 'content-type': 'application/json', ...headers } });
 
-function mount(handler: (c: Call) => Response | undefined = () => undefined) {
+function mount(handler: (c: Call) => Response | undefined = () => undefined, who = 'owner-demo') {
   const calls: Call[] = [];
   const fetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
     const u = new URL(String(url), 'http://hub.test');
@@ -35,8 +35,8 @@ function mount(handler: (c: Call) => Response | undefined = () => undefined) {
     return json({ error: 'not_found', message: 'no' }, 404);
   });
   vi.stubGlobal('fetch', fetch);
-  window.sessionStorage.setItem('onemind.token', 'owner-demo');
-  render(<MemoryRouter initialEntries={['/files']}><SessionProvider deps={{ mock: false, makeApi: () => new MockApi('owner-demo'), knownPrincipal: () => DEMO_TOKENS['owner-demo'] }}><App mock={false} /></SessionProvider></MemoryRouter>);
+  window.sessionStorage.setItem('onemind.token', who);
+  render(<MemoryRouter initialEntries={['/files']}><SessionProvider deps={{ mock: false, makeApi: () => new MockApi(who), knownPrincipal: () => DEMO_TOKENS[who] }}><App mock={false} /></SessionProvider></MemoryRouter>);
   return calls;
 }
 afterEach(() => vi.unstubAllGlobals());
@@ -204,4 +204,31 @@ it('explains an empty list instead of showing nothing', async () => {
   const u = userEvent.setup();
   await u.click(await screen.findByRole('button', { name: 'Storage limits' }));
   expect(await screen.findByText(/No person has a home space yet/)).toBeInTheDocument();
+});
+
+// #1232: every household role opens Files and sees only what the hub lists for it; only the owner has the owner tabs.
+it.each([['adult-demo', 'alex'], ['teen-demo', 'tess'], ['child-demo', 'kai']])('lets %s browse and upload in their own Files, without the owner tabs or a Review button', async (who, id) => {
+  const home = { ...roots[0]!, root: `home:${id}` };
+  const calls = mount((c) => c.path === '/v1/files/roots' ? json([home]) : undefined, who);
+  const u = userEvent.setup();
+  expect(await screen.findByRole('button', { name: 'Preview notes.txt' })).toBeInTheDocument();
+  expect(screen.queryByText(/not allowed/i)).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Upload files' })).toBeInTheDocument();
+  expect(calls.find((c) => c.path === '/v1/files/list')?.search.get('root')).toBe(`home:${id}`);
+  expect(screen.getByRole('button', { name: 'Trash' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Storage limits' })).not.toBeInTheDocument();
+  await u.click(screen.getByRole('button', { name: 'Sharing' }));
+  expect(await screen.findByText(/app photos gets read-only access/)).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Review request frq_1' })).not.toBeInTheDocument();
+  expect(calls.every((c) => c.path.startsWith('/v1/files/'))).toBe(true);
+  expect(calls.some((c) => c.path === '/v1/files/quotas')).toBe(false);
+});
+
+it('shows a guest only the shared folder, read-only, with no trash of their own', async () => {
+  mount((c) => c.path === '/v1/files/roots' ? json([{ root: 'shared', kind: 'shared', name: 'Shared', path: '/', access: 'read', writable: false, used_bytes: 0, quota_bytes: null, free_bytes: null }]) : undefined, 'guest-demo');
+  expect(await screen.findByRole('button', { name: 'Preview notes.txt' })).toBeInTheDocument();
+  expect(screen.getByText('Read-only here.')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Upload files' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Trash' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Storage limits' })).not.toBeInTheDocument();
 });

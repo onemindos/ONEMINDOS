@@ -36,15 +36,15 @@ from ..identity.scopes import ALL, register_route_scope
 from ..jsonbody import JsonBody
 from .files import CURSOR_RE, MAX_QUOTA_BYTES, Root, RootQ, errs
 
-# Like /v1/files/*: no narrower scope covers files yet, so a scoped token needs every scope ("*");
+# Like /v1/files/*: files:use (every person role, never an agent or app) opens the route (#1232);
 # the handler then checks read access to the whole root (a person's role, or an agent's grant on "/").
-register_route_scope("GET,HEAD", r"/v1/sync/changes", (ALL,))
-register_route_scope("GET,HEAD", r"/v1/sync/versions", (ALL,))
-register_route_scope("POST", r"/v1/sync/(chunks/missing|commit)", (ALL,))
-register_route_scope("PUT", r"/v1/sync/chunks/[^/]+", (ALL,))
-register_route_scope("GET,HEAD", r"/v1/sync/locks", (ALL,))
-register_route_scope("POST", r"/v1/sync/locks(/[^/]+/refresh)?", (ALL,))
-register_route_scope("DELETE", r"/v1/sync/locks/[^/]+", (ALL,))
+register_route_scope("GET,HEAD", r"/v1/sync/changes", ("files:use",))
+register_route_scope("GET,HEAD", r"/v1/sync/versions", ("files:use",))
+register_route_scope("POST", r"/v1/sync/(chunks/missing|commit)", ("files:use",))
+register_route_scope("PUT", r"/v1/sync/chunks/[^/]+", ("files:use",))
+register_route_scope("GET,HEAD", r"/v1/sync/locks", ("files:use",))
+register_route_scope("POST", r"/v1/sync/locks(/[^/]+/refresh)?", ("files:use",))
+register_route_scope("DELETE", r"/v1/sync/locks/[^/]+", ("files:use",))
 
 TAG = ["sync"]
 ORDER = 305  # after files (300)

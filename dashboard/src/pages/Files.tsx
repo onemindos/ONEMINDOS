@@ -19,10 +19,13 @@ const when = (iso: string) => (Number.isNaN(Date.parse(iso)) ? iso : new Date(is
 export function Files() {
   const { token, person, mock, principal } = useSignedIn();
   if (mock) return <><PageHeader title="Files" /><p role="status">Connect to a real hub to browse files. Demo mode has no file storage.</p></>;
-  return <LiveFiles key={person} token={token} person={person} owner={principal?.role === 'owner'} />;
+  return <LiveFiles key={person} token={token} person={person} role={principal?.role} />;
 }
 
-function LiveFiles({ token, person, owner }: { token: string; person: string; owner: boolean }) {
+// #1232: every person role uses Files for their own data. A guest has no Home (so no trash of their own) and
+// only an owner stores limits or decides a request; the hub enforces all of it, this only decides what is offered.
+function LiveFiles({ token, person, role }: { token: string; person: string; role?: string }) {
+  const owner = role === 'owner';
   const api = useMemo(() => new FilesApi(token), [token]);
   const run = useRun();
   const roots = usePoll(() => api.roots(), 60_000);
@@ -32,7 +35,7 @@ function LiveFiles({ token, person, owner }: { token: string; person: string; ow
   return <div className="dash-stack">
     <PageHeader title="Files" lede="Your files on your box. Sharing access with an app or agent, and emptying the trash for good, are requests a person approves." />
     <div role="group" aria-label="Files sections">
-      {(owner ? ['files', 'trash', 'sharing', 'quotas'] as const : ['files', 'trash', 'sharing'] as const).map((t) => <Button key={t} variant={tab === t ? 'primary' : 'secondary'} aria-pressed={tab === t} onClick={() => setTab(t)}>{t === 'files' ? 'Files' : t === 'trash' ? 'Trash' : t === 'sharing' ? 'Sharing' : 'Storage limits'}</Button>)}
+      {(['files', ...(role === 'guest' ? [] : ['trash']), 'sharing', ...(owner ? ['quotas'] : [])] as Tab[]).map((t) => <Button key={t} variant={tab === t ? 'primary' : 'secondary'} aria-pressed={tab === t} onClick={() => setTab(t)}>{t === 'files' ? 'Files' : t === 'trash' ? 'Trash' : t === 'sharing' ? 'Sharing' : 'Storage limits'}</Button>)}
     </div>
     <Load res={roots} what="Loading your spaces">{(rs) => rs.length === 0 ? <p>No space is available to this account.</p> : <>
       {tab === 'files' && <>
@@ -43,7 +46,7 @@ function LiveFiles({ token, person, owner }: { token: string; person: string; ow
       </>}
       {tab === 'trash' && <TrashTab api={api} run={run} />}
       {tab === 'quotas' && owner && <FilesQuotas api={api} run={run} />}
-      {tab === 'sharing' && <Sharing api={api} run={run} person={person} roots={rs} />}
+      {tab === 'sharing' && <Sharing api={api} run={run} person={person} roots={rs} owner={owner} />}
     </>}</Load>
   </div>;
 }
@@ -168,7 +171,7 @@ function TrashTab({ api, run }: { api: FilesApi; run: Run }) {
   </Card>;
 }
 
-function Sharing({ api, run, person, roots }: { api: FilesApi; run: Run; person: string; roots: FileRoot[] }) {
+function Sharing({ api, run, person, roots, owner }: { api: FilesApi; run: Run; person: string; roots: FileRoot[]; owner: boolean }) {
   const grants = usePoll(() => api.grants(), 30_000);
   const reqs = usePoll(() => api.requests(), 15_000);
   const [form, setForm] = useState(false);
@@ -202,7 +205,7 @@ function Sharing({ api, run, person, roots }: { api: FilesApi; run: Run; person:
         {rows.map((r) => <li key={r.id}><StatusPill tone={r.state === 'awaiting_approval' ? 'warn' : 'neutral'} label={r.state.replace('_', ' ')} /> {r.plan.summary ?? r.type}
           {r.reason ? ` · "${r.reason}"` : ''} · risk {r.risk} · asked by {r.requested_by.id} · expires {when(r.expires_at)}{' '}
           {r.state === 'awaiting_approval' && <>
-            <Button size="sm" aria-label={`Review request ${r.id}`} onClick={() => setDeciding(r)}>Review</Button>{' '}
+            {owner && <Button size="sm" aria-label={`Review request ${r.id}`} onClick={() => setDeciding(r)}>Review</Button>}{' '}
             {r.requested_by.id === person && <Button size="sm" variant="secondary" aria-label={`Cancel request ${r.id}`} onClick={() => decide(r, 'cancel')}>Cancel request</Button>}</>}</li>)}
       </ul>}</Load>
     </Card>
