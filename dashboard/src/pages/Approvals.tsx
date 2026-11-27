@@ -12,7 +12,7 @@ import type { ApproveOpts } from '../lib/approve';
 import { usePoll } from '../lib/hooks';
 import { webauthnSupported } from '../lib/webauthn';
 import { useSignedIn } from '../session';
-import { cannotDecide } from '../shell/roles';
+import { decideState } from '../shell/roles';
 import { href } from '../shell/routes';
 import { useShell } from '../shell/Shell';
 
@@ -25,7 +25,7 @@ export function Approvals() {
   const { api } = useSignedIn();
   const { role } = useShell();
   // The role decides, not the token's scopes: an adult is refused by the gateway, so is never offered the buttons.
-  const canDecide = cannotDecide(role) ? 'no' : hub.canDecide;
+  const canDecide = decideState(role, hub.canDecide);
   const toast = useToast();
   const [params] = useSearchParams();
   const me = usePoll(() => api.me(), 0);

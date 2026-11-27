@@ -15,7 +15,7 @@ import { homeLayoutStore } from '../data/prefs';
 import type { Polled } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
-import { showsNav } from '../shell/roles';
+import { decideState, showsNav } from '../shell/roles';
 import { useActivity, useShell } from '../shell/Shell';
 import { HomeCommandBar } from './HomeCommandBar';
 import { HomeHealth } from './HomeHealth';
@@ -124,7 +124,7 @@ function ProHome({ commandBar }: { commandBar: ReactNode }) {
         store.save(person, next);
       }}
       wallpaper={customize && customize.prefs.wallpaper !== 'none' ? 'host' : 'tide'}
-      canDecide={hub.canDecide === 'no' ? { allowed: false, reason: 'Only the owner can approve or deny.' } : { allowed: true }}
+      canDecide={decideState(shell.role, hub.canDecide) === 'no' ? { allowed: false, reason: 'Only the owner can approve or deny.' } : { allowed: true }}
       onApprove={(a) => void decide(a, 'approve')}
       onDeny={(a) => void decide(a, 'deny')}
       busy={hub.busy}

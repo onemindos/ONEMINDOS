@@ -40,6 +40,14 @@ export function cannotDecide(role: string | null | undefined): boolean {
   return typeof role === 'string' && role !== 'owner' && role !== 'agent';
 }
 
+/**
+ * The one rule for who is offered Approve and Deny: the role overrides the hub's own answer, so Home,
+ * Approvals and the palette cannot drift apart. 'unknown' stays 'unknown' until something decides.
+ */
+export function decideState(role: string | null | undefined, hub: 'yes' | 'no' | 'unknown'): 'yes' | 'no' | 'unknown' {
+  return cannotDecide(role) ? 'no' : hub;
+}
+
 /** Is this nav item shown to this view? Pro screens stay hidden until the role is known. */
 export function showsNav(id: string, view: View, role?: string | null): boolean {
   if (view === 'simple' && SIMPLE_HIDDEN.has(id)) return false;

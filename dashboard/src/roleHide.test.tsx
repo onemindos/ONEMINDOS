@@ -31,7 +31,9 @@ describe.each(['child-demo', 'teen-demo', 'guest-demo'])('%s without a known pri
 describe('a list the hub refuses for this role', () => {
   afterEach(() => vi.restoreAllMocks());
   it('does not hold the connection pill on "connecting to the hub"', async () => {
+    // A real gateway refuses a child both lists (no nodes:read, no actions:read).
     vi.spyOn(MockApi.prototype, 'nodes').mockRejectedValue(new ApiError(403, 'permission_denied', 'not for your role'));
+    vi.spyOn(MockApi.prototype, 'actions').mockRejectedValue(new ApiError(403, 'permission_denied', 'not for your role'));
     renderApp({ token: 'child-demo', knownRole: false });
     expect(await screen.findByRole('heading', { name: 'My apps' }, T)).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByText(/connecting to the hub/i)).not.toBeInTheDocument(), T);
@@ -53,6 +55,19 @@ describe('adult without a known principal', () => {
     expect(await screen.findByText(/Only the owner can approve or deny/, {}, T)).toBeInTheDocument();
     for (const b of screen.queryAllByRole('button', { name: /^(Approve|Deny)/ })) expect(b).toBeDisabled();
     expect(screen.queryByRole('heading', { name: 'Practice an approval' })).not.toBeInTheDocument();
+  });
+});
+
+describe('Home for an adult without a known principal', () => {
+  it('shows no enabled Approve or Deny button', async () => {
+    renderApp({ token: 'adult-demo', route: '/', knownRole: false });
+    await screen.findByRole('navigation', { name: 'Main' }, T);
+    // Wait until the role is known (Pro nav) and the pending approval is on the page.
+    const all = await screensNav(userEvent.setup(), T.timeout);
+    expect(await all.findByRole('link', { name: /^Control Hub/ }, T)).toBeInTheDocument();
+    const buttons = await screen.findAllByRole('button', { name: /^(Approve|Deny)/ }, T);
+    expect(buttons.length).toBeGreaterThan(0);
+    for (const b of buttons) expect(b).toBeDisabled();
   });
 });
 
