@@ -123,7 +123,6 @@ cli backups.content.set s5-backups
 cli backups.destinations.add s5-backups
 cli backups.destinations.remove s5-backups
 cli backups.kit.confirm s5-backups
-cli backups.kit.issue s5-backups
 group s6-work issue=#1232 S6: Work projects, quick-add and task edit and delete have no screen (PR #1166 covers part); some have no command.
 dashboard work.project_create s6-work
 dashboard work.quick_add s6-work
@@ -186,7 +185,6 @@ cli plugins.keys.enroll s8-cli-groups
 cli plugins.keys.revoke s8-cli-groups
 cli plugins.settings.request s8-cli-groups
 cli shares.smb.password s8-cli-groups
-cli system.actions.create s8-cli-groups
 cli tips.set_state s8-cli-groups
 cli updates.policy.resume s8-cli-groups
 cli users.update s8-cli-groups
