@@ -667,17 +667,43 @@ class IdentityService:
             return 2, "alt"
         row = lv.STEP_UP_ROWS[op]
         if op == "auth.passkeys.register":
-            # Design 3.11: adding a key needs L1 until a proven key exists (a proven key enrolled then needs
-            # the box code, passkey_register), and an existing L2 key afterwards, so a new device can't vouch
-            # for itself. With none left, an owner at the box enrols one (the interim recovery path).
+            # Design 3.11: adding a second key needs L1 until a proven key exists, and the admin.high_risk row
+            # afterwards (L2 unless the owner lowered it), or an owner at the box: with no proven key left that
+            # is the only way (the interim recovery path), and an owner whose keys are all L1 can add one there
+            # too. Whether the new key may be a *proven* one is a separate rule with its own floor
+            # (lv.PROVEN_KEY_VOUCH, passkey_register_options): this row never lowers it.
             if not self.levels.note_proven("household_level"):
                 return 1, ""
             need = self.levels.row_level(row)
             if need >= 2 and self.levels.recovery_needed():
                 return 1, "required"
-            return need, ""
+            return (need, "alt") if need >= 2 else (need, "")
         need, eased = self.levels.effective(*self.levels.for_row(row))
-        return (1, "required") if eased else (need, "")
+        need, box = (1, "required") if eased else (need, "")
+        if op == "users.update" and need < lv.PROVEN_KEY_VOUCH and not box and self._holds_unvouched_proven(target):
+            # Making this person an owner would turn their proven key (a member enrols one without the box)
+            # into an owner's, which nobody vouched for: the same floor as adding an owner's proven key, so a
+            # lowered admin.high_risk row can't hand an L1 key that power by a promotion. Before the first
+            # proven key it is the box (it would end the grace); after it, a proven key or an owner at the box.
+            return (lv.PROVEN_KEY_VOUCH, "alt") if self.levels.note_proven("household_level") else (1, "required")
+        return need, box
+
+    def _holds_unvouched_proven(self, user_id: str) -> bool:
+        """A person who is not an owner and holds a key at the proven-key floor (L2 or more)."""
+        u = self.user(user_id) if user_id else None
+        return u is not None and u.role != "owner" and bool(self._keys_meeting(u.id, lv.PROVEN_KEY_VOUCH))
+
+    @staticmethod
+    def _vouch(via: str) -> str:
+        """How a step-up (require_step_up's answer) vouches for an owner's new proven key: "proven_key" when it
+        was made with a key at lv.PROVEN_KEY_VOUCH or more, "box" when the box's code was typed with it, else
+        "" (a fresh sign-in, or an L1 grant: a phone can add a key, never vouch for a proven one)."""
+        if not via.startswith("passkey:"):
+            return ""
+        level, _, extra = via[len("passkey:"):].partition("+")
+        if level in lv.LEVELS and lv.rank(level) >= lv.PROVEN_KEY_VOUCH:
+            return "proven_key"
+        return "box" if extra == "box" else ""
 
     def _last_proven(self, credential_id: str) -> bool:
         """This credential is the only proven key any active owner holds."""
@@ -838,15 +864,24 @@ class IdentityService:
         user = self._account(ctx, "register a passkey")
         self._refuse_onion_enrolment(request, ctx)
         existing = list(self.repo.all(select(PasskeyRow.id).where(PasskeyRow.user_id == user.id)))
-        if existing:  # adding a second key is adding power: prove you hold the first (L2 once one exists)
-            self.require_step_up(ctx, ctx.principal, "register a passkey", op="auth.passkeys.register")
+        vouched = ""
+        if existing:  # adding a second key is adding power: prove you hold the first (admin.high_risk row)
+            via = self.require_step_up(ctx, ctx.principal, "register a passkey", op="auth.passkeys.register")
+            vouched = self._vouch(via)
         rp_id, _ = self.rp(request)
-        # N-1 = b: until the household has had a proven key, the first one is added at the box, so an L1 key
-        # (a synced phone passkey somewhere else) can't enrol a key of its own that would be L2. The screen
-        # shows a code now; an L1 key (a phone or computer passkey) enrols without it.
-        # Only an owner's key counts for the household's level, so only an owner's enrolment needs the box.
-        box = user.role == "owner" and self.passkeys_active() and not self.levels.note_proven("household_level")
-        data, shown = {"box_for_proven": box}, False
+        # An owner's key that would enrol at L2 or more (a proven key) needs one of two things, before and after
+        # the grace and whatever keys the owner already has (N-1 = b; final review of #1184):
+        #   - a step-up grant for this registration made with the owner's own proven key (lv.PROVEN_KEY_VOUCH),
+        #     which the admin.high_risk row can't lower, or
+        #   - the code on the box's own screen (also typed with the step-up in the interim recovery path).
+        # Otherwise an L1 key (a synced phone passkey somewhere else) could enrol a key of its own that is L2,
+        # for instance after deleting its owner's only key, or with admin.high_risk lowered to L1. The screen
+        # shows a code now; an L1 key (a phone or computer passkey) still enrols without it.
+        # Only an owner's key counts for the household's level, so only an owner's enrolment needs this; a
+        # member's proven key meets the same floor when they are made an owner (_op_rule, users.update).
+        # Before any owner has a passkey (the first one at setup) nothing can vouch and nothing needs to.
+        box = user.role == "owner" and not vouched and (self.passkeys_active() or self.levels.latched())
+        data, shown = {"box_for_proven": box, "vouched": vouched or None}, False
         if box and self.presence.available:
             try:
                 data["box_sha256"] = self.presence.issue("add a proven key", self.now() + CHALLENGE_TTL)
@@ -893,8 +928,9 @@ class IdentityService:
                 raise ApiError(refused["status"], "rate_limited" if refused["status"] == 429 else "unavailable",
                                refused["message"], reason=refused["reason"])
             if not row.data.get("box_sha256"):
-                raise ApiError(409, "conflict", "this is a proven key, and the first one is added at the box, which "
-                               "this install has no screen for; nothing was saved", reason="box_presence_unavailable")
+                raise ApiError(409, "conflict", "this is a proven key: add it with your proven key's confirmation, "
+                               "or at the box, which this install has no screen for; nothing was saved",
+                               reason="box_presence_unavailable")
             self.presence.check(row.data["box_sha256"], box_code, "add a proven key")
         self.repo.add(PasskeyRow(id=v["id"], user_id=user.id, label=label, public_key=v["public_key"],
                                  sign_count=v["sign_count"], transports=v["transports"], created_at=now,
@@ -905,9 +941,12 @@ class IdentityService:
         if ctx.session is not None:  # registering just proved presence on this device
             self.repo.update(SessionRow, [SessionRow.id == ctx.session.id], {"passkey_at": now,
                                                                              "step_up_credential_id": v["id"]})
+        # How a proven key was vouched for: "proven_key", "box", or None (a member's key, or the box's first).
+        confirmed = (row.data.get("vouched") or ("box" if row.data.get("box_for_proven") else None)) \
+            if lv.rank(level) >= 2 else None
         self.emit("auth", "passkey.registered", {"user_id": user.id, "credential_id": v["id"], "label": label,
                                                  "level": level, "level_reason": why, "aaguid": v["aaguid"],
-                                                 "attestation": v["fmt"]}, ctx.principal)
+                                                 "attestation": v["fmt"], "confirmed": confirmed}, ctx.principal)
         if lv.rank(level) >= 2:
             self.levels.note_proven(f"passkey {v['id'][:32]}")  # the grace ends for good
         return {"credential_id": v["id"], "label": label, "created_at": iso(now), "level": level,
