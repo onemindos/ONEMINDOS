@@ -205,6 +205,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
             c["restarts"] += sum(x["restarts"] for x in H.containers(pod))
             # A pod metrics-server has no reading for adds nothing: a part with no reading at all stays
             # null, never 0 (0 would claim the part is idle).
+            if usage is not None and pod["metadata"]["name"] not in usage:
+                partial = True  # a pod with no reading (new replica): the sum is not the whole part
             for cpu, mem in (usage or {}).get(pod["metadata"]["name"], {}).values():
                 if cpu is None or mem is None:
                     partial = True  # a container without a full reading: the sum is not the whole part

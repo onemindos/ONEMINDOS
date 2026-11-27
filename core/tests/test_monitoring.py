@@ -375,6 +375,16 @@ def test_app_metrics_partial_container_reading_gets_a_reason(mclient, clock):
     assert "no reading yet for some parts" in body["reason"]
 
 
+def test_app_metrics_pod_without_reading_beside_one_with_gets_a_reason(mclient, clock):
+    install(mclient, clock)
+    k = mon(mclient).kube
+    k.pods_by_ns["app-uptime-kuma"] = [pod("web-1"), pod("web-2")]
+    k.usage = {"web-1": {"main": (12.5, 100.0)}}
+    body = mclient.get("/v1/apps/uptime-kuma/metrics", headers=GUEST).json()
+    assert body["components"][0]["cpu_millicores"] == 12.5
+    assert "no reading yet for some parts" in body["reason"]
+
+
 # ---- logs ---------------------------------------------------------------------------------
 
 def test_logs_permissions_redaction_and_audit(mclient, clock, settings):

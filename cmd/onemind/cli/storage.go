@@ -269,7 +269,7 @@ func storageCommands(a *App) []*cobra.Command {
 				return err
 			}
 			if a.G.JSON { // the global --json (typed before the command) means the same as the local one
-				args = append(args, "--json")
+				args = insertJSON(args, 1)
 			}
 			return storageCmd(args, a.Stdout)
 		},

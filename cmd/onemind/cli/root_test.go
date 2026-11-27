@@ -516,6 +516,7 @@ func TestGlobalFlagsBeforeStorageAndMesh(t *testing.T) {
 	for _, args := range [][]string{
 		{"--json", "storage", "disks"}, {"storage", "--json", "disks"},
 		{"--json", "mesh", "status", "--leaf-monitor", "127.0.0.1:1"}, {"mesh", "--json", "status", "--leaf-monitor", "127.0.0.1:1"},
+		{"--json", "storage", "health", "/dev/vda"}, {"--json", "storage", "plan", "create", "--device", "/dev/vda"},
 	} {
 		r := run(t, "", false, args...)
 		var v any
