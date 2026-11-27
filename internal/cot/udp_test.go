@@ -4,6 +4,7 @@ package cot
 
 import (
 	"context"
+	"errors"
 	"net"
 	"testing"
 	"time"
@@ -148,6 +149,28 @@ func TestMulticastLoopback(t *testing.T) {
 		case <-ctx.Done():
 			t.Skip("multicast loopback not delivered on this host")
 		}
+	}
+}
+
+func TestSenderRefusesTTLAboveOne(t *testing.T) {
+	for _, ttl := range []int{2, 64, 255, -1} {
+		s, err := NewSender("239.255.77.77:46969", SenderOptions{TTL: ttl})
+		if err == nil {
+			s.Close()
+			t.Fatalf("ttl %d accepted", ttl)
+		}
+		if !errors.Is(err, ErrTTL) {
+			t.Fatalf("ttl %d: error %v is not ErrTTL", ttl, err)
+		}
+	}
+	// 0 and 1 are fine (0 means 1). Opening a UDP socket needs no multicast
+	// route, but skip if the host refuses it.
+	for _, ttl := range []int{0, 1} {
+		s, err := NewSender("239.255.77.77:46969", SenderOptions{TTL: ttl})
+		if err != nil {
+			t.Skipf("no multicast sender on this host: %v", err)
+		}
+		s.Close()
 	}
 }
 

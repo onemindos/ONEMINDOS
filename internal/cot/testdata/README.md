@@ -10,4 +10,4 @@ callsigns are made up.
   group, takv, track and status.
 - `spot-marker.xml`: a point marker with remarks and a link to its creator.
 - `unknown-detail.xml`: a marker with detail elements this package does not
-  model; they must survive a decode and re-encode.
+  model; they are read but never re-emitted (`Encode` writes only modelled fields).

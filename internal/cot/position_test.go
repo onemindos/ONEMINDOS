@@ -4,6 +4,7 @@ package cot
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -173,5 +174,36 @@ func TestMachineRoundTripThroughXML(t *testing.T) {
 	}
 	if p.Lat != 40.7 || p.Lon != -74.0 || *p.HAE != 15 || *p.Accuracy != 4 || p.Label != "Garage hub" || p.Note != "rack 1" {
 		t.Fatalf("round trip %+v", p)
+	}
+}
+
+func TestEncodeHasNoExponentNumbers(t *testing.T) {
+	small, course := 0.00001, 0.000001
+	e, err := ToEvent(Position{
+		Kind: KindHub, ID: "h1", Lat: 0.00001, Lon: -0.00002,
+		Course: &course, Speed: &small,
+		Time: time.Date(2026, 11, 27, 12, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := Encode(e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(b)
+	for _, bad := range []string{"e+", "e-", "E+", "E-"} {
+		if strings.Contains(s, bad) {
+			t.Fatalf("exponent form %q in %s", bad, s)
+		}
+	}
+	for _, want := range []string{`hae="9999999"`, `ce="9999999"`, `le="9999999"`, `lat="0.00001"`, `course="0.000001"`} {
+		if !strings.Contains(s, want) {
+			t.Fatalf("missing %s in %s", want, s)
+		}
+	}
+	back, err := Decode(b, time.Time{})
+	if err != nil || back.Point != e.Point {
+		t.Fatalf("round trip: %v %+v vs %+v", err, back.Point, e.Point)
 	}
 }

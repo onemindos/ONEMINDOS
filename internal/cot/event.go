@@ -10,6 +10,7 @@ import (
 	"io"
 	"math"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -97,6 +98,32 @@ type Point struct {
 	HAE float64 `xml:"hae,attr"`
 	CE  float64 `xml:"ce,attr"`
 	LE  float64 `xml:"le,attr"`
+}
+
+// decimal formats v as a plain xs:decimal. The CoT base schema types point
+// and track numbers as decimals, which forbid the exponent form (1e-05,
+// 9.999999e+06) that strconv's 'g' and encoding/xml's float default write.
+func decimal(v float64) string { return strconv.FormatFloat(v, 'f', -1, 64) }
+
+// MarshalXML writes the point with plain-decimal attributes.
+func (p Point) MarshalXML(enc *xml.Encoder, start xml.StartElement) error {
+	start.Attr = append(start.Attr,
+		xml.Attr{Name: xml.Name{Local: "lat"}, Value: decimal(p.Lat)},
+		xml.Attr{Name: xml.Name{Local: "lon"}, Value: decimal(p.Lon)},
+		xml.Attr{Name: xml.Name{Local: "hae"}, Value: decimal(p.HAE)},
+		xml.Attr{Name: xml.Name{Local: "ce"}, Value: decimal(p.CE)},
+		xml.Attr{Name: xml.Name{Local: "le"}, Value: decimal(p.LE)},
+	)
+	return enc.EncodeElement(struct{}{}, start)
+}
+
+// MarshalXML writes the track with plain-decimal attributes.
+func (t Track) MarshalXML(enc *xml.Encoder, start xml.StartElement) error {
+	start.Attr = append(start.Attr,
+		xml.Attr{Name: xml.Name{Local: "course"}, Value: decimal(t.Course)},
+		xml.Attr{Name: xml.Name{Local: "speed"}, Value: decimal(t.Speed)},
+	)
+	return enc.EncodeElement(struct{}{}, start)
 }
 
 // Detail holds the detail elements OneMind reads and writes. Elements this
