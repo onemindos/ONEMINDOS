@@ -103,7 +103,12 @@ type Point struct {
 // decimal formats v as a plain xs:decimal. The CoT base schema types point
 // and track numbers as decimals, which forbid the exponent form (1e-05,
 // 9.999999e+06) that strconv's 'g' and encoding/xml's float default write.
-func decimal(v float64) string { return strconv.FormatFloat(v, 'f', -1, 64) }
+func decimal(v float64) string {
+	if v == Unknown {
+		return "9999999.0"
+	}
+	return strconv.FormatFloat(v, 'f', -1, 64)
+}
 
 // MarshalXML writes the point with plain-decimal attributes.
 func (p Point) MarshalXML(enc *xml.Encoder, start xml.StartElement) error {

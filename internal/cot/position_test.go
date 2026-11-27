@@ -212,7 +212,11 @@ func TestEncodeHasNoExponentNumbers(t *testing.T) {
 			t.Fatalf("exponent form %q in %s", bad, s)
 		}
 	}
-	for _, want := range []string{`hae="9999999"`, `ce="9999999"`, `le="9999999"`, `lat="0.00001"`, `course="0.000001"`} {
+	for _, want := range []string{
+		`lat="0.00001"`, `lon="-0.00002"`,
+		`hae="9999999.0"`, `ce="9999999.0"`, `le="9999999.0"`,
+		`course="0.000001"`, `speed="0.00001"`,
+	} {
 		if !strings.Contains(s, want) {
 			t.Fatalf("missing %s in %s", want, s)
 		}
@@ -220,5 +224,8 @@ func TestEncodeHasNoExponentNumbers(t *testing.T) {
 	back, err := Decode(b, time.Time{})
 	if err != nil || back.Point != e.Point {
 		t.Fatalf("round trip: %v %+v vs %+v", err, back.Point, e.Point)
+	}
+	if back.Detail == nil || back.Detail.Track == nil || *back.Detail.Track != *e.Detail.Track {
+		t.Fatalf("track after round trip: %+v, want %+v", back.Detail, e.Detail.Track)
 	}
 }
