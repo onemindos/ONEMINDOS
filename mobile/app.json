@@ -14,7 +14,10 @@
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
         },
-        "NSLocalNetworkUsageDescription": "OneMind connects to your own hub on your local network."
+        "NSLocalNetworkUsageDescription": "OneMind connects to your own hub on your local network.",
+        "NSMicrophoneUsageDescription": "Recorder uses the microphone when you start recording.",
+        "NSLocationWhenInUseUsageDescription": "OneMind uses your location when you ask an app to use it.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "OneMind uses background location only when you enable it for a feature."
       },
       "icon": {
         "light": "./assets/icon.png",
@@ -65,7 +68,10 @@
       "permissions": [
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.CAMERA",
-        "android.permission.USE_BIOMETRIC"
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION"
       ],
       "predictiveBackGestureEnabled": false,
       "blockedPermissions": [
@@ -87,7 +93,6 @@
         "expo-camera",
         {
           "cameraPermission": "OneMind uses the camera only to scan the join code your OneMind box shows.",
-          "microphonePermission": false,
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": true
         }
@@ -150,8 +155,15 @@
         "expo-camera",
         {
           "cameraPermission": "OneMind uses the camera to scan the join code your OneMind box shows.",
-          "microphonePermission": false,
           "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Recorder uses the microphone when you start recording.",
+          "enableBackgroundRecording": false,
+          "enableBackgroundPlayback": false
         }
       ],
       [

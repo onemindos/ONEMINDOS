@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { Features, HttpApi, normalizeHubUrl, OP, type OneMindApi, type TokenSource } from './api/client';
 import type { LoginResult, Me, Principal } from './api/types';
 import { clearConnection, loadConnection, saveConnection, type Connection, type LiveConnection } from './storage';
+import { wipeLocalDatabases } from './device/localDb';
 
 /**
  * Can this person approve, deny or request? With `GET /v1/me` (§12.6) the hub says so. On a v0 hub
@@ -188,6 +189,7 @@ export function SessionProvider({ deps = {}, children }: { deps?: SessionDeps; c
   );
 
   const disconnect = useCallback(async () => {
+    await wipeLocalDatabases();
     const s = live.current;
     if (s) {
       for (const fn of forgetHooks) await fn(s.api, s.connection.hubUrl).catch(() => undefined);
@@ -201,6 +203,7 @@ export function SessionProvider({ deps = {}, children }: { deps?: SessionDeps; c
 
   const expire = useCallback(async () => {
     const c = conn.current;
+    await wipeLocalDatabases();
     await clear();
     conn.current = null;
     setExpiredHub(c?.hubUrl);

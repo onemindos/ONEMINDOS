@@ -11,8 +11,28 @@ import { v0Api } from './test/fakes';
 import { mockApi, mockConnection } from './test/mockHub';
 import type { Connection } from './storage';
 import { loadConnection, saveConnection, clearConnection } from './storage';
+import * as localDb from './device/localDb';
 
 describe('session', () => {
+  it('wipes app databases before clearing the sign-in', async () => {
+    const wipe = jest.spyOn(localDb, 'wipeLocalDatabases').mockResolvedValue(undefined);
+    const clear = jest.fn(async () => expect(wipe).toHaveBeenCalledTimes(1));
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <SessionProvider deps={{ load: async () => null, save: async () => undefined, clear, makeApi: mockApi }}>
+        {children}
+      </SessionProvider>
+    );
+    try {
+      const { result } = await renderHook(() => useSession(), { wrapper });
+      await act(async () => { await result.current.connect(mockConnection('owner-demo')); });
+      await act(async () => { await result.current.disconnect(); });
+      expect(clear).toHaveBeenCalledTimes(1);
+      expect(result.current.session).toBeNull();
+    } finally {
+      wipe.mockRestore();
+    }
+  });
+
   it('saves the connection only after the hub accepts the token', async () => {
     const save = jest.fn(async (_c: Connection) => undefined);
     const wrapper = ({ children }: { children: ReactNode }) => (

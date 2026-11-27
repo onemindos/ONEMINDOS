@@ -9,7 +9,7 @@ import {
   type Theme as NavTheme,
 } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import * as Notifications from 'expo-notifications';
+import { Notifications } from './src/device/notifications';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo } from 'react';
 import { ActivityIndicator, View } from 'react-native';
@@ -44,6 +44,7 @@ import { NodesScreen } from './src/screens/NodesScreen';
 import { DeviceInfoScreen, LiveUsageScreen, NetworkScreen, OsUpdatesScreen, SystemControlsScreen } from './src/screens/SystemScreens';
 import { TipsScreen } from './src/screens/TipsScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
+import { PermissionsScreen } from './src/screens/PermissionsScreen';
 import { useUpdateNeeded } from './src/lib/protocol';
 import { UpdateNeededScreen } from './src/screens/UpdateNeededScreen';
 import { onForgetHub, SessionProvider, useSession, useSignedIn, type SessionDeps } from './src/session';
@@ -174,6 +175,7 @@ function SignedIn() {
             <Stack.Screen name="AppDetail" component={AppDetailScreen} options={{ title: 'App' }} />
             <Stack.Screen name="Tips" component={TipsScreen} />
             <Stack.Screen name="Settings" component={SettingsScreen} />
+            <Stack.Screen name="Permissions" component={PermissionsScreen} />
             <Stack.Screen name="Inbox" component={InboxScreen} />
             <Stack.Screen name="Nodes" component={NodesScreen} />
             <Stack.Screen name="Backups" component={BackupsScreen} />

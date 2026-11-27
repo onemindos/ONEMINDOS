@@ -120,11 +120,13 @@ export function DeviceSection(props: {
   onLink: (l: DeviceLink) => void;
   name: string;
   onName: (n: string) => void;
+  onPermissions?: () => void;
 }) {
   const { features } = useSignedIn();
   return (
     <>
       <ThisPhone {...props} />
+      {props.onPermissions && <Button variant="secondary" label="Permissions" onPress={props.onPermissions} />}
       {features.has(OP.myDevices) && <MyDevicesList />}
     </>
   );

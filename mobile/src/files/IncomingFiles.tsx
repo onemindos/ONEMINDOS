@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useEffect, useRef, useState } from 'react';
 import { Modal } from 'react-native';
-import type { Directory } from 'expo-file-system';
+import type { Directory } from '../device/files';
 import { OP } from '../api/client';
 import { useSignedIn } from '../session';
 import { uploadProblem } from '../lib/filesTransfer';

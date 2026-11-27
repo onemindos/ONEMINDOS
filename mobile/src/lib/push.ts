@@ -9,7 +9,7 @@
 //            APNs device token to the box (never Expo's push service, which would add a third-party
 //            cloud); the box asks the relay to ping it. The relay needs the founder's Apple
 //            developer account (F-4).
-import * as Notifications from 'expo-notifications';
+import { Notifications } from '../device/notifications';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { unifiedPush as defaultUp, type UnifiedPushNative, type UpEndpoint } from '../../modules/onemind-unifiedpush';
