@@ -106,6 +106,13 @@ _SPECS = [
          "OneMind cannot tell whether this change was applied. Check the app before retrying. {message}",
          dedupe="action:{action_id}", link="/activity/{action_id}", auto_resolve=False,
          learn_more=f"{_DOCS}/learning/09-gateway-approvals-agents-mcp.md"),
+    # ---- work (in the app only; addressed to the assignee named in person_id) -------------
+    Spec("work.task.assigned", "inbox", "automation", "info", "Assigned to you: {title}", "",
+         audience=PERSON, link="/work"),
+    Spec("work.task.due_soon", "inbox", "automation", "info", "Due soon: {title}", "Due {due_at}.",
+         audience=PERSON, link="/work"),
+    Spec("work.task.overdue", "inbox", "automation", "warning", "Overdue: {title}", "Was due {due_at}.",
+         audience=PERSON, link="/work"),
     # ---- nodes ---------------------------------------------------------------------------
     Spec("node.joined", "notify", "nodes", "info", "Node {node_id} joined",
          "The node joined as a {role}.", link="/nodes"),

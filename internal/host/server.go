@@ -33,6 +33,7 @@ const Schema = "onemind.host/v1"
 //	GET  /v1/network           read-only network facts (internal/netview; 404 when Network is nil)
 //	GET  /v1/services          service cards: the image's registry joined with systemd (internal/svcregistry; 404 when Services is nil)
 //	GET  /v1/services/{unit}/logs?lines=200&follow=1   a registry unit's journal as text lines (404 when ServiceLogs is nil)
+//	GET  /v1/journal?unit=&priority=&boot=0&lines=200&follow=1   the whole-system journal as text lines (404 when SystemJournal is nil)
 type Server struct {
 	S        *Service
 	AllowUID int // besides root; -1 none
@@ -53,6 +54,9 @@ type Server struct {
 	// unredacted (the gateway redacts every line before anyone sees it). It returns svcregistry.ErrUnknownUnit
 	// before writing anything for an unlisted unit; nil leaves the route off.
 	ServiceLogs func(ctx context.Context, unit string, lines int, follow bool, w io.Writer) error
+	// SystemJournal answers GET /v1/journal (P-07): the whole-system journal filtered by unit, priority and
+	// boot, text lines like ServiceLogs (404 when nil).
+	SystemJournal func(ctx context.Context, q svcregistry.JournalQuery, w io.Writer) error
 }
 
 // Capability is one kind in GET /v1/status.
@@ -176,6 +180,9 @@ func (s *Server) Handler() http.Handler {
 	if s.ServiceLogs != nil {
 		mux.HandleFunc("GET /v1/services/{unit}/logs", s.serviceLogs)
 	}
+	if s.SystemJournal != nil {
+		mux.HandleFunc("GET /v1/journal", s.systemJournal)
+	}
 	mux.HandleFunc("POST /v1/operations", func(w http.ResponseWriter, r *http.Request) {
 		var req Request
 		dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
@@ -270,6 +277,46 @@ func (s *Server) serviceLogs(w http.ResponseWriter, r *http.Request) {
 		return // the stream is under way: an error now just ends it
 	case errors.Is(err, svcregistry.ErrUnknownUnit):
 		apiError(w, http.StatusNotFound, "not_found", "unknown_unit", err.Error())
+	case err != nil:
+		apiError(w, http.StatusInternalServerError, "internal", "journal", "the journal could not be read")
+	default:
+		fw.start()
+	}
+}
+
+// systemJournal streams the whole-system journal as text/plain. Every query value is validated by
+// svcregistry.JournalQuery before journalctl runs.
+func (s *Server) systemJournal(w http.ResponseWriter, r *http.Request) {
+	v := r.URL.Query()
+	q := svcregistry.JournalQuery{Unit: v.Get("unit"), Priority: v.Get("priority"), Lines: 200, Follow: v.Get("follow") == "1"}
+	bad := func(msg string) { apiError(w, http.StatusBadRequest, "bad_request", "invalid", msg) }
+	if x := v.Get("lines"); x != "" {
+		n, err := strconv.Atoi(x)
+		if err != nil {
+			bad("lines must be a number")
+			return
+		}
+		q.Lines = n
+	}
+	if x := v.Get("boot"); x != "" {
+		n, err := strconv.Atoi(x)
+		if err != nil {
+			bad("boot must be a number such as 0 or -1")
+			return
+		}
+		q.Boot = n
+	}
+	if err := q.Validate(); err != nil {
+		bad(err.Error())
+		return
+	}
+	fw := &flushWriter{w: w}
+	err := s.SystemJournal(r.Context(), q, fw)
+	switch {
+	case fw.started:
+		return
+	case errors.Is(err, svcregistry.ErrBadJournalQuery):
+		bad(err.Error())
 	case err != nil:
 		apiError(w, http.StatusInternalServerError, "internal", "journal", "the journal could not be read")
 	default:

@@ -13,6 +13,7 @@ import { useSignedIn } from '../session';
 import { useShell } from '../shell/Shell';
 import { TipsGuide } from './Tips';
 import { FixProblem } from './troubleshoot/FixProblem';
+import { LogViewer } from './troubleshoot/LogViewer';
 import { ReportProblem, saveJson } from './troubleshoot/ReportProblem';
 import { href } from '../shell/routes';
 import { Load, TextField, useRun } from './parts';
@@ -43,21 +44,28 @@ export function Troubleshoot() {
 }
 
 function LiveTroubleshoot({ token }: { token: string }) {
+  const [tab, setTab] = useState<'help' | 'logs'>('help');
   const client = useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1 }), [token]);
   const { role } = useShell();
   const status = usePoll(() => client.status.get(), 15_000);
   const currentStatus = status.error ? undefined : status.data;
   const owner = role === 'owner';
   return <div className="dash-stack">
-    <PageHeader title="Troubleshoot" lede="Review box health, request a fix or prepare a diagnostic report." />
-    <FixProblem client={client} status={currentStatus} owner={owner} />
-    <TipsGuide client={client} />
-    {owner ? <>
-      <ReportProblem client={client} status={currentStatus} />
-      <SystemControls client={client} />
-    </> : <Card title="Report a problem">
-      <p>Ask the owner to collect a report. Your account is not allowed to see this diagnostic bundle.</p>
-    </Card>}
+    <PageHeader title="Troubleshoot" lede="Review box health, request a fix, read the system logs or prepare a diagnostic report." />
+    {owner && <div role="tablist" aria-label="Troubleshoot sections">
+      {([['help', 'Fix and report'], ['logs', 'Logs']] as const).map(([id, label]) =>
+        <Button key={id} role="tab" aria-selected={tab === id} variant={tab === id ? 'primary' : 'ghost'} onClick={() => setTab(id)}>{label}</Button>)}
+    </div>}
+    {owner && tab === 'logs' ? <div role="tabpanel" aria-label="Logs"><LogViewer token={token} /></div> : <>
+      <FixProblem client={client} status={currentStatus} owner={owner} />
+      <TipsGuide client={client} />
+      {owner ? <>
+        <ReportProblem client={client} status={currentStatus} />
+        <SystemControls client={client} />
+      </> : <Card title="Report a problem">
+        <p>Ask the owner to collect a report. Your account is not allowed to see this diagnostic bundle.</p>
+      </Card>}
+    </>}
   </div>;
 }
 
