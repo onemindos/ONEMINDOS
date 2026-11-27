@@ -13,23 +13,23 @@ type LocationAdapter = {
 const adapter = () => requireNativeModule<LocationAdapter>('OneMindLocation');
 
 export async function locationPermission(background = false) {
+  if (background) return 'Not available';
   return permissionState(await adapter().getPermission(background));
 }
 
 export async function requestLocationPermission(options: { background?: boolean } = {}) {
+  if (options.background) return 'Not available';
   const location = adapter();
-  const background = options.background === true;
-  if (background && !(await location.getPermission(false)).granted) return 'Denied';
-  const current = await location.getPermission(background);
-  if (!current.granted && current.canAskAgain) await location.requestPermission(background);
+  const current = await location.getPermission(false);
+  if (!current.granted && current.canAskAgain) await location.requestPermission(false);
   // On Android 12+ the person may grant approximate access while denying precise access.
-  return permissionState(await location.getPermission(background));
+  return permissionState(await location.getPermission(false));
 }
 
 export async function currentPosition(options: { background?: boolean } = {}): Promise<PhonePosition> {
-  const background = options.background === true;
-  if (!background && AppState.currentState !== 'active') throw new Error('Open OneMind to use location.');
+  if (options.background) throw new Error('Background location is not available.');
+  if (AppState.currentState !== 'active') throw new Error('Open OneMind to use location.');
   const location = adapter();
-  if (!(await location.getPermission(background)).granted) throw new Error('Location access is off.');
-  return location.currentPosition(background);
+  if (!(await location.getPermission(false)).granted) throw new Error('Location access is off.');
+  return location.currentPosition(false);
 }

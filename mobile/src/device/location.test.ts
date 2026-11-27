@@ -9,37 +9,43 @@ const granted = { status: 'granted', granted: true, canAskAgain: true };
 const denied = { status: 'denied', granted: false, canAskAgain: true };
 const revoked = { status: 'denied', granted: false, canAskAgain: false };
 
-beforeEach(() => jest.resetAllMocks());
+const originalAppState = AppState.currentState;
+beforeEach(() => {
+  jest.resetAllMocks();
+  AppState.currentState = 'active';
+});
+afterEach(() => { AppState.currentState = originalAppState; });
 
 it('checks location state without requesting access and refuses a reading after revocation', async () => {
   mockLocation.getPermission.mockResolvedValueOnce(granted).mockResolvedValueOnce(denied).mockResolvedValue(revoked);
   await expect(locationPermission()).resolves.toBe('Allowed');
   await expect(locationPermission()).resolves.toBe('Denied');
-  await expect(locationPermission(true)).resolves.toBe('Blocked');
-  await expect(currentPosition({ background: true })).rejects.toThrow('Location access is off');
+  await expect(currentPosition()).rejects.toThrow('Location access is off');
   expect(mockLocation.requestPermission).not.toHaveBeenCalled();
   expect(mockLocation.currentPosition).not.toHaveBeenCalled();
 });
 
-it('only asks for background access explicitly, after foreground access is granted', async () => {
-  mockLocation.getPermission.mockResolvedValueOnce(denied).mockResolvedValueOnce(denied)
-    .mockResolvedValueOnce(granted).mockResolvedValueOnce(granted).mockResolvedValueOnce(denied).mockResolvedValue(granted);
-  await expect(requestLocationPermission({ background: true })).resolves.toBe('Denied');
+it('asks for foreground permission only when requested', async () => {
+  mockLocation.getPermission.mockResolvedValueOnce(denied).mockResolvedValueOnce(granted);
   await expect(requestLocationPermission()).resolves.toBe('Allowed');
-  await expect(requestLocationPermission({ background: true })).resolves.toBe('Allowed');
-  expect(mockLocation.requestPermission.mock.calls).toEqual([[false], [true]]);
+  expect(mockLocation.requestPermission.mock.calls).toEqual([[false]]);
 });
 
-it('rejects foreground reading while inactive and passes an explicit background grant to the adapter', async () => {
+it('reports background location unavailable without calling the native adapter', async () => {
+  await expect(locationPermission(true)).resolves.toBe('Not available');
+  await expect(requestLocationPermission({ background: true })).resolves.toBe('Not available');
+  await expect(currentPosition({ background: true })).rejects.toThrow('Background location is not available');
+  expect(mockLocation.getPermission).not.toHaveBeenCalled();
+  expect(mockLocation.requestPermission).not.toHaveBeenCalled();
+  expect(mockLocation.currentPosition).not.toHaveBeenCalled();
+});
+
+it('rejects foreground readings while inactive', async () => {
   const previous = AppState.currentState;
   AppState.currentState = 'background';
   try {
-    const fix = { latitude: 1, longitude: 2, accuracyMeters: 3, timestamp: 4 };
-    mockLocation.getPermission.mockResolvedValue(granted);
-    mockLocation.currentPosition.mockResolvedValue(fix);
     await expect(currentPosition()).rejects.toThrow('Open OneMind');
-    await expect(currentPosition({ background: true })).resolves.toEqual(fix);
-    expect(mockLocation.currentPosition.mock.calls).toEqual([[true]]);
+    expect(mockLocation.currentPosition).not.toHaveBeenCalled();
   } finally {
     AppState.currentState = previous;
   }

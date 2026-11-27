@@ -22,7 +22,7 @@ public class OneMindLocationModule: Module {
 
 private final class LocationBridge: NSObject, CLLocationManagerDelegate {
   private let manager = CLLocationManager()
-  private var permissionRequest: (Bool, Promise)?
+  private var permissionRequest: Promise?
   private var permissionTimeout: DispatchWorkItem?
   private var positionRequest: Promise?
 
@@ -32,9 +32,10 @@ private final class LocationBridge: NSObject, CLLocationManagerDelegate {
   }
 
   func permission(_ background: Bool) -> [String: Any] {
+    if background { return ["granted": false, "canAskAgain": false, "status": "unavailable"] }
     let status = manager.authorizationStatus
-    let granted = status == .authorizedAlways || (!background && status == .authorizedWhenInUse)
-    let undetermined = status == .notDetermined || (background && status == .authorizedWhenInUse)
+    let granted = status == .authorizedAlways || status == .authorizedWhenInUse
+    let undetermined = status == .notDetermined
     return ["granted": granted, "canAskAgain": undetermined,
             "status": granted ? "granted" : undetermined ? "undetermined" : "denied"]
   }
@@ -46,28 +47,27 @@ private final class LocationBridge: NSObject, CLLocationManagerDelegate {
       promise.reject("E_LOCATION_BUSY", "The phone is already asking for location access.")
       return
     }
-    permissionRequest = (background, promise)
-    if background {
-      manager.requestAlwaysAuthorization()
-    } else {
-      manager.requestWhenInUseAuthorization()
-    }
-    // iOS may defer the Always prompt, in which case authorization has not changed.
+    permissionRequest = promise
+    manager.requestWhenInUseAuthorization()
     let timeout = DispatchWorkItem { [weak self] in self?.finishPermissionRequest() }
     permissionTimeout = timeout
     DispatchQueue.main.asyncAfter(deadline: .now() + 30, execute: timeout)
   }
 
   private func finishPermissionRequest() {
-    guard let (background, promise) = permissionRequest else { return }
+    guard let promise = permissionRequest else { return }
     permissionRequest = nil
     permissionTimeout?.cancel()
     permissionTimeout = nil
-    promise.resolve(permission(background))
+    promise.resolve(permission(false))
   }
 
   func current(_ background: Bool, _ promise: Promise) {
-    guard permission(background)["granted"] as? Bool == true else {
+    guard !background else {
+      promise.reject("E_LOCATION_UNAVAILABLE", "Background location is not available.")
+      return
+    }
+    guard permission(false)["granted"] as? Bool == true else {
       promise.reject("E_LOCATION_PERMISSION", "Location access is off.")
       return
     }

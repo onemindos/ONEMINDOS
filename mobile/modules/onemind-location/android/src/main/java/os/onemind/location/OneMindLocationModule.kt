@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package os.onemind.location
 
-import android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
 import android.Manifest.permission.ACCESS_COARSE_LOCATION
 import android.Manifest.permission.ACCESS_FINE_LOCATION
 import android.content.Context
@@ -17,48 +16,59 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
 class OneMindLocationModule : Module() {
-  private fun permission(background: Boolean): String =
-    if (background && Build.VERSION.SDK_INT >= 29) ACCESS_BACKGROUND_LOCATION else ACCESS_COARSE_LOCATION
+  private val unavailable = mapOf("granted" to false, "canAskAgain" to false, "status" to "unavailable")
 
   override fun definition() = ModuleDefinition {
     Name("OneMindLocation")
 
     AsyncFunction("getPermission") { background: Boolean, promise: Promise ->
-      Permissions.getPermissionsWithPermissionsManager(appContext.permissions, promise, permission(background))
+      if (background) promise.resolve(unavailable)
+      else Permissions.getPermissionsWithPermissionsManager(appContext.permissions, promise, ACCESS_COARSE_LOCATION)
     }
 
     AsyncFunction("requestPermission") { background: Boolean, promise: Promise ->
-      val requested = if (background) arrayOf(permission(true))
-      else arrayOf(ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION)
-      Permissions.askForPermissionsWithPermissionsManager(appContext.permissions, promise, *requested)
+      if (background) promise.resolve(unavailable)
+      else Permissions.askForPermissionsWithPermissionsManager(appContext.permissions, promise, ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION)
     }
 
     AsyncFunction("currentPosition") { background: Boolean, promise: Promise ->
+      if (background) {
+        promise.reject("E_LOCATION_UNAVAILABLE", "Background location is not available.", null)
+        return@AsyncFunction
+      }
       val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
       val permissions = appContext.permissions ?: throw Exceptions.PermissionsModuleNotFound()
-      if (!permissions.hasGrantedPermissions(ACCESS_COARSE_LOCATION, permission(background))) {
+      if (!permissions.hasGrantedPermissions(ACCESS_COARSE_LOCATION)) {
         promise.reject("E_LOCATION_PERMISSION", "Location access is off.", null)
         return@AsyncFunction
       }
       val manager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
       val candidates = if (permissions.hasGrantedPermissions(ACCESS_FINE_LOCATION)) {
-        listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
+        buildList {
+          if (Build.VERSION.SDK_INT >= 31) add(LocationManager.FUSED_PROVIDER)
+          add(LocationManager.GPS_PROVIDER)
+          add(LocationManager.NETWORK_PROVIDER)
+        }
       } else {
         listOf(LocationManager.NETWORK_PROVIDER, "fused")
       }
-      val provider = candidates.firstOrNull { it in manager.allProviders && manager.isProviderEnabled(it) }
-      if (provider == null) {
-        promise.reject("E_LOCATION_UNAVAILABLE", "The phone has no enabled location provider for this permission.", null)
-        return@AsyncFunction
-      }
-      LocationManagerCompat.getCurrentLocation(manager, provider, CancellationSignal(), ContextCompat.getMainExecutor(context)) { fix ->
-        if (fix == null) {
+      val providers = candidates.filter { it in manager.allProviders && manager.isProviderEnabled(it) }.iterator()
+      val mainExecutor = ContextCompat.getMainExecutor(context)
+      fun tryNextProvider() {
+        if (!providers.hasNext()) {
           promise.reject("E_LOCATION_UNAVAILABLE", "The phone could not find its location.", null)
-        } else {
-          promise.resolve(mapOf("latitude" to fix.latitude, "longitude" to fix.longitude,
-            "accuracyMeters" to fix.accuracy.toDouble(), "timestamp" to fix.time.toDouble()))
+          return
+        }
+        LocationManagerCompat.getCurrentLocation(manager, providers.next(), CancellationSignal(), mainExecutor) { fix ->
+          if (fix == null) {
+            tryNextProvider()
+          } else {
+            promise.resolve(mapOf("latitude" to fix.latitude, "longitude" to fix.longitude,
+              "accuracyMeters" to fix.accuracy.toDouble(), "timestamp" to fix.time.toDouble()))
+          }
         }
       }
+      tryNextProvider()
     }
   }
 }

@@ -13,6 +13,16 @@ import type { Connection } from './storage';
 import { loadConnection, saveConnection, clearConnection } from './storage';
 import * as localDb from './device/localDb';
 
+jest.mock('./device/localDb', () => ({
+  activateLocalDatabases: jest.fn(async () => undefined),
+  lockLocalDatabases: jest.fn(async () => undefined),
+  resumeLocalDatabases: jest.fn(async () => undefined),
+  wipeLocalDatabases: jest.fn(async () => undefined),
+}));
+
+beforeEach(() => jest.clearAllMocks());
+
+
 describe('session', () => {
   it('wipes app databases before clearing the sign-in', async () => {
     const wipe = jest.spyOn(localDb, 'wipeLocalDatabases').mockResolvedValue(undefined);
@@ -33,6 +43,25 @@ describe('session', () => {
     }
   });
 
+  it('clears the credentials and signs out even when the database wipe fails', async () => {
+    jest.mocked(localDb.wipeLocalDatabases).mockRejectedValueOnce(new Error('disk error'));
+    const clear = jest.fn(async () => undefined);
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <SessionProvider deps={{ load: async () => null, save: async () => undefined, clear, makeApi: mockApi }}>
+        {children}
+      </SessionProvider>
+    );
+    const { result, unmount } = await renderHook(() => useSession(), { wrapper });
+    await act(async () => { await result.current.connect(mockConnection('owner-demo')); });
+    await act(async () => { await result.current.disconnect(); });
+    expect(clear).toHaveBeenCalledTimes(1);
+    expect(result.current.session).toBeNull();
+    await unmount();
+    jest.mocked(localDb.resumeLocalDatabases).mockClear();
+    await renderHook(() => useSession(), { wrapper });
+    expect(localDb.resumeLocalDatabases).toHaveBeenCalledWith(undefined);
+  });
+
   it('saves the connection only after the hub accepts the token', async () => {
     const save = jest.fn(async (_c: Connection) => undefined);
     const wrapper = ({ children }: { children: ReactNode }) => (
@@ -47,7 +76,7 @@ describe('session', () => {
     await act(async () => {
       await result.current.connect(mockConnection('owner-demo'));
     });
-    expect(save).toHaveBeenCalledWith(mockConnection('owner-demo'));
+    expect(save).toHaveBeenCalledWith(expect.objectContaining(mockConnection('owner-demo')));
     expect(result.current.session?.canDecide).toBe('yes');
   });
 
@@ -219,6 +248,8 @@ describe('identity (§12.6)', () => {
     expect(result.current.session).toBeNull();
     expect(result.current.expiredHub).toBe('https://hub.example');
     expect(clear).toHaveBeenCalled();
+    expect(localDb.lockLocalDatabases).toHaveBeenCalledTimes(1);
+    expect(localDb.wipeLocalDatabases).not.toHaveBeenCalled();
   });
 });
 
