@@ -81,12 +81,13 @@ image: tools
 # The installer stick's release payload (os/boards/installer-x86_64/UPDATES.md, #234): BOARD's disk image with the
 # release CA as its keyring. TRUST=<dir> holds ONLY keyring.pem, the public CA certificate; no signing key is used and no
 # bundle is made (the channel's bundles come from os/update/build-release.sh). Without release keys use `make image`.
+# SECUREBOOT is passed on so release-image.sh refuses SECUREBOOT=1 instead of quietly building the GRUB route.
 #   make release-image BOARD=x86_64-efi VERSION=0.1.20261112025704 TRUST=<dir>   -> out/image-<board>/ (disk .img, SHA256SUMS)
 .PHONY: release-image
 release-image: tools
 	@test -n "$(TRUST)" || { echo "usage: make release-image BOARD=x86_64-efi VERSION=<release> TRUST=<dir with keyring.pem only>"; exit 1; }
 	@test -f $(ROOTFS) || $(MAKE) rootfs BOARD=$(BOARD) LEG=$(LEG)
-	$(DOCKER_RUN) -v "$(abspath $(TRUST))":/trust:ro -e TRUSTDIR=/trust -e VERSION=$(VERSION) -e BOARD=$(BOARD) -e ROOTFS=/out/$(notdir $(ROOTFS)) -e SOURCE_DATE_EPOCH=$(SOURCE_DATE_EPOCH) $(TOOLS) \
+	$(DOCKER_RUN) -v "$(abspath $(TRUST))":/trust:ro -e TRUSTDIR=/trust -e VERSION=$(VERSION) -e BOARD=$(BOARD) -e SECUREBOOT=$(SECUREBOOT) -e ROOTFS=/out/$(notdir $(ROOTFS)) -e SOURCE_DATE_EPOCH=$(SOURCE_DATE_EPOCH) $(TOOLS) \
 	  /src/os/assemble/release-image.sh /out/image-$(BOARD)
 
 fixtures: tools

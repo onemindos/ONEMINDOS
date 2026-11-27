@@ -282,7 +282,13 @@ jobs:
   # (`make image`, throwaway CA). This job reads no secret and declares no environment: it never sees a key, and it
   # stays GitHub-hosted like the rest of this workflow. Not a publishing gate: a red stick never holds back a
   # security fix for boxes already installed.
+  # A release-keyed image must pass scripts/release/check-release-image.sh: the keyring read back from the image is the
+  # bundle's, RAUC accepts this run's bundle with it, and its packages are the scanned and signed build's. On every dry
+  # run the same release path (make release-image + those checks) is rehearsed with the dry run's public throwaway
+  # keyring, so its first real execution is not the first publishing build.
   installer:
+    # Waits on the whole build matrix (needs cannot name one matrix leg): a failed vm, vm-do or arm64-efi build also
+    # skips this x86 stick. Accepted, because the stick is not a publishing gate; the build's own red is the signal.
     needs: [decide, build]
     if: needs.decide.outputs.rebuild == 'true'
     runs-on: ubuntu-24.04
@@ -326,6 +332,19 @@ jobs:
             --output type=tar,dest=out/rootfs-debian-x86_64-efi.tar .
           docker buildx build -f os/rootfs/Containerfile --target tools --progress plain \
             "${args[@]}" --cache-from type=gha,scope=tools-ubuntu-24.04 --load -t onemind-tools:ci .
+      # Dry runs only: the dry-run record carries a PUBLIC throwaway keyring (build-release.sh), so the release path runs
+      # for real with it, into its own OUT, under the same checks as a publishing run. The stick below is still the dev
+      # stick from `make image`; this image is deleted again and never packed.
+      - name: Rehearse the release image with the dry run's public keyring (no key; not the stick)
+        if: steps.payload.outputs.mode == 'dev'
+        run: |
+          mkdir -p out-rehearsal "$RUNNER_TEMP/rehearsal-trust"
+          cp "rel/onemind-x86_64-efi-$VERSION.keyring.pem" "$RUNNER_TEMP/rehearsal-trust/keyring.pem"
+          ln out/rootfs-debian-x86_64-efi.tar out-rehearsal/rootfs-debian-x86_64-efi.tar
+          make release-image BOARD=x86_64-efi TOOLS=onemind-tools:ci VERSION="$VERSION" OUT=out-rehearsal \
+            TRUST="$RUNNER_TEMP/rehearsal-trust"
+          scripts/release/check-release-image.sh out-rehearsal/image-x86_64-efi rel x86_64-efi "$VERSION"
+          sudo rm -rf out-rehearsal "$RUNNER_TEMP/rehearsal-trust"
       - name: The image the stick carries, then the stick
         env:
           MODE: ${{ steps.payload.outputs.mode }}
@@ -335,6 +354,8 @@ jobs:
             # The stick trusts exactly the CA the channel's bundle was verified against, and carries no dev CA.
             cmp out/image-x86_64-efi/release-ca.cert.pem "rel/onemind-x86_64-efi-$VERSION.keyring.pem"
             test ! -e out/image-x86_64-efi/dev-ca.cert.pem
+            # That keyring is read back from the image; RAUC accepts this run's bundle with it; same packages as signed.
+            scripts/release/check-release-image.sh out/image-x86_64-efi rel x86_64-efi "$VERSION"
           else
             # The dev path: the same command as image.yml's installer job, with this build's version.
             make image BOARD=x86_64-efi TOOLS=onemind-tools:ci VERSION="$VERSION"
@@ -350,10 +371,19 @@ jobs:
         run: sudo cp out/image-x86_64-efi/*-ca.cert.pem out/installer-x86_64/
       - name: Summary; keep only the stick image (compressed) and the logs
         if: always()
+        env:
+          MODE: ${{ steps.payload.outputs.mode }}
         run: |
           d=out/test-installer-x86_64
           sudo chown -R "$(id -u):$(id -g)" out
           sudo chmod -R a+rw out
+          if [ -d out/installer-x86_64 ]; then
+            if [ "$MODE" = release ]; then
+              echo "RELEASE-keyed stick of security build $VERSION: the installed box trusts the release CA. This job does not wait for publishing: flash it only if release os-security-$VERSION was published." > out/installer-x86_64/README.txt
+            else
+              echo "DEV stick of security build $VERSION (mode=${MODE:-unselected}): the installed box trusts a throwaway CA and takes no later release. For testing only." > out/installer-x86_64/README.txt
+            fi
+          fi
           if [ -f $d/results.json ]; then python3 -I test/qemu/summary.py $d/results.json >> "$GITHUB_STEP_SUMMARY"; fi
           if [ -f $d/serial.log ]; then test/qemu/trim-log.sh $d/serial.log > $d/serial-trimmed.log; rm -f $d/serial.log; fi
           rm -rf $d/work
@@ -362,7 +392,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
-          name: installer-security-x86_64
+          name: installer-security-x86_64-${{ steps.payload.outputs.mode || 'unselected' }}
           path: |
             out/installer-x86_64/
             out/test-installer-x86_64/

@@ -9,6 +9,10 @@
 # No signing key is used or accepted: the image is assembled without --cert/--key, so no bundle is made here (the
 # channel's bundles come from build-release.sh). Refused: any other file in TRUSTDIR, a PEM block that is not a
 # certificate, a development version, SECUREBOOT=1. Without release keys the image is `make image` (dev-image.sh).
+# After assembly the keyring is read back from the assembled tree (<work>/tree/etc/rauc/keyring.pem, the tree the root
+# filesystem is packed from) and must be byte for byte the given CA; release-ca.cert.pem next to the image is that
+# read-back file, not a copy of the input. If it is missing or differs (an assembler that ignores or replaces
+# --keyring), the image and its SHA256SUMS are removed and the run is refused, so `make installer` cannot pack it.
 set -eu
 OUTDIR=$1; : "${BOARD:?}" "${ROOTFS:?}" "${VERSION:?}"
 SRC=$(cd "$(dirname "$0")/../.." && pwd)
@@ -28,10 +32,20 @@ if grep -q 'PRIVATE KEY' "$CA"; then die "keyring.pem holds a private key; give 
 grep -q '^-----BEGIN CERTIFICATE-----' "$CA" || die "keyring.pem holds no certificate"
 if grep '^-----BEGIN ' "$CA" | grep -qv '^-----BEGIN CERTIFICATE-----'; then die "keyring.pem holds a PEM block that is not a certificate"; fi
 W=$(mktemp -d /tmp/work.XXXXXX); trap 'rm -rf "$W"' EXIT
-mkdir -p "$OUTDIR"; rm -f "$OUTDIR/SHA256SUMS"
+mkdir -p "$OUTDIR"
+# Nothing from an older run (dev-image.sh or this script) may sit next to the new image: a stale dev CA, bundle,
+# disk image or package list would be packed or kept as if it belonged to this one.
+rm -f "$OUTDIR/SHA256SUMS" "$OUTDIR/dev-ca.cert.pem" "$OUTDIR/release-ca.cert.pem" "$OUTDIR/db.crt" \
+  "$OUTDIR"/*.raucb "$OUTDIR/onemind-$BOARD-"*.img "$OUTDIR/onemind-$BOARD-"*.packages.txt
 # A board may name its own assembler with the same CLI (board.yaml `assembler:`), as in dev-image.sh.
 ASM=$(sed -n 's/^assembler: *\([^ #]*\).*/\1/p' "$SRC/os/boards/$BOARD/board.yaml"); ASM=${ASM:-os/assemble/assemble.py}
 python3 -I "$SRC/$ASM" image --board "$BOARD" --rootfs "$ROOTFS" --work "$W" \
   --version "$VERSION" --keyring "$CA" --out-dir "$OUTDIR"
-cp "$CA" "$OUTDIR/release-ca.cert.pem"
+# What the image really holds: the keyring finalize() installed in the tree the root filesystem was made from.
+IMGCA=$W/tree/etc/rauc/keyring.pem
+if [ ! -s "$IMGCA" ] || ! cmp -s "$IMGCA" "$CA"; then
+  rm -f "$OUTDIR/SHA256SUMS" "$OUTDIR/onemind-$BOARD-$VERSION.img" "$OUTDIR/onemind-$BOARD-$VERSION.packages.txt"
+  die "the assembled image's /etc/rauc/keyring.pem is missing or is not the given release CA ($ASM ignored or replaced --keyring); image removed"
+fi
+cp "$IMGCA" "$OUTDIR/release-ca.cert.pem"
 echo "release-keyed image ready in $OUTDIR (keyring: the release CA; no signing key used, no bundle made)"
