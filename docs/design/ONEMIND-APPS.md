@@ -70,6 +70,35 @@ Founder brief, 2026-11-26:
 
 **iOS:** the same Expo app (D-021: Android first, then iPhone). Nothing in the design is Android-only. Native modules ship in Kotlin and Swift pairs.
 
+## 3a. Technology choices: what could limit us, and what we do instead
+
+Founder, 2026-11-26: "I don't want to build on top of something that will limit us."
+
+**Keep:** React Native with Expo on phones, React on web and desktop (Tauri), and the Python gateway on the box.
+- **Why not fully native (Swift and Kotlin separately):** it doubles every app. Expo modules already let us write native Swift or Kotlin wherever it matters (we ship three).
+- **Why not Flutter:** it would throw away the shared TypeScript: the SDK, the dashboard, the design tokens and the app kits.
+
+The real limits are in our own architecture, so these are the rules:
+
+| Risk | Rule |
+|---|---|
+| Data that lives only on the server | **Local-first:** each app's data lives on the device (SQLite) and syncs. This is the most important choice. |
+| A sync engine we don't own (paid tiers, tied to one database) | **Our own small, documented sync protocol (F1):** a changes feed with a cursor, an outbox, idempotency keys, and conflicts kept as copies. Libraries under it must be small, permissive and swappable. |
+| Screens built only from server data | The screen schema (#641/#642) is for simple screens only. Rich apps get native screens. The schema speeds us up; it is never a ceiling. |
+| App logic tied to one screen or platform | One shared TypeScript **app kit** per app (`clients/<id>/`) for web, Android and iOS |
+| The framework can't reach the device | Expo native modules (Kotlin and Swift) through the device bridge (F4) |
+| An app outgrows the gateway | Each app module owns its tables, events and API. It can move into its own service later without any client change. |
+| The API, CLI and AI tools drift apart | One declaration per operation generates the OpenAPI spec, the MCP tools (`surfaces/core.py` already does this) **and the CLI**. |
+
+**Two specialised areas:**
+- **Content several people edit (Notes, Docs, Whiteboard):** a **CRDT** (edits from everyone merge automatically, nothing is lost), with **Yjs** or **Automerge**. They are expected to be MIT; confirm from their own licence files before use (UNVERIFIED here). Plain records (Reminders, Calendar, Contacts) use F1's record sync.
+- **The rich-text editor:** native rich-text editing is weak in React Native. The likely answer is **our own editor, bundled offline in the app and drawn with web technology inside one component**. That is our code with no network page, so it keeps "100% inside the app". The editor spike decides.
+
+**Spikes before the app wave** (days each, results recorded here), then **Reminders** built fully on the result:
+1. **Sync:** F1 plus SQLite on the S24. Airplane mode, edits on two devices, reconnect: nothing lost or doubled.
+2. **Editor:** a Notes editor on Android and iOS, offline, with two editors merging through the CRDT.
+3. **Speed:** a list of 10,000 items and the map scroll smoothly on the S24.
+
 ## 4. Engines and licences
 
 ### The rules (proposed)
