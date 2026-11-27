@@ -241,11 +241,12 @@ function MachineCard({ m, pending, disabled, onSend, onRemove, onSnapshot, onClo
 }
 
 function TransferMedia({ machine, disabled, onTransferred }: { machine: MachineRecord; disabled: boolean; onTransferred: () => void }) {
-  const { token, principal } = useSignedIn();
+  const { token } = useSignedIn();
+  const { role } = useShell();
   const [transferring, setTransferring] = useState(false);
   const [result, setResult] = useState('');
   const waiting = machine.state === 'needs_media';
-  if ((!waiting && !result) || principal?.kind !== 'person' || principal.role !== 'owner') return null;
+  if ((!waiting && !result) || role !== 'owner') return null;
   const transfer = async () => {
     setTransferring(true);
     setResult('');

@@ -9,6 +9,7 @@ import { Button, Card, Dialog, StatusPill } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
+import { useShell } from '../shell/Shell';
 import { Load, TextField, useRun } from './parts';
 
 type KillSwitch = components['schemas']['KillSwitch'];
@@ -26,9 +27,10 @@ async function call(sdk: OneMind, method: 'GET' | 'PUT', body?: components['sche
 }
 
 export function AgentStop() {
-  const { token, mock, principal } = useSignedIn();
+  const { token, mock } = useSignedIn();
+  const { role } = useShell(); // a real hub's session has no principal; the role comes from GET /v1/me
   if (mock) return null; // demo mode has no gateway to stop agents on
-  return <LiveAgentStop token={token} owner={principal?.role === 'owner'} />;
+  return <LiveAgentStop token={token} owner={role === 'owner'} />;
 }
 
 function LiveAgentStop({ token, owner }: { token: string; owner: boolean }) {
