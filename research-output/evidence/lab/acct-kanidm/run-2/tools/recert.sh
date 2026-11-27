@@ -1,3 +1,5 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
 # TLS-only fix on the running box: re-issue the lab CA and server certificate with the extensions Python 3.13's strict verifier needs
 set -e; export HOME=/root; cd /etc/kanidmd; CANON=idm.onemind.test; ALIAS=idm.mesh.test; SUBALIAS=mesh.idm.onemind.test
 pkill -f chain.sh || true; pkill -f ak6.sh || true; pkill -f aklab.py || true

@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
 # PK-2: owner passkey enrolled with the outside network cut, in a real (headless Chromium) browser on the LAN path,
 # then signed in with, still offline. Run through the QEMU guest agent: the VM's virtual cable is out.
 set -euo pipefail; T=PK-2; . /root/aklab/lib.sh

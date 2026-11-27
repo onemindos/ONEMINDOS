@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
 # AK-6 account expiry.
 set -euo pipefail; T=AK-6; . /root/aklab/lib.sh
 stamp "AK-6: account expiry"

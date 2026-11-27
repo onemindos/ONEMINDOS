@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
 # AK-1 host service. usage: ak1.sh pre|post   (pre: install + enable + start; post: after a reboot)
 set -euo pipefail; T=AK-1; . /root/aklab/lib.sh
 CHK='systemctl list-unit-files --no-legend | grep -E "k3s|containerd|docker|podman|crio" || echo "no k3s/container units"; for b in k3s kubectl docker podman containerd ctr crio runc; do command -v $b || true; done; echo "(no container binaries listed above = none installed)"'

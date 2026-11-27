@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
 # AK-8c: does the passkey-minimum policy stop a person in the group from ENROLLING password + TOTP in the first place?
 set -euo pipefail; T=AK-8; . /root/aklab/lib.sh
 stamp "AK-8c: with credential-type-minimum = passkey, can a member of onemind_adults enrol password + TOTP?"

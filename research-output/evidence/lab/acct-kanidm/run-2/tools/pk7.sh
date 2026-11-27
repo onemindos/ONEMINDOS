@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
 # PK-7 (fresh Debian 13 box, same canonical domain): restore the online backup, then sign in with the SAME passkey
 # (the key stays in the "phone" = owner.cred, copied over; it is not part of the backup) on both access paths.
 set -euo pipefail; T=PK-7; . /root/aklab/lib.sh

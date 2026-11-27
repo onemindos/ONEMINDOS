@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
 # AK-5 credential-reset link: one use only.
 set -euo pipefail; T=AK-5; . /root/aklab/lib.sh
 stamp "AK-5: credential-reset link"

@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
 # AK-4 OIDC client with group scope and claim maps.
 set -euo pipefail; T=AK-4; . /root/aklab/lib.sh
 C=onemind_testapp; RED=https://app.onemind.test/oauth2/callback

@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
 # AK-3 household groups, AK-9 RSS sample after.
 set -euo pipefail; T=AK-3; . /root/aklab/lib.sh
 stamp "AK-3: household groups"

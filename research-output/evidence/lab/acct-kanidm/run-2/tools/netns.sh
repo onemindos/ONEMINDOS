@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
 # Two simulated client networks, each a network namespace with its own veth link to the server and its own
 # name resolution. Documentation address ranges (RFC 5737) are used; they are lab-only.
 #   nsl = a laptop on the home LAN : canonical name resolves to the server's LAN-side address

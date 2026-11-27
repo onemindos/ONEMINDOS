@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
 # PK-1: one canonical host name answers on both access paths (LAN-side and mesh-side address), same certificate, same origin.
 set -euo pipefail; T=PK-1; . /root/aklab/lib.sh
 stamp "PK-1: one canonical name, two access paths"

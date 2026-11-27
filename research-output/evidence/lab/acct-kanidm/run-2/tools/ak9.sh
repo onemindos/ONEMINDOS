@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
 # AK-9 footprint: disk.
 set -euo pipefail; T=AK-9; . /root/aklab/lib.sh
 stamp "AK-9 disk footprint on the source box"

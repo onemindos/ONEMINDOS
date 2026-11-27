@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
 # Shared helpers for the AK-n scripts. Source it with T=<test id> set.
 # run "<command>": prints "+ <command>" exactly as written (secrets are read from files inside the
 # command, so their values never appear), then the command's real output, into run-1/<T>.txt.

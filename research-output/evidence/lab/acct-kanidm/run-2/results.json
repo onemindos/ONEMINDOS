@@ -23,7 +23,7 @@
   "domain_rp_id": "idm.onemind.test",
   "paths": "network namespaces nsl (LAN) and nsm (mesh simulation), second interface and hosts file each"
  },
- "f33_option_a": "PASS",
+ "f33_option_a": "evidence for option (a): PASS in lab (virtual authenticator, simulated paths, not pre-registered); F-33 stays open for the founder / UMB-ACCT-13",
  "tests": {
   "PK-1": "PASS",
   "PK-2": "PASS",

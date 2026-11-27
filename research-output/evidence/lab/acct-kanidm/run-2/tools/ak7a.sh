@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
 # AK-7 part 1 (source box): an online backup taken by the running server, peak RSS sampled meanwhile.
 set -euo pipefail; T=AK-7; . /root/aklab/lib.sh
 B=/var/lib/private/kanidmd/backups

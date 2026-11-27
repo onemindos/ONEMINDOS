@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
 # AK-8b: the mitigation run-1 left UNVERIFIED: require passkeys for a household group through Kanidm's account policy,
 # so that a person in it cannot sign in with password + TOTP (and TOTP replay no longer matters for them).
 set -euo pipefail; T=AK-8; . /root/aklab/lib.sh

@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
 # AK-0: environment record. usage: ak0.sh <label>
 set -euo pipefail; T=AK-0; . /root/aklab/lib.sh
 stamp "environment: $1"

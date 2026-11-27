@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
 # PK-3..PK-6: the same passkey over both access paths; what happens with other names.
 # nsl = LAN client (canonical name -> LAN-side address), nsm = away client (canonical name -> mesh-side address).
 set -euo pipefail; T=PK-3; . /root/aklab/lib.sh

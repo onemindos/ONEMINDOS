@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
 # Build Kanidm v1.12.0 debs on a disposable Debian 13 VM (same recipe as run-1/tools/build-1.sh + build-2-resume.sh)
 export HOME=/root
 set -euxo pipefail

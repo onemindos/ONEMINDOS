@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
 # PK-9 (extra, F-33 naming): can the canonical sign-in name be "onemind.local" (the LAN name in the design)?
 # A fresh Kanidm database whose domain/RP ID is onemind.local; LAN client resolves it to the LAN-side address,
 # the "mesh" client resolves the SAME name to the mesh-side address through its own (unicast) resolver file.

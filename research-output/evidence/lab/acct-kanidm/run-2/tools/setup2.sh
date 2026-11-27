@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
 # UMB-ACCT-1 run-2 setup: Kanidm as a systemd host service, ONE canonical domain (the WebAuthn RP ID),
 # listening on every interface so the LAN path and the (simulated) mesh path reach the same service.
 # usage: setup2.sh deb <dir-with-debs> | setup2.sh ppa      (ppa = dev rehearsal only, not counted)
