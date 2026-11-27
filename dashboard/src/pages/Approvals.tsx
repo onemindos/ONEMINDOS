@@ -71,11 +71,14 @@ export function Approvals() {
       },
       (e: unknown) => {
         if (how === 'approve' && e instanceof ApiError && e.reason === 'licence_unconfirmed' && typeof a.params.app_id === 'string') {
+          setStepUp(undefined);
           setForm(undefined);
           setLicence({ action: a, appId: a.params.app_id, message: e.message, sealed, typed: '' });
           return false;
         }
-        const needsPasskey = how === 'approve' && e instanceof ApiError && e.code === 'unauthenticated' && (e.reason === 'step_up_required' || e.reason === PASSKEY_NOT_USED);
+        // Only "the browser produced no passkey" opens the prompt. A step_up_required that reaches here means a
+        // signed request was refused by the hub, so its own message is shown (fail below), not a false "not used".
+        const needsPasskey = how === 'approve' && e instanceof ApiError && e.code === 'unauthenticated' && e.reason === PASSKEY_NOT_USED;
         if (needsPasskey && !forcePasskey) {
           setForm(undefined);
           setLicence(undefined);
@@ -89,7 +92,7 @@ export function Approvals() {
           return false;
         }
         if (needsPasskey) {
-          toast.show({ tone: 'bad', title: 'Your passkey was not used', body: 'Nothing was approved. Press Approve again and use your passkey when your device asks.' });
+          toast.show({ tone: 'bad', title: 'Your passkey was not used', body: `Nothing was approved. ${e.message} Press Approve again and use your passkey when your device asks.` });
           setStepUp(undefined);
           return false;
         }

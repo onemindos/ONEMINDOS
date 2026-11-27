@@ -42,7 +42,14 @@ export async function approveWithStepUp(api: OneMindApi, action: Pick<Action, 'i
   if (challenge.plan_sha256) body.plan_sha256 = challenge.plan_sha256;
   const signed = async (): Promise<ApproveBody> => {
     try { return { ...body, webauthn: await sign(challenge.publicKey) }; }
-    catch (e) { throw new ApiError(401, 'unauthenticated', e instanceof Error && e.message ? e.message : 'Your passkey was not used.', PASSKEY_NOT_USED); }
+    catch (e) {
+      // Only a cancel, a timeout or no tap (the browser's NotAllowedError) is "not used": the owner can try again.
+      // Anything else (wrong host for the RP ID, bad options, no WebAuthn) passes through with its own message.
+      // Duck-typed: a DOMException is not always an `instanceof Error` across realms.
+      const err = e as { name?: unknown; message?: unknown } | null;
+      if (err && err.name === 'NotAllowedError') throw new ApiError(401, 'unauthenticated', typeof err.message === 'string' && err.message ? err.message : 'Your passkey was not used.', PASSKEY_NOT_USED);
+      throw e;
+    }
   };
   // A hold does not force a passkey: only physical actions need one, and the gateway answers those with
   // step_up_required (retried signed below). A destructive action on a box with no passkey goes unsigned.
