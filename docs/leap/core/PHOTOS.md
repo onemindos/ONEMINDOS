@@ -32,7 +32,7 @@ The photos study ([`docs/umbrel2/photos.md`](../../umbrel2/photos.md) §4.1) cho
 
 ## 2. API (interim contract §12-p)
 
-Every route needs a bearer token of a **person** with role `owner` or `adult`. Guests and agents get 403 (guests have no library, study §4.6; agents never upload, and their read tools are UMB-PHOTO-9). With Photos off (the default) every route answers 404. Errors use the §3 envelope.
+Every route needs a bearer token of a **person** with role `owner` or `adult`. Guests and agents get 403 (guests have no library, study §4.6; agents never upload, and their read tools are UMB-PHOTO-9). With Photos off (the owner switched it off, or the operator set `ONEMIND_PHOTOS_ENABLED=0`) every route answers 404; Photos is on by default. Errors use the §3 envelope.
 
 | Method and path | Request | Answer |
 |---|---|---|
@@ -99,15 +99,15 @@ The levels come from the backup coordinator's events (contract §12.8 v1 types),
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `ONEMIND_PHOTOS_ENABLED` | `0` | `1` turns the routes on |
-| `ONEMIND_PHOTOS_DIR` | – (required when enabled) | library root, on Retain storage (`onemind-local`, CORE-BACKUP-1) |
+| `ONEMIND_PHOTOS_ENABLED` | `1` | `0` turns Photos off for the whole box (the operator's hard off) |
+| `ONEMIND_PHOTOS_DIR` | the data folder's `photos` directory | library root, on Retain storage (`onemind-local`, CORE-BACKUP-1) |
 | `ONEMIND_PHOTOS_MAX_UPLOAD_BYTES` | 64 GiB | largest file; sent as `Upload-Limit` |
 | `ONEMIND_PHOTOS_UPLOAD_TTL_S` | 7 days | an unfinished upload idle this long expires and is swept |
 | `ONEMIND_PHOTOS_READ_TIMEOUT_S` | 60 | a PATCH body that stalls this long is cut off |
 | `ONEMIND_PHOTOS_RESERVE_BYTES` | 1 GiB | free space kept back |
 | `ONEMIND_PHOTOS_MAX_OPEN_UPLOADS` | 64 | unfinished uploads per phone |
 
-On a developer install (`deploy/install.sh`), add `ONEMIND_PHOTOS_ENABLED=1` and `ONEMIND_PHOTOS_DIR=/var/lib/onemind/photos` to `/etc/onemind/gateway.env`. The image's `onemind-core` is still a stand-in pod, so the image needs no change yet.
+Photos needs no setup: it is on by default and the library lives in the data folder. Set `ONEMIND_PHOTOS_DIR` to move it, or `ONEMIND_PHOTOS_ENABLED=0` in `/etc/onemind/gateway.env` to turn it off. The owner's switch is `GET/PUT /v1/settings/photos` (an owner approval). The image's `onemind-core` is still a stand-in pod, so the image needs no change yet.
 
 ## 7. Tests
 
