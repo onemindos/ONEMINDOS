@@ -257,7 +257,30 @@ func (e *Event) Validate(now time.Time) error {
 	if !now.IsZero() && e.Start.Sub(now) > MaxClockSkew {
 		return invalid("start is more than %s in the future", MaxClockSkew)
 	}
-	return e.Point.validate()
+	if err := e.Point.validate(); err != nil {
+		return err
+	}
+	if e.Detail != nil && e.Detail.Track != nil {
+		return e.Detail.Track.validate()
+	}
+	return nil
+}
+
+// validate refuses track numbers the schema's xs:decimal cannot carry (NaN,
+// infinities) and values outside the physical range.
+func (t Track) validate() error {
+	for _, v := range []float64{t.Course, t.Speed} {
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			return invalid("track has a NaN or infinite value")
+		}
+	}
+	if t.Course < 0 || t.Course > 360 {
+		return invalid("track course %v out of range 0..360", t.Course)
+	}
+	if t.Speed < 0 {
+		return invalid("track speed %v must not be negative", t.Speed)
+	}
+	return nil
 }
 
 func (p Point) validate() error {

@@ -4,6 +4,7 @@ package cot
 
 import (
 	"errors"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -101,6 +102,20 @@ func TestToEventRefusesEchoAndBadInput(t *testing.T) {
 		"bad lat":   func(p *Position) { p.Lat = 91 },
 		"neg error": func(p *Position) { p.Accuracy = ptr(-1) },
 		"null fix":  func(p *Position) { p.Lat, p.Lon = 0, 0 },
+	} {
+		p := machinePos()
+		mutate(&p)
+		if _, err := ToEvent(p); !errors.Is(err, ErrInvalid) {
+			t.Fatalf("%s: want ErrInvalid, got %v", name, err)
+		}
+	}
+}
+
+func TestToEventRefusesNonFiniteTrack(t *testing.T) {
+	for name, mutate := range map[string]func(*Position){
+		"nan course": func(p *Position) { p.Course = ptr(math.NaN()) },
+		"inf speed":  func(p *Position) { p.Speed = ptr(math.Inf(1)) },
+		"-inf speed": func(p *Position) { p.Speed = ptr(math.Inf(-1)) },
 	} {
 		p := machinePos()
 		mutate(&p)

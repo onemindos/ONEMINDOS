@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"errors"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -113,22 +114,27 @@ func validEvent() *Event {
 
 func TestValidate(t *testing.T) {
 	cases := map[string]func(*Event){
-		"version":       func(e *Event) { e.Version = "1.0" },
-		"empty uid":     func(e *Event) { e.UID = "" },
-		"long uid":      func(e *Event) { e.UID = strings.Repeat("x", MaxUIDLen+1) },
-		"control uid":   func(e *Event) { e.UID = "a\nb" },
-		"type":          func(e *Event) { e.Type = "A-f-G" },
-		"type spaces":   func(e *Event) { e.Type = "a-f G" },
-		"how":           func(e *Event) { e.How = "M-G" },
-		"no stale":      func(e *Event) { e.Stale = Time{} },
-		"stale<start":   func(e *Event) { e.Stale = Time{e.Start.Add(-time.Second)} },
-		"stale too far": func(e *Event) { e.Stale = Time{e.Start.Add(MaxStaleAhead + time.Hour)} },
-		"future time":   func(e *Event) { e.Time = Time{fixtureNow.Add(time.Hour)} },
-		"lat":           func(e *Event) { e.Point.Lat = 90.1 },
-		"lon":           func(e *Event) { e.Point.Lon = -180.5 },
-		"negative ce":   func(e *Event) { e.Point.CE = -1 },
-		"hae":           func(e *Event) { e.Point.HAE = 1e6 },
-		"year zero":     func(e *Event) { e.Time = Time{time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC)} },
+		"version":          func(e *Event) { e.Version = "1.0" },
+		"empty uid":        func(e *Event) { e.UID = "" },
+		"long uid":         func(e *Event) { e.UID = strings.Repeat("x", MaxUIDLen+1) },
+		"control uid":      func(e *Event) { e.UID = "a\nb" },
+		"type":             func(e *Event) { e.Type = "A-f-G" },
+		"type spaces":      func(e *Event) { e.Type = "a-f G" },
+		"how":              func(e *Event) { e.How = "M-G" },
+		"no stale":         func(e *Event) { e.Stale = Time{} },
+		"stale<start":      func(e *Event) { e.Stale = Time{e.Start.Add(-time.Second)} },
+		"stale too far":    func(e *Event) { e.Stale = Time{e.Start.Add(MaxStaleAhead + time.Hour)} },
+		"future time":      func(e *Event) { e.Time = Time{fixtureNow.Add(time.Hour)} },
+		"lat":              func(e *Event) { e.Point.Lat = 90.1 },
+		"lon":              func(e *Event) { e.Point.Lon = -180.5 },
+		"negative ce":      func(e *Event) { e.Point.CE = -1 },
+		"hae":              func(e *Event) { e.Point.HAE = 1e6 },
+		"track nan course": func(e *Event) { e.Detail = &Detail{Track: &Track{Course: math.NaN()}} },
+		"track inf speed":  func(e *Event) { e.Detail = &Detail{Track: &Track{Speed: math.Inf(1)}} },
+		"track -inf speed": func(e *Event) { e.Detail = &Detail{Track: &Track{Speed: math.Inf(-1)}} },
+		"track course":     func(e *Event) { e.Detail = &Detail{Track: &Track{Course: 361}} },
+		"track speed":      func(e *Event) { e.Detail = &Detail{Track: &Track{Speed: -1}} },
+		"year zero":        func(e *Event) { e.Time = Time{time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC)} },
 		"future start": func(e *Event) {
 			e.Start = Time{fixtureNow.Add(time.Hour)}
 			e.Stale = Time{fixtureNow.Add(2 * time.Hour)}
@@ -167,6 +173,24 @@ func TestDecodeRefusesHostileInput(t *testing.T) {
 				t.Fatalf("want %v, got %v", c.want, err)
 			}
 		})
+	}
+}
+
+// A track with NaN or an infinity is not an xs:decimal; Decode must refuse it
+// so it never reaches Encode or FromEvent.
+func TestDecodeRefusesNonFiniteTrack(t *testing.T) {
+	ok := string(fixture(t, "sa-team-member.xml"))
+	if _, err := Decode([]byte(ok), fixtureNow); err != nil {
+		t.Fatalf("fixture refused: %v", err)
+	}
+	for _, track := range []string{
+		`course="NaN" speed="1"`, `course="1" speed="+Inf"`, `course="1" speed="-Inf"`,
+		`course="Inf" speed="1"`, `course="400" speed="1"`, `course="1" speed="-3"`,
+	} {
+		in := strings.Replace(ok, `course="270.0" speed="1.2"`, track, 1)
+		if _, err := Decode([]byte(in), fixtureNow); !errors.Is(err, ErrInvalid) {
+			t.Fatalf("track %s: want ErrInvalid, got %v", track, err)
+		}
 	}
 }
 

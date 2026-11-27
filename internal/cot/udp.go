@@ -28,7 +28,7 @@ const ProtoMagic = 0xbf
 const MaxMulticastTTL = 1
 
 // ErrTTL means SenderOptions.TTL asked for more than the LAN.
-var ErrTTL = errors.New("cot: multicast ttl above 1 is refused")
+var ErrTTL = errors.New("cot: multicast ttl outside 0..1 is refused")
 
 // Sender writes CoT events as UDP datagrams to one address, normally the SA
 // multicast group. For a multicast address the TTL is 1 by default, so
@@ -39,8 +39,9 @@ type Sender struct {
 
 // SenderOptions tunes a Sender. The zero value is the safe default.
 type SenderOptions struct {
-	// TTL for multicast packets. 0 means 1 (LAN only). Anything above 1 is
-	// refused by NewSender: routed multicast needs a phase decision first.
+	// TTL for multicast packets. 0 means 1 (LAN only). Anything outside 0..1
+	// is refused by NewSender: routed multicast needs a phase decision first.
+	// The check also runs for unicast addresses, where TTL is ignored.
 	TTL int
 	// Interface for multicast packets; nil lets the OS choose.
 	Interface *net.Interface
