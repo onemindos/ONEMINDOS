@@ -4,8 +4,8 @@ package cli
 
 // onemind backup kit: the emergency kit's state, and attaching the printed owner key to backup
 // destinations added after the kit was made (design 25a). The key is read from stdin, sent once over
-// the gateway connection and never printed or saved. Issuing a kit stays in the dashboard, which
-// shows the key once and has the owner type two groups back.
+// the gateway connection and never printed or saved. Issuing a kit is the dashboard (which shows the key
+// once and has the owner type two groups back) or `onemind recovery kit issue` (recovery.go).
 
 import (
 	"fmt"
