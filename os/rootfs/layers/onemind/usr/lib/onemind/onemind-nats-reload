@@ -1,0 +1,18 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# Run by onemind-nats-reload.service (triggered by onemind-nats-accounts.path) after the gateway rewrote the
+# hub accounts file. Normally a reload (copy the file, HUP). nats-server cannot change its system account on a
+# reload: it refuses the whole new config and keeps the old one (server/reload.go, "systemaccount" case,
+# ErrConfigReloadNotSupported), and systemd still sees the HUP succeed. So when the system_account line of the
+# new file differs from the copy the running NATS loaded (a box updated through RAUC gets its SYS account and
+# observer key this way, #620), restart instead; otherwise every later accounts change would be ignored until
+# the next reboot. Nothing happens when NATS is not running.
+set -eu
+run=${ONEMIND_NATS_RUN:-/run/onemind-nats}
+src=${ONEMIND_NATS_ACCOUNTS_SRC:-/data/onemind/gateway/nats/accounts.conf}
+systemctl=${ONEMIND_SYSTEMCTL:-/bin/systemctl}
+sysacct() { sed -n 's/^[[:space:]]*system_account[[:space:]]*[:=]*[[:space:]]*//p' "$1" 2>/dev/null | head -n 1; }
+if [ "$(sysacct "$run/nats-accounts.conf")" != "$(sysacct "$src")" ]; then
+  exec "$systemctl" try-restart onemind-nats.service
+fi
+exec "$systemctl" try-reload-or-restart onemind-nats.service

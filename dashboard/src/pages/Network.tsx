@@ -9,6 +9,7 @@ import { ApiError } from '../api/types';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { DomainsCard } from './DomainsCard';
+import { FirewallCard } from './NetworkFirewall';
 import { Load } from './parts';
 
 type Iface = NetworkView['interfaces'][number];
@@ -114,7 +115,7 @@ function LiveNetwork({ token }: { token: string }) {
               </Card>
               <Card as="article" title="Open ports">
                 <p>
-                  {open.length} {open.length === 1 ? 'port is' : 'ports are'} open to every network the box is on. This lists what the box listens on, not what the firewall lets through; firewall rules are not shown yet.
+                  {open.length} {open.length === 1 ? 'port is' : 'ports are'} open to every network the box is on. This lists what the box listens on, not what the firewall lets through; the Firewall section below shows that.
                 </p>
                 <Table<Port>
                   caption="Listening ports"
@@ -130,12 +131,13 @@ function LiveNetwork({ token }: { token: string }) {
                   ]}
                 />
               </Card>
+              <FirewallCard client={client} />
               {v.dropped > 0 && (
                 <p className="om-note om-tone-warn" role="note">
                   {v.dropped} {v.dropped === 1 ? 'entry was' : 'entries were'} left out because the box reported something that did not check out.
                 </p>
               )}
-              <p className="om-hint">Setting a fixed IP address, joining Wi-Fi and firewall changes come next, as requests you approve, with an automatic revert if the box becomes unreachable.</p>
+              <p className="om-hint">Setting a fixed IP address, joining Wi-Fi and opening firewall ports come next, as requests you approve, with an automatic revert if the box becomes unreachable.</p>
             </>
           );
         }}

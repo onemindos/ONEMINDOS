@@ -7,7 +7,7 @@
 [Unit]
 Description=OneMind: check the data partition (recovery mode if it is not usable)
 DefaultDependencies=no
-After=data.mount onemind-data-layout.service etc-rancher-node.mount var-lib-rancher.mount var-lib-kubelet.mount var-lib-cni.mount var-log.mount var-lib-systemd.mount var-tmp.mount home.mount root.mount var-lib-cloud.mount var-lib-tailscale.mount var-lib-onemind\x2dheadscale.mount var-lib-onemind\x2dnats\x2dleaf.mount var-lib-onemind\x2dnats.mount etc-hosts.mount var-lib-btrfs.mount
+After=data.mount onemind-data-layout.service etc-rancher-node.mount var-lib-rancher.mount var-lib-kubelet.mount var-lib-cni.mount var-log.mount var-lib-systemd.mount var-tmp.mount home.mount root.mount var-lib-cloud.mount var-lib-tailscale.mount var-lib-onemind\x2dheadscale.mount var-lib-onemind\x2dnats\x2dleaf.mount var-lib-onemind\x2dnats.mount etc-hosts.mount var-lib-btrfs.mount var-lib-fwupd.mount var-cache-fwupd.mount var-lib-rasdaemon.mount var-lib-udisks2.mount var-lib-smartmontools.mount etc-cups.mount var-spool-cups.mount var-cache-cups.mount var-lib-ipp\x2dusb.mount
 Before=local-fs.target
 # Once per boot. The recovery isolate pulls local-fs.target in again, which would start this unit again;
 # it would fail again and isolate again, forever, and recovery mode would never be reached. The failing

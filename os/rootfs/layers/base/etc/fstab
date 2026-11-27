@@ -7,6 +7,10 @@
 # x-systemd.growfs: after mounting, systemd-growfs makes the filesystem (and a LUKS2 volume under it) as big as the
 # device under it, which is how /data fills a partition that cloud-init's growpart or data_extend.py just enlarged.
 PARTLABEL=onemind-esp   /boot/efi  vfat  umask=0077                          0 1
+# No nodelalloc here (round-2 integration of #1157): on x86 /data is btrfs (subvolume @, #975), or ext4 on a box
+# installed before it, so the type is "auto" and an ext4-only option would make the btrfs mount fail. The power-cut
+# protection on every board is the syncfs of /data while k3s settles (onemind-k3s-state settle, F26); the ext4
+# boards (rpi5, Jetson) also mount with nodelalloc.
 PARTLABEL=onemind-data  /data      auto  defaults,noatime,nofail,x-systemd.growfs,x-systemd.device-timeout=30s  0 2
 # Writable state lives on onemind-data and is bind-mounted over the read-only root.
 # "nofail" on /data and every bind from it: a dead data disk must not fail local-fs.target (that
@@ -33,3 +37,15 @@ PARTLABEL=onemind-data  /data      auto  defaults,noatime,nofail,x-systemd.growf
 # btrfs-progs keeps the result of the last scrub here (`btrfs scrub status /data`); the root is read-only, so without
 # this the monthly scrub would run but leave no status behind (snapper/btrfsmaintenance, plan PR 6).
 /data/state/var-lib-btrfs             /var/lib/btrfs                none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+# Box care (Step 2b): fwupd metadata and cache, the rasdaemon error database and udisks2 state, kept across reboots and A/B updates.
+/data/state/var-lib-fwupd         /var/lib/fwupd        none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-cache-fwupd       /var/cache/fwupd      none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-lib-rasdaemon     /var/lib/rasdaemon    none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-lib-udisks2       /var/lib/udisks2      none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+# Storage housekeeping (P-10): smartd's state and the warnings feed the host service reads, kept across reboots and A/B updates.
+/data/state/var-lib-smartmontools /var/lib/smartmontools none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+# Printing (Step 3): CUPS's settings and printers, its spool and cache, and ipp-usb's state live on the data disk.
+/data/state/etc-cups                  /etc/cups                     none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-spool-cups            /var/spool/cups               none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-cache-cups            /var/cache/cups               none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-lib-ipp-usb           /var/lib/ipp-usb              none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0

@@ -38,6 +38,8 @@ func fabricCommands(a *App) []*cobra.Command {
 		sub("ticket [--hub URL] [--role worker|leaf] [--ttl 15m] [--token T] [--json]", "Mint a one-use join code", fabricTicket),
 		sub("approve ACTION_ID [--hub URL] [--token T]", "Approve a node join request", fabricApprove),
 		sub("status [--hub URL] [--token T] [--json]", "Nodes and pending joins", fabricStatus),
+		sub("events [--count N] [--hub URL] [--token T] [--json]", "Who connected to the message bus, and who was refused (read-only)", fabricEvents),
+		sub("upgrade-local", "Machine joined before G1: give its local NATS leaf per-program keys (run as root; the image does it at boot)", fabricUpgradeLocal),
 		sub("outbox init|status|send", "Leaf node: queue messages for the hub through hub outages", fabricOutbox),
 	)
 	return []*cobra.Command{fab}
@@ -133,6 +135,23 @@ func hostLabel(h string) string {
 		return "node"
 	}
 	return h
+}
+
+// fabricUpgradeLocal is what onemind-leaf-local.service runs before the health gate on every boot of
+// an edge (Installer.UpgradeLocal). It is quiet when there is nothing to do.
+func fabricUpgradeLocal(args []string, out io.Writer) error {
+	fs := flag.NewFlagSet("fabric upgrade-local", flag.ContinueOnError)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() > 0 {
+		return errors.New("fabric upgrade-local takes no arguments")
+	}
+	if !isRoot() {
+		return errors.New("run as root (sudo): this writes the leaf's keys and configuration")
+	}
+	_, err := newInstaller(out).UpgradeLocal(context.Background())
+	return err
 }
 
 func fabricJoin(args []string, out io.Writer) error {
@@ -368,4 +387,78 @@ func fabricStatus(args []string, out io.Writer) error {
 		fmt.Fprintf(out, "%s\t%s\t%s\tjoin:%s\tcode %s (action %s)\n", j.NodeID, j.Hostname, j.Role, j.State, j.MatchCode, j.ActionID)
 	}
 	return nil
+}
+
+// fabricEvents is `onemind fabric events` (#620, NATS plan N3): GET /v1/fabric/events, the newest
+// connections, disconnections and refused sign-ins the hub's observer saw on the message bus.
+// Read-only: nothing here can change a key or an account. Needs audit:read (owner or adult).
+func fabricEvents(args []string, out io.Writer) error {
+	fs := flag.NewFlagSet("fabric events", flag.ContinueOnError)
+	hub, token := hubAndToken(fs)
+	asJSON := fs.Bool("json", false, "print JSON")
+	limit := fs.Int("count", 50, "how many events, newest first (1 to 200)")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *limit < 1 || *limit > 200 {
+		return fmt.Errorf("--count must be between 1 and 200")
+	}
+	var v struct {
+		Observer string `json:"observer"`
+		Events   []struct {
+			Seq      int    `json:"seq"`
+			TS       string `json:"ts"`
+			Event    string `json:"event"`
+			Account  string `json:"account"`
+			Key      string `json:"key"`
+			Identity string `json:"identity"`
+			Client   string `json:"client"`
+			Name     string `json:"name"`
+			Cause    string `json:"cause"`
+			Reason   string `json:"reason"`
+			Repeats  int    `json:"repeats"`
+		} `json:"events"`
+	}
+	raw := map[string]any{}
+	url := fmt.Sprintf("%s/v1/fabric/events?count=%d", strings.TrimSuffix(*hub, "/"), *limit)
+	if err := httpSend(http.MethodGet, url, *token, nil, &raw); err != nil {
+		return err
+	}
+	if *asJSON {
+		return printJSON(out, raw)
+	}
+	b, _ := json.Marshal(raw)
+	if err := json.Unmarshal(b, &v); err != nil {
+		return fmt.Errorf("the hub's bus events are not readable: %w", err)
+	}
+	if v.Observer == "off" {
+		fmt.Fprintln(out, "The bus observer is off on this hub (no observer key), so nothing is listed.")
+		return nil
+	}
+	fmt.Fprintln(out, "TIME\tEVENT\tWHO\tACCOUNT\tDETAIL")
+	for _, e := range v.Events {
+		who := e.Identity
+		if who == "" && e.Key != "" {
+			who = e.Key[:8] + "..."
+		}
+		if who == "" {
+			who = "-"
+		}
+		detail := strings.TrimSpace(e.Cause + " " + e.Reason)
+		if e.Repeats > 0 {
+			detail = fmt.Sprintf("%s (+%d more)", detail, e.Repeats)
+		}
+		fmt.Fprintf(out, "%s\t%s\t%s\t%s\t%s\n", e.TS, strings.TrimPrefix(e.Event, "fabric."), who, orDash(e.Account), orDash(detail))
+	}
+	if len(v.Events) == 0 {
+		fmt.Fprintln(out, "No bus events yet.")
+	}
+	return nil
+}
+
+func orDash(s string) string {
+	if strings.TrimSpace(s) == "" {
+		return "-"
+	}
+	return s
 }

@@ -231,6 +231,7 @@ func startSourcedLeaf(t *testing.T, dir, name string, p *pki, addr string, seed 
 		HubURLs: []string{"tls://" + addr}, CAFile: p.caFile, NkeyFile: nkeyFile,
 	}
 	c.CertFile, c.KeyFile = p.issue(t, "node-"+name, false)
+	labLeaf(t, c)
 	confPath := filepath.Join(nd, "leaf.conf")
 	if _, err := Apply(confPath, c); err != nil {
 		t.Fatal(err)
@@ -510,7 +511,7 @@ func sourceDiag(ctx context.Context, hub, leafJS jetstream.JetStream, name strin
 // copy of B, and listens for B's delivery, while B writes.
 func assertNodeCannotReachOther(t *testing.T, ctx context.Context, l *sourcingLab) {
 	t.Helper()
-	a, err := nats.Connect(l.leafA, nats.Timeout(5*time.Second))
+	a, err := dialLeaf(l.leafA, nats.Timeout(5*time.Second))
 	if err != nil {
 		t.Fatal(err)
 	}

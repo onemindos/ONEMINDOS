@@ -30,6 +30,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/onemindos/onemindos/internal/leaf"
 	"github.com/onemindos/onemindos/internal/mesh"
 )
 
@@ -295,6 +296,28 @@ func TestJoinEndToEnd(t *testing.T) {
 	if strings.Contains(leafConf, string(id.NkeySeed)) {
 		t.Fatal("seed inside leaf.conf")
 	}
+	// G1: no passwordless local user; onemindd and the CLI each have their own key and seed file.
+	if strings.Contains(leafConf, "no_auth_user") || !strings.Contains(leafConf, "authorization {") {
+		t.Fatalf("leaf.conf lets anonymous local clients in:\n%s", leafConf)
+	}
+	var pubs []string
+	for _, name := range []string{"onemindd", "cli"} {
+		seed := read(LocalKeysDir + "/" + name + ".nk")
+		pub, err := leaf.WriteLocalSeed(filepath.Join(root, LocalKeysDir), name) // keeps the key the join made
+		if err != nil || !strings.Contains(leafConf, `nkey: "`+pub+`"`) || strings.Contains(leafConf, strings.TrimSpace(seed)) {
+			t.Fatalf("%s: key not in leaf.conf (or the seed is): %v\n%s", name, err, leafConf)
+		}
+		if fi, err := os.Stat(filepath.Join(root, LocalKeysDir, name+".nk")); err != nil || fi.Mode().Perm() != 0o600 {
+			t.Fatalf("%s seed file: %v %v", name, fi, err)
+		}
+		pubs = append(pubs, pub)
+	}
+	if pubs[0] == pubs[1] {
+		t.Fatal("onemindd and the CLI share a key")
+	}
+	if c, err := leaf.LoadConfig(filepath.Join(root, leaf.DefaultConfigPath)); err != nil || len(c.Local) != 2 {
+		t.Fatalf("persisted leaf config: %+v %v", c, err)
+	}
 	k3s := read(K3sConfig)
 	for _, want := range []string{`server: "https://100.64.0.1:6443"`, `node-ip: "100.64.0.7"`, `flannel-iface: "tailscale0"`} {
 		if !strings.Contains(k3s, want) {
@@ -304,6 +327,9 @@ func TestJoinEndToEnd(t *testing.T) {
 	env := read(OnemindEnv)
 	if !strings.Contains(env, "ONEMIND_NATS_URL=nats://127.0.0.1:4222") || strings.Contains(env, "nats://old") || !strings.Contains(env, "OTHER=1") {
 		t.Fatalf("env:\n%s", env)
+	}
+	if !strings.Contains(env, "ONEMIND_NATS_NKEY_SEED="+LocalKeysDir+"/onemindd.nk\n") || !strings.Contains(env, "ONEMIND_NATS_INBOX_PREFIX=_INBOX_onemindd\n") {
+		t.Fatalf("onemindd does not sign in to its leaf:\n%s", env)
 	}
 	// onemindd must publish under the joined identity, not the id firstboot wrote before the join
 	if !strings.Contains(env, "ONEMIND_NODE_ID=n1\n") || strings.Contains(env, "prejoin000000") || strings.Count(env, "ONEMIND_NODE_ID=") != 1 {
@@ -420,5 +446,74 @@ func TestJoinMeshFallsBackToHubAddrAndNeedsAMeshBlock(t *testing.T) {
 	}
 	if !contains(ts.upArgs, "--shields-up") || strings.Join(sys.calls, "; ") != "restart tailscaled.service" {
 		t.Fatalf("up %v systemctl %v", ts.upArgs, sys.calls)
+	}
+}
+
+// An edge that joined before the local sign-in (G1) has a leaf.conf with a passwordless user. The
+// update that ships G1 must repair it on its own trial boot, before the health gate looks: otherwise
+// G3 fails, the slot rolls back and the release lands on the bad-releases list.
+func TestUpgradeLocalRepairsAPreG1Join(t *testing.T) {
+	root := t.TempDir()
+	in := &Installer{Root: root, Sys: &fakeSys{}}
+	ctx := context.Background()
+	if ok, err := in.UpgradeLocal(ctx); ok || err != nil {
+		t.Fatalf("a machine that never joined: %v %v", ok, err)
+	}
+
+	dir := filepath.Join(root, NATSDir)
+	os.MkdirAll(dir, 0o750)
+	id, err := NewIdentity("n1", "mini-pc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	nk := filepath.Join(dir, "leaf.nkey")
+	if _, err := leaf.WriteNkeyFile(nk, id.NkeySeed); err != nil {
+		t.Fatal(err)
+	}
+	old := &leaf.Config{ServerName: "node-n1", StoreDir: filepath.Join(root, LeafStoreDir), HubURLs: []string{"tls://100.64.0.1:7422"},
+		CAFile: filepath.Join(dir, "ca.pem"), CertFile: filepath.Join(dir, "node.crt"), KeyFile: filepath.Join(dir, "node.key"), NkeyFile: nk}
+	if _, err := leaf.SaveConfig(filepath.Join(root, leaf.DefaultConfigPath), old); err != nil {
+		t.Fatal(err)
+	}
+	conf := filepath.Join(dir, "leaf.conf")
+	os.WriteFile(conf, []byte("listen: 127.0.0.1:4222\nauthorization {\n  no_auth_user: local\n}\n"), 0o600)
+	raw, _ := json.Marshal(&State{Schema: StateSchema, NodeID: "n1", Role: "leaf"})
+	os.WriteFile(filepath.Join(root, StateFile), raw, 0o644)
+	os.WriteFile(filepath.Join(root, OnemindEnv), []byte("ONEMIND_NATS_URL="+LocalNATSURL+"\nONEMIND_NODE_ID=n1\n"), 0o644)
+
+	sys := &fakeSys{}
+	in.Sys = sys
+	ok, err := in.UpgradeLocal(ctx)
+	if !ok || err != nil {
+		t.Fatalf("upgrade: %v %v", ok, err)
+	}
+	body, _ := os.ReadFile(conf)
+	if err := leaf.CheckLocalAuth(body); err != nil || strings.Contains(string(body), "no_auth_user") {
+		t.Fatalf("leaf.conf after the upgrade: %v\n%s", err, body)
+	}
+	for _, p := range []string{leaf.ProgramOnemindd, leaf.ProgramCLI} {
+		fi, err := os.Stat(filepath.Join(root, LocalKeysDir, p+".nk"))
+		if err != nil || fi.Mode().Perm() != 0o600 {
+			t.Fatalf("seed %s: %v %v", p, fi, err)
+		}
+	}
+	env, _ := os.ReadFile(filepath.Join(root, OnemindEnv))
+	for _, want := range []string{"ONEMIND_NATS_URL=" + LocalNATSURL, "ONEMIND_NODE_ID=n1",
+		"ONEMIND_NATS_NKEY_SEED=" + filepath.Join(LocalKeysDir, "onemindd.nk"), "ONEMIND_NATS_INBOX_PREFIX=_INBOX_onemindd"} {
+		if !strings.Contains(string(env), want) {
+			t.Fatalf("onemindd.env lacks %q:\n%s", want, env)
+		}
+	}
+	if got := strings.Join(sys.calls, "; "); got != "--no-block try-restart onemind-nats-leaf.service; --no-block try-restart onemindd.service" {
+		t.Fatalf("systemctl calls: %s", got)
+	}
+	saved, err := leaf.LoadConfig(filepath.Join(root, leaf.DefaultConfigPath))
+	if err != nil || len(saved.Local) != 2 {
+		t.Fatalf("saved config: %+v %v", saved, err)
+	}
+	// Run again (every boot): nothing changes and nothing restarts.
+	sys.calls = nil
+	if ok, err := in.UpgradeLocal(ctx); ok || err != nil || len(sys.calls) != 0 {
+		t.Fatalf("second run: %v %v %v", ok, err, sys.calls)
 	}
 }

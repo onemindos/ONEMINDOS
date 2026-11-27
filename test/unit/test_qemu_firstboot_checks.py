@@ -150,5 +150,81 @@ class F15OwnerShell(unittest.TestCase):
         self.assertIn("F15_PW=$(head -c 18 /dev/urandom", body)         # generated in the guest, never baked
 
 
+GOOD_F23 = (
+    "F23 noauth=401\nF23 get=200\nF23 available=True\nF23 password_login=False\nF23 port=22\nF23 user=admin\n"
+    "F23 b_code=202\nF23 b_state=awaiting_approval\nF23 b_type=ssh.key.add\nF23 b_pre_login=Permission denied (publickey).\n"
+    "F23 c_state=succeeded\nF23 c_login=admin\nF23 c_listed=True\n"
+    "F23 d_add_code=202\nF23 d_add_state=succeeded\nF23 d_k2_login=admin\n"
+    "F23 d_del_code=202\nF23 d_del_state0=awaiting_approval\nF23 d_k2_before_approval=admin\nF23 d_del_state=succeeded\n"
+    "F23 d_k2_after_rc=255\nF23 d_k2_after_denied=True\nF23 d_k1_still=admin\nF23 d_k2_listed=False\nF23 d_k1_listed=True\n"
+    "F23 e_limit_first=True\n"
+    "F23 f_code=202\nF23 f_state0=awaiting_approval\nF23 f_listen_before=2\nF23 f_state=succeeded\nF23 f_active=inactive\n"
+    "F23 f_listen=0\nF23 f_nft=0\nF23 f_flag=True\nF23 f_login_rc=255\nF23 f_restart_active=inactive\n"
+    "F23 g_state=succeeded\nF23 g_active=active\nF23 g_listen=2\nF23 g_flag=False\nF23 g_login=admin\n"
+    "F23 e_limit_after_on=True\nF23 e_limit_after_fw=True\nF23 e_fw_login=admin\n"
+    "F23 i_code=422\nF23 i_filed=0\n")
+
+
+class F23SshKeysAndSwitch(unittest.TestCase):
+    """F23 (CRITERIA-FIRSTBOOT.md section 16): every sub-check must be able to fail on its own."""
+
+    def setUp(self):
+        self.fb = load_firstboot()
+        self.fb.RESULTS.clear()
+
+    def mutate(self, old, new):
+        self.assertIn(old, GOOD_F23)
+        return self.fb.f23_judge(GOOD_F23.replace(old, new))
+
+    def test_good_output_passes_every_check(self):
+        c = self.fb.f23_judge(GOOD_F23)
+        self.assertTrue(all(c.values()), c)
+
+    def test_each_failure_is_caught(self):
+        for old, new, key in (
+            ("noauth=401", "noauth=200", "reads"),                                  # the API answered without a token
+            ("password_login=False", "password_login=True", "reads"),
+            ("b_state=awaiting_approval", "b_state=succeeded", "request_waits"),    # a request ran before approval
+            ("b_pre_login=Permission denied (publickey).", "b_pre_login=admin", "request_waits"),
+            ("c_login=admin", "c_login=Permission denied", "approval_adds"),
+            ("c_listed=True", "c_listed=False", "approval_adds"),
+            ("d_k2_login=admin", "d_k2_login=", "second_key"),
+            ("d_k2_before_approval=admin", "d_k2_before_approval=", "removal_waits"),  # removed before approval
+            ("d_k2_after_rc=255", "d_k2_after_rc=0", "removal_refuses"),            # the removed key still logs in
+            ("d_k2_after_denied=True", "d_k2_after_denied=False", "removal_refuses"),
+            ("d_k1_still=admin", "d_k1_still=", "removal_refuses"),                 # removal took the other key too
+            ("d_k2_listed=False", "d_k2_listed=True", "removal_refuses"),
+            ("e_limit_first=True", "e_limit_first=False", "rate_limit_rule"),
+            ("e_limit_after_on=True", "e_limit_after_on=False", "rate_limit_rule"),   # lost on the second start of sshd
+            ("e_limit_after_fw=True", "e_limit_after_fw=False", "rate_limit_rule"),   # lost after a firewall restart
+            ("e_fw_login=admin", "e_fw_login=", "rate_limit_rule"),
+            ("f_listen_before=2", "f_listen_before=0", "off_waits"),
+            ("f_listen=0", "f_listen=1", "off_closes_port"),                        # the port is still open
+            ("f_active=inactive", "f_active=active", "off_closes_port"),
+            ("f_nft=0", "f_nft=1", "off_closes_port"),
+            ("f_flag=True", "f_flag=False", "off_closes_port"),
+            ("f_restart_active=inactive", "f_restart_active=active", "off_holds"),  # systemctl start undid the switch
+            ("g_active=active", "g_active=inactive", "on_opens_it"),
+            ("g_flag=False", "g_flag=True", "on_opens_it"),
+            ("g_login=admin", "g_login=", "on_opens_it"),
+            ("i_code=422", "i_code=202", "bad_key_refused"),
+            ("i_filed=0", "i_filed=1", "bad_key_refused"),
+        ):
+            with self.subTest(change=new):
+                self.assertFalse(self.mutate(old, new)[key], key)
+
+    def test_missing_output_is_a_failure_not_a_pass(self):
+        self.assertFalse(any(self.fb.f23_judge("").values()))
+
+    def test_f23_runs_after_f15_and_prints_no_secret(self):
+        src = open(os.path.join(ROOT, "test", "qemu", "firstboot.py")).read()
+        main = src[src.index("def main("):]
+        self.assertLess(main.index("f15(vm)"), main.index("f23(vm, token)"))
+        script = src[src.index("F23_PY = "):src.index("def f23_judge(")]
+        self.assertNotIn("print(TOKEN", script)
+        self.assertNotRegex(script, r"out\([^)]*open\(K[12]\)(?!\.pub)")      # never the private key
+        self.assertIn("ssh-keygen -q -t ed25519 -N ''", script)                   # keys are made in the guest
+
+
 if __name__ == "__main__":
     unittest.main()

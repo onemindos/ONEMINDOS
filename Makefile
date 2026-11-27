@@ -14,6 +14,7 @@
 #   make secureboot-test                                -> out/secureboot-x86_64-efi/ (SB1-SB7, CRITERIA-SECUREBOOT.md)
 #   make bootlock  BOARD=x86_64-efi                     -> out/bootlock-<board>/ (B1-B6, CRITERIA-BOOTLOCK.md)
 #   make rollback  BOARD=x86_64-efi                     -> out/rollback-<board>/ (RB0-RB4, CRITERIA-ROLLBACK.md)
+#   make powercut  BOARD=x86_64-efi                     -> out/powercut-<board>/ (F26-F28, CRITERIA-FIRSTBOOT.md sections 21-22)
 #   make edge      BOARD=x86_64-efi                     -> out/edge-<board>/ (EG1-EG7, CRITERIA-EDGE.md; fixtures with EDGE=1)
 #   make sysextguard BOARD=x86_64-efi                   -> out/sysextguard-<board>/ (T-W19-01 X0-X7, CRITERIA-SYSEXT.md)
 #   make convert BOARD=vm                               -> qcow2 / vhdx / vmdk / vdi / ova next to the image
@@ -151,6 +152,18 @@ edge:
 	  --fixtures /out/fx-$(BOARD) --work /out/edge-$(BOARD)/work \
 	  --log /out/edge-$(BOARD)/serial.log --results /out/edge-$(BOARD)/results.json; \
 	  rc=$$?; rm -f $(OUT)/edge-$(BOARD)/work/disk.img; exit $$rc
+
+# Power cut in the first minute (test/qemu/powercut.py, CRITERIA-FIRSTBOOT.md sections 21-22, F26-F28; VM 501 bug 1):
+# QEMU is killed 25 s after first boot configured the box; k3s must come back healthy with none of its files
+# empty. Copies the fixture disk like `firstboot`.
+.PHONY: powercut
+powercut:
+	@test -f $(OUT)/fx-$(BOARD)/disk.img || $(MAKE) fixtures BOARD=$(BOARD)
+	mkdir -p $(OUT)/powercut-$(BOARD)
+	$(DOCKER_RUN) $(KVM) $(TOOLS) python3 -I /src/test/qemu/powercut.py --board $(BOARD) \
+	  --fixtures /out/fx-$(BOARD) --work /out/powercut-$(BOARD)/work \
+	  --log /out/powercut-$(BOARD)/serial.log --results /out/powercut-$(BOARD)/results.json $(POWERCUT_ARGS); \
+	  rc=$$?; rm -f $(OUT)/powercut-$(BOARD)/work/disk.img; exit $$rc
 
 # Signed host extensions only (test/qemu/sysextguard.py, T-W19-01 for #186 and founder decision Z-22): unsigned,
 # wrongly signed and directory extensions must never merge after a reboot or an A/B slot switch. Copies the

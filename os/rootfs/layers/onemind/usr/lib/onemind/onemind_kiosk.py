@@ -9,12 +9,16 @@ phone or computer as before. If the compositor (cage) or a browser is not in the
 falls back to the text screen (onemind_screen.py), so enabling kiosk never leaves a blank monitor.
 Run by onemind-kiosk.service.
 """
-import os, shutil, sys, time, urllib.request
+import os, re, shutil, sys, time, urllib.request
 
 PORT = 8080
 FLAG = "/data/onemind/kiosk/enabled"
 URL = f"http://127.0.0.1:{PORT}/"
 PROFILE = "/run/onemind-kiosk/profile"
+# The owner's keyboard layout (P-11), the file onemind-console-keyboard also reads: /etc/default/keyboard format.
+KEYBOARD = "/data/onemind/console/keyboard"
+XKB = {"XKBMODEL": "XKB_DEFAULT_MODEL", "XKBLAYOUT": "XKB_DEFAULT_LAYOUT", "XKBVARIANT": "XKB_DEFAULT_VARIANT",
+       "XKBOPTIONS": "XKB_DEFAULT_OPTIONS"}
 # (executable, flags that put it full screen with no chrome and no saved state), first one found wins.
 BROWSERS = [
     ("chromium", ["--kiosk", "--incognito", "--no-first-run", "--disable-infobars", "--noerrdialogs",
@@ -26,6 +30,26 @@ BROWSERS = [
 
 def enabled(root="/"):
     return os.path.exists(os.path.join(root, FLAG.lstrip("/")))
+
+
+def keyboard_env(path=KEYBOARD):
+    """The XKB_DEFAULT_* variables for the compositor (cage, through libxkbcommon), from the owner's keyboard file.
+    The file is read as data, never sourced; one value outside [A-Za-z0-9_,:+-] refuses the whole file, as the console
+    script does, and the compositor then keeps its own default (US). Empty values are left out."""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            lines = f.read(65536).splitlines()
+    except OSError:
+        return {}
+    vals = {}
+    for line in lines:
+        m = re.match(r'^\s*(XKB[A-Z]+)="?([^"]*)"?\s*$', line)
+        if m and m.group(1) in XKB:
+            vals[m.group(1)] = m.group(2)
+    if any(re.search(r"[^A-Za-z0-9_,:+-]", v) for v in vals.values()):
+        print("kiosk: refusing the keyboard file (a value has odd characters); using the default layout", file=sys.stderr)
+        return {}
+    return {XKB[k]: v for k, v in vals.items() if v}
 
 
 def plan(which=shutil.which):
@@ -66,6 +90,7 @@ def main():
     wait_for_gateway()
     os.makedirs(PROFILE, exist_ok=True)
     os.environ.setdefault("XDG_RUNTIME_DIR", "/run/onemind-kiosk")
+    os.environ.update(keyboard_env())
     os.execv(argv[0], argv)
 
 

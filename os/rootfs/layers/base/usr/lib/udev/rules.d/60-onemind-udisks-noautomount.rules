@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# udisks2 is on the box so the host helper can list USB drives and mount one when the owner asks. It never mounts a
+# plugged-in drive by itself (the daemon does not; desktop helpers such as gvfs or udiskie do, and none is installed).
+# This hint tells any such client the same: UDISKS_AUTO=0 means "do not automount". Runs before 80-udisks2.rules.
+SUBSYSTEM=="block", ENV{UDISKS_AUTO}="0"

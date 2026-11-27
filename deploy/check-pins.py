@@ -71,6 +71,11 @@ for path in ("deploy/compose/compose.yaml", "deploy/verify/tests/test_verify.py"
     for t in tags:
         if t != nats_version.lstrip("v"):
             errors.append(f"{path} runs nats {t}, lock says {nats_version}")
+# The bridge test's NATS image too (G7): a dev stack on another version can pass with permissions the image would
+# refuse. Its image string is split over two lines, so only the tag is checked here.
+for ver in re.findall(r"library/nats:([0-9][0-9.]*)-alpine", read("apps/mosquitto/tests/test_bridge.py")):
+    if ver != nats_version.lstrip("v"):
+        errors.append(f"apps/mosquitto/tests/test_bridge.py: NATS image {ver}, os/versions.lock.yaml says {nats_version}")
 
 # restic: deploy/pins.env must name exactly what the backup agent accepts (internal/backup/pins.go).
 gopins = read("internal/backup/pins.go")

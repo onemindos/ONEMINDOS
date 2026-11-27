@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: Apache-2.0
+# The console keyboard layout (tty1-tty6, the tty2 login included) comes from /data/onemind/console/keyboard,
+# seeded as US. Debian's console-setup.service and keyboard-setup.service are masked: they write a cache under /etc,
+# which is read-only here. See /usr/lib/onemind/onemind-console-keyboard.
+[Unit]
+Description=OneMind: console keyboard layout from /data
+DefaultDependencies=no
+After=local-fs.target onemind-data-layout.service
+Before=sysinit.target getty.target
+Conflicts=shutdown.target
+Before=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# /data/onemind exists by now (onemind-data-layout); a missing /data is not an error: the script then loads the US
+# default without writing anything. The only write is /data/onemind/console; the only device it needs is the console.
+Environment=ONEMIND_TMP=/tmp
+ExecStart=/usr/lib/onemind/onemind-console-keyboard
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_SYS_TTY_CONFIG CAP_DAC_OVERRIDE
+ProtectSystem=strict
+ReadWritePaths=-/data/onemind
+ProtectHome=yes
+PrivateTmp=yes
+PrivateNetwork=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+UMask=0022
+
+[Install]
+WantedBy=sysinit.target

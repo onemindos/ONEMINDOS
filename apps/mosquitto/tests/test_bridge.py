@@ -38,8 +38,8 @@ START_SH = APP / "manifests" / "start.sh"
 # re-read from registry-1.docker.io /v2/library/<name>/manifests/<tag> on 2026-11-19).
 MOSQUITTO_IMAGE = ("docker.io/library/eclipse-mosquitto:2.1.2-alpine@sha256:"
                    "75d6662dee52c947dc9dd9c29f1d8d7ffef78ddaf38001caa09755681e8bbc98")
-NATS_IMAGE = ("docker.io/library/nats:2.15.2-alpine@sha256:"
-              "afae2fdbe2e326c65e1246cb83b9d05d319188734f3bd577ac8072daae78a10f")
+NATS_IMAGE = ("docker.io/library/nats:2.15.3-alpine@sha256:"
+              "558394a23dd3c36f2d3a64b51865fd09908010e80a542cea5e75c2af543ed62a")
 
 
 # --- minimal MQTT client ---------------------------------------------------------------------------

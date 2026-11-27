@@ -18,6 +18,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -110,6 +111,40 @@ func freePort(t *testing.T) int {
 	}
 	defer l.Close()
 	return l.Addr().(*net.TCPAddr).Port
+}
+
+// Lab leaves are rendered with one local program that may use the whole lab namespace, so the
+// older tests can keep proving isolation between nodes. The real per-program lists are tested in
+// local_test.go. Seeds are kept by leaf URL; dialLeaf and connectJS sign in with them.
+var labSeeds sync.Map // leaf client URL -> user seed
+
+func labProgram(t *testing.T) (LocalProgram, []byte) {
+	t.Helper()
+	seed, pub := userKey(t)
+	all := []string{"onemind.>", "outbox.>", "$JS.>", "_INBOX.>"}
+	return LocalProgram{Name: "lab", PublicKey: pub, Publish: all, Subscribe: all}, seed
+}
+
+// labLeaf adds the lab program to c and remembers its seed for c's client URL.
+func labLeaf(t *testing.T, c *Config) {
+	t.Helper()
+	p, seed := labProgram(t)
+	c.Local = []LocalProgram{p}
+	labSeeds.Store("nats://"+c.Listen, seed)
+}
+
+func labOpts(url string) []nats.Option {
+	if v, ok := labSeeds.Load(url); ok {
+		seed := v.([]byte)
+		pub, _ := nkeys.FromSeed(seed)
+		p, _ := pub.PublicKey()
+		return []nats.Option{nats.Nkey(p, func(b []byte) ([]byte, error) { return pub.Sign(b) })}
+	}
+	return nil
+}
+
+func dialLeaf(url string, o ...nats.Option) (*nats.Conn, error) {
+	return nats.Connect(url, append(labOpts(url), o...)...)
 }
 
 func userKey(t *testing.T) ([]byte, string) {
@@ -220,6 +255,7 @@ func nodeConfig(t *testing.T, dir string, h *hubFixture, seed []byte, caFile str
 	if withCert {
 		c.CertFile, c.KeyFile = h.pki.issue(t, "node-n1", false)
 	}
+	labLeaf(t, c)
 	return &nodeFixture{cfg: c, confPath: filepath.Join(confDir, "leaf.conf")}
 }
 
@@ -282,7 +318,7 @@ func TestLeafConnectsOverTLSWithNodeNkey(t *testing.T) {
 		t.Fatal(err)
 	}
 	hc.Flush()
-	nc, err := nats.Connect("nats://" + n.cfg.Listen)
+	nc, err := dialLeaf("nats://" + n.cfg.Listen)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -354,12 +390,19 @@ func TestLeafRefusedWithoutValidCredentials(t *testing.T) {
 	}
 }
 
+// Public user keys made once for the golden config (the seeds were thrown away).
+const (
+	goldenPubOnemindd = "UBSMVUZ4GQXTXWP5H5SMM4LPEZAIBCEU54ADTY25RCHRECSM2O5KJ25J"
+	goldenPubCLI      = "UBCBIFZS445IWJW4WAVVVTVX5A4EFZOTO4JHC24I6NGDQGA4WU4MEOIN"
+)
+
 func validConfig() *Config {
 	return &Config{
 		ServerName: "node-3f9c2a1b7d4e", StoreDir: "/data/onemind/nats",
 		HubURLs: []string{"tls://100.64.0.1:7422"}, CAFile: "/data/onemind/identity/ca.pem",
 		CertFile: "/data/onemind/identity/tls.crt", KeyFile: "/data/onemind/identity/tls.key",
 		NkeyFile: "/etc/onemind/nats/node.nkey.conf",
+		Local:    []LocalProgram{{Name: "onemindd", PublicKey: goldenPubOnemindd, Publish: []string{"onemind.node.3f9c2a1b7d4e.status"}, Subscribe: []string{"_INBOX_onemindd.>"}}},
 	}
 }
 
@@ -392,6 +435,13 @@ leafnodes {
         timeout: 5
       }
     }
+  ]
+}
+# Local sign-in (G1): every program on this machine has its own nkey and its own subjects.
+# There is no passwordless user: a client without a key is refused.
+authorization {
+  users: [
+    {nkey: "UBSMVUZ4GQXTXWP5H5SMM4LPEZAIBCEU54ADTY25RCHRECSM2O5KJ25J", permissions: {publish: {allow: ["onemind.node.3f9c2a1b7d4e.status"]}, subscribe: {allow: ["_INBOX_onemindd.>"]}}}  # onemindd
   ]
 }
 `
