@@ -81,7 +81,7 @@ function writeStored(token: string | null) {
 }
 
 function build(token: string, deps: SessionDeps): Session {
-  const api = deps.makeApi ? deps.makeApi(token) : deps.mock ? new MockApi(token) : new HttpApi({ token });
+  const api: OneMindApi = deps.makeApi ? deps.makeApi(token) : deps.mock ? new MockApi(token) : new HttpApi({ token });
   const principal = deps.knownPrincipal ? deps.knownPrincipal(token) : deps.mock ? DEMO_TOKENS[token] : undefined;
   const canDecide: DecideAbility = principal ? (principal.role === 'owner' ? 'yes' : 'no') : 'unknown';
   const canRequest: DecideAbility = principal
