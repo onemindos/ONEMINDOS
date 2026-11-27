@@ -161,12 +161,20 @@ function ShareDialog({ api, run, space, entry, onClose }: { api: FilesApi; run: 
   const copy = async () => {
     try { await navigator.clipboard.writeText(made!.one_time.url); setCopied('Link copied.'); } catch { setCopied('Could not copy. Select the link and copy it by hand.'); }
   };
-    const create = () => void run(async () => {
-    setMade(await api.createShare({ name: entry.name, items: [{ root: space.root, path: entry.path }], expires_at: new Date(Date.now() + ttl).toISOString(), ...(password ? { password } : {}) }));
-  }, 'Could not create the share link');
+  const inFlight = useRef(false);
+  const [busy, setBusy] = useState(false);
+  const chars = [...password].length; // the gateway counts characters: 8 to 200
+  // One click, one POST: a create is never retried or repeated, as a second link's secret would be lost.
+  const create = () => {
+    if (inFlight.current) return;
+    inFlight.current = true; setBusy(true);
+    void run(async () => {
+      setMade(await api.createShare({ name: entry.name, items: [{ root: space.root, path: entry.path }], expires_at: new Date(Date.now() + ttl).toISOString(), ...(password ? { password } : {}) }));
+    }, 'Could not create the share link').finally(() => { inFlight.current = false; setBusy(false); });
+  };
   return <Dialog open onClose={onClose} title={`Share link for ${entry.name}`}
     description="Anyone who has the link can download this file until it expires or you end it. They need no account."
-    actions={made ? <Button onClick={onClose}>Done</Button> : <Button disabled={password.length > 0 && password.length < 8} onClick={create}>Create link</Button>}>
+    actions={made ? <Button onClick={onClose}>Done</Button> : <Button disabled={busy || (chars > 0 && (chars < 8 || chars > 200))} onClick={create}>Create link</Button>}>
     {made ? <>
       <p role="status">The link is ready. It is shown only now: copy it before closing. Expires {when(made.expires_at)}.</p>
       <label htmlFor="share-url">Share link</label>
@@ -176,7 +184,7 @@ function ShareDialog({ api, run, space, entry, onClose }: { api: FilesApi; run: 
     </> : <>
       <label htmlFor="share-ttl">Expires after</label>
       <select id="share-ttl" value={ttl} onChange={(e) => setTtl(Number(e.target.value))}>{EXPIRIES.map(([l, ms]) => <option key={l} value={ms}>{l}</option>)}</select>
-      <TextField id="share-password" label="Password (optional, at least 8 characters)" type="password" value={password} onChange={setPassword} />
+      <TextField id="share-password" label="Password (optional, 8 to 200 characters)" type="password" value={password} onChange={setPassword} />
     </>}
   </Dialog>;
 }

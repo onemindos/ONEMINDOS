@@ -18,7 +18,7 @@ const request = { id: 'frq_1', type: 'files.grant.create', plan: { summary: 'app
 type Call = { method: string; path: string; search: URLSearchParams; headers: Headers; body: string };
 const json = (v: unknown, status = 200, headers: Record<string, string> = {}) => new Response(JSON.stringify(v), { status, headers: { 'content-type': 'application/json', ...headers } });
 
-function mount(handler: (c: Call) => Response | undefined = () => undefined, who = 'owner-demo') {
+function mount(handler: (c: Call) => Response | Promise<Response> | undefined = () => undefined, who = 'owner-demo') {
   const calls: Call[] = [];
   const fetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
     const u = new URL(String(url), 'http://hub.test');
@@ -249,6 +249,31 @@ it('makes a share link for a file and shows its secret URL once', async () => {
   expect(post.headers.get('Idempotency-Key')).toBeNull();
 });
 
+it('sends one POST when Create link is clicked twice while the first is in flight', async () => {
+  let release!: (r: Response) => void;
+  const slow = new Promise<Response>((res) => { release = res; });
+  const calls = mount((c) => c.path === '/v1/files/shares' && c.method === 'POST' ? slow : undefined);
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Share link for notes.txt' }));
+  const btn = within(screen.getByRole('dialog')).getByRole('button', { name: 'Create link' });
+  await u.click(btn);
+  await u.click(btn);
+  expect(calls.filter((c) => c.path === '/v1/files/shares' && c.method === 'POST')).toHaveLength(1);
+  expect(btn).toBeDisabled();
+  release(json({ id: 'shl_9', name: 'notes.txt', created_by: 'owner', state: 'active', items: [{ kind: 'file' }], password: false, created_at: '2026-11-27T10:00:00Z', expires_at: '2026-12-04T10:00:00Z', opened_count: 0, one_time: { url: 'https://hub.test/v1/share/oms_y' } }, 201));
+  await within(screen.getByRole('dialog')).findByDisplayValue('https://hub.test/v1/share/oms_y');
+  expect(calls.filter((c) => c.path === '/v1/files/shares' && c.method === 'POST')).toHaveLength(1);
+});
+
+it('counts password characters, not UTF-16 units: 4 emoji are too short', async () => {
+  mount();
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Share link for notes.txt' }));
+  const dlg = within(screen.getByRole('dialog'));
+  await u.type(dlg.getByLabelText(/Password/), '😀😀😀😀');
+  expect(dlg.getByRole('button', { name: 'Create link' })).toBeDisabled();
+});
+
 it('does not retry a share link create that failed with a server error', async () => {
   const calls = mount((c) => c.path === '/v1/files/shares' && c.method === 'POST' ? json({ error: 'unavailable', message: 'busy' }, 502) : undefined);
   const u = userEvent.setup();
@@ -281,4 +306,3 @@ it('lists share links without secrets and ends one after a confirmation', async 
   const gets = () => calls.filter((c) => c.method === 'GET' && c.path === '/v1/files/shares').length;
   await waitFor(() => expect(gets()).toBeGreaterThan(1)); // the list was reloaded after End link
 });
-

@@ -8,7 +8,7 @@ package cli
 // approves in `onemind actions` or the dashboard; the CLI never sends the owner shortcut
 // ("approve": true). Taking a folder back and setting a space limit are owner calls the gateway
 // already restricts and audits. `rename` and `share create|list|revoke` (POST /v1/files/ops,
-// /v1/files/shares) are the one deliberate exception: the gateway has no request path for them, so
+// /v1/files/shares) are a deliberate exception: the gateway has no request path for them, so
 // they act at once on the caller's own files and links, exactly as the Files screen does, and the
 // gateway checks who may and audits it. Moving and uploading stay in the Files screen and in the
 // desktop and phone apps.
@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 )
@@ -160,6 +161,9 @@ func filesCommands(a *App) []*cobra.Command {
 			if rnRoot == "" {
 				return usageErr(cmd, "--root is required: see `onemind files roots`")
 			}
+			if strings.TrimSpace(args[1]) == "" {
+				return usageErr(cmd, "NEW_NAME must not be empty")
+			}
 			if strings.Contains(args[1], "/") {
 				return usageErr(cmd, "NEW_NAME is a name, not a path: use no \"/\"")
 			}
@@ -224,8 +228,8 @@ func filesShareCmd(a *App) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if len(got[0]) < 8 {
-					return usageErr(cmd, "the link password needs at least 8 characters")
+				if n := utf8.RuneCountInString(got[0]); n < 8 || n > 200 { // characters, as the gateway counts them
+					return usageErr(cmd, "the link password needs 8 to 200 characters")
 				}
 				body["password"] = got[0]
 			}

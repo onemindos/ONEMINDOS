@@ -20,6 +20,9 @@ func TestFilesRename(t *testing.T) {
 	if r := run(t, "", false, "files", "rename", "/a", "b"); r.code != ExitUsage {
 		t.Fatalf("needs --root %+v", r)
 	}
+	if r := run(t, "", false, "files", "rename", "/a", "", "--root", "shared"); r.code != ExitUsage {
+		t.Fatalf("empty name %+v", r)
+	}
 	if r := run(t, "", false, "files", "rename", "/a", "x/b", "--root", "shared"); r.code != ExitUsage {
 		t.Fatalf("a name, not a path %+v", r)
 	}
@@ -70,6 +73,12 @@ func TestFilesShareLinks(t *testing.T) {
 	}
 	if r := run(t, "short\n", false, "files", "share", "create", "/a.txt", "--root", "shared", "--password-stdin"); r.code != ExitUsage {
 		t.Fatalf("short password %+v", r)
+	}
+	// 4 emoji are 4 characters (16 bytes): too short. 201 characters are too long.
+	for _, pw := range []string{"😀😀😀😀", strings.Repeat("a", 201)} {
+		if r := run(t, pw+"\n", false, "files", "share", "create", "/a.txt", "--root", "shared", "--password-stdin"); r.code != ExitUsage {
+			t.Fatalf("password %d chars must be refused %+v", len([]rune(pw)), r)
+		}
 	}
 	if r := run(t, "", false, "files", "share", "create", "/a.txt", "--root", "shared", "--password-stdin"); r.code != ExitUsage {
 		t.Fatalf("empty stdin %+v", r)
