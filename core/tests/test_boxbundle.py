@@ -6,14 +6,16 @@ box B -> box B's layer is byte-for-byte box A's. Plus the refusals that keep an 
 """
 
 import json
+from copy import deepcopy
 from datetime import UTC, datetime
 
 import pytest
+import yaml
 
 from onemind_core.automation import updatepolicy
 from onemind_core.backups import store as backups_store
 from onemind_core.backups.store import BackupsRepository, ContentTierRow, DestinationRow
-from onemind_core.boxbundle import box_config, manifest
+from onemind_core.boxbundle import box_config, config_export, manifest
 from onemind_core.boxbundle.manifest import BundleRefused, Source
 from onemind_core.ledger import make_engine
 from onemind_core.onboarding import SCHEMA as ONBOARDING, OnboardingService
@@ -245,3 +247,45 @@ def test_a_bundle_with_only_newer_layers_says_update_first(make_box):
     newer["layers"] = [{**newer["layers"][0], "id": "printers", "path": "layers/printers.json"}]
     with pytest.raises(BundleRefused, match="update this box first"):
         manifest.check_manifest(newer)
+
+
+def test_settings_yaml_is_deterministic_and_omits_destination_secrets(make_box):
+    db = make_box("config")
+    set_up(db)
+    repo = updatepolicy.UpdatePolicyRepository(db)
+    policy = repo.get()["doc"]
+    policy["ai_schedule"]["off"][0]["future_credential"] = "must-not-travel"
+    repo.put(now=NOW, doc=policy, updated_by=OWNER)
+    text = config_export.export_settings(db)
+    assert text == config_export.export_settings(db)
+    doc = yaml.safe_load(text)
+    assert doc["schema"] == config_export.SETTINGS_SCHEMA
+    assert doc["box"] == {"box_name": "hub", "time_zone": "America/New_York"}
+    assert doc["updates"]["cool_off_hours"] == 72
+    assert doc["updates"]["ai_schedule"]["off"][0]["start"] == "23:00"
+    assert doc["backups"] == {"choice": "s3", "content_tier_apps": ["jellyfin"]}
+    assert "must-not-travel" not in text
+    assert "secret_key" not in text
+    assert "future_credential" not in text
+    assert "s3.example.test" not in text
+
+
+def test_secret_schema_marker_overrides_cleartext_permission(make_box, monkeypatch):
+    db = make_box("marked")
+    set_up(db)
+    # Even if a later change opts these fields in, a secret marker takes precedence.
+    rules = deepcopy(manifest.schema())
+    backups = rules["$defs"]["boxConfig"]["properties"]["backups"]["properties"]
+    destinations = backups["destinations"]
+    destinations["x-config-export"] = True
+    destinations["items"]["x-config-export"] = True
+    fields = destinations["items"]["properties"]
+    assert fields["config"]["x-secret"] is True
+    fields["config"]["x-config-export"] = True
+    fields["label"]["x-config-export"] = True
+    fields["id"]["x-config-export"] = True
+    fields["id"]["writeOnly"] = True
+    monkeypatch.setattr(config_export, "schema", lambda: rules)
+
+    doc = yaml.safe_load(config_export.export_settings(db))
+    assert doc["backups"]["destinations"] == [{"label": "Offsite"}, {"label": "USB disk"}]

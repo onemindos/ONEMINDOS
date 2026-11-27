@@ -27,6 +27,9 @@ type (
 	ServiceCard  = gen.ServiceCard
 )
 
+// ConfigExportView carries the versioned settings YAML for private Git.
+type ConfigExportView = gen.ConfigExportView
+
 // Action types the gateway accepts today (contract §3; §12.5 adds more).
 const (
 	ActionAppInstall = "app.install"

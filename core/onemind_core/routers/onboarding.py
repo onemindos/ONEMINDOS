@@ -11,6 +11,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from ..auth import Principal
 from ..backups.service import Unavailable
+from ..boxbundle.config_export import export_settings
+from ..boxbundle.manifest import BundleRefused
 from ..context import Gateway
 from ..errors import ApiError, error_responses
 from ..identity.scopes import register_route_scope
@@ -20,6 +22,7 @@ from ..onboarding import OnboardingService
 
 # Owner only (#323): the row asks for every scope, the same answer as the fail-closed fallback.
 register_route_scope("GET", r"/v1/onboarding/state", ("*",))
+register_route_scope("GET", r"/v1/config/export", ("*",))
 
 
 class OnboardingSettingsBody(BaseModel):
@@ -81,6 +84,10 @@ class RestoreCandidatesView(BaseModel):
     points: list[RestorePoint]
 
 
+class ConfigExportView(BaseModel):
+    yaml: str
+
+
 class OnboardingSettingsView(BaseModel):
     box_name: str | None
     time_zone: str | None
@@ -140,6 +147,17 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def read(response: Response, _: Principal = Depends(owner)):
         response.headers["Cache-Control"] = "no-store"
         return svc.read()
+
+    @app.get("/v1/config/export", operation_id="config.export", tags=["config"],
+             response_model=ConfigExportView, responses=error_responses(401, 403, 409),
+             openapi_extra={"security": [{"bearer": ["*"]}]})
+    def config_export(response: Response, _: Principal = Depends(owner)):
+        """Read the schema-approved cleartext settings as versioned YAML."""
+        response.headers["Cache-Control"] = "no-store"
+        try:
+            return ConfigExportView(yaml=export_settings(gw.db))
+        except BundleRefused:
+            raise ApiError(409, "conflict", "box settings did not pass export checks") from None
 
     @app.put("/v1/onboarding/settings", operation_id="onboarding.settings.save", tags=["onboarding"],
              response_model=OnboardingSettingsView, responses=error_responses(401, 403, 422))

@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Box export and import
 
-**Status:** draft design with founder decisions recorded in §12. The manifest and box-config layer are implemented. Section 5.3 defines the first config-as-code slice. Phased plan: [#1285](https://github.com/onemindos/ONEMINDOS/issues/1285). Refs [#234](https://github.com/onemindos/ONEMINDOS/issues/234) (M-LIVE).
+**Status:** draft design with founder decisions recorded in §12. The manifest, box-config layer and first config-as-code export are implemented. Phased plan: [#1285](https://github.com/onemindos/ONEMINDOS/issues/1285). Refs [#234](https://github.com/onemindos/ONEMINDOS/issues/234) (M-LIVE).
 
 > **In plain words.** A *box bundle* is one file that says how your OneMind box is set up: its name and time zone, the people on it and their roles, the rules for what agents may do, which apps are installed with their settings and secrets, which machines have joined it, and the box's own keys. Your printed emergency kit can unlock it. You can also choose a passphrase recipient for a manual download. It is also signed, so a new box can tell the bundle really came from your box. It does not hold your photos or app files: those stay in your backups, and the bundle says exactly which backup to pull them from.
 >
@@ -166,7 +166,7 @@ Each destination holds an independently restorable copy of the box. Use a per-bo
 
 | Path | What it holds |
 |---|---|
-| `boxes/<instance-id>/data/` | The encrypted restic repository with that destination's system and app snapshots |
+| `boxes/<instance-id>/data/` | The encrypted restic repository with that destination's system, app, cluster and node snapshots for the selected backup tier |
 | `boxes/<instance-id>/copies/<copy-id>/box.omb` | The signed, encrypted config bundle with snapshot references into that same repository |
 | `boxes/<instance-id>/copies/<copy-id>/complete.json` | The signed completion record with format version, box and copy IDs, generation, creation time, bundle size and digest, repository identity and required snapshot IDs |
 
@@ -242,7 +242,7 @@ Settings → Box bundle → **Export now** → **Mark known-good**. Later, "Comp
 On the second box: import with mode *Clone*. Settings, rules and apps come over. **What must differ:** box name and web name (asked during the import), instance id, every key in layer g (re-made), no fabric membership, no people unless ticked (and then with no passkeys and no approver keys), no app data unless chosen. Both boxes keep their own audit chains and backups.
 
 ## 8. Security rules
-1. **Export is an owner action.** It goes through the approval queue as `box.export`, with passkey step-up. D-028 says exporting and restoring never depend on a strong key. So export asks for **L1**, or the kit at the box; L2 is not needed. Every export is audited: who, which layers, size, digest, where it went. The key material is never recorded.
+1. **Recovery bundle export is an owner action.** It goes through the approval queue as `box.export`, with passkey step-up. D-028 says exporting and restoring never depend on a strong key. So export asks for **L1**, or the kit at the box; L2 is not needed. Every export is audited: who, which layers, size, digest, where it went. The key material is never recorded.
 2. **The bundle never exists in clear outside the box:** it is encrypted on the box before it is written anywhere.
 3. **Agents can never export or import.** The routes have no agent scope, `core/tests/sec_policy.py` and the route matrix assert it, and `box.export` / `box.import` join the never list for standing approvals and bypass (as restore and key rotation already are, D-027).
 4. **Children and teens cannot**, and neither can adults: owner only.
@@ -271,7 +271,8 @@ On the second box: import with mode *Clone*. Settings, rules and apps come over.
 | `GET /v1/box/imports/{id}`, `POST …/undo` | `box.imports.get/undo` | owner | progress, the to-do list, undo |
 
 - **Dashboard:** Settings → Backups and recovery → **Box bundle** card (Export now, schedule, saved bundles, known-good, compare); first run → **Restore a OneMind box**; the import preview as a per-layer checklist with the change lines. Through `@onemind/sdk` only.
-- **CLI (Cobra, `--json` everywhere):** `onemind box export [--layers a,b,…] [--to download|usb|<destination>]`, `onemind box inspect FILE` (kit on stdin, never echoed), `onemind box import FILE --mode restore|move|clone [--layers …] [--dry-run]`. Import and export only file requests; the owner approves in the dashboard or on the phone.
+- **Config-as-code CLI:** `onemind config export --dir <path>` reads the owner-only `GET /v1/config/export` and writes `settings.yaml` (§5.3).
+- **Recovery CLI (Cobra, `--json` everywhere):** `onemind box export [--layers a,b,…] [--to download|usb|<destination>]`, `onemind box inspect FILE` (kit on stdin, never echoed), `onemind box import FILE --mode restore|move|clone [--layers …] [--dry-run]`. Import and export only file requests; the owner approves in the dashboard or on the phone.
 - **Phone:** the approval card shows the plan; it approves at the level §8.5 requires.
 
 ## 10. Phases

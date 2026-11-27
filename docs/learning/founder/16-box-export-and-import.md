@@ -56,7 +56,7 @@ Your NAS or object storage holds the encrypted setup next to the data it points 
 - The bundle's table of contents format: `sdk/schema/onemind.box-bundle.schema.json`.
 - The first layer, box settings, as data: read from the box, checked, a preview of what an import would change, and a careful write-back of the safe parts.
 - Tests that do the full round trip: box A → bundle → empty box B → box B looks like box A.
-- The first config-as-code slice is the schema-approved settings YAML described above. Recovery bundle encryption and restore are planned.
+- The first config-as-code export writes the schema-approved settings YAML described above. Recovery bundle encryption and restore are planned.
 
 ## Things found on the way
 

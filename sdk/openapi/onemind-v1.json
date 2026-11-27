@@ -3118,6 +3118,19 @@
         "title": "ComposeBody",
         "type": "object"
       },
+      "ConfigExportView": {
+        "properties": {
+          "yaml": {
+            "title": "Yaml",
+            "type": "string"
+          }
+        },
+        "required": [
+          "yaml"
+        ],
+        "title": "ConfigExportView",
+        "type": "object"
+      },
       "ConfigureActionParams": {
         "additionalProperties": false,
         "properties": {
@@ -24338,6 +24351,65 @@
         "summary": "Get Checkup",
         "tags": [
           "care"
+        ]
+      }
+    },
+    "/v1/config/export": {
+      "get": {
+        "description": "Read the schema-approved cleartext settings as versioned YAML.",
+        "operationId": "config.export",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigExportView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Config Export",
+        "tags": [
+          "config"
         ]
       }
     },

@@ -6,11 +6,22 @@ from conftest import OWNER
 from onemind_core.app import create_app
 import json
 import pytest
+import yaml
 from onemind_core.auth import Principal
 from onemind_core.backups.store import DestinationRow
 
 PATH = "/v1/onboarding/settings"
 BODY = {"box_name": "home-hub", "time_zone": "Europe/London", "backup_choice": "later"}
+
+
+def test_config_export_uses_live_settings(client):
+    assert client.put(PATH, headers=OWNER, json=BODY).status_code == 200
+    result = client.get("/v1/config/export", headers=OWNER)
+    assert result.status_code == 200
+    assert result.headers["cache-control"] == "no-store"
+    assert yaml.safe_load(result.json()["yaml"])["box"] == {
+        "box_name": BODY["box_name"], "time_zone": BODY["time_zone"],
+    }
 
 
 def test_owner_save_is_durable_and_audited(client, settings, clock):

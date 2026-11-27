@@ -27,7 +27,7 @@ FORMAT_MAJOR = 1
 FORMAT_MINOR = 0
 SCHEMA_NAME = "onemind.box-bundle.schema.json"
 _REPO_SCHEMA = Path(__file__).resolve().parents[3] / "sdk" / "schema" / SCHEMA_NAME
-_IMAGE_SCHEMA = Path("/opt/onemind/sdk/schema") / SCHEMA_NAME
+_IMAGE_SCHEMAS = [Path(root) / SCHEMA_NAME for root in ("/usr/lib/onemind/sdk/schema", "/opt/onemind/sdk/schema")]
 
 LAYER_IDS = ("box_config", "people", "policies", "apps", "app_data_refs", "fabric", "box_keys")
 
@@ -35,7 +35,7 @@ LAYER_IDS = ("box_config", "people", "policies", "apps", "app_data_refs", "fabri
 ALWAYS_EXCLUDED: tuple[dict, ...] = (
     {"what": "passkeys and other sign-in keys",
      "reason": "a passkey's private key never leaves the person's device and is bound to the box's web name; "
-               "people sign in once with their password or a recovery path and enrol their passkey again"},
+               "the public records can come back on the same web name"},
     {"what": "OneMind's release signing keys",
      "reason": "the update root is OneMind's, held on YubiKeys (D-031); it is never on a box, so never in a bundle"},
     {"what": "the disk encryption key and the TPM binding",
@@ -72,10 +72,10 @@ def sha256(data: bytes) -> str:
 @lru_cache(maxsize=1)
 def schema() -> dict:
     """The bundle schema: the repo copy in development and tests, the image copy on a box."""
-    for path in (_REPO_SCHEMA, _IMAGE_SCHEMA):
+    for path in (_REPO_SCHEMA, *_IMAGE_SCHEMAS):
         if path.is_file():
             return json.loads(path.read_text(encoding="utf-8"))
-    raise FileNotFoundError(f"{SCHEMA_NAME} not found in sdk/schema or /opt/onemind/sdk/schema")
+    raise FileNotFoundError(f"{SCHEMA_NAME} not found in the checkout or installed SDK schema directories")
 
 
 def validator(ref: str | None = None) -> Draft202012Validator:

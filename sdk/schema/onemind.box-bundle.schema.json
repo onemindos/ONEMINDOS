@@ -3,7 +3,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/onemindos/ONEMINDOS/sdk/schema/onemind.box-bundle.schema.json",
   "title": "OneMind box bundle",
-  "description": "The inside of a box export (docs/architecture/BOX-EXPORT-IMPORT.md): the manifest that lists every layer, and the shape of each layer this version defines. The manifest and layers travel inside an encrypted, signed envelope; nothing here is ever written to disk in clear outside the box. Forward compatibility: a reader refuses a bundle whose format major is higher than its own, accepts a higher minor, ignores manifest fields it does not know, and reports layer fields it does not know as skipped. Only the box_config layer is defined in v1.0; the other layer ids are reserved so a v1.0 reader can name them in a dry run.",
+  "description": "The inside of a box export (docs/architecture/BOX-EXPORT-IMPORT.md): the manifest that lists every layer, and the shape of each layer this version defines. The recovery bundle travels inside an encrypted, signed envelope. The separate config-as-code projection only emits nodes explicitly marked x-config-export and refuses any node marked x-secret or writeOnly. Forward compatibility: a reader refuses a bundle whose format major is higher than its own, accepts a higher minor, ignores manifest fields it does not know, and reports layer fields it does not know as skipped. Only the box_config layer is defined in v1.0; the other layer ids are reserved so a v1.0 reader can name them in a dry run.",
   "type": "object",
   "required": ["schema", "format", "bundle_id", "created_at", "source", "layers", "excluded"],
   "properties": {
@@ -69,14 +69,8 @@
         "sensitive": {"type": "boolean", "description": "true when the layer holds secrets (still inside the encrypted envelope)."}
       }
     },
-    "timeZone": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 128,
-      "pattern": "^[A-Za-z0-9_+-]+(/[A-Za-z0-9_+-]+){0,2}$",
-      "description": "An IANA time zone name. The importing box also checks it is installed there (box_config.check)."
-    },
     "boxConfig": {
+      "x-config-export": true,
       "title": "Layer a: box config (onemind.io/box-bundle/box-config/v1)",
       "description": "Settings that describe the box, not the people or apps on it. No credentials: backup destination secrets are typed again on import.",
       "type": "object",
@@ -85,42 +79,66 @@
       "properties": {
         "schema": {"const": "onemind.io/box-bundle/box-config/v1"},
         "box": {
+          "x-config-export": true,
           "type": "object",
           "additionalProperties": false,
           "required": ["box_name", "time_zone"],
           "properties": {
-            "box_name": {"type": ["string", "null"], "minLength": 1, "maxLength": 63, "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"},
-            "time_zone": {"oneOf": [{"$ref": "#/$defs/timeZone"}, {"type": "null"}]}
+            "box_name": {"x-config-export": true, "type": ["string", "null"], "minLength": 1, "maxLength": 63, "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"},
+            "time_zone": {
+              "x-config-export": true,
+              "type": ["string", "null"],
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_+-]+(/[A-Za-z0-9_+-]+){0,2}$",
+              "description": "An IANA time zone name. The importing box also checks it is installed there."
+            }
           }
         },
         "updates": {
+          "x-config-export": true,
           "type": ["object", "null"],
           "description": "The owner's app update policy (automation/updatepolicy.py UpdatePolicyBody), or null when the box uses the defaults.",
           "additionalProperties": false,
           "required": ["window_id", "cool_off_hours", "same_major_only", "backoff_after_failures", "ai_schedule"],
           "properties": {
-            "window_id": {"type": "string", "minLength": 1, "maxLength": 40},
-            "cool_off_hours": {"type": "integer", "minimum": 0, "maximum": 720},
-            "same_major_only": {"type": "boolean"},
-            "backoff_after_failures": {"type": "integer", "minimum": 1, "maximum": 10},
+            "window_id": {"x-config-export": true, "type": "string", "minLength": 1, "maxLength": 40},
+            "cool_off_hours": {"x-config-export": true, "type": "integer", "minimum": 0, "maximum": 720},
+            "same_major_only": {"x-config-export": true, "type": "boolean"},
+            "backoff_after_failures": {"x-config-export": true, "type": "integer", "minimum": 1, "maximum": 10},
             "ai_schedule": {
+              "x-config-export": true,
               "type": "object",
               "additionalProperties": false,
               "required": ["enabled", "tz", "off"],
               "properties": {
-                "enabled": {"type": "boolean"},
-                "tz": {"type": "string", "minLength": 1, "maxLength": 64},
-                "off": {"type": "array", "maxItems": 50, "items": {"type": "object"}}
+                "enabled": {"x-config-export": true, "type": "boolean"},
+                "tz": {"x-config-export": true, "type": "string", "minLength": 1, "maxLength": 64},
+                "off": {
+                  "x-config-export": true,
+                  "type": "array",
+                  "maxItems": 50,
+                  "items": {
+                    "x-config-export": true,
+                    "type": "object",
+                    "properties": {
+                      "days": {"x-config-export": true, "items": {"x-config-export": true}},
+                      "start": {"x-config-export": true},
+                      "end": {"x-config-export": true}
+                    }
+                  }
+                }
               }
             }
           }
         },
         "backups": {
+          "x-config-export": true,
           "type": "object",
           "additionalProperties": false,
           "required": ["choice", "destinations", "content_tier_apps"],
           "properties": {
-            "choice": {"enum": ["usb", "peer", "s3", "later"]},
+            "choice": {"x-config-export": true, "enum": ["usb", "peer", "s3", "later"]},
             "primary_destination_id": {"type": ["string", "null"], "maxLength": 40},
             "destinations": {
               "type": "array",
@@ -135,15 +153,16 @@
                   "label": {"type": "string", "maxLength": 80},
                   "is_primary": {"type": "boolean"},
                   "append_only": {"type": "boolean"},
-                  "config": {"type": "object", "description": "Location only (path, node, endpoint, bucket). Never credentials: the gateway does not store them (backups/store.py)."}
+                  "config": {"x-secret": true, "type": "object", "description": "Location only (path, node, endpoint, bucket). Never credentials: the gateway does not store them (backups/store.py)."}
                 }
               }
             },
             "content_tier_apps": {
+              "x-config-export": true,
               "type": "array",
               "description": "Apps whose downloadable content the owner chose to back up (BAK-03). Re-applied on import as backup.content.set requests.",
               "maxItems": 500,
-              "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"}
+              "items": {"x-config-export": true, "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"}
             }
           }
         }
