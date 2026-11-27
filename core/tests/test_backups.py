@@ -816,11 +816,16 @@ def test_restore_app_key_is_gone_after_a_restart_and_nothing_changes(client, bk)
 
 
 # ---- owner shortcut passes the same approval guards as the approve route (F-2) -----------------------
-def test_owner_shortcuts_need_a_passkey_once_one_is_registered(client, bk):
+def test_owner_shortcuts_require_verification_after_setup(client, bk):
+    from fastapi.testclient import TestClient
+
+    from test_identity import LOCAL_PEER, setup_bearer_owner
+
     add_usb(client, bk)
     assert client.post("/v1/backups/runs", headers=OWNER, json={"approve": True}).json()["state"] == "succeeded"
     snap = client.get("/v1/backups/snapshots", headers=OWNER, params={"app_id": "notes"}).json()[0]
-    client.app.state.identity.passkeys_active = lambda: True  # as if an owner had registered a passkey
+    home = TestClient(client.app, client=LOCAL_PEER)
+    setup_bearer_owner(home)
     jobs = len(bk.agent.jobs)
     # the control: the normal approve route is refused
     ctl = client.post("/v1/backups/runs", headers=OWNER, json={})

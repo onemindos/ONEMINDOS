@@ -37,6 +37,7 @@ import re
 import secrets
 import shutil
 import socket
+import stat
 import subprocess
 import sys
 import tempfile
@@ -290,6 +291,26 @@ def run_dir(p: "Paths") -> None:
     A folder an earlier boot step made 0700 is loosened to 0711, never tightened or widened further."""
     os.makedirs(p.run, mode=0o711, exist_ok=True)
     os.chmod(p.run, 0o711)
+
+
+def gateway_recovery_key(p: Paths) -> int:
+    """Let the gateway read and clear the one first-boot disk key in RAM."""
+    ids = onemind_ids()
+    if ids is None:
+        return 0
+    try:
+        fd = os.open(os.path.join(p.run, "data-recovery-key"), os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except FileNotFoundError:
+        return 0
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_nlink != 1:
+            raise RuntimeError("expected a root-owned disk recovery key in /run")
+        os.fchown(fd, 0, ids[1])
+        os.fchmod(fd, 0o660)
+    finally:
+        os.close(fd)
+    return 0
 
 
 def write(path: str, data: str, mode: int = 0o600, owner: tuple[int, int] | None = None) -> bool:
@@ -1283,15 +1304,17 @@ def main(argv=None) -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", default=os.environ.get("ONEMIND_FIRSTBOOT_ROOT", "/"))
     sp = ap.add_subparsers(dest="cmd", required=True)
-    for c in ("apply", "kubeconfig", "mesh", "join"):
+    handlers = {"apply": apply, "kubeconfig": kubeconfig, "mesh": mesh, "join": join,
+                "gateway-recovery-key": gateway_recovery_key}
+    for c in handlers:
         sp.add_parser(c)
     c = sp.add_parser("configure")
     for k in KEYS:
         c.add_argument("--" + k.replace("_", "-"), required=k == "role")
     a = ap.parse_args(argv)
     p = Paths(a.root)
-    if a.cmd in ("apply", "kubeconfig", "mesh", "join"):
-        return {"apply": apply, "kubeconfig": kubeconfig, "mesh": mesh, "join": join}[a.cmd](p)
+    if a.cmd in handlers:
+        return handlers[a.cmd](p)
     if load_state(p):
         print("already configured", file=sys.stderr)
         return 2

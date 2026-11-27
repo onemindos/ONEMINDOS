@@ -20,12 +20,16 @@ from fastapi.testclient import TestClient
 
 from conftest import OWNER, action_body
 from onemind_core.app import create_app
-from onemind_core.identity.crypto import b64url
+from onemind_core.ca import MESH_NETS
+from onemind_core.identity.crypto import b64url, totp_code
 from test_identity import (
+    LOCAL_PEER,
+    PASSWORD,
     SoftAuthenticator,
     audit_events,
     box_code,
     csrf,
+    enrol,
     id_settings,
     new_session_client,
     register_passkey,
@@ -129,7 +133,8 @@ def lvc(settings, clock, executor, tmp_path, root):
         {"kind": "fido_aaguid", "aaguid": PIN_AAGUID, "name": "Test PIN Key", "roots": [root.pem],
          "user_verification": ["passcode_internal"]},
     ]}))
-    with TestClient(create_app(id_settings(settings, allowlist_file=allow), clock=clock, executor=executor)) as c:
+    with TestClient(create_app(id_settings(settings, allowlist_file=allow), clock=clock, executor=executor),
+                    client=LOCAL_PEER) as c:
         add_wipe_type(c)
         yield c
 
@@ -146,6 +151,9 @@ def add_wipe_type(c: TestClient) -> None:
 
     c.app.state.gateway.actions.register_type("test.wipe", FeatureAction(
         "destructive", lambda a, finish: finish(ExecResult("succeeded", "wiped")), frozenset({"person"}),
+        params_model=WipeParams))
+    c.app.state.gateway.actions.register_type("test.reversible", FeatureAction(
+        "write", lambda a, finish: finish(ExecResult("succeeded", "changed")), frozenset({"person"}),
         params_model=WipeParams))
 
 
@@ -264,7 +272,7 @@ def test_grace_until_the_first_proven_key_then_l1_cannot_approve_t3(lvc, root, c
 
 def test_owner_with_only_l1_keys_is_told_plainly_when_strict(settings, clock, executor, root, tmp_path):
     s = id_settings(settings, l2_grace=False)
-    with TestClient(create_app(s, clock=clock, executor=executor)) as c:
+    with TestClient(create_app(s, clock=clock, executor=executor), client=LOCAL_PEER) as c:
         add_wipe_type(c)
         setup_owner(c)
         add_key(c, SoftAuthenticator(), "phone")
@@ -335,10 +343,7 @@ def test_table_edits_go_through_the_queue_at_l2_and_keep_the_floor(lvc, root, cl
 
 def test_only_owners_read_and_request_table_changes(lvc, clock):
     setup_owner(lvc)
-    r = lvc.post("/v1/users", json={"display_name": "A", "role": "adult"}, headers=csrf(lvc))
-    code = r.json()["one_time"]["enrolment_code"]
-    adult = new_session_client(lvc)
-    adult.post("/v1/auth/enrol", json={"code": code, "username": "ana", "password": "correct horse battery"})
+    adult = enrol(lvc, "adult", "ana")
     assert adult.get("/v1/verification-requirements").status_code == 403
     r = adult.post("/v1/actions", json={**action_body(clock, type_="verification.requirement.set", key="x"),
                                         "params": {"key": "tier.T1", "level": "L2"}}, headers=csrf(adult))
@@ -348,7 +353,8 @@ def test_only_owners_read_and_request_table_changes(lvc, clock):
 
 # ---- trusted key models -------------------------------------------------------------------------------
 def test_owner_adds_a_trusted_model_at_l2_and_removing_it_drops_keys_to_l1(settings, clock, executor, root):
-    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor)) as c:
+    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor),
+                    client=LOCAL_PEER) as c:
         setup_owner(c)
         bio = AttestedAuthenticator(root)
         assert add_key(c, bio, "bio")["level_reason"] == "model_not_trusted"  # nothing shipped yet
@@ -413,10 +419,13 @@ def test_an_l1_key_cannot_delete_the_last_proven_key_to_reopen_the_grace(lvc, ro
     assert r.status_code == 409 and r.json()["reason"] == "verification_level_unmet"
     assert approve(lvc, aid, phone).status_code == 409
     assert lvc.get(f"/v1/actions/{aid}").json()["state"] == "awaiting_approval"
-    # Security settings and table edits wait too: no L1 fallback anywhere.
+    # Removing the key does not lower the security setting's level. The home-network path adds a box code.
     share = {"roles": ["guest"], "people": [], "auth": None}
     step = step_up_of(lvc.put("/v1/apps/uptime-kuma/access", json=share, headers=csrf(lvc)))
-    assert (step["required_level"], step["box"]) == ("L2", None)
+    assert (step["required_level"], step["box"]) == ("L2", "alt")
+    r = lvc.post("/v1/auth/step-up/options", json={k: step[k] for k in ("op", "target", "body")},
+                 headers=csrf(lvc))
+    assert r.status_code == 409 and r.json()["reason"] == "verification_level_unmet"
 
 
 def test_a_lost_last_proven_key_is_revoked_at_the_box_and_a_new_one_enrolled_there(lvc, root, clock):
@@ -504,7 +513,8 @@ def test_wrong_box_codes_lock_the_box_confirmation_for_a_while(lvc, clock):
 
 def test_during_grace_an_l1_key_cannot_trust_a_model_remotely_to_make_itself_l2(settings, clock, executor, root):
     """The related hole: authenticator.allowlist.add approved by L1 would turn the approver's own key L2."""
-    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor)) as c:
+    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor),
+                    client=LOCAL_PEER) as c:
         setup_owner(c)
         mine = AttestedAuthenticator(root)
         assert add_key(c, mine, "mine")["level_reason"] == "model_not_trusted"
@@ -550,7 +560,8 @@ def test_an_adults_proven_key_needs_no_box_code(lvc, root):
 
 
 def test_a_box_without_a_screen_waits_for_a_proven_key(settings, clock, executor):
-    with TestClient(create_app(id_settings(settings, box_code_file=None), clock=clock, executor=executor)) as c:
+    with TestClient(create_app(id_settings(settings, box_code_file=None), clock=clock, executor=executor),
+                    client=LOCAL_PEER) as c:
         add_wipe_type(c)
         setup_owner(c)
         add_key(c, SoftAuthenticator(), "phone")
@@ -734,16 +745,14 @@ def test_during_grace_a_step_up_in_place_replaces_signing_in_again(lvc, clock, s
     assert (step["required_level"], step["box"]) == ("L1", "required")
     g = grant_from(lvc, phone, step)
     assert lvc.post("/v1/users", json=body, headers={**csrf(lvc), "OneMind-Step-Up": g}).status_code == 201
-    # Removing a key is the same: a fresh L1 proof made in place, never more.
+    # Ordinary key revocation remains available after the fresh proof expires (D-034).
     clock.advance(lvc.app.state.identity.cfg.step_up_s + 60)
     add_key(lvc, SoftAuthenticator(), "spare", grant=grant(lvc, phone, "auth.passkeys.register"))
     clock.advance(lvc.app.state.identity.cfg.step_up_s + 60)
     spare = keys(lvc)["spare"]["credential_id"]
-    step = step_up_of(lvc.delete(f"/v1/auth/passkeys/{spare}", headers=csrf(lvc)))
-    assert (step["op"], step["target"], step["required_level"], step["box"]) == ("auth.passkeys.delete", spare, "L1", None)
-    g = grant_from(lvc, phone, step)
-    r = lvc.delete(f"/v1/auth/passkeys/{spare}", headers={**csrf(lvc), "OneMind-Step-Up": g})
+    r = lvc.delete(f"/v1/auth/passkeys/{spare}", headers=csrf(lvc))
     assert r.status_code == 204, r.text
+    assert list(keys(lvc)) == ["phone"]
 
 
 def test_a_physical_approval_stays_l2_during_the_grace(lvc, clock):
@@ -785,3 +794,113 @@ def test_a_step_up_without_a_session_is_refused_not_a_crash(lvc, root):
     # The change itself still names the step-up; the CLI turns that into "use the dashboard or phone".
     r = api.post("/v1/users", json={"display_name": "Di", "role": "adult"}, headers=bearer)
     assert r.status_code in (401, 403), r.text
+
+
+# ---- password and authenticator verification (D-034) -----------------------------------------------
+def test_password_only_cannot_approve_a_destructive_action(lvc, clock):
+    setup_owner(lvc)
+    aid = file_action(lvc, clock, "test.wipe", {"target": "photos"}, "password-wipe")
+    r = lvc.post(f"/v1/actions/{aid}/approve", headers=csrf(lvc))
+    assert r.status_code == 401 and r.json()["reason"] == "step_up_required", r.text
+    assert lvc.get(f"/v1/actions/{aid}").json()["state"] == "awaiting_approval"
+    r = lvc.post(f"/v1/actions/{aid}/approve-options", json={"method": "password+totp", "at_box": True},
+                 headers=csrf(lvc))
+    assert r.status_code == 409 and r.json()["reason"] == "authenticator_required", r.text
+
+
+def test_password_only_approves_a_reversible_action_and_can_remove_its_sole_l1_key(lvc, clock):
+    setup_owner(lvc)
+    key = SoftAuthenticator()
+    key_id = add_key(lvc, key, "phone")["credential_id"]
+    key_session = new_session_client(lvc)
+    opts = key_session.post("/v1/auth/login/options").json()
+    r = key_session.post("/v1/auth/login", json={"passkey": key.assert_(opts["publicKey"]["challenge"])})
+    assert r.status_code == 200, r.text
+    r = lvc.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD})
+    assert r.status_code == 200, r.text
+    aid = file_action(lvc, clock, "test.reversible", {"target": "photos"}, "password-change")
+    assert lvc.post(f"/v1/actions/{aid}/approve", headers=csrf(lvc)).status_code == 200
+    r = lvc.delete(f"/v1/auth/passkeys/{key_id}", headers=csrf(lvc))
+    assert r.status_code == 204 and keys(lvc) == {}, r.text
+    assert key_session.get("/v1/me").status_code == 401
+    assert lvc.get("/v1/me").status_code == 200
+
+
+def _enable_totp(c, clock):
+    pending = c.post("/v1/auth/totp/setup", headers=csrf(c))
+    assert pending.status_code == 200, pending.text
+    secret = pending.json()["one_time"]["secret"]
+    code = totp_code(secret, int(clock.now.timestamp() // 30))
+    confirmed = c.post("/v1/auth/totp/confirm", json={"code": code}, headers=csrf(c))
+    assert confirmed.status_code == 204, confirmed.text
+    clock.advance(30)
+    return secret
+
+
+def _totp_proof(options, secret, clock):
+    return {"challenge": options["challenge"], "password": PASSWORD,
+            "totp": totp_code(secret, int(clock.now.timestamp() // 30))}
+
+
+def test_fresh_totp_login_meets_l1_but_not_after_its_window(lvc, clock):
+    setup_owner(lvc)
+    secret = _enable_totp(lvc, clock)
+    r = lvc.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD,
+                                        "totp": totp_code(secret, int(clock.now.timestamp() // 30))})
+    assert r.status_code == 200, r.text
+    aid = file_action(lvc, clock, "app.install", {"app_id": "uptime-kuma"}, "totp-l1")
+    r = lvc.post(f"/v1/actions/{aid}/approve", headers=csrf(lvc))
+    assert r.status_code == 200, r.text
+    clock.advance(lvc.app.state.identity.cfg.step_up_s + 1)
+    aid = file_action(lvc, clock, "app.install", {"app_id": "whoami"}, "totp-stale")
+    r = lvc.post(f"/v1/actions/{aid}/approve", headers=csrf(lvc))
+    assert r.status_code == 401 and r.json()["reason"] == "step_up_required", r.text
+
+
+@pytest.mark.parametrize("has_proven_key", [False, True])
+def test_l2_with_password_totp_needs_home_box_and_totp_cannot_be_reused(lvc, clock, root, has_proven_key):
+    setup_owner(lvc)
+    if has_proven_key:
+        add_key(lvc, AttestedAuthenticator(root), "bio")
+    secret = _enable_totp(lvc, clock)
+    aid = file_action(lvc, clock, "test.wipe", {"target": "photos"}, "totp-box")
+    options = f"/v1/actions/{aid}/approve-options"
+    remote = TestClient(lvc.app, client=(str(MESH_NETS[0].network_address + 1), 50000))
+    sign_in = {"username": "zeus", "password": PASSWORD,
+               "totp": totp_code(secret, int(clock.now.timestamp() // 30))}
+    r = remote.post("/v1/auth/login", json=sign_in)
+    assert r.status_code == 200, r.text
+    r = remote.post(options, json={"method": "password+totp", "at_box": True}, headers=csrf(remote))
+    assert r.status_code == 409 and r.json()["reason"] == "verification_level_unmet", r.text
+    clock.advance(30)
+    opts = lvc.post(options, json={"method": "password+totp", "at_box": True}, headers=csrf(lvc))
+    assert opts.status_code == 200, opts.text
+    assert opts.json()["box_code_required"] and box_code(lvc) not in opts.text
+    proof = _totp_proof(opts.json(), secret, clock)
+    r = lvc.post(f"/v1/actions/{aid}/approve", json={"password_totp": proof, "box_code": box_code(lvc)},
+                 headers=csrf(lvc))
+    assert r.status_code == 200, r.text
+    l1 = file_action(lvc, clock, "app.install", {"app_id": "uptime-kuma"}, "totp-replay")
+    opts = lvc.post(f"/v1/actions/{l1}/approve-options", json={"method": "password+totp"}, headers=csrf(lvc))
+    assert opts.status_code == 200, opts.text
+    r = lvc.post(f"/v1/actions/{l1}/approve", json={"password_totp": {**proof, "challenge": opts.json()["challenge"]}},
+                 headers=csrf(lvc))
+    assert r.status_code == 401 and r.json()["reason"] == "totp_invalid", r.text
+
+
+def test_password_totp_grant_meets_l2_at_box_for_one_exact_change(lvc, clock):
+    setup_owner(lvc)
+    secret = _enable_totp(lvc, clock)
+    body = {"display_name": "Barb", "role": "adult"}
+    path = "/v1/users"
+    step = step_up_of(lvc.post(path, json=body, headers=csrf(lvc)))
+    assert step["box"] == "required"
+    opts = lvc.post("/v1/auth/step-up/options", json={"op": step["op"], "target": step["target"],
+                    "body": step["body"], "method": "password+totp"}, headers=csrf(lvc))
+    assert opts.status_code == 200 and opts.json()["box_code_required"], opts.text
+    r = lvc.post("/v1/auth/step-up", json={"password_totp": _totp_proof(opts.json(), secret, clock),
+                 "box_code": box_code(lvc)}, headers=csrf(lvc))
+    assert r.status_code == 200 and r.json()["level"] == "L2", r.text
+    headers = {**csrf(lvc), "OneMind-Step-Up": r.json()["step_up"]}
+    assert lvc.post(path, json=body, headers=headers).status_code == 201
+    assert lvc.post(path, json=body, headers=headers).status_code == 401

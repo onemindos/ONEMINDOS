@@ -28,6 +28,7 @@ from ..files.service import FilesService
 from ..files.store import aware
 from ..files.uploads import TUS_EXTENSIONS, TUS_VERSION, Uploads, parse_metadata, parse_repr_digest
 from ..files.watch import IndexWatcher
+from .identity import PasswordTotpProof
 
 TAG = ["files"]
 STREAM_CHUNK = 256 * 1024
@@ -145,6 +146,8 @@ class ApproveBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     plan_sha256: str | None = Field(default=None, max_length=80)
     webauthn: dict | None = None
+    password_totp: PasswordTotpProof | None = None
+    box_code: str | None = Field(default=None, max_length=12)
 
 
 class DenyBody(BaseModel):

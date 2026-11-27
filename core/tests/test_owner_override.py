@@ -12,7 +12,9 @@ from fastapi.testclient import TestClient
 from conftest import ADULT, AGENT, OWNER, ScriptedExecutor, action_body, write_scan
 from onemind_core.app import create_app
 from onemind_core.config import Settings
+from onemind_core.identity.crypto import totp_code
 from onemind_core.override import OwnerOverrideSettings
+from test_identity import LOCAL_PEER, PASSWORD, setup_bearer_owner
 
 APP = "uptime-kuma"
 REASON = "I read the CVE list and accept the risk"
@@ -86,7 +88,7 @@ def test_override_installs_and_leaves_a_red_mark(on, clock, settings):
     assert mark["action_id"] == aid and mark["data"]["severity"] == "critical"
     payload = mark["data"]["payload"]
     assert payload["mark"] == f"owner override: {REASON}" and payload["tone"] == "red"
-    assert payload["confirmed"] == APP and payload["step_up"] == "none (no passkeys registered)"
+    assert payload["confirmed"] == APP and payload["step_up"] == "none (before account setup)"
     assert payload["scan"]["result"] == "fail" and payload["scan"]["malware"] == 0
     (approved,) = [e for e in lines if e["event"] == "action.approved"]
     assert approved["data"]["owner_override"] is True
@@ -172,27 +174,40 @@ def test_non_owners_cannot_override(on, clock, headers):
     assert on.get(f"/v1/apps/{APP}/owner-override", headers=headers).status_code == 403
 
 
-def test_passkey_step_up_once_identity_has_passkeys(on, clock, settings):
-    # The override follows the identity feature's own answer: no wiring call, no flag of its own.
-    gw = on.app.state.gateway
-    on.app.state.identity.passkeys_active = lambda: True  # as if an owner had registered a passkey
+def test_action_bound_step_up_after_setup_works_without_passkeys(on, clock, settings):
+    home = TestClient(on.app, client=LOCAL_PEER)
+    signed_in = setup_bearer_owner(home)
     aid = request(on, clock)
     r = approve(on, aid, OK)
     assert r.status_code == 401 and "passkey" in r.json()["message"]  # identity's approval guard
-    assert on.get(f"/v1/apps/{APP}/owner-override", headers=OWNER).json()["step_up"] == "passkey"
-    # The guard verifies an assertion whenever one is sent (covered by the identity tests); here a
-    # stand-in accepts it, to prove the override itself still insists that one came with it.
-    gw.approval_guards[:] = [lambda p, action_id, body, request: None]
-    r = approve(on, aid, OK)
-    assert r.status_code == 401 and "step_up_required" in r.json()["message"]
-    r = approve(on, aid, OK, webauthn={"id": "cred", "clientDataJSON": "e30", "authenticatorData": "", "signature": ""})
-    assert r.json()["state"] == "succeeded"
+    assert on.get(f"/v1/apps/{APP}/owner-override", headers=OWNER).json()["step_up"] == "verification"
+    pending = home.post("/v1/auth/totp/setup", headers=signed_in)
+    assert pending.status_code == 200, pending.text
+    secret = pending.json()["one_time"]["secret"]
+    step = int(clock.now.timestamp() // 30)
+    assert home.post("/v1/auth/totp/confirm", headers=signed_in,
+                     json={"code": totp_code(secret, step)}).status_code == 204
+    clock.advance(30)
+    auth = home.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD, "client": "cli",
+                                            "totp": totp_code(secret, step + 1)})
+    assert auth.status_code == 200, auth.text
+    signed_in = {"Authorization": f"Bearer {auth.json()['access_token']}"}
+    # A fresh L1 session satisfies the ordinary action guard, but an override needs proof for this action.
+    path = f"/v1/actions/{aid}/approve"
+    r = home.post(path, headers=signed_in, json={"override": OK})
+    assert r.status_code == 401 and r.json()["reason"] == "step_up_required" and "override" in r.json()["message"]
+    opt = home.post(f"{path}-options", headers=signed_in, json={"method": "password+totp"})
+    assert opt.status_code == 200, opt.text
+    clock.advance(30)
+    r = home.post(path, headers=signed_in, json={"override": OK,
+                   "password_totp": {"challenge": opt.json()["challenge"], "password": PASSWORD,
+                                     "totp": totp_code(secret, step + 2)}})
+    assert r.status_code == 200 and r.json()["state"] == "succeeded", r.text
     (mark,) = [e for e in audit(settings) if e["event"] == "app.owner_override"]
-    assert mark["data"]["payload"]["step_up"] == "passkey"
+    assert mark["data"]["payload"]["step_up"] == "password+totp"
 
 
-def test_no_passkeys_registered_means_typed_confirmation_only(on, clock):
-    on.app.state.identity.passkeys_active = lambda: False
+def test_unclaimed_install_means_typed_confirmation_only(on, clock):
     assert approve(on, request(on, clock), OK).json()["state"] == "succeeded"
 
 

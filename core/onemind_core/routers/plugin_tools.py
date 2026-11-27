@@ -34,14 +34,14 @@ def register(app: FastAPI, gw: Gateway):
     tools = Tools(gw, app.state.identity)
     app.state.plugin_tools = tools
 
-    # Like storage and the signing-key guard: the passkey is required once the household has
-    # passkeys. With none enrolled the owner's ordinary approval is all there is, and a
-    # destructive tool must not be impossible to approve.
+    # Identity verifies the action-bound factor after this guard. Existing install-token
+    # workflows may run before the household has an account.
     def destructive_step_up(principal, action_id, body, request):
         action = gw.repo.get(action_id)
         if (principal.is_owner and action and action.type == "plugin.invoke" and action.risk == "destructive"
-                and app.state.identity.passkeys_active() and body.get("webauthn") is None):
-            raise ApiError(401, "unauthenticated", "destructive plugin tools require an action-bound passkey",
+                and app.state.identity.account_setup_exists()
+                and not (body.get("webauthn") or body.get("password_totp"))):
+            raise ApiError(401, "unauthenticated", "destructive plugin tools require an action-bound sign-in check",
                            reason="step_up_required")
         # Identity's following guard cryptographically verifies every supplied assertion,
         # consumes its challenge and binds it to this exact action, even with the global option off.

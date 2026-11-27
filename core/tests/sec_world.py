@@ -27,6 +27,8 @@ from starlette.routing import Mount, Route, WebSocketRoute
 from conftest import ScriptedExecutor
 from onemind_core.app import create_app
 from onemind_core.files.settings import FilesSettings
+from onemind_core.identity import IdentitySettings
+from onemind_core.netpath import LAN_NETS
 from onemind_core.photos import PhotosSettings
 
 # Columns of the matrix, in the order the report shows them.
@@ -123,10 +125,13 @@ class World:
         # FILES switched on with a temporary root, so its routes answer for real (not 503 "files_disabled").
         # PHOTOS likewise (off, every caller would get 404 before the role gate runs).
         sections = {**settings.sections, "files": FilesSettings(root=tmp_path / "files", min_free_bytes=0),
-                    "photos": PhotosSettings(enabled=True, dir=tmp_path / "photos")}
+                    "photos": PhotosSettings(enabled=True, dir=tmp_path / "photos"),
+                    "identity": IdentitySettings(rp_id="localhost", origins=("http://localhost",),
+                                                 box_code_file=tmp_path / "box-code.json")}
         self.settings = replace(settings, tokens_file=self.tokens_path, sections=sections)
         self.app = create_app(self.settings, clock=clock, executor=self.executor)
-        self.client = TestClient(self.app, raise_server_exceptions=False)
+        self.client = TestClient(self.app, raise_server_exceptions=False,
+                                 client=(str(LAN_NETS[0].network_address + 7), 50000))
         self._keys = 0
         self._identity: dict[str, Any] = {}
 
@@ -302,11 +307,20 @@ class World:
     def _identity_owner(self) -> dict[str, str]:
         """A household owner account with a bearer session, created through first-boot setup."""
         if "owner" not in self._identity:
+            from test_identity import SoftAuthenticator, confirm_setup_kit
+
             r = self.client.post("/v1/auth/setup", headers=self.static("owner"), json={
                 "username": ID_OWNER, "password": ID_PASSWORD, "client": "cli"})
             assert r.status_code == 201, r.text
             self._identity["session"] = r.json()
-            self._identity["owner"] = bearer(r.json()["access_token"])
+            owner = self._identity["owner"] = bearer(r.json()["access_token"])
+            confirm_setup_kit(self.client, owner)
+            options = self.client.post("/v1/auth/passkeys/register/options", headers=owner)
+            assert options.status_code == 200, options.text
+            key = self._identity["passkey"] = SoftAuthenticator()
+            credential = key.register(options.json())
+            registered = self.client.post("/v1/auth/passkeys/register", headers=owner, json={"credential": credential})
+            assert registered.status_code == 201, registered.text
         return self._identity["owner"]
 
     def id_session(self) -> dict:
@@ -320,7 +334,8 @@ class World:
 
     def id_user(self, role: str = "guest") -> tuple[str, str]:
         """(user id, enrolment code) of a new household member, created by the household owner."""
-        r = self.client.post("/v1/users", headers=self._identity_owner(), json={"display_name": "Probe", "role": role})
+        r = self.client.post("/v1/users/invites", headers=self._identity_owner(),
+                             json={"display_name": "Probe", "role": role})
         assert r.status_code == 201, r.text
         return r.json()["id"], _enrol_code(r.json())
 
@@ -334,9 +349,7 @@ class World:
             pytest.skip(PENDING_KINDS[kind])
         owner = self._identity_owner()
         if kind in ("child", "teen"):
-            r = self.client.post("/v1/users", headers=owner, json={"display_name": kind.title(), "role": kind})
-            assert r.status_code == 201, r.text
-            code = _enrol_code(r.json())
+            _, code = self.id_user(kind)
             r = self.client.post("/v1/auth/enrol", json={
                 "code": code, "username": f"matrix-{kind}", "password": ID_PASSWORD, "client": "cli"})
             assert r.status_code == 201, r.text
@@ -348,7 +361,10 @@ class World:
         assert self.client.get("/v1/instance", headers=bearer(token)).status_code == 200
         self.clock.advance(2 * 86400)
         # the household owner's own session expired with it: sign in again for the probes
-        r = self.client.post("/v1/auth/login", json={"username": ID_OWNER, "password": ID_PASSWORD, "client": "cli"})
+        options = self.client.post("/v1/auth/login/options")
+        assert options.status_code == 200, options.text
+        proof = self._identity["passkey"].assert_(options.json()["publicKey"]["challenge"])
+        r = self.client.post("/v1/auth/login", json={"passkey": proof, "client": "cli"})
         assert r.status_code == 200, r.text
         self._identity["session"] = r.json()
         self._identity["owner"] = bearer(r.json()["access_token"])
@@ -411,6 +427,15 @@ def p_setup(w: World) -> Req:
 def p_login(w: World) -> Req:
     w.id_session()
     return Req("/v1/auth/login", json={"username": ID_OWNER, "password": ID_PASSWORD, "client": "cli"})
+
+
+def p_recovery_options(w: World) -> Req:
+    w.id_session()
+    return Req("/v1/auth/recovery/options", json={"username": ID_OWNER})
+
+
+def p_reinvite(w: World) -> Req:
+    return Req(f"/v1/users/{w.id_user()[0]}/invite")
 
 
 def p_enrol(w: World) -> Req:

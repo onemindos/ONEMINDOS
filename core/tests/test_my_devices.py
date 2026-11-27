@@ -16,7 +16,9 @@ from onemind_core.identity import models as idm
 from onemind_core.monitoring import MonitoringSettings
 from onemind_core.notify import NotifySettings
 from sec_world import ip
-from test_identity import PASSWORD, SoftAuthenticator, audit_events, csrf, enrol, id_settings, new_session_client, setup_owner
+from test_identity import (
+    LOCAL_PEER, PASSWORD, SoftAuthenticator, audit_events, csrf, enrol, id_settings, new_session_client, setup_owner,
+)
 
 
 @pytest.fixture
@@ -24,7 +26,7 @@ def hc(settings, clock, executor, tmp_path):
     s = id_settings(settings)
     s = replace(s, sections={**s.sections, "notify": NotifySettings(worker=False, dir=tmp_path / "keys"),
                              "monitoring": MonitoringSettings(enabled=False)})
-    with TestClient(create_app(s, clock=clock, executor=executor)) as c:
+    with TestClient(create_app(s, clock=clock, executor=executor), client=LOCAL_PEER) as c:
         yield c
 
 
@@ -44,6 +46,15 @@ def phone_login(hc: TestClient, name: str = "Pixel 9", username: str = "zeus",
 
 def bearer(body: dict) -> dict:
     return {"Authorization": "Bearer " + body["access_token"]}
+
+
+def prove_this_device(c, *, headers=None, label="testclient", install_id=None):
+    headers = headers if headers is not None else csrf(c)
+    options = c.post("/v1/auth/passkeys/register/options", headers=headers)
+    assert options.status_code == 200, options.text
+    body = {"credential": SoftAuthenticator().register(options.json()), "label": label, "install_id": install_id}
+    registered = c.post("/v1/auth/passkeys/register", headers=headers, json=body)
+    assert registered.status_code == 201, registered.text
 
 
 def add_push(c: TestClient, headers: dict, label: str = "Pixel 9", install_id: str | None = None) -> str:
@@ -84,6 +95,7 @@ def test_list_joins_each_devices_credentials_by_its_name(hc):
 
 def test_lost_device_revokes_refresh_token_and_push_and_is_idempotent(hc, settings):
     setup_owner(hc)
+    prove_this_device(hc)
     phone, body = phone_login(hc)
     push_id = add_push(phone, bearer(body))
     pixel = by_label(devices(hc), "Pixel 9")
@@ -115,7 +127,7 @@ def test_passkey_on_the_lost_device_needs_a_fresh_passkey_and_never_the_last_own
     assert r.status_code == 201, r.text
     pixel = by_label(devices(hc), "Pixel 9")
     assert {c["source"] for c in pixel["credentials"]} == {"sessions", "passkeys"}
-    # Passkeys are on now: the owner's password browser must prove presence with a passkey first.
+    # The owner's password browser needs fresh L1 before removing a device.
     r = hc.delete(f"/v1/me/devices/{pixel['id']}", headers=csrf(hc))
     assert r.status_code == 401 and r.json()["reason"] == "step_up_required"
     laptop = new_session_client(hc)
@@ -143,6 +155,7 @@ def test_an_old_and_a_new_phone_with_the_default_name_stay_two_devices(hc):
     old_push = add_push(old, bearer(old_body), "Android phone", OLD_PHONE)
     new, new_body = phone_login(hc, "Android phone", install_id=NEW_PHONE)
     new_push = add_push(new, bearer(new_body), "Android phone", NEW_PHONE)
+    prove_this_device(new, headers=bearer(new_body), label="Android phone", install_id=NEW_PHONE)
     seen = [d for d in devices(new, bearer(new_body)) if d["label"] == "Android phone"]
     assert len(seen) == 2 and seen[0]["id"] != seen[1]["id"]
     lost = next(d for d in seen if not d["current"])  # the new phone sees the old one as not in use: Lost is offered
@@ -158,6 +171,7 @@ def test_an_old_and_a_new_phone_with_the_default_name_stay_two_devices(hc):
 def test_a_renamed_phone_stays_one_device_and_lost_revokes_everything_it_holds(hc, clock):
     """Sign-in used the default name, push the name typed later in Settings: one install, one device."""
     setup_owner(hc)
+    prove_this_device(hc)
     phone, body = phone_login(hc, "Android phone", install_id=NEW_PHONE)
     clock.advance(60)
     push_id = add_push(phone, bearer(body), "Zeus's Pixel", NEW_PHONE)
@@ -192,6 +206,7 @@ def test_install_id_must_look_like_one(hc):
 
 def test_refuses_the_current_device_tokens_and_agents(hc):
     setup_owner(hc)
+    prove_this_device(hc)
     current = next(d for d in devices(hc) if d["current"])
     r = hc.delete(f"/v1/me/devices/{current['id']}", headers=csrf(hc))
     assert r.status_code == 409 and r.json()["reason"] == "current_device"
@@ -207,6 +222,7 @@ def test_refuses_the_current_device_tokens_and_agents(hc):
 def test_people_see_and_remove_only_their_own_devices(hc):
     setup_owner(hc)
     adult = enrol(hc, "adult", "ana")
+    prove_this_device(adult)
     ana_phone, body = phone_login(hc, "Ana's phone", username="ana")
     owner_view = devices(hc)
     assert all(d["label"] != "Ana's phone" for d in owner_view)
@@ -222,6 +238,7 @@ def test_people_see_and_remove_only_their_own_devices(hc):
 @pytest.mark.skipif(not hasattr(idm, "ApproverKeyRow"), reason="the approver key table arrives with #702 (PR #838)")
 def test_lost_device_revokes_its_approver_key(hc, clock):
     setup_owner(hc)
+    prove_this_device(hc)
     phone, body = phone_login(hc)
     owner_id = hc.get("/v1/me").json()["principal"]["id"]
     identity = hc.app.state.identity

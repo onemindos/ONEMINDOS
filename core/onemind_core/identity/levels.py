@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Verification levels (D-028; gateway permissions design 3.11): how strongly a person was checked.
+"""Verification levels (D-028 as amended by D-034): how strongly a person was checked.
 
 - L0 "Signed in": a live session.
-- L1 "Device check": a passkey with user verification (face, fingerprint or device PIN; WebAuthn never
-  says which). Synced passkeys (iCloud Keychain, Google Password Manager) stop here.
-- L2 "Proven key": L1, plus an attestation checked at enrolment against the allow-list, a model whose
-  metadata lists a biometric method, and a device-bound key (backup-eligible flag BE=0).
+- L1 "Checked now": a fresh password and authenticator code, or a passkey with user verification
+  (face, fingerprint or device PIN; WebAuthn never says which). Synced passkeys stop here.
+- L2 "Proven": a key with an attestation checked against the allow-list, a biometric-capable model,
+  and a device-bound key (backup-eligible flag BE=0). On the home network, L1 plus the code on the
+  box's own screen can meet L2 for the specific action or change.
 - L3 "Biometric-only key": L2, plus proof the hardware unlocks the key only with a biometric. Nothing
   enrols at L3 yet (the Android approver key in design PR 18b, OneMind devices later).
 
@@ -81,6 +82,8 @@ TYPE_ROWS = {
     "tls.acme.set": "security.settings",
     "os.update.settings": "security.settings",
     "backup.kit.issue": "admin.high_risk",
+    "plugin.key.enroll": "security.settings",
+    "plugin.key.revoke": "security.settings",
 }
 
 # Owner routes that add power, by operation id: the row their step-up meets (body-bound for L2+).
@@ -89,6 +92,7 @@ STEP_UP_ROWS = {
     "auth.approver_keys.register": "admin.high_risk",
     "users.create": "admin.high_risk",
     "users.update": "admin.high_risk",
+    "users.reinvite": "admin.high_risk",
     "agents.inputs.set": "admin.high_risk",
     "apps.access.set": "security.settings",
     "approvals.policies.create": "security.settings",
@@ -96,9 +100,8 @@ STEP_UP_ROWS = {
     "physical.lockout.set": "physical.lockout_off",
 }
 
-# Owner and member routes that only need a fresh passkey (L1), never more: taking power away (design
-# 3.11, revoke is L0 plus the session's own proof). A step-up made in place stands in for signing in again.
-FRESH_OPS = frozenset({"auth.passkeys.delete"})
+# Routes with a fixed step-up rule when a proof is needed.
+FRESH_OPS = frozenset({"auth.passkeys.delete", "users.invite"})
 
 TYPE_KEY_PREFIX = "type:"
 

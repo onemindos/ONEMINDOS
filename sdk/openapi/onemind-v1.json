@@ -1635,6 +1635,12 @@
             "title": "Action Sha256",
             "type": "string"
           },
+          "box_available": {
+            "default": false,
+            "description": "this home-network request can use the box's screen for L2",
+            "title": "Box Available",
+            "type": "boolean"
+          },
           "box_code_required": {
             "default": false,
             "description": "N-1 b: during the grace an L2 approval also needs the code the box's own screen now shows; send it as box_code",
@@ -1660,6 +1666,12 @@
           },
           "grace": {
             "title": "Grace",
+            "type": "boolean"
+          },
+          "password_totp_available": {
+            "default": false,
+            "description": "the signed-in person has an authenticator set up",
+            "title": "Password Totp Available",
             "type": "boolean"
           },
           "plan_sha256": {
@@ -1744,6 +1756,26 @@
           "value"
         ],
         "title": "ApprovalLimit",
+        "type": "object"
+      },
+      "ApprovalOptionsBody": {
+        "properties": {
+          "at_box": {
+            "default": false,
+            "title": "At Box",
+            "type": "boolean"
+          },
+          "method": {
+            "default": "passkey",
+            "enum": [
+              "passkey",
+              "password+totp"
+            ],
+            "title": "Method",
+            "type": "string"
+          }
+        },
+        "title": "ApprovalOptionsBody",
         "type": "object"
       },
       "ApprovalPolicy": {
@@ -2101,6 +2133,31 @@
           "last_checkpoint"
         ],
         "title": "AuditVerify",
+        "type": "object"
+      },
+      "BoxChallenge": {
+        "properties": {
+          "challenge_id": {
+            "title": "Challenge Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          }
+        },
+        "required": [
+          "challenge_id",
+          "expires_at"
+        ],
+        "title": "BoxChallenge",
         "type": "object"
       },
       "BridgeStatus": {
@@ -4771,6 +4828,26 @@
         "title": "DryRunBody",
         "type": "object"
       },
+      "EmailCodeBody": {
+        "properties": {
+          "challenge_id": {
+            "maxLength": 40,
+            "title": "Challenge Id",
+            "type": "string"
+          },
+          "code": {
+            "maxLength": 12,
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "challenge_id"
+        ],
+        "title": "EmailCodeBody",
+        "type": "object"
+      },
       "EngineAccount": {
         "properties": {
           "account": {
@@ -6684,6 +6761,36 @@
         "title": "IntakeResult",
         "type": "object"
       },
+      "InviteSecret": {
+        "properties": {
+          "enrolment_code": {
+            "title": "Enrolment Code",
+            "type": "string"
+          },
+          "enrolment_url": {
+            "title": "Enrolment Url",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          }
+        },
+        "required": [
+          "enrolment_code",
+          "enrolment_url",
+          "expires_at"
+        ],
+        "title": "InviteSecret",
+        "type": "object"
+      },
       "JoinNode": {
         "properties": {
           "arch": {
@@ -7589,6 +7696,112 @@
         "title": "MachineUploadResult",
         "type": "object"
       },
+      "Me": {
+        "properties": {
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "email_verified": {
+            "title": "Email Verified",
+            "type": "boolean"
+          },
+          "passkeys": {
+            "title": "Passkeys",
+            "type": "integer"
+          },
+          "principal": {
+            "additionalProperties": true,
+            "title": "Principal",
+            "type": "object"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Scopes",
+            "type": "array"
+          },
+          "session": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session"
+          },
+          "setup_pending": {
+            "title": "Setup Pending",
+            "type": "boolean"
+          },
+          "step_up": {
+            "additionalProperties": true,
+            "title": "Step Up",
+            "type": "object"
+          },
+          "token": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token"
+          },
+          "totp": {
+            "title": "Totp",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "principal",
+          "display_name",
+          "email",
+          "email_verified",
+          "totp",
+          "setup_pending",
+          "token",
+          "session",
+          "passkeys",
+          "scopes",
+          "capabilities",
+          "step_up"
+        ],
+        "title": "Me",
+        "type": "object"
+      },
       "MePatchBody": {
         "properties": {
           "display_name": {
@@ -7602,6 +7815,18 @@
               }
             ],
             "title": "Display Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
           }
         },
         "title": "MePatchBody",
@@ -10160,6 +10385,32 @@
         "title": "PasswordOnlyBody",
         "type": "object"
       },
+      "PasswordTotpProof": {
+        "properties": {
+          "challenge": {
+            "maxLength": 128,
+            "title": "Challenge",
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 1024,
+            "title": "Password",
+            "type": "string"
+          },
+          "totp": {
+            "maxLength": 12,
+            "title": "Totp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "challenge",
+          "password",
+          "totp"
+        ],
+        "title": "PasswordTotpProof",
+        "type": "object"
+      },
       "PathScope": {
         "additionalProperties": false,
         "properties": {
@@ -11314,6 +11565,65 @@
         "title": "RecordOut",
         "type": "object"
       },
+      "RecoveryOptionsBody": {
+        "properties": {
+          "username": {
+            "maxLength": 64,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username"
+        ],
+        "title": "RecoveryOptionsBody",
+        "type": "object"
+      },
+      "RecoveryReset": {
+        "properties": {
+          "recovery_code": {
+            "title": "Recovery Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "recovery_code"
+        ],
+        "title": "RecoveryReset",
+        "type": "object"
+      },
+      "RecoveryResetBody": {
+        "properties": {
+          "box_code": {
+            "maxLength": 12,
+            "title": "Box Code",
+            "type": "string"
+          },
+          "challenge_id": {
+            "maxLength": 40,
+            "title": "Challenge Id",
+            "type": "string"
+          },
+          "new_password": {
+            "maxLength": 1024,
+            "title": "New Password",
+            "type": "string"
+          },
+          "recovery_code": {
+            "maxLength": 128,
+            "title": "Recovery Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "challenge_id",
+          "box_code",
+          "recovery_code",
+          "new_password"
+        ],
+        "title": "RecoveryResetBody",
+        "type": "object"
+      },
       "Redaction": {
         "properties": {
           "found": {
@@ -11351,6 +11661,62 @@
           "refresh_token"
         ],
         "title": "RefreshBody",
+        "type": "object"
+      },
+      "RemoteRecoveryBody": {
+        "properties": {
+          "recovery_code": {
+            "maxLength": 128,
+            "title": "Recovery Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "recovery_code"
+        ],
+        "title": "RemoteRecoveryBody",
+        "type": "object"
+      },
+      "RemoteRecoveryStatus": {
+        "properties": {
+          "available_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available At"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "state": {
+            "enum": [
+              "none",
+              "waiting",
+              "ready"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "available_at",
+          "expires_at"
+        ],
+        "title": "RemoteRecoveryStatus",
         "type": "object"
       },
       "RenameOp": {
@@ -12837,6 +13203,30 @@
       },
       "SetupBody": {
         "properties": {
+          "box_code": {
+            "anyOf": [
+              {
+                "maxLength": 12,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Box Code"
+          },
+          "challenge_id": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Challenge Id"
+          },
           "client": {
             "default": "browser",
             "enum": [
@@ -12859,6 +13249,18 @@
             ],
             "title": "Display Name"
           },
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
           "password": {
             "maxLength": 1024,
             "title": "Password",
@@ -12875,6 +13277,82 @@
           "password"
         ],
         "title": "SetupBody",
+        "type": "object"
+      },
+      "SetupFinishBody": {
+        "properties": {
+          "method": {
+            "enum": [
+              "download",
+              "print"
+            ],
+            "title": "Method",
+            "type": "string"
+          },
+          "recovery_code": {
+            "maxLength": 128,
+            "title": "Recovery Code",
+            "type": "string"
+          },
+          "saved": {
+            "title": "Saved",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "saved",
+          "method",
+          "recovery_code"
+        ],
+        "title": "SetupFinishBody",
+        "type": "object"
+      },
+      "SetupKit": {
+        "properties": {
+          "disk_recovery_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disk Recovery Key"
+          },
+          "recovery_code": {
+            "title": "Recovery Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "recovery_code",
+          "disk_recovery_key"
+        ],
+        "title": "SetupKit",
+        "type": "object"
+      },
+      "SetupStatus": {
+        "properties": {
+          "screen": {
+            "title": "Screen",
+            "type": "boolean"
+          },
+          "state": {
+            "enum": [
+              "unclaimed",
+              "pending",
+              "ready"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "screen"
+        ],
+        "title": "SetupStatus",
         "type": "object"
       },
       "ShareBody": {
@@ -13550,14 +14028,28 @@
             "title": "Box Code"
           },
           "credential": {
-            "additionalProperties": true,
-            "title": "Credential",
-            "type": "object"
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credential"
+          },
+          "password_totp": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PasswordTotpProof"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
-        "required": [
-          "credential"
-        ],
         "title": "StepUpBody",
         "type": "object"
       },
@@ -13598,6 +14090,10 @@
             "title": "Box Code Required",
             "type": "boolean"
           },
+          "challenge": {
+            "title": "Challenge",
+            "type": "string"
+          },
           "challenge_id": {
             "title": "Challenge Id",
             "type": "string"
@@ -13616,7 +14112,7 @@
             "type": "object"
           },
           "required_level": {
-            "description": "the level the key that answers must meet",
+            "description": "the level the sign-in proof must meet before the box code is added",
             "enum": [
               "L0",
               "L1",
@@ -13629,6 +14125,7 @@
         },
         "required": [
           "challenge_id",
+          "challenge",
           "expires_at",
           "required_level",
           "grace",
@@ -13642,7 +14139,7 @@
         "properties": {
           "at_box": {
             "default": false,
-            "description": "when the step-up allows it (details box: alt, e.g. revoking a lost last proven key): confirm with any passkey plus the code on the box's own screen",
+            "description": "when the step-up allows it (details box: alt, e.g. revoking a lost last proven key): confirm with L1 plus the code on the box's own screen",
             "title": "At Box",
             "type": "boolean"
           },
@@ -13651,6 +14148,15 @@
             "description": "the request body with every field (defaults filled in)",
             "title": "Body",
             "type": "object"
+          },
+          "method": {
+            "default": "passkey",
+            "enum": [
+              "passkey",
+              "password+totp"
+            ],
+            "title": "Method",
+            "type": "string"
           },
           "op": {
             "description": "the owner route's operation id, e.g. users.update",
@@ -16106,6 +16612,36 @@
         "title": "ToolCall",
         "type": "object"
       },
+      "TotpSecret": {
+        "properties": {
+          "otpauth_uri": {
+            "title": "Otpauth Uri",
+            "type": "string"
+          },
+          "secret": {
+            "title": "Secret",
+            "type": "string"
+          }
+        },
+        "required": [
+          "secret",
+          "otpauth_uri"
+        ],
+        "title": "TotpSecret",
+        "type": "object"
+      },
+      "TotpSetup": {
+        "properties": {
+          "one_time": {
+            "$ref": "#/components/schemas/TotpSecret"
+          }
+        },
+        "required": [
+          "one_time"
+        ],
+        "title": "TotpSetup",
+        "type": "object"
+      },
       "TrashEmptyBody": {
         "additionalProperties": false,
         "properties": {
@@ -16756,6 +17292,87 @@
         "title": "UserInfo",
         "type": "object"
       },
+      "UserInvite": {
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "disabled": {
+            "title": "Disabled",
+            "type": "boolean"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "enrolled": {
+            "title": "Enrolled",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "one_time": {
+            "$ref": "#/components/schemas/InviteSecret"
+          },
+          "passkeys": {
+            "title": "Passkeys",
+            "type": "integer"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "totp": {
+            "title": "Totp",
+            "type": "boolean"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "required": [
+          "id",
+          "display_name",
+          "role",
+          "disabled",
+          "enrolled",
+          "passkeys",
+          "totp",
+          "one_time"
+        ],
+        "title": "UserInvite",
+        "type": "object"
+      },
       "UserPatchBody": {
         "properties": {
           "display_name": {
@@ -17314,6 +17931,16 @@
               }
             ]
           },
+          "password_totp": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PasswordTotpProof"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "plan_sha256": {
             "anyOf": [
               {
@@ -17372,6 +17999,28 @@
         "additionalProperties": false,
         "description": "§12.4: the plan the approver was shown, and the passkey assertion once step-up exists.",
         "properties": {
+          "box_code": {
+            "anyOf": [
+              {
+                "maxLength": 12,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Box Code"
+          },
+          "password_totp": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PasswordTotpProof"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "plan_sha256": {
             "anyOf": [
               {
@@ -17857,6 +18506,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ApprovalOptionsBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -17907,6 +18573,16 @@
               }
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -22009,6 +22685,175 @@
         ]
       }
     },
+    "/v1/auth/email/options": {
+      "post": {
+        "operationId": "auth.email.options",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoxChallenge"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Email Options",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/email/verify": {
+      "post": {
+        "operationId": "auth.email.verify",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailCodeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Email Verify",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/v1/auth/enrol": {
       "post": {
         "operationId": "auth.enrol",
@@ -22040,6 +22885,16 @@
               }
             },
             "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
           },
           "409": {
             "content": {
@@ -22426,6 +23281,18 @@
     "/v1/auth/passkeys/register/options": {
       "post": {
         "operationId": "auth.passkeys.register_options",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "remote_recovery",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Remote Recovery",
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -22454,6 +23321,26 @@
               }
             },
             "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
         "summary": "Passkey Options",
@@ -22606,6 +23493,351 @@
           }
         },
         "summary": "Password",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/recovery/options": {
+      "post": {
+        "operationId": "auth.recovery.options",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecoveryOptionsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoxChallenge"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Recovery Options",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/recovery/remote": {
+      "delete": {
+        "operationId": "auth.recovery.remote.cancel",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Remote Recovery Cancel",
+        "tags": [
+          "auth"
+        ]
+      },
+      "get": {
+        "operationId": "auth.recovery.remote.status",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteRecoveryStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Remote Recovery Status",
+        "tags": [
+          "auth"
+        ]
+      },
+      "post": {
+        "operationId": "auth.recovery.remote.start",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoteRecoveryBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteRecoveryStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Remote Recovery Start",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/recovery/reset": {
+      "post": {
+        "operationId": "auth.recovery.reset",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecoveryResetBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryReset"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "summary": "Recovery Reset",
         "tags": [
           "auth"
         ]
@@ -22786,7 +24018,7 @@
     },
     "/v1/auth/setup": {
       "post": {
-        "description": "First owner: needs the install owner token (or the first-boot token) as the bearer.",
+        "description": "Claim an unclaimed box with its screen code or install credential. Finish by saving the recovery kit.",
         "operationId": "auth.setup",
         "requestBody": {
           "content": {
@@ -22816,6 +24048,16 @@
               }
             },
             "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
           },
           "409": {
             "content": {
@@ -22859,6 +24101,237 @@
           }
         },
         "summary": "Setup",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/setup/finish": {
+      "post": {
+        "operationId": "auth.setup.finish",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupFinishBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Setup Finish",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/setup/kit": {
+      "post": {
+        "operationId": "auth.setup.kit",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupKit"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Setup Kit",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/setup/options": {
+      "post": {
+        "operationId": "auth.setup.options",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoxChallenge"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Setup Options",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/setup/status": {
+      "get": {
+        "operationId": "auth.setup.status",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Setup Status",
         "tags": [
           "auth"
         ]
@@ -22944,7 +24417,7 @@
     },
     "/v1/auth/step-up/options": {
       "post": {
-        "description": "A passkey challenge for one owner change that needs L2 or more; only keys at that level answer.",
+        "description": "A challenge for one change at the verification level required for it.",
         "operationId": "auth.step_up.options",
         "requestBody": {
           "content": {
@@ -23186,7 +24659,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TotpSetup"
+                }
               }
             },
             "description": "Successful Response"
@@ -32750,7 +34225,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
               }
             },
             "description": "Successful Response"
@@ -32782,7 +34259,7 @@
         ]
       },
       "patch": {
-        "description": "Set (or clear, with null) your own display name. Display text only; it grants nothing.",
+        "description": "Set or clear your own display name and optional contact email.",
         "operationId": "me.update",
         "requestBody": {
           "content": {
@@ -35756,7 +37233,7 @@
     },
     "/v1/onboarding/restore/apps": {
       "post": {
-        "description": "Restore one installed app's data from another box's backup point (new hardware, UMB-P08).\n\nFiles the ordinary `backup.restore` action (undo snapshot, stop, swap, start, health gate, roll back), with the\nowner recovery key held in memory for that one action only: never in the action, the audit log or a response.\nSend `approve: true` to approve it in the same call; otherwise approve it at POST /v1/actions/{id}/approve.",
+        "description": "Restore one installed app's data from another box's backup point (new hardware, UMB-P08).\n\nFiles the ordinary `backup.restore` action (undo snapshot, stop, swap, start, health gate, roll back), with the\nowner recovery key held in memory for that one action only: never in the action, the audit log or a response.\nAn unclaimed installation can approve in the same call. A household owner approves the filed action\nat POST /v1/actions/{id}/approve with the verification it asks for.",
         "operationId": "onboarding.restore.app",
         "parameters": [
           {
@@ -43366,6 +44843,94 @@
         ]
       }
     },
+    "/v1/users/invites": {
+      "post": {
+        "operationId": "users.invite",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserCreateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserInvite"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "users:admin"
+            ]
+          }
+        ],
+        "summary": "Invite User",
+        "tags": [
+          "users"
+        ]
+      }
+    },
     "/v1/users/{user_id}": {
       "patch": {
         "operationId": "users.update",
@@ -43541,6 +45106,95 @@
           }
         },
         "summary": "Disable User",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/v1/users/{user_id}/invite": {
+      "post": {
+        "operationId": "users.reinvite",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserInvite"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "users:admin"
+            ]
+          }
+        ],
+        "summary": "Reinvite User",
         "tags": [
           "users"
         ]

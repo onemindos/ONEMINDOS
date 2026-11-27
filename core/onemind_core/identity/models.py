@@ -51,6 +51,22 @@ def _identity_v4(conn) -> None:
         conn.execute(text("ALTER TABLE identity_sessions ADD COLUMN step_up_credential_id VARCHAR(512)"))
 
 
+@SCHEMA.step(5, "D-034 setup, password recovery and second-factor sessions")
+def _identity_v5(conn) -> None:
+    from sqlalchemy import inspect, text
+
+    for table, columns in {
+        "identity_users": {"setup_pending": "BOOLEAN", "recovery_hash": "VARCHAR(64)",
+                           "email": "VARCHAR(254)", "email_verified_at": "TIMESTAMP WITH TIME ZONE",
+                           "credential_revision": "INTEGER"},
+        "identity_sessions": {"totp_at": "TIMESTAMP WITH TIME ZONE", "credential_revision": "INTEGER"},
+    }.items():
+        have = {c["name"] for c in inspect(conn).get_columns(table)}
+        for column, kind in columns.items():
+            if column not in have:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {kind}"))
+
+
 T = TypeVar("T", bound=Base)
 
 
@@ -83,6 +99,11 @@ class UserRow(Base):
     totp_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
     totp_pending: Mapped[str | None] = mapped_column(String(64), nullable=True)
     totp_last_step: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    setup_pending: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    recovery_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    email_verified_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
+    credential_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
     enrol_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     enrol_expires_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
     disabled: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -175,6 +196,8 @@ class SessionRow(Base):
     client: Mapped[str] = mapped_column(String(200))
     auth_method: Mapped[str] = mapped_column(String(32))
     passkey_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
+    totp_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
+    credential_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
     step_up_credential_id: Mapped[str | None] = mapped_column(String(512), nullable=True)  # who set passkey_at
     created_at: Mapped[datetime] = mapped_column(TS)
     last_seen_at: Mapped[datetime] = mapped_column(TS)
@@ -213,6 +236,15 @@ class ChallengeRow(Base):
     data: Mapped[dict] = mapped_column(JSON, default=dict)
     expires_at: Mapped[datetime] = mapped_column(TS)
     used_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
+
+
+class RemoteRecoveryRow(Base):
+    __tablename__ = "identity_remote_recovery"
+    user_id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    request_id: Mapped[str] = mapped_column(String(40))
+    credential_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    available_at: Mapped[datetime] = mapped_column(TS)
+    expires_at: Mapped[datetime] = mapped_column(TS)
 
 
 class AppAccessRow(Base):

@@ -265,9 +265,9 @@ def client(settings, clock, executor):
         yield c
 
 
-def make_client(settings: Settings, clock, executor=None, **changes):
+def make_client(settings: Settings, clock, executor=None, *, peer=("testclient", 50000), **changes):
     s = replace(settings, **changes)
-    return TestClient(create_app(s, clock=clock, executor=executor or NoopExecutor()))
+    return TestClient(create_app(s, clock=clock, executor=executor or NoopExecutor()), client=peer)
 
 
 def action_body(clock: Clock, app_id="uptime-kuma", type_="app.install", key="k1", ttl=600):

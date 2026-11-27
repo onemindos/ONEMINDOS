@@ -31,11 +31,13 @@ Environment=HOME=/data/onemind/gateway PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECOD
 # D-028 / N-1 b: the box confirmation code goes here (0640, in the gateway's own folder); onemind-screen shows
 # it on tty1. Nothing on the network can read it, so typing it back proves a person is at the box.
 Environment=ONEMIND_IDENTITY_BOX_CODE_FILE=/data/onemind/gateway/box-code.json
+Environment=ONEMIND_IDENTITY_RECOVERY_KEY_FILE=/run/onemind/data-recovery-key
 WorkingDirectory=/data/onemind/gateway
 # The files root (ONEMIND_FILES_ROOT) must exist before this unit starts: systemd sets up the namespace for
 # ReadWritePaths= below before any ExecStartPre= (even "+"), and a missing path fails it with 226/NAMESPACE.
 # onemind-firstboot (ensure_files_root) makes it on every hub boot before it starts this unit.
 ExecStartPre=+/usr/bin/install -d -o onemind -g onemind -m 0755 /data/onemind/kiosk
+ExecStartPre=+/usr/bin/python3 /usr/lib/onemind/onemind_firstboot.py gateway-recovery-key
 ExecStart=/usr/lib/onemind/gateway/venv/bin/python3 -m onemind_core
 Restart=always
 RestartSec=3s
@@ -45,7 +47,7 @@ CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 ProtectSystem=strict
 # /data/onemind/kiosk holds only the kiosk flag file the owner switches over the API (UX-07, #242).
-ReadWritePaths=/data/onemind/gateway /data/onemind/files -/data/onemind/kiosk
+ReadWritePaths=/data/onemind/gateway /data/onemind/files -/data/onemind/kiosk -/run/onemind/data-recovery-key
 ProtectHome=yes
 PrivateTmp=yes
 PrivateDevices=yes

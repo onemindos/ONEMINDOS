@@ -24,9 +24,11 @@ from conftest import AGENT, GUEST, OWNER, action_body
 from onemind_core.app import create_app
 from onemind_core.identity import IdentitySettings
 from onemind_core.identity.crypto import b64url, totp_code, unb64url
+from onemind_core.netpath import LAN_NETS
 
 ORIGIN, RP_ID = "http://localhost", "localhost"
 PASSWORD = "correct horse battery"
+LOCAL_PEER = (str(LAN_NETS[0].network_address + 7), 50000)
 
 
 class SoftAuthenticator:
@@ -86,7 +88,7 @@ def box_code(c: TestClient) -> str:
 
 @pytest.fixture
 def idc(settings, clock, executor):
-    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor)) as c:
+    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor), client=LOCAL_PEER) as c:
         yield c
 
 
@@ -97,7 +99,26 @@ def csrf(c: TestClient) -> dict:
 def setup_owner(c: TestClient, username="zeus") -> dict:
     r = c.post("/v1/auth/setup", headers=OWNER, json={"username": username, "display_name": "Zeus", "password": PASSWORD})
     assert r.status_code == 201, r.text
+    confirm_setup_kit(c, csrf(c))
     return r.json()
+
+
+def confirm_setup_kit(c: TestClient, headers: dict) -> dict:
+    kit = c.post("/v1/auth/setup/kit", headers=headers)
+    assert kit.status_code == 200, kit.text
+    result = c.post("/v1/auth/setup/finish", headers=headers, json={
+        "saved": True, "method": "download", "recovery_code": kit.json()["recovery_code"]})
+    assert result.status_code == 204, result.text
+    return kit.json()
+
+
+def setup_bearer_owner(c: TestClient) -> dict:
+    account = c.post("/v1/auth/setup", headers=OWNER,
+                     json={"username": "zeus", "password": PASSWORD, "client": "cli"})
+    assert account.status_code == 201, account.text
+    headers = {"Authorization": f"Bearer {account.json()['access_token']}"}
+    confirm_setup_kit(c, headers)
+    return headers
 
 
 def audit_events(settings) -> list[dict]:
@@ -106,7 +127,7 @@ def audit_events(settings) -> list[dict]:
 
 def new_session_client(c: TestClient) -> TestClient:
     """A second browser on the same app (own cookie jar)."""
-    return TestClient(c.app)
+    return TestClient(c.app, client=LOCAL_PEER)
 
 
 # ---- bootstrap and sign-in ------------------------------------------------------------------------
@@ -130,7 +151,7 @@ def test_setup_accepts_first_boot_token_file(settings, clock, executor, tmp_path
     f.write_text("first-boot-" + os.urandom(8).hex() + "\n")
     s = replace(settings, sections={"identity": IdentitySettings(rp_id=RP_ID, origins=(ORIGIN,), cookie_secure=False,
                                                                  setup_token_file=f)})
-    with TestClient(create_app(s, clock=clock, executor=executor)) as c:
+    with TestClient(create_app(s, clock=clock, executor=executor), client=LOCAL_PEER) as c:
         r = c.post("/v1/auth/setup", headers={"Authorization": "Bearer " + f.read_text().strip()},
                    json={"username": "zeus", "password": PASSWORD})
         assert r.status_code == 201
@@ -138,12 +159,13 @@ def test_setup_accepts_first_boot_token_file(settings, clock, executor, tmp_path
 
 def test_cookie_session_needs_csrf_on_unsafe_methods(idc, settings):
     setup_owner(idc)
+    register_passkey(idc, SoftAuthenticator())
     assert idc.get("/v1/users").status_code == 200  # GET needs no CSRF header
     r = idc.post("/v1/users", json={"display_name": "Ana", "role": "adult"})
     assert r.status_code == 403 and r.json()["reason"] == "csrf"
     r = idc.post("/v1/users", json={"display_name": "Ana", "role": "adult"}, headers={"OneMind-CSRF": "wrong"})
     assert r.status_code == 403
-    r = idc.post("/v1/users", json={"display_name": "Ana", "role": "adult"}, headers=csrf(idc))
+    r = stepped(idc, "POST", "/v1/users", json={"display_name": "Ana", "role": "adult"})
     assert r.status_code == 201
     assert any(e["event"] == "authz.denied" and e["data"]["payload"]["reason"] == "csrf" for e in audit_events(settings))
 
@@ -183,7 +205,7 @@ def test_bearer_session_for_cli_with_refresh(idc, clock):
     assert body["access_token"].startswith("om_ses_") and body["refresh_token"].startswith("om_ref_")
     assert "onemind_session" not in cli.cookies
     h = {"Authorization": "Bearer " + body["access_token"]}
-    assert cli.post("/v1/users", headers=h, json={"display_name": "Ana", "role": "adult"}).status_code == 201  # no CSRF
+    assert cli.patch("/v1/me", headers=h, json={"display_name": "My profile"}).status_code == 200  # no CSRF
     clock.advance(61 * 60)
     assert cli.get("/v1/me", headers=h).status_code == 401  # access token expired
     new = cli.post("/v1/auth/refresh", json={"refresh_token": body["refresh_token"]}).json()
@@ -212,6 +234,8 @@ def test_idle_session_expires(idc, clock):
 
 # ---- users, roles and sharing ---------------------------------------------------------------------
 def enrol(idc: TestClient, role: str, username: str) -> TestClient:
+    if not getattr(idc, "passkey", None):
+        register_passkey(idc, SoftAuthenticator())
     r = stepped(idc, "POST", "/v1/users", json={"display_name": username.title(), "role": role})
     assert r.status_code == 201, r.text
     one = r.json()["one_time"]
@@ -267,13 +291,13 @@ def test_per_app_sharing(idc):
     assert idc.get("/v1/apps").json()  # the owner sees every app
     assert guest.get("/v1/apps").json() == []  # nothing shared yet
     gid = guest.get("/v1/me").json()["principal"]["id"]
-    r = idc.put("/v1/apps/whoami/access", json={"roles": ["adult"], "people": [gid]}, headers=csrf(idc))
+    r = stepped(idc, "PUT", "/v1/apps/whoami/access", json={"roles": ["adult"], "people": [gid]})
     assert r.status_code == 200 and r.json()["roles"] == ["owner", "adult"]  # owner always included
     assert [a["id"] for a in guest.get("/v1/apps").json()] == ["whoami"]
     mine = guest.get("/v1/apps/whoami/access").json()
     assert mine["allowed"] is True and mine["people"] == [{"id": gid, "display_name": "Gus"}] and mine["roles"] == []
     assert guest.put("/v1/apps/whoami/access", json={"roles": ["guest"]}, headers=csrf(guest)).status_code == 403
-    idc.put("/v1/apps/whoami/access", json={"roles": [], "people": []}, headers=csrf(idc))
+    assert stepped(idc, "PUT", "/v1/apps/whoami/access", json={"roles": [], "people": []}).status_code == 200
     assert guest.get("/v1/apps").json() == []  # removing access is instant
     assert idc.get("/v1/apps/nope/access").status_code == 404
 
@@ -289,7 +313,7 @@ def test_app_access_answers_match_the_documented_schema(idc):
     for method in ("get", "put"):
         ok = spec["paths"]["/v1/apps/{app_id}/access"][method]["responses"]["200"]["content"]["application/json"]["schema"]
         assert ok == {"$ref": "#/components/schemas/AppAccess"}
-    put = idc.put("/v1/apps/whoami/access", json={"roles": ["adult"], "people": [gid]}, headers=csrf(idc))
+    put = stepped(idc, "PUT", "/v1/apps/whoami/access", json={"roles": ["adult"], "people": [gid]})
     assert AppAccess.model_validate(put.json()).people[0].id == gid
     assert AppAccess.model_validate(idc.get("/v1/apps/whoami/access").json()).allowed is None  # an owner sees all
     assert AppAccess.model_validate(guest.get("/v1/apps/whoami/access").json()).allowed is True
@@ -510,25 +534,29 @@ def test_step_up_for_user_admin_and_last_passkey(idc, clock):
     clock.advance(301)
     r = idc.post("/v1/users", json={"display_name": "B", "role": "adult"}, headers=csrf(idc))
     assert r.status_code == 401 and r.json()["reason"] == "step_up_required"
-    # A password session cannot register a second passkey or remove one without a fresh passkey.
+    # A password-only session cannot add another key, but may revoke an ordinary passkey it lost.
     assert idc.post("/v1/auth/passkeys/register/options", headers=csrf(idc)).status_code == 401
     pw = new_session_client(idc)
-    pw.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD})
-    assert pw.delete(f"/v1/auth/passkeys/{b64url(key.cred_id)}", headers=csrf(pw)).status_code == 401
+    assert pw.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD}).status_code == 200
+    assert pw.delete(f"/v1/auth/passkeys/{b64url(key.cred_id)}", headers=csrf(pw)).status_code == 204
     pkc = new_session_client(idc)
     opts = pkc.post("/v1/auth/login/options").json()
-    pkc.post("/v1/auth/login", json={"passkey": key.assert_(opts["publicKey"]["challenge"])})
-    r = pkc.delete(f"/v1/auth/passkeys/{b64url(key.cred_id)}", headers=csrf(pkc))
-    assert r.status_code == 409 and r.json()["reason"] == "last_owner"
+    assert pkc.post("/v1/auth/login", json={"passkey": key.assert_(opts["publicKey"]["challenge"])}).status_code == 401
+    assert pw.get("/v1/me").status_code == 200
 
 
-def test_passkey_off_switch_keeps_token_approvals(settings, clock, executor):
+def test_legacy_passkey_off_switch_does_not_skip_required_verification(settings, clock, executor):
+    from test_identity_levels import approve
+
     s = id_settings(settings, require_passkey_approval=False)
-    with TestClient(create_app(s, clock=clock, executor=executor)) as c:
+    with TestClient(create_app(s, clock=clock, executor=executor), client=LOCAL_PEER) as c:
         setup_owner(c)
-        register_passkey(c, SoftAuthenticator())
+        key = SoftAuthenticator()
+        register_passkey(c, key)
         aid = c.post("/v1/actions", json=action_body(clock), headers=OWNER).json()["id"]
-        assert c.post(f"/v1/actions/{aid}/approve", headers=OWNER).status_code == 200
+        bare = c.post(f"/v1/actions/{aid}/approve", headers=OWNER)
+        assert bare.status_code == 401 and bare.json()["reason"] == "step_up_required"
+        assert approve(c, aid, key).status_code == 200
 
 
 # ---- misc -----------------------------------------------------------------------------------------
