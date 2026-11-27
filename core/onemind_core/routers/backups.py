@@ -16,7 +16,7 @@ import secrets
 from datetime import datetime, timedelta
 from typing import Annotated, Literal
 
-from fastapi import Depends, FastAPI, Header, Query, Request
+from fastapi import Depends, FastAPI, Header, Query, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
 
@@ -272,9 +272,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return svc.run(run_id)
 
     @app.get("/v1/backups/snapshots", operation_id="backups.snapshots.list", tags=tags, responses=error_responses(401, 403))
-    def snapshots(app_id: str | None = Query(default=None, pattern=APP_ID_RE.pattern),
+    def snapshots(response: Response, app_id: str | None = Query(default=None, pattern=APP_ID_RE.pattern),
                   unit: str | None = Query(default=None, max_length=128), _: Principal = Depends(reader)):
-        return svc.snapshots(app_id=app_id, unit=unit)
+        """An empty list when there is nothing to restore. With no backup destination yet the list is empty
+        and `OneMind-Reason` says why; this is not an error."""
+        out = svc.snapshots(app_id=app_id, unit=unit)
+        if not out and not svc.repo.destinations():
+            response.headers["OneMind-Reason"] = svc.NO_DESTINATION
+        return out
 
     @app.get("/v1/backups/snapshots/{snapshot_id}", operation_id="backups.snapshots.get", tags=tags, responses=error_responses(401, 403, 404))
     def snapshot(snapshot_id: str, _: Principal = Depends(reader)):

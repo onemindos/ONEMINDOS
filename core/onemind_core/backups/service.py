@@ -518,7 +518,11 @@ class BackupService:
                         "finished_at": v.get("finished_at")})
         return out
 
+    NO_DESTINATION = "no backup destination yet"
+
     def snapshots(self, app_id: str | None = None, unit: str | None = None) -> list[dict]:
+        if not self.repo.destinations():
+            return []  # nothing can have been backed up; do not wait on the agent (the router names the reason)
         if app_id:
             unit = f"app:{app_id}"
         params = {"unit": unit} if unit else {}

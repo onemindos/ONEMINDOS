@@ -435,6 +435,16 @@ def test_agent_refusal_is_unavailable_not_a_crash(client, bk):
     assert r.status_code == 503 and r.json()["error"] == "unavailable" and r.json()["reason"] == "agent_failed"
 
 
+def test_snapshots_before_any_destination_is_an_empty_list_with_a_reason_not_a_wait(client, bk):
+    r = client.get("/v1/backups/snapshots", headers=OWNER)
+    assert r.status_code == 200 and r.json() == []
+    assert r.headers["OneMind-Reason"] == "no backup destination yet"
+    assert not any(j[0] == "backup.snapshots" for j in bk.agent.jobs)  # the agent was never asked
+    add_usb(client, bk)
+    r = client.get("/v1/backups/snapshots", headers=OWNER)
+    assert r.status_code == 200 and r.json() == [] and "OneMind-Reason" not in r.headers
+
+
 def test_destination_request_replays_with_the_same_idempotency_key(client, bk):
     body = {"kind": "usb", "label": "USB disk", "config": {"usb_uuid": "1234-ABCD"}}
     first = client.post("/v1/backups/destinations", headers={**OWNER, "Idempotency-Key": "k-1"}, json=body)
