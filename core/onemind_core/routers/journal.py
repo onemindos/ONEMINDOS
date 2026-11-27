@@ -11,12 +11,13 @@ stream ends after 15 minutes. Only the owner may read it; an agent's token is re
 
 from __future__ import annotations
 
+import asyncio
 import threading
 import time
 from collections import defaultdict, deque
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, Query
+from fastapi import Depends, FastAPI, Query, Request
 from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 
 from ..auth import Principal
@@ -34,6 +35,7 @@ MAX_BOOTS_BACK = 50
 MAX_BYTES = 1 << 20          # one non-follow read
 MAX_FOLLOW_BYTES = 8 << 20   # one follow stream
 FOLLOW_MAX_S = 15 * 60
+FOLLOW_BEAT_S = 15  # a quiet stream sends a comment this often, so the slot and the host stream end soon after the viewer leaves
 STREAMS_PER_PRINCIPAL = 3
 READS_PER_MINUTE = 30
 PRIORITY_RE = r"^(?:[0-7]|emerg|alert|crit|err|warning|notice|info|debug)$"
@@ -92,6 +94,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         tail: Annotated[int, Query(ge=1, le=MAX_LINES)] = 200,
         follow: bool = False,
         p: Principal = Depends(gw.principal),
+        request: Request = None,  # type: ignore[assignment]  # FastAPI fills it in
     ):
         """The last `tail` journal lines of the whole box, every line redacted (tokens, passwords, keys,
         e-mail, IP and MAC addresses). `follow=true` streams new lines of this boot as server-sent events
@@ -126,7 +129,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             try:
                 for raw in stream.lines():
                     line = r.line(raw)
-                    size += len(line) + 1
+                    size += len(line.encode()) + 1  # bytes, not characters: non-ASCII text must not pass 1 MiB
                     if size > MAX_BYTES:
                         out.append("[output cut: the read is limited to 1 MiB, narrow the filters or lower tail]")
                         break
@@ -135,18 +138,51 @@ def register(app: FastAPI, gw: Gateway) -> None:
                 stream.close()
             return PlainTextResponse("\n".join(out) + ("\n" if out else ""), headers={"Cache-Control": "no-store"})
 
-        def gen():
+        async def gen():
+            # The host stream is read by a thread and handed over through a queue. A viewer who leaves is seen
+            # at once (the response is cancelled), and `finally` closes the host connection, which ends the
+            # thread's blocked read: the slot is not held until the next journal line shows up.
+            loop = asyncio.get_running_loop()
+            queue: asyncio.Queue = asyncio.Queue()
+            done = object()
+            stop = threading.Event()
+
+            def pump() -> None:
+                try:
+                    for raw in stream.lines():
+                        if stop.is_set():
+                            return
+                        loop.call_soon_threadsafe(queue.put_nowait, raw)
+                except RuntimeError:  # the event loop is already closed
+                    return
+                finally:
+                    try:
+                        loop.call_soon_threadsafe(queue.put_nowait, done)
+                    except RuntimeError:
+                        pass
+
+            threading.Thread(target=pump, daemon=True, name="journal-follow").start()
             size = 0
             try:
-                for raw in stream.lines():
+                while True:
+                    try:
+                        raw = await asyncio.wait_for(queue.get(), FOLLOW_BEAT_S)
+                    except asyncio.TimeoutError:
+                        if request is not None and await request.is_disconnected():
+                            return
+                        yield ": keep-alive\n\n"
+                        continue
+                    if raw is done:
+                        yield "event: end\ndata: stream closed\n\n"
+                        return
                     line = r.line(raw)
-                    size += len(line) + 1
+                    size += len(line.encode()) + 1
                     if size > MAX_FOLLOW_BYTES:
                         yield "event: end\ndata: stream cut at its size limit\n\n"
                         return
                     yield f"data: {line}\n\n"
-                yield "event: end\ndata: stream closed\n\n"
             finally:
+                stop.set()
                 stream.close()
                 release(p, True)
 
