@@ -55,8 +55,8 @@ COPY --from=build /opt/tak /opt/tak
 # licence and OneMind's build recipe (this file and the start script).
 COPY --from=build /takserver-source.tar.gz /usr/share/doc/tak-server/takserver-source.tar.gz
 COPY --from=build /src/LICENSE.md /usr/share/doc/tak-server/LICENSE.md
-COPY Dockerfile onemind-tak-start.sh /usr/share/doc/tak-server/onemind-build/
-COPY --chmod=0755 onemind-tak-start.sh /usr/local/bin/onemind-tak-start.sh
+COPY Dockerfile onemind-tak-start.sh onemind-tak-check-config.sh /usr/share/doc/tak-server/onemind-build/
+COPY --chmod=0755 onemind-tak-start.sh onemind-tak-check-config.sh /usr/local/bin/
 # Everything the server writes lives on the app's volume at /data (README "How it runs here"):
 # certificates, CoreConfig.xml, the user file and logs. The shipped certs/ folder (scripts and config.cfg)
 # is kept as certs.dist and copied to /data/certs on the first start.

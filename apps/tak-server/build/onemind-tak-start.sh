@@ -50,21 +50,23 @@ if [ ! -f /data/certs/files/ca.pem ]; then
   durable_move /data/certs.new /data/certs
 fi
 
-# 2. CoreConfig.xml, once; the database password is refreshed on every start, so a rotated
-#    DB_PASSWORD reaches TAK Server. The keystore password cannot change after the certificates exist.
-db_pass="$(xml_sed_escape "$TAK_DB_PASSWORD")"
+# 2. CoreConfig.xml, once. Neither password can change afterwards: the keystores keep the first
+#    CERT_PASSWORD, and the database keeps the first DB_PASSWORD (the postgres image applies
+#    POSTGRES_PASSWORD only when it creates the data directory), so a rotated secret is not supported.
 if [ ! -f /data/config/CoreConfig.xml ]; then
   cert_pass="$(xml_sed_escape "$TAK_CERT_PASSWORD")"
+  db_pass="$(xml_sed_escape "$TAK_DB_PASSWORD")"
   sed -e 's|jdbc:postgresql://tak-database:5432/cot|jdbc:postgresql://127.0.0.1:5432/cot|' \
+      -e "s|\(<connection url=\"jdbc:postgresql://127.0.0.1:5432/cot\" username=\"martiuser\" password=\"\)[^\"]*\"|\1${db_pass}\"|" \
       -e "s|keystorePass=\"atakatak\"|keystorePass=\"${cert_pass}\"|g" \
       -e "s|truststorePass=\"atakatak\"|truststorePass=\"${cert_pass}\"|g" \
       -e '/_name="fed_https"/d' \
       "$TAK/CoreConfig.example.xml" > /data/config/CoreConfig.xml.new
   durable_move /data/config/CoreConfig.xml.new /data/config/CoreConfig.xml
 fi
-sed -e "s|\(<connection url=\"jdbc:postgresql://127.0.0.1:5432/cot\" username=\"martiuser\" password=\"\)[^\"]*\"|\1${db_pass}\"|" \
-    /data/config/CoreConfig.xml > /data/config/CoreConfig.xml.new
-durable_move /data/config/CoreConfig.xml.new /data/config/CoreConfig.xml
+# Refuse to start with a listener that is not the TLS-only default (checked on every start, so an edit
+# to /data/config/CoreConfig.xml cannot silently open a plain-text or other transport).
+/usr/local/bin/onemind-tak-check-config.sh /data/config/CoreConfig.xml
 [ -f /data/config/UserAuthenticationFile.xml ] || : > /data/config/UserAuthenticationFile.xml
 
 # 3. Database schema (the database sidecar is already accepting connections).
