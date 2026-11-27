@@ -35,7 +35,7 @@ Storage: PVC `umami-db` 10Gi.
 Images:
 
 - `ghcr.io/umami-software/umami:3.5.0@sha256:b64f40400d77bcadd39cf5c62a1e368c99524ca442024f96e1133355a19a5dbc`
-- `docker.io/library/postgres:15.19-alpine@sha256:eab009ce9447a891d9482702d370bbf132c18563bb87cfdcc2b815c6d3b0372f`
+- `docker.io/library/postgres:15.20-alpine@sha256:e18480a22d6e48f4d816a6696769b1ec09ac73a824c5649e49c7d8b684913f3d`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -93,6 +93,8 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 **Unblock attempt (apps/market-unblock-2, 2026-11-13):** Only the bundled `postgres:15.19-trixie` blocked this app on images (ClamAV and smoke test passed); the licence-matrix row is still missing (brief 30 B10), which the gate reports as a note about preinstalling on sold boxes. The sidecar moved to `postgres:15.19-alpine` (same major and minor; tag and digest read from the Docker Hub registry on 2026-11-13; digest `sha256:eab009ce…b0372f`). The Alpine image uses `su-exec` (C) instead of the Go helper `gosu` and has no Debian `ssl-cert` package, which is where the snakeoil private key came from. It has not been scanned by us yet: the CI gate decides the tier. The Alpine `postgres` user is UID/GID 70 (Debian: 999). Alpine uses musl, so text sorting differs from the Debian image; this is safe only because nobody has installed this app yet.
 
 **Gate result (ci-apps run 43468040302, 2026-11-13): still blocked.** The Alpine image also ships Go `stdlib` v1.24.6, so CVE-2025-68121 remains (fixed in 1.24.13, 1.25.7 or 1.26.0-rc.3). The snakeoil private-key finding is gone and the smoke test passed on the Alpine sidecar. What would unblock it: an upstream `postgres` image of the same major built with a fixed Go; the daily `apps-rescan` workflow picks that up without a code change.
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** Only the PostgreSQL sidecar moved (15.19 to 15.20, Alpine flavour, same major). Umami 3.5.0 is still the newest release. The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

@@ -7,7 +7,7 @@ BitTorrent client with a web interface (qbittorrent-nox).
 
 | | |
 |---|---|
-| Version | 5.3.0 (upstream release `release-5.3.0`, published 2026-10-20) |
+| Version | 5.3.1 (upstream release `release-5.3.1`, published 2026-11-24) |
 | Licence | `GPL-3.0-or-later`, Market class **L2** (licence gate, scan of 2026-11-21) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | media |
@@ -32,7 +32,7 @@ Storage: PVC `qbittorrent-config` 1Gi, PVC `qbittorrent-downloads` 100Gi.
 
 Images:
 
-- `docker.io/qbittorrentofficial/qbittorrent-nox:5.3.0-2@sha256:43b2d352cf76330a7ca34c7320b9b74227d6f31e662e0e123d0457206b09a7ea`
+- `docker.io/qbittorrentofficial/qbittorrent-nox:5.3.1-1@sha256:e1f616788e97894585e831da5a104aa09c6d91526fd00d5d931fff047dc3d8bf`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -91,6 +91,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 To unblock: upstream must publish an image with brotli-libs 1.2.1-r0 or later. The smoke test then needs a gate-level decision, since the login must stay on (founder call; a loopback-only probe does not reach the app from the gate).
 
 **Hold (apps/market-unblock-2, 2026-11-13):** `brotli-libs` CVE-2026-111497 and the smoke test gets HTTP 401 on `GET /` (gate run 43405572161). `5.3.0-2` is the newest tag. The 401 is the Web UI's login wall, a smoke-test setting question, not an image fix. Unblock: a rebuilt Alpine image and an agreed smoke path. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** qBittorrent 5.3.0 to 5.3.1 (bug fixes only). The 401 on the smoke path noted above is unrelated to this change. The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

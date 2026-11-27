@@ -7,7 +7,7 @@ kind: App
 metadata:
   id: wiki-js
   name: "Wiki.js"
-  version: "3.3.1"
+  version: "3.6.1"
   description: "Wiki.js is a modern, powerful wiki engine: Markdown and visual editing, a page tree, search, and Git or other storage sync."
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (wiki) are listed in README.md
   # until the schema has metadata.tags.
@@ -23,7 +23,7 @@ metadata:
     github: "https://github.com/requarks/wiki"
     website: "https://js.wiki"
     support: "https://github.com/requarks/wiki/issues"
-  upstream: {release: "3.3.1", released_at: "2026-11-11T10:02:37Z", archived: false}
+  upstream: {release: "3.6.1", released_at: "2026-11-23T10:24:05Z", archived: false}
   tier: blocked     # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
