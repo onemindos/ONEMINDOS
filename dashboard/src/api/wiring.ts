@@ -78,6 +78,7 @@ export interface UserInfo {
   passkeys: number;
   totp: boolean;
 }
+export type AgentInfo = components['schemas']['AgentView'];
 export interface UserCreated extends UserInfo {
   one_time: { enrolment_code: string; enrolment_url: string; expires_at: string };
 }
@@ -218,6 +219,8 @@ export interface WiringApi {
   deletePasskey(id: string): Promise<void>;
   // people and tokens
   users(): Promise<UserInfo[]>;
+  /** GET /v1/agents: the agents the hub knows (owner only). */
+  agents(): Promise<AgentInfo[]>;
   createUser(body: { display_name: string; role: PersonRole; username?: string }): Promise<UserCreated>;
   updateUser(id: string, body: { display_name?: string; role?: PersonRole }): Promise<UserInfo>;
   disableUser(id: string): Promise<UserInfo>;

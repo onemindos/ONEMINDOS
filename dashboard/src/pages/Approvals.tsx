@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { ApprovalsBoard, Button, Dialog, HoldToApprove, SecretsForm, actionTitle, sealValues, useToast, type ActionPlan, type ActionSummary, type AppSecrets, type SecretsSubmission, type SettingsLoadable } from '@onemind/ui';
 import { ApiError } from '../api/types';
-import { toActionPlan, toActionSummary } from '../data/adapters';
+import { principalNamer, toActionPlan, toActionSummary } from '../data/adapters';
 import { errorText, subjectOf, useHub } from '../data/hub';
 import type { ApproveOpts } from '../lib/approve';
 import { usePoll } from '../lib/hooks';
@@ -24,7 +24,12 @@ export function Approvals() {
   const [params] = useSearchParams();
   const me = usePoll(() => api.me(), 0);
   const passkey = me.data?.step_up.passkeys_active === true && webauthnSupported();
-  const all = hub.actionList.map((a) => toActionSummary(a, hub.appName));
+  // Names for the people and agents on the cards. Only the owner may list them; for anyone else
+  // (or if the hub does not answer) the cards fall back to the id, as before.
+  const users = usePoll(() => api.users().catch(() => []), 0);
+  const agents = usePoll(() => api.agents().catch(() => []), 0);
+  const nameOf = principalNamer(users.data ?? [], agents.data ?? []);
+  const all = hub.actionList.map((a) => toActionSummary(a, hub.appName, nameOf));
   const waiting = all.filter((a) => a.state === 'awaiting_approval');
   const decided = all.filter((a) => a.state !== 'awaiting_approval' && a.state !== 'requested').slice(0, 10);
   const stale = hub.freshness === 'stale' || hub.freshness === 'offline';

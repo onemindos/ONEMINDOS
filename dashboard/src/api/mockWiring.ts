@@ -147,6 +147,10 @@ export abstract class MockWiringBase implements W.WiringApi {
       { id: 'alex', username: 'alex', display_name: 'Alex', role: 'adult', created_at: this.iso(86400 * 10), last_seen_at: this.iso(3600), disabled: false, enrolled: true, passkeys: 0, totp: true },
     ]);
   }
+  async agents(): Promise<W.AgentInfo[]> {
+    this.owner();
+    return [];
+  }
   async users() {
     this.owner();
     return this.users_().map((u) => ({ ...u }));
