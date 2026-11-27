@@ -159,6 +159,36 @@ def test_totp_second_factor(idc, clock):
     assert r.status_code == 200 and other.get("/v1/me").json()["session"]["auth_method"] == "password+totp"
 
 
+def test_sign_in_methods_follow_password_totp_and_passkeys(idc, clock):
+    """GET /v1/auth/methods (Settings > Account and security, the CLI's `account show`): the person's own facts."""
+    setup_owner(idc)
+    assert idc.get("/v1/auth/methods").json() == {"password": True, "totp": False, "passkeys": 0, "passkeys_active": False}
+    setup = idc.post("/v1/auth/totp/setup", headers=csrf(idc))
+    assert setup.status_code == 200 and set(setup.json()["one_time"]) == {"secret", "otpauth_uri"}
+    secret = setup.json()["one_time"]["secret"]
+    assert setup.json()["one_time"]["otpauth_uri"].startswith("otpauth://totp/")
+    assert idc.get("/v1/auth/methods").json()["totp"] is False  # pending until a code confirms it
+    code = totp_code(secret, int(clock.now.timestamp() // 30))
+    assert idc.post("/v1/auth/totp/confirm", json={"code": code}, headers=csrf(idc)).status_code == 204
+    assert idc.get("/v1/auth/methods").json()["totp"] is True
+    assert idc.post("/v1/auth/totp/disable", json={"password": PASSWORD}, headers=csrf(idc)).status_code == 204
+    assert idc.get("/v1/auth/methods").json()["totp"] is False
+    # A person's API token may read its own methods (it still cannot change them, test below).
+    reader = idc.post("/v1/tokens", json={"name": "r", "scopes": ["reader"]}, headers=csrf(idc)).json()["one_time"]["token"]
+    assert idc.get("/v1/auth/methods", headers={"Authorization": f"Bearer {reader}"}).json()["password"] is True
+    # A static-file token is no household person.
+    assert idc.get("/v1/auth/methods", headers=OWNER).status_code == 403
+
+
+def test_sign_in_methods_count_passkeys(idc):
+    setup_owner(idc)
+    key = SoftAuthenticator()
+    opts = idc.post("/v1/auth/passkeys/register/options", headers=csrf(idc)).json()
+    r = idc.post("/v1/auth/passkeys/register", json={"credential": key.register(opts), "label": "laptop"}, headers=csrf(idc))
+    assert r.status_code == 201, r.text
+    assert idc.get("/v1/auth/methods").json() == {"password": True, "totp": False, "passkeys": 1, "passkeys_active": True}
+
+
 def test_bearer_session_for_cli_with_refresh(idc, clock):
     setup_owner(idc)
     cli = new_session_client(idc)
@@ -496,6 +526,8 @@ def test_api_tokens_cannot_change_sign_in_credentials(idc):
                        ("/v1/auth/totp/disable", {"password": PASSWORD})):
         r = idc.post(path, json=body, headers=h)
         assert r.status_code == 403, (path, r.text)
+        # The reason reaches the caller, so the CLI and the dashboard can say "sign in, a token cannot do this".
+        assert r.json()["error"] == "permission_denied" and r.json()["reason"] == "session_required", (path, r.text)
     assert idc.get("/v1/auth/passkeys", headers=h).status_code == 200  # reading own list is fine
     # A narrowed owner PAT sees and revokes only its own person's sessions, not everyone's.
     adult = enrol(idc, "adult", "ana")
