@@ -298,3 +298,25 @@ describe("protocol generation (sdk/contracts/protocol-versions.md)", () => {
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(proto.current - 1);
   });
 });
+
+describe("domains hosts and tips.whatsNew", () => {
+  it("sends the typed confirmation, escapes names, and refuses redirects for what's new", async () => {
+    const { om, calls } = client((url, init) => {
+      if (url.endsWith("/whats-new")) return json(200, { os_version: "0.1.2", entries: [] });
+      if (init.method === "DELETE") return new Response(null, { status: 204 });
+      return json(200, { hostname: "ntfy.example.org", app_id: "ntfy", state: "approved" });
+    });
+    await om.domains.requestHost("example.org", "ntfy");
+    await om.domains.approveHost("ntfy.example.org", "ntfy.example.org");
+    await om.domains.removeHost("ntfy.example.org");
+    expect((await om.tips.whatsNew()).os_version).toBe("0.1.2");
+    expect(calls.map((c) => `${c.init.method} ${c.url.replace("http://localhost:8080", "")}`)).toEqual([
+      "POST /v1/domains/example.org/hosts",
+      "POST /v1/domains/hosts/ntfy.example.org/approve",
+      "DELETE /v1/domains/hosts/ntfy.example.org",
+      "GET /v1/tips/whats-new",
+    ]);
+    expect(JSON.parse(String(calls[1]!.init.body))).toEqual({ confirm: "ntfy.example.org" });
+    expect(calls[3]!.init.redirect).toBe("error");
+  });
+});

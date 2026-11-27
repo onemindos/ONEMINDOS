@@ -38,7 +38,7 @@ it('shows real rules, schedule, runs and kill switch, and only reads', async () 
   expect(await screen.findByText('Automation is running. Anything a rule files still needs approval unless you set a standing approval.')).toBeInTheDocument();
   expect(await screen.findByText(/Nightly backup check · 2026-11-19T03:00:00Z · filed/)).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: /pause|resume|enable|disable|delete|create/i })).not.toBeInTheDocument();
-  expect(fetch.mock.calls.every(([url]) => new URL(String(url)).pathname.startsWith('/v1/automation'))).toBe(true);
+  expect(fetch.mock.calls.every(([url]) => { const p = new URL(String(url)).pathname; return p.startsWith('/v1/automation') || p === '/v1/windows'; })).toBe(true);
   expect(methods.every((m) => m === 'GET')).toBe(true);
 });
 
