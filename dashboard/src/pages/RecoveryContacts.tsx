@@ -244,7 +244,7 @@ function LegacyClaims({ owner }: { owner: boolean }) {
   const sdk = useSdk();
   const claims = usePoll(() => checked(sdk.call<Claim[]>({ method: 'GET', path: '/v1/auth/legacy/claims' })), 60_000);
   const [error, setError] = useState('');
-  const open = claims.data?.filter((c) => c.state === 'waiting' || c.state === 'awaiting_second') ?? [];
+  const open = claims.data?.filter((c) => c.state === 'waiting' || c.state === 'awaiting_second' || (owner && c.state === 'granted')) ?? [];
   if (open.length === 0) return null;
   const act = async (path: string, body?: unknown) => {
     setError('');
@@ -260,7 +260,7 @@ function LegacyClaims({ owner }: { owner: boolean }) {
       <ul aria-label="Legacy claims">
         {open.map((c) => (
           <li key={c.id}>
-            {c.contact_display_name ?? 'A legacy contact'} · can be granted after {new Date(c.ends_at).toLocaleDateString()}
+            {c.contact_display_name ?? 'A legacy contact'} · {c.state === 'granted' ? `export open until ${new Date(c.access_until ?? c.ends_at).toLocaleDateString()}` : `can be granted after ${new Date(c.ends_at).toLocaleDateString()}`}
             {c.needs_second && !c.second_confirmed ? ' · needs a second person' : ''}
             {c.second_confirmed && c.confirmed_by_display_name ? ` · confirmed by ${c.confirmed_by_display_name}` : ''}
             {c.claimant_accepted_signed_in === false ? ' · accepted on a signed-out phone: make sure the second person is someone else' : ''}

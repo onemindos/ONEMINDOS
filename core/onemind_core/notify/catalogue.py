@@ -252,8 +252,8 @@ _SPECS = [
     Spec("legacy.contact.resigned", "notify", "security", "info", "A legacy contact stepped down", ""),
     Spec("legacy.claim.started", "notify", "security", "critical", "Someone asked for legacy access",
          "A legacy contact asked for a copy of an owner's files, saying the owner has died. It can be granted "
-         "after {ends_at}. If the owner is alive, any sign-in by them cancels it; an owner can also cancel it "
-         "in Settings, Account.", audience=OWNERS_AND_ADULTS),
+         "after {ends_at}. If the owner is alive, any sign-in, key or personal-token use by them cancels it; an owner can "
+         "also cancel it in Settings, Account.", audience=OWNERS_AND_ADULTS),
     Spec("legacy.claim.reminder", "notify", "security", "critical", "A legacy access request is still open",
          "It can be granted after {ends_at}. If the owner is alive, they only need to sign in.",
          audience=OWNERS_AND_ADULTS),
@@ -261,6 +261,9 @@ _SPECS = [
          "", audience=OWNERS_AND_ADULTS),
     Spec("legacy.claim.awaiting_second", "notify", "security", "warning", "A legacy request waits for a second person",
          "Another legacy contact or an adult of the household must confirm it.", audience=OWNERS_AND_ADULTS),
+    Spec("legacy.claim.no_second_person", "notify", "security", "warning", "A legacy request has no second person left",
+         "Nobody else could confirm it any more (they were disabled or removed), so it goes on without one.",
+         audience=OWNERS_AND_ADULTS),
     Spec("legacy.claim.granted", "notify", "security", "critical", "Legacy access was granted",
          "The legacy contact can download a read-only copy of the owner's files until {access_until}. Nothing "
          "was deleted.", audience=OWNERS_AND_ADULTS),

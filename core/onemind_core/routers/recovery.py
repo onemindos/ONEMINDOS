@@ -39,6 +39,7 @@ from ..identity.scopes import register_route_scope
 from ..jsonbody import JsonBody
 from ..recovery.contacts import RecoveryContacts
 from ..recovery.legacy import LegacyContacts
+from ..recovery.legacy import register_paths as register_legacy_paths
 from ..recovery.requests import REQUEST_TOKEN_PREFIX, Recoveries
 from ..recovery.ticker import Ticker
 
@@ -306,6 +307,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     rec = Recoveries(svc)
     app.state.recoveries = rec
     legacy = LegacyContacts(gw, ident)
+    register_legacy_paths()
     legacy.files = lambda: getattr(app.state, "files_service", None)
     app.state.legacy_contacts = legacy
     ticker = Ticker([rec.tick, legacy.tick])
@@ -558,18 +560,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return legacy.manifest(legacy.contact_row(request, p), p)
 
     @app.get("/v1/legacy/export/download", operation_id="legacy.export.download", tags=TAGS,
-             responses={200: {"content": {"application/x-tar": {}}}, **R(401, 403, 413, 503)},
+             responses={200: {"content": {"application/x-tar": {}}}, **R(401, 403, 409, 413, 503)},
              openapi_extra=LEGACY_SECURITY)
     def legacy_download(request: Request, p: Principal = Depends(principal)):
-        tmp = legacy.archive(legacy.contact_row(request, p), p)
-
-        def chunks():
-            try:
-                while block := tmp.read(1 << 20):
-                    yield block
-            finally:
-                tmp.close()
-
-        return StreamingResponse(chunks(), media_type="application/x-tar",
+        return StreamingResponse(legacy.archive(legacy.contact_row(request, p), p), media_type="application/x-tar",
                                  headers={"Content-Disposition": 'attachment; filename="onemind-legacy-export.tar"',
                                           "Cache-Control": "no-store"})

@@ -15,11 +15,16 @@ nobody in the loop, so the claim rests on time, notices and the owner's own sile
 4. **Notices** at the start, every 7 days and on the last day, to every owner, every other recovery
    and legacy contact and every household adult.
 5. **Any sign-in by the owner cancels the claim at once,** and the claim completes only if the owner
-   did not sign in, use a key or approve anything for the whole wait (Google's inactivity idea). This
+   did not sign in, use a key, use one of their own personal access tokens or approve anything for the
+   whole wait (Google's inactivity idea). Calls made with the owner's own personal token (`om_pat_`,
+   kind `person`) count as the owner being alive, including calls from a script or app that runs by
+   itself; agent, plugin, node and automation tokens do not. This
    holds after a grant too: an owner who signs in again (back from a trip, say) ends a granted claim,
    and the export refuses as soon as the owner was active after the grant.
-6. **A second person** (another legacy contact or a household adult) must confirm when one exists
-   (D-028); with nobody else, the wait, the notices and the inactivity check stand alone.
+6. **A second person** (another legacy contact or a household adult, never the claimant themselves) must
+   confirm when one exists (D-028); with nobody else, the wait, the notices and the inactivity check stand
+   alone. Whether one exists is checked again when the wait ends, so a claim never waits for someone who
+   was disabled or removed meanwhile.
 7. **Then** the contact gets a read-only export of the owner's Files home for 12 months. The data
    stays on the box afterwards: nothing here deletes anything, and a legacy contact never gets admin,
    other people's data, app secrets, sign-in keys or the recovery kit (the legacy principal reaches
@@ -35,24 +40,23 @@ import binascii
 import contextvars
 import hashlib
 import hmac
-import io
 import os
 import re
 import secrets
 import stat
 import tarfile
-import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from sqlalchemy import DateTime, String, select, update
+from sqlalchemy import DateTime, Index, String, select, text, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
 from ..auth import Principal
 from ..errors import ApiError
 from ..identity.crypto import new_id
-from ..identity.models import ApproverKeyRow, PasskeyRow, UserRow, iso
+from ..identity.models import ApproverKeyRow, PasskeyRow, TokenRow, UserRow, iso
 from ..ledger import Base, utc
 from .contacts import ROLE_PATHS, RecoveryContacts
 from .models import ContactRow
@@ -70,13 +74,19 @@ ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ"  # no I, L, O: easy to read back
 CERT_TYPES = {b"%PDF-": ("application/pdf", "pdf"), b"\xff\xd8\xff": ("image/jpeg", "jpg"),
               b"\x89PNG\r\n\x1a\n": ("image/png", "png")}
 OPEN_STATES = ("waiting", "awaiting_second")
+DOWNLOAD_STALE = timedelta(hours=6)  # a download slot nobody released (client vanished before the first byte)
 LIVE_STATES = (*OPEN_STATES, "granted")  # every state the owner's return must end
 LEGACY_PATHS = [
     re.compile(r"/v1/legacy/contact(/[a-z-]+)?"),
     re.compile(r"/v1/legacy/claims(/lcl_[0-9A-Z]{26}/confirm)?"),
     re.compile(r"/v1/legacy/export(/download)?"),
 ]
-ROLE_PATHS["legacy"] = LEGACY_PATHS
+
+def register_paths() -> None:
+    """Called by the router when it wires legacy: the legacy principal reaches only LEGACY_PATHS."""
+    ROLE_PATHS["legacy"] = LEGACY_PATHS
+
+
 # Who was signed in on the device that is accepting a legacy invite (resolved before the accept runs, read by
 # on_accept so it is written in the same transaction as the access key). A ContextVar, so each request has its own.
 _ACCEPTED_BY: contextvars.ContextVar[tuple[bool, str | None] | None] = contextvars.ContextVar("legacy_accepted_by",
@@ -87,6 +97,10 @@ class ClaimRow(Base):
     """Feature "recovery": a new table, so create_all adds it at this shape."""
 
     __tablename__ = "recovery_legacy_claims"
+    # At most one open claim per owner, enforced by the database (two simultaneous claims: the second fails).
+    __table_args__ = (Index("uq_legacy_one_open_claim", "owner_user_id", unique=True,
+                            sqlite_where=text("state IN ('waiting', 'awaiting_second')"),
+                            postgresql_where=text("state IN ('waiting', 'awaiting_second')")),)
     id: Mapped[str] = mapped_column(String(40), primary_key=True)  # lcl_<ulid>
     owner_user_id: Mapped[str] = mapped_column(String(40), index=True)
     contact_id: Mapped[str] = mapped_column(String(40), index=True)
@@ -130,6 +144,7 @@ class LegacyContacts(RecoveryContacts):
         super().__init__(gw, ident)
         self.dir = gw.settings.audit_path.parent / "recovery" / "legacy"
         self.files = None  # () -> the FilesService; set by the router (files registers after recovery)
+        self._downloads: dict[str, datetime] = {}  # contact id -> when its one download started
         self.ended_hooks.append(self._contact_ended)
         gw.events.subscribe("auth.login.succeeded", self._owner_signed_in)
 
@@ -232,7 +247,9 @@ class LegacyContacts(RecoveryContacts):
         others = [r for r in self.usable(owner_id) if r.id != claimant.id]
         with self.db.session() as s:
             adults = list(s.scalars(select(UserRow.id).where(UserRow.role == "adult", UserRow.disabled.is_(False))))
-        adults = [a for a in adults if a != claimant.household_user_id]
+        # The same test that refuses a confirmer (_is_claimant), so "someone can confirm" is never true only
+        # because of the claimant's own account (accepted_by_user_id, a shared approver key).
+        adults = [a for a in adults if not self._is_claimant(claimant, a)]
         return bool(others or adults)
 
     def _check_key(self, contact: ContactRow, access_key: str) -> None:
@@ -278,8 +295,13 @@ class LegacyContacts(RecoveryContacts):
                        needs_second=self._second_people(contact.owner_user_id, contact),
                        certificate_type=ctype, certificate_sha256=hashlib.sha256(raw).hexdigest(),
                        notices_sent=["start"])
-        with self.db.session.begin() as s:
-            s.add(row)
+        try:
+            with self.db.session.begin() as s:
+                s.add(row)
+        except IntegrityError:  # a simultaneous claim won the one-open-claim index
+            path.unlink(missing_ok=True)
+            raise ApiError(409, "conflict", "a legacy claim for this owner is already open",
+                           reason="already_open") from None
         self.tell(contact.owner_user_id, "legacy.claim.started",
                   {"claim_id": cid, "contact_id": contact.id, "ends_at": iso(row.ends_at)}, p, severity="critical")
         return self.claim_view(row)
@@ -421,8 +443,11 @@ class LegacyContacts(RecoveryContacts):
             key = s.scalar(select(PasskeyRow.id).where(PasskeyRow.user_id == owner_id, PasskeyRow.last_used_at > since))
             apk = s.scalar(select(ApproverKeyRow.id).where(ApproverKeyRow.user_id == owner_id,
                                                            ApproverKeyRow.last_used_at > since))
+            # The owner's own personal tokens (kind person) touch only the token row, never the user row.
+            pat = s.scalar(select(TokenRow.id).where(TokenRow.kind == "person", TokenRow.owner_user_id == owner_id,
+                                                     TokenRow.last_used_at > since))
         seen = u is not None and u.last_seen_at is not None and utc(u.last_seen_at) > since
-        return seen or key is not None or apk is not None
+        return seen or key is not None or apk is not None or pat is not None
 
     def _contact_ended(self, contact: ContactRow) -> None:
         if contact.role != "legacy":
@@ -462,7 +487,14 @@ class LegacyContacts(RecoveryContacts):
                     done += 1
                 continue
             if c.needs_second and c.second_at is None:
-                if c.state != "awaiting_second" and self._set(c, ("waiting",), state="awaiting_second"):
+                claimant = self._get(c.contact_id)
+                if claimant is not None and not self._second_people(c.owner_user_id, claimant):
+                    # Everyone who could confirm was disabled or removed during the wait: do not wait forever.
+                    if self._set(c, OPEN_STATES, ClaimRow.second_at.is_(None), needs_second=False):
+                        c.needs_second = False
+                        self.tell(c.owner_user_id, "legacy.claim.no_second_person", {"claim_id": c.id},
+                                  severity="warning")
+                elif c.state != "awaiting_second" and self._set(c, ("waiting",), state="awaiting_second"):
                     self.tell(c.owner_user_id, "legacy.claim.awaiting_second", {"claim_id": c.id}, severity="warning")
                     done += 1
                 continue
@@ -521,25 +553,46 @@ class LegacyContacts(RecoveryContacts):
                 "total_bytes": sum(i["size"] for i in items), "read_only": True}
 
     def archive(self, contact: ContactRow, p: Principal):
-        """A tar of the owner's Files home, built in a private temporary file (read-only on the source)."""
+        """A tar of the owner's Files home, streamed: nothing is staged on disk or in RAM beyond one block.
+        Too large is refused before the first byte; one download per contact at a time. Read-only on the source.
+        Returns an iterator of bytes; the slot is released when it ends or is closed."""
         c = self.granted_claim(contact)
-        tmp = tempfile.TemporaryFile()  # noqa: SIM115 - handed to the streaming response, closed there
+        now = self.now()
+        started = self._downloads.get(contact.id)
+        if started is not None and now - started < DOWNLOAD_STALE:
+            raise ApiError(409, "conflict", "a download for this contact is already running", reason="download_running")
         total = 0
-        with tarfile.open(fileobj=tmp, mode="w") as tar:
-            for rel, size, dfd, name in self._walk(c.owner_user_id):
-                total += size
-                if total > MAX_EXPORT_BYTES:
-                    raise ApiError(413, "payload_too_large", "the export is larger than one download; use a USB copy",
-                                   reason="export_too_large")
+        for _rel, size, _fd, _n in self._walk(c.owner_user_id):
+            total += size
+            if total > MAX_EXPORT_BYTES:
+                raise ApiError(413, "payload_too_large", "the export is larger than one download; use a USB copy",
+                               reason="export_too_large")
+        self._downloads[contact.id] = now
+        self.gw.audit.append("legacy.export.downloaded", p.as_dict(), None, {"claim_id": c.id, "bytes": total})
+        return self._stream(c.owner_user_id, contact.id)
+
+    def _stream(self, owner_id: str, contact_id: str):
+        block = 1 << 20
+        try:
+            for rel, _size, dfd, name in self._walk(owner_id):
                 try:
                     fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=dfd)
                 except OSError:
                     continue
                 with os.fdopen(fd, "rb") as f:
+                    size = os.fstat(f.fileno()).st_size
                     info = tarfile.TarInfo(rel)
-                    info.size = os.fstat(f.fileno()).st_size
-                    info.mode = 0o644
-                    tar.addfile(info, io.BufferedReader(f))  # type: ignore[arg-type]
-        tmp.seek(0)
-        self.gw.audit.append("legacy.export.downloaded", p.as_dict(), None, {"claim_id": c.id, "bytes": total})
-        return tmp
+                    info.size, info.mode = size, 0o644
+                    yield info.tobuf(tarfile.PAX_FORMAT)
+                    left = size
+                    while left > 0:  # exactly `size` bytes, so the tar stays valid if the file changes meanwhile
+                        data = f.read(min(block, left))
+                        if not data:
+                            data = b"\0" * min(block, left)
+                        left -= len(data)
+                        yield data
+                    if size % 512:
+                        yield b"\0" * (512 - size % 512)
+            yield b"\0" * 1024
+        finally:
+            self._downloads.pop(contact_id, None)

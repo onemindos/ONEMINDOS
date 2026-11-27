@@ -7,7 +7,10 @@ import { RecoveryContacts } from './RecoveryContacts';
 const state = vi.hoisted(() => ({ role: 'owner', signOut: vi.fn() }));
 vi.mock('../session', () => ({ useSignedIn: () => ({ token: 'fixture' }), useSession: () => ({ signOut: state.signOut }) }));
 vi.mock('../shell/Shell', () => ({ useShell: () => ({ role: state.role }) }));
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  handlesLegacy = false;
+});
 
 const contact = {
   id: 'rc_1', role: 'recovery', kind: 'outside', display_name: 'Ana', household_user_id: null, state: 'cooling_off',
@@ -116,7 +119,6 @@ it('shows an open legacy claim to the owner, who cancels and blocks; an adult co
   await user.click(await screen.findByRole('button', { name: 'Confirm claim lcl_1' }));
   expect(calls.some((c) => c.method === 'POST' && c.path === '/v1/auth/legacy/claims/lcl_1/confirm')).toBe(true);
   expect(screen.queryByRole('button', { name: 'Cancel claim lcl_1' })).toBeNull();
-  handlesLegacy = false;
 });
 
 it('shows who confirmed next to the claimant and flags a claimant who accepted signed out', async () => {
@@ -131,5 +133,20 @@ it('shows who confirmed next to the claimant and flags a claimant who accepted s
   render(<RecoveryContacts />);
   expect(await screen.findByText(/confirmed by Ben/)).toBeTruthy();
   expect(screen.getByText(/accepted on a signed-out phone/)).toBeTruthy();
-  handlesLegacy = false;
+});
+
+it('lets an owner end a granted export, not only an open claim', async () => {
+  handlesLegacy = true;
+  const claim = { id: 'lcl_3', contact_id: 'rc_9', state: 'granted', created_at: '2026-11-25T00:00:00Z', ends_at: '2026-12-25T00:00:00Z', needs_second: false, second_confirmed: false, granted_at: '2026-12-25T00:00:00Z', access_until: '2027-12-25T00:00:00Z', ended_at: null, end_reason: null, certificate_type: 'application/pdf', contact_display_name: 'Ana' };
+  state.role = 'owner';
+  const calls = gateway((_method, path) => {
+    if (path === '/v1/auth/legacy/claims') return Response.json([claim]);
+    if (path === '/v1/auth/recovery/settings') return Response.json(waits);
+    if (path.endsWith('/cancel')) return Response.json({ ...claim, state: 'cancelled' });
+    return Response.json([]);
+  });
+  render(<RecoveryContacts />);
+  expect(await screen.findByText(/export open until/)).toBeTruthy();
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Cancel claim lcl_3' }));
+  expect(calls.find((c) => c.path === '/v1/auth/legacy/claims/lcl_3/cancel')?.body).toEqual({ block: false });
 });

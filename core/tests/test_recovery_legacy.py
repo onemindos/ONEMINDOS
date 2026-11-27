@@ -146,7 +146,7 @@ def test_the_claim_completes_only_after_the_wait_with_the_owner_silent_then_a_re
     clock.advance(366 * DAY)
     r = TestClient(rc.app).get("/v1/legacy/export", headers=phone.auth)
     assert r.status_code == 403 and r.json()["reason"] == "export_window_ended"
-    assert c["id"]
+    assert c["state"] == "waiting" and c["ends_at"]
 
 
 def test_a_second_person_must_confirm_when_one_exists(rc, clock):
@@ -181,7 +181,11 @@ def test_the_household_sees_the_claim_and_certificate_and_an_owner_cancels_and_b
     assert listed[0]["contact_display_name"] == "Ana"
     cert = TestClient(rc.app).get(f"/v1/auth/legacy/claims/{c['id']}/certificate", headers=OWNER)
     assert cert.status_code == 200 and cert.content.startswith(b"%PDF-")
-    assert adult.get("/v1/auth/legacy/claims").status_code in (200, 401)  # session may have lapsed over 7 days
+    adult_view = adult.get("/v1/auth/legacy/claims")
+    if adult_view.status_code == 200:  # the adult's session may have lapsed over 7 days
+        assert adult_view.json()[0]["id"] == c["id"]
+    else:
+        assert adult_view.status_code == 401
     r = TestClient(rc.app).post(f"/v1/auth/legacy/claims/{c['id']}/cancel", headers=OWNER, json={"block": True})
     assert r.status_code == 200 and r.json()["state"] == "cancelled"
     assert TestClient(rc.app).get("/v1/legacy/contact", headers=phone.auth).status_code == 401  # blocked
@@ -220,7 +224,10 @@ def test_removing_a_legacy_contact_ends_their_claim_and_is_l0(rc, clock):
     # (that sign-in already cancelled the claim; removing the contact still works with no fresh passkey)
     r = fresh.delete(f"/v1/auth/legacy/contacts/{phone.contact_id}", headers=csrf(fresh))
     assert r.status_code == 200 and r.json()["state"] == "removed"
-    assert timedelta(days=1)
+    with rc.app.state.legacy_contacts.db.session() as s:
+        from onemind_core.recovery.legacy import ClaimRow
+
+        assert s.query(ClaimRow).one().end_reason in ("owner_signed_in", "contact_ended")
 
 
 def granted(rc, clock, phone, key) -> dict:
@@ -287,6 +294,9 @@ def test_an_adult_who_accepted_an_outside_invite_cannot_confirm_their_own_claim(
     assert fresh.post("/v1/auth/login", json={"username": "ben", "password": PASSWORD}).status_code == 200
     r = fresh.post(f"/v1/auth/legacy/claims/{c['id']}/confirm", headers=csrf(fresh))
     assert r.status_code == 403 and "your own legacy claim" in r.text, r.text
+    # Ben is not a second person for his own claim, so nobody is waited for: the claim still finishes.
+    got = TestClient(rc.app).get("/v1/legacy/claims", headers=phone.auth).json()[0]
+    assert got["needs_second"] is False and got["state"] == "granted", got
 
 
 def test_the_access_key_never_reaches_the_audit_the_events_or_the_notices(rc, clock, settings):
@@ -438,12 +448,12 @@ def test_sign_in_and_tick_truly_at_once_always_end_cancelled_with_agreeing_notic
         barrier = threading.Barrier(2)
         delays = (rng.uniform(0, 0.03), rng.uniform(0, 0.03))
 
-        def grant():
+        def grant(barrier=barrier, delays=delays):
             barrier.wait()
             time.sleep(delays[0])
             legacy.tick()
 
-        def sign_in():
+        def sign_in(barrier=barrier, delays=delays, owner_id=owner_id):
             barrier.wait()
             time.sleep(delays[1])
             legacy._owner_signed_in({"data": {"user_id": owner_id}})
@@ -527,3 +537,96 @@ def test_the_household_sees_the_confirmer_next_to_the_claimant_and_a_signed_out_
     assert fresh.post(f"/v1/auth/legacy/claims/{c['id']}/confirm", headers=csrf(fresh)).status_code == 200
     assert [e for e, cid in log if e == "legacy.claim.confirmed"] == []
     assert adult is not None
+
+
+# ---- round 1 review fixes (#1208) -------------------------------------------------------------------------
+
+def test_a_second_person_who_disappears_during_the_wait_does_not_lock_the_claim(rc, clock):
+    owner_with_passkey(rc)
+    enrol(rc, "adult", "ben")
+    ben_id = next(u["id"] for u in rc.get("/v1/users").json() if u.get("username") == "ben")
+    phone, key = legacy_phone(rc)
+    clock.advance(7 * DAY + 1)
+    c = claim(rc, phone, key).json()
+    assert c["needs_second"] is True
+    from onemind_core.identity.models import UserRow
+
+    with rc.app.state.legacy_contacts.db.session.begin() as db:  # the owner's session lapsed over the cooling-off
+        db.get(UserRow, ben_id).disabled = True
+    clock.advance(30 * DAY + 1)
+    rc.app.state.legacy_contacts.tick()
+    got = TestClient(rc.app).get("/v1/legacy/claims", headers=phone.auth).json()[0]
+    assert got["needs_second"] is False and got["state"] == "granted", got
+
+
+def test_the_owners_own_personal_token_use_counts_as_alive_during_the_wait_and_after_the_grant(rc, clock):
+    owner_with_passkey(rc)
+    r = rc.post("/v1/tokens", json={"name": "phone app", "scopes": ["instance:read"], "expires_in_days": 365},
+                headers=csrf(rc))
+    assert r.status_code == 201, r.text
+    pat = {"Authorization": "Bearer " + r.json()["one_time"]["token"]}
+    phone, key = legacy_phone(rc)
+    clock.advance(7 * DAY + 1)
+    c = claim(rc, phone, key).json()
+    clock.advance(29 * DAY)
+    assert TestClient(rc.app).get("/v1/me", headers=pat).status_code == 200  # the owner's script, no sign-in
+    clock.advance(2 * DAY)
+    rc.app.state.legacy_contacts.tick()
+    got = TestClient(rc.app).get("/v1/legacy/claims", headers=phone.auth).json()[0]
+    assert got["id"] == c["id"] and got["state"] == "cancelled" and got["end_reason"] == "owner_active", got
+
+
+def test_personal_token_use_after_the_grant_ends_the_export(rc, clock):
+    owner_with_passkey(rc)
+    r = rc.post("/v1/tokens", json={"name": "cli", "scopes": ["instance:read"], "expires_in_days": 365},
+                headers=csrf(rc))
+    pat = {"Authorization": "Bearer " + r.json()["one_time"]["token"]}
+    phone, key = legacy_phone(rc)
+    granted(rc, clock, phone, key)
+    clock.advance(120)
+    assert TestClient(rc.app).get("/v1/me", headers=pat).status_code == 200
+    assert TestClient(rc.app).get("/v1/legacy/export", headers=phone.auth).status_code == 403
+    got = TestClient(rc.app).get("/v1/legacy/claims", headers=phone.auth).json()[0]
+    assert got["state"] == "cancelled" and got["end_reason"] == "owner_active"
+
+
+def test_two_claims_at_once_leave_one_open_claim(rc, clock):
+    from sqlalchemy.exc import IntegrityError
+
+    from onemind_core.identity.crypto import new_id
+    from onemind_core.recovery.legacy import ClaimRow
+
+    owner_with_passkey(rc)
+    phone, _key = legacy_phone(rc)
+    legacy = rc.app.state.legacy_contacts
+    owner_id = _owner_id(rc)
+    _due_claim(rc, phone.contact_id, owner_id)
+    with pytest.raises(IntegrityError), legacy.db.session.begin() as s:  # what the second simultaneous claim hits
+        s.add(ClaimRow(id=new_id("lcl"), owner_user_id=owner_id, contact_id=phone.contact_id, state="waiting",
+                       created_at=legacy.now(), ends_at=legacy.now(), certificate_type="application/pdf",
+                       certificate_sha256="0" * 64, notices_sent=[]))
+
+
+def test_the_export_streams_a_valid_tar_and_allows_one_download_at_a_time(rc, clock):
+    owner_with_passkey(rc)
+    big = bytes(range(256)) * 9000  # 2.3 MB, spans several blocks and is not a multiple of 512
+    put_home_file(rc, "big.bin", big)
+    put_home_file(rc, "small.txt", b"hi")
+    phone, key = legacy_phone(rc)
+    granted(rc, clock, phone, key)
+    legacy = rc.app.state.legacy_contacts
+    contact = legacy._get(phone.contact_id)
+    first = legacy.archive(contact, _Who())
+    next(first)  # a download is running: the slot is taken
+    second = TestClient(rc.app).get("/v1/legacy/export/download", headers=phone.auth)
+    assert second.status_code == 409 and second.json()["reason"] == "download_running"
+    first.close()  # released when the stream ends or is closed
+    ok = TestClient(rc.app).get("/v1/legacy/export/download", headers=phone.auth)
+    assert ok.status_code == 200
+    with tarfile.open(fileobj=io.BytesIO(ok.content)) as t:
+        assert t.extractfile("big.bin").read() == big and t.extractfile("small.txt").read() == b"hi"
+
+
+class _Who:
+    def as_dict(self):
+        return {"id": "legacy:test", "kind": "legacy", "role": "legacy"}
