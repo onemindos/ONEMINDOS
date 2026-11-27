@@ -160,6 +160,25 @@ Debian 13 (trixie) packages checked 2026-11-26 on packages.debian.org:
   - iOS needs the same test.
 - **Agent run:** Managed Agent, Sonnet builder, $0.99. Branch `spike/notes-editor`.
 
+**Spike 1: OneMind Sync (F1). Result 2026-11-26** (Managed Agent, Opus builder-secure, $7.84; draft PR #1299):
+- **The approach works:**
+  - one plain HTTPS/JSON feed with a cursor, idempotency keys and keep-both conflict copies, specified in `docs/design/SYNC.md`;
+  - one append-only change log on the box;
+  - a client kit (`clients/sync/`) with an outbox and SQLite storage.
+- **Agent evidence (SQLite and PostgreSQL 16):**
+  - 7 sync tests pass; the route matrix is 4115 passed, 0 failed;
+  - every deliberate bug (4 on the box, 5 in the kit) is caught by a test;
+  - end to end against a real gateway: two devices keep both conflicting copies, a replayed key is applied once, another person sees nothing, 100 queued reminders all arrive;
+  - a 15 s outage: 11/11 changes delivered exactly once;
+  - first sync 63 ms, 100 queued reminders 108 ms.
+- **Gate re-check on the Mac:** 38 + 121 tests pass, kit Jest 7/7, `tsc` clean, hygiene clean. No new dependencies.
+- **Left before F1 ships:**
+  - run it on the S24 and iOS with expo-sqlite (#1290);
+  - check that Metro accepts the kit's `.ts` imports;
+  - Reminders API, CLI and MCP tools, and screens (D-032).
+
+**Spend on all three spikes:** $9.13 (the ledger total is $11.34 of $200, including earlier runs).
+
 ## 4. Engines and licences
 
 ### The rules (proposed)
