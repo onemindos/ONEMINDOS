@@ -7,7 +7,7 @@ A self-hostable bookmark-everything app (links, notes and images) with AI-based 
 
 | | |
 |---|---|
-| Version | 0.34.1 (upstream release `v0.34.1`, published 2026-10-22) |
+| Version | 0.35.0 (upstream release `v0.35.0`, published 2026-11-15) |
 | Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | notes |
@@ -34,7 +34,7 @@ Storage: PVC `karakeep-data` 10Gi, PVC `karakeep-meili` 2Gi.
 
 Images:
 
-- `ghcr.io/karakeep-app/karakeep:0.34.1@sha256:69ae5315c618b7c14c1af3e34c6e211acdb231793af424ecd1cab0b70691d987`
+- `ghcr.io/karakeep-app/karakeep:0.35.0@sha256:6f7d32ef296ddf1fc7c67ff56b8a201b7006a6a47b92b202afee1338841b353d`
 - `docker.io/getmeili/meilisearch:v1.41.0@sha256:860fa4baed04ae1c235de870edab0c8006227546dea1bbb6411fbfc5e27cf1db`
 
 <!-- onemind:notes:begin -->
@@ -82,6 +82,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 
 **Hold (apps/market-unblock-2, 2026-11-13):** `libbrotli1`, `dompurify`, Go `stdlib` in `karakeep:0.34.1` (the newest tag), and openssl in `meilisearch:v1.41.0`. Meilisearch `v1.56.x` tags exist but are a 15-minor jump that needs a compatibility read first, and the Karakeep image would still block. Unblock: a fixed Karakeep release.
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** Karakeep 0.34.1 to 0.35.0. Upstream notes: the image now drops privileges; if the data directory gives permission errors set `KARAKEEP_DISABLE_PRIVILEGE_DROP=true`. This manifest already runs as UID 1000 with an `fsGroup`, so no change was made, but it has not been smoke-tested. Meilisearch stays at v1.41.0 (a newer minor needs a dump or reindex). The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

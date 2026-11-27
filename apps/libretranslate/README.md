@@ -7,7 +7,7 @@ Machine translation that runs on your own box: a web page and an HTTP API, no cl
 
 | | |
 |---|---|
-| Version | 1.9.6 (upstream release `v1.9.6`, published 2026-05-26) |
+| Version | 1.10.0 (upstream release `v1.10.0`, published 2026-11-24) |
 | Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-25) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Quality | `none` (computed by the gate from its evidence, never set by hand) |
@@ -33,7 +33,7 @@ Storage: PVC `libretranslate-models` 5Gi.
 
 Images:
 
-- `docker.io/libretranslate/libretranslate:v1.9.6@sha256:1de2d7056bb8ad607a412f4563d9abe324ff632b43b5be9428bcc8e213aebb32`
+- `docker.io/libretranslate/libretranslate:v1.10.0@sha256:6cf78d417741c979a12ba4f9731284b1e66066dc090c8c810174a442e0926ba2`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -80,6 +80,8 @@ Source: [LibreTranslate docs](https://docs.libretranslate.com).
 - No API keys or rate limits configured: anyone who can reach the port can use it. That is fine behind a port-forward; it needs keys before it is exposed on the LAN.
 - No HTTPS or LAN hostname: OneMind v0 has no ingress or certificates for apps.
 - `spec.updates.automerge` is `none` until `renovate.json` lists the app.
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** LibreTranslate v1.9.6 to v1.10.0. New optional settings (`--trust-forwarded-for`, `LT_TIMEOUT`) and glossaries; nothing required. The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

@@ -35,7 +35,7 @@ Storage: PVC `linkwarden-data` 20Gi, PVC `linkwarden-db` 5Gi.
 Images:
 
 - `ghcr.io/linkwarden/linkwarden:v2.17.0@sha256:7c11fde57d1a0c819b6de0079966eba3a33584d718464af7dacde22bd470ae46`
-- `docker.io/library/postgres:16.15-trixie@sha256:f9a7b9ebf6f56201f949db745e47bc423c0f0f8294bafe991cc10bf74b029657`
+- `docker.io/library/postgres:16.16-trixie@sha256:ce81150802644ddfac1db4da9e63be6f2a3818aa6ee98a7a28838aeea65dc37a`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -93,6 +93,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 
 **Hold (apps/market-unblock-2, 2026-11-13):** Go `stdlib` in `linkwarden:v2.17.0` (the newest tag). The sidecar `postgres:16.15-trixie` could move to `16.15-alpine` (exists) but the app image would still block, so the sidecar stays as it is. Unblock: a Linkwarden release without the Go finding, then the Alpine postgres of the same major.
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** Only the PostgreSQL sidecar moved (16.15 to 16.16, same major and flavour). Linkwarden v2.17.0 is still the newest release. The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

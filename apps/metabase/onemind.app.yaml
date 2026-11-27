@@ -8,7 +8,7 @@ kind: App
 metadata:
   id: metabase
   name: "Metabase"
-  version: "0.65.3"
+  version: "0.65.7"
   description: "Business intelligence: ask questions of your databases and build charts and dashboards."
   # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
   # the schema has metadata.tags).
@@ -27,7 +27,7 @@ metadata:
     github: "https://github.com/metabase/metabase"
     website: "https://www.metabase.com"
     support: "https://github.com/metabase/metabase/issues"
-  upstream: {release: "v0.65.3", released_at: "2026-11-06T15:53:47Z", archived: false}
+  upstream: {release: "v0.65.7", released_at: "2026-11-24T16:16:50Z", archived: false}
   # blocked by the CI app gate: CRITICAL CVE-2025-68121 and a private-key finding in the bundled postgres image (details in README.md)
   tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:

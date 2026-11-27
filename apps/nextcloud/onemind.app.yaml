@@ -7,7 +7,7 @@ kind: App
 metadata:
   id: nextcloud
   name: "Nextcloud"
-  version: "33.0.10"
+  version: "33.0.11"
   description: "Nextcloud server, a safe home for all your data"
   # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
   # the schema has metadata.tags).
@@ -24,7 +24,7 @@ metadata:
     github: "https://github.com/nextcloud/server"
     website: "https://nextcloud.com"
     support: "https://github.com/nextcloud/server/issues"
-  upstream: {release: "v33.0.10", released_at: "2026-10-15T08:37:28Z", archived: false}
+  upstream: {release: "v33.0.11", released_at: "2026-11-12T17:21:37Z", archived: false}
   # blocked by the CI app gate: CRITICAL CVEs and secret findings in the nextcloud and postgres images (details in README.md)
   tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
