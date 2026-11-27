@@ -10579,6 +10579,40 @@
         "title": "RefreshBody",
         "type": "object"
       },
+      "ReminderData": {
+        "additionalProperties": false,
+        "description": "What a client sends for a reminder. The id is the operation's item_id; the gateway sets updated_at.",
+        "properties": {
+          "done": {
+            "default": false,
+            "title": "Done",
+            "type": "boolean"
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "ReminderData",
+        "type": "object"
+      },
       "RenameOp": {
         "additionalProperties": false,
         "properties": {
@@ -14173,6 +14207,260 @@
           "locks"
         ],
         "title": "SyncLocks",
+        "type": "object"
+      },
+      "SyncPushResult": {
+        "properties": {
+          "conflict_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set on a conflict copy: the item it was copied from",
+            "title": "Conflict Of"
+          },
+          "item_id": {
+            "description": "Where the data went: the item, or its new conflict copy",
+            "title": "Item Id",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "replayed": {
+            "description": "true: this key was applied before; this is the first answer again",
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "status": {
+            "description": "conflict: nothing was overwritten (SYNC.md §5)",
+            "enum": [
+              "applied",
+              "conflict"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "That item's version now; null if it never existed",
+            "title": "Version"
+          }
+        },
+        "required": [
+          "key",
+          "status",
+          "item_id",
+          "version",
+          "conflict_of",
+          "replayed"
+        ],
+        "title": "SyncPushResult",
+        "type": "object"
+      },
+      "SyncPushResults": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/SyncPushResult"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "results"
+        ],
+        "title": "SyncPushResults",
+        "type": "object"
+      },
+      "SyncRemindersChange": {
+        "properties": {
+          "changed_at": {
+            "title": "Changed At",
+            "type": "string"
+          },
+          "conflict_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conflict Of"
+          },
+          "cursor": {
+            "description": "Resume after this change with ?cursor=",
+            "title": "Cursor",
+            "type": "string"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SyncRemindersRecord"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deleted": {
+            "description": "A tombstone: forget the item",
+            "title": "Deleted",
+            "type": "boolean"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cursor",
+          "item_id",
+          "version",
+          "deleted",
+          "conflict_of",
+          "changed_at",
+          "data"
+        ],
+        "title": "SyncRemindersChange",
+        "type": "object"
+      },
+      "SyncRemindersOp": {
+        "additionalProperties": false,
+        "properties": {
+          "base_version": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The version this device last saw; null for a new item",
+            "title": "Base Version"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReminderData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "item_id": {
+            "description": "Made by the client, so items can be created offline",
+            "maxLength": 64,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$",
+            "title": "Item Id",
+            "type": "string"
+          },
+          "key": {
+            "description": "Idempotency key: the same key again is answered, never applied twice",
+            "maxLength": 80,
+            "pattern": "^[A-Za-z0-9_.:-]{8,80}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "op": {
+            "enum": [
+              "upsert",
+              "delete"
+            ],
+            "title": "Op",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "item_id",
+          "op",
+          "base_version"
+        ],
+        "title": "SyncRemindersOp",
+        "type": "object"
+      },
+      "SyncRemindersPush": {
+        "additionalProperties": false,
+        "properties": {
+          "ops": {
+            "items": {
+              "$ref": "#/components/schemas/SyncRemindersOp"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Ops",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ops"
+        ],
+        "title": "SyncRemindersPush",
+        "type": "object"
+      },
+      "SyncRemindersRecord": {
+        "properties": {
+          "done": {
+            "default": false,
+            "title": "Done",
+            "type": "boolean"
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "updated_at",
+          "title"
+        ],
+        "title": "SyncRemindersRecord",
         "type": "object"
       },
       "SyncVersion": {
@@ -39529,6 +39817,208 @@
           }
         ],
         "summary": "Extend your lock",
+        "tags": [
+          "sync"
+        ]
+      }
+    },
+    "/v1/sync/reminders/changes": {
+      "get": {
+        "description": "Oldest first; no cursor: from the start. Keep the last change's cursor and resume from it.",
+        "operationId": "sync.reminders.changes",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 18,
+                  "pattern": "^[0-9]{1,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SyncRemindersChange"
+                  },
+                  "title": "Response Sync.Reminders.Changes",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Changes after the cursor",
+            "headers": {
+              "Link": {
+                "description": "More changes wait: `<...?cursor=...>; rel=\"next\"` (contract §12.1)",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Your reminders changes after a cursor",
+        "tags": [
+          "sync"
+        ]
+      }
+    },
+    "/v1/sync/reminders/push": {
+      "post": {
+        "description": "Each operation is applied once per key, in order, all or none. A stale base_version never overwrites: an edit is kept as a conflict copy, a delete is dropped.",
+        "operationId": "sync.reminders.push",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncRemindersPush"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPushResults"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Send this device's reminders changes",
         "tags": [
           "sync"
         ]
