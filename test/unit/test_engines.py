@@ -1,0 +1,91 @@
+# SPDX-License-Identifier: Apache-2.0
+import importlib.util
+import json
+import tempfile
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+spec = importlib.util.spec_from_file_location("check_engines", ROOT / "scripts/check-engines.py")
+check_engines = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(check_engines)
+
+
+class EngineRegister(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name)
+        deploy = self.root / "deploy"
+        deploy.mkdir()
+        self.compose = deploy / "compose.yaml"
+        self.compose.write_text("    image: example/engine:3.0@sha256:" + "a" * 64, encoding="utf-8")
+        self.engine = {
+            "id": "test-engine",
+            "upstream": "https://example.test/engine",
+            "spdx": "MIT",
+            "licence_url": "https://example.test/engine/licence",
+            "pinned": {"source": "deploy/compose.yaml", "selector": "example/engine:"},
+            "runs_as": "container",
+            "modified": False,
+            "used_by": ["test-app"],
+            "adapter": "Local HTTP adapter",
+            "swap_plan": "Keep the existing API contract and data.",
+            "images": ["docker.io/example/engine"],
+        }
+
+    def errors(self, **override):
+        return "\n".join(check_engines.validate(self.root, {"engines": [{**self.engine, **override}]}))
+
+    def test_seed_register_matches_the_repo(self):
+        register = json.loads((ROOT / "deploy/engines.yaml").read_text(encoding="utf-8"))
+        self.assertEqual(check_engines.validate(ROOT, register), [])
+
+    def test_image_repository_matches_tags_digests_and_docker_hub_aliases(self):
+        self.assertFalse(self.errors())
+        self.compose.write_text("    image: registry.example.test:5000/team/engine:3.1", encoding="utf-8")
+        self.assertFalse(self.errors(
+            images=["registry.example.test:5000/team/engine"],
+            pinned={"source": "deploy/compose.yaml", "selector": "team/engine:"},
+        ))
+
+    def test_requires_each_pinned_deploy_image(self):
+        with self.compose.open("a", encoding="utf-8") as f:
+            f.write("\n    image: example/unlisted:1.2\n")
+        self.assertIn("docker.io/example/unlisted is missing", self.errors())
+
+    def test_requires_swap_plan_and_live_version_reference(self):
+        self.assertIn("missing swap_plan", self.errors(swap_plan=" "))
+        self.assertIn("version selector is missing", self.errors(
+            pinned={"source": "deploy/compose.yaml", "selector": "deleted-pin"},
+        ))
+
+    def test_rejects_gpl_agpl_and_other_non_allowlisted_app_binary_licences(self):
+        for spdx in ("GPL-3.0-only", "AGPL-3.0-or-later", "Proprietary", "UNVERIFIED"):
+            with self.subTest(spdx=spdx):
+                self.assertIn(f"D-032 forbids {spdx}", self.errors(spdx=spdx, also_runs_as=["library-in-app"]))
+
+    def test_accepts_allowlisted_app_binary_licences(self):
+        for spdx in ("MIT", "BSD-3-Clause", "Apache-2.0", "MPL-2.0", "CC0-1.0", "LicenseRef-Public-Domain"):
+            with self.subTest(spdx=spdx):
+                self.assertFalse(self.errors(spdx=spdx, also_runs_as=["library-in-app"]))
+
+    def test_gpl_engine_must_be_unmodified_and_isolated_behind_a_protocol(self):
+        self.assertFalse(self.errors(spdx="AGPL-3.0-only", protocol="CalDAV"))
+        self.assertIn("standard protocol", self.errors(spdx="AGPL-3.0-only"))
+        self.assertIn("own container", self.errors(spdx="GPL-3.0-only", runs_as="debian-package", protocol="CalDAV"))
+        self.assertIn("missing fork_repo", self.errors(spdx="GPL-3.0-only", protocol="CalDAV", modified=True))
+        self.assertIn("must be unmodified", self.errors(
+            spdx="GPL-3.0-only", protocol="CalDAV", modified=True, fork_repo="https://example.test/fork",
+        ))
+
+    def test_unverified_plans_cannot_include_a_deployment_pin(self):
+        plan = {
+            **self.engine, "spdx": "UNVERIFIED", "runs_as": "library-in-app",
+            "planned": True, "pinned": None, "images": [],
+        }
+        self.compose.write_text("", encoding="utf-8")
+        self.assertEqual(check_engines.validate(self.root, {"engines": [plan]}), [])
+        self.assertIn("planned engine cannot declare", "\n".join(check_engines.validate(
+            self.root, {"engines": [{**plan, "pinned": self.engine["pinned"]}]},
+        )))
