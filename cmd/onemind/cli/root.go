@@ -86,6 +86,7 @@ var groups = []func(a *App) []*cobra.Command{
 	mcpCommands,
 	migrateCommands,
 	kioskCommands,
+	myDevicesCommands,
 	appCommands,
 	gatewayAdminCommands,
 	usersCommands,
