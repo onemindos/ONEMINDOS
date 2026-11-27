@@ -36,7 +36,7 @@ export function AppPasswords() {
   const { token, mock } = useSignedIn();
   const { role } = useShell();
   if (mock) return <Card title="App passwords"><p role="status">Connect to a real hub to manage app passwords. Demo mode has none.</p></Card>;
-  if (role && !HOLDERS.has(role)) return null;
+  if (role === undefined || role === null || !HOLDERS.has(role)) return null; // fail closed while the role loads
   return <LiveAppPasswords token={token} />;
 }
 

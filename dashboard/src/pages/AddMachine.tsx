@@ -45,7 +45,7 @@ export function AddMachine() {
   return (
     <>
       <PageHeader title="Add a machine" lede="Make a one-time code, enter it on the new machine, then approve the request it files. Nothing joins until you approve." />
-      {!isOwner && <p className="om-note om-tone-warn" role="status">Only an owner can make a join code. You can look at the network.</p>}
+      {!isOwner && role !== undefined && <p className="om-note om-tone-warn" role="status">Only an owner can make a join code. You can look at the network.</p>}
       <NetworkPage mesh={m} fabric={f} now={hub.now} isOwner={isOwner} onAddDevice={() => setAdding(true)}
         onReviewJoin={(id) => navigate(href.approval(id))} onRetry={reload} />
       <Card title="Box certificate" level={2}>

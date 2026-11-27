@@ -35,7 +35,7 @@ export function MachineCreateForm({ catalogue, names, busy, onClose, onSend }: {
   const [peers, setPeers] = useState(false);
   const loading = !!progress || busy;
   const image = catalogue.find((entry) => entry.url === imageUrl);
-  const canUpload = role === 'owner';
+  const canUpload = role === 'owner' && !!(account ?? principal)?.id; // the upload target is the person's home
   const nameProblem = !/^[a-z][a-z0-9-]{0,38}[a-z0-9]$/.test(name) ? 'Use 2 to 40 lowercase letters, digits or dashes, starting with a letter.'
     : ['capabilities', 'enable', 'disable', ...names].includes(name) ? 'Choose another machine name. This one is reserved or already in use.' : '';
   const source: MachineSource | undefined = kind === 'catalogue' ? image && { kind, url: image.url, sha256: image.sha256 }

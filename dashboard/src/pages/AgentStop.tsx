@@ -30,10 +30,10 @@ export function AgentStop() {
   const { token, mock } = useSignedIn();
   const { role } = useShell(); // a real hub's session has no principal; the role comes from GET /v1/me
   if (mock) return null; // demo mode has no gateway to stop agents on
-  return <LiveAgentStop token={token} owner={role === 'owner'} />;
+  return <LiveAgentStop token={token} owner={role === 'owner'} roleKnown={role !== undefined} />;
 }
 
-function LiveAgentStop({ token, owner }: { token: string; owner: boolean }) {
+function LiveAgentStop({ token, owner, roleKnown }: { token: string; owner: boolean; roleKnown: boolean }) {
   const sdk = useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1 }), [token]);
   const state = usePoll(() => call(sdk, 'GET'), 15_000);
   const run = useRun();
@@ -68,7 +68,7 @@ function LiveAgentStop({ token, owner }: { token: string; owner: boolean }) {
                 {s.on ? 'Resume AI agents' : 'Stop all AI agents'}
               </Button>
             ) : (
-              <p className="om-hint">Only the owner can stop or resume agents.</p>
+              roleKnown ? <p className="om-hint">Only the owner can stop or resume agents.</p> : null
             )}
           </>
         )}
