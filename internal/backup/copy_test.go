@@ -148,10 +148,17 @@ func TestRestoreCopyChecksFreeSpaceFirst(t *testing.T) {
 
 // Review of #1193: openEmptyDir hands back an fd that it alone owns. It once
 // wrapped fd in an os.File and dropped it, so the garbage collector closed fd
-// under the copy (random "bad file descriptor" in unrelated tests).
+// under the copy (random "bad file descriptor" in unrelated tests), and the
+// number could then be reused by another job's file. So the fd must still be
+// open after GCs AND still be this folder, after new files had the chance to
+// take a freed number.
 func TestOpenEmptyDirFdSurvivesTheGarbageCollector(t *testing.T) {
 	dir, err := filepath.EvalSymlinks(t.TempDir()) // macOS: /var is a symlink
 	if err != nil {
+		t.Fatal(err)
+	}
+	var want syscall.Stat_t
+	if err := syscall.Stat(dir, &want); err != nil {
 		t.Fatal(err)
 	}
 	fd, err := openEmptyDir(dir)
@@ -163,8 +170,68 @@ func TestOpenEmptyDirFdSurvivesTheGarbageCollector(t *testing.T) {
 		runtime.GC()
 		time.Sleep(time.Millisecond)
 	}
+	others := t.TempDir()
+	for i := range 4 { // reuse any number a finalizer freed
+		f, err := os.Create(filepath.Join(others, strings.Repeat("x", i+1)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer f.Close()
+	}
 	var st syscall.Stat_t
 	if err := syscall.Fstat(fd, &st); err != nil {
 		t.Fatalf("the fd was closed behind our back: %v", err)
+	}
+	if st.Dev != want.Dev || st.Ino != want.Ino {
+		t.Fatalf("the fd now points at another file (dev %d ino %d, want %d %d)", st.Dev, st.Ino, want.Dev, want.Ino)
+	}
+}
+
+// openFds counts this process's open descriptors (Linux /proc; elsewhere the
+// test is skipped).
+func openFds(t *testing.T) int {
+	t.Helper()
+	entries, err := os.ReadDir("/proc/self/fd")
+	if err != nil {
+		t.Skipf("no /proc/self/fd here: %v", err)
+	}
+	return len(entries)
+}
+
+// Review of #1193: the listing in openEmptyDir uses a second descriptor; it is
+// closed before openEmptyDir returns, on success and on refusal, so a long-running
+// agent never piles up descriptors one copy at a time.
+func TestOpenEmptyDirLeavesNoDescriptorBehind(t *testing.T) {
+	empty, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	full, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(full, "kept.txt"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runtime.GC()
+	warm, err := openEmptyDir(empty) // the runtime opens what it needs once (poller), before counting
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeDir(warm)
+	before := openFds(t)
+	for range 20 {
+		fd, err := openEmptyDir(empty)
+		if err != nil {
+			t.Fatal(err)
+		}
+		closeDir(fd)
+		if _, err := openEmptyDir(full); err == nil || !strings.Contains(err.Error(), "not empty") {
+			t.Fatalf("a folder with a file in it: err = %v", err)
+		}
+	}
+	// only a rise is a leak: a finalizer of another test's file may close one meanwhile
+	if after := openFds(t); after > before {
+		t.Fatalf("open descriptors went from %d to %d over 20 rounds", before, after)
 	}
 }

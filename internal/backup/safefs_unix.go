@@ -341,8 +341,10 @@ func openEmptyDir(dest string) (int, error) {
 	// Read the listing through a duplicate that this function closes itself. An
 	// os.File made straight from fd would own it: its finalizer closes fd when the
 	// garbage collector runs, under a copy still writing through it, or after the
-	// number has been reused by another job's file (review of #1193).
-	dup, err := unix.Dup(fd)
+	// number has been reused by another job's file (review of #1193). The
+	// duplicate is close-on-exec like fd (plain dup(2) is not), so a restic child
+	// started by another job in that window never inherits it.
+	dup, err := unix.FcntlInt(uintptr(fd), unix.F_DUPFD_CLOEXEC, 0)
 	if err != nil {
 		unix.Close(fd)
 		return -1, err

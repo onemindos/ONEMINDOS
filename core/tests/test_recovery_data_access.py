@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import replace
 
@@ -18,10 +19,11 @@ import pytest
 from fastapi.testclient import TestClient
 
 from onemind_core.app import create_app
+from onemind_core.databases import DatabasesSettings, SharedPostgres
 from onemind_core.files.settings import FilesSettings
 
 from conftest import AGENT, OWNER
-from test_backups import approve, bk, notes_app, restorable  # noqa: F401  (fixtures and helpers)
+from test_backups import FakeAgent, FakeKube, approve, bk, notes_app, restorable  # noqa: F401  (fixtures and helpers)
 from test_identity import PASSWORD, SoftAuthenticator, csrf, id_settings, register_passkey, setup_owner
 
 
@@ -129,30 +131,77 @@ def test_a_password_session_reaches_every_data_route_without_a_step_up(settings,
         assert r.status_code != 401, r.text
 
 
-def test_an_owner_without_a_passkey_can_approve_a_copy_but_not_an_in_place_restore(settings, clock, executor):
+def wire_backups(app, clock):
+    """The `bk` fixture's fakes (agent, kube, shared PostgreSQL), on an identity gateway made inside the test."""
+    svc = app.state.backups
+    svc.agent = FakeAgent(clock)
+    svc.kube = FakeKube()
+    svc.pg = SharedPostgres(svc.kube, DatabasesSettings(), dry_run=False)
+    svc.worker.inline = True
+    svc.s = replace(svc.s, health_deadline_s=1)
+    app.state.gateway.repo.set_app_state("notes", "installed", clock.now)
+    return svc
+
+
+def test_an_owner_without_a_passkey_requests_and_approves_a_copy_but_not_an_in_place_restore(
+        settings, clock, executor, notes_app):
     """Review of #1193: the data-first rule holds at APPROVAL, not only at the request. With a passkey registered
-    (require_passkey_approval on, the default), an owner signed in with a password approves a restore copy without a
-    step-up; an in-place restore of the same box still asks for the passkey."""
+    (require_passkey_approval on, the default), an owner signed in with a password (L1) asks for a restore copy,
+    approves it without a step-up, and the copy lands in their Files. What still needs the passkey: an in-place
+    restore, a copy approved by anyone but the requester's own session (a token, as the CLI uses), and a copy
+    someone else asked for."""
     app = create_app(id_settings(settings), clock=clock, executor=executor)
     with TestClient(app) as c:
         setup_owner(c)
-        register_passkey(c, SoftAuthenticator())
+        bk = wire_backups(app, clock)
+        copy_agent(bk)
+        snap = restorable(c, bk)  # before the passkey: the static owner token approves the USB disk and the run
+        register_passkey(c, SoftAuthenticator())  # now a strong key exists on the box
         pw = TestClient(app)
         assert pw.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD}).status_code == 200
-        gw = app.state.gateway
-        assert gw.actions.is_data_access("backup.restore.copy") and not gw.actions.is_data_access("backup.restore")
         me = pw.get("/v1/me").json()
         assert me["session"]["auth_method"] == "password"
-        owner = next(p for p in [gw.tokens.lookup("dev-owner-token-change-me")] if p is not None)
-        from datetime import timedelta
+        user_id = me["principal"]["id"]
+        gw = app.state.gateway
+        assert gw.actions.is_data_access("backup.restore.copy") and not gw.actions.is_data_access("backup.restore")
+        body = {"snapshot_id": snap["id"], "scope": {"app_id": "notes"}, "target": "new_folder"}
 
-        def file(kind: str, n: str) -> str:
-            action, _ = gw.actions.request_feature(owner, kind, {"snapshot_id": "abcdef0123456789", "scope": {"app_id": "notes"}},
-                                                   idempotency_key=n, expires_at=clock.now + timedelta(minutes=10))
-            return action["id"]
+        def ask(client, headers, key, **change):
+            r = client.post("/v1/restores", headers={**headers, "Idempotency-Key": key}, json={**body, **change})
+            assert r.status_code == 202, r.text
+            return r.json()
 
-        inplace = pw.post(f"/v1/actions/{file('backup.restore', 'in-place')}/approve", headers=csrf(pw), json={})
-        assert inplace.status_code == 401 and inplace.json()["reason"] == "step_up_required", inplace.text
-        copy = pw.post(f"/v1/actions/{file('backup.restore.copy', 'copy')}/approve", headers=csrf(pw), json={})
-        assert copy.status_code != 401, copy.text
-        assert copy.status_code == 200 and copy.json()["state"] != "awaiting_approval", copy.text
+        def approve_as(client, headers, action_id):
+            return client.post(f"/v1/actions/{action_id}/approve", headers=headers, json={})
+
+        copy = ask(pw, csrf(pw), "own-copy")
+        assert copy["type"] == "backup.restore.copy" and copy["requested_by"]["id"] == user_id
+        # the static owner token (the CLI's kind of credential) is not the requester's session: passkey, as ever
+        by_token = approve_as(c, OWNER, copy["id"])
+        assert by_token.status_code == 401 and by_token.json()["reason"] == "step_up_required", by_token.text
+        jobs = len(bk.agent.jobs)
+        done = approve_as(pw, csrf(pw), copy["id"])
+        assert done.status_code == 200, done.text
+        assert done.json()["state"] == "succeeded", done.text
+        events = [json.loads(line) for line in settings.audit_path.read_text().splitlines() if line.strip()]
+        shown = [e["data"]["payload"] for e in events if e["event"] == "auth.approval.token"
+                 and e["data"]["payload"]["action_id"] == copy["id"]]
+        assert shown == [{"action_id": copy["id"], "via": "password", "data_access": True}], shown  # F-12: no passkey
+        [(kind, params, _)] = bk.agent.jobs[jobs:]
+        assert kind == "backup.restore" and params["scope"] == "copy"
+        assert params["dest"].startswith(str(settings.sections["files"].root / "home"))
+        assert "/Restored from backup/notes-" in params["dest"]
+        listing = pw.get("/v1/files/list", params={"root": f"home:{user_id}", "path": "/Restored from backup"})
+        assert listing.status_code == 200, listing.text
+        assert [e["name"] for e in listing.json()] == [params["dest"].rsplit("/", 1)[1]]
+        # an in-place restore overwrites the app's data: the password session is sent to the passkey
+        inplace = ask(pw, csrf(pw), "in-place", target="in_place")
+        assert inplace["type"] == "backup.restore"
+        r = approve_as(pw, csrf(pw), inplace["id"])
+        assert r.status_code == 401 and r.json()["reason"] == "step_up_required", r.text
+        # a copy another principal asked for is not the approver's own data: passkey
+        theirs = ask(c, OWNER, "token-copy")
+        assert theirs["type"] == "backup.restore.copy" and theirs["requested_by"]["id"] != user_id
+        r = approve_as(pw, csrf(pw), theirs["id"])
+        assert r.status_code == 401 and r.json()["reason"] == "step_up_required", r.text
+        assert gw.actions.get(theirs["id"])["state"] == "awaiting_approval"
