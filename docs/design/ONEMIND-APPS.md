@@ -137,6 +137,9 @@ Debian 13 (trixie) packages checked 2026-11-26 on packages.debian.org:
 ### The rules (proposed)
 
 1. **Inside the app binaries (phone, desktop): only permissive licences.**
+   - Public-domain and CC0 code (for example SQLite) counts as permissive.
+   - The phone's own system frameworks (Android `android.*`, Apple frameworks) are part of the OS and allowed.
+   - **No bundled closed-source SDKs, Google Play Services included:** OneMind must work on phones without Google. Location uses Android's `LocationManager` and Apple's CoreLocation (#1290); push uses UnifiedPush.
    - That means MIT, BSD, Apache-2.0, or MPL-2.0 at file level.
    - Never GPL or AGPL, because they would bind our app code and clash with App Store distribution.
 2. **Engines we expect to change deeply: permissive only.**
