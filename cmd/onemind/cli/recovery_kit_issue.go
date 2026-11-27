@@ -70,7 +70,7 @@ func kitIssueCommand(a *App) *cobra.Command {
 					werr = cerr
 				}
 				if werr != nil {
-					return exitWith(ExitError, "write_failed", "the kit was issued but could not be saved; issue another kit")
+					return kitNotSaved(a, out, werr, k)
 				}
 				if a.G.JSON {
 					return printJSON(a.Stdout, map[string]any{"kit": k.Kit, "disk_key_state": k.OneTime.DiskKeyState, "saved_to": out})
@@ -87,6 +87,37 @@ func kitIssueCommand(a *App) *cobra.Command {
 	}
 	issue.Flags().StringVar(&out, "out", "", "write the kit page to this new file (mode 0600) instead of the terminal")
 	return issue
+}
+
+// kitNotSaved handles a kit the gateway issued whose page could not be written to --out (ENOSPC on a full stick,
+// EFBIG, EIO). The gateway already replaced the console fingerprint, added the owner key and took the one-time disk
+// key from onemindd, which destroyed its copy; the next kit only says the disk key "was printed in an earlier kit".
+// So this answer is the only copy: the partial file is removed (it may hold half a key and no usable page), the page
+// goes to stdout (the whole answer with --json, the keys included, because there is nowhere else for them), and the
+// command still fails so a script does not take the file as written.
+func kitNotSaved(a *App, out string, werr error, k kitIssued) error {
+	rerr := os.Remove(out)
+	var perr error
+	if a.G.JSON {
+		perr = printJSON(a.Stdout, k)
+	} else {
+		_, perr = fmt.Fprint(a.Stdout, k.OneTime.Text)
+	}
+	msg := "the kit was issued, but " + out + " could not be written (" + werr.Error() + ")"
+	if rerr != nil && !errors.Is(rerr, os.ErrNotExist) {
+		msg += "; the partial file could not be removed either (" + rerr.Error() + "), delete it"
+	} else {
+		msg += " and was removed"
+	}
+	if perr != nil {
+		return exitWith(ExitError, "write_failed", msg+"; printing the kit page failed too ("+perr.Error()+
+			"), so no copy of this kit exists")
+	}
+	msg += ". The kit page was printed to standard output instead and is the only copy: print it or save it now"
+	if k.OneTime.DiskKey != nil {
+		msg += ". It holds the disk recovery key, which the box no longer has and no later kit will show again"
+	}
+	return exitWith(ExitError, "write_failed", msg)
 }
 
 // explainKitIssue says where to go when the kit needs the owner's passkey. The request the gateway filed stays
