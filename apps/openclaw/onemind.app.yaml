@@ -12,8 +12,11 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (agents) are listed in README.md
   # until the schema has metadata.tags.
   category: ai
+  age_rating: 18   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "An AI agent that takes actions on its own across services."
   icon: icon.svg
   license: "MIT"
+  licenceClass: L1
   source: https://github.com/openclaw/openclaw
   links:
     docs: "https://docs.openclaw.ai/"

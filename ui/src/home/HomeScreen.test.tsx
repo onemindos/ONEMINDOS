@@ -104,6 +104,48 @@ describe('HomeScreen widget states', () => {
 });
 
 describe('HomeScreen', () => {
+  it('keeps a missing or critical status source visible in Needs you even without any approvals', () => {
+    render(<Harness data={{ ...freshData, approvals: { state: 'ready', data: [] }, boxStatus: [
+      { source: 'storage', label: 'Storage', state: 'unknown', summary: '' },
+      { source: 'backups', label: 'Backups', state: 'critical', summary: 'backups are failing' },
+    ] }} />);
+    const needs = within(widget('Needs you'));
+    const rows = within(needs.getByRole('list', { name: 'Box status requiring attention' }));
+    expect(rows.getByText('Not reported')).toBeVisible();
+    expect(rows.getByText('Storage')).toBeVisible();
+    expect(rows.getByText('backups are failing')).toBeVisible();
+    expect(rows.getByText('Backups').closest('.om-pill')).toHaveClass('om-tone-bad');
+    expect(needs.queryByText('Nothing needs you')).toBeNull();
+  });
+
+  it('shows the waiting approval before any status row, and folds unreported sources into one line', () => {
+    const unknown = (['alerts', 'approvals', 'apps', 'storage', 'backups', 'updates', 'mesh'] as const)
+      .map((source) => ({ source, label: source.charAt(0).toUpperCase() + source.slice(1), state: 'unknown' as const, summary: '' }));
+    render(<Harness data={{ ...homeData, boxStatus: unknown }} />);
+    const card = widget('Needs you');
+    const needs = within(card);
+    expect(needs.queryAllByText('Unknown')).toHaveLength(0);
+    const rows = needs.getByRole('list', { name: 'Box status requiring attention' });
+    expect(within(rows).getAllByRole('listitem')).toHaveLength(1);
+    expect(within(rows).getByText('Box status')).toBeVisible();
+    const approval = card.querySelector('.omh-approval');
+    expect(approval).not.toBeNull();
+    // The approval comes first in the card, so a status line never pushes it out of view.
+    expect(approval!.compareDocumentPosition(rows) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('places host status content after the greeting and host footer content after the apps', () => {
+    render(<Harness status={<section aria-label="Host status">status</section>} footer={<section aria-label="Host footer">footer</section>} />);
+    const greeting = screen.getByRole('heading', { level: 1 });
+    const status = screen.getByRole('region', { name: 'Host status' });
+    const overview = screen.getByRole('heading', { name: 'Overview' });
+    const apps = screen.getByRole('heading', { name: 'Your apps' });
+    const footer = screen.getByRole('region', { name: 'Host footer' });
+    const after = (a: Node, b: Node) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(after(greeting, status)).toBe(true);
+    expect(after(status, overview)).toBe(true);
+    expect(after(apps, footer)).toBe(true);
+  });
   it('hides its own dock when the host frame shows pinned apps (showDock=false, D-016)', () => {
     const { unmount } = render(<Harness />);
     expect(screen.getByRole('navigation', { name: 'Dock' })).toBeInTheDocument();

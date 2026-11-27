@@ -13,8 +13,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func pluginCommands(a *App) []*cobra.Command {
-	plugin := &cobra.Command{Use: "plugin", Short: "Develop plugins (local, offline checks)"}
+func appCommands(a *App) []*cobra.Command {
+	app := &cobra.Command{Use: "app", Aliases: []string{"plugin"}, Short: "Develop OneMind apps and plugins"}
 	var previous, apiLevel string
 	command := &cobra.Command{
 		Use: "validate [dir]", Short: "Validate a plugin bundle (does not verify signatures)", Args: cobra.MaximumNArgs(1),
@@ -69,8 +69,10 @@ func pluginCommands(a *App) []*cobra.Command {
 	}
 	command.Flags().StringVar(&previous, "previous", "", "compare grants with a previous plugin directory")
 	command.Flags().StringVar(&apiLevel, "api-level", "", "check against this box plugin API level (offline)")
-	plugin.AddCommand(command, pluginInitCommand(a), pluginPackCommand(a), pluginInspectCommand(a), pluginSignCommand(a), pluginRevocationsCommand(a))
-	return []*cobra.Command{plugin}
+	app.AddCommand(command, pluginInitCommand(a), appNewCommand(a), appCheckCommand(a), appDevCommand(a), appTestCommand(a),
+		appDeployCommand(a), appRollbackCommand(a), appHistoryCommand(a),
+		pluginPackCommand(a), pluginInspectCommand(a), pluginSignCommand(a), pluginRevocationsCommand(a), pluginCardCommand(a))
+	return []*cobra.Command{app}
 }
 
 func previousManifest(dir string) ([]byte, error) {

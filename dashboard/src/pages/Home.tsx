@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Home launcher (IA §2.1) on @onemind/ui HomeScreen, fed by /v1/nodes, /v1/apps and /v1/actions.
 // Backups, updates and mesh read /v1/backups/status, /v1/os/updates and /v1/mesh (data/homeExtras).
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { HomeScreen, StateView, useOptionalCustomize, useToast, type ActionSummary, type BackupStatus, type StorageStatus, type HomeData, type HomeLayout, type HomeLoadable } from '@onemind/ui';
+import { ApiError } from '../api/types';
 import { useHomeExtras } from '../data/homeExtras';
 import { homeActivity, toActionSummary, toHomeApp, toHomeNode } from '../data/adapters';
 import { errorText, useHub, type Hub } from '../data/hub';
 import { useHomeBackups } from '../data/homeBackups';
 import { useDisplayName } from '../data/homeMe';
+import { useBoxStatus } from '../data/homeStatus';
 import { useHomeStorage } from '../data/homeStorage';
 import { homeLayoutStore } from '../data/prefs';
 import type { Polled } from '../lib/hooks';
@@ -15,8 +17,10 @@ import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
 import { showsNav } from '../shell/roles';
 import { useActivity, useShell } from '../shell/Shell';
+import { HomeCommandBar } from './HomeCommandBar';
 import { HomeHealth } from './HomeHealth';
 import { SimpleHome } from './SimpleHome';
+import { HomeRecent } from './HomeRecent';
 
 /**
  * Home's first layout: "Needs you" and System on top, then a trust tile, Storage and Backups for
@@ -66,12 +70,16 @@ export function homeData(hub: Hub, activity: ReturnType<typeof homeActivity>, ex
 /** Child and guest get the simple Home; the Pro one is for owners and adults. Fail closed while the role is unknown. */
 export function Home() {
   const shell = useShell();
-  if (shell.view === 'simple') return <SimpleHome />;
+  const customize = useOptionalCustomize();
+  const { apps } = useHub();
   if (shell.view === 'unknown') return <StateView state="loading" what="Checking your role" skeleton="list" />;
-  return <ProHome />;
+  const commandBar = customize?.prefs.commandBar
+    ? <HomeCommandBar openPalette={shell.openPalette} apps={shell.role === 'owner' ? apps.data ?? [] : []} />
+    : undefined;
+  return shell.view === 'simple' ? <SimpleHome commandBar={commandBar} /> : <ProHome commandBar={commandBar} />;
 }
 
-function ProHome() {
+function ProHome({ commandBar }: { commandBar: ReactNode }) {
   const hub = useHub();
   const { person } = useSignedIn();
   const personName = useDisplayName();
@@ -86,6 +94,7 @@ function ProHome() {
   const storage = useHomeStorage(pro);
   const apps = useMemo(() => hub.apps.data?.map((a) => toHomeApp(a)), [hub.apps.data]);
   const extras = useHomeExtras(apps, hub.asOf ?? new Date(0).toISOString());
+  const boxStatus = useBoxStatus();
   const data = homeData(hub, homeActivity(entries), extras, backups.value, storage.value);
 
   const decide = (a: ActionSummary, how: 'approve' | 'deny') =>
@@ -93,15 +102,14 @@ function ProHome() {
       () => toast.show({ tone: how === 'approve' ? 'ok' : 'neutral', title: how === 'approve' ? 'Approved' : 'Denied', body: how === 'approve' ? 'The hub is applying it.' : 'Nothing changes.' }),
       (e: unknown) => {
         const { code, message } = errorText(e);
-        toast.show({ tone: 'bad', title: `Could not ${how}`, body: `${message} (${code})` });
+        const licence = e instanceof ApiError && e.reason === 'licence_unconfirmed';
+        toast.show({ tone: 'bad', title: `Could not ${how}`, body: licence ? 'This app needs its licence accepted. Open Approvals to read it and confirm.' : `${message} (${code})` });
       },
     );
 
   return (
-    <>
-    <HomeHealth pro={pro} />
     <HomeScreen
-      data={data}
+      data={{ ...data, boxStatus }}
       now={hub.now}
       timeZone={Intl.DateTimeFormat().resolvedOptions().timeZone}
       personName={personName}
@@ -120,6 +128,10 @@ function ProHome() {
       onApprove={(a) => void decide(a, 'approve')}
       onDeny={(a) => void decide(a, 'deny')}
       busy={hub.busy}
+      commandBar={commandBar}
+      // IA §2.1: the greeting first, then box health, the widgets and the apps; recent visits last.
+      status={<HomeHealth pro={pro} status={boxStatus} />}
+      footer={<HomeRecent />}
       onOpenSearch={shell.openPalette}
       showDock={shell.layout === 'console'}
       links={{
@@ -136,6 +148,5 @@ function ProHome() {
         approval: (id) => href.approval(id),
       }}
     />
-    </>
   );
 }

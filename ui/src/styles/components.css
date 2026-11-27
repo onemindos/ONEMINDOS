@@ -30,10 +30,9 @@
     border-color var(--om-motion-duration-fast) var(--om-motion-ease-standard);
 }
 .om-btn-sm { min-height: 32px; padding: 0 var(--om-space-3); }
-/* The one main-button colour everywhere: neutral ink (Approve, Request install, passkey, previews). It is never red:
-   red is for Deny and danger actions only, and ink reads the same under any colour direction. */
-.om-btn-primary { background: var(--om-color-text); color: var(--om-color-bg); }
-.om-btn-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--om-color-text) 82%, var(--om-color-bg)); }
+/* The action colour is independent of wallpaper and personal highlights. */
+.om-btn-primary { background: var(--om-color-action); color: var(--om-color-action-text); }
+.om-btn-primary:hover:not(:disabled) { background: var(--om-color-action-hover); }
 .om-btn-secondary { background: var(--om-color-surface); color: var(--om-color-text); border-color: var(--om-color-control-border); }
 .om-btn-secondary:hover:not(:disabled) { background: var(--om-color-surface-sunken); }
 .om-btn-ghost { background: transparent; color: var(--om-color-accent); }
@@ -257,7 +256,7 @@
 /* ---------- app icon (one for Home and the Store, CRITIQUE #20) ---------- */
 .om-app-icon {
   position: relative; display: inline-flex; flex: none; align-items: center; justify-content: center; overflow: hidden;
-  border-radius: 26%;
+  border-radius: var(--om-layout-tile-radius);
   color: var(--om-app-icon-fg);
   font-weight: var(--om-font-weight-bold);
   letter-spacing: -0.02em;
@@ -322,3 +321,29 @@
   .om-set-qitem[aria-current='true']::after { background: Highlight; }
   :focus-visible { outline: 3px solid Highlight; box-shadow: none; }
 }
+
+.om-hold { display: flex; flex-wrap: wrap; gap: var(--om-space-2); }
+.om-hold-button { position: relative; overflow: hidden; touch-action: none; }
+.om-hold-label { position: relative; }
+.om-hold-fill {
+  position: absolute;
+  inset: 0;
+  background: currentColor;
+  opacity: 0.18;
+  transform-origin: left;
+  transform: scaleX(0);
+}
+.om-hold-button[data-holding="true"] .om-hold-fill {
+  transform: scaleX(1);
+  transition: transform var(--hold-duration) linear;
+}
+@media (prefers-reduced-motion: reduce) {
+  .om-hold-fill { transform: none; opacity: 0; }
+  .om-hold-button[data-holding="true"] .om-hold-fill {
+    transform: none;
+    opacity: 0.18;
+    transition: opacity var(--hold-duration) linear;
+  }
+}
+:root[data-om-motion='reduce'] .om-hold-fill { transform: none; opacity: 0; }
+:root[data-om-motion='reduce'] .om-hold-button[data-holding="true"] .om-hold-fill { transform: none; opacity: 0.18; }

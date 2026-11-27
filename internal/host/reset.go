@@ -65,6 +65,9 @@ type PlanMember struct {
 	PartUUID   string `json:"partuuid"`
 	Generation int    `json:"generation"`
 	SystemDisk bool   `json:"system_disk"`
+	// Plain: an unencrypted btrfs partition (a box without a TPM). There are no
+	// keys to destroy, so the wipe clears its signatures and the start of the disk.
+	Plain bool `json:"plain,omitempty"`
 	// Stale: an older-generation member of the set (a disk that left the
 	// mirror but still holds readable data) is wiped too.
 	Stale bool `json:"stale,omitempty"`
@@ -88,7 +91,23 @@ type ResetPlan struct {
 // candidates is the disk discovery (tests replace it).
 var candidates = ops.Candidates
 
+// blankMembers lists onemind-data partitions that hold no signature (tests replace it).
+var blankMembers = ops.BlankMembers
+
 const resetMethod = "fast wipe: destroy the LUKS2 encryption keys of every member, then clear its signatures"
+
+// resetMethodPlain and ResetWarningPlain are used instead when the data is
+// plain btrfs (no TPM, not encrypted): without keys to destroy the old data
+// stays on the disk until it is overwritten, and the owner is told so.
+const resetMethodPlain = "fast wipe: clear the filesystem signatures and the first 16 MiB of every member (the data is not encrypted on this box)"
+
+const ResetWarningPlain = "This erases everything on this box: apps, settings, the owner and passkeys, " +
+	"and the box's identity, on every disk listed below. The data on this box is not encrypted, so this is " +
+	"a fast wipe that removes the filesystem and its index but does not overwrite the rest of the disk: " +
+	"someone with special tools and the disk in hand could still recover parts of the old data until it is overwritten. " +
+	"Backups kept off this box (other disks, other machines, the cloud) are not erased. " +
+	"Restoring them afterwards needs the backup key you saved, because this box's own backup key is wiped with it. " +
+	"If you do not have that key, do not continue."
 
 func (p *ResetPlan) seal() {
 	p.SHA256 = ""
@@ -105,13 +124,14 @@ func refusedPlan(why string) ResetPlan {
 }
 
 // BuildPlan turns the disks seen at boot into the plan. A box whose data is
-// not LUKS2 gets a refused plan that says so.
+// neither OneMind LUKS2 nor the plain btrfs of the system disk (an ext4 box
+// installed before #152, or a foreign disk) gets a refused plan that says so.
 func BuildPlan(cands []ops.Candidate) ResetPlan {
 	set, current, stale, _ := ops.Choose(cands)
 	if set == "" || len(current) == 0 {
-		return refusedPlan("the data on this box is not encrypted yet (no LUKS2 data set was found), " +
-			"so the fast wipe cannot run and nothing was changed. A slow overwrite is deliberately not offered; " +
-			"the encrypted data disk is tracked as F-61/F-62")
+		return refusedPlan("no OneMind data set was found (neither an encrypted LUKS2 set with the OneMind token nor the plain btrfs data " +
+			"partition of the system disk; an older ext4 data disk is not supported), " +
+			"so the fast wipe cannot run and nothing was changed. A slow overwrite is deliberately not offered")
 	}
 	p := ResetPlan{Schema: PlanSchema, Available: true, Method: resetMethod, SetUUID: set,
 		Erases: ResetErases, Survives: ResetSurvives, Warning: ResetWarning}
@@ -121,6 +141,12 @@ func BuildPlan(cands []ops.Candidate) ResetPlan {
 	for _, c := range stale {
 		p.Members = append(p.Members, member(c, true))
 	}
+	for _, m := range p.Members {
+		if m.Plain {
+			p.Method, p.Warning = resetMethodPlain, ResetWarningPlain
+			break
+		}
+	}
 	sort.Slice(p.Members, func(i, j int) bool { return p.Members[i].PartUUID < p.Members[j].PartUUID })
 	p.seal()
 	return p
@@ -128,7 +154,7 @@ func BuildPlan(cands []ops.Candidate) ResetPlan {
 
 func member(c ops.Candidate, stale bool) PlanMember {
 	return PlanMember{Part: c.Part, Disk: c.Disk, PartUUID: strings.ToLower(c.PartUUID),
-		Generation: c.Token.Generation, SystemDisk: c.System, Stale: stale}
+		Generation: c.Token.Generation, SystemDisk: c.System, Plain: c.Plain, Stale: stale}
 }
 
 // Marker is the file on the ESP that tells the next boot to wipe. The ESP is
@@ -403,13 +429,15 @@ func Wipe(ctx context.Context, r ops.Runner, esp string, now time.Time) error {
 		erased[e] = true
 	}
 	deadline := time.Now().Add(wipeWait)
+	retry := m.State == "wiping"
 	var cands, targets []ops.Candidate
+	var blanks map[string]string
 	for {
 		if cands, err = candidates(ctx, r); err != nil {
 			return err
 		}
 		var missing []string
-		targets = targets[:0]
+		targets, blanks = targets[:0], nil
 		for _, mm := range m.Members {
 			if erased[mm.PartUUID] {
 				continue
@@ -420,6 +448,19 @@ func Wipe(ctx context.Context, r ops.Runner, esp string, now time.Time) error {
 					c.Token.SetUUID == m.DataSet && c.Token.Generation == mm.Generation {
 					targets, found = append(targets, c), true
 					break
+				}
+			}
+			// A retry: a planned partition that is present but has no signature at all had its signatures
+			// cleared before the power went (wipefs ran, the Erased note did not). It is already erased
+			// apart from the zeroed head, so it is finished here instead of ending in ErrMembersMissing.
+			if !found && retry {
+				if blanks == nil {
+					if blanks, err = blankMembers(ctx, r); err != nil {
+						return err
+					}
+				}
+				if part, ok := blanks[mm.PartUUID]; ok {
+					targets, found = append(targets, ops.Candidate{Part: part, PartUUID: mm.PartUUID, Plain: true}), true
 				}
 			}
 			if !found {
@@ -459,11 +500,25 @@ func Wipe(ctx context.Context, r ops.Runner, esp string, now time.Time) error {
 		return err
 	}
 	for _, c := range targets {
-		if out, code, err := r.Exec(ctx, "", "cryptsetup", "erase", "--batch-mode", c.Part); err != nil || code != 0 {
-			return fmt.Errorf("cryptsetup erase %s failed: %s", c.Part, strings.TrimSpace(string(out)))
+		// The data disk is unlocked on every boot before this unit runs (onemind-data-encrypt.service), unless it
+		// found the armed marker and left it alone. Detach it first: wipefs needs the partition not to be held
+		// open, and a mounted one is never wiped under a running system.
+		if err := detach(ctx, r, c.Part); err != nil {
+			return err
+		}
+		if !c.Plain { // plain btrfs has no keys to destroy
+			if out, code, err := r.Exec(ctx, "", "cryptsetup", "erase", "--batch-mode", c.Part); err != nil || code != 0 {
+				return fmt.Errorf("cryptsetup erase %s failed: %s", c.Part, strings.TrimSpace(string(out)))
+			}
 		}
 		if out, code, err := r.Exec(ctx, "", "wipefs", "-a", c.Part); err != nil || code != 0 {
 			return fmt.Errorf("wipefs %s failed: %s", c.Part, strings.TrimSpace(string(out)))
+		}
+		// Zero the head (the LUKS2 JSON header and keyslots, or the btrfs boot area) so first boot sees a
+		// blank partition and makes a new data disk; wipefs alone leaves bytes that data_encrypt reads as
+		// "unknown data" and never formats. Bounded to 16 MiB: not a slow overwrite.
+		if out, code, err := r.Exec(ctx, "", "dd", "if=/dev/zero", "of="+c.Part, "bs=1M", "count=16", "conv=fsync"); err != nil || code != 0 {
+			return fmt.Errorf("zeroing the start of %s failed: %s", c.Part, strings.TrimSpace(string(out)))
 		}
 		m.Erased = append(m.Erased, strings.ToLower(c.PartUUID))
 		if err := writeAtomic(path, m.encode()); err != nil {
@@ -478,4 +533,30 @@ func Wipe(ctx context.Context, r ops.Runner, esp string, now time.Time) error {
 		return err
 	}
 	return os.Remove(path)
+}
+
+// detach closes every LUKS mapping held on part. It refuses when the partition
+// or anything stacked on it is mounted: a reset never pulls a disk from under
+// a running filesystem. Nothing to close is the normal case.
+func detach(ctx context.Context, r ops.Runner, part string) error {
+	out, code, err := r.Exec(ctx, "", "lsblk", "-rno", "NAME,TYPE,MOUNTPOINTS", part)
+	if err != nil || code != 0 {
+		return fmt.Errorf("cannot inspect %s before the wipe: %s", part, strings.TrimSpace(string(out)))
+	}
+	var crypts []string
+	for _, line := range strings.Split(string(out), "\n") {
+		f := strings.Fields(line)
+		if len(f) >= 3 {
+			return fmt.Errorf("%s is in use (mounted at %s); the wipe will not run under a mounted disk", part, f[2])
+		}
+		if len(f) == 2 && f[1] == "crypt" {
+			crypts = append(crypts, f[0])
+		}
+	}
+	for _, name := range crypts {
+		if out, code, err := r.Exec(ctx, "", "cryptsetup", "close", name); err != nil || code != 0 {
+			return fmt.Errorf("cryptsetup close %s failed: %s", name, strings.TrimSpace(string(out)))
+		}
+	}
+	return nil
 }

@@ -3,14 +3,19 @@
 // "#/app/<id>", "#/settings/people", ...) to the dashboard's real paths. ui components take
 // hrefs as props where they can; this covers the rest (palette commands, notification links).
 import { navIdFor } from '../screens/registry';
+import { deepLinkToPath } from '../lib/appLinks';
 
 export const href = {
   home: '/',
   market: '/market',
   app: (id: string) => `/market/${encodeURIComponent(id)}`,
   installed: '/installed',
+  /** #617: the Market's Built in tab (GET /v1/system-apps). */
+  builtIn: '/built-in',
   sources: '/sources',
   compose: '/compose',
+  /** PLG-GIT-01: the Market's Custom tab (apps linked from a Git repository). */
+  custom: '/custom',
   manage: (id: string) => `/installed/${encodeURIComponent(id)}`,
   browser: (id: string) => `/browser/${encodeURIComponent(id)}`,
   approvals: '/approvals',
@@ -35,13 +40,15 @@ export const href = {
 };
 
 /** ui settings slugs (palette) → SettingsLayout section ids. */
-const SETTINGS_ALIAS: Record<string, string> = { people: 'users', security: 'account', remote: 'network' };
+const SETTINGS_ALIAS: Record<string, string> = { people: 'users', remote: 'network' };
 
 /**
- * An in-app path for a ui link, or undefined when it is not an in-app link (an external or
+ * An in-app path for a ui link (or an onemind://app deep link), or undefined when it is not an in-app link (an external or
  * protocol-relative URL is never followed from here).
  */
 export function toRoute(link: string): string | undefined {
+  // onemind://app/<id>/<route> (#617) opens the same place as its web path, /apps/<id>/<route>.
+  if (link.startsWith('onemind://')) return deepLinkToPath(link);
   let p = link.startsWith('#/') ? link.slice(1) : link;
   // Browsers read a backslash as "/" and drop tabs and newlines, so "/\host" is protocol-relative too;
   // react-router falls back to location.assign when pushState refuses another origin.
@@ -64,7 +71,7 @@ export function toRoute(link: string): string | undefined {
     case 'nodes':
       return href.nodes;
     case 'machines':
-      return href.machines;
+      return parts.length === 2 ? path + q : href.machines;
     case 'notifications':
       return href.activity;
     case 'backups':

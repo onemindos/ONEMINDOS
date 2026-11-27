@@ -10,6 +10,11 @@
                                          write DIR/changelog.md (what changed, which CVEs closed)
   app-factory lift APP --report FILE     after app-gate passed on the rebuilt image, set metadata.tier to the
                                          tier the gate computed (the PR review is the human approval)
+  app-factory base-check [BASE ...]      validate shared bases (apps/_bases/<name>/base.yaml + Dockerfile); offline
+  app-factory base-build BASE --out DIR [--tag TAG] [--push]
+                                         build a base (every arch, SBOM and provenance when pushed), check it is
+                                         Debian 13 and uid 1000, scan it with Trivy (DIR/trivy.json) and write a
+                                         CycloneDX SBOM (DIR/sbom.cdx.json)
 
 Exit codes: 0 ok, 1 a recipe is invalid or the lift was refused, 2 tool or network error.
 """
@@ -24,7 +29,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from applib import common  # noqa: E402
-from factorylib import factory  # noqa: E402
+from factorylib import desktop, factory  # noqa: E402
 
 
 def recipes(apps_dir: Path, ids: list[str]) -> list[tuple[Path, dict]]:
@@ -170,6 +175,76 @@ def cmd_lift(args) -> int:
     return 0
 
 
+def bases(ids: list[str]) -> list[tuple[Path, dict]]:
+    root = desktop.BASES_DIR
+    dirs = [root / i for i in ids] if ids else sorted(d for d in root.iterdir() if d.is_dir())
+    out = []
+    for d in dirs:
+        doc = desktop.load_base(d)
+        if doc is None:
+            raise common.ToolError(f"apps/_bases/{d.name}/{desktop.BASE_NAME} not found")
+        out.append((d, doc))
+    return out
+
+
+def cmd_base_check(args) -> int:
+    bad = 0
+    for d, doc in bases(args.bases):
+        errs = desktop.validate_base(doc, d)
+        print(f"{'ok  ' if not errs else 'FAIL'} apps/_bases/{d.name}/{desktop.BASE_NAME}")
+        for e in errs:
+            print(f"  - {e}")
+        bad += bool(errs)
+    return 1 if bad else 0
+
+
+def cmd_base_build(args) -> int:
+    ((d, doc),) = bases([args.base])
+    errs = desktop.validate_base(doc, d)
+    if errs:
+        raise common.ToolError(f"apps/_bases/{d.name}: invalid base: {errs[0]}")
+    out = args.out
+    out.mkdir(parents=True, exist_ok=True)
+    argv = desktop.build_command(doc, d, out, args.push, args.tag)
+    argv[0] = common.which("docker")
+    proc = common.run(argv, timeout=3600)
+    if proc.returncode != 0:
+        raise common.ToolError(f"docker build: {proc.stderr.strip()[-800:]}")
+    ref = f"{doc['target']['image']}:{args.tag}"
+    if args.push:
+        ref += "@" + json.loads((out / "buildx.json").read_text())["containerimage.digest"]
+    probe = common.run([argv[0], "run", "--rm", "--entrypoint", "sh", ref, "-c", "cat /etc/os-release; echo UID=$(id -u)"], timeout=600)
+    if probe.returncode != 0:
+        raise common.ToolError(f"could not read the built image's identity: {probe.stderr.strip()[-300:]}")
+    uid = (re.findall(r"(?m)^UID=(\d+)$", probe.stdout) or [""])[-1]
+    errs = desktop.check_identity(probe.stdout, uid)
+    # The labels that mark every image built FROM this base as a desktop (validate-apps check 12, broker, install).
+    # The probe above ran the image, so it is local even when pushed.
+    insp = common.run([argv[0], "image", "inspect", "--format", "{{json .Config.Labels}}", ref], timeout=300)
+    if insp.returncode != 0:
+        raise common.ToolError(f"could not read the built image's labels: {insp.stderr.strip()[-300:]}")
+    try:
+        labels = json.loads(insp.stdout or "null")
+    except ValueError:
+        labels = None
+    errs += desktop.label_problems(labels if isinstance(labels, dict) else {}, doc)
+    if errs:
+        raise common.ToolError("; ".join(errs))
+    src = "remote" if args.push else "docker"
+    trivy_json(ref, out / "trivy.json", src)
+    # A CycloneDX SBOM next to the scan, for local builds too (a pushed build also carries BuildKit's own SBOM).
+    sbom = common.run([common.which("trivy"), "image", "--quiet", "--format", "cyclonedx", "--image-src", src,
+                       "--output", str(out / "sbom.cdx.json"), ref], timeout=1800)
+    if sbom.returncode != 0:
+        raise common.ToolError(f"trivy sbom {ref}: {sbom.stderr.strip()[-500:]}")
+    (out / "built.json").write_text(json.dumps({
+        "base": d.name, "from": doc["from"], "image": ref, "pushed": args.push, "runtime": doc["runtime"],
+        "built_at": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+    }, indent=2) + "\n", encoding="utf-8")
+    print(f"built {ref}")
+    return 0
+
+
 def main(argv: list[str]) -> int:
     p = argparse.ArgumentParser(prog="app-factory", description=__doc__.split("\n")[0])
     p.add_argument("--apps-dir", type=Path, default=common.APPS_DIR)
@@ -186,9 +261,15 @@ def main(argv: list[str]) -> int:
     s.add_argument("app"); s.add_argument("--out", type=Path, required=True); s.add_argument("--reason")
     s = sub.add_parser("lift")
     s.add_argument("app"); s.add_argument("--report", type=Path, required=True)
+    s = sub.add_parser("base-check")
+    s.add_argument("bases", nargs="*")
+    s = sub.add_parser("base-build")
+    s.add_argument("base"); s.add_argument("--out", type=Path, required=True); s.add_argument("--tag", default="local")
+    s.add_argument("--push", action="store_true")
     args = p.parse_args(argv)
     try:
-        return {"check": cmd_check, "plan": cmd_plan, "build": cmd_build, "apply": cmd_apply, "lift": cmd_lift}[args.cmd](args)
+        return {"check": cmd_check, "plan": cmd_plan, "build": cmd_build, "apply": cmd_apply, "lift": cmd_lift,
+                "base-check": cmd_base_check, "base-build": cmd_base_build}[args.cmd](args)
     except (common.ToolError, OSError, ValueError, KeyError) as exc:
         sys.stderr.write(f"error: {exc}\n")
         return 2

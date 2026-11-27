@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { makeActions, makeApps, makeNodes } from '../api/fixtures';
 import type { Action } from '../api/types';
 import { toRoute } from '../shell/routes';
-import { activityFrom, categorySlug, deployClass, NO_APP_NAME_NOTE, iconOf, jobState, notificationsFrom, openUrl, runState, toActionSummary, toInstalled, toJob, toStoreApp } from './adapters';
+import { activityFrom, categorySlug, deployClass, NO_APP_NAME_NOTE, iconOf, jobState, notificationsFrom, openUrl, runState, toActionPlan, toActionSummary, toInstalled, toJob, toStoreApp } from './adapters';
 import { personKey, personStorage } from './prefs';
 
 const NOW = Date.parse('2026-11-12T12:00:00Z');
@@ -25,6 +25,30 @@ describe('catalog → Market (TAXONOMY §1, §11.4)', () => {
     expect(deployClass('blocked')).toBe('market-verified');
     expect(deployClass('community')).toBe('market-community');
     expect(deployClass(null)).toBe('market-community');
+  });
+
+  it('uses the gate class only for the current manifest licence', () => {
+    // An older gateway sends no declared class: only the gate's scan record can give one.
+    const app = { ...makeApps(NOW)[0]!, licence_class: undefined };
+    const scan = { scanned_at: new Date(NOW).toISOString(), result: 'pass' as const };
+    const checked = { ...scan, licence: { spdx: 'MIT', class: 'L1' as const } };
+    expect(toStoreApp({ ...app, license: 'MIT', scan: checked }).licence_class).toBe('L1');
+    expect(toStoreApp({ ...app, license: 'MIT', scan }).licence_class).toBe('L?');
+    expect(toStoreApp({ ...app, license: 'GPL-3.0', scan: checked }).licence_class).toBe('L?');
+    expect(toStoreApp({ ...app, license: 'MIT', scan: { ...scan, licence: { spdx: 'MIT', class: 'blocked' } } }).licence_class).toBe('blocked');
+  });
+
+  it('takes the manifest licence class first and never shows unknown as green (#173)', () => {
+    const app = makeApps(NOW)[0]!;
+    const scan = { scanned_at: new Date(NOW).toISOString(), result: 'pass' as const };
+    const gate = (cls: 'L1' | 'L2' | 'blocked') => ({ ...scan, licence: { spdx: 'MIT', class: cls } });
+    const of = (licence_class: 'L1' | 'L2' | 'blocked' | 'unknown', s = scan) =>
+      toStoreApp({ ...app, license: 'MIT', licence_class, scan: s }).licence_class;
+    expect(of('L1')).toBe('L1');
+    expect(of('L2')).toBe('L2');
+    expect(of('unknown', gate('L1'))).toBe('L?');
+    expect(of('blocked', gate('L1'))).toBe('blocked');
+    expect(of('L1', gate('blocked'))).toBe('blocked');
   });
 
   it('keeps scan, tier, links and licence; tolerates null fields from the gateway', () => {
@@ -156,6 +180,7 @@ describe('routes from ui links', () => {
     expect(toRoute('#/approvals/a-1')).toBe('/approvals?highlight=a-1');
     expect(toRoute('#/settings/people')).toBe('/settings/users');
     expect(toRoute('#/settings/appearance')).toBe('/settings/appearance');
+    expect(toRoute('#/settings/security')).toBe('/settings/security'); // the Security overview page, no alias to account
     expect(toRoute('#/backups')).toBe('/backups');
     expect(toRoute('/installed/x')).toBe('/installed/x');
   });
@@ -190,5 +215,20 @@ describe('per-person storage', () => {
     expect(personKey(undefined, t1)).toBe(personKey(undefined, t1));
     expect(personKey(undefined, t1)).toMatch(/^token-[0-9a-f]{8}$/);
     expect(personKey('owner', t1)).toBe('owner');
+  });
+});
+
+describe('tainted agent request (AIG-04, #168)', () => {
+  const base = { id: 'a1', type: 'app.remove', params: { app_id: 'whoami' }, idempotency_key: 'k', expires_at: '', state: 'awaiting_approval', plan_sha256: 'h' };
+  it('puts the gateway taint note first on the approval card, high risk, naming what the agent read', () => {
+    const plan = { summary: 'Remove whoami.', warnings: [], taint: { sources: ['mcp:get_app', 'mcp:resource:catalog'], since: '2026-11-22T10:00:00Z', message: 'This agent read text written by third parties before asking. Check the request against what you wanted, not against what the agent says.' } };
+    const p = toActionPlan({ ...base, plan } as unknown as Action)!;
+    expect(p.effects[0]).toMatchObject({ kind: 'note', risk: 'high' });
+    expect(p.effects[0]!.label).toMatch(/third parties/);
+    expect(p.effects[0]!.detail).toContain('mcp:get_app, mcp:resource:catalog');
+  });
+  it('adds nothing when the requester read nothing from outside', () => {
+    const p = toActionPlan({ ...base, plan: { summary: 'Remove whoami.', warnings: [] } } as unknown as Action)!;
+    expect(p.effects.map((e) => e.label)).toEqual(['Remove whoami.']);
   });
 });

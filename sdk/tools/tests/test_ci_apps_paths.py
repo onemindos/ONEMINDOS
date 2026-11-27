@@ -1,17 +1,14 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Regression coverage for ci-apps triggers and its actual Changed apps shell.
+"""Regression coverage for ci-apps triggers and its gate plan (sdk/tools/app-select plan).
 
-The git-diff boundary supplies explicit changed-path fixtures; the workflow's
-selection code, existing manifest checks and jq serialization run unchanged.
-No registry, cluster, scan or filesystem cleanup is performed by these tests.
+The plan runs on the real app inventory with explicit changed-path fixtures (the git diff boundary;
+test/unit/test_ci_apps_plan.py runs the command end to end through git). No registry, cluster, scan
+or filesystem cleanup is performed by these tests.
 """
 from __future__ import annotations
 
 import fnmatch
-import json
-import os
 from pathlib import Path
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -20,12 +17,10 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "sdk/tools"))
-from applib import common  # noqa: E402
+from applib import common, selection  # noqa: E402
 WORKFLOW = yaml.safe_load((ROOT / ".github/workflows/ci-apps.yml").read_text())
 # PyYAML's YAML 1.1 loader treats the Actions key `on` as True.
 TRIGGERS = WORKFLOW.get("on", WORKFLOW.get(True))
-CHANGED = next(step["run"] for step in WORKFLOW["jobs"]["validate"]["steps"]
-               if step.get("id") == "changed")
 MATRIX = ROOT / "research-output/evidence/license-matrix.csv"
 MATRIX_PATH = "research-output/evidence/license-matrix.csv"
 APPS = sorted(p.name for p in (ROOT / "apps").iterdir()
@@ -33,26 +28,15 @@ APPS = sorted(p.name for p in (ROOT / "apps").iterdir()
 
 
 class CiAppsPathsTests(unittest.TestCase):
-    # `git diff` lists CHANGED_FILES; `git show <rev>:<path>` prints the old or new matrix fixture.
-    GIT_STUB = ('git() { case "$1" in\n'
-                '  diff) printf "%s\\n" "$CHANGED_FILES" ;;\n'
-                '  show) case "$2" in fixture-base:*) cat "$OLD_CSV" ;; fixture-head:*) cat "$NEW_CSV" ;; esac ;;\n'
-                'esac; }\n')
-
-    def selected(self, *paths: str, event: str = "pull_request",
+    def selected(self, *paths: str, event: str = "pull_request", base_ref: str = "release/next",
                  old_csv: Path | None = None, new_csv: Path | None = None) -> list[str]:
-        env = dict(os.environ, CHANGED_FILES="\n".join(paths),
-                   BASE_SHA="fixture-base", HEAD_SHA="fixture-head",
-                   GITHUB_EVENT_NAME=event, GITHUB_OUTPUT="/dev/stdout",
-                   OLD_CSV=str(old_csv or MATRIX), NEW_CSV=str(new_csv or MATRIX))
-        result = subprocess.run(
-            ["bash", "-c", self.GIT_STUB + CHANGED],
-            cwd=ROOT, env=env, text=True, capture_output=True, check=True,
-        )
-        outputs = [line.removeprefix("apps=") for line in result.stdout.splitlines()
-                   if line.startswith("apps=")]
-        self.assertEqual(len(outputs), 1, result.stdout)
-        return json.loads(outputs[0])
+        keys = selection.inventory(common.APPS_DIR)
+
+        def matrix_apps() -> list[str]:
+            return selection.apps_with_changed_rows((old_csv or MATRIX).read_text(), (new_csv or MATRIX).read_text(),
+                                                    selection.app_repos(common.APPS_DIR))
+
+        return selection.plan(event, base_ref, paths, keys, matrix_apps)[0]
 
     def triggered(self, path: str) -> bool:
         return any(fnmatch.fnmatchcase(path, pattern)
@@ -61,21 +45,32 @@ class CiAppsPathsTests(unittest.TestCase):
     def test_gate_inputs_trigger_and_select_every_app(self):
         self.assertTrue(APPS, "full re-gate must not pass with an empty app inventory")
         for path in (
-            "sdk/tools/app-gate", "sdk/tools/validate-apps",
+            "sdk/tools/app-gate", "sdk/tools/validate-apps", "sdk/tools/app-select",
             "sdk/tools/applib/common.py", "sdk/tools/applib/readme.py",
             "sdk/tools/requirements.txt", "sdk/tools/ci/install-tools.sh",
             "sdk/schema/onemind.app.schema.json",
-            "core/onemind_core/catalog.py", "core/onemind_core/manifest_convert.py",
-            # catalog.py imports these at load time; validate-apps runs their rules
-            "core/onemind_core/ai_policy.py", "core/onemind_core/scan.py",
-            "core/onemind_core/appsecrets/__init__.py", "core/onemind_core/appsecrets/spec.py",
-            "internal/plugin/validate/validate.go", "cmd/onemind/cli/plugin.go",
-            "go.mod", "go.sum",
             ".github/workflows/ci-apps.yml",
         ):
             with self.subTest(path=path):
                 self.assertTrue(self.triggered(path))
                 self.assertEqual(self.selected(path), APPS)
+
+    def test_validator_inputs_trigger_validation_of_every_app_but_no_scans(self):
+        """Founder decision 2026-11-25: these change only validate-apps' verdict. The validate job runs
+        validate-apps over every app on every run, so they need no ~80-job re-gate on a pull request
+        (a landing into main, the merge queue and the nightly still gate every app)."""
+        for path in (
+            "core/onemind_core/catalog.py", "core/onemind_core/manifest_convert.py",
+            "core/onemind_core/ai_policy.py", "core/onemind_core/scan.py",
+            "core/onemind_core/appsecrets/__init__.py", "core/onemind_core/appsecrets/spec.py",
+            "core/onemind_core/machine_needs.py", "sdk/policy/host-ports.yaml",
+            "internal/plugin/validate/validate.go", "cmd/onemind/cli/plugin.go",
+            "go.mod", "go.sum",
+        ):
+            with self.subTest(path=path):
+                self.assertTrue(self.triggered(path))
+                self.assertEqual(self.selected(path), [])
+                self.assertEqual(self.selected(path, base_ref="main"), APPS)
 
     def matrix_fixture(self, tmp: str, extra_rows: str) -> Path:
         out = Path(tmp) / "new.csv"
@@ -141,9 +136,21 @@ class CiAppsPathsTests(unittest.TestCase):
     def test_gate_input_wins_over_changed_app_subset(self):
         self.assertEqual(self.selected(f"apps/{APPS[0]}/README.md", "sdk/tools/app-gate"), APPS)
 
+    def test_full_gate_prioritizes_changed_apps_then_keeps_the_full_inventory(self):
+        changed = APPS[-1]
+        selected = self.selected(f"apps/{changed}/manifests/deployment.yaml", "sdk/tools/app-gate")
+        self.assertEqual(selected, [changed, *APPS[:-1]])
+
+    def test_scan_artifacts_do_not_depend_on_validation(self):
+        jobs = WORKFLOW["jobs"]
+        self.assertEqual(jobs["gate"]["needs"], "plan")
+        self.assertNotIn("needs", jobs["plan"])
+
     def test_dispatch_selects_every_app_without_a_pr_diff(self):
-        self.assertIn("workflow_dispatch", TRIGGERS)
-        self.assertEqual(self.selected(event="workflow_dispatch"), APPS)
+        for event in ("workflow_dispatch", "schedule", "merge_group"):
+            with self.subTest(event=event):
+                self.assertIn(event, TRIGGERS)
+                self.assertEqual(self.selected(event=event, base_ref=""), APPS)
 
     def test_empty_diff_selects_no_apps(self):
         self.assertEqual(self.selected(), [])

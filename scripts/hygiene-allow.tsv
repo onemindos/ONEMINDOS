@@ -43,6 +43,7 @@ core/tests/security/test_injection_traversal.py	(10\.0\.0\.1|192\.168\.1\.1|172\
 core/tests/security/test_injection_traversal.py	127\.0\.0\.1@evil\.example	B-FP-7
 research-output/evidence/lab/net-p2/*	(100\.64\.[0-9]+\.[0-9]+|10\.4[23]\.[0-9]+\.[0-9]+)	B-FP-9
 cmd/onemind/cli/mesh*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
+cmd/onemind/cli/device_join*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 core/onemind_core/netconf.py	100\.64\.0\.0	B-FP-9
 deploy/install.sh	100\.64\.0\.0	B-FP-9
 internal/fabric/*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
@@ -70,6 +71,10 @@ test/net/*	172\.31\.250\.[0-9]+(/24)?	B-FP-13
 # B-FP-15: CI-15 DigitalOcean runner kit (scripts/ci-runner-do/): the container firewall blocks whole ranges by their network address (RFC 1918, RFC 6598 CGNAT), the ranges being denied and not any real network; /home/runner is the job container's own user home, not a host path.
 scripts/ci-runner-do/*	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0|/home/runner)	B-FP-15
 test/unit/test_do_runner_policy.py	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-15
+# B-FP-supply-depot: Supply Depot apps (issue 129): /home/archivebox and /home/libretranslate are the container image users home directories, named in the manifest and README, not host paths.
+apps/archivebox/*	/home/archivebox	B-FP-supply-depot
+apps/libretranslate/*	/home/libretranslate	B-FP-supply-depot
+scripts/hygiene-allow.tsv	/home/(archivebox|libretranslate)	B-FP-supply-depot
 # B-FP-14: the SMB allow list (internal/smb, onemind-smb.service) names the standard private, CGNAT and mesh ranges, like netpath.py; not a real network. The test share paths below the Files root are fixtures.
 internal/smb/*	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-14
 os/rootfs/layers/onemind/usr/lib/systemd/system/onemind-smb.service	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-14
@@ -84,4 +89,14 @@ test/unit/test_host_firewall.py	10\.0\.2\.2	B-FP-17
 # B-FP-browser: Neko browser apps (apps/firefox, apps/chromium): /home/neko is the container image's own user home, not a host path.
 apps/firefox/*	/home/neko	B-FP-browser
 apps/chromium/*	/home/neko	B-FP-browser
+apps/_bases/desktop/*	/home/neko	B-FP-browser
+test/gui/*	/home/neko	B-FP-browser
 scripts/hygiene-allow.tsv	/home/neko	B-FP-browser
+core/onemind_core/serve.py	(10\.42\.0\.0|100\.64\.0\.0)	B-FP-9
+core/tests/test_serve_bind.py	(10\.42\.0\.7|100\.64\.0\.1|192\.168\.1\.[0-9]+|10\.0\.0\.5)	B-FP-9
+# B-FP-kanidm-lab: Kanidm SPNs (name@domain) in the UMB-ACCT-1 lab output (issue 403) use the reserved .test domain idm.onemind.test (RFC 2606); they name lab accounts and groups, not e-mail addresses.
+research-output/evidence/lab/acct-kanidm/*	[A-Za-z0-9._%+-]+@idm\.onemind\.test	B-FP-kanidm-lab
+os/rootfs/layers/onemind/*	/home/admin	B-FP-6
+test/unit/*	/home/admin	B-FP-6
+os/rootfs/Containerfile	/home/admin	B-FP-6
+scripts/release/cli-packages.py	noreply@users\.noreply\.github\.com	B-FP-deb-maintainer

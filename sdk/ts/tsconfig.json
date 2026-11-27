@@ -9,7 +9,8 @@
     "declaration": true,
     "outDir": "dist",
     "skipLibCheck": true,
-    "types": []
+    "types": [],
+    "paths": { "@onemind/sdk": ["./src/index.ts"] }
   },
   "include": ["src", "test"]
 }

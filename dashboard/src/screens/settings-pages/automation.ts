@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { SettingsPageDef } from '../types';
 
-const page: SettingsPageDef = { id: 'automation', coming: { stream: 'CORE-AUTO', api: '/v1/automation/rules, /v1/approval-policies' } };
+// Served by its own screen: /automation (the screen's `redirects` send /settings/automation there).
+const page: SettingsPageDef = { id: 'automation', to: '/automation' };
 export default page;

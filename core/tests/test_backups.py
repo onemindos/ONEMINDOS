@@ -26,7 +26,7 @@ from conftest import ADULT, AGENT, OWNER
 
 NOTES = """apiVersion: onemind.app/v1alpha1
 kind: App
-metadata: {id: notes, name: Notes, version: "1.0.0", description: test, category: productivity, license: MIT,
+metadata: {id: notes, name: Notes, version: "1.0.0", description: test, category: productivity, license: MIT, licenceClass: L1,
            source: "https://example.org/notes"}
 spec:
   archs: [amd64, arm64]
@@ -325,7 +325,12 @@ def test_badge_turns_green_after_a_scratch_restore(client, bk):
     assert st["health"] == "ok" and st["badges"]["apps"]["notes"]["state"] == "unverified"
     r = client.post("/v1/backups/verify", headers=AGENT, json={})
     assert r.status_code == 202 and r.json()["state"] == "awaiting_approval"
-    approve(client, r.json()["id"])
+    # The agent read the status over REST first, so its request is tainted (AIG-04, #168): the card
+    # carries the note and the owner approves the exact plan fingerprint.
+    assert r.json()["plan"]["taint"]["sources"] == ["rest:GET /v1/backups/status"]
+    ok = client.post(f"/v1/actions/{r.json()['id']}/approve", headers=OWNER,
+                     json={"plan_sha256": r.json()["plan_sha256"]})
+    assert ok.status_code == 200, ok.text
     st = client.get("/v1/backups/status", headers=OWNER).json()
     assert st["badges"]["apps"]["notes"]["state"] == "verified" and st["badges"]["box"]["state"] == "verified"
     assert st["last_verified_restore_at"] is not None
@@ -978,3 +983,13 @@ def test_market_apps_mark_their_downloadable_content():
     for app, pattern in (("kiwix", "*.zim"), ("offline-maps", "maps/*.pmtiles"), ("ollama", "models/")):
         spec, errs = parse_backup(yaml.safe_load((root / "apps" / app / "onemind.app.yaml").read_text())["spec"])
         assert errs == [] and pattern in spec.content and pattern not in spec.exclude, app
+
+
+def test_byte_counts_use_64_bit_columns():
+    """Sizes and byte counts pass 2 GiB, so PostgreSQL needs BIGINT (an INTEGER column overflowed at 5 GiB)."""
+    from sqlalchemy import BigInteger
+
+    from onemind_core.backups.store import ContentTierRow, RunRow
+
+    assert isinstance(ContentTierRow.__table__.c.size_bytes.type, BigInteger)
+    assert isinstance(RunRow.__table__.c.bytes_added.type, BigInteger)

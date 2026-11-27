@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Hardware boards: the owner account may use sudo with its console password (set with `onemind-owner password`).
+# Cloud boards ship their own file at this path (key-only, no password).
+Defaults lecture=never
+admin ALL=(ALL) ALL

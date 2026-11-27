@@ -233,6 +233,26 @@ describe("me.home (UMB-P07)", () => {
   });
 });
 
+describe("notifications.preferences (#841)", () => {
+  const doc = { quiet_hours: null, routes: [], digest: { enabled: false, at: "08:00" } };
+
+  it("reads the document with its ETag and saves with If-Match", async () => {
+    const { om, calls } = client((_url, init) => init.method === "PUT" ? json(200, doc, { etag: '"b"' }) : json(200, doc, { etag: '"a"' }));
+    const got = await om.notifications.preferences.get();
+    expect(got.etag).toBe('"a"');
+    const saved = await om.notifications.preferences.save(got.prefs, got.etag);
+    expect(saved.etag).toBe('"b"');
+    expect(calls[1]!.url).toBe("http://localhost:8080/v1/notifications/preferences");
+    expect((calls[1]!.init.headers as Record<string, string>)["If-Match"]).toBe('"a"');
+  });
+
+  it("a stale ETag is a typed error and is not retried", async () => {
+    const { om, calls } = client(() => json(409, { error: "conflict", message: "preferences changed since you read them (ETag mismatch)" }));
+    await expect(om.notifications.preferences.save(doc, '"old"')).rejects.toBeInstanceOf(OneMindError);
+    expect(calls).toHaveLength(1);
+  });
+});
+
 describe("network.view", () => {
   it("reads GET /v1/network", async () => {
     const view = { available: true, interfaces: [], gateways: [], dns: ["192.0.2.53"], ports: [], dropped: 0 };
@@ -276,5 +296,27 @@ describe("protocol generation (sdk/contracts/protocol-versions.md)", () => {
     expect(proto.header).toBe(PROTOCOL_HEADER);
     expect(PROTOCOL_VERSION).toBeLessThanOrEqual(proto.current);
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(proto.current - 1);
+  });
+});
+
+describe("domains hosts and tips.whatsNew", () => {
+  it("sends the typed confirmation, escapes names, and refuses redirects for what's new", async () => {
+    const { om, calls } = client((url, init) => {
+      if (url.endsWith("/whats-new")) return json(200, { os_version: "0.1.2", entries: [] });
+      if (init.method === "DELETE") return new Response(null, { status: 204 });
+      return json(200, { hostname: "ntfy.example.org", app_id: "ntfy", state: "approved" });
+    });
+    await om.domains.requestHost("example.org", "ntfy");
+    await om.domains.approveHost("ntfy.example.org", "ntfy.example.org");
+    await om.domains.removeHost("ntfy.example.org");
+    expect((await om.tips.whatsNew()).os_version).toBe("0.1.2");
+    expect(calls.map((c) => `${c.init.method} ${c.url.replace("http://localhost:8080", "")}`)).toEqual([
+      "POST /v1/domains/example.org/hosts",
+      "POST /v1/domains/hosts/ntfy.example.org/approve",
+      "DELETE /v1/domains/hosts/ntfy.example.org",
+      "GET /v1/tips/whats-new",
+    ]);
+    expect(JSON.parse(String(calls[1]!.init.body))).toEqual({ confirm: "ntfy.example.org" });
+    expect(calls[3]!.init.redirect).toBe("error");
   });
 });

@@ -26,6 +26,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ..machines.fit import fit
 from ..actions import FeatureAction
 from ..auth import Principal
 from .. import cpufit, gpufit, placement, streams
@@ -39,6 +40,7 @@ from ..netconf import FabricSettings
 from ..sections import config_section
 from .. import systemlist
 from . import appsettings, compose, deps, exposure, hostports
+from .custom import CustomApps
 from .system import SystemApps
 from .sources import (
     COMMIT_RE, FetchError, GitFetcher, ImageScanner, NoImageScanner, SourceAppEntry, SourceCatalog,
@@ -119,6 +121,7 @@ class AppStore:
         )
         self.image_scanner: ImageScanner = image_scanner or getattr(gw, "image_scanner", None) or NoImageScanner()
         self.sources = SourceCatalog(self.repo, self.fetcher, gw.catalog.validate)
+        self.custom = CustomApps(self)  # PLG-GIT-01: apps linked from a Git repository
         self.reserved = hostports.load_reserved()
         # Built-in apps: the signed list is the only authority (systemlist.py).
         self.system = SystemApps(self, systemlist.load(cfg.system_apps_file))
@@ -265,7 +268,9 @@ class AppStore:
 
     def placement_view(self, app_id: str) -> dict:
         """CORE-FABRIC-4 (#171): the Market verdict, from `spec.requires` and every node's capabilities."""
-        return {"app_id": app_id, **placement.place(self._app(app_id).manifest, self.gw.registry.list())}
+        manifest = self._app(app_id).manifest
+        nodes = self.gw.registry.list()
+        return {"app_id": app_id, **placement.place(manifest, nodes), "fit": fit(manifest, nodes)}
 
     def _port_conflicts(self, entry: AppEntry) -> list[dict]:
         # v0 runs every app on the hub node; per-node placement (CORE-FABRIC-4) narrows `others`.
@@ -365,6 +370,7 @@ class AppStore:
 
     def after_dispatch(self, a: Action, outcome: str) -> None:
         """A removal (or a fresh install) starts from private again; a configure records the typed values."""
+        self.custom.after_dispatch(a, outcome)
         if a.type == "app.configure" and outcome == "succeeded":
             self._record_settings(a)
         if a.type in ("app.install", "app.remove") and outcome == "succeeded":
@@ -570,6 +576,7 @@ class AppStore:
         actions.dependency_paths = self.dependency_paths
         actions.placement = self.app_schedule
         self.gw.catalog.providers.append(self.sources)
+        self.gw.catalog.providers.append(self.custom)
 
 
 def _manifest_sha(entry: AppEntry) -> str:

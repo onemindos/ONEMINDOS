@@ -21,6 +21,8 @@ const P = {
   cancel: '/v1/files/requests/{request_id}/cancel',
   uploads: '/v1/files/uploads',
   versions: '/v1/files/versions',
+  quotas: '/v1/files/quotas',
+  quota: '/v1/files/quotas/{person_id}',
 } as const satisfies Record<string, keyof paths>;
 
 type Json = Record<string, unknown>;
@@ -33,8 +35,12 @@ export interface TrashItem { id: string; trash: 'home' | 'shared'; root: string;
 export interface Grant { id: string; subject: { kind: string; id: string }; slot: string | null; root: string; path: string; access: string; revoked_at: string | null }
 export interface FileRequest { id: string; type: string; plan: { summary?: string }; risk: string; state: string; reason: string | null; requested_by: { id: string; kind: string }; expires_at: string; plan_sha256: string; deny_reason: string | null }
 /** An earlier copy of a file in the box's local snapshots (BAK-04). Same disk as the file: not a backup. */
-export interface FileVersion { version: string; cadence: string; taken_at: string; size: number; mtime: string }
-export interface FileVersions { enabled: boolean; exists: boolean; versions: FileVersion[] }
+export type FileVersion = components['schemas']['FileVersion'];
+export type FileVersions = Pick<components['schemas']['FileVersions'], 'enabled' | 'exists' | 'versions'>;
+/** One space's limit: a person's home, or the shared space (person_id null). limit_bytes null means no limit.
+ *  Hand-written because GET/PUT /v1/files/quotas declare no response_model, so the spec has no schema to
+ *  generate from (the rows are checked at the edge below). Core follow-up: #1278. */
+export interface Quota { person_id: string | null; root: string; limit_bytes: number | null; used_bytes: number }
 export interface Preview { mime: string; kind: string; size: number; inline_safe: boolean; image?: { width: number; height: number } | null; text?: { excerpt: string; truncated: boolean } }
 
 function obj(v: unknown, what: string): Json {
@@ -87,6 +93,12 @@ export class FilesApi {
   async roots() { return list<FileRoot>(await this.get(P.roots), 'space', (j) => str(j.root) && str(j.name)); }
   async list(root: string, path: string) { return list<Entry>(await this.get(P.list + q({ root, path, limit: '500' })), 'entry', (j) => str(j.name) && str(j.path) && str(j.type)); }
   async preview(root: string, path: string) { return obj(await this.get(P.preview + q({ root, path })), 'preview') as unknown as Preview; }
+  /** Owner only: every space's limit and use. */
+  async quotas() { return list<Quota>(await this.get(P.quotas), 'quota', (j) => str(j.root) && typeof j.used_bytes === 'number'); }
+  /** Owner only: set a person's limit in bytes, or null for no limit. */
+  async setQuota(personId: string, limitBytes: number | null) {
+    try { return obj(await this.sdk.call<unknown>({ method: 'PUT', path: fill(P.quota, 'person_id', personId), body: { limit_bytes: limitBytes } }), 'quota') as unknown as Quota; } catch (e) { throw toApiError(e); }
+  }
   async mkdir(root: string, path: string) { await this.post(P.ops, { op: 'mkdir', root, path }); }
   async trash(root: string, path: string) { await this.post(P.ops, { op: 'trash', root, path }); }
   async versions(root: string, path: string): Promise<FileVersions> {

@@ -1,5 +1,5 @@
 {
-  "$comment": "SPDX-License-Identifier: Apache-2.0. Offline Knowledge bundle (REC-NOMAD-01). Not a contract object yet: install.py reads it and files one app.install request per app through the gateway, in this order, and the owner approves each. Settings are keyed by the env name the app reads (contract 12.22 ConfigMap onemind-settings).",
+  "$comment": "SPDX-License-Identifier: Apache-2.0. Offline Knowledge bundle (REC-NOMAD-01). install.py requests app.install, then app.configure with settings keyed by manifest field name; the owner approves every action.",
   "id": "offline-knowledge",
   "name": "Offline Knowledge",
   "description": "Offline Wikipedia and other books, courses, maps of your region and a local AI that answers from your library. Works with no internet once downloaded.",
@@ -16,8 +16,8 @@
       "fits": "any OneMind box with 4 GB RAM and 2 GB free disk",
       "download_gb": 1.2,
       "settings": {
-        "kiwix": {"KIWIX_ZIMS": "wikipedia/wikipedia_en_climate-change_nopic_2026-10.zim"},
-        "library-chat": {"CHAT_MODEL": "qwen3:0.6b", "CHAT_SOURCES": "3"}
+        "kiwix": {"zims": "wikipedia/wikipedia_en_climate-change_nopic_2026-10.zim"},
+        "library-chat": {"model": "qwen3:0.6b", "sources": 3}
       },
       "model": "qwen3:0.6b"
     },
@@ -26,9 +26,9 @@
       "fits": "Raspberry Pi 5 8 GB (or any x86 box) with a 128 GB or larger SSD",
       "download_gb": 21,
       "settings": {
-        "kiwix": {"KIWIX_ZIMS": "wikipedia/wikipedia_en_all_mini_2026-09.zim wikipedia/wikipedia_en_medicine_nopic_2026-10.zim wikipedia/wikipedia_en_chemistry_nopic_2026-10.zim wikipedia/wikipedia_en_climate-change_nopic_2026-10.zim wikibooks/wikibooks_en_all_nopic_2026-10.zim wikivoyage/wikivoyage_en_all_nopic_2026-09.zim", "KIWIX_RESERVE_MB": "8192"},
-        "library-chat": {"CHAT_MODEL": "qwen3:1.7b", "CHAT_SOURCES": "4"},
-        "offline-maps": {"MAPS_FLAVOR": "light"}
+        "kiwix": {"zims": "wikipedia/wikipedia_en_all_mini_2026-09.zim wikipedia/wikipedia_en_medicine_nopic_2026-10.zim wikipedia/wikipedia_en_chemistry_nopic_2026-10.zim wikipedia/wikipedia_en_climate-change_nopic_2026-10.zim wikibooks/wikibooks_en_all_nopic_2026-10.zim wikivoyage/wikivoyage_en_all_nopic_2026-09.zim", "reserve_mb": 8192},
+        "library-chat": {"model": "qwen3:1.7b", "sources": 4},
+        "offline-maps": {"flavor": "light"}
       },
       "model": "qwen3:1.7b",
       "map": {"maxzoom": 15, "note": "pass --bbox for the area around the site, about 50 km across: a few hundred MiB at zoom 15"}

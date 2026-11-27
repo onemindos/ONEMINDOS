@@ -113,7 +113,10 @@ def test_app_events_follow_real_executor_outcome(nclient, clock, executor, outco
 def test_approved_by_is_additive_and_not_the_denier(client, clock):
     a = client.post('/v1/actions', headers=AGENT, json=action_body(clock)).json()
     assert a['approved_by'] is None
-    plan = {k: a[k] for k in ('risk', 'plan', 'plan_sha256')}
+    # The agent's answer leaves the plan text out (AIG-04, #168); the owner's view is the full record.
+    filed = client.get(f"/v1/actions/{a['id']}", headers=OWNER).json()
+    assert filed['plan_sha256'] == a['plan_sha256'] and filed['plan']
+    plan = {k: filed[k] for k in ('risk', 'plan', 'plan_sha256')}
     approved = client.post(f"/v1/actions/{a['id']}/approve", headers=OWNER,
                            json={'plan_sha256': a['plan_sha256']}).json()
     assert approved['state'] == 'succeeded'
@@ -384,7 +387,10 @@ def test_sse_app_outcomes_do_not_leak_foreign_action_ids(event_server, nclient, 
             a = nclient.post('/v1/actions', headers=who,
                              json=action_body(clock, type_=type_, key=key)).json()
             bucket.append(a['id'])
-            approved = nclient.post(f"/v1/actions/{a['id']}/approve", headers=OWNER)
+            # The agent reading the event stream is tainted (AIG-04, #168), so its own request needs the
+            # owner to approve the exact plan; every approval here names it.
+            approved = nclient.post(f"/v1/actions/{a['id']}/approve", headers=OWNER,
+                                    json={'plan_sha256': a['plan_sha256']})
             assert approved.status_code == 200 and approved.json()['state'] == 'succeeded'
         publish(nclient, 'app', 'unhealthy', {'app_id': 'whoami'}, 'warning')
     if replay:

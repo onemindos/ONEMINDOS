@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Notifications: your inbox (GET /v1/notifications, mark read) and your channels
 // (GET/POST/DELETE /v1/notifications/channels, POST …/test). Channels cover the two kinds that need
-// one address (a push topic or a webhook); email has more fields and stays on the API for now.
+// one address (a push topic or a webhook) and SMS (#869: your number, the provider's HTTPS send URL,
+// its token and a daily cap the hub counts). Email uses the existing STARTTLS gateway channel.
+// A test shows the provider's receipt or its plain error.
 // Notification text comes from the hub and is rendered as text, never as HTML.
-import { useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
+import { OneMind } from '@onemind/sdk';
 import { Button, Card, Dialog, PageHeader, StatusPill, type Tone } from '@onemind/ui';
-import type { NotificationItem, Severity } from '../api/wiring';
+import type { ChannelInfo, ChannelTestResult, NotificationItem, Severity } from '../api/wiring';
 import { useHub } from '../data/hub';
 import { t } from '../i18n';
 import { usePoll } from '../lib/hooks';
@@ -14,15 +17,25 @@ import { toRoute } from '../shell/routes';
 import { useSignedIn } from '../session';
 import { Link } from 'react-router';
 import { Load, TextField, useRun } from './parts';
+import { TopicDeliverySettings } from './TopicDeliverySettings';
 
 const TONE: Record<Severity, Tone> = { info: 'info', warning: 'warn', critical: 'bad' };
 const KINDS = [
   { id: 'unifiedpush', label: 'Push topic (ntfy, UnifiedPush)' },
   { id: 'webhook', label: 'Webhook' },
+  { id: 'email', label: 'Email (SMTP)' },
+  { id: 'sms', label: 'Text message (SMS)' },
 ] as const;
+const PHONE = /^\+[1-9]\d{6,14}$/;
 
-export function Inbox() {
-  const { api } = useSignedIn();
+function capOf(c: ChannelInfo): number | null {
+  const v = c.config.daily_cap;
+  return typeof v === 'number' ? v : null;
+}
+
+export function Inbox({ preferences = false }: { preferences?: boolean }) {
+  const { api, person, mock, token } = useSignedIn();
+  const sdk = useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1 }), [token]);
   const hub = useHub();
   const run = useRun();
   const inbox = usePoll(() => api.notifications({ limit: 100 }), 30_000);
@@ -32,17 +45,35 @@ export function Inbox() {
   const [label, setLabel] = useState('');
   const [url, setUrl] = useState('');
   const [secret, setSecret] = useState('');
+  const [phone, setPhone] = useState('');
+  const [cap, setCap] = useState('20');
+  const [mail, setMail] = useState({ host: '', from: '', to: '', username: '' });
+  const [tested, setTested] = useState<{ label: string; result: ChannelTestResult } | null>(null);
   const urlOk = /^https?:\/\/[^\s/@]+(\/\S*)?$/.test(url.trim());
+  const sms = kind === 'sms';
+  const email = kind === 'email';
+  const capN = Number(cap);
+  const smsOk = !sms || (PHONE.test(phone.trim()) && Number.isInteger(capN) && capN >= 1 && capN <= 500);
+  const canAdd = label.trim() && (email ? mail.host.trim() && mail.from.includes('@') && mail.to.includes('@') : urlOk && smsOk);
 
   const add = (e: FormEvent) => {
     e.preventDefault();
-    if (!label.trim() || !urlOk) return;
+    if (!canAdd) return;
     void run(async () => {
-      await api.createChannel({ kind, label: label.trim(), config: { url: url.trim() }, ...(secret ? { secret } : {}) });
+      const config = sms ? { url: url.trim(), to: phone.trim(), daily_cap: capN } : { url: url.trim() };
+      if (email) {
+        const { host, from, to, username } = mail;
+        await sdk.notifications.createChannel({ kind, label: label.trim(),
+          config: { host, from, to, security: 'starttls', ...(username ? { username } : {}) }, ...(secret ? { secret } : {}) });
+      } else {
+        await api.createChannel({ kind, label: label.trim(), config, ...(secret ? { secret } : {}) });
+      }
       setAdding(false);
       setLabel('');
       setUrl('');
       setSecret('');
+      setPhone('');
+      setMail({ host: '', from: '', to: '', username: '' });
       await channels.reload();
     }, t('inbox.channels.add'));
   };
@@ -56,6 +87,7 @@ export function Inbox() {
   return (
     <div className="dash-stack">
       <PageHeader title={t('inbox.title')} lede={t('inbox.lede')} actions={<Button size="sm" variant="secondary" onClick={() => void run(async () => { await api.markAllRead(); await inbox.reload(); }, t('inbox.readAll'))}>{t('inbox.readAll')}</Button>} />
+      {preferences && !mock && <TopicDeliverySettings key={person} channels={channels.data ?? []} />}
       <Load res={inbox} what="Loading notifications">
         {(rows) =>
           rows.length === 0 ? (
@@ -98,7 +130,8 @@ export function Inbox() {
                   <li key={c.id} className="dash-actions">
                     <strong>{c.label}</strong>
                     <StatusPill tone={c.last_error ? 'bad' : c.verified ? 'ok' : 'neutral'} label={c.last_error ? 'Failing' : c.verified ? 'Verified' : 'Not tested'} detail={c.kind} />
-                    <Button size="sm" variant="ghost" aria-label={t('inbox.channels.test', { label: c.label })} onClick={() => void run(async () => { await api.testChannel(c.id); await channels.reload(); }, t('inbox.channels.test', { label: c.label }))}>
+                    {capOf(c) !== null && <span className="om-hint">{t('inbox.channels.capShown', { n: String(capOf(c)) })}</span>}
+                    <Button size="sm" variant="ghost" aria-label={t('inbox.channels.test', { label: c.label })} onClick={() => void run(async () => { setTested({ label: c.label, result: await api.testChannel(c.id) }); await channels.reload(); }, t('inbox.channels.test', { label: c.label }))}>
                       {t('inbox.channels.testShort')}
                     </Button>
                     <Button size="sm" variant="danger" aria-label={t('inbox.channels.remove', { label: c.label })} onClick={() => void run(async () => { await api.deleteChannel(c.id); await channels.reload(); }, t('inbox.channels.remove', { label: c.label }))}>
@@ -110,8 +143,15 @@ export function Inbox() {
             )
           }
         </Load>
+        {tested && (
+          <p className="om-hint" role="status">
+            {tested.result.delivered
+              ? t('inbox.channels.testSent', { label: tested.label, receipt: tested.result.receipt?.provider_id ?? '-' })
+              : t('inbox.channels.testFailed', { label: tested.label, error: tested.result.error ?? '-' })}
+          </p>
+        )}
       </Card>
-      <Dialog open={adding} onClose={() => setAdding(false)} title={t('inbox.channels.add')} actions={<><Button variant="ghost" onClick={() => setAdding(false)}>{t('common.cancel')}</Button><Button variant="primary" onClick={add} disabled={!label.trim() || !urlOk}>{t('common.save')}</Button></>}>
+      <Dialog open={adding} onClose={() => setAdding(false)} title={t('inbox.channels.add')} actions={<><Button variant="ghost" onClick={() => setAdding(false)}>{t('common.cancel')}</Button><Button variant="primary" onClick={add} disabled={!canAdd}>{t('common.save')}</Button></>}>
         <form className="dash-form" onSubmit={add}>
           <label htmlFor="chan-kind">{t('inbox.channels.kind')}</label>
           <select id="chan-kind" value={kind} onChange={(e) => setKind(e.target.value)}>
@@ -120,10 +160,22 @@ export function Inbox() {
             ))}
           </select>
           <TextField id="chan-label" label={t('inbox.channels.label')} value={label} onChange={setLabel} />
-          <TextField id="chan-url" label={t('inbox.channels.url')} value={url} onChange={setUrl} type="url" />
-          <TextField id="chan-secret" label={t('inbox.channels.secret')} value={secret} onChange={setSecret} type="password" />
+          {sms && <TextField id="chan-phone" label={t('inbox.channels.phone')} value={phone} onChange={setPhone} type="tel" />}
+          {email ? <>
+            <TextField id="chan-smtp" label="SMTP host (STARTTLS)" value={mail.host} onChange={(host) => setMail({ ...mail, host })} />
+            <TextField id="chan-from" label="Sender address" value={mail.from} onChange={(from) => setMail({ ...mail, from })} type="email" />
+            <TextField id="chan-to" label="Recipient address" value={mail.to} onChange={(to) => setMail({ ...mail, to })} type="email" />
+            <TextField id="chan-user" label="SMTP username" value={mail.username} onChange={(username) => setMail({ ...mail, username })} />
+          </> : <TextField id="chan-url" label={sms ? t('inbox.channels.providerUrl') : t('inbox.channels.url')} value={url} onChange={setUrl} type="url" />}
+          <TextField id="chan-secret" label={sms ? t('inbox.channels.providerToken') : t('inbox.channels.secret')} value={secret} onChange={setSecret} type="password" />
+          {sms && <TextField id="chan-cap" label={t('inbox.channels.cap')} value={cap} onChange={setCap} type="number" />}
+          {sms && <p className="om-hint">{t('inbox.channels.smsHint')}</p>}
         </form>
       </Dialog>
     </div>
   );
+}
+
+export function NotificationSettings() {
+  return <Inbox preferences />;
 }

@@ -125,3 +125,26 @@ it('a refused or failed state read never traps anyone in the wizard', async () =
   render(<Probe />);
   await waitFor(() => expect(screen.getByText('closed')).toBeInTheDocument());
 });
+
+it('files each selected reviewed plan once and refuses an app with no preview', async () => {
+  h.state.mockResolvedValue({ complete: false, settings_saved: true, backups_enabled: false, destinations: 0, kit: noKit });
+  h.get.mockResolvedValue({ ...values, saved: true });
+  h.destinations.mockResolvedValue([]);
+  h.request.mockReset().mockResolvedValue({ id: 'a1' });
+  h.plan.mockReset().mockImplementation(async (id: string) => ({
+    app_id: id, type: 'app.install', plan: { summary: id }, plan_sha256: `sha-${id}`, policy_verdict: 'needs_approval',
+  }));
+  render(<FirstRun onDone={h.done} />);
+  await screen.findByText('Existing wizard');
+  const preview = h.props.previewPlan as (id: string) => Promise<string>;
+  await preview('notes');
+  await preview('photos');
+  const finish = h.props.onFinish as (draft: unknown, requests: unknown[]) => Promise<void>;
+  await act(async () => {
+    await finish({}, ['notes', 'photos', 'unreviewed'].map((app_id) => ({ type: 'app.install', params: { app_id } })));
+  });
+  expect(h.request.mock.calls).toEqual([
+    ['app.install', 'notes', {}, 'sha-notes'],
+    ['app.install', 'photos', {}, 'sha-photos'],
+  ]);
+});

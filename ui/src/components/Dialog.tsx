@@ -4,6 +4,7 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { cx } from '../lib/cx';
+import { animate } from '../motion';
 import { Icon } from './Icon';
 
 export interface DialogProps {
@@ -34,6 +35,8 @@ export function Dialog({ open, onClose, title, description, children, actions, r
     const el = panel.current;
     const first = el?.querySelector<HTMLElement>(FOCUSABLE);
     (first ?? el)?.focus();
+    // The panel eases in; under reduced motion the shared helper turns this into a short fade only.
+    if (el) animate(el, [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 180, easing: 'ease-out' });
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();

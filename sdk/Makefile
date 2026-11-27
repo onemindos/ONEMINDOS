@@ -4,7 +4,8 @@
 #
 #   make -C sdk gen          export the OpenAPI spec from core/, then generate the code of all three SDKs
 #   make -C sdk gen-code     generate the SDK code from the committed spec only (no core/; what CI runs)
-#   make -C sdk check-stale  the committed spec matches core/ and the code generates from it (CI)
+#   make -C sdk check-stale  the committed spec matches core/, passes the contract lint, and the code generates (CI)
+#   make -C sdk contract-lint  only the OpenAPI contract rules over the committed spec (tools/openapi-lint, #874)
 #   make -C sdk test         generate, then the unit tests of the three SDKs
 #
 # Only the spec (openapi/onemind-v1.json) is committed: it is the reviewed API contract. The code
@@ -16,7 +17,7 @@ SPEC   := openapi/onemind-v1.json
 OPENAPI_STATE_DIR ?=
 OPENAPI_STATE_ARGS = $(if $(OPENAPI_STATE_DIR),--state-dir "$(OPENAPI_STATE_DIR)",)
 
-.PHONY: openapi gen gen-code gen-go gen-py gen-ts check-stale test test-go test-py test-ts
+.PHONY: openapi gen gen-code gen-go gen-py gen-ts check-stale contract-lint test test-go test-py test-ts
 
 openapi:
 	cd ../core && uv run --quiet python -m onemind_core.openapi --out ../sdk/$(SPEC) $(OPENAPI_STATE_ARGS)
@@ -41,9 +42,15 @@ gen-ts:
 # the SDK tests and the live conformance suite on that freshly generated code.
 check-stale:
 	cd ../core && uv run --quiet python -m onemind_core.openapi --check ../sdk/$(SPEC) $(OPENAPI_STATE_ARGS)
+	$(MAKE) contract-lint
 	$(MAKE) gen-code
 
-test: test-go test-py test-ts
+# The OpenAPI contract rules (security, scopes, paging, one error body, Idempotency-Key) over the
+# committed spec; known violations are in tools/openapi-lint/baseline.txt (stdlib only, no uv).
+contract-lint:
+	python3 -I tools/openapi-lint --spec $(SPEC)
+
+test: test-go test-py test-ts test-app-refusals
 
 test-go: gen-go
 	cd go && go vet ./... && go test -race -count=1 ./...
@@ -52,4 +59,7 @@ test-py: gen-py
 	cd python && uv run --quiet --python 3.12 pytest -q
 
 test-ts: gen-ts
-	cd ts && npm run --silent typecheck && npm test --silent
+	cd ts && npm run --silent typecheck && npm test --silent && npm run --silent build && ./node_modules/.bin/tsc -p app-sdk
+
+test-app-refusals:
+	python3 -I tools/app-refusals

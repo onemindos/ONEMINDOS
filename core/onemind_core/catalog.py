@@ -16,10 +16,12 @@ from pathlib import Path
 
 import yaml
 
-from .ai_policy import catalog_policy
+from .ai_policy import UNKNOWN, catalog_policy
 from .appsecrets.spec import SecretDecl, parse_secrets, secret_spec_errors
 from .filesig import cache_signature
+from .machine_needs import machine_needs, vendor_errors
 from .manifest_convert import CURRENT, OLDER
+from .manifest_rules import ManifestRules
 from .scan import ScanRecord, read_scan
 from .systemlist import SYSTEM_DIR
 
@@ -76,6 +78,13 @@ def agent_spec_errors(spec: object) -> list[str]:
     return []
 
 
+# metadata.licenceClass (#173). L1 permissive and L2 copyleft are green: the Market shows them by default
+# and an owner approval is enough. blocked and unknown are not green: installing one needs the owner to
+# confirm the licence by name (actions.py). Anything else a manifest might carry reads as unknown.
+LICENCE_CLASSES = ("L1", "L2", "blocked", "unknown")
+GREEN_LICENCE_CLASSES = ("L1", "L2")
+
+
 @dataclass(frozen=True)
 class AppEntry:
     id: str
@@ -113,6 +122,18 @@ class AppEntry:
     def scan(self) -> ScanRecord | None:
         return read_scan(self.dir)
 
+    @property
+    def manifest_tier(self) -> str | None:
+        """The tier this app is treated as everywhere a decision depends on it. A repository's claim
+        is capped for custom and community-source apps (their entries override this)."""
+        tier = (self.manifest.get("metadata") or {}).get("tier")
+        return tier if tier in TIERS else None
+
+    @property
+    def licence_class(self) -> str:
+        declared = (self.manifest.get("metadata") or {}).get("licenceClass")
+        return declared if declared in LICENCE_CLASSES else "unknown"
+
     def summary(self) -> dict:
         md = self.manifest.get("metadata") or {}
         spec = self.manifest.get("spec") or {}
@@ -121,28 +142,37 @@ class AppEntry:
         links = md.get("links") if isinstance(md.get("links"), dict) else {}
         scan = self.scan
         return {
-            **({"aiPolicy": catalog_policy(self.manifest)}
+            # An explicit null is a declared value the gateway does not know: "unknown" (deny), so a
+            # null in a row always means "none declared" (ai_policy.catalog_visible_to_ai).
+            **({"aiPolicy": UNKNOWN if catalog_policy(self.manifest) is None else catalog_policy(self.manifest)}
                if "aiPolicy" in spec or catalog_policy(self.manifest) is not None else {}),
             "id": self.id,
             "name": md.get("name"),
             "version": str(md.get("version")) if md.get("version") is not None else None,
             "description": md.get("description"),
             "category": md.get("category"),
+            # FAM-01: the manifest's proposed minimum age; None when the manifest has none.
+            "age_rating": md["age_rating"] if isinstance(md.get("age_rating"), int) and not isinstance(md.get("age_rating"), bool) else None,
+            "age_reason": md.get("age_reason") if isinstance(md.get("age_reason"), str) else None,
             "icon": md.get("icon"),
             "license": md.get("license"),
+            "licence_class": self.licence_class,
             "source": md.get("source"),
             "archs": list(archs) if isinstance(archs, list) else [],
             "requires": dict(requires) if isinstance(requires, dict) else {},
+            # #724: the same facts in one shape whichever spelling the manifest uses, plus recommends / supports.
+            "machine_needs": machine_needs(spec),
             "web_port": web.get("port") if isinstance(web, dict) else None,
             # #692: opened in a dashboard browser window with a per-person profile (browsers.py), not on its own name.
             "browser": isinstance(spec.get("browser"), dict) and isinstance(web, dict),
             # §11.4 additions.
             "links": {k: _http_url(links.get(k)) for k in LINK_KEYS},
-            "tier": md.get("tier") if md.get("tier") in TIERS else None,
+            "tier": self.manifest_tier,
             "scan": scan.summary() if scan is not None else None,
             "build": build_summary(md.get("build")),
             # §12.22: set by a community source's entry; the official catalog has none.
             "catalog_source": None,
+            "custom_source": None,  # PLG-GIT-01: set by a custom app's entry
         }
 
 
@@ -208,6 +238,7 @@ class Catalog:
         self.channel_dir = channel_dir
         self.schema_path = schema_path
         self._validator = None
+        self._rules: ManifestRules | None = None
         if schema_path is not None and schema_path.is_file():
             from jsonschema.validators import validator_for
 
@@ -215,6 +246,10 @@ class Catalog:
             cls = validator_for(schema)
             cls.check_schema(schema)
             self._validator = cls(schema, format_checker=cls.FORMAT_CHECKER)
+            # Manifest v1 (#604): the rules a schema cannot say, shared with the Go validator.
+            self._rules = ManifestRules.for_schema(schema)
+            if self._rules is None:
+                log.warning("%s has no manifest v1 credential patterns; v1 block rules are off", schema_path.name)
             log.info("validating app manifests against %s", schema_path.name)
         else:
             log.info("no app schema found; using the built-in manifest check")
@@ -251,10 +286,30 @@ class Catalog:
     def _validate(self, doc: object) -> list[str]:
         errs = builtin_check(doc) if self._validator is None else []
         if self._validator is not None:
+            rules = self._rules
+            # A schema message can quote a whole block, credential and all, and hide() only spots values
+            # that look like one, not a value under a credential name. So a manifest that holds a
+            # credential gets the credential errors alone (they name the field, never the value), as the
+            # Go validator does by running validateCredentials before the schema.
+            if rules is not None:
+                cred = list(rules.credential_errors(doc))
+                if cred:
+                    return cred
             errs = [
                 f"{'/'.join(str(p) for p in e.absolute_path) or '<root>'}: {e.message}"
                 for e in self._validator.iter_errors(doc)
             ]
+            if rules is not None:
+                # The cross-field rules read the spec as the schema shapes it, so like validateBlocks in Go
+                # they run only on a schema-valid manifest; a host that is a map is the schema's error alone.
+                if errs:
+                    # The Go validator names a vendor resource or host path before the schema runs
+                    # (validateMachineNames), because that message says what to write instead of quoting the
+                    # schema pattern. vendor_errors reads only strings, so it is safe on a schema-invalid doc.
+                    spec = doc.get("spec") if isinstance(doc, dict) else None
+                    errs = [rules.hide(e) for e in [*vendor_errors(spec), *errs]]
+                else:
+                    errs = rules.errors(doc)
             md = doc.get("metadata") if isinstance(doc, dict) else None
             app_id = md.get("id") if isinstance(md, dict) else None
             if not isinstance(app_id, str) or not APP_ID_RE.match(app_id):

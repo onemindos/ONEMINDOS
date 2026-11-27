@@ -9,6 +9,7 @@ import { href } from '../shell/routes';
 import { useShell } from '../shell/Shell';
 import { loadState, StoreTabs } from './Market';
 import { AppManagement } from './AppManagement';
+import { OpenWith } from './default-apps/DefaultApps';
 
 export function Installed() {
   const hub = useHub();
@@ -29,6 +30,7 @@ export function Installed() {
   return <>
     <PageHeader title="Installed apps" lede="Open an app or review a lifecycle request. An owner approves every change." />
     <StoreTabs current="installed" />
+    <OpenWith />
     <InstalledList apps={installed} state={state} now={hub.now} manageHref={href.manage} onOpen={(inst) => {
       if (hub.apps.data?.find((a) => a.id === inst.app.id)?.browser) navigate(href.browser(inst.app.id));  // #692
       else if (inst.url) openAppOrSay(api, inst.app.name || inst.app.id, inst.url);

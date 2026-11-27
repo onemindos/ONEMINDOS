@@ -9,7 +9,9 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
+	"os/exec"
 	"os/signal"
 	"os/user"
 	"strconv"
@@ -59,9 +61,12 @@ func runHost(args []string) int {
 	log := newLogger()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	units := &svcregistry.Reader{Version: version.Version} // service cards, logs and approved restarts (#623, #636)
 	svc := &host.Service{Power: host.Systemd{}, OS: &host.UpdateEngine{ConfigPath: *conf, Log: log},
+		Roll:   &host.SlotRollback{ConfigPath: *conf},
 		BootID: host.BootID(), Delay: *delay, Log: log,
 		Reset: &host.FactoryReset{},
+		Units: units,
 		SMB:   &smb.Manager{P: smb.DefaultPaths(), Run: smb.ExecRunner{}}}
 	if st, err := host.OpenStore(*journal); err != nil {
 		log.Error("host journal unavailable: status only, every action refused", "dir", *journal, "err", err)
@@ -91,7 +96,7 @@ func runHost(args []string) int {
 	}
 	log.Info("host service listening", "socket", *sock, "journal", svc.Store != nil, "boot_id", svc.BootID, "gateway_uid", uid)
 	err = (&host.Server{S: svc, AllowUID: uid, AllowGID: -1, Ctx: ctx, Network: networkView,
-		Services: serviceCards}).Serve(ctx, l)
+		Services: serviceCards, ServiceLogs: units.Logs}).Serve(ctx, l)
 	stop()
 	svc.Wait()
 	if err != nil {
@@ -115,10 +120,30 @@ func runFactoryReset(args []string) int {
 		return 2
 	}
 	log := newLogger()
-	err := host.Wipe(context.Background(), ops.ExecRunner{}, *esp, time.Now())
+	return resetOutcome(host.Wipe(context.Background(), ops.ExecRunner{}, *esp, time.Now()), log, rebootNow)
+}
+
+// rebootNow restarts the box at once. --force skips the unit shutdown, which
+// is right this early: nothing of the new boot is running, and the marker, the
+// wipe and the head zeroing are all fsync'd already.
+func rebootNow() error {
+	return exec.Command("systemctl", "reboot", "--force").Run()
+}
+
+// resetOutcome maps Wipe's result onto the boot. After a successful wipe the
+// box reboots: the partitions are blank now, and making the new data disk is
+// the job of onemind-data-encrypt.service, which runs BEFORE this unit, so
+// without a restart nothing would format them, data.mount would fail and the
+// box would land in recovery mode. The next boot has no marker (it is now
+// .done) and sets the box up from scratch.
+func resetOutcome(err error, log *slog.Logger, reboot func() error) int {
 	switch {
 	case err == nil:
-		log.Info("factory reset done: the box is set up again on this boot")
+		log.Info("factory reset done: restarting so the box sets itself up again")
+		if rerr := reboot(); rerr != nil {
+			err = fmt.Errorf("the wipe finished but the restart failed: %w", rerr)
+			break
+		}
 		return 0
 	case errors.Is(err, host.ErrNoMarker):
 		return 0

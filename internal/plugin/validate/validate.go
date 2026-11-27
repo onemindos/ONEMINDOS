@@ -79,6 +79,12 @@ func Manifest(data []byte) error {
 	if err != nil {
 		return fmt.Errorf("manifest must contain JSON-compatible values: %w", err)
 	}
+	if err := validateCredentials(value); err != nil {
+		return err
+	}
+	if err := validateMachineNames(value); err != nil {
+		return err
+	}
 	doc, err := jsonschema.UnmarshalJSON(strings.NewReader(string(encoded)))
 	if err != nil {
 		return err
@@ -88,7 +94,7 @@ func Manifest(data []byte) error {
 		return fmt.Errorf("app schema: %w", err)
 	}
 	if err = s.Validate(doc); err != nil {
-		return fmt.Errorf("manifest: %w", err)
+		return hide(fmt.Errorf("manifest: %w", err))
 	}
 	spec := value["spec"].(map[string]any)
 	ext, ok := spec["extensions"].(map[string]any)
@@ -110,6 +116,12 @@ func Manifest(data []byte) error {
 		return err
 	}
 	if err := validateUI(spec, ext); err != nil {
+		return err
+	}
+	if err := validateBlocks(spec); err != nil {
+		return err
+	}
+	if err := validateMachine(spec); err != nil {
 		return err
 	}
 	seen := map[string]bool{}

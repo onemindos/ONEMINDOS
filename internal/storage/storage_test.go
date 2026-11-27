@@ -4,6 +4,8 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -32,6 +34,13 @@ func (f fixtureRunner) Run(_ context.Context, name string, args ...string) ([]by
 		file = f.prefix + ".df.txt"
 	case name == "btrfs" && args[0] == "device" && args[1] == "stats":
 		file = f.prefix + ".stats.txt"
+	case name == "btrfs" && args[0] == "filesystem" && args[1] == "usage":
+		// The first lab recordings have no usage output: replay them as a
+		// usage command that failed, so their free space is unknown.
+		file = f.prefix + ".usage.txt"
+		if _, err := os.Stat(filepath.Join("testdata", file)); err != nil {
+			return []byte("ERROR: cannot get space info"), 1, nil
+		}
 	case name == "smartctl":
 		file = f.smart[args[len(args)-1]]
 		if file == "" {
@@ -197,6 +206,91 @@ func TestMirrorUnavailable(t *testing.T) {
 	if err != nil || m.State != StateUnavailable {
 		t.Fatalf("%v %+v", err, m)
 	}
+	if m.AvailableBytes != nil {
+		t.Errorf("nothing mounted, yet available_bytes=%d", *m.AvailableBytes)
+	}
+}
+
+// Free space comes from the filesystem, recorded on Debian 13 (btrfs-progs
+// 6.14): never from the members' raw sizes, which count mirrored data twice.
+func TestMirrorAvailableBytes(t *testing.T) {
+	cases := []struct {
+		prefix string
+		state  State
+		want   uint64
+		raw    uint64 // what subtracting allocated from size on every member gives
+	}{
+		// raid1: half the raw free space, as the docs' data ratio 2.00 says.
+		{"mirror-usage", StateProtected, 1869611008, 2627338240},
+		// single data, dup metadata: one copy, so nearly all of it.
+		{"single-usage", StateUnprotected, 2129657856, 1988100096},
+		// mounted degraded and written: the estimate counts the missing
+		// disk's unallocated space; statfs does not, and is the smaller.
+		{"degraded-usage", StateDegraded, 676429824, 22020096},
+	}
+	for _, tc := range cases {
+		t.Run(tc.prefix, func(t *testing.T) {
+			noMarker(t)
+			m := mirror(t, tc.prefix)
+			if m.State != tc.state {
+				t.Errorf("state %s, want %s (%v)", m.State, tc.state, m.Reasons)
+			}
+			if m.AvailableBytes == nil || *m.AvailableBytes != tc.want {
+				t.Fatalf("available_bytes %v, want %d", m.AvailableBytes, tc.want)
+			}
+			var raw uint64
+			for _, mem := range m.Members {
+				raw += mem.SizeBytes - mem.UsedBytes
+			}
+			if raw != tc.raw {
+				t.Errorf("raw member free %d, want %d", raw, tc.raw)
+			}
+			// The chosen figure is what statfs(2) gave on the same mount
+			// (stat -f, recorded alongside): f_bavail * f_bsize.
+			b, err := os.ReadFile(filepath.Join("testdata", tc.prefix+".statfs.txt"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var bsize, blocks, bfree, bavail uint64
+			if _, err := fmt.Sscanf(string(b), "bsize=%d blocks=%d bfree=%d bavail=%d", &bsize, &blocks, &bfree, &bavail); err != nil {
+				t.Fatal(err)
+			}
+			if bavail*bsize != tc.want {
+				t.Errorf("statfs says %d, parsed %d", bavail*bsize, tc.want)
+			}
+		})
+	}
+}
+
+// Unknown stays unknown: a failed or unreadable usage command is null in the
+// JSON, never zero and never a figure derived from the members.
+func TestMirrorAvailableBytesUnknown(t *testing.T) {
+	noMarker(t)
+	if m := mirror(t, "repaired"); m.AvailableBytes != nil { // recording without usage output
+		t.Errorf("available_bytes %d without a usage reading", *m.AvailableBytes)
+	}
+	for name, out := range map[string]string{
+		"no figure": "Overall:\n    Device size:\t\t6442450944\n",
+		"not bytes": "    Free (estimated):\t\t1.74GiB\t(min: 1.74GiB)\n",
+		"too large": "    Free (estimated):\t\t99999999999999999999\n",
+		"empty":     "",
+	} {
+		if got := parseUsageFree([]byte(out)); got != nil {
+			t.Errorf("%s: %d", name, *got)
+		}
+	}
+	// btrfs-progs without the statfs line: the estimate alone.
+	if got := parseUsageFree([]byte("    Free (estimated):\t\t1870659584\t(min: 1870659584)\n")); got == nil || *got != 1870659584 {
+		t.Errorf("estimate only: %v", got)
+	}
+	m := &Mirror{Mount: "/data", State: StateUnprotected}
+	b, err := json.Marshal(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"available_bytes":null`) {
+		t.Errorf("unknown free space not null: %s", b)
+	}
 }
 
 type runFunc func(string, ...string) ([]byte, int, error)
@@ -269,7 +363,8 @@ func TestPlanCreate(t *testing.T) {
 		"cryptsetup luksFormat --type luks2 --batch-mode --uuid " + DerivedUUID("onemind-data", "/dev/vdc", "luks") + " --key-file /run/k /dev/vdc1",
 		"mkfs.btrfs --label onemind-data --data raid1 --metadata raid1 /dev/mapper/onemind-data-vdb /dev/mapper/onemind-data-vdc",
 		"mount -o noatime,compress=zstd:1,space_cache=v2,discard=async /dev/mapper/onemind-data-vdb /data",
-		"btrfs subvolume create /data/@snapshots",
+		"btrfs subvolume create /data/@storage/.snapshots",
+		"btrfs subvolume set-default /data/@",
 	} {
 		if !strings.Contains(c, want) {
 			t.Errorf("missing %q in\n%s", want, c)

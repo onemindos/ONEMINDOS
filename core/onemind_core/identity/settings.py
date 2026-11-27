@@ -27,6 +27,9 @@ class IdentitySettings:
     cookie_secure: bool = True
     # §12.3 / F-2: once an owner has a passkey, every owner approval needs an assertion.
     require_passkey_approval: bool = True
+    # #702 / F-2 (not yet decided): a phone's device-bound approver key may approve destructive and
+    # actuate requests only when this is on. Off: those still need a passkey. Physical actions always do.
+    approver_key_high_risk: bool = False
     # §12.6 / F-14: role default scopes for sessions. Static-file tokens always keep v0 behaviour.
     enforce_role_scopes: bool = True
     # How recent a passkey sign-in must be for user, passkey and access administration.

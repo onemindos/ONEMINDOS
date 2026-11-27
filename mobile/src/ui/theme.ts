@@ -19,6 +19,9 @@ function fromRoles(r: Roles) {
     subtle: r['text-subtle'],
     border: r.border,
     borderStrong: r['border-strong'],
+    action: r.action,
+    actionText: r['action-text'],
+    actionHover: r['action-hover'],
     accent: r.accent,
     accentText: r['accent-text'],
     accentSoft: r['accent-soft'],
@@ -99,5 +102,5 @@ export const font = {
   bold: S['font-weight'].bold as '700',
 };
 
-/** OneMind Red exactly as the logo draws it (brand/brand.json). Controls use the tokens' `accent`, the same red moved for contrast. */
+/** OneMind Red exactly as the logo draws it (brand/brand.json). */
 export const BRAND_RED = '#FF333A';

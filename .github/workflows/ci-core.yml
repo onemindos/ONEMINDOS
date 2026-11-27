@@ -4,6 +4,7 @@ name: ci-core
 on:
   workflow_dispatch:   # docs/testing/README.md §2 (test-all)
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths: ["core/**", "sdk/**", ".github/actions/sdk-gen/**", ".github/workflows/ci-core.yml"]
   push:
     branches: [main]
@@ -15,7 +16,7 @@ permissions:
 
 # A new push to a PR cancels that PR's older run; runs on main always finish (CI-03, #228).
 concurrency:
-  group: ci-core-${{ github.event.pull_request.number || github.ref }}
+  group: ci-core-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -23,6 +24,7 @@ jobs:
   # queue runs the 4 PostgreSQL shards once per merge (founder, 2026-11-15: the org's 20 shared
   # runners were the bottleneck); pushes to main and manual runs run all 7.
   plan:
+    if: ${{ !github.event.pull_request.draft }}
     # CI-13 (#299): arm64-safe, no secrets, no Docker. Local Mac runner when LOCAL_RUNNER=on and the event is
     # trusted (never a fork PR); otherwise GitHub-hosted. docs/learning/self-hosted-runner.md
     # merge_group only runs code already approved into the queue, so it is always trusted (no fork check); MQ_RUNNER unset keeps the old routing.
@@ -66,7 +68,7 @@ jobs:
     # GitHub-hosted. docs/learning/self-hosted-runner.md
     # merge_group only runs code already approved into the queue, so it is always trusted (no fork check); MQ_RUNNER unset keeps the old routing.
     runs-on: ${{ (vars.MQ_RUNNER == 'on' && github.event_name == 'merge_group') && fromJSON('["self-hosted","onemind-mq"]') || (vars.DO_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-do"]') || (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
-    timeout-minutes: 40   # a safety net; a shard takes about 15 min (CI-03 target: under 20)
+    timeout-minutes: 60   # a safety net (raised from 40, founder 2026-11-23); a shard takes about 15 min (CI-03 target: under 20)
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.sqlite) }}
@@ -116,7 +118,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.run_postgresql == 'true'
     runs-on: ubuntu-24.04   # service containers need Docker; the local runner has none
-    timeout-minutes: 40   # a safety net; a shard takes about 15 min (CI-03 target: under 20)
+    timeout-minutes: 60   # a safety net (raised from 40, founder 2026-11-23); a shard takes about 15 min (CI-03 target: under 20)
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.postgresql) }}
@@ -172,7 +174,7 @@ jobs:
           retention-days: 14
 
   image:
-    if: github.event_name != 'merge_group'   # built on every PR push already
+    if: ${{ !github.event.pull_request.draft && github.event_name != 'merge_group' }} # built on ready PRs
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2

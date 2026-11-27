@@ -12,12 +12,15 @@ export type BrowserSession = components['schemas']['BrowserSession'];
 
 /** `GET /v1/os/about` (UMB-P14): device facts per node; never a serial number or an address. */
 export type AboutBox = components['schemas']['About'];
+
+/** `GET /v1/system/ups` (IMG-06): the UPS on the box, read only; present=false when it has none. */
+export type UpsStatus = components['schemas']['UpsStatus'];
 import {
   ApiError,
   type Action,
   type ActionRequest,
   type ActionType, type AppParams, type ApproveBody, type PlanPreview, type AppSettings,
-  type AppDependencies, type AppHostPorts, type CommunitySource, type ComposeResult,
+  type AppDependencies, type AppHostPorts, type CommunitySource, type ComposeResult, type CustomApp, type CustomPlan, type CustomRollbackPlan,
   type ApiErrorBody,
   type CatalogApp,
   type Instance,
@@ -35,7 +38,12 @@ export type PluginKeyInfo = components["schemas"]["SigningKey"];
 export type PluginKeyInput = components["schemas"]["KeyRequest"];
 export type PluginKeyRevokeInput = components["schemas"]["RevokeRequest"];
 
+/** GET /v1/notifications/summary (#682): the caller's unread state, kept on the hub. */
+export type NotificationSummary = components["schemas"]["NotificationSummary"];
+
 export interface OneMindApi extends WiringApi {
+  /** One call for the bell's unread state. Absent on the mock gateway and test doubles. */
+  notificationSummary?(): Promise<NotificationSummary>;
   pluginSigningKeys?(): Promise<components["schemas"]["SigningKeys"]>;
   requestPluginSigningKey?(body: PluginKeyInput): Promise<components["schemas"]["Action"]>;
   revokePluginSigningKey?(keyId: string, body: PluginKeyRevokeInput): Promise<components["schemas"]["Action"]>;
@@ -56,6 +64,8 @@ export interface OneMindApi extends WiringApi {
   apps(): Promise<CatalogApp[]>;
   /** UMB-P14: absent on the mock gateway, which has no device facts. */
   about?(): Promise<AboutBox>;
+  /** IMG-06: absent on the mock gateway, which has no UPS. */
+  ups?(): Promise<UpsStatus>;
   /** MACH-01: absent on the mock gateway, which has no machines. */
   machines?(): Promise<MachineRecord[]>;
   machineCapabilities?(): Promise<MachineCapabilities>;
@@ -91,6 +101,12 @@ export interface OneMindApi extends WiringApi {
   /** Files a `source.add` request; it waits in Approvals until the owner approves it. */
   requestSourceAdd?(params: SourceAddParams, key: { idempotency_key: string; expires_at: string }): Promise<Action>;
   convertCompose?(body: { app_id: string; name?: string; compose: string }): Promise<ComposeResult>;
+  /** PLG-GIT-01: apps linked from a Git repository, with their revisions. */
+  customApps?(): Promise<CustomApp[]>;
+  /** Fetches and checks a repository (owner only). Records a revision; installs nothing. */
+  planCustomApp?(body: { url: string; ref: string }): Promise<CustomPlan>;
+  /** Points the catalog at an earlier deployed revision (owner only); the update that applies it waits in Approvals. */
+  rollbackCustomApp?(appId: string, revision?: number): Promise<CustomRollbackPlan>;
   createAction(req: ActionRequest): Promise<Action>;
   actions(): Promise<Action[]>;
   action(id: string): Promise<Action>;
@@ -328,6 +344,7 @@ export class HttpApi implements OneMindApi {
   backupsStatus() { return this.sdkCall<Record<string, unknown>>('GET', '/v1/backups/status'); }
   osUpdates() { return this.sdkCall<Record<string, unknown>>('GET', '/v1/os/updates'); }
   about() { return this.req<AboutBox>('GET', '/v1/os/about'); }
+  ups() { return this.sdkCall<UpsStatus>('GET', '/v1/system/ups'); }
   pluginSigningKeys() { return this.sdkCall<components["schemas"]["SigningKeys"]>('GET', '/v1/plugin-trust/keys'); }
   requestPluginSigningKey(body: PluginKeyInput) { return this.sdkCall<components["schemas"]["Action"]>('POST', '/v1/plugin-trust/keys/requests', body); }
   revokePluginSigningKey(keyId: string, body: PluginKeyRevokeInput) { return this.sdkCall<components["schemas"]["Action"]>('POST', `/v1/plugin-trust/keys/${encodeURIComponent(keyId)}/revoke`, body); }
@@ -375,6 +392,22 @@ export class HttpApi implements OneMindApi {
       return Object.keys(got).length === 3 && got.name === params.name && got.url === params.url && got.commit === params.commit
         && Date.parse(action.expires_at) === Date.parse(key.expires_at);
     });
+  }
+  async customApps() {
+    const raw = await this.sdkCall<CustomApp[]>('GET', '/v1/custom-apps', undefined, true);
+    if (raw.some((a) => !a || typeof a.app_id !== 'string' || typeof a.url !== 'string' || typeof a.status !== 'string' || !Array.isArray(a.revisions))) throw new ApiError(200, 'unknown', 'Invalid gateway custom apps');
+    return raw;
+  }
+  /** One POST, never retried: each call fetches a repository and may record a revision. */
+  async planCustomApp(body: { url: string; ref: string }) {
+    const raw = await this.sdkCall<CustomPlan>('POST', '/v1/custom-apps/plan', body, false, undefined, false);
+    if ((raw.verdict !== 'ready' && raw.verdict !== 'blocked') || !Array.isArray(raw.problems) || !Array.isArray(raw.notes) || typeof raw.commit !== 'string' || (raw.verdict === 'ready' && (typeof raw.app_id !== 'string' || !raw.action_type))) throw new ApiError(200, 'unknown', 'Invalid gateway custom app plan');
+    return raw;
+  }
+  async rollbackCustomApp(appId: string, revision?: number) {
+    const raw = await this.sdkCall<CustomRollbackPlan>('POST', `/v1/custom-apps/${encodeURIComponent(appId)}/rollback`, revision === undefined ? {} : { revision }, false, undefined, false);
+    if (raw.app_id !== appId || !Number.isInteger(raw.to_revision) || !Number.isInteger(raw.from_revision) || raw.action_type !== 'app.update') throw new ApiError(200, 'unknown', 'Invalid gateway rollback plan');
+    return raw;
   }
   async convertCompose(body: { app_id: string; name?: string; compose: string }) {
     const raw = await this.sdkCall<ComposeResult>('POST', '/v1/deploy/compose', body);
@@ -485,6 +518,9 @@ export class HttpApi implements OneMindApi {
   disableUser(id: string) {
     return this.req<W.UserInfo>('POST', `/v1/users/${encodeURIComponent(id)}/disable`, {});
   }
+  familyProfile(id: string) {
+    return this.req<W.FamilyProfile>('GET', `/v1/family/profiles/${encodeURIComponent(id)}`);
+  }
   tokens() {
     return this.req<W.TokenInfo[]>('GET', '/v1/tokens', undefined, 'array');
   }
@@ -509,6 +545,7 @@ export class HttpApi implements OneMindApi {
   markAllRead() {
     return this.req<{ marked: number }>('POST', '/v1/notifications/read-all', {});
   }
+  notificationSummary() { return this.sdkCall<NotificationSummary>('GET', '/v1/notifications/summary'); }
   channels() {
     return this.req<W.ChannelInfo[]>('GET', '/v1/notifications/channels', undefined, 'array');
   }
@@ -519,7 +556,7 @@ export class HttpApi implements OneMindApi {
     await this.req<void>('DELETE', `/v1/notifications/channels/${encodeURIComponent(id)}`);
   }
   testChannel(id: string) {
-    return this.req<{ ok?: boolean; error?: string | null }>('POST', `/v1/notifications/channels/${encodeURIComponent(id)}/test`, {});
+    return this.req<W.ChannelTestResult>('POST', `/v1/notifications/channels/${encodeURIComponent(id)}/test`, {});
   }
   monitoring() {
     return this.req<W.MonitoringSummary>('GET', '/v1/monitoring/summary');

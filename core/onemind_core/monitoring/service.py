@@ -112,8 +112,9 @@ class MonitoringService:
         with self._lock:
             now = self.gw.clock()
             open_keys = self.alerts.open_alert_keys()
-            samples = self._tick_nodes(now, open_keys)
-            self._tick_apps(now, open_keys)
+            nodes = self.gw.registry.list()
+            samples = self._tick_nodes(now, open_keys, nodes)
+            self._tick_apps(now, open_keys, nodes)
             self.series.record("node", now, (
                 (now, node, key, sample[key]) for node, sample in samples
                 for key in get_args(Metric) if sample[key] is not None
@@ -137,10 +138,10 @@ class MonitoringService:
         self._cond[key] = bad
 
     # ---- nodes --------------------------------------------------------------------------
-    def _tick_nodes(self, now: datetime, open_keys: set[str]) -> list[tuple[str, dict]]:
+    def _tick_nodes(self, now: datetime, open_keys: set[str], nodes: list[dict]) -> list[tuple[str, dict]]:
         ms = self.kube.node_metrics() if self.kube is not None else None
         samples = []
-        for n in self.gw.registry.list():
+        for n in nodes:
             nid = n["node_id"]
             host = n.get("hostname") or nid
             seen = H.parse_time(n.get("last_seen"))
@@ -246,12 +247,18 @@ class MonitoringService:
     def installed_apps(self) -> list[str]:
         return sorted(a for a, st in self.gw.repo.list_app_states().items() if st.status == "installed")
 
-    def _tick_apps(self, now: datetime, open_keys: set[str]) -> None:
+    def _tick_apps(self, now: datetime, open_keys: set[str], nodes: list[dict]) -> None:
+        by_hostname: dict[str, str | None] = {}
+        for node in nodes:
+            host = node.get("hostname")
+            if isinstance(host, str) and host:
+                host = host.lower()
+                by_hostname[host] = None if host in by_hostname else node["node_id"]
         installed = self.installed_apps()
         for app_id in installed:
             self._scan(app_id, now, open_keys)
             if self.kube is not None:
-                self._observe(app_id, self.kube.pods(f"app-{app_id}"), now, open_keys)
+                self._observe(app_id, self.kube.pods(f"app-{app_id}"), now, open_keys, by_hostname)
         for app_id in list(self._apps):
             if app_id not in installed:  # removed: its conditions are over
                 for key, evt in ((f"app:{app_id}:health", ("app", "healthy")),
@@ -272,7 +279,8 @@ class MonitoringService:
         self._condition(f"app:{app_id}:scan_stale", bool(problem) and not blocked, open_keys,
                         ("app", "scan_stale"), ("app", "scan_ok"), data)
 
-    def _observe(self, app_id: str, pods: list[dict] | None, now: datetime, open_keys: set[str]) -> None:
+    def _observe(self, app_id: str, pods: list[dict] | None, now: datetime,
+                 open_keys: set[str], by_hostname: dict[str, str | None]) -> None:
         t = self._apps.setdefault(app_id, AppTrack())
         if pods is None:
             t.health = H.assess(None, True, None, now, self.cfg.unhealthy_after_s)
@@ -308,9 +316,15 @@ class MonitoringService:
         t.seen = True
         t.health = H.assess(pods, True, t.not_ready_since, now, self.cfg.unhealthy_after_s)
         t.components = H.summarise(pods)
-        self._condition(f"app:{app_id}:health", t.health["state"] == "unhealthy", open_keys,
-                        ("app", "unhealthy"), ("app", "healthy"),
-                        {"app_id": app_id, "reason": t.health.get("reason", "")})
+        unhealthy = t.health["state"] == "unhealthy"
+        data = {"app_id": app_id, "reason": t.health.get("reason", "")}
+        if unhealthy:
+            # Actual pod placement is evidence; a deployment's desired placement is not.
+            hosts = {(p.get("spec") or {}).get("nodeName", "") for p in pods}
+            if len(hosts) == 1 and not any(cs["waiting"] in H.BAD_WAITING for p in pods for cs in H.containers(p)):
+                if node_id := by_hostname.get(next(iter(hosts))):
+                    data["node_id"] = node_id
+        self._condition(f"app:{app_id}:health", unhealthy, open_keys, ("app", "unhealthy"), ("app", "healthy"), data)
 
     # ---- read models for the routes -------------------------------------------------------
     def app_view(self, app_id: str, installed: bool) -> tuple[dict, list[dict]]:

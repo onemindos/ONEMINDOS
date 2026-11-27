@@ -61,7 +61,7 @@ TYPES: dict[str, LifecycleType] = {
     # Remove keeps the data (contract §12.5): the app is gone, its volumes stay. `removed` is shown
     # to clients as status not_installed with data_kept true.
     "app.remove": LifecycleType(
-        "removing", _S({"installed", "stopped", "failed", "unknown"}), False, "removed", "write"
+        "removing", _S({"installed", "stopped", "failed", "unknown"}), False, "removed", "sensitive"
     ),
     # Deleting the data is its own request: owner only, typed confirmation, never an agent.
     "app.delete_data": LifecycleType("deleting_data", _S({"removed"}), False, None, "destructive", False),

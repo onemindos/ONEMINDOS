@@ -162,3 +162,124 @@ Founder decisions. Each entry is final until Zeus changes it. Reference these ID
 - **This supersedes** "Backstage stays a developer portal" in `docs/ARCHITECTURE.md` (Dashboard row) and `docs/APPS.md` (Infrastructure tier row), and the same wording in `research-output/24` Q141 and Q255 (those files are left as written; this entry is the pointer).
 - **Tracking:** the front-door issues FD-00 to FD-20 (parent: FD-00).
 - **Why:** two front doors break D-016 and the "every change is an approval" rule, and the portal's cloud-only pages do not serve a home or small-business box.
+
+## D-019 · Z-18 / Z-19: Secure Boot uses the `efi` route with signed UKIs, plus an owner "sovereign mode"
+**Date:** 2026-11-22 · **Decided by:** Zeus
+> Recorded as the founder decision on [#148](https://github.com/onemindos/ONEMINDOS/issues/148) (IMG-01), answering Z-18 and Z-19.
+- **The research recommendation stands:** x86 boxes boot through RAUC's `efi` route with signed unified kernel images (UKIs, the kernel, initrd and command line in one signed file), and OneMind's key is enrolled at the factory.
+- **Sovereign mode:** an owner may take over their box's Secure Boot keys, with guard rails:
+  - it needs physical presence at the machine;
+  - it shows a clear warning first;
+  - the key state is shown in the dashboard;
+  - OneMind updates keep working when OneMind's key stays enrolled next to the owner's.
+- **Test keys until the key ceremony.** Build and test with throwaway keys now; real keys come after the ceremony ([#153](https://github.com/onemindos/ONEMINDOS/issues/153), D-010).
+- **What it changes:** #148 is no longer waiting on Zeus. Slot choice under Secure Boot, anti-downgrade and sovereign mode land as separate PRs on #148.
+- **Why:** a signed boot chain is the default that protects most owners; sovereign mode keeps the box the owner's own without breaking updates.
+
+## D-020 · Disk encryption: on by default with a TPM, opt-in with a passphrase without one
+**Date:** 2026-11-22 · **Decided by:** Zeus
+> Recorded as the founder decision on [#152](https://github.com/onemindos/ONEMINDOS/issues/152) (IMG-05, LUKS2 + btrfs).
+- **With a TPM** (the chip that stores keys inside the machine): the data partition is encrypted by default and unlocks by itself after a restart. The recovery key goes into the emergency kit.
+- **Without a TPM** (for example a Raspberry Pi 5): the data partition stays unencrypted unless the owner turns encryption on and accepts typing a passphrase at every restart. The setup screen says that plainly.
+- **What it changes:** #152 is no longer waiting on Zeus; the TPM / no-TPM rule and the opt-in passphrase backend are built on it.
+- **Why:** a home hub has to come back by itself after a power cut or an update restart.
+
+## D-021 · iPhone push moves to 1.1; 1.0 ships with Android
+**Date:** 2026-11-22 · **Decided by:** Zeus
+> Recorded as the founder decision on [#208](https://github.com/onemindos/ONEMINDOS/issues/208) (UX-03).
+- **1.0 ships with the Android app** (the founder's phone). The Apple Developer account, the push key and the content-free relay are 1.1 work.
+- **What it changes:** #208 and the issues that wait on it move to 1.1. D-005 (content-free Apple push) still holds for when it is built.
+- **Why:** the founder's phone is Android, and the Apple Developer account and push signing identity (F-4) are not in place.
+
+## D-022 · An app's own tokens pass through the gateway; Fleetbase is packaged after that
+**Date:** 2026-11-22 · **Decided by:** Zeus
+> Recorded as the founder decision on [#824](https://github.com/onemindos/ONEMINDOS/issues/824) (Market: Fleetbase).
+- **Fix the gateway first.** The app proxy treated an app's own `Authorization: Bearer` header as a OneMind token and rejected it, which breaks any app that uses its own tokens.
+- **The rule (security-reviewed):** once the person is signed in to OneMind (a valid session cookie), the app proxy passes the app's own Authorization header through to that app only.
+- **Then package Fleetbase** as #824 specifies.
+- **Why:** the blocker is in OneMind, not in Fleetbase, and the same fix unblocks every app that brings its own sign-in tokens.
+
+## D-023 · OpenVitals moves to 1.1, as a OneMind-built on-box copy
+**Date:** 2026-11-22 · **Decided by:** Zeus
+> Recorded as the founder decision on [#826](https://github.com/onemindos/ONEMINDOS/issues/826) (Market: OpenVitals).
+- **Not part of 1.0.** The upstream code (GPL-3.0) sends document text to a hosted AI service and expects hosted email, storage and a worker.
+- **Plan for 1.1:** once the local model router is in, build a OneMind copy from a pinned upstream commit with those parts replaced by on-box ones.
+- **Nothing that sends health data off the box is ever packaged.**
+- **Why:** so no health data leaves the box; packaging the upstream code as it is would send document text to a hosted service.
+
+## D-024 · LoRa messaging: MeshCore in 1.0, the Meshtastic bridge in 1.1
+**Date:** 2026-11-22 · **Decided by:** Zeus
+> Recorded on [#131](https://github.com/onemindos/ONEMINDOS/issues/131) (NMD-06) and its LoRa messenger issues, and in the 1.0 plan's founder additions.
+- **1.0 messenger is MeshCore** (MIT licence): in OneMind and in the Android app, both dock mode (a USB radio on the hub, [#740](https://github.com/onemindos/ONEMINDOS/issues/740)) and direct mode (the phone talks to its own radio over Bluetooth LE, [#865](https://github.com/onemindos/ONEMINDOS/issues/865)). The two-way proof needs a second radio ([#860](https://github.com/onemindos/ONEMINDOS/issues/860)).
+- **Meshtastic is 1.1:** a bridge in its own GPL-3.0 repo feeding the Messages module ([#739](https://github.com/onemindos/ONEMINDOS/issues/739)).
+- **Guard rails:** a radio only ever transmits on the owner's tap; agents only draft. OneMind never writes RF settings (region, frequency, power) in 1.0; the owner sets them once in MeshCore's own tools.
+- **This replaces** D-011's "radios when TAK is unparked" for a radio the owner already has.
+- **Why:** Zeus owns a LoRa radio, so D-011's reason to wait is gone. MeshCore's MIT licence fits D-001; Meshtastic is GPL-3.0, so its bridge lives in its own repo.
+
+## D-025 · Service picks: Backblaze B2 behind neutral S3, Headscale, and no SMS provider yet
+**Date:** 2026-11-22 · **Decided by:** Zeus
+> Recorded in the 1.0 plan's founder additions ("Picks"), answering the B2-checkpoint picks.
+- **Off-site backup: Backblaze B2**, reached through a provider-neutral S3 layer ([#870](https://github.com/onemindos/ONEMINDOS/issues/870)). restic already speaks S3; tests use a local S3-compatible stand-in, and the owner types the bucket keys himself.
+- **Remote access: Headscale** (already on the hub in the image, #292). The neutral mesh layer in the gateway ([#876](https://github.com/onemindos/ONEMINDOS/issues/876)) serves Headscale; NetBird is not built.
+- **SMS: no provider now.** The SMS alert channel is built behind a provider-neutral adapter and tested with a fake transport only ([#869](https://github.com/onemindos/ONEMINDOS/issues/869)). Twilio may come later; the real text proof waits for that pick.
+- **Why:** the code stays provider-neutral so an owner can switch providers, and the picks let the B2 services wave build without waiting.
+
+## D-026 · Backstage is kept and runs on OneMind; custom apps are first-class
+**Date:** 2026-11-25 · **Decided by:** Zeus
+> "no we are not going to retire we are acually going to move it over after we have it stable not removing" and "for the move it over; when the OS is done I want to run it on the OS, also keep in mind I want to be able to run custom apps in OneMindOS not just marketplace apps so people can deploy anything they want through our process, etc" (founder, in a Claude session on 2026-11-25; quoted as written).
+- **Backstage is not retired or removed.** When the OS is done, the founder's Backstage portal runs on OneMind OS. This amends D-018: its "Backstage is retired" part no longer holds. The rest of D-018 and D-016 is unchanged.
+- **FD-00 ([#518](https://github.com/onemindos/ONEMINDOS/issues/518)):** its retirement and shutdown steps no longer apply.
+- **The move comes after the OS is done.** It is not a 1.0 gate.
+- **Custom apps are first-class.** People can deploy any app they want, not only Market apps, through OneMind's own gated process (every install is an owner approval). That path is built in [#643](https://github.com/onemindos/ONEMINDOS/issues/643) (pack, sideload and publish) and [#252](https://github.com/onemindos/ONEMINDOS/issues/252) (deploy a custom app from a Git repo).
+- **Why:** the founder wants to run Backstage on the founder's own OS, and wants people to be able to deploy anything they want through OneMind's process, not only what the Market lists.
+
+## D-027 · Permission modes: approve in advance, bypass only for low-risk digital actions, physical actions keep a person or a certified safety control, biometrics for certain actions
+**Date:** 2026-11-25 · **Decided by:** Zeus
+> "i agree with the assement of your flagging and i agree ; approve in advance, bypass only for low risk digital actions and robotics and anything physical always keep a person or a certified safey control. make sure the gateway is prep for this we also need add biomertics something up for certain actions we need to keep face id and finger printing,etc whatever the device provides in the future we will add our own custom devices but certain actions will require thismetc" (founder, in a Claude session on 2026-11-25; quoted as written). It answers a flag raised on his earlier request: "i thinking for the gateway and permissions we should have settings for that like always ask, bypass permissions like claude has,etc the agent can be automatcally approved for certain actions once in the future the same thing for the robotics and humans,etc." (quoted as written).
+- **The flag he agreed with said:** a standing approval is a human approval given in advance, and it is scoped, limited, expiring, revocable, audited and notified; bypass is only for low-risk digital actions inside a sandbox; robotics and anything physical keep a person or a certified safety control in the loop.
+- **Approve in advance.** An owner can approve a kind of action ahead of time. That standing approval is still a human approval. D-027 confirms the standing pre-approval design already in `docs/architecture/AUTOMATION.md` (§3.2 to 3.3: owner-only `policy.create` with a passkey, a count per period, a required expiry, a never list; the code caps the expiry at 90 days) and [#771](https://github.com/onemindos/ONEMINDOS/issues/771).
+- **Bypass only for low-risk digital actions,** inside a sandbox. Bypassed actions stay in the audit log, as every auto-approved action already does (`docs/architecture/AUTOMATION.md` §3.4).
+- **Robotics and anything physical always keep a person or a certified safety control.** Bypass never covers a physical action. The existing rule that a physical action is approved by a person each time and never by a standing approval ([#723](https://github.com/onemindos/ONEMINDOS/issues/723); build brief) is unchanged. Whether a certified safety control may ever stand in for that per-command approval is an open question for the founder.
+- **Biometrics for certain actions.** Certain actions require the verification the person's device provides (for example Face ID or a fingerprint), and later OneMind's own devices. This builds on the passkey (WebAuthn) step-up the gateway enforces today for physical actions and identity approvals, which the contract makes required for high and critical risk once passkeys exist ([#528](https://github.com/onemindos/ONEMINDOS/issues/528)). WebAuthn tells the gateway that the person was verified on the device, not whether by face, fingerprint or the device PIN.
+- **Earlier owner-approval rules are unchanged:** D-008, D-014, D-017 and D-026, and the never list (for example restore, key rotation, `policy.*`, removing a node). "Low-risk" never covers them.
+- **The gateway must be prepared for all of this.**
+- **This refines the locked rule "AI never actuates without human approval":** approvals given in advance count as human approval, and the one exception is bypass for low-risk digital actions.
+- **Still to define (design in progress):** which actions are low-risk, and which actions need biometrics.
+
+## D-028 · Gateway permission defaults, biometric levels and recovery
+**Date:** 2026-11-25 · **Decided by:** Zeus
+> Answers given in a Claude session on 2026-11-25 to the open calls in the gateway permissions design (quoted as written where short): "yes but we can change at most 30 days ,15 days or 7 days we choose"; "yes always ask"; "maybe add the different options maybe a forever version is okay like 14 days if unsed options for 30,90,180 and forver"; "yes agreed we can also allow to modify in os"; "yes and anything related to security"; on recovery, "keep in mind the user is going to have their data on this box so its important that they can access and not lose anything", and a trusted person "shouldnt need [in] person but can be added in some way as a legacy users,etc something that apple does ... super encrpyed mode that require you to confirm terms and download a secret or recovery mode ... we can also include the process of in person as well"; and for the rest, "go with your recommendations on gateway and nats". Builds on D-027 and settles its "still to define" items on biometrics and bypass.
+- **Every new agent, app and person starts on "Always ask".** Nothing can be loosened before the owner has a passkey.
+- **Remembered approvals** last 30, 90 or 180 days or forever; the default is 30 days, with "end if unused for 14 days" on by default and a review reminder at 90 days. Forever is only for T0 and T1 actions: never T2 and up, never a hard-floor item, never `accept_injection_risk`. A forever rule is always listed, ends in one tap, and pauses when the agent's identity or token changes. This replaces the 90-day cap in `MAX_POLICY_DAYS` (`policies.py`) and the one-year caps in `docs/architecture/AUTOMATION.md` §3.2 item 7 and `docs/leap/core/AUTOMATION.md` §4 for remembered approvals.
+- **Agents write Notes only under a Notes rule** (F-6 = b, decided earlier the same day). Notes an agent wrote count as outside text for the next agent that reads them.
+- **App installs:** `sensitive` only for a named, verified-catalogue `app.install`, at most 30 days (the owner picks 7, 15 or 30), with a notice on every use. This changes the contract §12.3 ceiling. Not available to iPhone-only households until 1.1 push (D-021).
+- **Agents that read outside text on their own** (web, email, files) are always treated as tainted; the owner may accept the risk per action type.
+- **Biometric levels:** L1 = device user verification (today's passkey); L2 = an authenticator whose make and model the gateway can prove, bound to one device (the default for "requires biometrics"); L3 = a biometric-only authenticator (owner opt-in per action). L2 covers destructive and physical approvals, every security-related setting, break-glass, and permission modes and rules, with one exception: an L1 key may create a dated T0 (read-only) "Approve and remember" rule; T1 and up, any Forever rule, loosening a mode and bypass need L2. Adding an authenticator, approver or contact is L2. Revoking a key, rule or token, removing a contact, Stop and every tightening stay L0, so a lost key can always be cut off from a password sign-in. Synced passkeys count as L1 only. The owner can edit the per-action table in Settings; editing it needs L2 and cannot go below each row's minimum. The phone key may approve destructive or reboot actions only as an L3 key, never physical ones. Before the first L2 key exists, an L1 key plus a confirmation at the box stands in (at the box only; never for physical actions; remote approvals stay at L2). No biometric data is ever stored.
+- **Rules stay as database rows** in the gateway; no outside policy engine for now.
+- **Bypass** (closes D-027's other open item): T0 and T1 only, inside a sandbox the gateway can prove, at most 8 hours, L2 to start.
+- **Extra approvers** (1.1): per action type, never their own requests, never radio transmit, never destructive types (owner only). Physical actions stay owner-only until #1107. This is narrower than option N-5 in the design doc (which let the owner opt an adult in per destructive type), by the founder's choice: he was shown "Can a 1.1 approver approve irreversible actions? (no, owner only)" and answered "go with your recommendations".
+- **Recovery puts the owner's data first.** Reading, exporting, restoring and unlocking the disk never depend on a strong key. Ways back: a second key; the printed recovery kit at the box (immediate full access); recovery contacts, including people outside the household, who confirm remotely or in person (up to 5) without ever getting data access (the owner picks each wait from set options; defaults in brackets: a cooling-off after adding of 3, 7 or 14 days [7], then a wait of 24, 48 or 72 hours [24, rising to 72 automatically if a strong key was used recently]); remote recovery with a 72-hour or 7-day wait [72 hours] that only restores remote high-risk approvals. No path deletes data or bypasses disk encryption. The disk recovery key goes into the printed kit (as D-020 already says; for the kit path only: shown once, printed, never stored; the general recovery-key route stays off). The kit path at the rescue console extends D-008 (the console's sign-in), and the kit no longer requires a backup destination, and the rescue console no longer dead-ends for an owner who has lost every passkey.
+- **Legacy contact:** after a claim with a 30-day wait (owner picks 14 to 90), notices and owner inactivity, and a second person's confirmation (another legacy contact or a household adult) when one exists, the contact gets a read-only export of the owner's personal data. The export window is 12 months; the data is never deleted afterwards. Who owns the box after death is for 1.1.
+- **Advanced protection (opt-in):** the owner types a confirmation of the terms and keeps a recovery key; personal files go into a vault the box cannot open alone. Standard mode does not protect a stolen whole box beyond the sign-in screen; Advanced protection and Secure Boot are the answer for that.
+- **Still open:** a certified safety control standing in for per-command approval of physical actions (#1107, decided when there is a robot).
+
+## D-029 · The gateway decides; NATS enforces and carries
+**Date:** 2026-11-25 · **Decided by:** Zeus
+> "go with your recommendations on gateway and nats" (founder, in a Claude session on 2026-11-25), after the NATS role review; he also asked whether adding NATS to the gateway or leaving it custom was the move, and the answer recorded here is both: the custom gateway decides, NATS enforces.
+- **The gateway is the only decision point; NATS enforces and carries what the gateway signed. Every NATS identity mirrors a gateway principal. Nothing on NATS approves.**
+- **How NATS learns who may connect:** today's gateway-written static config now; later a hybrid where machines and hub services keep their own keys and agents, apps and devices go through a NATS auth callout to the gateway; operator/JWT mode only when there is more than one hub.
+- **"Stop everything" also cuts AI agents off the bus** until the owner resumes.
+- **Audit witnesses:** other OneMind machines always, the owner's phone when online, and the backup as the last copy.
+- **Apps get their own bus accounts in 1.1,** opt-in per app and approved at install; the MQTT listener (#199) also comes in 1.1, only for apps that declare it. In 1.0 apps use the gateway relay only.
+- **Machines enforce a signed stop and revoke snapshot while offline.** It can only ever add a "no".
+- **A per-box fabric root key,** owner-held and never a OneMind-held key (D-019); separate from OneMind's release root (#153, D-010). It is made at first boot, its backup goes into the D-020 emergency kit, and machines pin it when they join. It signs only key rotations and revocations; under it sits one key per purpose (jobs, policy snapshot, audit head, callout issuer), each with its own `kid`.
+- **First fix:** on a joined machine, local programs must sign in to NATS (today they do not).
+
+## D-031 · The first key ceremony runs on YubiKeys, in Step 5
+**Date:** 2026-11-25 · **Decided by:** Zeus
+> "also we are going to be doing yubi key" (founder, in a Claude session on 2026-11-25), answering whether the first ceremony uses the three USB sticks of D-010 or his three YubiKeys. Earlier the same day: "i want to include the key ceremony in step 5 to be able to test updates as well."
+- **This changes D-010 in one point:** the first ceremony creates the three root keys **inside the founder's three YubiKeys** (any two sign), not on encrypted USB key files. The secret keys never leave the devices. Three keys, any two sign, kept in three places: unchanged.
+- **D-010's later rotation onto hardware keys is no longer needed,** because the keys start there. What replaces that rotation as the drill Z-04 asks for is not decided here; it stays open for the founder.
+- **The ceremony is part of Step 5** (the install on the daily hub), so the first real signed update can be installed on that box and then rolled back. That a tampered, wrong-key or older update is refused is proven before that, with throwaway keys on a virtual machine (#1188).
+- **The key holders run it with their own hands.** No AI agent ever holds, sees or types a real root key or PIN. Agents prepare and rehearse the script with throwaway keys only (YubiKey path: #1172; signed-update test: #1188; runbook: #1178).
+- **Before the real run:** one rehearsal on a spare YubiKey, because the YubiKey steps are still marked UNVERIFIED until then.

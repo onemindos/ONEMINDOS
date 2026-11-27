@@ -5,14 +5,18 @@ import { ApiError } from '../api/types';
 import { v0Api } from '../test/fakes';
 import {
   apnsTransport,
+  boxNtfy,
+  boxNtfyAddress,
   disablePush,
   enablePush,
+  installField,
   loadPushRecord,
   parsePing,
   PushError,
   pushBlocker,
   rotateEndpoint,
   unifiedPushTransport,
+  urlHost,
 } from './push';
 
 type Listener = (e: never) => void;
@@ -122,6 +126,17 @@ describe('registering push with the box', () => {
     expect(await loadPushRecord('https://h')).toBeUndefined();
   });
 
+  it('sends this install id only to a hub with My devices (#715); older hubs refuse unknown fields', async () => {
+    const pushRegister = jest.fn(async (r: object) => ({ id: 'dev_push_2', ...r }) as never);
+    const api = v0Api({ pushRegister, vapidPublicKey: async () => ({ key: 'K'.repeat(87) }) });
+    const withMyDevices = new Features([OP.pushRegister, OP.vapidKey, OP.myDevices], 'openapi');
+    await enablePush(api, unifiedPushTransport(fakeUp()), { ...opts, features: withMyDevices, installId: 'inst_new_phone_0002' });
+    expect(pushRegister).toHaveBeenLastCalledWith(expect.objectContaining({ label: 'Pixel', install_id: 'inst_new_phone_0002' }));
+    await enablePush(api, unifiedPushTransport(fakeUp()), { ...opts, installId: 'inst_new_phone_0002' });
+    expect(pushRegister.mock.lastCall![0]).not.toHaveProperty('install_id');
+    expect(installField(withMyDevices, undefined)).toEqual({});
+  });
+
   it('says the hub cannot push to iPhones when it refuses apns (no relay yet)', async () => {
     const pushRegister = jest.fn(async () => {
       throw new ApiError(422, 'conflict', 'apns needs the iOS relay');
@@ -146,6 +161,14 @@ describe('registering push with the box', () => {
     expect(next).toMatchObject({ id: 'reg2', handle: 'https://ntfy.box/b' });
     expect(await rotateEndpoint(api, next, { url: 'https://ntfy.box/b', p256dh: null, auth: null, temporary: false }, 'Pixel')).toBe(next);
   });
+
+  it('keeps a rotated endpoint on its install (#715)', async () => {
+    const pushRegister = jest.fn(async () => ({ id: 'reg3' }) as never);
+    const api = v0Api({ pushRegister, pushUnregister: jest.fn(async () => undefined) });
+    const rec = { hubUrl: 'https://h', id: 'reg2', platform: 'unifiedpush' as const, handle: 'https://ntfy.box/b', since: '' };
+    await rotateEndpoint(api, rec, { url: 'https://ntfy.box/c', p256dh: null, auth: null, temporary: false }, 'Pixel', { install_id: 'inst_new_phone_0002' });
+    expect(pushRegister).toHaveBeenCalledWith({ platform: 'unifiedpush', endpoint: 'https://ntfy.box/c', label: 'Pixel', install_id: 'inst_new_phone_0002' });
+  });
 });
 
 describe('pings carry ids only (D-005)', () => {
@@ -155,5 +178,34 @@ describe('pings carry ids only (D-005)', () => {
     expect(parsePing({ notification_id: 'Your backup failed: disk full', box_id: 'b' })).toEqual({ id: undefined });
     expect(parsePing({ route: 'approvals' })).toBeUndefined();
     expect(parsePing(null)).toBeUndefined();
+  });
+});
+
+describe('the box ntfy for the Android guide', () => {
+  it('names the box ntfy only from a .local hub name, like the dashboard Open link', () => {
+    expect(boxNtfyAddress('https://onemind.local')).toBe('https://ntfy.onemind.local');
+    expect(boxNtfyAddress('http://Home-Box.local:8080/')).toBe('http://ntfy.home-box.local');
+    expect(boxNtfyAddress('http://192.0.2.10:8080')).toBeUndefined();
+    expect(boxNtfyAddress('https://box.example.net')).toBeUndefined();
+    expect(boxNtfyAddress('not a url')).toBeUndefined();
+    expect(urlHost('https://ntfy.onemind.local/upAbc')).toBe('ntfy.onemind.local');
+  });
+
+  it('tells installed, requested, missing and absent apart', () => {
+    const app = { id: 'ntfy', installed: false } as never;
+    const req = (state: string) => ({ type: 'app.install', params: { app_id: 'ntfy' }, state }) as never;
+    expect(boxNtfy([])).toBe('absent');
+    expect(boxNtfy([app])).toBe('missing');
+    expect(boxNtfy([app], [req('awaiting_approval')])).toBe('requested');
+    expect(boxNtfy([app], [req('cancelled')])).toBe('missing');
+    expect(boxNtfy([{ id: 'ntfy', installed: true } as never], [req('awaiting_approval')])).toBe('installed');
+  });
+
+  it('fails cleanly when the connector refuses the VAPID key at once', async () => {
+    const up = fakeUp();
+    up.register = () => {
+      throw new Error('VapidNotValidException');
+    };
+    await expect(unifiedPushTransport(up, 10).obtain('bad')).rejects.toMatchObject({ blocker: 'failed' });
   });
 });

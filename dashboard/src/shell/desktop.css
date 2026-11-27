@@ -16,8 +16,8 @@
 .dsk {
   --dsk-bar-h: 44px;
   --dsk-gap: var(--om-space-4);
-  --dsk-radius-window: 24px;
-  --dsk-tile-radius: 28%;
+  --dsk-radius-window: var(--om-layout-window-radius);
+  --dsk-tile-radius: var(--om-layout-tile-radius);
   --dsk-glass: color-mix(in srgb, var(--om-color-surface) 72%, transparent);
   --dsk-glass-strong: color-mix(in srgb, var(--om-color-surface) 88%, transparent);
   --dsk-hairline: color-mix(in srgb, var(--om-color-text) 10%, transparent);
@@ -284,6 +284,18 @@
   .dsk { --dsk-glass: var(--om-color-surface); --dsk-glass-strong: var(--om-color-surface); }
 }
 
+/* The menu bar on a phone (360 to 430 px wide) holds the status, Search, Quick settings, the bell and the
+   account menu. Live usage moves into the account menu; below 390 px the hub pill keeps only its glyph
+   (its word stays for screen readers). Nothing in the bar may overlap the Demo badge. */
+.dsk-phone-only { display: none; }
+@media (max-width: 720px) {
+  .dsk-wide-only { display: none; }
+  .dsk-menu-item.dsk-phone-only { display: flex; }
+}
+@media (max-width: 389px) {
+  .dsk-status .om-pill-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .dsk-status .om-pill { gap: 0; }
+}
 /* Narrow screens: the clock drops the date first. */
 @media (max-width: 1024px) {
   .dsk-clock-day { display: none; }

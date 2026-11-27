@@ -6,6 +6,8 @@
 // replayed later would make a node look alive when it was not). The local
 // API keeps answering so a person at the box can still see its state.
 // Node events are the exception: with Config.Durable they go through the leaf outbox (events.go).
+// A clean stop ends with one departure on the status subject (#608), so the hub shows the node
+// offline at once instead of after the heartbeats run out.
 package agent
 
 import (
@@ -79,8 +81,9 @@ type Agent struct {
 	ncMu sync.Mutex // guards nc
 	nc   *nats.Conn
 
-	sent atomic.Uint64
-	kick chan struct{} // publish now (after a (re)connect)
+	sent  atomic.Uint64
+	kick  chan struct{}          // publish now (after a (re)connect)
+	pubID atomic.Pointer[string] // node id of the last published heartbeat
 }
 
 // collection is one in-flight Collect that concurrent callers share.
@@ -237,13 +240,18 @@ func (a *Agent) Serve(ctx context.Context, ln net.Listener) error {
 	go func() { errc <- srv.Serve(ln) }()
 	a.log.Info("local API listening", "addr", ln.Addr().String())
 
+	loopDone := make(chan struct{})
 	if a.cfg.NATSURL != "" {
 		a.connectNATS()
-		go a.publishLoop(ctx)
+		go func() {
+			defer close(loopDone)
+			a.publishLoop(ctx)
+		}()
 		if a.cfg.Durable {
 			go a.recordLoop(ctx)
 		}
 	} else {
+		close(loopDone)
 		a.log.Warn("ONEMIND_NATS_URL not set: heartbeats are not published, local API only")
 	}
 
@@ -255,10 +263,41 @@ func (a *Agent) Serve(ctx context.Context, ln net.Listener) error {
 	shCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(shCtx)
+	// The departure must be the last thing this node says: wait for the heartbeat loop to stop
+	// first, so no heartbeat can follow it and make the node look alive again.
+	<-loopDone
+	a.depart()
 	if nc := a.conn(); nc != nil {
 		nc.Close()
 	}
 	return nil
+}
+
+// departWait bounds how long a clean stop waits for NATS to confirm the departure.
+const departWait = time.Second
+
+// depart publishes the departure (#608) so the hub shows this node offline within two seconds of
+// a clean stop, instead of after the heartbeats run out. Nothing is sent if NATS is down or no
+// heartbeat ever went out (the hub does not know this node, and ignores departures of unknown
+// nodes). A crash or power cut sends nothing: the hub then goes by the missing heartbeats.
+func (a *Agent) depart() {
+	nc, id := a.conn(), a.pubID.Load()
+	if nc == nil || !nc.IsConnected() || id == nil {
+		return
+	}
+	b, err := json.Marshal(heartbeat.Departure{Schema: heartbeat.DepartureSchema, NodeID: *id, Reason: "shutdown"})
+	if err != nil {
+		return
+	}
+	if err := nc.Publish(heartbeat.Subject(*id), b); err != nil {
+		a.log.Warn("publish departure", "err", err)
+		return
+	}
+	if err := nc.FlushTimeout(departWait); err != nil {
+		a.log.Warn("departure not confirmed by NATS", "err", err)
+		return
+	}
+	a.log.Info("departure published", "subject", heartbeat.Subject(*id))
 }
 
 // connectNATS starts a connection that keeps retrying forever in the
@@ -333,10 +372,15 @@ func (a *Agent) publishOnce(ctx context.Context) {
 		a.log.Error("marshal heartbeat", "err", err)
 		return
 	}
+	if ctx.Err() != nil {
+		return // stopping: a cached heartbeat must not go out after the stop began
+	}
 	if err := nc.Publish(heartbeat.Subject(st.NodeID), b); err != nil {
 		a.log.Warn("publish heartbeat", "err", err)
 		return
 	}
+	id := st.NodeID
+	a.pubID.Store(&id)
 	if a.sent.Add(1) == 1 {
 		a.log.Info("first heartbeat published", "subject", heartbeat.Subject(st.NodeID))
 	}

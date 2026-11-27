@@ -22,7 +22,8 @@ onemind version
 # OS updates on a OneMind image (brief 30 B4.2; needs root except status)
 onemind update status [--json]            # current/available version, state, last result, history
 onemind update check                      # fetch the TUF channel and print the decision; never installs
-onemind update apply [--no-reboot]        # owner installs now (not while the health gate is deciding)
+onemind update apply --local [--no-reboot] # BREAK-GLASS: install on this machine now, as root, no approval (not while the health gate is deciding)
+# With a box selected (onemind login), `onemind update apply` files an approval instead; see "Settings over the gateway" below
 ```
 See [`internal/update/`](../../internal/update/README.md) for the policy, window and states.
 
@@ -57,6 +58,40 @@ NODE_ID       HOSTNAME  ROLE  BOARD       ARCH   OS         K3S    STATUS  LAST_
 3f9c2a1b7d4e  beelink   hub   x86_64-efi  amd64  debian 13  ready  online  2026-11-11T22:00:00Z
 ```
 Gateway errors are printed with the contract's error code, e.g. `HTTP 401 unauthenticated: …`.
+
+## Settings over the gateway (users, backup, care, update policy)
+Each of these calls an existing gateway route with your token, takes `--json` (the gateway's JSON, unchanged) and never approves anything:
+- `onemind users list|invite NAME [--role R]|disable ID --yes`: owner only. `invite` prints the one-time sign-up link once. A box with passkeys asks for a passkey sign-in on these writes, which the CLI cannot do, so it says to use the dashboard.
+- `onemind backup status|snapshots|run [--app ID]|verify [--mode check]|restore SNAPSHOT --app ID [--path P]`: `run`, `verify` and `restore` file a request that waits for an owner (`onemind actions approve ID`).
+- `onemind care checkup`: the box check-up; reads only.
+- `onemind update policy show|set`: the app update rules; `set` keeps every value you do not pass.
+- `onemind update apply`: files an `os.update.install` request for the hub (or `--node`), which an owner approves; the box's host service then installs with the health gate and rollback. `--local` is the break-glass path that runs the engine on this machine as root with no approval, and it says so each time. With no box selected, apply refuses unless you pass `--local`. If the box reports it has no host service to install with, apply files nothing and tells you to use `--local` at the box.
+
+### Plugins, data grants, radios
+- `onemind plugins list|show ID|tools ID`, `plugins settings show|set ID --file F`, `plugins host-grants list|request --app APP --kind device|gpu|host-network|realtime --reason TEXT|revoke ID --yes`, `plugins keys list|enroll --name N --key-file public.pem|revoke ID`: settings, host access, and enrolling or revoking a signing key file a request an owner approves; taking a host grant back is direct and owner only.
+- `onemind data grants list|revoke ID --yes`: who may read or write which kind of your data; giving one is a request in `onemind actions`.
+- `onemind radios list|confirm ID --profile P`: say what a found radio is (owner only, never an agent); nothing is opened or sent by confirming.
+
+## More groups over the gateway
+The same rules: each command calls an existing gateway route, takes `--json`, and never approves anything. A change either files a request that waits for an owner (it prints the request id and `onemind actions approve ID`) or is a direct call the gateway already limits to the right person.
+
+### Automation, alerts, monitoring
+- `onemind automation rules list|show ID|create --file F|enable ID|disable ID|dry-run ID|delete ID --yes`: a rule only files requests; it starts off, and the box turns it on only after a dry run. `show` and `dry-run` print plain text; add `--json` for the whole document.
+- `onemind automation runs [--rule ID]|schedules|state|pause|resume`, `automation policies list|revoke ID --yes` (creating a standing approval stays in the dashboard, with its passkey step), `automation windows list|set win_NAME --file F` (window ids look like `win_<lower-case name>`).
+- `onemind alerts list|show ID|ack ID|resolve ID|fix ID`: `fix` files the alert's suggested fix as a request a person approves. `onemind monitoring summary`: machines, apps and open alerts at a glance.
+
+### Tokens, secrets, family, browsers
+- `onemind tokens list|create NAME [--agent A] [--scopes s,t] [--days N]|rotate ID [--grace S]|revoke ID --yes`: a new token is printed once.
+- `onemind secrets show APP|public-key|generate APP NAME/KEY|clear APP NAME/KEY`: never shows or sends a value; `generate` and `clear` file a request. Typing a value stays in the dashboard, where the browser seals it.
+- `onemind family profile show|set USER --file F` and `family app show|set APP --file F`: owner only. `show` prints day names, and says plainly when every app or every hour is blocked. A box with passkeys asks for a passkey sign-in on the writes, which the CLI cannot do.
+- `onemind browsers open|close|reset-profile APP`: only for a dashboard or phone sign-in. The box refuses the API token that `onemind login` saves, and the CLI says so.
+
+### Files, photos, first run, notification settings
+- `onemind files roots|list [PATH] --root R|stat PATH --root R`: browse. Lists fetch every page the box sends (Link rel=next).
+- `onemind files trash list|empty [--trash home|shared]`, `files grants list|request --for app|agent:NAME --root R --path P --access r|rw|revoke ID --yes`, `files requests list|show ID`, `files quotas list|set PERSON (--gb N | --unlimited)`: `empty` and `grants request` file a request that an owner decides in the dashboard (Files, Requests). The same ask twice on one day files nothing new; after a deny or cancel it says so and exits 6 (conflict).
+- `onemind photos library|coverage SOURCE|receipts SOURCE`: read only. The source id comes from the phone app; no route lists sources yet.
+- `onemind onboarding state|settings show|settings save ...`: owner only.
+- `onemind notify prefs show|mute TOPIC [--channel C]|unmute TOPIC|set --file F` and `notify sources list|mute ID|unmute ID`: your own settings. `mute` and `unmute` send the ETag they read in If-Match, so an edit made meanwhile in the dashboard is never overwritten; they say so and you run them again.
 
 ## Build and test
 `make -C cmd/onemindd build` builds this tool too (`dist/onemind-linux-{amd64,arm64}`). Tests: `go test ./cmd/onemind/...` (a fake gateway: tables, `--json`, contexts and file modes, the approval flow, exit codes, the bridge); end to end against a live gateway in `core/tests/test_sdk_conformance.py`.

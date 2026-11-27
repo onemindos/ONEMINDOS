@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Build the battery's fixtures for one board from a rootfs tar (brief 30 B13; port of the variant
 # and bundle steps of evidence/lab/rauc-1152/scripts/build.sh). Runs as root in the tools container:
-#   mkfixtures.sh <board> <rootfs.tar> <outdir> [T5|T10]
+#   mkfixtures.sh <board> <rootfs.tar> <outdir> [T5|T10]      (EDGE=1 adds bad-leaf.raucb for make edge)
 # Outputs in <outdir>: disk.img (slot A = v1 + test overlay), bundles.img (ext4 "onemind-test"
 # holding bundles/*.raucb), seed.img (vm-do: NoCloud seed), t0.json (T0 checks), dev-ca.cert.pem
 # (public), SHA256SUMS. Throwaway keys live only in this container's /tmp and are deleted.
@@ -66,11 +66,18 @@ if [ "$UPTO" != T5 ]; then
   setver 7; k3sargs "--disable-agent"; ext4 v; bundle v 7 naive-noagent dev          # T10 observation
   install -m 755 "$W/k3s-check.real" "$T/usr/lib/onemind/onemind-k3s-check"; k3sargs ""
 fi
+if [ "${EDGE:-0}" = 1 ]; then   # make edge (CRITERIA-EDGE.md EG6), opt-in so the T-battery stays as fast
+  mv "$T/usr/bin/onemindd" "$W/onemindd.real"
+  printf '#!/bin/sh\necho "BAD-LEAF: onemindd replaced by the test bundle" >&2\nexit 1\n' > "$T/usr/bin/onemindd"
+  chmod 755 "$T/usr/bin/onemindd"
+  setver 8; ext4 v; bundle v 8 bad-leaf dev                                          # onemindd exits at start
+  mv -f "$W/onemindd.real" "$T/usr/bin/onemindd"
+fi
 rm -f "$W/v.ext4"
 
 log "T0 checks"
 python3 -I - "$T" "$W/bundles" "$K/dev-ca.pem" "$SRC/os/versions.lock.yaml" "$OUT/t0.json" "$BOARD" <<'PY'
-import hashlib, json, re, subprocess, sys, yaml
+import hashlib, json, os, re, subprocess, sys, yaml
 tree, bdir, ca, lock, out, board = sys.argv[1:]
 lk = yaml.safe_load(open(lock)); checks = {}
 def sh(*c, root=None):
@@ -95,6 +102,15 @@ checks["wrong_key_rejected"] = info.get("wrong-key.raucb", {}).get("rc", 0) != 0
 checks["verity_bundles_verity"] = all(v["format"] == "verity" and v["verified"] for k, v in info.items()
                                       if k not in ("wrong-key.raucb", "plain-good.raucb"))
 checks["plain_good_is_plain_and_signed"] = info.get("plain-good.raucb", {}).get("format") == "plain" and info["plain-good.raucb"]["verified"]
+# Step 2 PR 9: the base is made by mmdebstrap from the pinned snapshot, not taken from a Docker Hub image, so none of
+# that image's container leftovers may be in the tree (a policy-rc.d stops every service start on the box).
+import glob
+left = [p for p in ("usr/sbin/policy-rc.d", ".dockerenv") if os.path.lexists(f"{tree}/{p}")]
+left += [os.path.relpath(p, tree) for g in ("etc/apt/apt.conf.d/docker-*", "etc/dpkg/dpkg.cfg.d/docker-*", "etc/dpkg/dpkg.cfg.d/onemind-build-*")
+         for p in glob.glob(f"{tree}/{g}")]
+checks["no_container_leftovers"] = not left
+if left:
+    print("container leftovers in the image:", left)
 checks["no_naive_gate_in_v1"] = "NAIVE" not in open(f"{tree}/usr/lib/onemind/onemind-k3s-check").read()
 res = {"test": "T0", "board": board, "pass": all(checks.values()), "checks": checks, "bundles": info,
        "rauc_version": v.strip(), "k3s_sha256": {"binary": binsha, "airgap": imgsha}}

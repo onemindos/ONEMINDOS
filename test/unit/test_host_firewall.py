@@ -49,7 +49,7 @@ class HostFirewall(unittest.TestCase):
         self.assertNotRegex(lan_chain(), r"\b8080\b")
         u = rd("os/rootfs/layers/onemind/usr/lib/systemd/system/onemind-setup.service")
         self.assertIn("nft add rule inet onemind_host setup tcp dport 8080 accept", u)
-        self.assertIn("ExecStopPost=-/usr/sbin/nft flush chain inet onemind_host setup", u)
+        self.assertIn("ExecStopPost=-+/usr/sbin/nft flush chain inet onemind_host setup", u)   # "+": the web part is unprivileged (#578)
         self.assertIn("wizard-local-only", u)
         self.assertIn("After=onemind-firewall.service", u)
 
@@ -75,6 +75,21 @@ class HostFirewall(unittest.TestCase):
             self.assertRegex(line, r"^Exec\w+=-?\+/usr/sbin/nft ", line)
         for b in ("cloud", "vm-do"):   # a cloud box never offers SMB to the internet
             self.assertNotRegex(rd(f"os/boards/{b}/rootfs/etc/onemind/host.d/10-cloud.nft"), r"\b445\b")
+
+    def test_ssh_port_is_opened_only_by_sshd_and_only_from_the_lan_and_the_mesh(self):
+        # Owner shell (Step 2): 22/tcp while sshd runs (it starts only once an owner key exists), never public.
+        r = rd(RULES)
+        self.assertIn("jump ssh", lan_chain())
+        self.assertIn('iifname "tailscale0" jump ssh', r)
+        self.assertRegex(r, r"chain ssh \{\s*\}")             # empty in the ruleset: closed by default
+        for line in r.splitlines():
+            if re.search(r"\b22\b", line):
+                self.assertTrue(line.lstrip().startswith("#"), line)   # no rule in host.nft names 22
+        self.assertNotIn("jump ssh", re.search(r"chain input \{(.*?)\n  \}", r, re.S).group(1).replace('iifname "tailscale0" jump ssh', ""))
+        d = rd("os/rootfs/layers/onemind/usr/lib/systemd/system/ssh.service.d/30-onemind-firewall.conf")
+        self.assertIn("nft add rule inet onemind_host ssh tcp dport 22 accept", d)
+        self.assertIn("ExecStopPost=-+/usr/sbin/nft flush chain inet onemind_host ssh", d)
+        self.assertIn("PartOf=onemind-firewall.service", d)
 
     def test_cloud_boards_open_ssh_and_https_and_keep_the_wizard_local(self):
         for b in ("cloud", "vm-do"):

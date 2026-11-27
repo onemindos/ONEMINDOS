@@ -1,0 +1,96 @@
+# SPDX-License-Identifier: Apache-2.0
+# IT-Tools 2024.10.22-7ca5933, upstream image docker.io/corentinth/it-tools. The image config (read from
+# the registry on 2026-11-19) is the stock nginx:stable-alpine image (nginx 1.26.2) with the built web app
+# in /usr/share/nginx/html and upstream's nginx.conf as the default site on port 80. The image sets no
+# USER, so it would start as root.
+#
+# Static files only, so nginx runs as the image's own unprivileged nginx user (UID 101) with a read-only
+# root filesystem and small scratch volumes (the same pattern as apps/excalidraw, which uses the same
+# base image); the namespaced "safe" sysctl lets it bind port 80 in this pod only.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: it-tools
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: it-tools
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: it-tools
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+        sysctls:
+        - name: net.ipv4.ip_unprivileged_port_start
+          value: "0"
+      containers:
+      - name: it-tools
+        image: docker.io/corentinth/it-tools:2024.10.22-7ca5933@sha256:8b8128748339583ca951af03dfe02a9a4d7363f61a216226fc28030731a5a61f
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+        startupProbe:
+          httpGet:
+            path: /
+            port: http
+          periodSeconds: 2
+          failureThreshold: 30
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+          periodSeconds: 60
+          timeoutSeconds: 10
+          failureThreshold: 3
+        # nginx serving static files; a OneMind choice (upstream publishes no figures).
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            cpu: 500m
+            memory: 128Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: nginx-cache
+          mountPath: /var/cache/nginx
+        - name: run
+          mountPath: /run
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: nginx-cache
+        emptyDir:
+          sizeLimit: 64Mi
+      - name: run
+        emptyDir:
+          medium: Memory
+          sizeLimit: 8Mi
+      - name: tmp
+        emptyDir:
+          sizeLimit: 64Mi

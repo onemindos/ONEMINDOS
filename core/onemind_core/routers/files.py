@@ -20,6 +20,7 @@ from starlette.requests import ClientDisconnect
 
 from ..auth import Principal
 from ..context import Gateway
+from ..errors import error_responses
 from ..guard import reads_body
 from ..files import errors as ferrors
 from ..files.errors import FilesError
@@ -119,6 +120,22 @@ class RestoreVersionOp(_Op):
     path: str = Field(max_length=4096)
     version: str = Field(max_length=40, json_schema_extra={"pattern": VERSION_PATTERN})
     to_path: str | None = Field(default=None, max_length=4096)  # beside the file when absent and the name is taken
+
+
+class FileVersion(BaseModel):
+    version: str
+    cadence: str
+    taken_at: str
+    size: int
+    mtime: str
+
+
+class FileVersions(BaseModel):
+    root: str
+    path: str
+    enabled: bool
+    exists: bool
+    versions: list[FileVersion]
 
 
 # One variant per op, each with the fields that op needs: the schema cannot offer a body the server refuses.
@@ -228,6 +245,50 @@ def content_disposition(name: str, inline: bool) -> str:
     return f"{'inline' if inline else 'attachment'}; filename=\"{ascii_name}\"; filename*=UTF-8''{urllib.parse.quote(name)}"
 
 
+def file_response(request: Request, cm, inline: bool, cache: str = "private, no-cache") -> StreamingResponse:
+    """Stream the (fd, stat, name) that context manager `cm` opens, honouring one Range; the fd closes
+    when the body ends. Shared by /v1/files/download and the share links (/v1/share/...)."""
+    fd, st, name = cm.__enter__()
+    try:
+        etag = f'"{st.st_size:x}-{st.st_mtime_ns:x}"'
+        rng = parse_range(request.headers.get("range"), st.st_size)
+        if_range = request.headers.get("if-range")
+        if rng is not None and if_range is not None and if_range.strip() != etag:
+            rng = None  # the file changed since the client's partial copy: send it whole
+        mime = guess_mime(name)
+        show_inline = inline and mime in INLINE_SAFE
+        headers = {
+            "Accept-Ranges": "bytes", "ETag": etag, "Cache-Control": cache,
+            "Content-Disposition": content_disposition(name, show_inline),
+            "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "sandbox; default-src 'none'",
+        }
+        start, end, status = 0, st.st_size - 1, 200
+        if rng is not None:
+            start, end = rng
+            status = 206
+            headers["Content-Range"] = f"bytes {start}-{end}/{st.st_size}"
+        headers["Content-Length"] = str(max(0, end - start + 1))
+    except BaseException:
+        cm.__exit__(None, None, None)
+        raise
+
+    def body():
+        try:
+            pos, remaining = start, end - start + 1
+            while remaining > 0:
+                chunk = os.pread(fd, min(STREAM_CHUNK, remaining), pos)
+                if not chunk:
+                    break
+                pos += len(chunk)
+                remaining -= len(chunk)
+                yield chunk
+        finally:
+            cm.__exit__(None, None, None)
+
+    media = mime if show_inline else "application/octet-stream"
+    return StreamingResponse(body(), status_code=status, media_type=media, headers=headers)
+
+
 TusResumable = Annotated[Literal["1.0.0"], Header(description="The tus protocol version; anything else is 412.")]
 UPLOAD_METADATA_RE = (
     r"^[A-Za-z0-9_.-]{1,64}(?: [A-Za-z0-9+/]*={0,2})?(?:,[A-Za-z0-9_.-]{1,64}(?: [A-Za-z0-9+/]*={0,2})?)*$"
@@ -255,6 +316,9 @@ ORDER = 300
 
 def register(app: FastAPI, gw: Gateway) -> None:
     svc = FilesService(gw)
+    # shared with search/providers.py (its index and grants) and routers/downloads.py
+    # (one lock over every write into a space)
+    app.state.files_service = svc
     uploads = Uploads(svc)
     gw.requester_lookups.append(svc.requester)  # agent kill switch: an agent's frq_ cannot be approved
     principal = gw.principal
@@ -313,48 +377,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
                                                          **errs(401, 403, 404, 409, 416, 422, 503)})
     def download(request: Request, root: RootQ, path: str = Query(max_length=4096),
                  inline: bool = False, p: Principal = Depends(principal)):
-        cm = svc.open_file(p, root, path)
-        fd, st, name = cm.__enter__()
-        try:
-            etag = f'"{st.st_size:x}-{st.st_mtime_ns:x}"'
-            rng = parse_range(request.headers.get("range"), st.st_size)
-            if_range = request.headers.get("if-range")
-            if rng is not None and if_range is not None and if_range.strip() != etag:
-                rng = None  # the file changed since the client's partial copy: send it whole
-            mime = guess_mime(name)
-            show_inline = inline and mime in INLINE_SAFE
-            headers = {
-                "Accept-Ranges": "bytes", "ETag": etag, "Cache-Control": "private, no-cache",
-                "Content-Disposition": content_disposition(name, show_inline),
-                "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "sandbox; default-src 'none'",
-            }
-            start, end, status = 0, st.st_size - 1, 200
-            if rng is not None:
-                start, end = rng
-                status = 206
-                headers["Content-Range"] = f"bytes {start}-{end}/{st.st_size}"
-            headers["Content-Length"] = str(max(0, end - start + 1))
-        except BaseException:
-            cm.__exit__(None, None, None)
-            raise
+        return file_response(request, svc.open_file(p, root, path), inline)
 
-        def body():
-            try:
-                pos, remaining = start, end - start + 1
-                while remaining > 0:
-                    chunk = os.pread(fd, min(STREAM_CHUNK, remaining), pos)
-                    if not chunk:
-                        break
-                    pos += len(chunk)
-                    remaining -= len(chunk)
-                    yield chunk
-            finally:
-                cm.__exit__(None, None, None)
-
-        media = mime if show_inline else "application/octet-stream"
-        return StreamingResponse(body(), status_code=status, media_type=media, headers=headers)
-
-    @app.get("/v1/files/versions", operation_id="files.versions.list", tags=TAG, responses=errs(401, 403, 404, 409, 422, 503))
+    @app.get("/v1/files/versions", operation_id="files.versions.list", tags=TAG,
+             response_model=FileVersions, responses=error_responses(401, 403, 404, 409, 422, 503),
+             openapi_extra={"security": [{"bearer": ["*"]}]})
     def versions(root: RootQ, path: str = Query(max_length=4096), p: Principal = Depends(principal)):
         """Earlier copies of a file in the box's local snapshots (BAK-04). Same disk: not a backup."""
         return svc.versions.list(p, root, path)

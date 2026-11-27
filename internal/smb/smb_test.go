@@ -56,6 +56,7 @@ func TestValidateRefusesWhatCouldEscapeTheFilesLayout(t *testing.T) {
 		"tm in home":  {ID: "a", Kind: KindTimeMachine, Name: "x", User: "x", Path: "home/x", QuotaBytes: i64(2 << 30)},
 		"newline":     {ID: "a", Kind: KindHome, Name: "x\n[global]", User: "x", Path: "home/x"},
 		"user":        {ID: "a", Kind: KindHome, Name: "x", User: "x y", Path: "home/x"},
+		"owner name":  {ID: "a", Kind: KindHome, Name: "x", User: "admin", Path: "home/x"},
 		"no quota":    {ID: "a", Kind: KindTimeMachine, Name: "x", User: "x", Path: ".system/timemachine/x"},
 		"tiny quota":  {ID: "a", Kind: KindTimeMachine, Name: "x", User: "x", Path: ".system/timemachine/x", QuotaBytes: i64(1 << 20)},
 		"home quota":  {ID: "a", Kind: KindHome, Name: "x", User: "x", Path: "home/x", QuotaBytes: i64(2 << 30)},
@@ -245,5 +246,31 @@ func TestNotInstalledIsRefusedWithAReason(t *testing.T) {
 	}
 	if !strings.Contains(m.Unavailable(), "smbd") {
 		t.Error(m.Unavailable())
+	}
+}
+
+// The owner's console password (an admin line in the same extrausers shadow file) must survive an SMB change.
+func TestApplyKeepsTheOwnersShadowLineAndRewritesOnlySMBAccounts(t *testing.T) {
+	m, _ := newManager(t)
+	a := Share{ID: "a", Kind: KindHome, Name: "alex", User: "alex", Path: "home/alex"}
+	if err := m.Apply(context.Background(), []Share{a}); err != nil {
+		t.Fatal(err)
+	}
+	sh := filepath.Join(m.P.StateDir, "extrausers", "shadow")
+	old, _ := os.ReadFile(sh)
+	owner := "admin:$6$salt$hash:19000:0:99999:7:::\n"
+	if err := os.WriteFile(sh, append([]byte(owner), old...), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	b := Share{ID: "b", Kind: KindHome, Name: "bo", User: "bo", Path: "home/bo"}
+	if err := m.Apply(context.Background(), []Share{b}); err != nil { // alex leaves, bo joins
+		t.Fatal(err)
+	}
+	got, _ := os.ReadFile(sh)
+	if !strings.Contains(string(got), owner) {
+		t.Errorf("the owner's line was lost: %q", got)
+	}
+	if strings.Contains(string(got), "alex:") || !strings.Contains(string(got), "bo:!:") {
+		t.Errorf("SMB accounts not rewritten: %q", got)
 	}
 }

@@ -12,7 +12,22 @@ ca-certificates curl socat zstd squashfs-tools
 apparmor
 avahi-daemon avahi-utils openssl
 samba samba-vfs-modules libnss-extrausers
+# NAS client tools (#871): mount an SMB or NFS share from a NAS as a Files location (#718). Clients only: no
+# nfs-kernel-server or ksmbd-tools, and the rpcbind and nfs-client units nfs-common enables are disabled below
+# (os/rootfs/Containerfile); rpc-statd still starts on demand for an NFSv3 lock. The kernel's cifs and nfs modules
+# come with linux-image-*. Battery step: test/qemu/CRITERIA-NAS.md (TN0-TN2).
+cifs-utils nfs-common
 # Ubuntu 26.04 defaults to dracut; we name initramfs-tools explicitly [C-LAB-ubuntu-2604-leg-001]
 initramfs-tools
 grub-common
 libglib2.0-0t64 libssl3t64 libcurl4t64 libjson-glib-1.0-0 libfdisk1 libnl-genl-3-200
+# Disk and admin tools (Step 2 PRs 4 and 7). smartmontools is what internal/storage/smart.go calls (smartctl); its
+# smartd daemon (smartmontools.service, alias smartd.service) is masked below (the gateway reads SMART on demand). gdisk gives sgdisk, btrfs-progs the btrfs tool
+# for the coming btrfs /data. The rest is what an owner expects on an SSH or rescue shell. Proof: first-boot check F13.
+smartmontools gdisk btrfs-progs
+bash-completion less nano rsync htop jq iputils-ping pciutils usbutils dmidecode ethtool
+# Owner shell (Step 2): SSH (key-only, starts once the owner adds a key), sudo with the console password, and the
+# PAM module that gives every login (SSH, tty2, the kiosk user) a logind session. Recommends are off, so listed here.
+openssh-server sudo libpam-systemd
+# Man pages: `man onemind` (the pages are generated from the CLI at image build; proof: first-boot check F14).
+man-db
