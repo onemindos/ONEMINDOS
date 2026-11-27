@@ -4,7 +4,7 @@
 // background photo backup and push keep working while the app is locked (issue #704).
 import * as LocalAuthentication from 'expo-local-authentication';
 
-let inflight: Promise<boolean> | undefined;
+let inflight: { message: string; result: Promise<boolean> } | undefined;
 
 /** True when the phone has a screen lock or biometrics set up, so Lock OneMind can be turned on. */
 export async function lockAvailable(): Promise<boolean> {
@@ -16,16 +16,20 @@ export async function lockAvailable(): Promise<boolean> {
 }
 
 /**
- * Ask the person to unlock. Only one prompt at a time: a second caller (say, the app lock and a
- * lock-screen Deny arriving together) shares the answer to the prompt already on screen.
+ * Ask the person to unlock. The same question asked twice at once shares one prompt. A different
+ * question (a lock-screen Deny arriving while "Unlock OneMind" is on screen) waits for that prompt
+ * and then asks its own, so a Deny is never confirmed by an answer to another question.
  */
 export function authenticate(promptMessage: string): Promise<boolean> {
-  if (inflight) return inflight;
-  inflight = LocalAuthentication.authenticateAsync({ promptMessage, cancelLabel: 'Cancel' })
+  if (inflight && inflight.message === promptMessage) return inflight.result;
+  const prior = inflight?.result.catch(() => false) ?? Promise.resolve(false);
+  const result: Promise<boolean> = prior
+    .then(() => LocalAuthentication.authenticateAsync({ promptMessage, cancelLabel: 'Cancel' }))
     .then((r) => r.success)
     .catch(() => false)
     .finally(() => {
-      inflight = undefined;
+      if (inflight?.result === result) inflight = undefined;
     });
-  return inflight;
+  inflight = { message: promptMessage, result };
+  return result;
 }

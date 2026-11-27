@@ -5,7 +5,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import type { ReactNode } from 'react';
-import { AppState, Text, type AppStateStatus } from 'react-native';
+import { AppState, Linking, Platform, Text, type AppStateStatus } from 'react-native';
 import type { OneMindApi } from '../api/client';
 import { HubDataProvider } from '../data';
 import { APPROVAL_ACTIONS, setupNotifications, showAlert } from '../notify';
@@ -16,6 +16,14 @@ import { ACTION_DENY, ACTION_REVIEW, APPROVAL_CATEGORY, denyAfterUnlock, parseDe
 import { LOCK_KEY, LockProvider, RELOCK_MS } from './LockProvider';
 import { LockSection } from './LockSection';
 import { NotificationActions } from './NotificationActions';
+
+// The Android native module, swapped per test (it is absent under Jest, as on iPhone).
+const mockUp: { value: unknown } = { value: undefined };
+jest.mock('../../modules/onemind-unifiedpush', () => ({
+  get unifiedPush() {
+    return mockUp.value;
+  },
+}));
 
 // Jest runs in Node, but the app's tsconfig has no Node types: name only what this test uses.
 declare const __dirname: string;
@@ -105,22 +113,26 @@ describe('notification buttons', () => {
 describe('Deny after unlock', () => {
   it('records nothing when the unlock is cancelled, and a deny once it succeeds', async () => {
     const deny = jest.fn(async () => ({}) as never);
-    const api = { deny, notification: jest.fn() };
+    const action = jest.fn(async () => ({ type: 'app.remove', params: { app_id: 'ntfy' } }) as never);
+    const api = { deny, notification: jest.fn(), action };
     expect((await denyAfterUnlock(api, { actionId: 'act-9' }, async () => false)).outcome).toBe('cancelled');
     expect(deny).not.toHaveBeenCalled();
-    expect((await denyAfterUnlock(api, { actionId: 'act-9' }, async () => true)).outcome).toBe('denied');
+    const confirm = jest.fn(async () => true);
+    expect((await denyAfterUnlock(api, { actionId: 'act-9' }, confirm)).outcome).toBe('denied');
+    expect(confirm).toHaveBeenCalledWith('Unlock to deny: Remove ntfy');
     expect(deny).toHaveBeenCalledWith('act-9');
   });
 
   it('finds the request behind a closed-app ping, and asks nothing when there is none', async () => {
     const deny = jest.fn(async () => ({}) as never);
     const confirm = jest.fn(async () => true);
-    const withAction = { deny, notification: jest.fn(async () => ({ action_id: 'act-3' }) as never) };
+    const action = jest.fn(async () => ({ type: 'app.remove', params: { app_id: 'ntfy' } }) as never);
+    const withAction = { deny, action, notification: jest.fn(async () => ({ action_id: 'act-3' }) as never) };
     expect((await denyAfterUnlock(withAction, { notificationId: 'ntf_1' }, confirm)).outcome).toBe('denied');
     expect(deny).toHaveBeenCalledWith('act-3');
     deny.mockClear();
     confirm.mockClear();
-    const plain = { deny, notification: jest.fn(async () => ({ action_id: null }) as never) };
+    const plain = { deny, action, notification: jest.fn(async () => ({ action_id: null }) as never) };
     expect((await denyAfterUnlock(plain, { notificationId: 'ntf_2' }, confirm)).outcome).toBe('nothing_to_deny');
     expect(confirm).not.toHaveBeenCalled();
     expect(deny).not.toHaveBeenCalled();
@@ -134,22 +146,30 @@ function Gate({ children }: { children: ReactNode }) {
 async function mountActions(over: Partial<OneMindApi>, open = jest.fn()) {
   const api = v0Api(over);
   const deps: SessionDeps = { load: async () => LIVE, save: async () => undefined, clear: async () => undefined, makeApi: () => api };
-  await render(
+  // The key mirrors App's <SignedIn key={hubUrl}>: changing it mounts NotificationActions again.
+  const tree = (key: number) => (
     <SessionProvider deps={deps}>
       <Gate>
-        <LockProvider>
+        <LockProvider key={key}>
           <HubDataProvider intervalMs={0}>
             <NotificationActions open={open} />
             <Text>home</Text>
           </HubDataProvider>
         </LockProvider>
       </Gate>
-    </SessionProvider>,
+    </SessionProvider>
   );
+  const view = await render(tree(0));
   await screen.findByText('home');
   await waitFor(() => expect(Notifications.addNotificationResponseReceivedListener).toHaveBeenCalled());
   const listener = (Notifications.addNotificationResponseReceivedListener as jest.Mock).mock.calls.at(-1)[0] as (r: ResponseLike) => void;
-  return { listener, open };
+  let n = 0;
+  const remount = async () => {
+    await view.rerender(tree(++n));
+    await screen.findByText('home');
+    await act(async () => undefined);
+  };
+  return { listener, open, remount };
 }
 
 describe('NotificationActions', () => {
@@ -262,5 +282,153 @@ describe('Lock OneMind', () => {
     const open = screen.getByTestId('app-content');
     expect(open.props.importantForAccessibility).toBe('auto');
     expect(open.props.accessibilityElementsHidden).toBe(false);
+  });
+});
+
+describe('Deny prompt', () => {
+  it('names the request, and does not borrow the answer to another prompt', async () => {
+    const { authenticate } = jest.requireActual<typeof import('./auth')>('./auth');
+    const asked: string[] = [];
+    let release: (v: { success: boolean }) => void = () => undefined;
+    auth.mockImplementationOnce((o: { promptMessage: string }) => {
+      asked.push(o.promptMessage);
+      return new Promise((res) => (release = res));
+    });
+    auth.mockImplementation(async (o: { promptMessage: string }) => {
+      asked.push(o.promptMessage);
+      return { success: true };
+    });
+    const unlock = authenticate('Unlock OneMind');
+    const sameAgain = authenticate('Unlock OneMind');
+    const denyPrompt = authenticate('Unlock to deny: Remove ntfy');
+    await Promise.resolve();
+    expect(asked).toEqual(['Unlock OneMind']);
+    release({ success: true });
+    expect(await Promise.all([unlock, sameAgain, denyPrompt])).toEqual([true, true, true]);
+    expect(asked).toEqual(['Unlock OneMind', 'Unlock to deny: Remove ntfy']);
+  });
+
+  it('a Deny whose request cannot be found asks nothing and denies nothing', async () => {
+    const deny = jest.fn();
+    const confirm = jest.fn(async () => true);
+    const api = { deny, notification: jest.fn(), action: jest.fn(async () => Promise.reject(new Error('404'))) };
+    expect((await denyAfterUnlock(api, { actionId: 'act-1' }, confirm)).outcome).toBe('failed');
+    expect(confirm).not.toHaveBeenCalled();
+    expect(deny).not.toHaveBeenCalled();
+  });
+});
+
+describe('Android approval notification', () => {
+  const realOS = Platform.OS;
+  const schedule = Notifications.scheduleNotificationAsync as jest.Mock;
+  const approval = { id: 'a1', title: 'Approval needed', body: 'agent x asks', route: 'approvals' as const, actionId: 'act-9' };
+  beforeEach(() => schedule.mockClear());
+  afterEach(() => {
+    Platform.OS = realOS;
+    mockUp.value = undefined;
+  });
+
+  it('hands an approval to the native module with its action id, not to expo-notifications', async () => {
+    Platform.OS = 'android';
+    const showApproval = jest.fn();
+    mockUp.value = { showApproval };
+    await showAlert(approval);
+    expect(showApproval).toHaveBeenCalledWith('a1', 'Approval needed', 'agent x asks', 'act-9');
+    expect(schedule).not.toHaveBeenCalled();
+  });
+
+  it('keeps other alerts on expo-notifications', async () => {
+    Platform.OS = 'android';
+    const showApproval = jest.fn();
+    mockUp.value = { showApproval };
+    await showAlert({ id: 'a2', title: 'Node offline', body: 'n', route: 'nodes' });
+    expect(showApproval).not.toHaveBeenCalled();
+    expect(schedule).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to expo-notifications when the native build has no showApproval', async () => {
+    Platform.OS = 'android';
+    mockUp.value = {};
+    await showAlert(approval);
+    expect(schedule).toHaveBeenCalledTimes(1);
+    expect(schedule.mock.calls[0][0].content).toEqual(expect.objectContaining({ categoryIdentifier: APPROVAL_CATEGORY, data: { route: 'approvals', action_id: 'act-9' } }));
+  });
+});
+
+describe('Android Deny links reach the deny', () => {
+  let urlListener: ((e: { url: string }) => void) | undefined;
+  let initialUrl: string | null = null;
+  let linkSpies: jest.SpyInstance[] = [];
+  beforeEach(() => {
+    urlListener = undefined;
+    initialUrl = null;
+    linkSpies = [];
+    linkSpies.push(jest.spyOn(Linking, 'addEventListener').mockImplementation(((_t: string, fn: (e: { url: string }) => void) => {
+      urlListener = fn;
+      return { remove: jest.fn() };
+    }) as never));
+    linkSpies.push(jest.spyOn(Linking, 'getInitialURL').mockImplementation(async () => initialUrl));
+    (Notifications.getLastNotificationResponseAsync as jest.Mock).mockResolvedValue(null);
+  });
+  afterEach(() => {
+    linkSpies.forEach((x) => x.mockRestore());
+    (Notifications.getLastNotificationResponseAsync as jest.Mock).mockResolvedValue(null);
+  });
+  const act9 = async () => ({ type: 'app.remove', params: { app_id: 'ntfy' } }) as never;
+
+  it('a ?deny= link while the app runs unlocks first, then denies that action', async () => {
+    const order: string[] = [];
+    const deny = jest.fn(async () => (order.push('deny'), {} as never));
+    await mountActions({ deny, action: act9 });
+    auth.mockImplementationOnce(async () => (order.push('unlock'), { success: true }));
+    await act(async () => urlListener?.({ url: 'onemind://approvals?deny=act-link1' }));
+    await waitFor(() => expect(deny).toHaveBeenCalledWith('act-link1'));
+    expect(order).toEqual(['unlock', 'deny']);
+  });
+
+  it('a ?deny_notification= link finds the action behind the ping, unlocks, then denies', async () => {
+    const order: string[] = [];
+    const deny = jest.fn(async () => (order.push('deny'), {} as never));
+    const notification = jest.fn(async () => ({ action_id: 'act-ntf' }) as never);
+    await mountActions({ deny, notification, action: act9 });
+    auth.mockImplementationOnce(async () => (order.push('unlock'), { success: true }));
+    await act(async () => urlListener?.({ url: 'onemind://approvals?deny_notification=ntf_7' }));
+    await waitFor(() => expect(deny).toHaveBeenCalledWith('act-ntf'));
+    expect(notification).toHaveBeenCalledWith('ntf_7');
+    expect(order).toEqual(['unlock', 'deny']);
+  });
+
+  it('denies nothing when the unlock is cancelled, and ignores links that are not Deny links', async () => {
+    const deny = jest.fn();
+    await mountActions({ deny, action: act9 });
+    auth.mockResolvedValueOnce({ success: false, error: 'user_cancel' });
+    await act(async () => urlListener?.({ url: 'onemind://approvals?deny=act-cancel' }));
+    await waitFor(() => expect(auth).toHaveBeenCalledTimes(1));
+    await act(async () => urlListener?.({ url: 'onemind://approvals?approve=act-x' }));
+    await act(async () => urlListener?.({ url: 'https://evil.example/?deny=act-x' }));
+    expect(deny).not.toHaveBeenCalled();
+    expect(auth).toHaveBeenCalledTimes(1);
+  });
+
+  it('a launch URL from a closed-app Deny button denies after unlock, and a second mount does not replay it', async () => {
+    initialUrl = 'onemind://approvals?deny=act-cold';
+    const deny = jest.fn(async () => ({}) as never);
+    const { remount, open } = await mountActions({ deny, action: act9 });
+    await waitFor(() => expect(deny).toHaveBeenCalledWith('act-cold'));
+    expect(auth).toHaveBeenCalledTimes(1);
+    await remount();
+    expect(deny).toHaveBeenCalledTimes(1);
+    expect(auth).toHaveBeenCalledTimes(1);
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('a last notification response is handled once across mounts, and cleared', async () => {
+    (Notifications.getLastNotificationResponseAsync as jest.Mock).mockResolvedValue(response(ACTION_DENY, { route: 'approvals', action_id: 'act-last' }, 'n-last'));
+    const deny = jest.fn(async () => ({}) as never);
+    const { remount, open } = await mountActions({ deny, action: act9 });
+    await waitFor(() => expect(deny).toHaveBeenCalledWith('act-last'));
+    expect(Notifications.clearLastNotificationResponse).toHaveBeenCalled();
+    await remount();
+    expect(deny).toHaveBeenCalledTimes(1);
   });
 });

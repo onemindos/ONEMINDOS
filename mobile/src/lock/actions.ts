@@ -3,6 +3,7 @@
 // phone to be unlocked. Approve is never a notification button: approving needs the approval card
 // and, where the box asks for it, the passkey signature (lib/approvals). A plain tap only opens the app.
 import type { OneMindApi } from '../api/client';
+import { actionTitle } from '../lib/approvals';
 
 export const APPROVAL_CATEGORY = 'approval';
 export const ACTION_REVIEW = 'review';
@@ -54,7 +55,7 @@ export function parseDenyLink(url: string | null | undefined): DenyTarget | unde
  * on the box. The box stays the authority: a deny of an action that is no longer waiting just fails.
  */
 export async function denyAfterUnlock(
-  api: Pick<OneMindApi, 'deny' | 'notification'>,
+  api: Pick<OneMindApi, 'deny' | 'notification' | 'action'>,
   target: DenyTarget,
   confirm: (reason: string) => Promise<boolean>,
 ): Promise<{ outcome: DenyOutcome; message: string }> {
@@ -68,7 +69,15 @@ export async function denyAfterUnlock(
     }
   }
   if (!actionId) return { outcome: 'nothing_to_deny', message: 'That notification is not a request waiting for approval.' };
-  if (!(await confirm('Unlock to deny this request'))) return { outcome: 'cancelled', message: 'Not denied: unlock was cancelled.' };
+  // Say which request this denies: a link can come from any app, so the person must see what they confirm.
+  let title: string;
+  try {
+    title = actionTitle(await api.action(actionId));
+  } catch {
+    return { outcome: 'failed', message: 'Could not reach your box to find that request.' };
+  }
+  if (title.length > 80) title = `${title.slice(0, 79)}…`;
+  if (!(await confirm(`Unlock to deny: ${title}`))) return { outcome: 'cancelled', message: 'Not denied: unlock was cancelled.' };
   try {
     await api.deny(actionId);
     return { outcome: 'denied', message: 'Denied. The request will not run.' };
