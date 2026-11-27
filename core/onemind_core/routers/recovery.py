@@ -18,9 +18,7 @@ No MCP tool touches any of it (surfaces/parity.py: CREDENTIAL). Logic in recover
 
 from __future__ import annotations
 
-from typing import Literal
-
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
