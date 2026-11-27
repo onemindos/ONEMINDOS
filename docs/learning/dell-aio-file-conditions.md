@@ -1,0 +1,32 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+# The nine file-system conditions: what must pass before real files go on the Dell
+
+**Serves:** #234 (M-LIVE), D-020 (encryption), D-028 (recovery puts the owner's data first), the daily-driver gate (`lab-kits/LT-X86-DD/`). **Founder-requested.**
+**Install guide:** [dell-aio-install-guide.md](dell-aio-install-guide.md) · **Hardware check:** [HW-CHECKLIST.md](../../lab-kits/LT-X86-07459/HW-CHECKLIST.md)
+
+> **Read this first (UNVERIFIED source).** The founder's own list of "9 file-system conditions" is not in this repo (a search of `docs/`, `lab-kits/`, `test/qemu/` and `research-output/` finds no list of that name, and the founder's private notes are not repo sources). So this page does **not** quote it. It restates nine conditions **from repo sources only**: the pre-registered QEMU criteria for the btrfs, encrypted and snapshot `/data`, the decisions D-020 and D-028, and the daily-driver gate. Zeus: compare it with your list and tell me which of yours is missing or different; I will change this page, not the other way round. Do not read "nine" here as an official count.
+
+> **In plain words.** The Dell's data disk holds your files, so "does it boot" is not enough. Before the first real file lands, nine things must be shown true on *this* machine: the disk is the right kind, it unlocks on its own, your printed key really works, a stolen or moved disk stays locked, an update cannot eat the data, deleted files come back from snapshots, the disk reports healthy, a power cut does not corrupt it, and you can rebuild everything from a backup. Snapshots live on the same disk, so they undo a mistake but are **not** a backup (see `os/rootfs/layers/base/etc/snapper/configs/storage`).
+
+**How to read the table.** "Proven in QEMU" means the repo has a pre-registered pass or fail rule that the CI image workflow runs against a virtual machine with a software TPM; check the current CI result before trusting it. **Nothing here has run on the real Dell.** Each condition is only done when the "on the Dell" check passes and is written in the results file.
+
+| # | Condition | Why it matters | Repo source | On the Dell, show it with |
+|---|---|---|---|---|
+| 1 | `/data` is **btrfs** on the internal disk, and the box says whether it is encrypted | The owner's files live in the `@storage` subvolume; snapshots and checksums need btrfs. A plain, unencrypted disk is allowed only without a TPM (D-020) | `CRITERIA-DATABTRFS.md` (E5, E7), D-020 | `hw-check.sh` line `/data filesystem: btrfs, encrypted (LUKS2)`; the first-boot console line (`RECOVERY KEY` with a TPM, `making it plain btrfs, NOT encrypted` without) |
+| 2 | **TPM unlock works by itself after a restart**, with nobody typing | A home hub must come back after a power cut or an update | `CRITERIA-DATAENC.md` (E2), D-020 | Restart the Dell: the dashboard returns with no passphrase prompt; `hw-check.sh` shows `TPM 2.0: present` |
+| 3 | The **printed data-disk recovery key is real and legible**, in two places | The key is shown once at first boot and never stored; it is the way in when the TPM will not release the key (D-028) | `CRITERIA-DATAENC.md` (E1, E3), D-028 | Check the printout against the photo from first boot, group by group. Only a deliberate recovery test proves it types in correctly (see 4) |
+| 4 | A **moved disk, or a wrong key, stays locked**, and the right recovery key unlocks it | Theft protection must not become owner lock-out | `CRITERIA-DATAENC.md` (E3, E4), D-028 | Test on a spare disk in QEMU or on the R530 lab, not by moving the Dell's real disk: the repo proves it with a second virtual TPM. On the Dell, record "not exercised" and rely on the printed-key check in 3 |
+| 5 | An **update and a rollback keep `/data`**, encrypted and intact | The A/B update system replaces the OS slot, never the data | `CRITERIA-DATAENC.md` (E6), `CRITERIA-ROLLBACK.md` | Put a marker file in `/data/storage`, apply a test update, force a rollback from the rescue console, then read the marker (`hw-check.sh`: `Boot slot` before and after) |
+| 6 | **Snapshots work**: the timeline timer is active and a deleted or changed file can be copied back from a snapshot | The undo button for mistakes in the owner's files | `CRITERIA-SNAPPER.md` (E8), `etc/snapper/configs/storage` | `hw-check.sh` line `Snapshots (snapper)`; then delete a test file and copy it back from `/data/storage/.snapshots/<N>/snapshot/` as root |
+| 7 | **The disk is healthy and the file system counts no errors**; the monthly scrub is on | A failing disk or a silent corruption must show before files depend on it | `CRITERIA-SNAPPER.md` (E8, `btrfs-scrub.timer` monthly), `internal/storage/smart.go` | `hw-check.sh` lines `Disk health` and `btrfs error counters` (run with `HW_CHECK_SUDO=1`); SKIP is not a pass |
+| 8 | **Power pull is safe**: 20 of 20 pulls come back with no keyboard, and no 0-byte key files | A cut in the first minute must not leave empty keys (builder briefing item 9) | `lab-kits/LT-X86-DD` (`powerpull`), `lab-kits/G1/` | `g1-power.py` on the Dell (cord or smart plug), results read by `dd-gate.py` |
+| 9 | **A restore from a backup works inside 60 minutes**, byte for byte | Snapshots share the disk with the files; only a backup survives the disk | `lab-kits/LT-X86-DD` (`restore`, budget 3600 s), `docs/leap/core/BACKUPS.md` | `test/restore-drill/drill.py` on the lab box; keep the emergency kit from the install guide step 9 with you |
+
+## Not conditions, but know them
+- **Factory reset wipes the data disk fast** (`CRITERIA-DATARESET.md`, R1 and R2). Never run it while real files are on the box without a restore tested first.
+- **Data disk missing or failed** puts the box in a reachable recovery mode on the committed slot instead of a dead boot (`CRITERIA-DATAFAIL.md`, TD1 to TD3). It does not delete data.
+- **Secure Boot moves the TPM's measurements.** Settle the Secure Boot route before the box holds real files (`docs/learning/founder/12-clock-secure-boot-tools-and-the-cli.md`). If you change it later, expect the printed recovery key to be needed once.
+- **Snapshots are on the same disk.** They are not a backup (condition 9 is).
+
+## Record
+Copy the table into the results file (`research-output/evidence/lab/founder-hardware/`), mark each row PASS, FAIL or NOT EXERCISED with the evidence line, and keep the owner token, keys and serial numbers out of it. A NOT EXERCISED row is a decision for Zeus, not a pass.
