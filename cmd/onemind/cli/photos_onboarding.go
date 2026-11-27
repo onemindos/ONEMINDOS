@@ -85,6 +85,7 @@ func photosCommands(a *App) []*cobra.Command {
 		},
 	})
 	root.Commands()[len(root.Commands())-1].Flags().IntVar(&rLimit, "limit", 50, "at most this many receipts")
+	root.AddCommand(photosSettingsCommand(a))
 	return []*cobra.Command{root}
 }
 

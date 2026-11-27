@@ -48,7 +48,7 @@ function LivePhotos({ token }: { token: string }) {
   const toast = useToast();
   const navigate = useNavigate();
   const hub = useHub();
-  const canRequest = hub.canRequest !== 'no';
+  const isOwner = hub.canDecide === 'yes'; // the API refuses everyone else (403): offer the switch to an owner only
   const state = usePoll(() => readPhotosSwitch(client), 30_000);
   const [busy, setBusy] = useState(false);
 
@@ -75,7 +75,7 @@ function LivePhotos({ token }: { token: string }) {
             <StatusPill tone={s.enabled ? 'ok' : 'neutral'} label={s.enabled ? 'On' : 'Off'} />{' '}
             {s.operator_off
               ? <span className="om-hint">Switched off in the box's configuration; an operator has to change that.</span>
-              : canRequest && s.can_change && (
+              : isOwner && s.can_change && (
                 <>
                   <button type="button" role="switch" className="om-set-switch" aria-checked={s.owner_switch_on} aria-label={`Photos: ${s.owner_switch_on ? 'on' : 'off'}`}
                     disabled={busy || s.pending_action_id !== null} onClick={() => void set(!s.owner_switch_on)}>
@@ -87,7 +87,7 @@ function LivePhotos({ token }: { token: string }) {
                 </>
               )}
           </p>
-          {!canRequest && <p className="om-hint">Only an owner or an adult can ask to change this.</p>}
+          {!isOwner && <p className="om-hint">Only an owner can change this.</p>}
           <p className="om-hint">Changing it is an owner approval. On the box: <code>onemind photos settings</code>.</p>
         </>
       )}</Load>

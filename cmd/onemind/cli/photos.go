@@ -22,11 +22,12 @@ type photosView struct {
 	PendingActionID *string `json:"pending_action_id"`
 }
 
-// photosCommands registers `onemind photos settings [--on|--off]`: Photos is built in and on by default.
+// photosSettingsCommand is `onemind photos settings [--on|--off]`, a subcommand of the `photos` group in
+// photos_onboarding.go: Photos is built in and on by default.
 // With no flag it shows the switch (GET /v1/settings/photos). --on or --off files app.enable or
 // app.disable through PUT /v1/settings/photos; it waits in Approvals and nothing changes until an
 // owner approves it (here with --yes, or later with `onemind actions approve`). Photos data is kept.
-func photosCommands(a *App) []*cobra.Command {
+func photosSettingsCommand(a *App) *cobra.Command {
 	var on, off, noApprove, yes bool
 	var wait time.Duration
 	settings := &cobra.Command{
@@ -65,9 +66,7 @@ func photosCommands(a *App) []*cobra.Command {
 	settings.Flags().BoolVar(&on, "on", false, "ask to switch Photos on (owners approve)")
 	settings.Flags().BoolVar(&off, "off", false, "ask to switch Photos off; its photos are kept (owners approve)")
 	addSwitchFlags(settings, &noApprove, &yes, &wait)
-	p := &cobra.Command{Use: "photos", Short: "The built-in Photos app: its on/off switch"}
-	p.AddCommand(settings)
-	return []*cobra.Command{p}
+	return settings
 }
 
 func printPhotos(out io.Writer, v photosView) error {

@@ -89,3 +89,37 @@ def test_operator_hard_off_cannot_be_undone_here(photos_settings, clock, tmp_pat
         r = put(c, True)
         assert r.status_code == 409 and r.json()["reason"] == "operator_off"
         assert c.get("/v1/photos/library", headers=OWNER).status_code == 404
+
+
+def test_off_on_off_again_files_a_new_request_each_time(c):
+    first = put(c, False).json()
+    approve(c, first["id"])
+    on = put(c, True).json()
+    approve(c, on["id"])
+    again = put(c, False)
+    assert again.status_code == 202, again.text
+    assert again.json()["id"] not in (first["id"], on["id"]) and again.json()["state"] == "awaiting_approval"
+    approve(c, again.json()["id"])
+    assert c.get("/v1/settings/photos", headers=OWNER).json()["enabled"] is False
+
+
+def test_deny_then_ask_again_files_a_new_request(c):
+    first = put(c, False).json()
+    d = c.post(f"/v1/actions/{first['id']}/deny", headers=OWNER)
+    assert d.status_code == 200, d.text
+    again = put(c, False)
+    assert again.status_code == 202 and again.json()["id"] != first["id"], again.text
+    assert again.json()["state"] == "awaiting_approval"
+
+
+def test_a_double_click_returns_the_open_request(c):
+    first = put(c, False)
+    second = put(c, False)
+    assert first.status_code == 202 and second.status_code == 200
+    assert second.json()["id"] == first.json()["id"]
+
+
+def test_the_opposite_ask_points_at_the_pending_request(c):
+    first = put(c, False).json()
+    r = put(c, True)
+    assert r.status_code == 409 and r.json()["reason"] == "request_pending" and first["id"] in r.json()["message"]

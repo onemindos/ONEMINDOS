@@ -11,6 +11,7 @@ ONEMIND_PHOTOS_ENABLED=0 is the operator's hard off and cannot be undone from th
 
 from __future__ import annotations
 
+import uuid
 from datetime import timedelta
 from typing import Annotated
 
@@ -18,6 +19,7 @@ from fastapi import Depends, FastAPI, Header, Response, Security
 from fastapi.security import HTTPBearer
 from pydantic import BaseModel, ConfigDict
 
+from ..apimodels import Action
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError, error_responses
@@ -58,24 +60,27 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def state() -> dict:
         owner_on = APP_ID not in gw.disabled_apps()
         pending = None
+        pending_type = None
         for a in gw.repo.list({"requested", "awaiting_approval"}):
             if a.type in ("app.enable", "app.disable") and a.params.get("app_id") == APP_ID \
                     and a.state in ("requested", "awaiting_approval"):
-                pending = a.id
+                pending, pending_type = a.id, a.type
                 break
-        return {"enabled": settings.enabled and owner_on, "owner_switch_on": owner_on,
-                "operator_off": not settings.enabled, "can_change": settings.enabled, "pending_action_id": pending}
+        return {"enabled": settings.active and owner_on, "owner_switch_on": owner_on,
+                "operator_off": not settings.active, "can_change": settings.active, "pending_action_id": pending,
+                "pending_type": pending_type}
 
     @app.get("/v1/settings/photos", tags=["photos"], operation_id="photos.switch.get",
              dependencies=READ,
              response_model=PhotosSwitch, responses=error_responses(401))
     def get_switch(_: Principal = Depends(principal)):
         """Is Photos on? It is on unless the owner switched it off or the operator set ONEMIND_PHOTOS_ENABLED=0."""
-        return state()
+        return {k: v for k, v in state().items() if k != "pending_type"}
 
     @app.put("/v1/settings/photos", tags=["photos"], operation_id="photos.switch.set", status_code=202,
-             dependencies=WRITE,
-             responses=error_responses(401, 403, 409, 422))
+             dependencies=WRITE, response_model=Action,
+             responses={**error_responses(401, 403, 409, 422),
+                        200: {"model": Action, "description": "The same request is already open: this is that request; nothing new was filed"}})
     def put_switch(body: PhotosSwitchBody, response: Response, idempotency_key: IdemKey = None,
                    p: Principal = Depends(principal)):
         """Ask to switch Photos on or off (owner only). Files app.enable or app.disable; it waits in
@@ -88,16 +93,24 @@ def register(app: FastAPI, gw: Gateway) -> None:
         if cur["operator_off"]:
             raise ApiError(409, "policy_refused", "Photos is switched off in the box's configuration "
                            "(ONEMIND_PHOTOS_ENABLED=0); an operator has to change that", reason="operator_off")
+        kind = "app.enable" if body.enabled else "app.disable"
+        if cur["pending_action_id"] is not None:
+            # Only an OPEN request is deduplicated: a double click returns it; a finished or denied one never blocks a new ask.
+            if cur["pending_type"] == kind:
+                response.status_code = 200
+                return gw.actions.get(cur["pending_action_id"])
+            raise ApiError(409, "stale_precondition",
+                           f"a request to switch Photos {'off' if body.enabled else 'on'} is already waiting in Approvals "
+                           f"({cur['pending_action_id']}); decide it first",
+                           reason="request_pending")
         if body.enabled == cur["owner_switch_on"]:
             raise ApiError(409, "stale_precondition",
                            f"Photos is already {'on' if body.enabled else 'off'}",
                            reason="already_enabled" if body.enabled else "already_disabled")
-        kind = "app.enable" if body.enabled else "app.disable"
-        window = 600  # one open request per ten minutes: a double click files it once
+        window = 600  # an open request lives ten minutes
         now = gw.clock()
         action, created = gw.actions.request_feature(
-            p, kind, {"app_id": APP_ID}, idempotency_key=(f"photos-switch-{idempotency_key}" if idempotency_key
-                             else f"photos-switch-{kind}-{int(now.timestamp()) // window}"),
+            p, kind, {"app_id": APP_ID}, idempotency_key=f"photos-switch-{idempotency_key or uuid.uuid4().hex}",
             expires_at=now + timedelta(seconds=window),
             reason=f"owner asked to switch Photos {'on' if body.enabled else 'off'}")
         response.status_code = 202 if created else 200

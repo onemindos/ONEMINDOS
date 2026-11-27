@@ -40,6 +40,8 @@ it('shows Photos as on by default and asks to switch it off with a PUT; nothing 
   expect(sw).toHaveAttribute('aria-checked', 'true');
   await userEvent.setup().click(sw);
   await vi.waitFor(() => expect(calls.filter((c) => c.method === 'PUT')).toEqual([{ method: 'PUT', path: '/v1/settings/photos', body: { enabled: false } }]));
+  // the click takes the person to Approvals, where the request waits
+  expect(await screen.findByRole('heading', { name: /approvals/i })).toBeInTheDocument();
 });
 
 it('asks to switch it back on from the off state', async () => {
@@ -59,4 +61,11 @@ it('shows no switch when an operator turned Photos off in the box configuration'
   mount({ enabled: false, owner_switch_on: true, operator_off: true, can_change: false, pending_action_id: null });
   expect(await screen.findByText(/Switched off in the box's configuration/)).toBeInTheDocument();
   expect(screen.queryByRole('switch', { name: /^Photos:/ })).toBeNull();
+});
+
+it('offers no switch to an adult, who is always refused by the API', async () => {
+  const calls = mount(ON, 'adult-demo');
+  expect(await screen.findByText('Only an owner can change this.')).toBeInTheDocument();
+  expect(screen.queryByRole('switch', { name: /^Photos:/ })).toBeNull();
+  expect(calls.filter((c) => c.method === 'PUT')).toEqual([]);
 });

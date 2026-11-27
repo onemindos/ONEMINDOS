@@ -37560,10 +37560,22 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "The same request is already open: this is that request; nothing new was filed"
+          },
           "202": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
               }
             },
             "description": "Successful Response"
