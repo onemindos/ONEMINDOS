@@ -17,6 +17,10 @@ export type AuditRecord = components["schemas"]["AuditRecord"];
 export type AuditVerify = components["schemas"]["AuditVerify"];
 /** This box's interfaces, gateway, DNS and listening ports, read only (`/v1/network`, owner only). */
 export type NetworkView = components["schemas"]["NetworkView"];
+/** What to change on a wired interface (`PUT /v1/network/{iface}`, P-08): a fixed IPv4 setup or back to DHCP. */
+export type NetworkConfigBody = components["schemas"]["NetworkConfigBody"];
+/** The answer of `POST /v1/network/{iface}/confirm`. */
+export type NetworkConfirm = components["schemas"]["NetworkConfirm"];
 /** The box's own screen as the full-screen dashboard (`/v1/instance/kiosk`, owner only). */
 export type KioskState = components["schemas"]["KioskState"];
 
@@ -249,6 +253,12 @@ export class OneMind {
     confirmAllow: (id: string) => this.call<{ id: string; state: string }>({ method: "POST", path: `/v1/network/firewall/allow/${encodeURIComponent(id)}/confirm` }),
     /** network.firewall.allow.remove: take a rule away, pending or confirmed (owner only). */
     removeAllow: (id: string) => this.call<{ id: string; removed: boolean }>({ method: "DELETE", path: `/v1/network/firewall/allow/${encodeURIComponent(id)}` }),
+    /** Ask for a fixed address or DHCP on a cable interface. Files an action an owner approves with a passkey; nothing changes before. */
+    configure: (iface: string, body: NetworkConfigBody) =>
+      this.call<Action>({ method: "PUT", path: `/v1/network/${encodeURIComponent(iface)}`, body, retry: true }),
+    /** Keep the change that waits for confirmation on this interface; call it from the box's new address. */
+    confirm: (iface: string) =>
+      this.call<NetworkConfirm>({ method: "POST", path: `/v1/network/${encodeURIComponent(iface)}/confirm` }),
   };
 
   // Tips are served by the hub. Do not follow a redirect out to a content host.

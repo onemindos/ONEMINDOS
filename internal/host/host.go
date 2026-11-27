@@ -290,6 +290,7 @@ type Service struct {
 	SMB     SMBManager     // file sharing (smb.go); nil: not on this box
 	Flatpak FlatpakManager // Flathub desktop apps (flatpak.go); nil: not on this box
 	SSH     SSHManager     // the owner's SSH keys and switch (ssh.go); nil: not on this box
+	Net     NetManager     // wired network changes with rollback (netset.go); nil: not on this box
 	Units   Units          // service-restart; nil: refused
 	Zones   Zones          // set-timezone; nil: refused
 	Names   Hostnamer      // set-hostname; nil: refused

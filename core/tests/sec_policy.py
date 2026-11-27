@@ -958,6 +958,13 @@ POLICY |= {
     ("DELETE", "/v1/network/firewall/allow/{rule_id}"): Row(
         grid(409, 403, 403, 403, 403), w.p_static("/v1/network/firewall/allow/no-such-rule"),
         "core/onemind_core/routers/network.py: take an allow rule away; owner only, audited, no approval (removing exposure)"),
+    # P-08 (netchange.py): only an owner asks for a wired address change or confirms one; agents and scoped tokens
+    # never (HUMAN_ONLY in surfaces/parity.py). No host socket in this world, so the owner gets 409 host_unavailable
+    # and nothing is filed; with a host the request waits for the owner's passkey (tests/test_network_change.py).
+    ("PUT", "/v1/network/{iface}"): Row(grid(409, 403, 403, 403, 403), w.p_missing("/v1/network/eth0", json={"mode": "dhcp"}),
+                                        "core/onemind_core/routers/network.py: an owner files a network change for approval; nobody else"),
+    ("POST", "/v1/network/{iface}/confirm"): Row(grid(409, 403, 403, 403, 403), w.p_missing("/v1/network/eth0/confirm"),
+                                                 "core/onemind_core/routers/network.py: an owner keeps a pending change; nothing is pending here"),
 }
 
 # ---- bring your own domain (NET-DOM-01, #238: core/onemind_core/routers/domains.py) -----------------------------

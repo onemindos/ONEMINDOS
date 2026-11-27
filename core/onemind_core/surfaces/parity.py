@@ -382,6 +382,8 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/network/firewall/allow": WRITE,
     "POST /v1/network/firewall/allow/{rule_id}/confirm": WRITE,
     "DELETE /v1/network/firewall/allow/{rule_id}": WRITE,
+    "PUT /v1/network/{iface}": WRITE,
+    "POST /v1/network/{iface}/confirm": WRITE,
     # ---- data commons (#615): the commons is itself the grant-checked door; grants are the owner's oversight
     "GET /v1/data/classes": DOOR,
     "GET /v1/data/classes/{data_class}": DOOR,

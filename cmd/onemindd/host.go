@@ -21,6 +21,7 @@ import (
 	"github.com/onemindos/onemindos/internal/firewall"
 	"github.com/onemindos/onemindos/internal/flatpak"
 	"github.com/onemindos/onemindos/internal/host"
+	"github.com/onemindos/onemindos/internal/netset"
 	"github.com/onemindos/onemindos/internal/netview"
 	"github.com/onemindos/onemindos/internal/ownerssh"
 	"github.com/onemindos/onemindos/internal/smb"
@@ -75,7 +76,8 @@ func runHost(args []string) int {
 	log := newLogger()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	units := &svcregistry.Reader{Version: version.Version} // service cards, logs and approved restarts (#623, #636)
+	nm := &netset.Manager{Run: netset.ExecRunner{}, BootID: host.BootID(), Log: log} // wired address changes with rollback (P-08)
+	units := &svcregistry.Reader{Version: version.Version}                           // service cards, logs and approved restarts (#623, #636)
 	svc := &host.Service{Power: host.Systemd{}, OS: &host.UpdateEngine{ConfigPath: *conf, Log: log},
 		Roll:   &host.SlotRollback{ConfigPath: *conf},
 		BootID: host.BootID(), Delay: *delay, Log: log,
@@ -87,7 +89,8 @@ func runHost(args []string) int {
 		Keymap:  &host.KeymapStore{Units: units}, // P-11: /data/onemind/console/keyboard, the console and kiosk units
 		SMB:     &smb.Manager{P: smb.DefaultPaths(), Run: smb.ExecRunner{}},
 		SSH:     &ownerssh.Manager{Run: ownerssh.ExecRunner{}},
-		Flatpak: flatpak.NewDefault()}
+		Flatpak: flatpak.NewDefault(),
+		Net:     nm}
 	if st, err := host.OpenStore(*journal); err != nil {
 		log.Error("host journal unavailable: status only, every action refused", "dir", *journal, "err", err)
 	} else {
@@ -98,6 +101,8 @@ func runHost(args []string) int {
 		log.Error("host journal unreadable: status only, every action refused", "err", err)
 		svc.Store = nil
 	}
+	nm.Recover(ctx)                     // a change that was waiting for confirmation when the box went down
+	go nm.Watch(ctx, netset.WatchEvery) // and later: the way back never waits for somebody to open the Network screen
 	uid := -1
 	if u, err := user.Lookup(*gwUser); err == nil {
 		uid, _ = strconv.Atoi(u.Uid)

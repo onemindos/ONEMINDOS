@@ -38,6 +38,7 @@ const Schema = "onemind.host/v1"
 //	GET  /v1/keyboard          the keyboard layout now and the layouts the image offers (read-only; 404 when Keymap is nil)
 //	GET  /v1/firewall          the live nftables ruleset in a structured form (internal/firewall; 404 when Firewall is nil)
 //	POST /v1/firewall/allow, POST .../allow/{id}/confirm, DELETE .../allow/{id}   owner allow rules with automatic revert (firewall_allow.go)
+//	GET  /v1/network/changes, PUT /v1/network/{iface}, POST /v1/network/{iface}/confirm   wired address change with automatic rollback (netset.go)
 //	GET  /v1/services          service cards: the image's registry joined with systemd (internal/svcregistry; 404 when Services is nil)
 //	GET  /v1/services/{unit}/logs?lines=200&follow=1   a registry unit's journal as text lines (404 when ServiceLogs is nil)
 type Server struct {
@@ -299,6 +300,7 @@ func (s *Server) Handler() http.Handler {
 	s.sshRoutes(mux)
 	s.firewallAllowRoutes(mux)
 	s.flatpakRoutes(mux)
+	s.netRoutes(mux)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !s.peerAllowed(r) {
 			apiError(w, http.StatusForbidden, "permission_denied", "peer", "this socket serves root and the gateway only")
