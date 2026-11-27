@@ -220,10 +220,31 @@ class FirstSetupDone(unittest.TestCase):
 
 
 class DataMountedWithoutDelayedAllocation(unittest.TestCase):
-    """Every ext4 board mounts /data with nodelalloc: with ext4's delayed allocation a power cut leaves files whose
-    metadata reached the disk but whose data did not (0-byte certificates, torn image binaries; VM 501 bug 1).
-    x86's /data is btrfs (#975; type auto, ext4 on older installs), which refuses the ext4-only option."""
-    FSTABS = ("os/boards/rpi5/rootfs/etc/fstab", "os/boards/jetson-orin/rootfs/etc/onemind/jetson-fstab")
+    """/data never uses delayed allocation: with it a power cut leaves files whose metadata reached the disk but whose
+    data did not (0-byte certificates, torn image binaries; VM 501 bug 1). The ext4-only boards say nodelalloc in their
+    fstab. The x86 and cloud /data line is "auto" (ext4 before #152, btrfs since): an option the filesystem does not
+    know makes the mount fail, so data-durable sets nodelalloc (ext4) or flushoncommit (btrfs) once the type is known."""
+    EXT4_FSTABS = ("os/boards/rpi5/rootfs/etc/fstab", "os/boards/jetson-orin/rootfs/etc/onemind/jetson-fstab")
+    AUTO_FSTAB = "os/rootfs/layers/base/etc/fstab"
+    SCRIPT = os.path.join(ROOT, "os", "rootfs", "layers", "base", "usr", "lib", "onemind", "data-durable")
+    DROPIN = os.path.join(ROOT, "os", "rootfs", "layers", "base", "usr", "lib", "systemd", "system",
+                          "onemind-data-layout.service.d", "20-durable.conf")
+
+    @staticmethod
+    def data_line(rel):
+        lines = [l.split() for l in open(os.path.join(ROOT, rel)) if l.strip() and not l.startswith("#")]
+        data = [f for f in lines if len(f) >= 4 and f[1] == "/data"]
+        return data
+
+    def test_ext4_boards_have_nodelalloc_in_fstab(self):
+        for rel in self.EXT4_FSTABS:
+            data = self.data_line(rel)
+            self.assertEqual(len(data), 1, rel)
+            self.assertEqual(data[0][2], "ext4", rel)
+            opts = data[0][3].split(",")
+            self.assertIn("nodelalloc", opts, rel)
+            self.assertNotIn("delalloc", opts, rel)
+            self.assertFalse([o for o in opts if o.startswith("data=") and o != "data=ordered"], rel)
 
     def test_the_btrfs_board_has_no_ext4_only_option(self):
         lines = [l.split() for l in open(os.path.join(ROOT, "os/rootfs/layers/base/etc/fstab")) if l.strip() and not l.startswith("#")]
@@ -232,16 +253,59 @@ class DataMountedWithoutDelayedAllocation(unittest.TestCase):
         self.assertEqual(data[0][2], "auto")
         self.assertNotIn("nodelalloc", data[0][3].split(","))
 
-    def test_every_data_mount_has_nodelalloc(self):
-        for rel in self.FSTABS:
-            lines = [l.split() for l in open(os.path.join(ROOT, rel)) if l.strip() and not l.startswith("#")]
-            data = [f for f in lines if len(f) >= 4 and f[1] == "/data"]
-            self.assertEqual(len(data), 1, rel)
-            self.assertEqual(data[0][2], "ext4", rel)
-            opts = data[0][3].split(",")
-            self.assertIn("nodelalloc", opts, rel)
-            self.assertNotIn("delalloc", opts, rel)
-            self.assertFalse([o for o in opts if o.startswith("data=") and o != "data=ordered"], rel)
+    def test_auto_line_carries_no_filesystem_specific_option(self):
+        data = self.data_line(self.AUTO_FSTAB)
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0][2], "auto")
+        opts = data[0][3].split(",")
+        # btrfs refuses nodelalloc and ext4 refuses flushoncommit: either would leave /data unmounted on the other
+        for o in ("nodelalloc", "delalloc", "flushoncommit", "noflushoncommit"):
+            self.assertNotIn(o, opts)
+        self.assertFalse([o for o in opts if o.startswith("data=")])
+
+    def test_data_layout_runs_it_before_the_folders_and_never_fails_the_boot(self):
+        text = open(self.DROPIN).read()
+        self.assertIn("ExecStartPre=-/usr/lib/onemind/data-durable /data", text)
+        self.assertTrue(os.access(self.SCRIPT, os.X_OK))
+
+    def run_script(self, fstype, opts, mount_rc=0):
+        """data-durable with fake findmnt and mount on PATH; returns (exit code, output, mount's arguments or None)."""
+        import subprocess
+        with tempfile.TemporaryDirectory() as d:
+            log = os.path.join(d, "mount.args")
+            with open(os.path.join(d, "findmnt"), "w") as f:
+                f.write("#!/bin/sh\ncase \"$*\" in *FSTYPE*) printf '%s\\n' \"$FAKE_FSTYPE\" ;; *OPTIONS*) printf '%s\\n' "
+                        "\"$FAKE_OPTS\" ;; esac\n[ -n \"$FAKE_FSTYPE\" ]\n")
+            with open(os.path.join(d, "mount"), "w") as f:
+                f.write(f"#!/bin/sh\necho \"$*\" > {log}\nexit {mount_rc}\n")
+            for n in ("findmnt", "mount"):
+                os.chmod(os.path.join(d, n), 0o755)
+            env = dict(os.environ, PATH=d + os.pathsep + "/usr/bin:/bin", FAKE_FSTYPE=fstype, FAKE_OPTS=opts)
+            r = subprocess.run(["/bin/sh", self.SCRIPT, "/data"], env=env, capture_output=True, text=True, check=False)
+            args = None
+            if os.path.exists(log):
+                with open(log) as f:
+                    args = f.read().strip()
+            return r.returncode, r.stdout + r.stderr, args
+
+    def test_ext4_is_remounted_with_nodelalloc(self):
+        rc, out, args = self.run_script("ext4", "rw,noatime")
+        self.assertEqual((rc, args), (0, "-o remount,nodelalloc /data"), out)
+
+    def test_btrfs_is_remounted_with_flushoncommit(self):
+        rc, out, args = self.run_script("btrfs", "rw,noatime,ssd,space_cache=v2,subvolid=256,subvol=/@")
+        self.assertEqual((rc, args), (0, "-o remount,flushoncommit /data"), out)
+
+    def test_nothing_to_do_when_the_option_is_there_or_data_is_not_mounted(self):
+        self.assertIsNone(self.run_script("ext4", "rw,noatime,nodelalloc")[2])
+        self.assertIsNone(self.run_script("btrfs", "rw,flushoncommit,subvol=/@")[2])
+        self.assertIsNone(self.run_script("", "")[2])
+        self.assertIsNone(self.run_script("xfs", "rw")[2])
+
+    def test_a_failed_remount_only_logs(self):
+        rc, out, args = self.run_script("btrfs", "rw", mount_rc=32)
+        self.assertEqual(rc, 0)
+        self.assertIn("could not remount", out)
 
 
 class FirstbootUsesIt(unittest.TestCase):

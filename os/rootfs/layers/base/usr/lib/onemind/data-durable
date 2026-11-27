@@ -1,0 +1,31 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# Remount /data so a power cut never leaves files that are named on the disk but whose data is not
+# (VM 501 bug 1, CRITERIA-FIRSTBOOT.md F26: 0-byte k3s certificates, torn binaries of freshly unpacked images).
+# Run by onemind-data-layout.service (drop-in 20-durable.conf), after /data is mounted and before the binds.
+#   ext4:  nodelalloc. With the default data=ordered, a file's data then reaches the disk before the metadata that
+#          names it, and any program's fsync (containerd's, sqlite's) carries the files written before it.
+#   btrfs: flushoncommit. Every transaction commit then writes the data dirtied before it, so what a commit puts on
+#          the disk is a consistent view: a file is either there with its data or not there (btrfs(5), FLUSHONCOMMIT).
+# The /etc/fstab line is "auto" (ext4 on boxes from before #152, btrfs on new ones) and either filesystem refuses the
+# other's option, which would leave /data unmounted, so the option is set here once the type is known.
+# Anything else (no /data mount, another filesystem) is left alone. Never fails the boot: it only logs.
+# Usage: data-durable [mountpoint]   (default /data)
+mnt=${1:-/data}
+fstype=$(findmnt -n -o FSTYPE --mountpoint "$mnt" 2>/dev/null | head -n 1)
+opts=$(findmnt -n -o OPTIONS --mountpoint "$mnt" 2>/dev/null | head -n 1)
+case "$fstype" in
+  ext4)  want=nodelalloc ;;
+  btrfs) want=flushoncommit ;;
+  "")    echo "data-durable: $mnt is not mounted; nothing to do"; exit 0 ;;
+  *)     echo "data-durable: $mnt is $fstype; left as it is"; exit 0 ;;
+esac
+case ",$opts," in
+  *",$want,"*) echo "data-durable: $mnt ($fstype) already has $want"; exit 0 ;;
+esac
+if mount -o "remount,$want" "$mnt"; then
+  echo "data-durable: $mnt ($fstype) remounted with $want"
+else
+  echo "data-durable: could not remount $mnt ($fstype) with $want; a power cut can leave new files empty" >&2
+fi
+exit 0

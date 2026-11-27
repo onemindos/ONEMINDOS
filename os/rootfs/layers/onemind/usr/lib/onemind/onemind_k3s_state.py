@@ -13,8 +13,9 @@ k3s never started again, and on a committed slot the health gate only alerts. St
                 that the first setup is on disk (k3s-settled marker).
 
 On the ext4 boards (rpi5, Jetson) /data is also mounted with nodelalloc (etc/fstab), so a file's data is on
-the disk before the metadata that names it; x86's /data is btrfs (or ext4 from before it, type auto), where the
-syncs above are the protection. Repairing state that is already damaged is a separate step (recover, rescue console).
+the disk before the metadata that names it; x86's /data line is "auto" (btrfs, or ext4 from before it), and
+data-durable remounts it with nodelalloc (ext4) or flushoncommit (btrfs) once the type is known. Repairing state
+that is already damaged is a separate step (recover, rescue console).
 
   onemind-k3s-state settle
 """

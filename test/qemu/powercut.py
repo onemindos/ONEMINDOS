@@ -142,13 +142,20 @@ def main():
         tok_in_file = "TOKSHA=1" in out
         tok_200 = bool(token) and owner_ok(vm, token)
         recovered = RECOVERY.search(vm.since(0))
-        _, out = vm.run("echo DATAOPTS=$(findmnt -no OPTIONS /data)")
-        data_opts = (re.findall(r"^DATAOPTS=(\S*)", out, re.M) or ["?"])[-1]      # recorded, not judged
+        # Recorded, not judged: the filesystem and options of /data (nodelalloc on ext4, flushoncommit on btrfs, set by
+        # data-durable) and whether onemind-k3s-settle wrote its marker on this boot (it waits for the OS's own pods).
+        _, out = vm.run("for i in $(seq 1 30); do test -s /data/onemind/firstboot/k3s-settled && break; sleep 2; done; "
+                        "echo DATAFS=$(findmnt -no FSTYPE --mountpoint /data); echo DATAOPTS=$(findmnt -no OPTIONS --mountpoint /data); "
+                        "echo SETTLED=$(test -s /data/onemind/firstboot/k3s-settled && echo yes || echo no)", 120)
+        data_fs = (re.findall(r"^DATAFS=(\S*)", out, re.M) or ["?"])[-1]
+        data_opts = (re.findall(r"^DATAOPTS=(\S*)", out, re.M) or ["?"])[-1]
+        settled = (re.findall(r"^SETTLED=(\S*)", out, re.M) or ["?"])[-1]
         record("F26", len(toks) == 1 and bool(node1) and node1 == node2 and new_tok == 0 and g == ("committed-boot", "A", "1")
                and healthy and not bad and checked >= 8 and tok_in_file and tok_200,
                f"tokens_first_boot={len(toks)} node_id={node1}/{node2} new_tokens={new_tok} gate={g} k3s_healthy={healthy} "
                f"empty_or_missing={bad} files_checked={checked} token_hash_in_file={tok_in_file} token_200={tok_200} "
-               f"recovery_ran={recovered.group(0)[:90] if recovered else None} data_opts={data_opts} t={time.time() - t0:.0f}s")
+               f"recovery_ran={recovered.group(0)[:90] if recovered else None} data_fs={data_fs} data_opts={data_opts} "
+               f"k3s_settled={settled} t={time.time() - t0:.0f}s")
         rc = 0
     except (TimeoutError, RuntimeError) as e:
         record("HARNESS", False, f"aborted: {e}")
