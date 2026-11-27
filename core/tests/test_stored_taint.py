@@ -241,14 +241,17 @@ def test_only_the_fabric_node_join_request_skips_a_nodes_exposure(tclient, clock
 
     actions = tclient.app.state.gateway.actions
     assert actions.taint.get("node:n1", "node").permanent  # the lookup the request paths make
-    for t in ("node.join", "test.node_other"):
+    # node.drain: a type with a known risk class (write) that nothing else files here. Since the gateway
+    # permission stack (gw-perm-8, decide()) a type with no risk class is refused before it is filed, so a
+    # made-up type could no longer show the exposure.
+    for t in ("node.join", "node.drain"):
         if t not in actions.handlers:
             actions.register_handler(t, lambda *a, **k: None)
     req, exp = {"id": "node:n1", "kind": "node"}, clock() + timedelta(minutes=10)
     joined = actions.file("node.join", {"join_request_id": "jr_t", "node_id": "n1"}, req,
                           expires_at=exp, idempotency_key="fabric:jr_t")
     assert plan_taint(joined.plan) is None
-    other = actions.file("test.node_other", {"x": 1}, req, expires_at=exp, idempotency_key="node:other")
+    other = actions.file("node.drain", {"node_id": "n1"}, req, expires_at=exp, idempotency_key="node:other")
     assert plan_taint(other.plan)["sources"] == ["input:agent"]
     assert other.state == "awaiting_approval"
 
