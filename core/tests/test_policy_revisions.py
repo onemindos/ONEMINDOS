@@ -249,3 +249,24 @@ def test_revoke_is_one_tap_without_a_passkey(client, clock):
     r = client.post("/v1/approval-policies/revoke-all", headers=OWNER, json={"principal": "agent:hermes"})
     assert r.json()["revoked"] == [b]
     assert client.get("/v1/approval-policies", headers=OWNER).json() == []
+
+
+def test_rule_routes_document_the_fields_the_rules_screen_reads(client, clock):
+    """Settings > Permissions > Rules reads rules through the generated SDK type: the list, a revoke
+    and an edit are documented as ApprovalPolicy, and every field to_json sends is in that model."""
+    from onemind_core.automation.policies import ApprovalPolicy
+
+    pol = make(client, clock).json()
+    listed = client.get("/v1/approval-policies", headers=OWNER).json()
+    assert set(listed[0]) == set(ApprovalPolicy.model_fields), set(listed[0]) ^ set(ApprovalPolicy.model_fields)
+    ApprovalPolicy.model_validate(listed[0])
+    spec = client.get("/openapi.json").json()
+    ref = "#/components/schemas/ApprovalPolicy"
+    ok = lambda op, code="200": spec["paths"][op[0]][op[1]]["responses"][code]["content"]["application/json"]["schema"]  # noqa: E731
+    assert ok(("/v1/approval-policies", "get"))["items"]["$ref"] == ref
+    for path in ("/v1/approval-policies/{policy_id}/revoke", "/v1/approval-policies/{policy_id}/reconfirm",
+                 "/v1/approval-policies/{policy_id}/keep"):
+        assert ok((path, "post"))["$ref"] == ref
+    assert ok(("/v1/approval-policies/{policy_id}", "patch"))["$ref"] == ref
+    revoked = client.post(f"/v1/approval-policies/{pol['id']}/revoke", headers=OWNER).json()
+    assert ApprovalPolicy.model_validate(revoked).state == "revoked"

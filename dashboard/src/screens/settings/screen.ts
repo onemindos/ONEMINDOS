@@ -14,6 +14,9 @@ const screen: ScreenDef = {
   extra: [
     { path: '/settings/plugin-keys', load: () => import('../../pages/PluginKeys').then((m) => ({ default: m.PluginKeys })) },
     { path: '/settings/:section' },
+    // A tab and an item inside a section (Settings > Permissions > Rules > one rule): notification links open them.
+    { path: '/settings/:section/:tab' },
+    { path: '/settings/:section/:tab/:item' },
   ],
 };
 export default screen;

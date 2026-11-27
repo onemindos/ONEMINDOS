@@ -115,6 +115,8 @@ export interface NotificationItem {
   alert_id: string | null;
   created_at: string;
   read_at: string | null;
+  /** Buttons the gateway attached (an approval.auto notice carries Revoke rule, never Approve). */
+  actions?: components['schemas']['NotificationAction'][];
 }
 
 export interface ChannelInfo {

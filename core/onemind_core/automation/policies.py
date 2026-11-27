@@ -126,6 +126,45 @@ class PolicyBody(JsonBody):
     accept_injection_risk: bool = Field(default=False, description="needs a proven key (L2, design PR 11): refused for now")
 
 
+class PolicyLimitsView(BaseModel):
+    per_day: int
+    max_uses: int | None = None
+    bytes_per_day: int | None = None
+    items_per_day: int | None = None
+
+
+class ApprovalPolicy(BaseModel):
+    """A standing approval as the routes return it (PolicyService.to_json): the Rules screen and
+    `onemind permissions rules` read these fields. Response documentation only; to_json stays the source."""
+
+    id: str
+    revision: int = Field(description="every edit, revoke or re-confirm is a new revision")
+    name: str | None = None
+    allow: Allow
+    limits: PolicyLimitsView
+    window_id: str | None = None
+    principals: dict = Field(default_factory=dict, description="requested_by entry -> the permanent principal id it binds")
+    expires_at: str | None = Field(default=None, description="null when forever")
+    forever: bool
+    notify_after: str = Field(description="each, digest or silent")
+    lapse_unused_days: int | None = None
+    target: dict | None = None
+    accept_injection_risk: bool = False
+    created_from: str | None = Field(default=None, description="the action it was remembered from")
+    created_by: dict
+    created_at: str
+    state: str = Field(description="active, suspended, paused, expired, revoked or deleted")
+    suspended_reason: str | None = None
+    revoked_at: str | None = None
+    revoked_by: dict | None = None
+    uses: int = 0
+    last_used_at: str | None = None
+    uses_24h: int = 0
+    review_due: bool = Field(default=False, description="a forever rule whose 90-day review is due (Keep or revoke)")
+    modes: dict[str, str] = Field(default_factory=dict, description="each named principal's permission mode now; "
+                                  "on locked or ask a rule never fires")
+
+
 class PolicyPatch(JsonBody):
     """A new revision. Fields left out keep their value. Narrowing applies at once; widening needs a
     fresh passkey (the route asks); either way the revision goes up."""

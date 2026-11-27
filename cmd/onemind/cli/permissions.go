@@ -3,10 +3,14 @@
 package cli
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
+	"strconv"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -18,7 +22,7 @@ import (
 // signed-in person's own, checked by the gateway (owner only where it loosens anything).
 func permissionsCommands(a *App) []*cobra.Command {
 	root := &cobra.Command{Use: "permissions", Short: "Deny rules, standing approvals and modes: what may happen without asking"}
-	root.AddCommand(permissionsDenyCommands(a), permissionsRulesCommands(a), permissionsModeCommands(a))
+	root.AddCommand(permissionsDenyCommands(a), permissionsRulesCommands(a), permissionsModeCommands(a), permissionsLogCommand(a))
 	return []*cobra.Command{root}
 }
 
@@ -220,7 +224,69 @@ func permissionsRulesCommands(a *App) *cobra.Command {
 	narrow.Flags().IntVar(&perDay, "per-day", 0, "a lower number of uses per 24 hours")
 	narrow.Flags().IntVar(&maxUses, "max-uses", 0, "end the rule after this many uses in total")
 	narrow.Flags().StringVar(&expires, "expires", "", "an earlier end, RFC 3339 (e.g. 2026-12-31T00:00:00Z)")
-	root.AddCommand(list,
+	show := &cobra.Command{Use: "show <rule-id>", Short: "One rule: its limits, uses, notices and history (revisions, suspensions, revoke)", Args: cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			c, _, err := a.client()
+			if err != nil {
+				return err
+			}
+			var all []map[string]any
+			if err := c.Do(bg(), http.MethodGet, path, nil, &all); err != nil {
+				return err
+			}
+			var rule map[string]any
+			for _, p := range all {
+				if p["id"] == args[0] {
+					rule = p
+				}
+			}
+			if rule == nil {
+				return exitWith(ExitNotFound, "not_found", "no standing approval "+args[0])
+			}
+			hist, err := ruleHistory(c, rule)
+			if err != nil {
+				return err
+			}
+			if a.G.JSON {
+				return printJSON(a.Stdout, map[string]any{"rule": rule, "history": hist})
+			}
+			line(rule)
+			limits, _ := rule["limits"].(map[string]any)
+			fmt.Fprintf(a.Stdout, "  per day %v, max uses %v, uses %v (%v in 24 h), notices %v, lapse if unused %v days\n",
+				limits["per_day"], orDash(limits["max_uses"]), rule["uses"], rule["uses_24h"], rule["notify_after"], orDash(rule["lapse_unused_days"]))
+			for _, h := range hist {
+				d, _ := h["data"].(map[string]any)
+				fmt.Fprintf(a.Stdout, "  %s  %s", sanitize(fmt.Sprint(h["ts"])), sanitize(fmt.Sprint(h["event"])))
+				if rev, ok := d["revision"]; ok {
+					fmt.Fprintf(a.Stdout, " rev %v", rev)
+				}
+				if why, ok := d["reason"].(string); ok {
+					fmt.Fprintf(a.Stdout, " (%s)", sanitize(why))
+				}
+				fmt.Fprintln(a.Stdout)
+			}
+			return nil
+		}}
+	var only string
+	revokeAll := &cobra.Command{Use: "revoke-all", Short: "End every rule, or every rule naming one principal (--principal); no passkey needed", Args: cobra.NoArgs,
+		RunE: func(*cobra.Command, []string) error {
+			body := map[string]any{"principal": nil}
+			if only != "" {
+				body["principal"] = only
+			}
+			out, err := call(http.MethodPost, path+"/revoke-all", body)
+			if err != nil {
+				return err
+			}
+			if a.G.JSON {
+				return printJSON(a.Stdout, out)
+			}
+			ids, _ := out["revoked"].([]any)
+			fmt.Fprintf(a.Stdout, "Revoked %d rule(s). %s\n", len(ids), sanitize(joinAny(out["revoked"])))
+			return nil
+		}}
+	revokeAll.Flags().StringVar(&only, "principal", "", "only rules naming this principal, e.g. agent:notes-helper")
+	root.AddCommand(list, show, revokeAll,
 		one("revoke", "End a rule now (one step; no passkey needed)", "revoke", "revoking"),
 		one("reconfirm", "Re-confirm a suspended rule after its agent changed (owner; passkey)", "reconfirm", "re-confirming a rule"),
 		one("keep", "Keep a forever rule at its 90-day review", "keep", "keeping a rule"),
@@ -325,4 +391,117 @@ func permissionsModeCommands(a *App) *cobra.Command {
 	set.Flags().StringVar(&reason, "reason", "", "why, for the audit record")
 	root.AddCommand(get, list, set)
 	return root
+}
+
+func orDash(v any) any {
+	if v == nil {
+		return "-"
+	}
+	return v
+}
+
+// ruleHistory reads a rule's audit lines (created, revisions, suspensions, re-confirm, revoke) since it was
+// made, at most five pages of 500.
+func ruleHistory(c *onemind.Client, rule map[string]any) ([]map[string]any, error) {
+	since := fmt.Sprint(rule["created_at"])
+	if t, err := time.Parse(time.RFC3339, since); err == nil {
+		since = t.Add(-time.Second).UTC().Format(time.RFC3339)
+	}
+	out := []map[string]any{}
+	err := auditPages(c, url.Values{"event": {"automation.policy.created,approval.policy.*"}, "since": {since}}, 5, func(r map[string]any) {
+		if d, _ := r["data"].(map[string]any); d != nil && d["policy_id"] == rule["id"] {
+			out = append(out, r)
+		}
+	})
+	return out, err
+}
+
+// auditPages reads GET /v1/audit/events with query q, oldest first, in pages of 500 (at most `pages` of
+// them), and hands every line to each. Both `permissions rules show` and `permissions log` page with it.
+func auditPages(c *onemind.Client, q url.Values, pages int, each func(map[string]any)) error {
+	q.Set("limit", "500")
+	for page := 0; page < pages; page++ {
+		var recs []map[string]any
+		if err := c.Do(bg(), http.MethodGet, "/v1/audit/events?"+q.Encode(), nil, &recs); err != nil {
+			return err
+		}
+		for _, r := range recs {
+			each(r)
+		}
+		if len(recs) < 500 {
+			return nil
+		}
+		after := seqCursor(recs[len(recs)-1]["seq"])
+		if after == "" {
+			return nil // a line with no usable seq: stop rather than ask for the same page again
+		}
+		q.Set("after_seq", after)
+	}
+	return nil
+}
+
+// seqCursor is an audit line's seq as the integer the gateway's after_seq expects. JSON numbers decode
+// as float64, and fmt.Sprint prints a float64 of a million or more as 1e+06, which the gateway refuses
+// (422); this always gives plain digits. It is "" for a missing or non-integer seq.
+func seqCursor(v any) string {
+	switch n := v.(type) {
+	case float64:
+		if n < 0 || n != math.Trunc(n) || n > math.MaxInt64 {
+			return ""
+		}
+		return strconv.FormatInt(int64(n), 10)
+	case json.Number:
+		if _, err := strconv.ParseInt(string(n), 10, 64); err == nil {
+			return string(n)
+		}
+	case int:
+		return strconv.Itoa(n)
+	case int64:
+		return strconv.FormatInt(n, 10)
+	}
+	return ""
+}
+
+// permissionsLogCommand is `onemind permissions log` (design §3.12 "Auto-approved log"): every request a
+// standing approval approved in the last --days days, newest first, read from the audit log
+// (action.approved lines with approved_via=policy). End a rule with `onemind permissions rules revoke`.
+func permissionsLogCommand(a *App) *cobra.Command {
+	var days int
+	cmd := &cobra.Command{Use: "log", Short: "What your rules approved without asking (newest first)", Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if days < 1 || days > 365 {
+				return usageErr(cmd, "--days is 1 to 365")
+			}
+			c, _, err := a.client()
+			if err != nil {
+				return err
+			}
+			since := time.Now().UTC().Add(-time.Duration(days) * 24 * time.Hour).Format(time.RFC3339)
+			out := []map[string]any{}
+			err = auditPages(c, url.Values{"event": {"action.approved"}, "since": {since}}, 10, func(r map[string]any) {
+				if d, _ := r["data"].(map[string]any); d != nil && d["approved_via"] == "policy" {
+					out = append(out, map[string]any{"ts": r["ts"], "action_id": r["action_id"], "type": d["type"],
+						"requested_by": d["requested_by"], "policy_id": d["policy_id"], "policy_revision": d["policy_revision"], "uses": d["uses"]})
+				}
+			})
+			if err != nil {
+				return err
+			}
+			for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
+				out[i], out[j] = out[j], out[i]
+			}
+			if a.G.JSON {
+				return printJSON(a.Stdout, out)
+			}
+			if len(out) == 0 {
+				fmt.Fprintf(a.Stdout, "Nothing was approved by a rule in the last %d days.\n", days)
+			}
+			for _, u := range out {
+				fmt.Fprintf(a.Stdout, "%s  %s  by %s  rule %s rev %v  (use %v)\n", sanitize(fmt.Sprint(u["ts"])), sanitize(fmt.Sprint(u["type"])),
+					sanitize(fmt.Sprint(u["requested_by"])), sanitize(fmt.Sprint(u["policy_id"])), u["policy_revision"], sanitize(fmt.Sprint(u["uses"])))
+			}
+			return nil
+		}}
+	cmd.Flags().IntVar(&days, "days", 30, "how many days back")
+	return cmd
 }

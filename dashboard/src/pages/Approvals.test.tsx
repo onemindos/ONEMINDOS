@@ -100,7 +100,7 @@ describe('Approvals page', () => {
     const { calls, options, user } = setup({ passkey: true });
     await screen.findByText('Keeps this app\'s files and databases', {}, T);
     await waitFor(() => expect(screen.getByText(/signs exactly this plan with your passkey/)).toBeInTheDocument(), T);
-    await user.click(screen.getByRole('button', { name: /^Approve/ }));
+    await user.click(screen.getByRole('button', { name: /^Approve(?! and remember)/ }));
     await waitFor(() => expect(calls).toHaveLength(1), T);
     expect(options).toEqual(['act-plan']);
     expect(calls[0]!.body).toEqual({ plan_sha256: SHA, webauthn: { id: 'cred-1', type: 'public-key' } });
@@ -109,7 +109,7 @@ describe('Approvals page', () => {
   it('refuses to approve when the plan changed since the card was loaded', async () => {
     const { calls, user } = setup({ passkey: true, serverSha: 'sha256:plan-two' });
     await screen.findByText('Keeps this app\'s files and databases', {}, T);
-    await user.click(screen.getByRole('button', { name: /^Approve/ }));
+    await user.click(screen.getByRole('button', { name: /^Approve(?! and remember)/ }));
     expect(await screen.findByText('Could not approve', {}, T)).toBeInTheDocument();
     expect(calls).toEqual([]);
   });
@@ -117,7 +117,7 @@ describe('Approvals page', () => {
   it('an install that needs secrets opens the form and sends them sealed, never as plain text', async () => {
     const { calls, user } = setup({ secrets: true });
     await screen.findByText('Keeps this app\'s files and databases', {}, T);
-    await user.click(screen.getByRole('button', { name: /^Approve/ }));
+    await user.click(screen.getByRole('button', { name: /^Approve(?! and remember)/ }));
     const dlg = await screen.findByRole('dialog', { name: 'Secrets for Ollama' }, T);
     expect(calls).toEqual([]);
     await user.type(within(dlg).getByLabelText('API_KEY'), 'sk-live-secret-value');
@@ -232,4 +232,19 @@ describe('toActionPlan', () => {
     await waitFor(() => expect(calls[calls.length - 1]).toEqual({ accept_licence: 'esphome' }), T);
     expect(calls[0]).toBeUndefined();
   });
+});
+
+it('offers Approve and remember on an agent request when the owner has a passkey, and opens the sheet', async () => {
+  const { user, calls } = setup({ passkey: true });
+  await user.click(await screen.findByRole('button', { name: /^Approve and remember/ }, T));
+  const sheet = await screen.findByRole('alertdialog', { name: 'Approve and remember' });
+  expect(within(sheet).getByLabelText('30 days')).toBeChecked();
+  expect(within(sheet).getByLabelText('End if unused for 14 days')).toBeChecked();
+  expect(calls).toEqual([]); // nothing is approved until the rule is shown and the passkey signs it
+});
+
+it('offers no Approve and remember without a passkey', async () => {
+  setup();
+  await screen.findByRole('button', { name: /^Approve(?! and remember)/ }, T);
+  expect(screen.queryByRole('button', { name: /^Approve and remember/ })).toBeNull();
 });

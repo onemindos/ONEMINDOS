@@ -1788,6 +1788,211 @@
         "title": "ApprovalLimit",
         "type": "object"
       },
+      "ApprovalPolicy": {
+        "description": "A standing approval as the routes return it (PolicyService.to_json): the Rules screen and\n`onemind permissions rules` read these fields. Response documentation only; to_json stays the source.",
+        "properties": {
+          "accept_injection_risk": {
+            "default": false,
+            "title": "Accept Injection Risk",
+            "type": "boolean"
+          },
+          "allow": {
+            "$ref": "#/components/schemas/Allow"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "additionalProperties": true,
+            "title": "Created By",
+            "type": "object"
+          },
+          "created_from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the action it was remembered from",
+            "title": "Created From"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when forever",
+            "title": "Expires At"
+          },
+          "forever": {
+            "title": "Forever",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "lapse_unused_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lapse Unused Days"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/PolicyLimitsView"
+          },
+          "modes": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "each named principal's permission mode now; on locked or ask a rule never fires",
+            "title": "Modes",
+            "type": "object"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "notify_after": {
+            "description": "each, digest or silent",
+            "title": "Notify After",
+            "type": "string"
+          },
+          "principals": {
+            "additionalProperties": true,
+            "description": "requested_by entry -> the permanent principal id it binds",
+            "title": "Principals",
+            "type": "object"
+          },
+          "review_due": {
+            "default": false,
+            "description": "a forever rule whose 90-day review is due (Keep or revoke)",
+            "title": "Review Due",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "every edit, revoke or re-confirm is a new revision",
+            "title": "Revision",
+            "type": "integer"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "revoked_by": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked By"
+          },
+          "state": {
+            "description": "active, suspended, paused, expired, revoked or deleted",
+            "title": "State",
+            "type": "string"
+          },
+          "suspended_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suspended Reason"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          },
+          "uses": {
+            "default": 0,
+            "title": "Uses",
+            "type": "integer"
+          },
+          "uses_24h": {
+            "default": 0,
+            "title": "Uses 24H",
+            "type": "integer"
+          },
+          "window_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window Id"
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "allow",
+          "limits",
+          "forever",
+          "notify_after",
+          "created_by",
+          "created_at",
+          "state"
+        ],
+        "title": "ApprovalPolicy",
+        "type": "object"
+      },
       "ApprovalPreview": {
         "description": "The approval card's preview slot (#723): what the action will do, drawn by the host.",
         "properties": {
@@ -9335,6 +9540,69 @@
         "title": "NodeUSBDevice",
         "type": "object"
       },
+      "NotificationAction": {
+        "description": "A button on a notification as the inbox returns it. `revoke` (gateway permissions PR 13) is set only\nby the gateway on an approval.auto notice: it ends the rule `policy_id` names (POST\n/v1/approval-policies/{id}/revoke). Apps can post only `open` and `request`; nothing posts an approve.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "open",
+              "request",
+              "revoke"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link"
+          },
+          "policy_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Id"
+          },
+          "request": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "kind"
+        ],
+        "title": "NotificationAction",
+        "type": "object"
+      },
       "NotificationActionIn": {
         "additionalProperties": false,
         "description": "A button on the notification (notify/topics.py check_actions): open an in-app link, or let the\nperson who taps it file a normal request that still needs an approval. There is no approve kind.",
@@ -9596,6 +9864,145 @@
           "last_read_at"
         ],
         "title": "NotificationSummary",
+        "type": "object"
+      },
+      "NotificationView": {
+        "description": "One inbox item (notify/store.py notification_json). Response documentation only.",
+        "properties": {
+          "action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Id"
+          },
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationAction"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "alert_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alert Id"
+          },
+          "app_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Id"
+          },
+          "asset_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Id"
+          },
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "group_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Key"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link"
+          },
+          "read_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read At"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "source_kind": {
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "topic": {
+            "title": "Topic",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "severity",
+          "topic",
+          "title",
+          "body",
+          "source_kind",
+          "created_at"
+        ],
+        "title": "NotificationView",
         "type": "object"
       },
       "OnboardingKit": {
@@ -10612,6 +11019,52 @@
           "limits"
         ],
         "title": "PolicyBody",
+        "type": "object"
+      },
+      "PolicyLimitsView": {
+        "properties": {
+          "bytes_per_day": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bytes Per Day"
+          },
+          "items_per_day": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Items Per Day"
+          },
+          "max_uses": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Uses"
+          },
+          "per_day": {
+            "title": "Per Day",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "per_day"
+        ],
+        "title": "PolicyLimitsView",
         "type": "object"
       },
       "PolicyPatch": {
@@ -12087,6 +12540,23 @@
           }
         },
         "title": "RevokeAllBody",
+        "type": "object"
+      },
+      "RevokeAllResult": {
+        "properties": {
+          "revoked": {
+            "description": "the ids of the rules revoked",
+            "items": {
+              "type": "string"
+            },
+            "title": "Revoked",
+            "type": "array"
+          }
+        },
+        "required": [
+          "revoked"
+        ],
+        "title": "RevokeAllResult",
         "type": "object"
       },
       "RevokeRequest": {
@@ -19978,7 +20448,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ApprovalPolicy"
+                  },
+                  "title": "Response 200 Approvals.Policies.List",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -20025,7 +20501,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalPolicy"
+                }
               }
             },
             "description": "Successful Response"
@@ -20104,7 +20582,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RevokeAllResult"
+                }
               }
             },
             "description": "Successful Response"
@@ -20254,7 +20734,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalPolicy"
+                }
               }
             },
             "description": "Successful Response"
@@ -20351,7 +20833,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalPolicy"
+                }
               }
             },
             "description": "Successful Response"
@@ -20428,7 +20912,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalPolicy"
+                }
               }
             },
             "description": "Successful Response"
@@ -20505,7 +20991,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalPolicy"
+                }
               }
             },
             "description": "Successful Response"
@@ -20592,7 +21080,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalPolicy"
+                }
               }
             },
             "description": "Successful Response"
@@ -35010,7 +35500,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NotificationView"
+                  },
+                  "title": "Response 200 Notifications.List",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
