@@ -171,6 +171,10 @@ if [ "$NODE_ONLY" = 0 ]; then
       env UV_CACHE_DIR=/tmp/uv-cache UV_PYTHON_INSTALL_DIR=/opt/onemind/python UV_PROJECT_ENVIRONMENT=/opt/onemind/venv \
         UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy \
         /tmp/uv/uv sync --frozen --no-dev --no-editable --managed-python --python 3.12 --quiet
+      # The managed Python ships its standard library without bytecode, and the gateway cannot write any
+      # under /opt/onemind/python (install.sh compile_gateway_stdlib says why). Compile it into the bundle.
+      /opt/onemind/venv/bin/python -I -m compileall -q -j 0 -x "/(test|tests|idlelib|lib2to3|turtledemo)/" \
+        "$(/opt/onemind/venv/bin/python -I -c "import sysconfig; print(sysconfig.get_paths()[\"stdlib\"])")" >/dev/null
       cd / && /opt/onemind/venv/bin/python -c "import onemind_core"
       tar -C / --owner=0 --group=0 --numeric-owner -czf /work/gateway-runtime.tar.gz opt/onemind/python opt/onemind/venv
       chown "$HOST_IDS" /work/gateway-runtime.tar.gz'
