@@ -288,7 +288,7 @@ def http_date(dt: datetime | None) -> str:
 # #1232: every person role reaches Files for their own data. The scope only opens the route: the handlers
 # (files/access.py) give a person their own Home, the household folder by role, and never another Home.
 # Owner-only routes (quota set, approve, deny) stay unregistered, so they ask for every scope.
-register_route_scope("GET,HEAD", r"/v1/files/(roots|list|stat|preview|download|trash|quotas|requests|grants)", ("files:use",))
+register_route_scope("GET,HEAD", r"/v1/files/(roots|list|stat|preview|download|trash|requests|grants)", ("files:use",))
 register_route_scope("GET,HEAD", r"/v1/files/requests/[^/]+", ("files:use",))
 register_route_scope("POST", r"/v1/files/(ops|grants|trash/empty|requests/[^/]+/cancel)", ("files:use",))
 register_route_scope("DELETE", r"/v1/files/grants/[^/]+", ("files:use",))
