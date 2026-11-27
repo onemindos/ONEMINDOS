@@ -2,6 +2,8 @@
 import type { WiringApi } from './wiring';
 import { getPasskey } from '../lib/webauthn';
 import { askBoxCode } from '../lib/boxcode';
+import { askVerification } from '../lib/verification';
+import { approveWithStepUp } from '../lib/approve';
 import { withProtocol } from '../lib/protocol';
 import type * as W from './wiring';
 import { completeStepUp, OneMind, OneMindError, STEP_UP_HEADER, stepUpOf, type components, type operations, type StepUpRequest } from '@onemind/sdk';
@@ -112,8 +114,8 @@ export interface OneMindApi extends WiringApi {
   actions(): Promise<Action[]>;
   action(id: string): Promise<Action>;
   approve(id: string, body?: ApproveBody): Promise<Action>;
-  /** §12.4: the passkey challenge bound to this action and its plan. Absent on the demo gateway. */
-  approveOptions?(id: string): Promise<ApproveOptions>;
+  /** §12.4: proof challenge bound to this action and its plan. Absent on the demo gateway. */
+  approveOptions?(id: string, body?: Partial<components['schemas']['ApprovalOptionsBody']>): Promise<ApproveOptions>;
   deny(id: string): Promise<Action>;
   /** Hub clock minus browser clock (ms), learned from responses; undefined until known. */
   hubOffsetMs(): number | undefined;
@@ -132,16 +134,9 @@ export interface OneMindApi extends WiringApi {
 export interface TlsInfo { ca_sha256: string; names: string[]; not_after: string | null; https: boolean }
 
 /** POST /v1/actions/{id}/approve-options: sign `publicKey` with a passkey, then approve with the result. */
-export interface ApproveOptions {
-  challenge: string;
-  action_sha256: string;
-  plan_sha256: string | null;
-  expires_at: string;
-  publicKey: Record<string, unknown>;
-  /** D-028: the key level this approval needs, and (N-1 b) whether the box's own screen now shows a code. */
-  required_level?: 'L0' | 'L1' | 'L2' | 'L3';
-  box_code_required?: boolean;
-}
+type ApprovalChallenge = components['schemas']['ApprovalChallenge'];
+export type ApproveOptions = Pick<ApprovalChallenge, 'challenge' | 'action_sha256' | 'plan_sha256' | 'expires_at' | 'publicKey'>
+  & Partial<Pick<ApprovalChallenge, 'required_level' | 'box_code_required' | 'box_available' | 'password_totp_available'>>;
 export interface FirstRunSettingsBody {
   box_name: string;
   time_zone: string;
@@ -219,14 +214,14 @@ export class HttpApi implements OneMindApi {
     this.token = opts.token;
     // Declares this build's protocol generation and watches the hub's range (lib/protocol.ts).
     this.fetchFn = withProtocol(opts.fetchFn ?? ((input, init) => fetch(input, init)));
-    this.sdk = new OneMind({ baseUrl: new URL(this.base || '/', globalThis.location?.origin ?? 'http://localhost').href, token: opts.token, fetch: (input, init) => this.fetchFn(String(input), init), retries: 1, stepUp: getPasskey, boxCode: askBoxCode });
+    this.sdk = new OneMind({ baseUrl: new URL(this.base || '/', globalThis.location?.origin ?? 'http://localhost').href, token: opts.token, fetch: (input, init) => this.fetchFn(String(input), init), retries: 1, stepUp: getPasskey, stepUpVerification: askVerification, boxCode: askBoxCode });
   }
 
   /**
    * `shape` is what a 2xx body must be. Anything else (an HTML page from a proxy
    * or SPA fallback, an empty body, the wrong JSON type) is an error, not data.
    */
-  private async req<T>(method: string, path: string, body?: unknown, shape: 'object' | 'array' | 'text' = 'object', bearer?: string, stepUpGrant?: string): Promise<T> {
+  private async req<T>(method: string, path: string, body?: unknown, shape: 'object' | 'array' | 'text' = 'object', stepUpGrant?: string): Promise<T> {
     let res: Response;
     try {
       // The SDK's JSON-only call cannot decode text/plain logs; reuse its authenticated
@@ -236,7 +231,7 @@ export class HttpApi implements OneMindApi {
         method,
         headers: {
           Accept: shape === 'text' ? 'text/plain' : 'application/json',
-          ...((bearer ?? this.token) ? { Authorization: `Bearer ${bearer ?? this.token}` } : {}),
+          ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
           ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
           ...(shape === 'text' ? await this.sdk.authHeader() : {}),
           ...(stepUpGrant ? { [STEP_UP_HEADER]: stepUpGrant } : {}),
@@ -263,9 +258,12 @@ export class HttpApi implements OneMindApi {
     if (!res.ok) {
       // D-028: an owner change the hub wants confirmed with a passkey (a proven key once the household has
       // one). Confirm it in place, bound to this exact change, and send it once more with the grant.
-      const step = !stepUpGrant && method !== 'GET' && !bearer ? stepUpIn(res.status, data) : undefined;
-      if (step) return this.req<T>(method, path, body, shape, bearer, await this.stepUp(step));
-      if (isErrorBody(data)) throw new ApiError(res.status, data.error, data.message, data.reason);
+      const step = !stepUpGrant && method !== 'GET' ? stepUpIn(res.status, data) : undefined;
+      if (step) return this.req<T>(method, path, body, shape, await this.stepUp(step));
+      if (isErrorBody(data)) {
+        const details = (data as { details?: unknown }).details;
+        throw new ApiError(res.status, data.error, data.message, data.reason, Array.isArray(details) ? details : undefined);
+      }
       const code = res.status === 401 ? 'unauthenticated' : res.status === 404 ? 'not_found' : 'unknown';
       throw new ApiError(res.status, code, `HTTP ${res.status}`);
     }
@@ -282,9 +280,9 @@ export class HttpApi implements OneMindApi {
 
   /** options -> the browser's passkey prompt -> verify (the SDK's shared helper); SDK errors read as ApiError. */
   private async stepUp(step: StepUpRequest): Promise<string> {
-    try { return await completeStepUp(this.sdk, step, getPasskey, { boxCode: askBoxCode }); }
+    try { return await completeStepUp(this.sdk, step, getPasskey, { boxCode: askBoxCode, verification: askVerification }); }
     catch (e) {
-      if (e instanceof OneMindError) throw new ApiError(e.status, KNOWN_CODES.has(e.code) || e.code === 'network' ? e.code as ApiError['code'] : 'unknown', e.message, e.reason);
+      if (e instanceof OneMindError) throw new ApiError(e.status, KNOWN_CODES.has(e.code) || e.code === 'network' ? e.code as ApiError['code'] : 'unknown', e.message, e.reason, e.details && [...e.details]);
       throw e;
     }
   }
@@ -338,14 +336,15 @@ export class HttpApi implements OneMindApi {
       return !req.plan_sha256 || action.plan_sha256 === req.plan_sha256;
     });
   }
-  private async sdkCall<T>(method: 'GET' | 'POST', path: string, body?: unknown, array = false, headers?: Record<string, string>, retry?: boolean): Promise<T> {
+  private async sdkCall<T>(method: 'GET' | 'POST' | 'PATCH', path: string, body?: unknown, shape: boolean | 'empty' = false, headers?: Record<string, string>, retry?: boolean): Promise<T> {
     try {
       const value = await this.sdk.call<T>({ method, path, body, ...(headers ? { headers } : {}), ...(retry !== undefined ? { retry } : {}) });
-      if (!value || typeof value !== 'object' || Array.isArray(value) !== array) throw new ApiError(200, 'unknown', 'Unexpected response from the hub');
+      const valid = shape === 'empty' ? value === undefined : !!value && typeof value === 'object' && Array.isArray(value) === shape;
+      if (!valid) throw new ApiError(200, 'unknown', 'Unexpected response from the hub');
       return value;
     }
     catch (e) {
-      if (e instanceof OneMindError) throw new ApiError(e.status, KNOWN_CODES.has(e.code) || e.code === 'network' ? e.code as ApiError['code'] : 'unknown', e.message, e.reason);
+      if (e instanceof OneMindError) throw new ApiError(e.status, KNOWN_CODES.has(e.code) || e.code === 'network' ? e.code as ApiError['code'] : 'unknown', e.message, e.reason, e.details && [...e.details]);
       throw e;
     }
   }
@@ -469,25 +468,18 @@ export class HttpApi implements OneMindApi {
   action(id: string) {
     return this.req<Action>('GET', `/v1/actions/${encodeURIComponent(id)}`);
   }
-  /** With a body (lib/approve.ts: plan hash, passkey, sealed secrets) it is sent as is. Without one,
-   *  a step_up_required answer is completed here with the action-bound passkey challenge (#180). */
-  async approve(id: string, body?: ApproveBody) {
+  /** A raw approve; callers without a body can still complete a sign-in check in place. */
+  async approve(id: string, body?: ApproveBody): Promise<Action> {
     const path = `/v1/actions/${encodeURIComponent(id)}/approve`;
     if (body !== undefined) return this.req<Action>('POST', path, body);
     try { return await this.req<Action>('POST', path); }
     catch (error) {
       if (!(error instanceof ApiError) || error.reason !== 'step_up_required') throw error;
-      const options = await this.sdkCall<components['schemas']['ApprovalChallenge']>('POST', path + '-options', {}, false, undefined, false);
-      // N-1 b: during the grace an L2 approval also needs the code the box's own screen now shows.
-      const box_code = options.box_code_required ? await askBoxCode(`approve ${id}`) : undefined;
-      const assertion = await getPasskey(options.publicKey);
-      return this.sdkCall<Action>('POST', path, {
-        webauthn: assertion, ...(options.plan_sha256 ? { plan_sha256: options.plan_sha256 } : {}), ...(box_code ? { box_code } : {}),
-      }, false, undefined, false); // a consumed authenticator assertion must never be retried automatically
+      return approveWithStepUp(this, { id }, { forceProof: true });
     }
   }
-  approveOptions(id: string) {
-    return this.req<ApproveOptions>('POST', `/v1/actions/${encodeURIComponent(id)}/approve-options`, {});
+  approveOptions(id: string, body: Partial<components['schemas']['ApprovalOptionsBody']> = {}) {
+    return this.req<ApproveOptions>('POST', `/v1/actions/${encodeURIComponent(id)}/approve-options`, body);
   }
   deny(id: string) {
     return this.req<Action>('POST', `/v1/actions/${encodeURIComponent(id)}/deny`);
@@ -495,23 +487,37 @@ export class HttpApi implements OneMindApi {
 
   // ---- §12 routes (see wiring.ts). One method per route. -------------------------------------------
   loginOptions() {
-    return this.req<W.WebAuthnOptions>('POST', '/v1/auth/login/options', {});
+    return this.sdkCall<W.WebAuthnOptions>('POST', '/v1/auth/login/options', {});
   }
   loginPassword(b: { username: string; password: string; totp?: string }) {
-    return this.req<W.LoginResult>('POST', '/v1/auth/login', { ...b, client: 'app', client_name: 'dashboard' });
+    return this.sdkCall<W.LoginResult>('POST', '/v1/auth/login', { ...b, client: 'app', client_name: 'dashboard' } satisfies components['schemas']['LoginBody']);
   }
   loginPasskey(credential: Record<string, unknown>) {
-    return this.req<W.LoginResult>('POST', '/v1/auth/login', { passkey: credential, client: 'app', client_name: 'dashboard' });
+    return this.sdkCall<W.LoginResult>('POST', '/v1/auth/login', { passkey: credential, client: 'app', client_name: 'dashboard' } satisfies components['schemas']['LoginBody']);
   }
   setup(setupToken: string, b: { username: string; display_name: string; password: string }) {
-    return this.req<W.LoginResult>('POST', '/v1/auth/setup', { ...b, client: 'app' }, 'object', setupToken);
+    return this.sdkCall<W.LoginResult>('POST', '/v1/auth/setup', { ...b, client: 'app' } satisfies components['schemas']['SetupBody'], false, { Authorization: `Bearer ${setupToken}` });
   }
+  setupStatus = () => this.sdkCall<components['schemas']['SetupStatus']>('GET', '/v1/auth/setup/status');
+  setupOptions = () => this.sdkCall<components['schemas']['BoxChallenge']>('POST', '/v1/auth/setup/options', {});
+  setupAtBox = (body: Omit<components['schemas']['SetupBody'], 'client'>) => this.sdkCall<W.LoginResult>('POST', '/v1/auth/setup', { ...body, client: 'app' });
+  setupKit = () => this.sdkCall<components['schemas']['SetupKit']>('POST', '/v1/auth/setup/kit', {});
+  finishSetup = (body: components['schemas']['SetupFinishBody']) => this.sdkCall<void>('POST', '/v1/auth/setup/finish', body, 'empty');
+  recoveryOptions = (body: components['schemas']['RecoveryOptionsBody']) => this.sdkCall<components['schemas']['BoxChallenge']>('POST', '/v1/auth/recovery/options', body);
+  resetPasswordAtBox = (body: components['schemas']['RecoveryResetBody']) => this.sdkCall<components['schemas']['RecoveryReset']>('POST', '/v1/auth/recovery/reset', body);
   enrol(b: { code: string; username?: string; password: string }) {
-    return this.req<W.LoginResult>('POST', '/v1/auth/enrol', { ...b, client: 'app' });
+    return this.sdkCall<W.LoginResult>('POST', '/v1/auth/enrol', { ...b, client: 'app' } satisfies components['schemas']['EnrolBody']);
   }
   me() {
     return this.req<W.Me>('GET', '/v1/me');
   }
+  updateIdentityEmail = async (email: string | null) => { await this.sdkCall<unknown>('PATCH', '/v1/me', { email } satisfies components['schemas']['MePatchBody']); };
+  emailOptions = () => this.sdkCall<components['schemas']['BoxChallenge']>('POST', '/v1/auth/email/options', {});
+  verifyIdentityEmail = (body: components['schemas']['EmailCodeBody']) => this.sdkCall<void>('POST', '/v1/auth/email/verify', body, 'empty');
+  setupTotp = () => this.sdkCall<components['schemas']['TotpSetup']>('POST', '/v1/auth/totp/setup', {});
+  confirmTotp = (body: components['schemas']['CodeBody']) => this.sdkCall<void>('POST', '/v1/auth/totp/confirm', body, 'empty');
+  disableTotp = (body: components['schemas']['PasswordOnlyBody']) => this.sdkCall<void>('POST', '/v1/auth/totp/disable', body, 'empty');
+  changePassword = (body: components['schemas']['PasswordBody']) => this.sdkCall<void>('POST', '/v1/auth/password', body, 'empty');
   async logout() {
     await this.req<void>('POST', '/v1/auth/logout', {});
   }
@@ -525,10 +531,10 @@ export class HttpApi implements OneMindApi {
     return this.req<W.PasskeyInfo[]>('GET', '/v1/auth/passkeys', undefined, 'array');
   }
   passkeyRegisterOptions() {
-    return this.req<W.WebAuthnOptions>('POST', '/v1/auth/passkeys/register/options', {});
+    return this.sdkCall<W.WebAuthnOptions>('POST', '/v1/auth/passkeys/register/options', {});
   }
   passkeyRegister(credential: Record<string, unknown>, label?: string) {
-    return this.req<W.PasskeyInfo>('POST', '/v1/auth/passkeys/register', { credential, label });
+    return this.sdkCall<W.PasskeyInfo>('POST', '/v1/auth/passkeys/register', { credential, label } satisfies components['schemas']['PasskeyRegisterBody']);
   }
   async deletePasskey(id: string) {
     await this.req<void>('DELETE', `/v1/auth/passkeys/${encodeURIComponent(id)}`);
@@ -539,6 +545,8 @@ export class HttpApi implements OneMindApi {
   createUser(b: { display_name: string; role: W.PersonRole; username?: string }) {
     return this.req<W.UserCreated>('POST', '/v1/users', b);
   }
+  createInvite = (body: components['schemas']['UserCreateBody']) => this.sdkCall<W.UserCreated>('POST', '/v1/users/invites', body);
+  reissueInvite = (userId: string) => this.sdkCall<W.UserCreated>('POST', `/v1/users/${encodeURIComponent(userId)}/invite`);
   updateUser(id: string, b: { display_name?: string; role?: W.PersonRole }) {
     return this.req<W.UserInfo>('PATCH', `/v1/users/${encodeURIComponent(id)}`, b);
   }

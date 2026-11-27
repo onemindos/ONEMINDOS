@@ -31,6 +31,7 @@ it('loads durable settings and actual destinations, then awaits save and verifie
   render(<FirstRun onDone={h.done} />);
   expect(screen.getByRole('status')).toHaveTextContent(/Loading/);
   await screen.findByText('Existing wizard');
+  expect(h.props.ownerConfigured).toBe(true);
   expect(h.props.initial).toMatchObject({ boxName: 'home-hub', timeZone: 'UTC', backup: { destinationId: values.backup_destination_id, kitSaved: false } });
   expect(h.props.backupDestinations).toEqual([{ id: values.backup_destination_id, kind: 'usb', label: 'Existing disk' }]);
   const save = h.props.onSaveSettings as (d: unknown) => Promise<void>;

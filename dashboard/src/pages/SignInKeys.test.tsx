@@ -29,11 +29,12 @@ const bio = { ...phone, credential_id: 'bio', label: 'Bio key', level: 'L2', lev
   model: 'Test Bio Key', attestation: 'packed', device_bound: true, synced: false };
 const table = { rows: [], types: [], household_level: 'L1', grace: true, recovery_needed: false, box_confirm: true };
 
-type Call = { method: string; path: string; body: unknown; headers: Record<string, string> };
+type Call = { method: string; path: string; search: string; body: unknown; headers: Record<string, string> };
 function gateway(route: (c: Call) => unknown) {
   const calls: Call[] = [];
   const fetch = vi.fn(async (url: string, init: RequestInit) => {
-    const c = { method: init.method ?? 'GET', path: new URL(url).pathname, body: init.body ? JSON.parse(String(init.body)) : undefined,
+    const { pathname, search } = new URL(url);
+    const c = { method: init.method ?? 'GET', path: pathname, search, body: init.body ? JSON.parse(String(init.body)) : undefined,
       headers: (init.headers ?? {}) as Record<string, string> };
     calls.push(c);
     const out = route(c);
@@ -45,6 +46,43 @@ function gateway(route: (c: Call) => unknown) {
   return calls;
 }
 const mount = () => render(<MemoryRouter><SignInKeys /></MemoryRouter>);
+
+it('starts delayed remote recovery with a kit code and withholds registration until the gateway says ready', async () => {
+  let waiting = false;
+  const calls = gateway(({ method, path }) => {
+    if (path === '/v1/auth/recovery/remote') {
+      if (method === 'POST') waiting = true;
+      if (method === 'DELETE') { waiting = false; return 204; }
+      return { state: waiting ? 'waiting' : 'none', available_at: waiting ? '2026-11-30T12:00:00Z' : null, expires_at: '2026-12-07T12:00:00Z' };
+    }
+    return ({ '/v1/auth/passkeys': [], '/v1/verification-requirements': table, '/v1/auth/authenticator-allowlist': [] } as Record<string, unknown>)[path];
+  });
+  mount();
+  const user = userEvent.setup();
+  await user.type(await screen.findByLabelText('Recovery kit code'), 'kit-test-code');
+  await user.click(screen.getByRole('button', { name: 'Start the 72-hour wait' }));
+  expect(await screen.findByText(/You can register a replacement key after/)).toBeVisible();
+  expect(screen.queryByRole('button', { name: 'Add a replacement proven key' })).toBeNull();
+  expect(calls.find((c) => c.method === 'POST' && c.path === '/v1/auth/recovery/remote')?.body).toEqual({ recovery_code: 'kit-test-code' });
+  await user.click(screen.getByRole('button', { name: 'Cancel recovery' }));
+  expect(await screen.findByLabelText('Recovery kit code')).toHaveValue('');
+});
+
+it('uses the dedicated recovery challenge to register a proven key after the wait', async () => {
+  let registered = false;
+  const calls = gateway(({ path }) => {
+    if (path === '/v1/auth/recovery/remote') return { state: registered ? 'none' : 'ready', available_at: '2026-11-30T12:00:00Z', expires_at: '2026-12-07T12:00:00Z' };
+    if (path === '/v1/auth/passkeys/register/options') return { publicKey: { challenge: 'remote' } };
+    if (path === '/v1/auth/passkeys/register') { registered = true; return { ...bio, label: 'Recovery key' }; }
+    return ({ '/v1/auth/passkeys': registered ? [bio] : [], '/v1/verification-requirements': table, '/v1/auth/authenticator-allowlist': [] } as Record<string, unknown>)[path];
+  });
+  mount();
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Add a replacement proven key' }));
+  expect(await screen.findByText('Recovery key added at L2.')).toBeVisible();
+  expect(calls.find((c) => c.path === '/v1/auth/passkeys/register/options')?.search).toBe('?remote_recovery=true');
+  expect(calls.find((c) => c.path === '/v1/auth/passkeys/register')?.body).toEqual({ credential: { id: 'new' }, label: 'Recovery key' });
+  expect(box.ask).not.toHaveBeenCalled();
+});
 
 it('shows each key’s level, why a key is only a Device check, and the two-key nudge', async () => {
   gateway(({ path }) => ({ '/v1/auth/passkeys': [phone], '/v1/verification-requirements': table, '/v1/auth/authenticator-allowlist': [] })[path]);

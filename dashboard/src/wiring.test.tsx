@@ -100,6 +100,8 @@ describe('People', () => {
     await u.click(screen.getByRole('button', { name: 'Create invite' }));
     const dialog = await screen.findByRole('dialog', { name: 'Invite a person' }, T);
     expect(within(dialog).getByText(MOCK_ENROL_CODE)).toBeInTheDocument();
+    expect((within(dialog).getByLabelText('Invite link') as HTMLInputElement).value).toContain(`#enrol=${MOCK_ENROL_CODE}`);
+    expect(within(dialog).getByRole('img', { name: 'Invite QR code' })).toBeVisible();
     expect(JSON.stringify({ ...window.sessionStorage })).not.toContain(MOCK_ENROL_CODE);
   });
 

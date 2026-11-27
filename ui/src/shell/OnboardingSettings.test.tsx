@@ -56,3 +56,11 @@ it('a wizard opened with an issued, unconfirmed kit can still skip it and finish
   await user.click(screen.getByRole('button', { name: /Go to Home/ }));
   expect(finish).toHaveBeenCalledTimes(1);
 });
+it('continues from box name without creating another owner or requiring a passkey', async () => {
+  render(<Onboarding apps={[]} ownerConfigured initial={{ boxName: 'home-hub', timeZone: 'UTC', ownerName: 'Dana' }} onSaveSettings={async () => {}} onFinish={() => {}} />);
+  expect(screen.getByRole('heading', { name: 'Name your box' })).toBeVisible();
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Continue' }));
+  expect(await screen.findByRole('heading', { name: 'Make it yours' })).toBeVisible();
+  expect(screen.queryByRole('button', { name: 'Create the owner' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Create passkey' })).toBeNull();
+});

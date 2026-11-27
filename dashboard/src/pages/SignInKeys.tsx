@@ -22,9 +22,10 @@ import { usePoll } from '../lib/hooks';
 import { useGateway } from '../lib/gateway';
 import { createPasskey, getPasskey, webauthnSupported } from '../lib/webauthn';
 import { askBoxCode } from '../lib/boxcode';
+import { askVerification } from '../lib/verification';
 import { formatAgo, secondsSince } from '../lib/time';
 import { useSignedIn } from '../session';
-import { Load } from './parts';
+import { Load, TextField, useBusy } from './parts';
 
 type Key = components['schemas']['Passkey'];
 type Registered = components['schemas']['PasskeyRegistered'];
@@ -61,9 +62,9 @@ export function keyErrorText(e: unknown): string {
 }
 
 export function SignInKeys() {
-  const { token, mock, principal } = useSignedIn();
+  const { token, mock, principal, account } = useSignedIn();
   if (mock) return <><PageHeader title="Sign-in keys" /><Card title="Sign-in keys"><p role="status">Connect to a real hub to manage sign-in keys. Demo mode has none.</p></Card></>;
-  return <LiveSignInKeys token={token} owner={principal?.role === 'owner'} />;
+  return <LiveSignInKeys token={token} owner={(account?.role ?? principal?.role) === 'owner'} />;
 }
 
 function LiveSignInKeys({ token, owner }: { token: string; owner: boolean }) {
@@ -112,7 +113,9 @@ function LiveSignInKeys({ token, owner }: { token: string; owner: boolean }) {
   // with any passkey plus the code the box's screen shows (design 3.11: a lost key can always be stopped).
   const removeAtBox = (k: Key) => run(async () => {
     const grant = await completeStepUp(client, { op: 'auth.passkeys.delete', target: k.credential_id, body: {}, required_level: 'L2', box: 'alt' },
-      getPasskey, { atBox: true, boxCode: askBoxCode }).catch((e: unknown) => { throw apiError(e); });
+      getPasskey, { atBox: true, boxCode: askBoxCode,
+        verification: async (request) => ({ ...await askVerification({ ...request, box: 'required' }), atBox: true }),
+      }).catch((e: unknown) => { throw apiError(e); });
     await call<void>(client, 'DELETE', `/v1/auth/passkeys/${encodeURIComponent(k.credential_id)}`, undefined, { [STEP_UP_HEADER]: grant });
     setConfirming(undefined);
   }, `Removing ${k.label}`);
@@ -150,13 +153,62 @@ function LiveSignInKeys({ token, owner }: { token: string; owner: boolean }) {
         </Card>
       </>}
     </Load>
-    {owner && <TrustedModels client={client} keys={keys.data ?? []} onError={(text) => setNote({ tone: 'bad', text })} />}
+    {owner && <>
+      <RecoverRemoteApprovals client={client} onRegistered={keys.reload} />
+      <TrustedModels client={client} keys={keys.data ?? []} onError={(text) => setNote({ tone: 'bad', text })} />
+    </>}
   </div>;
+}
+
+function RecoverRemoteApprovals({ client, onRegistered }: { client: OneMind; onRegistered: () => Promise<void> }) {
+  const path = '/v1/auth/recovery/remote';
+  const status = usePoll(() => call<components['schemas']['RemoteRecoveryStatus']>(client, 'GET', path), 30_000);
+  const [kitCode, setKitCode] = useState('');
+  const [error, setError] = useState<string>();
+  const [notice, setNotice] = useState<string>();
+  const [busy, run] = useBusy();
+  const attempt = (job: () => Promise<unknown>) => void run(async () => {
+    setError(undefined);
+    setNotice(undefined);
+    try { await job(); await status.reload(); }
+    catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+  });
+  if (!status.data) return null;
+  return <Card title="Recover remote approvals">
+    <p className="om-hint">If you lose a proven key, start recovery with your kit code and a fresh sign-in using an authenticator or passkey. After 72 hours, you can register a replacement proven key.</p>
+    {status.data.state === 'none' ? <form className="dash-form" onSubmit={(e) => {
+      e.preventDefault();
+      if (busy || !kitCode.trim()) return;
+      attempt(async () => {
+        await call<components['schemas']['RemoteRecoveryStatus']>(client, 'POST', path,
+          { recovery_code: kitCode.trim() } satisfies components['schemas']['RemoteRecoveryBody']);
+        setKitCode('');
+      });
+    }}>
+      <TextField id="remote-recovery-code" label="Recovery kit code" type="password" value={kitCode} onChange={setKitCode} />
+      <Button type="submit" disabled={busy || !kitCode.trim()}>Start the 72-hour wait</Button>
+    </form> : <>
+      <p role="status">{status.data.state === 'waiting'
+        ? `You can register a replacement key after ${status.data.available_at ? new Date(status.data.available_at).toLocaleString() : 'the waiting period'}.`
+        : `Your recovery request is ready${status.data.expires_at ? ` until ${new Date(status.data.expires_at).toLocaleString()}` : ''}.`}</p>
+      <div className="dash-identity-actions">
+        {status.data.state === 'ready' && webauthnSupported() && <Button variant="primary" disabled={busy} onClick={() => attempt(async () => {
+          const options = await call<{ publicKey: Json }>(client, 'POST', '/v1/auth/passkeys/register/options?remote_recovery=true', {});
+          const key = await call<Registered>(client, 'POST', '/v1/auth/passkeys/register', { credential: await createPasskey(options.publicKey), label: 'Recovery key' });
+          await onRegistered();
+          setNotice(`${key.label} added at ${key.level}.`);
+        })}>Add a replacement proven key</Button>}
+        <Button variant="ghost" disabled={busy} onClick={() => attempt(() => call<void>(client, 'DELETE', path))}>Cancel recovery</Button>
+      </div>
+    </>}
+    {error && <p role="alert" className="om-note om-tone-bad">{error}</p>}
+    {notice && <p role="status" className="om-note om-tone-ok">{notice}</p>}
+  </Card>;
 }
 
 /** Design 3.11: removing the last proven key is warned about before it happens. The grace is one-way, so
  *  nothing falls back to a Device check key afterwards. */
-export const LAST_PROVEN_WARNING = 'This is your last proven key. High-risk approvals will need a recovery path until you add another strong key: restores over live data, removing a machine, physical actions and security settings wait, and never go back to accepting a Device check key. Your files stay reachable with a normal sign-in. Add a spare first if you can.';
+export const LAST_PROVEN_WARNING = 'This is your last proven key. Remote high-risk approvals will need a recovery path until you add another strong key. Some local changes can use a fresh sign-in check plus the box’s screen code. Physical actions never go back to accepting a Device check key. Your files stay reachable with a normal sign-in.';
 
 function TwoKeyNudge({ list, grace, recovery }: { list: Key[]; grace?: boolean; recovery?: boolean }) {
   const proven = list.filter(strong).length;
@@ -167,8 +219,8 @@ function TwoKeyNudge({ list, grace, recovery }: { list: Key[]; grace?: boolean; 
         ? 'You have one proven key. Add a second one (a spare security key of a trusted model) so losing one never locks you out of high-risk approvals.'
         : 'Restoring over live data, removing a machine, physical actions and security settings ask for a proven key. Add two, so losing one is never a lock-out.'}
     </p>
-    {grace && proven === 0 && <p className="om-hint"><StatusPill tone="warn" label="Until then" /> Those approvals accept a Device check key plus the code on the box's own screen, so you confirm them standing at the box. Physical actions never do.</p>}
-    {recovery && proven === 0 && <p className="om-hint"><StatusPill tone="bad" label="Waiting" /> Your box had a proven key and has none now, so those approvals wait until you add one. Add it here while standing at the box: it asks for the code on the box's screen.</p>}
+    {grace && proven === 0 && <p className="om-hint"><StatusPill tone="warn" label="At the box" /> Eligible approvals accept a Device check key plus the code on the box's own screen. A fresh password and authenticator code can also verify you before you enter the screen code.</p>}
+    {recovery && proven === 0 && <p className="om-hint"><StatusPill tone="bad" label="Replacement needed" /> Your box had a proven key and has none now. Remote high-risk approvals need a replacement. Use recovery below or add a key while standing at the box.</p>}
     <p className="om-hint">Your files never depend on a proven key: signing in, downloading and restoring into a new folder need only a normal sign-in.</p>
   </Card>;
 }

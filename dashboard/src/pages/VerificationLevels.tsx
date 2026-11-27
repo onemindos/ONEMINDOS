@@ -115,7 +115,8 @@ function LiveTable({ token, me, signOut }: { token: string; me: Asker; signOut: 
         idempotency_key: `dash-verify-${key}-${level}-${Date.now().toString(36)}`,
         expires_at: new Date(client.hubNow() + 24 * 3600_000).toISOString(),
       } });
-      setNote({ tone: 'ok', text: `Asked to set "${what}" to ${level} · ${LEVEL_NAME[level as VerificationLevel]}. It waits in Approvals for your proven key.`, id: a.id });
+      const method = table.data?.box_confirm ? 'your proven key or a sign-in check and screen code at the box' : 'your proven key';
+      setNote({ tone: 'ok', text: `Asked to set "${what}" to ${level} · ${LEVEL_NAME[level as VerificationLevel]}. It waits in Approvals for ${method}.`, id: a.id });
       return true;
     } catch (e) {
       // A lapsed sign-in signs out, as every read on this page does (usePoll); anything else is said plainly.
@@ -126,11 +127,11 @@ function LiveTable({ token, me, signOut }: { token: string; me: Asker; signOut: 
   };
 
   return <div className="dash-stack">
-    <PageHeader title="Verification levels" lede="How strongly OneMind checks it's you before each kind of approval or change. A higher level needs a stronger sign-in key." />
+    <PageHeader title="Verification levels" lede="How strongly OneMind checks it's you before each kind of approval or change." />
     <Load res={table} what="Loading the verification table">
       {(t) => <>
         <Household t={t} />
-        <Card title="Which approvals need which level" subtitle="A change waits in Approvals until you approve it with a key at this table's own level.">
+        <Card title="Which approvals need which level" subtitle="A table change waits in Approvals for a verification check at the level set for this table.">
           <Table caption="Verification levels" hideCaption rows={t.rows} rowKey={(r) => r.key}
             columns={[
               { key: 'what', header: 'What', render: (r) => <>
@@ -154,8 +155,9 @@ function Household({ t }: { t: VTable }) {
   return <Card title="Your box now" variant={t.recovery_needed ? 'attention' : 'default'}
     aside={t.household_level ? <VerificationBadge level={t.household_level as VerificationLevel} /> : <StatusPill tone="warn" label="No passkey yet" />}>
     <p>{t.household_level ? 'The badge is the strongest key an owner holds.' : 'No owner has a passkey yet.'} <Link to="/settings/sign-in-keys">Sign-in keys</Link></p>
-    {t.grace && <p className="om-hint"><StatusPill tone="warn" label="Before your first proven key" /> Rows that need L2 accept any passkey plus the code on the box's own screen, so you confirm them standing at the box. Physical actions never do.{!t.box_confirm && ' This box has no screen to show that code, so those approvals wait for a proven key.'}</p>}
-    {t.recovery_needed && <p className="om-hint"><StatusPill tone="bad" label="Waiting" /> Your box had a proven key and has none now. Approvals that need L2 wait until you add one at the box. They never go back to accepting a Device check key.</p>}
+    {t.box_confirm && <p className="om-hint">For eligible L2 changes at home, confirm with a passkey or a fresh password and authenticator code, then read the code on the box’s screen.</p>}
+    {t.grace && !t.box_confirm && <p className="om-hint">Some L2 changes accept any passkey plus the code on the box's own screen. This box has no screen to show that code, so those approvals need a proven key.</p>}
+    {t.recovery_needed && <p className="om-hint"><StatusPill tone="bad" label="Replacement needed" /> Remote L2 approvals need a replacement proven key. Start recovery under Sign-in keys.</p>}
   </Card>;
 }
 

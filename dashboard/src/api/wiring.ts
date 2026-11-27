@@ -30,7 +30,7 @@ export interface LoginResult {
   session: { id: string; expires_at: string };
 }
 
-export interface Me {
+export interface Me extends Partial<Pick<components['schemas']['Me'], 'totp' | 'email' | 'email_verified' | 'setup_pending'>> {
   principal: PrincipalInfo;
   token: { id: string; scopes: string[]; expires_at: string | null; source: string } | null;
   session: { id: string; expires_at: string; auth_method: string; passkey_at: string | null } | null;
@@ -78,9 +78,7 @@ export interface UserInfo {
   passkeys: number;
   totp: boolean;
 }
-export interface UserCreated extends UserInfo {
-  one_time: { enrolment_code: string; enrolment_url: string; expires_at: string };
-}
+export interface UserCreated extends UserInfo, Pick<components['schemas']['UserInvite'], 'one_time'> {}
 
 export interface TokenInfo {
   id: string;
@@ -206,9 +204,23 @@ export interface WiringApi {
   loginPasskey(credential: Record<string, unknown>): Promise<LoginResult>;
   /** First owner: `setupToken` is the install owner token or first-boot token, sent as the bearer. */
   setup(setupToken: string, body: { username: string; display_name: string; password: string }): Promise<LoginResult>;
+  setupStatus?(): Promise<components['schemas']['SetupStatus']>;
+  setupOptions?(): Promise<components['schemas']['BoxChallenge']>;
+  setupAtBox?(body: Omit<components['schemas']['SetupBody'], 'client'>): Promise<LoginResult>;
+  setupKit?(): Promise<components['schemas']['SetupKit']>;
+  finishSetup?(body: components['schemas']['SetupFinishBody']): Promise<void>;
+  recoveryOptions?(body: components['schemas']['RecoveryOptionsBody']): Promise<components['schemas']['BoxChallenge']>;
+  resetPasswordAtBox?(body: components['schemas']['RecoveryResetBody']): Promise<components['schemas']['RecoveryReset']>;
   enrol(body: { code: string; username?: string; password: string }): Promise<LoginResult>;
   // the signed-in person
   me(): Promise<Me>;
+  updateIdentityEmail?(email: string | null): Promise<void>;
+  emailOptions?(): Promise<components['schemas']['BoxChallenge']>;
+  verifyIdentityEmail?(body: components['schemas']['EmailCodeBody']): Promise<void>;
+  setupTotp?(): Promise<components['schemas']['TotpSetup']>;
+  confirmTotp?(body: components['schemas']['CodeBody']): Promise<void>;
+  disableTotp?(body: components['schemas']['PasswordOnlyBody']): Promise<void>;
+  changePassword?(body: components['schemas']['PasswordBody']): Promise<void>;
   logout(): Promise<void>;
   sessions(): Promise<SessionInfo[]>;
   revokeSession(id: string): Promise<void>;
@@ -219,6 +231,8 @@ export interface WiringApi {
   // people and tokens
   users(): Promise<UserInfo[]>;
   createUser(body: { display_name: string; role: PersonRole; username?: string }): Promise<UserCreated>;
+  createInvite?(body: components['schemas']['UserCreateBody']): Promise<UserCreated>;
+  reissueInvite?(userId: string): Promise<UserCreated>;
   updateUser(id: string, body: { display_name?: string; role?: PersonRole }): Promise<UserInfo>;
   disableUser(id: string): Promise<UserInfo>;
   familyProfile(id: string): Promise<FamilyProfile>;

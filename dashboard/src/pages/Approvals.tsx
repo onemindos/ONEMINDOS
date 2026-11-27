@@ -123,7 +123,7 @@ export function Approvals() {
       actions={actions}
       plans={plans}
       planNote={NO_PLAN_NOTE}
-      approveHint={passkey ? APPROVE_HINT : 'Approving uses your sign-in. Add a passkey in Account and security to have every approval signed.'}
+      approveHint={passkey && me.data?.setup_pending === undefined ? APPROVE_HINT : 'Approval applies to the plan shown here. Some actions ask you to verify your identity before the box applies the change.'}
       calls={['GET /v1/actions', 'POST /v1/actions/{id}/approve-options', 'POST /v1/actions/{id}/approve', 'POST /v1/actions/{id}/deny']}
       decided={decided}
       now={hub.now}

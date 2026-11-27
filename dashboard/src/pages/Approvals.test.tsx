@@ -148,6 +148,23 @@ describe('approveWithStepUp', () => {
   const opts = { challenge: 'c', action_sha256: 'a', plan_sha256: SHA, expires_at: '', publicKey: { challenge: 'c' } };
   const act = { id: 'x', plan_sha256: SHA };
 
+  it('uses a fresh password and authenticator plus the local box code for an L2 approval without a passkey', async () => {
+    const availability = { required_level: 'L2', box_available: true, password_totp_available: true };
+    const approveOptions = vi.fn()
+      .mockRejectedValueOnce(new ApiError(409, 'conflict', 'This needs L2', 'verification_level_unmet', [{ approval_verification: availability }]))
+      .mockResolvedValueOnce({ ...opts, challenge: 'mfa-challenge', publicKey: {}, box_code_required: true });
+    const approve = vi.fn(async () => ({ id: 'x' }));
+    const sign = vi.fn();
+    const boxCode = vi.fn(async () => '482913');
+    const verification = vi.fn(async () => ({ method: 'password+totp' as const, password: 'a test passphrase', totp: '012345', atBox: true }));
+    await approveWithStepUp({ approveOptions, approve }, act, { sign, boxCode, verification });
+    expect(verification).toHaveBeenCalledWith(expect.objectContaining({ required_level: 'L2', box: 'alt' }));
+    expect(approveOptions).toHaveBeenNthCalledWith(2, 'x', { method: 'password+totp', at_box: true });
+    expect(approve).toHaveBeenCalledExactlyOnceWith('x', { plan_sha256: SHA, box_code: '482913',
+      password_totp: { challenge: 'mfa-challenge', password: 'a test passphrase', totp: '012345' } });
+    expect(sign).not.toHaveBeenCalled();
+  });
+
   it('sends a measured hold with the passkey and reviewed fingerprint', async () => {
     const approve = vi.fn(async () => ({ id: 'x' }));
     const sign = vi.fn(async () => ({ id: 'sig' }));

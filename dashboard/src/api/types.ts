@@ -312,12 +312,14 @@ export class ApiError extends Error {
   readonly status: number;
   readonly code: ApiErrorCode | 'network' | 'unknown';
   readonly reason: string | undefined;
+  readonly details?: unknown[];
 
-  constructor(status: number, code: ApiError['code'], message: string, reason?: string | null) {
+  constructor(status: number, code: ApiError['code'], message: string, reason?: string | null, details?: unknown[]) {
     super(message);
     this.reason = reason ?? undefined;
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
+    this.details = details;
   }
 }

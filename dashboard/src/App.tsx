@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Route table. Signed out: the sign-in screen. Signed in: per-person appearance (CustomizeProvider),
 // one shared hub poll (HubProvider), the shell, and the screens of docs/design/IA.md.
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ScreenRoutes } from './shell/wm/ScreenRoutes';
 import { CustomizeProvider, ToastProvider, WallpaperLayer, clearPreferences } from '@onemind/ui';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -11,9 +11,11 @@ import { HubProvider, useHub } from './data/hub';
 import { preferenceStores } from './data/prefs';
 import { FirstRun, useWizardPending } from './pages/FirstRun';
 import { SignIn } from './pages/SignIn';
+import { IdentitySetup } from './pages/IdentitySetup';
 import { LocaleProvider } from './i18n/LocaleProvider';
 import { useSession, useSignedIn } from './session';
 import { BoxCodeHost } from './lib/boxcode';
+import { VerificationHost } from './lib/verification';
 import { Shell } from './shell/Shell';
 import { LockScreen } from './shell/lock/LockScreen';
 
@@ -31,11 +33,10 @@ function Appearance({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function SignedInApp() {
+function Appliance() {
   const [wizard, setWizard] = useWizardPending();
   return (
     <HubProvider>
-      <BoxCodeHost />
       <Appearance>
         {wizard === undefined ? (
           <p role="status">Checking first-run setup…</p>
@@ -51,13 +52,33 @@ export function SignedInApp() {
   );
 }
 
+export function SignedInApp({ newMember, onEnrolled }: { newMember?: boolean; onEnrolled?: () => void } = {}) {
+  const { api } = useSignedIn();
+  const [pending, setPending] = useState<boolean>();
+  useEffect(() => {
+    if (!api.setupStatus) return;
+    let live = true;
+    void api.me().then((me) => { if (live) setPending(!!me.setup_pending); }, () => { if (live) setPending(false); });
+    return () => { live = false; };
+  }, [api]);
+  if (pending === undefined && api.setupStatus) return <p role="status">Checking account setup…</p>;
+  if (pending) return <IdentitySetup owner onDone={() => setPending(false)} />;
+  if (newMember) return <IdentitySetup owner={false} onDone={() => onEnrolled?.()} />;
+  return <Appliance />;
+}
+
 export function App({ mock }: { mock: boolean }) {
   const { session, locked } = useSession();
+  const [newMember, setNewMember] = useState(false);
+  useEffect(() => { if (!session) setNewMember(false); }, [session]);
   const update = useUpdateNeeded();
   return (
     <LocaleProvider person={session?.person ?? null}>
       <ErrorBoundary>
-        <ToastProvider key={locked ? 'locked' : 'unlocked'}>{locked ? <LockScreen summary={locked} mock={mock} /> : update ? <UpdateNeeded state={update} /> : session ? <SignedInApp /> : <SignIn mock={mock} />}</ToastProvider>
+        <ToastProvider key={locked ? 'locked' : 'unlocked'}>
+          {session && <><BoxCodeHost /><VerificationHost /></>}
+          {locked ? <LockScreen summary={locked} mock={mock} /> : update ? <UpdateNeeded state={update} /> : session ? <SignedInApp key={session.token} newMember={newMember} onEnrolled={() => setNewMember(false)} /> : <SignIn mock={mock} onEnrolled={() => setNewMember(true)} />}
+        </ToastProvider>
       </ErrorBoundary>
     </LocaleProvider>
   );

@@ -2,7 +2,7 @@
 // The first-run wizard of @onemind/ui (Onboarding), wired. The gateway decides when it opens
 // (GET /v1/onboarding/state: settings saved and, once a backup destination exists, the kit confirmed),
 // so a reload or a second browser lands in the same place. Real effects only:
-//  - "Create a passkey" runs the WebAuthn ceremony against /v1/auth/passkeys/register.
+//  - Owner identity and its recovery kit are handled before opening this settings wizard (D-034).
 //  - Each starter app the owner ticks becomes an `app.install` REQUEST in Approvals. Nothing is
 //    installed by the wizard (AI and automation never actuate; the owner approves each one).
 //  - The recovery kit step issues the owner key through /v1/backups/kit and confirms two typed-back groups.
@@ -17,7 +17,6 @@ import type { CatalogApp } from '../api/types';
 import type { BackupDestinationRecord, FirstRunSettings, FirstRunSettingsBody, FirstRunState } from '../api/client';
 import { categorySlug, deployClass } from '../data/adapters';
 import { useHub } from '../data/hub';
-import { createPasskey, webauthnSupported } from '../lib/webauthn';
 import { useSignedIn } from '../session';
 
 export function toStarterApp(a: CatalogApp): StarterApp | undefined {
@@ -39,7 +38,7 @@ export function useWizardPending(): [boolean | undefined, (pending: boolean) => 
 }
 
 export function FirstRun({ onDone }: { onDone: () => void }) {
-  const { api } = useSignedIn();
+  const { api, account } = useSignedIn();
   const hub = useHub();
   const toast = useToast();
   const navigate = useNavigate();
@@ -78,9 +77,10 @@ export function FirstRun({ onDone }: { onDone: () => void }) {
   return (
     <Onboarding
       apps={apps}
+      ownerConfigured
       kit={kit}
       previewPlan={previewPlan}
-      initial={{ boxName: loaded.settings.box_name ?? '', timeZone: loaded.settings.time_zone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC',
+      initial={{ boxName: loaded.settings.box_name ?? '', ownerName: account?.display_name ?? '', timeZone: loaded.settings.time_zone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC',
         backup: { destination: loaded.settings.backup_choice, destinationId: loaded.settings.backup_destination_id ?? undefined, kitSaved: false } }}
       localAddress={window.location.hostname.endsWith('.local') ? window.location.hostname : undefined}
       backupDestinations={loaded.destinations}
@@ -93,19 +93,6 @@ export function FirstRun({ onDone }: { onDone: () => void }) {
           throw new Error('Settings readback did not match. Try saving again.');
         }
       }}
-      onCreatePasskey={
-        webauthnSupported()
-          ? async () => {
-              try {
-                const o = await api.passkeyRegisterOptions();
-                await api.passkeyRegister(await createPasskey(o.publicKey), 'First passkey');
-                return true;
-              } catch {
-                return false;
-              }
-            }
-          : undefined
-      }
       onThemeChange={(t) => applyTheme(t)}
       onFinish={async (_draft, requests) => {
           let sent = 0;
