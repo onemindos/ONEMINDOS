@@ -83,6 +83,7 @@ class VM:
         self.vars = None
         self.fwd = FWD                  # host port forwarded to the guest :8080 (firewall.py runs two VMs)
         self.extra_args = []            # more QEMU arguments, passed once (firewall.py/wizard.py: a socket link NIC; dataenc.py: a TPM)
+        self.nic_extra = ""             # appended to the user NIC's options (updatesigned.py: a guestfwd to the host's channel server)
         if self.cfg["vars"]:
             self.vars = os.path.join(workdir, "VARS.fd")
             shutil.copy(self.cfg["vars"], self.vars)
@@ -91,7 +92,7 @@ class VM:
         c = self.cfg
         cmd = [c["qemu"], "-machine", c["machine"], "-accel", self.accel, "-cpu", self.cpu,
                "-smp", "4", "-m", os.environ.get("ONEMIND_QEMU_MEM", "3072"), "-nodefaults", "-display", "none", "-vga", "none",
-               "-nic", f"user,model=virtio-net-pci,restrict=on,hostfwd=tcp:127.0.0.1:{self.fwd}-:8080",
+               "-nic", f"user,model=virtio-net-pci,restrict=on,hostfwd=tcp:127.0.0.1:{self.fwd}-:8080{self.nic_extra}",
                "-device", "i6300esb", "-action", "watchdog=reset"]
         cmd += self.extra_args
         if c["code"]:

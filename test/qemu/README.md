@@ -12,6 +12,7 @@ The QEMU harnesses boot the real image and check it against pre-registered crite
 | `firewall.py` | CRITERIA-FIREWALL.md (FW1-FW4, port scan from a second VM) | `make firewall` |
 | `bootlock.py` | CRITERIA-BOOTLOCK.md (B1-B6, GRUB menu lock) | `make bootlock` |
 | `sysextguard.py` | CRITERIA-SYSEXT.md (T-W19-01, X0-X7: only signed host extensions merge, after reboot and slot switch) | `make sysextguard` |
+| `updatesigned.py` | CRITERIA-UPDATE-SIGNED.md (US0-US6: a ceremony-shaped throwaway TUF root in the image, channels published with `os/update/tuf-repo.py` and served over HTTP; the good update installs and passes health; tampered, untrusted-key, wrong-RAUC-key, replayed and older updates are refused) | `make update-signed` (remakes the fixtures with `SIGNED=1`) |
 | `memorypressure.py` | CRITERIA-MEMORY.md (M0-M1: 6 GiB hog on an 8 GiB hub VM, control plane must stay up) | `make memory-test` |
 | `cloudboot.py` | CRITERIA-CLOUD.md (C0-C6) | `make cloud-test` |
 | `installer.py` | CRITERIA-INSTALLER.md (I1-I5) | `make installer-test` |

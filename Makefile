@@ -17,6 +17,7 @@
 #   make powercut  BOARD=x86_64-efi                     -> out/powercut-<board>/ (F26-F28 and F33, CRITERIA-FIRSTBOOT.md sections 21, 22 and 25)
 #   make edge      BOARD=x86_64-efi                     -> out/edge-<board>/ (EG1-EG7, CRITERIA-EDGE.md; fixtures with EDGE=1)
 #   make sysextguard BOARD=x86_64-efi                   -> out/sysextguard-<board>/ (T-W19-01 X0-X7, CRITERIA-SYSEXT.md)
+#   make update-signed BOARD=x86_64-efi                 -> out/updatesigned-<board>/ (US0-US6, CRITERIA-UPDATE-SIGNED.md; remakes fixtures)
 #   make convert BOARD=vm                               -> qcow2 / vhdx / vmdk / vdi / ova next to the image
 #   make jetson-layer [VERSION=...]                     -> out/onemind-layer-jetson-orin-<version>.tar.gz
 #   make hygiene | hygiene-selftest | lint | test | kit LT=LT-X86-01
@@ -28,6 +29,7 @@ HW         ?= 0
 DATA_FS    ?=
 SECUREBOOT ?= 0
 EDGE       ?= 0
+SIGNED     ?= 0
 FUPTO      ?= F4
 VERSION    ?= 0.1.0-dev
 OUT        ?= out
@@ -80,7 +82,8 @@ image: tools
 
 fixtures: tools
 	@test -f $(ROOTFS) || $(MAKE) rootfs BOARD=$(BOARD) LEG=$(LEG)
-	$(DOCKER_RUN) -e HW=$(HW) -e DATA_FS=$(DATA_FS) -e EDGE=$(EDGE) $(TOOLS) /src/test/qemu/mkfixtures.sh $(BOARD) /out/$(notdir $(ROOTFS)) /out/fx-$(BOARD) $(UPTO)
+	$(DOCKER_RUN) -e HW=$(HW) -e DATA_FS=$(DATA_FS) -e EDGE=$(EDGE) -e SIGNED=$(SIGNED) -e US_OVERLAY=/out/us-$(BOARD)/overlay \
+	  $(TOOLS) /src/test/qemu/mkfixtures.sh $(BOARD) /out/$(notdir $(ROOTFS)) /out/fx-$(BOARD) $(UPTO)
 
 battery:
 	@test -f $(OUT)/fx-$(BOARD)/disk.img || $(MAKE) fixtures BOARD=$(BOARD) UPTO=$(UPTO)
@@ -176,6 +179,25 @@ sysextguard:
 	  --fixtures /out/fx-$(BOARD) --work /out/sysextguard-$(BOARD)/work \
 	  --log /out/sysextguard-$(BOARD)/serial.log --results /out/sysextguard-$(BOARD)/results.json; \
 	  rc=$$?; rm -f $(OUT)/sysextguard-$(BOARD)/work/disk.img; exit $$rc
+
+# A signed update through the real update path (test/qemu/updatesigned.py, CRITERIA-UPDATE-SIGNED.md US0-US6): a
+# throwaway TUF root of the ceremony's shape is baked into fixtures made here with SIGNED=1, the channels are published
+# on this host with os/update/tuf-repo.py (pinned python-tuf in $(TUF_VENV); the private keys are deleted right after),
+# and the guest's updater fetches them over QEMU's user network. Always remakes the fixtures: run it on its own.
+TUF_VENV ?= $(OUT)/tuf-venv
+.PHONY: update-signed
+update-signed: tools
+	test -x $(TUF_VENV)/bin/python || { python3 -m venv $(TUF_VENV) && \
+	  $(TUF_VENV)/bin/pip install -q --require-hashes --only-binary :all: -r os/update/requirements-tuf.txt; }
+	rm -rf $(OUT)/us-$(BOARD)
+	$(TUF_VENV)/bin/python -I test/qemu/usrepo.py keys $(OUT)/us-$(BOARD)
+	$(MAKE) fixtures BOARD=$(BOARD) SIGNED=1
+	$(TUF_VENV)/bin/python -I test/qemu/usrepo.py channels $(OUT)/us-$(BOARD) $(OUT)/fx-$(BOARD)/us $(BOARD)
+	mkdir -p $(OUT)/updatesigned-$(BOARD)
+	$(DOCKER_RUN) $(KVM) $(TOOLS) python3 -I /src/test/qemu/updatesigned.py --board $(BOARD) \
+	  --fixtures /out/fx-$(BOARD) --channels /out/us-$(BOARD)/channels --work /out/updatesigned-$(BOARD)/work \
+	  --log /out/updatesigned-$(BOARD)/serial.log --results /out/updatesigned-$(BOARD)/results.json; \
+	  rc=$$?; rm -rf $(OUT)/updatesigned-$(BOARD)/work; exit $$rc
 
 # Memory pressure (test/qemu/memorypressure.py, CRITERIA-MEMORY.md): a 6 GiB hog on an 8 GiB hub VM; the gateway
 # /healthz must stay up. Copies the fixture disk like `firstboot`; needs KVM and 8 GiB free for the VM.
