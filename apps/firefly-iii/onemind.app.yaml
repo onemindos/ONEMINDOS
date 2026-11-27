@@ -20,7 +20,7 @@ metadata:
   licenceClass: L2
   source: https://github.com/firefly-iii/firefly-iii
   # §9.3 facts from the GitHub API (repos/firefly-iii/firefly-iii), read 2026-11-12. The newest
-  # GitHub release is a nightly develop build; v6.7.9 is the newest stable release.
+  # GitHub release is a nightly develop build; v6.7.12 is the newest stable release as of the 2026-11-27 pin bump.
   links:
     docs: "https://docs.firefly-iii.org/"
     github: "https://github.com/firefly-iii/firefly-iii"

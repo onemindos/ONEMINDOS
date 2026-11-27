@@ -46,7 +46,7 @@ Images:
 
 ## How it is packaged
 
-- **Image:** upstream `docker.io/freshrss/freshrss:1.30.4` (Debian, Apache, PHP).
+- **Image:** upstream `docker.io/freshrss/freshrss:1.31.0` (Debian, Apache, PHP).
 - **User:** the pod runs as `www-data` (UID/GID 33), the user Apache would switch to. The namespaced safe sysctl `net.ipv4.ip_unprivileged_port_start=0` lets it keep port 80 in this pod only. Apache's run and lock directories are small `emptyDir` volumes.
 - **Feed refresh:** upstream refreshes feeds from cron, which needs root. A `refresh` sidecar runs the same script (`app/actualize_script.php`) every 30 minutes as `www-data` instead, like the image's default schedule (`7,37 * * * *`).
 - **State:** PVCs `freshrss-data` (2 Gi, `data/`: configuration, users, SQLite databases) and `freshrss-extensions` (1 Gi, `extensions/`).

@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
-# Uptime Kuma 2.5.11, upstream rootless image (docker/dockerfile target "rootless": USER node).
+# Bumped from 2.5.11 to 2.5.12 on 2026-11-27; the upstream files cited here were read at 2.5.11 and not re-read at 2.5.12.
+# Uptime Kuma 2.5.12, upstream rootless image (docker/dockerfile target "rootless": USER node).
 # The node user is UID/GID 1000 (nodejs/docker-node Dockerfile; Uptime Kuma wiki "Docker Tags":
 # the data directory must be owned by node:node 1000:1000), so the UID is set numerically for runAsNonRoot.
 apiVersion: apps/v1

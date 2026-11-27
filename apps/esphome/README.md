@@ -45,7 +45,7 @@ Images:
 
 ## How it is packaged
 
-- **Image:** the official `ghcr.io/esphome/esphome:2026.10.2`, started as UID 1000.
+- **Image:** the official `ghcr.io/esphome/esphome:2026.11.1`, started as UID 1000.
 - **State:** PVCs `esphome-config` (1 Gi, `/config`: device YAML and builds) and `esphome-cache` (10 Gi, `/cache`). The entrypoint keeps PlatformIO packages, toolchains and compiler caches under `/cache` when it is mounted (`docker/docker_entrypoint.sh`); `HOME` points there too, so the compilers can write their state as a non-root user.
 - **Health:** probes on `GET /version`, the image's HEALTHCHECK path.
 - **Licence:** `MIT AND GPL-3.0` (Python code MIT, C/C++ runtime GPL-3.0), as the research licence matrix records from `LICENSE`.

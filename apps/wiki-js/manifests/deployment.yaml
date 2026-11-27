@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
-# Wiki.js 3.3.1 (github.com/requarks/wiki, dev/build/Dockerfile and dev/build/config.yml at that tag), image
-# ghcr.io/requarks/wiki:3.3.1 (the same digest as ghcr.io/requarks/wiki:3). The image runs as the node user
+# Bumped from 3.3.1 to 3.6.1 on 2026-11-27; the upstream files cited here were read at 3.3.1 and not re-read at 3.6.1.
+# Wiki.js 3.6.1 (github.com/requarks/wiki, dev/build/Dockerfile and dev/build/config.yml at that tag), image
+# ghcr.io/requarks/wiki:3.6.1. The image runs as the node user
 # (UID/GID 1000) on port 3000 and reads its database settings from DB_* environment variables. GET /_healthz
 # answers 200 (checked by running the pinned image as UID 1000 with all capabilities dropped, next to the
 # pinned Alpine PostgreSQL in the same network namespace).

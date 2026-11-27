@@ -47,7 +47,7 @@ Images:
 
 ## How it is packaged
 
-- **Images:** the official `docker.io/library/ghost:6.77.0-alpine` (the `6-alpine` line used by upstream's `TryGhost/ghost-docker` compose file) and `docker.io/library/mysql:8.0.46`, the database and pin that file uses.
+- **Images:** the official `docker.io/library/ghost:6.79.0-alpine` (the `6-alpine` line used by upstream's `TryGhost/ghost-docker` compose file) and `docker.io/library/mysql:8.0.46`, the database and pin that file uses.
 - **User:** the Ghost entrypoint switches to `node` only when started as root; this pod starts as `node` (UID/GID 1000). MySQL runs as its image user `mysql` (UID 999).
 - **Database:** MySQL is a native sidecar listening on 127.0.0.1 only, so only this pod reaches it. That is why its root account has no password and no Secret exists (contract §11.2 forbids committed Secrets).
 - **State:** PVCs `ghost-content` (5 Gi, themes, images and files) and `ghost-db` (5 Gi, MySQL data).

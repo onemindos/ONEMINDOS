@@ -45,7 +45,7 @@ Images:
 
 ## How it is packaged
 
-- **Image:** upstream `docker.io/codercom/code-server:4.145.2`; it runs as `coder` (UID 1000).
+- **Image:** upstream `docker.io/codercom/code-server:4.146.0`; it runs as `coder` (UID 1000).
 - **Entrypoint:** the image's entrypoint first runs `fixuid`, a setuid helper that cannot work without privilege escalation. This package starts code-server the way that entrypoint finally does (`dumb-init /usr/bin/code-server --bind-addr 0.0.0.0:8080`), opening `/home/coder`.
 - **State:** PVC `code-server-home` (10 Gi) on `/home/coder`: settings, extensions, projects and the generated password.
 - **Health:** probes on `GET /healthz`, code-server's health endpoint.

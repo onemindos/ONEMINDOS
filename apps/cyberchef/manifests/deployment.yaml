@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
-# CyberChef 11.5.0, upstream image ghcr.io/gchq/cyberchef (built by gchq/CyberChef's release workflow).
+# Bumped from 11.5.0 to 11.6.0 on 2026-11-27; the upstream files cited here were read at 11.5.0 and not re-read at 11.6.0.
+# CyberChef 11.6.0, upstream image ghcr.io/gchq/cyberchef (built by gchq/CyberChef's release workflow).
 # The image config (read from the registry on 2026-11-19) is nginx-unprivileged style: USER 101, port
 # 8080, pid file in /tmp. CyberChef is static files only; every operation runs in the browser, so
 # nothing is stored on the server.

@@ -55,7 +55,7 @@ LibreTranslate is machine translation that runs on the box: a web page and an HT
 
 ## How it runs here
 
-- One `Deployment`, one container: `docker.io/libretranslate/libretranslate:v1.9.6`, pinned by digest (Docker Hub registry API, 2026-11-19; amd64 and arm64). The image runs as its own user `libretranslate` (UID/GID 1032, per `docker/Dockerfile` at v1.9.6) on port 5000.
+- One `Deployment`, one container: `docker.io/libretranslate/libretranslate:v1.10.0`, pinned by digest (Docker Hub registry API, 2026-11-19; amd64 and arm64). The image runs as its own user `libretranslate` (UID/GID 1032, per `docker/Dockerfile` at v1.9.6, not re-read at v1.10.0) on port 5000.
 - **Models on a volume:** Argos keeps models under `/home/libretranslate/.local`, so that path is the PVC `libretranslate-models` (5Gi). Then a restart or an update does not download them again. `fsGroup: 1032` makes the volume writable for the app user.
 - **Only four languages by default** (`LT_LOAD_ONLY=en,es,fr,de`): every language adds a download and memory. Add language codes there to get more.
 - **Internet once, then offline:** the first start needs internet to download the models; after that it runs offline. `LT_UPDATE_MODELS` stays at its default (off), so it never fetches again on its own.

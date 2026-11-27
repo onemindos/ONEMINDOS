@@ -103,6 +103,8 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 **Gate result (ci-apps run 43468040302, 2026-11-13): still blocked.** The Alpine image also ships Go `stdlib` v1.24.6, so CVE-2025-68121 remains (fixed in 1.24.13, 1.25.7 or 1.26.0-rc.3). The snakeoil private-key finding is gone and the smoke test passed on the Alpine sidecar. What would unblock it: an upstream `postgres` image of the same major built with a fixed Go; the daily `apps-rescan` workflow picks that up without a code change.
 
 **Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** Penpot 2.19.1 to 2.19.5 (patch releases, no notes of breaking changes) and PostgreSQL 15.19 to 15.20 (Alpine flavour kept, same major). The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
+**Valkey sidecar (ma/market-bump-45-blocked-app-images, 2026-11-27):** left at 8.1.11 on purpose: the committed scan shows 0 CRITICAL for it, and a newer patch (8.1.12) was not adopted in this change. The CI gate decides the tier.
+
 <!-- onemind:notes:end -->
 
 ## Latest security scan

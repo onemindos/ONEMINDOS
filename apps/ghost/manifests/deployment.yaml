@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
-# Ghost 6.77.0, the official Docker image (docker.io/library/ghost, the 6-alpine line that upstream's
+# Bumped from 6.77.0 to 6.79.0 on 2026-11-27; the upstream files cited here were read at 6.77.0 and not re-read at 6.79.0.
+# Ghost 6.79.0, the official Docker image (docker.io/library/ghost, the 6-alpine line that upstream's
 # TryGhost/ghost-docker compose.yml uses) with MySQL 8.0.46, the database and pin that compose file uses.
 # The image entrypoint switches to node (UID/GID 1000) only when started as root, so it starts as node.
 # MySQL is a native sidecar listening on 127.0.0.1 only, as UID 999 (the image's mysql user): only this

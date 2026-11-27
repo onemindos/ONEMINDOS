@@ -48,7 +48,7 @@ Images:
 
 ## How it is packaged
 
-- **Images:** upstream `ghcr.io/karakeep-app/karakeep:0.34.1` (web and workers under s6-overlay; upstream chowns `/run` to `node` so it starts as UID 1000 under `runAsNonRoot`) and `docker.io/getmeili/meilisearch:v1.41.0` (MIT), the version upstream's compose pins.
+- **Images:** upstream `ghcr.io/karakeep-app/karakeep:0.35.0` (web and workers under s6-overlay; upstream chowns `/run` to `node` so it starts as UID 1000 under `runAsNonRoot`) and `docker.io/getmeili/meilisearch:v1.41.0` (MIT), the version upstream's compose pins.
 - **Search:** Meilisearch is a native sidecar listening on 127.0.0.1 only, so it needs no master key.
 - **Secret:** `NEXTAUTH_SECRET` is required. An init container generates it once into `.onemind/` on the data volume; the container exports it before starting `/init`. Nothing is committed.
 - **Crawler browser not packaged:** upstream's `karakeep-chrome` image installs Google Chrome on amd64, which is proprietary. Without `BROWSER_WEB_URL`, the workers fetch pages over plain HTTP, without screenshots or JavaScript (configuration docs).
@@ -83,7 +83,7 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 
 **Hold (apps/market-unblock-2, 2026-11-13):** `libbrotli1`, `dompurify`, Go `stdlib` in `karakeep:0.34.1` (the newest tag), and openssl in `meilisearch:v1.41.0`. Meilisearch `v1.56.x` tags exist but are a 15-minor jump that needs a compatibility read first, and the Karakeep image would still block. Unblock: a fixed Karakeep release.
 
-**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** Karakeep 0.34.1 to 0.35.0. Upstream notes: the image now drops privileges; if the data directory gives permission errors set `KARAKEEP_DISABLE_PRIVILEGE_DROP=true`. This manifest already runs as UID 1000 with an `fsGroup`, so no change was made, but it has not been smoke-tested. Meilisearch stays at v1.41.0 (a newer minor needs a dump or reindex). The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** Karakeep 0.34.1 to 0.35.0. Upstream notes: the image now drops privileges; if the data directory gives permission errors set `KARAKEEP_DISABLE_PRIVILEGE_DROP=true`. This pod already runs as UID 1000 with an `fsGroup` and no capabilities (no CAP_SETUID or CAP_SETGID), so a privilege switch in the new image would fail; the `karakeep` container therefore sets `KARAKEEP_DISABLE_PRIVILEGE_DROP=true`, upstream's documented opt-out. The smoke result for 0.35.0 was not available to this change (the ci-apps artifact could not be read from the build sandbox), so the setting is set up front and is not smoke-tested; check `scan.json` "smoke" after the next CI run. Meilisearch stays at v1.41.0 (a newer minor needs a dump or reindex). The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
 <!-- onemind:notes:end -->
 
 ## Latest security scan
