@@ -38,6 +38,19 @@ Holders: A ______________  B ______________  C ______________  Witness (optional
 - [ ] 15. Still to do for a published release (not part of this ceremony): `ONEMIND_RAUC_SIGNING_KEY`, `ONEMIND_RAUC_SIGNING_CERT`, `ONEMIND_SECURITY_PUBLISH=true`
 - [ ] 16. Issue #153 updated with the root.json sha256 (never a key)
 
+## Ceremony on YubiKeys (proposed; needs the founder's decision entry, D-010 says sticks first): full steps in [CEREMONY.md](CEREMONY.md#ceremony-on-yubikeys-proposed-changes-d-010)
+Founder decision entry recorded (DECISIONS.md, date): ____________   Yubico PIV CA file sha256: ______________________________
+- [ ] Y0. Rehearsals passed: `rehearse-tokens` and `ceremony-guide.py --yubikey --rehearsal` printed `REHEARSAL PASSED`
+- [ ] Y1. Spare YubiKey trial: prepared, `yubikey-key /tmp/spare-trial spare` printed `attestation OK` (with `YUBICO_PIV_CA` set; a run without the CA does not count), `PIN policy always, touch policy always`; spare reset
+- [ ] Y2. The day before, each holder prepared their own YubiKey alone: PIN and PUK changed, management key `--generate --protect`, slot 9c empty
+- [ ] Y3. Network off, commit checked (steps 1 and 2 above); `PYKCS11LIB` and `YUBICO_PIV_CA` set
+- [ ] Y4. Keys made ON each YubiKey (`yubikey-key pubs <a|b|c>`), each printed `attestation OK`. Serials (public): A ________ B ________ C ________
+- [ ] Y5. Online keys made (`online-keys online`)
+- [ ] Y6. Root signed by two YubiKeys plugged in together: `create out <channel> 2 'hsm:2?yubikey=<A>' 'hsm:2?yubikey=<B>' pubs/c.pub -- online/...pub` (two PINs typed at prompts, two touches)
+- [ ] Y7. `check out 2 3`: no `FAIL`; threshold 2 of 3; the three key ids match Y4. **sha256 of root.json:** ______________________________________  Initials: A ____ B ____ C ____
+- [ ] Y8. Steps 8 to 11 above (carry out root.json, PR, GitHub Environment, wipe)
+- [ ] Y9. YubiKeys stored in 3 places: home ____________ · off-site ____________ · trusted person ____________. PINs/PUKs in each holder's own safe place, never in the repo
+
 ## Rotate the root onto hardware keys (REL-02, #272): full steps in [CEREMONY.md](CEREMONY.md)
 Date: ____________  Current root.json sha256 (the one being replaced): ______________________________
 Needs: 3 hardware tokens (PIN set on each), their PKCS#11 module path, 2 old sticks + passphrases, `opensc` or `ykman`, offline machine.
