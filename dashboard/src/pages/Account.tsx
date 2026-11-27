@@ -5,6 +5,7 @@
 // App passwords (WebDAV for Finder and Linux file managers, #722) are in AppPasswords.tsx.
 import { Button, Card, PageHeader, StatusPill, Table, useToast } from '@onemind/ui';
 import { useHub } from '../data/hub';
+import { AccountSignIn } from './AccountSignIn';
 import { t } from '../i18n';
 import { usePoll } from '../lib/hooks';
 import { createPasskey, webauthnSupported } from '../lib/webauthn';
@@ -74,6 +75,7 @@ export function Account() {
           }
         </Load>
       </Card>
+      <AccountSignIn />
       <Card title={t('account.sessions')}>
         <Load res={sessions} what="Loading sessions">
           {(rows) => (
