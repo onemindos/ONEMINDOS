@@ -50,3 +50,13 @@ it('rejects foreground readings while inactive', async () => {
     AppState.currentState = previous;
   }
 });
+
+it('reports a denied request, and does not prompt when the system blocked it', async () => {
+  mockLocation.getPermission.mockResolvedValueOnce(denied).mockResolvedValueOnce(denied);
+  await expect(requestLocationPermission()).resolves.toBe('Denied');
+  expect(mockLocation.requestPermission).toHaveBeenCalledTimes(1);
+  mockLocation.requestPermission.mockClear();
+  mockLocation.getPermission.mockResolvedValue(revoked);
+  await expect(requestLocationPermission()).resolves.toBe('Blocked');
+  expect(mockLocation.requestPermission).not.toHaveBeenCalled();
+});

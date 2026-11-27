@@ -8,7 +8,7 @@ import { backgroundPermission } from './background';
 import { cameraPermission } from './camera';
 import { photosPermission } from './files';
 import { microphonePermission, usePlayback, useRecorder } from './mic';
-import { notificationPermission, requestNotificationPermission } from './notifications';
+import { allowNotifications, notificationPermission, requestNotificationPermission } from './notifications';
 
 jest.mock('expo-audio', () => ({
   getRecordingPermissionsAsync: jest.fn(), requestRecordingPermissionsAsync: jest.fn(), setAudioModeAsync: jest.fn(),
@@ -46,6 +46,19 @@ it('reports limited photo access and background restrictions', async () => {
     .mockResolvedValueOnce(BackgroundTaskStatus.Restricted);
   await expect(backgroundPermission()).resolves.toBe('Available');
   await expect(backgroundPermission()).resolves.toBe('Restricted');
+  jest.mocked(getStatusAsync).mockResolvedValueOnce(99 as never);
+  await expect(backgroundPermission()).resolves.toBe('Unavailable');
+});
+
+it('the Settings button asks when it can, and opens phone settings when the system blocked the prompt', async () => {
+  const openSettings = jest.fn(async () => undefined);
+  jest.mocked(getPermissionsAsync).mockResolvedValueOnce(result(false)).mockResolvedValueOnce(result(false, false));
+  jest.mocked(requestPermissionsAsync).mockResolvedValueOnce(result(true));
+  await expect(allowNotifications(openSettings)).resolves.toBe(true);
+  expect(openSettings).not.toHaveBeenCalled();
+  await expect(allowNotifications(openSettings)).resolves.toBe(false);
+  expect(openSettings).toHaveBeenCalledTimes(1);
+  expect(requestPermissionsAsync).toHaveBeenCalledTimes(1);
 });
 
 it('only starts recording after a grant and checks the permission again after revocation', async () => {

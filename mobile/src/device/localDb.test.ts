@@ -5,8 +5,9 @@ import { activateLocalDatabases, lockLocalDatabases, openLocalDb, resumeLocalDat
 const mockEntries = new Map<string, string>();
 const mockDelete = jest.fn((name: string) => mockEntries.delete(name));
 jest.mock('expo-sqlite', () => ({ openDatabaseAsync: jest.fn() }));
+const mockExclude = jest.fn(async () => undefined);
 jest.mock('expo', () => ({
-  requireNativeModule: () => ({ excludeDatabaseDirectoryFromBackup: async () => undefined }),
+  requireNativeModule: () => ({ excludeDatabaseDirectoryFromBackup: () => mockExclude() }),
 }));
 jest.mock('./files', () => {
   function entry(name: string) {
@@ -90,4 +91,12 @@ it('retains an expired account’s outbox and wipes it only when a different acc
   expect(mockEntries.get('outbox.db')).toBe('pending edit');
   await activateLocalDatabases('another account');
   expect(mockEntries.has('outbox.db')).toBe(false);
+});
+
+it('records the wipe marker and removes the data even when the iOS backup exclusion call throws', async () => {
+  mockEntries.set('outbox.db', 'pending edit');
+  mockExclude.mockRejectedValueOnce(new Error('native failure'));
+  await wipeLocalDatabases();
+  expect(mockEntries.size).toBe(0);
+  await expect(openLocalDb('notes', [])).rejects.toThrow('Sign in');
 });

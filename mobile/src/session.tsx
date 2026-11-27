@@ -88,6 +88,11 @@ export function buildSession(c: Connection, makeApi: (c: Connection, tokens: Tok
   return { connection: c, api: makeApi(c, t), principal: undefined, me: undefined, features: Features.none(), canDecide: 'unknown', canRequest: 'unknown', label, remembered: true };
 }
 
+/** The key for a person's local app data; undefined (so: locked) when the hub gives no node id. */
+export function localAccountKey(hubNodeId: string | undefined, p: Pick<Principal, 'kind' | 'id'>): string | undefined {
+  return hubNodeId ? JSON.stringify([hubNodeId, p.kind, p.id]) : undefined;
+}
+
 /** Read features and identity from the hub. Never throws: a v0 hub simply has neither. */
 async function enrich(s: Session): Promise<Session> {
   const features = await s.api.features().catch(() => Features.none());
@@ -153,7 +158,23 @@ export function SessionProvider({ deps = {}, children }: { deps?: SessionDeps; c
         const s = adopt(c);
         setSession(s);
         // Show the app at once; features and identity follow (an unreachable hub must not block the start).
-        void enrich(s).then((e) => alive && setSession((cur) => (cur?.api === s.api ? { ...e, connection: cur.connection } : cur)));
+        void enrich(s).then(async (e) => {
+          // A sign-in saved before local data existed has no account key: derive it once the hub names the person.
+          let localAccount = c.localAccount;
+          if (!localAccount && e.principal) {
+            const key = localAccountKey((await s.api.instance().catch(() => undefined))?.hub_node_id, e.principal);
+            if (key && alive && conn.current === c) {
+              const ok = await activateLocalDatabases(key).then(() => true, () => false);
+              if (ok) {
+                localAccount = key;
+                const next = { ...conn.current, localAccount: key };
+                conn.current = next;
+                await save(next).catch(() => undefined);
+              }
+            }
+          }
+          if (alive) setSession((cur) => (cur?.api === s.api ? { ...e, connection: { ...cur.connection, localAccount } } : cur));
+        });
       }
       setReady(true);
     });
@@ -170,10 +191,10 @@ export function SessionProvider({ deps = {}, children }: { deps?: SessionDeps; c
       const candidate = buildSession(c, makeApi);
       const instance = await candidate.api.instance(); // wrong tokens fail before changing the session
       const verified = await enrich(candidate);
-      const account = verified.principal;
-      if (account) {
-        c.localAccount = JSON.stringify([instance.hub_node_id || c.hubUrl, account.kind, account.id]);
-        await activateLocalDatabases(c.localAccount).catch(() => undefined);
+      const key = verified.principal ? localAccountKey(instance.hub_node_id, verified.principal) : undefined;
+      if (key) {
+        c.localAccount = key;
+        await activateLocalDatabases(key).catch(() => undefined);
       } else {
         await lockLocalDatabases().catch(() => undefined);
       }
@@ -194,6 +215,7 @@ export function SessionProvider({ deps = {}, children }: { deps?: SessionDeps; c
 
   const disconnect = useCallback(async () => {
     signingOut.current = true;
+    const before = conn.current;
     try {
       // The wipe records its intent on disk before closing or deleting anything.
       await wipeLocalDatabases().catch(() => undefined);
@@ -204,13 +226,18 @@ export function SessionProvider({ deps = {}, children }: { deps?: SessionDeps; c
       }
     } finally {
       conn.current = null;
-      setExpiredHub(undefined);
-      setSession(null);
       try {
+        // Forget the stored sign-in while the signed-in screen is still up, so a failure can be shown there
+        // and Disconnect tried again (the stored sign-in would otherwise return on the next launch).
         await clear();
+      } catch (e) {
+        conn.current = before;
+        throw e;
       } finally {
         signingOut.current = false;
       }
+      setExpiredHub(undefined);
+      setSession(null);
     }
   }, [clear]);
 

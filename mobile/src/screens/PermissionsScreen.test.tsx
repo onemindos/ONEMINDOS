@@ -9,7 +9,7 @@ jest.mock('@react-navigation/native', () => ({
 jest.mock('../device/camera', () => ({ cameraPermission: () => Promise.resolve('Denied') }));
 jest.mock('../device/mic', () => ({ microphonePermission: () => Promise.resolve('Not asked') }));
 jest.mock('../device/files', () => ({ photosPermission: () => Promise.resolve('Selected items only') }));
-jest.mock('../device/location', () => ({ locationPermission: () => Promise.resolve('Blocked') }));
+jest.mock('../device/location', () => ({ locationPermission: (background?: boolean) => Promise.resolve(background ? 'Not available' : 'Blocked') }));
 jest.mock('../device/background', () => ({ backgroundPermission: () => Promise.resolve('Restricted') }));
 jest.mock('../device/notifications', () => ({ notificationPermission: () => Promise.resolve('Allowed') }));
 
@@ -19,6 +19,9 @@ it('shows why permissions are used, the OS states, and opens phone settings when
     await render(<PermissionsScreen />);
     expect(await screen.findByText('Selected items only')).toBeOnTheScreen();
     expect(screen.getByText('Denied')).toBeOnTheScreen();
+    expect(screen.getByText('Not available')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: /background location/i })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Open phone settings for location' })).toBeOnTheScreen();
     expect(screen.getByText('Private to OneMind')).toBeOnTheScreen();
     expect(screen.getByText('Capture sound when you start a recording.')).toBeOnTheScreen();
     expect(settings).not.toHaveBeenCalled();

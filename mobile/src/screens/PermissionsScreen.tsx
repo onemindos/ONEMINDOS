@@ -77,7 +77,7 @@ export function PermissionsScreen() {
           <P>{why}</P>
           <Row label="Used by" value={apps} />
           <Row label="State" value={states[index] ?? 'Checking…'} />
-          {systemSetting && <Button variant="secondary" label={`Open phone settings for ${title.toLowerCase()}`}
+          {systemSetting && states[index] !== 'Not available' && <Button variant="secondary" label={`Open phone settings for ${title.toLowerCase()}`}
             onPress={() => {
               setSettingsFailed(false);
               void Linking.openSettings().catch(() => setSettingsFailed(true));

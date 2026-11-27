@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
-import { act, renderHook } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { Features, HttpApi, OP, type FetchLike } from './api/client';
 import type { InboxItem, Me } from './api/types';
 import { inboxAlerts } from './lib/alerts';
 import { insecureHub } from './screens/ConnectScreen';
-import { abilitiesFromMe, buildSession, SessionProvider, useSession } from './session';
+import { abilitiesFromMe, buildSession, localAccountKey, SessionProvider, useSession } from './session';
 import { v0Api } from './test/fakes';
 import { mockApi, mockConnection } from './test/mockHub';
 import type { Connection } from './storage';
@@ -76,8 +76,98 @@ describe('session', () => {
     await act(async () => {
       await result.current.connect(mockConnection('owner-demo'));
     });
-    expect(save).toHaveBeenCalledWith(expect.objectContaining(mockConnection('owner-demo')));
+    expect(save).toHaveBeenCalledWith({ ...mockConnection('owner-demo'), localAccount: JSON.stringify(['3f9c2a1b7d4e', 'person', 'owner']) });
     expect(result.current.session?.canDecide).toBe('yes');
+  });
+
+  it('activates local data with the hub node and principal after /v1/me, and different people get different keys', async () => {
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <SessionProvider deps={{ load: async () => null, save: async () => undefined, clear: async () => undefined, makeApi: mockApi }}>{children}</SessionProvider>
+    );
+    const { result } = await renderHook(() => useSession(), { wrapper });
+    await act(async () => { await result.current.connect(mockConnection('owner-demo')); });
+    await act(async () => { await result.current.connect(mockConnection('adult-demo')); });
+    expect(jest.mocked(localDb.activateLocalDatabases).mock.calls).toEqual([
+      [JSON.stringify(['3f9c2a1b7d4e', 'person', 'owner'])],
+      [JSON.stringify(['3f9c2a1b7d4e', 'person', 'alex'])],
+    ]);
+    expect(localDb.lockLocalDatabases).not.toHaveBeenCalled();
+  });
+
+  it('keeps the same key for the same person after expire() and signing in again', async () => {
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <SessionProvider deps={{ load: async () => null, save: async () => undefined, clear: async () => undefined, makeApi: mockApi }}>{children}</SessionProvider>
+    );
+    const { result } = await renderHook(() => useSession(), { wrapper });
+    await act(async () => { await result.current.connect(mockConnection('owner-demo')); });
+    await act(async () => { await result.current.expire(); });
+    expect(localDb.lockLocalDatabases).toHaveBeenCalledTimes(1);
+    expect(localDb.wipeLocalDatabases).not.toHaveBeenCalled();
+    await act(async () => { await result.current.connect(mockConnection('owner-demo')); });
+    const keys = jest.mocked(localDb.activateLocalDatabases).mock.calls.map(([k]) => k);
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toBe(keys[1]);
+  });
+
+  it('locks local data when the hub gives no /v1/me or no node id, and never falls back to the URL', async () => {
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <SessionProvider deps={{ load: async () => null, save: async () => undefined, clear: async () => undefined, makeApi: () => v0Api() }}>{children}</SessionProvider>
+    );
+    const { result } = await renderHook(() => useSession(), { wrapper });
+    await act(async () => { await result.current.connect(mockConnection('tok')); });
+    expect(localDb.activateLocalDatabases).not.toHaveBeenCalled();
+    expect(localDb.lockLocalDatabases).toHaveBeenCalledTimes(1);
+    expect(localAccountKey('', { kind: 'person', id: 'owner' })).toBeUndefined();
+    expect(localAccountKey(undefined, { kind: 'person', id: 'owner' })).toBeUndefined();
+  });
+
+  it('leaves local data alone when the hub refuses the token', async () => {
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <SessionProvider deps={{ load: async () => null, save: async () => undefined, clear: async () => undefined, makeApi: mockApi }}>{children}</SessionProvider>
+    );
+    const { result } = await renderHook(() => useSession(), { wrapper });
+    await act(async () => { await expect(result.current.connect(mockConnection('wrong'))).rejects.toBeDefined(); });
+    expect(localDb.activateLocalDatabases).not.toHaveBeenCalled();
+    expect(localDb.lockLocalDatabases).not.toHaveBeenCalled();
+    expect(localDb.wipeLocalDatabases).not.toHaveBeenCalled();
+  });
+
+  it('a sign-in saved before local data existed gets its key at startup, activates, and is saved', async () => {
+    const save = jest.fn(async (_c: Connection) => undefined);
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <SessionProvider deps={{ load: async () => mockConnection('owner-demo'), save, clear: async () => undefined, makeApi: mockApi }}>{children}</SessionProvider>
+    );
+    const { result } = await renderHook(() => useSession(), { wrapper });
+    const key = JSON.stringify(['3f9c2a1b7d4e', 'person', 'owner']);
+    await waitFor(() => expect(localDb.activateLocalDatabases).toHaveBeenCalledWith(key));
+    await waitFor(() => expect(save).toHaveBeenCalledWith({ ...mockConnection('owner-demo'), localAccount: key }));
+    await waitFor(() => expect(result.current.session?.connection.localAccount).toBe(key));
+  });
+
+  it('a stored key is not recomputed at startup', async () => {
+    const stored = { ...mockConnection('owner-demo'), localAccount: 'k' };
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <SessionProvider deps={{ load: async () => stored, save: async () => undefined, clear: async () => undefined, makeApi: mockApi }}>{children}</SessionProvider>
+    );
+    const { result } = await renderHook(() => useSession(), { wrapper });
+    await waitFor(() => expect(result.current.session?.canDecide).toBe('yes'));
+    expect(localDb.resumeLocalDatabases).toHaveBeenCalledWith('k');
+    expect(localDb.activateLocalDatabases).not.toHaveBeenCalled();
+  });
+
+  it('a failed clear() keeps the signed-in screen so the error can be shown, and Disconnect can be retried', async () => {
+    jest.mocked(localDb.wipeLocalDatabases).mockResolvedValue(undefined);
+    const clear = jest.fn().mockRejectedValueOnce(new Error('keystore')).mockResolvedValue(undefined);
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <SessionProvider deps={{ load: async () => null, save: async () => undefined, clear, makeApi: mockApi }}>{children}</SessionProvider>
+    );
+    const { result } = await renderHook(() => useSession(), { wrapper });
+    await act(async () => { await result.current.connect(mockConnection('owner-demo')); });
+    await act(async () => { await expect(result.current.disconnect()).rejects.toThrow('keystore'); });
+    expect(result.current.session).not.toBeNull();
+    await act(async () => { await result.current.disconnect(); });
+    expect(clear).toHaveBeenCalledTimes(2);
+    expect(result.current.session).toBeNull();
   });
 
   it('connects but does not remember when the secure store refuses (never falls back to plain storage)', async () => {

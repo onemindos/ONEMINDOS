@@ -6,7 +6,7 @@ import { useHubData } from '../data';
 import { loadLink, type DeviceLink } from '../lib/device';
 import { renameThisPhone, useThisPhone } from '../lib/install';
 import { setupNotifications, showAlert } from '../notify';
-import { requestNotificationPermission } from '../device/notifications';
+import { allowNotifications } from '../device/notifications';
 import { useSignedIn } from '../session';
 import { Button, Card, H1, H2, Notice, P, Row, Screen, s } from '../ui/bits';
 import { AppearanceSection } from './AppearanceSection';
@@ -69,7 +69,7 @@ export function SettingsScreen() {
         </P>
         <View style={s.wrap}>
           {notif === false && <Button variant="secondary" label="Allow notifications"
-            onPress={() => void requestNotificationPermission().then(setNotif).catch(() => setNotif(false))} />}
+            onPress={() => void allowNotifications().then(setNotif).catch(() => setNotif(false))} />}
           <Button
             variant="secondary"
             label="Send a test alert"

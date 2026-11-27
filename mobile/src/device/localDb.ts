@@ -87,6 +87,7 @@ export function lockLocalDatabases(): Promise<void> {
 }
 
 
+/** Migrations run inside the serialize queue: a migration must not call openLocalDb (it would wait on itself). */
 export function openLocalDb(appId: string, migrations: readonly LocalMigration[]): Promise<SQLiteDatabase> {
   return serialize(async () => {
     if (!/^[a-z0-9](?:[a-z0-9-]{0,57}[a-z0-9])?$/.test(appId)) throw new Error('Invalid local database app id.');
@@ -117,7 +118,8 @@ export function wipeLocalDatabases(): Promise<void> {
     unlocked = false;
     const dir = directory();
     if (!dir.exists) return;
-    const pending = pendingFile(await privateDirectory());
+    // Record the intent first and without the native backup call, so a failure there cannot skip the wipe.
+    const pending = pendingFile(dir);
     if (!pending.exists) pending.create();
     await finishWipe(dir, pending);
   });
