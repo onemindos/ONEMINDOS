@@ -68,7 +68,11 @@ func radiosCommands(a *App) []*cobra.Command {
 			}
 			return a.withJSONOrText(v, func(w io.Writer, v any) error {
 				c := obj(obj(v)["confirm"])
-				return kv(w, [][2]string{{"radio", id}, {"confirmed as", str(c["label"])}, {"at", dash(str(c["confirmed_at"]))}})
+				if err := kv(w, [][2]string{{"radio", id}, {"confirmed as", str(c["label"])}, {"at", dash(str(c["confirmed_at"]))}}); err != nil {
+					return err
+				}
+				_, err := io.WriteString(w, "Nothing was opened or sent.\n")
+				return err
 			})
 		},
 	}
