@@ -443,6 +443,12 @@ def test_snapshots_before_any_destination_is_an_empty_list_with_a_reason_not_a_w
     add_usb(client, bk)
     r = client.get("/v1/backups/snapshots", headers=OWNER)
     assert r.status_code == 200 and r.json() == [] and "OneMind-Reason" not in r.headers
+    assert any(j[0] == "backup.snapshots" for j in bk.agent.jobs)  # with a destination the agent is asked
+
+
+def test_snapshots_with_backups_switched_off_stay_503_even_without_a_destination(client):
+    r = client.get("/v1/backups/snapshots", headers=OWNER)
+    assert r.status_code == 503 and r.json()["reason"] == "backups_disabled" and r.headers["retry-after"] == "30"
 
 
 def test_destination_request_replays_with_the_same_idempotency_key(client, bk):

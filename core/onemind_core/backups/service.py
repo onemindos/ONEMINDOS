@@ -520,8 +520,12 @@ class BackupService:
 
     NO_DESTINATION = "no backup destination yet"
 
+    def has_destination(self) -> bool:
+        return bool(self.repo.destinations())
+
     def snapshots(self, app_id: str | None = None, unit: str | None = None) -> list[dict]:
-        if not self.repo.destinations():
+        self._agent()  # backups switched off stays a 503 backups_disabled, before anything else
+        if not self.has_destination():
             return []  # nothing can have been backed up; do not wait on the agent (the router names the reason)
         if app_id:
             unit = f"app:{app_id}"

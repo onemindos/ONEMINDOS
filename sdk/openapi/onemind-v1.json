@@ -23221,7 +23221,15 @@
                 "schema": {}
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "OneMind-Reason": {
+                "description": "Set to 'no backup destination yet' when the list is empty because no destination exists.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
             "content": {
