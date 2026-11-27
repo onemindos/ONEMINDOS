@@ -87,7 +87,7 @@ it.each(['global', 'settings'])('opens a matching tip from %s search', async sco
     await user.click(await screen.findByRole('link', { name: 'Open Check backups' }));
   }
   expect(await screen.findByText(backup.body)).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: 'Open', exact: true })).toHaveAttribute('href', '/backups');
+  expect(screen.getByRole('link', { name: 'Open' })).toHaveAttribute('href', '/backups');
 });
 
 it('browses collections and searches the loaded pack with / and no further requests', async () => {
