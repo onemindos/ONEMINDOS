@@ -1171,7 +1171,7 @@ class IdentityService:
                 raise ApiError(401, "unauthenticated", "approvals need a passkey on this box", reason="step_up_required")
             if ctx is not None:  # F-12: shown as "approved without passkey"
                 self.emit("auth", "approval.token", {"action_id": action_id, "via": ctx.session.auth_method
-                                                     if ctx.session else "token", "data_access": own_data}, p)
+                                                     if ctx.session else "token", "own_data_access": own_data}, p)
             return
         try:
             credential = pk.normalize(assertion)

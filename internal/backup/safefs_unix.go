@@ -36,6 +36,10 @@ import (
 // anything is written. Tests use it to simulate an app swapping a path.
 var testHookAfterOpen func()
 
+// testHookListingDup runs with openEmptyDir's listing duplicate right after it
+// is made. Tests use it to check that the duplicate is close-on-exec.
+var testHookListingDup func(dup int)
+
 const dirFlags = unix.O_RDONLY | unix.O_DIRECTORY | unix.O_NOFOLLOW | unix.O_CLOEXEC
 
 func errSymlinkPath(path string) error {
@@ -331,6 +335,14 @@ func applyMetaFd(fd int, m dirMeta) error {
 	return unix.Fchmod(fd, uint32(m.mode.Perm()))
 }
 
+// dupCloexec duplicates fd with close-on-exec set in the same system call
+// (F_DUPFD_CLOEXEC), like every descriptor opened here (O_CLOEXEC). Plain
+// dup(2) clears the flag, so a restic child that another job starts in that
+// window would inherit the duplicate and keep the folder open.
+func dupCloexec(fd int) (int, error) {
+	return unix.FcntlInt(uintptr(fd), unix.F_DUPFD_CLOEXEC, 0)
+}
+
 // openEmptyDir opens dest (no symlink on the way) and refuses it unless it is an
 // empty directory: a copy never lands on top of anything.
 func openEmptyDir(dest string) (int, error) {
@@ -341,13 +353,14 @@ func openEmptyDir(dest string) (int, error) {
 	// Read the listing through a duplicate that this function closes itself. An
 	// os.File made straight from fd would own it: its finalizer closes fd when the
 	// garbage collector runs, under a copy still writing through it, or after the
-	// number has been reused by another job's file (review of #1193). The
-	// duplicate is close-on-exec like fd (plain dup(2) is not), so a restic child
-	// started by another job in that window never inherits it.
-	dup, err := unix.FcntlInt(uintptr(fd), unix.F_DUPFD_CLOEXEC, 0)
+	// number has been reused by another job's file (review of #1193).
+	dup, err := dupCloexec(fd)
 	if err != nil {
 		unix.Close(fd)
 		return -1, err
+	}
+	if testHookListingDup != nil {
+		testHookListingDup(dup)
 	}
 	d := os.NewFile(uintptr(dup), dest)
 	names, err := d.Readdirnames(1)

@@ -437,8 +437,10 @@ class FeatureAction:
     preview_for: Callable[[dict], dict | None] | None = None
     # Design 25b (data-first recovery, D-028): reaching the owner's own data never needs a strong key. An owner who
     # lost every passkey and signs in with password and authenticator code may still APPROVE a data_access type
-    # without a passkey, even when require_passkey_approval is on. Only read and write types that change nothing
-    # that exists qualify (a restore copy into a new folder); never physical.
+    # without a passkey, even when require_passkey_approval is on, but only an action they asked for themselves and
+    # only from their own signed-in session (IdentityService._own_data_access): a token, another owner or anyone
+    # else's request still needs the passkey. Only read and write types that change nothing that exists qualify (a
+    # restore copy into a new folder); never physical.
     data_access: bool = False
 
 

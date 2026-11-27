@@ -148,8 +148,8 @@ def test_an_owner_without_a_passkey_requests_and_approves_a_copy_but_not_an_in_p
     """Review of #1193: the data-first rule holds at APPROVAL, not only at the request. With a passkey registered
     (require_passkey_approval on, the default), an owner signed in with a password (L1) asks for a restore copy,
     approves it without a step-up, and the copy lands in their Files. What still needs the passkey: an in-place
-    restore, a copy approved by anyone but the requester's own session (a token, as the CLI uses), and a copy
-    someone else asked for."""
+    restore, a copy approved by anyone but the requester's own signed-in session (the static owner token, or the
+    requester's own personal token as the CLI uses), and a copy someone else asked for."""
     app = create_app(id_settings(settings), clock=clock, executor=executor)
     with TestClient(app) as c:
         setup_owner(c)
@@ -176,9 +176,20 @@ def test_an_owner_without_a_passkey_requests_and_approves_a_copy_but_not_an_in_p
 
         copy = ask(pw, csrf(pw), "own-copy")
         assert copy["type"] == "backup.restore.copy" and copy["requested_by"]["id"] == user_id
-        # the static owner token (the CLI's kind of credential) is not the requester's session: passkey, as ever
+        # the static owner token is another principal ("owner"), not the person who asked: passkey, as ever
         by_token = approve_as(c, OWNER, copy["id"])
         assert by_token.status_code == 401 and by_token.json()["reason"] == "step_up_required", by_token.text
+        # review of #1319: a personal token (the CLI's credential, or a script's) of the SAME person who asks is still
+        # a token, not their signed-in session: it requests a copy, but approving it with that token needs the passkey
+        minted = pw.post("/v1/tokens", json={"name": "cli"}, headers=csrf(pw))
+        assert minted.status_code in (200, 201), minted.text
+        cli = {"Authorization": f"Bearer {minted.json()['one_time']['token']}"}
+        assert c.get("/v1/me", headers=cli).json()["principal"]["id"] == user_id
+        by_cli = ask(c, cli, "cli-copy")
+        assert by_cli["type"] == "backup.restore.copy" and by_cli["requested_by"]["id"] == user_id
+        r = approve_as(c, cli, by_cli["id"])
+        assert r.status_code == 401 and r.json()["reason"] == "step_up_required", r.text
+        assert gw.actions.get(by_cli["id"])["state"] == "awaiting_approval"
         jobs = len(bk.agent.jobs)
         done = approve_as(pw, csrf(pw), copy["id"])
         assert done.status_code == 200, done.text
@@ -186,7 +197,7 @@ def test_an_owner_without_a_passkey_requests_and_approves_a_copy_but_not_an_in_p
         events = [json.loads(line) for line in settings.audit_path.read_text().splitlines() if line.strip()]
         shown = [e["data"]["payload"] for e in events if e["event"] == "auth.approval.token"
                  and e["data"]["payload"]["action_id"] == copy["id"]]
-        assert shown == [{"action_id": copy["id"], "via": "password", "data_access": True}], shown  # F-12: no passkey
+        assert shown == [{"action_id": copy["id"], "via": "password", "own_data_access": True}], shown  # F-12: no passkey
         [(kind, params, _)] = bk.agent.jobs[jobs:]
         assert kind == "backup.restore" and params["scope"] == "copy"
         assert params["dest"].startswith(str(settings.sections["files"].root / "home"))
