@@ -145,6 +145,21 @@ Debian 13 (trixie) packages checked 2026-11-26 on packages.debian.org:
 - **Decision: FlashList for every long list** (Reminders, Notes, Files). Real lists filter in SQLite (F1), not in JavaScript.
 - **Agent run:** Managed Agent, Sonnet builder, $0.30. Branch `spike/long-list`, not for merge as is (dev-only screen; the lock file needs regenerating with the repo's npm).
 
+**Spike 2: the Notes editor. Measured on the S24 Ultra, 2026-11-26** (release build 960; ProseMirror in one bundled offline web view, plus Yjs):
+- **Opens and runs** with no crash and no network page. Headings, checklists and bold all render.
+- **Typing with the real Samsung keyboard works.** 10 words: 52 frames, median 9 ms, 95% at or under 18 ms, no slow UI-thread frames; the 4 janky frames came during the keyboard animation. Memory is about 275 MB, the same as without the editor.
+- **The offline merge works:**
+  - device A typed "and_A_offline", and a copy (device B) added a bold line while offline;
+  - after merging, **both edits were kept** and both copies were identical;
+  - it saved on the phone (490 bytes) and exported clean Markdown (the open format).
+- **Size:** 107 KB compressed for the editor and merge code (Automerge would be 3.6 MB).
+- **Decision: ProseMirror in one bundled web view, plus Yjs, for Notes** (and later Docs and Whiteboard). Markdown stays the export, with a plain-text mode as the fallback.
+- **Before it ships:**
+  - the Yjs and React Native crypto shim must be proven in the Metro build (it worked in this build);
+  - the editor must ask for no network;
+  - iOS needs the same test.
+- **Agent run:** Managed Agent, Sonnet builder, $0.99. Branch `spike/notes-editor`.
+
 ## 4. Engines and licences
 
 ### The rules (proposed)
