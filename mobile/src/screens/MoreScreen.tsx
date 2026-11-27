@@ -8,6 +8,7 @@ import type { RootParams } from '../nav';
 import { OP } from '../api/client';
 import { useHubData } from '../data';
 import { useSignedIn } from '../session';
+import { spikesEnabled } from '../spikes/LongListSpike';
 import { Badge, Card, H1, H2, Screen, s } from '../ui/bits';
 import { font, useTheme } from '../ui/theme';
 
@@ -66,6 +67,7 @@ export function MoreScreen() {
         )}
         {features.has(OP.mesh) && <Item to="Network" label="Network" detail="Box names and HTTPS, read only" />}
         <Item to="PhotoBackup" label="Photo backup" detail="This phone's photos to your box" />
+        {spikesEnabled() && <Item to="LongListSpike" label="Dev: long list spike" detail="10,000 rows, FlatList against FlashList" />}
         <HealthCard />
       </Screen>
     </SafeAreaView>

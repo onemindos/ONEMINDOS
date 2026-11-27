@@ -48,6 +48,7 @@ import { useUpdateNeeded } from './src/lib/protocol';
 import { UpdateNeededScreen } from './src/screens/UpdateNeededScreen';
 import { onForgetHub, SessionProvider, useSession, useSignedIn, type SessionDeps } from './src/session';
 import { PrefsProvider } from './src/prefs';
+import { LongListSpike, spikesEnabled } from './src/spikes/LongListSpike';
 import { TabIcon } from './src/ui/TabIcon';
 import { useIsDark, useTheme } from './src/ui/theme';
 
@@ -187,6 +188,7 @@ function SignedIn() {
             <Stack.Screen name="Migrate" component={MigrateScreen} options={{ title: 'Migration' }} />
             <Stack.Screen name="People" component={PeopleScreen} />
             <Stack.Screen name="Agents" component={AgentsScreen} />
+            {spikesEnabled() && <Stack.Screen name="LongListSpike" component={LongListSpike} options={{ title: 'Long list spike' }} />}
             <Stack.Screen name="PhotoBackup" component={PhotoBackupScreen} options={{ title: 'Photo backup' }} />
             <Stack.Screen name="PhotoAlbums" component={PhotoAlbumsScreen} options={{ title: 'Albums to back up' }} />
           </Stack.Navigator>

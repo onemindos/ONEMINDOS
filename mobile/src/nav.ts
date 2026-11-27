@@ -31,6 +31,8 @@ export type RootParams = {
   DeviceInfo: undefined;
   LiveUsage: undefined;
   Network: undefined;
+  /** Dev-only spike (spikesEnabled). */
+  LongListSpike: undefined;
 };
 
 declare global {
