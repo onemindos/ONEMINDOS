@@ -132,6 +132,19 @@ Debian 13 (trixie) packages checked 2026-11-26 on packages.debian.org:
 - Machines use the bus we already run, devices get one plain protocol we own, files use tools Linux has had for years, and shared editing uses an open format.
 - Every layer can be swapped without changing any app's screens or data.
 
+### Spike results
+
+**Spike 3: long lists. Measured on the S24 Ultra, 2026-11-26** (release build 959, 10,000 rows, 24 hard flings each way):
+
+| | Frames | Janky | Median | 95% | 99% | Slow UI-thread frames |
+|---|---|---|---|---|---|---|
+| **FlashList 2.3.2** (MIT, the version Expo 58 pins) | 566 | **0.18%** | 5 ms | **9 ms** | 13 ms | **0** |
+| FlatList (React Native's built-in list) | 580 | 1.55% | 6 ms | 18 ms | 29 ms | 7 |
+
+- **Live search** over 10,000 rows ("receipt 1"): 139 matches. 4 of 27 frames were janky, during the keyboard animation; the slowest was 22 ms, and no frame was slow on the app's main thread.
+- **Decision: FlashList for every long list** (Reminders, Notes, Files). Real lists filter in SQLite (F1), not in JavaScript.
+- **Agent run:** Managed Agent, Sonnet builder, $0.30. Branch `spike/long-list`, not for merge as is (dev-only screen; the lock file needs regenerating with the repo's npm).
+
 ## 4. Engines and licences
 
 ### The rules (proposed)
