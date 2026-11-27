@@ -22,6 +22,16 @@ Founder brief, 2026-11-26:
 
 **Conclusion:** build the foundation (§3) first, then the apps on top of it. Without it, each app is built three times and the phone versions only half work.
 
+### Measured on a Samsung S24 Ultra, 2026-11-26 (release build 957, throwaway box over USB)
+
+| Test | Result | What it means |
+|---|---|---|
+| Cold start to first screen | 135–199 ms (3 runs) | Fast; the framework is not the problem |
+| Smoothness while switching tabs and scrolling | 1,550 frames, 1.6% janky, typical frame 9 ms, 95% of frames at or under 18 ms | Smooth. Long lists (10,000 items) are not proven yet (spike 3). |
+| Memory | about 270 MB (PSS) | Normal for a React Native app; watch it as apps are added |
+| Box unreachable, then app opened | **Home is blank:** no cached data, and the box name is gone. A raw `java.net.ConnectException` message is shown. Approvals correctly refuses to approve or deny. | **Confirms the offline gap.** F1 must cache every read with its age and show plain words, not exceptions. |
+| iOS | Not tested: this Mac has Xcode 27.2, but no iOS simulator platform and no CocoaPods | Install both, then build for iOS before the app wave |
+
 ## 2. Principles
 
 1. **We own everything a person touches:** the screens, the data model, sync, permissions and approvals, the AI tools. All of it is in this repo under Apache-2.0.
