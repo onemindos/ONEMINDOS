@@ -154,6 +154,7 @@ jobs:
       - name: Check the release dependency graph and manifest for Google SDKs
         run: |
           set -euo pipefail
+          python3 -I scripts/test-check-android-sdk-deps.py
           export JAVA_HOME="$JAVA_HOME_17_X64"
           (cd android && ./gradlew --no-daemon -q :app:dependencies --configuration releaseRuntimeClasspath) > "$RUNNER_TEMP/android-deps.txt"
           "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" manifest print \

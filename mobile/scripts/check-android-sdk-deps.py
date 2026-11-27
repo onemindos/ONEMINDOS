@@ -7,7 +7,10 @@ import re
 from pathlib import Path
 from xml.etree import ElementTree
 
-DEPENDENCY = re.compile(r"\bcom\.google\.(?:android\.gms|firebase|mlkit)(?:[.:]|\b)")
+DEPENDENCY = re.compile(
+    r"\b(?:com\.google\.(?:android\.gms|firebase|mlkit)(?:[.:]|\b)|"
+    r"androidx\.credentials:credentials-play-services-auth\b)"
+)
 MANIFEST_ENTRY = re.compile(
     r"\b(?:com\.google\.(?:android\.gms|android\.c2dm|firebase|mlkit)|"
     r"expo\.modules\.notifications\.service\.ExpoFirebaseMessagingService)(?:\.|\b)"
