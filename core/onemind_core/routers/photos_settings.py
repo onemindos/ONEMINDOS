@@ -22,6 +22,7 @@ from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError, error_responses
 from ..identity.scopes import register_route_scope
+from ..jsonbody import JsonBody
 from ..photos import PhotosSettings
 
 APP_ID = "photos"
@@ -45,7 +46,7 @@ class PhotosSwitch(BaseModel):
     pending_action_id: str | None = None   # an app.enable / app.disable request waiting in Approvals
 
 
-class PhotosSwitchBody(BaseModel):
+class PhotosSwitchBody(JsonBody):
     model_config = ConfigDict(extra="forbid")
     enabled: bool
 
