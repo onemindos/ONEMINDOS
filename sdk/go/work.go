@@ -255,3 +255,43 @@ func (s *WorkService) AddSection(ctx context.Context, project, name, key string)
 func (s *WorkService) DeleteSection(ctx context.Context, project, id string) error {
 	return s.c.Do(ctx, http.MethodDelete, projectPath(project)+"/sections/"+url.PathEscape(id), nil, nil)
 }
+
+// CreateProject is operation work.project_create. aiAccess is "none", "read" or "work" (empty means
+// none). An empty key gets a fresh one, and a retry with the same key returns the same project.
+func (s *WorkService) CreateProject(ctx context.Context, name, aiAccess, key string) (*WorkProject, error) {
+	if key == "" {
+		key = NewIdempotencyKey()
+	}
+	body := map[string]string{"name": name}
+	if aiAccess != "" {
+		body["ai_access"] = aiAccess
+	}
+	var p WorkProject
+	_, err := s.c.do(ctx, request{method: http.MethodPost, path: "/v1/work/projects", body: body, retry: true,
+		headers: map[string]string{"Idempotency-Key": key}}, &p)
+	return &p, err
+}
+
+// UpdateTask is operation work.task_update: changes holds only the fields to change (title, body,
+// priority, due_at, status, labels). It reads the task first for the revision the gateway wants in
+// If-Match, so a task edited meanwhile fails with a conflict instead of being overwritten.
+func (s *WorkService) UpdateTask(ctx context.Context, project, id string, changes map[string]any) (*WorkTask, error) {
+	var t WorkTask
+	if err := s.c.Do(ctx, http.MethodGet, taskPath(project, id), nil, &t); err != nil {
+		return nil, err
+	}
+	_, err := s.c.do(ctx, request{method: http.MethodPatch, path: taskPath(project, id), body: changes,
+		headers: map[string]string{"If-Match": strconv.Itoa(t.Revision)}}, &t)
+	return &t, err
+}
+
+// DeleteTask is operation work.task_delete. Like UpdateTask it sends the revision it just read.
+func (s *WorkService) DeleteTask(ctx context.Context, project, id string) error {
+	var t WorkTask
+	if err := s.c.Do(ctx, http.MethodGet, taskPath(project, id), nil, &t); err != nil {
+		return err
+	}
+	_, err := s.c.do(ctx, request{method: http.MethodDelete, path: taskPath(project, id),
+		headers: map[string]string{"If-Match": strconv.Itoa(t.Revision)}}, nil)
+	return err
+}

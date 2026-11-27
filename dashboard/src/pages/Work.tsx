@@ -5,6 +5,7 @@ import { Button, Card, PageHeader } from '@onemind/ui';
 import { usePoll } from '../lib/hooks';
 import { uuidv4 } from '../lib/uuid';
 import { useSignedIn } from '../session';
+import { Projects, TaskTools } from './work/Manage';
 
 type Task = operations['work.task_get']['responses'][200]['content']['application/json'];
 type QuickAdd = operations['work.quick_add']['requestBody']['content']['application/json'];
@@ -73,7 +74,8 @@ function RepeatZone({ client, task, onSaved }: { client: OneMind; task: Task; on
   );
 }
 
-function WorkList({ client }: { client: OneMind }) {
+/** `refresh` changes when something outside the list (a project deleted with its tasks) changed the tasks. */
+function WorkList({ client, refresh = 0 }: { client: OneMind; refresh?: number }) {
   const [view, setView] = useState<View>('today');
   const [text, setText] = useState('');
   const [key, setKey] = useState<string | undefined>();
@@ -89,7 +91,7 @@ function WorkList({ client }: { client: OneMind }) {
     }
   }, 5000);
   const reload = tasks.reload;
-  useEffect(() => { void reload(); }, [view, reload]);
+  useEffect(() => { void reload(); }, [view, reload, refresh]);
 
   async function add(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -156,6 +158,7 @@ function WorkList({ client }: { client: OneMind }) {
             {task.priority < 4 && <> · p{task.priority}</>}
             {task.labels.length > 0 && <> · {task.labels.map((l) => `@${l}`).join(' ')}</>}
             {task.status === 'done' ? ' · Done' : <> <Button type="button" onClick={() => void finish(task)}>Done</Button></>}
+            <TaskTools client={client} task={task} onChanged={tasks.reload} />
           </li>
         ))}</ul>
       )}
@@ -166,10 +169,11 @@ function WorkList({ client }: { client: OneMind }) {
 export function Work() {
   const { token, person, mock } = useSignedIn();
   const client = useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1 }), [token]);
+  const [refresh, setRefresh] = useState(0);
   return (
     <div className="dash-stack">
       <PageHeader title="Work" />
-      {mock ? <p>Connect to a hub to open Work.</p> : <WorkList key={person} client={client} />}
+      {mock ? <p>Connect to a hub to open Work.</p> : <><WorkList key={person} client={client} refresh={refresh} /><Projects key={`p-${person}`} client={client} onChanged={() => setRefresh((n) => n + 1)} /></>}
     </div>
   );
 }
