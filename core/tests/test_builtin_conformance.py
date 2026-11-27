@@ -194,6 +194,12 @@ def owned_operations(prefix: str):
                     yield method, path.replace("{", "").replace("}", "")
 
 
+def surface_tools_under(c, prefix: str) -> list[str]:
+    """Names of the tools GET /v1/surfaces lists whose route is under the app's prefix."""
+    out = c.get("/v1/surfaces", headers=OWNER).json()
+    return [t["name"] for t in out["tools"] if t["route"] and builtins.under(t["route"].split(" ", 1)[1], prefix)]
+
+
 @pytest.mark.parametrize(("app_id", "prefix", "min_ops", "probe", "has_backup"), [
     ("photos", "/v1/photos", 5, "/v1/photos/library", True),
     ("work", "/v1/work", 7, "/v1/work/tasks", True),
@@ -206,6 +212,9 @@ def test_a_switched_off_built_in_answers_409_on_every_route_and_leaves_every_lis
     before = c.get("/v1/builtins", headers=OWNER).json()
     assert app_id in {a["id"] for a in before["apps"]}
     assert any(u["app_id"] == app_id for u in before["backup_units"]) == has_backup
+    tools_before = len(surface_tools_under(c, prefix))
+    if app_id == "work":
+        assert tools_before >= 2  # work_tasks_list and work_task_get are core tools on /v1/work
     assert run(c, clock, "app.disable", {"app_id": app_id}).json()["state"] == "succeeded"
 
     ops = list(owned_operations(prefix))
@@ -218,10 +227,12 @@ def test_a_switched_off_built_in_answers_409_on_every_route_and_leaves_every_lis
     after = c.get("/v1/builtins", headers=OWNER).json()
     assert app_id not in {a["id"] for a in after["apps"]}
     assert not any(u["app_id"] == app_id for u in after["backup_units"])
+    assert not surface_tools_under(c, prefix)
 
     assert run(c, clock, "app.enable", {"app_id": app_id}).json()["state"] == "succeeded"
     assert app_id in {a["id"] for a in c.get("/v1/builtins", headers=OWNER).json()["apps"]}
     assert c.get(probe, headers=OWNER).status_code != 409
+    assert len(surface_tools_under(c, prefix)) == tools_before
 
 
 def test_builtins_lists_settings_pages_backup_units_and_tools(c):
