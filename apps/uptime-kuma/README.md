@@ -43,7 +43,7 @@ Images:
 
 ## How it is packaged
 
-- **Image:** the upstream **rootless** full image. The default `2.5.11` tag runs as root; the `-rootless` tag is the same release with `USER node` (upstream `docker/dockerfile`). The pod runs as UID/GID 1000, which upstream documents as the owner the data directory needs ([Docker Tags](https://github.com/louislam/uptime-kuma/wiki/Docker-Tags)). The full image (not `-slim`) keeps the embedded MariaDB option and the Chromium "Browser Engine" monitor.
+- **Image:** the upstream **rootless** full image. The default `2.5.12` tag runs as root; the `-rootless` tag is the same release with `USER node` (upstream `docker/dockerfile`). The pod runs as UID/GID 1000, which upstream documents as the owner the data directory needs ([Docker Tags](https://github.com/louislam/uptime-kuma/wiki/Docker-Tags)). The full image (not `-slim`) keeps the embedded MariaDB option and the Chromium "Browser Engine" monitor.
 - **Security:** `runAsNonRoot`, `allowPrivilegeEscalation: false`, all Linux capabilities dropped, `RuntimeDefault` seccomp, no service-account token.
 - **State:** one PVC `uptime-kuma-data` (2 Gi, the k3s default `local-path` class) on `/app/data`. Upstream warns that the data folder needs POSIX file locks, so not NFS. One replica with the `Recreate` strategy, so two pods never write the database at once.
 - **Network:** Service `uptime-kuma`, port 3001 (HTTP and WebSocket). `enableServiceLinks: false` stops Kubernetes injecting `UPTIME_KUMA_PORT=tcp://…`, which the app would otherwise read as its port (upstream issue #2083).

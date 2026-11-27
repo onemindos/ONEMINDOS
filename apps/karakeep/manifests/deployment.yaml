@@ -119,10 +119,6 @@ spec:
           value: http://localhost:3000
         - name: MEILI_ADDR
           value: http://127.0.0.1:7700
-        # 0.35.0 drops privileges at start (upstream release notes); this pod already runs as UID 1000 with every
-        # capability dropped, so a user or group switch would fail with EPERM. Upstream's documented opt-out.
-        - name: KARAKEEP_DISABLE_PRIVILEGE_DROP
-          value: "true"
         ports:
         - name: http
           containerPort: 3000

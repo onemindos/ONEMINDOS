@@ -46,7 +46,7 @@ On OneMind it is the first founder app (contract `sdk/contracts/poc-v0.md` §7).
 
 ## How it is packaged
 
-- **Image:** `nousresearch/hermes-agent:v0.23.4`, pinned by the index digest named in contract §7 (amd64 and arm64). One container runs `gateway run` under the image's own s6-overlay supervisor, plus the web dashboard (`HERMES_DASHBOARD=true`, port 9119, the app's web port). The API server listens on 8642 for the `GET /health` probes and is not in the Service.
+- **Image:** `nousresearch/hermes-agent:v0.23.4`, pinned by index digest (amd64 and arm64). Contract §7 names `v0.23.0@sha256:adb78909…`; v0.23.4 is a later bump under §10.2 with its own digest. One container runs `gateway run` under the image's own s6-overlay supervisor, plus the web dashboard (`HERMES_DASHBOARD=true`, port 9119, the app's web port). The API server listens on 8642 for the `GET /health` probes and is not in the Service.
 - **Non-root:** the image starts as root only so it can remap its `hermes` user (UID 10000). Upstream supports starting directly as that UID ([docker/stage2-hook.sh](https://github.com/NousResearch/hermes-agent/blob/v0.23.0/docker/stage2-hook.sh)), so the pod runs as 10000:10000 with every capability dropped and no privilege escalation. s6-overlay needs a `/run` owned by that UID. An init container creates one in a pod-local `emptyDir`.
 - **State:** `HERMES_HOME=/opt/data` on the 5Gi PVC `hermes-agent-data`, holding config, `.env`, sessions, memories, skills and logs. The Deployment uses the `Recreate` strategy, so only one pod ever writes it.
 - **First-boot config:** the init container `seed-config` (`manifests/seed/seed.py`) writes `config.yaml` once. It contains Hermes's own example config plus:

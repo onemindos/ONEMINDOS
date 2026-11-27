@@ -48,7 +48,7 @@ Images:
 ## How it is packaged
 
 - **Image:** upstream `ghcr.io/requarks/wiki:3.6.1`. It runs as the `node` user (UID/GID 1000) on port 3000. This package starts it as UID 1000.
-- **Database:** PostgreSQL 18 (`postgres:18.6-alpine`) in a native sidecar on 127.0.0.1 only, trusting local connections, so no password or Secret exists. The Alpine image is used because the Debian one fails the app gate (see `metabase`, `paperless-ngx`); its `postgres` user is UID 70.
+- **Database:** PostgreSQL 18 (`postgres:18.7-alpine`) in a native sidecar on 127.0.0.1 only, trusting local connections, so no password or Secret exists. The Alpine image is used because the Debian one fails the app gate (see `metabase`, `paperless-ngx`); its `postgres` user is UID 70.
 - **State:** PVC `wiki-js-db` (5 Gi) for the database, and PVC `wiki-js-data` (2 Gi) on `/wiki/data` for Wiki.js's cache, content and repository folders.
 - **Health:** startup, readiness and liveness probes on `GET /_healthz`, which answers 200 once the server runs.
 - **Security:** `runAsNonRoot`, `allowPrivilegeEscalation: false`, all Linux capabilities dropped, `RuntimeDefault` seccomp, no service-account token. One replica with the `Recreate` strategy.

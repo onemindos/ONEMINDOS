@@ -45,7 +45,7 @@ Images:
 
 ## How it is packaged
 
-- **Image:** `ghcr.io/linuxserver/calibre-web:0.6.27-ls409`, the LinuxServer image that upstream's README lists under "Docker Images". Upstream publishes no image of its own.
+- **Image:** `ghcr.io/linuxserver/calibre-web:0.6.27-ls411`, the LinuxServer image that upstream's README lists under "Docker Images". Upstream publishes no image of its own.
 - **How it runs:** the LinuxServer s6 service always switches to the user `abc` (`svc-calibre-web/run`), which needs root, and LinuxServer does not list this image as tested for non-root use. This package runs what that service runs, `python3 /app/calibre-web/cps.py` with `CALIBRE_DBPATH=/config`, directly as UID 1000. The LinuxServer init steps it skips need root and only matter for Google Drive, the Calibre converter mod and PDF covers (see Known limits).
 - **State:** PVCs `calibre-web-config` (`/config`: `app.db` and logs) and `calibre-web-books` (`/books`: the Calibre library). The app cache is an `emptyDir`.
 - **Health:** probes on `GET /login`.

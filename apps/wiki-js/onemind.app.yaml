@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # wiki-js: Market batch 6 (contract sdk/contracts/poc-v0.md §9.5), written by hand from primary sources:
-# dev/build/Dockerfile and dev/build/config.yml at 3.3.1 (github.com/requarks/wiki), and a run of the pinned image (/_healthz).
+# dev/build/Dockerfile and dev/build/config.yml at 3.3.1 (github.com/requarks/wiki), and a run of the 3.3.1 image (/_healthz; not re-run at the 3.6.1 pin).
 # Image digests and archs read from the registry API, GitHub facts from the GitHub API, read 2026-11-13.
 apiVersion: onemind.app/v1alpha1
 kind: App
