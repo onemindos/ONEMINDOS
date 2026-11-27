@@ -81,6 +81,13 @@ The same rules: each command calls an existing gateway route, takes `--json`, an
 - `onemind family profile show|set USER --file F` and `family app show|set APP --file F`: owner only. `show` prints day names, and says plainly when every app or every hour is blocked. A box with passkeys asks for a passkey sign-in on the writes, which the CLI cannot do.
 - `onemind browsers open|close|reset-profile APP`: only for a dashboard or phone sign-in. The box refuses the API token that `onemind login` saves, and the CLI says so.
 
+### Files, photos, first run, notification settings
+- `onemind files roots|list [PATH] --root R|stat PATH --root R`: browse. Lists fetch every page the box sends (Link rel=next).
+- `onemind files trash list|empty [--trash home|shared]`, `files grants list|request --for app|agent:NAME --root R --path P --access r|rw|revoke ID --yes`, `files requests list|show ID`, `files quotas list|set PERSON (--gb N | --unlimited)`: `empty` and `grants request` file a request that an owner decides in the dashboard (Files, Requests). The same ask twice on one day files nothing new; after a deny or cancel it says so and exits 6 (conflict).
+- `onemind photos library|coverage SOURCE|receipts SOURCE`: read only. The source id comes from the phone app; no route lists sources yet.
+- `onemind onboarding state|settings show|settings save ...`: owner only.
+- `onemind notify prefs show|mute TOPIC [--channel C]|unmute TOPIC|set --file F` and `notify sources list|mute ID|unmute ID`: your own settings. `mute` and `unmute` send the ETag they read in If-Match, so an edit made meanwhile in the dashboard is never overwritten; they say so and you run them again.
+
 ## Build and test
 `make -C cmd/onemindd build` builds this tool too (`dist/onemind-linux-{amd64,arm64}`). Tests: `go test ./cmd/onemind/...` (a fake gateway: tables, `--json`, contexts and file modes, the approval flow, exit codes, the bridge); end to end against a live gateway in `core/tests/test_sdk_conformance.py`.
 

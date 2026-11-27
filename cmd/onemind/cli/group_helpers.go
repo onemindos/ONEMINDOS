@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -105,9 +106,66 @@ func jnum(v any) string {
 	return fmt.Sprintf("%d", int64(f))
 }
 
-// getTable is the common read: GET path, then --json prints the gateway's JSON, else a table.
+// gwDoHeaders is gwDo that also sends request headers (If-Match) and returns the response headers
+// (ETag, Link). It uses the exported SDK call, so the CLI still has no HTTP code of its own.
+func (a *App) gwDoHeaders(method, path string, headers map[string]string, body any) (any, http.Header, error) {
+	if a.gw == nil {
+		c, _, err := a.client()
+		if err != nil {
+			return nil, nil, err
+		}
+		a.gw = c
+	}
+	var raw any
+	hdr, err := a.gw.DoWithHeaders(bg(), method, path, headers, body, &raw)
+	if err != nil {
+		return nil, hdr, explainGateway(err)
+	}
+	return raw, hdr, nil
+}
+
+var linkNextRE = regexp.MustCompile(`<([^>]+)>;\s*rel="next"`)
+
+// maxPages bounds how many Link rel="next" pages one read follows.
+const maxPages = 50
+
+// getAll GETs a route and, when it answers a list with a Link rel="next" header (the §12.1 paging the
+// files routes use), follows every next page and returns the whole list. Stopping early is said on
+// stderr, never silent. Only a same-gateway /v1/ path is followed.
+func (a *App) getAll(path string) (any, error) {
+	v, hdr, err := a.gwDoHeaders(http.MethodGet, path, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	items, isList := v.([]any)
+	if !isList {
+		return v, nil
+	}
+	for page := 1; ; page++ {
+		m := linkNextRE.FindStringSubmatch(hdr.Get("Link"))
+		if m == nil {
+			return items, nil
+		}
+		if page >= maxPages || !strings.HasPrefix(m[1], "/v1/") {
+			fmt.Fprintf(a.Stderr, "onemind: showing the first %d entries; more remain (next page: %s)\n", len(items), m[1])
+			return items, nil
+		}
+		v, hdr, err = a.gwDoHeaders(http.MethodGet, m[1], nil, nil)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, list(v)...)
+	}
+}
+
+// getTable is the common read: GET path (every page of it), then --json prints the gateway's JSON,
+// else a table.
 func (a *App) getTable(path, header string, row func(m map[string]any) []string) error {
-	return a.read(path, func(w io.Writer, v any) error {
+	v, err := a.getAll(path)
+	if err != nil {
+		return err
+	}
+	return a.withJSONOrText(v, func(w io.Writer, v any) error {
 		var rows [][]string
 		for _, x := range list(v) {
 			rows = append(rows, row(obj(x)))
@@ -130,3 +188,21 @@ func (a *App) requestWrite(what, method, path string, body any) error {
 }
 
 var _ = http.MethodGet
+
+// jbytes renders a byte count in plain words.
+func jbytes(v any) string {
+	f, ok := v.(float64)
+	if !ok {
+		return "-"
+	}
+	units := []string{"B", "KB", "MB", "GB", "TB"}
+	i := 0
+	for f >= 1000 && i < len(units)-1 {
+		f /= 1000
+		i++
+	}
+	if i == 0 {
+		return fmt.Sprintf("%d B", int64(f))
+	}
+	return fmt.Sprintf("%.1f %s", f, units[i])
+}
