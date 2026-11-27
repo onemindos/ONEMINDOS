@@ -16,6 +16,7 @@ import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
 import { StoreTabs } from './Market';
+import { PhotosSwitchCard } from './PhotosSwitch';
 import { Load, useRun } from './parts';
 
 export type SystemAppRow = components['schemas']['SystemAppRow'];
@@ -77,6 +78,7 @@ export function SettingsApps() {
     <div className="dash-stack">
       <h2>Built-in apps</h2>
       <p className="om-hint">Apps that come with OneMind OS: their version, how they update and their licence. Switching one off keeps its data; an owner approves it first.</p>
+      <PhotosSwitchCard />
       <BuiltInApps />
     </div>
   );

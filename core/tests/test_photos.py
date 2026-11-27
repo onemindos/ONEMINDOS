@@ -182,7 +182,13 @@ def verified_snapshot(events, snapshot_id: str, started, target: str = "usb") ->
 
 # ---- switched off, who may use it ---------------------------------------------------------------
 
-def test_off_by_default_routes_404_but_documented(client):
+def test_operator_off_routes_404_but_documented(settings, clock):
+    off = replace(settings, sections={**settings.sections, "photos": PhotosSettings(enabled=False)})
+    with TestClient(create_app(off, clock=clock)) as client:
+        _operator_off_checks(client)
+
+
+def _operator_off_checks(client):
     r = client.post("/v1/photos/sources", json={"client_id": "c1", "name": "P", "platform": "ios"}, headers=OWNER)
     assert r.status_code == 404 and r.json()["error"] == "not_found"
     paths = client.get("/openapi.json").json()["paths"]
@@ -193,9 +199,16 @@ def test_off_by_default_routes_404_but_documented(client):
     assert {"head", "patch"} <= set(paths["/v1/photos/uploads/{upload_id}"])
 
 
-def test_settings_need_a_folder_when_enabled():
-    with pytest.raises(ValueError, match="ONEMIND_PHOTOS_DIR"):
-        load_section(PhotosSettings, {"ONEMIND_PHOTOS_ENABLED": "1"})
+def test_photos_is_on_by_default_with_a_folder_under_the_data_dir():
+    s = load_section(PhotosSettings, {})
+    assert s.enabled and s.active and s.dir == Path("data") / "photos"
+    s = load_section(PhotosSettings, {"ONEMIND_DATA_DIR": "/srv/onemind"})
+    assert s.active and s.dir == Path("/srv/onemind/photos")
+    off = load_section(PhotosSettings, {"ONEMIND_PHOTOS_ENABLED": "0"})  # the operator's hard off
+    assert not off.enabled and not off.active
+
+
+def test_settings_folder_can_be_set():
     s = load_section(PhotosSettings, {"ONEMIND_PHOTOS_ENABLED": "1", "ONEMIND_PHOTOS_DIR": "/srv/photos"})
     assert s.enabled and s.dir == Path("/srv/photos")
     with pytest.raises(ValueError):
@@ -892,5 +905,7 @@ def test_asset_content_refuses_a_symlink_swapped_into_the_library(pc, root, tmp_
     assert pc.get(f"/v1/photos/assets/{aid}/content", headers=OWNER).status_code == 404
 
 
-def test_library_is_404_when_photos_is_off(client):
-    assert client.get("/v1/photos/library", headers=OWNER).status_code == 404
+def test_library_is_404_when_photos_is_off(settings, clock):
+    off = replace(settings, sections={**settings.sections, "photos": PhotosSettings(enabled=False)})
+    with TestClient(create_app(off, clock=clock)) as client:
+        assert client.get("/v1/photos/library", headers=OWNER).status_code == 404
