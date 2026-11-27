@@ -19,7 +19,7 @@ type recGW struct {
 	mu  sync.Mutex
 	log []rec
 	srv *httptest.Server
-	// stepUp makes POST /v1/users answer the passkey step-up error.
+	// stepUp makes the user creation routes answer the step-up error.
 	stepUp bool
 	// noAISchedule makes GET /v1/update-policy leave ai_schedule out.
 	noAISchedule bool
@@ -100,7 +100,7 @@ func (g *recGW) serve(w http.ResponseWriter, r *http.Request) {
 			map[string]any{"id": "usr_2", "username": nil, "display_name": "Mia", "role": "teen", "enrolled": false, "disabled": false, "last_seen_at": nil},
 			map[string]any{"id": "usr_3", "username": "old", "display_name": "Old", "role": "guest", "enrolled": true, "disabled": true, "last_seen_at": nil},
 		})
-	case p == "/v1/users" && r.Method == http.MethodPost:
+	case (p == "/v1/users" || p == "/v1/users/invites") && r.Method == http.MethodPost:
 		if denyAgent() {
 			return
 		}
@@ -191,7 +191,7 @@ func TestUsersListInviteDisable(t *testing.T) {
 	if r.code != 0 || !strings.Contains(r.out, "https://box.example/signin#enrol=CODE") {
 		t.Fatalf("invite %+v", r)
 	}
-	post := g.requests("POST", "/v1/users")
+	post := g.requests("POST", "/v1/users/invites")
 	if len(post) != 1 || post[0].body["display_name"] != "Sam" || post[0].body["role"] != "child" || post[0].body["username"] != "sam" {
 		t.Fatalf("invite body %+v", post)
 	}

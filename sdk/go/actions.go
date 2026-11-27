@@ -148,17 +148,42 @@ func (s *ActionsService) ApproveAcceptingLicence(ctx context.Context, id, appID 
 // fingerprint for a tainted agent's request (AIG-04) or a physical action (#723), so a client that shows
 // the plan should always pass it. Either argument may be empty. Same read-back rule as Approve.
 func (s *ActionsService) ApproveBound(ctx context.Context, id, planSHA256, acceptLicence string) (*Action, error) {
-	body := map[string]string{}
+	body := approvalBody(planSHA256, acceptLicence)
+	if len(body) == 0 {
+		return s.decide(ctx, id, "approve", nil)
+	}
+	return s.decide(ctx, id, "approve", body)
+}
+
+// ApprovalAuthenticator is the proof of password and authenticator code bound to
+// a specific approval challenge. BoxCode is used for an L2 approval at the box.
+type ApprovalAuthenticator struct {
+	Challenge string
+	Password  string
+	TOTP      string
+	BoxCode   string
+}
+
+// ApproveWithAuthenticator submits the proof for one pending action and plan.
+// A lost reply follows the same read-back rule as Approve.
+func (s *ActionsService) ApproveWithAuthenticator(ctx context.Context, id, planSHA256, acceptLicence string, proof ApprovalAuthenticator) (*Action, error) {
+	body := approvalBody(planSHA256, acceptLicence)
+	body["password_totp"] = map[string]string{"challenge": proof.Challenge, "password": proof.Password, "totp": proof.TOTP}
+	if proof.BoxCode != "" {
+		body["box_code"] = proof.BoxCode
+	}
+	return s.decideRequest(ctx, id, "approve", request{body: body, noRedirects: true})
+}
+
+func approvalBody(planSHA256, acceptLicence string) map[string]any {
+	body := map[string]any{}
 	if planSHA256 != "" {
 		body["plan_sha256"] = planSHA256
 	}
 	if acceptLicence != "" {
 		body["accept_licence"] = acceptLicence
 	}
-	if len(body) == 0 {
-		return s.decide(ctx, id, "approve", nil)
-	}
-	return s.decide(ctx, id, "approve", body)
+	return body
 }
 
 // Deny is operation actions.deny (owner only), with the same read-back rule as Approve.
@@ -167,8 +192,14 @@ func (s *ActionsService) Deny(ctx context.Context, id string) (*Action, error) {
 }
 
 func (s *ActionsService) decide(ctx context.Context, id, verb string, body any) (*Action, error) {
+	return s.decideRequest(ctx, id, verb, request{body: body})
+}
+
+func (s *ActionsService) decideRequest(ctx context.Context, id, verb string, req request) (*Action, error) {
 	var a Action
-	_, err := s.c.do(ctx, request{method: http.MethodPost, path: "/v1/actions/" + url.PathEscape(id) + "/" + verb, body: body}, &a)
+	req.method = http.MethodPost
+	req.path = "/v1/actions/" + url.PathEscape(id) + "/" + verb
+	_, err := s.c.do(ctx, req, &a)
 	if err == nil {
 		return &a, nil
 	}

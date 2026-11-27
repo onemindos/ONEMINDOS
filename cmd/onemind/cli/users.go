@@ -42,16 +42,23 @@ func usersCommands(a *App) []*cobra.Command {
 	})
 
 	var role, username string
+	var secretsStdin bool
 	invite := &cobra.Command{
 		Use:   "invite NAME",
-		Short: "Add a person and print their one-time sign-up link (POST /v1/users)",
+		Short: "Add a person and print their one-time 24-hour invitation link",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			body := map[string]any{"display_name": args[0], "role": role}
+			body := map[string]any{"display_name": args[0], "role": role, "username": nil}
 			if username != "" {
 				body["username"] = username
 			}
-			v, err := a.gwDo(http.MethodPost, "/v1/users", body)
+			var v any
+			var err error
+			if role == "owner" {
+				v, err = a.gwDo(http.MethodPost, "/v1/users", body)
+			} else {
+				v, err = a.familyInvite("/v1/users/invites", "users.invite", "", body, secretsStdin, false)
+			}
 			if err != nil {
 				return err
 			}
@@ -70,6 +77,22 @@ func usersCommands(a *App) []*cobra.Command {
 	}
 	invite.Flags().StringVar(&role, "role", "adult", "owner, adult, teen, child or guest")
 	invite.Flags().StringVar(&username, "username", "", "sign-in name (optional)")
+	invite.Flags().BoolVar(&secretsStdin, "secrets-stdin", false, "read password and authenticator code from stdin if step-up is required")
+
+	var reinviteStdin, reinviteYes bool
+	reinvite := &cobra.Command{Use: "reinvite USER_ID", Short: "Reset a family member's sign-in with a new invitation",
+		Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+			if !reinviteYes {
+				return usageErr(cmd, "issuing a replacement invitation clears this person's sign-in credentials and sessions. Repeat with --yes to confirm")
+			}
+			v, err := a.familyInvite("/v1/users/"+url.PathEscape(args[0])+"/invite", "users.reinvite", args[0], nil, reinviteStdin, true)
+			if err != nil {
+				return err
+			}
+			return a.accountResult(str(obj(obj(v)["one_time"])["enrolment_url"]), v)
+		}}
+	reinvite.Flags().BoolVar(&reinviteYes, "yes", false, "confirm clearing current sign-in credentials and sessions")
+	reinvite.Flags().BoolVar(&reinviteStdin, "secrets-stdin", false, "read password, authenticator code and screen code from separate stdin lines")
 
 	var yes bool
 	disable := &cobra.Command{
@@ -92,6 +115,6 @@ func usersCommands(a *App) []*cobra.Command {
 		},
 	}
 	disable.Flags().BoolVar(&yes, "yes", false, "confirm")
-	root.AddCommand(invite, disable)
+	root.AddCommand(invite, reinvite, disable)
 	return []*cobra.Command{root}
 }

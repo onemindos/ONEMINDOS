@@ -33,8 +33,9 @@ type Context struct {
 
 // Credentials is credentials.yaml next to the config, mode 0600.
 type Credentials struct {
-	Schema string            `yaml:"schema"`
-	Tokens map[string]string `yaml:"tokens"`
+	Schema   string                       `yaml:"schema"`
+	Tokens   map[string]string            `yaml:"tokens"`
+	Sessions map[string]accountCredential `yaml:"sessions,omitempty"`
 }
 
 const (
@@ -101,8 +102,30 @@ func (c *Config) names() []string {
 
 func (c *Config) credsPath() string { return filepath.Join(filepath.Dir(c.path), "credentials.yaml") }
 
+// loadConfigForWrite serializes credential changes, including single-use refresh token rotation.
+func loadConfigForWrite(flag string) (*Config, func(), error) {
+	p, err := configPath(flag)
+	if err != nil {
+		return nil, nil, err
+	}
+	dir := filepath.Dir(p)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return nil, nil, err
+	}
+	unlock, err := lockConfigFile(filepath.Join(dir, "credentials.lock"))
+	if err != nil {
+		return nil, nil, err
+	}
+	c, err := loadConfig(p)
+	if err != nil {
+		unlock()
+		return nil, nil, err
+	}
+	return c, unlock, nil
+}
+
 func (c *Config) loadCreds() (*Credentials, error) {
-	cr := &Credentials{Schema: credsSchema, Tokens: map[string]string{}}
+	cr := &Credentials{Schema: credsSchema, Tokens: map[string]string{}, Sessions: map[string]accountCredential{}}
 	raw, err := os.ReadFile(c.credsPath())
 	if errors.Is(err, os.ErrNotExist) {
 		return cr, nil
@@ -115,6 +138,9 @@ func (c *Config) loadCreds() (*Credentials, error) {
 	}
 	if cr.Tokens == nil {
 		cr.Tokens = map[string]string{}
+	}
+	if cr.Sessions == nil {
+		cr.Sessions = map[string]accountCredential{}
 	}
 	return cr, nil
 }
