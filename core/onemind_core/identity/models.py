@@ -3,12 +3,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Any, TypeVar
 
-from sqlalchemy import JSON, Boolean, DateTime, Integer, LargeBinary, String, func, select, update
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import JSON, Boolean, DateTime, Integer, LargeBinary, String, func, select, text, update
+from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from ..ledger import Base
 from ..store import FeatureSchema, SqlRepository
@@ -227,6 +228,14 @@ class AppAccessRow(Base):
 
 class IdentityRepository(SqlRepository):
     """Small generic helpers; the rules live in service.py."""
+
+    @contextmanager
+    def lock_user(self, user_id: str) -> Iterator[tuple[Session, UserRow | None]]:
+        """Serialise role promotion and passkey enrolment for the same account."""
+        with self.db.session.begin() as s:
+            if self.db.engine.dialect.name == "sqlite":
+                s.execute(text("BEGIN IMMEDIATE"))  # SQLite has no SELECT FOR UPDATE
+            yield s, s.get(UserRow, user_id, with_for_update=True)
 
     def get(self, cls: type[T], key: Any) -> T | None:
         with self.db.session() as s:

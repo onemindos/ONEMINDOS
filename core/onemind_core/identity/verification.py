@@ -30,6 +30,8 @@ from . import levels as lv
 from .models import HouseholdFlagRow, PasskeyRow, TrustedModelRow, VerificationLevelRow, iso
 
 if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
     from ..actions import Action
     from .service import IdentityService
 
@@ -90,8 +92,9 @@ class Verification:
         return max((self.cred_level(r, models) for r in rows), default=0)
 
     # ---- the one-way latch (the grace never returns) ---------------------------------------------------
-    def latched(self) -> bool:
-        return self.repo.get(HouseholdFlagRow, PROVEN_SEEN) is not None
+    def latched(self, session: Session | None = None) -> bool:
+        store = session if session is not None else self.repo
+        return store.get(HouseholdFlagRow, PROVEN_SEEN) is not None
 
     def note_proven(self, why: str) -> bool:
         """Set the latch when an owner holds a proven key now (after an enrolment or a trusted model is
