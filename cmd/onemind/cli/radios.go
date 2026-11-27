@@ -23,6 +23,10 @@ func radiosCommands(a *App) []*cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(*cobra.Command, []string) error {
 			return a.read("/v1/radios", func(w io.Writer, v any) error {
+				if len(list(v)) == 0 {
+					_, err := io.WriteString(w, "No radios found.\n")
+					return err
+				}
 				var rows [][]string
 				for _, r := range list(v) {
 					m := obj(r)
