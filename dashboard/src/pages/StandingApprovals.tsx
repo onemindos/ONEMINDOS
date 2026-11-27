@@ -15,7 +15,7 @@ import { usePoll } from '../lib/hooks';
 import { sessionLapsed, useGateway, viaSdk } from '../lib/gateway';
 import { useSignedIn } from '../session';
 import { useShell } from '../shell/Shell';
-import { keyErrorText } from './SignInKeys';
+import { keyErrorText } from '../lib/keyErrors';
 import { Load } from './parts';
 
 type Policy = components['schemas']['ApprovalPolicy'];

@@ -4,7 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { ApiError } from '../api/types';
-import { keyErrorText, LAST_PROVEN_WARNING, SignInKeys } from './SignInKeys';
+import { keyErrorText } from '../lib/keyErrors';
+import { LAST_PROVEN_WARNING, SignInKeys } from './SignInKeys';
 
 const state = vi.hoisted(() => ({ role: 'owner', signOut: vi.fn() }));
 vi.mock('../session', () => ({
