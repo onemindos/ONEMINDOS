@@ -85,6 +85,7 @@ class Gateway:
     image_scanner: Any = None
     # #601: the hub's core JetStream streams and buckets (jetstream.JetStreamCore), set by routers/jetstream.py.
     jetstream: Any = None
+    policy: Any = None  # fabric_policy.PolicyPublisher (routers/fabricpolicy.py): the epoch jobs carry
     authenticators: list[Authenticator] = field(default_factory=list)
     approval_guards: list[ApprovalGuard] = field(default_factory=list)
     requester_lookups: list[RequesterLookup] = field(default_factory=list)

@@ -239,6 +239,47 @@ func TestRevokedAgentIsRefusedOnNextConnect(t *testing.T) {
 	}
 }
 
+// #1199 review, D-029 "Stop everything also cuts AI agents off the bus": the
+// kill switch rewrites the file without the AGENTS account
+// (hub-accounts-agents-stopped.golden.conf, core/tests/test_agents_nats.py)
+// and NATS reloads. Agents already connected are cut at that reload, not
+// when their credentials run out, and cannot sign in again.
+func TestKillSwitchReloadCutsConnectedAgents(t *testing.T) {
+	seedA, pubA := userKey(t)
+	seedB, pubB := userKey(t)
+	hub := startAgentsHub(t, pubA, pubB)
+	var conns []*agentConn
+	for token, k := range map[string][2]any{"aaa": {seedA, pubA}, "bbb": {seedB, pubB}} {
+		a, err := connectAgent(t, hub.url, token, k[0].([]byte), k[1].(string))
+		if err != nil {
+			t.Fatalf("agent %s before the stop: %v", token, err)
+		}
+		conns = append(conns, a)
+	}
+	stopped, err := os.ReadFile(filepath.Join("testdata", "hub-accounts-agents-stopped.golden.conf"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(hub.accounts, stopped, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := hub.srv.Reload(); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for _, a := range conns {
+		for a.IsConnected() && time.Now().Before(deadline) {
+			time.Sleep(20 * time.Millisecond)
+		}
+		if a.IsConnected() {
+			t.Fatal("an agent stayed connected after the kill switch reload")
+		}
+	}
+	if _, err := connectAgent(t, hub.url, "aaa", seedA, pubA); err == nil {
+		t.Fatal("agent aaa signed in again while stopped")
+	}
+}
+
 // A user with no key and no agent key never lands in AGENTS: the
 // passwordless loopback user is ONEMIND's, and an unknown nkey is refused.
 func TestUnknownAgentKeyIsRefused(t *testing.T) {

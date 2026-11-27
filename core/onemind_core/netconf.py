@@ -133,8 +133,14 @@ class FabricSettings:
     k3s_ca_hash: str | None = None          # ONEMIND_FABRIC_K3S_CA_HASH: "K10<sha256 hex>" of k3s /cacerts
     k3s: bool = False                       # ONEMIND_FABRIC_K3S=1: workers get a 1-hour k3s bootstrap token
     max_pending: int = 20                   # ONEMIND_FABRIC_MAX_PENDING join requests at once
+    # D-029 hybrid: NATS asks the gateway who may connect (callout.py), for agents; hub services and
+    # machines stay pinned. Off until the founder turns it on for a box (D-029: static config now).
+    nats_callout: bool = False              # ONEMIND_FABRIC_NATS_CALLOUT=1
+    nats_callout_ttl_s: int = 600           # ONEMIND_FABRIC_NATS_CALLOUT_TTL_S: an agent's NATS JWT lifetime
 
     def validate(self) -> None:
+        if not 60 <= self.nats_callout_ttl_s <= 86400:
+            raise ValueError("ONEMIND_FABRIC_NATS_CALLOUT_TTL_S must be between 60 and 86400 seconds")
         if self.jetstream_max_bytes < 0:
             raise ValueError("ONEMIND_FABRIC_JETSTREAM_MAX_BYTES must be 0 or more")
         if self.hub_url is not None and urlsplit(self.hub_url).scheme != "https":

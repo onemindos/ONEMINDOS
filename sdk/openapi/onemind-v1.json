@@ -5631,6 +5631,73 @@
         "title": "ErrorBody",
         "type": "object"
       },
+      "FabricPolicy": {
+        "additionalProperties": false,
+        "description": "What every joined machine enforces on its own, also while cut off from the hub.",
+        "properties": {
+          "allowed_kinds": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Kinds"
+          },
+          "epoch": {
+            "title": "Epoch",
+            "type": "integer"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "published": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Published",
+            "type": "object"
+          },
+          "revoked_kids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Revoked Kids",
+            "type": "array"
+          },
+          "schema": {
+            "title": "Schema",
+            "type": "string"
+          },
+          "stop": {
+            "$ref": "#/components/schemas/PolicyStop"
+          }
+        },
+        "required": [
+          "schema",
+          "epoch",
+          "stop",
+          "revoked_kids",
+          "allowed_kinds",
+          "published",
+          "error"
+        ],
+        "title": "FabricPolicy",
+        "type": "object"
+      },
       "FamilyProfile": {
         "additionalProperties": false,
         "properties": {
@@ -11192,6 +11259,25 @@
           }
         },
         "title": "PolicyPatch",
+        "type": "object"
+      },
+      "PolicyStop": {
+        "additionalProperties": false,
+        "properties": {
+          "agents": {
+            "title": "Agents",
+            "type": "boolean"
+          },
+          "motion_lockout": {
+            "title": "Motion Lockout",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "motion_lockout",
+          "agents"
+        ],
+        "title": "PolicyStop",
         "type": "object"
       },
       "PrincipalRef": {
@@ -29412,6 +29498,55 @@
           }
         },
         "summary": "Revoke Ticket",
+        "tags": [
+          "fabric"
+        ]
+      }
+    },
+    "/v1/fabric/policy": {
+      "get": {
+        "description": "The stop and revoke snapshot every machine keeps: the epoch, the stop switches, revoked job keys,\nand which machine has the newest one on the hub.",
+        "operationId": "fabric.policy",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FabricPolicy"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "nodes:read"
+            ]
+          }
+        ],
+        "summary": "Fabric Policy",
         "tags": [
           "fabric"
         ]

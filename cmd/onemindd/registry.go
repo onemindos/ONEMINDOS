@@ -29,4 +29,5 @@ var subcommands = map[string]func(args []string) int{
 var optionalServices = []service.Service{
 	leafSupervisor.Service(joinedNode), // net.go: supervises the NATS leaf, feeds fabric.leaf_link
 	backup.Service(),
+	jobsService(), // jobs.go: durable signed jobs from the gateway on a joined machine (D-029 N2)
 }

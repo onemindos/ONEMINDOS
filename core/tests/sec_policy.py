@@ -795,6 +795,8 @@ POLICY |= {
                                                           f"{_JOIN_CODE}; an unknown request id is 404 before any code is checked"),
     ("GET", "/v1/fabric"): Row(CHILD_CANNOT, w.p_static("/v1/fabric"),
                                f"{_NET}: the fabric summary (nodes, pending joins) like /v1/nodes: a child has no nodes:read (§12.6)"),
+    ("GET", "/v1/fabric/policy"): Row(CHILD_CANNOT, w.p_static("/v1/fabric/policy"),
+                                      f"{_NET}: D-029 N7, the stop and revoke snapshot every machine enforces; read-only, like /v1/fabric"),
     ("GET", "/v1/mesh"): Row(CHILD_CANNOT, w.p_static("/v1/mesh"),
                              f"{_NET}: the mesh view (nodes, devices, app URLs); a child has no nodes:read; mesh addresses are owner only (?addresses)"),
     ("PUT", "/v1/mesh/settings"): Row(ONLY_OWNER, w.p_missing("/v1/mesh/settings", json={}),

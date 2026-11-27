@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/nats-io/nkeys"
 	"io"
 	"net/netip"
 	"os"
@@ -34,6 +35,9 @@ var (
 	NATSDir     = filepath.Join(etcdir.Dir(), "nats")
 	StateFile   = filepath.Join(etcdir.Dir(), "fabric.json")
 	OnemindEnv  = filepath.Join(etcdir.Dir(), "onemindd.env")
+	// JobPubFile is the gateway's job public key, pinned at join from the box-CA-pinned reply. On the
+	// image it is under /data (ONEMIND_ETC_DIR=/data/onemind/etc), so it survives updates.
+	JobPubFile = filepath.Join(IdentityDir, "job.pub")
 )
 
 const (
@@ -61,6 +65,8 @@ type State struct {
 	CASHA256     string `json:"ca_sha256"`
 	CertNotAfter string `json:"cert_not_after"`
 	JoinedAt     string `json:"joined_at"`
+	// JobKid is the key id of the pinned job key (JobPubFile); empty when the hub sent none.
+	JobKid string `json:"job_kid,omitempty"`
 }
 
 // System is how the installer changes the machine; tests use a fake.
@@ -182,6 +188,21 @@ func (in *Installer) Apply(ctx context.Context, id *Identity, cr *Credentials, c
 		}
 	}
 	in.say("Identity    node-%s certificate until %s", id.NodeID, cert.NotAfter.UTC().Format("2006-01-02"))
+	// The job key (Check verified it matches its kid). A re-join replaces it: the join is the trust event.
+	jobKid := ""
+	if cr.JobPubkey != "" {
+		if err := writeFile(in.p(JobPubFile), []byte(cr.JobPubkey), 0o644); err != nil {
+			return nil, fmt.Errorf("job key: %w", err)
+		}
+		jobKid = cr.JobKid
+		in.say("Jobs        gateway job key %s pinned (jobs for node-%s only)", jobKid, id.NodeID)
+	} else {
+		// An older hub: remove a key pinned by an earlier join, so no job of another box can verify.
+		if err := os.Remove(in.p(JobPubFile)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("job key: %w", err)
+		}
+		in.say("Jobs        the hub sent no job key; this node refuses every job until it joins a newer hub")
+	}
 
 	// 2. Coordinator names point at the hub on the LAN (NETWORKING §5.4, LAN first).
 	if err := in.pinControl(cr, hubAddr); err != nil {
@@ -190,7 +211,7 @@ func (in *Installer) Apply(ctx context.Context, id *Identity, cr *Credentials, c
 
 	// 3. Mesh: restart tailscaled so it loads the box CA, then enroll with the one-time key.
 	st := &State{Schema: StateSchema, NodeID: id.NodeID, Role: role, HubURL: t.Hub, CASHA256: t.CASHA,
-		CertNotAfter: cert.NotAfter.UTC().Format(time.RFC3339)}
+		CertNotAfter: cert.NotAfter.UTC().Format(time.RFC3339), JobKid: jobKid}
 	if cr.Mesh != nil {
 		res, err := in.enrollMesh(ctx, cr.Mesh, cr.Mesh.ShieldsUp)
 		if err != nil {
@@ -222,7 +243,9 @@ func (in *Installer) Apply(ctx context.Context, id *Identity, cr *Credentials, c
 
 	// 6. onemindd publishes to its local leaf from now on, under the id the hub knows (firstboot wrote a
 	// different one; the leaf account and fabric.json use this one, so heartbeats on the old id never arrive).
-	if err := in.setEnv(map[string]string{"ONEMIND_NATS_URL": LocalNATSURL, "ONEMIND_NODE_ROLE": "node", "ONEMIND_NODE_ID": id.NodeID}); err != nil {
+	// It signs in to the leaf with its own local key (D-029 first fix; the path as seen on the machine).
+	if err := in.setEnv(map[string]string{"ONEMIND_NATS_URL": LocalNATSURL, "ONEMIND_NODE_ROLE": "node", "ONEMIND_NODE_ID": id.NodeID,
+		"ONEMIND_NATS_NKEY_SEED": LocalSeedFile(leaf.LocalOnemindd)}); err != nil {
 		return nil, err
 	}
 	st.JoinedAt = in.Now().UTC().Format(time.RFC3339)
@@ -313,10 +336,20 @@ func (in *Installer) writeLeaf(id *Identity, cr *Credentials) error {
 	if _, err := leaf.WriteNkeyFile(nkeyFile, id.NkeySeed); err != nil {
 		return err
 	}
+	// Local programs sign in with their own keys; a join makes new ones (it is the trust event).
+	pubs := map[string]string{}
+	for _, name := range []string{leaf.LocalOnemindd, leaf.LocalCLI} {
+		pub, err := newLocalKey(in.p(LocalSeedFile(name)))
+		if err != nil {
+			return fmt.Errorf("local NATS key %s: %w", name, err)
+		}
+		pubs[name] = pub
+	}
 	c := &leaf.Config{
 		ServerName: "node-" + id.NodeID, StoreDir: in.p(LeafStoreDir), HubURLs: []string{cr.NATS.URL},
 		CAFile: filepath.Join(dir, "ca.pem"), CertFile: filepath.Join(dir, "node.crt"), KeyFile: filepath.Join(dir, "node.key"),
-		NkeyFile: nkeyFile,
+		NkeyFile:   nkeyFile,
+		LocalUsers: []leaf.LocalUser{leaf.OnemindUser(id.NodeID, pubs[leaf.LocalOnemindd]), leaf.CLIUser(pubs[leaf.LocalCLI])},
 	}
 	conf := filepath.Join(dir, "leaf.conf")
 	if _, err := leaf.Apply(conf, c); err != nil {
@@ -333,6 +366,31 @@ func (in *Installer) writeLeaf(id *Identity, cr *Credentials) error {
 		}
 	}
 	return nil
+}
+
+// LocalSeedFile is the nkey seed a local program signs in to this machine's leaf with (D-029 first
+// fix): one per program (leaf.LocalOnemindd, leaf.LocalCLI), 0600, root's; leaf.conf holds only the
+// public keys.
+func LocalSeedFile(name string) string { return filepath.Join(IdentityDir, "nats-local-"+name+".nk") }
+
+// newLocalKey writes a fresh NATS user seed to path (0600) and returns its public key.
+func newLocalKey(path string) (string, error) {
+	kp, err := nkeys.CreateUser()
+	if err != nil {
+		return "", err
+	}
+	seed, err := kp.Seed()
+	if err != nil {
+		return "", err
+	}
+	pub, err := kp.PublicKey()
+	if err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return "", err
+	}
+	return pub, writeFile(path, append(seed, '\n'), 0o600)
 }
 
 func (in *Installer) writeK3s(cr *Credentials, meshAddr string) error {
@@ -390,7 +448,7 @@ func (in *Installer) setEnv(set map[string]string) error {
 		}
 		out.WriteString(line + "\n")
 	}
-	for _, k := range []string{"ONEMIND_NATS_URL", "ONEMIND_NODE_ROLE", "ONEMIND_NODE_ID"} {
+	for _, k := range []string{"ONEMIND_NATS_URL", "ONEMIND_NATS_NKEY_SEED", "ONEMIND_NODE_ROLE", "ONEMIND_NODE_ID"} {
 		if v, ok := set[k]; ok {
 			fmt.Fprintf(&out, "%s=%s\n", k, v)
 		}

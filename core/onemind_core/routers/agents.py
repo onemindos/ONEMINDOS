@@ -138,6 +138,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
     app.state.agent_stop = stop
     principal = gw.principal
 
+    def rewrite_accounts() -> None:  # the fabric service writes the one accounts file (routers/net.py)
+        fabric = gw.actions.handlers.get("node.join")
+        if fabric is not None:
+            fabric.write_accounts()
+
+    # D-029: "Stop everything" also cuts agents already on the bus: the file loses AGENTS, NATS reloads.
+    stop.listeners.append(lambda _on: rewrite_accounts())
+
     @app.get("/v1/agents/kill-switch", operation_id="agents.kill_switch.get", tags=TAGS,
              response_model=KillSwitch, responses=error_responses(401, 403))
     def get_kill_switch(_: Principal = Depends(principal)):
@@ -150,11 +158,6 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     # AIG-03 routes come after the kill switch so /v1/agents/kill-switch is not read as an agent name.
     svc = AgentPrincipals(gw.db, gw.actions, gw.audit, gw.clock)
-
-    def rewrite_accounts() -> None:  # the fabric service writes the one accounts file (routers/net.py)
-        fabric = gw.actions.handlers.get("node.join")
-        if fabric is not None:
-            fabric.write_accounts()
 
     keys = AgentNatsKeys(gw.db, gw.audit, gw.clock, rewrite_accounts)
 

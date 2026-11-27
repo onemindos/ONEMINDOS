@@ -1,5 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Signed jobs to the backup agent (contract §12.11 `onemind.job/v1`; FABRIC.md §5.4).
+"""Signed jobs (contract sdk/contracts/poc-v0.md §12.11; FABRIC.md §5.4).
+
+Two envelope versions:
+- `onemind.job/v1`: the backup agent's loopback API on the hub (`AgentClient` below). It names no
+  machine, so it is only ever accepted on the box the gateway runs on.
+- `onemind.job/v2` (D-029 N2 groundwork): every job that travels to a joined machine. It adds
+  `aud` ("node:<id>", the one machine it is for), `kid` (which gateway key signed it; `job_kid`) and
+  `policy_epoch` (a machine refuses a job older than the newest epoch it has seen). The machine side
+  is internal/backup/job.go `JobVerifier` with `NodeID` set.
 
 The envelope is signed over canonical JSON: `json.dumps(sort_keys=True, separators=(",", ":"),
 ensure_ascii=True)`. internal/backup/canonical.go produces the same bytes (a shared test vector
@@ -14,7 +22,9 @@ import hashlib
 import json
 import logging
 import os
+import re
 import secrets
+import threading
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Iterator
@@ -22,12 +32,21 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
+
+from .settings import BackupsSettings
 
 log = logging.getLogger("onemind.backups")
 
 JOB_SCHEMA = "onemind.job/v1"
+JOB_SCHEMA_V2 = "onemind.job/v2"
 JOB_TTL = timedelta(minutes=10)
+# The first policy epoch, and the one a job carries when no snapshot publisher runs (tests, a box without
+# NATS). fabric_policy.py raises the live epoch on every stop or revoke change, and job signers ask it
+# (gw.policy.epoch()), so a job signed before "Stop everything" is refused after it.
+POLICY_EPOCH = 1
+# A node id as the subject tree has it (sdk/schema/onemind.subjects.json placeholder node_id).
+_NODE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 
 def _check_no_floats(obj: object, where: str = "params") -> None:
@@ -76,13 +95,43 @@ def public_pem(key: Ed25519PrivateKey) -> bytes:
     return key.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
 
 
-def sign_job(
-    key: Ed25519PrivateKey, kind: str, params: dict, now: datetime, *, action_id: str | None = None,
-    ttl: timedelta = JOB_TTL,
-) -> dict:
-    env = {
-        "schema": JOB_SCHEMA,
-        "job_id": "job_" + secrets.token_hex(13),
+def job_kid(pub: Ed25519PublicKey) -> str:
+    """The key id of a job public key: "job-" + the first 16 hex digits of sha256(raw 32-byte key).
+
+    Derived from the key itself, so a machine computes it from the key it pinned at join and needs no
+    separate list. internal/backup/job.go `JobKeyID` makes the same string (shared test vector)."""
+    raw = pub.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+    return "job-" + hashlib.sha256(raw).hexdigest()[:16]
+
+
+def gateway_job_key_path(gw_settings) -> Path:
+    """The gateway's one job key file: ONEMIND_BACKUPS_JOB_KEY_FILE, else <audit dir>/custodian/job.key.
+
+    Backups, rollouts and the fabric join reply all use this file, so a machine pins one key (job.pub)
+    for every job the gateway signs."""
+    cfg = gw_settings.section(BackupsSettings)
+    return Path(cfg.job_key_file or (gw_settings.audit_path.parent / "custodian" / "job.key"))
+
+
+def lazy_job_key(path: Path) -> Callable[[], Ed25519PrivateKey]:
+    """A loader that reads (or creates) the job key on first call and keeps it; a failed read is retried."""
+    lock = threading.Lock()
+    held: list[Ed25519PrivateKey] = []
+
+    def get() -> Ed25519PrivateKey:
+        with lock:
+            if not held:
+                held.append(load_or_create_job_key(path))
+            return held[0]
+
+    return get
+
+
+def _envelope(schema: str, kind: str, params: dict, now: datetime, action_id: str | None, ttl: timedelta,
+              job_id: str | None) -> dict:
+    return {
+        "schema": schema,
+        "job_id": job_id or "job_" + secrets.token_hex(13),
         "action_id": action_id,
         "kind": kind,
         "params": params,
@@ -90,6 +139,29 @@ def sign_job(
         "issued_at": _iso(now),
         "expires_at": _iso(now + ttl),
     }
+
+
+def sign_job(
+    key: Ed25519PrivateKey, kind: str, params: dict, now: datetime, *, action_id: str | None = None,
+    ttl: timedelta = JOB_TTL,
+) -> dict:
+    """A v1 envelope: only for the backup agent on the gateway's own box (loopback). Never for a machine."""
+    env = _envelope(JOB_SCHEMA, kind, params, now, action_id, ttl, None)
+    env["sig"] = base64.b64encode(key.sign(canonical(env))).decode("ascii")
+    return env
+
+
+def sign_job_v2(
+    key: Ed25519PrivateKey, kind: str, params: dict, now: datetime, *, node_id: str, policy_epoch: int = POLICY_EPOCH,
+    action_id: str | None = None, ttl: timedelta = JOB_TTL, job_id: str | None = None,
+) -> dict:
+    """A v2 envelope for one machine: `aud` = "node:<node_id>", the signing key's `kid`, the policy epoch."""
+    if not isinstance(node_id, str) or not _NODE_ID_RE.fullmatch(node_id):
+        raise ValueError("node_id must be a node id (letters, digits, - and _, at most 64)")
+    if isinstance(policy_epoch, bool) or not isinstance(policy_epoch, int) or policy_epoch < 0:
+        raise ValueError("policy_epoch must be a non-negative integer")
+    env = _envelope(JOB_SCHEMA_V2, kind, params, now, action_id, ttl, job_id)
+    env.update({"aud": f"node:{node_id}", "kid": job_kid(key.public_key()), "policy_epoch": policy_epoch})
     env["sig"] = base64.b64encode(key.sign(canonical(env))).decode("ascii")
     return env
 

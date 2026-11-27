@@ -1,0 +1,12 @@
+[
+  "onemind.node.*.job.physical",
+  "onemind.node.*.job.physical.>",
+  "onemind.node.*.job.robot",
+  "onemind.node.*.job.robot.>",
+  "onemind.node.*.job.actuator",
+  "onemind.node.*.job.actuator.>",
+  "onemind.node.*.job.relay",
+  "onemind.node.*.job.relay.>",
+  "onemind.node.*.job.motion",
+  "onemind.node.*.job.motion.>"
+]

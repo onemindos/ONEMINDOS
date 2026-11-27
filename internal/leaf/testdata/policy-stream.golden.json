@@ -1,0 +1,13 @@
+{
+  "name": "ONEMIND_POLICY",
+  "subjects": [
+    "onemind.node.*.policy"
+  ],
+  "retention": "limits",
+  "storage": "file",
+  "discard": "old",
+  "max_bytes": 1048576,
+  "max_msgs_per_subject": 1,
+  "allow_direct": true,
+  "num_replicas": 1
+}

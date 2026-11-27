@@ -120,6 +120,12 @@ wizard:
 	  --log /out/wizard-$(BOARD)/serial.log --results /out/wizard-$(BOARD)/results.json; \
 	  rc=$$?; rm -rf $(OUT)/wizard-$(BOARD)/work; exit $$rc
 
+# NATS fabric lab (test/qemu/CRITERIA-NATS.md, NA1-NA5): the whole D-029 NATS series in one hub, real
+# nats-server 2.15.3 processes, no VM. Runs anywhere Go runs (CI's Go job runs it with the other tests).
+.PHONY: na
+na:
+	go test -count=1 -run '^TestNA$$' -v ./internal/leaf/
+
 # Boot menu lock (test/qemu/bootlock.py): the GRUB menu asks for a login before it lets anyone edit a kernel
 # command line. Copies the fixture disk like `firstboot`.
 bootlock:

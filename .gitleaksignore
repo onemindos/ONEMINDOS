@@ -39,3 +39,18 @@ aa2c44166979a708f9f96ee0dcb9ba29a5fce7dc:internal/leaf/testdata/hub-accounts-jet
 # UMB-ACCT-1 lab log (#403): "credential_fp" is a 16-hex public fingerprint of a lab passkey credential id (sha256 prefix), not a secret.
 research-output/evidence/lab/acct-kanidm/run-1/AK-3.txt:generic-api-key:68
 dd47c170b08577f4b352d8a3c1f4792cba9326f4:research-output/evidence/lab/acct-kanidm/run-1/AK-3.txt:generic-api-key:68
+# NATS user public nkey in the JetStream account golden, line moved by the per-node job-consumer imports (D-029 N2); public by design, no seed is committed
+internal/leaf/testdata/hub-accounts-jetstream.golden.conf:generic-api-key:37
+# D-029 auth callout test data: public nkeys in the callout accounts golden, and a fixed answer JWT signed by a test-only key (32 bytes of 0x01, expired 2026-11) in the jwt/v2 vector; no seed and no live credential is committed
+internal/leaf/testdata/hub-accounts-callout.golden.conf:generic-api-key:27
+internal/leaf/testdata/hub-accounts-callout.golden.conf:generic-api-key:56
+internal/leaf/testdata/callout-vector.json:generic-api-key:4
+internal/leaf/testdata/callout-vector.json:jwt:6
+# Public nkeys in the account goldens of the D-029 NATS series (job and policy imports moved a line; the NA lab hub, test/qemu/CRITERIA-NATS.md); public by design, no seed is committed
+internal/leaf/testdata/hub-accounts-jetstream.golden.conf:generic-api-key:39
+internal/leaf/testdata/hub-accounts-na.golden.conf:generic-api-key:6
+internal/leaf/testdata/hub-accounts-na.golden.conf:generic-api-key:43
+internal/leaf/testdata/hub-accounts-na.golden.conf:generic-api-key:94
+779e69ac042466a927a24292c617d665c8a2b960:internal/leaf/testdata/hub-accounts-na.golden.conf:generic-api-key:6
+779e69ac042466a927a24292c617d665c8a2b960:internal/leaf/testdata/hub-accounts-na.golden.conf:generic-api-key:39
+779e69ac042466a927a24292c617d665c8a2b960:internal/leaf/testdata/hub-accounts-na.golden.conf:generic-api-key:90
