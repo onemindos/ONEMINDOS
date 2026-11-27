@@ -10,19 +10,20 @@ import { FilesApi, human, type Entry, type FileRequest, type FileRoot, type Prev
 import { SendToButton } from './FilesSendTo';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
+import { FilesQuotas } from './FilesQuotas';
 import { Load, TextField, useRun } from './parts';
 
-type Tab = 'files' | 'trash' | 'sharing';
+type Tab = 'files' | 'trash' | 'sharing' | 'quotas';
 const parent = (p: string) => p.replace(/\/[^/]+$/, '') || '/';
 const when = (iso: string) => (Number.isNaN(Date.parse(iso)) ? iso : new Date(iso).toLocaleString());
 
 export function Files() {
-  const { token, person, mock } = useSignedIn();
+  const { token, person, mock, principal } = useSignedIn();
   if (mock) return <><PageHeader title="Files" /><p role="status">Connect to a real hub to browse files. Demo mode has no file storage.</p></>;
-  return <LiveFiles key={person} token={token} person={person} />;
+  return <LiveFiles key={person} token={token} person={person} owner={principal?.role === 'owner'} />;
 }
 
-function LiveFiles({ token, person }: { token: string; person: string }) {
+function LiveFiles({ token, person, owner }: { token: string; person: string; owner: boolean }) {
   const api = useMemo(() => new FilesApi(token), [token]);
   const run = useRun();
   const roots = usePoll(() => api.roots(), 60_000);
@@ -32,7 +33,7 @@ function LiveFiles({ token, person }: { token: string; person: string }) {
   return <div className="dash-stack">
     <PageHeader title="Files" lede="Your files on your box. Sharing access with an app or agent, and emptying the trash for good, are requests a person approves." />
     <div role="group" aria-label="Files sections">
-      {(['files', 'trash', 'sharing'] as const).map((t) => <Button key={t} variant={tab === t ? 'primary' : 'secondary'} aria-pressed={tab === t} onClick={() => setTab(t)}>{t === 'files' ? 'Files' : t === 'trash' ? 'Trash' : 'Sharing'}</Button>)}
+      {(owner ? ['files', 'trash', 'sharing', 'quotas'] as const : ['files', 'trash', 'sharing'] as const).map((t) => <Button key={t} variant={tab === t ? 'primary' : 'secondary'} aria-pressed={tab === t} onClick={() => setTab(t)}>{t === 'files' ? 'Files' : t === 'trash' ? 'Trash' : t === 'sharing' ? 'Sharing' : 'Storage limits'}</Button>)}
     </div>
     <Load res={roots} what="Loading your spaces">{(rs) => rs.length === 0 ? <p>No space is available to this account.</p> : <>
       {tab === 'files' && <>
@@ -42,6 +43,7 @@ function LiveFiles({ token, person }: { token: string; person: string }) {
         {current && <Browser key={current.root} api={api} space={current} run={run} onChanged={() => void roots.reload()} />}
       </>}
       {tab === 'trash' && <TrashTab api={api} run={run} />}
+      {tab === 'quotas' && owner && <FilesQuotas api={api} run={run} />}
       {tab === 'sharing' && <Sharing api={api} run={run} person={person} roots={rs} />}
     </>}</Load>
   </div>;

@@ -49,7 +49,7 @@ func updateCommands(a *App) []*cobra.Command {
 	gatewayApply(a, apply, func() error {
 		return updateCmd(&a.Env, "apply", apply.Flag("config").Value.String(), apply.Flag("mirror").Value.String(), a.G.JSON, noReboot, a.Stdout, a.Stderr)
 	})
-	upd.AddCommand(status, check, apply, updatePolicyCommand(a), rollbackCommand(a))
+	upd.AddCommand(status, check, apply, updatePolicyCommand(a), rollbackCommand(a), fleetCommand(a), rolloutsCommand(a))
 	return []*cobra.Command{upd}
 }
 
