@@ -4,12 +4,12 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../App';
 import { MockApi } from '../api/mock';
 import { ApiError, type Action, type ApproveBody } from '../api/types';
 import { toActionPlan } from '../data/adapters';
-import { PASSKEY_NOT_USED, approveWithStepUp } from '../lib/approve';
+import { PASSKEY_NOT_USED, PASSKEY_UNAVAILABLE, approveWithStepUp } from '../lib/approve';
 import { getPasskey, webauthnSupported } from '../lib/webauthn';
 import { SessionProvider } from '../session';
 
@@ -24,7 +24,7 @@ const PLAN = { summary: 'Install Ollama.', objects: [], images: [], volumes: [{ 
 const SHA = 'sha256:plan-one';
 const future = () => new Date(Date.now() + 3600_000).toISOString();
 
-function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string; hold?: { plan: boolean; stepUp?: boolean }; wantsPasskey?: boolean; refuseSigned?: boolean; licenceOnSigned?: boolean } = {}) {
+function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string; hold?: { plan: boolean; stepUp?: boolean }; wantsPasskey?: boolean; otherOwnerPasskey?: boolean; refuseSigned?: boolean; licenceOnSigned?: boolean } = {}) {
   const calls: Array<{ id: string; body?: ApproveBody }> = [];
   const options: string[] = [];
   const api = new MockApi('owner-demo');
@@ -36,7 +36,7 @@ function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string;
   Object.assign(api, {
     actions: async () => [action],
     action: async () => action,
-    me: async () => ({ principal: { id: 'owner', kind: 'person', role: 'owner' }, token: null, session: null, passkeys: opts.passkey ? 1 : 0, scopes: [], capabilities: [], step_up: { passkeys_active: !!opts.passkey, require_passkey_approval: false } }),
+    me: async () => ({ principal: { id: 'owner', kind: 'person', role: 'owner' }, token: null, session: null, passkeys: opts.passkey && !opts.otherOwnerPasskey ? 1 : 0, scopes: [], capabilities: [], step_up: { passkeys_active: !!opts.passkey, require_passkey_approval: false } }),
     approveOptions: async (id: string) => { options.push(id); return { challenge: 'c', action_sha256: 'a', plan_sha256: opts.hold && !opts.hold.plan ? undefined : (opts.serverSha ?? SHA), expires_at: future(), publicKey: { challenge: 'c' } }; },
     approve: async (id: string, body?: ApproveBody) => {
       if ((opts.hold?.stepUp || opts.wantsPasskey) && !body?.webauthn) { calls.push({ id, body }); throw new ApiError(401, 'unauthenticated', 'passkey needed', 'step_up_required'); }
@@ -54,6 +54,12 @@ function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string;
   render(<MemoryRouter initialEntries={['/approvals']}><SessionProvider deps={{ mock: false, makeApi: () => api, knownPrincipal: () => ({ id: 'owner', kind: 'person', role: 'owner' }) }}><App mock={false} /></SessionProvider></MemoryRouter>);
   return { calls, options, user: userEvent.setup() };
 }
+
+// A rejection queued by one test must not leak into the next if that test fails early.
+afterEach(() => {
+  vi.mocked(getPasskey).mockReset().mockImplementation(async () => ({ id: 'cred-1', type: 'public-key' }));
+  vi.mocked(webauthnSupported).mockReset().mockReturnValue(true);
+});
 
 describe('Approvals page', () => {
   it('a hold card replaces Approve with Hold to approve, and a plain click approves nothing', async () => {
@@ -110,17 +116,17 @@ describe('Approvals page', () => {
   });
 
   it('the first passkey prompt was dismissed: shows the passkey prompt, then approves with it', async () => {
-    const { calls, user } = setup({ passkey: true, wantsPasskey: true });
+    const { calls, user } = setup({ passkey: true });
     await screen.findByText('Keeps this app\'s files and databases', {}, T);
     // The browser does not produce a passkey on the first try (no tap, or it was dismissed).
     vi.mocked(getPasskey).mockRejectedValueOnce(new DOMException('dismissed', 'NotAllowedError'));
     await user.click(screen.getByRole('button', { name: /^Approve/ }));
-    const dlg = await screen.findByRole('dialog', { name: 'Use your passkey to approve' }, T);
+    const dlg = await screen.findByRole('alertdialog', { name: 'Use your passkey to approve' }, T);
     expect(calls.filter((c) => c.body?.webauthn)).toEqual([]);
     await user.click(within(dlg).getByRole('button', { name: 'Use your passkey' }));
     await waitFor(() => expect(calls.some((c) => c.body?.webauthn)).toBe(true), T);
     expect(calls.at(-1)!.body).toMatchObject({ plan_sha256: SHA, webauthn: { id: 'cred-1' } });
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Use your passkey to approve' })).toBeNull(), T);
+    await waitFor(() => expect(screen.queryByRole('alertdialog', { name: 'Use your passkey to approve' })).toBeNull(), T);
   });
 
   it('signed in with a password and no passkey: says so in plain words, with no dead prompt', async () => {
@@ -130,7 +136,7 @@ describe('Approvals page', () => {
     vi.mocked(getPasskey).mockRejectedValueOnce(new DOMException('dismissed', 'NotAllowedError'));
     await user.click(screen.getByRole('button', { name: /^Approve/ }));
     expect(await screen.findByText(/You have no passkey yet/, {}, T)).toBeInTheDocument();
-    expect(screen.queryByRole('dialog', { name: 'Use your passkey to approve' })).toBeNull();
+    expect(screen.queryByRole('alertdialog', { name: 'Use your passkey to approve' })).toBeNull();
     expect(calls.filter((c) => c.body?.webauthn)).toEqual([]);
   });
 
@@ -140,7 +146,7 @@ describe('Approvals page', () => {
     await user.click(screen.getByRole('button', { name: /^Approve/ }));
     await waitFor(() => expect(calls.some((c) => c.body?.webauthn)).toBe(true), T);
     expect(calls[0]!.body).not.toHaveProperty('webauthn');
-    expect(screen.queryByRole('dialog', { name: 'Use your passkey to approve' })).toBeNull();
+    expect(screen.queryByRole('alertdialog', { name: 'Use your passkey to approve' })).toBeNull();
   });
 
   it('the forced retry fails again: says the passkey was not used, closes the prompt, approves nothing', async () => {
@@ -148,10 +154,10 @@ describe('Approvals page', () => {
     await screen.findByText('Keeps this app\'s files and databases', {}, T);
     vi.mocked(getPasskey).mockRejectedValueOnce(new DOMException('dismissed', 'NotAllowedError')).mockRejectedValueOnce(new DOMException('dismissed', 'NotAllowedError'));
     await user.click(screen.getByRole('button', { name: /^Approve/ }));
-    const dlg = await screen.findByRole('dialog', { name: 'Use your passkey to approve' }, T);
+    const dlg = await screen.findByRole('alertdialog', { name: 'Use your passkey to approve' }, T);
     await user.click(within(dlg).getByRole('button', { name: 'Use your passkey' }));
     expect(await screen.findByText('Your passkey was not used', {}, T)).toBeInTheDocument();
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Use your passkey to approve' })).toBeNull(), T);
+    await waitFor(() => expect(screen.queryByRole('alertdialog', { name: 'Use your passkey to approve' })).toBeNull(), T);
     expect(calls).toEqual([]);
   });
 
@@ -160,23 +166,50 @@ describe('Approvals page', () => {
     await screen.findByText('Keeps this app\'s files and databases', {}, T);
     vi.mocked(getPasskey).mockRejectedValueOnce(new DOMException('dismissed', 'NotAllowedError'));
     await user.click(screen.getByRole('button', { name: /^Approve/ }));
-    const dlg = await screen.findByRole('dialog', { name: 'Use your passkey to approve' }, T);
+    const dlg = await screen.findByRole('alertdialog', { name: 'Use your passkey to approve' }, T);
     await user.click(within(dlg).getByRole('button', { name: 'Cancel' }));
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Use your passkey to approve' })).toBeNull(), T);
+    await waitFor(() => expect(screen.queryByRole('alertdialog', { name: 'Use your passkey to approve' })).toBeNull(), T);
     expect(calls).toEqual([]);
   });
 
-  it('a browser without passkeys gets a plain message, not a dead prompt', async () => {
-    const { calls, user } = setup({ passkey: true });
+  it('a browser without WebAuthn (the page signs nothing, the hub asks): plain message, not the raw TypeError, no dead prompt', async () => {
+    vi.mocked(webauthnSupported).mockReturnValue(false);
+    // What a browser with no navigator.credentials throws when getPasskey reaches for it.
+    vi.mocked(getPasskey).mockRejectedValue(new TypeError("Cannot read properties of undefined (reading 'get')"));
+    const { calls, user } = setup({ passkey: true, wantsPasskey: true });
+    await screen.findByText('Keeps this app\'s files and databases', {}, T);
+    await user.click(screen.getByRole('button', { name: /^Approve/ }));
+    expect(await screen.findByText(/cannot use a passkey/, {}, T)).toBeInTheDocument();
+    expect(screen.queryByText(/Cannot read properties/)).toBeNull();
+    expect(screen.queryByRole('alertdialog', { name: 'Use your passkey to approve' })).toBeNull();
+    expect(calls.filter((c) => c.body?.webauthn)).toEqual([]);
+  });
+
+  it('another owner has a passkey but this person has none: says "no passkey yet", no prompt loop', async () => {
+    const { calls, user } = setup({ passkey: true, otherOwnerPasskey: true });
     await screen.findByText('Keeps this app\'s files and databases', {}, T);
     vi.mocked(getPasskey).mockRejectedValueOnce(new DOMException('dismissed', 'NotAllowedError'));
-    vi.mocked(webauthnSupported).mockReturnValue(false);
-    try {
-      await user.click(screen.getByRole('button', { name: /^Approve/ }));
-      expect(await screen.findByText(/cannot use a passkey/, {}, T)).toBeInTheDocument();
-    } finally { vi.mocked(webauthnSupported).mockReturnValue(true); }
-    expect(screen.queryByRole('dialog', { name: 'Use your passkey to approve' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: /^Approve/ }));
+    expect(await screen.findByText(/You have no passkey yet/, {}, T)).toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog', { name: 'Use your passkey to approve' })).toBeNull();
     expect(calls).toEqual([]);
+  });
+
+  it('the typed install secrets survive the passkey prompt and are sent sealed with the passkey', async () => {
+    const { calls, user } = setup({ secrets: true, passkey: true });
+    await screen.findByText('Keeps this app\'s files and databases', {}, T);
+    await user.click(screen.getByRole('button', { name: /^Approve/ }));
+    const form = await screen.findByRole('dialog', { name: 'Secrets for Ollama' }, T);
+    await user.type(within(form).getByLabelText('API_KEY'), 'sk-live-secret-value');
+    vi.mocked(getPasskey).mockRejectedValueOnce(new DOMException('dismissed', 'NotAllowedError'));
+    await user.click(within(form).getByRole('button', { name: 'Approve and install' }));
+    const dlg = await screen.findByRole('alertdialog', { name: 'Use your passkey to approve' }, T);
+    expect(screen.getByRole('dialog', { name: 'Secrets for Ollama' })).toBeInTheDocument();
+    await user.click(within(dlg).getByRole('button', { name: 'Use your passkey' }));
+    await waitFor(() => expect(calls).toHaveLength(1), T);
+    expect(calls[0]!.body).toMatchObject({ sealed: { alg: 'X25519-AES256GCM' }, webauthn: { id: 'cred-1' } });
+    expect(JSON.stringify(calls[0]!.body)).not.toContain('sk-live-secret-value');
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Secrets for Ollama' })).toBeNull(), T);
   });
 
   it('a signed request the hub refuses shows the hub\'s reason, not "passkey not used", and no prompt', async () => {
@@ -185,7 +218,7 @@ describe('Approvals page', () => {
     await user.click(screen.getByRole('button', { name: /^Approve/ }));
     expect(await screen.findByText(/passkey belongs to another account/, {}, T)).toBeInTheDocument();
     expect(screen.queryByText('Your passkey was not used')).toBeNull();
-    expect(screen.queryByRole('dialog', { name: 'Use your passkey to approve' })).toBeNull();
+    expect(screen.queryByRole('alertdialog', { name: 'Use your passkey to approve' })).toBeNull();
     expect(calls).toHaveLength(1);
   });
 
@@ -194,10 +227,10 @@ describe('Approvals page', () => {
     await screen.findByText('Keeps this app\'s files and databases', {}, T);
     vi.mocked(getPasskey).mockRejectedValueOnce(new DOMException('dismissed', 'NotAllowedError'));
     await user.click(screen.getByRole('button', { name: /^Approve/ }));
-    const dlg = await screen.findByRole('dialog', { name: 'Use your passkey to approve' }, T);
+    const dlg = await screen.findByRole('alertdialog', { name: 'Use your passkey to approve' }, T);
     await user.click(within(dlg).getByRole('button', { name: 'Use your passkey' }));
-    await screen.findByRole('alertdialog', {}, T);
-    expect(screen.queryByRole('dialog', { name: 'Use your passkey to approve' })).toBeNull();
+    await screen.findByRole('alertdialog', { name: /Accept the licence/ }, T);
+    expect(screen.queryByRole('alertdialog', { name: 'Use your passkey to approve' })).toBeNull();
   });
 
   it('refuses to approve when the plan changed since the card was loaded', async () => {
@@ -292,6 +325,20 @@ describe('approveWithStepUp', () => {
     const wrongHost = new DOMException('The relying party ID is not a registrable domain suffix', 'SecurityError');
     const other = await approveWithStepUp(api, act, { passkey: true, sign: async () => { throw wrongHost; } }).catch((e: unknown) => e);
     expect(other).toBe(wrongHost);
+    expect(approve).not.toHaveBeenCalled();
+  });
+
+  it('with no WebAuthn in the browser, a signing TypeError becomes passkey_unavailable', async () => {
+    const approve = vi.fn();
+    vi.mocked(webauthnSupported).mockReturnValue(false);
+    vi.mocked(getPasskey).mockRejectedValue(new TypeError("Cannot read properties of undefined (reading 'get')"));
+    const api = { approveOptions: async () => opts, approve } as never;
+    for (const o of [{ passkey: true }, {}]) {
+      const rejected = o.passkey ? api : { approveOptions: async () => opts, approve: vi.fn().mockRejectedValue(new ApiError(401, 'unauthenticated', 'passkey needed', 'step_up_required')) } as never;
+      const err = await approveWithStepUp(rejected, act, o).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(ApiError);
+      expect((err as ApiError).reason).toBe(PASSKEY_UNAVAILABLE);
+    }
     expect(approve).not.toHaveBeenCalled();
   });
 
