@@ -64,11 +64,24 @@ describe('Approvals page', () => {
     expect(within(document.querySelector('details.om-details') as HTMLElement).getByText(/backup\.destination\.add/)).toBeInTheDocument();
   });
 
-  it('shows an agent by its name and falls back to the id when the hub lists no such person', async () => {
+  it('shows an agent by its name, without the agent: prefix', async () => {
     setup({ who: { action: { type: 'node.frobnicate' as Action['type'], params: {}, requested_by: { id: 'agent:ops-agent', kind: 'agent', role: 'agent' } } } });
     expect(await screen.findByRole('button', { name: 'Approve Node frobnicate' }, T)).toBeInTheDocument();
     expect((await screen.findAllByText('ops-agent', { exact: false }, T)).length).toBeGreaterThan(0);
     expect(document.body.textContent).not.toContain('agent:ops-agent');
+  });
+
+  it('a person the hub does not list still shows by id', async () => {
+    setup({ who: { action: { type: 'node.frobnicate' as Action['type'], params: {}, requested_by: { id: 'usr_x', kind: 'person', role: 'adult' } }, users: [{ id: 'usr_other', display_name: 'Sam' }] } });
+    expect(await screen.findByRole('button', { name: 'Approve Node frobnicate' }, T)).toBeInTheDocument();
+    expect((await screen.findAllByText('usr_x', { exact: false }, T)).length).toBeGreaterThan(0);
+  });
+
+  it('Recent decisions shows the decider by display name, never the usr_ id', async () => {
+    setup({ who: { action: { state: 'succeeded' as Action['state'], type: 'backup.destination.add' as Action['type'], params: {}, requested_by: { id: 'usr_a1', kind: 'person', role: 'adult' }, decided_by: { id: 'usr_o9', kind: 'person', role: 'owner' } }, users: [{ id: 'usr_a1', display_name: 'Alex' }, { id: 'usr_o9', display_name: 'Zeus' }] } });
+    const list = await screen.findByRole('list', { name: 'Recent decisions' }, T);
+    await waitFor(() => expect(list).toHaveTextContent('Asked by Alex · decided by Zeus'), T);
+    expect(document.body.textContent).not.toMatch(/usr_/);
   });
 
   it('a hold card replaces Approve with Hold to approve, and a plain click approves nothing', async () => {

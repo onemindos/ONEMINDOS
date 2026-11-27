@@ -219,7 +219,7 @@ export function ApprovalsBoard({ actions, plans, decided = [], now, canDecide, o
                   <div className="om-set-row-main">
                     <div className="om-set-row-title">{actionTitle(a)}</div>
                     <div className="om-set-meta">
-                      Asked by {a.requested_by ? principalName(a.requested_by) : 'unknown'} · decided by {a.decided_by?.id ?? '—'} · {formatAgo(secondsSince(a.created_at ?? '', now))}
+                      Asked by {a.requested_by ? principalName(a.requested_by) : 'unknown'} · decided by {a.decided_by ? principalName(a.decided_by) : '—'} · {formatAgo(secondsSince(a.created_at ?? '', now))}
                       {a.message && ` · ${a.message}`}
                     </div>
                   </div>
