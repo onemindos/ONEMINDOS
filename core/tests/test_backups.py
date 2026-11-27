@@ -992,3 +992,18 @@ def test_byte_counts_use_64_bit_columns():
 
     assert isinstance(ContentTierRow.__table__.c.size_bytes.type, BigInteger)
     assert isinstance(RunRow.__table__.c.bytes_added.type, BigInteger)
+
+
+def test_byte_counts_are_bigint_in_the_postgresql_schema():
+    """Review of #1191: a merge had dropped the BigIntegers of 2b0ee0b9d. Check the DDL PostgreSQL actually gets,
+    where a plain INTEGER caps a backup at 2 GiB added (SQLite would store the value anyway)."""
+    from sqlalchemy.dialects import postgresql
+    from sqlalchemy.schema import CreateTable
+
+    from onemind_core.backups.store import ContentTierRow, RunRow
+
+    def ddl(table) -> str:
+        return " ".join(str(CreateTable(table).compile(dialect=postgresql.dialect())).split())
+
+    assert "bytes_added BIGINT" in ddl(RunRow.__table__)
+    assert "size_bytes BIGINT NOT NULL" in ddl(ContentTierRow.__table__)
