@@ -162,6 +162,7 @@
         }
       ],
       "./plugins/withoutPlayServicesCredentials",
+      "./plugins/withAndroidPlatformCamera",
       "./plugins/withReleaseSigning"
     ]
   }
