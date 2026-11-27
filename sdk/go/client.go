@@ -254,6 +254,15 @@ func (c *Client) DoIdempotent(ctx context.Context, method, path, key string, bod
 	return err
 }
 
+// DoWithHeaders is Do that also sends extra request headers (If-Match, Idempotency-Key, ...) and returns
+// the response headers (ETag, Link, ...), so a caller can do a read-change-write with If-Match or follow
+// a Link rel="next" page. A GET is retried like Do's; a write is retried only when headers carries an
+// Idempotency-Key. On an error the headers are those of the last answer (nil if none came).
+func (c *Client) DoWithHeaders(ctx context.Context, method, path string, headers map[string]string, body, out any) (http.Header, error) {
+	_, keyed := headers["Idempotency-Key"]
+	return c.do(ctx, request{method: method, path: path, body: body, retry: method == http.MethodGet || keyed, headers: headers}, out)
+}
+
 func (c *Client) do(ctx context.Context, r request, out any) (http.Header, error) {
 	c.checkTransport()
 	var payload []byte

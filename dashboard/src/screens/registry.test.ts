@@ -38,6 +38,7 @@ describe('screen registry', () => {
       ['approvals', '/approvals', 'primary'],
       ['activity', '/activity', 'primary'],
       ['files', '/files', 'Your box'],
+      ['search', '/search', 'Your box'],
       ['installed', '/installed', 'Your box'],
       ['nodes', '/nodes', 'Your box'],
       ['add-machine', '/add-machine', 'Your box'],

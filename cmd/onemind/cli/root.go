@@ -70,6 +70,7 @@ var groups = []func(a *App) []*cobra.Command{
 	auditCommands,
 	agentsCommands,
 	updateCommands,
+	windowsCommands, // next to updates, which wait for them; kept apart from the list's end, where other PRs add groups
 	catalogCommands,
 	aboutCommands,
 	meshCommands,
@@ -85,14 +86,19 @@ var groups = []func(a *App) []*cobra.Command{
 	mcpCommands,
 	migrateCommands,
 	kioskCommands,
+	myDevicesCommands,
 	appCommands,
 	gatewayAdminCommands,
 	usersCommands,
+	accountCommands,
 	backupCommands,
 	careCommands,
+	grantsCommands,
 	extCommands,
 	tipsCommands,
 	agentBrowserCommands,
+	searchCommands,
+	radiosCommands,
 	versionCommands,
 }
 
