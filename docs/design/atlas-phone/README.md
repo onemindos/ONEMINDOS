@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # The phone app's agreed design (Atlas, 2026-11-21)
 
-**Founder-requested** (2026-11-26): the phone app must match the design Zeus picked on 2026-11-21 (Atlas base, Sovereign colours, today's logo, Console wallpapers). The desktop dashboard was moved to it; the phone app (`mobile/`) was not. This folder holds the phone part of the final design pack so builders can work from it. The root [`DESIGN.md`](../../../DESIGN.md) is the shipped summary; this file is the phone detail.
+**Founder-requested** (2026-11-26; see the request in issue #1225): the phone app must match the design Zeus picked on 2026-11-21 (Atlas base, Sovereign colours, today's logo, Console wallpapers). The desktop dashboard was moved to it; the phone app (`mobile/`) was not. This folder holds the phone part of the final design pack so builders can work from it. **This folder supersedes [`IA.md`](../IA.md) `1 for the phone navigation** (IA.md's Home, Apps, Approvals, Activity tabs plus More, still cited by `mobile/src/nav.ts`); #1225 updates `nav.ts` and IA.md gets a pointer to this folder. The root [`DESIGN.md`](../../../DESIGN.md) is the shipped summary; this file is the phone detail.
 
 ## The renders (390 × 844, the target)
 
@@ -17,7 +17,7 @@
 
 ## Rules (from the final design pack; the pack is kept outside the repo)
 
-**Colours.** Take every colour from the design tokens (`mobile/src/ui/theme.ts`, generated from `ui/src/tokens/tokens.ts`). The pack's hex values are close to the tokens but the tokens win.
+**Colours.** Take every colour from the design tokens (`mobile/src/ui/theme.ts`, generated from `ui/src/tokens/tokens.ts`). `fromRoles()` in `theme.ts` maps only `accent*` today: #1225 must first add `action`, `actionText` and `actionHover` to it (the values already exist in `tokens.generated.ts`). The pack's hex values are close to the tokens but the tokens win.
 - **Buttons are red** (`action`, `action-text`, `action-hover`) on every primary button, in light and dark. Today the phone paints primary buttons teal (`accent`): that is the drift to fix.
 - **Teal is the highlight only:** selection, focus ring, the active tab, toggles, active chips. Never a button.
 - Mark red (`#FF333A`) appears only inside the logo files.
@@ -34,13 +34,15 @@
 
 **Home (`13a`), top to bottom.** Logo + box name + the person's avatar · greeting with their name and a one-line summary ("3 things need you. …") · the **Needs you** card: the first waiting request, who asks, its expiry, the sentence it asks, a red **Review and decide** button, and for a physical or irreversible request the note "no one-tap yes, you hold to approve on the next screen" (with "1 of 3" when more wait) · app tiles for installed apps with health pips · live sensor cards with a small trend line, only when the hub has real live values · a **Machines** row with fresh / stale / offline counts.
 
-**Approvals (`13d`).** Segments **Waiting · n / Decided / Agents**. Each request card: the requester ("Hermes asks · AI agent · can ask, cannot act"), a tag (**Moves a device** for `risk: actuate`, **Cannot be undone** for `risk: destructive`, **Can be undone** otherwise), the sentence it asks, the live evidence, exactly what will happen and when it goes back by itself, plan choices (for example duration), then the decision buttons, then the expiry ("9 min left. If nobody answers, nothing moves.").
-- **Hold to approve** only for `actuate` and `destructive`: hold 2 s (the fill shows progress), then passkey or biometrics. The label says what is approved ("Hold to approve 45 min"). Never a one-tap approve for these.
-- **Approve with passkey (Face ID)** as a normal button for everything else, still signed.
+**Approvals (`13d`).** Segments **Waiting · n / Decided / Agents**. Each request card: the requester ("Hermes asks · AI agent · can ask, cannot act"), a tag (**Moves a device** when `action.approval.physical` is true, **Cannot be undone** when `risk == destructive`, **Can be undone** otherwise; `risk: actuate` alone does not mean physical: `system.restart`, `system.shutdown` and `wake` are `actuate` with no hold), the sentence it asks, the live evidence, exactly what will happen and when it goes back by itself, plan choices (for example duration), then the decision buttons, then the expiry ("9 min left. If nobody answers, nothing moves.").
+- **The gateway's approval card decides, not `risk`** (#723; `core/onemind_core/approvalcard.py`: `hold_required = physical or risk == "destructive"`). Every action carries `approval: {hold, hold_ms, physical, limits, preview}`. **Hold to approve** when `approval.hold` is true, for `approval.hold_ms` (never under 2000 ms; the fill shows progress). A **missing card is treated as hold** (fail closed). The label says what is approved ("Hold to approve 45 min"). Never a one-tap approve for these.
+- **The approve call must send** `hold_ms` and `plan_sha256`, and for a physical action also a passkey (`webauthn`); otherwise the gateway answers 409 `hold_required` or 401 `step_up_required` (`core/onemind_core/actions.py`). Today `mobile/src/lib/approvals.ts` and `mobile/src/api/client.ts` send only `plan_sha256`, so #1226 may change those two files to send `hold_ms` and `webauthn`; the approval-key and signing code (`mobile/src/approvalKey/`, gateway verifiers) stays untouched.
+- Reference behaviour: `ui/src/components/HoldToApprove.tsx`, `dashboard/src/pages/Approvals.tsx` (lines 79-81), `dashboard/src/data/adapters.ts` and `dashboard/src/lib/approve.ts`.
+- **Approve with passkey (Face ID)** as a normal button when `approval.hold` is false, still signed.
 - **Deny** is always one tap.
 - Reduce motion: no animated fill; show a static progress label instead.
 
-**App page (`13c`).** Back to Market · icon, name, one-line purpose, grade and category chips · version, runs on, size · when an install waits: "Waiting for your approval", a four-step track (Asked, Checked, You, Install), **Approve with passkey (Face ID)**, **Review plan** and **Cancel request**, and the line "No hold here: an install can be undone and moves nothing." · **Trust** (licence, known flaws, malware scan with time) · **What it can touch** (folders, network, devices).
+**App page (`13c`).** Back to Market · icon, name, one-line purpose, grade and category chips · version, runs on, size · when an install waits: "Waiting for your approval", a four-step track (Asked, Checked, You, Install), **Approve with passkey (Face ID)**, **Review plan** and **Cancel request**, and the line "No hold here: an install can be undone and moves nothing." (shown only when `approval.hold` is false, as it is for `app.install`) · **Trust** (licence, known flaws, malware scan with time) · **What it can touch** (folders, network, devices).
 
 **App icons.** An app's own icon when its licence allows it, a neutral tile otherwise (founder answer, 2026-11-21; this replaces the pack's "never a logo" rule).
 

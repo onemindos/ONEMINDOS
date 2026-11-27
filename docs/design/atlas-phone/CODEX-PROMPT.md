@@ -7,7 +7,7 @@ Paste everything below the line into Codex, run from a clone of `onemindos/ONEMI
 
 You are building the OneMind OS phone app (`mobile/`, Expo / React Native) to match the design the founder picked on 2026-11-21. The desktop dashboard already uses it; the phone does not. Work through three issues **in order**, one branch and one PR each:
 
-1. **#1225 `phone-atlas-home`**: red buttons, the Contour background, the tab bar (Home, Approvals, Apps, Me) and the Home screen (render `13a`). Do this first; the other two depend on it.
+1. **#1225 `phone-atlas-home`**: red buttons, the Contour background, the tab bar (Home, Approvals, Apps, Me; this supersedes IA.md `1 for the phone) and the Home screen (render `13a`). Do this first; the other two depend on it.
 2. **#1226 `phone-atlas-approvals`**: Approvals with hold to approve (render `13d`).
 3. **#1227 `phone-atlas-app-page`**: the app page with the install-waiting state (render `13c`).
 
@@ -21,9 +21,9 @@ You are building the OneMind OS phone app (`mobile/`, Expo / React Native) to ma
 - **Claim:** comment `claim: codex, branch feat/<key>` on the issue and add the `claimed` label.
 - **Branch from `origin/release/next`** (not `main`): `git fetch origin release/next && git switch -c feat/phone-atlas-home origin/release/next`.
 - **Once per clone:** `make -C sdk gen-code`, then `cd mobile && npm ci`.
-- **Colours come only from the tokens** in `mobile/src/ui/theme.ts` (generated from `ui/src/tokens/tokens.ts`). Primary buttons use `action` (red); `accent` (teal) is for selection, focus, the active tab and toggles. Never type a raw hex value in a screen.
+- **Colours come only from the tokens** in `mobile/src/ui/theme.ts` (generated from `ui/src/tokens/tokens.ts`). In #1225 first add `action`, `actionText` and `actionHover` to `fromRoles()` there (it maps only `accent*` today). Primary buttons use `action` (red); `accent` (teal) is for selection, focus, the active tab and toggles. Never type a raw hex value in a screen.
 - **Real data only.** Every value comes from the hub through `@onemind/sdk`. The renders' people and places ("Rivera home", Maya, Hermes, the greenhouse) are made up: copy the layout, never the data. If the hub has no data for a card, hide the card. Test fixtures stay inside tests.
-- **Approvals are safety-critical.** An action with `risk` `actuate` or `destructive` can only be approved by a completed 2-second hold followed by the existing passkey / approval-key signing. No one-tap, swipe or notification approve for those, ever. Deny is always one tap. Do not change the signing code (`mobile/src/approvalKey/`, gateway verifiers): change screens only.
+- **Approvals are safety-critical.** Whether an action needs a hold comes from the gateway's approval card, `action.approval.hold` (lasting `approval.hold_ms`, at least 2000 ms), not from `risk`; a missing card means hold. "Moves a device" comes from `approval.physical`, "Cannot be undone" from `risk == destructive`. A held action can only be approved by a completed hold followed by the existing passkey / approval-key signing. No one-tap, swipe or notification approve for those, ever. Deny is always one tap. The approve call must send `hold_ms` and `plan_sha256`, and `webauthn` (passkey) for physical actions, or the gateway refuses (409 `hold_required`, 401 `step_up_required`): you may change `mobile/src/lib/approvals.ts` and `mobile/src/api/client.ts` for that. Do not change the signing code (`mobile/src/approvalKey/`, gateway verifiers). Copy the behaviour of `ui/src/components/HoldToApprove.tsx` and `dashboard/src/pages/Approvals.tsx`.
 - **Keep every existing screen reachable.** Activity and More move under the Me tab with Settings. Do not add an empty Map tab: #656 adds Map later.
 - **Accessibility:** status by shape and word, never colour alone; 44 px minimum touch targets; nothing under 12 px; honour reduce motion; every live value shows its age.
 - **Smallest change that meets the issue's Spec list**, under about 600 changed lines. Tests for new behaviour in the same PR.
