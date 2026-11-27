@@ -76,20 +76,32 @@ jobs:
       - name: First boot into OneMind (F0-F4, test/qemu/CRITERIA-FIRSTBOOT.md)
         if: inputs.firstboot
         run: make firstboot BOARD=${{ inputs.board }} TOOLS=onemind-tools:ci
-      # S-13 (test/qemu/CRITERIA-SECUREBOOT.md): signed UKI under OVMF Secure Boot with throwaway keys. Non-blocking
-      # while CI capacity is tight; the verdicts are in results.json and the job summary. Needs the rootfs tar,
-      # so it runs before the battery step deletes it.
-      - name: Secure Boot and signed UKI (SB1-SB7)
-        if: inputs.secureboot
-        continue-on-error: true
-        run: make secureboot-test TOOLS=onemind-tools:ci
       - name: Host firewall scan from a second VM (FW1-FW4, test/qemu/CRITERIA-FIREWALL.md)
         if: inputs.firewall
         run: make firewall BOARD=${{ inputs.board }} TOOLS=onemind-tools:ci
       - name: Battery up to ${{ inputs.upto }}
+        env:
+          SECUREBOOT: ${{ inputs.secureboot }}
         run: |
+          # The Secure Boot step below needs the rootfs tar. Move it aside (no copy, no extra disk) before the
+          # clean-up; without Secure Boot it is deleted as before.
+          if [ "$SECUREBOOT" = true ]; then mkdir -p out/sb-keep && sudo mv out/rootfs-*.tar out/sb-keep/ 2>/dev/null || true; fi
           sudo rm -f out/rootfs-*.tar
           make battery BOARD=${{ inputs.board }} UPTO=${{ inputs.upto }} TOOLS=onemind-tools:ci
+      # S-13 (test/qemu/CRITERIA-SECUREBOOT.md): signed UKI under OVMF Secure Boot with throwaway keys. Non-blocking
+      # while CI capacity is tight; the verdicts are in results.json and the job summary. It runs after the required
+      # firewall and battery steps and has its own timeout, so a slow or hung SB boot (one ran about 50 minutes)
+      # can never hold up a required check: the required steps finish first, and a red one skips it (no wait for the
+      # red result). If the kept tar is missing, `make secureboot-image` rebuilds the rootfs itself.
+      - name: Secure Boot and signed UKI (SB1-SB7)
+        if: inputs.secureboot
+        continue-on-error: true
+        timeout-minutes: 20
+        run: |
+          if ls out/sb-keep/rootfs-*.tar >/dev/null 2>&1; then sudo mv out/sb-keep/rootfs-*.tar out/; fi
+          # SIGINT at 18 minutes, before the step limit: docker forwards it, secureboot.py writes the verdicts it
+          # has so far (its finally block) and stops QEMU, so no VM is left running on a self-hosted runner.
+          timeout --signal=INT --kill-after=90s 18m make secureboot-test TOOLS=onemind-tools:ci
       - name: Trim and mask the serial log
         if: always()
         run: |
