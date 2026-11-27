@@ -170,7 +170,11 @@ def notes_app(settings):
 @pytest.fixture
 def bk(client, clock, notes_app):
     """The backups service with fakes, switched on, notes installed."""
-    app = client.app
+    return switch_on_backups(client.app, clock)
+
+
+def switch_on_backups(app, clock):
+    """Backups switched on with fakes (onemindd, Kubernetes, PostgreSQL) on any test gateway, notes installed."""
     svc = app.state.backups
     svc.agent = FakeAgent(clock)
     svc.kube = FakeKube()

@@ -303,6 +303,8 @@ export interface ApiErrorBody {
   message: string;
   /** Machine-readable detail, e.g. step_up_required (sign in again with your passkey). */
   reason?: string | null;
+  /** §12.2 machine-readable extras, e.g. the kit request a passkey must approve: [{ action_id }]. */
+  details?: Array<Record<string, unknown>> | null;
   retry_after_s?: number | null;
 }
 
@@ -310,10 +312,12 @@ export class ApiError extends Error {
   readonly status: number;
   readonly code: ApiErrorCode | 'network' | 'unknown';
   readonly reason: string | undefined;
+  readonly details: ReadonlyArray<Record<string, unknown>> | undefined;
 
-  constructor(status: number, code: ApiError['code'], message: string, reason?: string | null) {
+  constructor(status: number, code: ApiError['code'], message: string, reason?: string | null, details?: ReadonlyArray<Record<string, unknown>> | null) {
     super(message);
     this.reason = reason ?? undefined;
+    this.details = Array.isArray(details) ? details : undefined;
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
