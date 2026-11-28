@@ -50,9 +50,6 @@ group m7-approver-keys issue=#1213 M7: proven approver keys: the Sign-in keys sc
 dashboard auth.approver_keys.list m7-approver-keys
 dashboard auth.approver_keys.register m7-approver-keys
 dashboard auth.approver_keys.revoke m7-approver-keys
-dashboard auth.trusted_models.list m7-approver-keys
-dashboard auth.trusted_models.remove m7-approver-keys
-dashboard verification.requirements.get m7-approver-keys
 cli auth.approver_keys.revoke m7-approver-keys
 
 # ---- should-have gaps named in the report (#1232 S-rows) ---------------------------------------------

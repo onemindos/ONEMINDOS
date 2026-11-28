@@ -29,3 +29,10 @@ export async function viaSdk<T>(call: () => Promise<T>): Promise<T> {
     throw e;
   }
 }
+
+/** True when the hub refused because the sign-in itself is gone (401 with no reason: an unknown or expired
+ *  token), so a write signs out like every read does (usePoll). A 401 that names a reason (step_up_required,
+ *  box_code_required, ...) is a check the screen explains instead. */
+export function sessionLapsed(e: unknown): boolean {
+  return (e instanceof OneMindError || e instanceof ApiError) && e.status === 401 && !e.reason;
+}

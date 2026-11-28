@@ -40,7 +40,11 @@ export function SettingsSecurity() {
   const owner = role === 'owner';
   const response = usePoll(async () => {
     const own = [
-      ['Passkeys', account, summarize(get(sdk, '/v1/auth/passkeys'), count('registered'))],
+      ['Sign-in keys', '/settings/sign-in-keys', summarize(get(sdk, '/v1/auth/passkeys'), (data) => {
+        if (!Array.isArray(data)) return undefined;
+        const proven = data.filter((item) => ['L2', 'L3'].includes(String(object(item).level))).length;
+        return `${data.length} registered · ${proven} proven`;
+      })],
       // GET /v1/auth/methods; "Off" is not a warning: passkeys come first and the code is a fallback (D-030).
       ['Authenticator code', account, summarize(get(sdk, '/v1/auth/methods'), (data) => {
         const totp = object(data).totp;
@@ -69,6 +73,12 @@ export function SettingsSecurity() {
         if (value.https === false) return 'HTTPS off';
         return typeof value.not_after === 'string' && Number.isFinite(Date.parse(value.not_after))
           ? `Expires ${new Date(value.not_after).toLocaleDateString()}` : undefined;
+      })],
+      ['Verification levels', '/settings/verification', summarize(get(sdk, '/v1/verification-requirements'), (data) => {
+        const t = object(data);
+        if (t.recovery_needed === true) return 'Waiting for a proven key';
+        if (t.grace === true) return 'Before your first proven key: confirmed at the box';
+        return typeof t.household_level === 'string' ? `Strongest key ${t.household_level}` : t.household_level === null ? 'No passkey yet' : undefined;
       })],
       ['Standing approvals', '/settings/automation', summarize(get(sdk, '/v1/approval-policies'), count('configured'))],
       ['Physical lockout', '/settings/automation', summarize(get(sdk, '/v1/physical/lockout'), (data) => {
