@@ -25,9 +25,12 @@ const specRaw = Object.values(import.meta.glob('../../../sdk/openapi/onemind-v1.
 // Files, Photos and the Backups wizard each wrap fetch with the signed-in token (a streamed or binary body the
 // JSON client cannot carry). Like Backups and Migrate they are listed on purpose, so a new one is a visible choice.
 // The Troubleshoot log viewer (P-07, #1125) reads the streamed text/plain journal the same way.
+// The Map's asset feed passes the SDK's events.subscribe a `transport` (the SDK's own reader, with the same errors),
+// only to learn when a connection ends so it can say "Reconnecting…"; the SDK still parses, resumes and backs off.
 const RAW_FETCH_ALLOWED = new Set([
   'api/client.ts', 'pages/Backups.tsx', 'pages/Migrate.tsx', 'files/api.ts', 'pages/Photos.tsx', 'pages/backups/shared.ts',
   'pages/troubleshoot/LogViewer.tsx',
+  'pages/map/useAssetStream.ts',
 ]);
 
 describe('one API client (CI-08)', () => {

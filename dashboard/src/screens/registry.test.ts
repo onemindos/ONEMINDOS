@@ -40,6 +40,7 @@ describe('screen registry', () => {
       ['files', '/files', 'Your box'],
       ['search', '/search', 'Your box'],
       ['installed', '/installed', 'Your box'],
+      ['map', '/map', 'Your box'],
       ['nodes', '/nodes', 'Your box'],
       ['add-machine', '/add-machine', 'Your box'],
       ['world', '/world', 'Your box'],
