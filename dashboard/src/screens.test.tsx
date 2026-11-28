@@ -4,7 +4,7 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { renderApp, seriousViolations } from './test/helpers';
+import { openScreen, renderApp, seriousViolations } from './test/helpers';
 
 const T = { timeout: 4000 };
 
@@ -134,7 +134,7 @@ describe('Market and the install loop', () => {
     await u.click(screen.getByRole('button', { name: /^Approve/ }));
     expect(await screen.findByText('Approved', {}, T)).toBeInTheDocument();
 
-    await u.click(screen.getAllByRole('link', { name: /Installed/ })[0]!);
+    await openScreen(u, /^Installed/); // from the launcher: the Atlas dock has no Installed tile
     expect(await screen.findByRole('link', { name: 'Vaultwarden' }, T)).toBeInTheDocument();
   });
 

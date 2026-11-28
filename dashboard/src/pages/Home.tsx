@@ -74,7 +74,8 @@ export function Home() {
   const customize = useOptionalCustomize();
   const { apps } = useHub();
   if (shell.view === 'unknown') return <StateView state="loading" what="Checking your role" skeleton="list" />;
-  const commandBar = customize?.prefs.commandBar
+  // On the desktop the run bar lives in the dock (shell/RunBar.tsx); the Console view keeps it on Home.
+  const commandBar = customize?.prefs.commandBar && shell.layout !== 'desktop'
     ? <HomeCommandBar openPalette={shell.openPalette} apps={shell.role === 'owner' ? apps.data ?? [] : []} />
     : undefined;
   return shell.view === 'simple' ? <SimpleHome commandBar={commandBar} /> : <ProHome commandBar={commandBar} />;

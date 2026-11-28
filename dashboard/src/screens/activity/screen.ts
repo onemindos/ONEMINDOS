@@ -8,7 +8,6 @@ const screen: ScreenDef = {
   icon: 'activity',
   section: 'primary',
   order: 40,
-  dock: 5,
   hue: ['#22c5b0', '#0b7a6c'],
   load: () => import('../../pages/Activity').then((m) => ({ default: m.Activity })),
 };

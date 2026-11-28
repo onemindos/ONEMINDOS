@@ -30,7 +30,7 @@ test('dashboard: bad token refused, demo owner signs in, navigates and signs out
   // screen (it once did: the tray sat unstyled in the page flow and every page grew by 24 px).
   await expect(page.getByRole('complementary', { name: 'Jobs in progress' })).toHaveCSS('position', 'fixed');
 
-  // Desktop (D-016): the dock holds the everyday screens; Launchpad ("All screens and apps") holds every screen.
+  // Desktop (D-016, Atlas): the dock holds the pinned places; the launcher (the OneMind logo tile) holds every screen.
   const nav = page.getByRole('navigation', { name: 'Main' });
   for (const [link, path, heading] of [
     [/^Nodes/, '/nodes', 'Nodes'],
@@ -42,7 +42,7 @@ test('dashboard: bad token refused, demo owner signs in, navigates and signs out
     if ((await docked.count()) > 0) await docked.first().click();
     else {
       await nav.getByRole('button', { name: /screens and apps/ }).click();
-      await page.getByRole('dialog', { name: 'Launchpad' }).getByRole('link', { name: link }).click();
+      await page.getByRole('dialog', { name: 'Launcher' }).getByRole('link', { name: link }).click();
     }
     await expect(page).toHaveURL(new URL(path, DASH_URL).href);
     await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();

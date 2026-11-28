@@ -16,6 +16,7 @@ import {
   buildPaletteCommands,
   formatAgo,
   pushRecentCommand,
+  useOptionalCustomize,
   useToast,
 
   type NavItem,
@@ -33,6 +34,7 @@ import { useRecordVisit } from '../data/homeRecent';
 import { homeLayoutStore, personList } from '../data/prefs';
 import { useKeymap } from './keys/useKeymap';
 import { DesktopShell, type DockApp } from './DesktopShell';
+import { fleetCounts } from './StatusStrip';
 import { useLayoutMode, type LayoutMode } from './layoutMode';
 import { QuickSettings } from './quick/QuickSettings';
 import { effectiveView, useViewChoice } from './quick/viewPref';
@@ -84,6 +86,8 @@ export function Shell({ children }: { children: ReactNode }) {
   const [recent, setRecent] = useState(() => recentStore.load());
 
   const [layout, setLayout] = useLayoutMode(person);
+  // The run bar (final design 09) is the person's Appearance choice, off by default.
+  const runBar = useOptionalCustomize()?.prefs.commandBar === true;
 
   useKeymap({ palette: () => setPaletteOpen(true) });
 
@@ -252,6 +256,11 @@ export function Shell({ children }: { children: ReactNode }) {
     return a ? [dockApp(a)] : [];
   });
   const installedApps: DockApp[] = layout === 'desktop' ? apps.filter((a) => a.installed).map(dockApp) : [];
+  // The strip's counts: real answers only. Nothing is drawn before GET /v1/nodes and GET /v1/actions first answer.
+  const fleet = hub.nodes.data ? fleetCounts(nodes.map((n) => hub.nodeStatus(n))) : undefined;
+  const waitingKnown = hub.actions.data !== undefined ? waiting : undefined;
+  const machines = nav.some((n) => n.id === 'nodes') ? nodes.map((n) => ({ id: n.node_id, name: n.hostname, status: hub.nodeStatus(n) })) : [];
+  const waitingRequests = pending.map((a) => ({ id: a.id, type: a.type, appId: appIdOf(a.params) }));
   return (
     <ShellCtx.Provider value={api}>
       <div onClickCapture={onClickCapture} className={layout === 'desktop' ? 'dash-root dash-desktop' : 'dash-root'} data-jobs={jobsShown ? '' : undefined} style={jobsStackStyle(jobsShown)}>
@@ -264,6 +273,14 @@ export function Shell({ children }: { children: ReactNode }) {
             bell={bell}
             pinned={pinned}
             apps={installedApps}
+            fleet={fleet}
+            waiting={waitingKnown}
+            machines={machines}
+            commands={commands}
+            onRunCommand={runCommand}
+            onOpen={(link) => void go(link)}
+            runBar={runBar}
+            waitingRequests={waitingRequests}
             now={hub.now}
             timeZone={Intl.DateTimeFormat().resolvedOptions().timeZone}
             person={principal ? { id: principal.id, role: principal.kind === 'agent' ? 'agent' : principal.role } : undefined}
@@ -298,6 +315,12 @@ export function Shell({ children }: { children: ReactNode }) {
       </div>
     </ShellCtx.Provider>
   );
+}
+
+/** The app a request is about, when it is an app request. */
+function appIdOf(params: unknown): string | undefined {
+  const id = (params as { app_id?: unknown } | null | undefined)?.app_id;
+  return typeof id === 'string' ? id : undefined;
 }
 
 /** A palette command is offered when it leads to a screen this view shows (Pro screens: roles.ts). */

@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
-/* Desktop frame (D-016): menu bar, desktop, windows over the wallpaper, dock, Launchpad, and the
-   look of every screen inside a window. Only --om-* design tokens, the brand tokens
-   (brand.generated.css), and the per-screen tile colours set inline from DesktopShell's
-   SCREEN_HUES. The wallpaper itself is painted by WallpaperLayer. */
+/* Desktop frame (D-016): menu bar and status strip, desktop, windows over the wallpaper, dock, launcher, run bar,
+   and the look of every screen inside a window. Only --om-* design tokens and the brand tokens
+   (brand.generated.css). The wallpaper itself is painted by WallpaperLayer. */
 /* Dock and jobs-pill geometry, shared with the jobs tray (a sibling of .dsk, so it lives on the root).
    --dsk-dock-h is the room reserved under content; --dsk-dock-box is the dock's real height. */
 .dash-desktop {
@@ -205,20 +204,17 @@
   content: ''; position: absolute; bottom: 1px; width: 5px; height: 5px; border-radius: 50%; background: var(--om-color-text);
 }
 
-/* Screen tiles: one colour per screen, white glyph, soft light from above. */
+/* Screen tiles: Atlas's muted tiles (founder pick): the theme's raised surface, an ink glyph, a hairline edge.
+   No colour per screen; red stays for "act" and "needs you". */
 .dsk-tile {
-  flex: none; display: grid; place-items: center; border-radius: var(--dsk-tile-radius); color: #fff;
-  background:
-    radial-gradient(120% 90% at 30% 0%, rgb(255 255 255 / 0.32), transparent 55%),
-    linear-gradient(160deg, var(--dsk-tile-a, #7d8794), var(--dsk-tile-b, #3a414b));
-  box-shadow: 0 1px 0 rgb(255 255 255 / 0.25) inset, 0 6px 14px -6px color-mix(in srgb, var(--dsk-tile-b, #000) 80%, transparent);
+  flex: none; display: grid; place-items: center; border-radius: var(--dsk-tile-radius); color: var(--om-color-text);
+  background: color-mix(in srgb, var(--om-color-surface-raised) 92%, transparent);
+  box-shadow: 0 0 0 1px var(--dsk-hairline) inset, 0 4px 12px -8px color-mix(in srgb, var(--om-color-text) 40%, transparent);
 }
-.dsk-tile .om-icon { filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.25)); }
-.dsk-tile-launch {
-  width: 44px; height: 44px; color: var(--om-color-text);
-  background: color-mix(in srgb, var(--om-color-surface-raised) 85%, transparent);
-  box-shadow: 0 0 0 1px var(--dsk-hairline) inset;
-}
+/* The logo tile opens the launcher: today's logo, unchanged, on a plain surface tile. */
+.dsk-tile-mark { width: 44px; height: 44px; background: var(--om-color-surface); }
+.dsk-tile-more { width: 44px; height: 44px; position: relative; }
+.dsk-more-count { position: absolute; right: 4px; bottom: 3px; font-size: 10px; font-weight: var(--om-font-weight-semibold); color: var(--om-color-text-muted); }
 .dsk-badge {
   position: absolute; top: -2px; right: 4px; min-width: 19px; height: 19px; padding: 0 5px; box-sizing: border-box;
   display: grid; place-items: center; border-radius: var(--om-radius-pill);
@@ -254,6 +250,57 @@
 .dsk-launchpad-item .dsk-badge { top: 2px; right: calc(50% - 30px); }
 .dsk-launchpad-label { font-size: var(--om-font-size-sm); text-align: center; }
 .dsk-launchpad-none { text-align: center; color: var(--om-color-text-muted); }
+.dsk-launchpad-dim { text-transform: none; letter-spacing: 0; }
+.dsk-launchpad-pills { display: flex; flex-wrap: wrap; gap: var(--om-space-2); }
+.dsk-pill {
+  all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 var(--om-space-3);
+  border-radius: var(--om-radius-pill); border: 1px solid var(--dsk-hairline); color: var(--om-color-text-muted); font-size: var(--om-font-size-sm);
+}
+.dsk-pill[aria-pressed='true'] { color: var(--om-color-text); background: var(--om-color-accent-soft); border-color: var(--om-color-accent); }
+.dsk-pill:focus-visible, .dsk-cmd-run:focus-visible, .dsk-cmd-copy:focus-visible, .dsk-needchip:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
+.dsk-pill-count { font-variant-numeric: tabular-nums; color: var(--om-color-text-muted); }
+.dsk-launchpad-state { display: inline-flex; align-items: center; gap: 4px; font-size: var(--om-font-size-xs); color: var(--om-color-text-muted); }
+/* Commands: the title, "asks a person" for anything that files a request, and the exact command with Copy. */
+.dsk-cmds { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--om-space-2); }
+.dsk-cmd { display: flex; flex-wrap: wrap; align-items: center; gap: var(--om-space-2) var(--om-space-3); padding: var(--om-space-2) var(--om-space-3); border-radius: 12px; border: 1px solid var(--dsk-hairline); background: var(--om-color-surface); }
+.dsk-cmd-run { all: unset; cursor: pointer; display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--om-space-2); flex: 1 1 16rem; min-height: 32px; color: var(--om-color-text); }
+.dsk-cmd-run[aria-disabled='true'] { cursor: not-allowed; color: var(--om-color-text-muted); }
+.dsk-cmd-asks { padding: 1px 8px; border-radius: var(--om-radius-pill); font-size: var(--om-font-size-xs); color: var(--om-color-warn-fg); background: var(--om-color-warn-bg); border: 1px solid var(--om-color-warn-border); }
+.dsk-cmd-why { font-size: var(--om-font-size-xs); color: var(--om-color-text-muted); }
+.dsk-cmd-line { display: inline-flex; align-items: center; gap: var(--om-space-2); min-width: 0; max-width: 100%; }
+.dsk-cmd-line code { font-family: var(--om-font-mono, ui-monospace, monospace); font-size: var(--om-font-size-xs); color: var(--om-color-text-muted); overflow-wrap: anywhere; }
+.dsk-cmd-copy { all: unset; cursor: pointer; padding: 2px 8px; border-radius: 8px; font-size: var(--om-font-size-xs); color: var(--om-color-text); border: 1px solid var(--dsk-hairline); }
+
+/* The status strip: fleet counts and the needs-you chip (final design 01). State colours come from the state
+   tokens (Sovereign palette), with the older tone tokens as the fallback. */
+.dsk-fleet { display: inline-flex; align-items: center; gap: var(--om-space-3); margin-right: var(--om-space-3); white-space: nowrap; font-size: var(--om-font-size-xs); color: var(--om-color-text-muted); }
+.dsk-fleet-item { display: inline-flex; align-items: center; gap: 4px; }
+.dsk-fleet-item b { color: var(--om-color-text); font-variant-numeric: tabular-nums; }
+.dsk-state-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.dsk-fleet-fresh .dsk-state-dot { color: var(--om-color-state-live, var(--om-color-ok-fg)); }
+.dsk-fleet-stale .dsk-state-dot { color: var(--om-color-warn-fg); }
+.dsk-fleet-offline .dsk-state-dot { color: var(--om-color-text-subtle); }
+.dsk-needchip {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 0 10px; white-space: nowrap;
+  border-radius: var(--om-radius-pill); font-size: var(--om-font-size-xs); font-weight: var(--om-font-weight-semibold); text-decoration: none;
+  color: var(--om-color-text); border: 1px solid var(--om-color-needs, var(--om-color-action));
+}
+.dsk-needchip .dsk-state-dot { color: var(--om-color-needs, var(--om-color-action)); }
+.dsk-needchip { margin-left: auto; }
+.dsk-needchip + .dsk-clock { margin-left: var(--om-space-3); }
+.dsk-needchip[data-none] { font-weight: var(--om-font-weight-medium); color: var(--om-color-text-muted); border-color: var(--dsk-hairline); }
+
+/* The run bar (final design 09): in the dock, off by default. */
+.dsk-runbar {
+  position: relative; flex: none; align-self: center; display: flex; align-items: center; gap: var(--om-space-2);
+  width: min(320px, 40vw); min-height: 40px; padding: 0 var(--om-space-3); margin-bottom: 14px;
+  border-radius: 12px; border: 1px solid var(--dsk-hairline); background: var(--om-color-surface); color: var(--om-color-text-muted);
+}
+.dsk-runbar:focus-within { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
+.dsk-runbar input { all: unset; flex: 1; min-width: 0; color: var(--om-color-text); font-family: var(--om-font-mono, ui-monospace, monospace); font-size: var(--om-font-size-sm); }
+.dsk-runbar-keys kbd { font-size: 10px; padding: 1px 5px; border-radius: 4px; border: 1px solid var(--dsk-hairline); color: var(--om-color-text-muted); }
+.dsk-runbar-note { position: absolute; left: 0; bottom: calc(100% + 8px); width: max(100%, 280px); margin: 0; padding: var(--om-space-2) var(--om-space-3); border-radius: 10px; background: var(--om-color-surface-raised); border: 1px solid var(--dsk-hairline); font-size: var(--om-font-size-xs); color: var(--om-color-text); }
+.dsk-runbar-note:empty { display: none; }
 
 /* The jobs pill never covers content or a control. Wide screens: it sits on the dock row, vertically centred on
    the dock, at the right edge, and the dock gives up the room (below). Narrower screens and phones: it sits centred
@@ -397,6 +444,9 @@ html { scroll-padding-bottom: calc(var(--dsk-dock-h, 84px) + var(--om-space-6));
 .dsk-badge { font-size: 12px; }
 
 @media (max-width: 720px) {
+  /* The fleet counts leave the strip (the launcher lists each machine with its state); the chip stays. */
+  .dsk-fleet { display: none; }
+  .dsk-runbar { width: 52vw; }
   .dsk { --dsk-bar-h: 52px; --dsk-dock-h: 92px; }
   /* Menu bar, window bar, menu rows: 44 px targets. */
   .dsk-iconbtn { width: 44px; height: 44px; }
