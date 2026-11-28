@@ -231,3 +231,99 @@ def test_the_journal_filter_masks_keys_and_multi_line_private_keys():
     assert r.line(PEM_BEGIN).endswith("[redacted]")
     assert r.line("b3BlbnNzaC1rZXktdjEAAAAA") == "[redacted]" and r.line(PEM_END) == "[redacted]"
     assert r.line("plain kernel line") == "plain kernel line"
+
+
+@pytest.mark.parametrize("raw", [
+    "Accepted publickey for zeus from 2001:db8::44 port 22",
+    "RA from fe80::5054:ff:fe12:3456 on eth0",
+    "mesh peer fd7a:115c:a1e0:ab12:4843:cd96:6258:4001 up",
+    "listening on [2001:db8::1]:8080",
+    "link-local fe80::1%eth0 gone",
+    "mapped ::ffff:192.0.2.1 and loopback ::1",
+    "gateway 2001:db8:: reachable",
+])
+def test_ipv6_addresses_are_masked_in_every_written_form(raw):
+    out = JournalRedactor().line(raw)
+    assert "[ip]" in out, out
+    for leak in ("2001:db8", "fe80", "fd7a", "5054", "::1", "192.0.2", "ffff", "%eth0"):
+        assert leak not in out, (leak, out)
+
+
+def test_things_that_only_look_like_ipv6_are_left_alone():
+    r = JournalRedactor()
+    for text in ("2026-11-22T10:00:07+0000 box app[7]: tick 10:00:01", "call std::string::npos failed",
+                 "Value::default unset", "ratio 3:1 and 12:30", "pid 7 : state"):
+        assert r.line(text) == text
+    assert r.line("eth0 52:54:00:12:34:56 up") == "eth0 [mac] up"
+
+
+@pytest.mark.parametrize("tail", ["+", "/", "A"])
+def test_an_ssh_fingerprint_is_masked_whatever_its_last_character(tail):
+    fp = "b" * 42 + tail
+    out = JournalRedactor().line(f"Accepted publickey SHA256:{fp} next")
+    assert fp not in out and out == "Accepted publickey SHA256:[redacted] next"
+
+
+def test_a_read_is_cut_at_one_mebibyte_of_bytes_not_characters(settings, clock):
+    wide = ["é" * 1000] * 600  # 600000 characters, 1.2 MB of UTF-8: under the limit by characters, over by bytes
+    h = FakeHost(wide)
+    try:
+        with box(settings, clock, h.path) as c:
+            r = c.get("/v1/system/journal?tail=2000", headers=OWNER)
+            assert r.status_code == 200 and len(r.content) <= journal_router.MAX_BYTES + 200, len(r.content)
+            assert r.text.rstrip().endswith("narrow the filters or lower tail]")
+    finally:
+        h.close()
+
+
+def test_a_follow_slot_is_released_when_the_viewer_leaves_a_quiet_stream(settings, clock):
+    """One journal line, then silence (a quiet unit filter). Each viewer leaves right after the first line. More
+    viewers than the stream limit still get in, so the slots were freed at once, not after 15 minutes."""
+    import asyncio
+
+    hold = threading.Event()
+    h = FakeHost(["2026-11-22T10:00:00+0000 box app[7]: only line"])
+    original = h.server.RequestHandlerClass.do_GET
+
+    def quiet_get(self):
+        original(self)
+        if "follow=1" in self.path:
+            hold.wait(20)  # the host keeps the stream open and says nothing more
+
+    h.server.RequestHandlerClass.do_GET = quiet_get
+
+    async def watch_once(app) -> int:
+        got_line = asyncio.Event()
+        status: list[int] = []
+        sent = False
+
+        async def receive():
+            nonlocal sent
+            if not sent:
+                sent = True
+                return {"type": "http.request", "body": b"", "more_body": False}
+            await got_line.wait()
+            return {"type": "http.disconnect"}
+
+        async def send(msg):
+            if msg["type"] == "http.response.start":
+                status.append(msg["status"])
+            elif msg["type"] == "http.response.body" and b"only line" in msg.get("body", b""):
+                got_line.set()
+
+        scope = {"type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1", "method": "GET", "scheme": "http",
+                 "path": "/v1/system/journal", "raw_path": b"/v1/system/journal", "query_string": b"follow=true",
+                 "root_path": "", "server": ("test", 80), "client": ("127.0.0.1", 1),
+                 "headers": [(b"authorization", OWNER["Authorization"].encode())]}
+        await asyncio.wait_for(app(scope, receive, send), 10)
+        return status[0]
+
+    try:
+        with box(settings, clock, h.path) as c:
+            async def run():
+                return [await watch_once(c.app) for _ in range(journal_router.STREAMS_PER_PRINCIPAL + 2)]
+
+            assert asyncio.run(run()) == [200] * (journal_router.STREAMS_PER_PRINCIPAL + 2)
+    finally:
+        hold.set()
+        h.close()
