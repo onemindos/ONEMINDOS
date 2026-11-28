@@ -8,13 +8,9 @@ package cli
 // /v1/data/grants; taking a grant back is DELETE /v1/data/grants/{id} (removing power is direct, and
 // the gateway restricts it to an owner). Giving one is a request in `onemind actions`.
 //
-// `radios`: radios the box found on its machines (GET /v1/radios). Confirming what a radio is
-// (POST /v1/radios/{id}/confirm) is an owner's statement and human-only: the gateway refuses an
-// agent token, and nothing is opened or sent by confirming.
+// The `radios` commands live in radios.go.
 
 import (
-	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/spf13/cobra"
@@ -69,53 +65,4 @@ func dataCommands(a *App) []*cobra.Command {
 	return []*cobra.Command{root}
 }
 
-func radiosCommands(a *App) []*cobra.Command {
-	root := &cobra.Command{Use: "radios", Short: "Radios found on your machines: list, confirm what one is (owner only)"}
-	root.AddCommand(&cobra.Command{
-		Use:   "list",
-		Short: "Radios the box found (GET /v1/radios)",
-		Args:  cobra.NoArgs,
-		RunE: func(*cobra.Command, []string) error {
-			return a.read("/v1/radios", func(w io.Writer, v any) error {
-				var rows [][]string
-				for _, x := range list(v) {
-					m := obj(x)
-					conf := "-" // only a radio that asks for confirming has a confirm card
-					if c := obj(m["confirm"]); len(c) > 0 {
-						conf = "needs confirming"
-						if c["confirmed"] == true {
-							conf = "confirmed as " + str(c["profile"])
-						}
-					}
-					rows = append(rows, []string{str(m["id"]), dash(str(m["hostname"])), dash(str(m["kind"])), dash(str(m["model"])), str(m["node_status"]), conf})
-				}
-				if len(rows) == 0 {
-					fmt.Fprintln(w, "No radios found.")
-					return nil
-				}
-				return table(w, "ID\tMACHINE\tKIND\tMODEL\tMACHINE STATE\tCONFIRMED", rows)
-			})
-		},
-	})
-	var profile string
-	confirm := &cobra.Command{
-		Use:   "confirm RADIO_ID --profile PROFILE",
-		Short: "Say what a found radio is, e.g. --profile meshcore-companion-usb (POST /v1/radios/ID/confirm); owner only",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if profile == "" {
-				return usageErr(cmd, "--profile is required (the card in `onemind radios list --json` names it)")
-			}
-			v, err := a.gwDo(http.MethodPost, "/v1/radios/"+pathID(args[0])+"/confirm", map[string]any{"profile": profile})
-			if err != nil {
-				return err
-			}
-			return a.printDone(v, "Confirmed %s as %s. Nothing was opened or sent.", args[0], profile)
-		},
-	}
-	confirm.Flags().StringVar(&profile, "profile", "", "what the radio is")
-	root.AddCommand(confirm)
-	return []*cobra.Command{root}
-}
-
-func init() { groups = append(groups, dataCommands, radiosCommands) }
+func init() { groups = append(groups, dataCommands) }

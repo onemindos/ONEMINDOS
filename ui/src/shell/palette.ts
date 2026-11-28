@@ -11,7 +11,7 @@ import { formatAgo, formatIn, secondsSince } from '../lib/time';
 import type { ShellIconName } from './icons';
 import { category, deployClass, deployClassLabel, type DeployClass } from './taxonomy';
 
-export const COMMAND_GROUPS = ['Approvals', 'Recent', 'Apps', 'Requests', 'Nodes', 'Settings', 'Go to'] as const;
+export const COMMAND_GROUPS = ['Approvals', 'Recent', 'Apps', 'Requests', 'Nodes', 'Settings', 'Go to', 'Tips'] as const;
 export type CommandGroup = (typeof COMMAND_GROUPS)[number];
 
 export interface PaletteCommand {
