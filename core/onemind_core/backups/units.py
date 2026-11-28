@@ -81,12 +81,23 @@ def setting_path(settings, name: str) -> tuple[bool, Path | None]:
     return False, None
 
 
+def dir_fingerprint(path: str) -> str:
+    """A run records which folder each carried setting pointed at by this, so no host path is stored."""
+    return hashlib.sha256(os.path.normpath(path).encode()).hexdigest()[:16]
+
+
+def _inside(path: Path, roots: tuple[Path, ...]) -> bool:
+    p = Path(os.path.normpath(path))
+    return any(p == r or r in p.parents for r in (Path(os.path.normpath(x)) for x in roots))
+
+
 def unit_set(gw, registry, *, export: bool = False, agent_dirs: frozenset[str] = frozenset(),
-             include_off_photos: bool = False) -> list[dict]:
+             agent_paths: tuple[Path, ...] = (), include_off_photos: bool = False) -> list[dict]:
     """The gateway database, then one `builtin:<id>` unit per switched-on built-in.
 
     `export`: the gateway writes the built-ins' table export into a folder the agent's `system` unit
-    copies (BackupsSettings.export_dir); `agent_dirs`: the folder settings that unit also copies.
+    copies (BackupsSettings.export_dir); `agent_dirs`: the folder settings that unit also copies;
+    `agent_paths`: when set, the folders it really copies (a setting pointing elsewhere is not carried).
     Include switched-off Photos in a recovery export so switching it off cannot strand existing data."""
     have = set(inspect(gw.db.engine).get_table_names())
     out = [{"unit": GATEWAY_UNIT, "kind": "database", "engine": gw.db.engine.dialect.name, "snapshot_unit": "system"}]
@@ -106,7 +117,9 @@ def unit_set(gw, registry, *, export: bool = False, agent_dirs: frozenset[str] =
                 known, path = setting_path(gw.settings, u["name"])
                 if not known:
                     problems.append(f"{u['name']} is not a gateway setting")
-                dirs.append({"name": u["name"], "path": str(path) if path else None, "carried": u["name"] in agent_dirs})
+                carried = (u["name"] in agent_dirs and path is not None
+                           and (not agent_paths or _inside(path, agent_paths)))
+                dirs.append({"name": u["name"], "path": str(path) if path else None, "carried": carried})
         # snapshot_unit None: no agent unit carries this built-in's export (no export folder is set), so its
         # rows live only in the whole-database copy. The status must not read as "backed up".
         out.append({"unit": f"builtin:{d.id}", "kind": "builtin", "app_id": d.id, "tables": tables, "dirs": dirs,
@@ -115,12 +128,15 @@ def unit_set(gw, registry, *, export: bool = False, agent_dirs: frozenset[str] =
 
 
 def public_view(units: list[dict], snapshotted: set[str] = frozenset(),
-                builtin_snapshotted: set[str] = frozenset()) -> list[dict]:
+                builtin_snapshotted: set[str] = frozenset(), snapshot_dirs: dict | None = None) -> list[dict]:
     """The set as GET /v1/backups/status shows it: whether each folder is set, never its host path.
 
     `in_snapshot` is true only for a unit whose `snapshot_unit` is in `snapshotted` (the agent units with
     a successful snapshot; `builtin_snapshotted` for built-ins: a successful snapshot that holds their
-    export) and, for a built-in, whose every set folder is carried by that unit too."""
+    export) and, for a built-in, whose every set folder that snapshot carried, at the folder it points at
+    now. `snapshot_dirs` is what the run recorded ({setting: dir_fingerprint}), not today's settings: a
+    folder added to the backup or moved after the snapshot is not in it."""
+    snapshot_dirs = snapshot_dirs or {}
     out = []
     for u in units:
         if "dirs" not in u:
@@ -130,7 +146,8 @@ def public_view(units: list[dict], snapshotted: set[str] = frozenset(),
             v = {**u, "dirs": [{"name": x["name"], "configured": x["path"] is not None, "carried": x["carried"]}
                                for x in u["dirs"]]}
             v["in_snapshot"] = (u.get("snapshot_unit") is not None and u["snapshot_unit"] in builtin_snapshotted
-                                and all(x["carried"] for x in u["dirs"] if x["path"] is not None))
+                                and all(snapshot_dirs.get(x["name"]) == dir_fingerprint(x["path"])
+                        for x in u["dirs"] if x["path"] is not None))
         out.append(v)
     return out
 

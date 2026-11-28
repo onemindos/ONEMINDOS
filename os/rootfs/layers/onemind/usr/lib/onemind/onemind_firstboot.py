@@ -582,6 +582,25 @@ def gateway_env(p: Paths, st: dict, mesh_ip: str | None = None, js_max_bytes: in
     return out
 
 
+# Keys gateway_env() writes only some of the time: an old line of these is first boot's own, never kept.
+FIRSTBOOT_GATEWAY_KEYS = frozenset({"ONEMIND_NET_LAN_ADDR", "ONEMIND_BACKUPS_ENABLED", "ONEMIND_BACKUPS_JOB_KEY_FILE",
+                                    "ONEMIND_BACKUPS_EXPORT_DIR", "ONEMIND_BACKUPS_AGENT_DIRS",
+                                    "ONEMIND_BACKUPS_AGENT_PATHS"})
+_ENV_KEY = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)=")
+
+
+def keep_operator_env(old: str | None, new: str) -> str:
+    """A rewrite of gateway.env keeps every setting first boot never writes, word for word: the operator's
+    own lines, such as the Photos hard-off (ONEMIND_PHOTOS_ENABLED=0) or a relocated ONEMIND_PHOTOS_DIR.
+    Without this the mesh step's rewrite would switch Photos back on with its default library."""
+    ours = {m.group(1) for m in map(_ENV_KEY.match, new.splitlines()) if m} | FIRSTBOOT_GATEWAY_KEYS
+    kept = [line for line in (old or "").splitlines()
+            if (m := _ENV_KEY.match(line)) and m.group(1) not in ours]
+    if not kept:
+        return new
+    return new + "# Kept from the earlier gateway.env: settings onemind-firstboot does not write.\n" + "\n".join(kept) + "\n"
+
+
 # ------------------------------------------------------------------ hub: backups (IMG-BACKUP-01)
 # restic ships in the image (/usr/lib/onemind/restic). The agent runs inside onemindd and starts when
 # agent.json exists; the gateway drives it when ONEMIND_BACKUPS_ENABLED=1. No destination is set here:
@@ -595,16 +614,29 @@ def backup_system_paths(p: Paths) -> list[str]:
     return [p.etc, p.tls, p.nats_keys, p.backup_export, p.files, p.photos]
 
 
+def agent_paths_line(p: Paths) -> str:
+    """ONEMIND_BACKUPS_AGENT_PATHS: the folders agent.json's system unit really copies. The gateway counts a
+    built-in folder as backed up only inside one of them, so a relocated library reads as outside the backup."""
+    try:
+        paths = json.loads(_read(p.backup_conf) or "{}")["units"]["system"]["paths"]
+    except (KeyError, TypeError, ValueError):
+        paths = None
+    if not isinstance(paths, list) or not all(isinstance(x, str) for x in paths):
+        paths = backup_system_paths(p)
+    return f"ONEMIND_BACKUPS_AGENT_PATHS={','.join(paths)}\n"
+
+
 def builtin_backup_env(p: Paths) -> str:
     """Tells the gateway where to write the built-ins' export and which default folders the agent copies."""
     return ("# Built-in apps' data in the system unit (#616; core/onemind_core/backups/units.py).\n"
             f"ONEMIND_BACKUPS_EXPORT_DIR={p.backup_export}\n"
-            "ONEMIND_BACKUPS_AGENT_DIRS=ONEMIND_FILES_ROOT,ONEMIND_PHOTOS_DIR\n")
+            "ONEMIND_BACKUPS_AGENT_DIRS=ONEMIND_FILES_ROOT,ONEMIND_PHOTOS_DIR\n" + agent_paths_line(p))
 
 
 def backup_gateway_env(p: Paths) -> str:
-    """The gateway's backup lines; empty until the job key exists (so a failed key never half-enables it)."""
-    if not os.path.exists(p.job_key):
+    """The gateway's backup lines; empty until the job key and agent.json both exist, so a half-done setup
+    (a failed key, or an agent with no settings to start from) never reports backups as on."""
+    if not (os.path.exists(p.job_key) and os.path.exists(p.backup_conf)):
         return ""
     return ("# Backups (core/onemind_core/backups; onemind-firstboot ensure_backup).\n"
             f"ONEMIND_BACKUPS_ENABLED=1\nONEMIND_BACKUPS_JOB_KEY_FILE={p.job_key}\n" + builtin_backup_env(p))
@@ -658,15 +690,50 @@ def upgrade_agent_conf(p: Paths) -> None:
 
 
 def upgrade_backup_gateway_env(p: Paths) -> None:
-    """Upgrade the old generated folder list, preserving operator-managed backup settings."""
+    """Upgrade the old generated folder list, preserving operator-managed backup settings, and keep
+    ONEMIND_BACKUPS_AGENT_PATHS equal to what agent.json copies now."""
     path = os.path.join(p.etc, "gateway.env")
     old = _read(path)
-    if old is None or re.search(r"(?m)^ONEMIND_PHOTOS_DIR=", old):
+    if old is None or not re.search(r"(?m)^ONEMIND_BACKUPS_ENABLED=", old):
         return
-    new = re.sub(r"(?m)^ONEMIND_BACKUPS_AGENT_DIRS=ONEMIND_FILES_ROOT$",
-                 "ONEMIND_BACKUPS_AGENT_DIRS=ONEMIND_FILES_ROOT,ONEMIND_PHOTOS_DIR", old)
+    new = old
+    if not re.search(r"(?m)^ONEMIND_PHOTOS_DIR=", old):
+        new = re.sub(r"(?m)^ONEMIND_BACKUPS_AGENT_DIRS=ONEMIND_FILES_ROOT$",
+                     "ONEMIND_BACKUPS_AGENT_DIRS=ONEMIND_FILES_ROOT,ONEMIND_PHOTOS_DIR", new)
+    line, seen = agent_paths_line(p), []
+    if re.search(r"(?m)^ONEMIND_BACKUPS_AGENT_PATHS=", new):   # one line, where the first one was
+        new = re.sub(r"(?m)^ONEMIND_BACKUPS_AGENT_PATHS=.*\n?",
+                     lambda _m: "" if seen else (seen.append(1) or line), new)
+    else:
+        new += ("" if new.endswith("\n") else "\n") + line
     if new != old:
         write(path, new)
+
+
+def make_gateway_dir(path: str, ids: tuple[int, int] | None, mode: int = 0o700) -> None:
+    """Make a folder in the gateway's own tree for the gateway, as root, without switching user (the
+    wizard's helper has no CAP_SETUID/CAP_SETGID) and without following a link the gateway placed there:
+    the parent and the folder are opened with O_NOFOLLOW, so a symlink raises instead of being followed."""
+    parent, name = os.path.split(path.rstrip("/"))
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    pfd = os.open(parent, flags)
+    try:
+        made = False
+        try:
+            os.mkdir(name, mode, dir_fd=pfd)
+            made = True
+        except FileExistsError:
+            pass
+        fd = os.open(name, flags, dir_fd=pfd)
+        try:
+            if made:
+                os.fchmod(fd, mode)
+                if ids:
+                    os.fchown(fd, *ids)
+        finally:
+            os.close(fd)
+    finally:
+        os.close(pfd)
 
 
 def ensure_backup(p: Paths, st: dict) -> None:
@@ -695,12 +762,10 @@ def ensure_backup(p: Paths, st: dict) -> None:
         os.chmod(p.backup_export, 0o700)
         if ids:
             os.chown(p.backup_export, *ids)
-        # The agent requires every configured source to exist, even before the first upload.
-        # The gateway owns this folder and its parent, so create it as that user on the box.
-        if ids:
-            subprocess.run(["runuser", "-u", "onemind", "--", "mkdir", "-p", "-m", "0700", p.photos], check=True)
-        else:
-            os.makedirs(p.photos, mode=0o700, exist_ok=True)
+        # The agent requires every configured source to exist, even before the first upload. The gateway
+        # owns this folder and its parent: made for it without following a link it may have put there.
+        os.makedirs(p.gateway, mode=0o750, exist_ok=True)
+        make_gateway_dir(p.photos, ids)
         if not os.path.exists(p.backup_conf):
             write(p.backup_conf, json.dumps(backup_agent_conf(p, st["node_id"]), indent=2) + "\n")
         else:
@@ -1206,7 +1271,8 @@ def _mesh(p: Paths, st: dict, sleep) -> str:
     changed = []
     if write(os.path.join(p.etc, "nats.conf"), hub_nats_conf(ip, jetstream_max_bytes(p))):
         changed.append("onemind-nats.service")
-    if write(os.path.join(p.etc, "gateway.env"), gateway_env(p, st, ip)):
+    gw_env = os.path.join(p.etc, "gateway.env")
+    if write(gw_env, keep_operator_env(_read(gw_env), gateway_env(p, st, ip))):
         changed.append("onemind-gateway.service")
     if changed:
         log("mesh: restarting " + " ".join(changed))

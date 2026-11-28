@@ -37,9 +37,16 @@ class BackupsSettings:
     # The built-in folder settings (ONEMIND_<SECTION>_<FIELD>) whose folders the agent's `system` unit
     # also copies, separated by spaces or commas (onemind-firstboot writes the ones it adds).
     agent_dirs: str = ""
+    # The folders the agent's `system` unit really copies (absolute, separated by commas; onemind-firstboot
+    # writes them from agent.json). A folder named in agent_dirs counts as carried only when it is one of
+    # these or inside one, so a relocated library is reported as outside the backup. Unset: agent_dirs alone.
+    agent_paths: str = ""
 
     def agent_dir_names(self) -> frozenset[str]:
         return frozenset(n for n in self.agent_dirs.replace(",", " ").split() if n)
+
+    def agent_path_list(self) -> tuple[Path, ...]:
+        return tuple(Path(x.strip()) for x in self.agent_paths.split(",") if x.strip())
 
     def validate(self) -> None:
         u = urlsplit(self.agent_url)
@@ -51,5 +58,7 @@ class BackupsSettings:
             raise ValueError("ONEMIND_BACKUPS_EXPORT_DIR must be an absolute path")
         if bad := sorted(n for n in self.agent_dir_names() if not re.fullmatch(r"ONEMIND_[A-Z0-9_]+", n)):
             raise ValueError(f"ONEMIND_BACKUPS_AGENT_DIRS names settings, not {bad}")
+        if bad := sorted(str(x) for x in self.agent_path_list() if not x.is_absolute()):
+            raise ValueError(f"ONEMIND_BACKUPS_AGENT_PATHS must be absolute folders, not {bad}")
         if self.job_timeout_s <= 0 or self.health_deadline_s <= 0:
             raise ValueError("ONEMIND_BACKUPS_JOB_TIMEOUT_S and _HEALTH_DEADLINE_S must be positive")

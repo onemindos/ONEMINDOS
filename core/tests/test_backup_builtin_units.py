@@ -116,10 +116,10 @@ def test_no_built_in_reads_as_in_a_snapshot_until_an_agent_unit_carries_it(box_a
 
 # ---- on a box: the export lands in the agent's system unit --------------------------------------------
 
-def wired(c, tmp_path, agent_dirs=""):
+def wired(c, tmp_path, agent_dirs="", agent_paths=""):
     """The settings onemind-firstboot writes: an export folder the system unit copies, and its folders."""
     svc = c.app.state.backups
-    svc.s = replace(svc.s, export_dir=tmp_path / "backup-export", agent_dirs=agent_dirs)
+    svc.s = replace(svc.s, export_dir=tmp_path / "backup-export", agent_dirs=agent_dirs, agent_paths=agent_paths)
     return svc
 
 
@@ -135,7 +135,8 @@ def test_a_box_run_writes_the_export_and_then_the_built_ins_are_in_the_snapshot(
 
     run_out = svc.run_backup("scheduled", "box", None, None)
     assert run_out["state"] == "succeeded", run_out
-    assert {"unit": "builtins", "phase": "pre", "command": bu.EXPORT_FILE, "ok": True} in run_out["hooks"]
+    assert {"unit": "builtins", "phase": "pre", "command": bu.EXPORT_FILE, "ok": True,
+            "carried": {}} in run_out["hooks"]
     tar = tmp_path / "backup-export" / bu.EXPORT_FILE
     assert oct(tar.stat().st_mode & 0o777) == "0o600" and list(tar.parent.iterdir()) == [tar]
 
@@ -145,13 +146,46 @@ def test_a_box_run_writes_the_export_and_then_the_built_ins_are_in_the_snapshot(
     assert after["builtin:photos"]["in_snapshot"] is False
     assert after["builtin:photos"]["dirs"] == [{"name": "ONEMIND_PHOTOS_DIR", "configured": True, "carried": False}]
 
+    # Carrying the folder from now on does not put it into the snapshot already taken (D-028): only the
+    # next run's snapshot holds it.
     wired(c, tmp_path, agent_dirs="ONEMIND_PHOTOS_DIR, ONEMIND_FILES_ROOT")
+    assert builtins_shown(c)["builtin:photos"]["in_snapshot"] is False
+    clock.advance(3600)
+    assert svc.run_backup("scheduled", "box", None, None)["state"] == "succeeded"
     assert builtins_shown(c)["builtin:photos"]["in_snapshot"] is True
 
     # What the snapshot holds is a working export: it restores on a wiped box.
     with TestClient(fresh_box(settings, clock, tmp_path)) as b:
         assert bu.restore(*handles(b), tar)["rows"] > 0
         assert b.get(f"/v1/actions/{action['id']}", headers=OWNER).status_code == 200
+
+
+def test_a_library_moved_after_the_snapshot_is_not_reported_in_it(box_a, clock, tmp_path):
+    c, *_ = box_a
+    svc = wired(c, tmp_path, agent_dirs="ONEMIND_PHOTOS_DIR ONEMIND_FILES_ROOT")
+    svc.agent = FakeAgent(clock)
+    assert svc.run_backup("scheduled", "box", None, None)["state"] == "succeeded"
+    assert builtins_shown(c)["builtin:photos"]["in_snapshot"] is True
+    gw = c.app.state.gateway
+    gw.settings.sections["photos"] = replace(gw.settings.section(PhotosSettings), dir=tmp_path / "photos-moved")
+    assert builtins_shown(c)["builtin:photos"]["in_snapshot"] is False  # the snapshot holds the old folder
+
+
+def test_a_library_outside_the_agent_paths_is_not_carried(box_a, clock, tmp_path):
+    """A relocated library (ONEMIND_PHOTOS_DIR outside every folder the agent copies) is outside the
+    backup: shown as not carried and never in a snapshot, even with its name in AGENT_DIRS."""
+    c, *_ = box_a
+    svc = wired(c, tmp_path, agent_dirs="ONEMIND_PHOTOS_DIR ONEMIND_FILES_ROOT",
+                agent_paths=f"{tmp_path / 'backup-export'},{tmp_path / 'gateway' / 'photos'}")
+    svc.agent = FakeAgent(clock)
+    assert svc.run_backup("scheduled", "box", None, None)["state"] == "succeeded"
+    photos = builtins_shown(c)["builtin:photos"]
+    assert photos["dirs"] == [{"name": "ONEMIND_PHOTOS_DIR", "configured": True, "carried": False}]
+    assert photos["in_snapshot"] is False
+    wired(c, tmp_path, agent_dirs="ONEMIND_PHOTOS_DIR", agent_paths=str(tmp_path))  # a parent folder carries it
+    clock.advance(3600)
+    assert svc.run_backup("scheduled", "box", None, None)["state"] == "succeeded"
+    assert builtins_shown(c)["builtin:photos"]["in_snapshot"] is True
 
 
 def test_a_failed_export_fails_the_built_ins_but_not_the_agent_run(box_a, clock, tmp_path, monkeypatch):
@@ -178,6 +212,9 @@ def test_backup_settings_check_the_export_folder_and_names():
         BackupsSettings(export_dir=Path("relative")).validate()
     with pytest.raises(ValueError, match="AGENT_DIRS"):
         BackupsSettings(agent_dirs="/data/onemind/files").validate()
+    BackupsSettings(agent_paths="/data/onemind/files, /data/onemind/gateway/photos").validate()
+    with pytest.raises(ValueError, match="AGENT_PATHS"):
+        BackupsSettings(agent_paths="data/onemind/files").validate()
 
 
 def test_a_switched_off_built_in_leaves_the_set(box_a, clock):
