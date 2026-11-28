@@ -19,6 +19,6 @@ cd /root/aklab/run-2; mkdir -p attempt-1; mv AK-3.txt AK-4.txt AK-5.txt AK-6.txt
 export HOME=/root; . /root/aklab/lib.sh; T=DEV; admin_relogin
 for p in adult1 adult2 child1 guest1; do kanidm person delete $p -D idm_admin 2>&1 | tail -1; done
 for g in onemind_owners onemind_adults onemind_children onemind_guests; do kanidm group delete $g -D idm_admin 2>&1 | tail -1; done
-rm -f /root/aklab/secrets/{adult1,adult2,child1,guest1}.* 
+rm -f /root/aklab/secrets/{adult1,adult2,child1,guest1}.*
 kanidm service-account delete onemind_gateway -D idm_admin 2>&1 | tail -1 || true
 kanidm group list -D idm_admin 2>/dev/null | grep -c onemind || true

@@ -105,7 +105,7 @@ def click_text(d, text, tag="button"):
     return False
 
 
-def enrol(base, user, cred_out):
+def enrol(base, user, cred_out, expect="ok"):
     """Open the owner's reset link, add a passkey through the UI, save. Returns the exported credential."""
     d = driver()
     try:
@@ -116,11 +116,13 @@ def enrol(base, user, cred_out):
         out(step="open_reset", ok=True, page=page(d)["text"][:120], origin=base)
 
         def fail(why):
-            logs = [l["message"][:330] for l in d.get_log("browser") if "frame-ancestors" not in l["message"]][-4:]
-            out(step="passkey_created", ok=False, credentials_in_authenticator=len(d.get_credentials()), origin=base,
-                why=why, page=page(d)["text"][:240], browser_console=logs)
+            logs = [l["message"] for l in d.get_log("browser") if "frame-ancestors" not in l["message"]]
+            count = len(d.get_credentials())
+            forbidden = f"{base}/ui/reset/add_passkey - Failed to load resource: the server responded with a status of 403 (Forbidden)"
+            out(step="passkey_created", ok=False, credentials_in_authenticator=count, origin=base,
+                why=why, page=page(d)["text"][:240], browser_console=[l[:330] for l in logs[-4:]])
             shot(d, "enrol-failed")
-            return False
+            return expect == "refused" and count == 0 and forbidden in logs
         # the modal asks for a label
         def label():
             for i in d.find_elements(By.CSS_SELECTOR, "input[type=text]"):
@@ -153,7 +155,7 @@ def enrol(base, user, cred_out):
         cj = creds_to_json(d)
         write_secret(cred_out, json.dumps(cj))
         out(step="credential_exported", ok=True, count=len(cj), credential_fp=fp(cj[0]))
-        return True
+        return expect == "ok"
     finally:
         d.quit()
 
@@ -208,7 +210,7 @@ def signin(base, user, cred_file, expect="ok"):
         shot(d, "signin-result-" + expect)
         logs = []
         try:
-            logs = [l["message"][:300] for l in d.get_log("browser")][-5:]
+            logs = [l["message"] for l in d.get_log("browser")]
         except Exception:
             pass
         who = None
@@ -224,9 +226,12 @@ def signin(base, user, cred_file, expect="ok"):
         if result is None and err:
             result = "refused-by-browser"
         out(step="signin", ok=(result == "signed-in"), result=result, url=pg["url"], page=pg["text"][:240],
-            profile=who, browser_console=[l[:260] for l in logs if "frame-ancestors" not in l][-3:], origin=base,
+            profile=who, browser_console=[l[:260] for l in logs[-5:] if "frame-ancestors" not in l][-3:], origin=base,
             sign_count_before=sc_before, sign_count_after=sc, credential_fp=fp(after[0]) if after else None)
-        return (result == "signed-in") == (expect == "ok")
+        if expect == "refused":
+            mismatch = "SecurityError: The relying party ID is not a registrable domain suffix of, nor equal to the current domain"
+            return result == "refused-by-browser" and any(mismatch in log for log in logs)
+        return result == "signed-in"
     finally:
         d.quit()
 
@@ -254,8 +259,7 @@ def fromsoft(user, cred_file):
 if __name__ == "__main__":
     c = sys.argv[1]
     if c == "enrol":      # enrol <base-url> <user> <cred-file> [ok|refused]
-        r = enrol(sys.argv[2], sys.argv[3], sys.argv[4])
-        sys.exit(0 if r == ((sys.argv[5] if len(sys.argv) > 5 else "ok") == "ok") else 1)
+        sys.exit(0 if enrol(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5] if len(sys.argv) > 5 else "ok") else 1)
     if c == "tosoft":
         tosoft(sys.argv[2], sys.argv[3]); sys.exit(0)
     if c == "fromsoft":

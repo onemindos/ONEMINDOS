@@ -2,10 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 # PK-2: owner passkey enrolled with the outside network cut, in a real (headless Chromium) browser on the LAN path,
 # then signed in with, still offline. Run through the QEMU guest agent: the VM's virtual cable is out.
-set -euo pipefail; T=PK-2; . /root/aklab/lib.sh
+set -euo pipefail; T=PK-2
+# shellcheck source=lib.sh
+. /root/aklab/lib.sh
 bash /root/aklab/netns.sh >/dev/null
 W="ip netns exec nsl env HOME=/root python3 -I /root/aklab/wa.py"; O=https://idm.onemind.test:8443
-for i in $(seq 1 100); do systemctl is-active -q kanidmd && break; sleep 3; done
+for _ in $(seq 1 100); do systemctl is-active -q kanidmd && break; sleep 3; done
 stamp "PK-2: offline enrolment, LAN path (host booted with the virtual NIC link down, Proxmox link_down=1)"
 run "uptime -s; systemctl is-active kanidmd; systemctl show kanidmd -p ActiveEnterTimestamp"
 run "for i in \$(ls /sys/class/net | grep -vE '^(lo|v-ns|c-ns)'); do ip link set \$i down; done; ip -br link | grep -vE 'v-ns|c-ns'; echo 'default route:'; ip -4 route show default; echo '(none above = no way out)'"

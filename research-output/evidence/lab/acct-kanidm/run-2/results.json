@@ -49,6 +49,7 @@
   "real phone or hardware key",
   "hybrid sign-in from a TV browser",
   "real mesh (WireGuard)",
+  "WebAuthn Related Origin Requests and Kanidm acceptance of related origins",
   "domain change after enrolment",
   "Kanidm 1.12.1"
  ]

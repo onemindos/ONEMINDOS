@@ -17,7 +17,7 @@
 | UMB-ACCT-1 done-when 3: reused TOTP refused | **FAIL again** (AK-8): Kanidm v1.12.0 accepts the same TOTP code twice inside one time step. Same result as run 1. A mitigation was tested (AK-8b, AK-8c) and only partly works. Decision needed (below). |
 | Groups, OIDC client, reset link, expiry, backup and restore | **PASS** (AK-3 to AK-7, AK-10, repeated on a new build) |
 
-> **In plain words.** A passkey is tied to a web name (its *relying-party ID*, "RP ID"; here `idm.onemind.test`). The browser refuses to use it on a page whose address is not that name or a name *under* it, and Kanidm refuses it too. So the rule that makes option (a) work is simple: **pick one canonical sign-in name, and make every route (home network, mesh) reach the server under that name, or under a sub-name of it.** The lab proved that works with one passkey and no re-enrolment. It also proved the opposite case: a different name (for example a separate mesh name that is not under the canonical one) could not use the passkey and could not enrol one, observed **without** a `.well-known/webauthn` file on the canonical name (WebAuthn Related Origin Requests were not tested, see "What this run did not test"). Option (b) (a second passkey per domain) is not available inside one Kanidm, so it is not a real fallback (see "Why (b) is not available").
+> A passkey is tied to a web name called its relying-party ID (RP ID). In this lab, one passkey worked on both simulated paths at the canonical name, `idm.onemind.test`, and also worked at a sub-name. At the unrelated test name, Chromium refused sign-in with an RP ID error and Kanidm returned HTTP 403 when the owner tried to enrol. This run used one configured domain and no `.well-known/webauthn` file.
 
 ## Plan (written before the counted run)
 
@@ -83,24 +83,22 @@ The tests below were written on 2026-11-25 between about 10:30 and 11:25 UTC and
 | AK-8 | **FAIL** | `adult2` signed in with password + TOTP, then again with the **same** code in the same 30 s step: accepted both times (`AK-8.txt`) |
 | AK-8b | partial | Account policy `credential-type-minimum = passkey` on `onemind_adults` (needs `account-policy enable` first): `adult2`, who already had password + TOTP, **still signed in** with it. The policy does not revoke existing weaker credentials |
 | AK-8c | partial | The same policy **does** block new weak credentials: a new adult could not set a password (`accessdenied`) but could enrol a passkey (`AK-8.txt`) |
-| AK-9 | recorded | `kanidmd` RSS 44.5 MiB idle (45584 KiB), 67.5 MiB after AK-3 to AK-6 (69164 KiB), peak 70.3 MiB during the online backup (71964 KiB), 35.9 MiB for the restore (36796 KiB); installed size 241 MiB (246640 KiB, `kanidmd`) + 111 MiB (114078 KiB, `kanidm` CLI), unstripped; database folder 5.6 MB, one gzip backup 26 KB (`AK-9.txt`) |
+| AK-9 | recorded | `kanidmd` RSS 44.5 MiB idle (45584 KiB), 67.5 MiB after AK-3 to AK-6 (69164 KiB), peak 70.3 MiB during the online backup (71964 KiB), 35.9 MiB for the restore (36796 KiB). Installed size 241 MiB (246640 KiB, `kanidmd`) + 111 MiB (114078 KiB, `kanidm` CLI), unstripped. The database folder occupied 5.6 MiB (`du -sh`, `AK-9.txt`) and the gzip backup was 26,669 bytes ([AK-7.txt, line 27](run-2/AK-7.txt#L27)). |
 | AK-10 | **PASS** | `adult1` got an ID token, was removed from `onemind_adults`, the next OIDC authorise was refused (403) (`AK-10.txt`) |
 
-## Why (b), per-domain passkeys, is not available
+## What PK-5 establishes about a second name
 
-(b) would mean the owner enrols one passkey at `onemind.local` and another at a mesh name, and Kanidm accepts either. The lab shows why that cannot work in one Kanidm, and what it would take:
+The tested Kanidm v1.12.0 instance used one configured `domain` and one `origin`. The configured domain is the WebAuthn RP ID. [Kanidm v1.12.0 server configuration](https://github.com/kanidm/kanidm/blob/v1.12.0/examples/server.toml#L63-L89)
 
-1. **Kanidm has one `domain` and one `origin`** in its configuration (`server/core/src/config.rs` at v1.12.0: a single `origin: Url`; the example config says the domain is used for WebAuthn and that changing it breaks registered credentials). Its WebAuthn RP ID is that domain.
-2. **The browser enforced the RP ID rule on its own** (PK-5): a page on a different, unrelated name could not ask for the passkey. This was observed **without** a `.well-known/webauthn` file; `PK-5.txt` shows Chromium looking for "the .well-known/webauthn resource of the claimed RP ID" before failing. With WebAuthn Related Origin Requests (a file on `idm.onemind.test` listing the other name) the browser-side refusal might go away. Not tested, and whether Kanidm / webauthn-rs would accept such an origin is also untested (enrolment got a 403). So (b) is probably unavailable, but "cannot" is not proven.
-3. **Kanidm refuses to enrol from the other name** (PK-5, 403).
+At the unrelated test name, Chromium reported the RP ID mismatch at sign-in and the enrolment request to `/ui/reset/add_passkey` returned HTTP 403. [PK-5 transcript](run-2/PK-5.txt)
 
-So under (b) you would need either a second Kanidm per domain (two identity databases: not sensible) or the gateway to run WebAuthn itself for the second domain (the design already plans a gateway WebAuthn verifier for approvals, CORE-SEC-2, but sign-in is Kanidm's). Option (a) needs none of that.
+WebAuthn Related Origin Requests let eligible origins share a common RP ID through `.well-known/webauthn`. The mechanism uses that common ID across all participating origins. Option (b) calls for a separate RP ID per domain. The lab tested neither Kanidm's acceptance of related origins nor support for a per-domain RP ID fallback. [WebAuthn Level 3 §5.11](https://www.w3.org/TR/webauthn-3/#sctn-related-origins)
 
 ## What option (a) needs from the build (not decided here)
 
 These follow from the evidence; they are inputs for CORE-NET and CORE-SEC-10, not decisions:
 
-1. **One canonical sign-in name, fixed before the first owner enrols.** Changing it later invalidates every passkey (Kanidm's own warning; the lab did not re-test that). Every other name for the hub must be that name or a sub-name of it (PK-6), or users must reach the hub under the canonical name.
+1. **One canonical sign-in name, fixed before the first owner enrols.** Kanidm warns that changing its configured domain invalidates enrolled passkeys. The lab used the canonical name on both paths and verified that a sub-name also worked (PK-6).
 2. **That name must resolve on both paths.** At home: the hub's own DNS or mDNS. Away: the mesh's DNS. The lab used hosts files, so it proves the passkey and Kanidm side only. Whether a phone resolves the canonical name on the mesh is the open ACCT-D1 question and belongs to **UMB-ACCT-13** (real phones).
 3. **TLS must be valid under that name** on both paths (the browser will not run WebAuthn on a certificate error).
 4. **Offline start is slow.** With the cable out, `kanidmd` became active 2 min 11 s after boot (PK-2). The cause, that the unit waits for `network-online.target`, is inferred from run 1 and is not shown in `PK-2.txt` (`AK-1.txt` only lists the `systemd-analyze blame` lines for the online start). A drop-in without that wait would make offline sign-in come up in seconds.
@@ -113,7 +111,7 @@ These follow from the evidence; they are inputs for CORE-NET and CORE-SEC-10, no
 - **A real mesh** (WireGuard or Headscale). Two namespaces and hosts files stand in for it.
 - **WebAuthn Related Origin Requests** (a `.well-known/webauthn` file on the canonical name listing a second name), and whether Kanidm would accept such an origin.
 - **Changing the domain** after enrolment (the upstream warning is quoted, not re-proven).
-- **Kanidm 1.12.1** (released 2026-11-13, a HIGH security patch for SCIM filter parsing, no TOTP change in its notes; **UNVERIFIED**: no release or advisory URL was recorded in the lab, check the upstream release notes at github.com/kanidm/kanidm/releases before relying on it). The repo plans 1.12.0, the lab ran 1.12.0. See "Anything Zeus must decide".
+- **Kanidm 1.12.1.** The lab ran the repo's planned version, 1.12.0. Upstream released 1.12.1 on 2026-11-13 with a HIGH-severity fix for unauthenticated denial of service in SCIM filter parsing. [Kanidm v1.12.1 release notes](https://github.com/kanidm/kanidm/releases/tag/v1.12.1)
 
 ## Deviations and honest record
 
@@ -123,13 +121,13 @@ These follow from the evidence; they are inputs for CORE-NET and CORE-SEC-10, no
 - **The owner's first OIDC try failed** (`AK-4.txt`): the browser exports the credential id with base64 padding, the API client compares without. Fixed in `wa.py` (`tosoft`) and re-run as AK-4b, which passed. This is a lab-client bug, not Kanidm.
 - **First enrolment attempt at the outside name** (`attempt-1/PK-5.txt`) read the wrong reset token (a lab script bug). Re-run in `PK-5.txt`.
 - **Not byte-for-byte run 1.** The server config differs from run 1's on purpose (listens on all interfaces; own CA). AK-8's second half (AK-8b) was moved out of `ak8.sh` into `ak8b.sh` and `ak8c.sh` after its first try ran before `account-policy enable` (`attempt-1/AK-8b-first-try-policy-not-enabled.txt`).
-- **Cleanup.** VM 503 (restore) and VM 504 (build) were destroyed after the run; **VM 502 is stopped, not deleted**, with its logs, screenshots and secrets still inside. It is kept so the run can be inspected or repeated (e.g. the pre-fix state behind AK-1, PK-1, PK-2); it should be destroyed once the founder has reviewed this run, since it holds lab secrets. The package server on VM 504 listened on the NAT bridge only, for a few minutes, to hand the two `.deb` files to VMs 502 and 503.
+- **Cleanup.** VM 503 (restore) and VM 504 (build) were destroyed after the run. VM 502 is stopped with its logs, screenshots and lab secrets retained for review. Its certificates were re-issued during the run. For the original certificate state, consult the early transcripts (AK-1, PK-1 and PK-2). The original setup script was unavailable in the checked-in evidence. The package server on VM 504 listened on the NAT bridge only, for a few minutes, to hand the two `.deb` files to VMs 502 and 503.
 
 ## Anything Zeus must decide
 
-1. **F-33 (stays open).** The lab is evidence for **option (a)**, in this precise form: *one canonical sign-in name (the Kanidm domain / RP ID); the LAN and the mesh must both reach the hub under that name or a sub-name of it.* Option (b) looks unworkable with Kanidm (see above, with the Related Origin Requests caveat). Decide the canonical name (for example `onemind.local` as in the design, or a name under a domain OneMind controls) **before the first owner enrols**; the lab shows `onemind.local` is accepted as an RP ID (PK-9), but whether phones resolve it on the mesh is still open and belongs to UMB-ACCT-13. Also decide who answers DNS for it at home and on the mesh (CORE-NET).
+1. **F-33 (stays open).** The lab provides evidence for **option (a)** using one canonical sign-in name on both simulated paths. Zeus owns the decision pending the pre-registered UMB-ACCT-13 result. PK-9 shows that Chromium accepts `onemind.local` as an RP ID when it resolves through hosts files. UMB-ACCT-13 will test name resolution and sign-in with real phones on a real mesh. The canonical name and its LAN and mesh DNS need to be decided before the first owner enrols (CORE-NET).
 2. **TOTP replay (the third UMB-ACCT-1 criterion fails).** Options, none switching the identity provider: (i) make passkeys the only credential for new people through Kanidm's `credential-type-minimum = passkey` account policy, which the lab shows blocks new password and TOTP enrolment but does **not** stop people who already have TOTP; (ii) report the missing replay check upstream and ask for a used-step record (`server/lib/src/credential/totp.rs`, `Totp::verify`); (iii) keep TOTP as a fallback and accept a window of up to about 60 s, relying on Kanidm's soft-lock against guessing. Founder decision B1 already says passkeys first, TOTP only as a fallback; option (i) fits it for the people the owner invites from now on.
-3. **Kanidm version pin.** Upstream released **1.12.1** on 2026-11-13 as a HIGH security patch (denial of service by an unauthenticated user through SCIM filter parsing) (**UNVERIFIED**, no source URL recorded; check upstream release notes). The repo pins 1.12.0 (`docs/umbrel2/accounts.md` §4.1). This lab did not edit the pin; moving to 1.12.1 is a pin change for the image owner and a re-run of AK-1 to AK-10 is cheap now that the scripts exist.
+3. **Kanidm version pin.** The repo plans 1.12.0 (`docs/umbrel2/accounts.md` §4.1). The image owner can evaluate moving to 1.12.1 and repeating AK-1 to AK-10 against the patched release. [Kanidm v1.12.1 release notes](https://github.com/kanidm/kanidm/releases/tag/v1.12.1)
 
 ## Files
 
