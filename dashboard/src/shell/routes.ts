@@ -25,6 +25,7 @@ export const href = {
   machines: '/machines',
   alerts: '/alerts',
   storage: '/storage',
+  library: '/library',
   backups: '/backups',
   troubleshoot: '/troubleshoot',
   automation: '/automation',

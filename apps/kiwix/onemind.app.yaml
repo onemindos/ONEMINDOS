@@ -46,7 +46,9 @@ spec:
       description: "https:// base URL of a Kiwix mirror's zim/ folder. Each file is still checked against that mirror's .sha256 file."
       default: "https://download.kiwix.org/zim"
       maxLength: 200
-      pattern: "^https://[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._~-]+)*$"
+      # One character class: the gateway refuses quantified groups in a pattern (appstore/appsettings.py
+      # pattern_risk), and library-sync.sh checks the https:// prefix again before it downloads.
+      pattern: "^https://[A-Za-z0-9._~:/-]+$"
     - name: reserve_mb
       env: KIWIX_RESERVE_MB
       type: integer
