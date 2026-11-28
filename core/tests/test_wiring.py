@@ -13,7 +13,10 @@ from pathlib import Path
 PKG = Path(__file__).resolve().parent.parent / "onemind_core"
 
 # module (dotted, relative to onemind_core) -> the epic that mounts it. Delete the line when wired.
-NOT_MOUNTED_YET: dict[str, str] = {}
+NOT_MOUNTED_YET: dict[str, str] = {
+    "boxbundle": "#1285 box export and import: the package; mounted with the phase 3 routes",
+    "boxbundle.box_config": "#1285 box export and import: phase 1 is data only; the export and import routes are phase 3 and 4",
+}
 ENTRY_POINTS = {"__init__", "__main__", "openapi", "cli"}  # run by `python -m`, a console script (pyproject [project.scripts]), or imported as a package
 
 

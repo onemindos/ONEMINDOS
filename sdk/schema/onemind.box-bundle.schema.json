@@ -1,0 +1,191 @@
+{
+  "$comment": "SPDX-License-Identifier: Apache-2.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/onemindos/ONEMINDOS/sdk/schema/onemind.box-bundle.schema.json",
+  "title": "OneMind box bundle",
+  "description": "The inside of a box export (docs/architecture/BOX-EXPORT-IMPORT.md): the manifest that lists every layer, and the shape of each layer this version defines. The manifest and layers travel inside an encrypted, signed envelope; nothing here is ever written to disk in clear outside the box. Forward compatibility: a reader refuses a bundle whose format major is higher than its own, accepts a higher minor, ignores manifest fields it does not know, and reports layer fields it does not know as skipped. Only the box_config layer is defined in v1.0; the other layer ids are reserved so a v1.0 reader can name them in a dry run.",
+  "type": "object",
+  "required": ["schema", "format", "bundle_id", "created_at", "source", "layers", "excluded"],
+  "allOf": [
+    {
+      "if": {"properties": {"format": {"properties": {"minor": {"const": 0}}}}},
+      "then": {"properties": {"layers": {"items": {"properties": {"id": {"$ref": "#/$defs/layerId"}}}}}}
+    }
+  ],
+  "properties": {
+    "schema": {"const": "onemind.io/box-bundle/v1"},
+    "format": {
+      "type": "object",
+      "description": "major changes break readers; minor only adds optional fields or new layers.",
+      "required": ["major", "minor"],
+      "properties": {
+        "major": {"const": 1},
+        "minor": {"type": "integer", "minimum": 0, "maximum": 999}
+      }
+    },
+    "bundle_id": {"type": "string", "pattern": "^bnd_[0-9a-f]{32}$"},
+    "created_at": {"type": "string", "format": "date-time", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+(Z|[+-][0-9]{2}:[0-9]{2})$"},
+    "source": {
+      "type": "object",
+      "description": "The box the bundle came from. instance_id and generation let an import tell 'the same box coming back' from 'a clone' (BACKUPS.md §7.3 fencing).",
+      "required": ["instance_id", "box_name", "onemind_version", "arch", "generation"],
+      "properties": {
+        "instance_id": {"type": "string", "minLength": 1, "maxLength": 80},
+        "box_name": {"type": ["string", "null"], "maxLength": 63},
+        "onemind_version": {"type": "string", "minLength": 1, "maxLength": 40},
+        "arch": {"enum": ["amd64", "arm64", "unknown"]},
+        "generation": {"type": "integer", "minimum": 0}
+      }
+    },
+    "layers": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {"$ref": "#/$defs/layerEntry"}
+    },
+    "excluded": {
+      "type": "array",
+      "description": "What this bundle deliberately leaves out and why, so the owner reads it on the import preview.",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "required": ["what", "reason"],
+        "properties": {
+          "what": {"type": "string", "minLength": 1, "maxLength": 120},
+          "reason": {"type": "string", "minLength": 1, "maxLength": 300}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "layerId": {
+      "enum": ["box_config", "people", "policies", "apps", "app_data_refs", "fabric", "box_keys"],
+      "description": "a box_config, b people, c policies, d apps, e app_data_refs, f fabric, g box_keys (design §3)."
+    },
+    "layerEntry": {
+      "type": "object",
+      "required": ["id", "schema", "path", "sha256", "size", "items", "sensitive"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z_]+(?![\\s\\S])"},
+        "schema": {"type": "string", "pattern": "^onemind\\.io/box-bundle/[a-z-]+/v[0-9]+$"},
+        "path": {"type": "string", "pattern": "^layers/[a-z_]+\\.json$"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "size": {"type": "integer", "minimum": 2, "maximum": 67108864},
+        "items": {"type": "integer", "minimum": 0},
+        "sensitive": {"type": "boolean", "description": "true when the layer holds secrets (still inside the encrypted envelope)."}
+      }
+    },
+    "timeZone": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_+-]+(/[A-Za-z0-9_+-]+){0,2}$",
+      "description": "An IANA time zone name. The importing box also checks it is installed there (box_config.check)."
+    },
+    "usbLocation": {
+      "type": "object", "additionalProperties": false,
+      "properties": {"usb_uuid": {"type": "string", "maxLength": 200}}
+    },
+    "destinationAddress": {
+      "type": "string",
+      "maxLength": 500,
+      "pattern": "^(?:https://)?(?:[A-Za-z0-9.-]+|\\[[0-9A-Fa-f:.]+\\])(?::[0-9]+)?(?:/[^?#\\\\\\s\\u0000-\\u001f\\u007f]*)?(?![\\s\\S])",
+      "description": "Host with optional port and path. Userinfo, queries and fragments are excluded. Peer URLs require HTTPS; S3 endpoints also accept legacy host-only addresses."
+    },
+    "peerLocation": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "url": {"$ref": "#/$defs/destinationAddress", "pattern": "^https://"},
+        "user": {"type": "string", "maxLength": 200},
+        "append_only": {"type": "boolean"}
+      }
+    },
+    "s3Location": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "endpoint": {"$ref": "#/$defs/destinationAddress"},
+        "bucket": {"type": "string", "maxLength": 200},
+        "prefix": {"type": "string", "maxLength": 500},
+        "region": {"type": "string", "maxLength": 100}
+      }
+    },
+    "boxConfig": {
+      "title": "Layer a: box config (onemind.io/box-bundle/box-config/v1)",
+      "description": "Settings that describe the box, not the people or apps on it. No credentials: backup destination secrets are typed again on import.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "box", "updates", "backups"],
+      "properties": {
+        "schema": {"const": "onemind.io/box-bundle/box-config/v1"},
+        "box": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["box_name", "time_zone"],
+          "properties": {
+            "box_name": {"type": ["string", "null"], "minLength": 1, "maxLength": 63, "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"},
+            "time_zone": {"oneOf": [{"$ref": "#/$defs/timeZone"}, {"type": "null"}]}
+          }
+        },
+        "updates": {
+          "type": ["object", "null"],
+          "description": "The owner's app update policy (automation/updatepolicy.py UpdatePolicyBody), or null when the box uses the defaults.",
+          "additionalProperties": false,
+          "required": ["window_id", "cool_off_hours", "same_major_only", "backoff_after_failures", "ai_schedule"],
+          "properties": {
+            "window_id": {"type": "string", "minLength": 1, "maxLength": 40},
+            "cool_off_hours": {"type": "integer", "minimum": 0, "maximum": 720},
+            "same_major_only": {"type": "boolean"},
+            "backoff_after_failures": {"type": "integer", "minimum": 1, "maximum": 10},
+            "ai_schedule": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["enabled", "tz", "off"],
+              "properties": {
+                "enabled": {"type": "boolean"},
+                "tz": {"type": "string", "minLength": 1, "maxLength": 64},
+                "off": {"type": "array", "maxItems": 50, "items": {"type": "object"}}
+              }
+            }
+          }
+        },
+        "backups": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["choice", "destinations", "content_tier_apps"],
+          "properties": {
+            "choice": {"enum": ["usb", "peer", "s3", "later"]},
+            "primary_destination_id": {"type": ["string", "null"], "maxLength": 40},
+            "destinations": {
+              "type": "array",
+              "maxItems": 32,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "kind", "label", "is_primary", "append_only", "config"],
+                "allOf": [
+                  {"if": {"properties": {"kind": {"const": "usb"}}}, "then": {"properties": {"config": {"$ref": "#/$defs/usbLocation"}}}},
+                  {"if": {"properties": {"kind": {"enum": ["box", "rest"]}}}, "then": {"properties": {"config": {"$ref": "#/$defs/peerLocation"}}}},
+                  {"if": {"properties": {"kind": {"const": "s3"}}}, "then": {"properties": {"config": {"$ref": "#/$defs/s3Location"}}}}
+                ],
+                "properties": {
+                  "id": {"type": "string", "minLength": 1, "maxLength": 40},
+                  "kind": {"enum": ["usb", "box", "rest", "s3"], "description": "Adding a destination kind requires a new layer schema version; a minor bump cannot extend this enum."},
+                  "label": {"type": "string", "maxLength": 80},
+                  "is_primary": {"type": "boolean"},
+                  "append_only": {"type": "boolean"},
+                  "config": {"type": "object", "description": "Location only, and only the keys the backup agent reads for this kind (see usbLocation, peerLocation, s3Location). Any other key, a credential under a new name included, is refused. The gateway does not store credentials (backups/store.py)."}
+                }
+              }
+            },
+            "content_tier_apps": {
+              "type": "array",
+              "description": "Apps whose downloadable content the owner chose to back up (BAK-03). Re-applied on import as backup.content.set requests.",
+              "maxItems": 500,
+              "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"}
+            }
+          }
+        }
+      }
+    }
+  }
+}
