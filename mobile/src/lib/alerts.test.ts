@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { makeActions, makeNodes } from '../api/fixtures';
+import { makeActions, makeInbox, makeNodes } from '../api/fixtures';
 import type { Action, NodeRecord } from '../api/types';
-import { diffAlerts, snapshot } from './alerts';
+import { diffAlerts, inboxAlerts, snapshot } from './alerts';
 
 const NOW = Date.parse('2026-11-12T12:00:00Z');
 
@@ -42,4 +42,14 @@ describe('diffAlerts', () => {
     const back = diffAlerts(snapshot(actions, flip('offline')), s0, actions, nodes);
     expect(back).toEqual([expect.objectContaining({ title: 'Node back' })]);
   });
+});
+
+it('classifies inbox alerts by the approval topic rather than the action ID', () => {
+  const approval = makeInbox(NOW, 'owner')[0]!;
+  const succeeded = { ...approval, id: 'ntf-succeeded', topic: 'apps', title: 'Done' };
+  const failed = { ...approval, id: 'ntf-failed', topic: 'apps', title: 'Failed' };
+  const [waiting, done, error] = inboxAlerts(new Set(), [approval, succeeded, failed]);
+  expect(waiting).toMatchObject({ route: 'approvals', actionId: approval.action_id });
+  expect(done).toMatchObject({ route: 'inbox', actionId: undefined });
+  expect(error).toMatchObject({ route: 'inbox', actionId: undefined });
 });

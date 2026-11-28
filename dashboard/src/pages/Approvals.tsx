@@ -4,7 +4,7 @@
 // form sealed in this browser, a passkey signs the exact plan, and the gateway checks all of it.
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { ApprovalsBoard, Button, Dialog, SecretsForm, actionTitle, sealValues, useToast, type ActionPlan, type ActionSummary, type AppSecrets, type SecretsSubmission, type SettingsLoadable } from '@onemind/ui';
+import { ApprovalsBoard, Button, Dialog, HoldToApprove, SecretsForm, actionTitle, sealValues, useToast, type ActionPlan, type ActionSummary, type AppSecrets, type SecretsSubmission, type SettingsLoadable } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import { toActionPlan, toActionSummary } from '../data/adapters';
 import { errorText, subjectOf, useHub } from '../data/hub';
@@ -43,6 +43,7 @@ export function Approvals() {
   // What the owner just decided, followed to its end. Written in words as a status line so the
   // outcome is announced even after the request leaves the waiting list.
   const [last, setLast] = useState<{ id: string; title: string }>();
+  const [practiceDone, setPracticeDone] = useState(false);
   const lastNow = last ? all.find((a) => a.id === last.id) : undefined;
   const ended = lastNow && !['requested', 'awaiting_approval', 'accepted', 'dispatched'].includes(lastNow.state);
   // The install secrets form, open for one request.
@@ -55,8 +56,8 @@ export function Approvals() {
     const { code, message } = errorText(e);
     toast.show({ tone: 'bad', title: `Could not ${how}`, body: `${message} (${code})` });
   };
-  const decide = (a: ActionSummary, how: 'approve' | 'deny', sealed?: ApproveOpts['sealed'], acceptLicence?: string): Promise<boolean> =>
-    hub.decide(a.id, how, { passkey, sealed, acceptLicence }).then(
+  const decide = (a: ActionSummary, how: 'approve' | 'deny', sealed?: ApproveOpts['sealed'], acceptLicence?: string, hold?: ApproveOpts['hold']): Promise<boolean> =>
+    hub.decide(a.id, how, { passkey, sealed, acceptLicence, hold }).then(
       () => {
         setLicence(undefined);
         setLast({ id: a.id, title: actionTitle(a) });
@@ -74,7 +75,12 @@ export function Approvals() {
       },
     );
 
-  const approve = async (a: ActionSummary) => {
+  const approve = async (a: ActionSummary, elapsedMs?: number) => {
+    if (a.hold) {
+      if (elapsedMs !== undefined && elapsedMs >= a.hold.duration)
+        return decide(a, 'approve', undefined, undefined, { ms: elapsedMs, plan: a.hold.plan });
+      return;
+    }
     const appId = a.type === 'app.install' ? (a.params.app_id as string | undefined) : undefined;
     if (!appId || !api.appSecrets) return decide(a, 'approve');
     let secrets: AppSecrets;
@@ -117,13 +123,24 @@ export function Approvals() {
       calls={['GET /v1/actions', 'POST /v1/actions/{id}/approve-options', 'POST /v1/actions/{id}/approve', 'POST /v1/actions/{id}/deny']}
       decided={decided}
       now={hub.now}
-      canDecide={hub.canDecide === 'no' ? { allowed: false, reason: 'Only the owner can approve or deny. Agents can ask; they can never approve.' } : { allowed: true }}
-      onApprove={(a) => void approve(a)}
+      canDecide={hub.canDecide === 'yes' ? { allowed: true } : hub.canDecide === 'unknown'
+        ? { allowed: false, reason: 'Checking who you are…' }
+        : { allowed: false, reason: 'Only the owner can approve or deny. Agents can ask and only a person can approve.' }}
+      onApprove={(a, elapsedMs) => void approve(a, elapsedMs)}
       onDeny={(a) => void decide(a, 'deny')}
       onRetry={hub.reloadAll}
       initialId={params.get('highlight') ?? undefined}
       key={params.get('highlight') ?? ''}
     />
+    {hub.canDecide === 'yes' && (
+      <section aria-labelledby="approval-practice-title">
+        <h2 id="approval-practice-title">Practice an approval</h2>
+        <p>{practiceDone ? 'Practice approved.' : 'Try an approval without changing your box. Press and hold the button.'}</p>
+        {practiceDone
+          ? <Button onClick={() => setPracticeDone(false)}>Try again</Button>
+          : <HoldToApprove label="Practice: Hold to approve" onApprove={() => setPracticeDone(true)} />}
+      </section>
+    )}
     {hub.actionList.filter((a) => a.state === 'awaiting_approval' && a.plan).map((a) => (
       <details key={a.id} className="om-hint">
         <summary>Advanced: raw plan for {a.type} {subjectOf(hub, a)}</summary>

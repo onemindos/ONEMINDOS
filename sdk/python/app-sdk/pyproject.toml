@@ -1,0 +1,14 @@
+[project]
+name = "onemind-app-sdk"
+version = "0.1.0"
+description = "App-scoped helpers over onemind-sdk"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+dependencies = ["onemind-sdk>=0.1.0,<0.2"]
+
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/onemind_app_sdk"]

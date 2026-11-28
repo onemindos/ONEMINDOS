@@ -10,8 +10,8 @@ import {
 } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useMemo } from 'react';
-import { ActivityIndicator, Image, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { HubDataProvider, useHubData } from './src/data';
 import type { Alert } from './src/lib/alerts';
@@ -25,6 +25,7 @@ import { PhotoAlbumsScreen } from './src/photos/PhotoAlbumsScreen';
 import { PhotoBackupScreen } from './src/photos/PhotoBackupScreen';
 import { usePushPings } from './src/pushPings';
 import { IncomingFiles } from './src/files/IncomingFiles';
+import { allowNavigationLink, isRequestId } from './src/lock/actions';
 import { LockProvider } from './src/lock/LockProvider';
 import { NotificationActions } from './src/lock/NotificationActions';
 import { ActivityScreen } from './src/screens/ActivityScreen';
@@ -43,18 +44,17 @@ import { InboxScreen } from './src/screens/InboxScreen';
 import { MoreScreen, useMoreBadge } from './src/screens/MoreScreen';
 import { NodesScreen } from './src/screens/NodesScreen';
 import { DeviceInfoScreen, LiveUsageScreen, NetworkScreen, OsUpdatesScreen, SystemControlsScreen } from './src/screens/SystemScreens';
+import { TipsScreen } from './src/screens/TipsScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { useUpdateNeeded } from './src/lib/protocol';
 import { UpdateNeededScreen } from './src/screens/UpdateNeededScreen';
 import { onForgetHub, SessionProvider, useSession, useSignedIn, type SessionDeps } from './src/session';
 import { PrefsProvider } from './src/prefs';
-import { font, useIsDark, useTheme } from './src/ui/theme';
+import { TabIcon } from './src/ui/TabIcon';
+import { useIsDark, useTheme } from './src/ui/theme';
 
 const Tab = createBottomTabNavigator<TabParams>();
 const Stack = createNativeStackNavigator<RootParams>();
-const navRef = createNavigationContainerRef<RootParams>();
-
-const MARK = { light: require('./assets/brand/mark-color-256.png'), dark: require('./assets/brand/mark-on-dark-256.png') };
 
 /** Sessions renew with this phone's device key when the box has registered it (lib/device). */
 const SESSION_DEPS: SessionDeps = { renewWithDevice };
@@ -67,10 +67,14 @@ onForgetHub(async (api, hubUrl) => {
 
 const linking: LinkingOptions<RootParams> = {
   prefixes: ['onemind://'],
+  filter: allowNavigationLink,
   config: {
+    initialRouteName: 'Tabs',
     screens: {
-      Tabs: { screens: { Home: 'home', Apps: 'apps', Approvals: 'approvals', Activity: 'activity', More: 'more' } },
+      Tabs: { screens: { Home: 'home', Approvals: 'approvals', Apps: 'apps', Me: { path: 'me', alias: ['more'] } } },
+      Activity: 'activity',
       AppDetail: 'apps/:id',
+      Tips: 'tips/:id?',
       Settings: 'settings',
       PhotoBackup: 'photos',
       PhotoAlbums: 'photos/albums',
@@ -91,19 +95,6 @@ const linking: LinkingOptions<RootParams> = {
   },
 };
 
-const ICON: Record<keyof TabParams, string> = { Home: '⌂', Apps: '▦', Approvals: '✓', Activity: '≡', More: '⋯' };
-
-function HomeTitle() {
-  const t = useTheme();
-  const scheme = useIsDark() ? 'dark' : 'light';
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-      <Image source={scheme === 'dark' ? MARK.dark : MARK.light} style={{ width: 28, height: 28 }} accessibilityIgnoresInvertColors />
-      <Text style={{ color: t.text, fontSize: font.lg, fontWeight: font.bold }}>OneMind</Text>
-    </View>
-  );
-}
-
 function Tabs() {
   const t = useTheme();
   const { pendingCount } = useHubData();
@@ -116,33 +107,21 @@ function Tabs() {
       screenOptions={({ route }) => ({
         tabBarActiveTintColor: t.accent,
         tabBarInactiveTintColor: t.muted,
+        tabBarLabelStyle: { fontSize: 12 },
+        tabBarItemStyle: { minHeight: 48, paddingVertical: 3 },
         tabBarStyle: { backgroundColor: t.card, borderTopColor: t.border },
-        tabBarBadgeStyle: { backgroundColor: t.danger, color: t.dangerText },
+        tabBarBadgeStyle: { backgroundColor: t.action, color: t.actionText, fontSize: 12 },
         headerStyle: { backgroundColor: t.card },
         headerTintColor: t.text,
-        tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>{ICON[route.name]}</Text>,
+        tabBarIcon: ({ color }) => <TabIcon name={route.name} color={color} />,
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Home', headerTitle: () => <HomeTitle /> }} />
-      <Tab.Screen name="Apps" component={AppsScreen} />
+      <Tab.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
       <Tab.Screen name="Approvals" component={ApprovalsScreen} options={{ tabBarBadge: pendingCount || undefined }} />
-      <Tab.Screen name="Activity" component={ActivityScreen} />
-      <Tab.Screen name="More" component={MoreScreen} options={{ tabBarBadge: moreBadge }} />
+      <Tab.Screen name="Apps" component={AppsScreen} />
+      <Tab.Screen name="Me" component={MoreScreen} options={{ headerShown: false, tabBarBadge: moreBadge, tabBarButtonTestID: 'tab-me' }} />
     </Tab.Navigator>
   );
-}
-
-/**
- * Where a notification tap (or its Review button) goes. A ping (ids only) opens the Inbox; nothing is
- * ever approved from a notification. Deny is handled in src/lock/NotificationActions, after an unlock.
- */
-function routeTo(data: Record<string, unknown> | undefined) {
-  if (!navRef.isReady()) return;
-  const route = data?.route;
-  if (route === 'approvals') navRef.navigate('Tabs', { screen: 'Approvals' });
-  else if (route === 'activity') navRef.navigate('Tabs', { screen: 'Activity' });
-  else if (route === 'nodes') navRef.navigate('Nodes');
-  else if (route === 'inbox' || parsePing(data)) navRef.navigate('Inbox');
 }
 
 /** Pings from the box while the app runs (mobile/docs/push.md §5). */
@@ -157,6 +136,32 @@ function PushPings() {
 }
 
 function SignedIn() {
+  const [navRef] = useState(() => createNavigationContainerRef<RootParams>());
+  const pendingOpen = useRef<Record<string, unknown> | undefined>(undefined);
+  const reviewKey = useRef(0);
+
+  const open = useCallback((data: Record<string, unknown> | undefined) => {
+    if (!data) return;
+    if (!navRef.isReady()) {
+      pendingOpen.current = data;
+      return;
+    }
+    if (data.route === 'approvals') {
+      const id = isRequestId(data.action_id) ? data.action_id : undefined;
+      navRef.navigate('Tabs', { screen: 'Approvals', params: { id, reviewKey: ++reviewKey.current } });
+    } else if (data.route === 'activity') navRef.navigate('Activity');
+    else if (data.route === 'nodes') navRef.navigate('Nodes');
+    else if (data.route === 'inbox' || parsePing(data)) {
+      const id = isRequestId(data.notification_id) ? data.notification_id : undefined;
+      navRef.navigate('Inbox', { id });
+    }
+  }, [navRef]);
+  const onNavReady = useCallback(() => {
+    const target = pendingOpen.current;
+    pendingOpen.current = undefined;
+    open(target);
+  }, [open]);
+
   const dark = useIsDark();
   const t = useTheme();
   const navTheme = useMemo<NavTheme>(() => {
@@ -174,15 +179,17 @@ function SignedIn() {
   return (
     <LockProvider>
     <HubDataProvider onAlerts={onAlerts}>
-      <NotificationActions open={routeTo} />
+      <NotificationActions open={open} />
       <PushPings />
       <IncomingFiles />
       <PrefsProvider>
       <PhotoBackupProvider>
-        <NavigationContainer ref={navRef} linking={linking} theme={navTheme}>
+        <NavigationContainer ref={navRef} linking={linking} theme={navTheme} onReady={onNavReady}>
           <Stack.Navigator screenOptions={{ headerBackTitle: 'Back', headerStyle: { backgroundColor: t.card }, headerTintColor: t.text }}>
             <Stack.Screen name="Tabs" component={Tabs} options={{ headerShown: false }} />
+            <Stack.Screen name="Activity" component={ActivityScreen} />
             <Stack.Screen name="AppDetail" component={AppDetailScreen} options={{ title: 'App' }} />
+            <Stack.Screen name="Tips" component={TipsScreen} />
             <Stack.Screen name="Settings" component={SettingsScreen} />
             <Stack.Screen name="Inbox" component={InboxScreen} />
             <Stack.Screen name="Nodes" component={NodesScreen} />

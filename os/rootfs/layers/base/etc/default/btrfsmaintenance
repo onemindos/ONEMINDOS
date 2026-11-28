@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: Apache-2.0
+# btrfsmaintenance, baked into the image (the root is read-only, so the package's refresh service, which rewrites
+# systemd timer drop-ins when this file changes, is masked: os/rootfs/Containerfile). Only the scrub is on, monthly:
+# btrfs-scrub.timer ships with OnCalendar=monthly and is enabled in the image. A scrub reads every block of /data and
+# checks its checksum; on a single disk it reports a bad block (it cannot repair it, there is no second copy yet).
+# Balance, defrag and trim are off: a balance rewrites data for no gain on one disk, and fstrim.timer already trims.
+BTRFS_LOG_OUTPUT="stdout"
+BTRFS_DEFRAG_PATHS=""
+BTRFS_DEFRAG_PERIOD="none"
+BTRFS_DEFRAG_MIN_SIZE="+1M"
+BTRFS_BALANCE_MOUNTPOINTS="/data"
+BTRFS_BALANCE_PERIOD="none"
+BTRFS_BALANCE_DUSAGE="5 10"
+BTRFS_BALANCE_MUSAGE="5"
+BTRFS_SCRUB_MOUNTPOINTS="/data"
+BTRFS_SCRUB_PERIOD="monthly"
+BTRFS_SCRUB_PRIORITY="idle"
+BTRFS_SCRUB_READ_ONLY="false"
+BTRFS_TRIM_PERIOD="none"
+BTRFS_TRIM_MOUNTPOINTS="/data"
+BTRFS_ALLOW_CONCURRENCY="false"

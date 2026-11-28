@@ -1,5 +1,6 @@
 <!-- Rules: docs/leap/AGENT-QUEUE.md. One issue per PR, under about 600 changed lines. -->
-Closes #
+<!-- Write "Refs #n", never "Closes #n": issues are closed by hand once the work is truly done. -->
+Refs #
 
 ## Why
 
@@ -17,4 +18,4 @@ Closes #
 - [ ] `make lint`, `scripts/changes.py check`, `scripts/hygiene.py`, gitleaks pass
 - [ ] `changes/<branch>.md` fragment added; CHANGELOG.md and STATUS.md untouched
 - [ ] Every commit signed off (`git commit -s`)
-- [ ] No locked decision broken (D-001 to D-014); AI never actuates without human approval
+- [ ] No locked decision broken (D-001 to D-031); AI never actuates without human approval

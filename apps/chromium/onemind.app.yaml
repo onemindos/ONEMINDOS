@@ -29,6 +29,7 @@ spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 1024}   # sum of the memory requests in manifests/
   web: {port: 8080}
+  desktop: {runtime: neko}   # streams a desktop with Neko (checked by validate-apps check 12, #786)
   # #692: one profile per person. manifests/deployment.yaml is the template (replicas 0); the gateway makes
   # profile-<key>, browser-<key> per signed-in person and serves each person only their own (core/onemind_core/browsers.py).
   browser: {profileVolume: profile}

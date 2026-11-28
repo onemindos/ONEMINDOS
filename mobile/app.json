@@ -69,6 +69,7 @@
       ],
       "predictiveBackGestureEnabled": false,
       "blockedPermissions": [
+        "android.permission.DETECT_SCREEN_CAPTURE",
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "com.google.android.c2dm.permission.RECEIVE",
@@ -146,7 +147,8 @@
         "expo-build-properties",
         {
           "android": {
-            "usesCleartextTraffic": true
+            "usesCleartextTraffic": true,
+            "extraProguardRules": "-keep class * extends androidx.room.RoomDatabase { <init>(); }\n-keep class androidx.work.impl.WorkDatabase_Impl { *; }"
           }
         }
       ],

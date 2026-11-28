@@ -65,7 +65,7 @@ The command-line tool already has the update commands. They work only on the ima
 ```sh
 onemind update status     # what is running, what is available, the last result
 sudo onemind update check # look for an update and say what the policy would do; never installs
-sudo onemind update apply # install now, as the owner (still waits for a pending health check)
+sudo onemind update apply --local # break-glass: install now on this machine as root, no approval (still waits for a pending health check)
 ```
 
 Updating the image through an approval in the dashboard, like apps, is planned.

@@ -13,6 +13,7 @@ type (
 	AboutNode    = gen.AboutNode
 	Node         = gen.Node
 	CatalogApp   = gen.CatalogApp
+	AppPlacement = gen.AppPlacement
 	SystemApp    = gen.SystemAppRow
 	Action       = gen.Action
 	PrincipalRef = gen.PrincipalRef

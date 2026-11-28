@@ -26,6 +26,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from ..ledger import Base, iso, utc
 from ..store import Database, FeatureSchema, SqlRepository
+from .routing import MAX_INBOX_DAYS
 
 SCHEMA = FeatureSchema("notify")
 
@@ -523,7 +524,12 @@ class NotifyRepository(SqlRepository):
     # ---- retention (NOTIFICATIONS.md §9) ---------------------------------------------------
     def prune(self, now: datetime) -> None:
         with self.db.session.begin() as s:
-            s.execute(delete(NotificationRow).where(NotificationRow.created_at < now - timedelta(days=90)))
+            s.execute(delete(NotificationRow).where(NotificationRow.created_at < now - timedelta(days=MAX_INBOX_DAYS)))
+            for person_id, doc_json in s.execute(select(PreferencesRow.person_id, PreferencesRow.doc_json)):
+                days = json.loads(doc_json).get("retention_days", MAX_INBOX_DAYS)
+                if type(days) is int and 1 <= days < MAX_INBOX_DAYS:
+                    s.execute(delete(NotificationRow).where(NotificationRow.person_id == person_id,
+                                                            NotificationRow.created_at < now - timedelta(days=days)))
             s.execute(delete(DeliveryRow).where(
                 DeliveryRow.created_at < now - timedelta(days=30),
                 DeliveryRow.state.in_(("sent", "dead", "summarised", "dropped"))))

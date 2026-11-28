@@ -31,6 +31,8 @@ spec:
       - {kind: table, name: appstore_settings}
       - {kind: table, name: appstore_sources}
       - {kind: table, name: appstore_source_scans}
+      - {kind: table, name: appstore_custom_apps}
+      - {kind: table, name: appstore_custom_revisions}
       - {kind: table, name: appstore_exposure}
       - {kind: table, name: appstore_system_disabled}
   data: {owns: [owner], reads: []}

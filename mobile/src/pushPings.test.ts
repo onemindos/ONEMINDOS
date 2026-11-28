@@ -21,6 +21,17 @@ describe('pings from the box', () => {
     expect(JSON.stringify(shown)).not.toContain('FROM THE PING');
   });
 
+  it('uses approval buttons for approval pings and leaves them off other action pings', async () => {
+    const approval = { ...ITEM, topic: 'approvals', action_id: 'act-waiting' };
+    const completed = { ...approval, topic: 'apps', id: 'ntf-completed', action_id: 'act-done' };
+    await showPinged(v0Api({ notification: async () => approval }), approval.id);
+    await showPinged(v0Api({ notification: async () => completed }), completed.id);
+    const [waiting, done] = jest.mocked(Notifications.scheduleNotificationAsync).mock.calls.map(([request]) => request.content);
+    expect(waiting).toMatchObject({ categoryIdentifier: 'approval', data: { route: 'approvals', action_id: 'act-waiting' } });
+    expect(done?.categoryIdentifier).toBeUndefined();
+    expect(done?.data).toEqual({ route: 'inbox' });
+  });
+
   it('when the box cannot be reached, says only that something is new', async () => {
     await showPinged(v0Api(), 'ntf_01J9');
     const [call] = jest.mocked(Notifications.scheduleNotificationAsync).mock.calls;

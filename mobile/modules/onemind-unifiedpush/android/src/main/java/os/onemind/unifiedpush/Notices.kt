@@ -63,7 +63,7 @@ internal object Notices {
       .setContentIntent(link(context, open))
       .setAutoCancel(true)
     if (id != null) {
-      b.addAction(lockedAction(context, "Review", open))
+      b.addAction(lockedAction(context, "Review", "onemind://approvals?review_notification=$id"))
       b.addAction(lockedAction(context, "Deny", "onemind://approvals?deny_notification=$id"))
     }
     nm.notify(id ?: "onemind", 1, b.build())

@@ -21,6 +21,7 @@ export const KEYMAP: readonly KeyEntry[] = [
   ...digits.map((n): KeyEntry => ({ id: `workspace-${n}`, group: 'Workspaces', description: `Go to workspace ${n}`, keys: `Alt ${n}`, bindings: [{ mod: 'alt', code: `Digit${n}` }] })),
   ...digits.map((n): KeyEntry => ({ id: `send-${n}`, group: 'Workspaces', description: `Send the window to workspace ${n}`, keys: `Alt Shift ${n}`, bindings: [{ mod: 'altshift', code: `Digit${n}` }] })),
   { id: 'tiling', group: 'Tiling', description: 'Turn tiling on or off', keys: 'Alt T', bindings: [{ mod: 'alt', code: 'KeyT' }] },
+  { id: 'tips-search', group: 'Help', description: 'Focus search in Tips', keys: '/', bindings: [{ mod: 'none', key: '/' }] },
   { id: 'shortcuts', group: 'Help', description: 'Keyboard shortcuts (this sheet)', keys: '?', bindings: [{ mod: 'none', key: '?' }] },
 ];
 

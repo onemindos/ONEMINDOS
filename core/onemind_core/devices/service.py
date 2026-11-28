@@ -155,7 +155,7 @@ class MyDevicesService:
     def _session_person(self, ctx: AuthContext | None, p: Principal, what: str):
         """A household person's own session: never an API token, so never an agent. Refusals are audited."""
         if p.kind != "person" or ctx is None or ctx.user is None or ctx.session is None:
-            raise self.identity.deny(p, what, reason="session_required")
+            raise self.identity.deny(p, what, reason="session_required", tell=True)
         return ctx.user
 
     def list(self, ctx: AuthContext | None, p: Principal) -> dict:

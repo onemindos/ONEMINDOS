@@ -43,8 +43,9 @@ import (
 
 const (
 	// SetKeyPath is the set key, relative to the data mount: inside @, next
-	// to the box's other secrets. Not under onemind/storage, where the image
-	// mounts @storage (STORAGE-ACT-os.patch.md §2.2) and would hide it.
+	// to the box's other secrets, never under the owner's files (@storage is
+	// mounted at /data/storage, STORAGE-ACT-os.patch.md §2.2, so a snapshot or
+	// a share of it must not reach the key).
 	SetKeyPath = "onemind/secrets/storage-set.key"
 	// TokenID is the LUKS2 token slot OneMind uses (0..31; systemd takes the
 	// lowest free ones, so the top end avoids them).
@@ -257,7 +258,7 @@ type InitOptions struct {
 
 // InitSteps are the first-boot steps for onemind-data: LUKS2 with the
 // recovery key, the set key and (when present) TPM2, the OneMind token, btrfs
-// single/dup with @, @storage and @snapshots, and the set key moved inside
+// single/dup with @, @storage and @storage/.snapshots (LayoutSteps), and the set key moved inside
 // @. Key files are in RunDir (tmpfs) only. Run by `onemindd storage init`.
 func InitSteps(o InitOptions) []Step {
 	if o.Mapper == "" {
@@ -294,9 +295,7 @@ func InitSteps(o InitOptions) []Step {
 		Step{ID: "top", Cmd: []string{"mkdir", "-p", o.Top}, Why: "temporary mount point"},
 		Step{ID: "mount", Cmd: []string{"mount", "-o", MountOptions, dev, o.Top}, Why: "mount the top level"},
 	)
-	for _, sv := range []string{"@", "@storage", "@snapshots"} {
-		steps = append(steps, Step{ID: "subvolume", Cmd: []string{"btrfs", "subvolume", "create", o.Top + "/" + sv}, Why: "subvolume layout (storage.md §4.2)"})
-	}
+	steps = append(steps, LayoutSteps(o.Top, "")...)
 	keyDir := filepath.Dir(o.Top + "/@/" + SetKeyPath)
 	steps = append(steps,
 		Step{ID: "keydir", Cmd: []string{"install", "-d", "-m", "0700", keyDir}, Why: "folder for the set key, inside the encrypted set"},

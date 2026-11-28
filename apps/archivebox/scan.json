@@ -1,0 +1,54 @@
+{
+  "scanned_at": "2026-11-25T05:28:32Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "docker.io/archivebox/archivebox:0.9.77@sha256:f63170551ec48d7aa087c71e2d093156dbf4b4ed8680e2f97f22483e3bc71e55",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 11,
+        "critical": 21,
+        "high": 618
+      },
+      "clamav": {
+        "signatures": "daily-28193",
+        "infected": 0
+      },
+      "secrets": 2,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "MIT",
+    "class": "L1"
+  },
+  "smoke": "skipped",
+  "quality": {
+    "tier": "none",
+    "evidence": {
+      "bronze": {
+        "gate_pass": false,
+        "licence_green": true,
+        "images_clean": false,
+        "upstream_alive": true,
+        "nothing_unverified": true
+      },
+      "silver": {
+        "smoke_pass": false,
+        "non_root": true,
+        "support_links": true,
+        "security_updates": false
+      },
+      "gold": {
+        "images_signed": false,
+        "no_critical": false,
+        "patch_automerge": false,
+        "backup_declared": false
+      }
+    }
+  }
+}

@@ -14,6 +14,8 @@ origin/release/next. Prints the run's commit on success. Refuses (exit 2) unless
   - it finished, and succeeded;
   - its commit is a full SHA reachable from origin/main or origin/release/next (git merge-base --is-ancestor), so
     the release builds and tags only reviewed code.
+NOTE (issue #1110): a push or nightly run builds tier 1 + 2 only; tier 3 artifacts exist only in a full dispatch run.
+This script does not see artifacts, so release.yml checks that the tier 3 artifacts exist before it downloads anything.
 This script reads only the run's metadata and the clone; it never sees a secret.
 """
 import argparse, json, os, re, subprocess, sys

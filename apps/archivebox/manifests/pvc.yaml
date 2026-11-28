@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+# The ArchiveBox collection: index database, config and every saved snapshot.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: archivebox-data
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi

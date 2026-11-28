@@ -59,7 +59,7 @@ def test_scan_exactly_seven_days_old_still_passes(client, clock, executor, setti
 
 
 def test_scan_ages_out_between_request_and_approval(client, clock, executor):
-    body = action_body(clock, ttl=8 * 86400)
+    body = action_body(clock, ttl=7 * 86400)
     action_id = client.post("/v1/actions", json=body, headers=OWNER).json()["id"]  # scan is 1 day old
     clock.advance(6 * 86400 + 1)  # the scan is now 7 days + 1 s old; the action has not expired
     r = client.post(f"/v1/actions/{action_id}/approve", headers=OWNER)

@@ -4,7 +4,13 @@
 // sign-in behind requireAuthentication in the secure store, so background photo backup and push,
 // which run without a screen, keep their access while the app is locked.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AppState, StyleSheet, Text, View } from 'react-native';
+import { AppState, Platform, StyleSheet, Text, View } from 'react-native';
+import {
+  allowScreenCaptureAsync,
+  disableAppSwitcherProtectionAsync,
+  enableAppSwitcherProtectionAsync,
+  preventScreenCaptureAsync,
+} from 'expo-screen-capture';
 import { loadSecret, saveSecret } from '../storage';
 import { Button } from '../ui/bits';
 import { font, space, useTheme } from '../ui/theme';
@@ -22,7 +28,7 @@ export interface Lock {
   /** Turning the lock on or off needs an unlock first. Resolves true when it changed. */
   setEnabled(on: boolean): Promise<boolean>;
   /** Ask for an unlock for a specific reason (a lock-screen Deny). A success also unlocks the app. */
-  confirm(reason: string): Promise<boolean>;
+  confirm(reason: string, requestId: string): Promise<boolean>;
 }
 
 const Ctx = createContext<Lock | undefined>(undefined);
@@ -43,6 +49,7 @@ export function LockProvider({ children, relockMs = RELOCK_MS, now = Date.now }:
   const [available, setAvailable] = useState<boolean>();
   const [enabled, setEnabledState] = useState(false);
   const [locked, setLocked] = useState(false);
+  const [away, setAway] = useState(AppState.currentState === 'background' || AppState.currentState === 'inactive');
   const [prompt, setPrompt] = useState(0);
   const enabledRef = useRef(false);
   const hiddenAt = useRef<number | undefined>(undefined);
@@ -66,7 +73,8 @@ export function LockProvider({ children, relockMs = RELOCK_MS, now = Date.now }:
   useEffect(() => {
     // Only 'background' counts: the unlock prompt itself makes iOS report 'inactive'.
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'background') hiddenAt.current = now();
+      setAway(state === 'inactive' || state === 'background');
+      if (state === 'background') hiddenAt.current ??= now();
       else if (state === 'active') {
         const at = hiddenAt.current;
         hiddenAt.current = undefined;
@@ -79,6 +87,20 @@ export function LockProvider({ children, relockMs = RELOCK_MS, now = Date.now }:
     return () => sub.remove();
   }, [now, relockMs]);
 
+  // The OS can snapshot the native window before JavaScript receives an AppState event.
+  // Use native protection in addition to dismissing any separate share modal while away.
+  useEffect(() => {
+    if (!enabled) return;
+    if (Platform.OS === 'ios') {
+      void enableAppSwitcherProtectionAsync(1).catch(() => undefined);
+      return () => { void disableAppSwitcherProtectionAsync().catch(() => undefined); };
+    }
+    if (Platform.OS === 'android') {
+      void preventScreenCaptureAsync(LOCK_KEY).catch(() => undefined);
+      return () => { void allowScreenCaptureAsync(LOCK_KEY).catch(() => undefined); };
+    }
+  }, [enabled]);
+
   const unlock = useCallback(async () => {
     const ok = await authenticate('Unlock OneMind');
     if (ok) setLocked(false);
@@ -90,8 +112,11 @@ export function LockProvider({ children, relockMs = RELOCK_MS, now = Date.now }:
     if (ready && locked) void unlock();
   }, [ready, locked, prompt, unlock]);
 
-  const confirm = useCallback(async (reason: string) => {
-    const ok = await authenticate(reason);
+  const confirm = useCallback(async (reason: string, requestId: string) => {
+    const details = `Request ${requestId}`;
+    const ok = Platform.OS === 'android'
+      ? await authenticate(reason, Symbol(), details)
+      : await authenticate(`${reason}\n${details}`, Symbol());
     if (ok) setLocked(false);
     return ok;
   }, []);
@@ -109,19 +134,23 @@ export function LockProvider({ children, relockMs = RELOCK_MS, now = Date.now }:
     [available],
   );
 
-  const value = useMemo<Lock>(() => ({ available, enabled, locked, setEnabled, confirm }), [available, enabled, locked, setEnabled, confirm]);
+  const covered = !ready || locked || (enabled && away);
+  const value = useMemo<Lock>(
+    () => ({ available, enabled, locked: covered, setEnabled, confirm }),
+    [available, enabled, covered, setEnabled, confirm],
+  );
   return (
     <Ctx.Provider value={value}>
       {/* Hidden from TalkBack and VoiceOver while the lock covers the screen, so they cannot read or act on what is behind it. */}
       <View
         testID="app-content"
         style={{ flex: 1 }}
-        importantForAccessibility={!ready || locked ? 'no-hide-descendants' : 'auto'}
-        accessibilityElementsHidden={!ready || locked}
+        importantForAccessibility={covered ? 'no-hide-descendants' : 'auto'}
+        accessibilityElementsHidden={covered}
       >
         {children}
       </View>
-      {(!ready || locked) && <LockScreen checking={!ready} onUnlock={() => void unlock()} />}
+      {covered && <LockScreen checking={!ready || away} onUnlock={() => void unlock()} />}
     </Ctx.Provider>
   );
 }

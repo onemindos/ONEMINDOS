@@ -7,13 +7,13 @@ import { useEffect, useRef } from 'react';
 import { Alert, Linking } from 'react-native';
 import { useHubData } from '../data';
 import { useSignedIn } from '../session';
-import { denyAfterUnlock, parseDenyLink, responseIntent, type DenyTarget, type ResponseLike } from './actions';
+import { denyAfterUnlock, isRequestId, parseDenyLink, parseReviewLink, resolveApprovalTarget, responseIntent, type ApprovalTarget, type ResponseLike } from './actions';
 import { useLock } from './LockProvider';
 
 // Kept for the life of the process, not of the component: SignedIn mounts again on a hub switch or a
 // sign-out and in, and the launch URL and the last notification response would otherwise be replayed
 // as a new Deny prompt.
-const handledResponses = new Set<string>();
+const handledResponses = new Map<string, 'handled' | 'retry'>();
 const handledInitialUrls = new Set<string>();
 
 export function NotificationActions({ open }: { open: (data: Record<string, unknown> | undefined) => void }) {
@@ -24,50 +24,76 @@ export function NotificationActions({ open }: { open: (data: Record<string, unkn
   ref.current = { api, reload, confirm, open };
 
   useEffect(() => {
-    const deny = async (target: DenyTarget): Promise<string> => {
+    let live = true;
+    const deny = async (target: ApprovalTarget) => {
       const { api: a, confirm: c, reload: r } = ref.current;
-      const res = await denyAfterUnlock(a, target, c);
-      if (res.outcome === 'denied') void r().catch(() => undefined);
-      if (res.outcome !== 'cancelled') Alert.alert(res.outcome === 'denied' ? 'Denied' : 'Deny', res.message);
+      const res = await denyAfterUnlock(a, target, async (reason, id) => live && await c(reason, id) && live);
+      if (live) {
+        if (res.outcome === 'denied') void r().catch(() => undefined);
+        if (res.outcome !== 'cancelled') Alert.alert(res.outcome === 'denied' ? 'Denied' : 'Deny', res.message);
+      }
       return res.outcome;
     };
-    const onResponse = (r: ResponseLike) => {
+    const onResponse = (r: ResponseLike, warm: boolean) => {
       const key = `${r.notification.request.identifier}:${r.actionIdentifier}`;
-      if (handledResponses.has(key)) return;
-      handledResponses.add(key);
+      if (!live) return;
+      // Expo caches warm taps too. Remember consumed keys even if an older native build cannot clear.
+      try { Notifications.clearLastNotificationResponse(); } catch { /* native method unavailable */ }
+      const previous = handledResponses.get(key);
       const intent = responseIntent(r);
+      if (previous && (!warm || (intent.kind === 'deny' && previous === 'handled'))) return;
+      handledResponses.set(key, 'handled');
       if (intent.kind === 'deny') {
         // A cancelled unlock must not block a later Deny on the same notification.
         void deny(intent.target).then((outcome) => {
-          if (outcome === 'cancelled') handledResponses.delete(key);
+          if (outcome === 'cancelled') handledResponses.set(key, 'retry');
         });
+      } else {
+        ref.current.open(intent.data);
+        if (intent.data?.route === 'approvals' && isRequestId(intent.data.action_id)) {
+          void ref.current.reload().catch(() => undefined);
+        }
       }
-      else ref.current.open(intent.data);
+    };
+    const review = async (target: ApprovalTarget) => {
+      const a = ref.current.api;
+      const actionId = await resolveApprovalTarget(a, target).catch(() => undefined);
+      if (!live) return;
+      if (actionId) {
+        ref.current.open({ route: 'approvals', action_id: actionId });
+        void ref.current.reload().catch(() => undefined);
+      } else if ('notificationId' in target) {
+        ref.current.open({ route: 'inbox', notification_id: target.notificationId });
+      }
     };
     const onUrl = (url: string | null | undefined) => {
+      if (!live) return;
       const target = parseDenyLink(url);
       if (target) void deny(target);
+      else {
+        const requested = parseReviewLink(url);
+        if (requested) void review(requested);
+      }
     };
     const subs = [
-      Notifications.addNotificationResponseReceivedListener(onResponse),
+      Notifications.addNotificationResponseReceivedListener((r) => onResponse(r, true)),
       Linking.addEventListener('url', (e) => onUrl(e.url)),
     ];
-    // Opened from a notification or a Deny link while the app was not running.
+    // Opened from a notification or a native link while the app was not running.
     void Notifications.getLastNotificationResponseAsync()
-      .then((r) => {
-        if (!r) return;
-        onResponse(r);
-        Notifications.clearLastNotificationResponse?.();
-      })
+      .then((r) => { if (r) onResponse(r, false); })
       .catch(() => undefined);
     void Linking.getInitialURL()
       .then((url) => {
-        if (!url || handledInitialUrls.has(url)) return;
+        if (!live || !url || handledInitialUrls.has(url)) return;
         handledInitialUrls.add(url);
         onUrl(url);
       })
       .catch(() => undefined);
-    return () => subs.forEach((s) => s.remove());
+    return () => {
+      live = false;
+      subs.forEach((s) => s.remove());
+    };
   }, []);
   return null;
 }

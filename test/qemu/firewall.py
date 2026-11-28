@@ -96,6 +96,28 @@ def read_counters(vm):
     return c
 
 
+K3S_PORTS = {6443, 10250}
+LISTEN_RE = re.compile(r"^LISTEN (?:\*|0\.0\.0\.0|\[::\]|::):(\d+)\s*$", re.M)
+SS_CMD = "ss -H -ltn | awk '{print \"LISTEN \" $4}'"
+
+
+def wildcard_listening(ss):
+    """Ports a `LISTEN <addr>:<port>` listing shows bound to every address (not just loopback)."""
+    return {int(x) for x in LISTEN_RE.findall(ss)}
+
+
+def wait_k3s_listening(vm, timeout=600, step=5, clock=time.time, sleep=time.sleep):
+    """k3s (Type=notify, starts after the gateway is healthy) opens 6443 and 10250 some time after first boot, so
+    the scan must not run before it. Poll the box for both wildcard listeners, bounded; return (listening, ss)."""
+    end, ss = clock() + timeout, ""
+    while True:
+        _, ss = vm.run(SS_CMD)
+        have = wildcard_listening(ss)
+        if K3S_PORTS <= have or clock() >= end:
+            return have, ss
+        sleep(step)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=sorted(battery.BOARDS))
@@ -129,6 +151,10 @@ def main():
         if hz != "200":
             fb.diagnose(box, f"healthz={hz}")
             raise RuntimeError(f"gateway /healthz={hz}")
+        box.mark("box: wait for k3s to listen (bounded)")
+        have, _ = wait_k3s_listening(box)
+        if not K3S_PORTS <= have:
+            box.mark(f"k3s not listening after wait: {sorted(have)}")
         box.mark("scanner: boot with no role")
         scan.start()
         scan.shell_ready()
@@ -143,18 +169,19 @@ def main():
             probe(scan, ADDR[tag]["scan"], ADDR[tag]["box"], TCP, UDP)
         time.sleep(2)
         cnt = read_counters(box)
-        _, ss = box.run("ss -H -ltn | awk '{print \"LISTEN \" $4}'")
+        _, ss = box.run(SS_CMD)
         reach = {t: {(p, n) for (tg, p, n), v in cnt.items() if tg == t and v == 0} for t in ("lan", "pub")}
         complete = all(len([k for k in cnt if k[0] == t]) == len(TCP) + len(UDP) for t in ("lan", "pub"))
         alive = any(v > 0 for v in cnt.values())    # the link works: something was dropped
         record("FW1", complete and alive and reach["lan"] == WANT_LAN,
                f"reachable_from_lan={sorted(reach['lan'])} want={sorted(WANT_LAN)} counters={len(cnt)} ping={'ok' if 'PING=0' in ping else 'no'}")
         record("FW2", complete and alive and not reach["pub"], f"reachable_from_public={sorted(reach['pub'])}")
-        listening = {int(x) for x in re.findall(r"^LISTEN (?:\*|0\.0\.0\.0|\[::\]|::):(\d+)\s*$", ss, re.M)}
-        k3s = {6443, 10250}
+        listening = wildcard_listening(ss)
+        k3s = K3S_PORTS
         record("FW3", k3s <= listening and not any(("tcp", p) in reach[t] for p in k3s for t in reach),
                f"k3s_listening_wildcard={sorted(k3s & listening)} reachable_lan={sorted(p for p in k3s if ('tcp', p) in reach['lan'])} "
                f"reachable_public={sorted(p for p in k3s if ('tcp', p) in reach['pub'])}")
+        fb.netcheck.fw5(box, record)
         _, w = scan.run("systemctl is-active onemind-setup; echo WIZ=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/)")
         wiz_up = "WIZ=200" in w and re.search(r"^active\s*$", w, re.M) is not None
         res = {}

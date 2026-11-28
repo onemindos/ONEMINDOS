@@ -9,7 +9,7 @@
 # Reachable from loopback, the mesh and the pod network only:  k3s API 6443, kubelet 10250, flannel 8472/51820/51821,
 #   NATS leaf 7422. A home box has no reason to offer them to the LAN.
 # Everything else is dropped. Outgoing traffic is not filtered here. Pod-to-host filtering (H-04) and
-# optional services (Samba, SSH) are separate steps: they add rules to this table, see /etc/onemind/host.local.nft
+# optional services (Samba, SSH) open their own port through the "samba" and "ssh" chains below; other steps: they add rules to this table, see /etc/onemind/host.local.nft
 # (the owner's file) and /etc/onemind/host.d/*.nft (shipped by an image: the cloud boards open 22/443/8443 there).
 # The setup wizard (8080) is opened from the LAN only while the box has no role, through the "setup" chain below.
 # Samba file sharing (445, D-017) is opened from the LAN only while onemind-smb.service runs, through the "samba" chain.
@@ -33,6 +33,7 @@ table inet onemind_host {
     iifname "tailscale0" udp dport { 8472, 51820, 51821 } accept
     iifname "flannel*" udp dport { 8472, 51820, 51821 } accept
     iifname "tailscale0" tcp dport { 443, 8443, 7422 } accept
+    iifname "tailscale0" jump ssh
 
     # Network basics: ping, path-MTU, IPv6 neighbour discovery, DHCP replies (they arrive before conntrack knows them).
     meta l4proto icmp accept
@@ -48,6 +49,7 @@ table inet onemind_host {
   chain lan {
     jump setup
     jump samba
+    jump ssh
     tcp dport { 443, 8443, 8444, 7443 } accept
     udp dport { 5353, 3478, 41641 } accept
   }
@@ -62,6 +64,12 @@ table inet onemind_host {
   # owner has approved at least one share) and flushes it when it stops. Reached from the lan chain only, so SMB is
   # never offered to a public address, and a box with no shares answers nothing on 445.
   chain samba {
+  }
+
+  # Empty on purpose. ssh.service adds "tcp dport 22 accept" here while sshd runs (it runs only once the owner has added
+  # a key: ssh.service.d/20-onemind-owner-key.conf) and flushes it when it stops. Reached from the lan chain and from the
+  # mesh interface only, so SSH is never offered to a public address, and a box with no owner key answers nothing on 22.
+  chain ssh {
   }
 
   # Forwarded (pod) traffic is the CNI's and kube-proxy's business; this table does not touch it.

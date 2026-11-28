@@ -167,17 +167,19 @@ def apply_changelog(text, items):
     return "\n".join(lines[:sep + 1] + rows + lines[end:])
 
 
-def apply_status(text, items):
-    """Set state/branch/PR (and add the note) on existing rows. Columns: ID | what | state | branch | PR."""
+def apply_status(text, items, row_sources=None):
+    """Set state, branch and PR on existing rows and keep each declared note."""
+    row_sources = row_sources or {}
     lines = text.split("\n")
     for meta, _ in items:
         for rid, state, note in meta["status_rows"]:
+            sources = row_sources.get(rid, {meta["branch"]: meta["pr"]})
             for i, line in enumerate(lines):
                 cells = line.split("|")
                 if len(cells) >= 7 and cells[1].strip() == rid:
                     cells[3] = " %s " % state
-                    cells[4] = " `%s` " % meta["branch"]
-                    cells[5] = " %s " % pr_cell(meta["pr"])
+                    cells[4] = " " + ", ".join("`%s`" % branch for branch in sources) + " "
+                    cells[5] = " " + ", ".join(dict.fromkeys(pr_cell(pr) for pr in sources.values())) + " "
                     if note and note not in cells[2]:
                         cells[2] = cells[2].rstrip() + " (%s) " % note
                     lines[i] = "|".join(cells)
@@ -225,7 +227,7 @@ def main_preview() -> dict:
             rank += 1
         elif line.startswith("changes/"):
             ranks.setdefault(line, rank)
-    items, declarations = [], {}
+    items, declarations, row_sources = [], {}, {}
     for path in sorted(paths, key=lambda p: (-ranks.get(p, 0), p)):
         if not path.endswith(".md") or path == "changes/README.md":
             continue
@@ -233,14 +235,17 @@ def main_preview() -> dict:
         if errors:
             raise FragmentError(path + ": " + "; ".join(errors))
         assert meta is not None
-        for rid, state, note in meta["status_rows"]:
+        for rid, state, _ in meta["status_rows"]:
             key = (ranks.get(path, 0), rid)
-            value = (state, note, meta["branch"], meta["pr"])
-            if key in declarations and declarations[key] != value:
+            declared_state, sources = declarations.setdefault(key, (state, {}))
+            if declared_state != state:
                 raise FragmentError("conflicting declarations in one main landing for " + rid)
-            declarations[key] = value
+            # One train merge can carry several slices of the same epic. Keep all
+            # sources when they agree, without choosing a winner by filename.
+            sources[meta["branch"]] = meta["pr"]
+            row_sources[rid] = sources
         items.append((meta, body))
-    status = apply_status(status, items)
+    status = apply_status(status, items, row_sources)
     rows = epic_rows(status)
     counts = dict(sorted(Counter(state for _, state in rows).items()))
     updated_ids = {rid for meta, _ in items for rid, _, _ in meta["status_rows"]}
@@ -324,20 +329,21 @@ def audit_rows(status_text, states):
             continue
         rid, raw_state, pr_cell_text = cells[1], cells[3], cells[5]
         m = STATE_RE.fullmatch(raw_state)
-        pr = re.match(r"\[#?(\d+)\]", pr_cell_text)
-        if not m or not pr:
+        if not m:
             continue
-        state, number = m.group(1), int(pr.group(1))
-        live = states.get(number)
-        if live is None:
-            findings.append((rid, "PR #%d is not on GitHub" % number))
-        elif live == "MERGED" and state in ("todo", "in-progress", "in-review", "review") \
-                and "merged in" not in raw_state:
-            findings.append((rid, "row says %s but PR #%d is merged" % (state, number)))
-        elif live == "CLOSED" and state in ("in-progress", "in-review", "review", "done"):
-            findings.append((rid, "row says %s but PR #%d was closed unmerged" % (state, number)))
-        elif live == "OPEN" and state == "done":
-            findings.append((rid, "row says done but PR #%d is still open" % number))
+        state = m.group(1)
+        for pr in re.findall(r"\[#?(\d+)\]", pr_cell_text):
+            number = int(pr)
+            live = states.get(number)
+            if live is None:
+                findings.append((rid, "PR #%d is not on GitHub" % number))
+            elif live == "MERGED" and state in ("todo", "in-progress", "in-review", "review") \
+                    and "merged in" not in raw_state:
+                findings.append((rid, "row says %s but PR #%d is merged" % (state, number)))
+            elif live == "CLOSED" and state in ("in-progress", "in-review", "review", "done"):
+                findings.append((rid, "row says %s but PR #%d was closed unmerged" % (state, number)))
+            elif live == "OPEN" and state == "done":
+                findings.append((rid, "row says done but PR #%d is still open" % number))
     return findings
 
 
@@ -346,7 +352,7 @@ def cmd_audit(prs_file=None):
         findings = audit_rows(f.read(), pr_states(prs_file))
     for rid, msg in findings:
         print("%s: %s" % (rid, msg))
-    print("changes: audit found %d drifting row(s)" % len(findings))
+    print("changes: audit found %d drift finding(s)" % len(findings))
     return 1 if findings else 0
 
 

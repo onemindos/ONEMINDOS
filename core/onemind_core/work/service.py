@@ -247,6 +247,19 @@ class WorkService(SqlRepository):
             row = _project(session, person, project_id)
             return Project(id=row.id, name=row.name, ai_access=row.ai_access)
 
+    def project_id_named(self, person: Principal, name: str) -> str | None:
+        """A project the person can write to, by name (case-insensitive); None means the Inbox."""
+        _writer(person)
+        if name.casefold() == "inbox":
+            return None
+        with self.db.session() as session:
+            # Compared in Python: SQLite's lower() folds ASCII only, so "École" would never match in SQL.
+            ids = [row.id for row in session.execute(select(ProjectRow.id, ProjectRow.name).where(
+                _member(ProjectRow.id, person.id)).order_by(ProjectRow.id)) if row.name.casefold() == name.casefold()]
+        if len(ids) != 1:
+            raise ApiError(422, "conflict", f"No single project named {name!r}", reason="bad_project")
+        return ids[0]
+
     def add_member(self, person: Principal, project_id: str, member: Principal) -> None:
         with self.db.session.begin() as session:
             project = _project(session, person, project_id, write=True)
@@ -285,10 +298,34 @@ class WorkService(SqlRepository):
         session.execute(delete(ProjectRow).where(ProjectRow.id == project.id))
         return session.get(InboxRow, person.id).project_id
 
-    def capture(self, person: Principal, fields: CaptureFields, key: str) -> tuple[Task, bool]:
+    def quick_add_replay(self, person: Principal, request: dict, key: str) -> Task | None:
+        """The task an earlier quick-add with this key made, or None for a new key.
+
+        The fingerprint is the raw request, not the parsed fields, so a retry still replays after the clock
+        has moved or a project was renamed. A key reused for different text is a 409.
+        """
+        _writer(person)
+        key_hash = sha256(key.encode()).hexdigest()
+        fingerprint = sha256(canonical_json(request).encode()).hexdigest()
+        with self.db.session() as session:
+            receipt = session.get(WorkCreateRow, (person.id, "quick_add", key_hash))
+            if receipt is None:
+                return None
+            if receipt.fingerprint != fingerprint:
+                raise ApiError(409, "conflict", "Idempotency-Key was used for a different Work request",
+                               reason="idempotency_mismatch")
+            if receipt.result_id is None:
+                return None
+            return self._get_task(session, person, receipt.project_id, receipt.result_id)
+
+    def capture(self, person: Principal, fields: CaptureFields, key: str, *, request: dict | None = None,
+                ) -> tuple[Task, bool]:
+        """Create one task. `request` (quick-add) is what the key is fingerprinted on, under its own operation."""
         _writer(person)
         with self.db.session.begin() as session:
-            receipt, fresh = self._create_receipt(session, person, "capture", key, fields.model_dump(mode="json"))
+            receipt, fresh = self._create_receipt(
+                session, person, "capture" if request is None else "quick_add", key,
+                fields.model_dump(mode="json") if request is None else request)
             if not fresh:
                 return self._get_task(session, person, receipt.project_id, receipt.result_id), False
             project_id = fields.project_id if fields.project_id is not None else self._inbox(session, person)
