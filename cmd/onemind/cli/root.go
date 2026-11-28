@@ -79,6 +79,7 @@ var groups = []func(a *App) []*cobra.Command{
 	servicesCommands,
 	domainCommands,
 	bridgeCommands,
+	cotCommands,
 	notifyCommands,
 	workCommands,
 	machinesCommands,

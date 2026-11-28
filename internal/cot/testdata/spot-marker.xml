@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<event version="2.0" uid="8f1c3a52-0000-4000-8000-000000000002" type="b-m-p-s-m" how="h-g-i-g-o" time="2026-11-26T15:01:00Z" start="2026-11-26T15:01:00Z" stale="2026-11-27T15:01:00Z">
+  <point lat="40.6892" lon="-74.0445" hae="9999999.0" ce="9999999.0" le="9999999.0"/>
+  <detail>
+    <contact callsign="Rally point"/>
+    <remarks>Meet here &amp; wait</remarks>
+    <link uid="ANDROID-0000000000000001" type="a-f-G-U-C" relation="p-p"/>
+  </detail>
+</event>
