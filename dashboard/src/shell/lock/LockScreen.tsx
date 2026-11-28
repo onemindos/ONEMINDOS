@@ -56,7 +56,7 @@ export function LockScreen({ summary, mock }: { summary: LockSummary; mock: bool
       </div>
       <p className="dash-lock-glance">
         <span className={summary.waiting ? 'dash-lock-dot dash-lock-dot-needs' : 'dash-lock-dot'} aria-hidden="true" />
-        {t(summary.waiting === 1 ? 'lock.waiting.one' : 'lock.waiting', { n: summary.waiting })}
+        {summary.waiting === 1 ? t('lock.waiting.one') : t('lock.waiting', { n: summary.waiting })}
       </p>
       <p className="dash-lock-where">{whereLine(summary.boxName)}</p>
     </main>
