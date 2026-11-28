@@ -8,8 +8,8 @@ Git with a cup of tea! Painless self-hosted all-in-one software development serv
 | | |
 |---|---|
 | Version | 28.4.0 (upstream release `v28.4.0`, published 2026-11-15) |
-| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-21) |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-28) |
+| Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | developer |
 | GitHub | <https://github.com/go-gitea/gitea> |
 | Website | <https://gitea.com> |
@@ -83,10 +83,10 @@ The gate computed tier **blocked** for 28.3.0 (CRITICAL CVE-2026-123158 in `open
 
 ## Latest security scan
 
-Scanned 2026-11-21T13:43:19Z by `sdk/tools/app-gate`: **fail**. Licence `MIT` class L1; smoke test pass.
+Scanned 2026-11-28T15:44:23Z by `sdk/tools/app-gate`: **pass**. Licence `MIT` class L1; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `docker.io/gitea/gitea:28.3.0-rootless@sha256:40c5a68a0463c0940e1ae32626c8300dd0572f3558e390073ad8379ca67c0e1d` | amd64, arm64 | 1 (1) | 11 | 0 infected (daily-28190) | 0 | unsigned |
+| `docker.io/gitea/gitea:28.4.0-rootless@sha256:15ab7fadb44981a2b781f40c712cad07066197f395100ea1c6326e14e5bb073a` | amd64, arm64 | 0 (0) | 7 | 0 infected (daily-28194) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

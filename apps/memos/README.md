@@ -8,7 +8,7 @@ Memos is an open-source, self-hosted note-taking app that brings your everyday t
 | | |
 |---|---|
 | Version | 26.11.0 (upstream release `26.11.0`, published 2026-11-01) |
-| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-21) |
+| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-28) |
 | Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | notes |
 | GitHub | <https://github.com/usememos/memos> |
@@ -65,10 +65,10 @@ From the upstream documentation, https://github.com/usememos/memos/tree/26.11.0/
 
 ## Latest security scan
 
-Scanned 2026-11-21T14:53:47Z by `sdk/tools/app-gate`: **pass**. Licence `MIT` class L1; smoke test pass.
+Scanned 2026-11-28T16:11:29Z by `sdk/tools/app-gate`: **pass**. Licence `MIT` class L1; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `ghcr.io/usememos/memos:26.11.0@sha256:087e7dc6b76b31fcd1107a5767398b2a310ced209adb791efd8760c745dc8034` | amd64, arm64 | 0 (0) | 3 | 0 infected (daily-28190) | 0 | unsigned |
+| `ghcr.io/usememos/memos:26.11.0@sha256:087e7dc6b76b31fcd1107a5767398b2a310ced209adb791efd8760c745dc8034` | amd64, arm64 | 0 (0) | 2 | 0 infected (daily-28194) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

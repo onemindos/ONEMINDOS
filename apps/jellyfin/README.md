@@ -8,7 +8,7 @@ The Free Software Media System - Server Backend & API
 | | |
 |---|---|
 | Version | 12.4 (upstream release `v12.4`, published 2026-10-26) |
-| Licence | `GPL-2.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
+| Licence | `GPL-2.0`, Market class **L2** (licence gate, scan of 2026-11-28) |
 | Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | media |
 | GitHub | <https://github.com/jellyfin/jellyfin> |
@@ -68,10 +68,10 @@ From the upstream documentation, https://jellyfin.org/docs/general/post-install/
 
 ## Latest security scan
 
-Scanned 2026-11-21T13:59:46Z by `sdk/tools/app-gate`: **pass**. Licence `GPL-2.0` class L2; smoke test pass.
+Scanned 2026-11-28T15:53:04Z by `sdk/tools/app-gate`: **pass**. Licence `GPL-2.0` class L2; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `ghcr.io/jellyfin/jellyfin:12.4@sha256:fea863d0cd9ec445985d9c75fc6ed64e38a1d2766cf0c250a33d553f4fc1b771` | amd64, arm64 | 1 (0) | 129 | 0 infected (daily-28190) | 0 | unsigned |
+| `ghcr.io/jellyfin/jellyfin:12.4@sha256:fea863d0cd9ec445985d9c75fc6ed64e38a1d2766cf0c250a33d553f4fc1b771` | amd64, arm64 | 1 (0) | 133 | 0 infected (daily-28194) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

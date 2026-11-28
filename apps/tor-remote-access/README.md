@@ -8,7 +8,7 @@ Reach your OneMind from anywhere through Tor, even behind CGNAT, with no server 
 | | |
 |---|---|
 | Version | 0.1.0 (upstream release `0.1.0`, published 2026-11-15) |
-| Licence | `Apache-2.0`, Market class **L1** (licence gate, scan of 2026-11-21) |
+| Licence | `Apache-2.0`, Market class **L1** (licence gate, scan of 2026-11-28) |
 | Tier | `community` (set by CI: sdk/tools/app-gate) |
 | Category | network |
 | GitHub | <https://github.com/onemindos/ONEMINDOS> |
@@ -72,11 +72,11 @@ Terms: an **onion service** is an address ending in `.onion` that is reachable o
 
 ## Latest security scan
 
-Scanned 2026-11-21T16:03:20Z by `sdk/tools/app-gate`: **fail**. Licence `Apache-2.0` class L1; smoke test fail.
+Scanned 2026-11-28T17:00:54Z by `sdk/tools/app-gate`: **fail**. Licence `Apache-2.0` class L1; smoke test fail.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `docker.io/library/python:3.14.10-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f` | amd64, arm64 | 0 (0) | 56 | 0 infected (daily-28190) | 0 | unsigned |
-| `docker.io/leplusorg/tor:4.9.17@sha256:276c6c28bf5e888195004fd13786fedeb30173169279158b3a4dfc0ae7e67cfe` | amd64, arm64 | 0 (0) | 1 | 0 infected (daily-28190) | 0 | unsigned |
+| `docker.io/library/python:3.14.10-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f` | amd64, arm64 | 0 (0) | 60 | 0 infected (daily-28194) | 0 | unsigned |
+| `docker.io/leplusorg/tor:4.9.17@sha256:276c6c28bf5e888195004fd13786fedeb30173169279158b3a4dfc0ae7e67cfe` | amd64, arm64 | 0 (0) | 7 | 0 infected (daily-28194) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

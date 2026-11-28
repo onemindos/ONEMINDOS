@@ -21,7 +21,7 @@ metadata:
   upstream: {release: "5.0.10", released_at: "2026-11-17T10:58:39Z", archived: false}
   # was blocked by CRITICAL CVE-2026-123158 in 5.0.9; 5.0.10 has no fixable CRITICAL (Trivy, 2026-11-21, details in README.md).
   # community until a CI gate run (ci-apps on the PR, or the daily rescan) computes verified.
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  tier: verified   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 512}   # the container's memory limit; upstream gives no sizing

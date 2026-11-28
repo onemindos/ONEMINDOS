@@ -8,7 +8,7 @@ Offline learning platform with courses, videos, exercises and classes that work 
 | | |
 |---|---|
 | Version | 0.19.5 (upstream release `v0.19.5`, published 2026-07-13) |
-| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-21) |
+| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-28) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | learning |
 | GitHub | <https://github.com/learningequality/kolibri> |
@@ -85,10 +85,10 @@ To unblock: 0.19.5 is the newest Kolibri release and image tag (registry read 20
 
 ## Latest security scan
 
-Scanned 2026-11-21T14:08:05Z by `sdk/tools/app-gate`: **fail**. Licence `MIT` class L1; smoke test pass.
+Scanned 2026-11-28T16:01:42Z by `sdk/tools/app-gate`: **fail**. Licence `MIT` class L1; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `ghcr.io/learningequality/kolibri:0.19.5@sha256:19810f674f1e94a4f925f4f45f8a45de1735310e83540361c4e8614eca34a9fe` | amd64, arm64 | 5 (5) | 131 | 0 infected (daily-28190) | 0 | unsigned |
+| `ghcr.io/learningequality/kolibri:0.19.5@sha256:19810f674f1e94a4f925f4f45f8a45de1735310e83540361c4e8614eca34a9fe` | amd64, arm64 | 5 (5) | 135 | 0 infected (daily-28194) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

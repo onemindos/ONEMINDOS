@@ -8,7 +8,7 @@ SearXNG is a free internet metasearch engine which aggregates results from vario
 | | |
 |---|---|
 | Version | 2026.11.11-626105eec (upstream release `2026.11.11-626105eec`, published 2026-11-11) |
-| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
+| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-28) |
 | Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | ai |
 | GitHub | <https://github.com/searxng/searxng> |
@@ -77,10 +77,10 @@ Source: [docs.searxng.org](https://docs.searxng.org/admin/installation-docker.ht
 
 ## Latest security scan
 
-Scanned 2026-11-21T15:45:21Z by `sdk/tools/app-gate`: **pass**. Licence `AGPL-3.0` class L2; smoke test pass.
+Scanned 2026-11-28T16:47:49Z by `sdk/tools/app-gate`: **pass**. Licence `AGPL-3.0` class L2; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `docker.io/searxng/searxng:2026.11.11-626105eec@sha256:606fc8852a53f0be4ac05116950ff480f6f56b8ef7d77b366868cc76478036e5` | amd64, arm64 | 0 (0) | 0 | 0 infected (daily-28190) | 0 | unsigned |
+| `docker.io/searxng/searxng:2026.11.11-626105eec@sha256:606fc8852a53f0be4ac05116950ff480f6f56b8ef7d77b366868cc76478036e5` | amd64, arm64 | 0 (0) | 0 | 0 infected (daily-28194) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

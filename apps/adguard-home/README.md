@@ -8,7 +8,7 @@ Network-wide ads & trackers blocking DNS server
 | | |
 |---|---|
 | Version | 0.107.80 (upstream release `v0.107.80`, published 2026-11-03) |
-| Licence | `GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
+| Licence | `GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-28) |
 | Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | network |
 | GitHub | <https://github.com/AdguardTeam/AdGuardHome> |
@@ -79,10 +79,10 @@ Source: the upstream [wiki](https://github.com/AdguardTeam/AdGuardHome/wiki/Gett
 
 ## Latest security scan
 
-Scanned 2026-11-21T13:14:30Z by `sdk/tools/app-gate`: **pass**. Licence `GPL-3.0` class L2; smoke test pass.
+Scanned 2026-11-28T14:46:04Z by `sdk/tools/app-gate`: **pass**. Licence `GPL-3.0` class L2; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `docker.io/adguard/adguardhome:v0.107.80@sha256:e2e1b48c832f7705be915873f95de0d5114de573736441d7f2923a8a6293027c` | amd64, arm64 | 0 (0) | 0 | 0 infected (daily-28190) | 0 | unsigned |
+| `docker.io/adguard/adguardhome:v0.107.80@sha256:e2e1b48c832f7705be915873f95de0d5114de573736441d7f2923a8a6293027c` | amd64, arm64 | 0 (0) | 1 | 0 infected (daily-28194) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

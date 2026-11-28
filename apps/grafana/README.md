@@ -8,7 +8,7 @@ The open and composable observability and data visualization platform. Visualize
 | | |
 |---|---|
 | Version | 13.3.1 (upstream release `v13.3.1`, published 2026-11-10) |
-| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
+| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-28) |
 | Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | monitoring |
 | GitHub | <https://github.com/grafana/grafana> |
@@ -83,10 +83,10 @@ Source: [Grafana docs](https://grafana.com/docs/grafana/latest/setup-grafana/sig
 
 ## Latest security scan
 
-Scanned 2026-11-21T13:50:57Z by `sdk/tools/app-gate`: **pass**. Licence `AGPL-3.0` class L2; smoke test pass.
+Scanned 2026-11-28T15:49:49Z by `sdk/tools/app-gate`: **pass**. Licence `AGPL-3.0` class L2; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `docker.io/grafana/grafana:13.3.1@sha256:0615ec4fbd4072004b7d86b46ded63013a74b7d6eb1119273dd89e8fa25c13cf` | amd64, arm64 | 0 (0) | 10 | 0 infected (daily-28190) | 0 | unsigned |
+| `docker.io/grafana/grafana:13.3.1@sha256:0615ec4fbd4072004b7d86b46ded63013a74b7d6eb1119273dd89e8fa25c13cf` | amd64, arm64 | 0 (0) | 10 | 0 infected (daily-28194) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

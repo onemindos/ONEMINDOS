@@ -8,7 +8,7 @@ Watches web pages for changes and sends an alert when they change.
 | | |
 |---|---|
 | Version | 0.70.3 (upstream release `0.70.3`, published 2026-11-09) |
-| Licence | `Apache-2.0`, Market class **L1** (licence gate, scan of 2026-11-21) |
+| Licence | `Apache-2.0`, Market class **L1** (licence gate, scan of 2026-11-28) |
 | Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | news |
 | GitHub | <https://github.com/dgtlmoon/changedetection.io> |
@@ -78,10 +78,10 @@ Source: [the upstream wiki](https://github.com/dgtlmoon/changedetection.io/wiki)
 
 ## Latest security scan
 
-Scanned 2026-11-21T13:35:27Z by `sdk/tools/app-gate`: **pass**. Licence `Apache-2.0` class L1; smoke test pass.
+Scanned 2026-11-28T14:54:58Z by `sdk/tools/app-gate`: **pass**. Licence `Apache-2.0` class L1; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `ghcr.io/dgtlmoon/changedetection.io:0.70.3@sha256:47b1e9cc3eff820e6022b655e3fcc948625f60c1770ae8b9c30aa3bf104dc255` | amd64, arm64 | 4 (0) | 126 | 0 infected (daily-28190) | 0 | unsigned |
+| `ghcr.io/dgtlmoon/changedetection.io:0.70.3@sha256:47b1e9cc3eff820e6022b655e3fcc948625f60c1770ae8b9c30aa3bf104dc255` | amd64, arm64 | 4 (0) | 127 | 0 infected (daily-28194) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

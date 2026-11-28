@@ -8,7 +8,7 @@ A self-hostable bookmark-everything app (links, notes and images) with AI-based 
 | | |
 |---|---|
 | Version | 0.34.1 (upstream release `v0.34.1`, published 2026-10-22) |
-| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
+| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-28) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | notes |
 | GitHub | <https://github.com/karakeep-app/karakeep> |
@@ -86,11 +86,11 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 
 ## Latest security scan
 
-Scanned 2026-11-21T14:20:13Z by `sdk/tools/app-gate`: **fail**. Licence `AGPL-3.0` class L2; smoke test pass.
+Scanned 2026-11-28T16:09:51Z by `sdk/tools/app-gate`: **fail**. Licence `AGPL-3.0` class L2; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `ghcr.io/karakeep-app/karakeep:0.34.1@sha256:69ae5315c618b7c14c1af3e34c6e211acdb231793af424ecd1cab0b70691d987` | amd64, arm64 | 11 (4) | 501 | 0 infected (daily-28190) | 0 | unsigned |
-| `docker.io/getmeili/meilisearch:v1.41.0@sha256:860fa4baed04ae1c235de870edab0c8006227546dea1bbb6411fbfc5e27cf1db` | amd64, arm64 | 2 (2) | 30 | 0 infected (daily-28190) | 0 | failed |
+| `ghcr.io/karakeep-app/karakeep:0.34.1@sha256:69ae5315c618b7c14c1af3e34c6e211acdb231793af424ecd1cab0b70691d987` | amd64, arm64 | 20 (4) | 538 | 0 infected (daily-28194) | 0 | unsigned |
+| `docker.io/getmeili/meilisearch:v1.41.0@sha256:860fa4baed04ae1c235de870edab0c8006227546dea1bbb6411fbfc5e27cf1db` | amd64, arm64 | 2 (2) | 32 | 0 infected (daily-28194) | 0 | failed |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

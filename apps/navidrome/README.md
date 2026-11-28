@@ -8,7 +8,7 @@
 | | |
 |---|---|
 | Version | 0.64.2 (upstream release `v0.64.2`, published 2026-09-24) |
-| Licence | `GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
+| Licence | `GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-28) |
 | Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | media |
 | GitHub | <https://github.com/navidrome/navidrome> |
@@ -66,10 +66,10 @@ From the upstream documentation, https://www.navidrome.org/docs/getting-started/
 
 ## Latest security scan
 
-Scanned 2026-11-21T15:04:24Z by `sdk/tools/app-gate`: **pass**. Licence `GPL-3.0` class L2; smoke test pass.
+Scanned 2026-11-28T16:17:05Z by `sdk/tools/app-gate`: **pass**. Licence `GPL-3.0` class L2; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `ghcr.io/navidrome/navidrome:0.64.2@sha256:38dc2727bfcfd5ede290f8ada114fc90368146f265ae4701ddddbcbe2a44ee52` | amd64, arm64 | 0 (0) | 29 | 0 infected (daily-28190) | 0 | unsigned |
+| `ghcr.io/navidrome/navidrome:0.64.2@sha256:38dc2727bfcfd5ede290f8ada114fc90368146f265ae4701ddddbcbe2a44ee52` | amd64, arm64 | 0 (0) | 37 | 0 infected (daily-28194) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.
