@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Legacy contacts and the claim process (gateway permissions design PR 25f, §3.13, D-028).
 
-Someone the owner names (up to 5, household or outside, added like a recovery contact: owner session,
-passkey step-up, signed invite, cooling-off) can get a **read-only export of the owner's personal
+Someone the owner names (up to 5, household or outside, with an owner action and passkey approval,
+signed invite and cooling-off) can get a **read-only export of the owner's personal
 data after the owner's death**. Apple has staff who check a death certificate; a OneMind box has
 nobody in the loop, so the claim rests on time, notices and the owner's own silence instead:
 
@@ -12,8 +12,9 @@ nobody in the loop, so the claim rests on time, notices and the owner's own sile
    cannot verify the certificate; it is kept for the household's adults and recorded, as evidence,
    never as a key.
 3. **The wait:** 30 days by default; the owner picks 14, 30, 60 or 90 when adding the contact.
-4. **Notices** at the start, every 7 days and on the last day, to every owner, every other recovery
-   and legacy contact and every household adult.
+4. **Notices** at the start, every 7 days and on the last day, to every owner, every recovery
+   and legacy contact and every household adult. After downtime, the latest due reminder is sent,
+   with the last-day reminder sent before processing the grant if the box missed that day.
 5. **Any sign-in by the owner cancels the claim at once,** and the claim completes only if the owner
    did not sign in, use a key, use one of their own personal access tokens or approve anything for the
    whole wait (Google's inactivity idea). Calls made with the owner's own personal token (`om_pat_`,
@@ -47,16 +48,21 @@ import secrets
 import stat
 import tarfile
 from collections.abc import Generator
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from sqlalchemy import DateTime, Index, String, select, text, update
+from sqlalchemy import DateTime, Index, String, cast, literal, or_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
+from ..actions import FeatureAction
 from ..auth import Principal
 from ..errors import ApiError
+from ..executors import ExecResult
+from ..files.errors import FilesError
+from ..files.paths import open_file_at
 from ..identity.crypto import new_id
 from ..identity.models import ApproverKeyRow, PasskeyRow, TokenRow, UserRow, iso
 from ..ledger import Base, utc
@@ -67,6 +73,7 @@ TS = DateTime(timezone=True)
 WAIT_OPTIONS = (14, 30, 60, 90)  # D-028: the owner picks 14 to 90; 30 by default
 DEFAULT_WAIT_DAYS = 30
 EXPORT_WINDOW = timedelta(days=365)  # D-028: 12 months; the data is never deleted afterwards
+INVITE_ACTION = "legacy.contact.add"
 NOTICE_EVERY = timedelta(days=7)
 # The gateway takes request bodies up to 256 KiB (guard.py); base64 grows a file by a third, so the phone app
 # sends a downsized photo or a small PDF. Chunked uploads of bigger files are a follow-up.
@@ -78,7 +85,7 @@ CERT_TYPES = {b"%PDF-": ("application/pdf", "pdf"), b"\xff\xd8\xff": ("image/jpe
 OPEN_STATES = ("waiting", "awaiting_second")
 LIVE_STATES = (*OPEN_STATES, "granted")  # every state the owner's return must end
 LEGACY_PATHS = [
-    re.compile(r"/v1/legacy/contact(/[a-z-]+)?"),
+    re.compile(r"/v1/legacy/contact(/notices|/resign)?"),
     re.compile(r"/v1/legacy/claims(/lcl_[0-9A-Z]{26}/confirm)?"),
     re.compile(r"/v1/legacy/export(/download)?"),
 ]
@@ -149,13 +156,51 @@ class LegacyContacts(RecoveryContacts):
         gw.events.subscribe("auth.login.succeeded", self._owner_signed_in)
 
     # ---- contacts ------------------------------------------------------------------------------------
-    def add_legacy(self, ctx, kind: str, display_name: str, household_user_id: str | None,
-                   cooling_off_days: int | None, wait_days: int | None) -> dict:
+    def register_actions(self) -> None:
+        self.gw.actions.register_type(INVITE_ACTION, FeatureAction(
+            risk="sensitive", requesters=frozenset(), run=self._approve_invite, owner_passkey=True,
+        ))
+
+    def request_invite(self, ctx, kind: str, display_name: str, household_user_id: str | None,
+                       cooling_off_days: int | None, wait_days: int | None) -> dict:
+        owner = self._session_owner(ctx, "request a legacy contact")
         wait = DEFAULT_WAIT_DAYS if wait_days is None else wait_days
         if wait not in WAIT_OPTIONS:
             raise ApiError(422, "conflict", f"wait_days must be one of {list(WAIT_OPTIONS)}", reason="not_an_option")
-        out = self.add(ctx, kind, display_name, household_user_id, cooling_off_days, extra={"wait_days": wait})
-        return {**out, "wait_days": wait}
+        target, name, days = self._invite_details(owner, ctx.principal, kind, display_name, household_user_id,
+                                                  cooling_off_days)
+        contact_id = new_id("rc")
+        action, _ = self.gw.actions.request_feature(
+            ctx.principal, INVITE_ACTION, {"contact_id": contact_id, "kind": kind, "target": name,
+                                          "household_user_id": target, "cooling_off_days": days, "wait_days": wait},
+            idempotency_key=contact_id, expires_at=self.now() + timedelta(minutes=15), pending_cap=True,
+        )
+        return {"action_id": action["id"], "contact_id": contact_id, "wait_days": wait}
+
+    def _approve_invite(self, action, finish) -> None:
+        owner = self.ident.user(action.requested_by["id"])
+        if owner is None or owner.disabled or owner.role != "owner":
+            finish(ExecResult("failed", "The requesting account is no longer an active owner."))
+            return
+        params = action.params
+        try:
+            self._issue_invite(owner, self.ident.principal_for(owner), params["kind"], params["target"],
+                               params["household_user_id"], params["cooling_off_days"], via="action_passkey",
+                               extra={"wait_days": params["wait_days"]}, contact_id=params["contact_id"],
+                               retain_invite=True)
+        except ApiError as e:
+            finish(ExecResult("failed", e.message))
+            return
+        finish(ExecResult("succeeded", "Legacy contact invited."))
+
+    def invite(self, ctx, contact_id: str) -> dict:
+        owner = self._session_owner(ctx, "read a legacy invite")
+        row = self._get(contact_id)
+        if (row is None or row.owner_user_id != owner.id or self.state_of(row) != "invited"
+                or row.sealed_secret is None):
+            raise ApiError(404, "not_found", "no pending legacy invite for this contact")
+        nonce = self.sealer.open(row.sealed_secret, f"invite:{row.id}").decode()
+        return self._invite_view(owner, row, nonce)
 
     def view(self, r: ContactRow) -> dict:
         return {**super().view(r), "wait_days": int((r.extra or {}).get("wait_days", DEFAULT_WAIT_DAYS))}
@@ -182,7 +227,7 @@ class LegacyContacts(RecoveryContacts):
         identity refuses on purpose (H-16: a cross-site page can make a browser send the cookie) and this
         code must not read itself. Such an accept is recorded as `accepted_signed_in: False`, and the
         household's claim view shows it, so owners and adults know the second person cannot be checked
-        against the claimant's account (see `_is_claimant`)."""
+        against the claimant's account (see `_contact_users`)."""
         token = _ACCEPTED_BY.set(self._session_user(request))
         try:
             return super().accept(request, invite_id, *args, **kwargs)
@@ -216,25 +261,40 @@ class LegacyContacts(RecoveryContacts):
         changes nothing (or, for a grant that commits first, the cancel still ends it). Returns whether this
         call made the change."""
         with self.db.session.begin() as s:
+            if values.get("state") == "granted":
+                # Serialize with Identity's owner activity writes. SQLite locks the writer and
+                # PostgreSQL locks this owner row until the grant transaction commits.
+                self._lock_owner(s, row.owner_user_id)
+                where += (~self._activity_after(row.owner_user_id, utc(row.created_at)),
+                          ~self._granted_before(row.owner_user_id, row.contact_id))
             done = s.execute(update(ClaimRow).where(ClaimRow.id == row.id, ClaimRow.state.in_(expect), *where)
                              .values(**values).returning(ClaimRow.id)).scalar()
         return done is not None
 
-    def _set_and_tell(self, c: ClaimRow, expect: tuple[str, ...], *where,
-                      event: str, data: dict, severity: str, **values) -> bool:
-        """Order grant and end writes with their notices across gateway workers on this box."""
+    @staticmethod
+    def _lock_owner(s, owner_id: str) -> None:
+        s.execute(update(UserRow).where(UserRow.id == owner_id).values(last_seen_at=UserRow.last_seen_at))
+
+    @contextmanager
+    def _claim_lock(self, claim_id: str):
+        """Order claim transitions with their notices across gateway workers on this box."""
         locks = self.dir / "claim-locks"
         locks.mkdir(parents=True, exist_ok=True, mode=0o700)
         # Every worker must lock the same inode, including workers that already opened it and are waiting.
-        fd = os.open(locks / c.id, os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+        fd = os.open(locks / claim_id, os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0o600)
         try:
             fcntl.flock(fd, fcntl.LOCK_EX)
-            if not self._set(c, expect, *where, **values):
-                return False
-            self.tell(c.owner_user_id, event, {"claim_id": c.id, **data}, severity=severity)
-            return True
+            yield
         finally:
             os.close(fd)
+
+    def _set_and_tell(self, c: ClaimRow, expect: tuple[str, ...], *where,
+                      event: str, data: dict, severity: str, p: Principal | None = None, **values) -> bool:
+        with self._claim_lock(c.id):
+            if not self._set(c, expect, *where, **values):
+                return False
+            self.tell(c.owner_user_id, event, {"claim_id": c.id, **data}, p, severity=severity)
+            return True
 
     def claim_view(self, c: ClaimRow, *, for_household: bool = False) -> dict:
         contact = self._get(c.contact_id)
@@ -260,13 +320,16 @@ class LegacyContacts(RecoveryContacts):
 
     def _second_people(self, owner_id: str, claimant: ContactRow) -> bool:
         """Is there someone who can confirm: another usable legacy contact, or an active household adult?"""
-        others = [r for r in self.usable(owner_id) if r.id != claimant.id]
+        if any(self._is_other_contact(claimant, r) for r in self.usable(owner_id)):
+            return True
         with self.db.session() as s:
             adults = list(s.scalars(select(UserRow.id).where(UserRow.role == "adult", UserRow.disabled.is_(False))))
-        # The same test that refuses a confirmer (_is_claimant), so "someone can confirm" is never true only
-        # because of the claimant's own account (accepted_by_user_id, a shared approver key).
-        adults = [a for a in adults if not self._is_claimant(claimant, a)]
-        return bool(others or adults)
+        return bool(set(adults) - self._contact_users(claimant))
+
+    def _is_other_contact(self, claimant: ContactRow, contact: ContactRow) -> bool:
+        return (claimant.id != contact.id
+                and not (claimant.key_fingerprint and claimant.key_fingerprint == contact.key_fingerprint)
+                and self._contact_users(claimant).isdisjoint(self._contact_users(contact)))
 
     def _check_key(self, contact: ContactRow, access_key: str) -> None:
         extra = contact.extra or {}
@@ -295,8 +358,11 @@ class LegacyContacts(RecoveryContacts):
         with self.db.session() as s:
             open_ = s.scalar(select(ClaimRow.id).where(ClaimRow.owner_user_id == contact.owner_user_id,
                                                        ClaimRow.state.in_(OPEN_STATES)))
+            previously_granted = s.scalar(select(self._granted_before(contact.owner_user_id, contact.id)))
         if open_ is not None:
             raise ApiError(409, "conflict", "a legacy claim for this owner is already open", reason="already_open")
+        if previously_granted:
+            raise self._export_already_granted()
         wait = int((contact.extra or {}).get("wait_days", DEFAULT_WAIT_DAYS))
         cid = new_id("lcl")
         path = self._cert_path(cid, ext)
@@ -311,16 +377,39 @@ class LegacyContacts(RecoveryContacts):
                        needs_second=self._second_people(contact.owner_user_id, contact),
                        certificate_type=ctype, certificate_sha256=hashlib.sha256(raw).hexdigest(),
                        notices_sent=["start"])
-        try:
-            with self.db.session.begin() as s:
-                s.add(row)
-        except IntegrityError:  # a simultaneous claim won the one-open-claim index
-            path.unlink(missing_ok=True)
-            raise ApiError(409, "conflict", "a legacy claim for this owner is already open",
-                           reason="already_open") from None
-        self.tell(contact.owner_user_id, "legacy.claim.started",
-                  {"claim_id": cid, "contact_id": contact.id, "ends_at": iso(row.ends_at)}, p, severity="critical")
+        with self._claim_lock(cid):
+            try:
+                with self.db.session.begin() as s:
+                    self._lock_owner(s, row.owner_user_id)
+                    if s.scalar(select(self._granted_before(row.owner_user_id, row.contact_id))):
+                        raise self._export_already_granted()
+                    s.add(row)
+            except IntegrityError:  # a simultaneous claim won the one-open-claim index
+                path.unlink(missing_ok=True)
+                raise ApiError(409, "conflict", "a legacy claim for this owner is already open",
+                               reason="already_open") from None
+            except ApiError:
+                path.unlink(missing_ok=True)
+                raise
+            self.tell(contact.owner_user_id, "legacy.claim.started",
+                      {"claim_id": cid, "contact_id": contact.id, "ends_at": iso(row.ends_at)}, p, severity="critical")
         return self.claim_view(row)
+
+    @staticmethod
+    def _granted_before(owner_id: str, contact_id: str):
+        # One export per authorization (contact/key), and at most one grant for a silent owner.
+        # After returning, the owner can end the prior grant and approve a new contact and key.
+        # Use a separate alias so this also works inside a ClaimRow UPDATE.
+        past = ClaimRow.__table__.alias()
+        return select(past.c.id).where(
+            past.c.owner_user_id == owner_id, past.c.granted_at.is_not(None),
+            or_(past.c.contact_id == contact_id, past.c.state == "granted"),
+        ).exists()
+
+    @staticmethod
+    def _export_already_granted() -> ApiError:
+        return ApiError(409, "conflict", "the owner must authorize a new contact for another legacy export",
+                        reason="export_already_granted")
 
     def _certificate(self, cert_type: str, cert_b64: str) -> tuple[str, str, bytes]:
         try:
@@ -376,20 +465,19 @@ class LegacyContacts(RecoveryContacts):
         self.gw.audit.append("legacy.claim.certificate_read", p.as_dict(), None, {"claim_id": claim_id})
         return data
 
-    def cancel(self, p: Principal, claim_id: str, block: bool) -> dict:
+    def cancel(self, ctx, claim_id: str, block: bool) -> dict:
         """The owner stops a claim (and, with block, removes that contact). L0: it only takes power away."""
-        if not p.is_owner:
-            raise self.ident.deny(p, "cancel a legacy claim", reason="owner_only")
+        owner = self._session_owner(ctx, "cancel a legacy claim")
         c = self._claim(claim_id)
         if c is None:
             raise ApiError(404, "not_found", "no such claim")
         if c.state in LIVE_STATES:
-            c = self._end_claim(c, "cancelled", "owner_cancelled", p.id)
+            c = self._end_claim(c, "cancelled", "owner_cancelled", owner.id)
         if block:
             contact = self._get(c.contact_id)
             if contact is not None and contact.state in ("invited", "active"):
                 self._end(contact, "removed")
-                self.tell(c.owner_user_id, "legacy.contact.removed", {"contact_id": contact.id}, p)
+                self.tell(c.owner_user_id, "legacy.contact.removed", {"contact_id": contact.id}, ctx.principal)
         return self.claim_view(c, for_household=True)
 
     def _end_claim(self, c: ClaimRow, state: str, reason: str, by: str | None,
@@ -406,24 +494,24 @@ class LegacyContacts(RecoveryContacts):
         c = self._claim(claim_id)
         if c is None:
             raise ApiError(404, "not_found", "no such claim")
+        claimant = self._get(c.contact_id)
         if contact is not None:
-            if contact.owner_user_id != c.owner_user_id or contact.id == c.contact_id \
+            if claimant is None or contact.owner_user_id != c.owner_user_id \
+                    or not self._is_other_contact(claimant, contact) \
                     or self.state_of(contact) != "active":
                 raise self.ident.deny(p, "confirm this legacy claim", reason="not_a_second_person")
-        else:
-            claimant = self._get(c.contact_id)
-            if claimant is not None and self._is_claimant(claimant, p.id):
-                raise self.ident.deny(p, "confirm your own legacy claim", reason="not_a_second_person")
+        elif claimant is None or p.id in self._contact_users(claimant):
+            raise self.ident.deny(p, "confirm your own legacy claim", reason="not_a_second_person")
         if c.state not in OPEN_STATES:
             raise ApiError(409, "conflict", f"this claim is {c.state}", reason=c.state)
-        if c.second_at is None and self._set(c, OPEN_STATES, ClaimRow.second_at.is_(None),
-                                             second_by=p.id, second_at=self.now()):
-            self.tell(c.owner_user_id, "legacy.claim.confirmed", {"claim_id": c.id}, p, severity="warning")
+        if c.second_at is None:
+            self._set_and_tell(c, OPEN_STATES, ClaimRow.second_at.is_(None), second_by=p.id, second_at=self.now(),
+                               event="legacy.claim.confirmed", data={}, severity="warning", p=p)
         self.tick()
         return self.claim_view(self._claim(c.id))
 
-    def _is_claimant(self, claimant: ContactRow, user_id: str) -> bool:
-        """Is this household account the claimant itself? Refused when it is:
+    def _contact_users(self, contact: ContactRow) -> set[str]:
+        """Known household accounts of this contact:
         1. linked as the claimant's household contact;
         2. the account that was signed in on the device that accepted the claimant's invite; or
         3. holding the claimant's contact key as one of its approver keys.
@@ -435,13 +523,13 @@ class LegacyContacts(RecoveryContacts):
         and the confirmer side by side and flags a claimant who accepted signed out
         (`claimant_accepted_signed_in: false`); every owner is told of the confirmation (the event carries the confirmer's account);
         and the wait and the owner-silence check (any sign-in ends the claim, granted or not) still stand."""
-        if claimant.household_user_id == user_id or (claimant.extra or {}).get("accepted_by_user_id") == user_id:
-            return True
-        if not claimant.key_fingerprint:
-            return False
-        with self.db.session() as s:
-            return s.scalar(select(ApproverKeyRow.id).where(ApproverKeyRow.user_id == user_id,
-                                                            ApproverKeyRow.fingerprint == claimant.key_fingerprint)) is not None
+        users = {contact.household_user_id, (contact.extra or {}).get("accepted_by_user_id")}
+        users.discard(None)
+        if contact.key_fingerprint:
+            with self.db.session() as s:
+                users.update(s.scalars(select(ApproverKeyRow.user_id)
+                                       .where(ApproverKeyRow.fingerprint == contact.key_fingerprint)))
+        return users
 
     # ---- the owner's own activity ----------------------------------------------------------------------
     def _owner_signed_in(self, envelope: dict) -> None:
@@ -457,15 +545,19 @@ class LegacyContacts(RecoveryContacts):
 
     def _owner_active_since(self, owner_id: str, since: datetime) -> bool:
         with self.db.session() as s:
-            u = s.get(UserRow, owner_id)
-            key = s.scalar(select(PasskeyRow.id).where(PasskeyRow.user_id == owner_id, PasskeyRow.last_used_at > since))
-            apk = s.scalar(select(ApproverKeyRow.id).where(ApproverKeyRow.user_id == owner_id,
-                                                           ApproverKeyRow.last_used_at > since))
-            # The owner's own personal tokens (kind person) touch only the token row, never the user row.
-            pat = s.scalar(select(TokenRow.id).where(TokenRow.kind == "person", TokenRow.owner_user_id == owner_id,
-                                                     TokenRow.last_used_at > since))
-        seen = u is not None and u.last_seen_at is not None and utc(u.last_seen_at) > since
-        return seen or key is not None or apk is not None or pat is not None
+            return bool(s.scalar(select(self._activity_after(owner_id, since))))
+
+    @staticmethod
+    def _activity_after(owner_id: str, since: datetime):
+        # Keep using previously persisted activity, alongside the unthrottled owner watermark.
+        return or_(
+            select(UserRow.id).where(UserRow.id == owner_id, UserRow.last_seen_at > since).exists(),
+            select(PasskeyRow.id).where(PasskeyRow.user_id == owner_id, PasskeyRow.last_used_at > since).exists(),
+            select(ApproverKeyRow.id).where(ApproverKeyRow.user_id == owner_id,
+                                           ApproverKeyRow.last_used_at > since).exists(),
+            select(TokenRow.id).where(TokenRow.kind == "person", TokenRow.owner_user_id == owner_id,
+                                      TokenRow.last_used_at > since).exists(),
+        )
 
     def _contact_ended(self, contact: ContactRow) -> None:
         if contact.role != "legacy":
@@ -484,43 +576,48 @@ class LegacyContacts(RecoveryContacts):
         with self.db.session() as s:
             rows = list(s.scalars(select(ClaimRow).where(ClaimRow.state.in_(LIVE_STATES))))
         for c in rows:
-            if c.state == "granted":  # the owner came back after the grant: the export ends
-                if c.granted_at is not None and self._owner_active_since(c.owner_user_id, utc(c.granted_at)):
-                    self._end_claim(c, "cancelled", "owner_active", None, expect=("granted",))
-                    done += 1
-                continue
             start = utc(c.created_at)
             if self._owner_active_since(c.owner_user_id, start):
-                self._end_claim(c, "cancelled", "owner_active", None, expect=OPEN_STATES)
+                self._end_claim(c, "cancelled", "owner_active", None)
                 done += 1
                 continue
-            if now < utc(c.ends_at):
-                due = [f"week{n}" for n in range(1, int((now - start) / NOTICE_EVERY) + 1)]
-                if utc(c.ends_at) - now <= timedelta(days=1):
-                    due.append("last_day")
-                new = [d for d in due if d not in (c.notices_sent or [])]
-                if new and self._set(c, ("waiting",), notices_sent=[*(c.notices_sent or []), *new]):
-                    self.tell(c.owner_user_id, "legacy.claim.reminder",
-                              {"claim_id": c.id, "ends_at": iso(c.ends_at), "notice": new[-1]}, severity="critical")
-                    done += 1
+            if c.state == "granted":
+                continue
+            end = utc(c.ends_at)
+            sent = c.notices_sent or []
+            due = [f"week{n}" for n in range(1, int((min(now, end) - start) / NOTICE_EVERY) + 1)]
+            if end - now <= timedelta(days=1):
+                due.append("last_day")
+            new = [d for d in due if d not in sent]
+            reminded = bool(new) and self._set_and_tell(
+                c, OPEN_STATES, cast(ClaimRow.notices_sent, String) == cast(literal(c.notices_sent, type_=JSON), String),
+                notices_sent=[*sent, *new], event="legacy.claim.reminder",
+                data={"ends_at": iso(c.ends_at), "notice": new[-1]}, severity="critical",
+            )
+            if now < end:
+                done += int(reminded)
                 continue
             if c.second_at is None:
                 claimant = self._get(c.contact_id)
-                if claimant is None or self._second_people(c.owner_user_id, claimant):
-                    if (c.state != "awaiting_second" or not c.needs_second) and self._set(
+                if claimant is None:
+                    self._end_claim(c, "cancelled", "contact_ended", None, expect=OPEN_STATES)
+                    done += 1
+                    continue
+                if self._second_people(c.owner_user_id, claimant):
+                    awaiting = (c.state != "awaiting_second" or not c.needs_second) and self._set_and_tell(
                         c, (c.state,), ClaimRow.needs_second.is_(c.needs_second), ClaimRow.second_at.is_(None),
-                        state="awaiting_second", needs_second=True,
-                    ):
-                        self.tell(c.owner_user_id, "legacy.claim.awaiting_second", {"claim_id": c.id},
-                                  severity="warning")
-                        done += 1
+                        state="awaiting_second", needs_second=True, event="legacy.claim.awaiting_second",
+                        data={}, severity="warning",
+                    )
+                    done += int(reminded or awaiting)
                     continue
                 if c.needs_second:
                     # Everyone who could confirm was disabled or removed during the wait.
-                    if not self._set(c, (c.state,), ClaimRow.needs_second.is_(True), ClaimRow.second_at.is_(None),
-                                     needs_second=False):
+                    if not self._set_and_tell(
+                        c, (c.state,), ClaimRow.needs_second.is_(True), ClaimRow.second_at.is_(None),
+                        needs_second=False, event="legacy.claim.no_second_person", data={}, severity="warning",
+                    ):
                         continue
-                    self.tell(c.owner_user_id, "legacy.claim.no_second_person", {"claim_id": c.id}, severity="warning")
             # Only from an open state, and only with the second person's confirmation when one is needed:
             # a sign-in cancel that committed first leaves this write with nothing to change (no grant, no
             # notice); one that commits after it ends the fresh grant (LIVE_STATES includes granted).
@@ -529,6 +626,17 @@ class LegacyContacts(RecoveryContacts):
                                   event="legacy.claim.granted", data={"access_until": iso(access_until)},
                                   severity="critical", state="granted", granted_at=now, access_until=access_until):
                 done += 1
+            else:
+                # A qualifying activity write or a prior grant can win after the initial read.
+                if self._owner_active_since(c.owner_user_id, start):
+                    self._end_claim(c, "cancelled", "owner_active", None, expect=OPEN_STATES)
+                    done += 1
+                else:
+                    with self.db.session() as s:
+                        replay = s.scalar(select(self._granted_before(c.owner_user_id, c.contact_id)))
+                    if replay:
+                        self._end_claim(c, "cancelled", "export_already_granted", None, expect=OPEN_STATES)
+                        done += 1
         return done
 
     # ---- the read-only export -----------------------------------------------------------------------------
@@ -536,13 +644,13 @@ class LegacyContacts(RecoveryContacts):
         self.tick()
         with self.db.session() as s:
             c = s.scalar(select(ClaimRow).where(ClaimRow.contact_id == contact.id, ClaimRow.state == "granted")
-                         .order_by(ClaimRow.granted_at.desc()))
+                         .order_by(ClaimRow.granted_at))
         return self._check_export_access(c)
 
     def _check_export_access(self, c: ClaimRow | None) -> ClaimRow:
         if c is None or c.state != "granted":
             raise ApiError(403, "permission_denied", "no granted legacy claim", reason="no_granted_claim")
-        if c.granted_at is None or self._owner_active_since(c.owner_user_id, utc(c.granted_at)):
+        if c.granted_at is None or self._owner_active_since(c.owner_user_id, utc(c.created_at)):
             self._end_claim(c, "cancelled", "owner_active", None, expect=("granted",))
             raise ApiError(403, "permission_denied", "the owner was active after the grant; the claim has ended",
                            reason="owner_active")
@@ -551,7 +659,7 @@ class LegacyContacts(RecoveryContacts):
                            reason="export_window_ended")
         return c
 
-    def _walk(self, owner_id: str):
+    def _walk(self, owner_id: str, *, check=None):
         """(relative path, size, dir fd, name) of every regular file in the owner's Files home, without
         following a symlink anywhere (os.fwalk on directory descriptors)."""
         from ..files.access import Root
@@ -561,7 +669,11 @@ class LegacyContacts(RecoveryContacts):
             raise ApiError(503, "unavailable", "the files service is not available", reason="files_unavailable")
         with files._space(Root("home", owner_id)) as home:
             for top, _dirs, names, dfd in os.fwalk(".", dir_fd=home, follow_symlinks=False):
+                if check is not None:
+                    check()
                 for name in sorted(names):
+                    if check is not None:
+                        check()
                     try:
                         st = os.stat(name, dir_fd=dfd, follow_symlinks=False)
                     except OSError:
@@ -572,10 +684,16 @@ class LegacyContacts(RecoveryContacts):
 
     def manifest(self, contact: ContactRow, p: Principal) -> dict:
         c = self.granted_claim(contact)
-        items = [{"path": rel, "size": size} for rel, size, _fd, _n in self._walk(c.owner_user_id)]
+
+        def check():
+            self._check_export_access(self._claim(c.id))
+
+        items = [{"path": rel, "size": size} for rel, size, _fd, _n in self._walk(c.owner_user_id, check=check)]
+        out = {"claim_id": c.id, "access_until": iso(c.access_until), "files": items,
+               "total_bytes": sum(i["size"] for i in items), "read_only": True}
+        check()
         self.gw.audit.append("legacy.export.listed", p.as_dict(), None, {"claim_id": c.id, "files": len(items)})
-        return {"claim_id": c.id, "access_until": iso(c.access_until), "files": items,
-                "total_bytes": sum(i["size"] for i in items), "read_only": True}
+        return out
 
     def archive(self, contact: ContactRow, p: Principal) -> Generator[bytes, None, None]:
         """A tar of the owner's Files home, streamed: nothing is staged on disk or in RAM beyond one block.
@@ -597,12 +715,11 @@ class LegacyContacts(RecoveryContacts):
             except BlockingIOError:
                 raise ApiError(409, "conflict", "a download for this contact is already running",
                                reason="download_running") from None
-            total = 0
-            for _rel, size, _fd, _n in self._walk(c.owner_user_id):
-                total += size
-                if total > MAX_EXPORT_BYTES:
-                    raise ApiError(413, "payload_too_large", "the export is larger than one download; use a USB copy",
-                                   reason="export_too_large")
+            total = 1024  # the two terminating TAR blocks
+            for rel, size, _fd, _n in self._walk(c.owner_user_id):
+                header, padding = self._tar_entry(rel, size)
+                total += len(header) + size + padding
+                self._check_export_size(total)
             self._check_export_access(self._claim(c.id))
             self.gw.audit.append("legacy.export.downloaded", p.as_dict(), None, {"claim_id": c.id, "bytes": total})
             yield b""  # Readiness marker consumed by archive(), before any response bytes.
@@ -616,17 +733,19 @@ class LegacyContacts(RecoveryContacts):
 
     def _stream(self, c: ClaimRow) -> Generator[bytes, None, None]:
         block = 1 << 20
+        total = 1024
         for rel, _size, dfd, name in self._walk(c.owner_user_id):
             self._check_export_access(self._claim(c.id))
             try:
-                fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=dfd)
-            except OSError:
+                fd, st = open_file_at(dfd, name)
+            except FilesError:
                 continue
             with os.fdopen(fd, "rb") as f:
-                size = os.fstat(f.fileno()).st_size
-                info = tarfile.TarInfo(rel)
-                info.size, info.mode = size, 0o644
-                yield info.tobuf(tarfile.PAX_FORMAT)
+                size = st.st_size
+                header, padding = self._tar_entry(rel, size)
+                total += len(header) + size + padding
+                self._check_export_size(total)
+                yield header
                 left = size
                 while left > 0:  # exactly `size` bytes, so the tar stays valid if the file changes meanwhile
                     self._check_export_access(self._claim(c.id))
@@ -635,7 +754,19 @@ class LegacyContacts(RecoveryContacts):
                         data = b"\0" * min(block, left)
                     left -= len(data)
                     yield data
-                if size % 512:
-                    yield b"\0" * (512 - size % 512)
+                if padding:
+                    yield b"\0" * padding
         self._check_export_access(self._claim(c.id))
         yield b"\0" * 1024
+
+    @staticmethod
+    def _tar_entry(rel: str, size: int) -> tuple[bytes, int]:
+        info = tarfile.TarInfo(rel)
+        info.size, info.mode = size, 0o644
+        return info.tobuf(tarfile.PAX_FORMAT), -size % 512
+
+    @staticmethod
+    def _check_export_size(total: int) -> None:
+        if total > MAX_EXPORT_BYTES:
+            raise ApiError(413, "payload_too_large", "the export is larger than one download; use a USB copy",
+                           reason="export_too_large")

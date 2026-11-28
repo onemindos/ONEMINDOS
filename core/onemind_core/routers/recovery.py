@@ -249,6 +249,12 @@ class LegacyView(ContactView):
     wait_days: int
 
 
+class LegacyInviteRequest(BaseModel):
+    action_id: str
+    contact_id: str
+    wait_days: int
+
+
 class LegacyAdded(LegacyView):
     invite: str
     box_key_fingerprint: str
@@ -323,6 +329,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     app.state.recoveries = rec
     legacy = LegacyContacts(gw, ident)
     register_legacy_paths()
+    legacy.register_actions()
     legacy.files = lambda: getattr(app.state, "files_service", None)
     app.state.legacy_contacts = legacy
     ticker = Ticker([rec.tick, legacy.tick])
@@ -484,16 +491,24 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def legacy_list(request: Request, _: Principal = Depends(principal)):
         return legacy.list(ctx_of(request))
 
-    @app.post("/v1/auth/legacy/contacts", operation_id="legacy.contacts.add", tags=TAGS, status_code=201,
-              response_model=LegacyAdded, responses=R(401, 403, 409, 422), openapi_extra=OWNER_SECURITY)
+    @app.post("/v1/auth/legacy/contacts", operation_id="legacy.contacts.add", tags=TAGS, status_code=202,
+              response_model=LegacyInviteRequest, responses=R(401, 403, 409, 422, 429), openapi_extra=OWNER_SECURITY)
     def legacy_add(body: LegacyAddBody, request: Request, _: Principal = Depends(principal)):
-        """Name a legacy contact (up to 5): owner session plus the passkey step-up; the claim wait is yours to pick."""
-        return legacy.add_legacy(ctx_of(request), body.kind, body.display_name, body.household_user_id,
-                                 body.cooling_off_days, body.wait_days)
+        """Queue an invite for passkey approval by the requesting owner in the gateway's approvals."""
+        return legacy.request_invite(ctx_of(request), body.kind, body.display_name, body.household_user_id,
+                                     body.cooling_off_days, body.wait_days)
+
+    @app.get("/v1/auth/legacy/contacts/{contact_id}/invite", operation_id="legacy.contacts.invite", tags=TAGS,
+             response_model=LegacyAdded, responses=R(401, 403, 404), openapi_extra=OWNER_SECURITY)
+    def legacy_invite(contact_id: str, request: Request, response: Response, _: Principal = Depends(principal)):
+        """Read your approved, unaccepted legacy invite from an owner session."""
+        response.headers["Cache-Control"] = "no-store"
+        return legacy.invite(ctx_of(request), contact_id)
 
     @app.delete("/v1/auth/legacy/contacts/{contact_id}", operation_id="legacy.contacts.remove", tags=TAGS,
                 response_model=LegacyView, responses=R(401, 403, 404), openapi_extra=OWNER_SECURITY)
     def legacy_remove(contact_id: str, request: Request, _: Principal = Depends(principal)):
+        """Revoke a legacy contact immediately from an owner session (L0)."""
         return legacy.remove(ctx_of(request), contact_id)
 
     @app.get("/v1/auth/legacy/invitations", operation_id="legacy.invitations.list", tags=TAGS,
@@ -520,9 +535,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.post("/v1/auth/legacy/claims/{claim_id}/cancel", operation_id="legacy.claims.cancel", tags=TAGS,
               response_model=ClaimView, responses=R(401, 403, 404), openapi_extra=OWNER_SECURITY)
     def household_cancel(claim_id: str, request: Request, body: CancelClaimBody | None = None,
-                         p: Principal = Depends(principal)):
-        """Stop a claim (any owner, L0); with block, also remove that legacy contact."""
-        return legacy.cancel(p, claim_id, bool(body and body.block))
+                         _: Principal = Depends(principal)):
+        """Stop a claim immediately from an owner session (L0); with block, also remove that contact."""
+        return legacy.cancel(ctx_of(request), claim_id, bool(body and body.block))
 
     @app.post("/v1/auth/legacy/claims/{claim_id}/confirm", operation_id="legacy.claims.confirm_adult", tags=TAGS,
               response_model=ClaimView, responses=R(401, 403, 404, 409), openapi_extra=HOUSEHOLD_SECURITY)
@@ -543,6 +558,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
              responses=R(401, 403), openapi_extra=LEGACY_SECURITY)
     def legacy_self(request: Request, p: Principal = Depends(principal)):
         return legacy.contact_view(legacy.contact_row(request, p))
+
+    @app.get("/v1/legacy/contact/notices", operation_id="legacy.contact.notices", tags=TAGS,
+             response_model=list[Notice], responses=R(401, 403), openapi_extra=LEGACY_SECURITY)
+    def legacy_notices(request: Request, p: Principal = Depends(principal)):
+        """Recovery and claim notices for your owner since you accepted your legacy invite."""
+        return legacy.notices(legacy.contact_row(request, p))
 
     @app.post("/v1/legacy/contact/resign", operation_id="legacy.contact.resign", tags=TAGS,
               response_model=LegacySelf, responses=R(401, 403), openapi_extra=LEGACY_SECURITY)

@@ -9,12 +9,14 @@
 // 25f: legacy contacts (a read-only copy of your files after your death, after a wait you pick) and the
 // household's view of claims: owners cancel (and may block), an adult can be the second person.
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router';
 import { OneMind, OneMindError, type components } from '@onemind/sdk';
 import { Button, Card } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { useShell } from '../shell/Shell';
+import { href } from '../shell/routes';
 
 type Contact = components['schemas']['ContactView'];
 type Added = components['schemas']['ContactAdded'];
@@ -23,6 +25,7 @@ type Invitation = components['schemas']['Invitation'];
 type Recovery = components['schemas']['RecoveryView'];
 type Legacy = components['schemas']['LegacyView'];
 type LegacyAdded = components['schemas']['LegacyAdded'];
+type LegacyInviteRequest = components['schemas']['LegacyInviteRequest'];
 type Claim = components['schemas']['ClaimView'];
 const WAIT_LABEL: Record<string, string> = { contact_wait_hours: 'Wait after a contact confirms', remote_wait_hours: 'Wait with no contact' };
 
@@ -195,6 +198,7 @@ function LegacyContacts() {
   const [name, setName] = useState('');
   const [wait, setWait] = useState(30);
   const [invite, setInvite] = useState<LegacyAdded | null>(null);
+  const [approval, setApproval] = useState<string>();
   const [error, setError] = useState('');
   const act = async (job: () => Promise<unknown>) => {
     setError('');
@@ -212,6 +216,11 @@ function LegacyContacts() {
           {list.data.map((c) => (
             <li key={c.id}>
               <strong>{c.display_name}</strong> · {STATE[c.state] ?? c.state} · claim waits {c.wait_days} days
+              {c.state === 'invited' && (
+                <Button size="sm" variant="ghost" aria-label={`Show legacy invite for ${c.display_name}`} onClick={() => void act(async () => {
+                  setInvite(await sdk.call<LegacyAdded>({ method: 'GET', path: `/v1/auth/legacy/contacts/${encodeURIComponent(c.id)}/invite` }));
+                })}>Show invite</Button>
+              )}
               {(c.state === 'invited' || c.state === 'cooling_off' || c.state === 'active') && (
                 <Button size="sm" variant="ghost" aria-label={`Remove legacy contact ${c.display_name}`} onClick={() => void act(() => sdk.call({ method: 'DELETE', path: `/v1/auth/legacy/contacts/${encodeURIComponent(c.id)}` }))}>Remove</Button>
               )}
@@ -219,15 +228,20 @@ function LegacyContacts() {
           ))}
         </ul>
       )}
-      <form onSubmit={(e) => { e.preventDefault(); void act(async () => { setInvite(await sdk.call<LegacyAdded>({ method: 'POST', path: '/v1/auth/legacy/contacts', body: { kind: 'outside', display_name: name.trim(), wait_days: wait } })); setName(''); }); }}>
+      <form onSubmit={(e) => { e.preventDefault(); void act(async () => {
+        const queued = await sdk.call<LegacyInviteRequest>({ method: 'POST', path: '/v1/auth/legacy/contacts', body: { kind: 'outside', display_name: name.trim(), wait_days: wait } });
+        setApproval(queued.action_id);
+        setName('');
+      }); }}>
         <label>Legacy contact name <input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} required /></label>
         <label>Claim wait{' '}
           <select aria-label="Claim wait" value={wait} onChange={(e) => setWait(Number(e.target.value))}>
             {[14, 30, 60, 90].map((d) => <option key={d} value={d}>{d} days</option>)}
           </select>
         </label>
-        <Button type="submit" size="sm" icon="plus">Invite legacy contact</Button>
+        <Button type="submit" size="sm" icon="plus">Request legacy invite</Button>
       </form>
+      {approval && <p role="status"><Link to={href.approval(approval)}>Review legacy invite</Link> with your passkey. Then return here to copy it.</p>}
       {invite && (
         <div role="region" aria-label="Legacy invite to send">
           <p>Send this invite to {invite.display_name}; they open it in the OneMind phone app, which keeps their access key.</p>

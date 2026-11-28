@@ -184,7 +184,7 @@ class RecoveryContacts:
         user = self._session_owner(ctx, f"list {self.noun}s")
         return [self.view(r) for r in self._rows(user.id)]
 
-    def _check_household(self, ctx: AuthContext, owner: UserRow, user_id: str | None) -> UserRow:
+    def _check_household(self, p: Principal, owner: UserRow, user_id: str | None) -> UserRow:
         target = self.ident.user(user_id) if user_id else None
         if target is None or target.disabled:
             raise ApiError(422, "conflict", "household_user_id: no such active household account", reason="no_such_person")
@@ -192,7 +192,7 @@ class RecoveryContacts:
             raise ApiError(422, "conflict", f"you cannot be your own {self.noun}", reason="self")
         if target.role not in HOUSEHOLD_CONTACT_ROLES:
             self.ident.emit("authz", "denied", {"attempted": f"add a {self.noun}", "reason": "role_not_allowed",
-                                                "target_role": target.role}, ctx.principal, severity="warning")
+                                                "target_role": target.role}, p, severity="warning")
             raise ApiError(422, "conflict", f"a {self.noun} in the household must be an adult (not a child, teen or guest)",
                            reason="role_not_allowed")
         return target
@@ -201,6 +201,11 @@ class RecoveryContacts:
             cooling_off_days: int | None, extra: dict | None = None) -> dict:
         owner = self._session_owner(ctx, f"add a {self.noun}")
         via = self.ident.require_step_up(ctx, ctx.principal, f"add a {self.noun}")
+        return self._issue_invite(owner, ctx.principal, kind, display_name, household_user_id, cooling_off_days,
+                                  via=via, extra=extra)
+
+    def _invite_details(self, owner: UserRow, p: Principal, kind: str, display_name: str,
+                        household_user_id: str | None, cooling_off_days: int | None) -> tuple[str | None, str, int]:
         if kind not in CONTACT_KINDS:
             raise ApiError(422, "conflict", "kind must be household or outside")
         days = cooling_off_days if cooling_off_days is not None else self.settings(owner.id)["values"]["cooling_off_days"]
@@ -209,7 +214,7 @@ class RecoveryContacts:
                            reason="not_an_option")
         target = None
         if kind == "household":
-            target = self._check_household(ctx, owner, household_user_id)
+            target = self._check_household(p, owner, household_user_id)
             name = target.display_name[:60]
         else:
             if household_user_id is not None:
@@ -221,18 +226,32 @@ class RecoveryContacts:
             raise ApiError(422, "conflict", f"at most {MAX_CONTACTS} {self.noun}s; remove one first", reason="too_many")
         if target is not None and any(r.household_user_id == target.id for r in live):
             raise ApiError(409, "conflict", f"{target.display_name} is already a {self.noun}", reason="already_a_contact")
-        cid, nonce = new_id("rc"), secrets.token_urlsafe(16)
+        return target.id if target else None, name, days
+
+    def _issue_invite(self, owner: UserRow, p: Principal, kind: str, display_name: str, household_user_id: str | None,
+                      cooling_off_days: int | None, *, via: str, extra: dict | None = None,
+                      contact_id: str | None = None, retain_invite: bool = False) -> dict:
+        target, name, days = self._invite_details(owner, p, kind, display_name, household_user_id, cooling_off_days)
+        now = self.now()
+        cid, nonce = contact_id or new_id("rc"), secrets.token_urlsafe(16)
         expires = now + INVITE_TTL
         row = ContactRow(id=cid, owner_user_id=owner.id, role=self.role, kind=kind,
-                         household_user_id=target.id if target else None, display_name=name, state="invited",
+                         household_user_id=target, display_name=name, state="invited",
                          invite_nonce_hash=nonce_hash(nonce), invited_at=now, invite_expires_at=expires,
                          cooling_off_days=days, extra=dict(extra or {}))
+        if retain_invite:
+            # The invited row holds the nonce sealed for the owner's invite pickup. Accept
+            # replaces it with the contact's sealed secret, and removal clears it.
+            row.sealed_secret = self.sealer.seal(nonce.encode(), f"invite:{cid}")
         with self.db.session.begin() as s:
             s.add(row)
-        invite = self.box.sign_invite(invite_id=cid, nonce=nonce, owner=owner.display_name[:100], role=self.role,
-                                      expires_at=expires)
-        self.tell(owner.id, f"{self.role}.contact.invited", {"contact_id": cid, "kind": kind}, ctx.principal,
+        self.tell(owner.id, f"{self.role}.contact.invited", {"contact_id": cid, "kind": kind}, p,
                   audit_only={"household_user_id": row.household_user_id, "cooling_off_days": days, "via": via})
+        return self._invite_view(owner, row, nonce)
+
+    def _invite_view(self, owner: UserRow, row: ContactRow, nonce: str) -> dict:
+        invite = self.box.sign_invite(invite_id=row.id, nonce=nonce, owner=owner.display_name[:100], role=self.role,
+                                      expires_at=utc(row.invite_expires_at))
         return {**self.view(row), "invite": invite, "box_key_fingerprint": self.box.fingerprint}
 
     def remove(self, ctx: AuthContext | None, contact_id: str) -> dict:

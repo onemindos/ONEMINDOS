@@ -174,6 +174,7 @@ HUMAN_ONLY: dict[str, str] = {
     # Legacy contacts and claims (25f): access to a person's data after death; never an agent tool.
     "GET /v1/auth/legacy/contacts": CREDENTIAL,
     "POST /v1/auth/legacy/contacts": CREDENTIAL,
+    "GET /v1/auth/legacy/contacts/{contact_id}/invite": CREDENTIAL,
     "DELETE /v1/auth/legacy/contacts/{contact_id}": CREDENTIAL,
     "GET /v1/auth/legacy/invitations": CREDENTIAL,
     "GET /v1/auth/legacy/claims": CREDENTIAL,
@@ -182,6 +183,7 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/auth/legacy/claims/{claim_id}/confirm": CREDENTIAL,
     "POST /v1/legacy/invites/{invite_id}/accept": CREDENTIAL,
     "GET /v1/legacy/contact": CREDENTIAL,
+    "GET /v1/legacy/contact/notices": CREDENTIAL,
     "POST /v1/legacy/contact/resign": CREDENTIAL,
     "GET /v1/legacy/claims": CREDENTIAL,
     "POST /v1/legacy/claims": CREDENTIAL,

@@ -8036,6 +8036,29 @@
         "title": "LegacyAdded",
         "type": "object"
       },
+      "LegacyInviteRequest": {
+        "properties": {
+          "action_id": {
+            "title": "Action Id",
+            "type": "string"
+          },
+          "contact_id": {
+            "title": "Contact Id",
+            "type": "string"
+          },
+          "wait_days": {
+            "title": "Wait Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "action_id",
+          "contact_id",
+          "wait_days"
+        ],
+        "title": "LegacyInviteRequest",
+        "type": "object"
+      },
       "LegacySelf": {
         "properties": {
           "accepted_at": {
@@ -23377,7 +23400,7 @@
     },
     "/v1/auth/legacy/claims/{claim_id}/cancel": {
       "post": {
-        "description": "Stop a claim (any owner, L0); with block, also remove that legacy contact.",
+        "description": "Stop a claim immediately from an owner session (L0); with block, also remove that contact.",
         "operationId": "legacy.claims.cancel",
         "parameters": [
           {
@@ -23705,7 +23728,7 @@
         ]
       },
       "post": {
-        "description": "Name a legacy contact (up to 5): owner session plus the passkey step-up; the claim wait is yours to pick.",
+        "description": "Queue an invite for passkey approval by the requesting owner in the gateway's approvals.",
         "operationId": "legacy.contacts.add",
         "requestBody": {
           "content": {
@@ -23718,11 +23741,11 @@
           "required": true
         },
         "responses": {
-          "201": {
+          "202": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LegacyAdded"
+                  "$ref": "#/components/schemas/LegacyInviteRequest"
                 }
               }
             },
@@ -23777,6 +23800,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
           }
         },
         "security": [
@@ -23794,6 +23827,7 @@
     },
     "/v1/auth/legacy/contacts/{contact_id}": {
       "delete": {
+        "description": "Revoke a legacy contact immediately from an owner session (L0).",
         "operationId": "legacy.contacts.remove",
         "parameters": [
           {
@@ -23866,6 +23900,86 @@
           }
         ],
         "summary": "Legacy Remove",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/auth/legacy/contacts/{contact_id}/invite": {
+      "get": {
+        "description": "Read your approved, unaccepted legacy invite from an owner session.",
+        "operationId": "legacy.contacts.invite",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contact_id",
+            "required": true,
+            "schema": {
+              "title": "Contact Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegacyAdded"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Legacy Invite",
         "tags": [
           "recovery"
         ]
@@ -34954,6 +35068,59 @@
           }
         ],
         "summary": "Legacy Self",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/legacy/contact/notices": {
+      "get": {
+        "description": "Recovery and claim notices for your owner since you accepted your legacy invite.",
+        "operationId": "legacy.contact.notices",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Notice"
+                  },
+                  "title": "Response Legacy.Contact.Notices",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "recovery:legacy"
+            ]
+          }
+        ],
+        "summary": "Legacy Notices",
         "tags": [
           "recovery"
         ]

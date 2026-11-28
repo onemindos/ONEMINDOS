@@ -11,11 +11,12 @@ import base64
 import fcntl
 import io
 import json
+import os
 import tarfile
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from datetime import timedelta
-from threading import Event, get_ident
+from threading import Barrier, Event, get_ident
 
 import anyio
 import pytest
@@ -24,32 +25,64 @@ from fastapi.testclient import TestClient
 from conftest import OWNER
 from onemind_core.app import create_app
 from onemind_core.errors import ApiError
-from recovery_support import ContactPhone, owner_with_passkey
-from test_identity import PASSWORD, audit_events, csrf, enrol, id_settings
+from recovery_support import ContactPhone, owner_with_passkey as setup_passkey_owner
+from test_identity import PASSWORD, SoftAuthenticator, audit_events, csrf, enrol, id_settings, register_passkey, setup_owner
 
 DAY = 86400
 PDF = base64.b64encode(b"%PDF-1.4 death certificate").decode()
 
 
-@pytest.fixture
-def rc(settings, clock, executor, tmp_path):
+def recovery_client(settings, clock, executor, tmp_path, **identity_options):
     from dataclasses import replace
 
     from onemind_core.files.settings import FilesSettings
 
-    s = id_settings(settings)
+    s = id_settings(settings, **identity_options)
     s = replace(s, sections={**s.sections, "files": FilesSettings(root=tmp_path / "files", min_free_bytes=0)})
-    with TestClient(create_app(s, clock=clock, executor=executor)) as c:
+    return TestClient(create_app(s, clock=clock, executor=executor))
+
+
+@pytest.fixture
+def rc(settings, clock, executor, tmp_path):
+    with recovery_client(settings, clock, executor, tmp_path) as c:
         yield c
 
 
+@pytest.fixture(name="long_session_rc")
+def long_session_client(settings, clock, executor, tmp_path):
+    # A live password session can cancel a grant without signing in again first.
+    with recovery_client(settings, clock, executor, tmp_path, session_idle_hours=24 * 90, session_max_days=90) as c:
+        yield c
+
+
+def owner_with_passkey(rc):
+    rc.legacy_passkey = setup_passkey_owner(rc)
+
+
+def request_invite(rc, name="Ana", headers=None, **extra):
+    return rc.post("/v1/auth/legacy/contacts", json={"kind": "outside", "display_name": name, **extra},
+                   headers=csrf(rc) if headers is None else headers)
+
+
+def invite_approval(rc, action_id):
+    options = rc.post(f"/v1/actions/{action_id}/approve-options", headers=csrf(rc))
+    assert options.status_code == 200, options.text
+    return {"webauthn": rc.legacy_passkey.assert_(options.json()["challenge"])}
+
+
 def add_legacy(rc, name="Ana", **extra):
-    return rc.post("/v1/auth/legacy/contacts", json={"kind": "outside", "display_name": name, **extra}, headers=csrf(rc))
+    queued = request_invite(rc, name, **extra)
+    assert queued.status_code == 202, queued.text
+    action = queued.json()
+    url = f"/v1/actions/{action['action_id']}/approve"
+    result = rc.post(url, headers=csrf(rc), json=invite_approval(rc, action["action_id"]))
+    assert result.status_code == 200 and result.json()["state"] == "succeeded", result.text
+    return rc.get(f"/v1/auth/legacy/contacts/{action['contact_id']}/invite")
 
 
 def legacy_phone(rc, name="Ana", **extra) -> tuple[ContactPhone, str]:
     r = add_legacy(rc, name, **extra)
-    assert r.status_code == 201, r.text
+    assert r.status_code == 200, r.text
     invite = r.json()["invite"]
     phone = ContactPhone()
     payload = json.loads(base64.urlsafe_b64decode(invite.split(".")[1] + "=="))
@@ -66,11 +99,9 @@ def claim(rc, phone, key, cert=PDF, ctype="application/pdf"):
                                    json={"access_key": key, "certificate_type": ctype, "certificate": cert})
 
 
-def put_home_file(rc, name: str, data: bytes):
-    owner_id = rc.get("/v1/me").json()["principal"]["id"]
+def put_home_file(rc, name: str, data: bytes, *, owner_id: str | None = None):
+    owner_id = owner_id or _owner_id(rc)
     files = rc.app.state.files_service
-    import os
-
     from onemind_core.files.access import Root
 
     with files._space(Root("home", owner_id)) as fd:
@@ -94,7 +125,7 @@ def test_a_legacy_contact_gets_an_access_key_once_and_the_box_keeps_only_a_verif
 
         row = s.get(ContactRow, phone.contact_id)
     assert key not in json.dumps(row.extra) and row.extra["access_verifier"]
-    assert add_legacy(rc, "Ben", wait_days=45).status_code == 422  # only the set options
+    assert request_invite(rc, "Ben", wait_days=45).status_code == 422  # only the set options
 
 
 def test_a_wrong_key_or_a_bad_certificate_is_refused_and_a_cooling_off_contact_cannot_claim(rc, clock):
@@ -177,7 +208,8 @@ def test_a_second_person_must_confirm_when_one_exists(rc, clock):
     assert adult is not None
 
 
-def test_the_household_sees_the_claim_and_certificate_and_an_owner_cancels_and_blocks(rc, clock):
+def test_the_household_sees_the_claim_and_certificate_and_an_owner_cancels_and_blocks(long_session_rc, clock):
+    rc = long_session_rc
     owner_with_passkey(rc)
     adult = enrol(rc, "adult", "ben")
     phone, key = legacy_phone(rc)
@@ -192,7 +224,7 @@ def test_the_household_sees_the_claim_and_certificate_and_an_owner_cancels_and_b
         assert adult_view.json()[0]["id"] == c["id"]
     else:
         assert adult_view.status_code == 401
-    r = TestClient(rc.app).post(f"/v1/auth/legacy/claims/{c['id']}/cancel", headers=OWNER, json={"block": True})
+    r = rc.post(f"/v1/auth/legacy/claims/{c['id']}/cancel", headers=csrf(rc), json={"block": True})
     assert r.status_code == 200 and r.json()["state"] == "cancelled"
     assert TestClient(rc.app).get("/v1/legacy/contact", headers=phone.auth).status_code == 401  # blocked
 
@@ -243,8 +275,8 @@ def granted(rc, clock, phone, key) -> dict:
     clock.advance(30 * DAY + 1)
     rc.app.state.legacy_contacts.tick()
     got = TestClient(rc.app).get("/v1/legacy/claims", headers=phone.auth).json()[0]
-    assert got["state"] == "granted", got
-    return c
+    assert got["id"] == c["id"] and got["state"] == "granted", got
+    return got
 
 
 def test_an_owner_who_signs_in_after_the_grant_ends_it_and_the_export_refuses(rc, clock):
@@ -496,8 +528,8 @@ def test_sign_in_after_grant_commit_publishes_cancel_after_grant(rc, clock, monk
 
 # ---- who accepted, and the second person (Opus review, #1208 non-blocking items) ------------------------
 
-def _accept_outside(rc, name, client: TestClient, headers=None):
-    r = add_legacy(rc, name)
+def _accept_outside(rc, name, client: TestClient, headers=None, **extra):
+    r = add_legacy(rc, name, **extra)
     invite = r.json()["invite"]
     payload = json.loads(base64.urlsafe_b64decode(invite.split(".")[1] + "=="))
     phone = ContactPhone()
@@ -656,7 +688,8 @@ class _Who:
 # ---- round 2 review fixes (#1208) -------------------------------------------------------------------------
 
 @pytest.mark.parametrize("revocation", ["sign_in", "cancel", "personal_token"])
-def test_revoking_a_grant_stops_the_current_file_and_later_files(rc, clock, settings, revocation):
+def test_revoking_a_grant_stops_the_current_file_and_later_files(long_session_rc, clock, settings, revocation):
+    rc = long_session_rc
     owner_with_passkey(rc)
     if revocation == "personal_token":
         r = rc.post("/v1/tokens", json={"name": "cli", "scopes": ["instance:read"], "expires_in_days": 365},
@@ -677,7 +710,7 @@ def test_revoking_a_grant_stops_the_current_file_and_later_files(rc, clock, sett
         if revocation == "sign_in":
             r = client.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD})
         elif revocation == "cancel":
-            r = client.post(f"/v1/auth/legacy/claims/{c['id']}/cancel", headers=OWNER)
+            r = rc.post(f"/v1/auth/legacy/claims/{c['id']}/cancel", headers=csrf(rc))
         else:
             r = client.get("/v1/me", headers=pat)
         assert r.status_code == 200, r.text
@@ -864,3 +897,354 @@ def test_an_unavailable_certificate_returns_404(rc, clock, damage):
             s.get(ClaimRow, cid).certificate_type = "application/octet-stream"
     r = TestClient(rc.app).get(f"/v1/auth/legacy/claims/{cid}/certificate", headers=OWNER)
     assert r.status_code == 404, r.text
+
+
+def owner_pat(rc, *scopes):
+    r = rc.post("/v1/tokens", json={"name": "CLI test", "scopes": list(scopes), "expires_in_days": 365},
+                headers=csrf(rc))
+    assert r.status_code == 201, r.text
+    return {"Authorization": "Bearer " + r.json()["one_time"]["token"]}
+
+
+def test_invite_requires_a_separate_owner_approval_with_a_bound_passkey(rc):
+    setup_owner(rc)
+    pat = owner_pat(rc, "actions:approve", "instance:read")
+    client = TestClient(rc.app)
+    for credential in (OWNER, pat):
+        assert request_invite(client, headers=credential).status_code == 403
+    r = request_invite(rc)
+    assert r.status_code == 202 and "invite" not in r.json(), r.text
+    action_id, contact_id = r.json()["action_id"], r.json()["contact_id"]
+    approve = f"/v1/actions/{action_id}/approve"
+    invite = f"/v1/auth/legacy/contacts/{contact_id}/invite"
+    assert rc.get("/v1/auth/legacy/contacts").json() == []
+    assert rc.get(invite).status_code == 404
+    assert rc.post(approve, headers=csrf(rc)).json()["reason"] == "step_up_required"
+    assert rc.get(f"/v1/actions/{action_id}").json()["state"] == "awaiting_approval"
+
+    rc.legacy_passkey = SoftAuthenticator()
+    register_passkey(rc, rc.legacy_passkey)
+    assert rc.post(approve, headers=csrf(rc)).json()["reason"] == "step_up_required"
+    other = request_invite(rc, "Other contact").json()["action_id"]
+    wrong_proof = invite_approval(rc, other)
+    assert rc.post(approve, headers=csrf(rc), json=wrong_proof).status_code == 401
+    proof = invite_approval(rc, action_id)
+    for credential in (OWNER, pat):
+        assert client.post(approve, headers=credential, json=proof).status_code == 403
+    result = rc.post(approve, headers=csrf(rc), json=proof)
+    assert result.status_code == 200 and result.json()["state"] == "succeeded", result.text
+    issued = rc.get(invite)
+    assert issued.status_code == 200 and issued.json()["invite"].startswith("omri1.")
+    assert issued.json()["invite"] not in result.text
+    for credential in (OWNER, pat):
+        assert client.get(invite, headers=credential).status_code == 403
+
+
+def test_legacy_revocation_refuses_owner_credentials_and_accepts_a_password_session(long_session_rc, clock):
+    rc = long_session_rc
+    owner_with_passkey(rc)
+    pat = owner_pat(rc, "instance:read")
+    phone, key = legacy_phone(rc)
+    assert rc.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD}).status_code == 200
+    c = granted(rc, clock, phone, key)
+    client = TestClient(rc.app)
+    cancel = f"/v1/auth/legacy/claims/{c['id']}/cancel"
+    remove = f"/v1/auth/legacy/contacts/{phone.contact_id}"
+    for credential in (OWNER, pat):
+        assert client.delete(remove, headers=credential).status_code == 403
+        assert client.post(cancel, headers=credential, json={"block": True}).status_code == 403
+    assert rc.app.state.legacy_contacts._claim(c["id"]).state == "granted"
+    stopped = rc.post(cancel, headers=csrf(rc), json={"block": True})
+    assert stopped.status_code == 200 and stopped.json()["end_reason"] == "owner_cancelled", stopped.text
+    assert client.get("/v1/legacy/contact", headers=phone.auth).status_code == 401
+
+
+@pytest.mark.parametrize("claimant_kind", ["household", "outside"])
+def test_same_adult_on_two_legacy_records_cannot_be_the_second_person(rc, clock, claimant_kind):
+    owner_with_passkey(rc)
+    adult = enrol(rc, "adult", "ben")
+    adult_id = adult.get("/v1/me").json()["principal"]["id"]
+    household = _accept_outside(rc, "Ben household", adult, csrf(adult), kind="household",
+                               household_user_id=adult_id, cooling_off_days=3)
+    outside = _accept_outside(rc, "Ben outside", adult, csrf(adult), cooling_off_days=3)
+    distinct, _ = legacy_phone(rc, "Distinct contact", cooling_off_days=14)
+    (claimant, key), (duplicate, _) = (household, outside) if claimant_kind == "household" else (outside, household)
+    clock.advance(3 * DAY + 1)
+    opened = claim(rc, claimant, key)
+    assert opened.status_code == 201 and opened.json()["needs_second"] is False, opened.text
+    confirm = f"/v1/legacy/claims/{opened.json()['id']}/confirm"
+    client = TestClient(rc.app)
+    refused = client.post(confirm, headers=duplicate.auth)
+    assert refused.status_code == 403 and refused.json()["message"] == "not allowed to confirm this legacy claim", refused.text
+    clock.advance(11 * DAY)
+    accepted = client.post(confirm, headers=distinct.auth)
+    assert accepted.status_code == 200 and accepted.json()["second_confirmed"] is True, accepted.text
+
+
+@pytest.mark.parametrize("credential", ["session", "pat"])
+def test_repeat_owner_activity_within_the_touch_interval_ends_the_claim(long_session_rc, clock, credential):
+    from onemind_core.identity.service import TOUCH_EVERY
+
+    rc = long_session_rc
+    owner_with_passkey(rc)
+    pat = owner_pat(rc, "instance:read")
+    phone, key = legacy_phone(rc)
+    owner_client, headers = (rc, {}) if credential == "session" else (TestClient(rc.app), pat)
+    clock.advance(7 * DAY + 1)
+    assert owner_client.get("/v1/me", headers=headers).status_code == 200
+    clock.advance(1)
+    opened = claim(rc, phone, key)
+    assert opened.status_code == 201, opened.text
+    clock.advance(TOUCH_EVERY.total_seconds() / 2)
+    assert owner_client.get("/v1/me", headers=headers).status_code == 200
+    clock.advance(30 * DAY)
+    legacy = rc.app.state.legacy_contacts
+    legacy.tick()
+    row = legacy._claim(opened.json()["id"])
+    assert (row.state, row.end_reason, row.granted_at) == ("cancelled", "owner_active", None)
+
+
+def test_owner_activity_between_liveness_read_and_write_never_grants(rc, clock, monkeypatch):
+    owner_with_passkey(rc)
+    pat = owner_pat(rc, "instance:read")
+    owner_id = _owner_id(rc)
+    phone, _ = legacy_phone(rc)
+    clock.advance(7 * DAY + 1)
+    legacy = rc.app.state.legacy_contacts
+    cid = _due_claim(rc, phone.contact_id, owner_id)
+    notices = _record_claim_notices(legacy)
+    real = legacy._owner_active_since
+
+    def activity_after_read(owner, since):
+        answer = real(owner, since)
+        if not answer:
+            assert TestClient(rc.app).get("/v1/me", headers=pat).status_code == 200
+        return answer
+
+    monkeypatch.setattr(legacy, "_owner_active_since", activity_after_read)
+    legacy.tick()
+    row = legacy._claim(cid)
+    assert (row.state, row.end_reason, row.granted_at) == ("cancelled", "owner_active", None)
+    assert _endings(notices, cid) == ["cancelled"]
+
+
+@pytest.mark.parametrize("last_file", [False, True])
+def test_cancel_during_manifest_stops_the_walk_and_withholds_file_list(long_session_rc, clock, monkeypatch, last_file):
+    rc = long_session_rc
+    owner_with_passkey(rc)
+    put_home_file(rc, "private-a.txt", b"private")
+    if not last_file:
+        put_home_file(rc, "private-b.txt", b"also private")
+    phone, key = legacy_phone(rc)
+    c = granted(rc, clock, phone, key)
+    legacy = rc.app.state.legacy_contacts
+    walk, visited = legacy._walk, []
+
+    def cancel_during_walk(owner_id, **kwargs):
+        for item in walk(owner_id, **kwargs):
+            visited.append(item[0])
+            if len(visited) == 1:
+                stopped = rc.post(f"/v1/auth/legacy/claims/{c['id']}/cancel", headers=csrf(rc))
+                assert stopped.status_code == 200 and stopped.json()["state"] == "cancelled", stopped.text
+            yield item
+
+    monkeypatch.setattr(legacy, "_walk", cancel_during_walk)
+    r = TestClient(rc.app).get("/v1/legacy/export", headers=phone.auth)
+    assert r.status_code == 403 and r.json()["reason"] == "no_granted_claim", r.text
+    assert visited == ["private-a.txt"] and "private-" not in r.text
+
+
+def test_export_window_cannot_be_renewed_with_the_same_contact_key(rc, clock):
+    from onemind_core.identity.models import iso
+
+    owner_with_passkey(rc)
+    phone, key = legacy_phone(rc)
+    first = granted(rc, clock, phone, key)
+    legacy = rc.app.state.legacy_contacts
+    for days in (1, 365):
+        clock.advance(days * DAY)
+        replay = claim(rc, phone, key)
+        assert replay.status_code == 409 and replay.json()["reason"] == "export_already_granted", replay.text
+        assert iso(legacy._claim(first["id"]).access_until) == first["access_until"]
+    assert TestClient(rc.app).get("/v1/legacy/export", headers=phone.auth).json()["reason"] == "export_window_ended"
+
+    owner = TestClient(rc.app)
+    assert owner.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD}).status_code == 200
+    old_key = claim(rc, phone, key)
+    assert old_key.status_code == 409 and old_key.json()["reason"] == "export_already_granted"
+    assert owner.delete(f"/v1/auth/legacy/contacts/{phone.contact_id}", headers=csrf(owner)).status_code == 200
+    owner.legacy_passkey = rc.legacy_passkey
+    replacement, new_key = legacy_phone(owner)
+    assert new_key != key
+    assert granted(rc, clock, replacement, new_key)["access_until"] > first["access_until"]
+
+
+def test_another_legacy_contact_can_read_their_owners_claim_notices(rc, clock):
+    from recovery_support import invite_and_accept
+
+    owner_with_passkey(rc)
+    claimant, key = legacy_phone(rc)
+    confirmer, _ = legacy_phone(rc, "Second contact")
+    recovery = invite_and_accept(rc)
+    clock.advance(7 * DAY + 1)
+    opened = claim(rc, claimant, key)
+    assert opened.status_code == 201 and opened.json()["needs_second"] is True, opened.text
+    client = TestClient(rc.app)
+    path = "/v1/legacy/contact/notices"
+    feed = client.get(path, headers=confirmer.auth)
+    assert feed.status_code == 200, feed.text
+    notice = next(item for item in feed.json() if item["event"] == "legacy.claim.started")
+    assert notice["data"]["claim_id"] == opened.json()["id"]
+    assert notice["data"]["contact_id"] == claimant.contact_id
+    assert key not in feed.text and PDF not in feed.text
+    for credential in (OWNER, recovery.auth):
+        assert client.get(path, headers=credential).status_code == 403
+
+
+@pytest.mark.parametrize("change", ["growth", "addition"])
+def test_download_budget_uses_the_current_tar_entries(rc, clock, settings, monkeypatch, change):
+    from onemind_core.recovery import legacy as module
+
+    owner_with_passkey(rc)
+    owner_id = _owner_id(rc)
+    put_home_file(rc, "a.txt", b"short", owner_id=owner_id)
+    phone, key = legacy_phone(rc)
+    granted(rc, clock, phone, key)
+    service = rc.app.state.legacy_contacts
+    budget = 2048  # one 512-byte header, one 512-byte data block, 1024-byte trailer
+    monkeypatch.setattr(module, "MAX_EXPORT_BYTES", budget)
+    with closing(service.archive(service._get(phone.contact_id), _Who())) as stream:
+        put_home_file(rc, "a.txt" if change == "growth" else "b.txt", b"x" * 1024, owner_id=owner_id)
+        chunks = list(stream)
+    assert sum(map(len, chunks)) <= budget
+    assert any(e["event"] == "legacy.export.stopped" and e["data"]["reason"] == "export_too_large"
+               for e in audit_events(settings))
+
+
+def test_download_skips_a_file_replaced_by_a_fifo_after_stat(rc, clock, monkeypatch):
+    owner_with_passkey(rc)
+    put_home_file(rc, "a.txt", b"swap")
+    put_home_file(rc, "b.txt", b"read")
+    phone, key = legacy_phone(rc)
+    granted(rc, clock, phone, key)
+    legacy = rc.app.state.legacy_contacts
+    walk, open_fd = legacy._walk, os.open
+
+    def swap_after_stat(owner_id):
+        for item in walk(owner_id):
+            if item[3] == "a.txt":
+                os.unlink(item[3], dir_fd=item[2])
+                os.mkfifo(item[3], dir_fd=item[2])
+            yield item
+
+    def refuse_blocking_open(path, flags, *args, **kwargs):
+        if path == "a.txt":
+            assert flags & os.O_NONBLOCK, "opening the FIFO here would block the download"
+        return open_fd(path, flags, *args, **kwargs)
+
+    with closing(legacy.archive(legacy._get(phone.contact_id), _Who())) as stream:
+        monkeypatch.setattr(legacy, "_walk", swap_after_stat)
+        monkeypatch.setattr(os, "open", refuse_blocking_open)
+        payload = b"".join(stream)
+    with tarfile.open(fileobj=io.BytesIO(payload)) as tar:
+        assert tar.getnames() == ["b.txt"] and tar.extractfile("b.txt").read() == b"read"
+
+
+def test_two_workers_send_the_same_reminder_only_once(rc, clock, monkeypatch):
+    from onemind_core.recovery.legacy import LegacyContacts
+
+    owner_with_passkey(rc)
+    phone, key = legacy_phone(rc)
+    clock.advance(7 * DAY + 1)
+    c = claim(rc, phone, key).json()
+    clock.advance(7 * DAY + 1)
+    legacy = rc.app.state.legacy_contacts
+    other = LegacyContacts(legacy.gw, legacy.ident)
+    both_read_waiting = Barrier(2)
+    real = legacy._owner_active_since
+
+    def activity(owner_id, since):
+        both_read_waiting.wait(timeout=10)
+        return real(owner_id, since)
+
+    monkeypatch.setattr(legacy, "_owner_active_since", activity)
+    monkeypatch.setattr(other, "_owner_active_since", activity)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first, second = pool.submit(legacy.tick), pool.submit(other.tick)
+        assert sorted((first.result(timeout=10), second.result(timeout=10))) == [0, 1]
+    feed = TestClient(rc.app).get("/v1/legacy/contact/notices", headers=phone.auth).json()
+    assert [n["data"]["notice"] for n in feed if n["event"] == "legacy.claim.reminder"
+            and n["data"]["claim_id"] == c["id"]] == ["week1"]
+
+
+def test_missed_last_day_notice_is_sent_before_grant(rc, clock):
+    owner_with_passkey(rc)
+    phone, key = legacy_phone(rc)
+    legacy = rc.app.state.legacy_contacts
+    log = _record_claim_notices(legacy)
+    c = granted(rc, clock, phone, key)
+    assert [e for e, cid in log if cid == c["id"]] == [
+        "legacy.claim.started", "legacy.claim.reminder", "legacy.claim.granted",
+    ]
+    feed = TestClient(rc.app).get("/v1/legacy/contact/notices", headers=phone.auth).json()
+    assert [n["data"]["notice"] for n in feed if n["event"] == "legacy.claim.reminder"] == ["last_day"]
+
+
+@pytest.mark.parametrize("notice", ["confirmed", "reminder", "awaiting_second"])
+def test_cancellation_is_never_followed_by_an_obsolete_claim_notice(rc, clock, monkeypatch, notice):
+    from onemind_core.recovery.legacy import LegacyContacts
+
+    owner_with_passkey(rc)
+    owner_id = _owner_id(rc)
+    phone, key = legacy_phone(rc)
+    other, _ = legacy_phone(rc, "Second contact")
+    clock.advance(7 * DAY + 1)
+    cid = claim(rc, phone, key).json()["id"]
+    if notice != "confirmed":
+        clock.advance((7 if notice == "reminder" else 30) * DAY + 1)
+    legacy = rc.app.state.legacy_contacts
+    cancel_worker = LegacyContacts(legacy.gw, legacy.ident)
+    log = []
+    cancel_contended_or_done = Event()
+    cancels = []
+    flock, tell = fcntl.flock, legacy.tell
+    cancel_thread = None
+
+    def observe_lock(fd, op):
+        if get_ident() == cancel_thread and op == fcntl.LOCK_EX:
+            try:
+                return flock(fd, op | fcntl.LOCK_NB)
+            except BlockingIOError:
+                cancel_contended_or_done.set()
+        return flock(fd, op)
+
+    def cancel():
+        nonlocal cancel_thread
+        cancel_thread = get_ident()
+        try:
+            cancel_worker._owner_signed_in({"data": {"user_id": owner_id}})
+        finally:
+            cancel_contended_or_done.set()
+
+    unsubscribe = legacy.gw.events.subscribe("legacy.claim.*", lambda event: log.append(event["type"]))
+    try:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            def deliver(owner, event, data, *args, **kwargs):
+                if event == f"legacy.claim.{notice}":
+                    cancels.append(pool.submit(cancel))
+                    assert cancel_contended_or_done.wait(timeout=10)
+                return tell(owner, event, data, *args, **kwargs)
+
+            monkeypatch.setattr(fcntl, "flock", observe_lock)
+            monkeypatch.setattr(legacy, "tell", deliver)
+            if notice == "confirmed":
+                client = TestClient(rc.app)
+                assert client.post(f"/v1/legacy/claims/{cid}/confirm", headers=other.auth).status_code == 200
+            else:
+                legacy.tick()
+            assert len(cancels) == 1
+            cancels[0].result(timeout=10)
+    finally:
+        unsubscribe()
+    assert legacy._claim(cid).state == "cancelled"
+    assert log[-2:] == [f"legacy.claim.{notice}", "legacy.claim.cancelled"]

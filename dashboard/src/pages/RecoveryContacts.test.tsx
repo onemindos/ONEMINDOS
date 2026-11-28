@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router';
 import { afterEach, expect, it, vi } from 'vitest';
 import { RecoveryContacts } from './RecoveryContacts';
 
@@ -68,6 +69,37 @@ it('explains the passkey step-up instead of failing silently, and removes withou
   expect(await screen.findByRole('alert')).toHaveTextContent('fresh passkey sign-in');
   await user.click(screen.getByRole('button', { name: 'Remove Ana' }));
   expect(calls.some((c) => c.method === 'DELETE' && c.path === '/v1/auth/recovery/contacts/rc_1')).toBe(true);
+});
+
+it('queues the legacy invite for review and shows the signed invite only after approval', async () => {
+  state.role = 'owner';
+  handlesLegacy = true;
+  let approved = false;
+  const legacyContact = { ...contact, id: 'rc_9', role: 'legacy', state: 'invited', display_name: 'Legacy recipient', wait_days: 60 };
+  const calls = gateway((method, path) => {
+    if (path === '/v1/auth/legacy/contacts' && method === 'POST') {
+      return Response.json({ action_id: 'approval-9', contact_id: 'rc_9', wait_days: 60 }, { status: 202 });
+    }
+    if (path === '/v1/auth/legacy/contacts') return Response.json(approved ? [legacyContact] : []);
+    if (path === '/v1/auth/legacy/contacts/rc_9/invite' && approved) {
+      return Response.json({ ...legacyContact, invite: 'omri1.p.s', box_key_fingerprint: 'sha256:box' });
+    }
+    if (path === '/v1/auth/recovery/settings') return Response.json(waits);
+    return Response.json([]);
+  });
+  const user = userEvent.setup();
+  const view = render(<MemoryRouter><RecoveryContacts /></MemoryRouter>);
+  await user.type(screen.getByLabelText('Legacy contact name'), 'Legacy recipient');
+  await user.selectOptions(screen.getByLabelText('Claim wait'), '60');
+  await user.click(screen.getByRole('button', { name: 'Request legacy invite' }));
+  expect(await screen.findByRole('link', { name: 'Review legacy invite' })).toHaveAttribute('href', '/approvals?highlight=approval-9');
+  expect(screen.queryByLabelText('Legacy invite text')).toBeNull();
+  expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ kind: 'outside', display_name: 'Legacy recipient', wait_days: 60 });
+  view.unmount();
+  approved = true;
+  render(<MemoryRouter><RecoveryContacts /></MemoryRouter>);
+  await user.click(await screen.findByRole('button', { name: 'Show legacy invite for Legacy recipient' }));
+  expect(await screen.findByLabelText('Legacy invite text')).toHaveValue('omri1.p.s');
 });
 
 it('shows a household adult the invitations addressed to them and nothing to manage', async () => {
