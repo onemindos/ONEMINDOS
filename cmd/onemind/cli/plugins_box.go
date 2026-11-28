@@ -95,11 +95,11 @@ func pluginsBoxCommands(a *App) []*cobra.Command {
 	settings.AddCommand(setSettings)
 	root.AddCommand(settings)
 
-	root.AddCommand(hostGrantsCmd(a), pluginKeysCmd(a))
+	root.AddCommand(pluginHostGrantsCmd(a), pluginKeysCmd(a))
 	return []*cobra.Command{root}
 }
 
-func hostGrantsCmd(a *App) *cobra.Command {
+func pluginHostGrantsCmd(a *App) *cobra.Command {
 	g := &cobra.Command{Use: "host-grants", Short: "Access to the machine itself that an app was given: devices, GPU, network, real-time"}
 	var app string
 	lst := &cobra.Command{
