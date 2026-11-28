@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
-# Karakeep 0.34.1 (github.com/karakeep-app/karakeep, docker/Dockerfile and docker/docker-compose.yml at tag
+# Bumped from 0.34.1 to 0.35.0 on 2026-11-27; the upstream files cited here were read at 0.34.1 and not re-read at 0.35.0.
+# Karakeep 0.35.0 (github.com/karakeep-app/karakeep, docker/Dockerfile and docker/docker-compose.yml at tag
 # v0.34.1, docs/docs/03-configuration/01-environment-variables.md). The aio image runs web and workers under
 # s6-overlay; upstream chowns /run to node so it starts as UID 1000 under runAsNonRoot (Dockerfile comment).
 # Meilisearch v1.41.0 (MIT), the version upstream's compose pins, is a native sidecar on 127.0.0.1 only, so
@@ -39,7 +40,7 @@ spec:
           type: RuntimeDefault
       initContainers:
       - name: secret
-        image: ghcr.io/karakeep-app/karakeep:0.34.1@sha256:69ae5315c618b7c14c1af3e34c6e211acdb231793af424ecd1cab0b70691d987
+        image: ghcr.io/karakeep-app/karakeep:0.35.0@sha256:6f7d32ef296ddf1fc7c67ff56b8a201b7006a6a47b92b202afee1338841b353d
         imagePullPolicy: IfNotPresent
         command:
         - sh
@@ -98,7 +99,7 @@ spec:
           mountPath: /meili_data
       containers:
       - name: karakeep
-        image: ghcr.io/karakeep-app/karakeep:0.34.1@sha256:69ae5315c618b7c14c1af3e34c6e211acdb231793af424ecd1cab0b70691d987
+        image: ghcr.io/karakeep-app/karakeep:0.35.0@sha256:6f7d32ef296ddf1fc7c67ff56b8a201b7006a6a47b92b202afee1338841b353d
         imagePullPolicy: IfNotPresent
         command:
         - sh

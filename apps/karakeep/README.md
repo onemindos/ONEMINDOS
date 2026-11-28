@@ -7,7 +7,7 @@ A self-hostable bookmark-everything app (links, notes and images) with AI-based 
 
 | | |
 |---|---|
-| Version | 0.34.1 (upstream release `v0.34.1`, published 2026-10-22) |
+| Version | 0.35.0 (upstream release `v0.35.0`, published 2026-11-15) |
 | Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | notes |
@@ -34,7 +34,7 @@ Storage: PVC `karakeep-data` 10Gi, PVC `karakeep-meili` 2Gi.
 
 Images:
 
-- `ghcr.io/karakeep-app/karakeep:0.34.1@sha256:69ae5315c618b7c14c1af3e34c6e211acdb231793af424ecd1cab0b70691d987`
+- `ghcr.io/karakeep-app/karakeep:0.35.0@sha256:6f7d32ef296ddf1fc7c67ff56b8a201b7006a6a47b92b202afee1338841b353d`
 - `docker.io/getmeili/meilisearch:v1.41.0@sha256:860fa4baed04ae1c235de870edab0c8006227546dea1bbb6411fbfc5e27cf1db`
 
 <!-- onemind:notes:begin -->
@@ -48,7 +48,7 @@ Images:
 
 ## How it is packaged
 
-- **Images:** upstream `ghcr.io/karakeep-app/karakeep:0.34.1` (web and workers under s6-overlay; upstream chowns `/run` to `node` so it starts as UID 1000 under `runAsNonRoot`) and `docker.io/getmeili/meilisearch:v1.41.0` (MIT), the version upstream's compose pins.
+- **Images:** upstream `ghcr.io/karakeep-app/karakeep:0.35.0` (web and workers under s6-overlay; upstream chowns `/run` to `node` so it starts as UID 1000 under `runAsNonRoot`) and `docker.io/getmeili/meilisearch:v1.41.0` (MIT), the version upstream's compose pins.
 - **Search:** Meilisearch is a native sidecar listening on 127.0.0.1 only, so it needs no master key.
 - **Secret:** `NEXTAUTH_SECRET` is required. An init container generates it once into `.onemind/` on the data volume; the container exports it before starting `/init`. Nothing is committed.
 - **Crawler browser not packaged:** upstream's `karakeep-chrome` image installs Google Chrome on amd64, which is proprietary. Without `BROWSER_WEB_URL`, the workers fetch pages over plain HTTP, without screenshots or JavaScript (configuration docs).
@@ -82,6 +82,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 
 **Hold (apps/market-unblock-2, 2026-11-13):** `libbrotli1`, `dompurify`, Go `stdlib` in `karakeep:0.34.1` (the newest tag), and openssl in `meilisearch:v1.41.0`. Meilisearch `v1.56.x` tags exist but are a 15-minor jump that needs a compatibility read first, and the Karakeep image would still block. Unblock: a fixed Karakeep release.
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** Karakeep 0.34.1 to 0.35.0. Upstream notes: the image now runs a privilege-drop step at start (`docker/root/etc/s6-overlay/scripts/drop-privileges`, read at v0.35.0). That script never changes a user, a group or file ownership; it only removes capabilities when it runs as root. This pod runs as UID 1000 with every capability dropped and `allowPrivilegeEscalation: false`, so the step has nothing to do and upstream's defaults are kept (`KARAKEEP_DISABLE_PRIVILEGE_DROP` is not set). The smoke result for 0.35.0 was not available to this change (the ci-apps artifact could not be read from the build sandbox), so this is not smoke-tested; check `scan.json` smoke after the next CI run. Meilisearch stays at v1.41.0 (a newer minor needs a dump or reindex). The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

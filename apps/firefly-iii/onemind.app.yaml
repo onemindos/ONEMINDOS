@@ -8,7 +8,7 @@ kind: App
 metadata:
   id: firefly-iii
   name: "Firefly III"
-  version: "6.7.9"
+  version: "6.7.12"
   description: "Personal finance manager: accounts, budgets, categories and reports."
   # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
   # the schema has metadata.tags).
@@ -20,13 +20,13 @@ metadata:
   licenceClass: L2
   source: https://github.com/firefly-iii/firefly-iii
   # §9.3 facts from the GitHub API (repos/firefly-iii/firefly-iii), read 2026-11-12. The newest
-  # GitHub release is a nightly develop build; v6.7.9 is the newest stable release.
+  # GitHub release is a nightly develop build; v6.7.12 is the newest stable release as of the 2026-11-27 pin bump.
   links:
     docs: "https://docs.firefly-iii.org/"
     github: "https://github.com/firefly-iii/firefly-iii"
     website: "https://firefly-iii.org"
     support: "https://github.com/firefly-iii/firefly-iii/issues"
-  upstream: {release: "v6.7.9", released_at: "2026-10-11T19:16:51Z", archived: false}
+  upstream: {release: "v6.7.12", released_at: "2026-11-27T06:05:36Z", archived: false}
   # blocked by the CI app gate: CRITICAL CVEs in the firefly and postgres images and a private-key finding (details in README.md)
   tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:

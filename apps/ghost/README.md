@@ -7,7 +7,7 @@ Independent technology for modern publishing, memberships, subscriptions and new
 
 | | |
 |---|---|
-| Version | 6.77.0 (upstream release `v6.77.0`, published 2026-11-11) |
+| Version | 6.79.0 (upstream release `v6.79.0`, published 2026-11-24) |
 | Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-21) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | productivity |
@@ -34,7 +34,7 @@ Storage: PVC `ghost-content` 5Gi, PVC `ghost-db` 5Gi.
 Images:
 
 - `docker.io/library/mysql:8.0.46@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b`
-- `docker.io/library/ghost:6.77.0-alpine@sha256:a1c2adb3ab81b6d3fcae4d33bebe56a94a57c3e76c2f0b7b3d213726b2ca8922`
+- `docker.io/library/ghost:6.79.0-alpine@sha256:3a052ac4c0a74566700ec30283f7f702b81e65ae179e46ce18cca159c8b98702`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -47,7 +47,7 @@ Images:
 
 ## How it is packaged
 
-- **Images:** the official `docker.io/library/ghost:6.77.0-alpine` (the `6-alpine` line used by upstream's `TryGhost/ghost-docker` compose file) and `docker.io/library/mysql:8.0.46`, the database and pin that file uses.
+- **Images:** the official `docker.io/library/ghost:6.79.0-alpine` (the `6-alpine` line used by upstream's `TryGhost/ghost-docker` compose file) and `docker.io/library/mysql:8.0.46`, the database and pin that file uses.
 - **User:** the Ghost entrypoint switches to `node` only when started as root; this pod starts as `node` (UID/GID 1000). MySQL runs as its image user `mysql` (UID 999).
 - **Database:** MySQL is a native sidecar listening on 127.0.0.1 only, so only this pod reaches it. That is why its root account has no password and no Secret exists (contract §11.2 forbids committed Secrets).
 - **State:** PVCs `ghost-content` (5 Gi, themes, images and files) and `ghost-db` (5 Gi, MySQL data).
@@ -80,6 +80,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 
 **Hold (apps/market-unblock-2, 2026-11-13):** Go `stdlib` in the Ghost image; `certifi` and Go in `mysql:8.0.46` (the newest 8.0 tag); 13 secret-shaped strings in upstream JS. Unblock: rebuilt Ghost and MySQL 8.0 images. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** Ghost 6.77.0 to 6.79.0. No breaking change in the release notes. MySQL stays at 8.0.46, the newest 8.0 tag (the 8.4 and 9 lines are other majors, not a pin bump). The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

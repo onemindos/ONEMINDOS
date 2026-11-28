@@ -7,7 +7,7 @@ kind: App
 metadata:
   id: karakeep
   name: "Karakeep"
-  version: "0.34.1"
+  version: "0.35.0"
   description: "A self-hostable bookmark-everything app (links, notes and images) with AI-based automatic tagging and full text search"
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (bookmarks, read-later) are listed in README.md
   # until the schema has metadata.tags.
@@ -23,7 +23,7 @@ metadata:
     github: "https://github.com/karakeep-app/karakeep"
     website: "https://karakeep.com"
     support: "https://github.com/karakeep-app/karakeep/issues"
-  upstream: {release: "v0.34.1", released_at: "2026-10-22T06:42:02Z", archived: false}
+  upstream: {release: "v0.35.0", released_at: "2026-11-15T15:29:32Z", archived: false}
   # blocked by the CI app gate: CRITICAL CVEs in the karakeep and meilisearch images, and the meilisearch cosign identity check fails (details in README.md)
   tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:

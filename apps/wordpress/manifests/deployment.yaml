@@ -50,7 +50,7 @@ spec:
         # It also creates the web root owned by UID 33: on first start the image's entrypoint copies
         # WordPress in with tar, which must be able to chmod the target directory.
         - name: db-password
-          image: docker.io/library/wordpress:7.1.4-php8.4-apache@sha256:63dbbdf2c9ea29a2e4f417c0d4e7c4b821725d115127f70838dbbc5051ee4db0
+          image: docker.io/library/wordpress:7.1.5-php8.4-apache@sha256:98a3fba3639b89fe1ade0cf6d37e61bc8934de872cf26d9dc5286962b554e3d1
           command:
             - sh
             - -c
@@ -81,7 +81,7 @@ spec:
             - name: html
               mountPath: /html
         - name: db
-          image: docker.io/library/mariadb:11.8.9-noble@sha256:d36f18d65a0459510b8b0f643b226a6d299e3206486e2b64ff20754a6d291707
+          image: docker.io/library/mariadb:11.8.9-noble@sha256:e1d5495f445654134f226f55a41ce0da227116f6f27f283101f405c794d841fc
           restartPolicy: Always
           args: ["mariadbd", "--bind-address=127.0.0.1"]
           env:
@@ -131,7 +131,7 @@ spec:
               readOnly: true
       containers:
         - name: wordpress
-          image: docker.io/library/wordpress:7.1.4-php8.4-apache@sha256:63dbbdf2c9ea29a2e4f417c0d4e7c4b821725d115127f70838dbbc5051ee4db0
+          image: docker.io/library/wordpress:7.1.5-php8.4-apache@sha256:98a3fba3639b89fe1ade0cf6d37e61bc8934de872cf26d9dc5286962b554e3d1
           env:
             - name: WORDPRESS_DB_HOST
               value: 127.0.0.1:3306

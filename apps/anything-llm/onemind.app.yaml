@@ -9,7 +9,7 @@ kind: App
 metadata:
   id: anything-llm
   name: "AnythingLLM"
-  version: "1.19.0"
+  version: "1.20.0"
   description: "Chat with your documents using a local or hosted language model, with agents and workspaces."
   # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
   # the schema has metadata.tags).
@@ -26,7 +26,7 @@ metadata:
     github: "https://github.com/Mintplex-Labs/anything-llm"
     website: "https://anythingllm.com"
     support: "https://github.com/Mintplex-Labs/anything-llm/issues"
-  upstream: {release: "v1.19.0", released_at: "2026-10-26T16:14:51Z", archived: false}
+  upstream: {release: "v1.20.0", released_at: "2026-11-17T20:38:19Z", archived: false}
   # blocked by the CI app gate: many CRITICAL CVEs with a fix in the image, and a gitlab-pat finding (details in README.md)
   tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:

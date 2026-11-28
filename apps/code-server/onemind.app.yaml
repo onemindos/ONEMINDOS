@@ -7,7 +7,7 @@ kind: App
 metadata:
   id: code-server
   name: "code-server"
-  version: "4.145.2"
+  version: "4.146.0"
   description: "VS Code in the browser"
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (ide) are listed in README.md
   # until the schema has metadata.tags.
@@ -23,7 +23,7 @@ metadata:
     github: "https://github.com/coder/code-server"
     website: "https://coder.com"
     support: "https://github.com/coder/code-server/issues"
-  upstream: {release: "v4.145.2", released_at: "2026-11-07T01:28:11Z", archived: false}
+  upstream: {release: "v4.146.0", released_at: "2026-11-20T19:06:43Z", archived: false}
   # blocked by the CI app gate: CRITICAL CVE-2024-24790 and CVE-2025-68121 (Go stdlib v1.20.7 inside the image) (details in README.md)
   tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:

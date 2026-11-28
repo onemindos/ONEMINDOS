@@ -33,7 +33,7 @@ Storage: PVC `lidarr-config` 2Gi, PVC `lidarr-music` 100Gi.
 
 Images:
 
-- `lscr.io/linuxserver/lidarr:3.1.6.5079-ls48@sha256:a91ef0642c15c9bd7c4260fee98fa99972c61601e37c8a96411d6a9cf0e9ad40`
+- `lscr.io/linuxserver/lidarr:3.1.6.5079-ls50@sha256:c4285344c994b34e1ae7db8d57c1702dcfe88b8e10c98a0cdf0f74aba8b58b9c`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -86,6 +86,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 
 **Hold (apps/market-unblock-2, 2026-11-13):** .NET runtime 8.0.27, CVE-2026-70188 and CVE-2026-88092 (fixed in 8.0.32). `3.1.6.5079-ls48` is the newest tag. Unblock: a LinuxServer rebuild with .NET 8.0.32 or newer. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** LinuxServer rebuild `3.1.6.5079-ls48` to `3.1.6.5079-ls50`. Lidarr 3.2.x exists upstream but LinuxServer has not published an image for it. The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

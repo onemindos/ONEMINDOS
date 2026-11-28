@@ -81,6 +81,8 @@ From upstream's Container install guide (https://www.home-assistant.io/installat
 **Hold (apps/market-unblock-2, 2026-11-13):** 5 CRITICAL (4 with a fix) in `2026.11.1`, the newest tag. Unblock: `2026.11.2` or a rebuild with fixed packages. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
 
 **Hold (2026-11-23, #147):** the pin is now `2026.11.2` (digest `sha256:493a07e8f6530fc640223f4a0a5248f20a61ca2f718bb1d31efbf08a2c5ea28f`, newest upstream release). Trivy 0.76.2 on linux/amd64 and linux/arm64 still finds CRITICAL CVE-2026-123158 in `openssh-client-common`, `openssh-client-default` and `openssh-keygen` 10.3_p1-r1 (fixed in 10.3_p1-r2, Alpine base layer), CVE-2026-96760 in Python `Authlib` 1.7.2 (fixed in 1.9.0) and CVE-2026-85394 in `python-jose` 3.5.0 (no fix); 0 secrets. Tier stays `blocked`. Unblock: a release with the Alpine openssh and Authlib updates, or a OneMind rebuild (founder decision). Tracked on #147.
+
+**Hold (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** not bumped in this change: a committed test binds the pin to its scan (test_market_unblock), so the pin stays as it is. The CI gate decides the tier.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

@@ -7,7 +7,7 @@ Website and blog publishing software.
 
 | | |
 |---|---|
-| Version | 7.1.4 (upstream release `7.1.4`, published 2026-10-28) |
+| Version | 7.1.5 (upstream release `7.1.5`, published 2026-11-18) |
 | Licence | `GPL-2.0-or-later`, Market class **L2** (licence gate, scan of 2026-11-21) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | productivity |
@@ -34,8 +34,8 @@ Storage: PVC `wordpress-db` 5Gi, PVC `wordpress-html` 10Gi.
 
 Images:
 
-- `docker.io/library/wordpress:7.1.4-php8.4-apache@sha256:63dbbdf2c9ea29a2e4f417c0d4e7c4b821725d115127f70838dbbc5051ee4db0`
-- `docker.io/library/mariadb:11.8.9-noble@sha256:d36f18d65a0459510b8b0f643b226a6d299e3206486e2b64ff20754a6d291707`
+- `docker.io/library/wordpress:7.1.5-php8.4-apache@sha256:98a3fba3639b89fe1ade0cf6d37e61bc8934de872cf26d9dc5286962b554e3d1`
+- `docker.io/library/mariadb:11.8.9-noble@sha256:e1d5495f445654134f226f55a41ce0da227116f6f27f283101f405c794d841fc`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -91,6 +91,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 
 **Hold (apps/market-unblock-2, 2026-11-13):** Go `stdlib` in `mariadb:11.8.9-noble`. Only different majors exist (`12.x-noble`), which need a data-format decision and are not a pin bump. Unblock: an `11.8.x` rebuild. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** WordPress 7.1.4 to 7.1.5 (php8.4-apache variant kept) and a rebuild of the MariaDB 11.8.9-noble tag (same tag, newer digest). The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

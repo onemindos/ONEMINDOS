@@ -7,7 +7,7 @@ Self-hosted uptime monitoring for websites, ports and services, with status page
 
 | | |
 |---|---|
-| Version | 2.5.11 (upstream release `2.5.11`, published 2026-11-12) |
+| Version | 2.5.12 (upstream release `2.5.12`, published 2026-11-17) |
 | Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-21) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | monitoring |
@@ -32,7 +32,7 @@ Storage: PVC `uptime-kuma-data` 2Gi.
 
 Images:
 
-- `docker.io/louislam/uptime-kuma:2.5.11-rootless@sha256:d213a1d2b6a7d7c00afbcb936b53f585afea3e1620432b3a161b68bfffa13dac`
+- `docker.io/louislam/uptime-kuma:2.5.12-rootless@sha256:e37da4d06fc3ac2c9f2a8a73304cca5d8efd2c539dad16e17b211646a15556c0`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -43,7 +43,7 @@ Images:
 
 ## How it is packaged
 
-- **Image:** the upstream **rootless** full image. The default `2.5.11` tag runs as root; the `-rootless` tag is the same release with `USER node` (upstream `docker/dockerfile`). The pod runs as UID/GID 1000, which upstream documents as the owner the data directory needs ([Docker Tags](https://github.com/louislam/uptime-kuma/wiki/Docker-Tags)). The full image (not `-slim`) keeps the embedded MariaDB option and the Chromium "Browser Engine" monitor.
+- **Image:** the upstream **rootless** full image. The default `2.5.12` tag runs as root; the `-rootless` tag is the same release with `USER node` (upstream `docker/dockerfile`). The pod runs as UID/GID 1000, which upstream documents as the owner the data directory needs ([Docker Tags](https://github.com/louislam/uptime-kuma/wiki/Docker-Tags)). The full image (not `-slim`) keeps the embedded MariaDB option and the Chromium "Browser Engine" monitor.
 - **Security:** `runAsNonRoot`, `allowPrivilegeEscalation: false`, all Linux capabilities dropped, `RuntimeDefault` seccomp, no service-account token.
 - **State:** one PVC `uptime-kuma-data` (2 Gi, the k3s default `local-path` class) on `/app/data`. Upstream warns that the data folder needs POSIX file locks, so not NFS. One replica with the `Recreate` strategy, so two pods never write the database at once.
 - **Network:** Service `uptime-kuma`, port 3001 (HTTP and WebSocket). `enableServiceLinks: false` stops Kubernetes injecting `UPTIME_KUMA_PORT=tcp://…`, which the app would otherwise read as its port (upstream issue #2083).
@@ -67,6 +67,8 @@ From the upstream install guide, https://github.com/louislam/uptime-kuma/wiki/%F
 - **Ping monitors do not work in this package.** Tested 2026-11-12 on k3s v1.37.2+k3s1 (app-gate smoke run): inside the pod `ping` fails with "Operation not permitted", although `net.ipv4.ping_group_range` is `0 2147483647`. The image's `ping` binary needs a file capability, and with all capabilities dropped and privilege escalation off the kernel refuses to run it. Use HTTP, TCP port, DNS or keyword monitors instead.
 - **Docker container monitor** does not apply: the app gets no container-runtime socket.
 - **Upgrades from v1:** upstream does not recommend the rootless image for a v1 → v2 upgrade. This package starts on v2.
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** Uptime Kuma 2.5.11 to 2.5.12 (rootless tag kept). 3.0.0 is beta only and is not adopted. The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

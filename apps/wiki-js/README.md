@@ -7,7 +7,7 @@ Wiki.js is a modern, powerful wiki engine: Markdown and visual editing, a page t
 
 | | |
 |---|---|
-| Version | 3.3.1 (upstream release `3.3.1`, published 2026-11-11) |
+| Version | 3.6.1 (upstream release `3.6.1`, published 2026-11-23) |
 | Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | notes |
@@ -33,8 +33,8 @@ Storage: PVC `wiki-js-data` 2Gi, PVC `wiki-js-db` 5Gi.
 
 Images:
 
-- `docker.io/library/postgres:18.6-alpine@sha256:9ba53c7d41ea093baf5c1ba635ba5434c4f979880527d49bb7d9237d3193085b`
-- `ghcr.io/requarks/wiki:3.3.1@sha256:2bdfa19d02d3f0ce18020648cc38ca138c5467fe1cfc4765d4b5f2a59c8efcad`
+- `docker.io/library/postgres:18.7-alpine@sha256:0115267ab5a509022df9319c77be365cef335adb71556c75f60f5360ee247e71`
+- `ghcr.io/requarks/wiki:3.6.1@sha256:bd4819960f2f9d35ef016653b97abf5fc0cd93a941d3baf34d2e79e4c9059169`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -47,8 +47,8 @@ Images:
 
 ## How it is packaged
 
-- **Image:** upstream `ghcr.io/requarks/wiki:3.3.1` (the same digest as the `:3` tag). It runs as the `node` user (UID/GID 1000) on port 3000. This package starts it as UID 1000.
-- **Database:** PostgreSQL 18 (`postgres:18.6-alpine`) in a native sidecar on 127.0.0.1 only, trusting local connections, so no password or Secret exists. The Alpine image is used because the Debian one fails the app gate (see `metabase`, `paperless-ngx`); its `postgres` user is UID 70.
+- **Image:** upstream `ghcr.io/requarks/wiki:3.6.1`. It runs as the `node` user (UID/GID 1000) on port 3000. This package starts it as UID 1000.
+- **Database:** PostgreSQL 18 (`postgres:18.7-alpine`) in a native sidecar on 127.0.0.1 only, trusting local connections, so no password or Secret exists. The Alpine image is used because the Debian one fails the app gate (see `metabase`, `paperless-ngx`); its `postgres` user is UID 70.
 - **State:** PVC `wiki-js-db` (5 Gi) for the database, and PVC `wiki-js-data` (2 Gi) on `/wiki/data` for Wiki.js's cache, content and repository folders.
 - **Health:** startup, readiness and liveness probes on `GET /_healthz`, which answers 200 once the server runs.
 - **Security:** `runAsNonRoot`, `allowPrivilegeEscalation: false`, all Linux capabilities dropped, `RuntimeDefault` seccomp, no service-account token. One replica with the `Recreate` strategy.
@@ -76,6 +76,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 - No research licence-matrix row (AGPL-3.0), so not preinstallable on sold boxes until one is added.
 
 **What would unblock it:** an upstream Wiki.js image rebuilt on patched Debian packages, a postgres image built with a fixed Go stdlib, and a licence-matrix row.
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** Wiki.js 3.3.1 to 3.6.1. No breaking change in the 3.4 to 3.6 notes (new maintenance mode and management CLI, import tools, several security fixes). The PostgreSQL sidecar moves 18.6 to 18.7 (Alpine flavour). The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

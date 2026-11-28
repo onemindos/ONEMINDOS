@@ -7,7 +7,7 @@ Prowlarr is an indexer manager/proxy built on the popular *arr .net/reactjs base
 
 | | |
 |---|---|
-| Version | 2.7.0.5723 (upstream release `v2.7.0.5723`, published 2026-10-27) |
+| Version | 3.1.0.5799 (upstream release `v3.1.0.5799`, published 2026-11-23) |
 | Licence | `GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | media |
@@ -32,7 +32,7 @@ Storage: PVC `prowlarr-config` 1Gi.
 
 Images:
 
-- `ghcr.io/linuxserver/prowlarr:2.7.0.5723-ls168@sha256:6660787a99b2e58203539583663c973b48979fc00ff2cb78dc0ea17429e1f6ef`
+- `ghcr.io/linuxserver/prowlarr:3.1.0.5799-ls170@sha256:2806c9b763810589c42157730d547c293639e55c7610e9f5069314854639ec48`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -73,6 +73,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 To unblock: the startup failure is fixed above (rerun the gate to confirm); move the image pin to a release with the patched .NET runtime (tag verified with `crane`), and add a licence-matrix row. Then rerun `sdk/tools/app-gate`.
 
 **Hold (apps/market-unblock-2, 2026-11-13):** .NET runtime 8.0.27, CVE-2026-70188 and CVE-2026-88092 (fixed in 8.0.32), gate run 43405572161. The smoke test passes. `2.7.0.5723-ls168` is the newest tag. Unblock: a LinuxServer rebuild with .NET 8.0.32 or newer. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** Prowlarr 2.7.0.5723 to 3.1.0.5799, a major bump. Upstream 3.0.0 notes: .NET 10 and a minimum of PostgreSQL 15 when an external PostgreSQL is used (this manifest uses the default SQLite config in the PVC). No renamed variable or new service is listed. The first start of the new major migrates the SQLite database one way (take a backup before an upgrade of an existing install). The smoke result for this major was not available to this change (the ci-apps artifact could not be read from the build sandbox), so it is not smoke-tested here; check `scan.json` "smoke" after the next CI run. The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
 <!-- onemind:notes:end -->
 
 ## Latest security scan
