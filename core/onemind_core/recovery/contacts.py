@@ -177,7 +177,7 @@ class RecoveryContacts:
             new = {**current, **changes}
             via = None
             if any(new[k] < current[k] for k in changes):
-                via = self.ident.require_step_up(ctx, ctx.principal, "shorten a recovery wait")
+                via = self.ident.require_fresh_passkey(ctx, ctx.principal, "shorten a recovery wait")
             now = self.now()
             if row is None:
                 s.add(SettingsRow(owner_user_id=user.id, values=new, updated_at=now, updated_by=user.id))

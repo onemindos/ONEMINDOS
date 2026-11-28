@@ -174,7 +174,10 @@ class NotifyService:
                 data.update({k: v for k, v in enrich(data).items() if k not in data})
             except Exception:
                 log.exception("notification enricher failed for %s", envelope.get("type"))
-        self.ingest(spec, data, source=envelope.get("source_id") or "gateway")
+        # Recovery's outbox supplies a stable ID across retries. Other event keys can describe a
+        # recurring condition rather than a single delivery.
+        delivery_id = envelope.get("dedupe_key") if spec.type.startswith("recovery.request.") else None
+        self.ingest(spec, data, source=envelope.get("source_id") or "gateway", delivery_id=delivery_id)
 
     def on_audit_line(self, line: bytes) -> None:
         try:
@@ -242,7 +245,7 @@ class NotifyService:
         return list(dict.fromkeys(ids))
 
     # ---- ingest -------------------------------------------------------------------------
-    def ingest(self, spec: Spec, data: dict, source: str = "gateway") -> None:
+    def ingest(self, spec: Spec, data: dict, source: str = "gateway", *, delivery_id: str | None = None) -> None:
         with self._lock:
             for tpl in spec.resolves:
                 key = catalogue.render(tpl, data)
@@ -256,6 +259,7 @@ class NotifyService:
                     topic=catalogue.topic_for(spec, data), title=catalogue.render(spec.title, data),
                     body=catalogue.render(spec.body, data), link=self._link(spec, data), source=source,
                     action_id=data.get("action_id"), alert_id=None, inapp_only=spec.kind == "inbox",
+                    delivery_id=delivery_id,
                     **self._chip(spec.type, source),
                 )
 
@@ -407,7 +411,8 @@ class NotifyService:
                 link: str | None, source: str, action_id: str | None, alert_id: str | None,
                 inapp_only: bool, source_kind: str = "system", app_id: str | None = None,
                 asset_id: str | None = None, group_key: str | None = None,
-                actions: list[dict] | None = None, delivery_delay: timedelta = timedelta()) -> list[str]:
+                actions: list[dict] | None = None, delivery_delay: timedelta = timedelta(),
+                delivery_id: str | None = None) -> list[str]:
         now = self.clock()
         created = []
         for pid in people:
@@ -437,7 +442,8 @@ class NotifyService:
                     elif held is not None:
                         d.state, d.held_reason, d.release_at, d.next_attempt_at = "held", held[0], held[1], None
                     deliveries.append(d)
-            self.repo.add_notification(row, deliveries)
+            if not self.repo.add_notification(row, deliveries, delivery_id=delivery_id):
+                continue
             self.gw.events.publish_event(
                 "notification", "created",
                 {"notification_id": nid, "source_kind": source_kind, "app_id": app_id, "asset_id": asset_id,

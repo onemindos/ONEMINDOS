@@ -8,6 +8,7 @@ wait, finishing with a new passkey, and the notices."""
 from __future__ import annotations
 
 import json
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from pathlib import Path
@@ -15,14 +16,16 @@ from threading import Event, current_thread
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from conftest import OWNER
 from onemind_core.app import create_app
 from onemind_core.errors import ApiError
 from onemind_core.identity.crypto import new_id, totp_code
+from onemind_core.notify.store import NotificationRow
 from onemind_core.recovery.requests import MAX_TRIES, RequestRow, code_for, vouch_payload
 from recovery_support import ContactPhone, invite_and_accept, owner_with_passkey
-from test_identity import PASSWORD, SoftAuthenticator, audit_events, csrf, id_settings
+from test_identity import PASSWORD, SoftAuthenticator, audit_events, csrf, id_settings, setup_owner
 
 DAY = 86400
 
@@ -275,6 +278,12 @@ def test_remote_recovery_needs_more_than_a_password_waits_72_hours_and_only_adds
     step = int(clock.now.timestamp() // 30)
     assert rc.post("/v1/auth/totp/confirm", headers=csrf(rc), json={"code": totp_code(secret, step)}).status_code == 204
     clock.advance(30)
+    wide_digits = totp_code(secret, step + 1).translate(str.maketrans("0123456789", "０１２３４５６７８９"))
+    client = TestClient(rc.app, raise_server_exceptions=False)
+    invalid = client.post("/v1/auth/recovery", json={"path": "remote", "username": "zeus", "password": PASSWORD,
+                                                     "totp": wide_digits})
+    assert invalid.status_code == 401, invalid.text
+    assert invalid.json()["reason"] == "totp_invalid"
     r = start(rc, "remote", password=PASSWORD, totp=totp_code(secret, step + 1))
     assert r.status_code == 201, r.text
     s = r.json()
@@ -296,9 +305,23 @@ def test_the_owner_chooses_the_waits_and_shortening_needs_the_step_up(rc, clock)
     r = rc.put("/v1/auth/recovery/settings", json={"contact_wait_hours": 72, "remote_wait_hours": 168}, headers=csrf(rc))
     assert r.status_code == 200 and r.json()["values"]["remote_wait_hours"] == 168
     assert rc.put("/v1/auth/recovery/settings", json={"remote_wait_hours": 100}, headers=csrf(rc)).status_code == 422
+    r = rc.put("/v1/auth/recovery/settings", json={"remote_wait_hours": 72}, headers=csrf(rc))
+    assert r.status_code == 200 and r.json()["values"]["remote_wait_hours"] == 72
     clock.advance(301)
     r = rc.put("/v1/auth/recovery/settings", json={"contact_wait_hours": 24}, headers=csrf(rc))
     assert r.status_code == 401 and r.json()["reason"] == "step_up_required"
+
+
+def test_password_only_owner_can_lengthen_but_cannot_shorten_recovery_waits(rc):
+    setup_owner(rc)
+    path = "/v1/auth/recovery/settings"
+    longer = rc.put(path, json={"remote_wait_hours": 168}, headers=csrf(rc))
+    assert longer.status_code == 200, longer.text
+    assert longer.json()["values"]["remote_wait_hours"] == 168
+
+    shorter = rc.put(path, json={"remote_wait_hours": 72}, headers=csrf(rc))
+    assert shorter.status_code == 401 and shorter.json()["reason"] == "step_up_required"
+    assert rc.get(path).json()["values"]["remote_wait_hours"] == 168
 
 
 def test_concurrent_l0_settings_edits_keep_both_distinct_tightenings(rc, clock, monkeypatch):
@@ -328,8 +351,6 @@ def test_concurrent_l0_settings_edits_keep_both_distinct_tightenings(rc, clock, 
         nonlocal first_thread
         first_thread = current_thread()
         return put("contact_wait_hours", 72)
-
-    from sqlalchemy import select
 
     from onemind_core.identity.models import SessionRow, UserRow
 
@@ -369,7 +390,10 @@ def test_every_contact_and_owner_hears_of_the_recovery_and_reminders_during_the_
     assert {"recovery.request.started", "recovery.request.vouched", "recovery.request.reminder"} <= set(seen)
 
 
-def test_undelivered_notices_survive_restart_even_for_a_completed_request(rc, clock, settings, executor, monkeypatch):
+@pytest.mark.parametrize("after_fanout", [False, True], ids=["before-fanout", "after-fanout"])
+def test_undelivered_notices_survive_restart_even_for_a_completed_request(
+    rc, clock, settings, executor, monkeypatch, after_fanout,
+):
     owner_with_passkey(rc)
     phone = ready_contact(rc, clock)
     gw = rc.app.state.recoveries.gw
@@ -377,6 +401,8 @@ def test_undelivered_notices_survive_restart_even_for_a_completed_request(rc, cl
 
     def fail_dispatch(domain, name, *args, **kwargs):
         if domain == "recovery" and name.startswith("request."):
+            if after_fanout:
+                publish(domain, name, *args, **kwargs)
             raise OSError("test notification delivery failure")
         return publish(domain, name, *args, **kwargs)
 
@@ -389,6 +415,18 @@ def test_undelivered_notices_survive_restart_even_for_a_completed_request(rc, cl
     assert _complete(rc, s["id"], s["one_time"]["request_token"], "a brand new passphrase").status_code == 200
     feed = "/v1/recovery/contact/notices"
     assert all("request_id" not in n["data"] for n in TestClient(rc.app).get(feed, headers=phone.auth).json())
+    owner_ids = {pid for pid, role in rc.app.state.notify.people().items() if role == "owner"}
+    assert len(owner_ids) >= 2
+    titles = {"Someone started recovering an account", "A recovery contact confirmed a recovery",
+              "A recovery is still running", "A recovery finished"}
+
+    def inbox_counts(app):
+        with app.state.recoveries.db.session() as db:
+            return Counter(db.execute(select(NotificationRow.person_id, NotificationRow.title).where(
+                NotificationRow.title.in_(titles))).all())
+
+    expected_inbox = Counter((pid, title) for pid in owner_ids for title in titles)
+    assert inbox_counts(rc.app) == (expected_inbox if after_fanout else Counter())
 
     restarted = create_app(id_settings(settings), clock=clock, executor=executor)
     contacts = restarted.state.recovery_contacts
@@ -410,6 +448,7 @@ def test_undelivered_notices_survive_restart_even_for_a_completed_request(rc, cl
         events = [n["event"] for n in client.get(feed, headers=phone.auth).json()
                   if n["data"].get("request_id") == s["id"]]
         assert sorted(events) == sorted(delivered) == sorted(expected)
+        assert inbox_counts(restarted) == expected_inbox
     assert restarted.state.recoveries.tick() == 0
 
 
@@ -500,6 +539,41 @@ def test_contact_revocation_committing_before_its_hook_prevents_completion(rc, c
     assert responses[0].status_code == 409 and responses[0].json()["reason"] == "contact_ended"
     assert rec._get(s["id"]).state == "cancelled"
     assert not _signs_in(rc, "a brand new passphrase") and _signs_in(rc, PASSWORD)
+
+
+@pytest.mark.parametrize("tick_first", [True, False], ids=["tick", "start-before-tick"])
+def test_revocation_without_its_hook_releases_the_open_slot_after_restart(
+    rc, clock, settings, executor, monkeypatch, tick_first,
+):
+    owner_with_passkey(rc)
+    phone = invite_and_accept(rc, "Ana")
+    other = ready_contact(rc, clock, "Ben")
+    response = start(rc)
+    assert response.status_code == 201, response.text
+    started = response.json()
+    rid = started["id"]
+    assert vouch(rc, phone, rid, picked=started["matching_number"])[0].status_code == 200
+    rec = rc.app.state.recoveries
+    monkeypatch.setattr(rec.contacts, "ended_hooks", [])
+    assert TestClient(rc.app).post("/v1/recovery/contact/resign", headers=phone.auth).status_code == 200
+    assert rec._get(rid).state == "waiting"
+
+    clock.advance(2 * DAY)
+    restarted = create_app(id_settings(settings), clock=clock, executor=executor)
+    rec = restarted.state.recoveries
+    if tick_first:
+        rec.tick()
+        assert rec._get(rid).state == "cancelled"
+    client = TestClient(restarted)
+    fresh = client.post("/v1/auth/recovery", json={"path": "contact", "username": "zeus"})
+    assert fresh.status_code == 201, fresh.text
+    assert rec._get(rid).end_reason == "contact_ended"
+    rec.tick()
+    feed = client.get("/v1/recovery/contact/notices", headers=other.auth)
+    assert feed.status_code == 200, feed.text
+    endings = [n["data"]["reason"] for n in feed.json()
+               if n["event"] == "recovery.request.cancelled" and n["data"].get("request_id") == rid]
+    assert endings == ["contact_ended"]
 
 
 def test_tries_are_counted_atomically_even_from_a_stale_read(rc, clock):

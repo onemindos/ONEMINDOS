@@ -4,6 +4,7 @@
 alerts         one row per condition; `open_key` = dedupe_key while open, NULL once resolved, so
                the unique index allows one open alert per key and any number of resolved ones
 notifications  one person's inbox items
+receipts       committed fanout for a durable event delivery, per person
 deliveries     one notification (or summary) to one channel or device: queued, held, sent,
                failed (retrying), dead, summarised, dropped (over the channel's daily cap)
 sends          one row per attempt to reach a capped (sms) channel's provider, whatever its outcome:
@@ -100,6 +101,14 @@ class NotificationRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     __table_args__ = (Index("notify_notifications_person_created", "person_id", "created_at"),)
+
+
+class NotificationReceiptRow(Base):
+    """Keep delivery acknowledgements independent of inbox retention."""
+
+    __tablename__ = "notify_notification_receipts"
+    delivery_id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    person_id: Mapped[str] = mapped_column(String(120), primary_key=True)
 
 
 class DeliveryRow(Base):
@@ -287,10 +296,19 @@ class NotifyRepository(SqlRepository):
         return {sev: n for sev, n in rows}
 
     # ---- notifications ---------------------------------------------------------------------
-    def add_notification(self, row: NotificationRow, deliveries: list[DeliveryRow]) -> None:
+    def add_notification(self, row: NotificationRow, deliveries: list[DeliveryRow], *,
+                         delivery_id: str | None = None) -> bool:
         with self.db.session.begin() as s:
+            if delivery_id is not None:
+                claimed = s.scalar(self.db.insert()(NotificationReceiptRow)
+                                   .values(delivery_id=delivery_id, person_id=row.person_id)
+                                   .on_conflict_do_nothing()
+                                   .returning(NotificationReceiptRow.delivery_id))
+                if claimed is None:
+                    return False
             s.add(row)
             s.add_all(deliveries)
+        return True
 
     def get_notification(self, nid: str) -> NotificationRow | None:
         with self.db.session() as s:

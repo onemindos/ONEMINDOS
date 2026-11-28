@@ -188,6 +188,15 @@ class Recoveries:
             row = self._end(row, "expired", "no_contact_in_time", None, expect=("awaiting_contact",))
         return row
 
+    def _reconcile_open(self, row: RequestRow) -> RequestRow:
+        """Close a lapsed request or recover a cancellation interrupted after contact revocation."""
+        row = self._fresh(row)
+        if row.state == "waiting" and row.path == "contact" and row.vouched_by is not None:
+            contact = self.contacts._get(row.vouched_by)
+            if contact is None or contact.state != "active":
+                return self._end(row, "cancelled", "contact_ended", f"contact:{row.vouched_by}", expect=("waiting",))
+        return row
+
     def view(self, row: RequestRow, *, starter: bool, contact: bool = False) -> dict:
         out = {
             "id": row.id, "path": row.path, "state": row.state, "created_at": iso(row.created_at),
@@ -249,12 +258,12 @@ class Recoveries:
                 raise ApiError(409, "conflict", "remote recovery is for owners", reason="owner_only")
             hours = self.settings(owner.id)["remote_wait_hours"]
             values = dict(path="remote", state="waiting", wait_hours=hours, not_before=now + timedelta(hours=hours))
-        # A request nobody confirmed in time is closed first (outside the lock below), so it cannot block.
+        # Close stale requests before checking the owner's open slot under the lock below.
         with self.db.session() as s:
             stale = list(s.scalars(select(RequestRow).where(RequestRow.owner_user_id == owner.id,
                                                             RequestRow.state.in_(OPEN_STATES))))
         for r in stale:
-            self._fresh(r)
+            self._reconcile_open(r)
         token = REQUEST_TOKEN_PREFIX + secrets.token_urlsafe(32)
         row = RequestRow(id=new_id("rr"), owner_user_id=owner.id, created_at=now, starter_token_hash=token_hash(token),
                          source=(request.client.host if request.client else "unknown")[:80], tries=0,
@@ -630,13 +639,13 @@ class Recoveries:
                 for d in new]
 
     def tick(self) -> int:
-        """Close requests nobody confirmed in time and send the wait's notices that are due: every 24 hours
-        and 1 hour before the end. Recover notices left pending by failed dispatches or shutdowns."""
+        """Reconcile open requests and send the wait's notices that are due: every 24 hours and 1 hour
+        before the end. Recover notices left pending by failed dispatches or shutdowns."""
         now, sent = self.now(), self.notices.retry()
         with self.db.session() as s:
             rows = list(s.scalars(select(RequestRow).where(RequestRow.state.in_(OPEN_STATES))))
         for r in rows:
-            r = self._fresh(r)
+            r = self._reconcile_open(r)
             if r.state != "waiting" or r.not_before is None:
                 continue
             with self.db.session.begin() as s:
