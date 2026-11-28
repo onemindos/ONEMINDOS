@@ -222,6 +222,7 @@ jobs:
         run: |
           k3d cluster create factory --wait --timeout 300s --no-lb \
             --image docker.io/rancher/k3s:v1.37.2-k3s1@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332
+          bash sdk/tools/ci/map-packs-volume.sh "$APP" factory
 
       - name: Gate the rebuilt image
         if: steps.dl.outcome == 'success'

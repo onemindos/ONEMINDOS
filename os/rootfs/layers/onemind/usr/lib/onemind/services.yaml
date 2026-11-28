@@ -21,6 +21,12 @@ services:
      depends_on: [], description: "On a new hub, saves Kubernetes's first-start files to the disk while it starts, so a power cut in the first minutes cannot leave them empty."}
   - {unit: onemind-k3s-reset.service, name: Kubernetes state reset, docs: docs/leap/core/IMAGES.md, restartable: false, risk: high,
      depends_on: [k3s.service], description: "Only runs when the owner approves Reset k3s state in the rescue console: moves Kubernetes's generated state aside and starts it fresh. Files, app data and the gateway database are not touched."}
+  - {unit: onemind-offline-maps-rebind.service, name: Offline Maps volume rebind, docs: docs/leap/core/APP-LIFECYCLE.md,
+     restartable: false, risk: low, depends_on: [k3s.service],
+     description: "Reserves the released Offline Maps volume for the same claim so reinstalling can reuse the retained packs."}
+  - {unit: onemind-offline-maps-rebind.timer, name: Offline Maps rebind schedule, docs: docs/leap/core/APP-LIFECYCLE.md,
+     restartable: false, risk: low, depends_on: [onemind-offline-maps-rebind.service],
+     description: "Checks for an Offline Maps volume released by an uninstall while Kubernetes is running."}
   - {unit: onemind-images.service, name: App image cleanup, docs: docs/leap/core/APP-LIFECYCLE.md, restartable: true, risk: low, depends_on: [k3s.service],
      description: "Removes app images that a newer version replaced, so the disk does not fill up. Images in use are never touched."}
   - {unit: onemind-catalog.service, name: Market catalog sync, docs: docs/learning/08-security-pipeline-and-tuf.md, restartable: false, risk: low,

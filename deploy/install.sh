@@ -144,6 +144,7 @@ uninstall() {
   if [ "$DRY_RUN" = 1 ]; then
     step "Uninstall"
     plan "systemctl disable --now onemind-gateway-token.timer onemind-gateway onemind-rescue onemindd onemind-images onemind-nats; remove their unit files"
+    plan "stop and remove the Offline Maps rebind timer, service and helper"
     plan "rm $BIN/onemindd $BIN/onemind $BIN/nats-server"
     plan "run k3s-uninstall.sh / k3s-agent-uninstall.sh if present (k3s and its data)"
     plan "rm /etc/apt/apt.conf.d/52onemind-security-only /etc/needrestart/conf.d/50-onemind.conf"
@@ -152,6 +153,9 @@ uninstall() {
     return 0
   fi
   log "stopping and removing OneMind services"
+  systemctl disable --now onemind-offline-maps-rebind.timer 2>/dev/null || true
+  systemctl stop onemind-offline-maps-rebind.service 2>/dev/null || true
+  rm -f /etc/systemd/system/onemind-offline-maps-rebind.{service,timer} /usr/lib/onemind/offline_maps_rebind.py
   systemctl disable --now onemind-gateway-token.timer 2>/dev/null || true
   rm -f /etc/systemd/system/onemind-gateway-token.timer
   # The Tailscale client goes only if OneMind installed it (tailscale_install's marker).
@@ -1141,6 +1145,22 @@ dashboard_build() {
 }
 copy_tree_plain() { rm -rf "$2.new"; mkdir -p "$2.new"; cp -R "$1/." "$2.new/"; rm -rf "$2"; mv "$2.new" "$2"; chmod -R a+rX "$2"; }
 
+offline_maps_platform() {
+  local layer="$SRC/os/rootfs/layers/onemind/usr/lib"
+  local manifest="$layer/onemind/manifests/offline-maps-packs-pv.yaml"
+  local rebind=onemind-offline-maps-rebind
+  if [ "$DRY_RUN" = 1 ]; then
+    plan "kubectl apply -f $manifest (platform-owned offline maps)"
+    plan "install and enable $rebind.timer"
+    return 0
+  fi
+  "$BIN/k3s" kubectl apply -f "$manifest"
+  install -D -m0644 "$layer/onemind/offline_maps_rebind.py" /usr/lib/onemind/offline_maps_rebind.py
+  install -m0644 "$layer/systemd/system/$rebind.service" "$layer/systemd/system/$rebind.timer" /etc/systemd/system/
+  systemctl daemon-reload
+  systemctl enable --now "$rebind.timer"
+}
+
 # The gateway's own Kubernetes identity (H-03): deploy/k8s/gateway-rbac.yaml. Cluster-wide it may
 # only manage app-* namespaces and bind onemind-app-deployer inside them (fenced by a
 # ValidatingAdmissionPolicy); its token is a 24-hour bound token renewed every 6 hours by
@@ -1332,6 +1352,9 @@ KUBECONFIG=$ETC/gateway.kubeconfig
 ONEMIND_SANDBOX_RULES=$PREFIX/sdk/policy/app-objects.yaml
 ONEMIND_SANDBOX_GATEWAY_SA=onemind-system/onemind-gateway
 ONEMIND_NATS_URL=nats://127.0.0.1:4222
+ONEMIND_MAP_PACKS_DIR=/data/onemind/maps/packs
+ONEMIND_MAP_REGION_CATALOG=/usr/lib/onemind/maps/regions.json
+ONEMIND_MAP_REGION_KEY_FILE=/usr/lib/onemind/keys/map-regions.pub
 ONEMIND_HOST=$BIND
 ONEMIND_PORT=8080
 # §11.2: the URL app pods use to reach this gateway (written into each agent app's Secret as
@@ -1374,12 +1397,14 @@ gateway_service() {
   local url=$1
   if [ "$DRY_RUN" = 1 ]; then
     step "Gateway service (:8080, systemd unit onemind-gateway, user onemind)"
+    plan "install -d -m0755 -o onemind -g onemind /data/onemind/maps/packs"
     gateway_env "$url" | show_file "$ETC/gateway.env" 0640 root:onemind
     kubectl_wrapper | show_file "$PREFIX/bin/kubectl" 0755
     plan "install $SCRIPT_DIR/systemd/onemind-gateway.service; systemctl enable onemind-gateway; restart"
     plan "wait for http://127.0.0.1:8080/healthz (up to 60 s)"
     return 0
   fi
+  install -d -m0755 -o onemind -g onemind /data/onemind/maps/packs
   gateway_env "$url" > "$ETC/gateway.env"
   chmod 0640 "$ETC/gateway.env"; chgrp onemind "$ETC/gateway.env"
   # kubectl for the gateway: the k3s multi-call binary run as "kubectl" (same version as the
@@ -1431,6 +1456,7 @@ if [ "$ROLE" = hub ]; then
   nats_install
   dashboard_build
   gateway_kubeconfig
+  offline_maps_platform
   coredns_hub_name
   gateway_tokens
   rescue_install         # after the CA pair and the tokens file it needs

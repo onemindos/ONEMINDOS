@@ -132,6 +132,7 @@ class Paths:
         self.backup_export = j("data", "onemind", "gateway", "backup-export")  # the built-ins' export (#616)
         self.rescue_tls = j("data", "onemind", "tls")   # https.crt/https.key for onemind-rescue (CORE-UPDATE-9)
         self.files = j("data", "onemind", "files")      # the gateway's ONEMIND_FILES_ROOT (and Samba's shares)
+        self.map_packs = j("data", "onemind", "maps", "packs")
         self.k3s_data = j("data", "k3s")                # k3s --data-dir (a leaf removes it, retire_k3s)
         self.k3s_run = j("run", "k3s")                  # tmpfs: exists only if k3s started on this boot
 
@@ -578,7 +579,7 @@ def gateway_env(p: Paths, st: dict, mesh_ip: str | None = None, js_max_bytes: in
            f"ONEMIND_FABRIC_NATS_SERVICE_KEYS={p.nats_keys}\n"
            f"ONEMIND_FABRIC_NATS_NKEY_SEED={p.nats_keys}/gateway.nk\n"
            f"ONEMIND_FABRIC_JETSTREAM_MAX_BYTES={js_max_bytes}\nONEMIND_FABRIC_JETSTREAM_PATH={JETSTREAM_MOUNT}\n")
-    out += backup_gateway_env(p)
+    out += map_gateway_env(p) + backup_gateway_env(p)
     if mesh_ip:
         out += ("# The mesh (written by `onemind-firstboot mesh` once the hub has its mesh address).\n"
                 "ONEMIND_MESH_ENABLED=1\n"
@@ -587,6 +588,12 @@ def gateway_env(p: Paths, st: dict, mesh_ip: str | None = None, js_max_bytes: in
                 f"ONEMIND_MESH_HEADSCALE_KEY_FILE={p.hs_key}\n"
                 f"ONEMIND_MESH_HUB_IP={mesh_ip}\n")
     return out
+
+
+def map_gateway_env(p: Paths) -> str:
+    return (f"ONEMIND_MAP_PACKS_DIR={p.map_packs}\n"
+            f"ONEMIND_MAP_REGION_CATALOG={p.lib}/maps/regions.json\n"
+            f"ONEMIND_MAP_REGION_KEY_FILE={p.lib}/keys/map-regions.pub\n")
 
 
 # ------------------------------------------------------------------ hub: backups (IMG-BACKUP-01)
@@ -1016,6 +1023,21 @@ def ensure_files_root(p: Paths) -> None:
     prepare_files_snapshots(p, ids)
 
 
+def ensure_map_storage(p: Paths, ids: tuple[int, int] | None) -> None:
+    os.makedirs(p.map_packs, mode=0o755, exist_ok=True)
+    os.chmod(p.map_packs, 0o755)
+    if ids:
+        os.chown(p.map_packs, *ids)
+    # Images updated after initial setup already have a gateway.env. Keep explicit settings.
+    path = os.path.join(p.etc, "gateway.env")
+    if os.path.isfile(path):
+        env = _read(path)
+        keys = {line.partition("=")[0] for line in env.splitlines()}
+        missing = [line for line in map_gateway_env(p).splitlines() if line.partition("=")[0] not in keys]
+        if missing:
+            write(path, env.rstrip("\n") + "\n" + "\n".join(missing) + "\n")
+
+
 # What k3s writes under its --data-dir. /data/k3s itself and /data/k3s/storage are made on every box by
 # onemind-data-layout.service and tmpfiles.d/onemind-backup.conf, so they stay.
 K3S_WRITES = ("server", "agent", "data")
@@ -1052,9 +1074,11 @@ def start_units(p: Paths, st: dict) -> None:
         retire_k3s(p)
     if role == "hub":
         ensure_files_root(p)               # before the gateway: its sandbox needs the folder to exist
+        ids = onemind_ids()
+        ensure_map_storage(p, ids)
         ensure_rescue_tls(p)               # boxes configured before CORE-UPDATE-9 get their pair now
         # uid of "onemind" is fixed in the image (961), but re-own after an update anyway.
-        chown_tree(p.gateway, onemind_ids())
+        chown_tree(p.gateway, ids)
         ensure_backup(p, st)               # boxes configured before IMG-BACKUP-01 get backups on this boot
     units = ROLE_UNITS if st.get("mesh") else LEGACY_ROLE_UNITS
     systemctl("start", "--no-block", *units[role])

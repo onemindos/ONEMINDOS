@@ -361,7 +361,7 @@ RUN set -eu; \
       systemctl enable ssh.service onemind-ssh-owner-key.path getty@tty2.service >/dev/null; \
     fi; \
     systemctl enable systemd-timesyncd.service onemind-data-layout.service \
-      k3s.service onemind-local-api.service onemind-health-gate.service onemind-data-check.service onemind-leaf-local.service \
+      k3s.service onemind-offline-maps-rebind.timer onemind-local-api.service onemind-health-gate.service onemind-data-check.service onemind-leaf-local.service \
       onemind-factory-reset.service systemd-sysext.service systemd-confext.service >/dev/null; \
     systemctl mask systemd-firstboot.service >/dev/null 2>&1 || true; \
     mandb -q; \

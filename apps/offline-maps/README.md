@@ -29,7 +29,7 @@ The Market lists `minMemoryMb: 256`, no GPU.
 | Deployment/offline-maps | viewer | 20m / 32Mi | 500m / 192Mi |
 | Deployment/offline-maps | pmtiles | 10m / 32Mi | 1 / 256Mi |
 
-Storage: PVC `offline-maps-data` 16Gi.
+Storage: PVC `offline-maps-data` 16Gi, PVC `offline-maps-packs` 16Gi.
 
 Images:
 
@@ -108,8 +108,10 @@ through the standard action approval flow using `map.pack.add` with a
 `region_id` or `map.pack.remove` with a `pack_id`. The app proxy serves bytes
 from `packs/<id>` with Range support.
 
-Provision the same directory for the gateway's `[map].packs_dir` and the
-viewer's `maps/packs` on the Offline Maps volume. Configure `region_catalog`
+The platform provides `/data/onemind/maps/packs` for the gateway's
+`[map].packs_dir` and mounts it read-only at `/packs` in the viewer. App
+removal retains the pack files. The hub re-reserves a released volume for
+the same claim so a reinstall can mount those files again. Configure `region_catalog`
 with the signed `onemind.map.regions/v1` JSON and `region_key_file` with its
 trusted Ed25519 public key in PEM form. The adjacent `.sig` contains a base64
 signature over the exact JSON bytes. Each entry supplies `id`, `region`,
