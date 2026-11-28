@@ -8,6 +8,7 @@ import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { useShell } from '../shell/Shell';
 import { AccessGrants } from './AccessGrants';
+import { AgentInputsEditor, AppSharingEditor } from './PermissionEditors';
 
 const account = '/settings/account';
 const object = (value: unknown): Record<string, unknown> =>
@@ -111,6 +112,7 @@ const groups: Record<By, string> = { person: 'By person', app: 'By app', agent: 
 
 function PermissionList({ sdk, by }: { sdk: OneMind; by: By }) {
   const [selected, setSelected] = useState('');
+  const owner = useShell().role === 'owner';
   const list = usePoll(async () => {
     const path = by === 'person' ? '/v1/users' : by === 'app' ? '/v1/apps' : '/v1/agents';
     try {
@@ -137,6 +139,9 @@ function PermissionList({ sdk, by }: { sdk: OneMind; by: By }) {
         </select>
       </label>}
     {current && <PermissionDetail key={current.id} sdk={sdk} by={by} id={current.id} role={current.role} />}
+    {/* Owner writer screens (#1214): the hub asks for the step-up in place when a change adds power. */}
+    {current && owner && by === 'app' && <AppSharingEditor key={`share-${current.id}`} appId={current.id} appName={current.name} />}
+    {current && owner && by === 'agent' && <AgentInputsEditor key={`inputs-${current.id}`} agentId={current.id} />}
   </>;
 }
 
@@ -177,7 +182,7 @@ export function SettingsPermissions() {
   const [by, select] = useState<By>('person');
   return <>
     <PageHeader title="Permissions" />
-    <Card title="Who has access">
+    <Card title="Who has access" subtitle="Pick a person, an app or an agent. Owners can change who opens an app and what an agent reads.">
       <div role="group" aria-label="View permissions">
         {(Object.keys(groups) as By[]).map((group) => <button type="button" key={group} aria-pressed={by === group} onClick={() => select(group)}>{groups[group]}</button>)}
       </div>

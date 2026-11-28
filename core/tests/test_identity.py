@@ -308,6 +308,53 @@ def test_per_app_sharing(idc):
     assert idc.get("/v1/apps/nope/access").status_code == 404
 
 
+def test_app_access_answers_match_the_documented_schema(idc):
+    """The dashboard's sharing editor reads apps.access.get/set through the generated SDK types (#1214)."""
+    from onemind_core.routers.identity import AppAccess
+
+    setup_owner(idc)
+    guest = enrol(idc, "guest", "gus")
+    gid = guest.get("/v1/me").json()["principal"]["id"]
+    spec = idc.get("/openapi.json").json()
+    for method in ("get", "put"):
+        ok = spec["paths"]["/v1/apps/{app_id}/access"][method]["responses"]["200"]["content"]["application/json"]["schema"]
+        assert ok == {"$ref": "#/components/schemas/AppAccess"}
+    put = idc.put("/v1/apps/whoami/access", json={"roles": ["adult"], "people": [gid]}, headers=csrf(idc))
+    assert AppAccess.model_validate(put.json()).people[0].id == gid
+    assert AppAccess.model_validate(idc.get("/v1/apps/whoami/access").json()).allowed is None  # an owner sees all
+    assert AppAccess.model_validate(guest.get("/v1/apps/whoami/access").json()).allowed is True
+
+
+def test_users_list_matches_the_documented_schema(idc):
+    """The sharing editor reads the people on the box through the generated SDK type (#1254 review)."""
+    from onemind_core.routers.identity import UserInfo
+
+    setup_owner(idc)
+    enrol(idc, "guest", "gus")
+    spec = idc.get("/openapi.json").json()
+    ok = spec["paths"]["/v1/users"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+    assert ok["type"] == "array" and ok["items"] == {"$ref": "#/components/schemas/UserInfo"}
+    users = [UserInfo.model_validate(u) for u in idc.get("/v1/users").json()]
+    assert {u.role for u in users} >= {"owner", "guest"}
+
+
+def test_moving_an_app_to_its_own_sign_in_asks_for_the_step_up(idc):
+    """Switching auth from OneMind's sign-in to the app's own counts as widening (#1254 review): OneMind stops
+    checking who opens the app, so it is a security setting that needs the same step-up as sharing more."""
+    setup_owner(idc)
+    key = SoftAuthenticator()
+    register_passkey(idc, key)
+    path = "/v1/apps/whoami/access"
+    r = idc.put(path, json={"roles": [], "people": [], "auth": "app"}, headers=csrf(idc))
+    assert r.status_code == 401 and r.json()["reason"] == "step_up_required"
+    assert idc.get(path).json()["auth"] == "onemind"
+    assert stepped(idc, "PUT", path, json={"roles": [], "people": [], "auth": "app"}).status_code == 200
+    # Keeping the app's sign-in while taking people away, or going back to OneMind's sign-in, needs none.
+    assert idc.put(path, json={"roles": [], "people": [], "auth": "app"}, headers=csrf(idc)).status_code == 200
+    r = idc.put(path, json={"roles": [], "people": [], "auth": "onemind"}, headers=csrf(idc))
+    assert r.status_code == 200 and r.json()["auth"] == "onemind"
+
+
 def test_static_file_principals_keep_v0_behaviour(idc):
     setup_owner(idc)
     assert [a["id"] for a in idc.get("/v1/apps", headers=GUEST).json()]  # file guest: v0, sees the catalog

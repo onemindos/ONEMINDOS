@@ -329,6 +329,30 @@
         "title": "AccessOut",
         "type": "object"
       },
+      "AccessPerson": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "AccessPerson",
+        "type": "object"
+      },
       "Action": {
         "additionalProperties": true,
         "description": "One action of the ledger (contract §3). §12.4 adds optional fields; ignore what you do not know.",
@@ -1190,6 +1214,57 @@
           "lon"
         ],
         "title": "Anchor",
+        "type": "object"
+      },
+      "AppAccess": {
+        "description": "Who can open an app (contract §12.6). An owner sees everyone; anyone else sees only their own part and\n`allowed`. `owner` is always among the roles.",
+        "properties": {
+          "allowed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "non-owners only: whether you can open it",
+            "title": "Allowed"
+          },
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "auth": {
+            "enum": [
+              "onemind",
+              "app"
+            ],
+            "title": "Auth",
+            "type": "string"
+          },
+          "people": {
+            "items": {
+              "$ref": "#/components/schemas/AccessPerson"
+            },
+            "title": "People",
+            "type": "array"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "app_id",
+          "roles",
+          "people",
+          "auth"
+        ],
+        "title": "AppAccess",
         "type": "object"
       },
       "AppBuild": {
@@ -16584,6 +16659,84 @@
         "title": "UserCreateBody",
         "type": "object"
       },
+      "UserInfo": {
+        "description": "One person on this box, as `GET /v1/users` lists them for an owner (IdentityService.user_json).",
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "disabled": {
+            "title": "Disabled",
+            "type": "boolean"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "enrolled": {
+            "title": "Enrolled",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "passkeys": {
+            "title": "Passkeys",
+            "type": "integer"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "totp": {
+            "title": "Totp",
+            "type": "boolean"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "required": [
+          "id",
+          "display_name",
+          "role",
+          "disabled",
+          "enrolled",
+          "passkeys",
+          "totp"
+        ],
+        "title": "UserInfo",
+        "type": "object"
+      },
       "UserPatchBody": {
         "properties": {
           "display_name": {
@@ -20022,7 +20175,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AppAccess"
+                }
               }
             },
             "description": "Successful Response"
@@ -20100,7 +20255,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AppAccess"
+                }
               }
             },
             "description": "Successful Response"
@@ -43116,7 +43273,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UserInfo"
+                  },
+                  "title": "Response 200 Users.List",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"

@@ -46,6 +46,7 @@ it('keeps box-wide security rows and reads out of adult sessions', async () => {
 });
 
 it('shows app roles and the people returned by the access endpoint', async () => {
+  state.role = 'owner';
   gateway({
     '/v1/users': 403,
     '/v1/apps': [{ id: 'notes', name: 'Notes' }],
@@ -57,6 +58,19 @@ it('shows app roles and the people returned by the access endpoint', async () =>
   await user.click(screen.getByRole('button', { name: 'By app' }));
   await user.selectOptions(await screen.findByLabelText('App'), 'notes');
   expect(await screen.findByText('Roles: adult. People: Test person.')).toBeVisible();
+  // An owner gets the sharing editor right there (#1214); it only reads until Save.
+  expect(await screen.findByRole('heading', { name: 'Who can open Notes' })).toBeVisible();
+});
+
+it('offers no sharing editor to a non-owner', async () => {
+  state.role = 'adult';
+  gateway({ '/v1/users': 403, '/v1/apps': [{ id: 'notes', name: 'Notes' }], '/v1/apps/notes/access': { roles: ['adult'], people: [] } });
+  render(<SettingsPermissions />);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'By app' }));
+  await user.selectOptions(await screen.findByLabelText('App'), 'notes');
+  expect(await screen.findByText('Roles: adult. People: None.')).toBeVisible();
+  expect(screen.queryByRole('heading', { name: 'Who can open Notes' })).toBeNull();
 });
 
 it('labels stale counters and links to Usage and Activity without sending a write', async () => {

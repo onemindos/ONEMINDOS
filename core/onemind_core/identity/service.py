@@ -1348,7 +1348,10 @@ class IdentityService:
         if auth not in ("onemind", "app"):
             raise ApiError(422, "conflict", 'auth must be "onemind" or "app"')
         before = self._access(app_id)
-        widens = bool(set(roles) - set(before["roles"]) or set(people) - set(before["people"]))
+        # Moving people to the app's own sign-in is a security setting too (design 3.11, D-028): OneMind stops
+        # checking who opens it, so it asks for the same step-up as sharing with more people.
+        widens = bool(set(roles) - set(before["roles"]) or set(people) - set(before["people"])
+                      or (auth == "app" and before["auth"] != "app"))
         via = self.require_step_up(ctx, p, "share an app", op="apps.access.set", target=app_id,
                                    body=asked) if widens else "not_needed"
         now = self.now()

@@ -40,8 +40,8 @@ export function offeredLevels(row: Bounds, household: VTable['household_level'])
  *  signed-in owner's own request. */
 export interface Waiting { level: string; by: string; mine: boolean }
 type Asker = { id: string; kind: string } | undefined;
-/** GET /v1/users: only the fields this page reads (the route gains a response schema in #1254). */
-type Person = { id: string; display_name?: string | null };
+/** GET /v1/users, through its generated schema. */
+type Person = components['schemas']['UserInfo'];
 
 /** key -> the table changes already waiting in Approvals for that row. Any person may file one (core
  *  registers the type for every person), so a guest's or a child's request is shown with their name and never

@@ -259,6 +259,37 @@ class RotateBody(JsonBody):
     grace_s: int = 0
 
 
+class UserInfo(BaseModel):
+    """One person on this box, as `GET /v1/users` lists them for an owner (IdentityService.user_json)."""
+
+    id: str
+    username: str | None = None
+    display_name: str
+    role: str = Field(json_schema_extra={"x-onemind-open-enum": True})
+    created_at: str | None = None
+    last_seen_at: str | None = None
+    disabled: bool
+    enrolled: bool
+    passkeys: int
+    totp: bool
+
+
+class AccessPerson(BaseModel):
+    id: str
+    display_name: str | None = None
+
+
+class AppAccess(BaseModel):
+    """Who can open an app (contract §12.6). An owner sees everyone; anyone else sees only their own part and
+    `allowed`. `owner` is always among the roles."""
+
+    app_id: str
+    roles: list[str]
+    people: list[AccessPerson]
+    auth: Literal["onemind", "app"]
+    allowed: bool | None = Field(default=None, description="non-owners only: whether you can open it")
+
+
 class AccessBody(BaseModel):
     roles: list[str] = Field(default_factory=list, max_length=8)
     people: list[str] = Field(default_factory=list, max_length=500)
@@ -451,7 +482,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return svc.set_profile_name(request, p, body.display_name)
 
     # ---- users (owner) -------------------------------------------------------------------------------
-    @app.get("/v1/users", operation_id="users.list", tags=["users"], responses=R(401, 403))
+    # The schema documents the answer for the SDK; the route still returns the service's dicts unchanged.
+    @app.get("/v1/users", operation_id="users.list", tags=["users"], responses={200: {"model": list[UserInfo]}, **R(401, 403)})
     def users(p: Principal = Depends(principal)):
         return svc.list_users(p)
 
@@ -486,11 +518,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return Response(status_code=204)
 
     # ---- per-app sharing -----------------------------------------------------------------------------
-    @app.get("/v1/apps/{app_id}/access", operation_id="apps.access.get", tags=["apps"], responses=R(401, 403, 404))
+    # The schema documents the answer for the SDK; the route still returns the service's dict unchanged.
+    @app.get("/v1/apps/{app_id}/access", operation_id="apps.access.get", tags=["apps"], responses={200: {"model": AppAccess}, **R(401, 403, 404)})
     def get_access(app_id: str, p: Principal = Depends(principal)):
         return svc.get_access(p, app_id)
 
-    @app.put("/v1/apps/{app_id}/access", operation_id="apps.access.set", tags=["apps"], responses=R(401, 403, 404, 422))
+    @app.put("/v1/apps/{app_id}/access", operation_id="apps.access.set", tags=["apps"], responses={200: {"model": AppAccess}, **R(401, 403, 404, 422)})
     def put_access(app_id: str, body: AccessBody, request: Request, p: Principal = Depends(principal)):
         return svc.put_access(ctx_of(request), p, app_id, body.roles, body.people, body.auth)
 

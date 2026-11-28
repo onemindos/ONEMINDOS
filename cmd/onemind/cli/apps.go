@@ -99,7 +99,7 @@ func appsCommands(a *App) []*cobra.Command {
 	}
 	install := requestCommand(a, onemind.ActionAppInstall, "install APP_ID", "Request an install, then approve it (owners)")
 	remove := requestCommand(a, onemind.ActionAppRemove, "remove APP_ID", "Request a removal, then approve it (owners)")
-	apps.AddCommand(list, info, install, remove)
+	apps.AddCommand(list, info, install, remove, appAccessCommand(a))
 	apps.AddCommand(systemAppsCommands(a)...)
 	return []*cobra.Command{apps}
 }
