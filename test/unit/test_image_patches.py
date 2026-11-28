@@ -117,7 +117,8 @@ class BrandBootSplash(unittest.TestCase):
         self.assertLess(cf.index("plymouth-set-default-theme onemind"), cf.index("update-initramfs -u"))
         # the initramfs hook needs the label plugin and fontconfig, or update-initramfs fails
         self.assertIn("\nplymouth plymouth-label fontconfig fonts-dejavu-core\n", rd("os", "rootfs", "packages", "debian-common.txt"))
-        for p in ("!brand/generated/os/", "!brand/logo/png/white/"):
+        logo = re.search(r'ONEMIND_BRAND_BOOT_LOGO="([^"]+)"', rd("brand", "generated", "os", "brand.env")).group(1)
+        for p in ("!brand/generated/os/", "!" + os.path.dirname(logo) + "/"):
             self.assertIn(p, rd(".dockerignore"))
 
     def test_logo_is_the_one_the_brand_names(self):
@@ -126,6 +127,39 @@ class BrandBootSplash(unittest.TestCase):
         self.assertIn(f"COPY {logo} /usr/share/plymouth/themes/onemind/logo.png", rd("os", "rootfs", "Containerfile"))
         self.assertTrue(os.path.isfile(os.path.join(ROOT, *logo.split("/"))))
         self.assertIn("ImageDir=/usr/share/plymouth/themes/onemind", rd("brand", "generated", "os", "plymouth", "onemind", "onemind.plymouth"))
+
+    def test_splash_is_the_atlas_boot_screen(self):
+        """Design-v2 final screen 12 (#763): the colour mark on black, the wordmark, a thin bar, boot steps, footer."""
+        script = rd("brand", "generated", "os", "plymouth", "onemind", "onemind.script")
+        self.assertIn("on-dark", re.search(r'ONEMIND_BRAND_BOOT_LOGO="([^"]+)"', rd("brand", "generated", "os", "brand.env")).group(1))
+        for hook in ("SetBootProgressFunction", "SetUpdateStatusFunction", "SetMessageFunction",
+                     "SetDisplayPasswordFunction", "SetDisplayQuestionFunction", "SetDisplayNormalFunction"):
+            self.assertIn(f"Plymouth.{hook}(", script)    # the disk's recovery-key prompt must be drawn
+        self.assertIn('Image.Text("OneMind"', script)
+        self.assertIn('Image("track.png")', script)
+        self.assertIn('Image("fill.png")', script)
+        # every boot step names a unit the image really ships
+        units = re.findall(r'step\.unit\[\d\] = "([^"]+)"', script)
+        self.assertEqual(len(units), 4)
+        shipped = {os.path.basename(f) for d, _, fs in os.walk(os.path.join(ROOT, "os")) for f in fs
+                   for f in [os.path.join(d, f)] if f.endswith(".service")}
+        self.assertEqual([u for u in units if u not in shipped], [])
+        self.assertNotIn("\\u", script)                  # glyphs are UTF-8, Plymouth strings have no \u escapes
+
+    def test_progress_bar_is_not_the_logo_red(self):
+        """The logo red (#FF333A) is reserved for the logo files; the bar uses the button red (DESIGN-GAP §6.4)."""
+        import json, struct, zlib
+        def colour(name):
+            data = open(os.path.join(BRAND, "plymouth", "onemind", name), "rb").read()
+            self.assertEqual(data[:8], b"\x89PNG\r\n\x1a\n")
+            n = struct.unpack(">I", data[33:37])[0]
+            self.assertEqual(data[37:41], b"IDAT")
+            px = zlib.decompress(data[41:41 + n])
+            return "#%02x%02x%02x" % tuple(px[1:4])
+        b = json.loads(rd("brand", "brand.json"))
+        self.assertEqual(colour("fill.png"), b["os"]["boot"]["progress"].lower())
+        self.assertEqual(colour("track.png"), b["os"]["boot"]["track"].lower())
+        self.assertNotEqual(colour("fill.png"), b["colors"]["red"]["hex"].lower())
 
     def test_kernel_command_line_splash_keeps_serial_output(self):
         g = rd("os", "assemble", "grub.cfg.in")
