@@ -91,7 +91,12 @@ it('previews each starter plan and files the install bound to the previewed plan
   const finish = h.props.onFinish as (d: unknown, r: unknown[]) => Promise<void>;
   await act(async () => { await finish({}, [{ type: 'app.install', params: { app_id: 'notes' } }]); });
   expect(h.request).toHaveBeenCalledWith('app.install', 'notes', {}, 'sha-1');
+  // Filing is done before the hand-off plays; leaving (after it) closes the wizard and opens the landing.
+  expect(h.done).not.toHaveBeenCalled();
+  h.navigate.mockClear();
+  act(() => (h.props.onLeave as () => void)());
   expect(h.done).toHaveBeenCalled();
+  expect(h.navigate).toHaveBeenCalledWith(landingAfterSetup(1));
 });
 
 it('refuses to file an install whose plan changed after the owner saw it', async () => {

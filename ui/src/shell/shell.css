@@ -201,6 +201,12 @@
 .oms-setup-map-gate { stroke: var(--om-color-accent); stroke-width: 1.5; stroke-dasharray: 4 3; }
 .oms-setup-map-backup { stroke: var(--om-color-text-muted); stroke-dasharray: 3 3; }
 .oms-setup-map-tile { fill: var(--om-color-surface-raised); stroke: var(--om-color-accent); }
+.oms-setup-dock { display: grid; }
+.oms-setup-dock-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--om-space-1); padding: var(--om-space-2); border: 1px solid var(--om-color-border); border-radius: var(--om-radius-lg); background: var(--om-color-surface-raised); }
+.oms-setup-dock-item { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 28%; background: var(--om-color-surface); color: var(--om-color-text-muted); }
+.oms-setup-dock-sep { width: 1px; height: 20px; background: var(--om-color-border); }
+.oms-setup-dock-app { position: relative; display: inline-grid; }
+.oms-setup-dock-wait { position: absolute; right: -4px; bottom: -4px; display: grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; background: var(--om-color-surface-raised); border: 1px solid var(--om-color-border); color: var(--om-color-warn-fg); }
 .oms-onb-foot-end { display: flex; gap: var(--om-space-2); align-items: center; }
 .oms-input-row { display: flex; gap: var(--om-space-2); align-items: flex-start; flex-wrap: wrap; }
 .oms-input-row > .oms-input { flex: 1 1 16rem; }
@@ -371,4 +377,6 @@
   .oms-onb-brand, .oms-steps, .oms-onb-side-foot { display: none; }
   .oms-setup-map { height: 150px; }
   .oms-setup-map svg { max-height: 130px; }
+  /* The phone strip stays 130 to 170 px: the dock preview is left out there (the apps list says the same). */
+  .oms-setup-dock { display: none; }
 }

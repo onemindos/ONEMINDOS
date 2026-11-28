@@ -74,6 +74,7 @@ export function FirstRun({ onDone }: { onDone: () => void }) {
   const apps = useMemo(() => (hub.apps.data ?? []).map(toStarterApp).filter((a): a is StarterApp => !!a), [hub.apps.data]);
   const [loaded, setLoaded] = useState<{ settings: FirstRunSettings; destinations: BackupDestinationRecord[]; state: FirstRunState }>();
   const previewed = useRef(new Map<string, string>());
+  const landingRef = useRef('/');
   const [error, setError] = useState<string>();
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
@@ -173,8 +174,11 @@ export function FirstRun({ onDone }: { onDone: () => void }) {
             }
           }
           if (requests.length) toast.show({ tone: sent === requests.length ? 'info' : 'warn', title: `${sent} of ${requests.length} install requests sent`, body: 'They wait in Approvals until you decide.' });
-          onDone();
-          navigate(landingAfterSetup(requests.length));
+          landingRef.current = landingAfterSetup(requests.length);
+      }}
+      onLeave={() => {
+        onDone();
+        navigate(landingRef.current);
       }}
     />
   );

@@ -39,6 +39,7 @@ import { animate, useReducedMotion } from '../motion';
 import { SetupMap } from './onboarding/SetupMap';
 import { AddressStep, browserLocation } from './onboarding/AddressStep';
 import { DecideStep } from './onboarding/DecideStep';
+import { SetupDock } from './onboarding/SetupDock';
 import { formatLocation } from './onboarding/location';
 import './shell.css';
 
@@ -83,6 +84,8 @@ export interface OnboardingProps {
   /** Read-only plan summary for a starter app, shown before Finish files its install request. */
   previewPlan?: (appId: string) => Promise<string>;
   onFinish: (draft: OnboardingDraft, requests: ReturnType<typeof finishRequests>) => void | Promise<void>;
+  /** Called after onFinish succeeded and the hand-off has played: leave the wizard (e.g. open the Map). */
+  onLeave?: () => void;
 }
 
 function zones(): string[] {
@@ -201,6 +204,7 @@ export function Onboarding({
   deviceLocation,
   finishLabel = 'Go to Home',
   onFinish,
+  onLeave,
 }: OnboardingProps) {
   const [d, setD] = useState<OnboardingDraft>(() => ({ ...emptyDraft(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'), ...initial }));
   const [step, setStep] = useState(initialStep);
@@ -287,6 +291,26 @@ export function Onboarding({
     }
   };
 
+  // The hand-off (HANDBACK O6), played only after the finish work succeeded: the steps column fades out
+  // while the map grows a little toward the desktop Map window that opens next. The wizard is inert while
+  // it leaves, and the end state is pinned inline so nothing blinks back before it unmounts (reduced
+  // motion drops `fill`). Escape finishes it early.
+  const root = useRef<HTMLDivElement>(null);
+  const handOff = async () => {
+    const wizard = root.current;
+    if (!wizard) return;
+    wizard.inert = true;
+    const steps = wizard.querySelector<HTMLElement>('.oms-onb-main');
+    const mapFigure = wizard.querySelector<HTMLElement>('.oms-setup-map');
+    const run = [
+      steps && animate(steps, [{ opacity: 1 }, { opacity: 0 }], { duration: 320, easing: 'linear', fill: 'forwards' }, reduced),
+      mapFigure && !reduced ? animate(mapFigure, [{ transform: 'none' }, { transform: 'scale(1.06)' }], { duration: 320, easing: 'cubic-bezier(.2,0,0,1)', fill: 'forwards' }, reduced) : undefined,
+    ];
+    await Promise.all(run.map((a) => a?.finished.catch(() => undefined)));
+    if (steps) steps.style.opacity = '0';
+    if (mapFigure && !reduced) mapFigure.style.transform = 'scale(1.06)';
+  };
+
   const next = async (e?: FormEvent, skip = false) => {
     e?.preventDefault();
     if (savingRef.current || changingStep.current) return;
@@ -300,7 +324,14 @@ export function Onboarding({
     try {
       if (s.id === 'backups') await onSaveSettings?.(d);
       if (s.id === 'address' && !skip && d.location && onSaveLocation && !site) setSite(await onSaveLocation(d));
-      if (s.id === 'done') await onFinish(d, finishRequests(d));
+      if (s.id === 'done') {
+        // The finish work first, with "Saving…" showing; a failure keeps the owner here with the reason.
+        await onFinish(d, finishRequests(d));
+        if (onLeave) {
+          await handOff();
+          onLeave();
+        }
+      }
       else {
         await moveTo(Math.min(step + 1, ONBOARDING_STEPS.length - 1));
         // Naming the place is what the map was waiting for: it draws itself as its own beat.
@@ -753,7 +784,7 @@ export function Onboarding({
   };
 
   return (
-    <div className="oms-onb" style={accentVars(d.accent)}>
+    <div ref={root} className="oms-onb" style={accentVars(d.accent)}>
       <h1 className="om-visually-hidden">Set up OneMind</h1>
       <aside className="oms-onb-side" aria-label="Setup progress">
         <div className="oms-onb-brand">
@@ -795,6 +826,9 @@ export function Onboarding({
           backup={step > at('backups') && d.backup.destination !== 'later'}
           ready={step > at('box')}
         />
+        {step >= at('apps') && (
+          <SetupDock apps={d.starterApps.map((id) => offer.find((a) => a.id === id)).filter((a): a is StarterApp => !!a).map(({ id, name, category }) => ({ id, name, category }))} />
+        )}
         <p className="om-visually-hidden" role="status">{drawing ? 'Your map is drawing itself. Press Escape to skip the animation.' : ''}</p>
         <p className="oms-onb-side-foot">Everything here can also be done with <code>onemind init</code>.</p>
       </aside>
