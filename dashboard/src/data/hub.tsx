@@ -101,8 +101,12 @@ export function HubProvider({ children }: { children: ReactNode }) {
 
   const offset = api.hubOffsetMs() ?? 0;
   const now = browserNow + offset;
-  const fetched = [nodes.fetchedAt, apps.fetchedAt, actions.fetchedAt];
-  const oldest = fetched.some((f) => f === undefined) ? undefined : Math.min(...(fetched as number[]));
+  // A poll the hub answered with "not for your role" has still been answered: it must not hold the
+  // connection pill on "connecting" for a child, teen or guest (who may not read every list).
+  const refused = (p: Polled<unknown>) => p.data === undefined && p.error?.code === 'permission_denied';
+  const answered = [nodes, apps, actions].filter((p) => !refused(p));
+  const fetched = answered.map((p) => p.fetchedAt);
+  const oldest = fetched.length === 0 || fetched.some((f) => f === undefined) ? undefined : Math.min(...(fetched as number[]));
   const ageS = oldest === undefined ? undefined : Math.max(0, Math.floor((browserNow - oldest) / 1000));
   const freshness: HubFreshness = ageS === undefined ? 'unknown' : ageS >= OFFLINE_AFTER_S ? 'offline' : ageS >= STALE_AFTER_S ? 'stale' : 'live';
 

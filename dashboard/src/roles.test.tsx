@@ -12,7 +12,7 @@ import type { AuditRecord } from './api/wiring';
 import { agentRecords, agentSummaries } from './data/audit';
 import { AGENTS_WINDOW_NOTE } from './pages/Agents';
 import { abilitiesFromMe } from './session';
-import { meRetryDelay, roleOf, showsNav, viewFor } from './shell/roles';
+import { decideState, meRetryDelay, roleOf, showsNav, viewFor } from './shell/roles';
 import { paletteShows } from './shell/Shell';
 import { renderApp, screensNav, seriousViolations } from './test/helpers';
 
@@ -23,6 +23,15 @@ const PRO_LINKS = ['Nodes', 'Control Hub', 'AI & Agents', 'Storage', 'Backups'];
 async function mainNav() {
   return screensNav(userEvent.setup(), T.timeout);
 }
+
+describe('decideState: one rule for who is offered Approve and Deny', () => {
+  it.each(['adult', 'teen', 'child', 'guest'])('%s is never offered it, whatever the hub says', (role) => {
+    for (const hub of ['yes', 'no', 'unknown'] as const) expect(decideState(role, hub)).toBe('no');
+  });
+  it.each(['owner', 'agent', null, undefined])('%s keeps the hub answer', (role) => {
+    for (const hub of ['yes', 'no', 'unknown'] as const) expect(decideState(role, hub)).toBe(hub);
+  });
+});
 
 describe('role → view', () => {
   it('owner and adult are Pro; guest, child, teen and agent are Simple; unknown stays unknown', () => {

@@ -3,8 +3,8 @@
 // the gateway's plan is shown as plain effects, an app that needs install secrets asks for them in a
 // form sealed in this browser, a passkey signs the exact plan, and the gateway checks all of it.
 import { useState } from 'react';
-import { useSearchParams } from 'react-router';
-import { ApprovalsBoard, Button, Dialog, HoldToApprove, SecretsForm, actionTitle, sealValues, useToast, type ActionPlan, type ActionSummary, type AppSecrets, type SecretsSubmission, type SettingsLoadable } from '@onemind/ui';
+import { Link, useSearchParams } from 'react-router';
+import { ApprovalsBoard, Card, PageHeader, Button, Dialog, HoldToApprove, SecretsForm, actionTitle, sealValues, useToast, type ActionPlan, type ActionSummary, type AppSecrets, type SecretsSubmission, type SettingsLoadable } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import { principalNamer, toActionPlan, toActionSummary } from '../data/adapters';
 import { errorText, subjectOf, useHub } from '../data/hub';
@@ -13,6 +13,9 @@ import { usePoll } from '../lib/hooks';
 import { DesktopAppRequests } from './DesktopAppRequests';
 import { webauthnSupported } from '../lib/webauthn';
 import { useSignedIn } from '../session';
+import { decideState } from '../shell/roles';
+import { href } from '../shell/routes';
+import { useShell } from '../shell/Shell';
 
 /** Shown when the gateway computed no plan for a request. */
 export const NO_PLAN_NOTE = 'The hub has not described what this request will change. Approve it only if you know what it does.';
@@ -21,6 +24,9 @@ export const APPROVE_HINT = 'Approving signs exactly this plan with your passkey
 export function Approvals() {
   const hub = useHub();
   const { api, mock } = useSignedIn();
+  const { role } = useShell();
+  // The role decides, not the token's scopes: an adult is refused by the gateway, so is never offered the buttons.
+  const canDecide = decideState(role, hub.canDecide);
   const toast = useToast();
   const [params] = useSearchParams();
   const me = usePoll(() => api.me(), 0);
@@ -149,6 +155,18 @@ export function Approvals() {
     }
   };
 
+  // A guest, child or teen is never offered Approvals, and a link here gets a calm line, not the gateway's error.
+  if (role === 'guest' || role === 'child' || role === 'teen') {
+    return (
+      <div className="dash-stack">
+        <PageHeader title="Approvals" />
+        <Card variant="sunken">
+          <p role="status">Approvals are for the owner of this box. Ask an owner if you need something decided.</p>
+          <p><Link to={href.home}>Back to Home</Link></p>
+        </Card>
+      </div>
+    );
+  }
   return (
     <>
       {last && lastNow && (
@@ -164,7 +182,7 @@ export function Approvals() {
       calls={['GET /v1/actions', 'POST /v1/actions/{id}/approve-options', 'POST /v1/actions/{id}/approve', 'POST /v1/actions/{id}/deny']}
       decided={decided}
       now={hub.now}
-      canDecide={hub.canDecide === 'yes' ? { allowed: true } : hub.canDecide === 'unknown'
+      canDecide={canDecide === 'yes' ? { allowed: true } : canDecide === 'unknown'
         ? { allowed: false, reason: 'Checking who you are…' }
         : { allowed: false, reason: 'Only the owner can approve or deny. Agents can ask and only a person can approve.' }}
       onApprove={(a, elapsedMs) => void approve(a, elapsedMs)}
@@ -173,7 +191,7 @@ export function Approvals() {
       initialId={params.get('highlight') ?? undefined}
       key={params.get('highlight') ?? ''}
     />
-    {hub.canDecide === 'yes' && (
+    {canDecide === 'yes' && (
       <section aria-labelledby="approval-practice-title">
         <h2 id="approval-practice-title">Practice an approval</h2>
         <p>{practiceDone ? 'Practice approved.' : 'Try an approval without changing your box. Press and hold the button.'}</p>

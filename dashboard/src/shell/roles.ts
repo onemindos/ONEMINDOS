@@ -32,9 +32,28 @@ export function roleOf(principal: Principal | undefined, me: Me | undefined): st
   return me.principal.kind === 'person' ? (me.principal.role ?? null) : me.principal.kind;
 }
 
+/**
+ * A signed-in person whose role the gateway refuses to let decide: everyone but the owner. An agent
+ * is not in this set: it can ask, and the gateway's refusal still switches its buttons off.
+ */
+export function cannotDecide(role: string | null | undefined): boolean {
+  return typeof role === 'string' && role !== 'owner' && role !== 'agent';
+}
+
+/**
+ * The one rule for who is offered Approve and Deny: the role overrides the hub's own answer, so Home,
+ * Approvals and the palette cannot drift apart. 'unknown' stays 'unknown' until something decides.
+ */
+export function decideState(role: string | null | undefined, hub: 'yes' | 'no' | 'unknown'): 'yes' | 'no' | 'unknown' {
+  return cannotDecide(role) ? 'no' : hub;
+}
+
 /** Is this nav item shown to this view? Pro screens stay hidden until the role is known. */
 export function showsNav(id: string, view: View, role?: string | null): boolean {
   if (view === 'simple' && SIMPLE_HIDDEN.has(id)) return false;
+  // Approvals is for the owner, who decides. Adults, teens, children and guests cannot, and the
+  // role is not known yet in the 'unknown' view, so nothing is offered until it is.
+  if (id === 'approvals' && (view === 'unknown' || cannotDecide(role))) return false;
   if (OWNER_SCREENS.has(id) && role !== 'owner') return false;
   return !PRO_SCREENS.has(id) || view === 'pro';
 }

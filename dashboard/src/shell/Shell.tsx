@@ -40,7 +40,7 @@ import { brand } from '../brand.generated';
 import { useSignedIn } from '../session';
 import { navItems } from '../screens/registry';
 import { href, navId, toRoute } from './routes';
-import { meRetryDelay, roleOf, showsNav, viewFor, type View } from './roles';
+import { decideState, meRetryDelay, roleOf, showsNav, viewFor, type View } from './roles';
 import { usePoll } from '../lib/hooks';
 import { useDisplayName } from '../data/homeMe';
 import { useIdleLock, useIdleLockPreference } from './lock/state';
@@ -156,7 +156,7 @@ export function Shell({ children }: { children: ReactNode }) {
         apps: apps.map(toPaletteApp),
         nodes: nodes.map((n) => ({ ...n, status: hub.nodeStatus(n) })),
         pending: pending.map((a) => toActionSummary(a, hub.appName)),
-        canApprove: hub.canDecide !== 'no',
+        canApprove: decideState(role, hub.canDecide) !== 'no',
       }).filter((c) => paletteShows(c, view, role)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [hub.apps.data, hub.nodes.data, hub.actionList, hub.canDecide, view, role],
