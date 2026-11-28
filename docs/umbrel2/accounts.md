@@ -99,16 +99,16 @@ Strong: the session engine (audiences, derived URL tokens, issuance revision, im
 | Hash-chained audit log | `core/onemind_core/audit.py` | `main` |
 | Agent principals per app (`agent:<app-id>`, hashed tokens, revoked at removal), `/mcp` with no approve tool | `core/onemind_core/{auth,mcp}.py` | branch `feat/gateway-agent-mcp`, not merged |
 | Users API shape (`/v1/me`, `/v1/users`, enrolment link, disable), token lifecycle, scopes and role defaults, step-up | [API.md](../leap/dev/API.md) §5.8, §5.9, §8 | spec |
-| Owner passkey, sessions, passkey-signed approvals | [SECURITY.md](../leap/core/SECURITY.md) §3.2, CORE-SEC-2 | spec |
-| Kanidm v1.12.0 on the box, household roles owner/adult/child/guest/operator | BD-03, D-B9.1 in research 30 | decision, not built |
+| Local password and optional factors, sessions, action-bound approval proofs | `core/onemind_core/identity/`, [D-034](../DECISIONS.md#d-034--simple-sign-in-with-optional-passkeys) | gateway |
+| Kanidm v1.12.1 on the box, household roles owner/adult/child/guest/operator | D-015, D-030, BD-03 and D-B9.1 in research 30 | separate host-service and provisioning work |
 | Agent rights = owning person ∩ grant | [MCP.md](../leap/dev/MCP.md) §5.1, DEV-MCP-2 | spec |
 | Edge with forward-auth, `X-OneMind-Principal`/`X-OneMind-Role` headers, per-app `access` (owner only, adults, everyone) | `docs/architecture/NETWORKING.md` §9.3, CORE-NET-5, CORE-NET-8 | branch `feat/net`, design only |
-| Dashboard sign-in by pasting a token; People mock in Settings | `dashboard/`, `ui/demo/src/screens/Settings.tsx` | `main` |
+| Dashboard password sign-in, optional passkey and authenticator with real People invitations | `dashboard/src/pages/` | D-034 |
 | Phone keeps hub URL and token in the OS secure store | `mobile/src/storage.ts` (`expo-secure-store` 58.0.3) | `main` |
 | UI parity gaps PU-09 (real login), PU-18 (sessions and tokens), PU-28 (multi-user) | `docs/strategy/umbrel-parity.md` | branch `feat/uileap` |
 | Requirements: children use it (U-2), parental controls (U-3) | `docs/REQUIREMENTS.md` | `main` |
 
-Nothing yet implements people, sessions, 2FA, app sharing or SSO.
+The D-034 gateway implements local accounts, sessions, password and authenticator sign-in, optional passkeys, invitations, and an at-the-box password reset. The Kanidm policy work and OIDC app integration are separate.
 
 ---
 
@@ -131,8 +131,8 @@ Nothing yet implements people, sessions, 2FA, app sharing or SSO.
 
 | # | Beat | Why it matters |
 |---|---|---|
-| B1 | **Passkeys first**, TOTP only as a fallback, password optional | Phishing-proof; nothing for a child to forget |
-| B2 | **Nobody learns anyone's password.** Invite = one-time enrolment link or QR; recovery = a new enrolment link | umbrelOS has the owner choose the member's password and put it into an invite message |
+| B1 | **Password at home, optional passkey or authenticator.** Remote sign-in requires a passkey or password plus an authenticator code | The box works offline and a stolen password alone cannot sign in from outside |
+| B2 | **Everyone sets their own password.** An invite is a one-time link or QR valid for 24 hours | umbrelOS has the owner choose the member's password and put it into an invite message |
 | B3 | **Roles that fit a family:** owner (more than one allowed), adult, child, guest, plus agent | umbrelOS has one fixed owner and flat members |
 | B4 | **Real SSO into apps:** OIDC clients for apps that support it, trusted identity headers for apps that read them; each person gets their own account inside Immich, Jellyfin and the rest | umbrelOS gates the port but passes no identity, so the house shares one in-app login |
 | B5 | **Per-app roles and read-only access** (viewer, user, admin inside the app; read-only folders) | umbrelOS shares are all-or-nothing and folders are read-write |
@@ -140,7 +140,7 @@ Nothing yet implements people, sessions, 2FA, app sharing or SSO.
 | B7 | **Guests that expire** and have no private storage | Absent in umbrelOS |
 | B8 | **Agents never act as the owner**: each agent belongs to a person, rights = person ∩ grant, it requests and an owner approves | umbrelOS MCP runs as the owner |
 | B9 | **Hardening:** login throttling per person and per source, TOTP window ±1 step with replay record, no public account list unless the owner turns on the picker | Gaps seen in §1.3 |
-| B10 | **Step-up for dangerous changes:** inviting an owner, changing roles, widening access and approving destructive actions need a fresh passkey assertion | umbrelOS uses the 7-day session for everything |
+| B10 | **Step-up for dangerous changes:** a passkey or fresh password plus authenticator code proves L1. A proven key or L1 plus the box's screen code proves L2 locally | umbrelOS uses the 7-day session for everything |
 | B11 | **Every sign-in and access change in the hash-chained audit log**, readable by owners and adults (own entries) | umbrelOS has logs only |
 | B12 | **Sign-in works when k3s is down and offline** (identity runs on the host, §4.1) | Required by `docs/architecture/DEPLOYMENTS.md` |
 
@@ -152,7 +152,7 @@ Nothing yet implements people, sessions, 2FA, app sharing or SSO.
 
 | Component | Role | Licence (pinned) | Notes |
 |---|---|---|---|
-| **Kanidm** `v1.12.0` (commit `a52b723ce8ef`) | Identity provider: persons, groups, passkeys, TOTP fallback, OAuth2/OIDC provider for the gateway, the phone and OIDC-capable apps | MPL-2.0, file-level copyleft; shipped as a separate component, notices kept (`research-output/evidence/license-matrix.csv`) | Runs as a **host service on the hub** (systemd), not in k3s, so sign-in survives a k3s failure. Needs a placement decision (ACCT-D2) because research 30 lists a `kanidm` chart |
+| **Kanidm** `v1.12.1` (D-030) | Identity provider for people, groups and OAuth2/OIDC clients | MPL-2.0, file-level copyleft. Shipped as a separate component with its notices (`research-output/evidence/license-matrix.csv`) | Host service under D-015. D-034 keeps `onemind.local` and requires the separate provisioning change to allow passwords, with or without an authenticator, for new people |
 | OneMind gateway (FastAPI `0.162.5`, MIT) | Sessions, roles → scopes, app access policy, forward-auth decisions, step-up, audit; the MCP authorization façade (D-B9.2) | our code, Apache-2.0 | New modules in §5 |
 | `onemind-edge` (Go `1.26`, standard library) | TLS front door, calls `/v1/auth/forward`, injects identity headers, strips client copies | our code, Apache-2.0 | CORE-NET-5 (branch `feat/net`) |
 | WebAuthn verifier in the gateway | Passkey-signed approvals bound to `plan_sha256` (Kanidm cannot sign an arbitrary challenge) | chosen by CORE-SEC-2; candidate `py_webauthn` (BSD-3-Clause per upstream) | **Version not pinned yet;** pin in `os/versions.lock.yaml` on adoption |
@@ -181,7 +181,7 @@ Roles are **Kanidm group memberships** (`onemind_owners`, `onemind_adults`, `one
 
 ### 4.3 Data model
 
-Kanidm holds identity and credentials; the gateway database holds everything about OneMind behaviour. No password or TOTP secret is ever in the gateway database.
+For the local D-034 sign-in path, the gateway stores local identity and credentials. It stores scrypt password hashes, authenticator secrets and their last accepted time steps, and hashes of recovery and invite codes. Kanidm remains the planned OIDC identity source. The table below shows the planned OIDC-backed split. Moving the local credentials to it is a separate integration change.
 
 ```
 Kanidm                           gateway database (ledger migrations, one per epic)
@@ -207,11 +207,13 @@ Rules: `app_access.mode = household` covers owners and adults, never children or
 
 ### 4.4 Flows
 
-**First boot (owner).** Console or setup page shows a QR; the owner's phone opens the setup page, registers a passkey in Kanidm, and the gateway shows a **recovery kit** once (one-time recovery code, printable). The v0 owner token becomes break-glass (SECURITY.md §3.2). Works with no internet.
+**First boot (owner).** On the home network, open the setup address and enter the six-digit code from the box's screen. Choose a name and a password of at least 12 characters. Email, an authenticator app and a passkey are optional. Download the recovery kit as a file or print it, then confirm that it is saved before finishing. It contains a recovery code and the disk recovery key when applicable. Store it somewhere separate from the box. Setup works offline.
 
-**Invite.** Owner → People → Invite → name, role, apps (pre-ticked from `household` apps; for a child, nothing pre-ticked) → step-up passkey → a one-time **enrolment link and QR** valid 24 h. The invitee registers their own passkey (or, if their device cannot, a password with TOTP). The owner never sees a credential.
+**Invite.** In People, an owner chooses a name and role and confirms their identity to create a one-time **enrolment link and QR** valid for 24 hours. The invitee sets their own password and can add an authenticator app or a passkey. The owner never sees the invitee's password.
 
-**Sign-in.** `https://onemind.local` → the gateway redirects to Kanidm (auth code + PKCE) → passkey → back with a gateway session. The account picker on the sign-in page is **off by default**; the owner can turn it on for a shared household tablet. Hybrid sign-in (scan a QR with your phone) covers TVs and guests' laptops.
+**Sign-in.** At `https://onemind.local`, enter a username and password and, if enabled, an authenticator code. A passkey is an alternative. From the mesh or any remote network, sign-in requires the authenticator code or a passkey. The account picker is off by default.
+
+**Email.** A person can skip email. A box uses the owner's configured SMTP channel for verification codes and optional notices. Email never grants sign-in or a password reset.
 
 **Open an app (forward-auth).**
 ```
@@ -229,7 +231,7 @@ For apps that speak OIDC, the manifest asks for an OIDC client; the gateway crea
 
 **Guest.** Owner creates a guest with an expiry (default 7 days, maximum 90). At expiry Kanidm's account expiry and the gateway both refuse sign-in; sessions are revoked.
 
-**Recover.** Lost phone: another device or the recovery code → revoke the lost device's sessions → new passkey. A person who lost everything: owner issues a new enrolment link (step-up), which also removes old credentials and bumps `credential_revision`. Lost owner with no second owner: recovery kit; without it, console break-glass on the box.
+**Recover.** For a forgotten owner password, open password recovery on the home network and enter both the code on the box's own screen and the code in the recovery kit. Choose a new password and save the replacement recovery code. The reset leaves data and disk encryption intact. An owner can confirm a replacement invitation for a family member who lost their credentials. It clears their old credentials and ends their sessions. To recover remote high-risk approvals, an owner who can still prove L1 submits the kit code, waits 72 hours and then enrols a proven key. An owner who lost both the password and the kit can use the existing console break-glass procedure.
 
 **Delete.** Disable (reversible, revokes sessions and tokens) → delete after the owner confirms with step-up, offering a data export first → tombstone and resumable cleanup (sessions, tokens, mesh devices, OIDC app accounts by unlinking, private storage).
 
@@ -240,10 +242,10 @@ For apps that speak OIDC, the manifest asks for an OIDC client; the gateway crea
 | Dashboard | `HttpOnly; Secure; SameSite=Strict` cookie on `onemind.local` + `OneMind-CSRF` header (H-16) | 7 days idle, 30 days absolute |
 | App hosts | separate edge cookie on `.onemind.local`, `SameSite=Lax`, never forwarded upstream | same session; checked by forward-auth |
 | Phone app | OIDC refresh token in secure store; access token 10 minutes | refresh 90 days, revocable |
-| CLI | `om_pat_` personal token (API.md §5.9) or device login flow | token expiry |
+| CLI | Password and optional authenticator sign-in with renewable bearer session, or `om_pat_` personal token (API.md §5.9) | gateway session or token expiry |
 | Downloads | 60 s single-use ticket bound to session and path | 60 s |
 
-Step-up: assertion within 5 minutes, recorded as `step_up_at` on the session (API.md §8.4). Sign-in throttling: 5 failures per person per 15 minutes, then exponential delay; per source address 20 per minute; every failure audited without the attempted secret.
+**Step-up.** L1 requires a fresh password and authenticator code or a passkey that verified the person. A password alone covers read-only and reversible actions. L2 requires a proven key or, when confirming locally, L1 plus the six-digit code on the box's screen. Remote L2 requires a proven key. L3 still requires a biometric-only key. The gateway throttles failures and accepts each authenticator code once.
 
 ### 4.6 API surface (contract style of API.md)
 
@@ -252,10 +254,15 @@ Kinds: R read, W direct owner write (audited), Q request (creates an action).
 | Method and path | Kind | Scope | Who | Does |
 |---|---|---|---|---|
 | `GET /v1/me` | R | any | any | already in API.md §5.8; adds `role: child`, `guardians`, `allowed_apps` for children |
+| `GET /v1/auth/setup/status` · `POST /v1/auth/setup/options` · `POST /v1/auth/setup` | R / W | none | first owner at the box | check setup state, show a code on the screen, and claim the box |
+| `POST /v1/auth/setup/kit` · `POST /v1/auth/setup/finish` | R / W | setup session | owner | obtain the recovery kit and confirm it was downloaded or printed |
+| `POST /v1/auth/recovery/options` · `POST /v1/auth/recovery/reset` | W | none | owner at the box | require the box-screen code and recovery-kit code to reset the password |
+| `GET` / `POST` / `DELETE /v1/auth/recovery/remote` | R / W | owner session | owner | check, request (L1 and kit code), or cancel delayed remote approval recovery |
 | `GET /v1/users` | R | `users:read` | owner | people with role, state, last seen, sign-in methods (kinds only), app count |
-| `POST /v1/users` | W | `users:admin` | owner + step-up | `{display_name, role, apps?, guest_expires_at?}` → `201` with enrolment link (shown once) |
+| `POST /v1/users/invites` | W | `users:admin` | owner + L1 | create a one-time family invite valid for 24 hours |
+| `POST /v1/users` | W | `users:admin` | owner + step-up | create a person, including an additional owner, and issue an enrolment link |
 | `PATCH /v1/users/{id}` | W | `users:admin` | owner + step-up | role or display name |
-| `POST /v1/users/{id}/enrolment-link` | W | `users:admin` | owner + step-up | new link; removes old credentials; bumps revision |
+| `POST /v1/users/{id}/invite` | W | `users:admin` | owner + L2 | replace a family invitation and revoke the old credentials and sessions |
 | `POST /v1/users/{id}/disable` · `/enable` | W | `users:admin` | owner | disable revokes sessions and tokens |
 | `DELETE /v1/users/{id}` | W | `users:admin` | owner + step-up | must be disabled first; tombstone + cleanup; `409` for the last owner |
 | `GET /v1/auth/sessions` | R | `sessions:self` | any person | own sessions; `?person=<id>` for owners |
@@ -269,11 +276,14 @@ Kinds: R read, W direct owner write (audited), Q request (creates an action).
 
 Errors use API.md §6: `permission_denied`, `step_up_required` (in `details`), `conflict` (last owner, stale revision), `expired` (guest, enrolment link). Scopes `access:read`, `access:admin`, `sessions:self` are added to API.md §8.2 by the contract PR; `users:admin`, `access:admin` join the never-grantable list for agent, plugin, automation and node tokens.
 
-**CLI** (`cmd/onemind/cli/{users,access,sessions}.go`):
+**CLI** (`cmd/onemind/cli/`):
 ```console
-$ onemind users invite --name "Sam" --role child --apps photos,khan-academy
-step-up: confirm with your passkey in the browser … ok
-Enrolment link (24 h, shown once):  https://onemind.local/enrol/…   [QR printed below]
+$ onemind --hub https://onemind.local account setup alex --display-name Alex
+$ onemind account setup-finish --kit recovery-kit.json
+$ onemind login --hub https://onemind.local --username alex
+$ onemind users invite "Sam" --role child
+Enrolment link (24 h, shown once): https://onemind.local/#enrol=…
+$ onemind --hub https://onemind.local account recover alex --kit replacement-code.json
 $ onemind access show photos
 MODE        PEOPLE           CHILDREN  APP ROLES
 household   +sam             yes       sam=viewer
@@ -290,15 +300,15 @@ $ onemind sessions revoke ses_91c2
 
 | Screen | Content | Owner |
 |---|---|---|
-| Sign-in | Passkey button, "use a phone" hybrid, password + code fallback, optional account picker (owner setting) | security stream (`SignIn.tsx`) |
-| First boot | Owner passkey, recovery kit with a "I saved it" check | security + dashboard |
+| Sign-in | Password, authenticator code when needed, passkey option, and password recovery | security stream (`SignIn.tsx`) |
+| First boot | Screen code, name and password, optional email and factors, recovery kit download or print and confirmation | security + dashboard |
 | Settings → People | List: avatar, name, role pill, sign-in methods, last seen, state; Invite | dashboard (`Settings*.tsx`) |
 | Person detail | Role, apps they can open (with in-app role), folders, devices and sessions with Revoke, recovery link, Disable, Delete; for children the policy card | dashboard |
 | Invite sheet | Name, role, apps, guest expiry → QR and link once | dashboard |
 | App page → Access card | Mode selector, people chips, children toggle, app roles; the API and CLI line under it (UX-B2) | dashboard (`AppDetail.tsx`) |
 | Child Home | Only allowed apps; greyed outside windows with the next time; "Ask for an app" | dashboard + UI (`ui/**`) |
-| Approvals card for access | "Sam asks for Minecraft server" with role and reason; approve with passkey | dashboard |
-| My account | Passkeys (add, name, remove), sessions, personal tokens, fallback code | dashboard |
+| Approvals card for access | "Sam asks for Minecraft server" with role, reason and required proof | dashboard |
+| My account | Optional passkeys and authenticator, email, sessions and personal tokens | dashboard |
 | Phone | Same sign-in through the system browser; approvals; child Home | mobile |
 
 ### 4.8 Security notes
@@ -308,7 +318,7 @@ $ onemind sessions revoke ses_91c2
 | Forged identity header to an app | Edge strips `X-OneMind-*` from clients; app pods accept traffic only from the edge (NetworkPolicy); test NT-15 |
 | App steals the gateway cookie | Separate cookie for app hosts; edge never forwards either cookie upstream (umbrelOS does the same stripping) |
 | Login race after credential change | `credential_revision` check at session creation |
-| Brute force, code replay | Throttling §4.5; TOTP ±1 step and last-used counter (Kanidm behaviour to confirm in ACCT-1) |
+| Brute force, code replay | Throttling §4.5 and an atomic last-used TOTP counter in the gateway. Verify Kanidm independently in ACCT-1 |
 | Owner lock-out | Second owner recommended at setup; recovery kit; console break-glass |
 | Child bypass | Policy enforced at forward-auth and at the gateway API, not in the UI; windows evaluated in the box's time zone with a monotonic clock check |
 | Agent escalation | Agent rights = owning person ∩ grant; `users:admin`, `access:admin`, `actions:approve` never grantable |
@@ -316,8 +326,7 @@ $ onemind sessions revoke ses_91c2
 | Identity on backup and restore | Kanidm online backup inside the system backup (D-B7.4); sessions wiped on restore; passkeys survive only if the identity domain is unchanged (ACCT-D1) |
 
 **Open decisions (to add to `docs/leap/DECISIONS-NEEDED.md` by its owner):**
-- **ACCT-D1 · Identity domain.** A passkey is bound to one domain. `onemind.local` (LAN) and `*.onemind.internal` (mesh, NETWORKING.md §10) are different domains, so one passkey would not work on both. Options: (a) one canonical sign-in host reachable on LAN and mesh; (b) owner domain with split-horizon DNS when relay or direct mode is on; (c) register a passkey per domain. **UNVERIFIED:** whether phones resolve `.local` over unicast DNS on the mesh. Lab test ACCT-T1 decides. Kanidm's documentation warns that changing its domain invalidates passkeys, so this must be fixed before the first owner enrols.
-- **ACCT-D2 · Kanidm placement:** host service (proposed, for sign-in with k3s down) vs the `kanidm` chart named in research 30.
+- **ACCT-D1 · Mesh access to the identity domain.** D-030 and D-034 keep the Kanidm passkey domain `onemind.local`. **UNVERIFIED:** whether phones resolve `.local` over unicast DNS on the mesh. Check this in ACCT-T1.
 - **ACCT-D3 · Guardian approval:** may an adult guardian approve their own child's `access.request`? Needs a contract change to P1 ("only an owner approves").
 
 ---
@@ -328,7 +337,7 @@ Sizes: S ≤ 2 days, M ≤ 1 week, L > 1 week. Paths follow [WORKSTREAMS.md](../
 
 | ID | Title | Size | Owner paths | Depends on | Acceptance |
 |---|---|---|---|---|---|
-| ACCT-1 | Kanidm spike: host service, offline first boot, groups, OIDC client with group scope map, credential-reset link, account expiry, TOTP replay, backup and restore | M | `research-output/evidence/lab/acct-kanidm/**`; packaging later via image stream (`os/**`) and `deploy/**` owners | ACCT-D2 | Report with commands and outputs; owner passkey enrolled with the network cable out; restored box accepts the same passkey; reused TOTP code refused |
+| ACCT-1 | Kanidm spike: host service, offline first boot, groups, OIDC client with group scope map, credential-reset link, account expiry, TOTP replay, backup and restore | M | `research-output/evidence/lab/acct-kanidm/**`; packaging later via image stream (`os/**`) and `deploy/**` owners | D-015, D-030, D-034 | Report with commands and outputs. A new person can choose a password, password plus an authenticator or a passkey. A restored box accepts the same passkey. Reused TOTP codes are refused |
 | ACCT-2 | Contract PR: role `child`, scopes `access:*` and `sessions:self`, action types `access.grant`, `access.revoke`, `access.request`, forward-auth headers, manifest `spec.auth` | S | `sdk/contracts/poc-v0.md`, `sdk/schema/onemind.app.schema.json` (hotspots, one PR) | BACKLOG S1 order | Contract and schema merged; schema tests pass with `spec.auth: {mode: oidc\|headers\|gate-only}` |
 | ACCT-3 | Identity module: Kanidm client, sign-in (auth code + PKCE), sessions with `credential_revision`, throttling, bus events | L | `core/onemind_core/identity.py`, `sessions.py` (with CORE-SEC-2), one ledger migration | ACCT-1, ACCT-2, CORE-SEC-1, CORE-SEC-2 | Login after a concurrent credential reset fails; 6th failed login in 15 min delayed; revoked session's WebSocket closed within 1 s; k3s stopped → sign-in still works |
 | ACCT-4 | People API: `/v1/users` with enrolment links, disable, tombstoned delete, last-owner rule | M | `core/onemind_core/users.py`, ledger migration | ACCT-3, CORE-SEC-10 | Owner never receives a credential; deleting the last owner → `409`; crash mid-delete resumes on restart; deleted id never reused |

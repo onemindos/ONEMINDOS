@@ -25,6 +25,7 @@ from onemind_core.auth import Principal
 from onemind_core.automation import AutomationSettings
 
 from conftest import AGENT, GUEST, OWNER, action_body
+from test_identity import LOCAL_PEER, setup_bearer_owner
 
 
 def iso(dt: datetime) -> str:
@@ -565,20 +566,39 @@ def test_background_worker_handles_events(auto_settings, clock, executor):
         assert runs[0]["outcome"] == "requested"
 
 
-def test_standing_approvals_and_windows_need_a_passkey_once_passkeys_are_active(client, clock):
-    # F-2: with passkeys active, a password/token owner must not pre-approve agent actions.
-    ident = client.app.state.identity
-    ident.passkeys_active = lambda: True
+def test_standing_approvals_and_windows_require_verification_after_setup(client, clock):
+    # The installer can still provision an unclaimed appliance through the install token.
+    bootstrap = policy(client, clock)
+    assert bootstrap.status_code == 201, bootstrap.text
+    made = [e for e in audit_events(client) if e["event"] == "automation.policy.created"]
+    assert made and made[-1]["data"]["approval"] == "token"
+    assert client.delete(f"/v1/approval-policies/{bootstrap.json()['id']}", headers=OWNER).status_code == 204
+    home = TestClient(client.app, client=LOCAL_PEER)
+    signed_in = setup_bearer_owner(home)
+    # Following setup, neither a token nor a password-only session can pre-approve agent actions.
     r = policy(client, clock, requested_by=("agent:hermes",))
     assert r.status_code == 401 and r.json()["reason"] == "step_up_required", r.text
     assert client.get("/v1/approval-policies", headers=OWNER).json() == []
     w = client.put("/v1/windows/win_nightly", headers=OWNER,
                    json={"name": "nightly", "tz": "UTC", "ranges": [{"start": "00:00", "end": "23:59"}]})
     assert w.status_code == 401 and w.json()["reason"] == "step_up_required", w.text
+    r = policy(home, clock, requested_by=("agent:hermes",), headers=signed_in)
+    assert r.status_code == 401 and r.json()["reason"] == "step_up_required", r.text
     # An agent still gets 403, never a step-up prompt it could not answer.
     assert policy(client, clock, headers=AGENT).status_code == 403
-    # Without passkeys the owner token still works and the audit says how presence was proved.
-    ident.passkeys_active = lambda: False
-    assert policy(client, clock).status_code == 201
-    made = [e for e in audit_events(client) if e["event"] == "automation.policy.created"]
-    assert made and made[-1]["data"]["approval"] == "token"
+
+
+def test_standing_approval_answers_match_the_documented_schema(client, clock):
+    """The dashboard's standing approvals screen reads these through the generated SDK types (#1214)."""
+    from onemind_core.routers.automation import ApprovalPolicy
+
+    spec = client.get("/openapi.json").json()["paths"]
+    ref = {"$ref": "#/components/schemas/ApprovalPolicy"}
+    assert spec["/v1/approval-policies"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]["items"] == ref
+    assert spec["/v1/approval-policies"]["post"]["responses"]["201"]["content"]["application/json"]["schema"] == ref
+    assert spec["/v1/approval-policies/{policy_id}/confirm"]["post"]["responses"]["200"]["content"]["application/json"]["schema"] == ref
+    made = policy(client, clock)
+    assert made.status_code == 201, made.text
+    assert ApprovalPolicy.model_validate(made.json()).state == "active"
+    listed = client.get("/v1/approval-policies", headers=OWNER).json()
+    assert [ApprovalPolicy.model_validate(p).id for p in listed] == [made.json()["id"]]

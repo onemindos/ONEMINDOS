@@ -14,20 +14,33 @@ import (
 )
 
 func loginCommands(a *App) []*cobra.Command {
-	var name, principal string
+	var name, principal, username string
+	var secretsStdin, totp bool
 	login := &cobra.Command{
 		Use:   "login",
 		Short: "Sign in to a box and save it as a context",
-		Long: "Asks for a token without echo (or reads --token-stdin / ONEMIND_TOKEN), checks it against\n" +
-			"GET /v1/instance, and saves the context. The token goes to credentials.yaml (mode 0600) next to\n" +
-			"the config; the OS keychain and device sign-in with a passkey come with the identity work.",
+		Long: "Use --username for password sign-in. The CLI prompts for your password and, when\n" +
+			"needed, your authenticator code without echo. Omitting --username uses a token.\n" +
+			"The credential is saved privately alongside the selected context.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if username != "" {
+				if a.G.TokenStdin || a.G.Token != "" || principal != "" {
+					return usageErr(cmd, "account sign-in takes a username instead of a token or principal")
+				}
+				return a.loginAccount(name, username, secretsStdin, totp)
+			}
+			if secretsStdin || totp {
+				return usageErr(cmd, "--secrets-stdin and --totp require --username")
+			}
 			return a.login(name, principal, false)
 		},
 	}
 	login.Flags().StringVar(&name, "name", "", "context name (default: from the hub's host name)")
 	login.Flags().StringVar(&principal, "principal", "", "the principal id this token belongs to (lets a lost approve be confirmed)")
+	login.Flags().StringVar(&username, "username", "", "use a person's account")
+	login.Flags().BoolVar(&secretsStdin, "secrets-stdin", false, "read the password and requested authenticator code as separate stdin lines")
+	login.Flags().BoolVar(&totp, "totp", false, "provide an authenticator code on the first request")
 
 	var all bool
 	logout := &cobra.Command{
@@ -35,10 +48,11 @@ func loginCommands(a *App) []*cobra.Command {
 		Short: "Forget the credential of the current context (or --all)",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg, err := loadConfig(a.G.ConfigFile)
+			cfg, unlock, err := loadConfigForWrite(a.G.ConfigFile)
 			if err != nil {
 				return err
 			}
+			defer unlock()
 			cr, err := cfg.loadCreds()
 			if err != nil {
 				return err
@@ -49,17 +63,19 @@ func loginCommands(a *App) []*cobra.Command {
 			}
 			if all {
 				cr.Tokens = map[string]string{}
+				cr.Sessions = map[string]accountCredential{}
 			} else {
 				if target == "" {
 					return exitWith(ExitUsage, "usage", "no current context; pass --context NAME or --all")
 				}
 				delete(cr.Tokens, target)
+				delete(cr.Sessions, target)
 			}
 			if err := cfg.saveCreds(cr); err != nil {
 				return err
 			}
 			if !a.G.Quiet {
-				fmt.Fprintln(a.Stderr, "Credential removed. (Server-side session revocation arrives with sessions, §12.6.)")
+				fmt.Fprintln(a.Stderr, "Local credential removed.")
 			}
 			return nil
 		},
@@ -121,10 +137,11 @@ func (a *App) login(name, principal string, agent bool) error {
 			return err
 		}
 	}
-	cfg, err := loadConfig(a.G.ConfigFile)
+	cfg, unlock, err := loadConfigForWrite(a.G.ConfigFile)
 	if err != nil {
 		return err
 	}
+	defer unlock()
 	cfg.Contexts[name] = &Context{
 		Hub: c.BaseURL(), Principal: principal, Credential: "file", Agent: agent, BoxVersion: inst.Version,
 		InsecureHTTP: u.Scheme == "http",
@@ -137,6 +154,7 @@ func (a *App) login(name, principal string, agent bool) error {
 		return err
 	}
 	cr.Tokens[name] = token
+	delete(cr.Sessions, name)
 	if err := cfg.save(); err != nil {
 		return err
 	}
@@ -183,10 +201,11 @@ func contextCommand(a *App) *cobra.Command {
 		return table(a.Stdout, "CURRENT\tNAME\tHUB\tPRINCIPAL\tBOX VERSION", rows)
 	}}
 	use := &cobra.Command{Use: "use NAME", Short: "Switch the current context", Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error {
-		cfg, err := loadConfig(a.G.ConfigFile)
+		cfg, unlock, err := loadConfigForWrite(a.G.ConfigFile)
 		if err != nil {
 			return err
 		}
+		defer unlock()
 		if _, ok := cfg.Contexts[args[0]]; !ok {
 			return exitWith(ExitNotFound, "not_found", fmt.Sprintf("no context %q", args[0]))
 		}
@@ -217,16 +236,20 @@ func contextCommand(a *App) *cobra.Command {
 			{"credential", dash(x.Credential)}, {"box version", dash(x.BoxVersion)}, {"insecure http", fmt.Sprint(x.InsecureHTTP)}})
 	}}
 	rename := &cobra.Command{Use: "rename OLD NEW", Short: "Rename a context", Args: cobra.ExactArgs(2), RunE: func(_ *cobra.Command, args []string) error {
-		cfg, err := loadConfig(a.G.ConfigFile)
+		cfg, unlock, err := loadConfigForWrite(a.G.ConfigFile)
 		if err != nil {
 			return err
 		}
+		defer unlock()
 		x, ok := cfg.Contexts[args[0]]
 		if !ok {
 			return exitWith(ExitNotFound, "not_found", fmt.Sprintf("no context %q", args[0]))
 		}
 		if !ctxName.MatchString(args[1]) {
 			return exitWith(ExitUsage, "usage", "bad context name")
+		}
+		if args[0] == args[1] {
+			return nil
 		}
 		delete(cfg.Contexts, args[0])
 		cfg.Contexts[args[1]] = x
@@ -237,9 +260,15 @@ func contextCommand(a *App) *cobra.Command {
 		if err != nil {
 			return err
 		}
+		delete(cr.Tokens, args[1])
+		delete(cr.Sessions, args[1])
 		if tok, ok := cr.Tokens[args[0]]; ok {
 			delete(cr.Tokens, args[0])
 			cr.Tokens[args[1]] = tok
+		}
+		if session, ok := cr.Sessions[args[0]]; ok {
+			delete(cr.Sessions, args[0])
+			cr.Sessions[args[1]] = session
 		}
 		if err := cfg.save(); err != nil {
 			return err
@@ -247,10 +276,11 @@ func contextCommand(a *App) *cobra.Command {
 		return cfg.saveCreds(cr)
 	}}
 	del := &cobra.Command{Use: "delete NAME", Short: "Delete a context and its credential", Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error {
-		cfg, err := loadConfig(a.G.ConfigFile)
+		cfg, unlock, err := loadConfigForWrite(a.G.ConfigFile)
 		if err != nil {
 			return err
 		}
+		defer unlock()
 		if _, ok := cfg.Contexts[args[0]]; !ok {
 			return exitWith(ExitNotFound, "not_found", fmt.Sprintf("no context %q", args[0]))
 		}

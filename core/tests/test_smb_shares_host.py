@@ -15,9 +15,11 @@ import threading
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 
 from conftest import AGENT, GUEST, OWNER
 from onemind_core.smbshares import FileShareSettings, HostSmbClient, SmbHostError, smb_user
+from test_identity import LOCAL_PEER, setup_bearer_owner
 from test_smb_shares import GIB, approve, ask, box, on  # noqa: F401  (fixtures)
 
 
@@ -44,15 +46,18 @@ def test_a_person_with_a_share_gets_a_password_shown_once_and_sent_only_to_the_h
         assert on.post("/v1/shares/smb/password", headers=who).status_code == 403
 
 
-def test_a_new_smb_password_needs_a_recent_passkey_once_passkeys_are_active(on, monkeypatch):
+def test_a_new_smb_password_needs_l1_after_setup(on):
     """A left-open password or token session must not mint an SMB password that opens the whole Files home."""
     approve(on, ask(on, {"kind": "home", "person_id": "owner"}))
-    monkeypatch.setattr(on.app.state.identity, "passkeys_active", lambda: True)
+    assert on.post("/v1/shares/smb/password", headers=OWNER).status_code == 200
+    passwords = list(on.svc.host.passwords)
+    home = TestClient(on.app, client=LOCAL_PEER)
+    signed_in = setup_bearer_owner(home)
     r = on.post("/v1/shares/smb/password", headers=OWNER)
     assert r.status_code == 401 and r.json()["reason"] == "step_up_required"
-    assert on.svc.host.passwords == []  # nothing reached the host
-    monkeypatch.undo()
-    assert on.post("/v1/shares/smb/password", headers=OWNER).status_code == 200
+    r = home.post("/v1/shares/smb/password", headers=signed_in)
+    assert r.status_code == 401 and r.json()["reason"] == "step_up_required", r.text
+    assert on.svc.host.passwords == passwords  # neither refusal reached the host
 
 
 def test_a_password_the_host_cannot_set_is_a_refusal(on):

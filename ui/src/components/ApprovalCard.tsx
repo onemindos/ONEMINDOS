@@ -10,6 +10,7 @@ import { Card } from './Card';
 import { HoldToApprove } from './HoldToApprove';
 import { Icon } from './Icon';
 import { StatusPill } from './StatusPill';
+import { VerificationBadge, type VerificationLevel } from './VerificationBadge';
 
 export type ActionState =
   | 'requested'
@@ -41,6 +42,8 @@ export interface ActionSummary {
   /** What the target is called in the catalog ("Ollama", not its id "ollama"); the id is shown when absent. */
   target_name?: string;
   hold?: { duration: number; plan?: string };
+  /** The key level approving needs (approve-options' required_level, D-028). */
+  required_level?: VerificationLevel;
 }
 
 export const ACTION_STATE: Record<ActionState, { tone: Tone; label: string }> = {
@@ -99,6 +102,8 @@ export const ACTION_WORDS: Record<string, string> = {
   'system.shutdown': 'Shut the hub down',
   'system.factory_reset': 'Erase the hub and start over',
   'service.restart': 'Restart a hub service',
+  'users.invite': 'Invite',
+  'users.reinvite': 'Replace invite for',
 };
 
 /** Plain words for an action type; an unknown one reads as its dotted name spaced out ("Backup destination add"). */
@@ -170,13 +175,16 @@ export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, busy, 
           <div className="om-decide">
             {action.hold && !blocked && !busy && onApprove ? (
               <HoldToApprove key={`${action.id}:${action.hold.plan}:${action.hold.duration}`} label={`Hold to approve ${title}`}
-                duration={action.hold.duration} onApprove={(ms) => onApprove(action, ms)} />
+                duration={action.hold.duration} requiredLevel={action.required_level} onApprove={(ms) => onApprove(action, ms)} />
             ) : <Button variant="primary" icon="check" disabled={!!blocked || !!action.hold} busy={busy} aria-label={`Approve ${title}`} onClick={() => onApprove?.(action)} aria-describedby={blocked ? detailsId : undefined}>
               Approve
             </Button>}
             <Button variant="secondary" icon="x" disabled={!!blocked || busy} aria-label={`Deny ${title}`} onClick={() => onDeny?.(action)}>
               Deny
             </Button>
+            {action.required_level && !(action.hold && !blocked && !busy && onApprove) && (
+              <VerificationBadge level={action.required_level} required />
+            )}
             {blocked && (
               <span id={detailsId} className="om-hint">
                 {blocked}

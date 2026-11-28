@@ -75,7 +75,7 @@ describe('My devices', () => {
     await mount(BOTH, { myDevices: async () => ({ devices: [THIS, LOST], sources: SOURCES }), removeMyDevice });
     await fireEvent.press(await screen.findByTestId('my-device-lost-mdv_lost'));
     await fireEvent.press(screen.getByTestId('my-device-confirm-mdv_lost'));
-    expect(await screen.findByText(/fresh passkey before removing this device/)).toBeTruthy();
+    expect(await screen.findByText(/your passkey before removing this device/)).toBeTruthy();
     await fireEvent.press(screen.getByTestId('my-device-confirm-mdv_lost'));
     expect(await screen.findByText(/last owner passkey on the box/)).toBeTruthy();
     expect(screen.getByTestId('my-device-mdv_lost')).toBeTruthy(); // still listed: nothing was removed

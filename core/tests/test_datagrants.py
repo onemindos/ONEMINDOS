@@ -20,6 +20,8 @@ from conftest import ADULT, AGENT, OWNER
 from onemind_core.datagrants import CLASSES, STREAM_POLL_S
 from onemind_core.identity.crypto import new_secret, sha256_hex
 from onemind_core.identity.models import TokenRow
+from test_identity import SoftAuthenticator, csrf, idc, register_passkey, setup_owner  # noqa: F401 - pytest fixture
+from test_identity_levels import approve
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -190,14 +192,22 @@ def agent_token(c, clock, agent_id: str, scopes: list[str], name: str) -> dict:
     return {"Authorization": "Bearer " + token}
 
 
-def test_a_narrowed_person_token_gets_no_data_even_with_a_person_grant(client, clock):
+def test_a_narrowed_person_token_gets_no_data_even_with_a_person_grant(idc, clock):
     """Least privilege for grantees: a grant reaches only as far as the token's data:read / data:write."""
+    client = idc
+    setup_owner(client)
+    key = SoftAuthenticator()
+    register_passkey(client, key)
     assert write(client).status_code == 201
     assert write(client, "public", value={"note": "hi"}).status_code == 201
     narrow = person_token(client, clock, "probe-adult", "adult", ["instance:read"], name="adult-narrow")
     assert client.get("/v1/apps", headers=narrow).status_code == 403  # the token really is narrow
-    gid = granted(client, clock, "g1", data_class="location", read=True, write=True,
-                  grantee={"kind": "person", "id": "probe-adult"})
+    filed = request(client, clock, csrf(client), "g1", data_class="location", read=True, write=True,
+                    grantee={"kind": "person", "id": "probe-adult"})
+    assert filed.status_code == 201, filed.text
+    decision = approve(client, filed.json()["id"], key)
+    assert decision.status_code == 200 and decision.json()["state"] == "succeeded", decision.text
+    gid = decision.json()["result"]["steps"][0]["grant_id"]
 
     assert records(client, narrow) == []
     one = client.get("/v1/data/classes/location", headers=narrow).json()

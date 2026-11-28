@@ -5,8 +5,10 @@
  * name is in GET /v1/instance `features` (§12.1), and is skipped with the reason until then. When a
  * stream lands, its step runs here without anyone editing the suite; the owning stream then deepens it.
  */
+import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { expect, test, type APIRequestContext } from '@playwright/test';
+import { verifyChain } from '../lib/audit';
 import { APPROVE_TIMEOUT_MS, hubEnv, type HubEnv } from '../lib/env';
 import { Hub } from '../lib/hub';
 
@@ -57,7 +59,7 @@ test('GET /v1/me names the owner and the agent correctly (§12.6)', async ({ req
   }
 });
 
-test('the first owner signs in as a household account and is offered a passkey (§12.6)', async ({ request }) => {
+test('the first owner confirms the recovery kit and is offered a passkey (§12.6, D-034)', async ({ request }) => {
   test.skip(
     !paths.has('/v1/auth/setup') || !paths.has('/v1/auth/passkeys/register/options'),
     'not merged yet: owner passkeys and passkey-signed approvals (CORE-SEC-2, F-2); household accounts (CORE-SEC-10)',
@@ -69,19 +71,37 @@ test('the first owner signs in as a household account and is offered a passkey (
   // A fresh password per run, kept only in memory: nothing here reaches a file, a log or an artifact.
   const password = randomBytes(24).toString('base64url');
   const setup = await hub.postAs(E.ownerToken, '/v1/auth/setup', { username: 'e2e-owner', password, client: 'cli' });
-  test.skip(setup.status === 409, 'this hub already has a household owner (re-run on a reused hub); needs a fresh hub');
-  expect(setup.status).toBe(201);
+  expect(setup.status, 'first-owner setup requires a fresh hub').toBe(201);
   const session = (setup.body as { access_token: string }).access_token;
   expect(session).toBeTruthy();
 
-  const me = await hubFor(request, session).get<{ principal: { kind: string; role: string }; session: unknown }>('/v1/me');
+  const owner = hubFor(request, session);
+  const me = await owner.get<{ principal: { kind: string; role: string }; session: unknown; setup_pending: boolean }>('/v1/me');
   expect(me.principal).toMatchObject({ kind: 'person', role: 'owner' });
   expect(me.session).toBeTruthy();
+  expect(me.setup_pending).toBe(true);
   const r = await hub.postAs(session, '/v1/auth/passkeys/register/options', {});
   expect(r.status).toBe(200);
   expect(JSON.stringify(r.body)).toContain('challenge');
+
+  // Keep the throwaway kit in memory for the save confirmation.
+  const kit = await hub.postAs(session, '/v1/auth/setup/kit');
+  expect(kit.status).toBe(200);
+  const { recovery_code } = kit.body as { recovery_code: string };
+  const finish = await hub.postAs(session, '/v1/auth/setup/finish', { saved: true, method: 'download', recovery_code });
+  expect(finish.status).toBe(204);
   expect((await hub.postAs(session, '/v1/auth/logout', {})).status).toBe(204);
   expect((await hub.postAs(session, '/v1/auth/passkeys/register/options', {})).status).toBe(401);
+  const status = await request.get(`${E.url}/v1/auth/setup/status`);
+  expect(status.status()).toBe(200);
+  expect(await status.json()).toMatchObject({ state: 'ready' });
+
+  if (E.auditFetch) {
+    const audit = execFileSync(E.auditFetch, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    const chain = verifyChain(audit);
+    expect(chain.problem, `audit chain broke at line ${chain.firstBadLine}`).toBeUndefined();
+    expect(chain.ok).toBe(true);
+  }
 });
 
 test('the box CA is published for pairing (§12.7, F-1)', async ({ request }) => {

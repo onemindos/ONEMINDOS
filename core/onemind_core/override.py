@@ -12,7 +12,7 @@ the gateway accepts the install only when every rule below holds:
 3. the scan record exists and reports no malware: an override covers known vulnerabilities and
    stale scans, never ClamAV hits and never an app nobody scanned;
 4. the owner typed the app id as confirmation, and gave a reason (10 to 500 characters);
-5. once the owner has passkeys (identity feature, F-2), the approval carries a passkey
+5. after account setup, the approval carries an action-bound sign-in proof
    assertion, which the identity approval guard verifies before this check runs.
 
 The approval then writes a critical `app.owner_override` event (audit line plus NATS) whose
@@ -57,9 +57,9 @@ class OwnerOverrideSettings:
 
 
 class StepUp(Protocol):
-    """What the override needs from the identity feature (F-2 passkeys)."""
+    """Whether the installation has a household account and requires identity proof."""
 
-    def passkeys_active(self) -> bool: ...
+    def account_setup_exists(self) -> bool: ...
 
 
 class OwnerOverride:
@@ -67,11 +67,11 @@ class OwnerOverride:
         self.enabled = enabled
         self.audit = audit
         self.events = events
-        # Set by the identity feature when it is registered; None means no passkeys can exist.
+        # Set by the identity feature when it is registered.
         self.step_up = step_up
 
-    def _needs_passkey(self) -> bool:
-        return self.step_up is not None and self.step_up.passkeys_active()
+    def _needs_verification(self) -> bool:
+        return self.step_up is not None and self.step_up.account_setup_exists()
 
     def describe(self, app: AppEntry, now: datetime) -> dict:
         """What the approval card needs to offer (or explain) the override for this app."""
@@ -85,7 +85,7 @@ class OwnerOverride:
             "refusal": refusal,
             "confirm": app.id,
             "reason_length": [REASON_MIN, REASON_MAX],
-            "step_up": "passkey" if self._needs_passkey() else "none",
+            "step_up": "verification" if self._needs_verification() else "none",
             "requester_must_be": "person",
         }
 
@@ -121,8 +121,11 @@ class OwnerOverride:
             raise ApiError(422, "conflict", f"override.reason must be {REASON_MIN} to {REASON_MAX} characters")
         if body.get("confirm") != app.id:
             raise ApiError(422, "conflict", f"override.confirm must be the app id typed exactly: {app.id}")
-        if self._needs_passkey() and not extra.webauthn:
-            raise ApiError(401, "unauthenticated", "an owner override needs your passkey (step_up_required)")
+        needs_proof = self._needs_verification()
+        if needs_proof and not extra.verified_presence:
+            raise ApiError(401, "unauthenticated", "an owner override needs a passkey or an authenticator proof "
+                           "(step_up_required)",
+                           reason="step_up_required")
         scan = app.scan
         return {
             "app_id": app.id,
@@ -131,7 +134,8 @@ class OwnerOverride:
             "problem": problem,
             "scan": {**scan.summary(), "malware": scan.malware} if scan else None,
             "confirmed": app.id,
-            "step_up": "passkey" if self._needs_passkey() else "none (no passkeys registered)",
+            "step_up": ("passkey" if extra.webauthn else "password+totp") if needs_proof
+            else "none (before account setup)",
             "requested_by": a.requested_by.get("id"),
         }
 

@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "about": "Authenticator models that can reach verification level L2 (gateway permissions design 3.11, D-028). Shipped in the signed OS image and updated with RAUC, so the box works offline. Each fido_aaguid entry names a model by AAGUID, its attestation roots (PEM) and its user verification methods from FIDO MDS. Seeding from the signed FIDO MDS BLOB at image build time is a follow-up; until then this list is empty and owners add models under Settings > Security > Sign-in keys > Trusted key models (an owner action at L2).",
+  "entries": []
+}

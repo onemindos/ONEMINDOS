@@ -7,13 +7,16 @@ export class OneMindError extends Error {
   readonly code: string;
   readonly reason?: string;
   readonly retryAfterS?: number;
-  constructor(status: number, code: string, message: string, extra: { reason?: string; retryAfterS?: number } = {}) {
+  /** §12.2 `details`, e.g. the step-up a 401 step_up_required names (see stepup.ts). */
+  readonly details?: Array<Record<string, unknown>>;
+  constructor(status: number, code: string, message: string, extra: { reason?: string; retryAfterS?: number; details?: Array<Record<string, unknown>> } = {}) {
     super(status ? `HTTP ${status} ${code}: ${message}` : `${code}: ${message}`);
     this.name = new.target.name;
     this.status = status;
     this.code = code;
     this.reason = extra.reason;
     this.retryAfterS = extra.retryAfterS;
+    this.details = extra.details;
   }
 }
 
@@ -61,7 +64,7 @@ export function errorFor(
   status: number,
   code: string,
   message: string,
-  extra: { reason?: string; retryAfterS?: number } = {},
+  extra: { reason?: string; retryAfterS?: number; details?: Array<Record<string, unknown>> } = {},
 ): OneMindError {
   const Cls = BY_CODE[code] ?? OneMindError;
   return new Cls(status, code, message, extra);

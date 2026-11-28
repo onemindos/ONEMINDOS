@@ -16,7 +16,9 @@ from conftest import AGENT, GUEST, OWNER, action_body
 from onemind_core.app import create_app
 from onemind_core.monitoring import MonitoringSettings
 from onemind_core.notify import NotifySettings
-from test_identity import SoftAuthenticator, csrf, enrol, id_settings, register_passkey, setup_owner
+from onemind_core.identity.crypto import totp_code
+from test_identity import LOCAL_PEER, PASSWORD, SoftAuthenticator, csrf, enrol, id_settings, register_passkey, setup_owner, stepped
+from test_identity_levels import _enable_totp, approve
 
 
 @pytest.fixture
@@ -24,12 +26,19 @@ def hc(settings, clock, executor, tmp_path):
     s = id_settings(settings)
     s = replace(s, sections={**s.sections, "notify": NotifySettings(worker=False, dir=tmp_path / "keys"),
                              "monitoring": MonitoringSettings(enabled=False)})
-    with TestClient(create_app(s, clock=clock, executor=executor)) as c:
+    with TestClient(create_app(s, clock=clock, executor=executor), client=LOCAL_PEER) as c:
         yield c
 
 
 def me(c: TestClient) -> str:
     return c.get("/v1/me").json()["principal"]["id"]
+
+
+def owner_with_passkey(c: TestClient) -> SoftAuthenticator:
+    setup_owner(c)
+    key = SoftAuthenticator()
+    register_passkey(c, key)
+    return key
 
 
 def test_household_owner_gets_approval_notifications(hc, clock):
@@ -41,7 +50,7 @@ def test_household_owner_gets_approval_notifications(hc, clock):
 
 
 def test_people_source_lists_active_accounts_only(hc):
-    setup_owner(hc)
+    owner_with_passkey(hc)
     adult = enrol(hc, "adult", "ana")
     uid, owner_id = me(adult), me(hc)
     people = hc.app.state.notify.people()
@@ -51,7 +60,7 @@ def test_people_source_lists_active_accounts_only(hc):
 
 
 def test_role_scopes_reach_the_notification_routes(hc):
-    setup_owner(hc)
+    owner_with_passkey(hc)
     adult, guest, child = enrol(hc, "adult", "ana"), enrol(hc, "guest", "gus"), enrol(hc, "child", "kid")
     for c in (adult, guest, child):  # every person reads their own inbox and the alerts for them
         assert c.get("/v1/notifications").status_code == 200
@@ -73,7 +82,7 @@ def test_role_scopes_reach_the_notification_routes(hc):
 
 
 def test_role_scopes_reach_the_monitoring_routes(hc):
-    setup_owner(hc)
+    owner_with_passkey(hc)
     adult, guest = enrol(hc, "adult", "ana"), enrol(hc, "guest", "gus")
     assert adult.get("/v1/monitoring/summary").status_code == 200
     assert adult.get("/v1/apps/whoami/metrics").status_code == 200
@@ -86,16 +95,16 @@ def test_role_scopes_reach_the_monitoring_routes(hc):
 
 
 def test_sharing_gates_the_per_app_routes(hc):
-    setup_owner(hc)
+    owner_with_passkey(hc)
     guest = enrol(hc, "guest", "gus")
     assert guest.get("/v1/apps/whoami").status_code == 404  # not shared: as absent as in GET /v1/apps
     owner_view = hc.get("/v1/apps/whoami").json()["access"]
     assert owner_view == {"roles": ["owner", "adult"], "shared_with_me": True}
-    hc.put("/v1/apps/whoami/access", json={"roles": ["guest"]}, headers=csrf(hc))
+    assert stepped(hc, "PUT", "/v1/apps/whoami/access", json={"roles": ["guest"]}).status_code == 200
     r = guest.get("/v1/apps/whoami")
     assert r.status_code == 200 and r.json()["access"] == {"roles": ["owner", "guest"], "shared_with_me": True}
     # A static-file guest keeps the v0 catalog view (F-14) but is not counted as shared with.
-    hc.put("/v1/apps/whoami/access", json={"roles": []}, headers=csrf(hc))
+    assert stepped(hc, "PUT", "/v1/apps/whoami/access", json={"roles": []}).status_code == 200
     r = hc.get("/v1/apps/whoami", headers=GUEST)
     assert r.status_code == 200 and r.json()["access"]["shared_with_me"] is False
     assert guest.get("/v1/apps/whoami").status_code == 404  # unsharing is instant
@@ -103,7 +112,7 @@ def test_sharing_gates_the_per_app_routes(hc):
 
 def test_app_store_reads_follow_sharing(hc):
     """§12.22 reads use the same visibility check as /plan: 404 for an app not shared with the caller."""
-    setup_owner(hc)
+    owner_with_passkey(hc)
     guest, child = enrol(hc, "guest", "gus"), enrol(hc, "child", "kid")
     # A new child starts with a default age rating (FAM-01); classify the app so this test stays about sharing.
     assert hc.put("/v1/family/apps/whoami", json={"min_age": 0, "tags": []}, headers=csrf(hc)).status_code == 200
@@ -111,22 +120,23 @@ def test_app_store_reads_follow_sharing(hc):
     for who in (guest, child):
         for path in paths + ["/v1/apps/whoami/plan"]:
             assert who.get(path).status_code == 404, path  # not shared: as absent as in GET /v1/apps
-    hc.put("/v1/apps/whoami/access", json={"roles": ["guest", "child"]}, headers=csrf(hc))
+    assert stepped(hc, "PUT", "/v1/apps/whoami/access", json={"roles": ["guest", "child"]}).status_code == 200
     for who in (guest, child):
         for path in paths:
             assert who.get(path).status_code == 200, path
     for path in paths:
         assert hc.get(path).status_code == 200  # owners see every app
         assert hc.get(path.replace("whoami", "no-such-app")).status_code == 404
-    hc.put("/v1/apps/whoami/access", json={"roles": []}, headers=csrf(hc))
+    assert stepped(hc, "PUT", "/v1/apps/whoami/access", json={"roles": []}).status_code == 200
     assert guest.get(paths[0]).status_code == 404 and child.get(paths[3]).status_code == 404  # instant
 
 
-def _fixable_alert(hc, clock):
+def _fixable_alert(hc, clock, key=None):
     """An installed app whose scan went stale: the alert carries an app.remove fix."""
     hc.post("/v1/actions", headers=OWNER, json=action_body(clock))
     aid = hc.get("/v1/actions", headers=OWNER).json()[0]["id"]
-    assert hc.post(f"/v1/actions/{aid}/approve", headers=csrf(hc)).status_code == 200  # no passkey yet
+    approved = approve(hc, aid, key) if key else hc.post(f"/v1/actions/{aid}/approve", headers=csrf(hc))
+    assert approved.status_code == 200, approved.text
     hc.app.state.events.publish_event("app", "scan_blocked", {"app_id": "uptime-kuma"}, severity="critical")
     return next(a for a in hc.get("/v1/alerts", headers=OWNER).json() if a["type"] == "app.scan_blocked")
 
@@ -134,8 +144,8 @@ def _fixable_alert(hc, clock):
 def test_fix_with_approve_cannot_skip_the_approval_gates(hc, clock):
     """/v1/alerts/{id}/fix {"approve": true} is an approval path: it needs the approve scope and,
     once an owner has a passkey, a passkey assertion, exactly like POST /v1/actions/{id}/approve."""
-    setup_owner(hc)
-    alert = _fixable_alert(hc, clock)
+    key = owner_with_passkey(hc)
+    alert = _fixable_alert(hc, clock, key)
     fix = f"/v1/alerts/{alert['id']}/fix"
 
     # 1. A narrowed owner token (actions:request only) may file the fix but not approve it.
@@ -148,7 +158,6 @@ def test_fix_with_approve_cannot_skip_the_approval_gates(hc, clock):
     assert filed.status_code == 202 and filed.json()["state"] == "awaiting_approval"
 
     # 2. Once the owner has a passkey, no credential can approve through this route.
-    register_passkey(hc, SoftAuthenticator())
     r = hc.post(fix, headers=OWNER, json={"approve": True})
     assert r.status_code == 401 and r.json()["reason"] == "step_up_required", r.text
     # The signed-in owner already has this fix pending (filed above), which a repeat call returns as is.
@@ -159,6 +168,10 @@ def test_fix_with_approve_cannot_skip_the_approval_gates(hc, clock):
 
 def test_fix_with_approve_still_works_without_passkeys(hc, clock):
     setup_owner(hc)
+    secret = _enable_totp(hc, clock)
+    signed_in = hc.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD,
+                                               "totp": totp_code(secret, int(clock.now.timestamp() // 30))})
+    assert signed_in.status_code == 200, signed_in.text
     alert = _fixable_alert(hc, clock)
     r = hc.post(f"/v1/alerts/{alert['id']}/fix", headers=csrf(hc), json={"approve": True})
     assert r.status_code == 202 and r.json()["type"] == "app.remove" and r.json()["state"] == "succeeded", r.text

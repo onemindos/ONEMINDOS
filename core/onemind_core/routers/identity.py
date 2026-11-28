@@ -5,21 +5,39 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from fastapi import Depends, FastAPI, Request, Security
+from fastapi import Depends, FastAPI, Header, Request, Security
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.security import HTTPBearer
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
 
+from ..apimodels import Action
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import error_responses
 from ..identity import IdentityService, ctx_of
+from ..identity import email as account_email
+from ..identity import remote_recovery
 from ..identity.approver_keys import KeyKind
+from ..identity.family_invites import FamilyInvites
 from ..jsonbody import JsonBody
 
 SIGNIN_HTML = Path(__file__).resolve().parent.parent / "identity" / "signin.html"
+
+ProofMethod = Literal["passkey", "password+totp"]
+IdemHeader = Annotated[str | None, Header(alias="Idempotency-Key", min_length=1, max_length=200)]
+
+
+class PasswordTotpProof(BaseModel):
+    challenge: str = Field(max_length=128)
+    password: str = Field(max_length=1024)
+    totp: str = Field(max_length=12)
+
+
+class ApprovalOptionsBody(JsonBody):
+    method: ProofMethod = "passkey"
+    at_box: bool = False
 
 
 class ApprovalChallenge(BaseModel):
@@ -30,6 +48,114 @@ class ApprovalChallenge(BaseModel):
     # #702: what a phone's approver key signs (UTF-8, ECDSA P-256 SHA-256) instead of a passkey assertion.
     device_payload: str
     publicKey: dict[str, Any]
+    # D-028 / design 3.11: the level this approval needs, and whether the no-proven-key grace eased it
+    # from L2 to L1. allowCredentials lists only the keys that meet it.
+    required_level: Literal["L0", "L1", "L2", "L3"]
+    grace: bool
+    box_code_required: bool = Field(default=False, description="N-1 b: during the grace an L2 approval also needs "
+                                    "the code the box's own screen now shows; send it as box_code")
+    box_available: bool = Field(default=False, description="this home-network request can use the box's screen for L2")
+    password_totp_available: bool = Field(default=False, description="this request can use a password and authenticator code")
+    decided_by: str = Field(description="the verification-table row that set the level")
+
+
+Level = Literal["L0", "L1", "L2", "L3"]
+
+
+class Passkey(BaseModel):
+    credential_id: str
+    label: str
+    created_at: str
+    last_used_at: str | None
+    level: Level = Field(description="L1 Device check, L2 Proven key, L3 Biometric-only key")
+    level_reason: str = Field(description="no_attestation | synced | model_not_trusted | chain_untrusted | "
+                                          "not_biometric_capable | proven | legacy")
+    explanation: str
+    model: str | None = Field(description="the trusted model name, for a proven key")
+    aaguid: str | None = Field(description="the authenticator model id (never identifies a person)")
+    attestation: str | None
+    device_bound: bool | None = Field(description="false for a passkey that syncs between devices")
+    synced: bool | None
+
+
+class PasskeyRegistered(BaseModel):
+    credential_id: str
+    label: str
+    created_at: str
+    level: Level
+    level_reason: str
+    explanation: str
+
+
+class StepUpOptionsBody(JsonBody):
+    op: str = Field(max_length=64, description="the owner route's operation id, e.g. users.update")
+    target: str = Field(default="", max_length=200, description="its path id (user id, app id, ...), or empty")
+    body: dict[str, Any] = Field(default_factory=dict,
+                                 description="the request body with every field (defaults filled in)")
+    at_box: bool = Field(default=False, description="when the step-up allows it (details box: alt, e.g. revoking a "
+                         "lost last proven key): confirm with L1 plus the code on the box's own screen")
+    method: ProofMethod = "passkey"
+
+
+class StepUpOptions(BaseModel):
+    challenge_id: str
+    challenge: str
+    expires_at: str
+    required_level: Level = Field(description="the level the sign-in proof must meet before the box code is added")
+    grace: bool
+    box_code_required: bool = Field(description="D-028 / N-1 b: the box's own screen now shows a code; send it "
+                                    "as box_code with the assertion")
+    publicKey: dict[str, Any]
+
+
+class StepUpBody(BaseModel):
+    credential: dict[str, Any] | None = None
+    password_totp: PasswordTotpProof | None = None
+    box_code: str | None = Field(default=None, max_length=12, description="the code on the box's own screen")
+
+
+class StepUpGrant(BaseModel):
+    step_up: str = Field(description="send as the OneMind-Step-Up header on the change, once, within 2 minutes")
+    expires_at: str
+    level: Level
+
+
+class VerificationRow(BaseModel):
+    key: str
+    label: str
+    default: Level
+    current: Level
+    minimum: Level
+    maximum: Level
+    strict: bool = Field(description="never eased while the household has no proven key")
+
+
+class VerificationType(BaseModel):
+    key: str
+    current: Level
+    minimum: Level
+    maximum: Level
+
+
+class VerificationTable(BaseModel):
+    rows: list[VerificationRow]
+    types: list[VerificationType] = Field(description="per-action-type opt-ins above their tier (type:<action>)")
+    household_level: Level | None = Field(description="the strongest key any owner holds")
+    grace: bool = Field(description="no owner has had a proven key yet, so L2 rows accept L1 plus the code on the box's "
+                        "own screen (not strict rows)")
+    recovery_needed: bool = Field(description="a proven key existed and none is left: L2 rows wait for a recovery "
+                                  "path (an owner at the box can enrol a new key); the grace never returns")
+    box_confirm: bool = Field(description="this install has a box screen that can show confirmation codes")
+
+
+class TrustedModel(BaseModel):
+    aaguid: str
+    name: str
+    user_verification: list[str]
+    biometric: bool
+    roots: int
+    source: Literal["shipped", "owner"]
+    added_at: str | None
 
 
 # The random id an app install keeps for itself (#715): My devices groups a phone's sign-ins, passkeys
@@ -53,7 +179,75 @@ class SetupBody(BaseModel):
     username: str = Field(max_length=64)
     display_name: str | None = Field(default=None, max_length=100)
     password: str = Field(max_length=1024)
+    challenge_id: str | None = Field(default=None, max_length=40)
+    box_code: str | None = Field(default=None, max_length=12)
+    email: str | None = Field(default=None, max_length=254)
     client: Literal["browser", "cli", "app"] = "browser"
+
+
+class SetupStatus(BaseModel):
+    state: Literal["unclaimed", "pending", "ready"]
+    screen: bool
+
+
+class BoxChallenge(BaseModel):
+    challenge_id: str
+    expires_at: str | None
+
+
+class PasskeyRegisterOptions(BoxChallenge):
+    publicKey: dict[str, Any]
+    box_code_if_proven: bool
+
+
+class SetupKit(BaseModel):
+    recovery_code: str
+    disk_recovery_key: str | None
+
+
+class SetupFinishBody(JsonBody):
+    saved: bool
+    method: Literal["download", "print"]
+    recovery_code: str = Field(max_length=128)
+    disk_recovery_key: SecretStr | None = Field(
+        default=None, min_length=1, max_length=128,
+        description="The disk key from the saved kit, used if a reboot cleared the encrypted disk's RAM handoff",
+    )
+
+
+class RecoveryOptionsBody(BaseModel):
+    username: str = Field(max_length=64)
+
+
+class RecoveryResetBody(BaseModel):
+    challenge_id: str = Field(max_length=40)
+    box_code: str = Field(max_length=12)
+    recovery_code: str = Field(max_length=128)
+    new_password: str = Field(max_length=1024)
+
+
+class RecoveryReset(BaseModel):
+    recovery_code: str
+
+
+class RemoteRecoveryBody(BaseModel):
+    recovery_code: str = Field(max_length=128)
+
+
+class RemoteRecoveryStatus(BaseModel):
+    state: Literal["none", "waiting", "ready"]
+    available_at: str | None
+    expires_at: str | None
+    upgrade_kit_available: bool
+
+
+class TotpSecret(BaseModel):
+    secret: str
+    otpauth_uri: str
+
+
+class TotpSetup(BaseModel):
+    one_time: TotpSecret
 
 
 class EnrolBody(BaseModel):
@@ -71,6 +265,10 @@ class PasskeyRegisterBody(BaseModel):
     credential: dict[str, Any]
     label: str | None = Field(default=None, max_length=100)
     install_id: str | None = Field(default=None, pattern=INSTALL_ID)
+    box_code: str | None = Field(default=None, max_length=12, description="N-1 b: the code on the box's own screen "
+                                 "(register/options box_code_if_proven); an owner's proven key is added at the box "
+                                 "unless the owner's own proven key vouched for it or a remote recovery "
+                                 "completed (D-034)")
 
 
 class ApproverKeyBody(BaseModel):
@@ -106,6 +304,10 @@ class CodeBody(BaseModel):
     code: str = Field(max_length=12)
 
 
+class EmailCodeBody(CodeBody):
+    challenge_id: str = Field(max_length=40)
+
+
 class PasswordOnlyBody(BaseModel):
     password: str = Field(max_length=1024)
 
@@ -114,7 +316,7 @@ class SignInMethods(BaseModel):
     """How the signed-in person can sign in (Settings > Account and security). Facts only, no secret."""
 
     password: bool = Field(description="This person has a password (password sign-in works).")
-    totp: bool = Field(description="An authenticator code is asked after the password. A fallback: passkeys come first (D-030).")
+    totp: bool = Field(description="An authenticator code is asked after the password. Optional; from outside the home, sign-in needs it or a passkey (D-034).")
     passkeys: int = Field(description="Passkeys this person has registered.")
     passkeys_active: bool = Field(description="An owner on this box has a passkey, so owner actions need a fresh passkey sign-in.")
 
@@ -131,6 +333,22 @@ class TotpSetup(BaseModel):
 class MePatchBody(BaseModel):
     # Not length-limited tightly here: the service answers 422 with a reason, like the other identity routes.
     display_name: str | None = Field(default=None, max_length=1000)
+    email: str | None = Field(default=None, max_length=254)
+
+
+class Me(BaseModel):
+    principal: dict[str, Any]
+    display_name: str | None
+    email: str | None
+    email_verified: bool
+    totp: bool
+    setup_pending: bool
+    token: dict[str, Any] | None
+    session: dict[str, Any] | None
+    passkeys: int
+    scopes: list[str]
+    capabilities: list[str]
+    step_up: dict[str, Any]
 
 
 class UserCreateBody(BaseModel):
@@ -158,6 +376,47 @@ class RotateBody(JsonBody):
     grace_s: int = 0
 
 
+class UserInfo(BaseModel):
+    """One person on this box, as `GET /v1/users` lists them for an owner (IdentityService.user_json)."""
+
+    id: str
+    username: str | None = None
+    display_name: str
+    role: str = Field(json_schema_extra={"x-onemind-open-enum": True})
+    created_at: str | None = None
+    last_seen_at: str | None = None
+    disabled: bool
+    enrolled: bool
+    passkeys: int
+    totp: bool
+
+
+class InviteSecret(BaseModel):
+    enrolment_code: str
+    enrolment_url: str
+    expires_at: str | None
+
+
+class UserInvite(UserInfo):
+    one_time: InviteSecret
+
+
+class AccessPerson(BaseModel):
+    id: str
+    display_name: str | None = None
+
+
+class AppAccess(BaseModel):
+    """Who can open an app (contract §12.6). An owner sees everyone; anyone else sees only their own part and
+    `allowed`. `owner` is always among the roles."""
+
+    app_id: str
+    roles: list[str]
+    people: list[AccessPerson]
+    auth: Literal["onemind", "app"]
+    allowed: bool | None = Field(default=None, description="non-owners only: whether you can open it")
+
+
 class AccessBody(BaseModel):
     roles: list[str] = Field(default_factory=list, max_length=8)
     people: list[str] = Field(default_factory=list, max_length=500)
@@ -176,15 +435,24 @@ def register(app: FastAPI, gw: Gateway) -> None:
     svc = IdentityService(gw)
     gw.authenticators.append(svc.authenticate)
     gw.approval_guards.append(svc.approval_guard)
+    gw.action_views.append(svc.action_view)
     gw.app_filters.append(svc.app_filter)
     gw.people_sources.append(svc.people)
     app.state.identity = svc
+    svc.levels.register()
+    invites = FamilyInvites(svc)
     principal = gw.principal
     cfg = svc.cfg
 
+    def human_session(request: Request, p: Principal = Depends(principal)):
+        ctx = ctx_of(request)
+        if ctx is None or ctx.session is None:
+            raise svc.deny(p, "use an account's sign-in and recovery settings", reason="session_required")
+        return ctx
+
     def session_response(body: dict, status: int = 200) -> JSONResponse:
         cookies = body.pop("_cookies", None)
-        resp = JSONResponse(status_code=status, content=body)
+        resp = JSONResponse(status_code=status, content=body, headers={"Cache-Control": "no-store"})
         if cookies:
             common = dict(max_age=cookies["max_age"], secure=cfg.cookie_secure, samesite="strict", path="/")
             resp.set_cookie(svc.cookie, cookies["session"], httponly=True, **common)
@@ -200,12 +468,76 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     R = error_responses
     # ---- sign-in (no principal) ----------------------------------------------------------------------
-    @app.post("/v1/auth/setup", operation_id="auth.setup", tags=["auth"], status_code=201, responses=R(401, 409, 422, 429))
+    @app.get("/v1/auth/setup/status", operation_id="auth.setup.status", tags=["auth"], response_model=SetupStatus)
+    def setup_status():
+        return svc.onboarding.status()
+
+    @app.post("/v1/auth/setup/options", operation_id="auth.setup.options", tags=["auth"], response_model=BoxChallenge,
+              responses=R(403, 409, 429, 503))
+    def setup_options(request: Request):
+        return svc.onboarding.setup_options(request)
+
+    @app.post("/v1/auth/setup", operation_id="auth.setup", tags=["auth"], status_code=201, responses=R(401, 403, 409, 422, 429))
     def setup(body: SetupBody, request: Request):
-        """First owner: needs the install owner token (or the first-boot token) as the bearer."""
+        """Claim an unclaimed box with its screen code. A headless install uses its install credential."""
         token = request.headers.get("authorization", "").partition(" ")[2].strip()
-        user = svc.setup(request, token, body.username, body.display_name or body.username, body.password)
+        user = svc.onboarding.setup(request, token, body.challenge_id, body.box_code, body.username,
+                                    body.display_name or body.username, body.password, body.email)
         return start(request, user, "setup", body.client, None, passkey=False, status=201)
+
+    @app.post("/v1/auth/setup/kit", operation_id="auth.setup.kit", tags=["auth"], response_model=SetupKit,
+             responses=R(401, 403, 409, 503), openapi_extra={"security": [{"bearer": ["*"]}]})
+    def setup_kit(response: Response, legacy_upgrade: bool = False, ctx=Depends(human_session)):
+        response.headers["Cache-Control"] = "no-store"
+        if legacy_upgrade:
+            return remote_recovery.upgrade_kit(svc, ctx)
+        return svc.onboarding.kit(ctx)
+
+    @app.post("/v1/auth/setup/finish", operation_id="auth.setup.finish", tags=["auth"], status_code=204,
+              responses=R(401, 403, 409, 422, 503), openapi_extra={"security": [{"bearer": ["*"]}]})
+    def setup_finish(body: SetupFinishBody, request: Request, p: Principal = Depends(principal)):
+        saved_disk_key = body.disk_recovery_key.get_secret_value() if body.disk_recovery_key else None
+        svc.onboarding.finish(human_session(request, p), body.saved, body.method, body.recovery_code, saved_disk_key)
+        return Response(status_code=204)
+
+    @app.post("/v1/auth/recovery/options", operation_id="auth.recovery.options", tags=["auth"], response_model=BoxChallenge,
+              responses=R(403, 409, 422, 429, 503))
+    def recovery_options(body: RecoveryOptionsBody, request: Request):
+        return svc.onboarding.recovery_options(request, body.username)
+
+    @app.post("/v1/auth/recovery/reset", operation_id="auth.recovery.reset", tags=["auth"], response_model=RecoveryReset,
+              responses=R(401, 403, 422, 429))
+    def recovery_reset(body: RecoveryResetBody, request: Request, response: Response):
+        response.headers["Cache-Control"] = "no-store"
+        return svc.onboarding.reset(request, body.challenge_id, body.box_code, body.recovery_code, body.new_password)
+
+    @app.get("/v1/auth/recovery/remote", operation_id="auth.recovery.remote.status", tags=["auth"],
+             response_model=RemoteRecoveryStatus, responses=R(401, 403), openapi_extra={"security": [{"bearer": ["*"]}]})
+    def remote_recovery_status(ctx=Depends(human_session)):
+        return remote_recovery.status(svc, ctx)
+
+    @app.post("/v1/auth/recovery/remote", operation_id="auth.recovery.remote.start", tags=["auth"],
+              response_model=RemoteRecoveryStatus, responses=R(401, 403, 422, 429),
+              openapi_extra={"security": [{"bearer": ["*"]}]})
+    def remote_recovery_start(body: RemoteRecoveryBody, request: Request, ctx=Depends(human_session)):
+        return remote_recovery.start(svc, request, ctx, body.recovery_code)
+
+    @app.delete("/v1/auth/recovery/remote", operation_id="auth.recovery.remote.cancel", tags=["auth"], status_code=204,
+                responses=R(401, 403), openapi_extra={"security": [{"bearer": ["*"]}]})
+    def remote_recovery_cancel(ctx=Depends(human_session)):
+        remote_recovery.cancel(svc, ctx)
+        return Response(status_code=204)
+
+    @app.post("/v1/auth/email/options", operation_id="auth.email.options", tags=["auth"], response_model=BoxChallenge,
+              responses=R(401, 403, 409, 429, 503), openapi_extra={"security": [{"bearer": ["*"]}]})
+    def email_options(ctx=Depends(human_session)):
+        return account_email.send_code(svc, app.state.notify, ctx)
+
+    @app.post("/v1/auth/email/verify", operation_id="auth.email.verify", tags=["auth"], status_code=204,
+              responses=R(401, 403, 409, 422, 429), openapi_extra={"security": [{"bearer": ["*"]}]})
+    def email_verify(body: EmailCodeBody, request: Request, ctx=Depends(human_session)):
+        account_email.verify_code(svc, request, ctx, body.challenge_id, body.code)
+        return Response(status_code=204)
 
     @app.post("/v1/auth/login/options", operation_id="auth.login_options", tags=["auth"], responses=R(429))
     def login_options(request: Request):
@@ -222,7 +554,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return start(request, user, method, body.client, body.client_name, passkey=False,
                      install_id=body.install_id)
 
-    @app.post("/v1/auth/enrol", operation_id="auth.enrol", tags=["auth"], status_code=201, responses=R(401, 409, 422, 429))
+    @app.post("/v1/auth/enrol", operation_id="auth.enrol", tags=["auth"], status_code=201, responses=R(401, 403, 409, 422, 429))
     def enrol(body: EnrolBody, request: Request):
         user = svc.enrol(request, body.code, body.username or "", body.password)
         return start(request, user, "enrolment", body.client, None, passkey=False, status=201)
@@ -249,21 +581,54 @@ def register(app: FastAPI, gw: Gateway) -> None:
         svc.revoke_session(ctx_of(request), p, session_id)
         return Response(status_code=204)
 
-    @app.post("/v1/auth/passkeys/register/options", operation_id="auth.passkeys.register_options", tags=["auth"], responses=R(401, 403))
-    def passkey_options(request: Request, _: Principal = Depends(principal)):
-        return svc.passkey_register_options(request, ctx_of(request))
+    @app.post("/v1/auth/passkeys/register/options", operation_id="auth.passkeys.register_options", tags=["auth"],
+              response_model=PasskeyRegisterOptions, responses=R(401, 403, 409))
+    def passkey_options(request: Request, remote_recovery: bool = False, _: Principal = Depends(principal)):
+        return svc.passkey_register_options(request, ctx_of(request), remote_recovery)
 
-    @app.post("/v1/auth/passkeys/register", operation_id="auth.passkeys.register", tags=["auth"], status_code=201, responses=R(401, 403, 409, 422))
+    @app.post("/v1/auth/passkeys/register", operation_id="auth.passkeys.register", tags=["auth"], status_code=201, response_model=PasskeyRegistered, responses=R(401, 403, 409, 422))
     def passkey_register(body: PasskeyRegisterBody, request: Request, _: Principal = Depends(principal)):
-        return svc.passkey_register(request, ctx_of(request), body.credential, body.label, body.install_id)
+        return svc.passkey_register(request, ctx_of(request), body.credential, body.label, body.install_id,
+                                    body.box_code)
 
-    @app.get("/v1/auth/passkeys", operation_id="auth.passkeys.list", tags=["auth"], responses=R(401, 403))
+    @app.get("/v1/auth/passkeys", operation_id="auth.passkeys.list", tags=["auth"], response_model=list[Passkey], responses=R(401, 403))
     def passkeys(request: Request, _: Principal = Depends(principal)):
         return svc.list_passkeys(ctx_of(request))
 
     @app.delete("/v1/auth/passkeys/{credential_id}", operation_id="auth.passkeys.delete", tags=["auth"], status_code=204, responses=R(401, 403, 404, 409))
     def passkey_delete(credential_id: str, request: Request, _: Principal = Depends(principal)):
         svc.delete_passkey(ctx_of(request), credential_id)
+        return Response(status_code=204)
+
+    # ---- verification levels (D-028, design 3.11) -----------------------------------------------------
+    @app.post("/v1/auth/step-up/options", operation_id="auth.step_up.options", tags=["auth"], response_model=StepUpOptions, responses=R(401, 403, 409, 422), openapi_extra={"security": [{"bearer": ["*"]}]})
+    def step_up_options(body: StepUpOptionsBody, request: Request, _: Principal = Depends(principal)):
+        """A challenge for one change at the verification level required for it."""
+        return svc.step_up_options(request, ctx_of(request), body.op, body.target, body.body, body.at_box, body.method)
+
+    @app.post("/v1/auth/step-up", operation_id="auth.step_up.verify", tags=["auth"], response_model=StepUpGrant, responses=R(401, 403, 422), openapi_extra={"security": [{"bearer": ["*"]}]})
+    def step_up_verify(body: StepUpBody, request: Request, _: Principal = Depends(principal)):
+        return svc.step_up_verify(request, ctx_of(request), body.credential, body.box_code,
+                                  body.password_totp.model_dump() if body.password_totp else None)
+
+    @app.get("/v1/verification-requirements", operation_id="verification.requirements.get", tags=["auth"], response_model=VerificationTable, responses=R(401, 403), openapi_extra={"security": [{"bearer": ["actions:approve"]}]})
+    def verification_requirements(p: Principal = Depends(principal)):
+        """The level each kind of approval and change needs. Change a row by requesting
+        verification.requirement.set (POST /v1/actions); an owner approves it at the table's own level."""
+        if not p.is_owner:
+            raise svc.deny(p, "read the verification table")
+        return svc.levels.table()
+
+    @app.get("/v1/auth/authenticator-allowlist", operation_id="auth.trusted_models.list", tags=["auth"], response_model=list[TrustedModel], responses=R(401, 403), openapi_extra={"security": [{"bearer": ["actions:approve"]}]})
+    def trusted_models(p: Principal = Depends(principal)):
+        """Key models that can be proven keys (L2). Add one by requesting authenticator.allowlist.add."""
+        return svc.levels.list_models(p)
+
+    @app.delete("/v1/auth/authenticator-allowlist/{aaguid}", operation_id="auth.trusted_models.remove", tags=["auth"], status_code=204, responses=R(401, 403, 404, 409), openapi_extra={"security": [{"bearer": ["actions:approve"]}]})
+    def trusted_model_remove(aaguid: str, request: Request, p: Principal = Depends(principal)):
+        """Stop trusting a model you added. Its keys drop to L1 at once; taking trust away needs no step-up,
+        except for the model behind the household's last proven key (that key, or an owner at the box)."""
+        svc.levels.remove_model(p, aaguid, ctx_of(request))
         return Response(status_code=204)
 
     # ---- device-bound approver keys (#702): the phone's biometric-gated signing key -------------------
@@ -292,9 +657,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
         """Your own sign-in methods: password, authenticator code, passkeys. A household person only."""
         return svc.sign_in_methods(ctx_of(request))
 
-    @app.post("/v1/auth/totp/setup", operation_id="auth.totp.setup", tags=["auth"], response_model=TotpSetup,
-              responses=R(401, 403, 409))
-    def totp_setup(request: Request, _: Principal = Depends(principal)):
+    @app.post("/v1/auth/totp/setup", operation_id="auth.totp.setup", tags=["auth"], response_model=TotpSetup, responses=R(401, 403, 409))
+    def totp_setup(request: Request, response: Response, _: Principal = Depends(principal)):
+        response.headers["Cache-Control"] = "no-store"
         return svc.totp_setup(ctx_of(request))
 
     @app.post("/v1/auth/totp/confirm", operation_id="auth.totp.confirm", tags=["auth"], status_code=204, responses=R(401, 403, 409, 422))
@@ -307,23 +672,48 @@ def register(app: FastAPI, gw: Gateway) -> None:
         svc.totp_disable(request, ctx_of(request), body.password)
         return Response(status_code=204)
 
-    @app.get("/v1/me", operation_id="me.get", tags=["auth"], responses=R(401, 403))
+    @app.get("/v1/me", operation_id="me.get", tags=["auth"], response_model=Me, responses=R(401, 403))
     def me(request: Request, p: Principal = Depends(principal)):
         return svc.me(request, p)
 
     @app.patch("/v1/me", operation_id="me.update", tags=["auth"], responses=R(401, 403, 422))
     def update_me(body: MePatchBody, request: Request, p: Principal = Depends(principal)):
-        """Set (or clear, with null) your own display name. Display text only; it grants nothing."""
-        return svc.set_profile_name(request, p, body.display_name)
+        """Set or clear your own display name and optional contact email."""
+        return svc.update_profile(request, p, body.model_dump(exclude_unset=True))
 
     # ---- users (owner) -------------------------------------------------------------------------------
-    @app.get("/v1/users", operation_id="users.list", tags=["users"], responses=R(401, 403))
+    # The schema documents the answer for the SDK; the route still returns the service's dicts unchanged.
+    @app.get("/v1/users", operation_id="users.list", tags=["users"], responses={200: {"model": list[UserInfo]}, **R(401, 403)})
     def users(p: Principal = Depends(principal)):
         return svc.list_users(p)
 
-    @app.post("/v1/users", operation_id="users.create", tags=["users"], status_code=201, responses=R(401, 403, 409, 422))
-    def create_user(body: UserCreateBody, request: Request, p: Principal = Depends(principal)):
+    @app.post("/v1/users", operation_id="users.create", tags=["users"], status_code=201,
+              response_model=UserInvite, responses=R(401, 403, 409, 422))
+    def create_user(body: UserCreateBody, request: Request, response: Response, p: Principal = Depends(principal)):
+        response.headers["Cache-Control"] = "no-store"
         return svc.create_user(request, ctx_of(request), p, body.display_name, body.role, body.username)
+
+    @app.post("/v1/users/invites", operation_id="users.invite", tags=["users"], status_code=202, response_model=Action,
+              responses=R(401, 403, 409, 422), openapi_extra={"security": [{"bearer": ["users:admin"]}]})
+    def invite_user(body: UserCreateBody, response: Response, ctx=Depends(human_session), idem: IdemHeader = None):
+        action = invites.request_invite(ctx, body.model_dump(), idem)
+        response.headers["Location"] = f"/v1/actions/{action['id']}"
+        return action
+
+    @app.post("/v1/users/{user_id}/invite", operation_id="users.reinvite", tags=["users"], status_code=202,
+              response_model=Action, responses=R(401, 403, 404, 409, 422),
+              openapi_extra={"security": [{"bearer": ["users:admin"]}]})
+    def reinvite_user(user_id: str, response: Response, ctx=Depends(human_session), idem: IdemHeader = None):
+        action = invites.request_replacement(ctx, user_id, idem)
+        response.headers["Location"] = f"/v1/actions/{action['id']}"
+        return action
+
+    @app.post("/v1/users/invites/{action_id}/claim", operation_id="users.invites.claim", tags=["users"],
+              response_model=UserInvite, responses=R(401, 403, 409),
+              openapi_extra={"security": [{"bearer": ["users:admin"]}]})
+    def claim_invite(action_id: str, request: Request, response: Response, ctx=Depends(human_session)):
+        response.headers["Cache-Control"] = "no-store"
+        return invites.claim(request, ctx, action_id)
 
     @app.patch("/v1/users/{user_id}", operation_id="users.update", tags=["users"], responses=R(401, 403, 404, 409, 422))
     def update_user(user_id: str, body: UserPatchBody, request: Request, p: Principal = Depends(principal)):
@@ -352,18 +742,21 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return Response(status_code=204)
 
     # ---- per-app sharing -----------------------------------------------------------------------------
-    @app.get("/v1/apps/{app_id}/access", operation_id="apps.access.get", tags=["apps"], responses=R(401, 403, 404))
+    # The schema documents the answer for the SDK; the route still returns the service's dict unchanged.
+    @app.get("/v1/apps/{app_id}/access", operation_id="apps.access.get", tags=["apps"], responses={200: {"model": AppAccess}, **R(401, 403, 404)})
     def get_access(app_id: str, p: Principal = Depends(principal)):
         return svc.get_access(p, app_id)
 
-    @app.put("/v1/apps/{app_id}/access", operation_id="apps.access.set", tags=["apps"], responses=R(401, 403, 404, 422))
+    @app.put("/v1/apps/{app_id}/access", operation_id="apps.access.set", tags=["apps"], responses={200: {"model": AppAccess}, **R(401, 403, 404, 422)})
     def put_access(app_id: str, body: AccessBody, request: Request, p: Principal = Depends(principal)):
         return svc.put_access(ctx_of(request), p, app_id, body.roles, body.people, body.auth)
 
     # ---- approval step-up challenge (§12.4) ----------------------------------------------------------
     @app.post("/v1/actions/{action_id}/approve-options", operation_id="actions.approve_options", tags=["actions"], response_model=ApprovalChallenge, responses=R(401, 403, 404, 409))
-    def approve_options(action_id: str, request: Request, p: Principal = Depends(principal)):
-        return svc.approve_options(request, p, action_id)
+    def approve_options(action_id: str, request: Request, body: ApprovalOptionsBody | None = None,
+                        p: Principal = Depends(principal)):
+        opts = body or ApprovalOptionsBody()
+        return svc.approve_options(request, p, action_id, at_box=opts.at_box, method=opts.method)
 
     # ---- rescue console step-up (D-014): called by the console on this box, never listed in the API ----
     @app.post("/v1/auth/rescue/options", include_in_schema=False)

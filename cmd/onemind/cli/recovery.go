@@ -3,11 +3,10 @@
 package cli
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -39,14 +38,11 @@ type kitIssued struct {
 	} `json:"one_time"`
 }
 
+// kitReceipt names the filed request. It holds no secret: the page is released only to the signed-in owner
+// session that approved the request (founder decision 2026-11-28, option A), never to whoever holds a receipt.
 type kitReceipt struct {
 	ActionID string `json:"action_id"`
 	Key      string `json:"idempotency_key"`
-	Token    string `json:"delivery_token"`
-}
-
-func (r kitReceipt) body() map[string]any {
-	return map[string]any{"approve": false, "delivery_token": r.Token}
 }
 
 func (r kitReceipt) headers() map[string]string {
@@ -55,8 +51,10 @@ func (r kitReceipt) headers() map[string]string {
 
 // recoveryKitCommand is `onemind recovery kit`: the printed emergency kit (D-028). It is added to the one
 // `onemind recovery` group built in recovery_contacts.go (train 2026-11-28 merge of #1323 and #1196). `status` shows where the kit
-// stands and never a key. `issue` files a request and saves a private receipt. After an owner approves,
-// `collect` claims the page once. The page
+// stands and never a key. `issue` files a request (POST /v1/backups/kit/request) and saves a receipt. Only the
+// signed-in owner session that approves the request can claim the page, once (POST /v1/backups/kit/{id}/claim):
+// sign in with `onemind login`, approve it from that same session (`onemind actions approve ID`), then `collect`.
+// An API token, an agent or another session is refused. The page
 // holds the owner key and, when /data is encrypted and its key is still waiting, the disk recovery key; both
 // are shown once, so the page goes to a new 0600 file or stdout. Confirming it in Backups activates the
 // new console key.
@@ -109,11 +107,9 @@ func recoveryKitCommand(a *App) *cobra.Command {
 					os.Remove(receiptPath)
 				}
 			}()
-			var token [32]byte
-			rand.Read(token[:]) // Go 1.26 guarantees success or terminates the process.
-			r := kitReceipt{Key: onemind.NewIdempotencyKey(), Token: hex.EncodeToString(token[:])}
+			r := kitReceipt{Key: onemind.NewIdempotencyKey()}
 			var pending onemind.Action
-			if err := cl.DoOnceWithHeaders(bg(), http.MethodPost, "/v1/backups/kit", r.headers(), r.body(), &pending); err != nil {
+			if err := cl.DoOnceWithHeaders(bg(), http.MethodPost, "/v1/backups/kit/request", r.headers(), nil, &pending); err != nil {
 				return err
 			}
 			if pending.Id == "" || pending.Type != "backup.kit.issue" || pending.State != "awaiting_approval" || pending.IdempotencyKey != r.Key {
@@ -130,15 +126,15 @@ func recoveryKitCommand(a *App) *cobra.Command {
 			if a.G.JSON {
 				return printJSON(a.Stdout, pending)
 			}
-			fmt.Fprintf(a.Stdout, "Requested %s. Approve it in Approvals, then run onemind recovery kit collect with the receipt file.\n", sanitize(pending.Id))
+			fmt.Fprintf(a.Stdout, "Requested %s. Approve it from this signed-in session (onemind actions approve %s), then run onemind recovery kit collect with the receipt file. Only the session that approves it can collect the page.\n", sanitize(pending.Id), sanitize(pending.Id))
 			return nil
 		},
 	}
-	issue.Flags().StringVar(&receiptPath, "receipt", "", "save the private receipt to this new file (mode 0600)")
+	issue.Flags().StringVar(&receiptPath, "receipt", "", "save the receipt to this new file (mode 0600)")
 	_ = issue.MarkFlagRequired("receipt")
 	collect := &cobra.Command{
 		Use:   "collect RECEIPT",
-		Short: "Collect the recovery page once after an owner approves the request",
+		Short: "Collect the recovery page once, from the signed-in session that approved the request",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			cl, _, err := a.client()
@@ -150,7 +146,7 @@ func recoveryKitCommand(a *App) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := json.Unmarshal(data, &r); err != nil || r.ActionID == "" || r.Key == "" || len(r.Token) != 64 {
+			if err := json.Unmarshal(data, &r); err != nil || r.ActionID == "" || r.Key == "" {
 				return exitWith(ExitUsage, "usage", "invalid kit receipt")
 			}
 			action, err := cl.Actions.Get(bg(), r.ActionID)
@@ -176,7 +172,7 @@ func recoveryKitCommand(a *App) *cobra.Command {
 				}
 			}
 			var k kitIssued
-			err = cl.DoOnceWithHeaders(bg(), http.MethodPost, "/v1/backups/kit", r.headers(), r.body(), &k)
+			err = cl.DoOnceWithHeaders(bg(), http.MethodPost, "/v1/backups/kit/"+url.PathEscape(r.ActionID)+"/claim", nil, nil, &k)
 			if err != nil || k.Action.Id != r.ActionID || k.OneTime.Text == "" {
 				if f != nil {
 					f.Close()

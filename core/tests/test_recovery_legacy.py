@@ -27,7 +27,7 @@ from onemind_core.app import create_app
 from onemind_core.errors import ApiError
 from onemind_core.recovery.legacy import LegacyContacts
 from recovery_support import ContactPhone, owner_with_passkey as setup_passkey_owner
-from test_identity import PASSWORD, SoftAuthenticator, audit_events, csrf, enrol, id_settings, register_passkey, setup_owner
+from test_identity import LOCAL_PEER, PASSWORD, SoftAuthenticator, audit_events, box_code, csrf, enrol, id_settings, register_passkey, setup_owner
 
 DAY = 86400
 PDF = base64.b64encode(b"%PDF-1.4 death certificate").decode()
@@ -40,7 +40,7 @@ def recovery_client(settings, clock, executor, tmp_path, **identity_options):
 
     s = id_settings(settings, **identity_options)
     s = replace(s, sections={**s.sections, "files": FilesSettings(root=tmp_path / "files", min_free_bytes=0)})
-    return TestClient(create_app(s, clock=clock, executor=executor))
+    return TestClient(create_app(s, clock=clock, executor=executor), client=LOCAL_PEER)
 
 
 @pytest.fixture
@@ -74,7 +74,10 @@ def request_invite(rc, name="Ana", headers=None, **extra):
 def invite_approval(rc, action_id):
     options = rc.post(f"/v1/actions/{action_id}/approve-options", headers=csrf(rc))
     assert options.status_code == 200, options.text
-    return {"webauthn": rc.legacy_passkey.assert_(options.json()["challenge"])}
+    proof = {"webauthn": rc.legacy_passkey.assert_(options.json()["challenge"])}
+    if options.json().get("box_code_required"):  # D-028: L2; during the grace an L1 key plus the box's code
+        proof["box_code"] = box_code(rc)
+    return proof
 
 
 def add_legacy(rc, name="Ana", **extra):
@@ -157,7 +160,7 @@ def test_any_owner_sign_in_during_the_wait_cancels_the_claim(rc, clock, settings
     clock.advance(7 * DAY + 1)
     c = claim(rc, phone, key).json()
     assert c["state"] == "waiting" and c["needs_second"] is False
-    r = TestClient(rc.app).post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD})
+    r = TestClient(rc.app, client=LOCAL_PEER).post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD})
     assert r.status_code == 200
     got = TestClient(rc.app).get("/v1/legacy/claims", headers=phone.auth).json()[0]
     assert got["state"] == "cancelled" and got["end_reason"] == "owner_signed_in"
@@ -208,7 +211,7 @@ def test_a_second_person_must_confirm_when_one_exists(rc, clock):
     assert TestClient(rc.app).post(f"/v1/legacy/claims/{c['id']}/confirm", headers=phone.auth).status_code == 403
     assert TestClient(rc.app).post(f"/v1/auth/legacy/claims/{c['id']}/confirm", headers=OWNER).status_code == 403
     # The adult's session expired over the month; a fresh sign-in is still the adult (not the owner).
-    fresh = TestClient(rc.app)
+    fresh = TestClient(rc.app, client=LOCAL_PEER)
     assert fresh.post("/v1/auth/login", json={"username": "ben", "password": PASSWORD}).status_code == 200
     r = fresh.post(f"/v1/auth/legacy/claims/{c['id']}/confirm", headers=csrf(fresh))
     assert r.status_code == 200 and r.json()["state"] == "granted", r.text
@@ -229,7 +232,7 @@ def test_only_a_live_adult_session_can_confirm_a_household_claim(rc, clock, cred
     legacy.tick()
     assert legacy._claim(cid).state == "awaiting_second"
 
-    client = TestClient(rc.app)
+    client = TestClient(rc.app, client=LOCAL_PEER)
     url = f"/v1/auth/legacy/claims/{cid}/confirm"
     assert client.post(url, headers=headers).status_code == 403
     assert legacy._claim(cid).second_by is None
@@ -291,7 +294,7 @@ def test_removing_a_legacy_contact_ends_their_claim_and_is_l0(rc, clock):
     phone, key = legacy_phone(rc)
     clock.advance(7 * DAY + 1)
     claim(rc, phone, key)
-    fresh = TestClient(rc.app)
+    fresh = TestClient(rc.app, client=LOCAL_PEER)
     assert fresh.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD}).status_code == 200
     # (that sign-in already cancelled the claim; removing the contact still works with no fresh passkey)
     r = fresh.delete(f"/v1/auth/legacy/contacts/{phone.contact_id}", headers=csrf(fresh))
@@ -320,7 +323,7 @@ def test_an_owner_who_signs_in_after_the_grant_ends_it_and_the_export_refuses(rc
     phone, key = legacy_phone(rc)
     granted(rc, clock, phone, key)
     assert TestClient(rc.app).get("/v1/legacy/export", headers=phone.auth).status_code == 200
-    assert TestClient(rc.app).post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD}).status_code == 200
+    assert TestClient(rc.app, client=LOCAL_PEER).post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD}).status_code == 200
     for path in ("/v1/legacy/export", "/v1/legacy/export/download"):
         assert TestClient(rc.app).get(path, headers=phone.auth).status_code == 403
     got = TestClient(rc.app).get("/v1/legacy/claims", headers=phone.auth).json()[0]
@@ -362,7 +365,7 @@ def test_an_adult_who_accepted_an_outside_invite_cannot_confirm_their_own_claim(
     c = claim(rc, phone, key).json()
     clock.advance(30 * DAY + 1)
     rc.app.state.legacy_contacts.tick()
-    fresh = TestClient(rc.app)
+    fresh = TestClient(rc.app, client=LOCAL_PEER)
     assert fresh.post("/v1/auth/login", json={"username": "ben", "password": PASSWORD}).status_code == 200
     r = fresh.post(f"/v1/auth/legacy/claims/{c['id']}/confirm", headers=csrf(fresh))
     assert r.status_code == 403 and "your own legacy claim" in r.text, r.text
@@ -586,9 +589,9 @@ def test_who_accepted_is_recorded_with_the_access_key_for_every_session_kind(rc,
     adult = enrol(rc, "adult", "ben")
     ben_id = adult.get("/v1/me").json()["principal"]["id"]
     # A bearer session (the phone app or the CLI signed in).
-    bearer = TestClient(rc.app)
+    bearer = TestClient(rc.app, client=LOCAL_PEER)
     tok = bearer.post("/v1/auth/login", json={"username": "ben", "password": PASSWORD, "client": "cli"}).json()
-    phone, _ = _accept_outside(rc, "B1", TestClient(rc.app), {"Authorization": f"Bearer {tok['access_token']}"})
+    phone, _ = _accept_outside(rc, "B1", TestClient(rc.app, client=LOCAL_PEER), {"Authorization": f"Bearer {tok['access_token']}"})
     e = _extra(rc, phone.contact_id)
     assert e["accepted_signed_in"] is True and e["accepted_by_user_id"] == ben_id and e["access_verifier"]
     # A browser cookie session with its CSRF header.
@@ -613,7 +616,7 @@ def test_the_household_sees_the_confirmer_next_to_the_claimant_and_a_signed_out_
     view = next(x for x in TestClient(rc.app).get("/v1/auth/legacy/claims", headers=OWNER).json() if x["id"] == c["id"])
     assert view["contact_display_name"] == "Ana" and view["claimant_accepted_signed_in"] is False
     assert view["confirmed_by_display_name"] is None
-    fresh = TestClient(rc.app)
+    fresh = TestClient(rc.app, client=LOCAL_PEER)
     assert fresh.post("/v1/auth/login", json={"username": "ben", "password": PASSWORD}).status_code == 200
     r = fresh.post(f"/v1/auth/legacy/claims/{c['id']}/confirm", headers=csrf(fresh))
     assert r.status_code == 200, r.text
@@ -736,7 +739,7 @@ def test_revoking_a_grant_stops_the_current_file_and_later_files(long_session_rc
     phone, key = legacy_phone(rc)
     c = granted(rc, clock, phone, key)
     legacy = rc.app.state.legacy_contacts
-    client = TestClient(rc.app)
+    client = TestClient(rc.app, client=LOCAL_PEER)
     with closing(legacy.archive(legacy._get(phone.contact_id), _Who())) as stream:
         assert next(stream).startswith(b"a-current.bin")
         assert next(stream) == block
@@ -877,7 +880,7 @@ def test_an_adult_enabled_during_the_wait_must_confirm_the_claim(rc, clock):
     with legacy.db.session.begin() as s:
         s.get(UserRow, adult_id).disabled = False
     clock.advance(30 * DAY + 1)
-    client = TestClient(rc.app)
+    client = TestClient(rc.app, client=LOCAL_PEER)
     got = client.get("/v1/legacy/claims", headers=phone.auth).json()[0]
     assert got["state"] == "awaiting_second" and got["needs_second"] is True, got
     assert client.get("/v1/legacy/export/download", headers=phone.auth).status_code == 403
@@ -1186,7 +1189,7 @@ def test_export_window_cannot_be_renewed_with_the_same_contact_key(rc, clock):
         assert iso(legacy._claim(first["id"]).access_until) == first["access_until"]
     assert TestClient(rc.app).get("/v1/legacy/export", headers=phone.auth).json()["reason"] == "export_window_ended"
 
-    owner = TestClient(rc.app)
+    owner = TestClient(rc.app, client=LOCAL_PEER)
     assert owner.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD}).status_code == 200
     old_key = claim(rc, phone, key)
     assert old_key.status_code == 409 and old_key.json()["reason"] == "export_already_granted"

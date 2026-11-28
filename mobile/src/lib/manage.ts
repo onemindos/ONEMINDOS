@@ -69,10 +69,15 @@ export function requestLifecycle(
   });
 }
 
+const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 /** One plain sentence for a failed request, from the §12.2 code and reason. */
 export function requestError(e: unknown, what = 'that'): { text: string; forbidden: boolean } {
   const err = e instanceof ApiError ? e : new ApiError(0, 'unknown', String(e));
-  if (err.reason === 'step_up_required') return { text: `The hub wants a fresh passkey before ${what}. Sign in again with your passkey (Settings), then try again. Nothing was changed.`, forbidden: false };
+  if (err.reason === 'verification_level_unmet') return { text: `${capital(what)} needs your proven key (a security key that proves its make and model); a phone passkey can't confirm it. Make this change on the dashboard with your security key. Nothing was changed.`, forbidden: false };
+  if (err.reason === 'box_code_required' || err.reason === 'box_presence_unavailable') return { text: `${capital(what)} needs your passkey plus the code on the box's own screen, until you add a proven key. Make this change on the dashboard, standing at the box. Nothing was changed.`, forbidden: false };
+  if (err.reason === 'step_up_cancelled') return { text: `The passkey confirmation was cancelled, so ${what} did not happen. Try again when you're ready.`, forbidden: false };
+  if (err.reason === 'step_up_required' || err.reason === 'step_up_failed') return { text: `The hub wants your passkey before ${what}, and this phone could not give it. Sign in again with your passkey (Settings), or make the change on the dashboard. Nothing was changed.`, forbidden: false };
   if (err.reason === 'plan_changed') return { text: `The plan for ${what} changed. Nothing was sent; look at the new plan and try again.`, forbidden: false };
   switch (err.code) {
     case 'permission_denied':

@@ -28,11 +28,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
     cfg = gw.settings.section(OwnerOverrideSettings)
 
     class IdentityStepUp:
-        """Asks the identity feature (registered later, on app.state) whether an owner has passkeys."""
+        """Asks the registered identity service whether the appliance has a household account."""
 
-        def passkeys_active(self) -> bool:
+        def account_setup_exists(self) -> bool:
             ident = getattr(app.state, "identity", None)
-            return bool(ident is not None and ident.passkeys_active())
+            return bool(ident is not None and ident.account_setup_exists())
 
     ov = OwnerOverride(cfg.enabled, gw.audit, gw.events, step_up=IdentityStepUp())
     gw.actions.owner_override = ov

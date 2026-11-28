@@ -3,8 +3,8 @@
 // Reads GET /v1/auth/methods; changes go to POST /v1/auth/password and /v1/auth/totp/{setup,confirm,disable}
 // through @onemind/sdk. These are your own sign-in credentials: the gateway asks for a signed-in session (never an
 // API token), checks the current password and audits every change; this screen adds no check of its own.
-// D-030: passkeys come first. New people sign in with passkeys only; an authenticator code is a fallback for people
-// who already sign in with a password, so this card never asks a passkey user to add one.
+// D-034 (amends D-030 point 2): a person signs in with a password, a password and an authenticator code, or a passkey;
+// passkeys are recommended, and this card never asks a passkey user to add an authenticator code.
 import { useState, type FormEvent } from 'react';
 import type { components } from '@onemind/sdk';
 import { Button, Card, QrSvg, StatusPill } from '@onemind/ui';
@@ -21,7 +21,7 @@ type Secret = components['schemas']['TotpSecret'];
 export function signInError(e: unknown): string {
   if (e instanceof ApiError) {
     if (e.reason === 'bad_credentials') return 'That password is not right. Nothing was changed.';
-    if (e.reason === 'weak_password') return 'The new password must be at least 10 characters long.';
+    if (e.reason === 'weak_password') return 'The new password must be at least 12 characters long.';
     if (e.reason === 'totp_invalid') return 'That code does not match. Type the 6 digits your app shows now; if it keeps failing, check the time on your phone.';
     if (e.reason === 'session_required') return 'This needs you to be signed in on this device. Sign out, sign in again and try once more.';
     if (e.status === 429) return 'Too many tries. Wait a minute, then try again.';
@@ -79,7 +79,7 @@ function PasswordCard({ sdk }: { sdk: Sdk }) {
   const [done, setDone] = useState(false);
   const { busy, failed, run } = useJob();
   const mismatch = again.length > 0 && next !== again;
-  const ready = current.length > 0 && next.length >= 10 && next === again;
+  const ready = current.length > 0 && [...next].length >= 12 && next === again;
   const submit = (e: FormEvent) => {
     e.preventDefault();
     void run(async () => {
@@ -101,7 +101,7 @@ function PasswordCard({ sdk }: { sdk: Sdk }) {
         <input id="pw-current" type="password" autoComplete="current-password" value={current} maxLength={1024} onChange={(e) => setCurrent(e.target.value)} />
         <label htmlFor="pw-new">New password</label>
         <input id="pw-new" type="password" autoComplete="new-password" value={next} maxLength={1024} aria-describedby="pw-new-hint" onChange={(e) => setNext(e.target.value)} />
-        <span id="pw-new-hint" className="om-hint">At least 10 characters. A few unrelated words are easy to remember and hard to guess.</span>
+        <span id="pw-new-hint" className="om-hint">At least 12 characters; spaces are fine. A few unrelated words are easy to remember and hard to guess.</span>
         <label htmlFor="pw-again">New password again</label>
         <input id="pw-again" type="password" autoComplete="new-password" value={again} maxLength={1024} aria-invalid={mismatch} aria-describedby={mismatch ? 'pw-again-hint' : undefined} onChange={(e) => setAgain(e.target.value)} />
         {mismatch && <span id="pw-again-hint" className="om-hint om-tone-bad">The two new passwords are not the same.</span>}
@@ -149,8 +149,8 @@ function AuthenticatorCard({ sdk, methods, reload }: { sdk: Sdk; methods: Method
   return (
     <Card title="Authenticator code" subtitle="A fallback for password sign-in" aside={pill}>
       <p>
-        Passkeys are the main way to sign in to OneMind. New people should use a passkey only. An authenticator code (a 6-digit number from an app such as
-        Google Authenticator or 1Password) is a fallback for people who already sign in with a password: the box asks for it after the password.
+        Passkeys are recommended. You can also sign in with a password, alone or with an authenticator code (a 6-digit number from an app such as
+        Google Authenticator or 1Password) that the box asks for after the password. From outside your home, sign-in needs that code or a passkey.
       </p>
       {failed && <p className="om-note om-tone-bad" role="alert">{failed}</p>}
       {note && <p className="om-note om-tone-ok" role="status">{note}</p>}

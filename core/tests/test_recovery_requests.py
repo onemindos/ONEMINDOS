@@ -25,14 +25,14 @@ from onemind_core.identity.crypto import new_id, totp_code
 from onemind_core.notify.store import NotificationRow
 from onemind_core.recovery.requests import MAX_TRIES, RequestRow, code_for, vouch_payload
 from recovery_support import ContactPhone, invite_and_accept, owner_with_passkey
-from test_identity import PASSWORD, SoftAuthenticator, audit_events, csrf, id_settings, setup_owner
+from test_identity import LOCAL_PEER, PASSWORD, SoftAuthenticator, audit_events, csrf, id_settings, setup_owner
 
 DAY = 86400
 
 
 @pytest.fixture
 def rc(settings, clock, executor):
-    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor)) as c:
+    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor), client=LOCAL_PEER) as c:
         yield c
 
 
@@ -259,7 +259,7 @@ def test_after_the_wait_the_starter_enrols_a_passkey_sets_a_password_and_gets_a_
     assert r.json()["access_token"].startswith("om_ses_")
     # The old browser session is signed out by the password reset; the new password and passkey work.
     assert rc.get("/v1/me").status_code == 401
-    fresh = TestClient(rc.app)
+    fresh = TestClient(rc.app, client=LOCAL_PEER)
     assert fresh.post("/v1/auth/login", json={"username": "zeus", "password": "a brand new passphrase"}).status_code == 200
     labels = [k["label"] for k in fresh.get("/v1/auth/passkeys").json()]
     assert "new phone" in labels
@@ -271,9 +271,13 @@ def test_after_the_wait_the_starter_enrols_a_passkey_sets_a_password_and_gets_a_
 
 def test_remote_recovery_needs_more_than_a_password_waits_72_hours_and_only_adds_a_key(rc, clock):
     owner_with_passkey(rc)
-    # A password alone is refused, even with the wait.
+    # A password alone is refused, even with the wait: from outside the home network D-034 asks for a factor
+    # before anything else, and at home the remote path still needs the second factor.
     r = start(rc, "remote", password=PASSWORD)
-    assert r.status_code == 401 and r.json()["reason"] == "second_factor_required"
+    assert r.status_code == 401 and r.json()["reason"] == "remote_factor_required", r.text
+    r = TestClient(rc.app, client=LOCAL_PEER).post("/v1/auth/recovery", json={"path": "remote", "username": "zeus",
+                                                                              "password": PASSWORD})
+    assert r.status_code == 401 and r.json()["reason"] == "second_factor_required", r.text
     secret = rc.post("/v1/auth/totp/setup", headers=csrf(rc)).json()["one_time"]["secret"]
     step = int(clock.now.timestamp() // 30)
     assert rc.post("/v1/auth/totp/confirm", headers=csrf(rc), json={"code": totp_code(secret, step)}).status_code == 204
@@ -514,9 +518,9 @@ def test_a_cancel_that_lands_while_finishing_leaves_the_credentials_unchanged(rc
     from onemind_core.identity.models import SessionRow
     with rec.db.session() as db:
         assert db.query(SessionRow).filter(SessionRow.revoked_at.is_not(None)).count() == 0
-    fresh = TestClient(rc.app)
+    fresh = TestClient(rc.app, client=LOCAL_PEER)
     assert fresh.post("/v1/auth/login", json={"username": "zeus", "password": "a brand new passphrase"}).status_code == 401
-    assert TestClient(rc.app).post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD}).status_code == 200
+    assert TestClient(rc.app, client=LOCAL_PEER).post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD}).status_code == 200
 
 
 def test_contact_revocation_committing_before_its_hook_prevents_completion(rc, clock, monkeypatch):
@@ -810,7 +814,7 @@ def _complete(rc, request_id, token, password, current_password=PASSWORD):
 
 
 def _signs_in(rc, password) -> bool:
-    return TestClient(rc.app).post("/v1/auth/login", json={"username": "zeus", "password": password}).status_code == 200
+    return TestClient(rc.app, client=LOCAL_PEER).post("/v1/auth/login", json={"username": "zeus", "password": password}).status_code == 200
 
 
 def test_a_cancel_read_before_a_completion_cannot_overwrite_it(rc, clock):
