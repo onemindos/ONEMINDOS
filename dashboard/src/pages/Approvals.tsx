@@ -10,6 +10,7 @@ import { toActionPlan, toActionSummary } from '../data/adapters';
 import { errorText, subjectOf, useHub } from '../data/hub';
 import type { ApproveOpts } from '../lib/approve';
 import { usePoll } from '../lib/hooks';
+import { DesktopAppRequests } from './DesktopAppRequests';
 import { webauthnSupported } from '../lib/webauthn';
 import { useSignedIn } from '../session';
 
@@ -19,13 +20,14 @@ export const APPROVE_HINT = 'Approving signs exactly this plan with your passkey
 
 export function Approvals() {
   const hub = useHub();
-  const { api } = useSignedIn();
+  const { api, mock } = useSignedIn();
   const toast = useToast();
   const [params] = useSearchParams();
   const me = usePoll(() => api.me(), 0);
   const passkey = me.data?.step_up.passkeys_active === true && webauthnSupported();
   const all = hub.actionList.map((a) => toActionSummary(a, hub.appName));
   const waiting = all.filter((a) => a.state === 'awaiting_approval');
+  const desktopInstalls = hub.actionList.filter((a) => a.state === 'awaiting_approval' && (a.type as string) === 'desktop.app.install' && typeof a.params.app_id === 'string').map((a) => a.params.app_id as string);
   const decided = all.filter((a) => a.state !== 'awaiting_approval' && a.state !== 'requested').slice(0, 10);
   const stale = hub.freshness === 'stale' || hub.freshness === 'offline';
   const actions: SettingsLoadable<ActionSummary[]> =
@@ -141,6 +143,7 @@ export function Approvals() {
           : <HoldToApprove label="Practice: Hold to approve" onApprove={() => setPracticeDone(true)} />}
       </section>
     )}
+    {!mock && desktopInstalls.length > 0 && <DesktopAppRequests key={desktopInstalls.join(',')} appIds={desktopInstalls} />}
     {hub.actionList.filter((a) => a.state === 'awaiting_approval' && a.plan).map((a) => (
       <details key={a.id} className="om-hint">
         <summary>Advanced: raw plan for {a.type} {subjectOf(hub, a)}</summary>

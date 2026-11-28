@@ -402,6 +402,8 @@ memory_cgroup_check() {
 # ------------------------------------------------------------------------------------------
 # avahi + libnss-mdns: NAME.local and <app>.NAME.local (NETWORKING.md §9.1); sqlite3: Headscale backups.
 APT_PKGS="ca-certificates curl tar gzip iproute2 unattended-upgrades needrestart apt-listchanges avahi-daemon avahi-utils libnss-mdns sqlite3 nftables"
+# Node-only installs have no gateway venv. The system Python signs the local NATS NKey challenge.
+if [ "$ROLE" = node ]; then APT_PKGS="$APT_PKGS python3-cryptography"; fi
 apt_security_conf() {
   if [ "${ID:-}" = ubuntu ]; then
     cat <<'EOF'
@@ -644,7 +646,7 @@ nats_install() {
   [ "$DRY_RUN" = 1 ] && step "NATS $NATS_VERSION on the hub (loopback :4222; leaf listener on the mesh address, TLS, per-node accounts)"
   nats_binary
   if [ "$DRY_RUN" = 1 ]; then
-    plan "service nkeys for the gateway and onemindd in $STATE/nats/keys (seed 0600 per service, public keys 0644)"
+    plan "service nkeys for the gateway, onemindd and the read-only observer in $STATE/nats/keys (seed 0600 per service, public keys 0644)"
     plan "hub accounts file $STATE/nats/accounts.conf (python -m onemind_core.natsconf), linked beside nats.conf"
     plan "write $ETC/nats.conf: listen 127.0.0.1:4222, leafnodes on <mesh address>:7422 with TLS (box CA, verify)"
     plan "install $SCRIPT_DIR/systemd/onemind-nats.service, a mesh drop-in, onemind-nats-accounts.path and -reload.service; enable and restart"
@@ -661,6 +663,9 @@ nats_install() {
   "$PREFIX/venv/bin/python" -m onemind_core.natsconf service-key "$STATE/nats/keys" gateway >/dev/null
   chown onemind:onemind "$STATE/nats/keys/gateway.nk"
   "$PREFIX/venv/bin/python" -m onemind_core.natsconf service-key "$STATE/nats/keys" onemindd >/dev/null
+  # #620: the gateway's read-only observer of the server's own connect and auth-error events (account SYS).
+  "$PREFIX/venv/bin/python" -m onemind_core.natsconf service-key "$STATE/nats/keys" observer >/dev/null
+  chown onemind:onemind "$STATE/nats/keys/observer.nk"
   runuser -u onemind -- "$PREFIX/venv/bin/python" -m onemind_core.natsconf "$STATE/nats/accounts.conf" "$STATE/nats/keys"
   ln -sfn "$STATE/nats/accounts.conf" "$ETC/nats-accounts.conf"
   cat > "$ETC/nats.conf" <<EOF

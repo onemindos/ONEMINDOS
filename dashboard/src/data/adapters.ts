@@ -389,6 +389,8 @@ export function toActionPlan(a: Action): ActionPlan | undefined {
     if (typeof w === 'string' && !NETWORK_WARNING.test(w)) effects.push({ kind: 'note', risk: /no undo|deleted|refus/i.test(w) ? 'high' : 'low', label: w });
   }
   if (typeof p.summary === 'string' && p.summary) effects.unshift({ kind: 'note', risk: 'low', label: p.summary });
+  const preview = a.approval?.physical ? a.approval.preview : undefined;
+  if (preview?.kind === 'text' && preview.text) effects.unshift({ kind: 'note', risk: 'high', label: preview.text });
   // AIG-04 (#168): the requester read third-party text before asking (core taint.py). Shown first.
   const taint = p.taint as { sources?: unknown; message?: unknown } | null | undefined;
   if (taint && typeof taint === 'object') {

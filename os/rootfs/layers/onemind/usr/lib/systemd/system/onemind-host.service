@@ -5,10 +5,14 @@
 # on every connection, and only root and the gateway's user are served. It decides nothing: no approval, no action. Its journal is on /data. Started by
 # onemind-firstboot on the hub role. The OS install runs the update engine (internal/update) in this
 # process, so the sandbox is the update service's; systemd makes the socket, so nothing here chowns.
+# Desktop apps (#1097, internal/flatpak) run `flatpak` and make each app's folder through systemd-run: this unit has
+# no chown capability and no namespaces, so every step that needs one runs in a transient unit of its own (hardened in
+# SystemdRunner), with this service only starting it over D-Bus. Nothing in this process may chown (test_flatpak_image).
 [Unit]
 Description=OneMind host actions (approved restart, shutdown, OS install)
 Requires=onemind-host.socket
-After=onemind-host.socket network-online.target rauc.service onemind-health-gate.service onemind-firstboot.service
+Wants=onemind-firewall-read.socket
+After=onemind-host.socket onemind-firewall-read.socket network-online.target rauc.service onemind-health-gate.service onemind-firstboot.service
 Wants=network-online.target
 RequiresMountsFor=/data
 ConditionPathExists=/data/onemind/firstboot/state.json
@@ -57,8 +61,12 @@ SystemCallFilter=@system-service
 SystemCallFilter=~@privileged
 SystemCallErrorNumber=EPERM
 
-# --- network: HTTPS for the update channel, AF_UNIX for D-Bus (systemd, rauc), AF_NETLINK so GET /v1/network can
-# list interfaces (read only: CAP_NET_ADMIN is not in the bounding set, so no route or address can be changed) ---
+# --- network: HTTPS for the update channel, AF_UNIX for D-Bus (systemd, rauc, NetworkManager), AF_NETLINK so GET
+# /v1/network can list interfaces (read only: CAP_NET_ADMIN is not in the bounding set, so this process itself can
+# change no route or address). A wired address change an owner approved (netset) is asked of NetworkManager over
+# D-Bus (nmcli, busctl, with a checkpoint that rolls it back); NetworkManager makes the change, not this unit.
+# The firewall view cannot run nft here (the kernel wants CAP_NET_ADMIN to read nf_tables); it reads the answer
+# from onemind-firewall-read.socket, whose one-shot service holds the capability and can only print. ---
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
 
 [Install]

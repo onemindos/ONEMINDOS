@@ -24,7 +24,8 @@ not in the §3 set yet).
 
 Security: the four destructive types are approved only with the owner's passkey (the guard in
 routers/storage.py, on top of identity's); agents only request. No key passes through the gateway:
-the recovery key route is off until founder decisions F-61/F-62 (ONEMIND_STORAGE_RECOVERY_KEY_API).
+the general recovery key route is off (ONEMIND_STORAGE_RECOVERY_KEY_API). D-028 settles F-61/F-62 for one path:
+the printed emergency kit reads the disk key (peek) and destroys it when the kit is confirmed (forget); the gateway never stores it.
 """
 
 from __future__ import annotations
@@ -459,6 +460,34 @@ class StorageService:
             raise ApiError(409, "stale_precondition", f"the storage service could not hand over the key ({status})")
         self.gw.events.publish_event("storage", "recovery_key.shown", {"node_id": self.node_id}, principal=principal.as_dict())
         return {"one_time": {"recovery_key": body["recovery_key"]}}
+
+    def peek_recovery_key_for_kit(self) -> str | None:
+        """D-028: the one way the disk recovery key leaves onemindd. Only the printed-kit step calls this (the
+        general route stays off). The node keeps its copy (it only reads it), so a closed tab or a dropped
+        connection loses nothing; forget_recovery_key_for_kit destroys it once the owner confirms the kit.
+        Returns None when /data is not encrypted, storage is off, or no key is waiting."""
+        if not self.cfg.enabled:
+            return None
+        try:
+            status, body = self.client.call("POST", "/v1/recovery-key/peek")
+        except (StorageUnavailable, StorageTimeout):
+            return None
+        key = (body or {}).get("recovery_key") if status == 200 and isinstance(body, dict) else None
+        if not key:
+            return None
+        self.gw.events.publish_event("storage", "recovery_key.shown", {"node_id": self.node_id, "via": "emergency_kit"})
+        return key
+
+    def forget_recovery_key_for_kit(self) -> None:
+        """Destroys the node's copy of the disk recovery key: the owner confirmed a kit that holds it."""
+        if not self.cfg.enabled:
+            return
+        try:
+            status, _ = self.client.call("POST", "/v1/recovery-key/forget")
+        except (StorageUnavailable, StorageTimeout):
+            return
+        if status == 200:
+            self.gw.events.publish_event("storage", "recovery_key.forgotten", {"node_id": self.node_id, "via": "emergency_kit"})
 
     # ---- FeatureAction callbacks (check, run) ----------------------------------------------------------
     def recheck(self, a: Action) -> str | None:

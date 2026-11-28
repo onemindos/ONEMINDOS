@@ -1,0 +1,225 @@
+{
+ "schema": "onemind.firewall/v1",
+ "at": "0001-01-01T00:00:00Z",
+ "tables": [
+  {
+   "family": "inet",
+   "name": "onemind_host",
+   "chains": 4,
+   "rules": 20
+  }
+ ],
+ "host": {
+  "family": "inet",
+  "name": "onemind_host",
+  "sets": [
+   {
+    "name": "lan4",
+    "elements": [
+     "10.0.0.0/8",
+     "100.64.0.0/10",
+     "169.254.0.0/16",
+     "172.16.0.0/12",
+     "192.168.0.0/16"
+    ]
+   },
+   {
+    "name": "lan6",
+    "elements": [
+     "fc00::/7",
+     "fe80::/10"
+    ]
+   }
+  ],
+  "chains": [
+   {
+    "name": "input",
+    "hook": "input",
+    "policy": "drop",
+    "rules": [
+     {
+      "verdict": "accept",
+      "ct": [
+       "established",
+       "related"
+      ],
+      "understood": true
+     },
+     {
+      "verdict": "drop",
+      "ct": [
+       "invalid"
+      ],
+      "understood": true
+     },
+     {
+      "verdict": "accept",
+      "iif": "lo",
+      "understood": true
+     },
+     {
+      "verdict": "accept",
+      "iif": "tailscale0",
+      "proto": "tcp",
+      "dport": [
+       "6443",
+       "10250"
+      ],
+      "understood": true
+     },
+     {
+      "verdict": "accept",
+      "iif": "flannel*",
+      "proto": "tcp",
+      "dport": [
+       "6443",
+       "10250"
+      ],
+      "understood": true
+     },
+     {
+      "verdict": "accept",
+      "iif": "cni0",
+      "proto": "tcp",
+      "dport": [
+       "6443"
+      ],
+      "understood": true
+     },
+     {
+      "verdict": "accept",
+      "iif": "tailscale0",
+      "proto": "udp",
+      "dport": [
+       "8472",
+       "51820",
+       "51821"
+      ],
+      "understood": true
+     },
+     {
+      "verdict": "accept",
+      "iif": "flannel*",
+      "proto": "udp",
+      "dport": [
+       "8472",
+       "51820",
+       "51821"
+      ],
+      "understood": true
+     },
+     {
+      "verdict": "accept",
+      "iif": "tailscale0",
+      "proto": "tcp",
+      "dport": [
+       "443",
+       "7422",
+       "8443"
+      ],
+      "understood": true
+     },
+     {
+      "verdict": "accept",
+      "proto": "icmp",
+      "understood": true
+     },
+     {
+      "verdict": "accept",
+      "proto": "ipv6-icmp",
+      "understood": true
+     },
+     {
+      "verdict": "accept",
+      "proto": "udp",
+      "sport": [
+       "67"
+      ],
+      "dport": [
+       "68"
+      ],
+      "understood": true
+     },
+     {
+      "verdict": "accept",
+      "proto": "udp",
+      "sport": [
+       "547"
+      ],
+      "dport": [
+       "546"
+      ],
+      "saddr": "fe80::/10",
+      "understood": true
+     },
+     {
+      "verdict": "jump",
+      "target": "lan",
+      "saddr": "@lan4",
+      "understood": true
+     },
+     {
+      "verdict": "jump",
+      "target": "lan",
+      "saddr": "@lan6",
+      "understood": true
+     }
+    ]
+   },
+   {
+    "name": "lan",
+    "rules": [
+     {
+      "verdict": "jump",
+      "target": "setup",
+      "understood": true
+     },
+     {
+      "verdict": "jump",
+      "target": "samba",
+      "understood": true
+     },
+     {
+      "verdict": "accept",
+      "proto": "tcp",
+      "dport": [
+       "443",
+       "7443",
+       "8443",
+       "8444"
+      ],
+      "understood": true
+     },
+     {
+      "verdict": "accept",
+      "proto": "udp",
+      "dport": [
+       "3478",
+       "5353",
+       "41641"
+      ],
+      "understood": true
+     }
+    ]
+   },
+   {
+    "name": "setup",
+    "rules": []
+   },
+   {
+    "name": "samba",
+    "rules": [
+     {
+      "verdict": "accept",
+      "proto": "tcp",
+      "dport": [
+       "445"
+      ],
+      "understood": true
+     }
+    ]
+   }
+  ]
+ },
+ "truncated": 0
+}

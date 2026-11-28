@@ -44,6 +44,7 @@ jobs:
             bash deploy/install.sh --role hub --dry-run --target "$t" > "hub-$t.log"
             bash deploy/install.sh --role node --dry-run --target "$t" \
               --join 'onemind-join:v1?c=K10example-code&box=box1&role=worker' > "node-$t.log"
+            grep -Eq 'apt-get install .*\bpython3-cryptography\b' "node-$t.log"
             grep -q 'unsupported developer install, no OS rollback' "hub-$t.log"
             if grep -q 'K10example' "node-$t.log"; then echo "dry run printed the join code" >&2; exit 1; fi
           done

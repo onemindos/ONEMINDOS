@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import ipaddress
 import json
 import logging
 import os
@@ -1280,8 +1281,12 @@ class IdentityService:
     def rescue_options(self, request: Request, p: Principal) -> dict:
         if not p.is_owner:
             raise self.deny(p, "start a rescue session")
+        kit = self._kit_ready(request)
         if not self.passkeys_active():
-            raise ApiError(409, "conflict", "no owner passkey is registered on this box", reason="no_passkey")
+            if kit:  # D-028: no dead end. The printed kit, typed at the console, stands in for a passkey.
+                return {"methods": ["kit"], "kit": True}
+            raise ApiError(409, "conflict", "no owner passkey is registered on this box, and no emergency kit was issued",
+                           reason="no_passkey")
         now = self.now()
         if self.repo.count(ChallengeRow, ChallengeRow.purpose == "rescue", ChallengeRow.used_at.is_(None),
                            ChallengeRow.expires_at > now) >= MAX_OPEN_RESCUE_CHALLENGES:
@@ -1293,8 +1298,56 @@ class IdentityService:
         allow = list(self.repo.all(select(PasskeyRow.id).where(PasskeyRow.user_id.in_(allow_users))))
         row, raw = self._new_challenge("rescue", user_id=user_id)
         rp_id, _ = self.rp(request)
-        return {"challenge_id": row.id, "expires_at": iso(row.expires_at),
-                "publicKey": pk.authentication_options(rp_id=rp_id, challenge=raw, allow=allow)}
+        return {"challenge_id": row.id, "expires_at": iso(row.expires_at), "methods": ["passkey"] + (["kit"] if kit else []),
+                "kit": kit, "publicKey": pk.authentication_options(rp_id=rp_id, challenge=raw, allow=allow)}
+
+    @staticmethod
+    def _backups(request: Request):
+        return getattr(request.app.state, "backups", None)
+
+    def _kit_ready(self, request: Request) -> bool:
+        b = self._backups(request)
+        return b is not None and b.kit_ready()
+
+    _PROXY_HEADERS = ("x-forwarded-for", "x-forwarded-host", "x-real-ip", "forwarded")
+
+    @classmethod
+    def _from_this_box(cls, request: Request) -> bool:
+        """The TCP peer is loopback and no proxy header says the request came from further away (a reverse proxy
+        on the box would also connect from loopback)."""
+        host = request.client.host if request.client else ""
+        try:
+            loopback = ipaddress.ip_address(host).is_loopback
+        except ValueError:
+            return False
+        return loopback and not any(h in request.headers for h in cls._PROXY_HEADERS)
+
+    def rescue_kit(self, request: Request, p: Principal, kit_key: str) -> dict:
+        """D-028: the owner lost every passkey. The printed kit's owner key, typed at the box's console, proves
+        owner access (the console only offers it to a browser on the box itself). Same answer as rescue_verify.
+        It opens nothing itself, deletes nothing and never reads or shows a disk or backup key."""
+        if not p.is_owner:
+            raise self.deny(p, "start a rescue session")
+        # Design 3.13 path 2: the kit key is typed at the box itself. The rescue console on the box calls this from
+        # loopback; any other source, or a request that came through a proxy, is refused before the key is looked at,
+        # so a LAN client with the owner token can neither test kit keys nor use up the shared lockout.
+        if not self._from_this_box(request):
+            err = self.deny(p, "use the printed kit away from the box", reason="kit_not_at_box")
+            raise ApiError(err.status, err.error, "the printed kit is accepted at the box itself only", reason="kit_not_at_box")
+        b = self._backups(request)
+        if b is None:
+            raise ApiError(409, "conflict", "no emergency kit has been issued on this box", reason="no_kit")
+        try:
+            got = b.verify_console_kit(p, kit_key)
+        except ApiError as exc:
+            self.emit("auth", "step_up.failed", {"attempted": "rescue session", "detail": exc.message[:200], "approval": "kit"}, p,
+                      severity="warning")
+            raise
+        owners = self.active_owner_ids()
+        self.emit("auth", "step_up.succeeded", {"attempted": "rescue session", "credential_id": f"kit:{got['fingerprint']}",
+                                                "approval": "kit"}, p)
+        return {"credential_id": f"kit:{got['fingerprint']}", "user_id": owners[0] if owners else None,
+                "verified_at": iso(self.now())}
 
     def rescue_verify(self, request: Request, p: Principal, credential: dict) -> dict:
         """Single-use, two minutes: the assertion must answer a challenge made by rescue_options and

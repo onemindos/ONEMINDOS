@@ -42,6 +42,27 @@ class RepoIsAccountedFor(unittest.TestCase):
         # Reached only through the Go SDK (c.Actions.ApproveBound) in the CLI.
         self.assertTrue(any(c.how.startswith("sdk:") for c in result.callers["cli"]["actions.approve"]))
 
+    def test_ssh_keys_list_is_exempt_only_while_the_ssh_screen_reads_the_same_list(self):
+        # The dashboard-wider-read exemption (PR #1323 review) holds only while its reason is true: the SSH screen
+        # reads GET /v1/ssh, whose keys are the same SshKey list GET /v1/ssh/keys returns, and the CLI lists keys
+        # through the narrower read. If any half goes, this fails and the line must be argued again.
+        ops = sp.load_operations()
+        result = sp.scan(ROOT, ops)
+        ex, _ = sp.load_exemptions()
+        self.assertEqual(ex.entries.get(("dashboard", "ssh.keys.list")), "dashboard-wider-read")
+        self.assertEqual(sorted(op for (_, op), g in ex.entries.items() if g == "dashboard-wider-read"), ["ssh.keys.list"])
+        self.assertIn("dashboard/src/pages/SshKeys.tsx", {c.file for c in result.callers["dashboard"].get("ssh.get", [])})
+        self.assertTrue(result.has("cli", "ssh.keys.list"))
+        spec = json.loads((ROOT / "sdk" / "openapi" / "onemind-v1.json").read_text(encoding="utf-8"))
+        schemas = spec["components"]["schemas"]
+        self.assertEqual(spec["paths"]["/v1/ssh"]["get"]["responses"]["200"]["content"]["application/json"]["schema"],
+                         {"$ref": "#/components/schemas/SshView"})
+        self.assertEqual(spec["paths"]["/v1/ssh/keys"]["get"]["responses"]["200"]["content"]["application/json"]["schema"],
+                         {"$ref": "#/components/schemas/SshKeys"})
+        self.assertEqual(schemas["SshView"]["properties"]["keys"], schemas["SshKeys"]["properties"]["keys"])
+        self.assertEqual(schemas["SshKeys"]["properties"]["keys"]["items"], {"$ref": "#/components/schemas/SshKey"})
+        self.assertIn("keys", schemas["SshView"]["required"])
+
     def test_every_group_has_an_issue_and_a_reason(self):
         ex, errors = sp.load_exemptions()
         self.assertEqual(errors, [])

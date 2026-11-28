@@ -13,7 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -61,33 +60,21 @@ func SensorSubjects(nodeID string) ([]string, error) {
 	return []string{p + "status", p + "event.>"}, nil
 }
 
-// SensorUser is the only local NATS user on a sensor; every local client connects as it.
-const SensorUser = "sensor"
-
-// RenderSensorConf is the leaf config (internal/leaf) plus the rule for local clients: publish only
-// the sensor's own subjects, subscribe to nothing.
-func RenderSensorConf(confPath string, c *leaf.Config, nodeID string) ([]byte, error) {
-	subjects, err := SensorSubjects(nodeID)
+// RenderSensorConf is the leaf config (internal/leaf) for a sensor. Its one local program, "sensor",
+// signs in with its own nkey (publicKey; the seed is <dir>/sensor.nk) and may publish only the
+// sensor's own subjects and read nothing. There is no passwordless user: a sensor runs whatever
+// the owner puts on it, and loopback alone does not tell those programs apart (G1).
+func RenderSensorConf(confPath string, c *leaf.Config, nodeID, publicKey string) ([]byte, error) {
+	if _, err := SensorSubjects(nodeID); err != nil {
+		return nil, err
+	}
+	p, err := leaf.SensorProgram(nodeID, publicKey)
 	if err != nil {
 		return nil, err
 	}
-	body, err := c.Render(confPath)
-	if err != nil {
-		return nil, err
-	}
-	quoted := make([]string, len(subjects))
-	for i, s := range subjects {
-		quoted[i] = strconv.Quote(s)
-	}
-	var b strings.Builder
-	b.Write(body)
-	b.WriteString("# Sensor (onemind device join): local clients publish only this node's subjects and read nothing.\n")
-	b.WriteString("authorization {\n  users: [\n")
-	fmt.Fprintf(&b, "    {user: %q, permissions: {publish: {allow: [%s]}, subscribe: {deny: [\">\"]}}}\n",
-		SensorUser, strings.Join(quoted, ", "))
-	b.WriteString("  ]\n}\n")
-	fmt.Fprintf(&b, "no_auth_user: %q\n", SensorUser)
-	return []byte(b.String()), nil
+	d := *c
+	d.Local = []leaf.LocalProgram{p}
+	return d.Render(confPath)
 }
 
 // SensorState is <dir>/sensor.json.
@@ -100,8 +87,10 @@ type SensorState struct {
 	NATSURL   string   `json:"nats_url"`
 	Publish   []string `json:"publish"`
 	Subscribe []string `json:"subscribe"`
-	MeshAddr  string   `json:"mesh_addr,omitempty"`
-	JoinedAt  string   `json:"joined_at"`
+	// NkeyFile is the seed local programs on the sensor sign in with (0600; the seed is not in this file).
+	NkeyFile string `json:"nkey_file,omitempty"`
+	MeshAddr string `json:"mesh_addr,omitempty"`
+	JoinedAt string `json:"joined_at"`
 }
 
 // Test seams.
@@ -232,6 +221,7 @@ func deviceJoin(args []string, out io.Writer) error {
 		return err
 	}
 	fmt.Fprintf(out, "Done. node-%s may publish %s and reads nothing.\n", st.NodeID, strings.Join(st.Publish, ", "))
+	fmt.Fprintf(out, "Programs on this sensor sign in to the leaf with the key in %s (owner only); there is no password-free user.\n", st.NkeyFile)
 	fmt.Fprintf(out, "Start its leaf with: nats-server -c %s\n", filepath.Join(d, "sensor.conf"))
 	return nil
 }
@@ -266,11 +256,17 @@ func writeSensor(ctx context.Context, dir string, id *fabric.Identity, cr *fabri
 	if _, err := leaf.WriteNkeyFile(nkeyFile, id.NkeySeed); err != nil {
 		return nil, err
 	}
+	// The sensor's own local key (G1): whatever writes readings on this device signs in with it.
+	sensorPub, err := leaf.WriteLocalSeed(dir, leaf.ProgramSensor)
+	if err != nil {
+		return nil, err
+	}
+	st.NkeyFile = filepath.Join(dir, leaf.ProgramSensor+".nk")
 	conf := filepath.Join(dir, "sensor.conf")
 	lc := &leaf.Config{ServerName: "node-" + id.NodeID, StoreDir: sensorStoreDir, HubURLs: []string{cr.NATS.URL},
 		CAFile: filepath.Join(dir, "ca.pem"), CertFile: filepath.Join(dir, "node.crt"), KeyFile: filepath.Join(dir, "node.key"),
 		NkeyFile: nkeyFile}
-	body, err := RenderSensorConf(conf, lc, id.NodeID)
+	body, err := RenderSensorConf(conf, lc, id.NodeID, sensorPub)
 	if err != nil {
 		return nil, fmt.Errorf("leaf config: %w", err)
 	}

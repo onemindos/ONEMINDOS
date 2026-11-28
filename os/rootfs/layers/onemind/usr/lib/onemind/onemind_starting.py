@@ -121,7 +121,10 @@ def run(env: dict[str, str], ready=gateway_ready, grace: float = GRACE_S, poll: 
         return 0
     from onemind_core.ca import BoxCA          # the gateway venv
     tls_dir = env.get("ONEMIND_NET_TLS_DIR") or os.path.join(env.get("ONEMIND_DATA_DIR", "."), "tls")
-    cert = BoxCA(Path(tls_dir), env.get("ONEMIND_NET_BOX_NAME") or "onemind").ensure_https_cert()
+    from onemind_core.ca import existing_box_name
+    # The CA's own box name wins over ONEMIND_NET_BOX_NAME (the first-boot name) so this stays in step with the gateway.
+    box = existing_box_name(Path(tls_dir)) or env.get("ONEMIND_NET_BOX_NAME") or "onemind"
+    cert = BoxCA(Path(tls_dir), box).ensure_https_cert()
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ctx.minimum_version = ssl.TLSVersion.TLSv1_2
     ctx.load_cert_chain(str(cert.cert_path), str(cert.key_path))

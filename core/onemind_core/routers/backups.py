@@ -11,6 +11,7 @@ of §12.1); a restore still lands in Approvals first unless the owner does that 
 
 from __future__ import annotations
 
+import hashlib
 import re
 import secrets
 from datetime import datetime, timedelta
@@ -20,6 +21,7 @@ from fastapi import Depends, FastAPI, Header, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
 
+from ..apimodels import Action
 from ..auth import Principal
 from ..backups.jobs import AgentError
 from ..backups.service import BackupService, Unavailable
@@ -116,9 +118,54 @@ class ContentBody(_Request):
     seen_size_bytes: int | None = Field(default=None, ge=0)
 
 
+class KitIssueBody(JsonBody):
+    model_config = ConfigDict(extra="forbid")
+    approve: bool = Field(default=True, description="Set to false to file a request for separate approval.")
+    delivery_token: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{64}$",
+        description="32 random bytes in hex. Required with Idempotency-Key for separated approval and one-time delivery.",
+        json_schema_extra={"writeOnly": True},
+    )
+
+
 class KitConfirmBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     answers: dict[str, str] = Field(max_length=4)
+    fingerprint: str | None = Field(default=None, pattern=r"^[0-9a-f]{16}$")
+
+
+class DiskKeyKit(BaseModel):
+    fingerprint: str
+    issued_at: str
+
+
+class KitState(BaseModel):
+    state: Literal["missing", "issued", "confirmed"]
+    issued_at: str | None
+    confirmed_at: str | None
+    fingerprint: str | None
+    positions: list[int]
+    disk_key_included: bool
+    uncovered_destinations: list[str]
+    disk_key_kit: DiskKeyKit | None
+
+
+class OneTimeKit(BaseModel):
+    """The printable page and key material. Keep offline."""
+
+    owner_key: str
+    groups: list[str]
+    check: str
+    qr_payload: str
+    text: str
+    disk_recovery_key: str | None = Field(default=None,
+        description="Present only while the disk key is available for printing.")
+
+
+class IssuedKit(BaseModel):
+    action: Action
+    kit: KitState
+    one_time: OneTimeKit
 
 
 def _check_destination(b: DestinationBody) -> dict:
@@ -155,6 +202,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
     settings = gw.settings.section(BackupsSettings)
     svc = BackupService(gw, settings, pg=getattr(app.state, "databases", None))
     app.state.backups = svc
+    # The storage router registers later (ORDER 310), so the disk-key source looks the service up when asked (D-028).
+    svc.disk_key_source = lambda: getattr(app.state, "storage").peek_recovery_key_for_kit() \
+        if getattr(app.state, "storage", None) else None
+    svc.disk_key_forget = lambda: getattr(app.state, "storage").forget_recovery_key_for_kit() \
+        if getattr(app.state, "storage", None) else None
     svc.builtins = getattr(app.state, "builtins", None)  # registered earlier (ORDER 135): the backup set, #616
     gw.on_startup(svc.startup)
     gw.on_shutdown(svc.shutdown)
@@ -348,26 +400,52 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def restore(restore_id: str, _: Principal = Depends(reader)):
         return svc.restore(restore_id)
 
-    @app.get("/v1/backups/kit", operation_id="backups.kit.get", tags=tags, responses=error_responses(401, 403))
+    @app.get("/v1/backups/kit", operation_id="backups.kit.get", tags=tags, response_model=KitState,
+             responses=error_responses(401, 403))
     def kit(_: Principal = Depends(owner)):
         return svc.kit_state()
 
-    @app.post("/v1/backups/kit", operation_id="backups.kit.issue", tags=tags, status_code=201, responses=error_responses(401, 403, 409))
-    def issue_kit(request: Request, p: Principal = Depends(owner), idem: IdemHeader = None):
-        """Owner shortcut: files backup.kit.issue and approves it; the key is in this response only."""
-        if not svc.enabled:
-            raise Unavailable("backups are not switched on (ONEMIND_BACKUPS_ENABLED=1)", "backups_disabled")
-        action, created = gw.actions.request_feature(p, "backup.kit.issue", {}, idempotency_key=key(idem),
-                                                     expires_at=gw.clock() + timedelta(minutes=10))
-        if not created:
-            raise ApiError(409, "conflict", "this kit was already issued; it is never shown twice")
-        action = approve_as_owner(p, action["id"], request)
-        one_time = svc.take_one_time(action["id"])
-        if action["state"] != "succeeded" or one_time is None:
-            raise ApiError(409, "stale_precondition", (action.get("result") or {}).get("message") or "the kit was not issued")
-        return JSONResponse(status_code=201, headers={"Cache-Control": "no-store"},
-                            content={"action": action, "kit": svc.kit_state(), "one_time": one_time})
+    @app.post("/v1/backups/kit", operation_id="backups.kit.issue", tags=tags, status_code=201,
+              response_model=IssuedKit, responses={
+                  201: {"description": "Page delivered once",
+                        "headers": {"Cache-Control": {"schema": {"type": "string", "const": "no-store"}}}},
+                  202: {"model": Action, "description": "Request awaiting the owner's approval"},
+                  **error_responses(401, 403, 409, 422),
+              })
+    def issue_kit(request: Request, body: KitIssueBody | None = None, p: Principal = Depends(owner),
+                  idem: IdemHeader = None):
+        """File and approve an issuance on a box without step-up, or use approve=false to file it.
 
-    @app.post("/v1/backups/kit/confirm", operation_id="backups.kit.confirm", tags=tags, responses=error_responses(401, 403, 404, 409))
+        For separate approval, use POST /v1/actions/{id}/approve and repeat the original request with
+        the same Idempotency-Key and private delivery token. Approval responses never carry the page.
+        Collect the page once before the request expires. If delivery fails, file a new issuance.
+        """
+        if not svc.enabled and svc.repo.destinations():  # with no destination the kit needs no agent (D-028)
+            raise Unavailable("backups are not switched on (ONEMIND_BACKUPS_ENABLED=1)", "backups_disabled")
+        body = body or KitIssueBody()
+        if (not body.approve or body.delivery_token is not None) and not (idem and body.delivery_token):
+            raise ApiError(422, "conflict", "separate approval needs an Idempotency-Key and a delivery token")
+        params = {"delivery_token_sha256": hashlib.sha256(body.delivery_token.encode()).hexdigest()} if body.delivery_token else {}
+        action, created = gw.actions.request_feature(p, "backup.kit.issue", params, idempotency_key=key(idem),
+                                                     expires_at=gw.clock() + timedelta(minutes=10))
+        if action["type"] != "backup.kit.issue" or action["params"] != params or action["requested_by"]["id"] != p.id:
+            raise ApiError(409, "conflict", "idempotency_key was already used for a different request")
+        if not created and body.delivery_token is None:
+            raise ApiError(409, "conflict", "this kit was already issued; it is never shown twice")
+        headers = {"Cache-Control": "no-store", "Location": f"/v1/actions/{action['id']}"}
+        if created and body.approve:
+            action = approve_as_owner(p, action["id"], request)
+        elif action["state"] == "awaiting_approval":
+            return JSONResponse(status_code=202, headers=headers, content=action)
+        if action["state"] != "succeeded":
+            raise ApiError(409, "stale_precondition", (action.get("result") or {}).get("message") or "the kit was not issued")
+        page = svc.take_kit_page(action["id"])
+        if page is None:
+            raise ApiError(409, "stale_precondition", "the one-time page is no longer available; issue a new kit")
+        return JSONResponse(status_code=201, headers={"Cache-Control": "no-store"},
+                            content={"action": action, **page})
+
+    @app.post("/v1/backups/kit/confirm", operation_id="backups.kit.confirm", tags=tags, response_model=KitState,
+              responses=error_responses(401, 403, 404, 409, 422))
     def confirm_kit(body: KitConfirmBody, p: Principal = Depends(owner)):
-        return svc.confirm_kit(p, body.answers)
+        return svc.confirm_kit(p, body.answers, body.fingerprint)

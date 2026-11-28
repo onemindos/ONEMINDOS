@@ -1,0 +1,14 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# onemind-k3s-state (onemind_k3s_state.py): settle | recover | reset, run with the gateway venv's pinned Python 3.12.
+# recover is k3s.service's ExecCondition, where any exit code from 1 to 254 skips k3s. Only the program's own
+# "wait for the owner" code (3) may do that; anything else (Python missing, a crash) lets k3s start.
+PY=/usr/lib/onemind/gateway/venv/bin/python3
+if [ "${1:-}" = recover ]; then
+  "$PY" -I /usr/lib/onemind/onemind_k3s_state.py "$@"
+  rc=$?
+  [ "$rc" -eq 3 ] && exit 3
+  [ "$rc" -eq 0 ] || echo "onemind-k3s-state: recover ended with code $rc; k3s starts anyway" >&2
+  exit 0
+fi
+exec "$PY" -I /usr/lib/onemind/onemind_k3s_state.py "$@"

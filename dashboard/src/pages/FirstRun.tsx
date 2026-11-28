@@ -12,11 +12,12 @@
 // Software settings persist through §12.41. Backup configuration stays in §12.12.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Onboarding, applyTheme, useToast, type OnboardingKit, type StarterApp } from '@onemind/ui';
+import { Onboarding, applyTheme, useToast, type StarterApp } from '@onemind/ui';
 import type { CatalogApp } from '../api/types';
 import type { BackupDestinationRecord, FirstRunSettings, FirstRunSettingsBody, FirstRunState } from '../api/client';
 import { categorySlug, deployClass } from '../data/adapters';
 import { useHub } from '../data/hub';
+import { recoveryKit } from '../data/recoveryKit';
 import { createPasskey, webauthnSupported } from '../lib/webauthn';
 import { useSignedIn } from '../session';
 
@@ -59,16 +60,10 @@ export function FirstRun({ onDone }: { onDone: () => void }) {
   if (error) return <div role="alert">{error} <button onClick={() => setAttempt((x) => x + 1)}>Try again</button></div>;
   if (!loaded) return <p role="status">Loading first-run settings and backup destinations…</p>;
   const { state } = loaded;
-  const { issueKit, confirmKit, appPlan } = api;
-  // Offered only where the gateway can issue one: a backup destination exists.
-  const kit: OnboardingKit | undefined = issueKit && confirmKit && state.destinations > 0 ? {
-    state: state.kit.state, positions: state.kit.positions,
-    issue: async () => {
-      const r = await issueKit.call(api);
-      return { ...r.one_time, positions: r.kit.positions };
-    },
-    confirm: (answers) => confirmKit.call(api, answers),
-  } : undefined;
+  const { appPlan } = api;
+  // Offered whenever the gateway can issue one: a kit needs no backup destination (D-028), because it also
+  // brings the owner back in at the box.
+  const kit = recoveryKit(api, state.kit);
   const previewPlan = appPlan ? async (id: string) => {
     const plan = await appPlan.call(api, id);
     if (plan.policy_verdict !== 'needs_approval' || typeof plan.plan?.summary !== 'string') throw new Error(plan.reason || 'the gateway refused this install');

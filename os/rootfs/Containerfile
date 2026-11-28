@@ -205,6 +205,7 @@ COPY os/rootfs/layers/base/usr/share/initramfs-tools/ /usr/share/initramfs-tools
 # place before update-initramfs below, which puts the theme into the initramfs.
 COPY brand/generated/os/plymouth/onemind/ /usr/share/plymouth/themes/onemind/
 COPY brand/logo/png/white/onemind-mark-white-256.png /usr/share/plymouth/themes/onemind/logo.png
+COPY os/rootfs/sources/strip-build-ssl-cert.sh /tmp/onemind/strip-build-ssl-cert.sh
 RUN set -eu; \
     cat /tmp/onemind/packages/${LEG}-common.txt /tmp/onemind/packages/${LEG}-${TARGETARCH}.txt \
         $(ls /tmp/onemind/board/packages-${LEG}.txt 2>/dev/null) \
@@ -212,6 +213,7 @@ RUN set -eu; \
     apt-get update; \
     apt-get -y upgrade; \
     apt-get install -y $(cat /tmp/onemind/pkgs); \
+    sh /tmp/onemind/strip-build-ssl-cert.sh /; \
     rm -rf /var/lib/apt/lists/*
 
 # Firmware layer (os/rootfs/firmware/README.md): CPU microcode and closed firmware, its own step so it
@@ -274,6 +276,21 @@ COPY os/rootfs/layers/onemind/ /
 COPY os/rootfs/layers/machines/ /
 COPY --from=machines-fetch /opt/machines/ /usr/lib/onemind/extensions/machines/
 COPY os/boards/${BOARD}/rootfs/ /
+# Printing (Step 3, docs/learning/printing.md): the OneMind cupsd.conf is the image default and the seed for the copy on
+# /data; the bind-mount points exist; cupsd runs from boot; cups-browsed is not installed (checked), so no queue is
+# ever added without the owner.
+RUN set -eu; \
+    if dpkg-query -W -f='${Status}' cups-browsed 2>/dev/null | grep -q 'install ok installed'; then echo "ERROR: cups-browsed must not be installed" >&2; exit 1; fi; \
+    install -m 0640 -o root -g lp /usr/lib/onemind/cupsd.conf.onemind /etc/cups/cupsd.conf; \
+    sed -i '/^[[:space:]]*ServerKeychain[[:space:]]/Id; /^[[:space:]]*CreateSelfSignedCerts[[:space:]]/Id' /etc/cups/cups-files.conf; \
+    printf '\nServerKeychain ssl\nCreateSelfSignedCerts Yes\n' >> /etc/cups/cups-files.conf; \
+    install -d -m 0700 -o root -g lp /etc/cups/ssl; \
+    rm -rf /usr/lib/onemind/cups-default; mkdir -p /usr/lib/onemind/cups-default /var/lib/ipp-usb; \
+    cp -a /etc/cups/. /usr/lib/onemind/cups-default/; \
+    systemctl enable cups.service cups.socket cups.path >/dev/null; \
+    test -d /etc/cups -a -d /var/spool/cups -a -d /var/cache/cups -a -d /var/lib/ipp-usb; \
+    test -x /usr/sbin/cupsd -a -x /usr/sbin/ipp-usb -a -x /usr/lib/cups/filter/pdftopdf -a -x /usr/lib/cups/backend/driverless -a -x /usr/lib/cups/cgi-bin/admin.cgi
+
 # The boot splash theme: Debian has plymouth-set-default-theme; Ubuntu (the CI hedge, D-007) sets it
 # with update-alternatives instead (#226).
 RUN set -eu; \
@@ -297,13 +314,20 @@ RUN set -eu; \
     groupadd --system --gid 965 onemind-kiosk; \
     useradd --system --uid 965 --gid onemind-kiosk --no-create-home --home-dir /nonexistent \
       --shell /usr/sbin/nologin --comment "OneMind kiosk" onemind-kiosk; \
-    systemctl enable onemind-firstboot.service onemind-firewall.service avahi-daemon.service >/dev/null; \
+    systemctl enable onemind-firstboot.service onemind-firewall.service avahi-daemon.service onemind-mdns-aliases.service >/dev/null; \
     systemctl mask smbd.service nmbd.service winbind.service samba-ad-dc.service >/dev/null; \
+    systemctl mask console-setup.service keyboard-setup.service console-setup.sh.service keyboard-setup.sh.service >/dev/null; \
     systemctl enable onemind-smb.service >/dev/null; \
     systemctl mask nut-server.service nut-monitor.service nut-client.service ups-monitor.service \
       nut-driver-enumerator.service nut-driver-enumerator.path nut-driver@.service >/dev/null; \
     systemctl enable onemind-ups.service onemind-ups-monitor.service >/dev/null; \
-    systemctl mask smartmontools.service >/dev/null; \
+    systemctl mask fwupd-refresh.timer fwupd-refresh.service >/dev/null; \
+    systemctl enable fstrim.timer >/dev/null; \
+    systemctl enable smartmontools.service >/dev/null; \
+    test -x /usr/lib/onemind/smartd-notify; \
+    rmdir /media && ln -s /run/media /media; \
+    for t in fwupdmgr sensors ras-mc-ctl udisksctl; do command -v $t >/dev/null || { echo "missing $t"; exit 1; }; done; \
+    if [ "${TARGETARCH}" = amd64 ]; then command -v thermald >/dev/null || { echo "missing thermald"; exit 1; }; fi; \
     systemctl disable rpcbind.service rpcbind.socket nfs-client.target nfs-blkmap.service >/dev/null 2>&1; \
     if [ "${LEG}" = debian ]; then \
       systemctl enable snapper-timeline.timer snapper-cleanup.timer btrfs-scrub.timer >/dev/null; \
@@ -319,6 +343,8 @@ RUN set -eu; \
     /usr/sbin/tailscaled --version | head -1; /usr/bin/tailscale --version | head -1; /usr/bin/headscale version; \
     /usr/lib/onemind/restic version | grep -q 'restic 0.19.1'; command -v sqlite3 >/dev/null; \
     for t in smartctl sgdisk btrfs jq htop rsync nano less ethtool dmidecode lspci lsusb ping; do command -v $t >/dev/null || { echo "missing $t"; exit 1; }; done; \
+    for t in loadkeys dumpkeys ckbcomp setupcon; do command -v $t >/dev/null || { echo "missing $t"; exit 1; }; done; \
+    test -f /usr/share/X11/xkb/symbols/de; test -f /usr/share/X11/xkb/rules/base.lst; \
     /usr/lib/onemind/gateway/venv/bin/python3 -I -c "import onemind_core" ; \
     if [ -x /tmp/onemind/board/post-install.sh ]; then /tmp/onemind/board/post-install.sh; fi; \
     if [ "$(cat /usr/lib/onemind/network-stack)" = networkmanager ]; then \
@@ -334,12 +360,13 @@ RUN set -eu; \
       sed -i '/^admin:/d' /etc/shadow; chmod 0440 /etc/sudoers.d/admin; \
       systemctl enable ssh.service onemind-ssh-owner-key.path getty@tty2.service >/dev/null; \
     fi; \
-    systemctl enable onemind-data-layout.service \
-      k3s.service onemind-local-api.service onemind-health-gate.service onemind-data-check.service \
+    systemctl enable systemd-timesyncd.service onemind-data-layout.service \
+      k3s.service onemind-local-api.service onemind-health-gate.service onemind-data-check.service onemind-leaf-local.service \
       onemind-factory-reset.service systemd-sysext.service systemd-confext.service >/dev/null; \
     systemctl mask systemd-firstboot.service >/dev/null 2>&1 || true; \
     mandb -q; \
     systemctl mask man-db.timer man-db.service >/dev/null; \
+    ln -sfn /data/state/localtime /etc/localtime; test "$(readlink /etc/localtime)" = /data/state/localtime; \
     passwd -l root >/dev/null; \
     if command -v plymouth-set-default-theme >/dev/null; then plymouth-set-default-theme onemind; \
     else update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth \
@@ -349,7 +376,8 @@ RUN set -eu; \
     ln -sf "vmlinuz-$kver" /boot/vmlinuz; ln -sf "initrd.img-$kver" /boot/initrd.img; \
     update-initramfs -u -k "$kver"; \
     mkdir -p /data /boot/efi /etc/rancher/node /var/lib/rancher /var/lib/kubelet /var/lib/cni \
-      /var/lib/tailscale /var/lib/onemind-headscale /var/lib/onemind-nats-leaf /var/lib/onemind-nats /var/lib/btrfs; \
+      /var/lib/tailscale /var/lib/onemind-headscale /var/lib/onemind-nats-leaf /var/lib/onemind-nats /var/lib/btrfs \
+      /var/lib/fwupd /var/cache/fwupd /var/lib/rasdaemon /var/lib/udisks2 /var/lib/smartmontools; \
     grep -q '^SYSEXT_LEVEL=' /usr/lib/os-release || grep -E '^[A-Z_]+=' /usr/lib/onemind/os-release.sysext >> /usr/lib/os-release; \
     test -L /var/lib/extensions && test -L /var/lib/confexts; \
     dpkg-query -W -f='${Package} ${Version} ${Architecture} ${Installed-Size}\n' | sort > /usr/lib/onemind/packages.txt; \
@@ -362,6 +390,8 @@ RUN set -eu; \
     # The build-time policy-rc.d and dpkg speedup (stage base), and any container-image leftovers a stock Ubuntu base \
     # brings: none may ship (a policy-rc.d would stop every service start on the box). \
     rm -f /usr/sbin/policy-rc.d /etc/dpkg/dpkg.cfg.d/onemind-build-speedup /etc/apt/apt.conf.d/docker-* /etc/dpkg/dpkg.cfg.d/docker-*; \
+    test ! -e /etc/ssl/private/ssl-cert-snakeoil.key -a ! -e /etc/ssl/certs/ssl-cert-snakeoil.pem; \
+    test -z "$(find /etc/cups/ssl /usr/lib/onemind/cups-default/ssl -mindepth 1 -print -quit)"; \
     cat /usr/lib/onemind/build-info.txt
 
 # ---------------------------------------------------------------- assembler / test toolbox

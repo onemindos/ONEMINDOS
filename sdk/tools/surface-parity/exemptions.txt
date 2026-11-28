@@ -85,7 +85,6 @@ cli backups.content.set s5-backups
 cli backups.destinations.add s5-backups
 cli backups.destinations.remove s5-backups
 cli backups.kit.confirm s5-backups
-cli backups.kit.issue s5-backups
 group s6-work issue=#1232 S6: Work projects, quick-add and task edit and delete have no screen (PR #1166 covers part); some have no command.
 dashboard work.project_create s6-work
 dashboard work.quick_add s6-work
@@ -134,7 +133,6 @@ cli migrate.revert s8-cli-groups
 cli physical.lockout.set s8-cli-groups
 cli plans.create s8-cli-groups
 cli shares.smb.password s8-cli-groups
-cli system.actions.create s8-cli-groups
 cli tips.set_state s8-cli-groups
 cli updates.policy.resume s8-cli-groups
 cli users.update s8-cli-groups
@@ -252,6 +250,8 @@ dashboard meta.protocol door
 dashboard monitoring.metrics door
 dashboard push.vapid_key door
 dashboard surfaces.list door
+group dashboard-wider-read issue=#1232 The dashboard screen shows this same list through a wider read, so a second request would only repeat it: Settings > SSH keys (SshKeys.tsx) reads GET /v1/ssh (ssh.get), which returns the service state plus the same SshKey list from the same call (core/onemind_core/routers/ssh.py svc.view()); `onemind ssh-key list` calls the narrower read. test_surface_parity and core test_ssh_access check both halves. Founder to confirm.
+dashboard ssh.keys.list dashboard-wider-read
 group outsider-share-link issue=#1232 The page an outsider opens from a share link is served by the gateway itself, not the signed-in dashboard.
 dashboard share.download outsider-share-link
 dashboard share.open outsider-share-link

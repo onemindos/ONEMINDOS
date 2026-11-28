@@ -3,6 +3,9 @@
 # onemind-owner: the owner's way into the box's own shell (Step 2 "owner shell"). Root only.
 #   key-add [FILE|-]   authorise one SSH public key for the owner account (starts sshd the first time)
 #   key-list           show the authorised keys
+#   key-rm FINGERPRINT remove the key with that SHA256 fingerprint (stops sshd when the last key goes)
+#   ssh-on | ssh-off   let sshd run (the default) or keep it off, also after a reboot; ssh-state prints which
+#   apply-job          do the one job the host service filed in /data/onemind/ssh/job (it runs in onemind-ssh-apply.service)
 #   password           set the console (tty2) and sudo password; read from the terminal or one line of stdin
 #   ensure             make sure the account has a shadow line (a locked one if no password is set yet)
 # The image carries no password and no key. Keys live in /home/admin and the password hash in the extrausers shadow
@@ -13,11 +16,15 @@ HOMEDIR=/home/$OWNER
 # Test hook (test/unit/test_owner_shell.py): a NON-root caller may move the home into a temp dir. As root it is ignored.
 if [ -n "${ONEMIND_OWNER_TEST_ROOT:-}" ] && [ "$(id -u)" != 0 ]; then
     HOMEDIR=$ONEMIND_OWNER_TEST_ROOT/home; EXTRA=$ONEMIND_OWNER_TEST_ROOT/extrausers
+    STATEDIR=$ONEMIND_OWNER_TEST_ROOT/sshstate
+    sctl() { echo "$*" >> "$ONEMIND_OWNER_TEST_ROOT/systemctl.log"; }
     as_owner() { "$@"; }
     mkhome() { mkdir -m 0700 "$1"; }
     shadow_owner() { :; }
 else
     EXTRA=$(readlink -m /var/lib/extrausers)
+    STATEDIR=/data/onemind/ssh
+    sctl() { systemctl "$@"; }
     [ "$(id -u)" = 0 ] || { echo "onemind-owner: run it as root" >&2; exit 1; }
     as_owner() { runuser -u "$OWNER" -- "$@"; }
     mkhome() { install -d -m 0700 -o "$OWNER" -g "$OWNER" "$1"; }
@@ -26,7 +33,22 @@ fi
 SSHDIR=$HOMEDIR/.ssh
 KEYS=$SSHDIR/authorized_keys
 SHADOW=$EXTRA/shadow
+OFF=$STATEDIR/disabled              # present: the owner turned SSH off (ssh.service.d/40-onemind-ssh-toggle.conf tests it)
 umask 077
+
+no_links() {
+    if [ -L "$HOMEDIR" ] || [ -L "$SSHDIR" ] || [ -L "$KEYS" ]; then
+        echo "onemind-owner: a symlink is in the way; refusing" >&2; return 3
+    fi
+}
+
+# The fingerprints of the authorised keys, read as the owner (never as root), for the host service to show.
+publish_keys() {
+    mkdir -p "$STATEDIR"
+    tmp=$(mktemp "$STATEDIR/.keys.XXXXXX")
+    { if no_links 2>/dev/null && [ -f "$KEYS" ]; then as_owner ssh-keygen -l -f "$KEYS" 2>/dev/null || true; fi; } > "$tmp"
+    chmod 0600 "$tmp"; mv -f "$tmp" "$STATEDIR/keys.list"
+}
 
 write_shadow() {                      # $1 = the owner's password field (a hash, or "!" for locked)
     mkdir -p "$EXTRA"; chmod 0755 "$EXTRA"
@@ -68,11 +90,76 @@ key-add)
         chmod 0700 "$1"; chmod 0600 "$2"
     ' sh "$SSHDIR" "$KEYS"
     "$0" ensure
-    echo "onemind-owner: key added; ssh starts on its own"
+    publish_keys
+    if [ -e "$OFF" ]; then echo "onemind-owner: key added; SSH is switched off (onemind-owner ssh-on turns it on)"
+    else echo "onemind-owner: key added; ssh starts on its own"; fi
+    ;;
+key-rm)
+    fp=${2:-}
+    case "$fp" in
+        SHA256:*) printf '%s' "${fp#SHA256:}" | grep -Eq '^[A-Za-z0-9+/]{43}$' || { echo "onemind-owner: not a SHA256 fingerprint" >&2; exit 2; } ;;
+        *) echo "onemind-owner: give the key's SHA256 fingerprint" >&2; exit 2 ;;
+    esac
+    no_links || exit 3
+    [ -f "$KEYS" ] || { echo "onemind-owner: no such key" >&2; exit 4; }
+    # Like key-add, the rewrite runs as the owner: root never writes inside the owner's home.
+    # shellcheck disable=SC2016  # the $1.. are for the inner shell
+    left=$(as_owner sh -c '
+        set -eu; umask 077
+        keys=$2; want=$3
+        [ -L "$1" ] || [ -L "$keys" ] && { echo "onemind-owner: .ssh or authorized_keys is a symlink; refusing" >&2; exit 3; }
+        tmp=$(mktemp "$1/.ak.XXXXXX"); probe=$(mktemp "$1/.probe.XXXXXX")
+        trap "rm -f \"\$tmp\" \"\$probe\"" EXIT
+        removed=0
+        while IFS= read -r l || [ -n "$l" ]; do
+            printf "%s\n" "$l" > "$probe"
+            f=$(ssh-keygen -l -f "$probe" 2>/dev/null | cut -d" " -f2 || true)
+            if [ -n "$f" ] && [ "$f" = "$want" ]; then removed=$((removed + 1)); else printf "%s\n" "$l" >> "$tmp"; fi
+        done < "$keys"
+        [ "$removed" -gt 0 ] || { echo "onemind-owner: no such key" >&2; exit 4; }
+        chmod 0600 "$tmp"; mv -f "$tmp" "$keys"; trap - EXIT; rm -f "$probe"
+        grep -cv "^[[:space:]]*\(#\|\$\)" "$keys" || true   # keys left; comments and blank lines do not count
+    ' sh "$SSHDIR" "$KEYS" "$fp") || exit $?
+    publish_keys
+    # No key left: nobody can log in, so stop listening too (the path unit starts sshd again with the next key).
+    [ "${left:-0}" -gt 0 ] 2>/dev/null || sctl stop ssh.service || true
+    echo "onemind-owner: key removed; new logins with it are refused (a session already open stays until it ends)"
+    ;;
+ssh-on)
+    rm -f "$OFF"
+    sctl start ssh.service || true          # skipped by its own condition while no owner key exists
+    publish_keys
+    echo "onemind-owner: SSH is on"
+    ;;
+ssh-off)
+    mkdir -p "$STATEDIR"; : > "$OFF"
+    sctl stop ssh.service || true           # the firewall chain is flushed when it stops
+    echo "onemind-owner: SSH is off, also after a reboot"
+    ;;
+ssh-state)
+    if [ -e "$OFF" ]; then echo "enabled=false"; else echo "enabled=true"; fi
+    ;;
+apply-job)
+    # The host service is sandboxed and cannot touch /home or sshd, so it files one job as text (line 1 the
+    # operation, line 2 its argument) and starts onemind-ssh-apply.service, which runs this as root.
+    job=$STATEDIR/job; res=$STATEDIR/result
+    mkdir -p "$STATEDIR"
+    if [ ! -f "$job" ] || [ -L "$job" ]; then publish_keys; exit 0; fi
+    op=$(sed -n 1p "$job"); arg=$(sed -n 2p "$job"); rm -f "$job"
+    rc=0
+    case "$op" in
+        key-add) out=$(printf '%s\n' "$arg" | "$0" key-add - 2>&1) || rc=$? ;;
+        key-rm) out=$("$0" key-rm "$arg" 2>&1) || rc=$? ;;
+        ssh) case "$arg" in on) out=$("$0" ssh-on 2>&1) || rc=$? ;; off) out=$("$0" ssh-off 2>&1) || rc=$? ;; *) out="bad ssh job"; rc=2 ;; esac ;;
+        *) out="unknown job"; rc=64 ;;
+    esac
+    tmp=$(mktemp "$STATEDIR/.result.XXXXXX")
+    printf 'rc=%s\n%s\n' "$rc" "$(printf '%s' "$out" | tail -n 1)" > "$tmp"
+    mv -f "$tmp" "$res"
     ;;
 key-list)
-    if [ -L "$HOMEDIR" ] || [ -L "$SSHDIR" ] || [ -L "$KEYS" ]; then echo "onemind-owner: a symlink is in the way; refusing" >&2; exit 3; fi
-    [ -f "$KEYS" ] && ssh-keygen -l -f "$KEYS" || echo "no keys"
+    no_links || exit 3
+    [ -f "$KEYS" ] && as_owner ssh-keygen -l -f "$KEYS" || echo "no keys"
     ;;
 password)
     if [ -t 0 ]; then
@@ -88,6 +175,6 @@ password)
     echo "onemind-owner: console password set"
     ;;
 *)
-    echo "usage: onemind-owner key-add [FILE|-] | key-list | password | ensure" >&2; exit 64
+    echo "usage: onemind-owner key-add [FILE|-] | key-list | key-rm FINGERPRINT | ssh-on | ssh-off | ssh-state | password | ensure | apply-job" >&2; exit 64
     ;;
 esac

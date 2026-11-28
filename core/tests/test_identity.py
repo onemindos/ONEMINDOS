@@ -5,61 +5,23 @@ with ONEMIND_TEST_DB_URL, on PostgreSQL."""
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
-import struct
 from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
 
-import cbor2
 import pytest
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import ec
 from fastapi.testclient import TestClient
 
 from conftest import AGENT, GUEST, OWNER, action_body
+from soft_authenticator import ORIGIN, RP_ID, SoftAuthenticator
 from onemind_core.app import create_app
 from onemind_core.identity import IdentitySettings
 from onemind_core.identity.crypto import b64url, totp_code, unb64url
 
-ORIGIN, RP_ID = "http://localhost", "localhost"
 PASSWORD = "correct horse battery"
-
-
-class SoftAuthenticator:
-    """A software passkey (ES256, attestation "none") so tests run the real WebAuthn verification."""
-
-    def __init__(self, rp_id: str = RP_ID, origin: str = ORIGIN):
-        self.rp_id, self.origin = rp_id, origin
-        self.key = ec.generate_private_key(ec.SECP256R1())
-        self.cred_id = os.urandom(16)
-        self.counter = 0
-
-    def _client_data(self, typ: str, challenge: str) -> bytes:
-        return json.dumps({"type": typ, "challenge": challenge, "origin": self.origin, "crossOrigin": False}).encode()
-
-    def register(self, options: dict) -> dict:
-        nums = self.key.public_key().public_numbers()
-        cose = cbor2.dumps({1: 2, 3: -7, -1: 1, -2: nums.x.to_bytes(32, "big"), -3: nums.y.to_bytes(32, "big")})
-        auth_data = (hashlib.sha256(self.rp_id.encode()).digest() + bytes([0x45]) + struct.pack(">I", 0)
-                     + bytes(16) + struct.pack(">H", len(self.cred_id)) + self.cred_id + cose)
-        att = cbor2.dumps({"fmt": "none", "attStmt": {}, "authData": auth_data})
-        cd = self._client_data("webauthn.create", options["publicKey"]["challenge"])
-        return {"id": b64url(self.cred_id), "rawId": b64url(self.cred_id), "type": "public-key",
-                "response": {"clientDataJSON": b64url(cd), "attestationObject": b64url(att), "transports": ["internal"]}}
-
-    def assert_(self, challenge: str, flat: bool = False) -> dict:
-        self.counter += 1
-        auth_data = hashlib.sha256(self.rp_id.encode()).digest() + bytes([0x05]) + struct.pack(">I", self.counter)
-        cd = self._client_data("webauthn.get", challenge)
-        sig = self.key.sign(auth_data + hashlib.sha256(cd).digest(), ec.ECDSA(hashes.SHA256()))
-        body = {"clientDataJSON": b64url(cd), "authenticatorData": b64url(auth_data), "signature": b64url(sig)}
-        if flat:  # the §12.4 flat shape
-            return {"id": b64url(self.cred_id), **body}
-        return {"id": b64url(self.cred_id), "rawId": b64url(self.cred_id), "type": "public-key", "response": body}
 
 
 def id_settings(settings, **changes):
@@ -718,3 +680,143 @@ def test_display_name_never_changes_the_stable_identity_and_the_change_is_audite
     assert len(records) == 1
     assert records[0]["principal"]["id"] == before["id"] and records[0]["principal"]["role"] == "owner"
     assert "Totally Not Admin" not in Path(settings.audit_path).read_text()
+
+
+# ---- the printed kit at the rescue console: no dead end for an owner who lost every passkey (D-028) ----------
+def at_box(idc) -> TestClient:
+    """A caller on the box itself (the rescue console connects from loopback)."""
+    return TestClient(idc.app, client=("127.0.0.1", 40000))
+
+
+def _issue_kit(idc):
+    r = idc.post("/v1/backups/kit", headers=OWNER)
+    assert r.status_code == 201, r.text
+    return r.json()["one_time"]
+
+
+def test_rescue_console_with_no_passkey_offers_the_kit_not_a_dead_end(idc, settings):
+    setup_owner(idc)
+    # nothing to step up with and no kit: still 409 (standing at the box is never enough)
+    assert idc.post("/v1/auth/rescue/options", headers=OWNER).status_code == 409
+    box = at_box(idc)
+    assert box.post("/v1/auth/rescue/kit", headers=OWNER, json={"kit_key": "A" * 52}).status_code == 409
+    kit = _issue_kit(idc)
+    opts = idc.post("/v1/auth/rescue/options", headers=OWNER)
+    assert opts.status_code == 200 and opts.json() == {"methods": ["kit"], "kit": True}
+    assert box.post("/v1/auth/rescue/kit", headers=AGENT, json={"kit_key": kit["owner_key"]}).status_code in (401, 403)
+    assert at_box(idc).post("/v1/auth/rescue/kit", json={"kit_key": kit["owner_key"]}).status_code == 401
+    wrong = box.post("/v1/auth/rescue/kit", headers=OWNER, json={"kit_key": "-".join(["ABCD"] * 13)})
+    assert wrong.status_code == 401 and wrong.json()["reason"] == "kit_key_wrong"
+    ok = box.post("/v1/auth/rescue/kit", headers=OWNER, json={"kit_key": kit["owner_key"]})
+    assert ok.status_code == 200 and ok.headers["cache-control"] == "no-store", ok.text
+    assert ok.json()["credential_id"].startswith("kit:") and ok.json()["user_id"]
+    assert kit["owner_key"] not in ok.text
+    ev = [e for e in audit_events(settings) if (e.get("data") or {}).get("payload", {}).get("attempted") == "rescue session"]
+    assert [e["event"] for e in ev] == ["auth.step_up.failed"] * 2 + ["auth.step_up.succeeded"]
+    assert all(kit["owner_key"] not in json.dumps(e) for e in ev)
+
+
+def test_rescue_options_with_a_passkey_also_offers_the_kit_once_issued(idc):
+    setup_owner(idc)
+    _issue_kit(idc)  # before the first passkey: from then on approvals need one
+    key = SoftAuthenticator()
+    register_passkey(idc, key)
+    opts = idc.post("/v1/auth/rescue/options", headers=OWNER).json()
+    assert opts["methods"] == ["passkey", "kit"] and opts["publicKey"]["allowCredentials"][0]["id"] == b64url(key.cred_id)
+
+
+def test_approved_kit_is_delivered_once_on_a_box_with_passkeys(idc, settings):
+    setup_owner(idc)
+    key = SoftAuthenticator()
+    register_passkey(idc, key)
+    path = "/v1/backups/kit"
+    token = os.urandom(32).hex()
+    body = {"approve": False, "delivery_token": token}
+    headers = {**csrf(idc), "Idempotency-Key": "issue-kit-with-passkey"}
+
+    filed = idc.post(path, headers=headers, json=body)
+    assert filed.status_code == 202, filed.text
+    assert filed.json()["state"] == "awaiting_approval" and "one_time" not in filed.json()
+    assert token not in filed.text
+    aid = filed.json()["id"]
+    approve = f"/v1/actions/{aid}/approve"
+    assert idc.post(approve, headers=csrf(idc)).json()["reason"] == "step_up_required"
+    assert idc.post(path, headers=headers, json=body).status_code == 202
+    assert idc.get(path).json()["state"] == "missing"
+
+    challenge = idc.post(approve + "-options", headers=csrf(idc)).json()
+    approved = idc.post(approve, headers=csrf(idc), json={"webauthn": key.assert_(challenge["challenge"])})
+    assert approved.status_code == 200 and approved.json()["state"] == "succeeded", approved.text
+    assert "one_time" not in approved.json() and token not in approved.text
+    assert idc.post(path, headers=headers).status_code == 409
+    assert idc.post(path, headers=headers, json={**body, "delivery_token": os.urandom(32).hex()}).status_code == 409
+
+    page = idc.post(path, headers=headers, json=body)
+    assert page.status_code == 201 and page.headers["cache-control"] == "no-store", page.text
+    assert page.json()["action"]["id"] == aid
+    owner_key = page.json()["one_time"]["owner_key"]
+    assert owner_key in page.json()["one_time"]["text"]
+    replay = idc.post(path, headers=headers, json=body)
+    assert replay.status_code == 409 and owner_key not in replay.text
+    for readback in (idc.get(path).text, idc.get(f"/v1/actions/{aid}").text, settings.audit_path.read_text()):
+        assert owner_key not in readback and token not in readback
+
+
+def test_interrupted_reissue_retains_confirmed_console_key_across_restart(settings, clock, executor):
+    s = id_settings(settings)
+    path = "/v1/backups/kit"
+
+    def confirm(c, page, *, fingerprint=None):
+        state = page["kit"]
+        answers = {str(pos): page["one_time"]["groups"][pos - 1] for pos in state["positions"]}
+        return c.post(path + "/confirm", headers=OWNER,
+                      json={"answers": answers, "fingerprint": fingerprint or state["fingerprint"]})
+
+    with TestClient(create_app(s, clock=clock, executor=executor)) as c:
+        setup_owner(c)
+        issued = c.post(path, headers=OWNER)
+        assert issued.status_code == 201
+        original = issued.json()
+        assert confirm(c, original).json()["state"] == "confirmed"
+        # The gateway approved the replacement, but its page was never collected.
+        body = {"approve": False, "delivery_token": os.urandom(32).hex()}
+        headers = {**OWNER, "Idempotency-Key": "interrupted-kit"}
+        requested = c.post(path, headers=headers, json=body)
+        assert requested.status_code == 202
+        assert c.post(f"/v1/actions/{requested.json()['id']}/approve", headers=OWNER).json()["state"] == "succeeded"
+        assert c.get(path, headers=OWNER).json()["state"] == "issued"
+
+    with TestClient(create_app(s, clock=clock, executor=executor)) as c:
+        box = at_box(c)
+
+        def rescue(page):
+            return box.post("/v1/auth/rescue/kit", headers=OWNER, json={"kit_key": page["one_time"]["owner_key"]})
+
+        assert rescue(original).status_code == 200
+        assert c.post(path, headers=headers, json=body).status_code == 409
+        replacement = c.post(path, headers=OWNER).json()
+        assert rescue(original).status_code == 200  # a second unconfirmed issue still preserves the original
+        assert rescue(replacement).json()["reason"] == "kit_key_wrong"
+        rejected = confirm(c, replacement, fingerprint=original["kit"]["fingerprint"])
+        assert rejected.status_code == 409 and rejected.json()["error"] == "stale_precondition"
+        assert rescue(original).status_code == 200
+        assert confirm(c, replacement).json()["state"] == "confirmed"
+        assert rescue(original).json()["reason"] == "kit_key_wrong"
+        assert rescue(replacement).status_code == 200
+
+
+def test_rescue_kit_is_refused_from_any_network_source_and_costs_no_try(idc):
+    """Design 3.13 path 2: with the owner token and the right key, a LAN source (or a proxy on the box) is
+    refused before the key is looked at: it cannot test keys and cannot use up the shared lockout."""
+    setup_owner(idc)
+    kit = _issue_kit(idc)
+    body = {"kit_key": kit["owner_key"]}
+    lan = TestClient(idc.app, client=("192.0.2.10", 40000))
+    for caller, extra in ((idc, {}), (lan, {}), (at_box(idc), {"X-Forwarded-For": "192.0.2.10"}),
+                          (at_box(idc), {"Forwarded": "for=192.0.2.10"})):
+        r = caller.post("/v1/auth/rescue/kit", headers={**OWNER, **extra}, json=body)
+        assert r.status_code == 403 and r.json()["reason"] == "kit_not_at_box", r.text
+    for _ in range(6):  # wrong keys from the LAN never reach the lockout
+        assert lan.post("/v1/auth/rescue/kit", headers=OWNER, json={"kit_key": "-".join(["ABCD"] * 13)}).status_code == 403
+    assert idc.app.state.backups.repo.kit_lock() is None
+    assert at_box(idc).post("/v1/auth/rescue/kit", headers=OWNER, json=body).status_code == 200

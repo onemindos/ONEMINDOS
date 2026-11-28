@@ -91,6 +91,22 @@ def login(vm, user, password, answer):
     answered(vm, start, answer)
 
 
+def reboot_and_wait(vm, timeout=900, gate_timeout=1800):
+    """Reboot the configured box; return (segment start, its first-boot line, its gate result).
+
+    On a committed boot the health gate decides at once (os/gate/onemind-health-gate, "committed-boot"), and
+    nothing orders onemind-health-gate.service against onemind-firstboot.service, which waits for cloud-init.
+    So on a fast host the gate's line can come BEFORE "already configured". expect() moves the read position past
+    the line it matched, so waiting for the gate after ALREADY skipped that boot's only gate line and B2 hung for
+    wait_gate's 1800 s on an unmodified image (#1150, #1159). Search for the gate from the reboot on instead, as
+    B1 (vm.pos = 0), edge.py and cloudboot.py already do. Both lines are still required, both from this boot."""
+    seg = vm.here()
+    vm.send("systemctl reboot")
+    al = vm.expect(fb.ALREADY, timeout).group(0)
+    vm.pos = seg                # this boot's buffer only: B1's gate line lies before seg
+    return seg, al, vm.wait_gate(gate_timeout)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=["x86_64-efi"])
@@ -131,10 +147,7 @@ def main():
                f"password_in_files={pw_clear} hash_in_grub_cfg={get('CFGHASH')}")
 
         vm.mark("B2 a normal boot needs nothing")
-        seg = vm.here()
-        vm.send("systemctl reboot")
-        al = vm.expect(fb.ALREADY, 900).group(0)
-        g2 = vm.wait_gate()
+        seg, al, g2 = reboot_and_wait(vm)
         vm.shell_ready()
         _, out = vm.run(f"echo SHA=$(sha256sum {ESP}/user.cfg | cut -c1-64)")
         sha2 = (re.findall(r"^SHA=(\w+)", out, re.M) or [""])[-1]

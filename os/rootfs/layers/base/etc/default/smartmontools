@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Options for smartd (storage housekeeping, P-10). Debian's smartmontools.service reads smartd_opts from here.
+# -q nodev0  a box with no disk that speaks SMART (every virtual machine, some USB bridges) starts smartd and exits
+#            cleanly instead of failing, so the Services screen and the Storage card do not show "failed".
+# --interval=1800  look at the disks every 30 minutes (Debian's default).
+smartd_opts="--interval=1800 -q nodev0"

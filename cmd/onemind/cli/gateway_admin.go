@@ -116,7 +116,7 @@ func printRawJSON(a *App, raw json.RawMessage) error {
 }
 
 func gatewayAdminCommands(a *App) []*cobra.Command {
-	return []*cobra.Command{sessionsCmd(a), sharesCmd(a), tlsCmd(a), networkCmd(a)}
+	return []*cobra.Command{sessionsCmd(a), sharesCmd(a), tlsCmd(a)} // `network show` lives in the network group (network.go)
 }
 
 func sessionsCmd(a *App) *cobra.Command {
@@ -443,9 +443,9 @@ func tlsCmd(a *App) *cobra.Command {
 	return g
 }
 
-func networkCmd(a *App) *cobra.Command {
-	g := &cobra.Command{Use: "network", Short: "This box's network (read only)"}
-	g.AddCommand(&cobra.Command{
+// networkShowCmd is `onemind network show`; networkCommands (network.go) puts it beside set, dhcp and confirm.
+func networkShowCmd(a *App) *cobra.Command {
+	return &cobra.Command{
 		Use:   "show",
 		Short: "Interfaces, addresses, gateway, DNS and listening ports (owner; GET /v1/network)",
 		Args:  cobra.NoArgs,
@@ -482,6 +482,5 @@ func networkCmd(a *App) *cobra.Command {
 			}
 			return table(a.Stdout, "PROTO\tADDRESS\tPORT\tREACH", rows)
 		},
-	})
-	return g
+	}
 }

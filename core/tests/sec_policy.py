@@ -178,6 +178,9 @@ POLICY |= {
                                               "D-014 owner; 409 until a passkey is registered", ID),
     ("POST", "/v1/auth/rescue/verify"): Row({**OWNER_ONLY, "owner": 401}, w.p_rescue_verify,
                                              "D-014 owner; the probe's assertion does not verify", ID),
+    ("POST", "/v1/auth/rescue/kit"): Row({**OWNER_ONLY, "owner": 403}, w.p_rescue_kit,
+                                          "D-028 3.13: accepted from the box itself only; the matrix probe is a network source, "
+                                          "so even the owner is refused before the key is looked at", ID),
     ("GET", "/signin"): Row(OPEN, w.p_static("/signin"), "the sign-in page is public", ID),
 }
 
@@ -449,7 +452,8 @@ POLICY |= {
     ("GET", "/v1/restores"): Row(HOUSEHOLD, w.p_static("/v1/restores"), f"{_BACKUPS}: household read"),
     ("GET", "/v1/restores/{restore_id}"): Row(HOUSEHOLD_404, w.p_missing("/v1/restores/{restore}"), f"{_BACKUPS}: household read"),
     ("GET", "/v1/backups/kit"): Row(ONLY_OWNER, w.p_static("/v1/backups/kit"), f"{_BACKUPS}: the emergency kit is owner only"),
-    ("POST", "/v1/backups/kit"): Row(OFF_OWNER_ONLY, w.p_static("/v1/backups/kit"), f"{_BACKUPS}: the emergency kit is owner only"),
+    # #1124: the kit is issued even with backups off (a kit without a destination), so the owner gets 201
+    ("POST", "/v1/backups/kit"): Row(grid(201, 403, 403, 403, 403), w.p_static("/v1/backups/kit"), f"{_BACKUPS}: the emergency kit is owner only"),
     ("POST", "/v1/backups/kit/confirm"): Row(OWNER_ONLY_404, w.p_missing("/v1/backups/kit/confirm", json={"answers": {}}),
                                              f"{_BACKUPS}: the emergency kit is owner only"),
     # ---- first-run settings (contract 12.41) ----------------------------------------------------------------
@@ -766,7 +770,7 @@ POLICY |= {
                                         f"{_SYS}: restart, shutdown, reset and their pending requests; owner only"),
     ("GET", "/v1/system/diagnostics"): Row(OWNER_ONLY, w.p_static("/v1/system/diagnostics"),
                                            f"{_SYS}: the redacted diagnostic bundle; owner only, audited"),
-    # The owner and agents pass authorization; the gateway has no host path yet (NoHostPath), so the
+    # The owner and agents pass authorization; a test box has no host socket (HostLinkExecutor says engine_unreachable), so the
     # request answers 409 host_unavailable instead of filing it. With a host, it is filed (202) and waits
     # for the owner's approval (tests/test_system_controls.py). Everyone else is refused first (403).
     ("POST", "/v1/system/actions"): Row(cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED,
@@ -841,6 +845,23 @@ POLICY |= {
                                                  f"{_SHR}: only an owner stops a share; the one probed does not exist"),
 }
 
+# ---- SSH keys and the SSH switch (P-06: core/onemind_core/routers/ssh.py) -----------------------------------------
+# Owner only for reads and for asking; an agent never asks (the ssh.* types have no agent requesters). No host service
+# in this world, so the owner's requests answer 409 ssh_unavailable (nothing is filed); the probed key id is unknown (404).
+_SSH = "core/onemind_core/routers/ssh.py"
+_SSH_KEY = ("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKyF1pG7Y3o0m5mK2yHn8sV6wq9Z4b1xT0uJ3eRcL7dN "
+            "matrix@test")
+POLICY |= {
+    ("GET", "/v1/ssh"): Row(ONLY_OWNER, w.p_static("/v1/ssh"), f"{_SSH}: who may log in over SSH and the rules it runs under; owner only"),
+    ("GET", "/v1/ssh/keys"): Row(ONLY_OWNER, w.p_static("/v1/ssh/keys"), f"{_SSH}: the authorised keys with fingerprints; owner only"),
+    ("POST", "/v1/ssh/keys"): Row(grid(409, 403, 403, 403, 403), lambda _w: w.Req("/v1/ssh/keys", json={"public_key": _SSH_KEY}),
+                                  f"{_SSH}: only an owner asks to let a key in (409: no host service here, nothing filed); never an agent"),
+    ("DELETE", "/v1/ssh/keys/{key_id}"): Row(grid(404, 403, 403, 403, 403), w.p_missing("/v1/ssh/keys/unknown-key"),
+                                             f"{_SSH}: only an owner asks to remove a key; the one probed does not exist"),
+    ("PUT", "/v1/ssh"): Row(grid(409, 403, 403, 403, 403), lambda _w: w.Req("/v1/ssh", json={"enabled": False}),
+                            f"{_SSH}: only an owner asks to switch SSH on or off (409: no host service here); never an agent"),
+}
+
 # ---- WebDAV app passwords (files-webdav, #722: core/onemind_core/routers/webdav.py) --------------------------
 # The /dav tree is a middleware outside the router (files/webdav.py): it takes only app passwords, so every
 # bearer token gets 401 there; core/tests/test_files_webdav.py covers it, including each token kind.
@@ -884,6 +905,35 @@ POLICY |= {
         cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED, automation=DENIED, node=DENIED),
         lambda _w: w.Req("/v1/system/services/onemind-gateway.service/restart", json={}),
         "core/onemind_core/routers/services.py: owner or agent asks for a service restart; only an owner approves it"),
+    # P-04: the clock is owner only, read only; in this world there is no host socket, so the owner gets 200 with available=false.
+    ("GET", "/v1/system/time"): Row(OWNER_ONLY, w.p_static("/v1/system/time"),
+                                    "core/onemind_core/routers/clock.py: the hub's time zone and clock sync state; owner only"),
+    # P-04: the owner and agents pass authorization and get 409 (no host socket: nothing is filed); with a host the request
+    # is filed and waits for the owner's approval (tests/test_system_time.py).
+    ("POST", "/v1/system/time/zone"): Row(
+        cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        lambda _w: w.Req("/v1/system/time/zone", json={"zone": "Europe/Berlin"}),
+        "core/onemind_core/routers/clock.py: owner or agent asks for a time zone change; only an owner approves it"),
+    # Storage housekeeping (P-10: core/onemind_core/routers/storage_care.py). Owner only; with no host socket in this
+    # world the owner gets 200 with available=false. The eject request follows the service restart: the owner and agents
+    # pass authorization and get 409 (nothing is filed); with a host it waits for the owner's approval
+    # (tests/test_storage_care.py).
+    ("GET", "/v1/storage/housekeeping"): Row(OWNER_ONLY, w.p_static("/v1/storage/housekeeping"),
+                                             "core/onemind_core/routers/storage_care.py: last TRIM, smartd warnings and removable drives; owner only"),
+    ("POST", "/v1/storage/removable/{name}/eject"): Row(
+        cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        lambda _w: w.Req("/v1/storage/removable/sdb/eject", json={}),
+        "core/onemind_core/routers/storage_care.py: owner or agent asks to safely remove a USB drive; only an owner approves it"),
+    # The keyboard layout (P-11: core/onemind_core/routers/keyboard.py). Owner only, read only (scope system:admin); no host
+    # socket in this world, so the owner gets 200 with available=false.
+    ("GET", "/v1/system/keyboard"): Row(OWNER_ONLY, w.p_static("/v1/system/keyboard"),
+                                        "core/onemind_core/routers/keyboard.py: the console layout and what the image offers; owner only"),
+    # The owner and agents pass authorization and get 409 (no host socket: nothing is filed); with a host the request is
+    # filed and waits for the owner's approval (tests/test_keyboard.py).
+    ("POST", "/v1/system/keyboard"): Row(
+        cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        lambda _w: w.Req("/v1/system/keyboard", json={"layout": "de"}),
+        "core/onemind_core/routers/keyboard.py: owner or agent asks for a layout change; only an owner approves it"),
     # The UPS battery (IMG-06, #244: core/onemind_core/routers/ups.py). Read only; no upsd in this world, so a
     # reader gets 200 with present=false. Device health like /v1/os/about: a child has no nodes:read.
     ("GET", "/v1/system/ups"): Row(CHILD_CANNOT, w.p_static("/v1/system/ups"),
@@ -894,6 +944,27 @@ POLICY |= {
 POLICY |= {
     ("GET", "/v1/network"): Row(grid(200, 403, 403, 403, 403), w.p_static("/v1/network"),
                                 "core/onemind_core/routers/network.py: every address, MAC and open port of the box; owner only"),
+    ("GET", "/v1/network/firewall"): Row(grid(200, 403, 403, 403, 403), w.p_static("/v1/network/firewall"),
+                                         "core/onemind_core/routers/network.py: every rule of the box's firewall (P-09 part 1); owner only, read only"),
+    # P-09 part 2: the matrix world has no host socket, so an owner (or an agent, for the request) passes authorization
+    # and gets 409 (nothing is filed); the switched-on paths are in tests/test_firewall_allow.py.
+    ("POST", "/v1/network/firewall/allow"): Row(
+        cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        lambda _w: w.Req("/v1/network/firewall/allow", json={"proto": "tcp", "port": 8123, "scope": "lan"}),
+        "core/onemind_core/routers/network.py: owner or agent asks to open a port to the LAN or mesh; only an owner approves, with a passkey"),
+    ("POST", "/v1/network/firewall/allow/{rule_id}/confirm"): Row(
+        grid(409, 403, 403, 403, 403), w.p_static("/v1/network/firewall/allow/no-such-rule/confirm"),
+        "core/onemind_core/routers/network.py: keep a pending allow rule; owner only, audited"),
+    ("DELETE", "/v1/network/firewall/allow/{rule_id}"): Row(
+        grid(409, 403, 403, 403, 403), w.p_static("/v1/network/firewall/allow/no-such-rule"),
+        "core/onemind_core/routers/network.py: take an allow rule away; owner only, audited, no approval (removing exposure)"),
+    # P-08 (netchange.py): only an owner asks for a wired address change or confirms one; agents and scoped tokens
+    # never (HUMAN_ONLY in surfaces/parity.py). No host socket in this world, so the owner gets 409 host_unavailable
+    # and nothing is filed; with a host the request waits for the owner's passkey (tests/test_network_change.py).
+    ("PUT", "/v1/network/{iface}"): Row(grid(409, 403, 403, 403, 403), w.p_missing("/v1/network/eth0", json={"mode": "dhcp"}),
+                                        "core/onemind_core/routers/network.py: an owner files a network change for approval; nobody else"),
+    ("POST", "/v1/network/{iface}/confirm"): Row(grid(409, 403, 403, 403, 403), w.p_missing("/v1/network/eth0/confirm", json={"action_id": "act-1", "verified_reachable": True}),
+                                                 "core/onemind_core/routers/network.py: an owner keeps a pending change; nothing is pending here"),
 }
 
 # ---- bring your own domain (NET-DOM-01, #238: core/onemind_core/routers/domains.py) -----------------------------
@@ -1008,6 +1079,16 @@ POLICY |= {
                                        f"{_KIOSK}: only the owner changes the screen; an agent can never switch it"),
 }
 
+# ---- rename the box (P-05: core/onemind_core/routers/instance_name.py) ---------------------------------------------
+POLICY |= {
+    # The owner and agents pass authorization and get 409 (first-run setup not saved in this world, so nothing is
+    # filed); with a host the request waits for the owner's approval (tests/test_instance_rename.py).
+    ("PUT", "/v1/instance/name"): Row(
+        cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        lambda _w: w.Req("/v1/instance/name", json={"name": "kitchen"}),
+        "core/onemind_core/routers/instance_name.py: an owner or agent asks to rename the box; only an owner approves it"),
+}
+
 # ---- bridge intake (#610: core/onemind_core/routers/bridges.py) --------------------------------------------
 # Only the bridge's own installation token posts events (plugins/auth.allows_bridge_intake); every person and
 # agent is refused. Owners and adults read status; the probe names a bridge that is not installed (404).
@@ -1108,4 +1189,20 @@ POLICY |= {
         grid(404, 403, 403, 403, 404),
         w.p_missing("/v1/agent-browser/sessions/abs_missing/visit", json={"url": "https://example.org/"}),
         f"{_AB}: owner or agent opens a page in its own session; none exists"),
+}
+
+# ---- desktop apps (#1097, PR #1142: core/onemind_core/routers/desktop_apps.py) and the NATS observer (N3, PR #1135) --
+POLICY |= {
+    ("GET", "/v1/desktop-apps"): Row(OWNER_ONLY, w.p_static("/v1/desktop-apps"),
+                                     "core/onemind_core/routers/desktop_apps.py: owner-only list of desktop apps"),
+    # owner only; no host socket in this world, so the owner's search is refused with 409 (nothing to ask)
+    ("GET", "/v1/desktop-apps/search"): Row({**OWNER_ONLY, "owner": 409}, lambda _w: w.Req("/v1/desktop-apps/search?q=ob"),
+                                            "core/onemind_core/routers/desktop_apps.py: owner-only Flathub search"),
+    ("POST", "/v1/desktop-apps/{app_id}/launch"): Row(
+        cells(403, **GONE, owner=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        lambda _w: w.Req("/v1/desktop-apps/org.example.App/launch", json={}),
+        "core/onemind_core/routers/desktop_apps.py: only the owner can request a desktop app launch"),
+    # owners and adults (audit:read); unlike the audit log, agents get no own-scope view of the bus's sign-ins
+    ("GET", "/v1/fabric/events"): Row({**AUDIT_READ, "agent": 403, "app-agent": 403}, w.p_static("/v1/fabric/events"),
+                                      "core/onemind_core/routers/fabric_events.py: owners and adults (audit:read)"),
 }

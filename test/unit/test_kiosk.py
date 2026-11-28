@@ -105,3 +105,36 @@ class Wiring(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Keyboard(unittest.TestCase):
+    """P-11: the kiosk screen starts with the owner's layout, read from the file the console unit also reads."""
+
+    def file(self, text):
+        import tempfile
+        d = tempfile.TemporaryDirectory()
+        self.addCleanup(d.cleanup)
+        p = os.path.join(d.name, "keyboard")
+        with open(p, "w") as f:
+            f.write(text)
+        return p
+
+    def test_the_layout_and_variant_become_xkb_variables_for_cage(self):
+        env = k.keyboard_env(self.file('XKBMODEL="pc105"\nXKBLAYOUT="de"\nXKBVARIANT="nodeadkeys"\nXKBOPTIONS=""\n'))
+        self.assertEqual(env, {"XKB_DEFAULT_MODEL": "pc105", "XKB_DEFAULT_LAYOUT": "de", "XKB_DEFAULT_VARIANT": "nodeadkeys"})
+
+    def test_no_file_means_no_variables_so_the_compositor_keeps_its_default(self):
+        self.assertEqual(k.keyboard_env("/nonexistent/keyboard"), {})
+
+    def test_a_file_with_odd_characters_is_refused_whole_and_never_run(self):
+        self.assertEqual(k.keyboard_env(self.file('XKBMODEL="pc105"\nXKBLAYOUT="de$(reboot)"\n')), {})
+        self.assertEqual(k.keyboard_env(self.file('XKBLAYOUT="de"\nXKBOPTIONS="ctrl:nocaps;x"\n')), {})
+
+    def test_last_line_wins_and_unknown_keys_are_ignored(self):
+        env = k.keyboard_env(self.file('XKBLAYOUT=us\nBACKSPACE="guess"\nXKBLAYOUT="fr"\n'))
+        self.assertEqual(env, {"XKB_DEFAULT_LAYOUT": "fr"})
+
+    def test_main_hands_the_variables_to_the_compositor(self):
+        src = read("onemind", "onemind_kiosk.py")
+        self.assertIn("os.environ.update(keyboard_env())", src)
+        self.assertLess(src.index("os.environ.update(keyboard_env())"), src.index("os.execv(argv[0], argv)"))

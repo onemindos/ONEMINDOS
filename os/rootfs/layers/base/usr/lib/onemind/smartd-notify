@@ -1,0 +1,26 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# smartd runs this (-M exec in /etc/smartd.conf) when a disk reports trouble. It appends one JSON line to the feed
+# the host service reads (internal/host/housekeeping.go), and does nothing else: no mail, no disk change.
+# smartd hands the facts over in the environment (smartd.conf(5), "-M exec"): SMARTD_DEVICE, SMARTD_FAILTYPE,
+# SMARTD_MESSAGE, SMARTD_TFIRSTEPOCH (when this problem was first seen).
+set -eu
+feed=${ONEMIND_SMARTD_FEED:-/var/lib/smartmontools/onemind-alerts.jsonl}
+dev=${SMARTD_DEVICE:-}
+# Only a plain device node such as /dev/sda or /dev/nvme0n1: the host and the hub drop anything else.
+printf '%s\n' "$dev" | grep -Eq '^/dev/[a-z][a-z0-9]{1,15}$' || exit 0
+kind=$(printf '%s' "${SMARTD_FAILTYPE:-Unknown}" | tr -cd 'A-Za-z0-9' | cut -c1-64)
+[ -n "$kind" ] || kind=Unknown
+first=${SMARTD_TFIRSTEPOCH:-}
+printf '%s\n' "$first" | grep -Eq '^[0-9]{1,12}$' || first=$(date +%s)
+msg=$(printf '%s' "${SMARTD_MESSAGE:-SMART warning}" | tr -d '\000-\037\177' | cut -c1-400)
+# The id is the same for every reminder of one problem, so the hub tells the owner once.
+id="$first-${dev#/dev/}-$kind"
+umask 077
+# A reminder of a problem already in the feed adds nothing.
+[ -f "$feed" ] && grep -qF "\"id\":\"$id\"" "$feed" && exit 0
+mkdir -p "$(dirname "$feed")"
+jq -cn --arg id "$id" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg device "$dev" --arg kind "$kind" --arg message "$msg" \
+  '{id:$id, at:$at, device:$device, kind:$kind, message:$message}' >> "$feed"
+# Keep the file small: the newest 200 lines.
+if [ "$(wc -l < "$feed")" -gt 200 ]; then tail -n 200 "$feed" > "$feed.tmp" && mv "$feed.tmp" "$feed"; fi

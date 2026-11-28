@@ -272,3 +272,77 @@ func TestLogsBounded(t *testing.T) {
 		t.Fatalf("capped writer len %d", c.Len())
 	}
 }
+
+// VM 501 bug 1: "Reset k3s state" is an owner POST with the page's CSRF token and a typed confirmation, and all
+// it does is start the reset unit (the console's sandbox is read-only; nothing runs without approval).
+func TestResetK3sNeedsApprovalThenStartsTheUnit(t *testing.T) {
+	s, f := newServer(t, hashedOwner())
+	csrf := do(s, "GET", "/status.json", ownerToken, nil)
+	var st Status
+	if err := json.Unmarshal(csrf.Body.Bytes(), &st); err != nil {
+		t.Fatal(err)
+	}
+	if page := do(s, "GET", "/", ownerToken, nil); !strings.Contains(page.Body.String(), "Reset k3s state") {
+		t.Fatalf("page has no reset action: %s", page.Body)
+	}
+	for _, c := range []struct {
+		name   string
+		method string
+		tok    string
+		form   url.Values
+		want   int
+	}{
+		{"no credential", "POST", "", url.Values{"csrf": {st.CSRF}, "confirm": {"reset k3s"}}, 401},
+		{"wrong credential", "POST", "wrong", url.Values{"csrf": {st.CSRF}, "confirm": {"reset k3s"}}, 401},
+		{"GET cannot reset", "GET", ownerToken, nil, 405},
+		{"no csrf", "POST", ownerToken, url.Values{"confirm": {"reset k3s"}}, 403},
+		{"no confirmation", "POST", ownerToken, url.Values{"csrf": {st.CSRF}}, 403},
+		{"wrong confirmation", "POST", ownerToken, url.Values{"csrf": {st.CSRF}, "confirm": {"rollback"}}, 403},
+	} {
+		if w := do(s, c.method, "/reset-k3s", c.tok, c.form); w.Code != c.want {
+			t.Errorf("%s: %d, want %d", c.name, w.Code, c.want)
+		}
+	}
+	if f.ran("systemctl start") {
+		t.Fatalf("a refused request started something: %v", f.calls)
+	}
+	w := do(s, "POST", "/reset-k3s", ownerToken, url.Values{"csrf": {st.CSRF}, "confirm": {" Reset  K3S "}})
+	if w.Code != 200 || !f.ran("systemctl start --no-block onemind-k3s-reset.service") {
+		t.Fatalf("approved reset = %d %s, calls %v", w.Code, w.Body, f.calls)
+	}
+	if f.ran("rauc status mark-active") || f.ran("systemctl reboot") {
+		t.Fatalf("a k3s reset must not touch the slots or reboot: %v", f.calls)
+	}
+	// Nothing in the OS installs apps again after a reset (PR #1155 review): the page and the reply say so.
+	if !strings.Contains(w.Body.String(), "install your apps again") {
+		t.Fatalf("the reply must tell the owner to install apps again: %s", w.Body)
+	}
+	page := do(s, "GET", "/", ownerToken, nil).Body.String()
+	if !strings.Contains(page, "install them again once k3s is back") || strings.Contains(page, "set up again by the gateway") {
+		t.Fatalf("the page must not promise that apps come back on their own: %s", page)
+	}
+}
+
+func TestStatusShowsTheLastK3sRepair(t *testing.T) {
+	s, _ := newServer(t, hashedOwner())
+	file := filepath.Join(t.TempDir(), "last.json")
+	if err := os.WriteFile(file, []byte(`{"action":"needs-approval","at":"2026-11-25T12:00:00Z","reason":"the datastore holds the owner's apps"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s.cfg.K3sRecoveryFile = file
+	var st Status
+	if err := json.Unmarshal(do(s, "GET", "/status.json", ownerToken, nil).Body.Bytes(), &st); err != nil {
+		t.Fatal(err)
+	}
+	if st.K3sRecovery == nil || st.K3sRecovery.Action != "needs-approval" {
+		t.Fatalf("k3s_recovery = %+v", st.K3sRecovery)
+	}
+	if page := do(s, "GET", "/", ownerToken, nil).Body.String(); !strings.Contains(page, "needs-approval") || !strings.Contains(page, `role="alert"`) ||
+		!strings.Contains(page, "k3s is held (not started) until you decide") {
+		t.Fatalf("page does not show the repair that waits for the owner: %s", page)
+	}
+	s.cfg.K3sRecoveryFile = filepath.Join(t.TempDir(), "none.json")
+	if do(s, "GET", "/status.json", ownerToken, nil).Body.String() == "" || s.k3sRecovery() != nil {
+		t.Fatalf("no record must show nothing")
+	}
+}

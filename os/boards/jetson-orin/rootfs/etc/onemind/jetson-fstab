@@ -2,7 +2,12 @@
 # --- OneMind (os/boards/jetson-orin): appended to NVIDIA's /etc/fstab by build-flash-package.sh.
 # /data survives slot switches and OTA; k3s state lives there [C-LAB-rauc-k3s-gate-004].
 # The L4T root stays NVIDIA's read-write rootfs, so /home, /root and /var/log are not bound.
-PARTLABEL=onemind-data  /data  ext4  defaults,x-systemd.requires=onemind-jetson-data.service  0 2
+# nodelalloc on /data (VM 501 bug 1, CRITERIA-FIRSTBOOT.md F26): ext4's default delayed allocation writes a new file's
+# blocks and size only when it flushes, up to ~30 s later, after the metadata naming the file is already on the disk;
+# a power cut in between leaves 0-byte or torn files (k3s's certificates, the binaries of freshly unpacked images,
+# which then crash with SIGSEGV for good). Without it, data=ordered writes a file's data before the metadata that
+# points to it, so a program's fsync (containerd's, sqlite's) also carries the files it wrote before.
+PARTLABEL=onemind-data  /data  ext4  defaults,nodelalloc,x-systemd.requires=onemind-jetson-data.service  0 2
 /data/state/etc-rancher-node  /etc/rancher/node  none bind,x-systemd.requires=onemind-data-layout.service 0 0
 /data/state/var-lib-rancher   /var/lib/rancher   none bind,x-systemd.requires=onemind-data-layout.service 0 0
 /data/state/var-lib-kubelet   /var/lib/kubelet   none bind,x-systemd.requires=onemind-data-layout.service 0 0

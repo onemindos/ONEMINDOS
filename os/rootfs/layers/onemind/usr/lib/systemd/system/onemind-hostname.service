@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: Apache-2.0
+# Gives the running system the name the owner chose for the box (P-05). The name is kept on /data (the root is
+# read-only); this reads it and sets the kernel host name. onemind-host.service cannot do it itself: it runs with
+# ProtectHostname=yes (its own private host name), so the approved rename starts this unit instead. Boot does the
+# same through a drop-in of onemind-data-layout.service. No saved name: nothing happens.
+[Unit]
+Description=OneMind: apply the box's saved name
+ConditionPathExists=/data/onemind/etc/hostname
+RequiresMountsFor=/data
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/onemindd host apply-hostname
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_DAC_READ_SEARCH
+ProtectSystem=strict
+ReadWritePaths=/data/state
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
