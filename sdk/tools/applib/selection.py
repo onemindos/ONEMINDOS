@@ -126,6 +126,7 @@ SHARED_GATE_INPUTS = (
     "sdk/tools/validate-apps",             # checks 1 + 8 for the one app, called by app-gate
     "sdk/tools/requirements.txt",          # the gate's pinned Python packages
     "sdk/tools/ci/install-tools.sh",       # pinned trivy, crane, cosign, k3d, kubectl, kustomize, kubeconform
+    "sdk/tools/ci/map-packs-volume.sh",    # the Offline Maps packs volume the hub provisions, made in the gate cluster
     "sdk/schema/onemind.app.schema.json",  # the app schema every manifest is checked against
 )
 LICENCE_MATRIX = "research-output/evidence/license-matrix.csv"
