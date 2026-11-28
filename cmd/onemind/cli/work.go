@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -76,10 +77,46 @@ func workCommands(a *App) []*cobra.Command {
 			}
 			return nil
 		}}
+	repeatZone := &cobra.Command{Use: "repeat-zone PROJECT_ID TASK_ID ZONE",
+		Short: "Set the time zone a repeating task counts its days in (ZONE is an IANA name, or \"local\" for this machine's)",
+		Args:  cobra.ExactArgs(3),
+		RunE: func(_ *cobra.Command, args []string) error {
+			c, _, err := a.client()
+			if err != nil {
+				return err
+			}
+			zone := args[2]
+			if zone == "local" {
+				zone = localZone()
+			}
+			t, err := c.Work.SetRepeatZone(bg(), args[0], args[1], zone)
+			if errors.Is(err, onemind.ErrNoRepeatRule) {
+				return exitWith(ExitConflict, "conflict", "that task does not repeat, so it has no time zone to set")
+			}
+			if err != nil {
+				return err
+			}
+			if a.G.JSON {
+				return printJSON(a.Stdout, t)
+			}
+			if !a.G.Quiet {
+				fmt.Fprintf(a.Stdout, "%s repeats every %d %s, counted in %s\n", t.ID, max(t.Repeat.Interval, 1), t.Repeat.Every,
+					zoneOrUTC(t.Repeat.Tz))
+			}
+			return nil
+		}}
 	root.AddCommand(a.workManage()...)
+	root.AddCommand(repeatZone)
 	root.AddCommand(add, ls, view("today", "today", "Tasks due today or overdue"),
 		view("upcoming", "upcoming", "Tasks due after today"), view("inbox", "inbox", "Your Inbox"), done)
 	return []*cobra.Command{root}
+}
+
+func zoneOrUTC(tz string) string {
+	if tz == "" {
+		return "UTC"
+	}
+	return tz
 }
 
 func (a *App) workList(view, project string) error {
@@ -134,7 +171,8 @@ func localZone() string {
 // dueSuffix is "  due 2026-11-12 15:04 EST" or "", in the machine's zone (what localZone names).
 func dueSuffix(t *onemind.WorkTask) string {
 	if t.Repeat != nil && t.DueAt != nil {
-		return dueOnly(t) + "  repeats every " + strconv.Itoa(max(t.Repeat.Interval, 1)) + " " + t.Repeat.Every
+		return dueOnly(t) + "  repeats every " + strconv.Itoa(max(t.Repeat.Interval, 1)) + " " + t.Repeat.Every +
+			" (" + zoneOrUTC(t.Repeat.Tz) + ")"
 	}
 	return dueOnly(t)
 }

@@ -22,7 +22,7 @@ from ..store import Database, SqlRepository
 from .access import OWN_TASK_ONLY_ROLES, WORK_ROLES
 from .db import (ActivityRow, CommentRow, DependencyRow, InboxRow, ProjectMemberRow, ProjectRow, ReminderRow, SectionRow,
                  TaskRow, WorkCreateRow)
-from .parse import next_due, zone
+from .parse import ANCHOR, next_due, zone
 
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=160)]
 Label = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)]
@@ -205,13 +205,22 @@ def _task_values(fields: TaskFields) -> dict:
     }
 
 
+def _keep_anchor(row: TaskRow, values: dict) -> None:
+    """A PATCH carries the public rule, not the day the rule is anchored to. Keep that day while the rule and
+    the due date are untouched; moving the due date or editing the rule starts a new anchor."""
+    old, new = row.repeat or {}, values["repeat"]
+    if new is not None and ANCHOR in old and values["due_at"] == (utc(row.due_at) if row.due_at else None) \
+            and all(old.get(k) == new.get(k) for k in ("every", "interval", "tz")):
+        values["repeat"] = {**new, ANCHOR: old[ANCHOR]}
+
+
 def _task(row: TaskRow, dependencies: tuple[str, ...]) -> Task:
     return Task(
         id=row.id, project_id=row.project_id, revision=row.revision, title=row.title, body=row.body,
         status=row.status, priority=row.priority, labels=tuple(row.labels),
         assignee=PersonAssignee(id=row.assignee_id) if row.assignee_id else None,
         due_at=utc(row.due_at) if row.due_at else None, section_id=row.section_id,
-        repeat=Repeat(**row.repeat) if row.repeat else None, dependencies=dependencies, updated_at=utc(row.updated_at),
+        repeat=Repeat(**{k: v for k, v in row.repeat.items() if k != ANCHOR}) if row.repeat else None, dependencies=dependencies, updated_at=utc(row.updated_at),
     )
 
 
@@ -747,6 +756,7 @@ class WorkService(SqlRepository):
                     DependencyRow.required_id.in_(visible_requirements),
                 ).order_by(DependencyRow.required_id)))
             values = _task_values(fields)
+            _keep_anchor(row, values)
             before = row.status
             changed = [name for name, value in values.items() if getattr(row, name) != value
                        and not (name == "due_at" and row.due_at is not None and value is not None
@@ -758,7 +768,12 @@ class WorkService(SqlRepository):
             finished = before != "done" and row.status == "done"
             if finished and row.repeat and row.due_at is not None:
                 # A repeating task is never finished: it moves to its next occurrence and stays open.
-                row.due_at = next_due(utc(row.due_at), row.repeat, self.clock())
+                due = utc(row.due_at)
+                rule = dict(row.repeat)
+                if rule["every"] in ("month", "year") and ANCHOR not in rule:
+                    rule[ANCHOR] = due.astimezone(zone(rule.get("tz"))).day  # remember the day this rule started on
+                row.due_at = next_due(due, rule, self.clock())
+                row.repeat = rule
                 row.status = "todo"
                 changed = [name for name in changed if name not in ("status", "due_at")] + ["due_at"]
             if finished:
