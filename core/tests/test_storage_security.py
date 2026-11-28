@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 
 from conftest import AGENT, GUEST, OWNER
-from test_identity import at_box
+from test_identity import LOCAL_PEER, at_box
 from test_storage import (  # noqa: F401  (fixtures and helpers of the storage tests)
     FakeNode, approve, booted, events, no_poller, node, request_create,
 )
@@ -198,26 +198,25 @@ def test_disk_key_reaches_only_the_printed_kit_and_never_a_log(settings, clock, 
     from fastapi.testclient import TestClient
 
     from onemind_core.app import create_app
-    from test_identity import setup_owner
+    from test_identity import _signed_kit, setup_owner
     from test_storage import _settings
 
     # the first-run shape: an owner, no passkey yet (the shortcut route cannot carry a passkey assertion)
-    with TestClient(create_app(_settings(settings, node, True), clock=clock)) as c:  # recovery_key_api off
+    with TestClient(create_app(_settings(settings, node, True), clock=clock), client=LOCAL_PEER) as c:  # recovery_key_api off
         setup_owner(c)
         seen = events(c)
         assert c.post("/v1/storage/recovery-key", headers=OWNER).status_code == 404
-        r = c.post("/v1/backups/kit", headers=OWNER)
-        assert r.status_code == 201, r.text
-        one = r.json()["one_time"]
+        # D-034 and option A: the owner's session approves (password + authenticator at the box) and claims the page
+        one = _signed_kit(c, clock)["one_time"]
         key = "FAKE-RECOVERY-KEY-FOR-TESTS-ONLY"
         assert one["disk_recovery_key"] == key and key in one["text"]
         assert c.get("/v1/backups/kit", headers=OWNER).json()["disk_key_included"] is True
         # SHOULD 6: the page was never saved (closed tab): the node still holds the key and the next kit prints it again
         assert c.get("/v1/storage", headers=OWNER).json()["recovery_key_pending"] is True
-        again = c.post("/v1/backups/kit", headers=OWNER)
-        assert again.status_code == 201 and again.json()["one_time"]["disk_recovery_key"] == key
+        again = _signed_kit(c, clock)
+        assert again["one_time"]["disk_recovery_key"] == key
         kit = c.get("/v1/backups/kit", headers=OWNER).json()
-        right = {str(p): again.json()["one_time"]["groups"][p - 1] for p in kit["positions"]}
+        right = {str(p): again["one_time"]["groups"][p - 1] for p in kit["positions"]}
         assert c.post("/v1/backups/kit/confirm", headers=OWNER, json={"answers": right}).json()["state"] == "confirmed"
         assert c.get("/v1/storage", headers=OWNER).json()["recovery_key_pending"] is False  # confirmed: destroyed
         blob = "\n".join([c.get("/v1/actions", headers=OWNER).text, c.get("/v1/audit", headers=OWNER).text,
@@ -227,10 +226,10 @@ def test_disk_key_reaches_only_the_printed_kit_and_never_a_log(settings, clock, 
         assert any(e["type"] == "storage.recovery_key.shown" for e in seen)
         assert any(e["type"] == "storage.recovery_key.forgotten" for e in seen)
         # MUST 2: a later kit has no disk key, but says which kit holds it, in its text and in the kit status
-        later = c.post("/v1/backups/kit", headers=OWNER)
-        assert later.status_code == 201 and "disk_recovery_key" not in later.json()["one_time"]
+        later = _signed_kit(c, clock)
+        assert "disk_recovery_key" not in later["one_time"]
         marker = c.get("/v1/backups/kit", headers=OWNER).json()["disk_key_kit"]
-        assert marker and marker["fingerprint"] == again.json()["kit"]["fingerprint"] and marker["issued_at"]
+        assert marker and marker["fingerprint"] == again["kit"]["fingerprint"] and marker["issued_at"]
         assert c.get("/v1/backups/kit", headers=OWNER).json()["disk_key_included"] is False
-        text = later.json()["one_time"]["text"]
+        text = later["one_time"]["text"]
         assert "NOT on this page" in text and marker["fingerprint"] in text and marker["issued_at"] in text and key not in text

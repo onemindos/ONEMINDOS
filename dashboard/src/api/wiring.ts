@@ -221,7 +221,7 @@ export interface WiringApi {
   emailOptions?(): Promise<components['schemas']['BoxChallenge']>;
   verifyIdentityEmail?(body: components['schemas']['EmailCodeBody']): Promise<void>;
   setupTotp?(): Promise<components['schemas']['TotpSetup']>;
-  confirmTotp?(body: components['schemas']['CodeBody']): Promise<void>;
+  confirmTotp?(body: components['schemas']['onemind_core__routers__identity__CodeBody']): Promise<void>;
   disableTotp?(body: components['schemas']['PasswordOnlyBody']): Promise<void>;
   changePassword?(body: components['schemas']['PasswordBody']): Promise<void>;
   logout(): Promise<void>;

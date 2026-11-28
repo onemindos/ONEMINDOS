@@ -30,7 +30,7 @@ from conftest import ADULT, AGENT, OWNER
 from onemind_core.app import create_app
 from onemind_core.identity import IdentitySettings
 from onemind_core.netconf import NetSettings
-from test_identity import ORIGIN, RP_ID, SoftAuthenticator, register_passkey, setup_owner
+from test_identity import LOCAL_PEER, ORIGIN, RP_ID, SoftAuthenticator, register_passkey, setup_owner
 from test_network_view import GOOD
 
 STATIC = {"mode": "static", "address": "192.0.2.50/24", "gateway": "192.0.2.1", "dns": ["192.0.2.53"], "rollback_seconds": 45}
@@ -135,7 +135,7 @@ def box(settings, clock, sock: str, *, passkey=True, timeout_s: float | None = N
     s = replace(settings, sections={
         "identity": IdentitySettings(rp_id=RP_ID, origins=(ORIGIN,), cookie_secure=False),
         "net": net})
-    with TestClient(create_app(s, clock=clock)) as c:
+    with TestClient(create_app(s, clock=clock), client=LOCAL_PEER) as c:
         if passkey:
             setup_owner(c)
             c.key = SoftAuthenticator()
@@ -371,7 +371,7 @@ def test_the_network_screen_never_waits_the_long_change_timeout(settings, clock,
     net = NetSettings(host_socket=Path(host.path), host_timeout_s=0.3, change_timeout_s=30)
     s = replace(settings, sections={"identity": IdentitySettings(rp_id=RP_ID, origins=(ORIGIN,), cookie_secure=False), "net": net})
     host.changes_delay = 3.0
-    with TestClient(create_app(s, clock=clock)) as c:
+    with TestClient(create_app(s, clock=clock), client=LOCAL_PEER) as c:
         t0 = time.monotonic()
         v = c.get("/v1/network", headers=OWNER).json()
         took = time.monotonic() - t0

@@ -185,8 +185,8 @@ export function Approvals() {
       <div className="dash-stack">
         <PageHeader title="Approvals" />
         <Card variant="sunken">
-          <p role="status">Approvals are for the owner of this box. Ask an owner if you need something decided.</p>
-          <p><Link to={href.home}>Back to Home</Link></p>
+          <p role="status">{t('approvals.ownerOnly')}</p>
+          <p><Link to={href.home}>{t('approvals.backHome')}</Link></p>
         </Card>
       </div>
     );
@@ -202,7 +202,7 @@ export function Approvals() {
       actions={actions}
       plans={plans}
       planNote={planNote}
-      approveHint={passkey && me.data?.setup_pending === undefined ? APPROVE_HINT : 'Approval applies to the plan shown here. Some actions ask you to verify your identity before the box applies the change.'}
+      approveHint={passkey && me.data?.setup_pending === undefined ? APPROVE_HINT : `Approval applies to the plan shown here. Some actions ask you to verify your identity before the box applies the change.${passkey ? '' : ' Add a passkey in Account and security to have every approval signed.'}`}
       calls={['GET /v1/actions', 'POST /v1/actions/{id}/approve-options', 'POST /v1/actions/{id}/approve', 'POST /v1/actions/{id}/deny']}
       decided={decided}
       now={hub.now}
@@ -247,7 +247,7 @@ export function Approvals() {
           <Button variant="primary" disabled={stepUp.busy} onClick={() => {
             setStepUp({ ...stepUp, busy: true });
             void decide(stepUp.action, 'approve', stepUp.sealed, stepUp.acceptLicence, stepUp.hold, true);
-          }}>Use your passkey</Button>
+          }}>{t('approvals.usePasskey')}</Button>
         </>}
       >
         <p>{actionTitle(stepUp.action)}</p>

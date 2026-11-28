@@ -32,7 +32,7 @@ from onemind_core.identity import IdentitySettings
 from onemind_core.identity.scopes import required_scopes
 from onemind_core.netconf import NetSettings
 from test_firewall_view import GOOD
-from test_identity import ORIGIN, RP_ID, SoftAuthenticator, register_passkey, setup_owner
+from test_identity import LOCAL_PEER, ORIGIN, RP_ID, SoftAuthenticator, register_passkey, setup_owner
 
 ALLOW = "/v1/network/firewall/allow"
 
@@ -122,7 +122,7 @@ def box(settings, clock, sock: str, *, passkey=True):
     s = replace(settings, sections={
         "identity": IdentitySettings(rp_id=RP_ID, origins=(ORIGIN,), cookie_secure=False),
         "net": NetSettings(host_socket=Path(sock))})
-    with TestClient(create_app(s, clock=clock)) as c:
+    with TestClient(create_app(s, clock=clock), client=LOCAL_PEER) as c:
         if passkey:
             setup_owner(c)
             c.key = SoftAuthenticator()

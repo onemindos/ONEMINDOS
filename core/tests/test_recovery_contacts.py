@@ -17,12 +17,12 @@ from conftest import OWNER
 from onemind_core.app import create_app
 from onemind_core.recovery.crypto import b64, unb64
 from recovery_support import ContactPhone, add_contact, invite_and_accept, owner_with_passkey
-from test_identity import audit_events, csrf, enrol, id_settings, setup_owner
+from test_identity import LOCAL_PEER, audit_events, csrf, enrol, id_settings, setup_owner
 
 
 @pytest.fixture
 def rc(settings, clock, executor):
-    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor)) as c:
+    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor), client=LOCAL_PEER) as c:
         yield c
 
 
@@ -220,7 +220,18 @@ def test_waits_come_from_set_options_and_shortening_needs_the_step_up(rc, clock)
     assert add_contact(rc, "Ana").json()["cooling_off_days"] == 14
 
 
-def test_without_any_passkey_yet_the_owner_session_can_still_add_a_contact(rc):
-    """The gateway's step-up applies once passkeys are active (F-2), as elsewhere; D-028's L2 comes with PR 11."""
+def test_without_any_passkey_yet_the_owner_session_can_still_add_a_contact(rc, clock):
+    """No passkey is needed (D-034: passkeys are optional), but adding a contact adds power, so a plain password
+    session must first prove L1: here a fresh sign-in with the password and an authenticator code."""
+    from onemind_core.identity.crypto import totp_code
+    from test_identity import PASSWORD
+    from test_identity_signin import enable_totp
+
     setup_owner(rc)
+    refused = add_contact(rc, "Ana")
+    assert refused.status_code == 401 and refused.json()["reason"] == "step_up_required", refused.text
+    secret = enable_totp(rc, clock)
+    login = rc.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD,
+                                            "totp": totp_code(secret, int(clock.now.timestamp()) // 30)})
+    assert login.status_code == 200, login.text
     assert add_contact(rc, "Ana").status_code == 201

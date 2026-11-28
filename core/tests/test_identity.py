@@ -91,6 +91,33 @@ def setup_bearer_owner(c: TestClient) -> dict:
     return headers
 
 
+def enable_bearer_totp(c: TestClient, headers: dict, clock) -> str:
+    """Turn on the authenticator for a bearer (CLI) session; returns its secret."""
+    pending = c.post("/v1/auth/totp/setup", headers=headers)
+    assert pending.status_code == 200, pending.text
+    secret = pending.json()["one_time"]["secret"]
+    r = c.post("/v1/auth/totp/confirm", headers=headers, json={"code": totp_code(secret, int(clock.now.timestamp()) // 30)})
+    assert r.status_code == 204, r.text
+    clock.advance(30)
+    return secret
+
+
+def bearer_step_up(c: TestClient, headers: dict, clock, secret: str, op: str, body: dict, target: str = "") -> str:
+    """A step-up grant for one exact change, made at the box with the password and an authenticator code, as
+    `onemind users invite` does (D-034). Returns the OneMind-Step-Up value."""
+    opts = c.post("/v1/auth/step-up/options", headers=headers,
+                  json={"op": op, "target": target, "body": body, "method": "password+totp", "at_box": True})
+    assert opts.status_code == 200, opts.text
+    sent = {"password_totp": {"challenge": opts.json()["challenge"], "password": PASSWORD,
+                              "totp": totp_code(secret, int(clock.now.timestamp()) // 30)}}
+    if opts.json().get("box_code_required"):
+        sent["box_code"] = box_code(c)
+    r = c.post("/v1/auth/step-up", headers=headers, json=sent)
+    assert r.status_code == 200, r.text
+    clock.advance(30)  # each authenticator code is accepted once
+    return r.json()["step_up"]
+
+
 def audit_events(settings) -> list[dict]:
     return [json.loads(line) for line in Path(settings.audit_path).read_text().splitlines()]
 
@@ -816,19 +843,49 @@ def box_client(idc) -> TestClient:
     return TestClient(idc.app, client=("127.0.0.1", 40000))
 
 
-def _issue_kit(idc):
-    r = idc.post("/v1/backups/kit", headers=OWNER)
-    assert r.status_code == 201, r.text
-    return r.json()["one_time"]
+def _approve_signed(c: TestClient, clock, aid: str) -> dict:
+    """Approve from this owner session with the password and an authenticator code, at the box (D-034: once
+    the household has an account, approvals need a fresh proof). Turns the authenticator on the first time."""
+    from test_identity_signin import enable_totp
+
+    if not hasattr(c, "totp_secret"):
+        c.totp_secret = enable_totp(c, clock)
+    approve = f"/v1/actions/{aid}/approve"
+    opts = c.post(approve + "-options", headers=csrf(c), json={"method": "password+totp", "at_box": True})
+    assert opts.status_code == 200, opts.text
+    proof = {"challenge": opts.json()["challenge"], "password": PASSWORD,
+             "totp": totp_code(c.totp_secret, int(clock.now.timestamp()) // 30)}
+    done = c.post(approve, headers=csrf(c), json={"password_totp": proof, **at_box(c, opts.json())})
+    assert done.status_code == 200 and done.json()["state"] == "succeeded", done.text
+    clock.advance(30)  # each authenticator code is accepted once
+    return done.json()
 
 
-def test_rescue_console_with_no_passkey_offers_the_kit_not_a_dead_end(idc, settings):
+def _signed_kit(c: TestClient, clock, *, claim: bool = True) -> dict:
+    """Issue the emergency kit the one way a household box allows (option A): request, approve from this
+    session, and (unless claim=False) claim the page with the same session."""
+    filed = c.post("/v1/backups/kit/request", headers=csrf(c))
+    assert filed.status_code == 202, filed.text
+    aid = filed.json()["id"]
+    _approve_signed(c, clock, aid)
+    if not claim:
+        return {"action_id": aid}
+    page = c.post(f"/v1/backups/kit/{aid}/claim", headers=csrf(c))
+    assert page.status_code == 200, page.text
+    return page.json()
+
+
+def _issue_kit(idc, clock):
+    return _signed_kit(idc, clock)["one_time"]
+
+
+def test_rescue_console_with_no_passkey_offers_the_kit_not_a_dead_end(idc, settings, clock):
     setup_owner(idc)
     # nothing to step up with and no kit: still 409 (standing at the box is never enough)
     assert idc.post("/v1/auth/rescue/options", headers=OWNER).status_code == 409
     box = box_client(idc)
     assert box.post("/v1/auth/rescue/kit", headers=OWNER, json={"kit_key": "A" * 52}).status_code == 409
-    kit = _issue_kit(idc)
+    kit = _issue_kit(idc, clock)
     opts = idc.post("/v1/auth/rescue/options", headers=OWNER)
     assert opts.status_code == 200 and opts.json() == {"methods": ["kit"], "kit": True}
     assert box.post("/v1/auth/rescue/kit", headers=AGENT, json={"kit_key": kit["owner_key"]}).status_code in (401, 403)
@@ -844,9 +901,9 @@ def test_rescue_console_with_no_passkey_offers_the_kit_not_a_dead_end(idc, setti
     assert all(kit["owner_key"] not in json.dumps(e) for e in ev)
 
 
-def test_rescue_options_with_a_passkey_also_offers_the_kit_once_issued(idc):
+def test_rescue_options_with_a_passkey_also_offers_the_kit_once_issued(idc, clock):
     setup_owner(idc)
-    _issue_kit(idc)  # before the first passkey: from then on approvals need one
+    _issue_kit(idc, clock)  # before the first passkey: from then on approvals need one
     key = SoftAuthenticator()
     register_passkey(idc, key)
     opts = idc.post("/v1/auth/rescue/options", headers=OWNER).json()
@@ -857,8 +914,6 @@ def _approve_kit_with_passkey(c: TestClient, key: SoftAuthenticator, aid: str) -
     """Approve a kit request from this session with its passkey, at the box when the level asks for it (D-034)."""
     approve = f"/v1/actions/{aid}/approve"
     opts = c.post(approve + "-options", headers=csrf(c), json={"at_box": True})
-    if opts.status_code != 200:
-        opts = c.post(approve + "-options", headers=csrf(c))
     assert opts.status_code == 200, opts.text
     proof = {"webauthn": key.assert_(opts.json()["challenge"]), **at_box(c, opts.json())}
     approved = c.post(approve, headers=csrf(c), json=proof)
@@ -962,13 +1017,10 @@ def test_kit_approved_by_a_token_is_never_claimable(idc):
     aid = _file_kit(idc, "kit-token-approved")
     approve = f"/v1/actions/{aid}/approve"
     opts = idc.post(approve + "-options", headers=OWNER, json={"at_box": True})
-    if opts.status_code != 200:
-        opts = idc.post(approve + "-options", headers=OWNER)
     assert opts.status_code == 200, opts.text
     proof = {"webauthn": key.assert_(opts.json()["challenge"]), **at_box(idc, opts.json())}
     done = idc.post(approve, headers=OWNER, json=proof)
-    if done.status_code != 200:
-        pytest.skip(f"a static token cannot approve this kit on this box: {done.json().get('reason')}")
+    assert done.status_code == 200 and done.json()["state"] == "succeeded", done.text
     claim = f"/v1/backups/kit/{aid}/claim"
     assert idc.post(claim, headers=OWNER).status_code == 403
     assert idc.post(claim, headers=csrf(idc)).status_code in (403, 409)
@@ -984,29 +1036,27 @@ def test_interrupted_reissue_retains_confirmed_console_key_across_restart(settin
         return c.post(path + "/confirm", headers=OWNER,
                       json={"answers": answers, "fingerprint": fingerprint or state["fingerprint"]})
 
-    with TestClient(create_app(s, clock=clock, executor=executor)) as c:
+    with TestClient(create_app(s, clock=clock, executor=executor), client=LOCAL_PEER) as c:
         setup_owner(c)
-        issued = c.post(path, headers=OWNER)
-        assert issued.status_code == 201
-        original = issued.json()
+        original = _signed_kit(c, clock)
         assert confirm(c, original).json()["state"] == "confirmed"
         # The gateway approved the replacement, but its page was never collected.
-        body = {"approve": False}
-        headers = {**OWNER, "Idempotency-Key": "interrupted-kit"}
-        requested = c.post(path, headers=headers, json=body)
-        assert requested.status_code == 202
-        assert c.post(f"/v1/actions/{requested.json()['id']}/approve", headers=OWNER).json()["state"] == "succeeded"
+        interrupted = _signed_kit(c, clock, claim=False)["action_id"]
         assert c.get(path, headers=OWNER).json()["state"] == "issued"
+        cookies, secret = dict(c.cookies), c.totp_secret
 
-    with TestClient(create_app(s, clock=clock, executor=executor)) as c:
+    with TestClient(create_app(s, clock=clock, executor=executor), client=LOCAL_PEER) as c:
         box = box_client(c)
+        c.cookies.update(cookies)  # the same signed-in browser after the gateway restarted
+        c.totp_secret = secret
 
         def rescue(page):
             return box.post("/v1/auth/rescue/kit", headers=OWNER, json={"kit_key": page["one_time"]["owner_key"]})
 
         assert rescue(original).status_code == 200
-        assert c.post(path, headers=headers, json=body).status_code == 409
-        replacement = c.post(path, headers=OWNER).json()
+        # The page of the interrupted issue lived only in the old process's memory: it is gone for good.
+        assert c.post(f"{path}/{interrupted}/claim", headers=csrf(c)).status_code == 409
+        replacement = _signed_kit(c, clock)
         assert rescue(original).status_code == 200  # a second unconfirmed issue still preserves the original
         assert rescue(replacement).json()["reason"] == "kit_key_wrong"
         rejected = confirm(c, replacement, fingerprint=original["kit"]["fingerprint"])
@@ -1017,11 +1067,11 @@ def test_interrupted_reissue_retains_confirmed_console_key_across_restart(settin
         assert rescue(replacement).status_code == 200
 
 
-def test_rescue_kit_is_refused_from_any_network_source_and_costs_no_try(idc):
+def test_rescue_kit_is_refused_from_any_network_source_and_costs_no_try(idc, clock):
     """Design 3.13 path 2: with the owner token and the right key, a LAN source (or a proxy on the box) is
     refused before the key is looked at: it cannot test keys and cannot use up the shared lockout."""
     setup_owner(idc)
-    kit = _issue_kit(idc)
+    kit = _issue_kit(idc, clock)
     body = {"kit_key": kit["owner_key"]}
     lan = TestClient(idc.app, client=("192.0.2.10", 40000))
     for caller, extra in ((idc, {}), (lan, {}), (box_client(idc), {"X-Forwarded-For": "192.0.2.10"}),

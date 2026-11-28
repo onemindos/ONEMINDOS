@@ -4,7 +4,6 @@ import { approveWithStepUp } from '../lib/approve';
 import { getPasskey } from '../lib/webauthn';
 import { askBoxCode } from '../lib/boxcode';
 import { askVerification } from '../lib/verification';
-import { approveWithStepUp } from '../lib/approve';
 import { withProtocol } from '../lib/protocol';
 import { uuidv4 } from '../lib/uuid';
 import type * as W from './wiring';
@@ -528,7 +527,7 @@ export class HttpApi implements OneMindApi {
   emailOptions = () => this.sdkCall<components['schemas']['BoxChallenge']>('POST', '/v1/auth/email/options', {});
   verifyIdentityEmail = (body: components['schemas']['EmailCodeBody']) => this.sdkCall<void>('POST', '/v1/auth/email/verify', body, 'empty');
   setupTotp = () => this.sdkCall<components['schemas']['TotpSetup']>('POST', '/v1/auth/totp/setup', {});
-  confirmTotp = (body: components['schemas']['CodeBody']) => this.sdkCall<void>('POST', '/v1/auth/totp/confirm', body, 'empty');
+  confirmTotp = (body: components['schemas']['onemind_core__routers__identity__CodeBody']) => this.sdkCall<void>('POST', '/v1/auth/totp/confirm', body, 'empty');
   disableTotp = (body: components['schemas']['PasswordOnlyBody']) => this.sdkCall<void>('POST', '/v1/auth/totp/disable', body, 'empty');
   changePassword = (body: components['schemas']['PasswordBody']) => this.sdkCall<void>('POST', '/v1/auth/password', body, 'empty');
   async logout() {
