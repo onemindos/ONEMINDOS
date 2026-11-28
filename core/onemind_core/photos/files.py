@@ -14,6 +14,7 @@ entry, before the database records the receipt.
 from __future__ import annotations
 
 import errno
+import fcntl
 import hashlib
 import os
 import re
@@ -156,6 +157,13 @@ class PhotoFiles:
             os.close(base)
 
     # ---- staging -------------------------------------------------------------------------------
+    @contextmanager
+    def upload_reservations(self):
+        """Serialize upload admission across workers sharing this staging directory."""
+        with self._dir(("staging",), create=True) as fd:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            yield  # _dir closes the descriptor and releases the lock.
+
     def staging(self, upload_id: str) -> Path:
         return self.staging_dir / upload_id
 

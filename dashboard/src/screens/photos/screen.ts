@@ -9,7 +9,6 @@ const screen: ScreenDef = {
   section: 'Your box',
   order: 75,
   hue: ['#6d84ff', '#3340c4'],
-  pro: true,
   load: () => import('../../pages/Photos').then((m) => ({ default: m.Photos })),
 };
 export default screen;

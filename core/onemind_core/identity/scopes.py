@@ -28,6 +28,9 @@ BASE_SCOPES = frozenset({
     "automation:read", "automation:request", "automation:write",
     "audit:read", "audit:admin", "users:read", "users:admin",
     "tokens:self", "tokens:read", "tokens:admin", "events:read", "deploy:write",
+    # #1232: a person uses Files and Photos for their own data. The scope opens the route only; the handlers
+    # decide per role and per root (files/access.py, photos/service.py), so it never reaches another person's data.
+    "files:use", "photos:use",
     "files:share",  # FILES-02 (#237): publish household files through an expiring share link
     "events:write",  # only as events:write:own, minted for an approved bridge block (#610)
     "assets:read",  # #606: asset values on GET /v1/events (owner and adult by default)
@@ -50,6 +53,7 @@ _SUFFIX = {
 
 # Never minted for agent, plugin, automation or node (§12.6).
 _PERSON_ONLY = {"actions:approve", "tokens:admin", "tokens:self", "tokens:read", "notifications:read", "files:share",
+                "files:use", "photos:use",
                 "notifications:write", "work:write"}
 _KIND_ONLY = {"nodes:report": {"node"}, "notifications:send": {"plugin", "agent", "automation"},
               "events:write": {"plugin"},
@@ -61,17 +65,19 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
     "owner": frozenset({ALL}),
     "adult": frozenset((READ_SCOPES - {"users:read"}) | {
         "logs:read", "notifications:write", "tokens:self", "actions:request", "files:share", "data:write", "work:write",
+        "files:use", "photos:use",
     }),
     # Every household role carries the data ceiling so a grant the owner approved for that person works
     # in their own session; with no grant they still see `public` only (datagrants/ access()).
     "guest": frozenset({"instance:read", "nodes:read", "apps:read", "notifications:read",
-                        "notifications:write", "alerts:read", "data:read", "data:write"}),
+                        "notifications:write", "alerts:read", "data:read", "data:write",
+                        "files:use"}),  # a guest has no Home and no photo library: shared, read-only, by the handler
     "child": frozenset({"instance:read", "apps:read", "notifications:read", "alerts:read",
-                        "data:read", "data:write", "work:read", "work:write"}),
+                        "data:read", "data:write", "work:read", "work:write", "files:use", "photos:use"}),
     # FAM-01 Teen: signs in on their own with the same API scopes as a child. No approval, admin,
     # users, nodes, tokens or logs scope; what a teen may open is narrowed by family controls only.
     "teen": frozenset({"instance:read", "apps:read", "notifications:read", "alerts:read",
-                       "data:read", "data:write", "work:read", "work:write"}),
+                       "data:read", "data:write", "work:read", "work:write", "files:use", "photos:use"}),
 }
 
 BUNDLES = {

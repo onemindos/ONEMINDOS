@@ -28,10 +28,10 @@ from ..files.downloads import RELEASE_ACTION, DownloadSettings, Downloads
 from ..identity.scopes import register_route_scope
 
 ORDER = 301  # after files (300): it reads app.state.files_service
-# Like every other /v1/files route: any scope (owner) for a scoped token; static and signed-in people as below.
-register_route_scope("GET,HEAD", r"/v1/files/downloads", ("*",))
+# Listing and discarding use the Files scope. Requesting release is owner-scoped.
+register_route_scope("GET,HEAD", r"/v1/files/downloads", ("files:use",))  # a person sees their own held downloads (#1232)
 register_route_scope("POST", r"/v1/files/downloads/[^/]+/release", ("*",))
-register_route_scope("DELETE", r"/v1/files/downloads/[^/]+", ("*",))
+register_route_scope("DELETE", r"/v1/files/downloads/[^/]+", ("files:use",))
 RELEASE_TTL = timedelta(days=7)
 TAG = ["files"]
 # Contract §12.1: unsafe routes take an Idempotency-Key; a retried release files one action, not two.
