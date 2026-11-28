@@ -363,14 +363,22 @@ func (e *Engine) clearTrialMarker(to string) error {
 }
 
 // maybeReboot reboots at a safe point: an explicit apply reboots now (unless
-// --no-reboot); the daemon only inside the window; never while the reboot
-// inhibit file exists (mission-safe reboot, BD-09).
+// --no-reboot); the daemon never once the owner turned updates off (the switch
+// may come after the install, REL-02), and otherwise only inside the window; never while the reboot inhibit file exists (mission-safe
+// reboot, BD-09).
 func (e *Engine) maybeReboot(ctx context.Context, st *Status, mode Mode, noReboot bool) bool {
 	switch {
 	case mode == ModeApply && noReboot:
 		return false
 	}
-	if _, window := e.settings(st); mode == ModeScheduled && !window.Contains(e.Now()) {
+	policy, window := e.settings(st)
+	if mode == ModeScheduled && policy == PolicyOff {
+		st.LastResult = "installed " + st.TargetVersion + ", reboot waits for the owner: policy " + string(policy) +
+			" (run `onemind update apply` to restart into it)"
+		e.Log.Info("reboot waits for the owner", "policy", policy)
+		return false
+	}
+	if mode == ModeScheduled && !window.Contains(e.Now()) {
 		e.Log.Info("reboot waits for the maintenance window", "window", window.String())
 		return false
 	}
@@ -402,9 +410,6 @@ func (e *Engine) fail(st *Status, from, msg string) error {
 	return errors.Join(errors.New(msg), st.Save(e.Cfg))
 }
 
-// Daemon runs scheduled cycles until ctx ends: one at start (which also
-// reports the verdict of the update that may have just booted), then every
-// CheckInterval with up to 10% jitter so a fleet does not hit the channel at once.
 // settings returns the policy and window in force (the owner's file over the
 // image's update.conf, owner.go) and records them in the status. A bad owner
 // file is logged and the image's settings apply.
@@ -417,6 +422,9 @@ func (e *Engine) settings(st *Status) (Policy, Window) {
 	return p, w
 }
 
+// Daemon runs scheduled cycles until ctx ends: one at start (which also
+// reports the verdict of the update that may have just booted), then every
+// CheckInterval with up to 10% jitter so a fleet does not hit the channel at once.
 func (e *Engine) Daemon(ctx context.Context) {
 	for {
 		if _, err := e.Run(ctx, ModeScheduled, false); err != nil {

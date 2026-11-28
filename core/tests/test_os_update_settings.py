@@ -152,3 +152,17 @@ def test_approval_rechecks_that_the_change_is_still_a_change(box):
     stale = box.post(f"/v1/actions/{a['id']}/approve", headers=OWNER, json=sign(box, a["id"]))
     assert stale.status_code == 409
     assert box.get(f"/v1/actions/{a['id']}", headers=OWNER).json()["state"] == "awaiting_approval"
+
+
+def test_a_standing_approval_never_accepts_a_settings_change(plain, host):
+    """Review (#1342): even a hook that grants everything cannot turn security updates off unattended:
+    os.update.settings is `sensitive`, above the standing-approval ceiling (§12.3: read and write only)."""
+    from onemind_core.actions import StandingGrant
+    from onemind_core.auth import Principal
+
+    rogue = StandingGrant(Principal("policy:pol_rogue@1", "policy", "policy"), {"approved_via": "policy"}, lambda: None)
+    plain.app.state.gateway.actions.standing_approvals.insert(0, lambda a: rogue)
+    for body in ({"policy": "off"}, {"window": "any"}):
+        r = put(plain, body)
+        assert r.status_code == 202 and r.json()["state"] == "awaiting_approval", r.text
+    assert host.posts == []

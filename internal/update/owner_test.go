@@ -3,10 +3,14 @@
 package update
 
 import (
+	"context"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/onemindos/onemindos/internal/heartbeat"
 )
 
 // REL-02 (#154): the security channel installs by default; the owner's approved opt-out and window
@@ -104,5 +108,52 @@ func TestOwnerFileRoundTripAndReport(t *testing.T) {
 	u := Report(&c)
 	if u == nil || u.Policy != "notify" || u.Window != "23:00-04:00" || u.SettingsSource != SourceOwner {
 		t.Fatalf("report %+v", u)
+	}
+}
+
+// Review (#1342): an install that waits for its reboot does not restart the box on its own once the
+// owner turned updates off; the owner's explicit apply still does.
+func TestOptOutAfterInstallHoldsThePendingReboot(t *testing.T) {
+	f := newFixture(t, "security", "window = any\n")
+	f.add("vm", "0.1.1", true)
+	f.publish(0)
+	f.write("inhibit", "mission running") // installs, then defers the reboot
+	if _, err := f.run(ModeScheduled); err != nil {
+		t.Fatal(err)
+	}
+	if st := f.status(); st.State != heartbeat.UpdatePendingReboot {
+		t.Fatalf("status %+v", st.Update)
+	}
+	os.Remove(filepath.Join(f.dir, "inhibit"))
+	if err := WriteOwner(f.cfg, OwnerSettings{Policy: PolicyOff, Window: Window{Any: true}}); err != nil {
+		t.Fatal(err)
+	}
+	f.calls.log = nil
+	res, err := f.run(ModeScheduled)
+	if err != nil || res.Rebooted || !strings.Contains(f.status().LastResult, "policy off") {
+		t.Fatalf("%v rebooted=%v %q", err, res.Rebooted, f.status().LastResult)
+	}
+	wantCalls(t, f.calls)
+	if res, err := f.eng.Run(context.Background(), ModeApply, false); err != nil || !res.Rebooted {
+		t.Fatalf("owner apply: %v %+v", err, res)
+	}
+	wantCalls(t, f.calls, "reboot")
+}
+
+func TestWriteOwnerTightensTheDirectoryAndLeavesNoTemp(t *testing.T) {
+	c := Defaults(ChannelSecurity)
+	c.StateDir = t.TempDir()
+	if err := os.Chmod(c.StateDir, 0o777); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteOwner(&c, OwnerSettings{Policy: PolicyOff, Window: Window{Any: true}}); err != nil {
+		t.Fatal(err)
+	}
+	if fi, _ := os.Stat(c.StateDir); fi.Mode().Perm() != 0o755 {
+		t.Fatalf("dir mode %v", fi.Mode().Perm())
+	}
+	ents, _ := os.ReadDir(c.StateDir)
+	if len(ents) != 1 || ents[0].Name() != OwnerFile {
+		t.Fatalf("entries %v", ents)
 	}
 }

@@ -261,7 +261,12 @@ SETTINGS_READY = {
 
 def settings_need_passkey(params: dict, current: dict | None) -> bool:
     """True when the change loosens a security setting (D-028: L2 for every security-related setting, every
-    tightening L0): anything but automatic updates with the window the node reports now."""
+    tightening L0): anything but automatic updates with the window the node reports now.
+
+    Deliberately coarse, erring on the strict side: off -> notify and a fixed window -> "any" also ask for
+    the passkey although neither loosens (stricter than needed, never weaker). On the stable channel,
+    notify -> auto with the same window asks for none: automatic installs inside the window are the
+    security default, and the health-gated rollback makes them safe."""
     if params.get("policy") != "auto":
         return True
     return current is None or current.get("window") is None or params.get("window") != current.get("window")

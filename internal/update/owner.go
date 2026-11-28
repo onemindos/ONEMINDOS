@@ -102,12 +102,27 @@ func WriteOwner(c *Config, s OwnerSettings) error {
 	if err := os.MkdirAll(c.StateDir, 0o755); err != nil {
 		return err
 	}
+	// The directory may predate this file with a looser mode: only root writes here.
+	if err := os.Chmod(c.StateDir, 0o755); err != nil {
+		return err
+	}
 	body := fmt.Sprintf("# Owner update settings (REL-02). Written by the host service after the owner approved\n"+
 		"# os.update.settings; overrides policy and window of %s.\npolicy=%s\nwindow=%s\n", DefaultConfigPath, s.Policy, s.Window)
 	path := OwnerPath(c)
-	tmp := path + ".tmp"
-	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+	// CreateTemp opens a fresh random name with O_EXCL, so a planted file or symlink is never followed.
+	f, err := os.CreateTemp(c.StateDir, OwnerFile+".tmp-*")
 	if err != nil {
+		return err
+	}
+	tmp := f.Name()
+	ok := false
+	defer func() {
+		if !ok {
+			os.Remove(tmp)
+		}
+	}()
+	if err := f.Chmod(0o644); err != nil {
+		f.Close()
 		return err
 	}
 	if _, err := f.WriteString(body); err != nil {
@@ -124,6 +139,7 @@ func WriteOwner(c *Config, s OwnerSettings) error {
 	if err := os.Rename(tmp, path); err != nil {
 		return err
 	}
+	ok = true
 	d, err := os.Open(c.StateDir)
 	if err != nil {
 		return err
