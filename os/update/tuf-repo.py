@@ -11,7 +11,11 @@ Keys are ed25519, PEM (PKCS#8 private, SubjectPublicKeyInfo public). A key argum
 env:NAME (read from that environment variable, so CI secrets never touch the disk) or, for a ROOT key
 on a hardware token (a YubiKey, or SoftHSM in tests), hsm:<id>[?label=<token label>]: an ECDSA P-256
 key that never leaves the token, reached through the PKCS#11 module named by $PYKCS11LIB. The token's
-PIN is typed at a no-echo prompt (or $ONEMIND_TUF_PIN, tests only), never given as an argument.
+PIN is typed at a no-echo prompt (or $ONEMIND_TUF_PIN, SoftHSM rehearsals and tests only: refused with
+any other PKCS#11 module), never given as an argument.
+A YubiKey can be named by its serial, hsm:2?yubikey=<serial> (its PKCS#11 token label is
+"YubiKey PIV #<serial>"); a key whose PIN policy is "always" (CKA_ALWAYS_AUTHENTICATE, YubiKey slot
+9c) gets the PIN again for every signature, and a touch policy makes the device wait for a touch.
 
   keygen    --out-dir D [--roles root,targets,snapshot,timestamp] [--encrypt]
                                        new keys; never overwrites; --encrypt asks for a passphrase
@@ -20,6 +24,10 @@ PIN is typed at a no-echo prompt (or $ONEMIND_TUF_PIN, tests only), never given 
                                        --prev also checks that the previous root's keys signed it (a rotation)
   token-pub --key hsm:<id>[?label=L] --out FILE.pub
                                        export a token key's public part (the private key stays on the token)
+  token-keygen --key hsm:<id>?label=L [--pin-always]
+                                       make an ECDSA P-256 key ON a PKCS#11 token, never extractable
+                                       (SoftHSM rehearsals and generic tokens; a YubiKey uses ykman, which
+                                       also sets its PIN and touch policy: scripts/tuf-bootstrap-root.sh yubikey-key)
   init-root --root-key K [--root-key K2 ...] [--root-pub P ...] --threshold N
             --targets-pub P --snapshot-pub P --timestamp-pub P --out DIR [--expires-days 365]
             [--version 1]          offline only: writes DIR/<version>.root.json and DIR/root.json
@@ -102,6 +110,63 @@ HSM_PREFIX = "hsm:"
 PIN_ENV = "ONEMIND_TUF_PIN"                   # tests only; a real ceremony types the PIN at a no-echo prompt
 
 
+def _env_pin():
+    """$ONEMIND_TUF_PIN, but only for a SoftHSM token (rehearsals and tests). With any other PKCS#11 module
+    (a YubiKey's libykcs11, a real HSM) a PIN in the environment is refused: a real PIN is typed at a
+    no-echo prompt, never kept where every child process and a shell history can see it."""
+    pin = os.environ.get(PIN_ENV)
+    if not pin:
+        return None
+    if not os.path.basename(os.environ.get("PYKCS11LIB", "")).startswith("libsofthsm2"):
+        raise SystemExit(f"refusing: {PIN_ENV} is for SoftHSM rehearsals and tests only. A real token's PIN is typed "
+                         f"at the prompt: unset {PIN_ENV} and run again.")
+    return pin
+
+
+YUBIKEY_LABEL = "YubiKey PIV #{}"          # the token label Yubico's PKCS#11 module (ykcs11) gives each device
+
+
+def _hsm_ref(spec):
+    """(key id or None, token label or None) of hsm:<id>[?label=L | ?yubikey=<serial>]. The query is read
+    without fragment handling, so a label such as "YubiKey PIV #123" keeps its "#"."""
+    u = parse.urlparse(spec, allow_fragments=False)
+    q = dict(parse.parse_qsl(u.query, keep_blank_values=True))
+    label = q.get("label")
+    if q.get("yubikey"):
+        if label or not q["yubikey"].isdigit():
+            raise SystemExit(f"key {spec}: give either label=<token label> or yubikey=<serial digits>, not both")
+        label = YUBIKEY_LABEL.format(q["yubikey"])
+    try:
+        return (int(u.path) if u.path else None), label
+    except ValueError:
+        raise SystemExit(f"key {spec}: the key id after hsm: must be a number (YubiKey slot 9c is 2)")
+
+
+def _token_signer_class():
+    """securesystemslib's HSMSigner, plus a context login before each signature when the key asks for one
+    (CKA_ALWAYS_AUTHENTICATE: a YubiKey PIV key with PIN policy "always", which is slot 9c's default).
+    The plain HSMSigner does not do that login, so such a key would refuse every signature."""
+    import pkcs11, pkcs11.util.ec
+    from securesystemslib.signer import HSMSigner, Signature
+
+    class TokenSigner(HSMSigner):
+        def sign(self, payload):
+            hasher = hashlib.new(name=f"sha{self.public_key.scheme[-3:]}")
+            hasher.update(payload)
+            pin = self.pin_handler(self.SECRETS_HANDLER_MSG)
+            token = self._find_token(self.token_label)
+            with token.open(user_pin=pin) as session:
+                key = self._find_signing_key(session, self.hsm_keyid)
+                try:
+                    again = bool(key[pkcs11.Attribute.ALWAYS_AUTHENTICATE])
+                except Exception:                 # a module that does not know the attribute: no context login
+                    again = False
+                raw = key.sign(hasher.digest(), mechanism=pkcs11.Mechanism.ECDSA, pin=pin if again else None)
+            return Signature(self.public_key.keyid, pkcs11.util.ec.encode_ecdsa_signature(raw).hex())
+
+    return TokenSigner
+
+
 def _hsm(spec):
     """(signer, public key) of a token key: spec hsm:<id>[?label=<token label>] (securesystemslib's
     HSMSigner, python-pkcs11). The key is ECDSA P-256; the private part never leaves the token."""
@@ -110,22 +175,55 @@ def _hsm(spec):
                          f"(YubiKey: libykcs11.so; tests: libsofthsm2.so)")
     try:
         from securesystemslib.signer import HSMSigner
+        signer_class = _token_signer_class()
     except ImportError as e:                      # pragma: no cover
         raise SystemExit(f"key {spec}: PKCS#11 support is missing ({e}); install os/update/requirements-tuf.txt")
-    u = parse.urlparse(spec)
+    keyid, label = _hsm_ref(spec)
     pin = []
 
-    def pin_handler(_what):                       # asked once per key, however often it signs
+    def pin_handler(_what):                       # typed once per key, however often it signs
         if not pin:
-            pin.append(os.environ.get(PIN_ENV) or getpass.getpass(f"PIN for token key {spec}: "))
+            pin.append(_env_pin() or getpass.getpass(f"PIN for token key {spec}: "))
         return pin[0]
 
     try:
-        uri, pub = HSMSigner.import_(int(u.path) if u.path else None, dict(parse.parse_qsl(u.query)).get("label"),
-                                     pin_handler)
-        return HSMSigner.from_priv_key_uri(uri, pub, pin_handler), pub
+        uri, pub = HSMSigner.import_(keyid, label, pin_handler)
+        return signer_class.from_priv_key_uri(uri, pub, pin_handler), pub
     except Exception as e:                        # the token, the module or the key is not as named
         raise SystemExit(f"key {spec}: {e}")
+
+
+def token_keygen(spec, pin_always=False):
+    """Make an ECDSA P-256 key ON a PKCS#11 token: generated inside it, never extractable, sensitive. For
+    SoftHSM rehearsals and generic tokens. A YubiKey is refused here: ykman makes its key, because only
+    ykman sets the PIN and touch policy and gives the attestation (scripts/tuf-bootstrap-root.sh yubikey-key).
+    pin_always marks the key CKA_ALWAYS_AUTHENTICATE (the PIN for every signature), like YubiKey slot 9c."""
+    lib = os.environ.get("PYKCS11LIB", "")
+    if not lib:
+        raise SystemExit("set PYKCS11LIB to the token's PKCS#11 module")
+    if "ykcs11" in os.path.basename(lib):
+        raise SystemExit("a YubiKey's key is made with ykman (PIN and touch policy, attestation): "
+                         "scripts/tuf-bootstrap-root.sh yubikey-key")
+    keyid, label = _hsm_ref(spec)
+    if keyid is None or not label:
+        raise SystemExit(f"key {spec}: name the key id and the token, hsm:<id>?label=<token label>")
+    import pkcs11, pkcs11.util.ec
+    try:
+        token = pkcs11.lib(lib).get_token(token_label=label)
+    except Exception as e:
+        raise SystemExit(f"token {label!r}: {e}")
+    pin = _env_pin() or getpass.getpass(f"PIN for token {label}: ")
+    cid = pkcs11.util.biginteger(keyid)
+    with token.open(rw=True, user_pin=pin) as session:
+        if list(session.get_objects({pkcs11.Attribute.ID: cid})):
+            raise SystemExit(f"token {label!r} already holds a key with id {keyid}; refusing to replace a key")
+        params = session.create_domain_parameters(
+            pkcs11.KeyType.EC, {pkcs11.Attribute.EC_PARAMS: pkcs11.util.ec.encode_named_curve_parameters("secp256r1")},
+            local=True)
+        params.generate_keypair(store=True, id=cid, label="onemind-root", private_template={
+            pkcs11.Attribute.EXTRACTABLE: False, pkcs11.Attribute.SENSITIVE: True,
+            pkcs11.Attribute.ALWAYS_AUTHENTICATE: bool(pin_always)})
+    return _hsm(spec)[1]
 
 
 def sign_with(md, signer, label):
@@ -602,6 +700,8 @@ def main(argv=None):
     i.add_argument("--expect-threshold", type=int); i.add_argument("--expect-root-keys", type=int)
     i.add_argument("--prev", help="the previous root.json: check that its keys signed this root (a rotation)")
     t = sub.add_parser("token-pub"); t.add_argument("--key", required=True); t.add_argument("--out", required=True)
+    tk = sub.add_parser("token-keygen"); tk.add_argument("--key", required=True)
+    tk.add_argument("--pin-always", action="store_true", help="the PIN for every signature (like YubiKey slot 9c)")
     o = sub.add_parser("rotate-root"); o.add_argument("--root", required=True)
     o.add_argument("--old-key", action="append", required=True)
     o.add_argument("--new-key", action="append", default=[]); o.add_argument("--new-pub", action="append", default=[])
@@ -650,6 +750,9 @@ def main(argv=None):
                        a.out, a.expires_days, a.version)
         print(f"root v{md.signed.version}: {len(md.signed.roles['root'].keyids)} root key(s), threshold "
               f"{md.signed.roles['root'].threshold}, expires {md.signed.expires.isoformat()}", file=sys.stderr)
+    elif a.cmd == "token-keygen":
+        pub = token_keygen(a.key, a.pin_always)
+        print(f"made on the token: {pub.scheme} key, keyid {pub.keyid} (the private key cannot leave it)", file=sys.stderr)
     elif a.cmd == "token-pub":
         pub = token_pub(a.key, a.out)
         print(f"wrote {a.out}: {pub.scheme} public key, keyid {pub.keyid}", file=sys.stderr)

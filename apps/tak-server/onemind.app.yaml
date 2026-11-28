@@ -1,0 +1,96 @@
+# SPDX-License-Identifier: Apache-2.0
+# TAK Server: an optional Market app, never part of the base image (founder, 2026-11-26). It pairs with
+# OneMind's native CoT bridge (#1257; D-032 in PR #1260), tracks #1258, and
+# follows research W8-R8 (research-output/09-iot-mesh-offgrid-tak.md: TAK Server as a container on big
+# nodes, no GPL code in the Apache-2.0 core).
+# Primary sources, read 2026-11-26 at tag 5.7-RELEASE-14 (commit 5187abd46d827d37cfc5708805eced197a837e49):
+# - licence: LICENSE.md is the GNU GPL v3 text; GitHub reports NOASSERTION because of the file name; the
+#   licence matrix row "TAK Server" [C-LIC-046] records GPL-3.0. "only" or "or later" is UNVERIFIED (the
+#   repo has no SPDX header saying either), so the manifest carries the plain GPL-3.0 the matrix uses.
+# - release: gh api repos/TAK-Product-Center/Server/releases (5.7-RELEASE-14, 2026-04-03T08:42:40Z).
+# - sizing: src/docs/TAK_Server_Configuration_Guide.pdf §3.2 "4 processor cores, 8 GB RAM, 40 GB disk".
+# - image: no public image from TAK Product Center on GitHub packages; the guide (§6.2) says Docker
+#   releases come from tak.gov (account needed). The takserver image is a placeholder for OneMind's own
+#   build from source (build/, README "Image"); the gate fails it, so this app stays blocked.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: tak-server
+  name: "TAK Server"
+  version: "5.7-RELEASE-14"
+  description: "Team Awareness Kit server: shares map positions, chat, missions and files between ATAK, WinTAK and iTAK devices on your own network."
+  # Market category slug from docs/design/TAXONOMY.md §1 (Field & Robotics lists TAK); sub-tag: tak.
+  category: field
+  age_rating: 18   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Infrastructure server that tracks the live location of every connected person and holds the box's certificate authority."
+  icon: icon.svg
+  license: "GPL-3.0"
+  licenceClass: L2
+  source: https://github.com/TAK-Product-Center/Server
+  links:
+    docs: "https://github.com/TAK-Product-Center/Server/blob/main/src/docs/TAK_Server_Configuration_Guide.pdf"
+    github: "https://github.com/TAK-Product-Center/Server"
+    website: "https://tak.gov"
+    support: "https://github.com/TAK-Product-Center/Server/issues"
+  upstream: {release: "5.7-RELEASE-14", released_at: "2026-04-03T08:42:40Z", archived: false}
+  # The takserver image is a placeholder (manifests/deployment.yaml); nothing can install until a real,
+  # gated image is pinned.
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  # postgis/postgis publishes amd64 only, and so far OneMind has built TAK for amd64 only.
+  archs: [amd64]
+  # Guide §3.2 minimum for the whole server. Research W8-R8 puts TAK Server on 16 GB machines.
+  requires: {gpu: false, minMemoryMb: 8192}
+  recommends: {memoryMb: 16384}
+  manifests: manifests/
+  updates: {channel: stable, automerge: none}
+  # Phones and laptops on the LAN connect to these. The install sandbox still refuses hostPort, so today
+  # the declaration only reserves the ports and shows them to the owner (README "Not done"). 8443, TAK's
+  # client-certificate web and API port, is not declared: OneMind's gateway holds host port 8443
+  # (sdk/policy/host-ports.yaml), so it needs a different host port once LAN exposure exists.
+  hostPorts:
+    - {port: 8089, protocol: tcp, description: "TAK streaming over TLS for ATAK, WinTAK and iTAK (client certificate)"}
+    - {port: 8446, protocol: tcp, description: "TAK certificate enrolment and user-password sign-in over HTTPS"}
+  # Subject fields for the certificate authority the first start creates (cert-metadata.sh needs STATE,
+  # CITY and ORGANIZATIONAL_UNIT). Not secret. Changing them later does not re-issue certificates.
+  settings:
+    - name: cert_state
+      env: STATE
+      type: string
+      title: Certificate state or region
+      description: "State or region written into the certificates TAK Server makes on its first start."
+      default: "NA"
+      minLength: 2
+      maxLength: 64
+      pattern: "^[A-Za-z0-9 .-]+$"
+    - name: cert_city
+      env: CITY
+      type: string
+      title: Certificate city
+      description: "City written into the certificates TAK Server makes on its first start."
+      default: "NA"
+      minLength: 2
+      maxLength: 64
+      pattern: "^[A-Za-z0-9 .-]+$"
+    - name: cert_org_unit
+      env: ORGANIZATIONAL_UNIT
+      type: string
+      title: Certificate team name
+      description: "Organisational unit written into the certificates, for example your team's name."
+      default: "OneMind"
+      minLength: 2
+      maxLength: 64
+      pattern: "^[A-Za-z0-9 .-]+$"
+  # Both generated on the box at install and kept sealed by the gateway; never typed, never committed.
+  secrets:
+    - name: tak-server-secrets
+      description: "Database password and the password of TAK Server's keystores and certificate files."
+      keys:
+        - {key: DB_PASSWORD, kind: password, generate: true, description: "PostgreSQL password for TAK Server's martiuser"}
+        - {key: CERT_PASSWORD, kind: password, generate: true, description: "Replaces upstream's default keystore password"}
+  # Cold: TAK Server and its database stop while both volumes are copied, so the PostgreSQL files and the
+  # certificate authority are consistent. The CA private key is in the backup, like every other secret
+  # file on the box; backups are encrypted (restic). Logs are left out.
+  backup:
+    mode: cold
+    exclude: ["logs/"]

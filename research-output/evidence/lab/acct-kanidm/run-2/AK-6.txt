@@ -1,0 +1,26 @@
+# 2026-11-25T11:53:30Z AK-6: account expiry
++ admin_relogin
+idm_admin login ok
+  (exit 0)
++ k person validity expire-at guest1 2026-11-25T11:56:30Z
+Success
+  (exit 0)
++ k person validity show guest1
+user: guest1
+valid after: any time
+expire: 2026-11-25T11:56:30Z
+  (exit 0)
++ $PY signin guest1 passkey
+{"detail": "success (mech passkey)", "mech": "passkey", "ok": true, "step": "signin", "user": "guest1", "whoami": "guest1@idm.onemind.test"}
+  (exit 0)
++ $PY session-check guest1
+{"auth_valid_http": 200, "self_http": 200, "step": "session_check", "user": "guest1"}
+  (exit 0)
+# waiting until 30 s after the expiry (2026-11-25T11:56:30Z)
+# 2026-11-25T11:57:02Z after expiry
++ $PY signin guest1 passkey refused
+{"detail": "init state {\"denied\": \"account expired\"}", "mech": "passkey", "ok": false, "step": "signin", "user": "guest1", "whoami": null}
+  (exit 0)
++ $PY session-check guest1
+{"auth_valid_http": 401, "self_http": 401, "step": "session_check", "user": "guest1"}
+  (exit 0)
