@@ -269,6 +269,115 @@
         "title": "AboutNode",
         "type": "object"
       },
+      "AcceptBody": {
+        "additionalProperties": false,
+        "properties": {
+          "device_label": {
+            "default": "",
+            "maxLength": 100,
+            "title": "Device Label",
+            "type": "string"
+          },
+          "invite": {
+            "description": "the invite text from the link or QR code",
+            "maxLength": 2000,
+            "title": "Invite",
+            "type": "string"
+          },
+          "key_kind": {
+            "enum": [
+              "hardware-reported",
+              "software"
+            ],
+            "title": "Key Kind",
+            "type": "string"
+          },
+          "proof": {
+            "description": "ECDSA P-256 SHA-256 signature by the new key over the accept payload (onemind-recovery-accept-v1, invite id, sha256 of the nonce, key fingerprint)",
+            "maxLength": 200,
+            "title": "Proof",
+            "type": "string"
+          },
+          "public_key": {
+            "description": "the contact key: P-256 SubjectPublicKeyInfo, DER, base64url",
+            "maxLength": 400,
+            "title": "Public Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "invite",
+          "public_key",
+          "key_kind",
+          "proof"
+        ],
+        "title": "AcceptBody",
+        "type": "object"
+      },
+      "AcceptOneTime": {
+        "properties": {
+          "contact_secret": {
+            "description": "32 bytes, base64url, shown once: keep it in the phone's secure hardware",
+            "title": "Contact Secret",
+            "type": "string"
+          },
+          "contact_token": {
+            "description": "the contact's bearer token (omc_...), shown once; reaches only the contact routes",
+            "title": "Contact Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contact_token",
+          "contact_secret"
+        ],
+        "title": "AcceptOneTime",
+        "type": "object"
+      },
+      "Accepted": {
+        "properties": {
+          "box_key_fingerprint": {
+            "title": "Box Key Fingerprint",
+            "type": "string"
+          },
+          "contact_id": {
+            "title": "Contact Id",
+            "type": "string"
+          },
+          "one_time": {
+            "$ref": "#/components/schemas/AcceptOneTime"
+          },
+          "owner_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Display Name"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "usable_at": {
+            "title": "Usable At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contact_id",
+          "role",
+          "owner_display_name",
+          "usable_at",
+          "box_key_fingerprint",
+          "one_time"
+        ],
+        "title": "Accepted",
+        "type": "object"
+      },
       "AccessBody": {
         "properties": {
           "auth": {
@@ -3471,6 +3580,429 @@
         "title": "ConfigurePlanRequest",
         "type": "object"
       },
+      "ContactAddBody": {
+        "additionalProperties": false,
+        "properties": {
+          "cooling_off_days": {
+            "anyOf": [
+              {
+                "enum": [
+                  3,
+                  7,
+                  14
+                ],
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "days before the contact counts; default from settings (7)",
+            "title": "Cooling Off Days"
+          },
+          "display_name": {
+            "default": "",
+            "description": "the contact's name (outside contacts)",
+            "maxLength": 200,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "household_user_id": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Household User Id"
+          },
+          "kind": {
+            "enum": [
+              "household",
+              "outside"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "ContactAddBody",
+        "type": "object"
+      },
+      "ContactAdded": {
+        "properties": {
+          "accepted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted At"
+          },
+          "box_key_fingerprint": {
+            "title": "Box Key Fingerprint",
+            "type": "string"
+          },
+          "cooling_off_days": {
+            "title": "Cooling Off Days",
+            "type": "integer"
+          },
+          "device_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Label"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "household_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Household User Id"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "invite": {
+            "description": "the box-signed invite (single use, 7 days); show it as a link or QR code once",
+            "title": "Invite",
+            "type": "string"
+          },
+          "invite_expires_at": {
+            "title": "Invite Expires At",
+            "type": "string"
+          },
+          "invited_at": {
+            "title": "Invited At",
+            "type": "string"
+          },
+          "key_fingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Fingerprint"
+          },
+          "key_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Kind"
+          },
+          "kind": {
+            "description": "household (an adult with an account here) or outside (through the OneMind phone app)",
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "state": {
+            "description": "invited, expired, cooling_off (accepted, not usable yet), active, removed or resigned",
+            "title": "State",
+            "type": "string"
+          },
+          "usable_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "when this contact can first confirm a recovery",
+            "title": "Usable At"
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "kind",
+          "display_name",
+          "household_user_id",
+          "state",
+          "invited_at",
+          "invite_expires_at",
+          "cooling_off_days",
+          "accepted_at",
+          "usable_at",
+          "ended_at",
+          "device_label",
+          "key_kind",
+          "key_fingerprint",
+          "last_seen_at",
+          "invite",
+          "box_key_fingerprint"
+        ],
+        "title": "ContactAdded",
+        "type": "object"
+      },
+      "ContactSelf": {
+        "properties": {
+          "accepted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted At"
+          },
+          "box_key_fingerprint": {
+            "title": "Box Key Fingerprint",
+            "type": "string"
+          },
+          "contact_id": {
+            "title": "Contact Id",
+            "type": "string"
+          },
+          "owner_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Display Name"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "usable_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usable At"
+          }
+        },
+        "required": [
+          "contact_id",
+          "role",
+          "state",
+          "owner_display_name",
+          "accepted_at",
+          "usable_at",
+          "box_key_fingerprint"
+        ],
+        "title": "ContactSelf",
+        "type": "object"
+      },
+      "ContactView": {
+        "properties": {
+          "accepted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted At"
+          },
+          "cooling_off_days": {
+            "title": "Cooling Off Days",
+            "type": "integer"
+          },
+          "device_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Label"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "household_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Household User Id"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "invite_expires_at": {
+            "title": "Invite Expires At",
+            "type": "string"
+          },
+          "invited_at": {
+            "title": "Invited At",
+            "type": "string"
+          },
+          "key_fingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Fingerprint"
+          },
+          "key_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Kind"
+          },
+          "kind": {
+            "description": "household (an adult with an account here) or outside (through the OneMind phone app)",
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "state": {
+            "description": "invited, expired, cooling_off (accepted, not usable yet), active, removed or resigned",
+            "title": "State",
+            "type": "string"
+          },
+          "usable_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "when this contact can first confirm a recovery",
+            "title": "Usable At"
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "kind",
+          "display_name",
+          "household_user_id",
+          "state",
+          "invited_at",
+          "invite_expires_at",
+          "cooling_off_days",
+          "accepted_at",
+          "usable_at",
+          "ended_at",
+          "device_label",
+          "key_kind",
+          "key_fingerprint",
+          "last_seen_at"
+        ],
+        "title": "ContactView",
+        "type": "object"
+      },
       "ContentBody": {
         "additionalProperties": false,
         "description": "Switch an app's content tier (BAK-03). Switching it on needs the size the owner was shown.",
@@ -6478,6 +7010,46 @@
         "title": "IntakeResult",
         "type": "object"
       },
+      "Invitation": {
+        "properties": {
+          "cooling_off_days": {
+            "title": "Cooling Off Days",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "invite_expires_at": {
+            "title": "Invite Expires At",
+            "type": "string"
+          },
+          "owner_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Display Name"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "owner_display_name",
+          "invite_expires_at",
+          "cooling_off_days"
+        ],
+        "title": "Invitation",
+        "type": "object"
+      },
       "JoinNode": {
         "properties": {
           "arch": {
@@ -9053,6 +9625,35 @@
         "title": "NodeUSBDevice",
         "type": "object"
       },
+      "Notice": {
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "event": {
+            "title": "Event",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "at",
+          "event",
+          "data"
+        ],
+        "title": "Notice",
+        "type": "object"
+      },
       "NotificationActionIn": {
         "additionalProperties": false,
         "description": "A button on the notification (notify/topics.py check_actions): open an in-app link, or let the\nperson who taps it file a normal request that still needs an approval. There is no approve kind.",
@@ -10928,6 +11529,76 @@
           "created_at"
         ],
         "title": "RecordOut",
+        "type": "object"
+      },
+      "RecoverySettings": {
+        "properties": {
+          "defaults": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Defaults",
+            "type": "object"
+          },
+          "options": {
+            "additionalProperties": {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            "title": "Options",
+            "type": "object"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "values",
+          "defaults",
+          "options",
+          "updated_at"
+        ],
+        "title": "RecoverySettings",
+        "type": "object"
+      },
+      "RecoverySettingsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "cooling_off_days": {
+            "anyOf": [
+              {
+                "enum": [
+                  3,
+                  7,
+                  14
+                ],
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cooling Off Days"
+          }
+        },
+        "title": "RecoverySettingsBody",
         "type": "object"
       },
       "Redaction": {
@@ -21718,6 +22389,404 @@
         "summary": "Password",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/v1/auth/recovery/contacts": {
+      "get": {
+        "description": "Your recovery contacts and their state (owner, signed-in session).",
+        "operationId": "recovery.contacts.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ContactView"
+                  },
+                  "title": "Response Recovery.Contacts.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "List Contacts",
+        "tags": [
+          "recovery"
+        ]
+      },
+      "post": {
+        "description": "Invite a recovery contact (up to 5). A security setting: owner session plus the passkey step-up.",
+        "operationId": "recovery.contacts.add",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContactAddBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactAdded"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Add Contact",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/auth/recovery/contacts/{contact_id}": {
+      "delete": {
+        "description": "Remove a contact or withdraw an invite. Takes power away, so no step-up (L0).",
+        "operationId": "recovery.contacts.remove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contact_id",
+            "required": true,
+            "schema": {
+              "title": "Contact Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Remove Contact",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/auth/recovery/invitations": {
+      "get": {
+        "description": "Invites addressed to you as a household adult; accept one from your phone app.",
+        "operationId": "recovery.invitations.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Invitation"
+                  },
+                  "title": "Response Recovery.Invitations.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "instance:read"
+            ]
+          }
+        ],
+        "summary": "Invitations",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/auth/recovery/settings": {
+      "get": {
+        "operationId": "recovery.settings.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoverySettings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Get Settings",
+        "tags": [
+          "recovery"
+        ]
+      },
+      "put": {
+        "description": "Each wait from its set options (D-028). A shorter wait needs the passkey step-up.",
+        "operationId": "recovery.settings.set",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecoverySettingsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoverySettings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Put Settings",
+        "tags": [
+          "recovery"
         ]
       }
     },
@@ -37644,6 +38713,261 @@
         "summary": "Confirm Radio",
         "tags": [
           "nodes"
+        ]
+      }
+    },
+    "/v1/recovery/contact": {
+      "get": {
+        "description": "Who you are a contact for, and from when you count (contact principal only).",
+        "operationId": "recovery.contact.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactSelf"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "recovery:contact"
+            ]
+          }
+        ],
+        "summary": "Contact Self",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/recovery/contact/notices": {
+      "get": {
+        "description": "What you are told about the owner's recovery setup: contacts added or removed, recoveries.",
+        "operationId": "recovery.contact.notices",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Notice"
+                  },
+                  "title": "Response Recovery.Contact.Notices",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "recovery:contact"
+            ]
+          }
+        ],
+        "summary": "Contact Notices",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/recovery/contact/resign": {
+      "post": {
+        "description": "Stop being a contact. The owner is told; the token and secret stop working at once.",
+        "operationId": "recovery.contact.resign",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactSelf"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "recovery:contact"
+            ]
+          }
+        ],
+        "summary": "Contact Resign",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/recovery/invites/{invite_id}/accept": {
+      "post": {
+        "description": "Accept a box-signed invite with the phone's new contact key. The answer holds the contact\ntoken and contact secret once; the contact counts only after the owner's cooling-off.",
+        "operationId": "recovery.invites.accept",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "invite_id",
+            "required": true,
+            "schema": {
+              "title": "Invite Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [],
+        "summary": "Accept",
+        "tags": [
+          "recovery"
         ]
       }
     },

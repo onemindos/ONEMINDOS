@@ -39,3 +39,5 @@ aa2c44166979a708f9f96ee0dcb9ba29a5fce7dc:internal/leaf/testdata/hub-accounts-jet
 # UMB-ACCT-1 lab log (#403): "credential_fp" is a 16-hex public fingerprint of a lab passkey credential id (sha256 prefix), not a secret.
 research-output/evidence/lab/acct-kanidm/run-1/AK-3.txt:generic-api-key:68
 dd47c170b08577f4b352d8a3c1f4792cba9326f4:research-output/evidence/lab/acct-kanidm/run-1/AK-3.txt:generic-api-key:68
+# 25d recovery contacts: a Python type annotation of the box's invite-key attribute (the class name only), not a secret; renamed in the next commit.
+848cc0656b41e739055ef2b35e6d3ddf02445a0e:core/onemind_core/recovery/crypto.py:generic-api-key:70

@@ -220,6 +220,16 @@ _SPECS = [
          resolves=("download:{download_id}",)),
     Spec("files.download.discarded", "resolve", "security", resolves=("download:{download_id}",)),
     # ---- the notifier itself -------------------------------------------------------------
+    # ---- recovery contacts (gateway permissions design 25d, D-028): ids only in the event --------------
+    Spec("recovery.contact.invited", "notify", "security", "info", "A recovery contact was invited",
+         "Someone was invited to help you get back into your account. If this was not you, remove the invite "
+         "in Settings, Account and change your password."),
+    Spec("recovery.contact.accepted", "notify", "security", "info", "A recovery contact accepted",
+         "They can help you get back in from {usable_at}. If you do not know about this, remove them in "
+         "Settings, Account."),
+    Spec("recovery.contact.removed", "notify", "security", "info", "A recovery contact was removed", ""),
+    Spec("recovery.contact.resigned", "notify", "security", "info", "A recovery contact stepped down",
+         "Add another one in Settings, Account so you still have a way back in."),
     Spec("notify.channel_failing", "open", "security", "warning", "Notification channel {label} is failing",
          "{reason}", dedupe="channel:{channel_id}", link="/settings/notifications", learn_more=f"{_DOCS}/leap/core/NOTIFICATIONS.md"),
     Spec("notify.channel_ok", "resolve", "security", resolves=("channel:{channel_id}",)),

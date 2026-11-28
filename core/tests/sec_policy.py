@@ -179,6 +179,29 @@ POLICY |= {
     ("POST", "/v1/auth/rescue/verify"): Row({**OWNER_ONLY, "owner": 401}, w.p_rescue_verify,
                                              "D-014 owner; the probe's assertion does not verify", ID),
     ("GET", "/signin"): Row(OPEN, w.p_static("/signin"), "the sign-in page is public", ID),
+    # 25d recovery contacts (D-028): an owner's signed-in session only (a static token holds no session), the
+    # invitee's own list, the box-signed invite as the only credential to accept, and the contact principal alone
+    # on its own routes (the matrix has no contact column: every kind here is refused).
+    ("GET", "/v1/auth/recovery/contacts"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static("/v1/auth/recovery/contacts"),
+                                               "25d an owner session", ID),
+    ("POST", "/v1/auth/recovery/contacts"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing(
+        "/v1/auth/recovery/contacts", json={"kind": "outside", "display_name": "Probe"}), "25d an owner session plus the step-up", ID),
+    ("DELETE", "/v1/auth/recovery/contacts/{contact_id}"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static(
+        "/v1/auth/recovery/contacts/rc_none"), "25d an owner session (L0)", ID),
+    ("GET", "/v1/auth/recovery/settings"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static("/v1/auth/recovery/settings"),
+                                               "25d an owner session", ID),
+    ("PUT", "/v1/auth/recovery/settings"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing(
+        "/v1/auth/recovery/settings", json={"cooling_off_days": 14}), "25d an owner session", ID),
+    ("GET", "/v1/auth/recovery/invitations"): Row(own_credentials(200), w.p_static("/v1/auth/recovery/invitations"),
+                                                  "25d a household person's own invitations", ID),
+    ("POST", "/v1/recovery/invites/{invite_id}/accept"): Row(cells(422), w.p_missing(
+        "/v1/recovery/invites/rc_none/accept", json={}), "25d no principal: the signed invite is the credential", ID),
+    ("GET", "/v1/recovery/contact"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static("/v1/recovery/contact"),
+                                         "25d the contact principal only", ID),
+    ("GET", "/v1/recovery/contact/notices"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static("/v1/recovery/contact/notices"),
+                                                 "25d the contact principal only", ID),
+    ("POST", "/v1/recovery/contact/resign"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing("/v1/recovery/contact/resign"),
+                                                 "25d the contact principal only", ID),
 }
 
 # ---- notifications, alerts and push: feat/notify-monitor (contract §12.14) ----------------------------

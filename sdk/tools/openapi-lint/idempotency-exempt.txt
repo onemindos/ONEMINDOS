@@ -54,3 +54,8 @@ DELETE /v1/work/projects/{project_id}/members/{person_id}  # removing a member t
 DELETE /v1/work/projects/{project_id}/tasks/{task_id}/comments/{comment_id}  # the second removal sees no comment
 PATCH /v1/work/projects/{project_id}/sections/{section_id}  # sets the name to the stated value, so a repeat changes nothing more
 DELETE /v1/work/projects/{project_id}/sections/{section_id}  # the second removal sees no section
+POST /v1/auth/recovery/contacts  # answers with a fresh signed invite whose nonce a replay store must not keep; a retry makes a second invite the owner can withdraw (the 5-contact limit still holds)
+DELETE /v1/auth/recovery/contacts/{contact_id}  # removing twice is the same as once: the repeat answers the removed contact and changes nothing
+PUT /v1/auth/recovery/settings  # sets each named wait to the given option: the same body twice leaves the same state
+POST /v1/recovery/invites/{invite_id}/accept  # answers with the contact token and secret once, which a replay store must not keep; the single-use invite refuses a retry (409 invite_used)
+POST /v1/recovery/contact/resign  # resigning twice is the same as once: the token stops at the first, so a repeat is refused before it changes anything
