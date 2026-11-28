@@ -44,6 +44,7 @@ FIRMWARE   ?= yes
 EPOCH      ?= $(shell git log -1 --format=%ct 2>/dev/null || echo 0)
 LEG_ARGS    = $(shell sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/$(LEG).args)
 TOOLS      ?= onemind-tools:$(ARCH_OF)
+KEYRING_MOUNT = $(if $(KEYRING),-v "$(abspath $(KEYRING))":/keyring.pem:ro -e KEYRING=/keyring.pem)
 ROOTFS      = $(OUT)/rootfs-$(LEG)-$(BOARD).tar
 # Reproducible build: the epoch is the pinned snapshot's own timestamp (os/rootfs/source-date-epoch.py), empty on a
 # leg without a snapshot. Build args, tar timestamps and the assembler's mke2fs all take it.
@@ -79,7 +80,7 @@ repro-check: tools
 # A development image, signed with a throwaway CA made here and deleted after use (SB-10).
 image: tools
 	@test -f $(ROOTFS) || $(MAKE) rootfs BOARD=$(BOARD) LEG=$(LEG)
-	$(DOCKER_RUN) -e VERSION=$(VERSION) -e BOARD=$(BOARD) -e SECUREBOOT=$(SECUREBOOT) -e ROOTFS=/out/$(notdir $(ROOTFS)) -e SOURCE_DATE_EPOCH=$(SOURCE_DATE_EPOCH)$(if $(KEYRING), -v "$(abspath $(KEYRING))":/keyring.pem:ro -e KEYRING=/keyring.pem) $(TOOLS) \
+	$(DOCKER_RUN) -e VERSION=$(VERSION) -e BOARD=$(BOARD) -e SECUREBOOT=$(SECUREBOOT) -e ROOTFS=/out/$(notdir $(ROOTFS)) -e SOURCE_DATE_EPOCH=$(SOURCE_DATE_EPOCH) $(if $(KEYRING),$(KEYRING_MOUNT) )$(TOOLS) \
 	  /src/os/assemble/dev-image.sh /out/image-$(BOARD)
 
 # The installer stick's release payload (os/boards/installer-x86_64/UPDATES.md, #234): BOARD's disk image with the
