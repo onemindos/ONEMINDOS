@@ -1,0 +1,293 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}</style>
+<title>OneMind Internal Apps</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column; a status strip up top, then four sections a founder scans in order:
+   what exists, how the three kinds differ, how AI reaches them, what to build next. Atlas tokens from the repo's DESIGN.md. */
+:root {
+  --bg: #fafaf9;          /* stone desktop */
+  --surface: #ffffff;     /* stone window */
+  --sunken: #f1efed;
+  --line: #e3e0dc;
+  --fg: #1c1a18;
+  --muted: #5f5a54;
+  --teal: #1f6a66;        /* highlight: selection, links, focus */
+  --teal-soft: #e3efed;
+  --red: #d11826;         /* action / needs you */
+  --red-soft: #fbe6e7;
+  --ok: #1a6e3e; --ok-soft: #e2f1e7;
+  --warn: #8a5100; --warn-soft: #f8ecd9;
+  --off: #6b6660; --off-soft: #eeebe8;
+  --display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #151311; --surface: #191715; --sunken: #201d1a; --line: #34302c;
+    --fg: #f2efeb; --muted: #aaa39b;
+    --teal: #6db8b0; --teal-soft: #1d2f2d;
+    --red: #fb605a; --red-soft: #3a1c1b;
+    --ok: #6fcf97; --ok-soft: #17291f; --warn: #f0b25a; --warn-soft: #33261a; --off: #a39d96; --off-soft: #26231f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #151311; --surface: #191715; --sunken: #201d1a; --line: #34302c;
+  --fg: #f2efeb; --muted: #aaa39b;
+  --teal: #6db8b0; --teal-soft: #1d2f2d;
+  --red: #fb605a; --red-soft: #3a1c1b;
+  --ok: #6fcf97; --ok-soft: #17291f; --warn: #f0b25a; --warn-soft: #33261a; --off: #a39d96; --off-soft: #26231f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 28px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 48px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(30px, 5vw, 42px); line-height: 1.08; }
+h2 { font-size: 24px; }
+h3 { font-size: 16px; }
+p { margin: 0; max-width: 68ch; }
+a { color: var(--teal); }
+code, .mono { font-family: var(--mono); font-size: 0.86em; }
+.eyebrow { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.muted { color: var(--muted); }
+section { display: flex; flex-direction: column; gap: 16px; }
+header.top { display: flex; flex-direction: column; gap: 14px; }
+.lede { font-size: 17px; color: var(--muted); }
+
+/* status strip */
+.strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 4px; }
+.stat b { font-family: var(--display); font-size: 34px; line-height: 1; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 13px; color: var(--muted); }
+.shape { display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: 0; }
+.s-reg { background: var(--ok); border-radius: 50%; }
+.s-built { border: 2px solid var(--warn); border-radius: 50%; background: linear-gradient(90deg, var(--warn) 50%, transparent 50%); }
+.s-plan { border: 2px solid var(--off); border-radius: 50%; }
+
+/* comparison */
+.tablebox { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+th { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); background: var(--sunken); font-weight: 600; }
+tr:last-child td { border-bottom: 0; }
+td:first-child { font-weight: 600; white-space: nowrap; }
+
+/* flow */
+.flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; align-items: stretch; }
+.node { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0; position: relative; }
+.node h3 { font-size: 14px; }
+.node p { font-size: 13px; color: var(--muted); }
+.node.person { border-color: var(--red); }
+.node.person h3 { color: var(--red); }
+.node.gate { border-color: var(--teal); }
+.node:not(:last-child)::after { content: "→"; position: absolute; right: -10px; top: 14px; color: var(--muted); font-size: 14px; background: var(--bg); line-height: 1; }
+.rules { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.rule { border-left: 3px solid var(--teal); padding: 2px 0 2px 12px; font-size: 14px; }
+.rule b { display: block; }
+
+/* inventory */
+.filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.filters button { font: inherit; font-size: 13px; font-weight: 600; padding: 8px 14px; min-height: 40px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; }
+.filters button[aria-pressed="true"] { background: var(--teal-soft); border-color: var(--teal); color: var(--teal); }
+.filters button:focus-visible, .copy:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.groups { display: flex; flex-direction: column; gap: 22px; }
+.group h3 { margin-bottom: 8px; }
+.apps { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.app { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.app-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.app-head h4 { margin: 0; font-size: 15px; font-family: var(--display); }
+.app p { font-size: 13px; color: var(--muted); }
+.pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.p-reg { background: var(--ok-soft); color: var(--ok); }
+.p-built { background: var(--warn-soft); color: var(--warn); }
+.p-plan { background: var(--off-soft); color: var(--off); }
+.ref { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+
+/* next */
+.next { display: flex; flex-direction: column; gap: 10px; counter-reset: n; }
+.step { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+.step::before { counter-increment: n; content: counter(n); font-family: var(--display); font-weight: 700; font-size: 18px; width: 34px; height: 34px; border-radius: 10px; background: var(--teal-soft); color: var(--teal); display: grid; place-items: center; }
+.step h3 { font-size: 15px; }
+.step p { font-size: 14px; color: var(--muted); }
+.decide { background: var(--red-soft); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.decide h2 { color: var(--red); font-size: 20px; }
+.decide ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+
+@media (max-width: 760px) {
+  .flow { grid-template-columns: 1fr; }
+  .node:not(:last-child)::after { content: "↓"; right: auto; left: 16px; top: auto; bottom: -13px; }
+  .rules { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+  .strip { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">OneMind OS · founder brief · checked against release/next on 26 Nov 2026</div>
+    <h1>OneMind's own apps</h1>
+    <p class="lede">What OneMind ships itself, how its own apps differ from Market apps and custom apps, how an AI agent reaches any of them, and what to build next.</p>
+    <div class="strip" role="list">
+      <div class="stat" role="listitem"><b>9</b><span><i class="shape s-reg" aria-hidden="true"></i>Registered built-ins: signed list, switch off, never removed (Messages has its descriptor and joins the list with #856)</span></div>
+      <div class="stat" role="listitem"><b>16</b><span><i class="shape s-built" aria-hidden="true"></i>Built and working, not yet registered as built-ins</span></div>
+      <div class="stat" role="listitem"><b>17</b><span><i class="shape s-plan" aria-hidden="true"></i>Planned, each with an open issue</span></div>
+    </div>
+  </header>
+
+  <section aria-labelledby="kinds">
+    <div class="eyebrow">How they differ</div>
+    <h2 id="kinds">Three kinds of app run on a box</h2>
+    <p>Every app, whoever made it, goes through the same gateway: the same sign-in, the same approvals, the same audit log. What changes is who vouches for it and whether it can leave.</p>
+    <div class="tablebox">
+      <table>
+        <thead><tr><th></th><th>Built-in</th><th>Market app</th><th>Custom app (D-026)</th></tr></thead>
+        <tbody>
+          <tr><td>Who makes it</td><td>OneMind</td><td>An open-source project, packaged by OneMind</td><td>You, or anyone you trust</td></tr>
+          <tr><td>Where it comes from</td><td>Inside the read-only OS image, named on a signed system list (<code>systemlist.py</code>)</td><td>The signed Market catalogue</td><td>Sideloaded or deployed from a Git repo (#643, #252)</td></tr>
+          <tr><td>Where it runs</td><td>Inside the gateway (Python), or as a first-party container</td><td>Its own sandboxed container on k3s</td><td>Its own sandboxed container on k3s</td></tr>
+          <tr><td>Can it be removed?</td><td><b>No.</b> It can be switched off: hidden everywhere, files and settings kept</td><td>Yes: install and uninstall need the owner's approval</td><td>Yes, the same as a Market app</td></tr>
+          <tr><td>Describes itself with</td><td><code>onemind.app.yaml</code> built-in descriptor (#603)</td><td><code>onemind.app.yaml</code> app manifest</td><td>The same app manifest</td></tr>
+          <tr><td>Updates</td><td>With the OS, A/B with rollback</td><td>Its own channel, owner approves</td><td>Your own versions, owner approves</td></tr>
+          <tr><td>Checks before it runs</td><td>Built and reviewed with the OS</td><td>Licence gate, malware and CVE scan, smoke test</td><td>Same scan and sandbox; <b>signing policy not decided</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="ai">
+    <div class="eyebrow">How AI reaches them</div>
+    <h2 id="ai">An agent can read and ask; only a person can say yes</h2>
+    <p>Agents such as Hermes connect to one door, the gateway's MCP endpoint at <code>/mcp</code>. They never get an app's own login and never talk to NATS directly.</p>
+    <div class="flow">
+      <div class="node"><h3>Agent</h3><p>Hermes, Claude, any MCP client, with its own scoped token</p></div>
+      <div class="node gate"><h3>Gateway <span class="mono">/mcp</span></h3><p>The only place permissions are checked</p></div>
+      <div class="node"><h3>Tools</h3><p>Read tools answer now. <code>request_…</code> tools only file a request</p></div>
+      <div class="node"><h3>Approvals</h3><p>The request waits with its exact plan and an expiry</p></div>
+      <div class="node person"><h3>A person</h3><p>Approves with a passkey; holds 2 s for anything physical</p></div>
+    </div>
+    <div class="rules">
+      <div class="rule"><b>Built-ins</b>Each descriptor lists its actions; those marked <code>mcp: true</code> become <code>request_&lt;action&gt;</code> tools. A switched-off built-in disappears from the tool list and its routes answer 409.</div>
+      <div class="rule"><b>Market and custom apps</b>An app declares tools in <code>spec.extensions.tools</code> as read, write or actuate. The gateway calls the app with a short-lived signed credential (E6). <code>actuate</code> is refused today.</div>
+      <div class="rule"><b>Built-ins speak too</b>Each built-in has an app identity (<code>app:&lt;id&gt;</code>) so it can post to the one inbox. It can never request or approve anything.</div>
+      <div class="rule"><b>No path to "approve"</b>A static test proves nothing reachable from <code>/mcp</code> can call approve or deny.</div>
+    </div>
+  </section>
+
+  <section aria-labelledby="inv">
+    <div class="eyebrow">Inventory</div>
+    <h2 id="inv">Every OneMind app, by state</h2>
+    <div class="filters" role="group" aria-label="Filter apps">
+      <button type="button" id="f-all" data-f="all" aria-pressed="true">All 42</button>
+      <button type="button" id="f-reg" data-f="reg" aria-pressed="false">Registered 9</button>
+      <button type="button" id="f-built" data-f="built" aria-pressed="false">Built, not registered 16</button>
+      <button type="button" id="f-plan" data-f="plan" aria-pressed="false">Planned 17</button>
+    </div>
+    <div class="groups" id="groups"></div>
+  </section>
+
+  <section aria-labelledby="next">
+    <div class="eyebrow">Recommendation (opinion, not a decision)</div>
+    <h2 id="next">What to build next</h2>
+    <div class="next">
+      <div class="step"><div><h3>Register what already works as built-ins</h3><p>Work, Automation, Machines and Agents run today but sit outside the signed list, so they cannot be switched off, are missing from Market's Built in area and give agents no standard request tools. Small, mechanical, high value.</p></div></div>
+      <div class="step"><div><h3>The Map screen (#653)</h3><p>The centre of the Atlas design. The live asset stream it needs (#606) and offline map packs (#652) are already merged; nobody has started the screen. The phone Map tab (#656) follows it.</p></div></div>
+      <div class="step"><div><h3>Notes, then Documents (#650)</h3><p>Daily-use apps that keep their only copy in Files, which already exists. They make the box a place people return to every day.</p></div></div>
+      <div class="step"><div><h3>Video and cameras (#662, #663)</h3><p>Cameras feed the Map, security and the greenhouse and site-operations paths.</p></div></div>
+      <div class="step"><div><h3>Small everyday apps (#885 to #890)</h3><p>Scanner, Recorder, Weather, Find My Devices, Habits, Translate. Well scoped for Codex once the app SDK templates land.</p></div></div>
+    </div>
+  </section>
+
+  <section class="decide" aria-labelledby="dec">
+    <h2 id="dec">Waiting on you</h2>
+    <ul>
+      <li><b>Which built-ins are always on.</b> The design proposes Files, Approvals, Settings and Market can never be switched off. Confirm or change the list.</li>
+      <li><b>Signing for custom apps.</b> Does an app you build yourself need a signature, or is your owner approval enough?</li>
+      <li><b>Which builder takes the Map screen (#653).</b> Codex after the phone work, or the Claude builder now.</li>
+    </ul>
+  </section>
+
+  <footer>Sources: <code>core/onemind_core/builtins.py</code>, the descriptors in <code>core/onemind_core/&lt;id&gt;/onemind.app.yaml</code>, <code>sdk/contracts/connectors.md</code>, <code>docs/leap/dev/MCP.md</code>, the final design pack of 21 Nov 2026 and GitHub issues. Built-not-registered means code and screens exist on <code>release/next</code>; their depth varies.</footer>
+</div>
+
+<script>
+const APPS = [
+  ["reg","Core","Approvals","Every request waiting for a person, and the approval rules","#1228"],
+  ["reg","Core","Files","Every file on the box: sharing, limits, trash, uploads",""],
+  ["reg","Core","Settings","Box name, people, sign-in, every settings page",""],
+  ["reg","Core","Market","The catalogue, installed apps, the Built in area",""],
+  ["reg","Core","Notifications","The one inbox, alerts, delivery channels, phone push",""],
+  ["reg","Core","Backups","Backups, test restores, the recovery kit",""],
+  ["reg","Core","Updates","OS updates (A/B) and app update rules",""],
+  ["reg","Everyday","Photos","Photo library and phone backup; Immich stays optional",""],
+  ["reg","Everyday","Tips","Short how-to tips by role","#670"],
+  ["built","Field","Messages","Text over LoRa radio; every send waits for a tap. Descriptor written; joins the signed list with its read path (#856)","D-024"],
+  ["built","Everyday","Work","Tasks, projects, board, agent lane; window and phone tab","#644"],
+  ["built","Automation","Automation","Rules and flows; every action goes through approvals",""],
+  ["built","System","Machines","Virtual machines with a web console","D-014"],
+  ["built","AI","Agents","See agents, pause or stop them","#634"],
+  ["built","AI","Agent browser","A browser an agent drives, in a sandbox",""],
+  ["built","Everyday","Browser","A browser window with one profile per person","#692"],
+  ["built","System","Search","Search across the box",""],
+  ["built","System","Sharing","Share links and Windows file sharing (Samba)","D-017"],
+  ["built","Life","Care","Care features",""],
+  ["built","Life","Family","Family and roles",""],
+  ["built","System","Control Hub","The live board: alerts, health, nodes, storage",""],
+  ["built","System","Usage, Storage, Network","Live usage, disks, network settings",""],
+  ["built","System","Troubleshoot, Migrate","Fix-it guides; move from an old box",""],
+  ["built","Everyday","Dashboards","Typed cards on custom boards","#667"],
+  ["built","World","World sources","Public sources for news and watch","#659"],
+  ["plan","Everyday","Notes","A Markdown vault in Files with backlinks","#650"],
+  ["plan","Everyday","Documents","Office editor; Files keeps the only copy",""],
+  ["plan","Everyday","Scanner","Documents from the phone camera into Files","#887"],
+  ["plan","Everyday","Recorder","Voice notes on the box","#886"],
+  ["plan","Life","Habits","Habits; wellness and finance stay under #176","#885"],
+  ["plan","Everyday","Weather","Weather card from a keyless source","#888"],
+  ["plan","Everyday","Find My Devices","Ring or locate your own devices","#889"],
+  ["plan","Everyday","Translate","Translation on the box's own model","#890"],
+  ["plan","World","World (News and Watch)","Public sources only; never watches people","#659"],
+  ["plan","Field","Video engine","Camera streams with gateway-signed tokens","#662"],
+  ["plan","Field","Video viewer","Add a camera, approve, grid and single view","#663"],
+  ["plan","Field","Map","Sites, floors, live assets with ages","#653"],
+  ["plan","System","Passwords","A built-in password manager","#994"],
+  ["plan","System","Engine window","Live services, access, simple and pro views","#624"],
+  ["plan","System","Desktop apps","Linux desktop apps streamed from the box","#785"],
+  ["plan","Life","Finance, wellness, OSINT","OneMind modules for life areas","#176"],
+  ["plan","AI","Agents (full app)","Pause and revoke, with history","#634"]
+];
+const LABEL = { reg: ["p-reg","Registered"], built: ["p-built","Built"], plan: ["p-plan","Planned"] };
+const ORDER = ["Core","Everyday","AI","Automation","Field","World","Life","System"];
+const root = document.getElementById("groups");
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function render(f){
+  const rows = APPS.filter(a => f === "all" || a[0] === f);
+  root.innerHTML = ORDER.map(g => {
+    const list = rows.filter(a => a[1] === g);
+    if (!list.length) return "";
+    return `<div class="group"><h3>${g} <span class="muted">· ${list.length}</span></h3><div class="apps">` +
+      list.map(a => `<div class="app"><div class="app-head"><h4>${esc(a[2])}</h4><span class="pill ${LABEL[a[0]][0]}">${LABEL[a[0]][1]}</span></div><p>${esc(a[3])}</p>${a[4] ? `<span class="ref">${esc(a[4])}</span>` : ""}</div>`).join("") +
+      `</div></div>`;
+  }).join("");
+}
+document.querySelectorAll(".filters button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll(".filters button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+  render(b.dataset.f);
+  try { localStorage.setItem("om-apps-filter", b.dataset.f); } catch (e) {}
+}));
+let start = "all";
+try { start = localStorage.getItem("om-apps-filter") || "all"; } catch (e) {}
+const sb = document.querySelector(`.filters button[data-f="${start}"]`) || document.getElementById("f-all");
+document.querySelectorAll(".filters button").forEach(x => x.setAttribute("aria-pressed", String(x === sb)));
+render(sb.dataset.f);
+</script>
+
+</html>
