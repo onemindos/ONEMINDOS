@@ -372,3 +372,11 @@ Required for this task's "done": F32 PASS on x86_64-efi (qemu, hub role). A harn
 | F28h | While F28 waits for approval, k3s is held and the datastore is untouched | Inside F28, right after its before-approval checks and before the refused POSTs: `systemctl show k3s.service` gives `ActiveState` other than `active` and `activating` and `Result` = `exec-condition`; the size and sha256 of each of `/data/k3s/server/db/state.db` and `/data/k3s/server/db/state.db-wal` (or "absent") read then are the same when read again **60 s** later, and k3s's `NRestarts` did not grow in those 60 s; the console's `ONEMIND-K3S-RECOVERY: NOT repaired` line says `k3s is held` | k3s active, activating or restarting while approval is pending, any datastore file changed or gone in those 60 s, or no word that k3s is held |
 
 Required for this task's "done": F26, F27, F28, F28h and F33 PASS on x86_64-efi (KVM). The 0-byte `state.db` with a non-empty write-ahead log (the reviewed regression) is not built in QEMU; unit tests in `test/unit/test_k3s_recover.py` cover it: the datastore is copied into the quarantine folder, nothing is moved, `recover` exits 1 (k3s skipped), and the log is still there afterwards. A harness bug found on the first run may be fixed and re-run once, named as such, under section 1's rule.
+
+## 26. Amendment (2026-11-28): FP1–FP3 require owner approval for printing (PR #1323)
+
+**Status:** PRE-REGISTERED before the updated proof and print release implementation. The checks in section 20 remain in force. The test page is staged in the CUPS queue and released through the gateway instead of printing directly as root. **Serves:** D-027 and D-028.
+
+| ID | Additional pass criterion | Fail if |
+|---|---|---|
+| FP1, FP2, FP3 | Direct local root submission and release are refused. Staging the page and filing its physical action leave the output empty. The gateway refuses unsigned approval. An owner passkey approves the specific job's plan with hold-to-approve, and only then does the file device receive the original PDF. | Direct CUPS access bypasses approval, an awaiting or refused action produces output, or approved output fails the existing PDF checks. |
