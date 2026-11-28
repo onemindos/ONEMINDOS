@@ -289,6 +289,8 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/tips/whats-new": PERSON,
     "GET /v1/tips/{tip_id}": PERSON,
     "POST /v1/tips/{tip_id}/state": PERSON,
+    # Local snapshot history follows the signed-in person's Files access.
+    "GET /v1/files/versions": PERSON,
     # ---- shared map configuration
     "GET /v1/sites": SITE_MAP,
     # ---- bytes: files, uploads, streams and repository protocols

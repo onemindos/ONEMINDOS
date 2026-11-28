@@ -210,6 +210,27 @@ describe('Files screen', () => {
     await screen.findByText('notes.txt');
     expect(screen.queryByTestId('save-notes.txt')).toBeNull();
     expect(screen.queryByTestId('files-add')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Previous versions' })).toBeNull();
+  });
+
+  it('loads previous versions only when requested from a file', async () => {
+    const takenAt = '2026-11-21T03:00:00Z';
+    const filesVersions = jest.fn(async () => ({
+      root: HOME.root, path: '/notes.txt', enabled: true, exists: true,
+      versions: [{ version: 'snapper-2-20261121T030000Z', cadence: 'timeline', taken_at: takenAt, size: 10, mtime: takenAt }],
+    }));
+    await mount(<FilesScreen />, {
+      filesRoots: async () => [HOME],
+      filesList: FILES,
+      filesVersions,
+      features: async () => new Features([...ALL, OP.filesVersions], 'openapi'),
+    });
+    await fireEvent.press(await screen.findByTestId('root-home:owner'));
+    const button = await screen.findByRole('button', { name: 'Previous versions' });
+    expect(filesVersions).not.toHaveBeenCalled();
+    await fireEvent.press(button);
+    expect(await screen.findByText(`${new Date(takenAt).toLocaleString()} · 10 B`)).toBeTruthy();
+    expect(filesVersions).toHaveBeenCalledWith(HOME.root, '/notes.txt');
   });
 
   it('fetches a file and opens the share sheet', async () => {

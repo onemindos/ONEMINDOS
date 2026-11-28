@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // The Files window (FILES-01, D-016): browse, upload over tus, download, preview, trash, and ask for
 // folder access. Putting a file in the trash is the person's own click on their own files; anything
-// that gives access away or destroys data for good (a grant, emptying the trash) is filed as an
+// that gives access away or empties the trash is filed as an
 // approval request bound to its exact plan, and decided in the Sharing tab by a person, never by this page.
+// Previous versions (BAK-04, #241): a person copies an earlier snapshot of their file back as a new file;
+// the page says snapshots share the disk, so they are not a backup, and links to Backups.
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router';
 import { uuid4 } from '@onemind/sdk';
 import { Button, Card, Dialog, PageHeader, StatusPill } from '@onemind/ui';
-import { FilesApi, human, type Entry, type FileRequest, type FileRoot, type Preview, type TrashItem } from '../files/api';
+import { FilesApi, human, type Entry, type FileRequest, type FileRoot, type FileVersion, type FileVersions, type Preview, type TrashItem } from '../files/api';
+import { href } from '../shell/routes';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { FilesQuotas } from './FilesQuotas';
@@ -30,7 +34,7 @@ function LiveFiles({ token, person, owner }: { token: string; person: string; ow
   const [root, setRoot] = useState<FileRoot>();
   const current = root ?? roots.data?.[0];
   return <div className="dash-stack">
-    <PageHeader title="Files" lede="Your files on your box. Sharing access with an app or agent, and emptying the trash for good, are requests a person approves." />
+    <PageHeader title="Files" lede="Your files on your box. An owner approves requests to share access with an app or agent or to empty the trash." />
     <div role="group" aria-label="Files sections">
       {(owner ? ['files', 'trash', 'sharing', 'quotas'] as const : ['files', 'trash', 'sharing'] as const).map((t) => <Button key={t} variant={tab === t ? 'primary' : 'secondary'} aria-pressed={tab === t} onClick={() => setTab(t)}>{t === 'files' ? 'Files' : t === 'trash' ? 'Trash' : t === 'sharing' ? 'Sharing' : 'Storage limits'}</Button>)}
     </div>
@@ -129,6 +133,7 @@ function Browser({ api, space, run, onChanged }: { api: FilesApi; space: FileRoo
         {seen.preview.text && <><pre tabIndex={0} aria-label="Start of the file">{seen.preview.text.excerpt}</pre>{seen.preview.text.truncated && <p className="om-hint">Only the start of the file is shown.</p>}</>}
         {!seen.image && !seen.preview.text && <p className="om-hint">No preview for this type. Download it to open it.</p>}
       </>}
+      <PreviousVersions key={seen.entry.path} api={api} space={space} entry={seen.entry} run={run} onRestored={() => { void entries.reload(); onChanged(); }} />
     </Card>}
     <Dialog open={folderOpen} onClose={() => setFolderOpen(false)} title="New folder" description={`Created in ${dir}.`}
       actions={<Button disabled={!name.trim() || name.includes('/')} onClick={() => void run(async () => { await api.mkdir(space.root, dir === '/' ? `/${name.trim()}` : `${dir}/${name.trim()}`); setFolderOpen(false); await entries.reload(); }, 'Could not create the folder')}>Create folder</Button>}>
@@ -139,6 +144,38 @@ function Browser({ api, space, run, onChanged }: { api: FilesApi; space: FileRoo
       <p>{doomed?.path}</p>
     </Dialog>
   </Card>;
+}
+
+function PreviousVersions({ api, space, entry, run, onRestored }: { api: FilesApi; space: FileRoot; entry: Entry; run: Run; onRestored: () => void }) {
+  const [state, setState] = useState<{ loading?: boolean; data?: FileVersions; error?: string }>({});
+  const [chosen, setChosen] = useState<FileVersion>();
+  const [restored, setRestored] = useState('');
+  const load = async () => {
+    setState({ loading: true });
+    try { setState({ data: await api.versions(space.root, entry.path) }); }
+    catch (e) { setState({ error: e instanceof Error ? e.message : String(e) }); }
+  };
+  const restore = (v: FileVersion) => void run(async () => {
+    const made = await api.restoreVersion(space.root, entry.path, v.version);
+    setChosen(undefined); setRestored(made.path); onRestored();
+  }, 'Could not restore this version');
+  const rows = state.data?.versions ?? [];
+  return <section aria-label="Previous versions">
+    <h3>Previous versions</h3>
+    <p className="om-hint">Versions are snapshots kept on this same disk, so they are not a backup: if the disk fails, they are lost with it. For copies kept off the box, use <Link to={href.backups}>Backups</Link>.</p>
+    {!state.data && !state.loading && !state.error && <Button size="sm" variant="secondary" onClick={() => void load()}>Show previous versions</Button>}
+    {state.loading && <p role="status">Loading previous versions…</p>}
+    {state.error && <p role="alert">{state.error}</p>}
+    {restored && <p role="status">Restored as {restored}. The current file was not changed.</p>}
+    {state.data && (!state.data.enabled ? <p>Versions are not turned on for this box. An administrator turns them on.</p>
+      : rows.length === 0 ? <p>No earlier version differs from this file.</p>
+      : <ul>{rows.map((v) => <li key={v.version}>{when(v.mtime)} · {human(v.size)} · {v.cadence} snapshot of {when(v.taken_at)}{' '}
+        {space.writable && <Button size="sm" variant="secondary" aria-label={`Restore the version of ${when(v.mtime)}`} onClick={() => setChosen(v)}>Restore</Button>}</li>)}</ul>)}
+    <Dialog role="alertdialog" open={!!chosen} onClose={() => setChosen(undefined)} title="Restore this version?" description={`The version of ${chosen ? when(chosen.mtime) : ''} is copied back as a new file. The current ${entry.name} stays as it is.`}
+      actions={<Button onClick={() => chosen && restore(chosen)}>Restore as a new file</Button>}>
+      <p>{entry.path}</p>
+    </Dialog>
+  </section>;
 }
 
 function TrashTab({ api, run }: { api: FilesApi; run: Run }) {
@@ -158,12 +195,13 @@ function TrashTab({ api, run }: { api: FilesApi; run: Run }) {
       {(['home', 'shared'] as const).map((w) => <Button key={w} size="sm" variant={which === w ? 'primary' : 'secondary'} aria-pressed={which === w} onClick={() => setWhich(w)}>{w === 'home' ? 'My trash' : 'Shared trash'}</Button>)}
       <Button size="sm" variant="secondary" onClick={() => setConfirm(true)}>Ask to empty this trash</Button>
     </div>
-    {filed && <p role="status">Request {filed} filed. Nothing is deleted until a person approves it in the Sharing tab.</p>}
+    {filed && <p role="status">Request {filed} filed. Nothing is deleted until an owner approves it in the Sharing tab.</p>}
+    <p>Retained snapshots may still hold copies after items are removed from the trash.</p>
     <Load res={items} what="Loading the trash">{(rows: TrashItem[]) => rows.length === 0 ? <p>The trash is empty.</p> : <ul>
-      {rows.map((t) => <li key={t.id}><strong>{t.name}</strong> from {t.path} · {human(t.size)} · trashed {when(t.trashed_at)} · deleted for good {when(t.purge_at)}{' '}
+      {rows.map((t) => <li key={t.id}><strong>{t.name}</strong> from {t.path} · {human(t.size)} · trashed {when(t.trashed_at)} · removed from trash {when(t.purge_at)}{' '}
         <Button size="sm" variant="secondary" aria-label={`Restore ${t.name}`} onClick={() => void run(async () => { await api.restore(t.id); await items.reload(); }, `Could not restore ${t.name}`)}>Restore</Button></li>)}
     </ul>}</Load>
-    <Dialog role="alertdialog" open={confirm} onClose={() => setConfirm(false)} title="Ask to empty the trash for good" description="This files a request. Nothing is deleted until it is approved, and what it deletes is shown to the approver first."
+    <Dialog role="alertdialog" open={confirm} onClose={() => setConfirm(false)} title="Ask to empty the trash" description="An owner reviews what will be removed from the trash before approving. Retained snapshots may still hold copies."
       actions={<Button onClick={ask}>File the request</Button>}><p>Trash: {which === 'home' ? 'mine' : 'shared'}.</p></Dialog>
   </Card>;
 }
