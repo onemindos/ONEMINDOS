@@ -98,6 +98,7 @@ tools:
     actions/setup-node: 49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
     actions/setup-python: 6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
     astral-sh/setup-uv: d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+    crazy-max/ghaction-github-runtime: 04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0 (MIT), tag read with the GitHub API 2026-11-25; exposes the cache token to `docker buildx` run steps
   app_gate:   # sdk/tools/ci/install-tools.sh (linux amd64 + arm64), sha256 from each release's checksums file, amd64 read 2026-11-12, arm64 read 2026-11-12
     trivy: {version: 0.76.2, file: trivy_0.76.2_Linux-64bit.tar.gz, sha256: bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf, arm64_file: trivy_0.76.2_Linux-ARM64.tar.gz, arm64_sha256: ab9d51f86e6a5fb936f605faff6b593ac51bc378fff4d3e8b9d58358b9c367c3}   # D-B1.5
     crane: {version: v0.22.1, file: go-containerregistry_Linux_x86_64.tar.gz, sha256: 0ab7a1d6932a213aed964ce97666c3077fe691c8606413674a8b3e0b9ec4cda0, arm64_file: go-containerregistry_Linux_arm64.tar.gz, arm64_sha256: 898c0cff975f898a33e8c4580bdafb0e7c02c7faa33374e946762f97c4ab7110}

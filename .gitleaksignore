@@ -22,6 +22,8 @@ os/versions.lock.yaml:generic-api-key:148
 os/versions.lock.yaml:generic-api-key:153
 # same public fingerprint, dir-scan form (line moved by the pin blocks combined on release/next); reviewed false positive, a public GPG fingerprint
 os/versions.lock.yaml:generic-api-key:165
+# same public fingerprint, dir-scan form (line moved by the ghaction-github-runtime pin, claude/ci-build-cache); reviewed false positive, a public GPG fingerprint
+os/versions.lock.yaml:generic-api-key:166
 # NATS user public nkeys in the strict-hub golden (CORE-SEC-4, #161); public by design, no seed is committed
 internal/leaf/testdata/hub-accounts-services.golden.conf:generic-api-key:6
 internal/leaf/testdata/hub-accounts-services.golden.conf:generic-api-key:7
