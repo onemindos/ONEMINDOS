@@ -200,6 +200,28 @@ POLICY |= {
                                          "25d the contact principal only", ID),
     ("GET", "/v1/recovery/contact/notices"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static("/v1/recovery/contact/notices"),
                                                  "25d the contact principal only", ID),
+    # 25e: the starter's routes take only the request token (none of these principals holds one: 401); the owner's
+    # banner list needs an owner principal (the static owner token is one); the contact routes stay contact-only.
+    ("POST", "/v1/auth/recovery"): Row(cells(422), w.p_missing("/v1/auth/recovery", json={}),
+                                       "25e anyone at the sign-in page; the body is the credential", ID),
+    ("GET", "/v1/auth/recovery"): Row(cells(403, **GONE, owner=200, **PENDING_DENY), w.p_static("/v1/auth/recovery"),
+                                      "25e every owner sees running recoveries (no codes)", ID),
+    ("GET", "/v1/auth/recovery/requests/{request_id}"): Row(cells(401), w.p_static("/v1/auth/recovery/requests/rr_none"),
+                                                            "25e the request token only", ID),
+    ("POST", "/v1/auth/recovery/requests/{request_id}/code"): Row(cells(401), w.p_missing(
+        "/v1/auth/recovery/requests/rr_none/code", json={"code": "12345678"}), "25e the request token only", ID),
+    ("POST", "/v1/auth/recovery/requests/{request_id}/cancel"): Row(cells(403, **GONE, owner=404, **PENDING_DENY), w.p_missing(
+        "/v1/auth/recovery/requests/rr_none/cancel"), "25e the request token, or any owner (L0)", ID),
+    ("POST", "/v1/auth/recovery/requests/{request_id}/complete/options"): Row(cells(401), w.p_missing(
+        "/v1/auth/recovery/requests/rr_none/complete/options"), "25e the request token only", ID),
+    ("POST", "/v1/auth/recovery/requests/{request_id}/complete"): Row(cells(401), w.p_missing(
+        "/v1/auth/recovery/requests/rr_none/complete", json={"new_password": "x" * 12}), "25e the request token only", ID),
+    ("GET", "/v1/recovery/requests"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static("/v1/recovery/requests"),
+                                          "25e the contact principal only", ID),
+    ("POST", "/v1/recovery/requests/{request_id}/vouch"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing(
+        "/v1/recovery/requests/rr_none/vouch", json={"picked": "00", "signature": "AA"}), "25e the contact principal only", ID),
+    ("POST", "/v1/recovery/requests/{request_id}/cancel"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing(
+        "/v1/recovery/requests/rr_none/cancel"), "25e the contact principal only", ID),
     ("POST", "/v1/recovery/contact/resign"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing("/v1/recovery/contact/resign"),
                                                  "25d the contact principal only", ID),
 }

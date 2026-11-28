@@ -10,8 +10,8 @@ phone app, no account on the box). What a contact can do is deliberately tiny:
 - their bearer token (`omc_`) makes them the principal `contact:<id>`, which reaches the contact
   routes only (`CONTACT_PATHS`); every other route answers 403 and is audited;
 - they never see, list or export the owner's data, never approve, never change a setting, never
-  become owner, never start a recovery. In Standard mode they hold no key material for the owner's
-  data (§3.13 "What a contact can never do").
+  become owner. Finishing assisted recovery also requires the owner's current password.
+  In Standard mode contacts hold no key material for the owner's data (§3.13).
 
 Adding a contact is a security setting: owner only, from a signed-in session, behind the gateway's
 passkey step-up (L1 today; D-028 sets L2 once verification levels land, PR 11). Removing one takes
@@ -29,7 +29,7 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 
 from fastapi import Request
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 
 from ..auth import Principal
 from ..errors import ApiError
@@ -44,11 +44,18 @@ from .models import ContactRow, NoticeRow, SettingsRow
 MAX_CONTACTS = 5  # Apple's number; D-028 "up to 5"
 INVITE_TTL = timedelta(days=7)
 COOLING_OFF_OPTIONS = (3, 7, 14)  # D-028: the owner picks; 7 by default
-DEFAULTS: dict[str, int] = {"cooling_off_days": 7}
-OPTIONS: dict[str, tuple[int, ...]] = {"cooling_off_days": COOLING_OFF_OPTIONS}
+# D-028: each wait from set options, defaults in brackets: cooling-off 3, 7, 14 days [7]; the wait after
+# a contact confirms 24, 48, 72 hours [24, rising to 72 by itself when a strong key was used recently];
+# remote recovery 72 hours or 7 days [72 hours].
+DEFAULTS: dict[str, int] = {"cooling_off_days": 7, "contact_wait_hours": 24, "remote_wait_hours": 72}
+OPTIONS: dict[str, tuple[int, ...]] = {"cooling_off_days": COOLING_OFF_OPTIONS, "contact_wait_hours": (24, 48, 72),
+                                       "remote_wait_hours": (72, 168)}
 CONTACT_TOKEN_PREFIX = "omc_"
 # Routes a contact principal may reach; anything else is refused at the door. Later PRs add theirs.
-CONTACT_PATHS: list[re.Pattern[str]] = [re.compile(r"/v1/recovery/contact(/[a-z-]+)?")]
+CONTACT_PATHS: list[re.Pattern[str]] = [
+    re.compile(r"/v1/recovery/contact(/[a-z-]+)?"),
+    re.compile(r"/v1/recovery/requests(/rr_[0-9A-Z]{26}/(vouch|cancel))?"),  # 25e: confirm or stop a recovery
+]
 CONTACT_KINDS = ("household", "outside")
 HOUSEHOLD_CONTACT_ROLES = ("adult",)  # never child, teen or guest (§3.13); another owner already has power
 LIVE_STATES = ("invited", "active")
@@ -124,43 +131,54 @@ class RecoveryContacts:
         }
 
     def tell(self, owner_id: str, event: str, data: dict, p: Principal | None = None, severity: str = "info",
-             audit_only: dict | None = None) -> None:
+             audit_only: dict | None = None, delivery_id: str | None = None) -> None:
         """Tell every owner (a notification) and every contact of this owner (their notices feed).
         `audit_only` facts go into the event (and so the audit) but not into the contacts' feed."""
         domain, _, name = event.partition(".")
+        if delivery_id is not None:
+            with self.db.session() as s:
+                if s.get(NoticeRow, delivery_id) is not None:
+                    return  # the last delivery finished, but its outbox acknowledgement did not
+        delivery = {"dedupe_key": delivery_id, "require_subscribers": True} if delivery_id else {}
         self.gw.events.publish_event(domain, name, {"owner_user_id": owner_id, **data, **(audit_only or {})},
-                                     principal=p.as_dict() if p else None, severity=severity)
+                                     principal=p.as_dict() if p else None, severity=severity, **delivery)
         now = self.now()
         with self.db.session.begin() as s:
-            s.add(NoticeRow(id=new_id("rn"), owner_user_id=owner_id, at=now, event=event, data=data))
+            s.add(NoticeRow(id=delivery_id or new_id("rn"), owner_user_id=owner_id, at=now, event=event, data=data))
             old = list(s.scalars(select(NoticeRow.id).where(NoticeRow.owner_user_id == owner_id)
-                                 .order_by(NoticeRow.at.desc()).offset(NOTICES_KEPT)))
-            for nid in old:
-                s.delete(s.get(NoticeRow, nid))
+                                 .order_by(NoticeRow.at.desc(), NoticeRow.id.desc()).offset(NOTICES_KEPT)))
+            if old:
+                s.execute(delete(NoticeRow).where(NoticeRow.id.in_(old)))
 
     # ---- settings (the owner's waits) ------------------------------------------------------------------
     def settings(self, owner_id: str) -> dict:
         with self.db.session() as s:
             row = s.get(SettingsRow, owner_id)
-        values = {**DEFAULTS, **{k: v for k, v in (row.values if row else {}).items() if k in DEFAULTS}}
-        return {"values": values, "defaults": dict(DEFAULTS), "options": {k: list(v) for k, v in OPTIONS.items()},
+        return {"values": self._settings_values(row), "defaults": dict(DEFAULTS),
+                "options": {k: list(v) for k, v in OPTIONS.items()},
                 "updated_at": iso(row.updated_at) if row else None}
+
+    @staticmethod
+    def _settings_values(row: SettingsRow | None) -> dict[str, int]:
+        return {**DEFAULTS, **{k: v for k, v in (row.values if row else {}).items() if k in DEFAULTS}}
 
     def set_settings(self, ctx: AuthContext | None, changes: dict[str, int]) -> dict:
         """Each wait from its set options. A shorter wait loosens recovery, so it needs the step-up;
         a longer one only tightens and stays at L0 (D-028)."""
         user = self._session_owner(ctx, "change recovery waits")
-        current = self.settings(user.id)["values"]
         for k, v in changes.items():
             if k not in OPTIONS or v not in OPTIONS[k]:
                 raise ApiError(422, "conflict", f"{k} must be one of {list(OPTIONS.get(k, ()))}", reason="not_an_option")
-        new = {**current, **changes}
-        via = None
-        if any(new[k] < current[k] for k in changes):
-            via = self.ident.require_step_up(ctx, ctx.principal, "shorten a recovery wait")
-        now = self.now()
         with self.db.session.begin() as s:
+            # Lock a row that exists even when this owner is using the default settings.
+            s.execute(update(UserRow).where(UserRow.id == user.id).values(id=UserRow.id))
             row = s.get(SettingsRow, user.id)
+            current = self._settings_values(row)
+            new = {**current, **changes}
+            via = None
+            if any(new[k] < current[k] for k in changes):
+                via = self.ident.require_fresh_passkey(ctx, ctx.principal, "shorten a recovery wait")
+            now = self.now()
             if row is None:
                 s.add(SettingsRow(owner_user_id=user.id, values=new, updated_at=now, updated_by=user.id))
             else:

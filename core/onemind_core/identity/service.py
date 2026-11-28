@@ -617,6 +617,10 @@ class IdentityService:
         step_up_s seconds. Returns how the caller proved presence (audited by the caller)."""
         if not self.passkeys_active():
             return "token" if ctx is None or ctx.session is None else ctx.session.auth_method
+        return self.require_fresh_passkey(ctx, p, what)
+
+    def require_fresh_passkey(self, ctx: AuthContext | None, p: Principal, what: str) -> str:
+        """Require recent passkey verification even during password-only setup."""
         s = ctx.session if ctx else None
         if s is not None and s.passkey_at is not None and \
                 (self.now() - utc(s.passkey_at)).total_seconds() <= self.cfg.step_up_s:
@@ -719,16 +723,6 @@ class IdentityService:
 
     # ---- password and TOTP -------------------------------------------------------------------------
     # ---- device-bound approver keys (#702) ------------------------------------------------------
-    def _require_fresh_passkey(self, ctx: AuthContext | None, p: Principal, what: str) -> None:
-        """A passkey sign-in (or registration) on this session in the last step_up_s seconds, always:
-        unlike require_step_up, there is no password-only path while the box has no passkey yet."""
-        s = ctx.session if ctx else None
-        if s is not None and s.passkey_at is not None and \
-                (self.now() - utc(s.passkey_at)).total_seconds() <= self.cfg.step_up_s:
-            return
-        self.emit("auth", "step_up.required", {"attempted": what}, p, severity="warning")
-        raise ApiError(401, "unauthenticated", "sign in again with your passkey to do this", reason="step_up_required")
-
     @staticmethod
     def approver_key_json(k: ApproverKeyRow) -> dict:
         return {"key_id": k.id, "label": k.label, "key_kind": k.key_kind, "fingerprint": k.fingerprint,
@@ -738,7 +732,7 @@ class IdentityService:
         user = self._account(ctx, "register an approver key")
         if user.role != "owner":
             raise self.deny(ctx.principal, "register an approver key", reason="owner_only")
-        self._require_fresh_passkey(ctx, ctx.principal, "register an approver key")
+        self.require_fresh_passkey(ctx, ctx.principal, "register an approver key")
         if key_kind not in ak.KEY_KINDS:
             raise ApiError(422, "conflict", f"key_kind must be one of {', '.join(ak.KEY_KINDS)}")
         if key_kind == "hardware-attested":  # nothing verifies an attestation chain yet: never claim it

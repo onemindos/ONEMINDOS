@@ -23,6 +23,7 @@ from __future__ import annotations
 import base64
 import binascii
 import hashlib
+import hmac
 import json
 import os
 import secrets
@@ -147,6 +148,10 @@ class Sealer:
         finally:
             tmp.unlink(missing_ok=True)
         return key
+
+    def derive(self, label: str) -> bytes:
+        """A box-only subkey for `label` (HMAC of the key file's key): nobody holding a contact secret can compute it."""
+        return hmac.new(self._key(), b"onemind-derive-v1:" + label.encode(), hashlib.sha256).digest()
 
     def seal(self, secret: bytes, aad: str) -> bytes:
         nonce = os.urandom(12)

@@ -358,6 +358,18 @@ dashboard recovery.contact.resign recovery-contact-phone
 dashboard recovery.invites.accept recovery-contact-phone
 cli recovery.contact.resign recovery-contact-phone
 cli recovery.invites.accept recovery-contact-phone
+dashboard recovery.requests.list recovery-contact-phone
+dashboard recovery.requests.cancel recovery-contact-phone
+dashboard recovery.requests.vouch recovery-contact-phone
+cli recovery.requests.cancel recovery-contact-phone
+cli recovery.requests.vouch recovery-contact-phone
+group recovery-locked-out issue=#1197 The person who is locked out has no session, so these steps belong on the sign-in page, which this PR does not build; the `onemind recovery` commands run the flow from a terminal (start, code, status, complete).
+dashboard recovery.start recovery-locked-out
+dashboard recovery.code recovery-locked-out
+dashboard recovery.status recovery-locked-out
+dashboard recovery.complete recovery-locked-out
+dashboard recovery.complete_options recovery-locked-out
+cli recovery.complete_options cli-browser-ceremony
 
 # ---- the phone's 1.0 scope: what the phone leaves to the dashboard (FOUNDER TO CONFIRM) --------------
 group mobile-files-browse-only issue=#1232 Mobile 1.0 scope (founder to confirm): the phone browses, downloads and uploads files and handles Send to; file requests, sharing, trash, quotas, app passwords, the office editor, and polling or cancelling an unfinished upload are dashboard-only.

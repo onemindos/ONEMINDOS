@@ -3297,20 +3297,6 @@
         "title": "ClassOut",
         "type": "object"
       },
-      "CodeBody": {
-        "properties": {
-          "code": {
-            "maxLength": 12,
-            "title": "Code",
-            "type": "string"
-          }
-        },
-        "required": [
-          "code"
-        ],
-        "title": "CodeBody",
-        "type": "object"
-      },
       "Comment": {
         "additionalProperties": false,
         "properties": {
@@ -3438,6 +3424,74 @@
           "sha256"
         ],
         "title": "CommitBody",
+        "type": "object"
+      },
+      "CompleteBody": {
+        "additionalProperties": false,
+        "properties": {
+          "client": {
+            "default": "browser",
+            "enum": [
+              "browser",
+              "cli",
+              "app"
+            ],
+            "title": "Client",
+            "type": "string"
+          },
+          "credential": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "a new passkey from complete/options",
+            "title": "Credential"
+          },
+          "current_password": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "required on the contact path",
+            "title": "Current Password"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "new_password": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "contact path only",
+            "title": "New Password"
+          }
+        },
+        "title": "CompleteBody",
         "type": "object"
       },
       "ComposeBody": {
@@ -3790,6 +3844,211 @@
           "box_key_fingerprint"
         ],
         "title": "ContactAdded",
+        "type": "object"
+      },
+      "ContactRecoveryView": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "end_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Reason"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "liveness_raised": {
+            "description": "the wait rose to 72 hours because a strong key was used in the last 7 days",
+            "title": "Liveness Raised",
+            "type": "boolean"
+          },
+          "not_before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "when the person who started it may finish",
+            "title": "Not Before"
+          },
+          "path": {
+            "description": "contact (a recovery contact confirms) or remote (no contact, a longer wait)",
+            "title": "Path",
+            "type": "string"
+          },
+          "state": {
+            "description": "awaiting_contact, waiting, completed, cancelled, expired or failed",
+            "title": "State",
+            "type": "string"
+          },
+          "vouch_expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vouch Expires At"
+          },
+          "vouch_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "online (picked the matching number) or code (the 8-digit code)",
+            "title": "Vouch Method"
+          },
+          "vouched_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vouched At"
+          },
+          "wait_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wait Hours"
+          }
+        },
+        "required": [
+          "id",
+          "path",
+          "state",
+          "created_at",
+          "vouch_expires_at",
+          "vouched_at",
+          "vouch_method",
+          "wait_hours",
+          "liveness_raised",
+          "not_before",
+          "ended_at",
+          "end_reason"
+        ],
+        "title": "ContactRecoveryView",
+        "type": "object"
+      },
+      "ContactRequest": {
+        "properties": {
+          "challenge": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Challenge"
+          },
+          "choices": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "three numbers; pick the one on the owner's screen",
+            "title": "Choices"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "not_before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Not Before"
+          },
+          "owner_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Display Name"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "owner_display_name",
+          "created_at"
+        ],
+        "title": "ContactRequest",
         "type": "object"
       },
       "ContactSelf": {
@@ -11581,6 +11840,23 @@
       "RecoverySettingsBody": {
         "additionalProperties": false,
         "properties": {
+          "contact_wait_hours": {
+            "anyOf": [
+              {
+                "enum": [
+                  24,
+                  48,
+                  72
+                ],
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the wait after a contact confirms (rises to 72 by itself if a strong key was used in the last 7 days)",
+            "title": "Contact Wait Hours"
+          },
           "cooling_off_days": {
             "anyOf": [
               {
@@ -11596,9 +11872,214 @@
               }
             ],
             "title": "Cooling Off Days"
+          },
+          "remote_wait_hours": {
+            "anyOf": [
+              {
+                "enum": [
+                  72,
+                  168
+                ],
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the wait of a recovery with no contact",
+            "title": "Remote Wait Hours"
           }
         },
         "title": "RecoverySettingsBody",
+        "type": "object"
+      },
+      "RecoveryStartBody": {
+        "additionalProperties": false,
+        "properties": {
+          "passkey": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "remote path: an assertion from a passkey you still have",
+            "title": "Passkey"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "remote path: with the authenticator code",
+            "title": "Password"
+          },
+          "path": {
+            "enum": [
+              "contact",
+              "remote"
+            ],
+            "title": "Path",
+            "type": "string"
+          },
+          "totp": {
+            "anyOf": [
+              {
+                "maxLength": 12,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Totp"
+          },
+          "username": {
+            "default": "",
+            "maxLength": 64,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "RecoveryStartBody",
+        "type": "object"
+      },
+      "RecoveryView": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "end_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Reason"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "liveness_raised": {
+            "description": "the wait rose to 72 hours because a strong key was used in the last 7 days",
+            "title": "Liveness Raised",
+            "type": "boolean"
+          },
+          "not_before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "when the person who started it may finish",
+            "title": "Not Before"
+          },
+          "path": {
+            "description": "contact (a recovery contact confirms) or remote (no contact, a longer wait)",
+            "title": "Path",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "state": {
+            "description": "awaiting_contact, waiting, completed, cancelled, expired or failed",
+            "title": "State",
+            "type": "string"
+          },
+          "vouch_expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vouch Expires At"
+          },
+          "vouch_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "online (picked the matching number) or code (the 8-digit code)",
+            "title": "Vouch Method"
+          },
+          "vouched_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vouched At"
+          },
+          "wait_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wait Hours"
+          }
+        },
+        "required": [
+          "id",
+          "path",
+          "state",
+          "created_at",
+          "vouch_expires_at",
+          "vouched_at",
+          "vouch_method",
+          "wait_hours",
+          "liveness_raised",
+          "not_before",
+          "ended_at",
+          "end_reason",
+          "source"
+        ],
+        "title": "RecoveryView",
         "type": "object"
       },
       "Redaction": {
@@ -13796,6 +14277,330 @@
           "summary"
         ],
         "title": "SourceStatus",
+        "type": "object"
+      },
+      "StartOneTime": {
+        "properties": {
+          "request_token": {
+            "description": "the bearer for this request's own routes (omr_...), shown once",
+            "title": "Request Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_token"
+        ],
+        "title": "StartOneTime",
+        "type": "object"
+      },
+      "Started": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "end_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Reason"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "liveness_raised": {
+            "description": "the wait rose to 72 hours because a strong key was used in the last 7 days",
+            "title": "Liveness Raised",
+            "type": "boolean"
+          },
+          "matching_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the 2 digits the contact must pick; shown only to the starter",
+            "title": "Matching Number"
+          },
+          "not_before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "when the person who started it may finish",
+            "title": "Not Before"
+          },
+          "one_time": {
+            "$ref": "#/components/schemas/StartOneTime"
+          },
+          "path": {
+            "description": "contact (a recovery contact confirms) or remote (no contact, a longer wait)",
+            "title": "Path",
+            "type": "string"
+          },
+          "request_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "read this to your contact if their app cannot reach the box",
+            "title": "Request Code"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "state": {
+            "description": "awaiting_contact, waiting, completed, cancelled, expired or failed",
+            "title": "State",
+            "type": "string"
+          },
+          "vouch_expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vouch Expires At"
+          },
+          "vouch_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "online (picked the matching number) or code (the 8-digit code)",
+            "title": "Vouch Method"
+          },
+          "vouched_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vouched At"
+          },
+          "wait_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wait Hours"
+          }
+        },
+        "required": [
+          "id",
+          "path",
+          "state",
+          "created_at",
+          "vouch_expires_at",
+          "vouched_at",
+          "vouch_method",
+          "wait_hours",
+          "liveness_raised",
+          "not_before",
+          "ended_at",
+          "end_reason",
+          "source",
+          "matching_number",
+          "request_code",
+          "one_time"
+        ],
+        "title": "Started",
+        "type": "object"
+      },
+      "StarterView": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "end_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Reason"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "liveness_raised": {
+            "description": "the wait rose to 72 hours because a strong key was used in the last 7 days",
+            "title": "Liveness Raised",
+            "type": "boolean"
+          },
+          "matching_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the 2 digits the contact must pick; shown only to the starter",
+            "title": "Matching Number"
+          },
+          "not_before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "when the person who started it may finish",
+            "title": "Not Before"
+          },
+          "path": {
+            "description": "contact (a recovery contact confirms) or remote (no contact, a longer wait)",
+            "title": "Path",
+            "type": "string"
+          },
+          "request_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "read this to your contact if their app cannot reach the box",
+            "title": "Request Code"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "state": {
+            "description": "awaiting_contact, waiting, completed, cancelled, expired or failed",
+            "title": "State",
+            "type": "string"
+          },
+          "vouch_expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vouch Expires At"
+          },
+          "vouch_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "online (picked the matching number) or code (the 8-digit code)",
+            "title": "Vouch Method"
+          },
+          "vouched_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vouched At"
+          },
+          "wait_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wait Hours"
+          }
+        },
+        "required": [
+          "id",
+          "path",
+          "state",
+          "created_at",
+          "vouch_expires_at",
+          "vouched_at",
+          "vouch_method",
+          "wait_hours",
+          "liveness_raised",
+          "not_before",
+          "ended_at",
+          "end_reason",
+          "source",
+          "matching_number",
+          "request_code"
+        ],
+        "title": "StarterView",
         "type": "object"
       },
       "StatusView": {
@@ -16970,6 +17775,29 @@
         "title": "VisitBody",
         "type": "object"
       },
+      "VouchBody": {
+        "additionalProperties": false,
+        "properties": {
+          "picked": {
+            "description": "the number the contact picked from the three",
+            "pattern": "^[0-9]{2}$",
+            "title": "Picked",
+            "type": "string"
+          },
+          "signature": {
+            "description": "ECDSA P-256 SHA-256 by the contact key over onemind-recovery-vouch-v1, request id, picked, challenge",
+            "maxLength": 200,
+            "title": "Signature",
+            "type": "string"
+          }
+        },
+        "required": [
+          "picked",
+          "signature"
+        ],
+        "title": "VouchBody",
+        "type": "object"
+      },
       "WakeCapability": {
         "properties": {
           "available": {
@@ -17288,6 +18116,36 @@
           }
         },
         "title": "ApproveBody",
+        "type": "object"
+      },
+      "onemind_core__routers__identity__CodeBody": {
+        "properties": {
+          "code": {
+            "maxLength": 12,
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "CodeBody",
+        "type": "object"
+      },
+      "onemind_core__routers__recovery__CodeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "the 8 ASCII digits your contact's app shows",
+            "maxLength": 16,
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "CodeBody",
         "type": "object"
       }
     },
@@ -22392,6 +23250,140 @@
         ]
       }
     },
+    "/v1/auth/recovery": {
+      "get": {
+        "description": "Every running recovery on the box, for a full owner credential. Codes are never shown here.",
+        "operationId": "recovery.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RecoveryView"
+                  },
+                  "title": "Response Recovery.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "List Recoveries",
+        "tags": [
+          "recovery"
+        ]
+      },
+      "post": {
+        "description": "Start a recovery. contact: your username; one of your recovery contacts confirms. remote: your\npassword and authenticator code (or a passkey you still have), then a 72-hour wait.",
+        "operationId": "recovery.start",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecoveryStartBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Started"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [],
+        "summary": "Start",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
     "/v1/auth/recovery/contacts": {
       "get": {
         "description": "Your recovery contacts and their state (owner, signed-in session).",
@@ -22660,6 +23652,401 @@
           }
         ],
         "summary": "Invitations",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/auth/recovery/requests/{request_id}": {
+      "get": {
+        "operationId": "recovery.status",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StarterView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "recovery:request"
+            ]
+          }
+        ],
+        "summary": "Recovery Status",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/auth/recovery/requests/{request_id}/cancel": {
+      "post": {
+        "description": "Stop a recovery with its request token or a full owner credential (L0).",
+        "operationId": "recovery.cancel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "recovery:request"
+            ]
+          }
+        ],
+        "summary": "Recovery Cancel",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/auth/recovery/requests/{request_id}/code": {
+      "post": {
+        "description": "Type the 8-digit code your contact read to you (3 tries).",
+        "operationId": "recovery.code",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/onemind_core__routers__recovery__CodeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "recovery:request"
+            ]
+          }
+        ],
+        "summary": "Recovery Code",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/auth/recovery/requests/{request_id}/complete": {
+      "post": {
+        "description": "After the wait, enrol a new passkey. With a recovery contact, prove the current password\nand enrol a passkey or set a new password. Completion returns a normal session.",
+        "operationId": "recovery.complete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "recovery:request"
+            ]
+          }
+        ],
+        "summary": "Recovery Complete",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/auth/recovery/requests/{request_id}/complete/options": {
+      "post": {
+        "description": "After the wait: the WebAuthn options to enrol your new passkey.",
+        "operationId": "recovery.complete_options",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "recovery:request"
+            ]
+          }
+        ],
+        "summary": "Recovery Complete Options",
         "tags": [
           "recovery"
         ]
@@ -23050,7 +24437,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CodeBody"
+                "$ref": "#/components/schemas/onemind_core__routers__identity__CodeBody"
               }
             }
           },
@@ -38966,6 +40353,259 @@
         },
         "security": [],
         "summary": "Accept",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/recovery/requests": {
+      "get": {
+        "description": "Recoveries of your owner: confirm one by picking the number on their screen.",
+        "operationId": "recovery.requests.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ContactRequest"
+                  },
+                  "title": "Response Recovery.Requests.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "recovery:contact"
+            ]
+          }
+        ],
+        "summary": "Contact Requests",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/recovery/requests/{request_id}/cancel": {
+      "post": {
+        "description": "Stop a recovery of your owner that you do not trust (any contact, L0).",
+        "operationId": "recovery.requests.cancel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactRecoveryView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "recovery:contact"
+            ]
+          }
+        ],
+        "summary": "Contact Cancel",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/recovery/requests/{request_id}/vouch": {
+      "post": {
+        "description": "Confirm it is really your owner: the number you picked, signed with your contact key.",
+        "operationId": "recovery.requests.vouch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VouchBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactRecoveryView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "recovery:contact"
+            ]
+          }
+        ],
+        "summary": "Contact Vouch",
         "tags": [
           "recovery"
         ]

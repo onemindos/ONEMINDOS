@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Recovery contacts (gateway permissions design PR 25d, §3.13, D-028): invite, accept, verify.
+"""Recovery contacts (gateway permissions design PR 25d) and contact-assisted recovery (25e), §3.13, D-028.
 
 Three audiences, three route groups:
 - the owner, in a signed-in session: /v1/auth/recovery/contacts and /v1/auth/recovery/settings
@@ -7,16 +7,21 @@ Three audiences, three route groups:
 - the contact's phone: POST /v1/recovery/invites/{id}/accept takes the box-signed invite, a P-256
   public key and a proof that the phone holds the private half (no account needed; a household
   invite is accepted from that adult's own session);
-- the contact principal (`omc_` token): /v1/recovery/contact... and nothing else.
+- the contact principal (`omc_` token): /v1/recovery/contact... and /v1/recovery/requests... (25e:
+  see a recovery of their owner, confirm it by picking the matching number, or cancel it), nothing else;
+- the locked-out owner (25e): POST /v1/auth/recovery starts a recovery and answers
+  once with a request token (`omr_`); that token, as the bearer, reaches only that request's routes
+  under /v1/auth/recovery/requests/{id} (status, the contact's 8-digit code, cancel, finish).
 
 No MCP tool touches any of it (surfaces/parity.py: CREDENTIAL). Logic in recovery/contacts.py.
 """
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import Depends, FastAPI, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..auth import Principal
@@ -26,6 +31,8 @@ from ..identity import ctx_of
 from ..identity.scopes import register_route_scope
 from ..jsonbody import JsonBody
 from ..recovery.contacts import RecoveryContacts
+from ..recovery.requests import REQUEST_TOKEN_PREFIX, Recoveries
+from ..recovery.ticker import Ticker
 
 ORDER = 265  # after identity (260): it needs app.state.identity
 
@@ -36,6 +43,8 @@ CONTACT_SECURITY = {"security": [{"bearer": ["recovery:contact"]}]}  # the conta
 # /v1/auth/... is already self-service (identity/scopes.py); the handlers check for an owner session.
 register_route_scope("POST", r"/v1/recovery/invites/[^/]+/accept", None)  # no principal: the invite is the credential
 register_route_scope("GET,HEAD,POST", r"/v1/recovery/contact(/[a-z-]+)?", None)  # the contact principal only
+register_route_scope("GET,HEAD,POST", r"/v1/recovery/requests(/[^/]+/(vouch|cancel))?", None)  # 25e, contact only
+STARTER_SECURITY = {"security": [{"bearer": ["recovery:request"]}]}  # the request token (omr_) from POST /v1/auth/recovery
 
 
 class ContactView(BaseModel):
@@ -80,6 +89,9 @@ class RecoverySettings(BaseModel):
 class RecoverySettingsBody(JsonBody):
     model_config = ConfigDict(extra="forbid")
     cooling_off_days: Literal[3, 7, 14] | None = None
+    contact_wait_hours: Literal[24, 48, 72] | None = Field(
+        default=None, description="the wait after a contact confirms (rises to 72 by itself if a strong key was used in the last 7 days)")
+    remote_wait_hours: Literal[72, 168] | None = Field(default=None, description="the wait of a recovery with no contact")
 
 
 class Invitation(BaseModel):
@@ -131,6 +143,79 @@ class Notice(BaseModel):
     data: dict
 
 
+class RecoveryStartBody(JsonBody):
+    model_config = ConfigDict(extra="forbid")
+    path: Literal["contact", "remote"]
+    username: str = Field(default="", max_length=64)
+    password: str | None = Field(default=None, max_length=1024, description="remote path: with the authenticator code")
+    totp: str | None = Field(default=None, max_length=12)
+    passkey: dict[str, Any] | None = Field(default=None, description="remote path: an assertion from a passkey you still have")
+
+
+class ContactRecoveryView(BaseModel):
+    id: str
+    path: str = Field(description="contact (a recovery contact confirms) or remote (no contact, a longer wait)")
+    state: str = Field(description="awaiting_contact, waiting, completed, cancelled, expired or failed")
+    created_at: str
+    vouch_expires_at: str | None
+    vouched_at: str | None
+    vouch_method: str | None = Field(description="online (picked the matching number) or code (the 8-digit code)")
+    wait_hours: int | None
+    liveness_raised: bool = Field(description="the wait rose to 72 hours because a strong key was used in the last 7 days")
+    not_before: str | None = Field(description="when the person who started it may finish")
+    ended_at: str | None
+    end_reason: str | None
+
+
+class RecoveryView(ContactRecoveryView):
+    source: str
+
+
+class StarterView(RecoveryView):
+    matching_number: str | None = Field(description="the 2 digits the contact must pick; shown only to the starter")
+    request_code: str | None = Field(description="read this to your contact if their app cannot reach the box")
+
+
+class StartOneTime(BaseModel):
+    request_token: str = Field(description="the bearer for this request's own routes (omr_...), shown once")
+
+
+class Started(StarterView):
+    one_time: StartOneTime
+
+
+class CodeBody(JsonBody):
+    model_config = ConfigDict(extra="forbid")
+    code: str = Field(max_length=16, description="the 8 ASCII digits your contact's app shows")
+
+
+class VouchBody(JsonBody):
+    model_config = ConfigDict(extra="forbid")
+    picked: str = Field(pattern=r"^[0-9]{2}$", description="the number the contact picked from the three")
+    signature: str = Field(max_length=200, description="ECDSA P-256 SHA-256 by the contact key over "
+                                                       "onemind-recovery-vouch-v1, request id, picked, challenge")
+
+
+class ContactRequest(BaseModel):
+    id: str
+    state: str
+    owner_display_name: str | None
+    created_at: str
+    expires_at: str | None = None
+    not_before: str | None = None
+    choices: list[str] | None = Field(default=None, description="three numbers; pick the one on the owner's screen")
+    challenge: str | None = None
+
+
+class CompleteBody(JsonBody):
+    model_config = ConfigDict(extra="forbid")
+    credential: dict[str, Any] | None = Field(default=None, description="a new passkey from complete/options")
+    label: str | None = Field(default=None, max_length=100)
+    new_password: str | None = Field(default=None, max_length=1024, description="contact path only")
+    current_password: str | None = Field(default=None, max_length=1024, description="required on the contact path")
+    client: Literal["browser", "cli", "app"] = "browser"
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     ident = getattr(app.state, "identity", None)
     if ident is None:  # identity is a core router; without it there are no owners to protect
@@ -138,6 +223,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
     svc = RecoveryContacts(gw, ident)
     app.state.recovery_contacts = svc
     gw.authenticators.append(svc.authenticate)
+    rec = Recoveries(svc)
+    app.state.recoveries = rec
+    ticker = Ticker([rec.tick])
+    gw.on_startup(ticker.start)
+    gw.on_shutdown(ticker.stop)
     principal = gw.principal
     R = error_responses
 
@@ -170,7 +260,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
              response_model=RecoverySettings, responses=R(401, 403, 422), openapi_extra=OWNER_SECURITY)
     def put_settings(body: RecoverySettingsBody, request: Request, _: Principal = Depends(principal)):
         """Each wait from its set options (D-028). A shorter wait needs the passkey step-up."""
-        changes = {k: v for k, v in body.model_dump().items() if v is not None}
+        changes = {k: v for k, v in body.model_dump().items() if v is not None}  # every wait is an int
         if not changes:
             raise ApiError(422, "conflict", "name at least one wait to change", reason="nothing_to_change")
         return svc.set_settings(ctx_of(request), changes)
@@ -210,3 +300,82 @@ def register(app: FastAPI, gw: Gateway) -> None:
         """Stop being a contact. The owner is told; the token and secret stop working at once."""
         return svc.resign(svc.contact_row(request, p), p)
 
+    # ---- 25e: the locked-out owner -------------------------------------------------------------------
+    def starter(request_id: str, request: Request) -> None:
+        """The request token first: a caller without it gets 401 before its body is even read."""
+        rec.status(request, request_id)
+
+    @app.post("/v1/auth/recovery", operation_id="recovery.start", tags=TAGS, status_code=201,
+              response_model=Started, responses=R(401, 409, 422, 429), openapi_extra={"security": []})
+    def start(body: RecoveryStartBody, request: Request):
+        """Start a recovery. contact: your username; one of your recovery contacts confirms. remote: your
+        password and authenticator code (or a passkey you still have), then a 72-hour wait."""
+        return rec.start(request, body.path, body.username, body.password, body.totp, body.passkey)
+
+    @app.get("/v1/auth/recovery", operation_id="recovery.list", tags=TAGS, response_model=list[RecoveryView],
+             responses=R(401, 403), openapi_extra=OWNER_SECURITY)
+    def list_recoveries(request: Request, p: Principal = Depends(principal)):
+        """Every running recovery on the box, for a full owner credential. Codes are never shown here."""
+        return rec.for_owner(p, ctx_of(request))
+
+    @app.get("/v1/auth/recovery/requests/{request_id}", operation_id="recovery.status", tags=TAGS,
+             response_model=StarterView, responses=R(401), openapi_extra=STARTER_SECURITY)
+    def recovery_status(request_id: str, request: Request):
+        return rec.status(request, request_id)
+
+    @app.post("/v1/auth/recovery/requests/{request_id}/code", operation_id="recovery.code", tags=TAGS,
+              response_model=RecoveryView, responses=R(401, 409, 422), openapi_extra=STARTER_SECURITY)
+    def recovery_code(request_id: str, body: CodeBody, request: Request, _: None = Depends(starter)):
+        """Type the 8-digit code your contact read to you (3 tries)."""
+        return rec.vouch_code(request, request_id, body.code)
+
+    @app.post("/v1/auth/recovery/requests/{request_id}/cancel", operation_id="recovery.cancel", tags=TAGS,
+              response_model=RecoveryView, responses=R(401, 403, 404), openapi_extra=STARTER_SECURITY)
+    def recovery_cancel(request_id: str, request: Request):
+        """Stop a recovery with its request token or a full owner credential (L0)."""
+        scheme, _, token = request.headers.get("authorization", "").partition(" ")
+        if scheme.lower() == "bearer" and token.strip().startswith(REQUEST_TOKEN_PREFIX):
+            return rec.cancel_by_starter(request, request_id)
+        p = gw.principal(request)
+        return rec.cancel_by_owner(p, ctx_of(request), request_id)
+
+    @app.post("/v1/auth/recovery/requests/{request_id}/complete/options", operation_id="recovery.complete_options",
+              tags=TAGS, responses=R(401, 409), openapi_extra=STARTER_SECURITY)
+    def recovery_complete_options(request_id: str, request: Request):
+        """After the wait: the WebAuthn options to enrol your new passkey."""
+        return rec.complete_options(request, request_id)
+
+    @app.post("/v1/auth/recovery/requests/{request_id}/complete", operation_id="recovery.complete", tags=TAGS,
+              responses=R(401, 409, 422, 429), openapi_extra=STARTER_SECURITY)
+    def recovery_complete(request_id: str, body: CompleteBody, request: Request, _: None = Depends(starter)):
+        """After the wait, enrol a new passkey. With a recovery contact, prove the current password
+        and enrol a passkey or set a new password. Completion returns a normal session."""
+        _, user = rec.complete(request, request_id, body.credential, body.label, body.new_password,
+                               body.current_password)
+        out = ident.start_session(request, user, "recovery", None, bearer=body.client != "browser", passkey=False)
+        cookies = out.pop("_cookies", None)
+        resp = JSONResponse(status_code=200, content=out)
+        if cookies:
+            common = dict(max_age=cookies["max_age"], secure=ident.cfg.cookie_secure, samesite="strict", path="/")
+            resp.set_cookie(ident.cookie, cookies["session"], httponly=True, **common)
+            resp.set_cookie(ident.csrf_cookie, cookies["csrf"], httponly=False, **common)
+        return resp
+
+    # ---- 25e: the contact principal ------------------------------------------------------------------
+    @app.get("/v1/recovery/requests", operation_id="recovery.requests.list", tags=TAGS,
+             response_model=list[ContactRequest], responses=R(401, 403, 409), openapi_extra=CONTACT_SECURITY)
+    def contact_requests(request: Request, p: Principal = Depends(principal)):
+        """Recoveries of your owner: confirm one by picking the number on their screen."""
+        return rec.pending_for(svc.contact_row(request, p))
+
+    @app.post("/v1/recovery/requests/{request_id}/vouch", operation_id="recovery.requests.vouch", tags=TAGS,
+              response_model=ContactRecoveryView, responses=R(401, 403, 404, 409, 422), openapi_extra=CONTACT_SECURITY)
+    def contact_vouch(request_id: str, body: VouchBody, request: Request, p: Principal = Depends(principal)):
+        """Confirm it is really your owner: the number you picked, signed with your contact key."""
+        return rec.vouch_online(svc.contact_row(request, p), p, request_id, body.picked, body.signature)
+
+    @app.post("/v1/recovery/requests/{request_id}/cancel", operation_id="recovery.requests.cancel", tags=TAGS,
+              response_model=ContactRecoveryView, responses=R(401, 403, 404), openapi_extra=CONTACT_SECURITY)
+    def contact_cancel(request_id: str, request: Request, p: Principal = Depends(principal)):
+        """Stop a recovery of your owner that you do not trust (any contact, L0)."""
+        return rec.cancel_by_contact(svc.contact_row(request, p), p, request_id)

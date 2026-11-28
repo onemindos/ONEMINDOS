@@ -99,13 +99,19 @@ func recoveryCommands(a *App) []*cobra.Command {
 		}}
 	contacts.AddCommand(list, add, remove)
 
-	var setCooling int
+	var setCooling, setContactWait, setRemoteWait int
 	settings := &cobra.Command{Use: "settings", Short: "Show or change your recovery waits (shortening needs a fresh passkey)", Args: cobra.NoArgs,
 		RunE: func(*cobra.Command, []string) error {
 			var r map[string]any
 			var err error
-			if setCooling != 0 {
-				err = call(http.MethodPut, "/v1/auth/recovery/settings", map[string]any{"cooling_off_days": setCooling}, &r)
+			changes := map[string]any{}
+			for k, v := range map[string]int{"cooling_off_days": setCooling, "contact_wait_hours": setContactWait, "remote_wait_hours": setRemoteWait} {
+				if v != 0 {
+					changes[k] = v
+				}
+			}
+			if len(changes) > 0 {
+				err = call(http.MethodPut, "/v1/auth/recovery/settings", changes, &r)
 			} else {
 				err = call(http.MethodGet, "/v1/auth/recovery/settings", nil, &r)
 			}
@@ -118,12 +124,14 @@ func recoveryCommands(a *App) []*cobra.Command {
 			values, _ := r["values"].(map[string]any)
 			options, _ := r["options"].(map[string]any)
 			pairs := [][2]string{}
-			for _, k := range []string{"cooling_off_days"} {
+			for _, k := range []string{"cooling_off_days", "contact_wait_hours", "remote_wait_hours"} {
 				pairs = append(pairs, [2]string{k, fmt.Sprintf("%v (options %s)", values[k], joinAny(options[k]))})
 			}
 			return kv(a.Stdout, pairs)
 		}}
 	settings.Flags().IntVar(&setCooling, "cooling-off-days", 0, "days before a new contact counts: 3, 7 or 14")
+	settings.Flags().IntVar(&setContactWait, "contact-wait-hours", 0, "the wait after a contact confirms: 24, 48 or 72 (72 anyway if a strong key was used in the last 7 days)")
+	settings.Flags().IntVar(&setRemoteWait, "remote-wait-hours", 0, "the wait of a recovery with no contact: 72 or 168")
 
 	invitations := &cobra.Command{Use: "invitations", Short: "Invites asking you to be someone's recovery contact", Args: cobra.NoArgs,
 		RunE: func(*cobra.Command, []string) error {
@@ -146,5 +154,6 @@ func recoveryCommands(a *App) []*cobra.Command {
 			return table(a.Stdout, "ID\tFROM\tEXPIRES", out)
 		}}
 	root.AddCommand(contacts, settings, invitations)
+	root.AddCommand(recoveryFlowCommands(a)...)
 	return []*cobra.Command{root}
 }

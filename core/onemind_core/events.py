@@ -112,6 +112,7 @@ class EventHub:
         dedupe_key: str | None = None,
         source_id: str = "gateway",
         causation_id: str | None = None,
+        require_subscribers: bool = False,
     ) -> dict:
         """Record and fan out one event. Returns the envelope. Raises ValueError on bad input."""
         if not DOMAIN_RE.match(domain):
@@ -167,5 +168,7 @@ class EventHub:
             try:
                 handler(envelope)
             except Exception:
+                if require_subscribers:
+                    raise  # a durable caller will retry delivery
                 log.exception("event subscriber %r failed on %s", handler, event_type)
         return envelope
