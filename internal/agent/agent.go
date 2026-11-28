@@ -306,7 +306,7 @@ func (a *Agent) depart() {
 func (a *Agent) connectNATS() {
 	opts := []nats.Option{
 		nats.Name("onemindd/" + version.Version),
-		// Its own reply inboxes: on a joined machine's leaf it may subscribe to nothing else (internal/leaf local.go).
+		// Joined machines' leaves restrict reply subscriptions to each program's own inbox.
 		nats.CustomInboxPrefix(leaf.InboxPrefix(leaf.LocalOnemindd)),
 		nats.RetryOnFailedConnect(true),
 		nats.MaxReconnects(-1),

@@ -81,14 +81,15 @@ var outboxAPI = []string{"$JS.API.STREAM.INFO." + OutboxStream, "$JS.API.STREAM.
 	"$JS.API.STREAM.UPDATE." + OutboxStream, OutboxPrefix + ">"}
 
 // OnemindUser is onemindd on node nodeID: its heartbeat, its outbox, and its own job queue on the
-// hub (pull, acknowledge, report; D-029 N2). It cannot publish a job, another node's subjects, or
-// reach the leaf's JetStream API beyond the outbox.
+// hub (pull, acknowledge, report; D-029 N2). The node check uses this identity to read its own
+// heartbeat. It cannot publish a job, use another node's subjects, or reach the leaf's JetStream
+// API beyond the outbox.
 func OnemindUser(nodeID, pub string) LocalUser {
 	p := "onemind.node." + nodeID + "."
 	return LocalUser{Name: LocalOnemindd, Nkey: pub,
 		Publish: append([]string{p + "status", p + "jobresult.>", p + "jobpull", p + "policyget", p + "policycheck",
 			"$JS.ACK.ONEMIND_JOBS.node-" + nodeID + ".>"}, outboxAPI...),
-		Subscribe: []string{InboxPrefix(LocalOnemindd) + ".>"}}
+		Subscribe: []string{InboxPrefix(LocalOnemindd) + ".>", p + "status"}}
 }
 
 // CLIUser is the owner's `onemind fabric outbox` on the machine: the outbox only.

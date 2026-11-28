@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""Talk to NATS with the Python standard library only (no nats CLI needed on a machine).
+"""Talk to NATS from Python without the nats CLI.
 
 Ported from PR #27 and adapted to the NATS auth main has (contract §1, §12.9):
   * the hub NATS of a developer install has no auth (v0); `ping` says so (auth_required=False),
   * onemindd takes credentials only inside ONEMIND_NATS_URL (nats://TOKEN@host or user:pass@host),
   * per-node nkey users and TLS with the box CA (H-06) arrive through the node's NATS leaf, which
     listens on loopback; `leafz` reads that leaf's /leafz to see whether its link to the hub is up,
-  * on a strict hub (CORE-SEC-4, #161) every local client signs in with a service nkey: --nkey SEED
-    (or ONEMIND_NATS_NKEY_SEED in the --env-file) signs the server's nonce. Signing needs the
-    `cryptography` package, which the gateway's Python has: run with /opt/onemind/venv/bin/python.
+  * a strict hub or joined node uses a service nkey: --nkey SEED (or ONEMIND_NATS_NKEY_SEED in
+    the --env-file) signs the server's nonce. Signing needs the `cryptography` package, installed
+    in the hub's gateway venv and in the node's distro Python.
 
   natscheck.py ping  (URL | --env-file F) [--ca FILE] [--timeout S]
       connect, authenticate, PING/PONG; exit 0 if the server answered
@@ -63,7 +63,7 @@ def nkey_auth(seed_file, nonce):
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
         from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
     except ImportError:
-        raise ConnectionError("signing an nkey needs the cryptography package: run with /opt/onemind/venv/bin/python")
+        raise ConnectionError("signing an nkey needs the cryptography package in this Python")
     with open(seed_file, encoding="ascii") as f:
         text = f.read().strip()
     raw = base64.b32decode(text + "=" * (-len(text) % 8))

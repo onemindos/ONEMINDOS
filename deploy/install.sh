@@ -431,6 +431,8 @@ EOF
 
 apt_setup() {
   local pkgs=$APT_PKGS
+  # Joined nodes sign NATS challenges in node-check with the distro Python.
+  if [ "$ROLE" = node ]; then pkgs="$pkgs python3-cryptography"; fi
   if [ "$DRY_RUN" = 1 ]; then
     step "OS packages and automatic security updates (contract §10.1)"
     plan "apt-get install --no-install-recommends $pkgs (only if one is missing)"

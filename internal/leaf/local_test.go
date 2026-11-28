@@ -61,7 +61,7 @@ func TestRenderLocalUsers(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := "authorization {\n  users: [\n" +
-		`    {nkey: "` + pub + `", permissions: {publish: {allow: ["onemind.node.3f9c2a1b7d4e.status", "onemind.node.3f9c2a1b7d4e.jobresult.>", "onemind.node.3f9c2a1b7d4e.jobpull", "onemind.node.3f9c2a1b7d4e.policyget", "onemind.node.3f9c2a1b7d4e.policycheck", "$JS.ACK.ONEMIND_JOBS.node-3f9c2a1b7d4e.>", "$JS.API.STREAM.INFO.OUTBOX", "$JS.API.STREAM.CREATE.OUTBOX", "$JS.API.STREAM.UPDATE.OUTBOX", "outbox.>"]}, subscribe: {allow: ["_INBOX_onemindd.>"]}}}  # onemindd` + "\n" +
+		`    {nkey: "` + pub + `", permissions: {publish: {allow: ["onemind.node.3f9c2a1b7d4e.status", "onemind.node.3f9c2a1b7d4e.jobresult.>", "onemind.node.3f9c2a1b7d4e.jobpull", "onemind.node.3f9c2a1b7d4e.policyget", "onemind.node.3f9c2a1b7d4e.policycheck", "$JS.ACK.ONEMIND_JOBS.node-3f9c2a1b7d4e.>", "$JS.API.STREAM.INFO.OUTBOX", "$JS.API.STREAM.CREATE.OUTBOX", "$JS.API.STREAM.UPDATE.OUTBOX", "outbox.>"]}, subscribe: {allow: ["_INBOX_onemindd.>", "onemind.node.3f9c2a1b7d4e.status"]}}}  # onemindd` + "\n" +
 		`    {nkey: "` + pub2 + `", permissions: {publish: {allow: ["$JS.API.STREAM.INFO.OUTBOX", "$JS.API.STREAM.CREATE.OUTBOX", "$JS.API.STREAM.UPDATE.OUTBOX", "outbox.>"]}, subscribe: {allow: ["_INBOX_cli.>"]}}}  # cli` + "\n" +
 		"  ]\n}\n"
 	if !strings.HasSuffix(string(got), want) || strings.Contains(string(got), "no_auth_user") {
@@ -128,35 +128,47 @@ func TestLocalSignInRefusesStrangersAndScopesEachProgram(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer od.Close()
+	// The node health check uses this credential to observe the same local heartbeat.
+	ownStatus := "onemind.node.aaa111.status"
+	status, err := od.SubscribeSync(ownStatus)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer status.Unsubscribe()
 	// Its own heartbeat reaches the hub.
 	waitUntil(t, 30*time.Second, "onemindd's heartbeat at the hub", func() bool {
-		_ = od.Publish("onemind.node.aaa111.status", []byte(`{}`))
+		_ = od.Publish(ownStatus, []byte(`{}`))
 		_ = od.Flush()
 		select {
 		case s := <-got:
-			return s == "onemind.node.aaa111.status"
+			return s == ownStatus
 		case <-time.After(300 * time.Millisecond):
 			return false
 		}
 	})
+	if _, err := status.NextMsg(3 * time.Second); err != nil {
+		t.Fatalf("node check could not read its own heartbeat: %v", err)
+	}
 	// Another node's heartbeat, a job, or a read of everything: permission violations.
 	for _, subj := range []string{"onemind.node.bbb222.status", "onemind.node.aaa111.job.host.check", "onemind.node.aaa111.event.x"} {
 		_ = od.Publish(subj, []byte(`{}`))
 	}
-	if _, err := od.Subscribe(">", func(*nats.Msg) {}); err != nil {
-		t.Fatal(err)
+	for _, subj := range []string{"onemind.node.bbb222.status", ">"} {
+		if _, err := od.Subscribe(subj, func(*nats.Msg) {}); err != nil {
+			t.Fatal(err)
+		}
 	}
 	_ = od.Flush()
 	violations := 0
 	deadline := time.After(5 * time.Second)
-	for violations < 4 {
+	for violations < 5 {
 		select {
 		case e := <-errs:
 			if strings.Contains(strings.ToLower(e.Error()), "permissions violation") {
 				violations++
 			}
 		case <-deadline:
-			t.Fatalf("only %d of 4 permission violations reported", violations)
+			t.Fatalf("only %d of 5 permission violations reported", violations)
 		}
 	}
 	// Its outbox works signed in, with its own inbox.
