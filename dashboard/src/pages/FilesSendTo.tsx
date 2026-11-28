@@ -6,11 +6,12 @@ import { useRef, useState } from 'react';
 import { uuid4 } from '@onemind/sdk';
 import { Button, Dialog } from '@onemind/ui';
 import type { Entry, FilesApi, FileRoot, ShareResult, ShareTarget } from '../files/api';
-import { useSignedIn } from '../session';
+import { useShell } from '../shell/Shell';
 import { useRun } from './parts';
 
 export function SendToButton({ api, space, entry }: { api: FilesApi; space: FileRoot; entry: Entry }) {
-  const { principal } = useSignedIn();
+  // The signed-in role as the Files page reads it (#1321): known once the hub answers who this is.
+  const { role } = useShell();
   const run = useRun();
   const [targets, setTargets] = useState<ShareTarget[]>();
   const [open, setOpen] = useState(false);
@@ -20,7 +21,7 @@ export function SendToButton({ api, space, entry }: { api: FilesApi; space: File
   // gateway replays that first share instead of sending a second one.
   const [retrying, setRetrying] = useState<string>();
   const key = useRef<{ sig: string; id: string } | undefined>(undefined);
-  if (principal?.role !== 'owner' && principal?.role !== 'adult') return null;
+  if (role !== 'owner' && role !== 'adult') return null;
   const start = async () => {
     setDone(undefined);
     setRetrying(undefined);
