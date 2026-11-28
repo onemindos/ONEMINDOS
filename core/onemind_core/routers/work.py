@@ -56,9 +56,9 @@ def _no_default(schema: dict) -> None:
 class ChangeBody(JsonBody):
     model_config = ConfigDict(extra="forbid")
 
-    # Leave a field out to keep it. Only assignee and due_at can be cleared with null; the others are not
-    # nullable in the schema either (`labels: null` passed it and then failed as 422 bad_task), so null
-    # there is a validation error like any other wrong type. The same title and label rules as capture.
+    # Leave a field out to keep it. Null clears assignee and due_at. For dependencies, null keeps
+    # the current list and [] clears it. The remaining fields reject null at validation, and title
+    # and labels follow the same rules as capture.
     title: Name = Field(default=None, json_schema_extra=_no_default)
     body: str = Field(default=None, max_length=10_000, json_schema_extra=_no_default)
     status: Literal["todo", "in_progress", "done"] = Field(default=None, json_schema_extra=_no_default)

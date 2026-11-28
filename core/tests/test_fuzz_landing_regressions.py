@@ -225,6 +225,20 @@ def test_the_fuzz_hook_lists_these_reasons_and_still_fails_any_other():
             with pytest.raises(AssertionError):
                 semantic_refusal_names_its_reason(None, resp, positive)
 
+    sync_commit = SimpleNamespace(path="/v1/sync/commit", method="post")
+    unrelated = SimpleNamespace(path="/v1/sync/chunks/missing", method="post")
+    resp = SimpleNamespace(status_code=422, json=lambda: {"error": "conflict", "reason": "hash_mismatch"})
+    positive.operation = sync_commit
+    semantic_refusal_names_its_reason(None, resp, positive)
+    positive.operation = unrelated
+    with pytest.raises(AssertionError, match="hash_mismatch"):
+        semantic_refusal_names_its_reason(None, resp, positive)
+
+    positive.operation = sync_commit
+    resp = SimpleNamespace(status_code=422, json=lambda: {"error": "conflict", "reason": "chunks_or_manifest"})
+    with pytest.raises(AssertionError, match="chunks_or_manifest"):
+        semantic_refusal_names_its_reason(None, resp, positive)
+
 
 # ---- bring your own domain switched off: a setup state (409), not a server fault ----------------------
 def test_domains_switched_off_is_409_on_every_write(client):
@@ -252,17 +266,29 @@ def test_an_unauthenticated_repeated_parameter_is_401_not_422(client):
     assert r.status_code == 401, r.text
 
 
-def test_the_query_guard_is_linear_in_the_number_of_parameters():
-    import time
+def test_the_query_guard_is_linear_in_the_number_of_parameters(client, monkeypatch):
+    from starlette.datastructures import QueryParams
 
-    from starlette.requests import Request
+    size = 200
+    comparisons = 0
+    multi_items = QueryParams.multi_items
 
-    from onemind_core.querystrict import refuse_repeated_query_parameters
-    qs = ("&".join(["x=1"] * 20000)).encode()
-    request = Request({"type": "http", "method": "GET", "path": "/", "query_string": qs, "headers": []})
-    started = time.monotonic()
-    refuse_repeated_query_parameters(request)  # no route in scope: nothing to refuse, and no quadratic scan
-    assert time.monotonic() - started < 2
+    class MeasuredKey(str):
+        __hash__ = str.__hash__
+
+        def __eq__(self, other):
+            nonlocal comparisons
+            comparisons += 1
+            assert comparisons <= 3 * size, "query guard repeatedly scans the query keys"
+            return super().__eq__(other)
+
+    def measured_items(params):
+        return [(MeasuredKey(key), value) for key, value in multi_items(params)]
+
+    monkeypatch.setattr(QueryParams, "multi_items", measured_items)
+    r = client.get("/v1/audit/verify", params=[("from_seq", "1")] * size, headers=OWNER)
+    assert r.status_code == 422 and r.json()["reason"] == "invalid_request", r.text
+    assert "from_seq" in r.json()["message"], r.text
 
 
 def test_a_list_query_parameter_still_takes_many_values():
@@ -322,13 +348,13 @@ def test_a_task_change_uses_the_same_title_and_label_rule(client):
     assert r.status_code == 200 and (r.json()["title"], r.json()["labels"]) == ("New", ["x"]), r.text
 
 
-def test_a_task_change_offers_null_only_where_it_clears(client):
+def test_a_task_change_allows_null_for_assignee_due_date_and_dependencies(client):
     doc = spec(client)
     props = resolve(doc, doc["paths"]["/v1/work/projects/{project_id}/tasks/{task_id}"]["patch"]["requestBody"]
                     ["content"]["application/json"]["schema"])["properties"]
     for name in ("title", "body", "status", "priority", "labels"):
         assert "anyOf" not in props[name] and "default" not in props[name], (name, props[name])
-    for name in ("assignee", "due_at"):
+    for name in ("assignee", "due_at", "dependencies"):
         assert {"type": "null"} in props[name]["anyOf"], name
     task = client.post("/v1/work/capture", headers={**OWNER, "Idempotency-Key": "fz-null"}, json={"title": "t"}).json()
     url = f"/v1/work/projects/{task['project_id']}/tasks/{task['id']}"
@@ -354,10 +380,10 @@ def test_commit_schema_says_exactly_one_of_chunks_or_manifest_chunks(client):
 
 
 @pytest.mark.parametrize("extra", [{}, {"chunks": [], "manifest_chunks": []}])
-def test_commit_refuses_neither_or_both_with_422_invalid_request(client, extra):
+def test_commit_refuses_neither_or_both_with_422_chunks_or_manifest(client, extra):
     r = client.post("/v1/sync/commit", headers=OWNER,
                     json={"root": "shared", "path": "/x.txt", "size": 0, "sha256": "0" * 64, **extra})
-    assert r.status_code == 422 and r.json()["reason"] == "invalid_request", (extra, r.text)
+    assert r.status_code == 422 and r.json()["reason"] == "chunks_or_manifest", (extra, r.text)
 
 
 @pytest.mark.parametrize("extra", [{"chunks": None, "manifest_chunks": []}, {"chunks": [], "manifest_chunks": None},

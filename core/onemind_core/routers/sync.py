@@ -134,7 +134,7 @@ class CommitBody(_Body):
     @model_validator(mode="after")
     def _exactly_one_manifest(self):
         if len(self.model_fields_set & {"chunks", "manifest_chunks"}) != 1:
-            raise SemanticValueError("send exactly one of chunks or manifest_chunks", reason="invalid_request")
+            raise SemanticValueError("send exactly one of chunks or manifest_chunks", reason="chunks_or_manifest")
         return self
 
 

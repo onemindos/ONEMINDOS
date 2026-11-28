@@ -37,6 +37,9 @@ def semantic_refusal_names_its_reason(ctx, response, case):
     if response.status_code != 422 or meta is None or not meta.generation.mode.is_positive:
         return
     reason = response.json().get("reason")
+    # Only sync.commit verifies the declared file digest against the assembled bytes.
+    if reason == "hash_mismatch" and case.operation.path == "/v1/sync/commit" and case.operation.method.lower() == "post":
+        return
     assert reason in FILES_SEMANTIC_REFUSALS, f"schema-valid request refused 422 with reason {reason!r}"
 
 
