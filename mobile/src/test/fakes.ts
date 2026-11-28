@@ -60,7 +60,6 @@ export function v0Api(over: Partial<OneMindApi> = {}, now = Date.now()): OneMind
     setAutomationPaused: missing,
     filesRoots: missing,
     filesList: missing,
-    filesVersions: missing,
     filesDownloadRequest: () => ({ url: 'https://hub.example/v1/files/download', headers: {} }),
     filesUploadCreate: missing,
     filesUploadOffset: missing,

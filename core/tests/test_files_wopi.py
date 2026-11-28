@@ -211,13 +211,10 @@ def test_wrong_user_is_refused(wc, owner):
 
 @pytest.mark.parametrize("role", ["adult", "guest", "child", "teen"])
 def test_a_non_owner_session_gets_no_token(wc, owner, role):
-    """Shared browsing does not confer the owner-only WOPI scope or access to another Home."""
+    """The token route needs "*" like every /v1/files/* route: no side door around the role scopes."""
     person = signed_in(wc, owner, role, f"{role}x")
-    put_doc(wc, owner)
     put_doc(wc, owner, root="shared", name="shared.docx")
-    shared = ok(wc.get("/v1/files/list", params={"root": "shared", "path": "/"}, headers=person["headers"]))
-    assert [entry["name"] for entry in shared] == ["shared.docx"]
-    assert wc.get("/v1/files/list", params={"root": home(owner), "path": "/"}, headers=person["headers"]).status_code == 403
+    assert wc.get("/v1/files/list", params={"root": "shared", "path": "/"}, headers=person["headers"]).status_code == 403
     for root, path in (("shared", "/shared.docx"), (home(person), "/budget.docx")):
         r = wc.post("/v1/files/wopi/tokens", headers=person["headers"], json={"root": root, "path": path})
         assert r.status_code == 403, (root, r.text)

@@ -955,72 +955,16 @@ def run_stream(argv: list[str], env: dict, on_line) -> int:
     return proc.wait()
 
 
-def is_btrfs_subvolume(path: str) -> bool:
-    return os.stat(path).st_ino == 256  # Btrfs gives each subvolume root inode 256.
-
-
-def prepare_files_snapshots(p: Paths, ids: tuple[int, int] | None) -> None:
-    """Keep the live tree at the path used by old slots. Give Snapper a source it can snapshot."""
-    storage = os.path.join(p.root, "data", "storage")
-    history = os.path.join(storage, ".snapshots")
-    if not os.path.ismount(storage) or not os.path.isdir(history):
-        return  # ext4, or local history is temporarily unavailable
-
-    captures = os.path.join(history, ".files")
-    stage = p.files + ".snapshot-stage"
-    staged_tree = os.path.join(stage, "files")
-    for path in (history, captures, stage, staged_tree):
-        if os.path.lexists(path) and (os.path.islink(path) or not os.path.isdir(path)):
-            raise RuntimeError(f"expected a real directory at {path}")
-    os.makedirs(captures, mode=0o750, exist_ok=True)
-    for path in (history, captures):
-        if ids:
-            os.chown(path, 0, ids[1])
-        os.chmod(path, 0o750)
-
-    if not is_btrfs_subvolume(p.files):
-        # A cut before the exchange leaves the old path authoritative, including
-        # any writes made on a rollback boot. Always rebuild an unfinished copy.
-        os.makedirs(stage, mode=0o700, exist_ok=True)
-        if os.path.exists(staged_tree):
-            subprocess.run(["btrfs", "subvolume", "delete", staged_tree], check=True)
-        source = p.files
-        # Recover data from the earlier, unreleased layout when the old path is empty.
-        marker = os.path.join(p.data, ".files-on-storage")
-        moved = os.path.join(storage, "files")
-        previous = p.files + ".before-snapper"
-        moved_files = os.path.isfile(marker) and not os.path.islink(moved) and os.path.isdir(moved)
-        if not os.listdir(p.files):
-            if moved_files:
-                source = moved
-            elif not os.path.islink(previous) and os.path.isdir(previous):
-                source = previous
-        elif moved_files and os.listdir(moved):
-            log("Files has writes at its original path. The earlier storage copy remains under /data/storage/files.")
-        subprocess.run(["btrfs", "subvolume", "create", staged_tree], check=True)
-        subprocess.run(["cp", "-a", "--reflink=always", "--", source + "/.", staged_tree], check=True)
-        subprocess.run(["sync", "-f", p.data], check=True)
-        subprocess.run(["mv", "--exchange", "--no-copy", "-T", "--", staged_tree, p.files], check=True)
-        subprocess.run(["sync", "-f", p.data], check=True)
-    if os.path.exists(stage):
-        # The exchange published the whole new tree. A cut during cleanup leaves
-        # only the old directory here, with the live tree still at the old path.
-        shutil.rmtree(stage)
-
-
 def ensure_files_root(p: Paths) -> None:
     """Make the files root (ONEMIND_FILES_ROOT) before the gateway starts. Its unit lists the folder in
     ReadWritePaths=, and systemd refuses to start a unit whose read-write path is missing (226/NAMESPACE):
     the mount namespace is set up before any ExecStartPre= runs, even a "+" one, so the unit cannot make it
     itself. Only the folder is (re-)owned, never its contents. Every boot, so updated boxes get it too."""
-    ids = onemind_ids()
-    if os.path.islink(p.files):
-        raise RuntimeError("expected a real Files directory")
     os.makedirs(p.files, mode=0o750, exist_ok=True)
     os.chmod(p.files, 0o750)
+    ids = onemind_ids()
     if ids:
         os.chown(p.files, *ids)
-    prepare_files_snapshots(p, ids)
 
 
 def ensure_map_storage(p: Paths, ids: tuple[int, int] | None) -> None:

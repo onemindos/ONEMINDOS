@@ -425,7 +425,6 @@ dashboard files.uploads.delete files-upload-cancel
 indirect dashboard files.roots.list FilesApi.roots sends GET through get(P.roots)
 indirect dashboard files.list FilesApi.list sends GET through get(P.list)
 indirect dashboard files.preview FilesApi.preview sends GET through get(P.preview)
-indirect dashboard files.versions.list FilesApi.versions sends GET through get(P.versions)
 indirect dashboard files.download FilesApi.fetchBlob sends GET (fetch default) to P.download
 indirect dashboard files.ops FilesApi.mkdir, rename, trash and restore send POST through post(P.ops)
 indirect dashboard files.shares.create FilesApi.createShare sends POST through post(P.shares)

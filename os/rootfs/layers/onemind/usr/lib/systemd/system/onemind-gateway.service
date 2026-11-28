@@ -25,7 +25,6 @@ Type=simple
 User=onemind
 Group=onemind
 EnvironmentFile=/data/onemind/etc/gateway.env
-Environment=ONEMIND_FILES_SNAPSHOTS_DIR=/data/storage/.snapshots
 # MALLOC_ARENA_MAX=2: at most two glibc malloc arenas (private heaps) instead of one per allocating thread;
 # keeps the idle gateway under its 100 MiB budget (test/perf/budget.json, issue #849). Same in deploy/systemd.
 Environment=HOME=/data/onemind/gateway PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 MALLOC_ARENA_MAX=2

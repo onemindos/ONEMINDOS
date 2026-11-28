@@ -5,7 +5,7 @@
 // its own error mapping (ApiError), session renewal and response-shape checks on top. Binary transfers
 // (tus uploads, downloads) stay on fetch: the JSON client cannot carry them.
 // contract.ts checks the hand-written types in types.ts against the generated schema at compile time.
-import { OneMind, NetworkError, type components } from '@onemind/sdk';
+import { OneMind, NetworkError } from '@onemind/sdk';
 import { noteProtocol, PROTOCOL_HEADER, PROTOCOL_VERSION } from '../lib/protocol';
 import {
   ApiError,
@@ -107,7 +107,6 @@ export const OP = {
   filesRoots: 'GET /v1/files/roots',
   filesList: 'GET /v1/files/list',
   filesDownload: 'GET /v1/files/download',
-  filesVersions: 'GET /v1/files/versions',
   filesUploads: 'POST /v1/files/uploads',
   migratePlans: 'GET /v1/migrate/plans',
   /** §12.6 users (owner), FAM-01 family limits, CORE-SEC-6 agent kill switch. */
@@ -281,7 +280,6 @@ export interface OneMindApi {
   // Files and migration, read only on the phone.
   filesRoots(): Promise<FileRoot[]>;
   filesList(root: string, path: string): Promise<FileEntry[]>;
-  filesVersions(root: string, path: string): Promise<components['schemas']['FileVersions']>;
   /** Where and how to fetch one file's bytes (the native layer streams it to disk; the token never goes to another origin). */
   filesDownloadRequest(root: string, path: string): { url: string; headers: Record<string, string> };
   /** tus 1.0.0 (docs/leap/core/FILES.md section 3): create the upload; returns its absolute URL. 403 no write access, 409 name taken, 413 quota. */
@@ -750,9 +748,6 @@ export class HttpApi implements OneMindApi {
   }
   filesList(root: string, path: string) {
     return this.req<FileEntry[]>('GET', `/v1/files/list?root=${enc(root)}&path=${enc(path)}&limit=200`, undefined, 'array');
-  }
-  filesVersions(root: string, path: string) {
-    return this.req<components['schemas']['FileVersions']>('GET', `/v1/files/versions?root=${enc(root)}&path=${enc(path)}`);
   }
   filesDownloadRequest(root: string, path: string) {
     const bearer = this.tokens.current();

@@ -2,14 +2,10 @@
 // The Files window (FILES-01, D-016): browse, upload over tus, download, preview, trash, and ask for
 // folder access. The owner reviews rename, share link, folder grant and permanent trash requests in
 // Sharing. Approvals are bound to the reviewed plan.
-// Previous versions (BAK-04, #241): a person copies an earlier snapshot of their file back as a new file;
-// the page says snapshots share the disk, so they are not a backup, and links to Backups.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router';
 import { uuid4 } from '@onemind/sdk';
 import { Button, Card, Dialog, PageHeader, StatusPill } from '@onemind/ui';
-import { FilesApi, human, type CreatedShare, type Entry, type FileRequest, type FileRoot, type FileVersion, type FileVersions, type Preview, type ShareLink, type TrashItem } from '../files/api';
-import { href } from '../shell/routes';
+import { FilesApi, human, type CreatedShare, type Entry, type FileRequest, type FileRoot, type Preview, type ShareLink, type TrashItem } from '../files/api';
 import { SendToButton } from './FilesSendTo';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
@@ -140,7 +136,6 @@ function Browser({ api, space, run, canShare, onChanged }: { api: FilesApi; spac
         {seen.preview.text && <><pre tabIndex={0} aria-label="Start of the file">{seen.preview.text.excerpt}</pre>{seen.preview.text.truncated && <p className="om-hint">Only the start of the file is shown.</p>}</>}
         {!seen.image && !seen.preview.text && <p className="om-hint">No preview for this type. Download it to open it.</p>}
       </>}
-      <PreviousVersions key={seen.entry.path} api={api} space={space} entry={seen.entry} run={run} onRestored={() => { void entries.reload(); onChanged(); }} />
     </Card>}
     <Dialog open={folderOpen} onClose={() => setFolderOpen(false)} title="New folder" description={`Created in ${dir}.`}
       actions={<Button disabled={!name.trim() || name.includes('/')} onClick={() => void run(async () => { await api.mkdir(space.root, dir === '/' ? `/${name.trim()}` : `${dir}/${name.trim()}`); setFolderOpen(false); await entries.reload(); }, 'Could not create the folder')}>Create folder</Button>}>
@@ -157,38 +152,6 @@ function Browser({ api, space, run, canShare, onChanged }: { api: FilesApi; spac
       <p>{doomed?.path}</p>
     </Dialog>
   </Card>;
-}
-
-function PreviousVersions({ api, space, entry, run, onRestored }: { api: FilesApi; space: FileRoot; entry: Entry; run: Run; onRestored: () => void }) {
-  const [state, setState] = useState<{ loading?: boolean; data?: FileVersions; error?: string }>({});
-  const [chosen, setChosen] = useState<FileVersion>();
-  const [restored, setRestored] = useState('');
-  const load = async () => {
-    setState({ loading: true });
-    try { setState({ data: await api.versions(space.root, entry.path) }); }
-    catch (e) { setState({ error: e instanceof Error ? e.message : String(e) }); }
-  };
-  const restore = (v: FileVersion) => void run(async () => {
-    const made = await api.restoreVersion(space.root, entry.path, v.version);
-    setChosen(undefined); setRestored(made.path); onRestored();
-  }, 'Could not restore this version');
-  const rows = state.data?.versions ?? [];
-  return <section aria-label="Previous versions">
-    <h3>Previous versions</h3>
-    <p className="om-hint">Versions are snapshots kept on this same disk, so they are not a backup: if the disk fails, they are lost with it. For copies kept off the box, use <Link to={href.backups}>Backups</Link>.</p>
-    {!state.data && !state.loading && !state.error && <Button size="sm" variant="secondary" onClick={() => void load()}>Show previous versions</Button>}
-    {state.loading && <p role="status">Loading previous versions…</p>}
-    {state.error && <p role="alert">{state.error}</p>}
-    {restored && <p role="status">Restored as {restored}. The current file was not changed.</p>}
-    {state.data && (!state.data.enabled ? <p>Versions are not turned on for this box. An administrator turns them on.</p>
-      : rows.length === 0 ? <p>No earlier version differs from this file.</p>
-      : <ul>{rows.map((v) => <li key={v.version}>{when(v.mtime)} · {human(v.size)} · {v.cadence} snapshot of {when(v.taken_at)}{' '}
-        {space.writable && <Button size="sm" variant="secondary" aria-label={`Restore the version of ${when(v.mtime)}`} onClick={() => setChosen(v)}>Restore</Button>}</li>)}</ul>)}
-    <Dialog role="alertdialog" open={!!chosen} onClose={() => setChosen(undefined)} title="Restore this version?" description={`The version of ${chosen ? when(chosen.mtime) : ''} is copied back as a new file. The current ${entry.name} stays as it is.`}
-      actions={<Button onClick={() => chosen && restore(chosen)}>Restore as a new file</Button>}>
-      <p>{entry.path}</p>
-    </Dialog>
-  </section>;
 }
 
 const EXPIRIES = [['1 hour', 3_600_000], ['1 day', 86_400_000], ['7 days', 7 * 86_400_000], ['30 days', 30 * 86_400_000 - 60_000]] as const;
@@ -254,13 +217,12 @@ function TrashTab({ api, run }: { api: FilesApi; run: Run }) {
       {(['home', 'shared'] as const).map((w) => <Button key={w} size="sm" variant={which === w ? 'primary' : 'secondary'} aria-pressed={which === w} onClick={() => setWhich(w)}>{w === 'home' ? 'My trash' : 'Shared trash'}</Button>)}
       <Button size="sm" variant="secondary" onClick={() => setConfirm(true)}>Ask to empty this trash</Button>
     </div>
-    {filed && <p role="status">Request {filed} filed. Nothing is deleted until an owner approves it in the Sharing tab.</p>}
-    <p>Retained snapshots may still hold copies after items are removed from the trash.</p>
+    {filed && <p role="status">Request {filed} filed. Nothing is deleted until a person approves it in the Sharing tab.</p>}
     <Load res={items} what="Loading the trash">{(rows: TrashItem[]) => rows.length === 0 ? <p>The trash is empty.</p> : <ul>
-      {rows.map((t) => <li key={t.id}><strong>{t.name}</strong> from {t.path} · {human(t.size)} · trashed {when(t.trashed_at)} · removed from trash {when(t.purge_at)}{' '}
+      {rows.map((t) => <li key={t.id}><strong>{t.name}</strong> from {t.path} · {human(t.size)} · trashed {when(t.trashed_at)} · deleted for good {when(t.purge_at)}{' '}
         <Button size="sm" variant="secondary" aria-label={`Restore ${t.name}`} onClick={() => void run(async () => { await api.restore(t.id); await items.reload(); }, `Could not restore ${t.name}`)}>Restore</Button></li>)}
     </ul>}</Load>
-    <Dialog role="alertdialog" open={confirm} onClose={() => setConfirm(false)} title="Ask to empty the trash" description="An owner reviews what will be removed from the trash before approving. Retained snapshots may still hold copies."
+    <Dialog role="alertdialog" open={confirm} onClose={() => setConfirm(false)} title="Ask to empty the trash for good" description="This files a request. Nothing is deleted until it is approved, and what it deletes is shown to the approver first."
       actions={<Button onClick={ask}>File the request</Button>}><p>Trash: {which === 'home' ? 'mine' : 'shared'}.</p></Dialog>
   </Card>;
 }

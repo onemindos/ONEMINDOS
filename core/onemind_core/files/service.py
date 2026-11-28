@@ -34,7 +34,6 @@ from .preview import describe, guess_mime
 from .settings import FilesSettings
 from .shares import ShareService, file_identity
 from .store import FilesRepository, GrantRow, RequestRow, TrashRow, aware, new_id
-from .versions import Versions
 
 log = logging.getLogger("onemind.files")
 
@@ -85,9 +84,7 @@ class FilesService:
         self.repo = repo or FilesRepository(gw.db)
         self.clock: Callable[[], datetime] = gw.clock
         self._lock = threading.RLock()
-        self._restore_reserved_bytes = 0
         self.index = FileIndex(self.repo.db, self.clock)
-        self.versions = Versions(self)
 
     @cached_property
     def shares(self) -> ShareService:
@@ -252,7 +249,7 @@ class FilesService:
         except OSError:
             return None
 
-    def check_space(self, root: Root, add: int, *, staged: bool = False) -> None:
+    def check_space(self, root: Root, add: int) -> None:
         if add <= 0:
             return
         limit = self.limit(root)
@@ -263,21 +260,8 @@ class FilesService:
                                  f"{root.id} would use {used + add} of its {limit} byte quota",
                                  reason="quota_exceeded")
         free = self.free_bytes()
-        # A completed restore stage already occupies its disk blocks, but still counts against the space quota.
-        if free is not None and free - self._restore_reserved_bytes - (0 if staged else add) < self.settings.min_free_bytes:
+        if free is not None and free - add < self.settings.min_free_bytes:
             raise FilesError(413, "payload_too_large", "not enough free space on the disk", reason="insufficient_space")
-
-    @contextmanager
-    def _reserve_restore_space(self, root: Root, size: int) -> Iterator[None]:
-        """Account for in-flight restores while their staged blocks may be absent from free_bytes()."""
-        with self._lock:
-            self.check_space(root, size)
-            self._restore_reserved_bytes += size
-        try:
-            yield
-        finally:
-            with self._lock:
-                self._restore_reserved_bytes -= size
 
     # ---- browse -------------------------------------------------------------------------
     @staticmethod
@@ -355,7 +339,7 @@ class FilesService:
             else:
                 with paths.dir_at(space, t.parts[:-1]) as d:
                     out = self._entry(t.parts[-1], t.parts[:-1], paths.lstat_at(d, t.parts[-1]))
-        out.update({"root": t.root.id, "access": t.access.label, "versions_available": is_person(p) and self.versions.available()})
+        out.update({"root": t.root.id, "access": t.access.label, "versions_available": False})
         # The space itself has no row: its revision is the root's, which moves on every change inside.
         row = self.index.rows(t.root.id, [out["path"]]).get(out["path"]) if t.parts else None
         out.update({"id": row.file_id if row else None, "hash": row.hash if row else None,
@@ -692,8 +676,7 @@ class FilesService:
         if not self.may_see_trash(p, owner):
             raise self._deny(p, "files.trash.empty", f"{p.kind}/{p.role} has no {params['trash']} trash")
         items = self.repo.trash_items(owner)
-        plan = {"summary": f"Remove {len(items)} item(s) from the {params['trash']} trash. "
-                           "Retained snapshots may still hold copies.",
+        plan = {"summary": f"permanently delete {len(items)} item(s) from the {params['trash']} trash",
                 "trash": params["trash"], "items": len(items), "bytes": sum(i.size_bytes for i in items)}
         return plan, "destructive"
 

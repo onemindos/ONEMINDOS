@@ -20,7 +20,6 @@ from starlette.requests import ClientDisconnect
 
 from ..auth import Principal
 from ..context import Gateway
-from ..errors import error_responses
 from ..guard import reads_body
 from ..files import errors as ferrors, paths
 from ..files.errors import FilesError
@@ -28,19 +27,10 @@ from ..files.preview import INLINE_SAFE, guess_mime
 from ..files.service import FilesService
 from ..files.store import aware
 from ..files.uploads import TUS_EXTENSIONS, TUS_VERSION, Uploads, parse_metadata, parse_repr_digest
-from ..files.versions import VERSION_PATTERN
 from ..files.watch import IndexWatcher
-from ..identity.scopes import register_route_scope
-
-# The scope is a ceiling. Files still checks the person and their access to each space.
-register_route_scope("GET,HEAD", r"/v1/files/versions", ("files:read",))
-register_route_scope("GET,HEAD", r"/v1/files/(roots|list|stat|preview|download)", ("files:read",))
-register_route_scope("POST", r"/v1/files/ops", ("files:write",))
 
 TAG = ["files"]
 STREAM_CHUNK = 256 * 1024
-READ_SECURITY = {"security": [{"bearer": ["files:read"]}]}
-WRITE_SECURITY = {"security": [{"bearer": ["files:write"]}]}
 
 _ERR = {
     401: {"description": "Missing or unknown bearer token (unauthenticated)"},
@@ -121,34 +111,8 @@ class RestoreTrashOp(_Op):
     to_path: str | None = Field(default=None, max_length=4096)
 
 
-class RestoreVersionOp(_Op):
-    """Copy an earlier version of a file (GET /v1/files/versions) back as a new file; never overwrites."""
-    op: Literal["restore_version"]
-    root: Root
-    path: str = Field(max_length=4096)
-    version: str = Field(max_length=40, json_schema_extra={"pattern": VERSION_PATTERN})
-    to_path: str | None = Field(default=None, max_length=4096,
-                                description="Choose a path in an existing folder if the original folder is gone.")
-
-
-class FileVersion(BaseModel):
-    version: str
-    cadence: str
-    taken_at: str
-    size: int
-    mtime: str
-
-
-class FileVersions(BaseModel):
-    root: str
-    path: str
-    enabled: bool
-    exists: bool
-    versions: list[FileVersion]
-
-
 # One variant per op, each with the fields that op needs: the schema cannot offer a body the server refuses.
-OpBody = Annotated[MkdirOp | MoveOp | RenameOp | TrashOp | RestoreTrashOp | RestoreVersionOp, Field(discriminator="op")]
+OpBody = Annotated[MkdirOp | MoveOp | RenameOp | TrashOp | RestoreTrashOp, Field(discriminator="op")]
 
 
 class Subject(BaseModel):
@@ -352,7 +316,6 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     def housekeeping() -> None:
         try:
-            svc.versions.recover_stages()
             svc.purge_expired()
             uploads.expire_due()
         except FilesError as exc:  # storage not mounted yet: the routes answer 503 until it is
@@ -366,47 +329,34 @@ def register(app: FastAPI, gw: Gateway) -> None:
     app.state.files_index_watcher = watcher
 
     # -- browse --
-    @app.get("/v1/files/roots", operation_id="files.roots.list", tags=TAG, responses=errs(401, 403, 503),
-             openapi_extra=READ_SECURITY)
+    @app.get("/v1/files/roots", operation_id="files.roots.list", tags=TAG, responses=errs(401, 503))
     def roots(p: Principal = Depends(principal)):
         return svc.roots(p)
 
-    @app.get("/v1/files/list", operation_id="files.list", tags=TAG, responses=errs(401, 403, 404, 409, 422, 503),
-             openapi_extra=READ_SECURITY)
+    @app.get("/v1/files/list", operation_id="files.list", tags=TAG, responses=errs(401, 403, 404, 409, 422, 503))
     def list_folder(request: Request, root: RootQ, path: str = Query("/", max_length=4096),
                     limit: int = Query(100, ge=1, le=500), cursor: str | None = Query(None, max_length=64, json_schema_extra={"pattern": CURSOR_RE}),
                     p: Principal = Depends(principal)):
         return paginate(request, svc.list(p, root, path), limit, cursor)
 
-    @app.get("/v1/files/stat", operation_id="files.stat", tags=TAG, responses=errs(401, 403, 404, 409, 422, 503),
-             openapi_extra=READ_SECURITY)
+    @app.get("/v1/files/stat", operation_id="files.stat", tags=TAG, responses=errs(401, 403, 404, 409, 422, 503))
     def stat(root: RootQ, path: str = Query("/", max_length=4096), p: Principal = Depends(principal)):
         return svc.stat(p, root, path)
 
-    @app.get("/v1/files/preview", operation_id="files.preview", tags=TAG, responses=errs(401, 403, 404, 409, 422, 503),
-             openapi_extra=READ_SECURITY)
+    @app.get("/v1/files/preview", operation_id="files.preview", tags=TAG, responses=errs(401, 403, 404, 409, 422, 503))
     def preview(root: RootQ, path: str = Query(max_length=4096), p: Principal = Depends(principal)):
         return svc.preview(p, root, path)
 
     @app.get("/v1/files/download", operation_id="files.download", tags=TAG, responses={206: {"description": "Partial content (Range)"},
-                                                         **errs(401, 403, 404, 409, 416, 422, 503)},
-             openapi_extra=READ_SECURITY)
+                                                         **errs(401, 403, 404, 409, 416, 422, 503)})
     def download(request: Request, root: RootQ, path: str = Query(max_length=4096),
                  inline: bool = False, p: Principal = Depends(principal)):
         return file_response(request, svc.open_file(p, root, path), inline)
 
-    @app.get("/v1/files/versions", operation_id="files.versions.list", tags=TAG,
-             response_model=FileVersions, responses=error_responses(401, 403, 404, 409, 422, 503),
-             openapi_extra=READ_SECURITY)
-    def versions(root: RootQ, path: str = Query(max_length=4096), p: Principal = Depends(principal)):
-        """Earlier copies of a file in the box's local snapshots (BAK-04). Same disk: not a backup."""
-        return svc.versions.list(p, root, path)
-
     # -- data-plane writes --
     @app.post("/v1/files/ops", operation_id="files.ops", tags=TAG,
               responses={202: {"description": "Person's rename awaiting owner approval"},
-                         **errs(401, 403, 404, 409, 413, 422, 429, 503)},
-              openapi_extra=WRITE_SECURITY)
+                         **errs(401, 403, 404, 409, 413, 422, 429, 503)})
     def ops(body: OpBody, p: Principal = Depends(principal)):
         if isinstance(body, MkdirOp):
             return svc.mkdir(p, body.root, body.path)
@@ -422,8 +372,6 @@ def register(app: FastAPI, gw: Gateway) -> None:
             return filed(svc.request_rename(p, body.root, body.path, body.name))
         if isinstance(body, TrashOp):
             return svc.trash(p, body.root, body.path)
-        if isinstance(body, RestoreVersionOp):
-            return svc.versions.restore(p, body.root, body.path, body.version, body.to_path)
         return svc.restore_trash(p, body.trash_id, body.to_root, body.to_path)
 
     @app.get("/v1/files/trash", operation_id="files.trash.list", tags=TAG, responses=errs(401, 403, 503))

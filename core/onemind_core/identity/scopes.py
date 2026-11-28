@@ -28,7 +28,6 @@ BASE_SCOPES = frozenset({
     "automation:read", "automation:request", "automation:write",
     "audit:read", "audit:admin", "users:read", "users:admin",
     "tokens:self", "tokens:read", "tokens:admin", "events:read", "deploy:write",
-    "files:read", "files:write",  # Files data-plane ceiling, further restricted by space access (BAK-04)
     "files:share",  # FILES-02 (#237): publish household files through an expiring share link
     "events:write",  # only as events:write:own, minted for an approved bridge block (#610)
     "assets:read",  # #606: asset values on GET /v1/events (owner and adult by default)
@@ -51,7 +50,7 @@ _SUFFIX = {
 
 # Never minted for agent, plugin, automation or node (§12.6).
 _PERSON_ONLY = {"actions:approve", "tokens:admin", "tokens:self", "tokens:read", "notifications:read", "files:share",
-                "notifications:write", "work:write", "files:read", "files:write"}
+                "notifications:write", "work:write"}
 _KIND_ONLY = {"nodes:report": {"node"}, "notifications:send": {"plugin", "agent", "automation"},
               "events:write": {"plugin"},
               "automation:request": {"agent", "plugin", "person"}, "work:read": {"person", "agent"}}
@@ -61,18 +60,18 @@ READ_SCOPES = frozenset(s for s in BASE_SCOPES if s.endswith(":read"))
 ROLE_SCOPES: dict[str, frozenset[str]] = {
     "owner": frozenset({ALL}),
     "adult": frozenset((READ_SCOPES - {"users:read"}) | {
-        "logs:read", "notifications:write", "tokens:self", "actions:request", "files:share", "files:write", "data:write", "work:write",
+        "logs:read", "notifications:write", "tokens:self", "actions:request", "files:share", "data:write", "work:write",
     }),
     # Every household role carries the data ceiling so a grant the owner approved for that person works
     # in their own session; with no grant they still see `public` only (datagrants/ access()).
     "guest": frozenset({"instance:read", "nodes:read", "apps:read", "notifications:read",
-                        "notifications:write", "alerts:read", "data:read", "data:write", "files:read"}),
+                        "notifications:write", "alerts:read", "data:read", "data:write"}),
     "child": frozenset({"instance:read", "apps:read", "notifications:read", "alerts:read",
-                        "data:read", "data:write", "work:read", "work:write", "files:read", "files:write"}),
+                        "data:read", "data:write", "work:read", "work:write"}),
     # FAM-01 Teen: signs in on their own with the same API scopes as a child. No approval, admin,
     # users, nodes, tokens or logs scope; what a teen may open is narrowed by family controls only.
     "teen": frozenset({"instance:read", "apps:read", "notifications:read", "alerts:read",
-                       "data:read", "data:write", "work:read", "work:write", "files:read", "files:write"}),
+                       "data:read", "data:write", "work:read", "work:write"}),
 }
 
 BUNDLES = {
