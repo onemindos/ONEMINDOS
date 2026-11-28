@@ -41,6 +41,10 @@ func TestSovereignCopyCLI(t *testing.T) {
 	defer hub.Close()
 	t.Setenv("ONEMIND_HUB", hub.URL)
 	t.Setenv("ONEMIND_TOKEN", ownerTok)
+	invalid := run(t, key+"\n", false, "--token-stdin", "backup", "copy", "start", "dst-test")
+	if invalid.code == 0 || strings.Contains(invalid.out+invalid.errOut, key) {
+		t.Fatal("copy start must reserve stdin for the recovery key")
+	}
 	start := run(t, key+"\n", false, "backup", "copy", "start", "dst-test", "--json")
 	if start.code != 0 || !strings.Contains(start.out, "awaiting_approval") || strings.Contains(start.out+start.errOut, key) {
 		t.Fatal("copy start did not report a pending approval without disclosure")

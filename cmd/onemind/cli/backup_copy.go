@@ -4,11 +4,14 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 func backupCopies(a *App) *cobra.Command {
@@ -19,7 +22,7 @@ func backupCopies(a *App) *cobra.Command {
 		Short: "Request owner approval for a copy (reads the recovery key from stdin)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			key, err := copyRecoveryKey(cmd, a.Stdin)
+			key, err := copyRecoveryKey(cmd, a)
 			if err != nil {
 				return err
 			}
@@ -33,7 +36,7 @@ func backupCopies(a *App) *cobra.Command {
 		Short: "Find and verify the newest recoverable copy on a fresh box (reads the recovery key from stdin)",
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			key, err := copyRecoveryKey(cmd, a.Stdin)
+			key, err := copyRecoveryKey(cmd, a)
 			if err != nil {
 				return err
 			}
@@ -77,8 +80,11 @@ func backupCopies(a *App) *cobra.Command {
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var creds map[string]string
-			raw, err := io.ReadAll(io.LimitReader(a.Stdin, 8193))
-			if err != nil || len(raw) > 8192 || json.Unmarshal(raw, &creds) != nil ||
+			raw, err := readCopySecret(cmd, a, "S3 credentials JSON", 8192)
+			if err != nil {
+				return err
+			}
+			if json.Unmarshal(raw, &creds) != nil ||
 				len(creds) != 2 || creds["access_key"] == "" || creds["secret_key"] == "" {
 				return usageErr(cmd, "stdin must contain JSON with access_key and secret_key")
 			}
@@ -95,11 +101,36 @@ func backupCopies(a *App) *cobra.Command {
 	return root
 }
 
-func copyRecoveryKey(cmd *cobra.Command, in io.Reader) (string, error) {
-	raw, err := io.ReadAll(io.LimitReader(in, 257))
+func copyRecoveryKey(cmd *cobra.Command, a *App) (string, error) {
+	raw, err := readCopySecret(cmd, a, "Recovery key", 256)
+	if err != nil {
+		return "", err
+	}
 	key := strings.TrimSpace(string(raw))
-	if err != nil || len(raw) > 256 || len(key) != 64 {
+	if len(key) != 64 {
 		return "", usageErr(cmd, "stdin must contain the printed recovery key")
 	}
 	return key, nil
+}
+
+func readCopySecret(cmd *cobra.Command, a *App, prompt string, limit int64) ([]byte, error) {
+	if a.G.TokenStdin {
+		return nil, usageErr(cmd, "use a signed-in context when stdin carries recovery or storage credentials")
+	}
+	var raw []byte
+	var err error
+	if file, ok := a.Stdin.(*os.File); ok && a.Interactive() {
+		fmt.Fprint(a.Stderr, prompt+": ")
+		raw, err = term.ReadPassword(int(file.Fd()))
+		fmt.Fprintln(a.Stderr)
+	} else {
+		raw, err = io.ReadAll(io.LimitReader(a.Stdin, limit+1))
+	}
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(raw)) > limit {
+		return nil, usageErr(cmd, "credential input exceeds its size limit")
+	}
+	return raw, nil
 }
