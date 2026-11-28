@@ -26,3 +26,12 @@
 - Migration of boxes installed before this change (their `/data` is plain ext4 and is left untouched on purpose).
 - Growing an encrypted `/data` to a bigger disk (`data_extend.py` skips it and says so), and boards other than `x86_64-efi`.
 - Showing the recovery key in the first-run recovery-kit step (PR #551). Here the key is on the console and in RAM only.
+
+## 4. Amendment 2026-11-28 (#1118): the recovery key never reaches a serial console by default
+
+Written before the matching change to `data_encrypt.py` and `dataenc.py` was booted anywhere. Why: a serial console is often logged on another machine (a hypervisor serial log, a terminal server, QEMU `-serial file:`), so a key printed there can end up in a file other people read. The key is now shown on the screen's own terminals only (`tty0`, `tty1` ...), on a serial console only when the first boot had the kernel command line word `onemind.recovery_key=serial`, and it stays in `/run/onemind/data-recovery-key` (RAM, mode 600) for the recovery-kit step. The test VM boots without that word (the default).
+
+- **E1, first PASS clause replaced.** Instead of "the console prints `ONEMIND-DATA-CRYPT: RECOVERY KEY` with a key of eight groups of eight modhex letters": the console prints `ONEMIND-DATA-CRYPT: recovery key made`; `/run/onemind/data-recovery-key` holds a key of eight groups of eight modhex letters; and the serial console output of this boot, from power-on until the gate commits (before the harness runs any shell command), contains neither that key nor a `RECOVERY KEY` line. All other E1 clauses stay.
+- **E1 FAIL also if** the key or a `RECOVERY KEY` line appears on the serial console in that window.
+- **E3** sends the key the harness read from `/run/onemind/data-recovery-key` in E1.
+- Not covered: that the key is drawn on the screen (`tty0`); the battery captures the serial port only. The unit tests (`test/unit/test_data_encrypt.py`) check which terminals get the key.
