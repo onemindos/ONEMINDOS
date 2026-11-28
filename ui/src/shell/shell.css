@@ -377,5 +377,6 @@
   .oms-onb-brand, .oms-steps, .oms-onb-side-foot { display: none; }
   .oms-setup-map { height: 150px; }
   .oms-setup-map svg { max-height: 130px; }
-  .oms-setup-dock { margin-top: var(--om-space-2); }
+  /* The phone strip stays 130 to 170 px: the dock preview is left out there (the apps list says the same). */
+  .oms-setup-dock { display: none; }
 }

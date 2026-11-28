@@ -13,15 +13,16 @@ beforeEach(() => { network.mockClear(); vi.stubGlobal('fetch', network); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 function connected(extra: Partial<Parameters<typeof Onboarding>[0]> = {}) {
-  const save = vi.fn().mockResolvedValue('saved' as const);
+  const save = vi.fn().mockImplementation(async (d: { placeName: string; address: string; location?: { lat: number; lon: number } }) => (
+    { status: 'saved' as const, name: d.placeName, address: d.address, location: d.location }));
   render(<Onboarding apps={[]} initial={{ ...emptyDraft('UTC'), boxName: 'home-hub' }} onSaveSettings={vi.fn()} onSaveLocation={save} onFinish={vi.fn()} {...extra} />);
   return save;
 }
 
 it('names the place, finds no street address offline without sending it anywhere, then saves the position the owner gave', async () => {
   const user = userEvent.setup();
-  const device = vi.fn().mockResolvedValue({ lat: 40.71281234, lon: -74.00601234 });
-  const save = connected({ deviceLocation: device });
+  const ask = vi.fn().mockResolvedValue({ lat: 40.71281234, lon: -74.00601234 });
+  const save = connected({ deviceLocation: ask });
   await user.type(screen.getByLabelText('Place name'), 'Rivera Home');
   await user.click(screen.getByRole('button', { name: 'Continue' }));
   expect(screen.getByRole('heading', { level: 2, name: 'Where is your place?' })).toHaveFocus();
@@ -31,8 +32,9 @@ it('names the place, finds no street address offline without sending it anywhere
   expect(screen.getByText(/no address index yet/)).toHaveTextContent('Nothing was sent anywhere.');
   expect(network).not.toHaveBeenCalled();
 
-  expect(screen.getByText(/Some browsers ask their maker’s online location service; OneMind does not/)).toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: /Use this device’s location/ }));
+  const device = screen.getByRole('button', { name: /Use this device’s location/ });
+  expect(device).toHaveAccessibleDescription(/send nearby Wi-Fi networks and your IP address to an online location service \(Google, Apple or Microsoft\).*OneMind does not\./);
+  await user.click(device);
   expect(await screen.findByText(/Your map moved to 40\.71281° N, 74\.00601° W/)).toBeInTheDocument();
   expect(screen.getByText(/from this device’s location/)).toBeInTheDocument();
 
@@ -83,7 +85,7 @@ it('the practice is optional, calls no API, and moves focus to the result after 
   expect(screen.getByText(/Practice done: you said no/).closest('p')).toHaveFocus();
   expect(screen.queryByRole('button', { name: 'Skip' })).toBeNull();
   await user.click(screen.getByRole('button', { name: 'Try again' }));
-  expect(screen.getByRole('button', { name: 'Hold to approve the practice request' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Hold to approve the practice request' })).toHaveFocus();
   expect(network).not.toHaveBeenCalled();
 });
 
@@ -95,4 +97,19 @@ it('cannot hold? tap, wait, then confirm approves the practice', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Confirm approval' }));
   expect(screen.getByText(/Practice done: you approved it/)).toBeInTheDocument();
   expect(network).not.toHaveBeenCalled();
+});
+
+it('after a 409 it shows the place that is actually saved, not what was typed, and strips control characters', async () => {
+  const user = userEvent.setup();
+  const save = vi.fn().mockResolvedValue({ status: 'exists', name: 'Rivera Home', address: 'Old Mill Road', location: { lat: 10.5, lon: 20.25 } });
+  render(<Onboarding apps={[]} initialStep={at('address')} initial={{ ...emptyDraft('UTC'), boxName: 'home-hub', placeName: 'Rivera Home' }} onSaveSettings={vi.fn()} onSaveLocation={save} deviceLocation={undefined} onFinish={vi.fn()} />);
+  fireEvent.change(screen.getByLabelText('Your address'), { target: { value: 'New\u202eStreet\u0000 1' } });
+  expect(screen.getByLabelText('Your address')).toHaveValue('NewStreet  1');
+  await user.type(screen.getByLabelText('Coordinates'), '40.7128, -74.0060');
+  await user.click(screen.getByRole('button', { name: /Move my map here/ }));
+  await user.click(screen.getByRole('button', { name: /Save my place/ }));
+  await user.click(await screen.findByRole('button', { name: 'Back' }));
+  const note = await screen.findByText(/already saved on this box; it was kept as it is/);
+  expect(note).toHaveTextContent('Old Mill Road · 10.50000° N, 20.25000° E');
+  expect(note).not.toHaveTextContent('40.71280');
 });

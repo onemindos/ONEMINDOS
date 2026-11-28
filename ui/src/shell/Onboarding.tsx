@@ -43,6 +43,14 @@ import { SetupDock } from './onboarding/SetupDock';
 import { formatLocation } from './onboarding/location';
 import './shell.css';
 
+/** The place as the gateway holds it after the address step. */
+export interface SavedPlace {
+  status: 'saved' | 'exists';
+  name: string;
+  address?: string | null;
+  location?: { lat: number; lon: number };
+}
+
 export interface OnboardingProps {
   apps: StarterApp[];
   initial?: Partial<OnboardingDraft>;
@@ -65,9 +73,10 @@ export interface OnboardingProps {
   kit?: OnboardingKit;
   /**
    * Saves the place (name, address, position) as the box's first site, when the owner gave a position.
-   * 'exists' when a site with that ID is already saved (it is kept as it is).
+   * Resolves with what the box now holds: the new site, or ('exists') the one already saved under that ID,
+   * which is kept as it is.
    */
-  onSaveLocation?: (draft: OnboardingDraft) => Promise<'saved' | 'exists'>;
+  onSaveLocation?: (draft: OnboardingDraft) => Promise<SavedPlace>;
   /** Asks this device for its position; defaults to the browser's, offered only on a secure page. */
   deviceLocation?: () => Promise<{ lat: number; lon: number }>;
   /** The last button's words (the connected wizard ends on the desktop Map). */
@@ -75,6 +84,8 @@ export interface OnboardingProps {
   /** Read-only plan summary for a starter app, shown before Finish files its install request. */
   previewPlan?: (appId: string) => Promise<string>;
   onFinish: (draft: OnboardingDraft, requests: ReturnType<typeof finishRequests>) => void | Promise<void>;
+  /** Called after onFinish succeeded and the hand-off has played: leave the wizard (e.g. open the Map). */
+  onLeave?: () => void;
 }
 
 function zones(): string[] {
@@ -193,6 +204,7 @@ export function Onboarding({
   deviceLocation,
   finishLabel = 'Go to Home',
   onFinish,
+  onLeave,
 }: OnboardingProps) {
   const [d, setD] = useState<OnboardingDraft>(() => ({ ...emptyDraft(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'), ...initial }));
   const [step, setStep] = useState(initialStep);
@@ -204,8 +216,19 @@ export function Onboarding({
   const [kitSkipped, setKitSkipped] = useState(false);
   const [kitDownloaded, setKitDownloaded] = useState(!!initial?.backup?.kitSaved);
   const [cat, setCat] = useState<CategorySlug | 'all'>('all');
-  const [site, setSite] = useState<'saved' | 'exists'>();
+  const [site, setSite] = useState<SavedPlace>();
   const [mapPlay, setMapPlay] = useState(0);
+  const [drawing, setDrawing] = useState(false);
+  // The "drawing" announcement lasts as long as the beat (motion.signature, 1.6 s) or until Escape.
+  useEffect(() => {
+    if (!mapPlay) return;
+    setDrawing(true);
+    const done = () => setDrawing(false);
+    const timer = setTimeout(done, 1600);
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') done(); };
+    document.addEventListener('keydown', esc);
+    return () => { clearTimeout(timer); document.removeEventListener('keydown', esc); };
+  }, [mapPlay]);
   const askDevice = useMemo(() => deviceLocation ?? browserLocation(), [deviceLocation]);
   const heading = useRef<HTMLHeadingElement>(null);
   const form = useRef<HTMLFormElement>(null);
@@ -268,18 +291,24 @@ export function Onboarding({
     }
   };
 
-  // The hand-off (HANDBACK O6): the setup steps fade out and the map grows a little toward the desktop
-  // Map window that opens next. Finite and Escape-able; if finishing fails, the wizard comes back.
+  // The hand-off (HANDBACK O6), played only after the finish work succeeded: the steps column fades out
+  // while the map grows a little toward the desktop Map window that opens next. The wizard is inert while
+  // it leaves, and the end state is pinned inline so nothing blinks back before it unmounts (reduced
+  // motion drops `fill`). Escape finishes it early.
   const root = useRef<HTMLDivElement>(null);
   const handOff = async () => {
     const wizard = root.current;
-    const mapFigure = wizard?.querySelector('.oms-setup-map');
+    if (!wizard) return;
+    wizard.inert = true;
+    const steps = wizard.querySelector<HTMLElement>('.oms-onb-main');
+    const mapFigure = wizard.querySelector<HTMLElement>('.oms-setup-map');
     const run = [
-      wizard && animate(wizard, [{ opacity: 1 }, { opacity: 0 }], { duration: 320, easing: 'linear', fill: 'forwards' }, reduced),
-      mapFigure && animate(mapFigure, [{ transform: 'none' }, { transform: 'scale(1.06)' }], { duration: 320, easing: 'cubic-bezier(.2,0,0,1)', fill: 'forwards' }, reduced),
+      steps && animate(steps, [{ opacity: 1 }, { opacity: 0 }], { duration: 320, easing: 'linear', fill: 'forwards' }, reduced),
+      mapFigure && !reduced ? animate(mapFigure, [{ transform: 'none' }, { transform: 'scale(1.06)' }], { duration: 320, easing: 'cubic-bezier(.2,0,0,1)', fill: 'forwards' }, reduced) : undefined,
     ];
     await Promise.all(run.map((a) => a?.finished.catch(() => undefined)));
-    return () => run.forEach((a) => a?.cancel());
+    if (steps) steps.style.opacity = '0';
+    if (mapFigure && !reduced) mapFigure.style.transform = 'scale(1.06)';
   };
 
   const next = async (e?: FormEvent, skip = false) => {
@@ -296,12 +325,11 @@ export function Onboarding({
       if (s.id === 'backups') await onSaveSettings?.(d);
       if (s.id === 'address' && !skip && d.location && onSaveLocation && !site) setSite(await onSaveLocation(d));
       if (s.id === 'done') {
-        const restore = await handOff();
-        try {
-          await onFinish(d, finishRequests(d));
-        } catch (error) {
-          restore();
-          throw error;
+        // The finish work first, with "Saving…" showing; a failure keeps the owner here with the reason.
+        await onFinish(d, finishRequests(d));
+        if (onLeave) {
+          await handOff();
+          onLeave();
         }
       }
       else {
@@ -388,8 +416,8 @@ export function Onboarding({
           <div className="oms-note om-tone-ok" role="status">
             <ShellIcon name="check" size={16} />
             <span>
-              {site === 'saved' ? 'Saved on this box as your first place' : 'A place with this name was already saved on this box; it was kept as it is'}:{' '}
-              <strong>{d.placeName.trim() || 'Home'}</strong>{d.address.trim() && <>, {d.address.trim()}</>}{d.location && <> · {formatLocation(d.location)}</>}. The Map opens on it.
+              {site.status === 'saved' ? 'Saved on this box as your first place' : 'A place with this name was already saved on this box; it was kept as it is'}:{' '}
+              <strong>{site.name}</strong>{site.address && <>, {site.address}</>}{site.location && <> · {formatLocation(site.location)}</>}. The Map opens on it.
             </span>
           </div>
         ) : (
@@ -684,8 +712,12 @@ export function Onboarding({
                 <dt>Place</dt>
                 <dd>
                   <span>
-                    <strong>{d.placeName.trim() || 'Home'}</strong>
-                    {d.location ? <> · {formatLocation(d.location)} · {site ? 'saved on this box' : onSaveLocation ? 'not saved' : 'on your map'}</> : ' · no position yet; draw it later on the Map'}
+                    {site ? (
+                      <><strong>{site.name}</strong>{site.location && <> · {formatLocation(site.location)}</>} · {site.status === 'saved' ? 'saved on this box' : 'already on this box, kept as it was'}</>
+                    ) : (
+                      <><strong>{d.placeName.trim() || 'Home'}</strong>
+                        {d.location ? <> · {formatLocation(d.location)} · {onSaveLocation ? 'not saved' : 'on your map'}</> : ' · no position yet; draw it later on the Map'}</>
+                    )}
                   </span>
                 </dd>
               </div>
@@ -742,7 +774,7 @@ export function Onboarding({
 
   const lede: Record<(typeof ONBOARDING_STEPS)[number]['id'], string> = {
     box: onSaveSettings ? 'The place name goes on your Map. The box name is a software display name and the time zone a preference; host settings stay unchanged.' : 'The place name shows on your Map and your phone. The box name is how you find it on your network.',
-    address: 'Type your address and your map moves there. Everything stays on this box: no outside account, no online lookup.',
+    address: 'Paste coordinates or a map link and your map moves there. Your address is kept on this box; OneMind looks nothing up online.',
     decide: 'Agents and family members can ask. Only you approve, and nothing moves until you do. Try it once.',
     owner: 'The owner approves every change: installs, updates, restores. Agents can only ask.',
     appearance: 'Pick a theme and an accent. Everyone who signs in can choose their own later.',
@@ -797,7 +829,7 @@ export function Onboarding({
         {step >= at('apps') && (
           <SetupDock apps={d.starterApps.map((id) => offer.find((a) => a.id === id)).filter((a): a is StarterApp => !!a).map(({ id, name, category }) => ({ id, name, category }))} />
         )}
-        <p className="om-visually-hidden" role="status">{mapPlay > 0 && s.id === 'address' ? 'Your map is drawing itself. Press Escape to skip the animation.' : ''}</p>
+        <p className="om-visually-hidden" role="status">{drawing ? 'Your map is drawing itself. Press Escape to skip the animation.' : ''}</p>
         <p className="oms-onb-side-foot">Everything here can also be done with <code>onemind init</code>.</p>
       </aside>
       <div className="oms-onb-main">

@@ -14,7 +14,7 @@
 // Software settings persist through §12.41. Backup configuration stays in §12.12.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Onboarding, applyTheme, siteAnchors, siteIdFor, useToast, type OnboardingDraft, type OnboardingKit, type StarterApp } from '@onemind/ui';
+import { Onboarding, applyTheme, cleanAddress, siteAnchors, siteIdFor, useToast, type OnboardingDraft, type OnboardingKit, type SavedPlace, type StarterApp } from '@onemind/ui';
 import type { components } from '@onemind/sdk';
 import { ApiError, type CatalogApp } from '../api/types';
 import type { BackupDestinationRecord, FirstRunSettings, FirstRunSettingsBody, FirstRunState } from '../api/client';
@@ -49,8 +49,14 @@ type GeoSite = components['schemas']['GeoSite'];
 export function firstSite(d: Pick<OnboardingDraft, 'placeName' | 'address' | 'location'>): GeoSite | undefined {
   if (!d.location) return undefined;
   const name = d.placeName.trim() || 'Home';
-  const address = d.address.trim();
+  const address = cleanAddress(d.address).trim();
   return { id: siteIdFor(name), name, ...(address ? { address } : {}), floors: [], areas: [], anchors: siteAnchors(d.location) };
+}
+
+/** What the owner is shown after the save: the site as the gateway holds it. */
+export function placeOf(status: SavedPlace['status'], site: GeoSite): SavedPlace {
+  const origin = site.anchors.find((a) => a.x === 0 && a.y === 0);
+  return { status, name: site.name, address: site.address ?? null, ...(origin ? { location: { lat: origin.lat, lon: origin.lon } } : {}) };
 }
 
 /** Setup ends on the desktop Map when this build has it (#1340); Approvals or Home otherwise. */
@@ -68,6 +74,7 @@ export function FirstRun({ onDone }: { onDone: () => void }) {
   const apps = useMemo(() => (hub.apps.data ?? []).map(toStarterApp).filter((a): a is StarterApp => !!a), [hub.apps.data]);
   const [loaded, setLoaded] = useState<{ settings: FirstRunSettings; destinations: BackupDestinationRecord[]; state: FirstRunState }>();
   const previewed = useRef(new Map<string, string>());
+  const landingRef = useRef('/');
   const [error, setError] = useState<string>();
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
@@ -99,16 +106,20 @@ export function FirstRun({ onDone }: { onDone: () => void }) {
   } : undefined;
   const landing = landingAfterSetup(0);
   // No mock backend: the demo gateway has no sites, so the place stays on the setup map only.
-  const onSaveLocation = mock ? undefined : async (draft: OnboardingDraft): Promise<'saved' | 'exists'> => {
+  const onSaveLocation = mock ? undefined : async (draft: OnboardingDraft): Promise<SavedPlace> => {
     const body = firstSite(draft);
     if (!body) throw new Error('Give the place a position first.');
     try {
-      await viaSdk(() => sdk.call<GeoSite>({ method: 'POST', path: '/v1/sites', body }));
-      return 'saved';
+      const saved = await viaSdk(() => sdk.call<GeoSite>({ method: 'POST', path: '/v1/sites', body }));
+      return placeOf('saved', saved ?? body);
     } catch (e) {
-      // A site with this ID is already on the box (a reload, a second browser): it is kept as it is.
-      if (e instanceof ApiError && e.status === 409) return 'exists';
-      throw e;
+      if (!(e instanceof ApiError && e.status === 409)) throw e;
+      // A site with this ID is already on the box (a reload, a second browser): it is kept as it is, and
+      // the owner is shown what is actually saved, not what was just typed.
+      const sites = await viaSdk(() => sdk.call<GeoSite[]>({ method: 'GET', path: '/v1/sites' }));
+      const existing = sites.find((s) => s.id === body.id);
+      if (!existing) throw e;
+      return placeOf('exists', existing);
     }
   };
   return (
@@ -163,8 +174,11 @@ export function FirstRun({ onDone }: { onDone: () => void }) {
             }
           }
           if (requests.length) toast.show({ tone: sent === requests.length ? 'info' : 'warn', title: `${sent} of ${requests.length} install requests sent`, body: 'They wait in Approvals until you decide.' });
-          onDone();
-          navigate(landingAfterSetup(requests.length));
+          landingRef.current = landingAfterSetup(requests.length);
+      }}
+      onLeave={() => {
+        onDone();
+        navigate(landingRef.current);
       }}
     />
   );

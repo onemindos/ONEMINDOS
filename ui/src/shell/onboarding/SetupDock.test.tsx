@@ -61,20 +61,45 @@ it('the desktop assembles on the apps step as the owner ticks apps', async () =>
   expect(container.querySelectorAll('[data-dock-app]')).toHaveLength(0);
 });
 
-it('hands off to the desktop only after the exit, and brings the wizard back when finishing fails', async () => {
+it('does the finish work first with Saving showing, then plays the hand-off, then leaves; a failure plays nothing', async () => {
   const user = userEvent.setup();
   fakeAnimate();
-  const finish = vi.fn().mockRejectedValueOnce(new Error('Hub unavailable')).mockResolvedValueOnce(undefined);
-  const { container } = render(<Onboarding apps={[]} initialStep={at('done')} initial={{ ...emptyDraft('UTC'), boxName: 'home-hub' }} onSaveSettings={vi.fn()} finishLabel="Open my map" onFinish={finish} />);
-  animateCalls.length = 0;
+  const order: string[] = [];
+  let release!: () => void;
+  const finish = vi.fn()
+    .mockRejectedValueOnce(new Error('Hub unavailable'))
+    .mockImplementationOnce(() => new Promise<void>((r) => { order.push('finish'); release = r; }));
+  const leave = vi.fn(() => order.push('leave'));
+  const { container } = render(<Onboarding apps={[]} initialStep={at('done')} initial={{ ...emptyDraft('UTC'), boxName: 'home-hub' }} onSaveSettings={vi.fn()} finishLabel="Open my map" onFinish={finish} onLeave={leave} />);
+  const exitCalls = () => animateCalls.filter((c) => c.el.classList.contains('oms-onb-main') || c.el.classList.contains('oms-setup-map'));
   await user.click(screen.getByRole('button', { name: /Open my map/ }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Hub unavailable');
-  const exit = animateCalls.filter((c) => c.el === container.querySelector('.oms-onb') || c.el.classList.contains('oms-setup-map'));
-  expect(exit).toHaveLength(2);
-  expect(exit.every((c) => c.timing.fill === 'forwards')).toBe(true);
-  // Finishing failed: the faded-out wizard and the grown map are put back.
-  expect(exit.every((c) => c.cancel.mock.calls.length > 0)).toBe(true);
-  expect(finish).toHaveBeenCalledTimes(1);
-  await act(async () => { await user.click(screen.getByRole('button', { name: /Open my map/ })); });
-  await waitFor(() => expect(finish).toHaveBeenCalledTimes(2));
+  expect(exitCalls()).toHaveLength(0);
+  expect(leave).not.toHaveBeenCalled();
+
+  await user.click(screen.getByRole('button', { name: /Open my map/ }));
+  expect(screen.getByRole('button', { name: /Saving/ })).toBeDisabled();
+  expect(exitCalls()).toHaveLength(0);
+  await act(async () => { release(); });
+  await waitFor(() => expect(leave).toHaveBeenCalledTimes(1));
+  expect(order).toEqual(['finish', 'leave']);
+  // Only the steps column fades, so the map's grow stays visible; the wizard is inert and the end state is pinned.
+  expect(exitCalls().map((c) => c.el.className)).toEqual(['oms-onb-main', 'oms-setup-map']);
+  expect(exitCalls().every((c) => c.timing.fill === 'forwards')).toBe(true);
+  const root = container.querySelector<HTMLElement>('.oms-onb')!;
+  expect(root.inert).toBe(true);
+  expect(container.querySelector<HTMLElement>('.oms-onb-main')!.style.opacity).toBe('0');
+});
+
+it('keeps the end state in reduced motion, so nothing blinks back before the desktop opens', async () => {
+  const user = userEvent.setup();
+  fakeAnimate();
+  vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+  const leave = vi.fn();
+  const { container } = render(<Onboarding apps={[]} initialStep={at('done')} initial={{ ...emptyDraft('UTC'), boxName: 'home-hub' }} onSaveSettings={vi.fn()} onFinish={vi.fn()} onLeave={leave} />);
+  await user.click(screen.getByRole('button', { name: /Go to Home/ }));
+  await waitFor(() => expect(leave).toHaveBeenCalled());
+  const fade = animateCalls.find((c) => c.el.classList.contains('oms-onb-main'))!;
+  expect(fade.timing).toEqual({ duration: 160, delay: 0 });
+  expect(container.querySelector<HTMLElement>('.oms-onb-main')!.style.opacity).toBe('0');
 });

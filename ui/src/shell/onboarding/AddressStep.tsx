@@ -12,6 +12,15 @@ import { cx } from '../../lib/cx';
 import { ShellIcon } from '../icons';
 import { formatLocation, locationProblem, parseLocation, type PlaceLocation } from './location';
 
+/** Said next to the device-location button, and read out with it. */
+export const DEVICE_DISCLOSURE = 'Your browser asks first. Most browsers send nearby Wi-Fi networks and your IP address to an online location service (Google, Apple or Microsoft) to work this out. OneMind does not.';
+
+/** One line, no control characters or bidirectional overrides: what the gateway accepts as an address. */
+export function cleanAddress(text: string): string {
+  // eslint-disable-next-line no-control-regex -- removing control characters is the point
+  return text.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/[\u202a-\u202e\u2066-\u2069]/g, '');
+}
+
 export interface AddressStepProps {
   address: string;
   location?: PlaceLocation;
@@ -31,7 +40,7 @@ export function browserLocation(): AddressStepProps['deviceLocation'] {
 }
 
 export function AddressStep({ address, location, onChange, deviceLocation }: AddressStepProps) {
-  const ids = { address: useId(), coords: useId(), status: useId() };
+  const ids = { address: useId(), coords: useId(), status: useId(), device: useId() };
   const [coords, setCoords] = useState(location ? `${location.lat}, ${location.lon}` : '');
   const [note, setNote] = useState<{ tone: 'ok' | 'warn' | 'bad'; text: string }>();
   const [asking, setAsking] = useState(false);
@@ -63,9 +72,10 @@ export function AddressStep({ address, location, onChange, deviceLocation }: Add
       <div className="oms-field">
         <label htmlFor={ids.address} className="oms-label">Your address</label>
         <div className="oms-input-row">
-          <textarea id={ids.address} className="oms-input oms-textarea" rows={2} value={address} maxLength={256} autoComplete="street-address"
+          <input id={ids.address} className="oms-input" value={address} maxLength={256} autoComplete="street-address"
             placeholder="12 Orchard Lane, Springfield" aria-describedby={`${ids.address}-msg`}
-            onChange={(e) => onChange({ address: e.target.value })} />
+            onChange={(e) => onChange({ address: cleanAddress(e.target.value) })}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); find(); } }} />
           <button type="button" className="om-btn om-btn-secondary" onClick={find}><ShellIcon name="search" size={16} /> Find it on this box</button>
         </div>
         <p id={`${ids.address}-msg`} className="oms-field-hint">Kept on this box as the place’s address. OneMind never sends it to an outside service.</p>
@@ -85,7 +95,7 @@ export function AddressStep({ address, location, onChange, deviceLocation }: Add
 
       {deviceLocation && (
         <div className="oms-device-loc">
-          <button type="button" className="om-btn om-btn-ghost" aria-busy={asking || undefined} disabled={asking} onClick={async () => {
+          <button type="button" className="om-btn om-btn-ghost" aria-describedby={ids.device} aria-busy={asking || undefined} disabled={asking} onClick={async () => {
             setAsking(true);
             try {
               const p = await deviceLocation();
@@ -100,7 +110,7 @@ export function AddressStep({ address, location, onChange, deviceLocation }: Add
           }}>
             <ShellIcon name="nodes" size={16} /> {asking ? 'Asking this device…' : 'Use this device’s location'}
           </button>
-          <p className="oms-field-hint">Your browser asks first. Some browsers ask their maker’s online location service; OneMind does not.</p>
+          <p id={ids.device} className="oms-field-hint">{DEVICE_DISCLOSURE}</p>
         </div>
       )}
 

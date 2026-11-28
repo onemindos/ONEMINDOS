@@ -40,7 +40,7 @@ export { toastForNotification, toastForRequest, toastForRequestError, useNotific
 export type { Navigate as ShellNavigate } from './toasts';
 
 export { Onboarding, AppGlyph as StarterAppGlyph } from './Onboarding';
-export type { OnboardingProps } from './Onboarding';
+export type { OnboardingProps, SavedPlace } from './Onboarding';
 export type { OnboardingKit, IssuedKit } from './RecoveryKit';
 export {
   ONBOARDING_STEPS,
@@ -59,6 +59,7 @@ export {
   selectedMemoryMb as starterMemoryMb,
 } from './firstRun';
 export type { OnboardingDraft, StepId as OnboardingStepId, StarterApp, PasskeyState, BackupDestination, PracticeAnswer } from './firstRun';
+export { cleanAddress, DEVICE_DISCLOSURE } from './onboarding/AddressStep';
 export { parseLocation, formatLocation, locationProblem, siteAnchors, siteIdFor } from './onboarding/location';
 export type { PlaceLocation } from './onboarding/location';
 
