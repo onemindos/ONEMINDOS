@@ -17,6 +17,8 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'mobile/**'
+      # the shared app kits (clients/sync) run in the phone app's Jest (mobile/package.json roots)
+      - 'clients/**'
       - 'ui/src/tokens/**'
       - 'sdk/openapi/**'
       # mobile/src/api/types.ts re-exports types from the TS SDK, generated from the spec (CI-16).
@@ -27,6 +29,8 @@ on:
     branches: [main]
     paths:
       - 'mobile/**'
+      # the shared app kits (clients/sync) run in the phone app's Jest (mobile/package.json roots)
+      - 'clients/**'
       - 'ui/src/tokens/**'
       - 'sdk/openapi/**'
       # mobile/src/api/types.ts re-exports types from the TS SDK, generated from the spec (CI-16).
@@ -75,6 +79,8 @@ jobs:
       - name: Design tokens match ui/src/tokens/tokens.ts
         run: npm run tokens -- --check
       - run: npm run typecheck
+      - name: Types of the shared sync kit (clients/sync, docs/design/SYNC.md)
+        run: npx tsc -p ../clients/sync/tsconfig.json
       - name: iPhone App Store pre-flight (icons, export compliance, privacy manifest)
         run: npm run check:ios
       - run: npx jest --ci

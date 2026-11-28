@@ -360,6 +360,7 @@ _WOPI_FILE = "/v1/files/wopi/files/wf_0123456789abcdef"
 _PHOTOS = "docs/leap/core/PHOTOS.md section 2; core/tests/test_photos.py"
 PHOTOS_404 = grid(404, 404, 403, 403, 403)  # owner and adult own a library; a missing object is 404 for them
 _TIPS = "issue #669; core/tests/test_tips.py"
+_SYNC = "docs/design/SYNC.md; core/tests/test_sync_reminders.py"
 POLICY |= {
     # ---- automation, standing approvals and windows ------------------------------------------------------
     ("GET", "/v1/approval-policies"): Row(ONLY_OWNER, w.p_static("/v1/approval-policies"),
@@ -556,6 +557,13 @@ POLICY |= {
         "/v1/sync/locks/lck_00000000000000000000000000"), f"{_FILES}: the holder or an owner releases (none here)"),
     ("GET", "/v1/sync/versions"): Row(grid(404, 404, 404, 403, 403), w.p_static("/v1/sync/versions?root=shared&path=/a"),
                                       f"{_FILES}: versions (#699) follow read access; the probe's file is missing"),
+    # OneMind Sync for app records (F1, docs/design/SYNC.md): each person syncs only their own items; the "*" route
+    # scope keeps a child's narrow token out (as on file sync) and the handler refuses every non-person.
+    ("GET", "/v1/sync/reminders/changes"): Row(grid(200, 200, 200, 403, 403), w.p_static("/v1/sync/reminders/changes"),
+                                               f"{_SYNC}: your own items only"),
+    ("POST", "/v1/sync/reminders/push"): Row(grid(200, 200, 200, 403, 403), w.p_missing("/v1/sync/reminders/push", json={
+        "ops": [{"key": "probe-0001", "item_id": "r1", "op": "upsert", "base_version": None, "data": {"title": "probe"}}]}),
+        f"{_SYNC}: a person pushes their own items; an agent never writes them"),
     ("GET", "/v1/files/preview"): Row(grid(404, 404, 404, 403, 403), w.p_static("/v1/files/preview?root=shared&path=/a"),
                                       f"{_FILES}: people browse; an agent needs a grant"),
     ("GET", "/v1/files/download"): Row(grid(404, 404, 404, 403, 403), w.p_static("/v1/files/download?root=shared&path=/a"),

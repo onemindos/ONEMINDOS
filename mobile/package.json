@@ -54,6 +54,13 @@
   },
   "jest": {
     "preset": "jest-expo",
+    "roots": [
+      "<rootDir>",
+      "<rootDir>/../clients/sync"
+    ],
+    "modulePaths": [
+      "<rootDir>/node_modules"
+    ],
     "moduleNameMapper": {
       "^@onemind/sdk$": "<rootDir>/../sdk/ts/src/index.ts"
     },

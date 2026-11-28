@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: Apache-2.0
+# Built-in descriptor (sdk/schema/onemind.builtin.schema.json). Read only once "reminders" is on the signed list
+# (not yet: the OneMind Sync spike, docs/design/SYNC.md). Then BuiltinGate answers 409 app_disabled under /v1/sync/reminders.
+apiVersion: onemind.app/v1
+kind: App
+metadata:
+  id: reminders
+  name: Reminders
+  description: Each person's own reminders, kept on every device and synced through OneMind Sync.
+spec:
+  routes:
+    owns: [/v1/sync/reminders]
+    calls:
+      - GET /v1/sync/reminders/changes
+      - POST /v1/sync/reminders/push
+  backup:
+    units:
+      - {kind: table, name: sync_changes}
+      - {kind: table, name: sync_receipts}
+  data: {owns: [private], reads: []}
+  phone: {entry: none}

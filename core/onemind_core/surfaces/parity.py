@@ -210,6 +210,10 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/tips/whats-new": PERSON,
     "GET /v1/tips/{tip_id}": PERSON,
     "POST /v1/tips/{tip_id}/state": PERSON,
+    # OneMind Sync for app records (F1, docs/design/SYNC.md): a person's own devices, an agent is refused;
+    # agents get each app's REST read tools and request-only tools instead
+    "GET /v1/sync/reminders/changes": PERSON,
+    "POST /v1/sync/reminders/push": PERSON,
     # ---- shared map configuration
     "GET /v1/sites": SITE_MAP,
     # ---- bytes: files, uploads, streams and repository protocols

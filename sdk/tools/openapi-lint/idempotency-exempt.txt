@@ -37,6 +37,7 @@ POST /v1/sync/commit  # conditional on base_revision / If-Match: a retry after a
 POST /v1/sync/locks  # advisory (#699): a retried take only gives the same holder a second lock that never blocks that holder and expires on its own
 POST /v1/sync/locks/{lock_id}/refresh  # sets expiry to now + ttl: a retry lands on the same expiry
 DELETE /v1/sync/locks/{lock_id}  # releasing twice changes nothing (the second is 404)
+POST /v1/sync/reminders/push  # OneMind Sync (docs/design/SYNC.md §5): every operation carries its own idempotency key; a retried batch is answered with replayed: true, never applied twice
 POST /v1/radios/{radio_id}/confirm  # an upsert of one radio's confirmation (#732): confirming twice stores the same row and changes nothing
 DELETE /v1/agent-browser/sessions/{session_id}  # ending a session twice is the same as once (the second answers the ended session)
 DELETE /v1/agent-browser/sites/{site_id}  # removing an approved site twice leaves the same allowlist (the second answers 404)
