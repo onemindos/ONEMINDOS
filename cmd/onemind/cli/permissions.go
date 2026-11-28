@@ -316,7 +316,7 @@ func permissionsRulesCommands(a *App) *cobra.Command {
 		one("reconfirm", "Re-confirm a suspended rule after its agent changed (owner only)", "re-confirming a rule", func(id string) (map[string]any, error) {
 			return call(http.MethodPost, "/v1/approval-policies/"+id+"/reconfirm", nil)
 		}),
-		one("keep", "Keep a forever rule at its 90-day review", "keeping a rule", func(id string) (map[string]any, error) {
+		one("keep", "Request approval to keep a Forever rule at its 90-day review", "keeping a rule", func(id string) (map[string]any, error) {
 			return call(http.MethodPost, "/v1/approval-policies/"+id+"/keep", nil)
 		}),
 		narrow)

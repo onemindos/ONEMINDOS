@@ -10,7 +10,9 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from conftest import OWNER, action_body, apply_settings_change
+import pytest
+
+from conftest import AGENT, OWNER, action_body, apply_settings_change
 from onemind_core.identity.crypto import new_secret, sha256_hex
 from onemind_core.identity.models import TokenRow
 from test_automation import auto_settings, client, iso, policy  # noqa: F401  (fixtures)
@@ -97,6 +99,43 @@ def test_competing_agent_tokens_cannot_share_an_owner_binding(client, monkeypatc
 def test_a_personal_agent_cannot_claim_the_static_agents_display_name(client):
     r = client.post("/v1/tokens", headers=OWNER, json={"name": "duplicate", "principal": {"kind": "agent", "id": "agent:hermes"}})
     assert r.status_code == 409 and r.json()["reason"] == "agent_id_taken", r.text
+
+
+@pytest.mark.parametrize("static_alias", [False, True])
+def test_upgrade_refuses_ambiguous_stored_agent_identity(client, clock, static_alias):
+    name = "agent:hermes" if static_alias else "agent:legacy-notes"
+    ident = client.app.state.identity
+    svc = client.app.state.automation
+    headers = [AGENT] if static_alias else []
+    owners = [None] if static_alias else []
+    if static_alias:
+        assert policy(client, clock, requested_by=(name,)).status_code == 202
+        assert covered(client, clock, {"id": "hermes", "kind": "agent"}) == "auto_approved"
+    else:
+        for label in ("First owner", "Second owner"):
+            user = client.post("/v1/users", headers=OWNER, json={"display_name": label, "role": "adult"})
+            assert user.status_code == 201, user.text
+            owners.append(user.json()["id"])
+    for i, owner in enumerate(owners):
+        token = new_secret("agt")
+        ident.repo.add(TokenRow(id=f"tok_legacy_{i}", prefix=token[:11], name="Legacy credential", hash=sha256_hex(token),
+                                kind="agent", principal_id=name, owner_user_id=owner, scopes=["instance:read"],
+                                source="api", created_by="owner", created_at=clock(),
+                                expires_at=clock() + timedelta(days=1)))
+        headers.append({"Authorization": f"Bearer {token}"})
+
+    svc.repo.add_policy(id="pol_legacy", name=None, per_day=5, window_id=None,
+                        expires_at=clock.now + timedelta(days=5),
+                        allow={"types": ["app.restart"], "requested_by": [name], "params": {}},
+                        created_by={"id": "owner"}, created_at=clock.now)
+    assert svc.policies.adopt_unbound() == 0
+    assert svc.repo.get_policy("pol_legacy")["principals"] is None
+    if static_alias:
+        assert covered(client, clock, {"id": "hermes", "kind": "agent"}) == "needs_approval"
+    r = policy(client, clock, requested_by=(name,))
+    assert r.status_code == 422 and r.json()["reason"] == "unknown_principal", r.text
+    for credential in headers:
+        assert client.get("/v1/me", headers=credential).status_code == 401
 
 
 def test_a_rule_stops_when_its_token_is_revoked(client, clock):

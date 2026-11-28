@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import re
+from datetime import timedelta
 
 from fastapi import Depends, FastAPI, Query, Request, Response
 from fastapi.responses import JSONResponse
@@ -11,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ..auth import Principal
 from ..automation import AutomationService
-from ..automation.cron import parse_ranges
+from ..automation.cron import parse_ranges, window_minutes
 from ..automation.engine import DryRunBody, PauseBody, RuleBody, RulePatch
 from ..automation.policies import ApprovalPolicy, PolicyBody, PolicyPatch
 from ..context import Gateway
@@ -20,7 +21,6 @@ from ..identity import ctx_of
 from ..identity.scopes import register_route_scope
 from ..ledger import iso
 from ..permissions.changes import QUEUED, register_change, request_change
-from ..principals import BOUND_KINDS
 
 WINDOW_ID_RE = re.compile(r"^win_[a-z0-9_]{1,36}$")
 
@@ -45,6 +45,12 @@ class WindowBody(BaseModel):
     ranges: list[dict]
 
 
+class WindowView(WindowBody):
+    id: str
+    updated_at: str
+    open_now: bool
+
+
 # Route order in the app and in /openapi.json (routers/__init__.py).
 ORDER = 280
 
@@ -63,7 +69,6 @@ def register(app: FastAPI, gw: Gateway) -> None:
     policies.can_file = gw.actions.can_file
     # Gateway permissions PR 7: rules bind agents and plugins to their permanent principal id.
     policies.principals = gw.actions.principals
-    policies.file_ids = lambda: {fp.id for _, fp in gw.tokens.entries() if fp.kind in BOUND_KINDS}
     gw.on_startup(policies.adopt_unbound)
     # Gateway permissions PR 9: what a request writes to and how much (FeatureAction.target_for / size_for),
     # and the triggers that suspend a rule (design §3.6.2 item 7).
@@ -112,14 +117,6 @@ def register(app: FastAPI, gw: Gateway) -> None:
     app.state.automation = svc
 
     tags = ["automation"]
-
-    def step_up(request: Request, p: Principal, what: str) -> str:
-        """F-2: pre-approving agent actions adds power, so once passkeys are active it needs a fresh
-        passkey sign-in, like put_access and create_user. Returns how presence was proved."""
-        ident = getattr(app.state, "identity", None)
-        if ident is None or not p.is_owner:
-            return "token"  # non-owners are refused by the service with 403 right after
-        return ident.require_step_up(ctx_of(request), p, what)
 
     # ---- rules ---------------------------------------------------------------------------------
     @app.get("/v1/automation/rules", operation_id="automation.rules.list", tags=tags, responses=error_responses(401))
@@ -186,6 +183,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         p, params["id"], revision=params["revision"]))
     register_change(app, gw, "policy.rule.reconfirm", lambda p, params: policies.reconfirm(
         p, params["id"], "L2", expected=params))
+    register_change(app, gw, "policy.rule.keep", policies.keep)
 
     @app.get("/v1/approval-policies", operation_id="approvals.policies.list", tags=tags,
              responses={200: {"model": list[ApprovalPolicy]}, **error_responses(401, 403)})
@@ -265,9 +263,10 @@ def register(app: FastAPI, gw: Gateway) -> None:
                                "principals": policies._bindings(current["allow"]["requested_by"])})
 
     @app.post("/v1/approval-policies/{policy_id}/keep", operation_id="approvals.policies.keep", tags=tags,
-              responses={**ONE, **error_responses(401, 403, 404)}, openapi_extra={"security": [{"bearer": ["*"]}]})
+              status_code=202, responses={**QUEUED, **error_responses(401, 403, 404, 409, 429)},
+              openapi_extra={"security": [{"bearer": ["*"]}]})
     def keep_policy(policy_id: str, p: Principal = Depends(principal)):
-        return policies.keep(p, policy_id)
+        return request_change(app, gw, p, "policy.rule.keep", policies.keep_preview(p, policy_id))
 
     @app.delete("/v1/approval-policies/{policy_id}", operation_id="approvals.policies.delete", tags=tags, status_code=204,
                 responses=error_responses(401, 403, 404))
@@ -280,26 +279,54 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return {"id": w["id"], "name": w["name"], "tz": w["tz"], "ranges": w["ranges"],
                 "updated_at": iso(w["updated_at"]), "open_now": policies.window_is_open(w["id"], gw.clock())}
 
-    @app.get("/v1/windows", operation_id="windows.list", tags=tags, responses=error_responses(401))
+    @app.get("/v1/windows", operation_id="windows.list", tags=tags, response_model=list[WindowView], responses=error_responses(401))
     def list_windows(_: Principal = Depends(principal)):
         return [window_json(w) for w in svc.repo.list_windows()]
 
-    @app.put("/v1/windows/{window_id}", operation_id="windows.put", tags=tags, responses=error_responses(401, 403, 422))
+    def write_window(p: Principal, window_id: str, body: WindowBody, current: dict | None, approval: str) -> dict:
+        now = gw.clock()
+        if current is not None and now <= current["updated_at"]:
+            now = current["updated_at"] + timedelta(microseconds=1)
+        bumped = svc.repo.put_window(window_id, body.name, body.tz, body.ranges, now)
+        gw.audit.append("automation.window.updated", p.as_dict(), None,
+                        {"window_id": window_id, "tz": body.tz, "ranges": body.ranges, "policies_bumped": bumped,
+                         "approval": approval})
+        return window_json(svc.repo.get_window(window_id))  # type: ignore[arg-type]
+
+    def apply_window(p: Principal, params: dict) -> None:
+        window_id = params["id"]
+        with svc.repo.policy_windows:
+            current = svc.repo.get_window(window_id)
+            if (current is None or iso(current["updated_at"]) != params["updated_at"]
+                    or svc.repo.window_policies(window_id) != params["policies"]):
+                raise ApiError(409, "stale_precondition", "the window or its rules changed; request the edit again")
+            write_window(p, window_id, WindowBody.model_validate(params["window"]), current, "L2")
+
+    register_change(app, gw, "policy.window.widen", apply_window)
+
+    @app.put("/v1/windows/{window_id}", operation_id="windows.put", tags=tags, response_model=WindowView,
+             responses={**QUEUED, **error_responses(401, 403, 409, 422, 429)})
     def put_window(window_id: str, body: WindowBody, request: Request, p: Principal = Depends(principal)):
-        if not p.is_owner:
-            gw.audit.append("authz.denied", p.as_dict(), None, {"attempted": "edit windows", "reason": "permission_denied"})
-            raise ApiError(403, "permission_denied", f"{p.kind}/{p.role} may not edit windows")
-        via = step_up(request, p, "edit a maintenance window")  # a window is what a standing approval waits for
+        policies._owner_only(p, "edit windows")
         if not WINDOW_ID_RE.match(window_id):
             raise ApiError(422, "conflict", "window ids look like win_<lower-case name>")
         try:
-            parse_ranges(body.ranges)
+            proposed = parse_ranges(body.ranges)
             svc.tz(body.tz)
         except ValueError as exc:
             raise ApiError(422, "conflict", str(exc)) from None
-        svc.repo.put_window(window_id, body.name, body.tz, body.ranges, gw.clock())
-        # §12.17: editing a window a standing approval uses bumps that approval's revision.
-        bumped = svc.repo.bump_policies_for_window(window_id)
-        gw.audit.append("automation.window.updated", p.as_dict(), None,
-                        {"window_id": window_id, "tz": body.tz, "ranges": body.ranges, "policies_bumped": bumped, "approval": via})
-        return window_json(svc.repo.get_window(window_id))  # type: ignore[arg-type]
+        with svc.repo.policy_windows:
+            current = svc.repo.get_window(window_id)
+            affected = svc.repo.window_policies(window_id)
+            if not affected:
+                ident = getattr(app.state, "identity", None)
+                via = ident.require_step_up(ctx_of(request), p, "edit a maintenance window") if ident else "token"
+                return write_window(p, window_id, body, current, via)
+            if (current is not None and body.tz == current["tz"]
+                    and window_minutes(proposed) <= window_minutes(parse_ranges(current["ranges"]))):
+                return write_window(p, window_id, body, current, "none")
+            if current is None:
+                raise ApiError(409, "conflict", "a standing approval refers to a missing window")
+            snapshot = {"id": window_id, "updated_at": iso(current["updated_at"]),
+                        "window": body.model_dump(mode="json"), "policies": affected}
+        return request_change(app, gw, p, "policy.window.widen", snapshot)

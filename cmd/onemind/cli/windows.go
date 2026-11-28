@@ -73,7 +73,7 @@ func windowsCommands(a *App) []*cobra.Command {
 	var ranges []string
 	set := &cobra.Command{
 		Use:   "set WINDOW_ID --name NAME --range \"mon,tue 22:00-06:00\" [--range ...] [--tz box]",
-		Short: "Create or replace a window as an owner (PUT /v1/windows/{id}); replaces all its ranges",
+		Short: "Create or replace a window (owner only); widening a referenced window requires approval",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !windowIDRe.MatchString(args[0]) {
@@ -93,6 +93,9 @@ func windowsCommands(a *App) []*cobra.Command {
 			v, err := a.gwDo(http.MethodPut, "/v1/windows/"+url.PathEscape(args[0]), map[string]any{"name": name, "tz": tz, "ranges": rs})
 			if err != nil {
 				return err
+			}
+			if !a.G.JSON && a.printPendingPermission(obj(v)) {
+				return nil
 			}
 			return a.withJSONOrText(v, func(w io.Writer, v any) error {
 				_, err := fmt.Fprintf(w, "Saved %s. Standing approvals that use it were given a new revision.\n", str(obj(v)["id"]))

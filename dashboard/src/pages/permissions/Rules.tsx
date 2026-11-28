@@ -7,7 +7,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { Button, Card, Dialog, StatusPill } from '@onemind/ui';
-import type { Action } from '@onemind/sdk';
+import type { Action, components } from '@onemind/sdk';
 import { usePoll } from '../../lib/hooks';
 import { explain, isApprovalRequest, read, usePermSdk, useStepUp } from '../../lib/permissions';
 import { href } from '../../shell/routes';
@@ -50,7 +50,7 @@ export function Rules({ item }: { item?: string }) {
           ? <RuleDetail rule={rule} note={note} onRevoke={() => void revoke(rule)}
               onConfirm={() => void act(() => stepUp((c) => c.call<Rule | Action>({ method: 'POST', path: `/v1/approval-policies/${encodeURIComponent(rule.id)}/confirm` }), sdk), 'Confirmed. The rule works again.')}
               onReconfirm={() => void act(() => stepUp((c) => c.call<Rule | Action>({ method: 'POST', path: `/v1/approval-policies/${encodeURIComponent(rule.id)}/reconfirm` }), sdk), 'Re-confirmed. The rule works again.')}
-              onKeep={() => void act(() => read(sdk.call<Rule>({ method: 'POST', path: `/v1/approval-policies/${encodeURIComponent(rule.id)}/keep` })), 'Kept. You will be asked again in 90 days.')}
+              onKeep={() => void act(() => read(sdk.call<Action>({ method: 'POST', path: `/v1/approval-policies/${encodeURIComponent(rule.id)}/keep` })), 'Rule review requested.')}
               onNarrow={(body) => act(() => stepUp((c) => c.call<Rule | Action>({ method: 'PATCH', path: `/v1/approval-policies/${encodeURIComponent(rule.id)}`, body: { ...body, revision: rule.revision } }), sdk), 'Saved as a new revision.')} />
           : <Gone note={note} />;
         const active = list.filter(live).sort((a, b) => Number(b.forever) - Number(a.forever) || a.created_at.localeCompare(b.created_at));
@@ -78,7 +78,7 @@ export function Rules({ item }: { item?: string }) {
             )}
             {endAll && (
               <Dialog open role="alertdialog" title="Revoke every rule?" description="Every request will wait for you again. You can make new rules from approval cards." onClose={() => setEndAll(false)}
-                actions={<><Button onClick={() => setEndAll(false)}>Cancel</Button><Button variant="primary" onClick={() => { setEndAll(false); void act(() => read(sdk.call<{ revoked: string[] }>({ method: 'POST', path: '/v1/approval-policies/revoke-all', body: { principal: null } })), 'Every rule is revoked.'); }}>Revoke all</Button></>} />
+                actions={<><Button onClick={() => setEndAll(false)}>Cancel</Button><Button variant="primary" onClick={() => { setEndAll(false); void act(() => read(sdk.call<components['schemas']['RevokeAllResult']>({ method: 'POST', path: '/v1/approval-policies/revoke-all', body: { principal: null } })), 'Every rule is revoked.'); }}>Revoke all</Button></>} />
             )}
           </>
         );
@@ -140,7 +140,10 @@ function RuleCard({ rule, onRevoke }: { rule: Rule; onRevoke: () => void }) {
   );
 }
 
-interface NarrowBody { limits?: { per_day?: number; max_uses?: number }; expires_at?: string }
+type PolicyPatch = components['schemas']['PolicyPatch'];
+type NarrowBody = Pick<PolicyPatch, 'expires_at'> & {
+  limits?: Pick<NonNullable<PolicyPatch['limits']>, 'per_day' | 'max_uses'>;
+};
 
 function RuleDetail({ rule, note, onRevoke, onConfirm, onReconfirm, onKeep, onNarrow }: {
   rule: Rule; note?: RuleNotice; onRevoke: () => void; onConfirm: () => void; onReconfirm: () => void; onKeep: () => void; onNarrow: (b: NarrowBody) => Promise<void>;

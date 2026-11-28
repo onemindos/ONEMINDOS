@@ -81,6 +81,23 @@ func TestAgentsKillSwitchOwnerStopsAndResumes(t *testing.T) {
 	}
 }
 
+func TestAgentsResumePrintsThePendingApproval(t *testing.T) {
+	isolate(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut || r.URL.Path != "/v1/agents/kill-switch" {
+			jsonOut(w, 404, map[string]string{"error": "not_found", "message": r.URL.Path})
+			return
+		}
+		jsonOut(w, 202, map[string]any{"id": "act_resume", "state": "awaiting_approval", "requested_by": map[string]any{"id": "owner"}})
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("ONEMIND_HUB", srv.URL)
+	t.Setenv("ONEMIND_TOKEN", ownerTok)
+	if r := run(t, "", false, "agents", "resume"); r.code != 0 || !strings.Contains(r.out, "Request act_resume is waiting in Approvals.") {
+		t.Fatalf("resume %+v", r)
+	}
+}
+
 // A stand-in for PUT and GET /v1/agents/{id}/inputs: owner only, replaces the list.
 func inputsGW(t *testing.T) (*httptest.Server, *[]map[string]any) {
 	var mu sync.Mutex

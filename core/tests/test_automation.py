@@ -18,13 +18,13 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 
-from onemind_core.actions import StandingGrant
+from onemind_core.actions import ApprovalInput, StandingGrant
 from onemind_core.app import create_app
 from onemind_core.audit import verify
 from onemind_core.auth import Principal
 from onemind_core.automation import AutomationSettings
 
-from conftest import AGENT, GUEST, OWNER, action_body, apply_queued_policy
+from conftest import AGENT, GUEST, OWNER, action_body, apply_queued_policy, apply_settings_change
 
 
 def iso(dt: datetime) -> str:
@@ -283,18 +283,19 @@ def test_standing_approval_expiry_is_bounded(client, clock):
     assert r.status_code == 422 and "180 days" in r.json()["message"]  # D-028: 30, 90, 180 days or forever
 
 
-def test_policy_limit_is_counted_in_the_database(client, clock, auto_settings, executor):
-    pol = policy(client, clock, requested_by=("agent:hermes",), params={"app_id": {"enum": ["whoami"]}}).json()
-    approver = f"policy:{pol['id']}@1"
-    for i in range(3):
+def test_policy_limit_is_counted_in_the_database(clock, auto_settings, executor):
+    with TestClient(create_app(auto_settings, clock=clock, executor=executor)) as client:
+        pol = policy(client, clock, requested_by=("agent:hermes",), params={"app_id": {"enum": ["whoami"]}}).json()
+        approver = f"policy:{pol['id']}@1"
+        for i in range(3):
+            install(client, clock)
+            r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key=f"rm{i}"), headers=AGENT)
+            assert r.status_code == 201
+            a = r.json()
+            assert a["state"] == "succeeded", a
+            assert a["decided_by"] == {"id": approver, "kind": "policy", "role": "policy"}
         install(client, clock)
-        r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key=f"rm{i}"), headers=AGENT)
-        assert r.status_code == 201
-        a = r.json()
-        assert a["state"] == "succeeded", a
-        assert a["decided_by"] == {"id": approver, "kind": "policy", "role": "policy"}
-    install(client, clock)
-    # A restarted gateway keeps the count (from here on only the new process writes).
+    # A restarted gateway keeps the count. Shut down the first gateway's writers before reopening its audit log.
     with TestClient(create_app(auto_settings, clock=clock, executor=executor)) as again:
         r = again.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key="rm3"), headers=AGENT)
         assert r.json()["state"] == "awaiting_approval"
@@ -373,7 +374,7 @@ def test_a_failing_policy_approval_leaves_the_request_filed(client, clock, monke
     assert client.get("/v1/approval-policies", headers=OWNER).json()[0]["uses_24h"] == 0  # the use came back
 
 
-def test_window_bound_policy_and_revision_bump(client, clock):
+def test_widening_a_referenced_window_requires_approval_and_bumps_the_rule_revision(client, clock):
     install(client, clock)
     pol = policy(client, clock, requested_by=("agent:hermes",), window_id="win_nightly").json()
     r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key="w1"), headers=AGENT)
@@ -381,10 +382,37 @@ def test_window_bound_policy_and_revision_bump(client, clock):
     client.post(f"/v1/actions/{r.json()['id']}/deny", headers=OWNER)
     w = client.put("/v1/windows/win_nightly", headers=OWNER,
                    json={"name": "nightly", "tz": "UTC", "ranges": [{"start": "21:00", "end": "23:00"}]})
-    assert w.status_code == 200 and w.json()["open_now"] is True
+    assert w.status_code == 202 and w.json()["type"] == "policy.window.widen", w.text
+    aid = w.json()["id"]
+    denied = client.post(f"/v1/actions/{aid}/approve", headers=OWNER, json={"plan_sha256": w.json()["plan_sha256"]})
+    assert denied.status_code in (401, 409) and denied.json()["reason"] in ("needs_proven_key", "step_up_required")
+    assert not next(row for row in client.get("/v1/windows", headers=OWNER).json() if row["id"] == "win_nightly")["open_now"]
+    pending = client.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key="blocked"), headers=AGENT)
+    assert pending.json()["state"] == "awaiting_approval"
+    apply_settings_change(client, w)
+    assert next(row for row in client.get("/v1/windows", headers=OWNER).json() if row["id"] == "win_nightly")["open_now"]
     assert client.put("/v1/windows/win_nightly", headers=AGENT, json={"name": "x", "ranges": []}).status_code == 403
     r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key="w2"), headers=AGENT)
     assert r.json()["decided_by"]["id"] == f"policy:{pol['id']}@2"
+
+
+def test_narrowing_a_referenced_window_is_immediate_and_invalidates_pending_widening(client, clock):
+    path = "/v1/windows/win_nightly"
+    assert client.put(path, headers=OWNER, json={"name": "Nightly", "tz": "UTC", "ranges": [
+        {"days": ["sun"], "start": "21:00", "end": "03:00"}]}).status_code == 200
+    pol = policy(client, clock, requested_by=("agent:hermes",), window_id="win_nightly").json()
+    queued = client.put(path, headers=OWNER, json={"name": "Nightly", "tz": "UTC", "ranges": [
+        {"days": ["sun"], "start": "20:00", "end": "03:00"}]})
+    assert queued.status_code == 202
+    narrowed = client.put(path, headers=OWNER, json={"name": "Nightly", "tz": "UTC", "ranges": [
+        {"days": ["mon"], "start": "00:30", "end": "02:00"}]})
+    assert narrowed.status_code == 200, narrowed.text  # inside Sunday's overnight range
+    action = queued.json()
+    result = client.app.state.gateway.actions.approve(Principal("owner", "person", "owner"),
+        action["id"], action["plan_sha256"], extra=ApprovalInput(verification_level=2))
+    assert result["state"] == "failed" and "window or its rules changed" in result["result"]["message"]
+    assert svc(client).repo.get_policy(pol["id"])["revision"] == 2
+    assert svc(client).repo.get_window("win_nightly")["ranges"] == narrowed.json()["ranges"]
 
 
 def test_f6_patch_updates_of_verified_apps_inside_the_window(client, clock, auto_settings):

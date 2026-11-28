@@ -9,12 +9,10 @@ a malicious app screen could swap a wider rule under the owner's real passkey. S
    every parameter pinned to this request's value, 30 days, at most 10 a day, "end if unused for
    14 days" on, notices in the daily digest. The person may widen it one field at a time (lifetime,
    per day, unpin a parameter); each choice is part of the body.
-2. `approve-options` canonicalises that body and binds its hash, `rule_sha256`, into the passkey
-   challenge: sha256(action_id || action_sha256 || plan_sha256 || rule_sha256 || nonce).
+2. `approve-options` binds the rule hash and the reviewed principal ids into the passkey challenge.
 3. The plain-language summary is written by the gateway from the bound body, never from client text.
-4. On approve the gateway stores the rule only if the canonical hash of the body sent equals the one
-   in the consumed challenge. A changed body is refused (`rule_changed`), and so is any approval
-   that would remember without a passkey assertion.
+4. On approve the gateway checks the rule hash and resolves the same principal ids before storing it.
+   A changed rule or identity requires a new challenge, and remembering requires a passkey assertion.
 5. The phone's approver key is refused for remember (step_up_required) until the phone app shows the
    rule summary before signing (design PR 18a); the phone then falls back to its passkey.
 6. Refused for: tainted or exposed requests, physical actions, anything above write (T2 to T4), every

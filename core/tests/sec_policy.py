@@ -427,7 +427,7 @@ POLICY |= {
                                                      f"{_AUTOMATION}: the owner, the agent's owning person, or the agent itself"),
     ("PUT", "/v1/permission-modes"): Row(ONLY_OWNER, lambda _: w.Req("/v1/permission-modes", json={"mode": "ask"}),
                                          f"{_AUTOMATION}: only the owner sets the household default"),
-    ("PUT", "/v1/permission-modes/{principal}"): Row(ONLY_OWNER, lambda _: w.Req("/v1/permission-modes/agent:probe", json={"mode": "locked"}),
+    ("PUT", "/v1/permission-modes/{principal}"): Row(ONLY_OWNER, lambda _: w.Req("/v1/permission-modes/agent:hermes", json={"mode": "locked"}),
                                                      f"{_AUTOMATION}: tightening by anyone with a say; loosening by the owner"),
     ("GET", "/v1/approval-denies"): Row(grid(200, 200, 403, 403, 403), w.p_static("/v1/approval-denies"),
                                         f"{_AUTOMATION}: the owner sees all, a person those on agents they own"),
@@ -482,7 +482,7 @@ POLICY |= {
     # #627: an agent's NATS user (account AGENTS) is the owner's to add or remove; an agent never keys itself
     ("GET", "/v1/agents/{name}/inputs"): Row(ONLY_OWNER, w.p_static("/v1/agents/agent:probe/inputs"),
                                              "PR 6: only the owner reads what an agent can read outside"),
-    ("PUT", "/v1/agents/{name}/inputs"): Row(ONLY_OWNER, w.p_missing("/v1/agents/agent:probe/inputs",
+    ("PUT", "/v1/agents/{name}/inputs"): Row(ONLY_OWNER, w.p_missing("/v1/agents/hermes/inputs",
                                                                      json={"external_inputs": ["web"]}),
                                              "PR 6: only the owner changes it (an agent never lowers its own taint)"),
     ("GET", "/v1/agents/{name}/nats-key"): Row(ONLY_OWNER, w.p_static("/v1/agents/agent:probe/nats-key"),

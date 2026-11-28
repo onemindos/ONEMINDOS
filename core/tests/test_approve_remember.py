@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 import pytest
 from fastapi.testclient import TestClient
 
-from conftest import AGENT, OWNER, action_body
+from conftest import AGENT, OWNER, action_body, apply_settings_change
 from onemind_core.app import create_app
 from onemind_core.permissions import remember as rm
 from test_identity import SoftAuthenticator, csrf, id_settings, register_passkey, setup_owner
@@ -56,6 +56,10 @@ def test_approve_and_remember_makes_the_narrowest_rule_bound_to_the_passkey(box,
     assert opts["remember"]["summary"].startswith("agent:hermes may app.restart for app_id = whoami, up to 10 a day")
     assert opts["remember"]["required_level"] == "L2" and opts["remember"]["enforced_level"] == "L1"
     assert opts["device_payload"].startswith("onemind-approve-v2\n") and opts["remember"]["rule_sha256"] in opts["device_payload"]
+    spec = c.get("/openapi.json").json()
+    approval = spec["paths"]["/v1/actions/{action_id}/approve"]["post"]["responses"]["200"]
+    assert approval["content"]["application/json"]["schema"]["$ref"] == "#/components/schemas/ApprovalResult"
+    assert spec["components"]["schemas"]["ApprovalResult"]["properties"]["remembered_policy"]
     r = c.post(f"/v1/actions/{a['id']}/approve", headers=csrf(c),
                json={"webauthn": key.assert_(opts["challenge"]), "remember": {"rule": rule}})
     assert r.status_code == 200, r.text
@@ -146,6 +150,43 @@ def test_a_tampered_rule_body_after_the_challenge_is_refused(box, l2, clock):
     r = c.post(f"/v1/actions/{a['id']}/approve", headers=csrf(c),
                json={"webauthn": key.assert_(plain["challenge"]), "remember": {"rule": opts["remember"]["rule"]}})
     assert r.status_code == 409 and r.json()["reason"] == "rule_changed"
+
+
+def test_remember_rejects_a_replacement_principal_after_the_challenge(l2, clock, executor):
+    c, key = l2
+    owner = csrf(c)
+    name = "agent:remember-notes"
+    token_request = {"name": "Notes", "principal": {"kind": "agent", "id": name}, "scopes": ["actions:request"]}
+
+    def mint():
+        response = c.post("/v1/tokens", headers=owner, json=token_request)
+        assert response.status_code == 201, response.text
+        return response.json()
+
+    original = mint()
+    apply_settings_change(c, c.put(f"/v1/agents/{name}/inputs", headers=owner, json={
+        "external_inputs": [], "accept_injection_risk": [],
+    }))
+    reg = c.app.state.actions.principals
+    before = reg.live(name)["uid"]
+    credential = {"Authorization": f"Bearer {original['one_time']['token']}"}
+    action = c.post("/v1/actions", headers=credential,
+                    json=action_body(clock, "whoami", "app.restart", key="remember-replaced"))
+    assert action.status_code == 201, action.text
+    url = f"/v1/actions/{action.json()['id']}"
+    opts = c.post(f"{url}/approve-options", json={"remember": {}}, headers=owner)
+    assert opts.status_code == 200, opts.text
+    assert c.delete(f"/v1/tokens/{original['id']}", headers=owner).status_code == 204
+    mint()
+    assert reg.live(name)["uid"] != before
+
+    ran = len(executor.calls)
+    r = c.post(f"{url}/approve", headers=owner, json={"webauthn": key.assert_(opts.json()["challenge"]),
+               "remember": {"rule": opts.json()["remember"]["rule"]}})
+    assert r.status_code == 409 and r.json()["error"] == "stale_precondition", r.text
+    assert c.get(url, headers=OWNER).json()["state"] == "awaiting_approval"
+    assert c.get("/v1/approval-policies", headers=OWNER).json() == []
+    assert len(executor.calls) == ran
 
 
 def test_remember_needs_the_passkey_not_the_phone_key_or_a_token(box, l2, clock):

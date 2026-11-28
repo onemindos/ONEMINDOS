@@ -49,6 +49,7 @@ The file holds public keys only; no secret is written.
 from __future__ import annotations
 
 import base64
+import json
 import os
 import re
 from collections.abc import Iterable
@@ -71,6 +72,7 @@ NODE_IMPORTS = ("job.>",)
 # subject token (the `agent_name` part regex of sdk/schema/onemind.subjects.json): a dotted name
 # would let agent "a" own a prefix of agent "a.b"'s subjects.
 AGENTS_ACCOUNT = "AGENTS"
+AGENT_STOP_METADATA = "onemind_agent_stop"
 AGENT_TOKEN_RE = re.compile(r"^[a-z0-9_-]{1,63}$")
 AGENT_VERBS = ("prompt", "status", "hb")  # Synadia Agent Protocol 0.3.1: agents.<verb>.<agent>.<owner>.<name>
 # Account limits. Field names checked against nats-server v2.15.3 (server/opts.go parseAccountLimits:
@@ -316,7 +318,8 @@ CALLOUT_ACCOUNT = "AUTH"
 
 def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey] = (),
                     jetstream_max_bytes: int = 0, agents: Iterable[AgentUser] = (),
-                    callout: CalloutAccount | None = None, agents_stopped: bool = False) -> str:
+                    callout: CalloutAccount | None = None, agents_stopped: bool = False, *,
+                    stopped_at: str | None = None) -> str:
     """The accounts include file. Deterministic: same nodes, services and agents, same bytes (no reload churn).
 
     jetstream_max_bytes > 0 turns JetStream on for the hub account with that file-storage cap. Node
@@ -412,6 +415,9 @@ def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey]
                 "}"]
     if not services:
         out.append(f'no_auth_user: "{HUB_LOCAL_USER}"')
+    if agents_stopped and stopped_at is not None:
+        # The hub reports this exact Stop in /varz once it applies this accounts file.
+        out.append(f"server_metadata: {{{AGENT_STOP_METADATA}: {json.dumps(stopped_at)}}}")
     out.append("")
     return "\n".join(out)
 
@@ -487,9 +493,11 @@ def make_service_key(directory: Path, name: str) -> str:
 
 def write_accounts(path: Path, nodes: Iterable[NodeAccount], services: Iterable[ServiceKey] = (),
                    jetstream_max_bytes: int = 0, agents: Iterable[AgentUser] = (),
-                   callout: CalloutAccount | None = None, agents_stopped: bool = False) -> bool:
+                   callout: CalloutAccount | None = None, agents_stopped: bool = False, *,
+                   stopped_at: str | None = None) -> bool:
     """Write the include file atomically (0644: public keys only). True if the content changed."""
-    body = render_accounts(nodes, services, jetstream_max_bytes, agents, callout, agents_stopped).encode()
+    body = render_accounts(nodes, services, jetstream_max_bytes, agents, callout, agents_stopped,
+                           stopped_at=stopped_at).encode()
     try:
         if path.read_bytes() == body:
             return False

@@ -34,7 +34,7 @@ from ..permissions.clock import ClockGuard
 from ..permissions.denies import DenyStore
 from ..permissions.engine import PermissionEngine
 from ..permissions.modes import HOUSEHOLD, ModeStore
-from ..principals import display_key
+from ..principals import bound_kind, display_key
 
 ORDER = 290  # after identity (260) and automation (280): the engine reads both
 TAGS = ["permissions"]
@@ -139,7 +139,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
     modes.owned_by = owned_by
     modes.owner_passkey = lambda: changes.owner_has_passkey(app)
 
-    def household_members() -> set[str]:
+    def identity_of(name: str, *, adopt: bool = False) -> str | None:
+        if not bound_kind(name):
+            return name
+        registry = gw.actions.principals
+        record = registry.resolve(name, adopt=adopt) if registry is not None else None
+        return record["uid"] if record is not None else None
+
+    def household_members() -> dict[str, str]:
         from ..identity.models import TokenRow
         from ..ledger import AgentTokenRow
         from ..principals import PrincipalRow
@@ -151,8 +158,10 @@ def register(app: FastAPI, gw: Gateway) -> None:
                 TokenRow.kind.in_(("agent", "plugin")), TokenRow.revoked_at.is_(None))))
             names.update(s.scalars(select(AgentTokenRow.principal_id).where(AgentTokenRow.revoked_at.is_(None))))
             names.update(s.scalars(select(PrincipalRow.name).where(PrincipalRow.retired_at.is_(None))))
-        return {name for name in names if len(name) <= 100}
+        return {name: uid for name in sorted(names) if len(name) <= 100 and (uid := identity_of(name, adopt=True)) is not None}
 
+    modes.identity_of = identity_of
+    modes.bind_identity = lambda name: identity_of(name, adopt=True)
     modes.household_members = household_members
     gw.on_startup(modes.migrate_inheritance)
     register_change(app, gw, "policy.mode.change", modes.apply_requested)
@@ -193,8 +202,10 @@ def register(app: FastAPI, gw: Gateway) -> None:
         svc.policies.loosen_guard = no_rule_before_a_passkey
         svc.policies.mode_of = modes.effective  # each rule shows whether its principal's mode lets it fire
 
-        def live_rule_principals() -> set[str]:
-            return {w for p in svc.repo.list_policies() for w in p["allow"]["requested_by"] if not w.endswith(":*")}
+        def live_rule_principals() -> dict[str, str]:
+            return {w: p["principals"][w]["uid"] if bound_kind(w) else w
+                    for p in svc.repo.list_policies() for w in p["allow"]["requested_by"]
+                    if not w.endswith(":*") and svc.policies._bound_ok(p, w)}
 
         def wildcard_rules() -> list[str]:
             return [p["id"] for p in svc.repo.list_policies() if any(w.endswith(":*") for w in p["allow"]["requested_by"])]

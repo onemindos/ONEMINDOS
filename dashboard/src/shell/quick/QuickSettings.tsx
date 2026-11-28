@@ -206,8 +206,16 @@ function StopAgents({ onModal, onNavigate }: { onModal: (b: boolean) => void; on
       await sdk.call({ method: 'PUT', path: '/v1/agents/kill-switch', body: { on: true } });
       await state.reload();
       ask(false);
-    } catch {
-      setErr('Could not stop the agents. Nothing changed.');
+    } catch (error) {
+      const reason = error instanceof OneMindError ? error.reason : undefined;
+      if (reason === 'fabric_policy_pending' || reason === 'agent_broker_cutoff_pending') {
+        setErr(reason === 'agent_broker_cutoff_pending'
+          ? 'The hub blocked agent requests. The message broker cutoff is still unconfirmed.'
+          : 'The hub blocked agent requests. Fabric confirmation is still pending.');
+        await state.reload();
+      } else {
+        setErr('Could not confirm that the agents stopped.');
+      }
     } finally {
       setBusy(false);
     }
@@ -217,7 +225,7 @@ function StopAgents({ onModal, onNavigate }: { onModal: (b: boolean) => void; on
     <section className="qs-sec" aria-labelledby="qs-agents">
       <h3 id="qs-agents" className="qs-title">AI agents</h3>
       {stopped ? (
-        <p className="qs-hint">All agents are stopped. <Link to={href.setting('agents')} onClick={onNavigate}>Resume them in Agents</Link>.</p>
+        <p className="qs-hint">Agent requests are blocked at the hub. <Link to={href.setting('agents')} onClick={onNavigate}>Open Agents</Link>.</p>
       ) : (
         <Button variant="danger" className="qs-stop" onClick={() => ask(true)}>Stop all agents</Button>
       )}

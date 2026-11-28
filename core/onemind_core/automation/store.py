@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import time
+from threading import RLock
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -17,7 +18,7 @@ from sqlalchemy import JSON, Boolean, DateTime, Integer, String, UniqueConstrain
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from ..ledger import Base, utc
-from ..store import FeatureSchema, SqlRepository
+from ..store import Database, FeatureSchema, SqlRepository
 
 SCHEMA = FeatureSchema("automation")
 
@@ -253,6 +254,11 @@ def _plain(row) -> dict:
 
 
 class AutomationRepository(SqlRepository):
+    def __init__(self, db: Database):
+        super().__init__(db)
+        # The gateway runs one process. Serialize window edits with attaching or activating rules.
+        self.policy_windows = RLock()
+
     # ---- kill switch -------------------------------------------------------------------------
     def state(self) -> dict:
         with self.db.session() as s:
@@ -344,7 +350,7 @@ class AutomationRepository(SqlRepository):
                            "notify_after": "digest", "accept_injection_risk": False, **values}))
 
     def add_policy(self, **values) -> dict:
-        with self.db.session.begin() as s:
+        with self.policy_windows, self.db.session.begin() as s:
             self.insert_policy(s, **values)
         return self.get_policy(values["id"])  # type: ignore[return-value]
 
@@ -371,13 +377,12 @@ class AutomationRepository(SqlRepository):
         with self.db.session.begin() as s:
             s.execute(update(PolicyRow).where(PolicyRow.id == policy_id).values(principals=principals))
 
-    def bump_policies_for_window(self, window_id: str) -> list[str]:
-        with self.db.session.begin() as s:
-            ids = list(s.scalars(select(PolicyRow.id).where(PolicyRow.window_id == window_id,
-                                                            PolicyRow.state == "active")))
-            if ids:
-                s.execute(update(PolicyRow).where(PolicyRow.id.in_(ids)).values(revision=PolicyRow.revision + 1))
-            return ids
+    def window_policies(self, window_id: str) -> dict[str, int]:
+        with self.db.session() as s:
+            # A rule ended by the last reserved use can return to active if that use rolls back.
+            return dict(s.execute(select(PolicyRow.id, PolicyRow.revision).where(
+                PolicyRow.window_id == window_id, PolicyRow.state.in_(("active", "paused", "ended")),
+            )).all())
 
     def count_uses(self, policy_id: str, since: datetime) -> int:
         with self.db.session() as s:
@@ -446,7 +451,7 @@ class AutomationRepository(SqlRepository):
             q = q.where(PolicyRow.revision == expect_revision)
         if bump:
             values["revision"] = PolicyRow.revision + 1
-        with self.db.session.begin() as s:
+        with self.policy_windows, self.db.session.begin() as s:
             return s.execute(q.values(**values)).rowcount == 1
 
     def list_uses(self, policy_id: str, limit: int = 100) -> list[dict]:
@@ -471,11 +476,14 @@ class AutomationRepository(SqlRepository):
         with self.db.session() as s:
             return [_plain(r) for r in s.scalars(select(WindowRow).order_by(WindowRow.id))]
 
-    def put_window(self, window_id: str, name: str, tz: str, ranges: list, now: datetime) -> None:
+    def put_window(self, window_id: str, name: str, tz: str, ranges: list, now: datetime) -> list[str]:
         values = {"name": name, "tz": tz, "ranges": ranges, "updated_at": now}
         with self.db.session.begin() as s:
             s.execute(self.db.insert()(WindowRow).values(id=window_id, **values)
                       .on_conflict_do_update(index_elements=[WindowRow.id], set_=values))
+            return list(s.scalars(update(PolicyRow).where(
+                PolicyRow.window_id == window_id, PolicyRow.state.in_(("active", "paused", "ended")),
+            ).values(revision=PolicyRow.revision + 1).returning(PolicyRow.id)))
 
     def seed_default_window(self, now: datetime) -> None:
         d = DEFAULT_WINDOW

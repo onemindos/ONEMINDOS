@@ -341,12 +341,12 @@ def test_agents_stopped_leaves_the_agents_account_out(with_callout):
     assert ("auth_callout" in off) is with_callout and PUB_A in off and PUB_GW in off
 
 
-def test_kill_switch_rewrites_the_accounts_file(net_settings, clock, tmp_path):  # noqa: F811
+def test_kill_switch_rewrites_the_accounts_file(net_settings, clock, tmp_path, monkeypatch):  # noqa: F811
     from dataclasses import replace
 
     from fastapi.testclient import TestClient
 
-    from conftest import OWNER, ScriptedExecutor
+    from conftest import OWNER, ScriptedExecutor, apply_settings_change
     from onemind_core.app import create_app
     from onemind_core.natsconf import make_service_key, new_user_key
     from onemind_core.netconf import FabricSettings
@@ -359,11 +359,133 @@ def test_kill_switch_rewrites_the_accounts_file(net_settings, clock, tmp_path): 
     _, pub = new_user_key()
     assert client.put("/v1/agents/agent:aaa/nats-key", json={"nkey": pub}, headers=OWNER).status_code == 200
     assert "  AGENTS: {" in fab.nats_accounts_file.read_text()
-    assert client.put("/v1/agents/kill-switch", json={"on": True}, headers=OWNER).status_code == 200
+    confirmed = []
+    monkeypatch.setattr(client.app.state.engine.reader, "wait_for_agent_cutoff", lambda marker: confirmed.append(marker) or True)
+    response = client.put("/v1/agents/kill-switch", json={"on": True}, headers=OWNER)
+    assert response.status_code == 200
+    assert confirmed == [response.json()["changed_at"]]
     text = fab.nats_accounts_file.read_text()
     assert "AGENTS" not in text and "auth_callout" in text
-    assert client.put("/v1/agents/kill-switch", json={"on": False}, headers=OWNER).status_code == 200
+    apply_settings_change(client, client.put("/v1/agents/kill-switch", json={"on": False}, headers=OWNER))
     assert "  AGENTS: {" in fab.nats_accounts_file.read_text()
+
+
+def test_kill_switch_keeps_local_stop_when_accounts_write_fails(net_settings, clock, monkeypatch):  # noqa: F811
+    from fastapi.testclient import TestClient
+
+    from conftest import AGENT, OWNER, ScriptedExecutor
+    from onemind_core.actions import ApprovalInput
+    from onemind_core.app import create_app
+    from onemind_core.auth import Principal
+
+    app = create_app(net_settings, clock=clock, executor=ScriptedExecutor())
+    stop_path = "/v1/agents/kill-switch"
+    fabric = app.state.gateway.actions.handlers["node.join"]
+    fabric_confirmations = []
+
+    def fail_write():
+        raise OSError("accounts file unwritable")
+
+    with TestClient(app) as client:
+        monkeypatch.setattr(fabric, "write_accounts", fail_write)
+        monkeypatch.setattr(app.state.agent_stop, "confirm_fabric", fabric_confirmations.append)
+        response = client.put(stop_path, json={"on": True}, headers=OWNER)
+        assert response.status_code == 503, response.text
+        assert response.json()["reason"] == "agent_broker_cutoff_pending"
+        assert client.get(stop_path, headers=OWNER).json()["on"] is True
+        assert client.get("/v1/apps", headers=AGENT).json()["reason"] == "agents_stopped"
+
+        resume = client.put(stop_path, json={"on": False}, headers=OWNER)
+        assert resume.status_code == 202, resume.text
+        action = resume.json()
+        done = app.state.gateway.actions.approve(Principal("owner", "person", "owner"), action["id"],
+                                                 action["plan_sha256"], extra=ApprovalInput(verification_level=2))
+        assert done["state"] == "failed"
+        assert "NATS accounts could not be restored" in done["result"]["message"]
+    assert fabric_confirmations == [True, False]
+
+
+@pytest.mark.skipif(NATS_SERVER is None, reason="nats-server is not installed")
+def test_kill_switch_http_waits_for_connected_agent_cutoff(net_settings, clock, tmp_path, monkeypatch):  # noqa: F811
+    from fastapi.testclient import TestClient
+
+    from conftest import AGENT, OWNER, ScriptedExecutor
+    from onemind_core.app import create_app
+    from onemind_core.bus import SeedClient
+    from onemind_core.engine import monitor
+    from onemind_core.natsconf import new_user_key
+    from onemind_core.netconf import FabricSettings
+
+    app = create_app(net_settings, clock=clock, executor=ScriptedExecutor())
+    client = TestClient(app)
+    stop_path = "/v1/agents/kill-switch"
+    seed, pub = new_user_key()
+    seed_file = tmp_path / "agent.nk"
+    seed_file.write_text(seed)
+    assert client.put("/v1/agents/agent:aaa/nats-key", json={"nkey": pub}, headers=OWNER).status_code == 200
+    accounts = net_settings.section(FabricSettings).nats_accounts_file
+    assert "  AGENTS: {" in accounts.read_text()
+    port, monitor_port = _port(), _port()
+    conf = accounts.with_name("hub.conf")
+    conf.write_text(f'listen: "127.0.0.1:{port}"\nhttp: "127.0.0.1:{monitor_port}"\ninclude "{accounts.name}"\n')
+    reader = monitor.MonitorReader(f"http://127.0.0.1:{monitor_port}")
+    app.state.engine.reader = reader
+
+    def stop():
+        return client.put(stop_path, json={"on": True}, headers=OWNER)
+
+    async def scenario():
+        agent = SeedClient()
+        disconnected = asyncio.Event()
+
+        async def on_disconnect():
+            disconnected.set()
+
+        for _ in range(100):
+            try:
+                if reader._get("/varz")[0] == 200:
+                    break
+            except monitor.httpx.HTTPError:
+                pass
+            await asyncio.sleep(0.05)
+        await agent.connect(f"nats://127.0.0.1:{port}", nkeys_seed=str(seed_file), connect_timeout=1,
+                            allow_reconnect=False, max_reconnect_attempts=0, disconnected_cb=on_disconnect)
+        try:
+            with monkeypatch.context() as mp:
+                mp.setattr(monitor, "AGENT_CUTOFF_TIMEOUT_S", 0.25)
+                response = await asyncio.to_thread(stop)  # no OS reload yet
+            assert response.status_code == 503, response.text
+            assert response.json()["reason"] == "agent_broker_cutoff_pending"
+            assert client.get(stop_path, headers=OWNER).json()["on"] is True
+            assert client.get("/v1/apps", headers=AGENT).json()["reason"] == "agents_stopped"
+            await agent.flush(timeout=1)  # the agent was still connected when HTTP returned 503
+            before = accounts.read_text()
+            assert "AGENTS" not in before
+
+            retry = asyncio.create_task(asyncio.to_thread(stop))
+            for _ in range(100):
+                if accounts.read_text() != before:
+                    break
+                await asyncio.sleep(0.02)
+            else:
+                pytest.fail("retry must rewrite the file so the OS watcher attempts another reload")
+            assert not retry.done()
+            await agent.flush(timeout=1)
+            proc.send_signal(signal.SIGHUP)  # the OS watcher would signal after this rewrite
+            response = await asyncio.wait_for(retry, timeout=6)
+            assert response.status_code == 200, response.text
+            await asyncio.wait_for(disconnected.wait(), timeout=1)
+            assert not agent.is_connected
+        finally:
+            await agent.close()
+
+    proc = subprocess.Popen([NATS_SERVER, "-c", str(conf)], stdout=subprocess.DEVNULL)
+    try:
+        asyncio.run(scenario())
+    finally:
+        reader.close()
+        proc.terminate()
+        proc.wait(5)
 
 
 def test_callout_with_no_registered_agent_still_wires_the_agents_account():

@@ -37,6 +37,10 @@ class RememberApproval(JsonBody):
     rule: dict = Field(description="the rule exactly as approve-options returned it under remember.rule")
 
 
+class ApprovalResult(Action):
+    remembered_policy: str | None = Field(default=None, description="standing approval created with this approval")
+
+
 class ApproveBody(JsonBody):
     """§12.4: optional approve body. `webauthn` is the passkey assertion over approve-options' challenge.
 
@@ -157,7 +161,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.post(
         "/v1/actions/{action_id}/approve", tags=["actions"], operation_id="actions.approve",
-        responses={200: {"model": Action}, **error_responses(401, 403, 404, 409, 422, 503)},
+        responses={200: {"model": ApprovalResult}, **error_responses(401, 403, 404, 409, 422, 503)},
     )
     def approve_action(
         action_id: str, request: Request, body: ApproveBody | None = None, p: Principal = Depends(principal)
@@ -172,10 +176,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
             raise ApiError(401, "unauthenticated", "approve and remember needs your passkey", reason="step_up_required")
         on_accept = values = None
         if rule is not None:
-            from ..automation.policies import PolicyBody
-
-            request.app.state.identity._remember_creatable(rule)
-            values = svc.policies.prepare_create(p, PolicyBody.model_validate(rule), created_from=action_id)
+            values = request.app.state.identity._remember_creatable(
+                p, action_id, rule, expected_bindings=request.state.remember_bindings)
 
             def on_accept(session):
                 try:

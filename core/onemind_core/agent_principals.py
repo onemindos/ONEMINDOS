@@ -20,7 +20,8 @@ from __future__ import annotations
 import re
 from datetime import datetime, timedelta
 
-from sqlalchemy import DateTime, Integer, String, select, update
+from sqlalchemy import DateTime, Integer, String, inspect, select, text, update
+from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .actions import ActionService
@@ -31,6 +32,14 @@ from .ledger import Base, iso, utc
 from .store import Database, FeatureSchema
 
 SCHEMA = FeatureSchema("agents")
+
+
+@SCHEMA.step(2, "bind Inputs declarations to permanent identities")
+def _bind_inputs(conn: Connection) -> None:
+    if "identity_uid" not in {c["name"] for c in inspect(conn).get_columns("agents_inputs")}:
+        conn.execute(text("ALTER TABLE agents_inputs ADD COLUMN identity_uid VARCHAR(40)"))
+        if conn.dialect.name == "postgresql":
+            conn.execute(text("ALTER TABLE agents_inputs ALTER COLUMN principal_id TYPE VARCHAR(100)"))
 
 DEFAULT_BUDGET_PER_DAY = 200
 MAX_BUDGET_PER_DAY = 10_000

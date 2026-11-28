@@ -14,7 +14,7 @@ from onemind_core.automation import registry
 from onemind_core.errors import ApiError
 from onemind_core.executors import ExecResult
 
-from conftest import AGENT, OWNER
+from conftest import AGENT, OWNER, apply_settings_change
 
 OWNER_P = Principal(id="person:owner", kind="person", role="owner")
 AGENT_P = Principal(id="agent:hermes", kind="agent", role="agent")
@@ -183,18 +183,19 @@ def test_motion_lockout_refuses_every_physical_request(client, clock, pump, sett
     assert client.get("/v1/physical/lockout", headers=OWNER).json()["locked"] is True
     events = [e["event"] for e in _audit(settings)]
     assert "physical.lockout.on" in events
-    assert client.put("/v1/physical/lockout", headers=OWNER, json={"locked": False}).json()["locked"] is False
+    apply_settings_change(client, client.put("/v1/physical/lockout", headers=OWNER, json={"locked": False}))
+    assert client.get("/v1/physical/lockout", headers=OWNER).json()["locked"] is False
     assert _approve(client, pending)["state"] == "succeeded"
 
 
-def test_lifting_the_lockout_needs_a_fresh_passkey_once_passkeys_are_active(client, settings, monkeypatch):
-    monkeypatch.setattr(client.app.state.identity, "passkeys_active", lambda: True)  # an owner has a passkey
+@pytest.mark.real_mode_defaults
+def test_lifting_the_lockout_before_passkey_enrollment_is_refused(client, settings):
     # turning motion off stays one step: no passkey needed to make the box safer
     r = client.put("/v1/physical/lockout", headers=OWNER, json={"locked": True})
     assert r.status_code == 200 and r.json()["locked"] is True, r.text
     # lifting it with a bare token is refused, and the lockout holds
     r = client.put("/v1/physical/lockout", headers=OWNER, json={"locked": False})
-    assert r.status_code == 401 and r.json()["reason"] == "step_up_required", r.text
+    assert r.status_code == 409 and r.json()["reason"] == "no_owner_passkey", r.text
     assert client.get("/v1/physical/lockout", headers=OWNER).json()["locked"] is True
     assert "physical.lockout.off" not in [e["event"] for e in _audit(settings)]
 

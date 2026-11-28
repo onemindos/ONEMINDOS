@@ -24,8 +24,9 @@ from ..context import Gateway
 from ..errors import ApiError, error_responses
 from ..identity.scopes import register_route_scope
 from ..jsonbody import JsonBody
+from ..netconf import FabricSettings
 from ..permissions.changes import QUEUED, register_change, request_change
-from ..principals import PrincipalRegistry
+from ..principals import PrincipalRegistry, display_key
 from ..taint_store import INPUT_KINDS, MAX_ACCEPT, AgentInputs, TaintStore
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
@@ -143,18 +144,33 @@ def register(app: FastAPI, gw: Gateway) -> None:
         if fabric is not None:
             fabric.write_accounts()
 
-    # D-029: "Stop everything" also cuts agents already on the bus: the file loses AGENTS, NATS reloads.
-    stop.listeners.append(lambda _on: rewrite_accounts())
+    def sync_broker(on: bool, stopped_at: str) -> None:
+        rewrite_accounts()
+        if (on and gw.settings.section(FabricSettings).nats_accounts_file is not None
+                and not app.state.engine.reader.wait_for_agent_cutoff(stopped_at)):
+            raise TimeoutError("NATS did not confirm the agent cutoff")
+
+    stop.sync_broker = sync_broker
 
     @app.get("/v1/agents/kill-switch", operation_id="agents.kill_switch.get", tags=TAGS,
              response_model=KillSwitch, responses=error_responses(401, 403))
     def get_kill_switch(_: Principal = Depends(principal)):
         return stop.state()
 
+    register_change(app, gw, "policy.agents.resume", lambda p, params: stop.set(
+        p, False, params["reason"], expected_changed_at=params["changed_at"]))
+
     @app.put("/v1/agents/kill-switch", operation_id="agents.kill_switch.set", tags=TAGS,
-             response_model=KillSwitch, responses=error_responses(401, 403, 422, 503))
+             response_model=KillSwitch, responses={**QUEUED, **error_responses(401, 403, 409, 422, 429, 503)})
     def set_kill_switch(body: KillSwitchBody, p: Principal = Depends(principal)):
-        return stop.set(p, body.on, body.reason)
+        if body.on:
+            return stop.set(p, True, body.reason)
+        stop.owner_only(p, False)
+        current = stop.state()
+        if not current["on"]:
+            return current
+        return request_change(app, gw, p, "policy.agents.resume",
+                              {"reason": body.reason, "changed_at": current["changed_at"]})
 
     # AIG-03 routes come after the kill switch so /v1/agents/kill-switch is not read as an agent name.
     svc = AgentPrincipals(gw.db, gw.actions, gw.audit, gw.clock)
@@ -173,14 +189,15 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     # Gateway permissions PR 7: permanent principal ids, and no app takes an agent id a person or the
     # tokens file already holds (it would inherit that agent's standing approvals and audit trail).
-    registry = PrincipalRegistry(gw.db, gw.audit, gw.clock)
+    registry = PrincipalRegistry(gw.db, gw.audit, gw.clock,
+                                 lambda: {fp.id for _, fp in gw.tokens.entries() if fp.kind == "agent"})
     gw.actions.principals = registry
 
     def no_agent_id_collision(action_type: str, app_id: str) -> None:
         if action_type != "app.install":
             return
         name = f"agent:{app_id}"
-        held = registry.collision(name, {fp.id for _, fp in gw.tokens.entries() if fp.kind in ("agent", "plugin")})
+        held = registry.collision(name)
         if held is not None:
             gw.audit.append("authz.denied", None, None, {"attempted": f"install {app_id}", "principal_id": name,
                                                          "reason": "agent_id_taken", "held_by": held})
@@ -189,7 +206,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     gw.actions.id_checks.append(no_agent_id_collision)
 
-    inputs = AgentInputs(gw.db, gw.audit, gw.catalog, gw.clock)
+    def input_identity(name: str, *, adopt: bool = False) -> str | None:
+        record = registry.resolve(name, adopt=adopt)
+        return record["uid"] if record is not None else None
+
+    inputs = AgentInputs(gw.db, gw.audit, gw.catalog, gw.clock, input_identity,
+                         lambda name: input_identity(name, adopt=True))
     app.state.agent_inputs = inputs
     gw.actions.agent_forgotten = inputs.forget
     gw.actions.taint.attach(
@@ -197,7 +219,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
         lambda event, pid, data: gw.audit.append(event, {"id": pid, "kind": "agent"}, None, data))
 
     def gained_exposure(pid: str) -> None:
-        registry.notify(pid if ":" in pid else f"agent:{pid}", "became_exposed")
+        kind = "plugin" if pid.startswith("plugin:") else "agent"
+        registry.notify(display_key({"id": pid, "kind": kind}), "became_exposed")
 
     def apply_inputs(p: Principal, params: dict) -> None:
         pid = params["principal"]

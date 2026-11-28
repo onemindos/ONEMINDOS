@@ -71,6 +71,55 @@ def test_narrowing_applies_at_once_and_widening_needs_a_passkey(client, clock):
     assert r.status_code == 202 and r.json()["revision"] == 3
 
 
+@pytest.mark.parametrize("replace_at_write", [False, True])
+def test_queued_widening_cannot_bind_a_replacement_principal(client, clock, monkeypatch, replace_at_write):
+    from onemind_core.actions import ApprovalInput
+
+    original = mint(client)
+    principal = "agent:notes"
+    owner = Principal("owner", "person", "owner")
+    pol = make(client, clock).json()
+    action = client.patch(f"/v1/approval-policies/{pol['id']}", headers=OWNER, json={
+        "allow": {"types": ["app.restart"], "requested_by": ["agent:hermes", principal]},
+    })
+    assert action.status_code == 202, action.text
+    request = action.json()
+    uid = request["params"]["principals"][principal]["uid"]
+    ident = client.app.state.identity
+    svc = client.app.state.automation
+    actions = client.app.state.actions
+
+    def replace():
+        ident.revoke_token(None, owner, original["id"])
+        ident.create_token(None, owner, "Replacement", {"kind": "agent", "id": principal}, None, None)
+        assert actions.principals.live(principal)["uid"] != uid
+
+    if replace_at_write:
+        bind = svc.policies._bindings
+
+        def replace_after_review(requested_by, **kwargs):
+            result = bind(requested_by, **kwargs)
+            if requested_by == ["agent:hermes", principal]:
+                replace()
+            return result
+
+        monkeypatch.setattr(svc.policies, "_bindings", replace_after_review)
+    else:
+        replace()
+
+    result = actions.approve(owner, request["id"], request["plan_sha256"],
+                             extra=ApprovalInput(verification_level=2))
+    current = svc.repo.get_policy(pol["id"])
+    if replace_at_write:
+        assert result["state"] == "succeeded", result
+        assert current["principals"][principal]["uid"] == uid
+        assert covered(client, clock).outcome == "needs_approval"
+    else:
+        assert result["state"] == "failed" and "a principal changed" in result["result"]["message"], result
+        assert current["revision"] == pol["revision"]
+        assert principal not in current["principals"]
+
+
 def test_max_uses_one_approves_once_then_the_rule_ends(client, clock):
     install(client, clock)
     pid = make(client, clock, max_uses=1).json()["id"]
@@ -187,8 +236,24 @@ def test_forever_rules_get_a_90_day_review_that_ends_nothing(client, clock):
     row = next(p for p in client.get("/v1/approval-policies", headers=OWNER).json() if p["id"] == pid)
     assert row["review_due"] is True and row["state"] == "active"
     assert restart(client, clock, "f0")["state"] == "succeeded"  # ignoring the reminder ends nothing
-    assert client.post(f"/v1/approval-policies/{pid}/keep", headers=OWNER).json()["review_due"] is False
+    queued = client.post(f"/v1/approval-policies/{pid}/keep", headers=OWNER)
+    assert queued.status_code == 202 and queued.json()["type"] == "policy.rule.keep"
+    aid = queued.json()["id"]
+    denied = client.post(f"/v1/actions/{aid}/approve", headers=OWNER, json={"plan_sha256": queued.json()["plan_sha256"]})
+    assert denied.status_code in (401, 409) and denied.json()["reason"] in ("needs_proven_key", "step_up_required")
+    assert client.get("/v1/approval-policies", headers=OWNER).json()[0]["review_due"] is True
+    apply_settings_change(client, queued)
+    assert client.get("/v1/approval-policies", headers=OWNER).json()[0]["review_due"] is False
     assert any(e["event"] == "approval.policy.review_due" for e in audit(client))
+    assert any(e["event"] == "approval.policy.kept" and e["data"]["approval"] == "L2" for e in audit(client))
+
+
+def test_keep_refuses_a_dated_rule_without_refreshing_its_unused_clock(client, clock):
+    pid = make(client, clock, lapse_unused_days=14).json()["id"]
+    clock.advance(13 * 86400)
+    assert client.post(f"/v1/approval-policies/{pid}/keep", headers=OWNER).status_code == 409
+    clock.advance(2 * 86400)
+    assert client.app.state.automation.policies.lapse_due(clock.now) == [pid]
 
 
 def mint(client, name="agent:notes"):
@@ -268,9 +333,9 @@ def test_rule_routes_document_the_fields_the_rules_screen_reads(client, clock):
     ref = "#/components/schemas/ApprovalPolicy"
     ok = lambda op, code="200": spec["paths"][op[0]][op[1]]["responses"][code]["content"]["application/json"]["schema"]  # noqa: E731
     assert ok(("/v1/approval-policies", "get"))["items"]["$ref"] == ref
-    for path in ("/v1/approval-policies/{policy_id}/revoke", "/v1/approval-policies/{policy_id}/keep"):
-        assert ok((path, "post"))["$ref"] == ref
-    assert ok(("/v1/approval-policies/{policy_id}/reconfirm", "post"), "202")["$ref"] == "#/components/schemas/Action"
+    assert ok(("/v1/approval-policies/{policy_id}/revoke", "post"))["$ref"] == ref
+    for name in ("reconfirm", "keep"):
+        assert ok((f"/v1/approval-policies/{{policy_id}}/{name}", "post"), "202")["$ref"] == "#/components/schemas/Action"
     assert ok(("/v1/approval-policies/{policy_id}", "patch"))["$ref"] == ref
     revoked = client.post(f"/v1/approval-policies/{pol['id']}/revoke", headers=OWNER).json()
     assert ApprovalPolicy.model_validate(revoked).state == "revoked"

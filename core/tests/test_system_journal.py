@@ -22,6 +22,7 @@ from fastapi.testclient import TestClient
 
 from conftest import ADULT, AGENT, GUEST, OWNER
 from onemind_core.app import create_app
+from onemind_core.auth import Principal
 from onemind_core.hostlink import HostLinkSettings
 from onemind_core.hostservices import LogStream
 from onemind_core.identity.scopes import required_scopes
@@ -386,6 +387,43 @@ def test_a_stalled_follow_viewer_stops_reads_and_disconnect_releases_the_pump(se
     try:
         with box(settings, clock, h.path) as c:
             asyncio.run(watch(c.app))
+            assert c.get("/v1/system/journal?follow=true", headers=OWNER).status_code == 200
+    finally:
+        h.close()
+
+
+def test_follow_releases_host_stream_and_slot_when_sending_headers_fails(settings, clock, monkeypatch):
+    closed = []
+    close = LogStream.close
+
+    def observed_close(stream):
+        closed.append(stream)
+        close(stream)
+
+    monkeypatch.setattr(LogStream, "close", observed_close)
+
+    async def abort_at_headers(endpoint):
+        response = await asyncio.to_thread(endpoint, follow=True, p=Principal("owner", "person", "owner"))
+
+        async def receive():
+            await asyncio.Event().wait()
+
+        async def send(message):
+            assert message["type"] == "http.response.start" and message["status"] == 200
+            raise RuntimeError("header write failed")
+
+        with pytest.raises(RuntimeError, match="header write failed"):
+            # Drive the route's response directly. Middleware can accept the headers into its
+            # handoff and start the body before its own downstream send fails.
+            await asyncio.wait_for(response(follow_scope(), receive, send), 5)
+
+    h = FakeHost(["journal line"])
+    try:
+        with box(settings, clock, h.path) as c:
+            endpoint = next(r.endpoint for r in c.app.routes if getattr(r, "path", None) == "/v1/system/journal")
+            for i in range(journal_router.STREAMS_PER_PRINCIPAL + 1):
+                asyncio.run(abort_at_headers(endpoint))
+                assert len(closed) == i + 1
             assert c.get("/v1/system/journal?follow=true", headers=OWNER).status_code == 200
     finally:
         h.close()

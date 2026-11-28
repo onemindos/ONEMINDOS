@@ -23,6 +23,14 @@ from ..permissions.remember import RememberChoice
 SIGNIN_HTML = Path(__file__).resolve().parent.parent / "identity" / "signin.html"
 
 
+class RememberPreview(BaseModel):
+    rule: dict[str, Any]
+    rule_sha256: str
+    summary: str
+    required_level: Literal["L1", "L2"]
+    enforced_level: Literal["L1", "L2"]
+
+
 class ApprovalChallenge(BaseModel):
     challenge: str
     action_sha256: str
@@ -33,7 +41,7 @@ class ApprovalChallenge(BaseModel):
     publicKey: dict[str, Any]
     # Gateway permissions PR 12: the rule approve-and-remember would store, its hash (bound into the
     # challenge), the gateway-written summary and the verification level D-028 asks for it.
-    remember: dict[str, Any] | None = None
+    remember: RememberPreview | None = None
 
 
 class ApproveOptionsBody(JsonBody):
@@ -149,6 +157,19 @@ class UserCreateBody(BaseModel):
 class UserPatchBody(BaseModel):
     display_name: str | None = Field(default=None, max_length=100)
     role: str | None = Field(default=None, max_length=16)
+
+
+class UserView(BaseModel):
+    id: str
+    username: str | None
+    display_name: str
+    role: str
+    created_at: str
+    last_seen_at: str | None
+    disabled: bool
+    enrolled: bool
+    passkeys: int
+    totp: bool
 
 
 class TokenCreateBody(JsonBody):
@@ -325,7 +346,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return svc.set_profile_name(request, p, body.display_name)
 
     # ---- users (owner) -------------------------------------------------------------------------------
-    @app.get("/v1/users", operation_id="users.list", tags=["users"], responses=R(401, 403))
+    @app.get("/v1/users", operation_id="users.list", tags=["users"], response_model=list[UserView], responses=R(401, 403))
     def users(p: Principal = Depends(principal)):
         return svc.list_users(p)
 

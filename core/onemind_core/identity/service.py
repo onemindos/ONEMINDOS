@@ -22,13 +22,14 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from fastapi import Request
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError
 from ..permissions import remember as rm
+from ..principals import display_key
 from . import approver_keys as ak
 from . import passkeys as pk
 from . import scopes as sc
@@ -339,6 +340,11 @@ class IdentityService:
                 return None
         if t.revoked_at is not None or (t.expires_at is not None and utc(t.expires_at) <= now):
             return None
+        reg = self._registry()
+        if reg is not None and t.kind in ("agent", "plugin"):
+            source = "plugin" if t.kind == "plugin" else "identity"
+            if not reg.credential_matches(t.kind, t.principal_id, source, t.owner_user_id):
+                return None
         owner = None
         if t.owner_user_id is not None:
             owner = self._live_user(t.owner_user_id)
@@ -935,7 +941,8 @@ class IdentityService:
                                     {"revoked_at": now})
         tokens = self.repo.update(TokenRow, [or_(TokenRow.owner_user_id == u.id, TokenRow.principal_id == u.id),
                                              TokenRow.revoked_at.is_(None)], {"revoked_at": now})
-        for name in {t.principal_id for t in self.repo.all(select(TokenRow).where(TokenRow.id.in_(tokens)))
+        for name in {display_key({"id": t.principal_id, "kind": t.kind})
+                     for t in self.repo.all(select(TokenRow).where(TokenRow.id.in_(tokens)))
                      if t.kind in ("agent", "plugin")}:
             self._retire(name, "owner_disabled")
         self.emit("user", "disabled", {"user_id": u.id, "sessions_revoked": len(sessions),
@@ -1114,12 +1121,22 @@ class IdentityService:
 
     def revoke_token(self, ctx: AuthContext | None, p: Principal, token_id: str) -> None:
         t = self._token_for_write(ctx, p, token_id, "revoke tokens")
-        self.repo.update(TokenRow, [TokenRow.id == t.id], {"revoked_at": self.now(), "prev_hash": None})
+        now = self.now()
+
+        def revoke(s: Session) -> None:
+            revoked = s.execute(update(TokenRow).where(TokenRow.id == t.id, TokenRow.revoked_at.is_(None))
+                                .values(revoked_at=now, prev_hash=None).returning(TokenRow.id)).scalar_one_or_none()
+            if revoked is None:
+                raise ApiError(404, "not_found", "no such token")
+
+        reg = self._registry()
+        if t.kind in ("agent", "plugin") and reg is not None:
+            # Reissue serializes with revocation and gets a fresh identity in the same transaction.
+            reg.retire(display_key({"id": t.principal_id, "kind": t.kind}), "token_revoked", persist=revoke)
+        else:
+            with self.repo.db.session.begin() as s:
+                revoke(s)
         self.emit("auth", "token.revoked", {"token_id": t.id, "principal_id": t.principal_id}, p)
-        if t.kind in ("agent", "plugin"):
-            # PR 7: revoking a token ends the identity it carried, so the standing approvals bound to
-            # it stop; a token minted later under the same name is a new principal id.
-            self._retire(t.principal_id, "token_revoked")
 
     def _registry(self):
         return getattr(self.gw.actions, "principals", None)
@@ -1217,15 +1234,17 @@ class IdentityService:
         p_sha = action.get("plan_sha256") or ""
         rule = self._remember_rule(action, remember) if remember is not None else None
         r_sha = rm.rule_sha256(rule) if rule is not None else ""
+        bindings = self._remember_creatable(p, action_id, rule)["principals"] if rule is not None else None
+        bound_ids = json.dumps(bindings, sort_keys=True, separators=(",", ":")).encode() if bindings is not None else b""
         nonce = os.urandom(32)
-        # Gateway permissions PR 12: a remembered rule's hash is bound into the challenge itself.
-        raw = hashlib.sha256(action_id.encode() + a_sha.encode() + p_sha.encode() + r_sha.encode() + nonce).digest()
+        # The challenge binds the remembered rule and the identities reviewed with it.
+        raw = hashlib.sha256(action_id.encode() + a_sha.encode() + p_sha.encode() + r_sha.encode() + bound_ids + nonce).digest()
         user_id = ctx.user.id if ctx and ctx.user else None
         allow_users = [user_id] if user_id else self.active_owner_ids()
         allow = list(self.repo.all(select(PasskeyRow.id).where(PasskeyRow.user_id.in_(allow_users))))
         data = {"action_sha256": a_sha, "plan_sha256": p_sha or None}
         if rule is not None:
-            data |= {"rule_sha256": r_sha, "rule": rule}
+            data |= {"rule_sha256": r_sha, "rule": rule, "principals": bindings}
         row, _ = self._new_challenge("approve", user_id=user_id, action_id=action_id, data=data, raw=raw)
         rp_id, _ = self.rp(request)
         out = {"challenge": row.challenge, "action_sha256": a_sha, "plan_sha256": p_sha or None,
@@ -1250,20 +1269,18 @@ class IdentityService:
             raise ApiError(409, "conflict", f"this agent is on {'Locked' if mode == 'locked' else 'Always ask'}, which ignores "
                            "rules: set it to Ask once, then remember (or Auto within rules) first", reason="mode_ignores_rules")
         try:
-            rule = rm.narrowest_rule(action, choice, self.now())
+            return rm.narrowest_rule(action, choice, self.now())
         except ValueError as exc:
             raise ApiError(422, "conflict", str(exc), reason="remember_refused") from None
-        self._remember_creatable(rule)
-        return rule
 
-    def _remember_creatable(self, rule: dict) -> None:
-        """Every check a standing approval meets when it is made (F-8, validation, binding), before any yes."""
+    def _remember_creatable(self, principal: Principal, action_id: str, rule: dict,
+                            *, expected_bindings: dict | None = None) -> dict:
+        """Prepare the exact rule to insert after rechecking its identities and proof requirements."""
         svc = getattr(self.gw_app_state, "automation", None) if self.gw_app_state is not None else None
         if svc is None:
             raise ApiError(409, "conflict", "standing approvals are not available on this gateway", reason="remember_refused")
         from ..automation.policies import PolicyBody
 
-        body = PolicyBody.model_validate(rule)
         svc.policies._check_loosen()
         if rm.required_level(rule) == "L2" and not svc.policies.proven_key():
             # D-028: L1 (today's passkey) may make only a dated T0 rule. T1 and up, and any Forever rule,
@@ -1271,8 +1288,8 @@ class IdentityService:
             raise ApiError(409, "conflict", "remembering this needs a proven key (L2, D-028): only a dated read-only "
                                             "rule can be remembered until gateway permissions PR 11; approve it once "
                                             "instead", reason="needs_proven_key")
-        svc.policies.validate(body)
-        svc.policies._bindings(body.allow.requested_by)
+        return svc.policies.prepare_create(principal, PolicyBody.model_validate(rule), created_from=action_id,
+                                           expected_bindings=expected_bindings)
 
     def approval_guard(self, p: Principal, action_id: str, body: dict, request: Request) -> None:
         if not p.is_owner:
@@ -1352,7 +1369,12 @@ class IdentityService:
         if not want or not isinstance(sent, dict) or rm.rule_sha256(sent) != want:
             raise self._step_up_failed(p, action_id, "the remembered rule differs from the one you were shown",
                                        reason="rule_changed")
+        bindings = row.data.get("principals")
+        if not isinstance(bindings, dict):
+            raise self._step_up_failed(p, action_id, "the rule's principals were not reviewed; request it again",
+                                       reason="rule_changed")
         request.state.remember_rule = row.data["rule"]
+        request.state.remember_bindings = bindings
 
     def _device_key_refusal(self, action: dict) -> str | None:
         """Why this action cannot be approved with a device key (F-2), or None when it can."""

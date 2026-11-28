@@ -23,7 +23,7 @@ import { Load } from '../parts';
 
 type PermissionMode = api['schemas']['PermissionMode'];
 type AgentView = api['schemas']['AgentView'];
-type Person = { id: string; display_name?: string; username?: string; role?: string; disabled?: boolean };
+type Person = api['schemas']['UserView'];
 interface Row { key: string; name: string; kind: string; mode?: PermissionMode; owner?: boolean }
 
 const ORDER = ['locked', 'ask', 'remember', 'auto', 'headless', 'bypass'];

@@ -21,7 +21,7 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi.testclient import TestClient
 
-from conftest import OWNER, ScriptedExecutor
+from conftest import OWNER, ScriptedExecutor, apply_settings_change
 from onemind_core import fabric_policy as fp
 from onemind_core.app import create_app
 
@@ -345,7 +345,7 @@ def test_live_dispatch_reports_stop_during_publication_failure_and_waits_out_old
         assert response.status_code == 200, response.text
         assert js.sent[-1][1]["epoch"] == 2 and js.purged
 
-        assert c.put(path, json={"locked": False}, headers=OWNER).status_code == 200
+        apply_settings_change(c, c.put(path, json={"locked": False}, headers=OWNER))
         assert gw.bus.run_threadsafe(ask, 2)["stop"]["motion_lockout"] is False
         dispatch_until = gw.policy._dispatch_until
         assert dispatch_until > time.monotonic()

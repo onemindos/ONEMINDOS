@@ -1598,14 +1598,12 @@
           "remember": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/RememberPreview"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Remember"
+            ]
           }
         },
         "required": [
@@ -2029,6 +2027,190 @@
           "kind"
         ],
         "title": "ApprovalPreview",
+        "type": "object"
+      },
+      "ApprovalResult": {
+        "additionalProperties": true,
+        "properties": {
+          "approval": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ApprovalCard"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "#723: the approval card; set on every action (hold for destructive or physical)"
+          },
+          "approved_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Approving person's id; null before approval or on denial. decided_by/decided_at are retained.",
+            "title": "Approved By"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "decided_by": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PrincipalRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": true,
+            "title": "Params",
+            "type": "object"
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "§12.4: what the action would do, rendered at request time",
+            "title": "Plan"
+          },
+          "plan_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "§12.4: fingerprint the approval is bound to",
+            "title": "Plan Sha256"
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "{step, pct} while an executor runs",
+            "title": "Progress"
+          },
+          "remembered_policy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "standing approval created with this approval",
+            "title": "Remembered Policy"
+          },
+          "requested_by": {
+            "$ref": "#/components/schemas/PrincipalRef"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          },
+          "risk": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "read | write | sensitive | destructive | actuate (§12.3)",
+            "title": "Risk"
+          },
+          "state": {
+            "description": "requested | awaiting_approval | accepted | dispatched | succeeded | failed | cancelled | expired | outcome_unknown",
+            "title": "State",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "type": {
+            "description": "app.install | app.remove | app.start | app.stop | app.restart | app.update | app.configure | app.delete_data (more in §12.5)",
+            "title": "Type",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "params",
+          "state",
+          "requested_by",
+          "idempotency_key",
+          "created_at",
+          "updated_at",
+          "expires_at",
+          "decided_by",
+          "decided_at",
+          "result",
+          "version"
+        ],
+        "title": "ApprovalResult",
         "type": "object"
       },
       "ApproveOptionsBody": {
@@ -12143,6 +12325,48 @@
         "title": "RememberChoice",
         "type": "object"
       },
+      "RememberPreview": {
+        "properties": {
+          "enforced_level": {
+            "enum": [
+              "L1",
+              "L2"
+            ],
+            "title": "Enforced Level",
+            "type": "string"
+          },
+          "required_level": {
+            "enum": [
+              "L1",
+              "L2"
+            ],
+            "title": "Required Level",
+            "type": "string"
+          },
+          "rule": {
+            "additionalProperties": true,
+            "title": "Rule",
+            "type": "object"
+          },
+          "rule_sha256": {
+            "title": "Rule Sha256",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule",
+          "rule_sha256",
+          "summary",
+          "required_level",
+          "enforced_level"
+        ],
+        "title": "RememberPreview",
+        "type": "object"
+      },
       "RenameOp": {
         "additionalProperties": false,
         "properties": {
@@ -17432,6 +17656,78 @@
         "title": "UserPatchBody",
         "type": "object"
       },
+      "UserView": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "disabled": {
+            "title": "Disabled",
+            "type": "boolean"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "enrolled": {
+            "title": "Enrolled",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "passkeys": {
+            "title": "Passkeys",
+            "type": "integer"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "totp": {
+            "title": "Totp",
+            "type": "boolean"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "display_name",
+          "role",
+          "created_at",
+          "last_seen_at",
+          "disabled",
+          "enrolled",
+          "passkeys",
+          "totp"
+        ],
+        "title": "UserView",
+        "type": "object"
+      },
       "VerifyBody": {
         "additionalProperties": false,
         "properties": {
@@ -17697,6 +17993,52 @@
           "ranges"
         ],
         "title": "WindowBody",
+        "type": "object"
+      },
+      "WindowView": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "open_now": {
+            "title": "Open Now",
+            "type": "boolean"
+          },
+          "ranges": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Ranges",
+            "type": "array"
+          },
+          "tz": {
+            "default": "box",
+            "maxLength": 64,
+            "title": "Tz",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "ranges",
+          "id",
+          "updated_at",
+          "open_now"
+        ],
+        "title": "WindowView",
         "type": "object"
       },
       "WopiTokenBody": {
@@ -18237,7 +18579,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Action"
+                  "$ref": "#/components/schemas/ApprovalResult"
                 }
               }
             },
@@ -19238,6 +19580,16 @@
             },
             "description": "Successful Response"
           },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Change awaiting the owner's action-bound approval"
+          },
           "401": {
             "content": {
               "application/json": {
@@ -19258,6 +19610,16 @@
             },
             "description": "The principal may not do this (permission_denied)"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
           "413": {
             "content": {
               "application/json": {
@@ -19277,6 +19639,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
           },
           "503": {
             "content": {
@@ -21132,15 +21504,15 @@
           }
         ],
         "responses": {
-          "200": {
+          "202": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApprovalPolicy"
+                  "$ref": "#/components/schemas/Action"
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Change awaiting the owner's action-bound approval"
           },
           "401": {
             "content": {
@@ -21172,6 +21544,16 @@
             },
             "description": "No such resource (not_found)"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -21181,6 +21563,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
           }
         },
         "security": [
@@ -38830,7 +39222,7 @@
         ]
       },
       "put": {
-        "description": "Turn the motion lockout on (at once) or off (with a fresh passkey once passkeys are active).",
+        "description": "Lock motion immediately or request approval to unlock it.",
         "operationId": "physical.lockout.set",
         "requestBody": {
           "content": {
@@ -38853,6 +39245,16 @@
             },
             "description": "Successful Response"
           },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Change awaiting the owner's action-bound approval"
+          },
           "401": {
             "content": {
               "application/json": {
@@ -38873,6 +39275,16 @@
             },
             "description": "The principal may not do this (permission_denied)"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
           "413": {
             "content": {
               "application/json": {
@@ -38892,6 +39304,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
           },
           "503": {
             "content": {
@@ -44680,7 +45102,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UserView"
+                  },
+                  "title": "Response Users.List",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -44976,7 +45404,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WindowView"
+                  },
+                  "title": "Response Windows.List",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -45026,10 +45460,22 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/WindowView"
+                }
               }
             },
             "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Change awaiting the owner's action-bound approval"
           },
           "401": {
             "content": {
@@ -45051,6 +45497,16 @@
             },
             "description": "The principal may not do this (permission_denied)"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
           "413": {
             "content": {
               "application/json": {
@@ -45070,6 +45526,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
           }
         },
         "summary": "Put Window",

@@ -15,13 +15,13 @@ import asyncio
 import threading
 import time
 from collections import defaultdict, deque
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from concurrent.futures import CancelledError, Future
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Query, Request
 from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
-from starlette.types import Send
+from starlette.types import Receive, Scope, Send
 
 from ..auth import Principal
 from ..context import Gateway
@@ -52,13 +52,19 @@ now = time.monotonic  # the tests move it
 class JournalFollowResponse(StreamingResponse):
     body_iterator: AsyncGenerator[str, None]
 
-    async def stream_response(self, send: Send) -> None:
+    def __init__(self, content, *, cleanup: Callable[[], None], **kwargs):
+        super().__init__(content, **kwargs)
+        self.cleanup = cleanup
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         try:
-            await super().stream_response(send)
+            await super().__call__(scope, receive, send)
         finally:
-            # If disconnect cancels the send, the generator is suspended at its last yield.
-            # Close it here so the host pump and the follow slot are freed immediately.
-            await self.body_iterator.aclose()
+            # The response owns the resources before the first body iteration or header send.
+            try:
+                await self.body_iterator.aclose()
+            finally:
+                self.cleanup()
 
 
 def register(app: FastAPI, gw: Gateway) -> None:
@@ -209,8 +215,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
                     closed = True
                     if pending is not None:
                         pending.cancel()
+
+        def cleanup_follow() -> None:
+            try:
                 stream.close()
+            finally:
                 release(p, True)
 
-        return JournalFollowResponse(gen(), media_type="text/event-stream",
+        return JournalFollowResponse(gen(), cleanup=cleanup_follow, media_type="text/event-stream",
                                      headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

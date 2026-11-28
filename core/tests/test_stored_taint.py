@@ -10,6 +10,7 @@ import pytest
 from conftest import ADULT, AGENT, OWNER, apply_settings_change, make_client
 from onemind_core.taint import FOREVER, TTL, plan_taint
 from onemind_core.taint_store import NODE_JOIN_REQUESTER
+from test_agent_principals import APP, run_action
 from test_mcp import call
 from test_tainted_input import (  # noqa: F401  (fixtures and helpers)
     agent_removes_whoami, install_whoami, owner_allows_removals, tclient, hostile_apps,
@@ -74,7 +75,7 @@ def test_exposure_survives_a_restart(settings, clock, executor):
 
 
 @pytest.mark.default_exposure
-def test_every_agent_and_plugin_is_exposed_by_default_and_people_are_not(tclient):
+def test_every_agent_and_plugin_is_exposed_by_default_and_people_are_not(tclient, clock):
     ins = tclient.app.state.agent_inputs
     assert ins.inputs("agent:whoami") == ("app",)  # an installed app's agent
     assert ins.inputs("plugin:whoami") == ("plugin",)
@@ -91,11 +92,14 @@ def test_every_agent_and_plugin_is_exposed_by_default_and_people_are_not(tclient
     assert v["exposed"] is True and v["declared"] is False
     assert tclient.app.state.gateway.actions.taint.get("agent:whoami").permanent
     # the owner may declare an app's agent reads nothing outside; that is recorded
-    r = tclient.put("/v1/agents/agent:whoami/inputs", json={"external_inputs": []}, headers=OWNER)
+    assert run_action(tclient, clock)["state"] == "succeeded"
+    pid = f"agent:{APP}"
+    path = f"/v1/agents/{pid}/inputs"
+    r = tclient.put(path, json={"external_inputs": []}, headers=OWNER)
     apply_settings_change(tclient, r)
-    view = tclient.get("/v1/agents/agent:whoami/inputs", headers=OWNER).json()
+    view = tclient.get(path, headers=OWNER).json()
     assert view["exposed"] is False and view["declared"] is True
-    assert tclient.app.state.gateway.actions.taint.get("agent:whoami") is None
+    assert tclient.app.state.gateway.actions.taint.get(pid) is None
 
 
 def test_only_the_owner_changes_what_an_agent_reads(tclient):
@@ -235,22 +239,30 @@ def test_deleting_an_expired_mark_stays_outside_the_ledger_lock(clock):
 SCOUT = "/v1/agents/scout/inputs"
 
 
-def test_the_inputs_audit_records_how_presence_was_proved_and_a_removed_app_forgets_its_declaration(tclient):
-    assert tclient.put(SCOUT, json={"external_inputs": ["web"]}, headers=OWNER).status_code == 200
-    ins = tclient.app.state.agent_inputs
-    apply_settings_change(tclient, tclient.put(SCOUT, json={"external_inputs": []}, headers=OWNER))
-    e = [x for x in audit(tclient) if x["event"] == "agent.inputs.set"]
+@pytest.fixture
+def scout(tclient):
+    r = tclient.post("/v1/tokens", headers=OWNER,
+                     json={"name": "Scout", "principal": {"kind": "agent", "id": "agent:scout"}})
+    assert r.status_code == 201, r.text
+    return tclient
+
+
+def test_the_inputs_audit_records_how_presence_was_proved_and_a_removed_app_forgets_its_declaration(scout):
+    assert scout.put(SCOUT, json={"external_inputs": ["web"]}, headers=OWNER).status_code == 200
+    ins = scout.app.state.agent_inputs
+    apply_settings_change(scout, scout.put(SCOUT, json={"external_inputs": []}, headers=OWNER))
+    e = [x for x in audit(scout) if x["event"] == "agent.inputs.set"]
     assert e[-1]["data"]["via"] == "L2"
     # the app is removed: what the owner declared must not carry over to a new agent with that id
     from onemind_core.agent_principals import AgentPrincipals
 
     pid = AgentPrincipals.principal_id("scout")
-    assert tclient.app.state.actions.agent_forgotten == ins.forget
+    assert scout.app.state.actions.agent_forgotten == ins.forget
     assert ins.view(pid)["declared"] is True and ins.view(pid)["external_inputs"] == []
     assert ins.forget(pid) is True and ins.forget(pid) is False
     v = ins.view(pid)
     assert v["declared"] is False and v["exposed"] is True  # back to the fail-closed default
-    cleared = [x for x in audit(tclient) if x["event"] == "agent.inputs.cleared"]
+    cleared = [x for x in audit(scout) if x["event"] == "agent.inputs.cleared"]
     assert cleared and cleared[-1]["data"]["reason"] == "identity_ended"
 
 
@@ -323,14 +335,14 @@ def test_a_bearer_authenticated_node_files_a_tainted_action_over_http(tclient, c
 def test_removing_an_app_through_the_action_queue_clears_its_agent_declaration(tclient, clock):
     """Drives a real app.remove (request, owner approval, executor) and checks the row is gone, not just that
     the callback is wired."""
-    install_whoami(tclient, clock)
+    assert run_action(tclient, clock)["state"] == "succeeded"
     ins = tclient.app.state.agent_inputs
-    assert tclient.put("/v1/agents/agent:whoami/inputs", json={"external_inputs": ["web"]}, headers=OWNER).status_code == 200
-    pid = "agent:whoami"
+    pid = f"agent:{APP}"
+    assert tclient.put(f"/v1/agents/{pid}/inputs", json={"external_inputs": ["web"]}, headers=OWNER).status_code == 200
     assert ins.view(pid)["declared"] is True
     from conftest import action_body
 
-    r = tclient.post("/v1/actions", json=action_body(clock, "whoami", "app.remove", key="rm-whoami"), headers=OWNER)
+    r = tclient.post("/v1/actions", json=action_body(clock, APP, "app.remove", key="rm-app"), headers=OWNER)
     assert r.status_code == 201, r.text
     done = tclient.post(f"/v1/actions/{r.json()['id']}/approve", headers=OWNER).json()
     assert done["state"] == "succeeded", done
@@ -344,7 +356,7 @@ def test_removing_an_app_through_the_action_queue_clears_its_agent_declaration(t
     assert cleared and cleared[-1]["data"]["principal_id"] == pid
 
 
-def test_a_set_during_a_forget_cannot_leave_the_cache_and_the_database_apart(tclient, monkeypatch):
+def test_a_set_during_a_forget_cannot_leave_the_cache_and_the_database_apart(scout, monkeypatch):
     """forget pops the cache and then deletes the row; an owner set in between must wait, or the cache would
     keep a declaration the database no longer has (until the next restart)."""
     import threading
@@ -353,9 +365,9 @@ def test_a_set_during_a_forget_cannot_leave_the_cache_and_the_database_apart(tcl
     from onemind_core.agent_principals import AgentPrincipals
     from onemind_core.taint_store import AgentInputs
 
-    ins = tclient.app.state.agent_inputs
+    ins = scout.app.state.agent_inputs
     pid = AgentPrincipals.principal_id("scout")
-    assert tclient.put(SCOUT, json={"external_inputs": ["web"]}, headers=OWNER).status_code == 200
+    assert scout.put(SCOUT, json={"external_inputs": ["web"]}, headers=OWNER).status_code == 200
     in_delete, release = threading.Event(), threading.Event()
     real_begin = ins.db.session.begin
     first = []
@@ -373,7 +385,7 @@ def test_a_set_during_a_forget_cannot_leave_the_cache_and_the_database_apart(tcl
     assert in_delete.wait(10)
     result: list[int] = []
     setter = threading.Thread(
-        target=lambda: result.append(tclient.put(SCOUT, json={"external_inputs": ["email"]}, headers=OWNER).status_code))
+        target=lambda: result.append(scout.put(SCOUT, json={"external_inputs": ["email"]}, headers=OWNER).status_code))
     setter.start()
     time.sleep(0.4)
     assert result == [], "the set must wait for the forget to finish"
@@ -382,6 +394,6 @@ def test_a_set_during_a_forget_cannot_leave_the_cache_and_the_database_apart(tcl
     forgetter.join(10)
     setter.join(10)
     assert result == [200]
-    reloaded = AgentInputs(ins.db, ins.audit, ins.catalog, ins.clock)  # what a restart would see
+    reloaded = AgentInputs(ins.db, ins.audit, ins.catalog, ins.clock, ins.identity_of, ins.bind_identity)
     assert reloaded.view(pid)["external_inputs"] == ins.view(pid)["external_inputs"] == ["email"]
     assert reloaded.view(pid)["declared"] is ins.view(pid)["declared"] is True

@@ -28,7 +28,7 @@ import threading
 from collections.abc import Callable
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, select, update
+from sqlalchemy import DateTime, String, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from .audit import AuditLog
@@ -71,9 +71,11 @@ def _json(r: PrincipalRow) -> dict:
 class PrincipalRegistry:
     """Permanent ids for agent and plugin principals. One live record per display id at a time."""
 
-    def __init__(self, db: Database, audit: AuditLog, clock: Callable[[], datetime]):
+    def __init__(self, db: Database, audit: AuditLog, clock: Callable[[], datetime],
+                 file_ids: Callable[[], set[str]] = set):
         self.db, self.audit, self.clock = db, audit, clock
-        self._lock = threading.Lock()  # one gateway process per ledger database (as agent_stop.py)
+        self.file_ids = file_ids
+        self._lock = threading.RLock()  # one gateway process per ledger database (as agent_stop.py)
         # PR 9: fn(display id, reason) when an identity or its credential changes; standing approvals that
         # name it are suspended until an approver re-confirms them (design §3.6.2 item 7).
         self.listeners: list[Callable[[str, str], None]] = []
@@ -90,9 +92,13 @@ class PrincipalRegistry:
     def live(self, name: str) -> dict | None:
         """The live record of a display id, or None (no identity holds it now)."""
         with self.db.session() as s:
-            r = s.scalars(select(PrincipalRow).where(PrincipalRow.name == name, PrincipalRow.retired_at.is_(None))
-                          .order_by(PrincipalRow.created_at.desc())).first()
+            r = self._live_row(s, name)
             return _json(r) if r else None
+
+    @staticmethod
+    def _live_row(s: Session, name: str) -> PrincipalRow | None:
+        return s.scalars(select(PrincipalRow).where(PrincipalRow.name == name, PrincipalRow.retired_at.is_(None))
+                         .order_by(PrincipalRow.created_at.desc())).first()
 
     def register(self, name: str, *, source: str, owner_user_id: str | None = None,
                  persist: Callable[[Session], None] | None = None) -> dict:
@@ -103,8 +109,7 @@ class PrincipalRegistry:
         with self._lock, self.db.session.begin() as s:
             if persist is not None:
                 persist(s)
-            found = s.scalars(select(PrincipalRow).where(PrincipalRow.name == name, PrincipalRow.retired_at.is_(None))
-                              .order_by(PrincipalRow.created_at.desc())).first()
+            found = self._live_row(s, name)
             if found is not None:
                 if source == "identity" and (found.source != source or found.owner_user_id != owner_user_id):
                     raise ApiError(409, "conflict", f"agent id {name!r} belongs to another principal",
@@ -118,66 +123,78 @@ class PrincipalRegistry:
                           {"principal_id": name, "uid": out["uid"], "source": source, "owner_user_id": owner_user_id})
         return out
 
-    def retire(self, name: str, reason: str) -> str | None:
-        """End the live identity of `name`; returns the retired uid, or None when none was live."""
-        with self._lock:
-            found = self.live(name)
+    def retire(self, name: str, reason: str, *, persist: Callable[[Session], None] | None = None) -> str | None:
+        """End the live identity of `name`, optionally revoking its credential in the same write."""
+        with self._lock, self.db.session.begin() as s:
+            if persist is not None:
+                persist(s)
+            found = self._live_row(s, name)
             if found is None:
                 return None
-            with self.db.session.begin() as s:
-                s.execute(update(PrincipalRow).where(PrincipalRow.uid == found["uid"], PrincipalRow.retired_at.is_(None))
-                          .values(retired_at=self.clock(), retired_reason=reason[:80]))
+            found.retired_at = self.clock()
+            found.retired_reason = reason[:80]
         self.audit.append("principal.retired", None, None,
-                          {"principal_id": name, "uid": found["uid"], "reason": reason[:80]})
+                          {"principal_id": name, "uid": found.uid, "reason": reason[:80]})
         self.notify(name, reason)
-        return found["uid"]
+        return found.uid
 
     def history(self, name: str) -> list[dict]:
         with self.db.session() as s:
             return [_json(r) for r in s.scalars(select(PrincipalRow).where(PrincipalRow.name == name)
                                                 .order_by(PrincipalRow.created_at))]
 
-    def _live_token(self, name: str) -> tuple[str, str | None] | None:
-        """(source, owner) of a live credential minted before this registry existed, or None."""
+    def _holders(self, name: str) -> set[tuple[str, str | None, str]]:
+        """Credential sources, owners and original ids behind a canonical display id."""
+        from .identity.models import AgentOwnerRow, TokenRow
         from .ledger import AgentTokenRow
 
+        kind, _, bare = name.partition(":")
+        aliases = {name} if bare.startswith(kind + ":") else {name, bare}
+        holders: set[tuple[str, str | None, str]] = set()
+        if kind == "agent":
+            holders.update(("file", None, raw) for raw in self.file_ids() & aliases)
         with self.db.session() as s:
-            if s.scalars(select(AgentTokenRow.principal_id).where(AgentTokenRow.principal_id == name,
-                                                                  AgentTokenRow.revoked_at.is_(None))).first():
-                return "app", None
-            try:  # identity is optional wiring
-                from .identity.models import TokenRow
+            if kind == "agent":
+                holders.update(("app", None, raw) for raw in s.scalars(select(AgentTokenRow.principal_id).where(
+                    AgentTokenRow.principal_id.in_(aliases), AgentTokenRow.revoked_at.is_(None))))
+            source = "plugin" if kind == "plugin" else "identity"
+            local = set(s.execute(select(TokenRow.principal_id, TokenRow.owner_user_id).where(
+                TokenRow.kind == kind, TokenRow.principal_id.in_(aliases), TokenRow.revoked_at.is_(None))))
+            holders.update((source, owner, raw) for raw, owner in local)
+            if kind == "agent" and local:
+                reservation = s.get(AgentOwnerRow, name)
+                if reservation is not None and any(owner != reservation.owner_user_id for _, owner in local):
+                    # A stored credential also cannot override the permanent owner reservation.
+                    holders.add(("identity", reservation.owner_user_id, name))
+        return holders
 
-                t = s.scalars(select(TokenRow).where(TokenRow.principal_id == name, TokenRow.kind.in_(BOUND_KINDS),
-                                                     TokenRow.revoked_at.is_(None)).limit(1)).first()
-            except Exception:  # no identity tables
-                t = None
-            if t is not None:
-                return ("plugin" if t.kind == "plugin" else "identity"), t.owner_user_id
-        return None
-
-    def resolve(self, name: str, file_ids: set[str]) -> dict | None:
-        """The identity a new standing approval binds to: the live one, or one that holds a credential
-        now (registered here on first sight). None when nothing holds `name`: a rule for an agent that
-        does not exist yet would be inherited by whoever takes the id first."""
+    def credential_matches(self, kind: str, raw_id: str, source: str, owner_user_id: str | None = None) -> bool:
+        name = display_key({"kind": kind, "id": raw_id})
+        if self._holders(name) != {(source, owner_user_id, raw_id)}:
+            return False
         found = self.live(name)
-        if found is not None:
-            return found
-        if name in file_ids or name.partition(":")[2] in file_ids:
-            return self.register(name, source="file")
-        held = self._live_token(name)
-        if held is not None:
-            return self.register(name, source=held[0], owner_user_id=held[1])
-        return None
+        return found is None or (found["source"], found["owner_user_id"]) == (source, owner_user_id)
 
-    def collision(self, name: str, file_ids: set[str]) -> str | None:
+    def resolve(self, name: str, *, adopt: bool = True) -> dict | None:
+        """Resolve a unique holder, adopting older credentials that predate the registry."""
+        with self._lock:
+            holders = self._holders(name)
+            if len(holders) != 1:
+                return None
+            source, owner_user_id, _ = next(iter(holders))
+            found = self.live(name)
+            if found is None:
+                return self.register(name, source=source, owner_user_id=owner_user_id) if adopt else None
+            return found if (found["source"], found["owner_user_id"]) == (source, owner_user_id) else None
+
+    def collision(self, name: str) -> str | None:
         """Why an app may not take `name` as its agent principal, or None."""
-        if name in file_ids or name.partition(":")[2] in file_ids:
+        sources = {source for source, _, _ in self._holders(name)}
+        if "file" in sources:
             return "a principal in the tokens file"
         r = self.live(name)
         if r is not None and r["source"] not in ("app",):
             return "a personal agent" if r["source"] == "identity" else f"a {r['source']} principal"
-        held = self._live_token(name)
-        if held is not None and held[0] != "app":
-            return "a personal agent" if held[0] == "identity" else f"a {held[0]} principal"
+        if "identity" in sources:
+            return "a personal agent"
         return None

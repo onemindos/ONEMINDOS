@@ -176,9 +176,15 @@ def principal_dependency(gw: Gateway) -> Callable[[Request], Principal]:
             return p
         token = token.strip()
         p = gw.tokens.lookup(token)
+        source = "file"
         if p is None:  # §11.2: agent principals issued to apps, stored hashed in the database
             principal_id = gw.repo.agent_principal_for(token_hash(token))
             p = agent_principal(principal_id) if principal_id else None
+            source = "app"
+        registry = gw.actions.principals
+        if p is not None and p.kind == "agent" and registry is not None:
+            if not registry.credential_matches(p.kind, p.id, source):
+                raise reject_unauthenticated(request, "ambiguous agent credential")
         if p is None:
             p = from_features(request, token)
         if p is None:

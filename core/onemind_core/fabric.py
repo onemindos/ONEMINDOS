@@ -623,7 +623,7 @@ class FabricDeps:
     callout: Callable[[], CalloutAccount] | None = None
     # The agent kill switch (agent_stop.py): while it is on, the accounts file has no AGENTS account,
     # so the NATS reload cuts every connected agent off the bus at once (natsconf.render_accounts).
-    agents_stopped: Callable[[], bool] | None = None
+    agent_stop_state: Callable[[], tuple[bool, str | None]] | None = None
 
 
 class FabricService:
@@ -632,6 +632,7 @@ class FabricService:
         self.repo = FabricRepository(deps.db)
         self.limiter = SourceLimiter(deps.clock)
         self._tick_lock = threading.Lock()
+        self._accounts_lock = threading.Lock()
         # The client the owner last switched off (PUT /v1/mesh/settings): it still cleans up the joins
         # that were handed one of its keys, since d.mesh is None from then on.
         self._retired_mesh: MeshService | None = None
@@ -660,12 +661,14 @@ class FabricService:
         path = self.d.fabric.nats_accounts_file
         if path is None:
             return False
-        accounts = [NodeAccount(n["node_id"], n["nats_pubkey"]) for n in self.repo.nodes()]
-        agents = agent_users(self.d.db)  # the AGENTS account (#627): one user per registered agent key
-        callout = self.d.callout() if self.d.callout is not None else None
-        stopped = bool(self.d.agents_stopped()) if self.d.agents_stopped is not None else False
-        changed = write_accounts(path, accounts, load_service_keys(self.d.fabric.nats_service_keys),
-                                 self.d.fabric.jetstream_max_bytes, agents, callout, stopped)
+        # A join or key change cannot overwrite the Stop config with one prepared before the switch.
+        with self._accounts_lock:
+            accounts = [NodeAccount(n["node_id"], n["nats_pubkey"]) for n in self.repo.nodes()]
+            agents = agent_users(self.d.db)  # the AGENTS account (#627): one user per registered agent key
+            callout = self.d.callout() if self.d.callout is not None else None
+            stopped, stopped_at = self.d.agent_stop_state() if self.d.agent_stop_state is not None else (False, None)
+            changed = write_accounts(path, accounts, load_service_keys(self.d.fabric.nats_service_keys),
+                                     self.d.fabric.jetstream_max_bytes, agents, callout, stopped, stopped_at=stopped_at)
         if changed:
             log.info("NATS accounts updated (%d nodes, %d agents%s)", len(accounts), len(agents),
                      ", agents stopped: AGENTS left out" if stopped else "")

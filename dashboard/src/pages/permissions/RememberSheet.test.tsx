@@ -27,7 +27,7 @@ beforeEach(() => {
     if (call.path.endsWith('/approve-options')) {
       if (refuse) return Response.json({ error: 'conflict', message: 'no', reason: refuse }, { status: 409 });
       return Response.json({ challenge: 'c1', action_sha256: 'a', plan_sha256: 'sha256:plan', expires_at: '2099-01-01T00:00:00Z', device_payload: '',
-        publicKey: { challenge: 'abc' }, remember: { rule, rule_sha256: 'sha256:rule', summary: 'agent:reader may notes.read for vault = home, up to 10 a day, until 2026-12-26.', required_level: 'L1' } });
+        publicKey: { challenge: 'abc' }, remember: { rule, rule_sha256: 'sha256:rule', summary: 'agent:reader may notes.read for vault = home, up to 10 a day, until 2026-12-26.', required_level: 'L1', enforced_level: 'L1' } });
     }
     return Response.json({ id: 'act_1', state: 'succeeded', remembered_policy: 'pol_new' });
   }));

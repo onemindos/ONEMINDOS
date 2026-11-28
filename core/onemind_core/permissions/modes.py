@@ -29,7 +29,8 @@ start on Always ask. An individual setting takes precedence over the household d
 every principal a live standing approval names is moved to auto once, audited as
 `permission.mode.migrated`, so rules made before modes existed keep firing (fix 14).
 
-Table `permissions_modes` (feature "permissions"; new table, so create_all adds it at this shape).
+Agent and plugin settings and household membership apply only to the registered identity that
+held the display name when the owner set them.
 """
 
 from __future__ import annotations
@@ -39,7 +40,8 @@ import threading
 from collections.abc import Callable
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, delete, select
+from sqlalchemy import DateTime, String, delete, inspect, select, text
+from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
@@ -47,8 +49,9 @@ from ..audit import AuditLog
 from ..auth import Principal
 from ..errors import ApiError
 from ..ledger import Base, iso, utc
-from ..principals import display_key
+from ..principals import bound_kind, display_key
 from ..store import Database
+from .denies import SCHEMA
 
 ORDER = ("locked", "ask", "remember", "auto", "headless", "bypass")
 DEFAULT_MODE = "ask"  # F-7 = a
@@ -61,6 +64,7 @@ PRINCIPAL_RE = re.compile(r"^(agent|plugin|automation|person):[A-Za-z0-9][A-Za-z
 class ModeRow(Base):
     __tablename__ = "permissions_modes"
     principal: Mapped[str] = mapped_column(String(100), primary_key=True)
+    identity_uid: Mapped[str | None] = mapped_column(String(100))
     mode: Mapped[str] = mapped_column(String(16))
     set_by: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     set_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -70,6 +74,24 @@ class ModeRow(Base):
 class ModeMemberRow(Base):
     __tablename__ = "permissions_mode_members"
     principal: Mapped[str] = mapped_column(String(100), primary_key=True)
+    identity_uid: Mapped[str | None] = mapped_column(String(100))
+
+
+@SCHEMA.step(2, "bind modes and household membership to permanent identities")
+def _bind_modes(conn: Connection) -> None:
+    for table in ("permissions_modes", "permissions_mode_members"):
+        if "identity_uid" not in {c["name"] for c in inspect(conn).get_columns(table)}:
+            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN identity_uid VARCHAR(100)"))
+
+
+def _matches(name: str, uid: str | None, row: ModeRow | ModeMemberRow | None, mode: str) -> bool:
+    if row is None:
+        return False
+    if row.identity_uid is not None:
+        return row.identity_uid == uid
+    # Legacy names can keep a restriction until the owner rebinds it. A legacy approval mode
+    # cannot be assigned to whichever credential now holds that display name.
+    return mode == "locked" or not bound_kind(name)
 
 
 def loosens(old: str, new: str) -> bool:
@@ -80,7 +102,9 @@ class ModeStore:
     def __init__(self, db: Database, audit: AuditLog, clock: Callable[[], datetime]):
         self.db, self.audit, self.clock = db, audit, clock
         self._writes = threading.RLock()  # one gateway process owns the ledger, as for agent input declarations
-        self.household_members: Callable[[], set[str]] = set
+        self.household_members: Callable[[], dict[str, str]] = dict
+        self.identity_of: Callable[[str], str | None] = lambda name: None if bound_kind(name) else name
+        self.bind_identity: Callable[[str], str | None] = lambda name: self.identity_of(name)
         self.owned_by: Callable[[str], set[str]] = lambda _uid: set()  # person id -> agents they own
         self.cancel_pending: Callable[[str, Principal], int] = lambda _name, _by: 0  # Locked cancels these
         self.owner_passkey: Callable[[], bool] = lambda: True  # F-8, set by the router
@@ -97,22 +121,29 @@ class ModeStore:
         return r.mode if r is not None and r.mode in ORDER else DEFAULT_MODE
 
     def effective(self, name: str, kind: str | None = None) -> str:
+        uid = self.identity_of(name)
         with self.db.session() as s:
-            return self._effective(s, name)
+            return self._effective(s, name, uid, s.get(ModeRow, name))
 
     @staticmethod
-    def _effective(s, name: str) -> str:
-        r = s.get(ModeRow, name)
-        if r is not None and r.mode in ORDER:
+    def _effective(s, name: str, uid: str | None, r: ModeRow | None) -> str:
+        if r is not None and _matches(name, uid, r, r.mode) and r.mode in ORDER:
             return r.mode
         default = s.get(ModeRow, HOUSEHOLD)
-        if default is not None and s.get(ModeMemberRow, name) is not None:
+        if default is not None and _matches(name, uid, s.get(ModeMemberRow, name), default.mode):
             return default.mode
         return DEFAULT_MODE
 
     def view(self, name: str) -> dict:
-        r = self._row(name)
-        return {"principal": name, "mode": self.effective(name), "own": r is not None,
+        return self._view(name, self.identity_of(name))
+
+    def _view(self, name: str, uid: str | None) -> dict:
+        with self.db.session() as s:
+            r = s.get(ModeRow, name)
+            if r is not None and not _matches(name, uid, r, r.mode):
+                r = None
+            mode = self._effective(s, name, uid, r)
+        return {"principal": name, "mode": mode, "own": r is not None,
                 "set_by": r.set_by if r else None, "set_at": iso(utc(r.set_at)) if r else None,
                 "reason": r.reason if r else None, "household_default": self.default(),
                 "owner_passkey": bool(self.owner_passkey())}
@@ -120,7 +151,7 @@ class ModeStore:
     def list(self) -> list[dict]:
         with self.db.session() as s:
             names = [n for n in s.scalars(select(ModeRow.principal)) if n not in (HOUSEHOLD, MIGRATED, INHERITANCE)]
-        return [self.view(n) for n in sorted(names)]
+        return [row for n in sorted(names) if (row := self.view(n))["own"]]
 
     # ---- who has a say ---------------------------------------------------------------------------
     @staticmethod
@@ -136,14 +167,16 @@ class ModeStore:
         return self.has_say(p, name, user_id) or self._key(p) == name
 
     # ---- writes ----------------------------------------------------------------------------------
-    def _write(self, name: str, mode: str, by: dict | None, reason: str | None, *, members=None) -> None:
-        values = {"mode": mode, "set_by": by, "set_at": self.clock(), "reason": (reason or None) and reason[:200]}
+    def _write(self, name: str, mode: str, by: dict | None, reason: str | None, *,
+               uid: str | None = None, members: dict[str, str] | None = None) -> None:
+        values = {"mode": mode, "identity_uid": uid, "set_by": by,
+                  "set_at": self.clock(), "reason": (reason or None) and reason[:200]}
         with self.db.session.begin() as s:
             s.execute(self.db.insert()(ModeRow).values(principal=name, **values)
                       .on_conflict_do_update(index_elements=[ModeRow.principal], set_=values))
             if members is not None:
                 s.execute(delete(ModeMemberRow))
-                s.add_all(ModeMemberRow(principal=member) for member in members)
+                s.add_all(ModeMemberRow(principal=member, identity_uid=member_uid) for member, member_uid in members.items())
                 s.execute(self.db.insert()(ModeRow).values(principal=INHERITANCE, **values)
                           .on_conflict_do_nothing(index_elements=[ModeRow.principal]))
 
@@ -151,10 +184,13 @@ class ModeStore:
         with self._writes:
             row = self._row(HOUSEHOLD)
             if row is not None and self._row(INHERITANCE) is None:
-                self._write(HOUSEHOLD, row.mode, row.set_by, row.reason, members=self.household_members())
+                # A legacy default without a membership snapshot can keep a restriction.
+                # Permissive defaults require a fresh choice for agents and plugins.
+                self._write(HOUSEHOLD, row.mode, row.set_by, row.reason,
+                            members={name: uid for name, uid in self.household_members().items()
+                                     if row.mode == "locked" or not bound_kind(name)})
 
-    def check_change(self, p: Principal, name: str, mode: str, user_id: str | None) -> str:
-        """'tighten' | 'loosen' | 'same' for this change, or raise. Called before any step-up."""
+    def _check_target(self, p: Principal, name: str, mode: str, user_id: str | None) -> None:
         if mode not in ORDER:
             raise ApiError(422, "conflict", f"mode is one of {', '.join(ORDER)}")
         if mode == "bypass":
@@ -170,7 +206,8 @@ class ModeStore:
         if name != HOUSEHOLD and name.startswith("person:") and self.is_owner(name):
             raise ApiError(422, "conflict", "the owner's own requests run directly and have no mode (design 3.5.1): "
                                             "a mode here could lock the owner out for good", reason="owner_exempt")
-        old = self.default() if name == HOUSEHOLD else self.effective(name)
+
+    def _direction(self, p: Principal, name: str, mode: str, old: str) -> str:
         if mode == old:
             return "same"
         if not loosens(old, mode):
@@ -184,39 +221,51 @@ class ModeStore:
                            reason="no_owner_passkey")
         return "loosen"
 
+    def check_change(self, p: Principal, name: str, mode: str, user_id: str | None) -> str:
+        """'tighten' | 'loosen' | 'same' for this change, or raise."""
+        self._check_target(p, name, mode, user_id)
+        old = self.default() if name == HOUSEHOLD else self.effective(name)
+        return self._direction(p, name, mode, old)
+
     def change(self, p: Principal, name: str, mode: str, reason: str | None, user_id: str | None,
                request_loosening: Callable[[dict], dict]) -> dict:
         with self._writes:
-            direction = self.check_change(p, name, mode, user_id)
-            before = self._snapshot(name)
+            self._check_target(p, name, mode, user_id)
+            uid = self.bind_identity(name)
+            before = self._snapshot(name, uid)
+            direction = self._direction(p, name, mode, before["mode"])
+            if uid is None and direction != "same":
+                raise ApiError(409, "conflict", "there is no live identity for this principal", reason="unknown_principal")
             if direction == "loosen":
                 return request_loosening({"principal": name, "mode": mode, "reason": reason, "before": before,
-                                          "members": sorted(self.household_members()) if name == HOUSEHOLD else None})
-            return self._set(p, name, mode, reason, direction, before["mode"], None)
+                                          "members": self.household_members() if name == HOUSEHOLD else None})
+            return self._set(p, name, mode, reason, direction, before["mode"], None, uid)
 
-    def _snapshot(self, name: str) -> dict:
-        view = self.household_view() if name == HOUSEHOLD else self.view(name)
-        return {key: view[key] for key in ("mode", "own", "set_at")}
+    def _snapshot(self, name: str, uid: str | None) -> dict:
+        view = self.household_view() if name == HOUSEHOLD else self._view(name, uid)
+        return {"identity_uid": uid, **{key: view[key] for key in ("mode", "own", "set_at")}}
 
     def apply_requested(self, p: Principal, params: dict) -> dict:
         name, mode = params["principal"], params["mode"]
         with self._writes:
-            before = self._snapshot(name)
-            if before != params["before"]:
+            self._check_target(p, name, mode, None)
+            uid = self.identity_of(name)
+            before = self._snapshot(name, uid)
+            if uid is None or before != params["before"]:
                 raise ApiError(409, "stale_precondition", "the permission mode changed; request the change again")
-            direction = self.check_change(p, name, mode, None)
-            return self._set(p, name, mode, params["reason"], direction, before["mode"], "L2", params["members"])
+            direction = self._direction(p, name, mode, before["mode"])
+            return self._set(p, name, mode, params["reason"], direction, before["mode"], "L2", uid, params["members"])
 
     def _set(self, p: Principal, name: str, mode: str, reason: str | None, direction: str,
-             old: str, approval: str | None, members: list[str] | None = None) -> dict:
+             old: str, approval: str | None, uid: str | None, members: dict[str, str] | None = None) -> dict:
         if direction == "same":
             return self.view(name) if name != HOUSEHOLD else self.household_view()
         if name == HOUSEHOLD and members is None and not loosens(DEFAULT_MODE, mode):
-            members = sorted(self.household_members())
-        self._write(name, mode, p.as_dict(), reason, members=members)
+            members = self.household_members()
+        self._write(name, mode, p.as_dict(), reason, uid=uid, members=members)
         cancelled = self.cancel_pending(name, p) if mode == "locked" and name != HOUSEHOLD else 0
         self.audit.append("permission.mode.changed", p.as_dict(), None,
-                          {"principal": name, "from": old, "to": mode, "direction": direction,
+                          {"principal": name, "identity_uid": uid, "from": old, "to": mode, "direction": direction,
                            "approval": approval or "none (tightening)", **({"reason": reason} if reason else {}),
                            **({"requests_cancelled": cancelled} if cancelled else {})})
         return self.view(name) if name != HOUSEHOLD else self.household_view()
@@ -228,7 +277,7 @@ class ModeStore:
                 "reason": r.reason if r else None, "household_default": self.default(),
                 "owner_passkey": bool(self.owner_passkey())}
 
-    def migrate(self, live_rule_principals: Callable[[], set[str]],
+    def migrate(self, live_rule_principals: Callable[[], dict[str, str]],
                 wildcard_rules: Callable[[], list[str]] = lambda: []) -> list[str]:
         """Once per box: every principal a live rule names moves to auto (fix 14), so an upgrade never
         silently turns a working rule off. A principal that already has a mode keeps it.
@@ -239,9 +288,9 @@ class ModeStore:
         if self._row(MIGRATED) is not None:
             return []
         moved = []
-        for name in sorted(live_rule_principals()):
+        for name, uid in sorted(live_rule_principals().items()):
             if PRINCIPAL_RE.fullmatch(name) and self._row(name) is None:
-                self._write(name, "auto", None, "upgrade: it had a live standing approval")
+                self._write(name, "auto", None, "upgrade: it had a live standing approval", uid=uid)
                 moved.append(name)
         try:
             wild = sorted(wildcard_rules())

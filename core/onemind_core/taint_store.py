@@ -37,6 +37,7 @@ from .auth import Principal
 from .catalog import Catalog
 from .errors import ApiError
 from .ledger import Base, iso, utc
+from .principals import BOUND_KINDS, display_key
 from .store import Database
 from .taint import Exposure, Taint
 
@@ -69,7 +70,8 @@ class TaintRow(Base):
 
 class InputsRow(Base):
     __tablename__ = "agents_inputs"
-    principal_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    principal_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    identity_uid: Mapped[str | None] = mapped_column(String(40))
     external_inputs: Mapped[list] = mapped_column(JSON)
     accept_injection_risk: Mapped[list] = mapped_column(JSON)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -103,8 +105,11 @@ class AgentInputs:
     The declarations are cached in memory and read once at start, so this assumes one gateway
     process per ledger database (agent_stop.py assumes the same)."""
 
-    def __init__(self, db: Database, audit: AuditLog, catalog: Catalog, clock: Callable[[], datetime]):
+    def __init__(self, db: Database, audit: AuditLog, catalog: Catalog, clock: Callable[[], datetime],
+                 identity_of: Callable[[str], str | None], bind_identity: Callable[[str], str | None]):
         self.db, self.audit, self.catalog, self.clock = db, audit, catalog, clock
+        self.identity_of = identity_of
+        self.bind_identity = bind_identity
         self._lock = threading.Lock()  # guards the cache; held for an instant, on every request
         self._writes = threading.Lock()  # one writer at a time: the database write and the cache change stay in step
         self._rows: dict[str, dict] = {}
@@ -115,7 +120,8 @@ class AgentInputs:
 
     @staticmethod
     def _plain(r: InputsRow) -> dict:
-        return {"external_inputs": list(r.external_inputs), "accept_injection_risk": list(r.accept_injection_risk),
+        return {"identity_uid": r.identity_uid, "external_inputs": list(r.external_inputs),
+                "accept_injection_risk": list(r.accept_injection_risk),
                 "updated_at": utc(r.updated_at), "updated_by": r.updated_by}
 
     # ---- the lookup the taint ledger calls on every request --------------------------------------
@@ -129,29 +135,48 @@ class AgentInputs:
             return DEFAULT_APP_INPUTS
         return DEFAULT_AGENT_INPUTS
 
-    def inputs(self, pid: str, kind: str | None = None) -> tuple[str, ...]:
+    @staticmethod
+    def _key(pid: str, kind: str | None = None) -> str:
+        kind = kind or ("plugin" if pid.startswith("plugin:") else "agent")
+        return display_key({"id": pid, "kind": kind})
+
+    def _row(self, key: str, uid: str | None) -> dict | None:
         with self._lock:
-            row = self._rows.get(pid)
+            row = self._rows.get(key)
+        return row if uid is not None and row is not None and row["identity_uid"] == uid else None
+
+    def _declaration(self, pid: str, kind: str | None) -> dict | None:
+        if kind is not None and kind not in BOUND_KINDS:
+            return None
+        key = self._key(pid, kind)
+        with self._lock:
+            row = self._rows.get(key)
+        if row is not None and row["identity_uid"] is not None and row["identity_uid"] == self.identity_of(key):
+            return row
+        return None
+
+    def inputs(self, pid: str, kind: str | None = None) -> tuple[str, ...]:
+        row = self._declaration(pid, kind)
         return tuple(row["external_inputs"]) if row is not None else self._default(pid, kind)
 
     def exposure(self, pid: str, kind: str | None = None) -> Exposure | None:
-        names = self.inputs(pid, kind)
+        row = self._declaration(pid, kind)
+        names = tuple(row["external_inputs"]) if row is not None else self._default(pid, kind)
         if not names:
             return None
-        with self._lock:
-            row = self._rows.get(pid)
         return Exposure(names, row["updated_at"] if row else self._since)
 
     def forget(self, pid: str) -> bool:
         """The agent's identity ended (its app was removed): drop what the owner declared, so a new
         agent with the same id starts at the fail-closed default (D-028: identity change resets)."""
+        key = self._key(pid)
         with self._writes:  # an owner `set` cannot land between the cache pop and the row delete
             with self._lock:
-                had = self._rows.pop(pid, None)
+                had = self._rows.pop(key, None)
             if had is None:
                 return False
             with self.db.session.begin() as s:
-                s.execute(delete(InputsRow).where(InputsRow.principal_id == pid))
+                s.execute(delete(InputsRow).where(InputsRow.principal_id == key))
         self.audit.append("agent.inputs.cleared", {"id": pid, "kind": "plugin" if pid.startswith("plugin:") else "agent"}, None,
                           {"principal_id": pid, "was": had["external_inputs"], "reason": "identity_ended"})
         return True
@@ -166,8 +191,10 @@ class AgentInputs:
 
     # ---- owner API --------------------------------------------------------------------------------
     def view(self, pid: str) -> dict:
-        with self._lock:
-            row = self._rows.get(pid)
+        return self._view(pid, self.identity_of(self._key(pid)))
+
+    def _view(self, pid: str, uid: str | None) -> dict:
+        row = self._row(self._key(pid), uid)
         names = tuple(row["external_inputs"]) if row is not None else self._default(pid, None)
         return {
             "id": pid,
@@ -204,7 +231,13 @@ class AgentInputs:
                 raise ApiError(422, "conflict", "accept_injection_risk only applies to an agent that reads outside text")
         accept = sorted(set(accept))
         with self._writes:
-            before = self.view(pid)
+            key = self._key(pid)
+            uid = self.identity_of(key) if approved_before is not None else self.bind_identity(key)
+            if uid is None:
+                if approved_before is not None:
+                    raise ApiError(409, "stale_precondition", "the agent's identity changed; request the change again")
+                raise ApiError(409, "conflict", "there is no live identity for this agent", reason="unknown_principal")
+            before = {**self._view(pid, uid), "identity_uid": uid}
             if approved_before is not None and before != approved_before:
                 raise ApiError(409, "stale_precondition", "the agent's inputs changed; request the change again")
             if approved_before is None and self.loosens(before, names, accept):
@@ -213,18 +246,18 @@ class AgentInputs:
                 return request_loosen({"principal": pid, "external_inputs": names, "accept_injection_risk": accept,
                                        "before": before})
             now = self.clock()
-            values = {"external_inputs": names, "accept_injection_risk": accept, "updated_at": now, "updated_by": p.id}
+            values = {"identity_uid": uid, "external_inputs": names, "accept_injection_risk": accept,
+                      "updated_at": now, "updated_by": p.id}
             with self.db.session.begin() as s:
-                s.execute(self.db.insert()(InputsRow).values(principal_id=pid, **values)
+                s.execute(self.db.insert()(InputsRow).values(principal_id=key, **values)
                           .on_conflict_do_update(index_elements=[InputsRow.principal_id], set_=values))
             with self._lock:
-                self._rows[pid] = {"external_inputs": names, "accept_injection_risk": accept,
-                                   "updated_at": utc(now), "updated_by": p.id}
-            after = self.view(pid)
+                self._rows[key] = {**values, "updated_at": utc(now)}
+            after = self._view(pid, uid)
             if on_exposure is not None and set(names) - set(before["external_inputs"]):
                 on_exposure()
         self.audit.append("agent.inputs.set", p.as_dict(), None,
-                          {"principal_id": pid, "external_inputs": after["external_inputs"],
+                          {"principal_id": pid, "identity_uid": uid, "external_inputs": after["external_inputs"],
                            "was": before["external_inputs"], "accept_injection_risk": accept,
                            "was_accepting": before["accept_injection_risk"], "via": "L2" if approved_before else None})
         return after

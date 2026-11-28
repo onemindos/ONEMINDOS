@@ -52,7 +52,7 @@ from ..catalog import Catalog
 from ..errors import ApiError
 from ..jsonbody import JsonBody
 from ..ledger import Action, iso, utc
-from ..principals import bound_kind
+from ..principals import bound_kind, display_key
 from ..scan import scan_problem
 from . import registry
 from .cron import parse_ranges, resolve_tz, window_open
@@ -180,12 +180,6 @@ class PolicyPatch(JsonBody):
     lapse_unused_days: int | None = Field(default=None, ge=1, le=90)
     target: Target | None = None
     revision: int | None = Field(default=None, ge=1, description="the revision you read; a newer one answers 409")
-
-
-def requester_key(requested_by: dict) -> str:
-    """`kind:id` for a requester; v0 file tokens carry a bare id (`owner`, `hermes`)."""
-    kind, pid = str(requested_by.get("kind", "")), str(requested_by.get("id", ""))
-    return pid if pid.startswith(kind + ":") else f"{kind}:{pid}"
 
 
 def _check_constraint(name: str, c: dict) -> None:
@@ -316,10 +310,8 @@ class PolicyService:
         self.can_file: Callable[[str], bool] = lambda _type: True
         # Who a legacy wildcard may cover: person id -> role (identity), unknown means not covered.
         self.person_role: Callable[[str], str | None] = lambda _pid: None
-        # PR 7: the permanent ids of agents and plugins (principals.PrincipalRegistry), and the ids of
-        # static-file principals. Without a registry no agent or plugin is ever covered (fails closed).
+        # PR 7: the permanent ids of agents and plugins. Without a registry neither kind is covered.
         self.principals = None
-        self.file_ids: Callable[[], set[str]] = lambda: set()
         # PR 9: (type, params | None) -> the request's target ("notes", "vault:u/Agent Inbox/x.md"), or None
         # when the type names none; params None asks only whether the type can name one. And
         # (type, params) -> (bytes, items) one request writes, for the size caps. Set by the router.
@@ -338,17 +330,21 @@ class PolicyService:
             raise ApiError(409, "conflict", "add a passkey first: no standing approval is made or widened before the "
                                             "owner has one (F-8)", reason=why)
 
-    def _bindings(self, requested_by: list[str]) -> dict:
-        """The permanent id each agent or plugin entry binds to; 422 when one names nobody yet."""
+    def _bindings(self, requested_by: list[str], *, expected: dict | None = None) -> dict:
+        """Resolve each bound principal once and compare against the reviewed ids when supplied."""
         out = {}
         for who in requested_by:
             if not bound_kind(who):
                 continue
-            found = self.principals.resolve(who, self.file_ids()) if self.principals is not None else None
+            found = self.principals.resolve(who) if self.principals is not None else None
             if found is None:
-                raise ApiError(422, "conflict", f"{who!r} is not a principal this gateway knows: mint its token or "
-                                                "install its app first, so the rule binds to that identity", reason="unknown_principal")
+                if expected is not None:
+                    raise ApiError(409, "stale_precondition", "a principal changed; request the rule again")
+                raise ApiError(422, "conflict", f"{who!r} must identify a single active principal to bind a rule",
+                               reason="unknown_principal")
             out[who] = {"uid": found["uid"], "owner_user_id": found["owner_user_id"]}
+        if expected is not None and out != expected:
+            raise ApiError(409, "stale_precondition", "a principal changed; request the rule again")
         return out
 
     def _bound_ok(self, p: dict, who: str) -> bool:
@@ -358,7 +354,7 @@ class PolicyService:
         if not bound_kind(who):
             return True
         want = (p.get("principals") or {}).get(who)
-        live = self.principals.live(who) if self.principals is not None else None
+        live = self.principals.resolve(who, adopt=False) if want and self.principals is not None else None
         return bool(want and live and want.get("uid") == live["uid"]
                     and want.get("owner_user_id") == live["owner_user_id"])
 
@@ -372,7 +368,7 @@ class PolicyService:
             if not missing or self.principals is None:
                 continue
             for who in missing:
-                found = self.principals.resolve(who, self.file_ids())
+                found = self.principals.resolve(who)
                 if found is not None:
                     have[who] = {"uid": found["uid"], "owner_user_id": found["owner_user_id"]}
             if have != (p.get("principals") or {}):
@@ -520,20 +516,20 @@ class PolicyService:
                 "target": body.target.model_dump() if body.target else None,
                 "accept_injection_risk": body.accept_injection_risk}
 
-    def prepare_create(self, principal: Principal, body: PolicyBody, *, created_from: str | None = None) -> dict:
+    def prepare_create(self, principal: Principal, body: PolicyBody, *, created_from: str | None = None,
+                       expected_bindings: dict | None = None) -> dict:
         self._owner_only(principal, "create standing approvals")
         self._check_loosen()
         self.validate(body)
         if body.forever:
             self._require_proven("a Forever rule")
         return {"id": new_id("pol_"), "created_by": principal.as_dict(), "created_at": self.clock(),
-                "principals": self._bindings(body.allow.requested_by), "created_from": created_from, **self._columns(body)}
+                "principals": self._bindings(body.allow.requested_by, expected=expected_bindings),
+                "created_from": created_from, **self._columns(body)}
 
     def create(self, principal: Principal, body: PolicyBody, approval: str = "token", *,
                created_from: str | None = None, expected_bindings: dict | None = None) -> dict:
-        values = self.prepare_create(principal, body, created_from=created_from)
-        if expected_bindings is not None and values["principals"] != expected_bindings:
-            raise ApiError(409, "stale_precondition", "a principal changed; request the rule again")
+        values = self.prepare_create(principal, body, created_from=created_from, expected_bindings=expected_bindings)
         p = self.repo.add_policy(**values)
         return self.record_creation(principal, p, approval)
 
@@ -657,12 +653,12 @@ class PolicyService:
         self.validate(new)
         if new.forever and not old.forever:
             self._require_proven("making a rule Forever")
-        if expected_bindings is not None and self._bindings(new.allow.requested_by) != expected_bindings:
-            raise ApiError(409, "stale_precondition", "a principal changed; request the rule again")
         cols = self._columns(new)
-        cols["principals"] = {**(p.get("principals") or {}), **self._bindings(
-            [w for w in new.allow.requested_by if w not in (p.get("principals") or {})])}
-        cols["principals"] = {k: v for k, v in cols["principals"].items() if k in new.allow.requested_by}
+        bindings = {k: v for k, v in (p.get("principals") or {}).items() if k in new.allow.requested_by}
+        if direction == "widen":
+            reviewed = self._bindings(new.allow.requested_by, expected=expected_bindings)
+            bindings.update({k: v for k, v in reviewed.items() if k not in old.allow.requested_by})
+        cols["principals"] = bindings
         if not self.repo.set_policy(policy_id, expect_revision=p["revision"], **cols):
             raise ApiError(409, "conflict", "the rule changed meanwhile; read it again")
         out = self.to_json(self.repo.get_policy(policy_id))  # type: ignore[arg-type]
@@ -745,12 +741,24 @@ class PolicyService:
                            "approval": approval})
         return self.to_json(self.repo.get_policy(policy_id))  # type: ignore[arg-type]
 
-    def keep(self, principal: Principal, policy_id: str) -> dict:
-        """The 90-day review of a forever rule: keep it (End is revoke)."""
+    def keep_preview(self, principal: Principal, policy_id: str) -> dict:
+        """Only an active Forever rule due for review can be kept."""
         self._owner_only(principal, "review standing approvals")
         p = self._get(policy_id)
-        self.repo.set_policy(policy_id, bump=False, states=("active",), reviewed_at=self.clock(), review_notified_at=None)
-        self.audit.append("approval.policy.kept", principal.as_dict(), None, {"policy_id": policy_id, "forever": bool(p.get("forever"))})
+        now = self.clock()
+        if (not p.get("forever") or p["state"] != "active" or p.get("suspended_at") or self._lapse_due(p, now)
+                or self._review_base(p) + REVIEW_EVERY > now):
+            raise ApiError(409, "conflict", "only an active Forever rule due for review can be kept")
+        return {"id": policy_id, "revision": p["revision"], "rule": self._body_of(p).model_dump(mode="json")}
+
+    def keep(self, principal: Principal, expected: dict) -> dict:
+        policy_id = expected["id"]
+        if self.keep_preview(principal, policy_id) != expected or not self.repo.set_policy(
+                policy_id, expect_revision=expected["revision"], states=("active",),
+                reviewed_at=self.clock(), review_notified_at=None):
+            raise ApiError(409, "stale_precondition", "the rule changed; review it again")
+        self.audit.append("approval.policy.kept", principal.as_dict(), None,
+                          {"policy_id": policy_id, "forever": True, "approval": "L2"})
         return self.to_json(self.repo.get_policy(policy_id))  # type: ignore[arg-type]
 
     def _lapse_due(self, p: dict, at: datetime) -> bool:
@@ -808,7 +816,7 @@ class PolicyService:
             return [], "automation_paused"
         if not registry.known(action_type):
             return [], "no_policy"
-        who = requester_key(requested_by)
+        who = display_key(requested_by)
         if registry.policy_may_cover(action_type, params, stored_risk):
             if stored_risk is not registry._UNSET and registry.policy_may_cover(action_type) is None:
                 # PR 9: this request is riskier than its type's own class (fix 2 refuses it); make that

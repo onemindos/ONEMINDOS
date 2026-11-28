@@ -18,7 +18,7 @@ import { getPasskey, webauthnSupported } from '../../lib/webauthn';
 type Choice = components['schemas']['RememberChoice'];
 type Challenge = components['schemas']['ApprovalChallenge'];
 type ApproveBody = components['schemas']['onemind_core__routers__actions__ApproveBody'];
-interface Bound { rule: Record<string, unknown>; summary: string; required_level?: string }
+type ApprovalResult = components['schemas']['ApprovalResult'];
 
 const LIFETIMES: Array<[NonNullable<Choice['lifetime']>, string]> = [['30d', '30 days'], ['90d', '90 days'], ['180d', '180 days'], ['forever', 'Forever']];
 const MAX_PER_DAY = 1000; // the gateway answers 422 above this
@@ -57,7 +57,7 @@ export function RememberSheet({ action, onClose, onDone, sign = getPasskey }: {
       setBusy(false);
     }
   };
-  const bound = challenge?.remember as Bound | null | undefined;
+  const bound = challenge?.remember;
   const approve = async () => {
     if (!challenge || !bound) return;
     setBusy(true);
@@ -66,8 +66,8 @@ export function RememberSheet({ action, onClose, onDone, sign = getPasskey }: {
       const webauthn = await sign(challenge.publicKey);
       const body: ApproveBody = { webauthn, remember: { rule: bound.rule }, ...(challenge.plan_sha256 ? { plan_sha256: challenge.plan_sha256 } : {}) };
       // Never retried: a consumed passkey assertion is single use.
-      const out = await read(sdk.call<{ remembered_policy?: string }>({ method: 'POST', path: `${path}/approve`, body, retry: false }));
-      onDone(out?.remembered_policy);
+      const out = await read(sdk.call<ApprovalResult>({ method: 'POST', path: `${path}/approve`, body, retry: false }));
+      onDone(out?.remembered_policy ?? undefined);
     } catch (e) {
       setError(explain(e));
       setChallenge(undefined);

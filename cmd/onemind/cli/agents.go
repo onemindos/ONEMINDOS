@@ -16,7 +16,7 @@ import (
 
 // agentsCommands is `onemind agents` (CORE-SEC-6, #159): the owner's kill switch for every AI
 // agent. `stop` makes the gateway refuse every agent principal (403, reason agents_stopped) until
-// `resume`; both are owner only and audited, and the state survives a gateway restart.
+// an approved `resume` request. Both are owner only and audited, and the state survives a restart.
 func agentsCommands(a *App) []*cobra.Command {
 	root := &cobra.Command{Use: "agents", Short: "The agent kill switch: stop or resume every AI agent (owner only)"}
 	const path = "/v1/agents/kill-switch"
@@ -30,7 +30,7 @@ func agentsCommands(a *App) []*cobra.Command {
 			return nil
 		}
 		if on {
-			fmt.Fprintln(a.Stdout, "Agents: STOPPED. The gateway refuses every AI agent until an owner runs `onemind agents resume`.")
+			fmt.Fprintln(a.Stdout, "Agents: STOPPED. Use `onemind agents resume` to request approval to resume them.")
 		} else {
 			fmt.Fprintln(a.Stdout, "Agents: running. An owner can stop them all with `onemind agents stop`.")
 		}
@@ -52,6 +52,9 @@ func agentsCommands(a *App) []*cobra.Command {
 		if err := c.Do(bg(), method, path, body, &raw); err != nil {
 			return err
 		}
+		if !a.G.JSON && a.printPendingPermission(raw) {
+			return nil
+		}
 		return show(raw)
 	}
 	status := &cobra.Command{Use: "status", Short: "Whether agents are stopped (GET " + path + ")", Args: cobra.NoArgs,
@@ -71,7 +74,7 @@ func agentsCommands(a *App) []*cobra.Command {
 	}
 	root.AddCommand(status,
 		set("stop", "Stop every AI agent now (owner only; audited)", true),
-		set("resume", "Let AI agents work again (owner only; audited)", false),
+		set("resume", "Request approval to resume AI agents (owner only; audited)", false),
 		agentInputsCommands(a))
 	return []*cobra.Command{root}
 }
