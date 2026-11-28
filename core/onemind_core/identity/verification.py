@@ -27,14 +27,15 @@ from sqlalchemy import select
 
 from ..errors import ApiError
 from . import levels as lv
-from .models import HouseholdFlagRow, PasskeyRow, TrustedModelRow, VerificationLevelRow, iso
+from .models import PROVEN_SEEN, HouseholdFlagRow, PasskeyRow, TrustedModelRow, UserRow, VerificationLevelRow, iso
 
 if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
     from ..actions import Action
     from .service import IdentityService
 
 SET_TYPE = "verification.requirement.set"
-PROVEN_SEEN = "proven_key_seen"
 ADD_MODEL_TYPE = "authenticator.allowlist.add"
 
 
@@ -63,9 +64,10 @@ class Verification:
         self.shipped = {m.aaguid: m for m in lv.load_file(path)}
 
     # ---- trusted models ----------------------------------------------------------------------------
-    def models(self) -> dict[str, lv.Model]:
+    def models(self, session: Session | None = None) -> dict[str, lv.Model]:
         out = dict(self.shipped)
-        for r in self.repo.all(select(TrustedModelRow)):
+        stmt = select(TrustedModelRow)
+        for r in session.scalars(stmt) if session is not None else self.repo.all(stmt):
             out.setdefault(r.aaguid, lv.Model(r.aaguid, r.name, tuple(x.encode() for x in r.roots),
                                               tuple(r.user_verification), "owner"))
         return out
@@ -82,31 +84,37 @@ class Verification:
             return 1
         return have
 
-    def household_level(self) -> int:
+    def household_level(self, session: Session | None = None) -> int:
         """The strongest level any active owner's key meets (0 when no owner has a passkey)."""
-        owners = self.svc.active_owner_ids()
-        models = self.models()
-        rows = self.repo.all(select(PasskeyRow).where(PasskeyRow.user_id.in_(owners))) if owners else []
+        stmt = select(PasskeyRow).join(UserRow, UserRow.id == PasskeyRow.user_id).where(
+            UserRow.role == "owner", UserRow.disabled.is_(False))
+        models = self.models(session)
+        rows = session.scalars(stmt) if session is not None else self.repo.all(stmt)
         return max((self.cred_level(r, models) for r in rows), default=0)
 
     # ---- the one-way latch (the grace never returns) ---------------------------------------------------
-    def latched(self) -> bool:
-        return self.repo.get(HouseholdFlagRow, PROVEN_SEEN) is not None
+    def latched(self, session: Session | None = None) -> bool:
+        store = session if session is not None else self.repo
+        return store.get(HouseholdFlagRow, PROVEN_SEEN) is not None
+
+    def record_proven(self, session: Session, why: str) -> bool:
+        """Latch in the transaction that establishes a proven owner key. True for the first write."""
+        return (not self.latched(session) and self.household_level(session) >= lv.PROVEN_KEY_VOUCH
+                and self.repo.set_household_flag(session, PROVEN_SEEN, self.svc.now(), why))
+
+    def emit_grace_ended(self, why: str) -> None:
+        self.svc.emit("auth", "grace.ended", {"why": why[:200]})
 
     def note_proven(self, why: str) -> bool:
-        """Set the latch when an owner holds a proven key now (after an enrolment or a trusted model is
-        added). Returns whether the household is past the grace. Idempotent."""
+        """Whether the household is past grace, including keys newly trusted by the shipped allow-list."""
         if self.latched():
             return True
         if self.household_level() < 2:
             return False
-        try:
-            self.repo.add(HouseholdFlagRow(key=PROVEN_SEEN, set_at=self.svc.now(), detail=why[:200]))
-        except Exception:  # noqa: BLE001 - a concurrent first writer already set it
-            if not self.latched():
-                raise
-            return True
-        self.svc.emit("auth", "grace.ended", {"why": why[:200]})
+        with self.repo.db.session.begin() as session:
+            recorded = self.repo.set_household_flag(session, PROVEN_SEEN, self.svc.now(), why)
+        if recorded:
+            self.emit_grace_ended(why)
         return True
 
     def recovery_needed(self) -> bool:
@@ -230,7 +238,8 @@ class Verification:
 
         prm = a.params
         aaguid = lv.clean_aaguid(prm["aaguid"]) or ""
-        with self.repo.db.session.begin() as s:
+        why = f"trusted model {aaguid}"
+        with self.repo.lock_household() as s:
             row = s.get(TrustedModelRow, aaguid)
             values = dict(name=prm["name"], roots=list(prm["roots"]), user_verification=list(prm["user_verification"]),
                           added_at=self.svc.now(), added_by=a.approved_by or "", action_id=a.id)
@@ -239,9 +248,11 @@ class Verification:
             else:
                 for k, v in values.items():
                     setattr(row, k, v)
+            grace_ended = self.record_proven(s, why)
         self.svc.emit("auth", "trusted_model.added", {"aaguid": aaguid, "name": prm["name"], "action_id": a.id,
                                                       "approved_by": a.approved_by})
-        self.note_proven(f"trusted model {aaguid}")  # its keys may be proven now: the grace ends for good
+        if grace_ended:
+            self.emit_grace_ended(why)
         finish(ExecResult("succeeded", f"{prm['name']} is a trusted key model"))
 
     def list_models(self, p) -> list[dict]:
@@ -276,7 +287,10 @@ class Verification:
         if self.holds_last_proven(clean):
             self.svc.require_step_up(ctx, p, "stop trusting the model of your last proven key",
                                      op="auth.trusted_models.remove", target=clean)
-        self.repo.delete(TrustedModelRow, TrustedModelRow.aaguid == clean)
+        with self.repo.lock_household() as s:
+            row = s.get(TrustedModelRow, clean)
+            if row is not None:
+                s.delete(row)
         self.svc.emit("auth", "trusted_model.removed", {"aaguid": clean}, p)
 
     def register(self) -> None:

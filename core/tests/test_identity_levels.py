@@ -8,7 +8,11 @@ from __future__ import annotations
 import hashlib
 import json
 import struct
+from concurrent.futures import ThreadPoolExecutor, wait
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
+from threading import Barrier, Event
+from time import monotonic
 
 import cbor2
 import pytest
@@ -17,6 +21,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 
 from conftest import OWNER, action_body
 from onemind_core.app import create_app
@@ -785,3 +790,502 @@ def test_a_step_up_without_a_session_is_refused_not_a_crash(lvc, root):
     # The change itself still names the step-up; the CLI turns that into "use the dashboard or phone".
     r = api.post("/v1/users", json={"display_name": "Di", "role": "adult"}, headers=bearer)
     assert r.status_code in (401, 403), r.text
+
+
+# ---- a proven key is vouched for by a proven key or the box (final review of #1184) -------------------------
+def _household_with_a_proven_key(c: TestClient, root) -> tuple[SoftAuthenticator, AttestedAuthenticator]:
+    """Owner zeus with a phone (L1) and a proven key (L2): the grace is over for good."""
+    setup_owner(c)
+    phone, bio = SoftAuthenticator(), AttestedAuthenticator(root)
+    add_key(c, phone, "phone")
+    add_key(c, bio, "bio")
+    assert c.app.state.identity.levels.latched()
+    c.passkey = bio  # stepped() (test_identity.enrol) confirms owner changes with it
+    return phone, bio
+
+
+def _wipe_by(c: TestClient, clock, key: str) -> str:
+    return file_action(c, clock, "test.wipe", {"target": "photos"}, key)
+
+
+def test_a_second_owners_l1_key_cannot_delete_its_key_and_enrol_a_proven_one(lvc, root, clock, settings):
+    """The final review's repro: a second owner's synced phone passkey (L1) deletes that owner's only key,
+    then enrols a key of a trusted model. It must not land at L2 without a proven key or the box."""
+    from test_identity import enrol
+
+    _household_with_a_proven_key(lvc, root)
+    bea = enrol(lvc, "owner", "bea")
+    bea_phone = SoftAuthenticator()
+    assert add_key(bea, bea_phone, "bea phone", at_box=False)["level"] == "L1"
+    # The attacker holds bea's phone passkey: a fresh L1 sign-in is enough to delete it (it is not the last
+    # proven key, and the other owner still has keys).
+    phone_id = b64url(bea_phone.cred_id)
+    r = bea.delete(f"/v1/auth/passkeys/{phone_id}", headers=csrf(bea))
+    assert r.status_code == 204, r.text
+    # Now bea holds no key. Enrolling a key of a trusted model needs the box's code: no proven key of hers
+    # vouches for it.
+    attacker_key = AttestedAuthenticator(root)
+    opts = bea.post("/v1/auth/passkeys/register/options", headers=csrf(bea))
+    assert opts.status_code == 200, opts.text
+    r = bea.post("/v1/auth/passkeys/register", json={"credential": attacker_key.register(opts.json()),
+                                                      "label": "attacker"}, headers=csrf(bea))
+    assert r.status_code == 401 and r.json()["reason"] == "box_code_required", r.text
+    assert bea.get("/v1/auth/passkeys").json() == []
+    assert opts.json()["box_code_if_proven"] is True  # the box's screen showed a code for her
+    # So the T3 approval still has no key that meets it.
+    aid = _wipe_by(lvc, clock, "t3-bea")
+    r = bea.post(f"/v1/actions/{aid}/approve-options", headers=csrf(bea))
+    assert r.status_code == 409 and r.json()["reason"] == "verification_level_unmet", r.text
+    assert lvc.get(f"/v1/actions/{aid}").json()["state"] == "awaiting_approval"
+    # An L1 key still enrols remotely, without the code.
+    laptop = SoftAuthenticator()
+    assert add_key(bea, laptop, "bea laptop", at_box=False)["level"] == "L1"
+    # With only L1 keys, adding another key needs a proven key, or her L1 key plus the box's code ...
+    step = step_up_of(bea.post("/v1/auth/passkeys/register/options", headers=csrf(bea)))
+    assert (step["required_level"], step["box"]) == ("L2", "alt")
+    # ... and at the box (she reads the code) her new proven key enrols at L2; the audit says how.
+    g = grant(bea, laptop, "auth.passkeys.register", at_box=True)
+    assert add_key(bea, AttestedAuthenticator(root), "bea key", grant=g, at_box=False)["level"] == "L2"
+    ev = [e["data"]["payload"] for e in audit_events(settings) if e["event"] == "auth.passkey.registered"]
+    assert (ev[-1]["level"], ev[-1]["confirmed"]) == ("L2", "box")
+
+
+@pytest.mark.parametrize("recovery", [False, True])
+def test_an_owner_with_no_key_needs_the_box_for_a_proven_key(lvc, root, clock, recovery):
+    """A password-only owner (also while the household waits for recovery) never enrols L2 remotely."""
+    from test_identity import enrol
+
+    phone, bio = _household_with_a_proven_key(lvc, root)
+    bea = enrol(lvc, "owner", "bea")  # password only: no key at all
+    if recovery:  # zeus's proven key is lost and revoked at the box: no owner holds a proven key now
+        bio_id = b64url(bio.cred_id)
+        g = grant(lvc, phone, "auth.passkeys.delete", bio_id, at_box=True)
+        assert lvc.delete(f"/v1/auth/passkeys/{bio_id}", headers={**csrf(lvc), "OneMind-Step-Up": g}).status_code == 204
+        assert lvc.get("/v1/verification-requirements").json()["recovery_needed"] is True
+    opts = bea.post("/v1/auth/passkeys/register/options", headers=csrf(bea))
+    assert opts.status_code == 200, opts.text
+    r = bea.post("/v1/auth/passkeys/register", json={"credential": AttestedAuthenticator(root).register(opts.json()),
+                                                      "label": "remote"}, headers=csrf(bea))
+    assert r.status_code == 401 and r.json()["reason"] == "box_code_required", r.text
+    assert bea.get("/v1/auth/passkeys").json() == [] and opts.json()["box_code_if_proven"] is True
+    assert lvc.get("/v1/verification-requirements").json()["recovery_needed"] is recovery
+    # An L1 key (a phone passkey) still enrols remotely; a proven key enrols at the box.
+    assert add_key(bea, SoftAuthenticator(), "bea phone", at_box=False)["level"] == "L1"
+    if recovery:  # the interim recovery path: an owner at the box adds the household's proven key again
+        step = step_up_of(bea.post("/v1/auth/passkeys/register/options", headers=csrf(bea)))
+        assert (step["required_level"], step["box"]) == ("L1", "required")
+
+
+def test_lowering_admin_high_risk_never_lets_an_l1_key_vouch_for_a_proven_one(lvc, root, clock, settings):
+    """admin.high_risk at L1 (the phone-only escape hatch) lets a phone add a key, never a proven one."""
+    phone, bio = _household_with_a_proven_key(lvc, root)
+    aid = file_action(lvc, clock, "verification.requirement.set", {"key": "admin.high_risk", "level": "L1"}, "hr1")
+    assert approve(lvc, aid, bio).status_code == 200
+    rows = {r["key"]: r for r in lvc.get("/v1/verification-requirements").json()["rows"]}
+    assert rows["admin.high_risk"]["current"] == "L1"
+    # The phone's L1 grant is enough to add a key now ...
+    g = grant(lvc, phone, "auth.passkeys.register")
+    h = {**csrf(lvc), "OneMind-Step-Up": g}
+    opts = lvc.post("/v1/auth/passkeys/register/options", headers=h)
+    assert opts.status_code == 200, opts.text
+    # ... but a key that would be L2 needs the box's code: the phone can't vouch for it.
+    minted = AttestedAuthenticator(root)
+    r = lvc.post("/v1/auth/passkeys/register", json={"credential": minted.register(opts.json()), "label": "minted"},
+                 headers=csrf(lvc))
+    assert r.status_code == 401 and r.json()["reason"] == "box_code_required", r.text
+    assert "minted" not in keys(lvc) and opts.json()["box_code_if_proven"] is True
+    # Another phone passkey (L1) is fine with the phone's grant.
+    assert add_key(lvc, SoftAuthenticator(), "laptop", grant=grant(lvc, phone, "auth.passkeys.register"),
+                   at_box=False)["level"] == "L1"
+    # The proven key vouches without the box, and the audit says so.
+    assert add_key(lvc, AttestedAuthenticator(root), "bio2", grant=grant(lvc, bio, "auth.passkeys.register"),
+                   at_box=False)["level"] == "L2"
+    ev = [e["data"]["payload"] for e in audit_events(settings) if e["event"] == "auth.passkey.registered"]
+    assert (ev[-1]["level"], ev[-1]["confirmed"]) == ("L2", "proven_key")
+    # The table says so where the row is edited (GET /v1/verification-requirements, onemind permissions verify).
+    assert "never lowers what adding a proven key takes" in rows["admin.high_risk"]["label"]
+
+
+def test_lowering_admin_high_risk_never_lets_an_l1_key_promote_a_proven_key_to_owner(lvc, root, clock):
+    """The same hole by another door: an adult's proven key (adults enrol one without the box) made an owner's
+    key by an L1 grant. Promoting a person who holds a proven key needs a proven key, or the box."""
+    from test_identity import enrol
+
+    phone, bio = _household_with_a_proven_key(lvc, root)
+    aid = file_action(lvc, clock, "verification.requirement.set", {"key": "admin.high_risk", "level": "L1"}, "hr2")
+    assert approve(lvc, aid, bio).status_code == 200
+    lvc.passkey = phone  # with the row at L1 the phone adds people
+    ana = enrol(lvc, "adult", "ana")
+    ana_id = ana.get("/v1/me").json()["principal"]["id"]
+    ana_key = AttestedAuthenticator(root)
+    assert add_key(ana, ana_key, "ana key", at_box=False)["level"] == "L2"
+    body = {"display_name": None, "role": "owner"}
+    step = step_up_of(lvc.patch(f"/v1/users/{ana_id}", json=body, headers=csrf(lvc)))
+    assert (step["op"], step["required_level"], step["box"]) == ("users.update", "L2", "alt")
+    opts = lvc.post("/v1/auth/step-up/options", json={"op": step["op"], "target": ana_id, "body": step["body"]},
+                    headers=csrf(lvc)).json()
+    assert [k["id"] for k in opts["publicKey"]["allowCredentials"]] == [b64url(bio.cred_id)]
+    r = lvc.post("/v1/auth/step-up", json={"credential": phone.assert_(opts["publicKey"]["challenge"])},
+                 headers=csrf(lvc))
+    assert r.status_code == 401
+    assert lvc.get("/v1/users").json()[-1]["role"] == "adult"
+    # Someone who is already an owner keeps the table's row (L1 here).
+    me = lvc.get("/v1/me").json()["principal"]["id"]
+    opts = lvc.post("/v1/auth/step-up/options", json={"op": "users.update", "target": me,
+                                                      "body": {"display_name": "Z", "role": None}}, headers=csrf(lvc))
+    assert (opts.json()["required_level"], opts.json()["box_code_required"]) == ("L1", False), opts.text
+    # The proven key (or an owner at the box) promotes her.
+    g = grant_from(lvc, bio, step)
+    r = lvc.patch(f"/v1/users/{ana_id}", json=body, headers={**csrf(lvc), "OneMind-Step-Up": g})
+    assert r.status_code == 200 and r.json()["role"] == "owner", r.text
+
+
+def test_owner_proven_key_enrolment_requires_fresh_options_after_promotion(lvc, root):
+    """Pending options for a member cannot authorise a proven key after the member becomes an owner."""
+    from test_identity import enrol
+
+    _, bio = _household_with_a_proven_key(lvc, root)
+    ana = enrol(lvc, "adult", "ana")
+    ana_id = ana.get("/v1/me").json()["principal"]["id"]
+    opts = ana.post("/v1/auth/passkeys/register/options", headers=csrf(ana))
+    assert opts.status_code == 200 and opts.json()["box_code_if_proven"] is False, opts.text
+
+    body = {"display_name": None, "role": "owner"}
+    g = grant(lvc, bio, "users.update", ana_id, body)
+    r = lvc.patch(f"/v1/users/{ana_id}", json=body, headers={**csrf(lvc), "OneMind-Step-Up": g})
+    assert r.status_code == 200 and r.json()["role"] == "owner", r.text
+
+    key = AttestedAuthenticator(root)
+    r = ana.post("/v1/auth/passkeys/register", json={"credential": key.register(opts.json())}, headers=csrf(ana))
+    assert r.status_code == 409 and r.json()["reason"] == "registration_options_stale", r.text
+    assert keys(ana) == {}
+    assert add_key(ana, key, "confirmed at the box")["level"] == "L2"
+
+
+def test_pending_first_passkey_options_cannot_enrol_a_later_proven_key(lvc, root):
+    setup_owner(lvc)
+    opts = lvc.post("/v1/auth/passkeys/register/options", headers=csrf(lvc))
+    assert opts.status_code == 200 and opts.json()["box_code_if_proven"] is False, opts.text
+    assert add_key(lvc, SoftAuthenticator(), "first key", at_box=False)["level"] == "L1"
+
+    key = AttestedAuthenticator(root)
+    r = lvc.post("/v1/auth/passkeys/register", json={"credential": key.register(opts.json())}, headers=csrf(lvc))
+    assert r.status_code == 409 and r.json()["reason"] == "registration_options_stale", r.text
+    assert set(keys(lvc)) == {"first key"}
+
+
+def test_only_one_owner_can_use_the_first_passkey_exception(lvc, root, monkeypatch):
+    from test_identity import enrol
+
+    setup_owner(lvc)
+    bea = enrol(lvc, "owner", "bea")
+    bea_id = bea.get("/v1/me").json()["principal"]["id"]
+    identity = lvc.app.state.identity
+    engine = identity.repo.db.engine
+    postgres = engine.dialect.name == "postgresql"
+    ready = Barrier(2, timeout=15)
+    checked, commit = Event(), Event()
+    lock_user = identity.repo.lock_user
+    verification_active = identity._owner_verification_active
+    first_pid = None
+
+    @contextmanager
+    def queue_registration(user_id):
+        # Both requests have consumed their challenges before either starts its write transaction.
+        ready.wait()
+        if user_id == bea_id:
+            assert checked.wait(timeout=15)
+        with lock_user(user_id) as locked:
+            yield locked
+
+    def hold_first_registration(session=None):
+        nonlocal first_pid
+        active = verification_active(session)
+        if session is not None and not checked.is_set():
+            assert active is False
+            if postgres:
+                first_pid = session.scalar(text("SELECT pg_backend_pid()"))
+            checked.set()
+            assert commit.wait(timeout=15)
+        return active
+
+    def register(c, credential):
+        return c.post("/v1/auth/passkeys/register", json={"credential": credential}, headers=csrf(c))
+
+    credentials = []
+    for c in (lvc, bea):
+        opts = c.post("/v1/auth/passkeys/register/options", headers=csrf(c))
+        assert opts.status_code == 200 and opts.json()["box_code_if_proven"] is False, opts.text
+        credentials.append(AttestedAuthenticator(root).register(opts.json()))
+
+    monkeypatch.setattr(identity.repo, "lock_user", queue_registration)
+    monkeypatch.setattr(identity, "_owner_verification_active", hold_first_registration)
+    with ThreadPoolExecutor(max_workers=2) as clients:
+        first = clients.submit(register, lvc, credentials[0])
+        second = clients.submit(register, bea, credentials[1])
+        try:
+            assert checked.wait(timeout=15)
+            if postgres:
+                # Let the second transaction reach the database lock while the first still holds it.
+                # Without serialization the second finishes while the first is paused.
+                blocked = text("SELECT EXISTS (SELECT FROM pg_stat_activity WHERE datname = current_database() "
+                               "AND :first_pid = ANY(pg_blocking_pids(pid)))")
+                deadline = monotonic() + 10
+                with engine.connect() as monitor:
+                    while not second.done() and not monitor.scalar(blocked, {"first_pid": first_pid}):
+                        assert monotonic() < deadline, "second registration neither blocked nor completed"
+                        wait([second], timeout=0.02)
+        finally:
+            commit.set()
+        accepted, rejected = first.result(timeout=15), second.result(timeout=15)
+    assert accepted.status_code == 201 and accepted.json()["level"] == "L2", accepted.text
+    assert rejected.status_code == 409 and rejected.json()["reason"] == "registration_options_stale", rejected.text
+    assert keys(bea) == {}
+
+
+@pytest.fixture
+def keyless_recovery(lvc, root, clock):
+    from test_identity import PASSWORD, enrol
+
+    _, bio = _household_with_a_proven_key(lvc, root)
+    aid = file_action(lvc, clock, "verification.requirement.set", {"key": "admin.high_risk", "level": "L1"}, "hr-zero")
+    assert approve(lvc, aid, bio).status_code == 200
+    bea = enrol(lvc, "owner", "bea")
+    ana = enrol(lvc, "adult", "ana")
+    assert add_key(ana, AttestedAuthenticator(root), "ana key", at_box=False)["level"] == "L2"
+    r = bea.post("/v1/auth/login", json={"username": "bea", "password": PASSWORD})
+    assert r.status_code == 200, r.text
+    assert bea.get("/v1/me").json()["session"]["auth_method"] == "password"
+    me = lvc.get("/v1/me").json()["principal"]["id"]
+    r = bea.post(f"/v1/users/{me}/disable", headers=csrf(bea))
+    assert r.status_code == 200 and r.json()["disabled"] is True, r.text
+    assert lvc.get("/v1/me").status_code == 401
+    table = bea.get("/v1/verification-requirements").json()
+    assert (table["grace"], table["recovery_needed"], table["household_level"]) == (False, True, None)
+    return bea, ana.get("/v1/me").json()["principal"]["id"]
+
+
+def test_keyless_recovery_preserves_the_promotion_floor(keyless_recovery, root):
+    bea, ana_id = keyless_recovery
+    body = {"display_name": None, "role": "owner"}
+    step = step_up_of(bea.patch(f"/v1/users/{ana_id}", json=body, headers=csrf(bea)))
+    assert (step["op"], step["required_level"], step["box"]) == ("users.update", "L2", "alt")
+
+    recovered = AttestedAuthenticator(root)
+    assert add_key(bea, recovered, "recovered at the box")["level"] == "L2"
+    assert bea.get("/v1/verification-requirements").json()["recovery_needed"] is False
+    g = grant_from(bea, recovered, step)
+    r = bea.patch(f"/v1/users/{ana_id}", json=body, headers={**csrf(bea), "OneMind-Step-Up": g})
+    assert r.status_code == 200 and r.json()["role"] == "owner", r.text
+
+
+def test_keyless_recovery_preserves_the_approval_level(keyless_recovery, clock):
+    bea, _ = keyless_recovery
+    aid = _wipe_by(bea, clock, "keyless-recovery")
+    r = bea.post(f"/v1/actions/{aid}/approve", headers=csrf(bea))
+    assert r.status_code == 401 and r.json()["reason"] == "step_up_required", r.text
+    r = bea.post(f"/v1/actions/{aid}/approve-options", headers=csrf(bea))
+    assert r.status_code == 409 and r.json()["reason"] == "verification_level_unmet", r.text
+    action = bea.get(f"/v1/actions/{aid}").json()
+    assert (action["state"], action["required_level"]) == ("awaiting_approval", "L2")
+
+
+@pytest.mark.parametrize("legacy", [False, True], ids=["current", "upgrade-from-v4"])
+def test_l1_only_household_stays_out_of_setup(lvc, root, clock, legacy):
+    from onemind_core.identity.models import HouseholdFlagRow, SCHEMA
+    from onemind_core.store import SchemaVersionRow, migrate
+    from test_identity import enrol
+
+    setup_owner(lvc)
+    bea = enrol(lvc, "owner", "bea")
+    me = lvc.get("/v1/me").json()["principal"]["id"]
+    bea_id = bea.get("/v1/me").json()["principal"]["id"]
+    assert add_key(lvc, SoftAuthenticator(), "first key")["level"] == "L1"
+    r = bea.post(f"/v1/users/{me}/disable", headers=csrf(bea))
+    assert r.status_code == 200 and r.json()["disabled"], r.text
+
+    identity = lvc.app.state.identity
+    if legacy:
+        repo = identity.repo
+        repo.delete(HouseholdFlagRow, HouseholdFlagRow.key == "owner_passkey_seen")
+        repo.update(SchemaVersionRow, [SchemaVersionRow.feature == "identity"], {"version": 4})
+        migrate(repo.db.engine, schemas=[SCHEMA])
+    assert not identity.passkeys_active() and not identity.levels.latched()
+
+    opts = bea.post("/v1/auth/passkeys/register/options", headers=csrf(bea))
+    assert opts.status_code == 200 and opts.json()["box_code_if_proven"] is True, opts.text
+    r = bea.patch(f"/v1/users/{bea_id}", json={"display_name": "Bea"}, headers=csrf(bea))
+    step = step_up_of(r)
+    assert (step["required_level"], step["box"]) == ("L1", "required")
+    aid = _wipe_by(bea, clock, "l1-key-lost")
+    r = bea.post(f"/v1/actions/{aid}/approve-options", headers=csrf(bea))
+    assert r.status_code == 409 and r.json()["reason"] == "verification_level_unmet", r.text
+    assert bea.get(f"/v1/actions/{aid}").json()["required_level"] == "L2"
+    assert bea.get("/v1/verification-requirements").json()["grace"] is True
+
+    body = {"credential": AttestedAuthenticator(root).register(opts.json()), "box_code": box_code(bea)}
+    r = bea.post("/v1/auth/passkeys/register", json=body, headers=csrf(bea))
+    assert r.status_code == 201 and r.json()["level"] == "L2", r.text
+    assert bea.get("/v1/verification-requirements").json()["grace"] is False
+
+
+@pytest.mark.parametrize("established_by", ["registration", "promotion"])
+def test_first_proven_owner_key_latches_before_it_can_be_lost(lvc, root, monkeypatch, established_by):
+    from test_identity import enrol
+
+    setup_owner(lvc)
+    bea = enrol(lvc, "owner" if established_by == "registration" else "adult", "bea")
+    bea_id = bea.get("/v1/me").json()["principal"]["id"]
+    identity = lvc.app.state.identity
+    emit = identity.emit
+    boundary = "passkey.registered" if established_by == "registration" else "updated"
+
+    def disable_at_first_post_commit_event(domain, name, payload, *args, **kwargs):
+        if name == boundary and payload.get("user_id") == bea_id:
+            r = lvc.post(f"/v1/users/{bea_id}/disable", headers=csrf(lvc))
+            assert r.status_code == 200 and r.json()["disabled"], r.text
+        emit(domain, name, payload, *args, **kwargs)
+
+    if established_by == "registration":
+        monkeypatch.setattr(identity, "emit", disable_at_first_post_commit_event)
+        assert add_key(bea, AttestedAuthenticator(root), "first proven key")["level"] == "L2"
+    else:
+        phone = SoftAuthenticator()
+        assert add_key(lvc, phone, "owner phone")["level"] == "L1"
+        assert add_key(bea, AttestedAuthenticator(root), "member key")["level"] == "L2"
+        assert not identity.levels.latched()
+        body = {"display_name": None, "role": "owner"}
+        g = grant(lvc, phone, "users.update", bea_id, body)
+        monkeypatch.setattr(identity, "emit", disable_at_first_post_commit_event)
+        r = lvc.patch(f"/v1/users/{bea_id}", json=body, headers={**csrf(lvc), "OneMind-Step-Up": g})
+        assert r.status_code == 200 and r.json()["role"] == "owner", r.text
+
+    assert bea.get("/v1/me").status_code == 401
+    table = lvc.get("/v1/verification-requirements").json()
+    assert (table["grace"], table["recovery_needed"]) == (False, True)
+
+
+@pytest.mark.parametrize("changed", ["session", "revoked-key", "untrusted-model"])
+def test_proven_key_vouch_must_still_be_valid_at_registration(lvc, root, clock, changed):
+    from test_identity import PASSWORD
+
+    phone, bio = _household_with_a_proven_key(lvc, root)
+    model = "a1b2c3d4-0000-4000-8000-0000000000a2"
+    params = {"aaguid": model, "name": "Test Model", "roots": [root.pem],
+              "user_verification": ["fingerprint_internal"]}
+    aid = file_action(lvc, clock, "authenticator.allowlist.add", params, "vouch-model")
+    assert approve(lvc, aid, bio).status_code == 200
+    key = AttestedAuthenticator(root, aaguid=model)
+    assert add_key(lvc, key, "vouching key", grant=grant(lvc, bio, "auth.passkeys.register"))["level"] == "L2"
+
+    g = grant(lvc, key, "auth.passkeys.register")
+    opts = lvc.post("/v1/auth/passkeys/register/options", headers={**csrf(lvc), "OneMind-Step-Up": g})
+    assert opts.status_code == 200 and opts.json()["box_code_if_proven"] is False, opts.text
+    client = lvc
+    if changed == "session":
+        client = new_session_client(lvc)
+        r = client.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD})
+        assert r.status_code == 200, r.text
+    elif changed == "revoked-key":
+        g = grant(lvc, phone, "auth.passkeys.delete", b64url(key.cred_id))
+        r = lvc.delete(f"/v1/auth/passkeys/{b64url(key.cred_id)}", headers={**csrf(lvc), "OneMind-Step-Up": g})
+        assert r.status_code == 204, r.text
+    else:
+        r = lvc.delete(f"/v1/auth/authenticator-allowlist/{model}", headers=csrf(lvc))
+        assert r.status_code == 204 and keys(lvc)["vouching key"]["level"] == "L1", r.text
+
+    replacement = AttestedAuthenticator(root)
+    r = client.post("/v1/auth/passkeys/register", json={"credential": replacement.register(opts.json())},
+                    headers=csrf(client))
+    assert r.status_code == 409 and r.json()["reason"] == "registration_options_stale", r.text
+    assert add_key(lvc, replacement, "fresh vouch", grant=grant(lvc, bio, "auth.passkeys.register"))["level"] == "L2"
+
+
+@pytest.mark.parametrize("keyless", [False, True], ids=["active-owner-keys", "keyless-recovery"])
+def test_promotion_rechecks_keys_after_step_up(lvc, root, clock, monkeypatch, keyless):
+    from test_identity import enrol
+
+    phone, bio = _household_with_a_proven_key(lvc, root)
+    aid = file_action(lvc, clock, "verification.requirement.set", {"key": "admin.high_risk", "level": "L1"}, "hr-race")
+    assert approve(lvc, aid, bio).status_code == 200
+    bea = enrol(lvc, "owner", "bea") if keyless else None
+    me = lvc.get("/v1/me").json()["principal"]["id"]
+    ana = enrol(lvc, "adult", "ana")
+    ana_id = ana.get("/v1/me").json()["principal"]["id"]
+    body = {"display_name": None, "role": "owner"}
+    g = grant(lvc, phone, "users.update", ana_id, body)
+
+    checked, resume = Event(), Event()
+    identity = lvc.app.state.identity
+    require_step_up = identity.require_step_up
+
+    def pause_promotion(*args, **kwargs):
+        via = require_step_up(*args, **kwargs)
+        if kwargs.get("op") == "users.update":
+            checked.set()
+            assert resume.wait(timeout=15)
+        return via
+
+    monkeypatch.setattr(identity, "require_step_up", pause_promotion)
+    with ThreadPoolExecutor(max_workers=1) as client:
+        promotion = client.submit(lvc.patch, f"/v1/users/{ana_id}", json=body,
+                                  headers={**csrf(lvc), "OneMind-Step-Up": g})
+        try:
+            assert checked.wait(timeout=15)
+            if bea is not None:
+                r = bea.post(f"/v1/users/{me}/disable", headers=csrf(bea))
+                assert r.status_code == 200 and not identity.passkeys_active() and identity.levels.latched(), r.text
+            assert add_key(ana, AttestedAuthenticator(root), "ana key", at_box=False)["level"] == "L2"
+        finally:
+            resume.set()
+        r = promotion.result(timeout=15)
+    assert r.status_code == 409 and r.json()["reason"] == "promotion_verification_changed", r.text
+    assert ana.get("/v1/me").json()["principal"]["role"] == "adult"
+
+
+@pytest.mark.parametrize("body, expected", [
+    ({"display_name": "Ana's new name", "role": None}, {"display_name": "Ana's new name", "role": "adult"}),
+    ({"display_name": None, "role": "guest"}, {"role": "guest"}),
+], ids=["rename", "demote"])
+def test_non_promotion_of_a_member_with_a_proven_key_follows_the_table(lvc, root, clock, body, expected):
+    from test_identity import enrol
+
+    phone, bio = _household_with_a_proven_key(lvc, root)
+    aid = file_action(lvc, clock, "verification.requirement.set", {"key": "admin.high_risk", "level": "L1"}, "hr-edit")
+    assert approve(lvc, aid, bio).status_code == 200
+    ana = enrol(lvc, "adult", "ana")
+    ana_id = ana.get("/v1/me").json()["principal"]["id"]
+    assert add_key(ana, AttestedAuthenticator(root), "ana key", at_box=False)["level"] == "L2"
+    opts = lvc.post("/v1/auth/step-up/options", json={"op": "users.update", "target": ana_id, "body": body},
+                    headers=csrf(lvc))
+    assert opts.status_code == 200 and opts.json()["required_level"] == "L1", opts.text
+    g = grant(lvc, phone, "users.update", ana_id, body)
+    r = lvc.patch(f"/v1/users/{ana_id}", json=body, headers={**csrf(lvc), "OneMind-Step-Up": g})
+    assert r.status_code == 200, r.text
+    assert {field: r.json()[field] for field in expected} == expected
+
+
+def test_member_promotion_requires_vouch_for_a_previously_trusted_key(lvc, root, clock):
+    from test_identity import enrol
+
+    phone, bio = _household_with_a_proven_key(lvc, root)
+    aid = file_action(lvc, clock, "verification.requirement.set", {"key": "admin.high_risk", "level": "L1"}, "hr-model")
+    assert approve(lvc, aid, bio).status_code == 200
+    model = "a1b2c3d4-0000-4000-8000-0000000000a2"
+    params = {"aaguid": model, "name": "Test Member Key", "roots": [root.pem],
+              "user_verification": ["fingerprint_internal"]}
+    aid = file_action(lvc, clock, "authenticator.allowlist.add", params, "member-model")
+    assert approve(lvc, aid, bio).status_code == 200
+    ana = enrol(lvc, "adult", "ana")
+    ana_id = ana.get("/v1/me").json()["principal"]["id"]
+    assert add_key(ana, AttestedAuthenticator(root, aaguid=model), "ana key", at_box=False)["level"] == "L2"
+    r = lvc.delete(f"/v1/auth/authenticator-allowlist/{model}", headers=csrf(lvc))
+    assert r.status_code == 204, r.text
+    assert keys(ana)["ana key"]["level"] == "L1"
+
+    body = {"display_name": None, "role": "owner"}
+    step = step_up_of(lvc.patch(f"/v1/users/{ana_id}", json=body, headers=csrf(lvc)))
+    assert (step["required_level"], step["box"]) == ("L2", "alt")
+    g = grant_from(lvc, bio, step)
+    r = lvc.patch(f"/v1/users/{ana_id}", json=body, headers={**csrf(lvc), "OneMind-Step-Up": g})
+    assert r.status_code == 200 and r.json()["role"] == "owner", r.text
