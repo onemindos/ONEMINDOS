@@ -15,6 +15,7 @@ import (
 // needs an owner session and a separate passkey approval. An owner session can remove a contact or
 // cancel a claim immediately. Any sign-in by the owner cancels a claim at once.
 func legacyCommands(a *App) []*cobra.Command {
+	const enrollmentHold = "Legacy contact enrollment is on hold until OneMind supports verification with a hardware key or first-key setup at the box."
 	root := &cobra.Command{Use: "legacy", Short: "Legacy contacts and claims: who may get a copy of your files after your death"}
 	call := func(method, path string, body, out any) error {
 		c, _, err := a.client()
@@ -34,7 +35,7 @@ func legacyCommands(a *App) []*cobra.Command {
 				return printJSON(a.Stdout, rows)
 			}
 			if len(rows) == 0 {
-				fmt.Fprintln(a.Stdout, "No legacy contacts yet. Add one with `onemind legacy contacts add --name <name>`.")
+				fmt.Fprintln(a.Stdout, "No legacy contacts yet. "+enrollmentHold)
 				return nil
 			}
 			out := make([][]string, 0, len(rows))
@@ -45,7 +46,7 @@ func legacyCommands(a *App) []*cobra.Command {
 		}}
 	var name, household string
 	var cooling, wait int
-	add := &cobra.Command{Use: "add", Short: "Request a legacy invite for owner passkey approval", Args: cobra.NoArgs,
+	add := &cobra.Command{Use: "add", Short: "Request a legacy invite for owner passkey approval", Long: enrollmentHold, Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			body := map[string]any{"kind": "outside", "display_name": name}
 			if household != "" {

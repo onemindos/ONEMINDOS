@@ -507,8 +507,8 @@ def test_sign_in_after_grant_commit_publishes_cancel_after_grant(rc, clock, monk
     owner_id = _owner_id(rc)
     phone, _key = legacy_phone(rc)
     legacy = rc.app.state.legacy_contacts
-    cancel_worker = LegacyContacts(legacy.gw, legacy.ident)
-    clock.advance(60)
+    cancel_worker = LegacyContacts(legacy.gw, legacy.ident, legacy.notify)
+    clock.advance(7 * DAY + 1)
     cid = _due_claim(rc, phone.contact_id, owner_id)
     log = []
     unsubscribe = legacy.gw.events.subscribe(
@@ -762,7 +762,7 @@ def test_a_download_holds_the_slot_during_preflight_across_workers(rc, clock, mo
     phone, key = legacy_phone(rc)
     granted(rc, clock, phone, key)
     legacy = rc.app.state.legacy_contacts
-    other_worker = LegacyContacts(legacy.gw, legacy.ident)
+    other_worker = LegacyContacts(legacy.gw, legacy.ident, legacy.notify)
     other_worker.files = legacy.files
     walk = legacy._walk
     walking, proceed = Event(), Event()
@@ -1027,7 +1027,7 @@ def test_parallel_approved_invites_preserve_contact_limits(rc, monkeypatch, conf
         expected_count, message = 1, "already a legacy contact"
 
     legacy = rc.app.state.legacy_contacts
-    other = LegacyContacts(legacy.gw, legacy.ident)
+    other = LegacyContacts(legacy.gw, legacy.ident, legacy.notify)
     actions = []
     for name in ("First", "Second"):
         response = request_invite(rc, name, **params)
@@ -1277,7 +1277,7 @@ def test_two_workers_send_the_same_reminder_only_once(rc, clock, monkeypatch):
     c = claim(rc, phone, key).json()
     clock.advance(7 * DAY + 1)
     legacy = rc.app.state.legacy_contacts
-    other = LegacyContacts(legacy.gw, legacy.ident)
+    other = LegacyContacts(legacy.gw, legacy.ident, legacy.notify)
     both_read_waiting = Barrier(2)
     real = legacy._owner_active_since
 
@@ -1314,7 +1314,7 @@ def test_deadline_worker_rechecks_after_a_weekly_reminder_wins(rc, clock, monkey
     clock.advance(7 * DAY + 1)
     cid = claim(rc, phone, key).json()["id"]
     deadline = rc.app.state.legacy_contacts
-    weekly = LegacyContacts(deadline.gw, deadline.ident)
+    weekly = LegacyContacts(deadline.gw, deadline.ident, deadline.notify)
     week_one = weekly.now() + timedelta(days=7, seconds=1)
     monkeypatch.setattr(weekly, "now", lambda: week_one)
     clock.advance(30 * DAY + 1)
@@ -1369,7 +1369,7 @@ def test_interrupted_final_day_notice_is_retried_before_grant(rc, clock, monkeyp
                 legacy.tick()
     assert legacy._claim(cid).state == "waiting"
 
-    restarted = LegacyContacts(legacy.gw, legacy.ident)
+    restarted = LegacyContacts(legacy.gw, legacy.ident, legacy.notify)
     log = _record_claim_notices(restarted)
     assert restarted.tick() == 1 and restarted.tick() == 0
     assert [event for event, claim_id in log if claim_id == cid] == ["legacy.claim.reminder", "legacy.claim.granted"]
@@ -1377,6 +1377,121 @@ def test_interrupted_final_day_notice_is_retried_before_grant(rc, clock, monkeyp
     assert [n["data"]["notice"] for n in feed if n["event"] == "legacy.claim.reminder"
             and n["data"]["claim_id"] == cid] == ["last_day"]
     assert restarted._claim(cid).state == "granted"
+
+
+@pytest.mark.parametrize("feed_only_marker", [False, True])
+def test_failed_owner_inbox_insert_blocks_grant_and_is_retried(rc, clock, feed_only_marker):
+    from sqlalchemy import event
+    from sqlalchemy.exc import OperationalError
+
+    owner_with_passkey(rc)
+    owner_id = _owner_id(rc)
+    phone, key = legacy_phone(rc)
+    clock.advance(7 * DAY + 1)
+    cid = claim(rc, phone, key).json()["id"]
+    legacy = rc.app.state.legacy_contacts
+    if feed_only_marker:
+        # A prior gateway may have marked the feed complete after losing the owner's inbox insert.
+        assert legacy._set(legacy._claim(cid), ("waiting",), notices_sent=["start", "last_day_recorded"])
+    clock.advance(30 * DAY + 1)
+    inbox_title = "A legacy access request is still open"
+    attempts = []
+
+    def fail_owner_insert(_conn, _cursor, statement, params, _context, _executemany):
+        if statement.startswith("INSERT INTO notify_notifications ") and owner_id in str(params) and inbox_title in str(params):
+            attempts.append(owner_id)
+            raise OperationalError(statement, None, RuntimeError("owner inbox insert interrupted"))
+
+    engine = legacy.db.engine
+    event.listen(engine, "before_cursor_execute", fail_owner_insert)
+    try:
+        legacy.tick()
+    finally:
+        event.remove(engine, "before_cursor_execute", fail_owner_insert)
+
+    def reminders():
+        repo = rc.app.state.notify.repo
+        return [n for n in repo.list_notifications(owner_id, unread=None, severities=None, topics=None,
+                                                    since=None, limit=100, cursor=None) if n.title == inbox_title]
+
+    row = legacy._claim(cid)
+    assert row.state == "waiting" and row.granted_at is None
+    assert attempts == [owner_id]
+    assert reminders() == []
+    contact = legacy._get(phone.contact_id)
+    assert all(n["event"] != "legacy.claim.reminder" for n in legacy.notices(contact))
+
+    restarted = LegacyContacts(legacy.gw, legacy.ident, legacy.notify)
+    owner_notices_at_grant = []
+    unsubscribe = legacy.gw.events.subscribe(
+        "legacy.claim.granted", lambda _: owner_notices_at_grant.extend(reminders()),
+    )
+    try:
+        assert restarted.tick() == 1
+        assert restarted.tick() == 0
+    finally:
+        unsubscribe()
+    assert restarted._claim(cid).state == "granted"
+    assert len(owner_notices_at_grant) == len(reminders()) == 1
+    assert [n["data"]["notice"] for n in legacy.notices(contact) if n["event"] == "legacy.claim.reminder"] == ["last_day"]
+
+
+def test_resignation_without_hook_rejects_an_already_authenticated_claim(rc, clock):
+    owner_with_passkey(rc)
+    phone, key = legacy_phone(rc)
+    clock.advance(7 * DAY + 1)
+    legacy = rc.app.state.legacy_contacts
+    contact = legacy._get(phone.contact_id)
+    legacy.ended_hooks.clear()
+    assert legacy.resign(contact, _Who())["state"] == "resigned"
+
+    with pytest.raises(ApiError) as error:
+        legacy.start_claim(contact, _Who(), key, "application/pdf", PDF)
+    assert error.value.reason == "contact_ended"
+    assert legacy.claims_of(contact) == []
+    assert not list(legacy.dir.rglob("*.pdf"))
+
+
+def test_resignation_between_tick_read_and_grant_prevents_grant(rc, clock, monkeypatch):
+    owner_with_passkey(rc)
+    phone, key = legacy_phone(rc)
+    clock.advance(7 * DAY + 1)
+    cid = claim(rc, phone, key).json()["id"]
+    clock.advance(30 * DAY + 1)
+    legacy = rc.app.state.legacy_contacts
+    legacy.ended_hooks.clear()
+    contact = legacy._get(phone.contact_id)
+    write = legacy._set
+
+    def resign_before_grant(row, expect, *where, **values):
+        if values.get("state") == "granted":
+            assert legacy.resign(contact, _Who())["state"] == "resigned"
+        return write(row, expect, *where, **values)
+
+    monkeypatch.setattr(legacy, "_set", resign_before_grant)
+    legacy.tick()
+    assert legacy._claim(cid).granted_at is None
+    legacy.tick()
+    row = legacy._claim(cid)
+    assert (row.state, row.end_reason, row.granted_at) == ("cancelled", "contact_ended", None)
+
+
+def test_resignation_without_hook_stops_an_open_export_stream(rc, clock):
+    owner_with_passkey(rc)
+    block = b"a" * (1 << 20)
+    put_home_file(rc, "letters.bin", block + b"last bytes")
+    phone, key = legacy_phone(rc)
+    c = granted(rc, clock, phone, key)
+    legacy = rc.app.state.legacy_contacts
+    contact = legacy._get(phone.contact_id)
+    legacy.ended_hooks.clear()
+    with closing(legacy.archive(contact, _Who())) as stream:
+        assert next(stream).startswith(b"letters.bin")
+        assert next(stream) == block
+        assert legacy.resign(contact, _Who())["state"] == "resigned"
+        assert legacy._claim(c["id"]).state == "granted"
+        assert list(stream) == []
+    assert legacy._claim(c["id"]).end_reason == "contact_ended"
 
 
 @pytest.mark.parametrize("notice", ["confirmed", "reminder", "awaiting_second"])
@@ -1392,7 +1507,7 @@ def test_cancellation_is_never_followed_by_an_obsolete_claim_notice(rc, clock, m
     if notice != "confirmed":
         clock.advance((7 if notice == "reminder" else 30) * DAY + 1)
     legacy = rc.app.state.legacy_contacts
-    cancel_worker = LegacyContacts(legacy.gw, legacy.ident)
+    cancel_worker = LegacyContacts(legacy.gw, legacy.ident, legacy.notify)
     log = []
     cancel_contended_or_done = Event()
     cancels = []

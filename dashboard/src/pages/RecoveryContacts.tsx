@@ -58,9 +58,10 @@ function useSdk() {
   return useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1 }), [token]);
 }
 
-export function RecoveryContacts() {
+// D-028 holds new invites and invite pickup until the shared enrollment checks are available.
+export function RecoveryContacts({ legacyEnrollmentAvailable = false }: { legacyEnrollmentAvailable?: boolean } = {}) {
   const { role } = useShell();
-  if (role === 'owner') return <><RunningRecoveries /><LegacyClaims owner /><OwnerContacts /><LegacyContacts /></>;
+  if (role === 'owner') return <><RunningRecoveries /><LegacyClaims owner /><OwnerContacts /><LegacyContacts enrollmentAvailable={legacyEnrollmentAvailable} /></>;
   return <><MyInvitations />{role === 'adult' && <LegacyClaims owner={false} />}</>;
 }
 
@@ -192,7 +193,7 @@ function MyInvitations() {
   );
 }
 
-function LegacyContacts() {
+function LegacyContacts({ enrollmentAvailable }: { enrollmentAvailable: boolean }) {
   const sdk = useSdk();
   const list = usePoll(() => checked(sdk.call<Legacy[]>({ method: 'GET', path: '/v1/auth/legacy/contacts' })), 0);
   const [name, setName] = useState('');
@@ -211,12 +212,13 @@ function LegacyContacts() {
   };
   return (
     <Card title="Legacy contacts" subtitle="People who may get a read-only copy of your files after your death. A claim waits, everyone in the household is told, and any sign-in by you cancels it.">
+      {!enrollmentAvailable && <p className="om-hint">Legacy contact enrollment is on hold until OneMind supports verification with a hardware key or first-key setup at the box.</p>}
       {list.data && list.data.length > 0 && (
         <ul aria-label="Legacy contacts">
           {list.data.map((c) => (
             <li key={c.id}>
               <strong>{c.display_name}</strong> · {STATE[c.state] ?? c.state} · claim waits {c.wait_days} days
-              {c.state === 'invited' && (
+              {enrollmentAvailable && c.state === 'invited' && (
                 <Button size="sm" variant="ghost" aria-label={`Show legacy invite for ${c.display_name}`} onClick={() => void act(async () => {
                   setInvite(await sdk.call<LegacyAdded>({ method: 'GET', path: `/v1/auth/legacy/contacts/${encodeURIComponent(c.id)}/invite` }));
                 })}>Show invite</Button>
@@ -228,7 +230,7 @@ function LegacyContacts() {
           ))}
         </ul>
       )}
-      <form onSubmit={(e) => { e.preventDefault(); void act(async () => {
+      {enrollmentAvailable && <form onSubmit={(e) => { e.preventDefault(); void act(async () => {
         const queued = await sdk.call<LegacyInviteRequest>({ method: 'POST', path: '/v1/auth/legacy/contacts', body: { kind: 'outside', display_name: name.trim(), wait_days: wait } });
         setApproval(queued.action_id);
         setName('');
@@ -240,7 +242,7 @@ function LegacyContacts() {
           </select>
         </label>
         <Button type="submit" size="sm" icon="plus">Request legacy invite</Button>
-      </form>
+      </form>}
       {approval && <p role="status"><Link to={href.approval(approval)}>Review legacy invite</Link> with your passkey. Then return here to copy it.</p>}
       {invite && (
         <div role="region" aria-label="Legacy invite to send">

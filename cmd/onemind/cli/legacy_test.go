@@ -21,6 +21,8 @@ func TestLegacyContactsAndClaims(t *testing.T) {
 		var b map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&b)
 		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/auth/legacy/contacts":
+			jsonOut(w, 200, []any{})
 		case r.Method == http.MethodPost && r.URL.Path == "/v1/auth/legacy/contacts":
 			bodies = append(bodies, b)
 			jsonOut(w, 202, map[string]any{"action_id": "action_9", "contact_id": "rc_9", "wait_days": b["wait_days"]})
@@ -39,6 +41,14 @@ func TestLegacyContactsAndClaims(t *testing.T) {
 	t.Cleanup(srv.Close)
 	t.Setenv("ONEMIND_HUB", srv.URL)
 	t.Setenv("ONEMIND_TOKEN", ownerTok)
+	if r := run(t, "", false, "legacy", "contacts", "list"); r.code != 0 ||
+		!strings.Contains(r.out, "enrollment is on hold") || strings.Contains(r.out, "contacts add") {
+		t.Fatalf("empty list %+v", r)
+	}
+	if r := run(t, "", false, "legacy", "contacts", "add", "--help"); r.code != 0 ||
+		!strings.Contains(r.out, "enrollment is on hold") {
+		t.Fatalf("add help %+v", r)
+	}
 	r := run(t, "", false, "legacy", "contacts", "add", "--name", "Ana", "--wait-days", "60")
 	if r.code != 0 || !strings.Contains(r.out, "60 days") || !strings.Contains(r.out, "Approve action_9") ||
 		!strings.Contains(r.out, "contacts invite rc_9") || strings.Contains(r.out, "omri1.l.s") {

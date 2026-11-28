@@ -140,16 +140,17 @@ class RecoveryContacts:
         }
 
     def tell(self, owner_id: str, event: str, data: dict, p: Principal | None = None, severity: str = "info",
-             audit_only: dict | None = None, record: Callable[[Session], None] | None = None) -> None:
+             audit_only: dict | None = None, record: Callable[[Session], None] | None = None,
+             commit: Callable[[Callable[[Session], None]], None] | None = None) -> None:
         """Tell every owner (a notification) and every contact of this owner (their notices feed).
         `audit_only` facts go into the event (and so the audit) but not into the contacts' feed.
-        `record` can persist delivery bookkeeping in the same transaction as the feed entry."""
+        `record` writes bookkeeping with the feed entry. `commit` can include required inbox writes
+        in the same transaction, before publishing the event."""
         domain, _, name = event.partition(".")
-        self.gw.events.publish_event(domain, name, {"owner_user_id": owner_id, **data, **(audit_only or {})},
-                                     principal=p.as_dict() if p else None, severity=severity)
         now = self.now()
         notice_id = new_id("rn")
-        with self.db.session.begin() as s:
+
+        def store(s: Session) -> None:
             s.add(NoticeRow(id=notice_id, owner_user_id=owner_id, at=now, event=event, data=data))
             old = list(s.scalars(select(NoticeRow.id).where(NoticeRow.owner_user_id == owner_id, NoticeRow.id != notice_id)
                                  .order_by(NoticeRow.at.desc()).offset(NOTICES_KEPT - 1)))
@@ -157,6 +158,14 @@ class RecoveryContacts:
                 s.delete(s.get(NoticeRow, nid))
             if record is not None:
                 record(s)
+
+        if commit is not None:
+            commit(store)
+        self.gw.events.publish_event(domain, name, {"owner_user_id": owner_id, **data, **(audit_only or {})},
+                                     principal=p.as_dict() if p else None, severity=severity)
+        if commit is None:
+            with self.db.session.begin() as s:
+                store(s)
 
     # ---- settings (the owner's waits) ------------------------------------------------------------------
     def settings(self, owner_id: str) -> dict:

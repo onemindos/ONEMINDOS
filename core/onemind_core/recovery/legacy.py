@@ -42,6 +42,7 @@ import contextvars
 import fcntl
 import hashlib
 import hmac
+import logging
 import os
 import re
 import secrets
@@ -50,11 +51,12 @@ import tarfile
 from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime, timedelta
+from functools import partial
 from pathlib import Path
 
 from sqlalchemy import DateTime, Index, String, cast, or_, select, text, update
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.orm import Mapped, Session, mapped_column
 from sqlalchemy.types import JSON
 
 from ..actions import FeatureAction
@@ -67,6 +69,7 @@ from ..identity.crypto import new_id
 from ..identity.models import ApproverKeyRow, PasskeyRow, TokenRow, UserRow, iso
 from ..identity.service import AuthContext
 from ..ledger import Base, utc
+from ..notify.service import NotifyService
 from .contacts import ROLE_PATHS, RecoveryContacts
 from .models import ContactRow
 
@@ -76,8 +79,8 @@ DEFAULT_WAIT_DAYS = 30
 EXPORT_WINDOW = timedelta(days=365)  # D-028: 12 months; the data is never deleted afterwards
 INVITE_ACTION = "legacy.contact.add"
 NOTICE_EVERY = timedelta(days=7)
-# Older gateways could write "last_day" before the notice reached the feed.
-FINAL_NOTICE_RECORDED = "last_day_recorded"
+# Older gateways could record "last_day" or "last_day_recorded" without a durable owner inbox item.
+FINAL_NOTICE_RECORDED = "last_day_inbox_recorded"
 # The gateway takes request bodies up to 256 KiB (guard.py); base64 grows a file by a third, so the phone app
 # sends a downsized photo or a small PDF. Chunked uploads of bigger files are a follow-up.
 MAX_CERTIFICATE_BYTES = 180 * 1024
@@ -87,6 +90,7 @@ CERT_TYPES = {b"%PDF-": ("application/pdf", "pdf"), b"\xff\xd8\xff": ("image/jpe
               b"\x89PNG\r\n\x1a\n": ("image/png", "png")}
 OPEN_STATES = ("waiting", "awaiting_second")
 LIVE_STATES = (*OPEN_STATES, "granted")  # every state the owner's return must end
+log = logging.getLogger(__name__)
 LEGACY_PATHS = [
     re.compile(r"/v1/legacy/contact(/notices|/resign)?"),
     re.compile(r"/v1/legacy/claims(/lcl_[0-9A-Z]{26}/confirm)?"),
@@ -151,8 +155,9 @@ class LegacyContacts(RecoveryContacts):
     principal_kind = "legacy"
     noun = "legacy contact"
 
-    def __init__(self, gw, ident):
+    def __init__(self, gw, ident, notify: NotifyService):
         super().__init__(gw, ident)
+        self.notify = notify
         self.dir = gw.settings.audit_path.parent / "recovery" / "legacy"
         self.files = None  # () -> the FilesService; set by the router (files registers after recovery)
         self.ended_hooks.append(self._contact_ended)
@@ -270,6 +275,15 @@ class LegacyContacts(RecoveryContacts):
         with self.db.session() as s:
             return s.get(ClaimRow, claim_id)
 
+    def _lock_active_contact(self, s: Session, claim: ClaimRow, now: datetime) -> bool:
+        # The write locks the same row updated by removal and resignation until this transaction commits.
+        locked = s.scalar(update(ContactRow).where(
+            ContactRow.id == claim.contact_id, ContactRow.owner_user_id == claim.owner_user_id,
+            ContactRow.role == self.role, ContactRow.state == "active",
+            or_(ContactRow.usable_at.is_(None), ContactRow.usable_at <= now),
+        ).values(last_seen_at=ContactRow.last_seen_at).returning(ContactRow.id))
+        return locked is not None
+
     def _set(self, row: ClaimRow, expect: tuple[str, ...], *where, **values) -> bool:
         """Compare-and-set: write only while the claim is still in one of the `expect` states (and any extra
         `where` conditions hold), checked by the database at the write. So a sign-in that cancels a claim
@@ -281,6 +295,8 @@ class LegacyContacts(RecoveryContacts):
                 # Serialize with Identity's owner activity writes. SQLite locks the writer and
                 # PostgreSQL locks this owner row until the grant transaction commits.
                 self._lock_owner(s, row.owner_user_id)
+                if not self._lock_active_contact(s, row, self.now()):
+                    return False
                 where += (~self._activity_after(row.owner_user_id, utc(row.created_at)),
                           ~self._granted_before(row.owner_user_id, row.contact_id),
                           cast(ClaimRow.notices_sent, String).contains(f'"{FINAL_NOTICE_RECORDED}"', autoescape=True))
@@ -394,6 +410,8 @@ class LegacyContacts(RecoveryContacts):
             try:
                 with self.db.session.begin() as s:
                     self._lock_owner(s, row.owner_user_id)
+                    if not self._lock_active_contact(s, row, now):
+                        raise self._contact_unavailable()
                     if s.scalar(select(self._granted_before(row.owner_user_id, row.contact_id))):
                         raise self._export_already_granted()
                     s.add(row)
@@ -418,6 +436,10 @@ class LegacyContacts(RecoveryContacts):
             past.c.owner_user_id == owner_id, past.c.granted_at.is_not(None),
             or_(past.c.contact_id == contact_id, past.c.state == "granted"),
         ).exists()
+
+    @staticmethod
+    def _contact_unavailable() -> ApiError:
+        return ApiError(403, "permission_denied", "the legacy contact is no longer active", reason="contact_ended")
 
     @staticmethod
     def _export_already_granted() -> ApiError:
@@ -606,10 +628,10 @@ class LegacyContacts(RecoveryContacts):
             def record(s):
                 s.execute(update(ClaimRow).where(ClaimRow.id == c.id).values(notices_sent=[*sent, *new]))
 
-            notice = "last_day" if new[-1] == FINAL_NOTICE_RECORDED else new[-1]
-            self.tell(c.owner_user_id, "legacy.claim.reminder",
-                      {"claim_id": c.id, "ends_at": iso(c.ends_at), "notice": notice}, severity="critical",
-                      record=record)
+            final_day = new[-1] == FINAL_NOTICE_RECORDED
+            data = {"claim_id": c.id, "ends_at": iso(c.ends_at), "notice": "last_day" if final_day else new[-1]}
+            commit = partial(self.notify.record_legacy_final_notice, c.owner_user_id, data) if final_day else None
+            self.tell(c.owner_user_id, "legacy.claim.reminder", data, severity="critical", record=record, commit=commit)
             return c, True
 
     def tick(self) -> int:
@@ -624,9 +646,18 @@ class LegacyContacts(RecoveryContacts):
                 self._end_claim(c, "cancelled", "owner_active", None)
                 done += 1
                 continue
+            claimant = self._get(c.contact_id)
+            if claimant is None or self.state_of(claimant, now) != "active":
+                self._end_claim(c, "cancelled", "contact_ended", None)
+                done += 1
+                continue
             if c.state == "granted":
                 continue
-            c, reminded = self._remind(c, now)
+            try:
+                c, reminded = self._remind(c, now)
+            except SQLAlchemyError:
+                log.exception("Could not persist the legacy claim reminder for %s", c.id)
+                continue  # No grant on this pass. Retry the reminder on the next tick.
             if c.state not in OPEN_STATES:
                 continue
             end = utc(c.ends_at)
@@ -634,11 +665,6 @@ class LegacyContacts(RecoveryContacts):
                 done += int(reminded)
                 continue
             if c.second_at is None:
-                claimant = self._get(c.contact_id)
-                if claimant is None:
-                    self._end_claim(c, "cancelled", "contact_ended", None, expect=OPEN_STATES)
-                    done += 1
-                    continue
                 if self._second_people(c.owner_user_id, claimant):
                     awaiting = (c.state != "awaiting_second" or not c.needs_second) and self._set_and_tell(
                         c, (c.state,), ClaimRow.needs_second.is_(c.needs_second), ClaimRow.second_at.is_(None),
@@ -686,6 +712,10 @@ class LegacyContacts(RecoveryContacts):
     def _check_export_access(self, c: ClaimRow | None) -> ClaimRow:
         if c is None or c.state != "granted":
             raise ApiError(403, "permission_denied", "no granted legacy claim", reason="no_granted_claim")
+        contact = self._get(c.contact_id)
+        if contact is None or self.state_of(contact) != "active":
+            self._end_claim(c, "cancelled", "contact_ended", None, expect=("granted",))
+            raise self._contact_unavailable()
         if c.granted_at is None or self._owner_active_since(c.owner_user_id, utc(c.created_at)):
             self._end_claim(c, "cancelled", "owner_active", None, expect=("granted",))
             raise ApiError(403, "permission_denied", "the owner was active after the grant; the claim has ended",

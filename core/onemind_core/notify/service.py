@@ -29,9 +29,12 @@ import logging
 import threading
 import time
 from collections import defaultdict, deque
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
+
+from sqlalchemy.orm import Session
 
 from ..audit import AUDIT_SUBJECT
 from ..auth import Principal
@@ -168,6 +171,8 @@ class NotifyService:
         if spec is None:
             return
         data = dict(envelope.get("data") or {})
+        if spec.type == "legacy.claim.reminder" and data.get("notice") == "last_day":
+            return  # Recovery commits the final reminder with the claim's notice marker.
         enrich = self.gw.notify_enrichers.get(str(envelope.get("type", "")).split(".", 1)[0])
         if enrich is not None:
             try:
@@ -251,13 +256,27 @@ class NotifyService:
             if spec.kind == "open":
                 self._open(spec, data, source)
             elif spec.kind in ("notify", "inbox"):
-                self._fanout(
-                    self._recipients(self._audience(spec, data)), severity=self._severity(spec, data),
-                    topic=catalogue.topic_for(spec, data), title=catalogue.render(spec.title, data),
-                    body=catalogue.render(spec.body, data), link=self._link(spec, data), source=source,
-                    action_id=data.get("action_id"), alert_id=None, inapp_only=spec.kind == "inbox",
-                    **self._chip(spec.type, source),
-                )
+                self._notify(spec, data, source)
+
+    def record_legacy_final_notice(self, owner_id: str, data: dict, record: Callable[[Session], None]) -> None:
+        """Commit the owner's inbox item, household fanout and recovery bookkeeping together."""
+        spec = catalogue.lookup("legacy.claim.reminder")
+        assert spec is not None
+        with self._lock:
+            self._notify(spec, data, "gateway", required_person=owner_id, record=record)
+
+    def _notify(self, spec: Spec, data: dict, source: str, *, required_person: str | None = None,
+                record: Callable[[Session], None] | None = None) -> None:
+        people = self._recipients(self._audience(spec, data))
+        if required_person is not None and required_person not in people:
+            people.append(required_person)
+        self._fanout(
+            people, severity=self._severity(spec, data),
+            topic=catalogue.topic_for(spec, data), title=catalogue.render(spec.title, data),
+            body=catalogue.render(spec.body, data), link=self._link(spec, data), source=source,
+            action_id=data.get("action_id"), alert_id=None, inapp_only=spec.kind == "inbox",
+            record=record, **self._chip(spec.type, source),
+        )
 
     def _chip(self, event_type: str, source: str) -> dict:
         """Where a catalogue item came from: the node or the gateway, and the built-in that routes it."""
@@ -407,9 +426,11 @@ class NotifyService:
                 link: str | None, source: str, action_id: str | None, alert_id: str | None,
                 inapp_only: bool, source_kind: str = "system", app_id: str | None = None,
                 asset_id: str | None = None, group_key: str | None = None,
-                actions: list[dict] | None = None, delivery_delay: timedelta = timedelta()) -> list[str]:
+                actions: list[dict] | None = None, delivery_delay: timedelta = timedelta(),
+                record: Callable[[Session], None] | None = None) -> list[str]:
         now = self.clock()
         created = []
+        pending = []
         for pid in people:
             nid = new_id("ntf")
             row = NotificationRow(
@@ -437,16 +458,26 @@ class NotifyService:
                     elif held is not None:
                         d.state, d.held_reason, d.release_at, d.next_attempt_at = "held", held[0], held[1], None
                     deliveries.append(d)
-            self.repo.add_notification(row, deliveries)
-            self.gw.events.publish_event(
-                "notification", "created",
-                {"notification_id": nid, "source_kind": source_kind, "app_id": app_id, "asset_id": asset_id,
-                 "group_key": group_key}, severity=severity,
-                resource={"kind": "notification", "id": nid},
-            )
+            if record is None:
+                self.repo.add_notification(row, deliveries)
+                self._notification_created(row)
+            else:
+                pending.append((row, deliveries))
             created.append(nid)
+        if record is not None:
+            self.repo.add_notifications(pending, record)
+            for row, _ in pending:
+                self._notification_created(row)
         self._kick.set()
         return created
+
+    def _notification_created(self, row: NotificationRow) -> None:
+        self.gw.events.publish_event(
+            "notification", "created",
+            {"notification_id": row.id, "source_kind": row.source_kind, "app_id": row.app_id,
+             "asset_id": row.asset_id, "group_key": row.group_key}, severity=row.severity,
+            resource={"kind": "notification", "id": row.id},
+        )
 
     # ---- delivery -----------------------------------------------------------------------
     def pump(self) -> int:

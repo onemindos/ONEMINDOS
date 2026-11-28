@@ -327,7 +327,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     gw.authenticators.append(svc.authenticate)
     rec = Recoveries(svc)
     app.state.recoveries = rec
-    legacy = LegacyContacts(gw, ident)
+    legacy = LegacyContacts(gw, ident, app.state.notify)
     register_legacy_paths()
     legacy.register_actions()
     legacy.files = lambda: getattr(app.state, "files_service", None)

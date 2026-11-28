@@ -88,7 +88,7 @@ it('queues the legacy invite for review and shows the signed invite only after a
     return Response.json([]);
   });
   const user = userEvent.setup();
-  const view = render(<MemoryRouter><RecoveryContacts /></MemoryRouter>);
+  const view = render(<MemoryRouter><RecoveryContacts legacyEnrollmentAvailable /></MemoryRouter>);
   await user.type(screen.getByLabelText('Legacy contact name'), 'Legacy recipient');
   await user.selectOptions(screen.getByLabelText('Claim wait'), '60');
   await user.click(screen.getByRole('button', { name: 'Request legacy invite' }));
@@ -97,9 +97,27 @@ it('queues the legacy invite for review and shows the signed invite only after a
   expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ kind: 'outside', display_name: 'Legacy recipient', wait_days: 60 });
   view.unmount();
   approved = true;
-  render(<MemoryRouter><RecoveryContacts /></MemoryRouter>);
+  render(<MemoryRouter><RecoveryContacts legacyEnrollmentAvailable /></MemoryRouter>);
   await user.click(await screen.findByRole('button', { name: 'Show legacy invite for Legacy recipient' }));
   expect(await screen.findByLabelText('Legacy invite text')).toHaveValue('omri1.p.s');
+});
+
+it('shows the legacy enrollment hold while allowing outstanding invites to be removed', async () => {
+  state.role = 'owner';
+  handlesLegacy = true;
+  const legacyContact = { ...contact, id: 'rc_9', role: 'legacy', state: 'invited', display_name: 'Legacy recipient', wait_days: 60 };
+  const calls = gateway((_method, path) => {
+    if (path === '/v1/auth/recovery/settings') return Response.json(waits);
+    if (path === '/v1/auth/legacy/contacts') return Response.json([legacyContact]);
+    return Response.json([]);
+  });
+  render(<RecoveryContacts />);
+  expect(screen.getByText(/Legacy contact enrollment is on hold/)).toBeVisible();
+  const remove = await screen.findByRole('button', { name: 'Remove legacy contact Legacy recipient' });
+  expect(screen.queryByRole('button', { name: 'Request legacy invite' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Show legacy invite for Legacy recipient' })).toBeNull();
+  await userEvent.setup().click(remove);
+  expect(calls.some((c) => c.method === 'DELETE' && c.path === '/v1/auth/legacy/contacts/rc_9')).toBe(true);
 });
 
 it('shows a household adult the invitations addressed to them and nothing to manage', async () => {
