@@ -16,7 +16,7 @@ from conftest import ADULT, AGENT, OWNER
 from onemind_core.apimodels import SERIAL_RADIO_KINDS, NodeCapabilities
 from onemind_core.app import create_app
 from onemind_core.openapi import document
-from test_identity import audit_events, enrol, id_settings, setup_owner
+from test_identity import LOCAL_PEER, audit_events, enrol, id_settings, setup_owner
 from test_node_capabilities import SUBJECT, profile
 from test_nodes_catalog import heartbeat
 
@@ -167,7 +167,7 @@ def test_a_planted_dongle_radio_drops_the_profile_and_names_nothing(client):
 
 
 def test_a_child_cannot_read_radio_cards(settings, clock, executor):
-    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor)) as hc:
+    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor), client=LOCAL_PEER) as hc:
         setup_owner(hc)
         hub(hc)
         assert len(hc.get("/v1/radios").json()) == 3

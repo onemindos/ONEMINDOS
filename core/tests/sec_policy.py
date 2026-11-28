@@ -124,7 +124,29 @@ def others_objects(owner: int, child: int = 404) -> dict:
 
 
 POLICY |= {
-    ("POST", "/v1/auth/setup"): Row(cells(401, owner=201), w.p_setup, "§12.6 first owner needs the install owner token", ID),
+    ("POST", "/v1/auth/setup"): Row(cells(401), w.p_setup, "D-034: screen-equipped setup requires the on-box code", ID),
+    ("GET", "/v1/auth/setup/status"): Row(OPEN, w.p_static("/v1/auth/setup/status"), "D-034 public first-run state", ID),
+    ("POST", "/v1/auth/setup/options"): Row(cells(200, child=409, expired=409), w.p_static("/v1/auth/setup/options"),
+                                             "D-034 public LAN proof; 409 once there is an owner", ID),
+    ("POST", "/v1/auth/setup/kit"): Row(own_credentials(409), w.p_static("/v1/auth/setup/kit"),
+                                         "D-034 pending owner only", ID),
+    ("POST", "/v1/auth/setup/finish"): Row(own_credentials(409), lambda world: w.Req("/v1/auth/setup/finish", json={
+        "saved": True, "method": "download", "recovery_code": "probe"}), "D-034 pending owner confirms the kit", ID),
+    ("POST", "/v1/auth/recovery/options"): Row(OPEN, w.p_recovery_options,
+                                                "D-034 public LAN proof; no account data is returned", ID),
+    ("POST", "/v1/auth/recovery/reset"): Row(cells(401), lambda world: w.Req("/v1/auth/recovery/reset", json={
+        "challenge_id": "missing", "box_code": "123456", "recovery_code": "probe", "new_password": "new local password"}),
+        "D-034 both the screen and recovery kit code are required", ID),
+    ("GET", "/v1/auth/recovery/remote"): Row(own_credentials(403), w.p_static("/v1/auth/recovery/remote"),
+                                             "D-034 a signed-in owner may read their remote recovery status", ID),
+    ("POST", "/v1/auth/recovery/remote"): Row(own_credentials(403), lambda world: w.Req("/v1/auth/recovery/remote", json={
+        "recovery_code": "probe"}), "D-034 remote recovery needs an owner session with L1 and a kit code", ID),
+    ("DELETE", "/v1/auth/recovery/remote"): Row(own_credentials(403), w.p_static("/v1/auth/recovery/remote"),
+                                                "D-034 a signed-in owner may cancel their remote recovery", ID),
+    ("POST", "/v1/auth/email/options"): Row(own_credentials(409), w.p_static("/v1/auth/email/options"),
+                                            "D-034 verify an address from its account's own session", ID),
+    ("POST", "/v1/auth/email/verify"): Row(own_credentials(401), lambda world: w.Req("/v1/auth/email/verify", json={
+        "challenge_id": "missing", "code": "123456"}), "D-034 bind address confirmation to the same session", ID),
     ("POST", "/v1/auth/login/options"): Row(OPEN, w.p_static("/v1/auth/login/options"), "§12.6 anyone", ID),
     ("POST", "/v1/auth/login"): Row(OPEN, w.p_login, "§12.6 anyone, by password", ID),
     ("POST", "/v1/auth/enrol"): Row(cells(201), w.p_enrol, "§12.6 anyone holding an enrolment code", ID),
@@ -149,6 +171,19 @@ POLICY |= {
                                            "#702 own approver keys", ID, UNAUDITED),
     ("DELETE", "/v1/auth/approver-keys/{key_id}"): Row(own_credentials(404), w.p_static("/v1/auth/approver-keys/apk_none"),
                                                        "#702 own approver keys", ID, UNAUDITED),
+    # D-028 verification levels: a person's own step-up (a session; the probe has no passkey, so 409 and 401),
+    # and the owner's verification table and trusted key models.
+    ("POST", "/v1/auth/step-up/options"): Row(own_credentials(409), lambda w_: w.Req("/v1/auth/step-up/options", json={"op": "users.update"}),
+                                              "D-028 a signed-in person's own step-up", ID, UNAUDITED),
+    ("POST", "/v1/auth/step-up"): Row(own_credentials(401), lambda w_: w.Req("/v1/auth/step-up", json={"credential": {"id": "x"}}),
+                                      "D-028 a signed-in person's own step-up (the probe's assertion is not real)", ID, UNAUDITED),
+    ("GET", "/v1/verification-requirements"): Row(ACCOUNT_ADMIN, w.p_static("/v1/verification-requirements"),
+                                                  "D-028 the owner's verification table", ID),
+    ("GET", "/v1/auth/authenticator-allowlist"): Row(ACCOUNT_ADMIN, w.p_static("/v1/auth/authenticator-allowlist"),
+                                                     "D-028 the owner's trusted key models", ID),
+    ("DELETE", "/v1/auth/authenticator-allowlist/{aaguid}"): Row(cells(403, **GONE, owner=404, **PENDING_DENY),
+                                                                 w.p_static("/v1/auth/authenticator-allowlist/a1b2c3d4000040008000000000000000"),
+                                                                 "D-028 owner; taking trust away needs no step-up", ID),
     ("GET", "/v1/auth/methods"): Row(own_credentials(200), w.p_static("/v1/auth/methods"), "§12.6 own sign-in methods", ID, UNAUDITED),
     ("POST", "/v1/auth/password"): Row(own_credentials(204), w.p_password, "§12.6 own credentials", ID, UNAUDITED),
     ("POST", "/v1/auth/totp/setup"): Row(own_credentials(200), w.p_static("/v1/auth/totp/setup"), "§12.6 own credentials", ID, UNAUDITED),
@@ -156,8 +191,17 @@ POLICY |= {
     ("POST", "/v1/auth/totp/disable"): Row(own_credentials(204), w.p_totp_disable, "§12.6 own credentials", ID, UNAUDITED),
     ("GET", "/v1/me"): Row(SIGNED_IN, w.p_static("/v1/me"), "§12.6 any principal", ID),
     ("GET", "/v1/users"): Row(ACCOUNT_ADMIN, w.p_static("/v1/users"), "§12.6 users:read is owner only", ID),
-    ("POST", "/v1/users"): Row(cells(403, **GONE, owner=201, **PENDING_DENY), w.p_user_create, "§12.6 owner", ID),
-    ("PATCH", "/v1/users/{user_id}"): Row(ACCOUNT_ADMIN, w.p_user_patch, "§12.6 owner", ID),
+    ("POST", "/v1/users"): Row(cells(403, **GONE, **PENDING_DENY), w.p_user_create,
+                              "D-034 direct invitations require a verified owner session", ID),
+    ("POST", "/v1/users/invites"): Row(cells(403, **GONE, **PENDING_DENY), lambda world: w.Req("/v1/users/invites", json={
+        "display_name": "Family", "role": "adult"}), "D-034 owner session files family invitation for approval", ID),
+    ("POST", "/v1/users/{user_id}/invite"): Row(cells(403, **GONE, **PENDING_DENY), w.p_reinvite,
+                                                 "D-034 owner session files family credential replacement for approval", ID),
+    ("POST", "/v1/users/invites/{action_id}/claim"): Row(cells(403, **GONE, **PENDING_DENY),
+                                                        w.p_static("/v1/users/invites/act_missing/claim"),
+                                                        "D-034 only the approving owner session can collect a family invitation", ID),
+    ("PATCH", "/v1/users/{user_id}"): Row(cells(403, **GONE, owner=401, **PENDING_DENY), w.p_user_patch,
+                                            "D-034 owner step-up; this probe uses a static token", ID),
     ("POST", "/v1/users/{user_id}/disable"): Row(ACCOUNT_ADMIN, w.p_user_disable, "§12.6 owner", ID),
     ("GET", "/v1/tokens"): Row(cells(200, **GONE, child=403, **PENDING_DENY), w.p_static("/v1/tokens"),
                                "§12.6 owner all, others own; a child's role defaults hold no tokens scope", ID),
@@ -607,6 +651,11 @@ POLICY |= {
     ("GET", "/v1/backups/kit"): Row(ONLY_OWNER, w.p_static("/v1/backups/kit"), f"{_BACKUPS}: the emergency kit is owner only"),
     # #1124: the kit is issued even with backups off (a kit without a destination), so the owner gets 201
     ("POST", "/v1/backups/kit"): Row(grid(201, 403, 403, 403, 403), w.p_static("/v1/backups/kit"), f"{_BACKUPS}: the emergency kit is owner only"),
+    # The request files the same issuance (D-028: no destination needed, so 202 with backups off)
+    ("POST", "/v1/backups/kit/request"): Row(grid(202, 403, 403, 403, 403), w.p_static("/v1/backups/kit/request"),
+                                             f"{_BACKUPS}: only the owner files a kit request"),
+    ("POST", "/v1/backups/kit/{action_id}/claim"): Row(OWNER_ONLY_404, w.p_static("/v1/backups/kit/act_missing/claim"),
+                                                       f"{_BACKUPS}: only the approving owner session claims the key"),
     ("POST", "/v1/backups/kit/confirm"): Row(OWNER_ONLY_404, w.p_missing("/v1/backups/kit/confirm", json={"answers": {}}),
                                              f"{_BACKUPS}: the emergency kit is owner only"),
     # ---- first-run settings (contract 12.41) ----------------------------------------------------------------

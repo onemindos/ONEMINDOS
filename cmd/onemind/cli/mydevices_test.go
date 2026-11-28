@@ -92,7 +92,7 @@ func TestMyDevicesNeedsSessionAndPasskey(t *testing.T) {
 	var got []string
 	devicesHub(t, &got, true)
 	r := run(t, "", false, "my-devices", "remove", "dev_phone")
-	if r.code != ExitUnauthenticated || !strings.Contains(r.errOut, "passkey sign-in, which the CLI cannot do") {
+	if r.code != ExitUnauthenticated || !strings.Contains(r.errOut, "Confirm this change in the dashboard") {
 		t.Fatalf("%+v", r)
 	}
 	t.Setenv("ONEMIND_TOKEN", "pat-token")

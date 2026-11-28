@@ -28,6 +28,13 @@ EnvironmentFile=/data/onemind/etc/gateway.env
 # MALLOC_ARENA_MAX=2: at most two glibc malloc arenas (private heaps) instead of one per allocating thread;
 # keeps the idle gateway under its 100 MiB budget (test/perf/budget.json, issue #849). Same in deploy/systemd.
 Environment=HOME=/data/onemind/gateway PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 MALLOC_ARENA_MAX=2
+# D-028 / N-1 b: the box confirmation code goes here (0640, in the gateway's own folder); onemind-screen shows
+# it on tty1. Nothing on the network can read it, so typing it back proves a person is at the box.
+Environment=ONEMIND_IDENTITY_BOX_CODE_FILE=/data/onemind/gateway/box-code.json
+# Pass just this process a writable descriptor to the root-only RAM handoff. Plain disks have no key.
+OpenFile=/run/onemind/data-recovery-key:data-recovery-key:graceful
+Environment=ONEMIND_IDENTITY_RECOVERY_KEY_FILE=/run/onemind/data-recovery-key
+Environment=ONEMIND_IDENTITY_RECOVERY_DISK_STATE_FILE=/run/onemind/data-crypt.json
 WorkingDirectory=/data/onemind/gateway
 # The files root (ONEMIND_FILES_ROOT) must exist before this unit starts: systemd sets up the namespace for
 # ReadWritePaths= below before any ExecStartPre= (even "+"), and a missing path fails it with 226/NAMESPACE.

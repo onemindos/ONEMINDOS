@@ -20,18 +20,37 @@ from soft_authenticator import ORIGIN, RP_ID, SoftAuthenticator
 from onemind_core.app import create_app
 from onemind_core.identity import IdentitySettings
 from onemind_core.identity.crypto import b64url, totp_code, unb64url
+from onemind_core.netpath import LAN_NETS
 
 PASSWORD = "correct horse battery"
+LOCAL_PEER = (str(LAN_NETS[0].network_address + 7), 50000)
 
 
 def id_settings(settings, **changes):
+    # N-1 b: a box screen that shows confirmation codes (identity/presence.py); box_code() reads it, as a
+    # person standing at the box does.
+    changes.setdefault("box_code_file", settings.audit_path.parent / "box-code.json")
     cfg = IdentitySettings(rp_id=RP_ID, origins=(ORIGIN,), cookie_secure=False, **changes)
     return replace(settings, sections={**settings.sections, "identity": cfg})
 
 
+def at_box(c: TestClient, opts: dict) -> dict:
+    """{"box_code": ...} when approve-options or step-up options asked for it (N-1 b), as a person standing
+    at the box adds it; otherwise nothing."""
+    return {"box_code": box_code(c)} if opts.get("box_code_required") else {}
+
+
+def box_code(c: TestClient) -> str:
+    """The code the box's own screen shows now (what onemind-screen reads)."""
+    import json as _json
+
+    path = c.app.state.gateway.settings.section(IdentitySettings).box_code_file
+    return _json.loads(path.read_text())["code"]
+
+
 @pytest.fixture
 def idc(settings, clock, executor):
-    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor)) as c:
+    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor), client=LOCAL_PEER) as c:
         yield c
 
 
@@ -39,10 +58,37 @@ def csrf(c: TestClient) -> dict:
     return {"OneMind-CSRF": c.cookies.get("onemind_csrf")}
 
 
+def claim_owner(c: TestClient, *, install=OWNER, **account):
+    if c.get("/v1/auth/setup/status").json()["screen"]:
+        options = c.post("/v1/auth/setup/options")
+        assert options.status_code == 200, options.text
+        proof = {"challenge_id": options.json()["challenge_id"], "box_code": box_code(c)}
+        return c.post("/v1/auth/setup", json={**account, **proof})
+    return c.post("/v1/auth/setup", headers=install, json=account)
+
+
 def setup_owner(c: TestClient, username="zeus") -> dict:
-    r = c.post("/v1/auth/setup", headers=OWNER, json={"username": username, "display_name": "Zeus", "password": PASSWORD})
+    r = claim_owner(c, username=username, display_name="Zeus", password=PASSWORD)
     assert r.status_code == 201, r.text
+    confirm_setup_kit(c, csrf(c))
     return r.json()
+
+
+def confirm_setup_kit(c: TestClient, headers: dict) -> dict:
+    kit = c.post("/v1/auth/setup/kit", headers=headers)
+    assert kit.status_code == 200, kit.text
+    result = c.post("/v1/auth/setup/finish", headers=headers, json={
+        "saved": True, "method": "download", "recovery_code": kit.json()["recovery_code"]})
+    assert result.status_code == 204, result.text
+    return kit.json()
+
+
+def setup_bearer_owner(c: TestClient) -> dict:
+    account = claim_owner(c, username="zeus", password=PASSWORD, client="cli")
+    assert account.status_code == 201, account.text
+    headers = {"Authorization": f"Bearer {account.json()['access_token']}"}
+    confirm_setup_kit(c, headers)
+    return headers
 
 
 def audit_events(settings) -> list[dict]:
@@ -51,23 +97,26 @@ def audit_events(settings) -> list[dict]:
 
 def new_session_client(c: TestClient) -> TestClient:
     """A second browser on the same app (own cookie jar)."""
-    return TestClient(c.app)
+    return TestClient(c.app, client=LOCAL_PEER)
 
 
 # ---- bootstrap and sign-in ------------------------------------------------------------------------
-def test_setup_needs_install_owner_token_and_runs_once(idc, settings):
-    bad = idc.post("/v1/auth/setup", headers=GUEST, json={"username": "zeus", "password": PASSWORD})
-    assert bad.status_code == 401
-    body = setup_owner(idc)
-    assert body["principal"]["role"] == "owner" and body["session"]["id"].startswith("ses_")
-    assert "onemind_session" in idc.cookies and body["csrf_token"] == idc.cookies.get("onemind_csrf")
-    me = idc.get("/v1/me").json()
-    assert me["principal"]["username"] == "zeus" and me["session"]["auth_method"] == "setup"
-    assert "can_approve" in me["capabilities"] and me["scopes"] == ["*"]
-    again = idc.post("/v1/auth/setup", headers=OWNER, json={"username": "other", "password": PASSWORD})
-    assert again.status_code == 409 and again.json()["reason"] == "already_set_up"
-    events = [e["event"] for e in audit_events(settings)]
-    assert "auth.setup.rejected" in events and "auth.setup.completed" in events and "auth.login.succeeded" in events
+def test_headless_setup_needs_install_owner_token_and_runs_once(settings, clock, executor):
+    cfg = id_settings(settings, box_code_file=None)
+    with TestClient(create_app(cfg, clock=clock, executor=executor), client=LOCAL_PEER) as c:
+        assert c.get("/v1/auth/setup/status").json()["screen"] is False
+        bad = c.post("/v1/auth/setup", headers=GUEST, json={"username": "zeus", "password": PASSWORD})
+        assert bad.status_code == 401
+        body = setup_owner(c)
+        assert body["principal"]["role"] == "owner" and body["session"]["id"].startswith("ses_")
+        assert "onemind_session" in c.cookies and body["csrf_token"] == c.cookies.get("onemind_csrf")
+        me = c.get("/v1/me").json()
+        assert me["principal"]["username"] == "zeus" and me["session"]["auth_method"] == "setup"
+        assert "can_approve" in me["capabilities"] and me["scopes"] == ["*"]
+        again = c.post("/v1/auth/setup", headers=OWNER, json={"username": "other", "password": PASSWORD})
+        assert again.status_code == 409 and again.json()["reason"] == "already_set_up"
+        events = [e["event"] for e in audit_events(settings)]
+        assert "auth.setup.rejected" in events and "auth.setup.completed" in events and "auth.login.succeeded" in events
 
 
 def test_setup_accepts_first_boot_token_file(settings, clock, executor, tmp_path):
@@ -75,7 +124,7 @@ def test_setup_accepts_first_boot_token_file(settings, clock, executor, tmp_path
     f.write_text("first-boot-" + os.urandom(8).hex() + "\n")
     s = replace(settings, sections={"identity": IdentitySettings(rp_id=RP_ID, origins=(ORIGIN,), cookie_secure=False,
                                                                  setup_token_file=f)})
-    with TestClient(create_app(s, clock=clock, executor=executor)) as c:
+    with TestClient(create_app(s, clock=clock, executor=executor), client=LOCAL_PEER) as c:
         r = c.post("/v1/auth/setup", headers={"Authorization": "Bearer " + f.read_text().strip()},
                    json={"username": "zeus", "password": PASSWORD})
         assert r.status_code == 201
@@ -83,12 +132,13 @@ def test_setup_accepts_first_boot_token_file(settings, clock, executor, tmp_path
 
 def test_cookie_session_needs_csrf_on_unsafe_methods(idc, settings):
     setup_owner(idc)
+    register_passkey(idc, SoftAuthenticator())
     assert idc.get("/v1/users").status_code == 200  # GET needs no CSRF header
     r = idc.post("/v1/users", json={"display_name": "Ana", "role": "adult"})
     assert r.status_code == 403 and r.json()["reason"] == "csrf"
     r = idc.post("/v1/users", json={"display_name": "Ana", "role": "adult"}, headers={"OneMind-CSRF": "wrong"})
     assert r.status_code == 403
-    r = idc.post("/v1/users", json={"display_name": "Ana", "role": "adult"}, headers=csrf(idc))
+    r = stepped(idc, "POST", "/v1/users", json={"display_name": "Ana", "role": "adult"})
     assert r.status_code == 201
     assert any(e["event"] == "authz.denied" and e["data"]["payload"]["reason"] == "csrf" for e in audit_events(settings))
 
@@ -158,7 +208,7 @@ def test_bearer_session_for_cli_with_refresh(idc, clock):
     assert body["access_token"].startswith("om_ses_") and body["refresh_token"].startswith("om_ref_")
     assert "onemind_session" not in cli.cookies
     h = {"Authorization": "Bearer " + body["access_token"]}
-    assert cli.post("/v1/users", headers=h, json={"display_name": "Ana", "role": "adult"}).status_code == 201  # no CSRF
+    assert cli.patch("/v1/me", headers=h, json={"display_name": "My profile"}).status_code == 200  # no CSRF
     clock.advance(61 * 60)
     assert cli.get("/v1/me", headers=h).status_code == 401  # access token expired
     new = cli.post("/v1/auth/refresh", json={"refresh_token": body["refresh_token"]}).json()
@@ -187,7 +237,9 @@ def test_idle_session_expires(idc, clock):
 
 # ---- users, roles and sharing ---------------------------------------------------------------------
 def enrol(idc: TestClient, role: str, username: str) -> TestClient:
-    r = idc.post("/v1/users", json={"display_name": username.title(), "role": role}, headers=csrf(idc))
+    if not getattr(idc, "passkey", None):
+        register_passkey(idc, SoftAuthenticator())
+    r = stepped(idc, "POST", "/v1/users", json={"display_name": username.title(), "role": role})
     assert r.status_code == 201, r.text
     one = r.json()["one_time"]
     assert one["enrolment_url"].endswith("/signin#enrol=" + one["enrolment_code"])
@@ -242,15 +294,62 @@ def test_per_app_sharing(idc):
     assert idc.get("/v1/apps").json()  # the owner sees every app
     assert guest.get("/v1/apps").json() == []  # nothing shared yet
     gid = guest.get("/v1/me").json()["principal"]["id"]
-    r = idc.put("/v1/apps/whoami/access", json={"roles": ["adult"], "people": [gid]}, headers=csrf(idc))
+    r = stepped(idc, "PUT", "/v1/apps/whoami/access", json={"roles": ["adult"], "people": [gid]})
     assert r.status_code == 200 and r.json()["roles"] == ["owner", "adult"]  # owner always included
     assert [a["id"] for a in guest.get("/v1/apps").json()] == ["whoami"]
     mine = guest.get("/v1/apps/whoami/access").json()
     assert mine["allowed"] is True and mine["people"] == [{"id": gid, "display_name": "Gus"}] and mine["roles"] == []
     assert guest.put("/v1/apps/whoami/access", json={"roles": ["guest"]}, headers=csrf(guest)).status_code == 403
-    idc.put("/v1/apps/whoami/access", json={"roles": [], "people": []}, headers=csrf(idc))
+    assert stepped(idc, "PUT", "/v1/apps/whoami/access", json={"roles": [], "people": []}).status_code == 200
     assert guest.get("/v1/apps").json() == []  # removing access is instant
     assert idc.get("/v1/apps/nope/access").status_code == 404
+
+
+def test_app_access_answers_match_the_documented_schema(idc):
+    """The dashboard's sharing editor reads apps.access.get/set through the generated SDK types (#1214)."""
+    from onemind_core.routers.identity import AppAccess
+
+    setup_owner(idc)
+    guest = enrol(idc, "guest", "gus")
+    gid = guest.get("/v1/me").json()["principal"]["id"]
+    spec = idc.get("/openapi.json").json()
+    for method in ("get", "put"):
+        ok = spec["paths"]["/v1/apps/{app_id}/access"][method]["responses"]["200"]["content"]["application/json"]["schema"]
+        assert ok == {"$ref": "#/components/schemas/AppAccess"}
+    put = stepped(idc, "PUT", "/v1/apps/whoami/access", json={"roles": ["adult"], "people": [gid]})
+    assert AppAccess.model_validate(put.json()).people[0].id == gid
+    assert AppAccess.model_validate(idc.get("/v1/apps/whoami/access").json()).allowed is None  # an owner sees all
+    assert AppAccess.model_validate(guest.get("/v1/apps/whoami/access").json()).allowed is True
+
+
+def test_users_list_matches_the_documented_schema(idc):
+    """The sharing editor reads the people on the box through the generated SDK type (#1254 review)."""
+    from onemind_core.routers.identity import UserInfo
+
+    setup_owner(idc)
+    enrol(idc, "guest", "gus")
+    spec = idc.get("/openapi.json").json()
+    ok = spec["paths"]["/v1/users"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+    assert ok["type"] == "array" and ok["items"] == {"$ref": "#/components/schemas/UserInfo"}
+    users = [UserInfo.model_validate(u) for u in idc.get("/v1/users").json()]
+    assert {u.role for u in users} >= {"owner", "guest"}
+
+
+def test_moving_an_app_to_its_own_sign_in_asks_for_the_step_up(idc):
+    """Switching auth from OneMind's sign-in to the app's own counts as widening (#1254 review): OneMind stops
+    checking who opens the app, so it is a security setting that needs the same step-up as sharing more."""
+    setup_owner(idc)
+    key = SoftAuthenticator()
+    register_passkey(idc, key)
+    path = "/v1/apps/whoami/access"
+    r = idc.put(path, json={"roles": [], "people": [], "auth": "app"}, headers=csrf(idc))
+    assert r.status_code == 401 and r.json()["reason"] == "step_up_required"
+    assert idc.get(path).json()["auth"] == "onemind"
+    assert stepped(idc, "PUT", path, json={"roles": [], "people": [], "auth": "app"}).status_code == 200
+    # Keeping the app's sign-in while taking people away, or going back to OneMind's sign-in, needs none.
+    assert idc.put(path, json={"roles": [], "people": [], "auth": "app"}, headers=csrf(idc)).status_code == 200
+    r = idc.put(path, json={"roles": [], "people": [], "auth": "onemind"}, headers=csrf(idc))
+    assert r.status_code == 200 and r.json()["auth"] == "onemind"
 
 
 def test_static_file_principals_keep_v0_behaviour(idc):
@@ -337,7 +436,28 @@ def register_passkey(c: TestClient, auth: SoftAuthenticator) -> dict:
     assert opts["publicKey"]["authenticatorSelection"]["userVerification"] == "required"
     r = c.post("/v1/auth/passkeys/register", json={"credential": auth.register(opts), "label": "phone"}, headers=csrf(c))
     assert r.status_code == 201, r.text
+    c.passkey = auth  # the session's own key, for stepped() below
     return r.json()
+
+
+def stepped(c: TestClient, method: str, path: str, auth: SoftAuthenticator | None = None, **kw):
+    """Send a change as the owner standing at the box (D-028, N-1 b): when the hub names a step-up, make it
+    with this session's passkey, type the code the box's screen shows if it asks, and send it once more."""
+    headers = {**csrf(c), **kw.pop("headers", {})}
+    r = c.request(method, path, headers=headers, **kw)
+    step = next((d["step_up"] for d in (r.json().get("details") or []) if "step_up" in d), None) \
+        if r.status_code == 401 and r.headers.get("content-type", "").startswith("application/json") else None
+    key = auth or getattr(c, "passkey", None)
+    if step is None or key is None:
+        return r
+    opts = c.post("/v1/auth/step-up/options", json={k: step[k] for k in ("op", "target", "body")}, headers=csrf(c))
+    assert opts.status_code == 200, opts.text
+    sent = {"credential": key.assert_(opts.json()["publicKey"]["challenge"])}
+    if opts.json()["box_code_required"]:
+        sent["box_code"] = box_code(c)
+    g = c.post("/v1/auth/step-up", json=sent, headers=csrf(c))
+    assert g.status_code == 200, g.text
+    return c.request(method, path, headers={**headers, "OneMind-Step-Up": g.json()["step_up"]}, **kw)
 
 
 def test_passkey_register_and_login(idc, settings):
@@ -409,29 +529,37 @@ def test_step_up_for_user_admin_and_last_passkey(idc, clock):
     setup_owner(idc)
     key = SoftAuthenticator()
     register_passkey(idc, key)  # registering counts as a fresh passkey proof on this session
-    assert idc.post("/v1/users", json={"display_name": "A", "role": "adult"}, headers=csrf(idc)).status_code == 201
+    # Adding a person is an L2 row: during the grace that is the passkey plus the box's code (N-1 b), so
+    # the fresh sign-in alone is not enough, and a step-up made at the box is.
+    r = idc.post("/v1/users", json={"display_name": "A", "role": "adult"}, headers=csrf(idc))
+    assert r.status_code == 401 and r.json()["details"][0]["step_up"]["box"] == "required"
+    assert stepped(idc, "POST", "/v1/users", json={"display_name": "A", "role": "adult"}).status_code == 201
     clock.advance(301)
     r = idc.post("/v1/users", json={"display_name": "B", "role": "adult"}, headers=csrf(idc))
     assert r.status_code == 401 and r.json()["reason"] == "step_up_required"
-    # A password session cannot register a second passkey or remove one without a fresh passkey.
+    # A password-only session cannot add another key, but may revoke an ordinary passkey it lost.
     assert idc.post("/v1/auth/passkeys/register/options", headers=csrf(idc)).status_code == 401
     pw = new_session_client(idc)
-    pw.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD})
-    assert pw.delete(f"/v1/auth/passkeys/{b64url(key.cred_id)}", headers=csrf(pw)).status_code == 401
+    assert pw.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD}).status_code == 200
+    assert pw.delete(f"/v1/auth/passkeys/{b64url(key.cred_id)}", headers=csrf(pw)).status_code == 204
     pkc = new_session_client(idc)
     opts = pkc.post("/v1/auth/login/options").json()
-    pkc.post("/v1/auth/login", json={"passkey": key.assert_(opts["publicKey"]["challenge"])})
-    r = pkc.delete(f"/v1/auth/passkeys/{b64url(key.cred_id)}", headers=csrf(pkc))
-    assert r.status_code == 409 and r.json()["reason"] == "last_owner"
+    assert pkc.post("/v1/auth/login", json={"passkey": key.assert_(opts["publicKey"]["challenge"])}).status_code == 401
+    assert pw.get("/v1/me").status_code == 200
 
 
-def test_passkey_off_switch_keeps_token_approvals(settings, clock, executor):
+def test_legacy_passkey_off_switch_does_not_skip_required_verification(settings, clock, executor):
+    from test_identity_levels import approve
+
     s = id_settings(settings, require_passkey_approval=False)
-    with TestClient(create_app(s, clock=clock, executor=executor)) as c:
+    with TestClient(create_app(s, clock=clock, executor=executor), client=LOCAL_PEER) as c:
         setup_owner(c)
-        register_passkey(c, SoftAuthenticator())
+        key = SoftAuthenticator()
+        register_passkey(c, key)
         aid = c.post("/v1/actions", json=action_body(clock), headers=OWNER).json()["id"]
-        assert c.post(f"/v1/actions/{aid}/approve", headers=OWNER).status_code == 200
+        bare = c.post(f"/v1/actions/{aid}/approve", headers=OWNER)
+        assert bare.status_code == 401 and bare.json()["reason"] == "step_up_required"
+        assert approve(c, aid, key).status_code == 200
 
 
 # ---- misc -----------------------------------------------------------------------------------------
@@ -683,7 +811,7 @@ def test_display_name_never_changes_the_stable_identity_and_the_change_is_audite
 
 
 # ---- the printed kit at the rescue console: no dead end for an owner who lost every passkey (D-028) ----------
-def at_box(idc) -> TestClient:
+def box_client(idc) -> TestClient:
     """A caller on the box itself (the rescue console connects from loopback)."""
     return TestClient(idc.app, client=("127.0.0.1", 40000))
 
@@ -698,13 +826,13 @@ def test_rescue_console_with_no_passkey_offers_the_kit_not_a_dead_end(idc, setti
     setup_owner(idc)
     # nothing to step up with and no kit: still 409 (standing at the box is never enough)
     assert idc.post("/v1/auth/rescue/options", headers=OWNER).status_code == 409
-    box = at_box(idc)
+    box = box_client(idc)
     assert box.post("/v1/auth/rescue/kit", headers=OWNER, json={"kit_key": "A" * 52}).status_code == 409
     kit = _issue_kit(idc)
     opts = idc.post("/v1/auth/rescue/options", headers=OWNER)
     assert opts.status_code == 200 and opts.json() == {"methods": ["kit"], "kit": True}
     assert box.post("/v1/auth/rescue/kit", headers=AGENT, json={"kit_key": kit["owner_key"]}).status_code in (401, 403)
-    assert at_box(idc).post("/v1/auth/rescue/kit", json={"kit_key": kit["owner_key"]}).status_code == 401
+    assert box_client(idc).post("/v1/auth/rescue/kit", json={"kit_key": kit["owner_key"]}).status_code == 401
     wrong = box.post("/v1/auth/rescue/kit", headers=OWNER, json={"kit_key": "-".join(["ABCD"] * 13)})
     assert wrong.status_code == 401 and wrong.json()["reason"] == "kit_key_wrong"
     ok = box.post("/v1/auth/rescue/kit", headers=OWNER, json={"kit_key": kit["owner_key"]})
@@ -725,41 +853,125 @@ def test_rescue_options_with_a_passkey_also_offers_the_kit_once_issued(idc):
     assert opts["methods"] == ["passkey", "kit"] and opts["publicKey"]["allowCredentials"][0]["id"] == b64url(key.cred_id)
 
 
+def _approve_kit_with_passkey(c: TestClient, key: SoftAuthenticator, aid: str) -> dict:
+    """Approve a kit request from this session with its passkey, at the box when the level asks for it (D-034)."""
+    approve = f"/v1/actions/{aid}/approve"
+    opts = c.post(approve + "-options", headers=csrf(c), json={"at_box": True})
+    if opts.status_code != 200:
+        opts = c.post(approve + "-options", headers=csrf(c))
+    assert opts.status_code == 200, opts.text
+    proof = {"webauthn": key.assert_(opts.json()["challenge"]), **at_box(c, opts.json())}
+    approved = c.post(approve, headers=csrf(c), json=proof)
+    assert approved.status_code == 200 and approved.json()["state"] == "succeeded", approved.text
+    return approved.json()
+
+
+def _file_kit(c: TestClient, key: str) -> str:
+    filed = c.post("/v1/backups/kit/request", headers={**csrf(c), "Idempotency-Key": key})
+    assert filed.status_code == 202 and filed.json()["state"] == "awaiting_approval", filed.text
+    assert "one_time" not in filed.json()
+    return filed.json()["id"]
+
+
+def _passkey_session(c: TestClient, key: SoftAuthenticator) -> TestClient:
+    other = new_session_client(c)
+    opts = other.post("/v1/auth/login/options").json()
+    assert other.post("/v1/auth/login", json={"passkey": key.assert_(opts["publicKey"]["challenge"])}).status_code == 200
+    return other
+
+
 def test_approved_kit_is_delivered_once_on_a_box_with_passkeys(idc, settings):
+    """Option A (founder, 2026-11-28): one hand-over flow. Only the owner session that approved the kit
+    claims its page, once. There is no token-only fetch path."""
     setup_owner(idc)
     key = SoftAuthenticator()
     register_passkey(idc, key)
     path = "/v1/backups/kit"
-    token = os.urandom(32).hex()
-    body = {"approve": False, "delivery_token": token}
-    headers = {**csrf(idc), "Idempotency-Key": "issue-kit-with-passkey"}
-
-    filed = idc.post(path, headers=headers, json=body)
-    assert filed.status_code == 202, filed.text
-    assert filed.json()["state"] == "awaiting_approval" and "one_time" not in filed.json()
-    assert token not in filed.text
-    aid = filed.json()["id"]
-    approve = f"/v1/actions/{aid}/approve"
-    assert idc.post(approve, headers=csrf(idc)).json()["reason"] == "step_up_required"
-    assert idc.post(path, headers=headers, json=body).status_code == 202
+    aid = _file_kit(idc, "issue-kit-with-passkey")
+    claim = f"{path}/{aid}/claim"
+    assert idc.post(f"/v1/actions/{aid}/approve", headers=csrf(idc)).json()["reason"] == "step_up_required"
+    assert idc.post(claim, headers=csrf(idc)).status_code == 409  # not approved yet
     assert idc.get(path).json()["state"] == "missing"
 
-    challenge = idc.post(approve + "-options", headers=csrf(idc)).json()
-    approved = idc.post(approve, headers=csrf(idc), json={"webauthn": key.assert_(challenge["challenge"])})
-    assert approved.status_code == 200 and approved.json()["state"] == "succeeded", approved.text
-    assert "one_time" not in approved.json() and token not in approved.text
-    assert idc.post(path, headers=headers).status_code == 409
-    assert idc.post(path, headers=headers, json={**body, "delivery_token": os.urandom(32).hex()}).status_code == 409
+    approved = _approve_kit_with_passkey(idc, key, aid)
+    assert "one_time" not in approved and "owner_key" not in json.dumps(approved)
 
-    page = idc.post(path, headers=headers, json=body)
-    assert page.status_code == 201 and page.headers["cache-control"] == "no-store", page.text
+    page = idc.post(claim, headers=csrf(idc))
+    assert page.status_code == 200 and page.headers["cache-control"] == "no-store", page.text
     assert page.json()["action"]["id"] == aid
     owner_key = page.json()["one_time"]["owner_key"]
     assert owner_key in page.json()["one_time"]["text"]
-    replay = idc.post(path, headers=headers, json=body)
+    replay = idc.post(claim, headers=csrf(idc))
     assert replay.status_code == 409 and owner_key not in replay.text
     for readback in (idc.get(path).text, idc.get(f"/v1/actions/{aid}").text, settings.audit_path.read_text()):
-        assert owner_key not in readback and token not in readback
+        assert owner_key not in readback
+
+
+def test_kit_claim_is_refused_to_everyone_but_the_approving_session(idc, clock):
+    """Another session of the same owner, a static owner (API) token, an agent and an adult never get the page,
+    and the old delivery-token path cannot release it. The approving session still can, afterwards."""
+    setup_owner(idc)
+    key = SoftAuthenticator()
+    register_passkey(idc, key)
+    adult = enrol(idc, "adult", "ana")
+    aid = _file_kit(idc, "kit-others")
+    _approve_kit_with_passkey(idc, key, aid)
+    claim = f"/v1/backups/kit/{aid}/claim"
+
+    other = _passkey_session(idc, key)  # the same owner, signed in in another browser
+    r = other.post(claim, headers=csrf(other))
+    assert r.status_code == 409 and r.json()["reason"] == "kit_unavailable", r.text
+    assert other.post("/v1/backups/kit/request", headers=csrf(other)).json()["id"] != aid  # no resume elsewhere
+    r = idc.post(claim, headers=OWNER)  # a static owner token: no session at all
+    assert r.status_code == 403 and "owner_key" not in r.text
+    assert idc.post(claim, headers=AGENT).status_code == 403
+    assert adult.post(claim, headers=csrf(adult)).status_code == 403
+    # The train's private delivery token (#1323) no longer exists: refused, and a repeat never delivers.
+    old = idc.post("/v1/backups/kit", headers={**csrf(idc), "Idempotency-Key": "kit-others"},
+                   json={"approve": False, "delivery_token": os.urandom(32).hex()})
+    assert old.status_code == 422 and "owner_key" not in old.text
+    again = idc.post("/v1/backups/kit", headers={**csrf(idc), "Idempotency-Key": "kit-others"}, json={"approve": False})
+    assert again.status_code == 409 and "owner_key" not in again.text
+    # None of that used the page up: the approving session claims it.
+    page = idc.post(claim, headers=csrf(idc))
+    assert page.status_code == 200 and page.json()["one_time"]["owner_key"], page.text
+
+
+def test_kit_claim_refuses_an_old_or_expired_approval(idc, clock):
+    """A replayed claim for an older kit, or one past its ten minutes, never delivers."""
+    setup_owner(idc)
+    key = SoftAuthenticator()
+    register_passkey(idc, key)
+    first = _file_kit(idc, "kit-old-1")
+    _approve_kit_with_passkey(idc, key, first)
+    second = _file_kit(idc, "kit-old-2")
+    _approve_kit_with_passkey(idc, key, second)
+    r = idc.post(f"/v1/backups/kit/{first}/claim", headers=csrf(idc))  # superseded by the newer kit
+    assert r.status_code == 409 and "owner_key" not in r.text
+    clock.advance(11 * 60)
+    r = idc.post(f"/v1/backups/kit/{second}/claim", headers=csrf(idc))
+    assert r.status_code == 409 and "owner_key" not in r.text
+
+
+def test_kit_approved_by_a_token_is_never_claimable(idc):
+    """An approval made without a signed-in session (a static owner token with the owner's passkey, the
+    break-glass path) binds the page to no session, so no session and no token can claim it."""
+    setup_owner(idc)
+    key = SoftAuthenticator()
+    register_passkey(idc, key)
+    aid = _file_kit(idc, "kit-token-approved")
+    approve = f"/v1/actions/{aid}/approve"
+    opts = idc.post(approve + "-options", headers=OWNER, json={"at_box": True})
+    if opts.status_code != 200:
+        opts = idc.post(approve + "-options", headers=OWNER)
+    assert opts.status_code == 200, opts.text
+    proof = {"webauthn": key.assert_(opts.json()["challenge"]), **at_box(idc, opts.json())}
+    done = idc.post(approve, headers=OWNER, json=proof)
+    if done.status_code != 200:
+        pytest.skip(f"a static token cannot approve this kit on this box: {done.json().get('reason')}")
+    claim = f"/v1/backups/kit/{aid}/claim"
+    assert idc.post(claim, headers=OWNER).status_code == 403
+    assert idc.post(claim, headers=csrf(idc)).status_code in (403, 409)
 
 
 def test_interrupted_reissue_retains_confirmed_console_key_across_restart(settings, clock, executor):
@@ -779,7 +991,7 @@ def test_interrupted_reissue_retains_confirmed_console_key_across_restart(settin
         original = issued.json()
         assert confirm(c, original).json()["state"] == "confirmed"
         # The gateway approved the replacement, but its page was never collected.
-        body = {"approve": False, "delivery_token": os.urandom(32).hex()}
+        body = {"approve": False}
         headers = {**OWNER, "Idempotency-Key": "interrupted-kit"}
         requested = c.post(path, headers=headers, json=body)
         assert requested.status_code == 202
@@ -787,7 +999,7 @@ def test_interrupted_reissue_retains_confirmed_console_key_across_restart(settin
         assert c.get(path, headers=OWNER).json()["state"] == "issued"
 
     with TestClient(create_app(s, clock=clock, executor=executor)) as c:
-        box = at_box(c)
+        box = box_client(c)
 
         def rescue(page):
             return box.post("/v1/auth/rescue/kit", headers=OWNER, json={"kit_key": page["one_time"]["owner_key"]})
@@ -812,11 +1024,11 @@ def test_rescue_kit_is_refused_from_any_network_source_and_costs_no_try(idc):
     kit = _issue_kit(idc)
     body = {"kit_key": kit["owner_key"]}
     lan = TestClient(idc.app, client=("192.0.2.10", 40000))
-    for caller, extra in ((idc, {}), (lan, {}), (at_box(idc), {"X-Forwarded-For": "192.0.2.10"}),
-                          (at_box(idc), {"Forwarded": "for=192.0.2.10"})):
+    for caller, extra in ((idc, {}), (lan, {}), (box_client(idc), {"X-Forwarded-For": "192.0.2.10"}),
+                          (box_client(idc), {"Forwarded": "for=192.0.2.10"})):
         r = caller.post("/v1/auth/rescue/kit", headers={**OWNER, **extra}, json=body)
         assert r.status_code == 403 and r.json()["reason"] == "kit_not_at_box", r.text
     for _ in range(6):  # wrong keys from the LAN never reach the lockout
         assert lan.post("/v1/auth/rescue/kit", headers=OWNER, json={"kit_key": "-".join(["ABCD"] * 13)}).status_code == 403
     assert idc.app.state.backups.repo.kit_lock() is None
-    assert at_box(idc).post("/v1/auth/rescue/kit", headers=OWNER, json=body).status_code == 200
+    assert box_client(idc).post("/v1/auth/rescue/kit", headers=OWNER, json=body).status_code == 200

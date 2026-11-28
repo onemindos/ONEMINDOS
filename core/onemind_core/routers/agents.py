@@ -194,7 +194,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
         via = None  # how the owner proved presence; only asked (and audited) when this loosens
         if (ident is not None and p.is_owner and NAME_RE.fullmatch(pid)
                 and inputs.loosens(pid, body.external_inputs, body.accept_injection_risk)):
-            via = ident.require_step_up(ctx_of(request), p, "declare what an agent reads")
+            via = ident.require_step_up(ctx_of(request), p, "declare what an agent reads", op="agents.inputs.set",
+                                        target=name, body=body.model_dump(mode="json"))
         return inputs.set(p, pid, body.external_inputs, body.accept_injection_risk, via=via)
 
     @app.put("/v1/agents/{name}/budget", operation_id="agents.budget.set", tags=TAGS,

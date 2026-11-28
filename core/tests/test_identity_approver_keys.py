@@ -20,6 +20,7 @@ from onemind_core.auth import Principal
 from onemind_core.executors import ExecResult
 from onemind_core.identity.crypto import b64url
 from test_identity import (
+    LOCAL_PEER,
     PASSWORD,
     SoftAuthenticator,
     audit_events,
@@ -29,6 +30,7 @@ from test_identity import (
     new_session_client,
     register_passkey,
     setup_owner,
+    stepped,
 )
 
 
@@ -53,7 +55,8 @@ class PhoneKey:
 
 @pytest.fixture
 def idc(settings, clock, executor):
-    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor)) as c:
+    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor),
+                    client=LOCAL_PEER) as c:
         yield c
 
 
@@ -66,8 +69,9 @@ def ready(c: TestClient) -> SoftAuthenticator:
 
 
 def add_key(c: TestClient, phone: PhoneKey, label="Pixel 9", kind="hardware-reported"):
-    return c.post("/v1/auth/approver-keys", headers=csrf(c),
-                  json={"public_key": phone.spki, "label": label, "key_kind": kind})
+    """Adding an approver key is an L2 row (an authenticator): during the grace the owner confirms with
+    the session's passkey plus the box's code (N-1 b), made in place by stepped()."""
+    return stepped(c, "POST", "/v1/auth/approver-keys", json={"public_key": phone.spki, "label": label, "key_kind": kind})
 
 
 def signed(c: TestClient, aid: str, key_id: str, phone: PhoneKey, raw: bool = False) -> dict:
@@ -172,8 +176,14 @@ def test_destructive_stays_passkey_only_until_f2(idc, clock, settings):
 
 def test_f2_setting_on_lets_a_device_key_approve_destructive(settings, clock, executor):
     s = id_settings(settings, approver_key_high_risk=True)
-    with TestClient(create_app(s, clock=clock, executor=executor)) as c:
+    with TestClient(create_app(s, clock=clock, executor=executor), client=LOCAL_PEER) as c:
         ready(c)
+        # T3 is an L2 row; during the grace that is a passkey plus the box's code, which a phone key can't
+        # send. The owner lowered T3 to L1 (N-3 a, an audited L2 change), so the F2 setting decides.
+        from onemind_core.identity.models import VerificationLevelRow
+
+        c.app.state.identity.repo.add(VerificationLevelRow(key="tier.T3", level="L1", updated_at=clock.now,
+                                                           updated_by="person:owner"))
         phone = PhoneKey()
         key_id = add_key(c, phone).json()["key_id"]
         svc = c.app.state.actions
@@ -200,9 +210,13 @@ def test_registering_needs_an_owner_session_with_a_fresh_passkey(idc, clock):
     # A non-owner cannot register one, even signed in.
     adult = enrol(idc, "adult", "ana")
     assert add_key(adult, PhoneKey()).status_code in (401, 403)
-    # The passkey proof goes stale after step_up_s.
+    # A fresh passkey sign-in alone is not enough (an authenticator is an L2 row: during the grace the box
+    # confirms it too), and the passkey proof goes stale after step_up_s anyway.
+    raw = {"public_key": phone.spki, "label": "Pixel", "key_kind": "software"}
+    assert idc.post("/v1/auth/approver-keys", headers=csrf(idc), json=raw).status_code == 401
     clock.advance(301)
-    assert add_key(idc, phone).status_code == 401
+    assert idc.post("/v1/auth/approver-keys", headers=csrf(idc), json=raw).status_code == 401
+    assert add_key(idc, phone).status_code == 201  # confirmed in place, at the box
 
 
 def test_registration_refuses_bad_keys_duplicates_and_unverified_attestation(idc):
@@ -212,14 +226,14 @@ def test_registration_refuses_bad_keys_duplicates_and_unverified_attestation(idc
     assert add_key(idc, phone, kind="tpm").status_code == 422
     ed = b64url(ed25519.Ed25519PrivateKey.generate().public_key().public_bytes(
         serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo))
-    assert idc.post("/v1/auth/approver-keys", headers=csrf(idc),
-                    json={"public_key": ed, "label": "x", "key_kind": "software"}).status_code == 422
+    assert stepped(idc, "POST", "/v1/auth/approver-keys",
+                   json={"public_key": ed, "label": "x", "key_kind": "software"}).status_code == 422
     p384 = b64url(ec.generate_private_key(ec.SECP384R1()).public_key().public_bytes(
         serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo))
-    assert idc.post("/v1/auth/approver-keys", headers=csrf(idc),
-                    json={"public_key": p384, "label": "x", "key_kind": "software"}).status_code == 422
-    assert idc.post("/v1/auth/approver-keys", headers=csrf(idc),
-                    json={"public_key": "not a key", "label": "x", "key_kind": "software"}).status_code == 422
+    assert stepped(idc, "POST", "/v1/auth/approver-keys",
+                   json={"public_key": p384, "label": "x", "key_kind": "software"}).status_code == 422
+    assert stepped(idc, "POST", "/v1/auth/approver-keys",
+                   json={"public_key": "not a key", "label": "x", "key_kind": "software"}).status_code == 422
     assert add_key(idc, phone, label="   ").status_code == 422
     assert add_key(idc, phone, kind="software").status_code == 201
     assert add_key(idc, phone, label="Other").status_code == 409  # same key twice

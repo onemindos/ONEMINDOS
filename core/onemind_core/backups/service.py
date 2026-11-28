@@ -25,6 +25,7 @@ import secrets
 import threading
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -117,6 +118,14 @@ def _ts(value: object) -> datetime | None:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
+@dataclass
+class _KitReveal:
+    action_id: str
+    expires_at: datetime
+    one_time: dict
+    session_id: str | None = None
+
+
 class BackupService:
     def __init__(self, gw: Gateway, settings: BackupsSettings, *, pg=None, kube: Kube | None = None,
                  agent: AgentClient | None = None, inline: bool = False):
@@ -141,7 +150,7 @@ class BackupService:
         self._kit_lock = threading.Lock()
         self.builtins = None  # the built-in registry (builtins.py); the router sets it (#616)
         self._pending_secrets: dict[str, dict] = {}  # action id -> destination credentials (memory only)
-        self._one_time_kit: tuple[str, datetime, dict] | None = None  # latest page, memory only
+        self._one_time: _KitReveal | None = None  # only the current kit can be delivered and confirmed
         # action id -> (owner recovery key, expiry): a first-run restore from another box's backup. Memory only, never in
         # the action's params, the audit log or the database; dropped when used, expired or the gateway restarts.
         self._pending_keys: dict[str, tuple[str, datetime]] = {}
@@ -196,7 +205,7 @@ class BackupService:
         self._stop.set()
         self.worker.stop()
         with self._kit_lock:
-            self._one_time_kit = None
+            self._one_time = None
 
     def installed_apps(self) -> list[AppEntry]:
         states = self.gw.repo.list_app_states()
@@ -1109,7 +1118,7 @@ class BackupService:
                     ch["confirmed_console"] = previous
             self.repo.put_kit(KitRow(id="kit", state="issued", fingerprint=key.fingerprint, challenge=ch, issued_at=utc(now),
                                      confirmed_at=None, attempts=0))
-            self._one_time_kit = (a.id, utc(a.expires_at), {
+            self._one_time = _KitReveal(a.id, utc(a.expires_at), {
                 "owner_key": key.password, "groups": list(key.groups), "check": key.check,
                 "qr_payload": f"onemind-kit:v1?key={key.password}&box={self.gw.settings.node_id or ''}",
                 "text": kit_text(box_name=self.gw.settings.instance_name, instance_id=self.gw.settings.node_id or "",
@@ -1199,19 +1208,34 @@ class BackupService:
             return verifier_ok(v, password)
         return hmac.compare_digest(hashlib.sha256(password.encode()).hexdigest()[:16], active["fingerprint"])
 
-    def take_kit_page(self, action_id: str) -> dict | None:
+    def bind_kit_approval(self, action_id: str, session_id: str) -> None:
         with self._kit_lock:
-            if self._one_time_kit is None:
+            if self._one_time is not None and self._one_time.action_id == action_id:
+                self._one_time.session_id = session_id
+
+    def _unclaimed_kit(self, session_id: str | None) -> _KitReveal | None:
+        """Called under _kit_lock. None identifies the legacy in-response shortcut only."""
+        reveal = self._one_time
+        if reveal is None:
+            return None
+        if reveal.expires_at <= utc(self.gw.clock()):
+            self._one_time = None
+            return None
+        return reveal if reveal.session_id == session_id else None
+
+    def claimable_kit(self, session_id: str) -> str | None:
+        with self._kit_lock:
+            reveal = self._unclaimed_kit(session_id)
+            return reveal.action_id if reveal else None
+
+    def take_one_time(self, action_id: str, session_id: str | None) -> tuple[dict, dict] | None:
+        with self._kit_lock:
+            reveal = self._unclaimed_kit(session_id)
+            if reveal is None or reveal.action_id != action_id:
                 return None
-            issued_by, expires_at, page = self._one_time_kit
-            if expires_at <= utc(self.gw.clock()):
-                self._one_time_kit = None
-                return None
-            if action_id != issued_by:
-                return None
-            state = self.kit_state()
-            self._one_time_kit = None
-            return {"kit": state, "one_time": page}
+            kit = self.kit_state()
+            self._one_time = None
+            return kit, reveal.one_time
 
     def confirm_kit(self, principal, answers: dict[str, str], fingerprint: str | None = None) -> dict:
         with self._kit_lock:
@@ -1228,7 +1252,7 @@ class BackupService:
                 raise ApiError(409, "conflict", "those groups do not match your kit; look at the printed key again")
             ch = {name: value for name, value in k.challenge.items() if name != "confirmed_console"}
             self.repo.update_kit(state="confirmed", confirmed_at=utc(self.gw.clock()), challenge=ch)
-            self._one_time_kit = None
+            self._one_time = None
             if ch.get("disk_key"):  # the owner proved the page was saved: the node can destroy its copy now
                 self._forget_disk_key()
             state = self.kit_state()

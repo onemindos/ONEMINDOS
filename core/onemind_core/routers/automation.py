@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import re
+from typing import Any, Literal
 
 from fastapi import Depends, FastAPI, Query, Request, Response
 from fastapi.responses import JSONResponse
@@ -13,7 +14,7 @@ from ..auth import Principal
 from ..automation import AutomationService
 from ..automation.cron import parse_ranges
 from ..automation.engine import DryRunBody, PauseBody, RuleBody, RulePatch
-from ..automation.policies import PolicyBody
+from ..automation.policies import Allow, Limits, PolicyBody
 from ..context import Gateway
 from ..errors import ApiError, error_responses
 from ..identity import ctx_of
@@ -27,6 +28,24 @@ class WindowBody(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     tz: str = Field(default="box", max_length=64)
     ranges: list[dict]
+
+
+class ApprovalPolicy(BaseModel):
+    """A standing approval as the owner sees it (policies.to_json). Documents the answer for the SDK; the routes
+    still return the service's dict unchanged."""
+
+    id: str
+    revision: int
+    name: str | None
+    allow: Allow
+    limits: Limits
+    window_id: str | None
+    expires_at: str
+    created_by: dict[str, Any]
+    created_at: str
+    state: Literal["active", "paused", "expired"] = Field(
+        description="paused: a legacy wildcard rule migration paused until the owner confirms it")
+    uses_24h: int = Field(description="requests it approved in the last 24 hours")
 
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
@@ -46,13 +65,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     tags = ["automation"]
 
-    def step_up(request: Request, p: Principal, what: str) -> str:
+    def step_up(request: Request, p: Principal, what: str, op: str | None = None, target: str = "",
+                body: dict | None = None) -> str:
         """F-2: pre-approving agent actions adds power, so once passkeys are active it needs a fresh
         passkey sign-in, like put_access and create_user. Returns how presence was proved."""
         ident = getattr(app.state, "identity", None)
         if ident is None or not p.is_owner:
             return "token"  # non-owners are refused by the service with 403 right after
-        return ident.require_step_up(ctx_of(request), p, what)
+        return ident.require_step_up(ctx_of(request), p, what, op=op, target=target, body=body)
 
     # ---- rules ---------------------------------------------------------------------------------
     @app.get("/v1/automation/rules", operation_id="automation.rules.list", tags=tags, responses=error_responses(401))
@@ -111,7 +131,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return svc.set_paused(p, False, (body or PauseBody()).reason)
 
     # ---- standing approvals --------------------------------------------------------------------
-    @app.get("/v1/approval-policies", operation_id="approvals.policies.list", tags=tags, responses=error_responses(401, 403))
+    @app.get("/v1/approval-policies", operation_id="approvals.policies.list", tags=tags,
+             responses={200: {"model": list[ApprovalPolicy]}, **error_responses(401, 403)})
     def list_policies(p: Principal = Depends(principal)):
         # Gateway permissions design gap 3: the rules are the owner's. An agent that can read them can shape its
         # requests to fit one, so every other principal is refused (and the refusal is audited).
@@ -120,15 +141,17 @@ def register(app: FastAPI, gw: Gateway) -> None:
             raise ApiError(403, "permission_denied", f"{p.kind}/{p.role} may not list standing approvals")
         return [policies.to_json(x) for x in svc.repo.list_policies(with_paused=True)]
 
-    @app.post("/v1/approval-policies", operation_id="approvals.policies.create", tags=tags, status_code=201, responses=error_responses(401, 403, 404, 422))
+    @app.post("/v1/approval-policies", operation_id="approvals.policies.create", tags=tags, status_code=201,
+              responses={201: {"model": ApprovalPolicy}, **error_responses(401, 403, 404, 422)})
     def create_policy(body: PolicyBody, request: Request, p: Principal = Depends(principal)):
-        via = step_up(request, p, "create standing approval")
+        via = step_up(request, p, "create standing approval", op="approvals.policies.create",
+                      body=body.model_dump(mode="json"))
         return JSONResponse(status_code=201, content=policies.create(p, body, approval=via))
 
     @app.post("/v1/approval-policies/{policy_id}/confirm", operation_id="approvals.policies.confirm", tags=tags,
-              responses=error_responses(401, 403, 404), openapi_extra={"security": [{"bearer": ["*"]}]})
+              responses={200: {"model": ApprovalPolicy}, **error_responses(401, 403, 404)}, openapi_extra={"security": [{"bearer": ["*"]}]})
     def confirm_policy(policy_id: str, request: Request, p: Principal = Depends(principal)):
-        step_up(request, p, "confirm standing approval")
+        step_up(request, p, "confirm standing approval", op="approvals.policies.confirm", target=policy_id)
         return policies.confirm(p, policy_id)
 
     @app.delete("/v1/approval-policies/{policy_id}", operation_id="approvals.policies.delete", tags=tags, status_code=204,

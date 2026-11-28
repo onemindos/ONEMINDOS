@@ -222,12 +222,14 @@ export function toActionSummary(a: Action, appName?: (id: string) => string, nam
   const rb = a.requested_by;
   const db = a.decided_by;
   const params = a.params;
-  const { app_id: appId, wait_days: wait, cooling_off_days: coolingOff } = params;
+  const { app_id: appId, display_name: personName, wait_days: wait, cooling_off_days: coolingOff } = params as Record<string, unknown>;
+  const familyInvite = ['users.invite', 'users.reinvite'].includes(a.type);
   const impact = a.type === 'legacy.contact.add' && typeof wait === 'number' && typeof coolingOff === 'number'
     ? `After a ${coolingOff}-day cooling-off period, this contact can file a claim after your death. If you remain inactive during the ${wait}-day claim wait and a second person confirms when available, the contact has 12 months to download a read-only export of your personal files.`
     : undefined;
   return {
-    target_name: appName && typeof appId === 'string' ? appName(appId) : undefined,
+    target_name: familyInvite && typeof personName === 'string' ? personName
+      : appName && typeof appId === 'string' ? appName(appId) : undefined,
     id: a.id,
     type: a.type,
     params,
@@ -239,6 +241,8 @@ export function toActionSummary(a: Action, appName?: (id: string) => string, nam
     requested_by: rb ? { id: rb.id, kind: requesterKind(rb.kind), role: rb.role, name: nameOf?.(rb) } : undefined,
     decided_by: db ? { id: db.id, kind: db.kind, name: nameOf?.(db) } : undefined,
     message: RESULT_MESSAGE.has(a.state) ? (a.result?.message ?? undefined) : undefined,
+    // D-028: the key level approving needs, from the hub's read model; the card shows "Needs L2" from it.
+    required_level: a.required_level ?? undefined,
   };
 }
 

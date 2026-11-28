@@ -38,12 +38,13 @@ def destructive_step_up(gw: Gateway):
         spec = TYPES.get(action.get("type"))
         if spec is None or spec[1] != "destructive":
             return
-        if body.get("webauthn") is None or not _identity_guard_present(gw):
+        if not (body.get("webauthn") or body.get("password_totp")) or not _identity_guard_present(gw):
             gw.events.publish_event(
                 "auth", "step_up.required",
                 {"attempted": "approve", "action_id": action_id, "type": action.get("type"), "reason": "destructive_storage_needs_passkey"},
                 principal=p.as_dict(), severity="warning", action_id=action_id)
-            raise ApiError(401, "unauthenticated", "erasing a disk needs your passkey: register one, then approve with it",
+            raise ApiError(401, "unauthenticated", "erasing a disk needs a proven passkey or a sign-in check "
+                           "with the code from the box's screen",
                            reason="step_up_required")
 
     return guard

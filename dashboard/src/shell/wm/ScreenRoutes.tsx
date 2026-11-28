@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-import { lazy, Suspense, type ComponentType, type LazyExoticComponent } from 'react';
-import { createRoutesFromElements, matchRoutes, Navigate, Route, Routes } from 'react-router';
+import { lazy, Suspense, useEffect, type ComponentType, type LazyExoticComponent } from 'react';
+import { createRoutesFromElements, matchRoutes, Navigate, Route, Routes, useLocation } from 'react-router';
 import { StateView } from '@onemind/ui';
-import { SCREENS } from '../../screens/registry';
+import { SCREENS, SETTINGS_PAGES } from '../../screens/registry';
 import type { ScreenLoader } from '../../screens/types';
 import { OwnerOnly, ProOnly } from '../ProOnly';
 
@@ -39,6 +39,15 @@ export function routeFor(path: string) {
   return handle && { ...handle, section: match?.params.section };
 }
 export function ScreenRoutes({ location }: { location?: string }) {
+  const pathname = useLocation().pathname;
+  const active = location ?? pathname;
+  useEffect(() => {
+    const route = routeFor(active);
+    if (route?.screen.id !== 'settings') return;
+    // Start the selected section while the Settings shell is loading. React.lazy will use the same module.
+    const section = route.section ?? (/^\/settings\/?$/.test(active) ? 'appearance' : undefined);
+    if (section) void SETTINGS_PAGES.get(section)?.load?.().catch(() => undefined);
+  }, [active]);
   return <Suspense fallback={<StateView state="loading" what="This screen" skeleton="list" />}>
     <Routes location={location}>{screens}<Route path="*" element={<Navigate to="/" replace />} /></Routes>
   </Suspense>;

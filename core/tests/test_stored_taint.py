@@ -7,13 +7,17 @@ import json
 from datetime import timedelta
 
 import pytest
+from fastapi.testclient import TestClient
 
 from conftest import ADULT, AGENT, OWNER, action_body, make_client
+from onemind_core.app import create_app
 from onemind_core.auth import Principal
 from onemind_core.identity.crypto import new_secret, sha256_hex
 from onemind_core.identity.models import TokenRow
 from onemind_core.taint import FOREVER, TTL, plan_taint
 from onemind_core.taint_store import NODE_JOIN_REQUESTER
+from test_identity import LOCAL_PEER, box_code, csrf, id_settings, setup_owner
+from test_identity_levels import _enable_totp, _totp_proof, step_up_of
 from test_mcp import call
 from test_tainted_input import (  # noqa: F401  (fixtures and helpers)
     agent_removes_whoami, install_whoami, owner_allows_removals, tclient, hostile_apps,
@@ -147,9 +151,9 @@ def test_an_identity_token_agent_and_the_v0_token_are_tainted_until_the_owner_de
     assert agent_removes_whoami(tclient, clock, "declared-none").json()["state"] == "succeeded"
 
 
-def test_only_loosening_an_agents_inputs_needs_the_passkey(tclient):
-    ident = tclient.app.state.identity
-    ident.passkeys_active = lambda: True
+def test_only_loosening_an_agents_inputs_needs_verification(settings, clock, executor):
+    tclient = TestClient(create_app(id_settings(settings), clock=clock, executor=executor), client=LOCAL_PEER)
+    setup_owner(tclient)
     # tightening is L0: adding an input, or none -> web, needs no step-up
     assert tclient.put(INPUTS, json={"external_inputs": ["web"]}, headers=OWNER).status_code == 200
     assert tclient.put(INPUTS, json={"external_inputs": ["web", "email"]}, headers=OWNER).status_code == 200
@@ -159,10 +163,20 @@ def test_only_loosening_an_agents_inputs_needs_the_passkey(tclient):
         r = tclient.put(INPUTS, json=body, headers=OWNER)
         assert r.status_code == 401 and r.json()["reason"] == "step_up_required", (body, r.text)
     assert tclient.get(INPUTS, headers=OWNER).json()["external_inputs"] == ["web", "email"]
-    ident.passkeys_active = lambda: False
+    secret = _enable_totp(tclient, clock)
     ok = {"external_inputs": ["web", "email"], "accept_injection_risk": ["app.restart"]}
-    assert tclient.put(INPUTS, json=ok, headers=OWNER).status_code == 200
-    ident.passkeys_active = lambda: True
+    step = step_up_of(tclient.put(INPUTS, json=ok, headers=csrf(tclient)))
+    options = tclient.post("/v1/auth/step-up/options", headers=csrf(tclient), json={
+        **{k: step[k] for k in ("op", "target", "body")}, "method": "password+totp", "at_box": True,
+    })
+    assert options.status_code == 200 and options.json()["box_code_required"], options.text
+    grant = tclient.post("/v1/auth/step-up", headers=csrf(tclient), json={
+        "password_totp": _totp_proof(options.json(), secret, clock), "box_code": box_code(tclient),
+    })
+    assert grant.status_code == 200, grant.text
+    assert tclient.put(INPUTS, json=ok, headers={
+        **csrf(tclient), "OneMind-Step-Up": grant.json()["step_up"],
+    }).status_code == 200
     # removing an accepted risk (same inputs) tightens again
     assert tclient.put(INPUTS, json={"external_inputs": ["web", "email"]}, headers=OWNER).status_code == 200
 

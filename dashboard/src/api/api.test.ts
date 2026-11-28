@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it, vi } from 'vitest';
+import { OneMind } from '@onemind/sdk';
 import { HttpApi } from './client';
 import { makeApps, makeNodes } from './fixtures';
 import { MockApi } from './mock';
@@ -45,6 +46,30 @@ describe('HttpApi (contract §3)', () => {
     const f = vi.fn().mockResolvedValue(jsonResponse(403, { error: 'permission_denied', message: 'no' }));
     const api = new HttpApi({ token: 't', fetchFn: f });
     await expect(api.approve('x')).rejects.toMatchObject({ status: 403, code: 'permission_denied' });
+  });
+
+  it('uses the SDK once per approval request and preserves its binding and refusal details', async () => {
+    const details = [{ approval_verification: { required_level: 'L2', box_available: false } }];
+    const options = { challenge: 'nonce', action_sha256: 'action-digest', plan_sha256: 'plan-digest', publicKey: {} };
+    const fetchFn = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(200, options))
+      .mockResolvedValueOnce(jsonResponse(503, { error: 'unavailable', message: 'reply lost', reason: 'proof_unavailable', details }));
+    const call = vi.spyOn(OneMind.prototype, 'call');
+    try {
+      const api = new HttpApi({ token: 't', fetchFn });
+      const selection = { method: 'password+totp', at_box: true } as const;
+      await expect(api.approveOptions('action/1', selection)).resolves.toEqual(options);
+      const proof = { plan_sha256: options.plan_sha256, box_code: '246810',
+        password_totp: { challenge: options.challenge, password: 'test fixture', totp: '123456' } };
+      await expect(api.approve('action/1', proof)).rejects.toMatchObject({
+        status: 503, code: 'unavailable', reason: 'proof_unavailable', details,
+      });
+      expect(call).toHaveBeenNthCalledWith(1, { method: 'POST', path: '/v1/actions/action%2F1/approve-options', body: selection, retry: false });
+      expect(call).toHaveBeenNthCalledWith(2, { method: 'POST', path: '/v1/actions/action%2F1/approve', body: proof, retry: false });
+      expect(fetchFn).toHaveBeenCalledTimes(2);
+    } finally {
+      call.mockRestore();
+    }
   });
 
   it('maps a bare 401 to unauthenticated and network failure to network', async () => {

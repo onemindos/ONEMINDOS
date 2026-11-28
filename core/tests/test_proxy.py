@@ -25,12 +25,15 @@ from starlette.routing import Route, WebSocketRoute
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
 from conftest import OWNER, make_client
+from onemind_core.app import create_app
 from onemind_core.auth import Principal, TokenStore
+from onemind_core.ca import MESH_NETS
 from onemind_core.catalog import Catalog
 from onemind_core.proxy import (
-    AppProxy, AppProxyMiddleware, KubectlServiceResolver, Timeouts, gateway_session_resolver, sharing_check,
+    AppProxy, AppProxyMiddleware, AppRoute, KubectlServiceResolver, Timeouts, gateway_session_resolver, sharing_check,
     token_session_resolver,
 )
+from test_identity import LOCAL_PEER, PASSWORD, id_settings, setup_owner
 
 # ---- fake upstream ----------------------------------------------------------------------------------
 
@@ -551,6 +554,30 @@ def test_app_token_is_not_a_gateway_credential(settings, clock):
         gw.cookies.set("onemind_session", OWNER["Authorization"].split(" ", 1)[1])
         assert gw.get("/v1/me", headers={"Authorization": APP_TOKEN}).status_code == 401
         assert gw.get("/v1/me", headers=OWNER).status_code == 200
+
+
+def test_actual_password_session_opens_lan_app_and_stays_off_mesh(settings, clock, executor):
+    app = create_app(id_settings(settings), clock=clock, executor=executor)
+    with TestClient(app, client=LOCAL_PEER) as lan:
+        setup_owner(lan)
+        login = lan.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD, "client": "app"})
+        assert login.status_code == 200, login.text
+        cookie = f"onemind_session={login.json()['access_token']}"
+        proxy = next(m.kwargs["proxy"] for m in app.user_middleware if m.cls is AppProxyMiddleware)
+        proxy.route_for = lambda _: AppRoute(app_id="uptime-kuma", host="upstream", port=80,
+                                             access="adults", name="Test app")
+        proxy.exposure = lambda _: "mesh"  # either path reaches this app when the person's proof permits
+        host = f"uptime-kuma.{proxy.box_domains[0]}"
+        headers = {"host": host, "cookie": cookie}
+        peer = (str(MESH_NETS[0].network_address + 1), 50000)
+        assert proxy.decide(headers, "uptime-kuma", proxy.path_of({"client": LOCAL_PEER}, headers))[0] == 204
+        assert proxy.decide(headers, "uptime-kuma", proxy.path_of({"client": peer}, headers))[0] == 401
+
+        edge = TestClient(app, client=("127.0.0.1", 50000))
+        forwarded = {"X-Forwarded-Host": host, "Cookie": cookie}
+        assert edge.get("/v1/auth/forward", headers={**forwarded, "X-OneMind-Path": "lan"}).status_code == 204
+        assert edge.get("/v1/auth/forward", headers={**forwarded, "X-OneMind-Path": "mesh"}).status_code == 401
+        assert edge.get("/v1/auth/forward", headers=forwarded).status_code == 401
 
 
 # ---- Service resolver ---------------------------------------------------------------------------------

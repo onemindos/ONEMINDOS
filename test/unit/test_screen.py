@@ -124,6 +124,40 @@ class View(unittest.TestCase):
         self.assertNotIn("\x1b[30;47m", sc.render({**FACTS, "addrs": [], "setup_open": True}))
 
 
+class BoxCode(unittest.TestCase):
+    """D-028, N-1 b: the code that proves a person stands at the box, shown only on this screen."""
+
+    def write(self, d, doc):
+        os.makedirs(os.path.join(d, "data", "onemind", "gateway"), exist_ok=True)
+        with open(os.path.join(d, *sc.BOX_CODE), "w") as f:
+            f.write(doc if isinstance(doc, str) else __import__("json").dumps(doc))
+
+    def test_a_live_code_is_the_headline(self):
+        head, lines, _ = sc.view({**FACTS, "role": "hub", "ready": True,
+                                  "box_code": {"code": "482913", "what": "approve backup.restore"}})
+        self.assertEqual(head, "CONFIRM AT THE BOX")
+        text = "\n".join(lines)
+        self.assertIn("Code:  482 913", text)
+        self.assertIn("approve backup.restore", text)
+        self.assertIn("https://192.0.2.10/", text)  # the usual lines stay below it
+
+    def test_gather_reads_only_a_live_well_formed_code(self):
+        import tempfile, time as t
+        with tempfile.TemporaryDirectory() as d:
+            self.assertIsNone(sc.gather(d)["box_code"])
+            self.write(d, {"code": "123456", "what": "x", "expires_at": int(t.time()) + 60})
+            self.assertEqual(sc.gather(d)["box_code"], {"code": "123456", "what": "x"})
+            self.write(d, {"code": "123456", "what": "x", "expires_at": int(t.time()) - 1})
+            self.assertIsNone(sc.gather(d)["box_code"])  # expired: gone from the screen
+            for bad in ("not json", "[]", '{"code": "12ab56", "expires_at": 9999999999}'):
+                self.write(d, bad)
+                self.assertIsNone(sc.gather(d)["box_code"])
+
+    def test_the_gateway_unit_names_the_file_the_screen_reads(self):
+        unit = read("os", "rootfs", "layers", "onemind", "usr", "lib", "systemd", "system", "onemind-gateway.service")
+        self.assertIn("ONEMIND_IDENTITY_BOX_CODE_FILE=/" + "/".join(sc.BOX_CODE), unit)
+
+
 class Wiring(unittest.TestCase):
     def test_unit_takes_tty1_from_the_login_prompt_and_is_enabled_by_symlink(self):
         unit = read("os", "rootfs", "layers", "onemind", "usr", "lib", "systemd", "system", "onemind-screen.service")

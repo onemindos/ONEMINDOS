@@ -39,10 +39,6 @@ mobile-scope push
 group m2-radio-confirm issue=#1232 M2: confirming what a found radio is (human-only) has no screen or command; the list has no screen.
 dashboard radios.list m2-radio-confirm
 group m5-step-up-owner-screens issue=#1214 M5: app sharing and standing approvals are written through the body-bound step-up, which no dashboard screen or command does yet.
-dashboard approvals.policies.create m5-step-up-owner-screens
-dashboard approvals.policies.delete m5-step-up-owner-screens
-dashboard approvals.policies.confirm m5-step-up-owner-screens
-dashboard apps.access.set m5-step-up-owner-screens
 cli approvals.policies.create m5-step-up-owner-screens
 cli approvals.policies.confirm m5-step-up-owner-screens
 cli apps.access.set m5-step-up-owner-screens
@@ -116,12 +112,9 @@ cli work.section_create s6-work
 cli work.section_delete s6-work
 cli work.section_update s6-work
 cli work.task_delete s6-work
-group s7-windows issue=#1232 S7: windows (/v1/windows) have no caller on any surface.
-dashboard windows.list s7-windows
 group s8-cli-groups issue=#1232 S8: these settings have a dashboard screen but no `onemind` command group yet (automation, alerts, family, onboarding, files, sharing, plugins and others).
 cli alerts.ack s8-cli-groups
 cli alerts.resolve s8-cli-groups
-cli auth.passkeys.delete s8-cli-groups
 cli automation.pause s8-cli-groups
 cli automation.resume s8-cli-groups
 cli automation.rules.disable s8-cli-groups
@@ -192,8 +185,6 @@ group found-owner-screens issue=#1244 Found by the ratchet (not in the 2026-11-2
 dashboard agents.budget.set found-owner-screens
 dashboard agents.cancel found-owner-screens
 dashboard agents.get found-owner-screens
-dashboard agents.inputs.get found-owner-screens
-dashboard agents.inputs.set found-owner-screens
 dashboard agents.nats_key.delete found-owner-screens
 dashboard agents.nats_key.get found-owner-screens
 dashboard agents.nats_key.set found-owner-screens
@@ -364,6 +355,11 @@ cli legacy.invites.accept legacy-contact-phone
 group legacy-household-screens issue=#1208 The owner's and adults' household views of a claim: the certificate and the invitations list have no dashboard screen yet (the invitations are accepted in the phone app).
 dashboard legacy.claims.certificate legacy-household-screens
 dashboard legacy.invitations.list legacy-household-screens
+group sdk-step-up issue=#1214 The step-up ceremony (D-028) runs inside the SDK (sdk/ts/src/stepup.ts) when any owner change answers 401 step_up_required, so no screen names its two routes; the CLI cannot answer a passkey challenge (it tells the owner to sign in with the passkey in the dashboard).
+dashboard auth.step_up.options sdk-step-up
+dashboard auth.step_up.verify sdk-step-up
+cli auth.step_up.options cli-browser-ceremony
+cli auth.step_up.verify cli-browser-ceremony
 
 # ---- the phone's 1.0 scope: what the phone leaves to the dashboard (FOUNDER TO CONFIRM) --------------
 group mobile-files-browse-only issue=#1232 Mobile 1.0 scope (founder to confirm): the phone browses, downloads and uploads files and handles Send to; file requests, sharing, trash, quotas, app passwords, the office editor, and polling or cancelling an unfinished upload are dashboard-only.
@@ -461,6 +457,9 @@ indirect dashboard photos.library Photos.tsx sends GET through client.call with 
 indirect dashboard photos.asset_content Photos.tsx fetches GET (fetch default) with the bearer token
 indirect dashboard tls.ca TrustThisBox.tsx links CA_URL with a download anchor (GET)
 indirect dashboard tls.profile TrustThisBox.tsx links PROFILE_URL with a download anchor (GET)
+indirect dashboard apps.access.set PermissionEditors.tsx sends PUT through client.call with the path variable
+indirect dashboard agents.inputs.get PermissionEditors.tsx sends GET through client.call with the path variable
+indirect dashboard agents.inputs.set PermissionEditors.tsx sends PUT through client.call with the path variable
 indirect dashboard system.journal.read LogViewer.tsx reads the journal with fetch() (GET, the SDK client speaks JSON only) on the URL query() builds
 indirect dashboard legacy.claims.cancel RecoveryContacts.tsx LegacyClaims sends POST through its act(path, body) helper (sdk.call method POST)
 indirect dashboard legacy.claims.confirm_adult RecoveryContacts.tsx LegacyClaims sends POST through its act(path, body) helper (sdk.call method POST)

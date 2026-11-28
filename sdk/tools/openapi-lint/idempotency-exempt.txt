@@ -8,7 +8,21 @@ POST /v1/auth/login  # answers with fresh tokens, which a replay store must not 
 POST /v1/auth/refresh  # answers with fresh tokens; refresh-token rotation already rejects a replay
 DELETE /v1/auth/app-session  # clearing the caller's own cookie twice is the same as once
 POST /v1/auth/logout  # ending the caller's own session twice is the same as once
+POST /v1/auth/setup/options  # each attempt displays a scoped, short-lived screen code
+POST /v1/auth/setup/kit  # each pending kit returns a secret that a replay store must never keep
+POST /v1/auth/setup/finish  # completing an already-finished setup returns 409 and changes nothing
+POST /v1/auth/recovery/options  # each attempt displays a scoped, short-lived screen code
+POST /v1/auth/recovery/reset  # the screen and kit proofs are single-use; the replacement code is never stored in a replay cache
+POST /v1/auth/recovery/remote  # a live request is returned unchanged; retrying never shortens or restarts its wait
+DELETE /v1/auth/recovery/remote  # clearing a cancelled request leaves the same inactive state
+POST /v1/auth/email/options  # issues a short-lived, rate-limited verification challenge; no secret enters a replay store
+POST /v1/auth/email/verify  # the submitted challenge is single-use
+POST /v1/backups/kit/{action_id}/claim  # returns a one-time kit that a replay store must never keep
+POST /v1/users/invites/{action_id}/claim  # returns a one-time invitation link that a replay store must never keep
 POST /v1/auth/approver-keys  # a retry with the same public key answers 409 (already registered), so a repeat never adds a second key (#702)
+POST /v1/auth/step-up/options  # read only: returns a fresh single-use challenge, nothing changes (D-028)
+POST /v1/auth/step-up  # answers with a fresh single-use grant, which a replay store must not keep; the challenge is single use, so a repeat is refused (D-028)
+DELETE /v1/auth/authenticator-allowlist/{aaguid}  # removing a trusted model twice is the same as once: a repeat answers 404 and changes nothing (D-028)
 DELETE /v1/auth/approver-keys/{key_id}  # revoking twice is the same as once: a repeat finds no live key and changes nothing (#702)
 POST /v1/sites  # The caller supplies a unique site ID. A retry with that ID returns 409 before writing a site or a second creation audit record.
 PUT /v1/me/dashboard-card  # replaces the caller's single card; identical saves leave state and audit unchanged

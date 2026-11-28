@@ -26,6 +26,7 @@ from onemind_core.backups.manifest import parse_backup, parse_database
 from onemind_core.databases import DatabasesSettings, SharedPostgres
 
 from conftest import ADULT, AGENT, OWNER
+from test_identity_levels import root  # noqa: F401 - pytest fixture
 
 NOTES = """apiVersion: onemind.app/v1alpha1
 kind: App
@@ -572,9 +573,11 @@ def test_cold_backup_scales_every_stopped_app_back_up_when_stopping_fails_midway
 
 # ---- emergency kit ---------------------------------------------------------------------------------
 def test_separate_kit_request_on_a_box_without_passkeys_stays_pending(client, bk):
+    """Option A (founder, 2026-11-28): a separately approved kit goes only to the approving owner session.
+    A static owner token can file and approve, but it has no session, so nothing it sends releases the page."""
     assert not client.app.state.identity.passkeys_active()
     headers = {**OWNER, "Idempotency-Key": "separate-kit-request"}
-    body = {"approve": False, "delivery_token": secrets.token_hex(32)}
+    body = {"approve": False}
     request = client.post("/v1/backups/kit", headers=headers, json=body)
     assert request.status_code == 202, request.text
     action = request.json()
@@ -582,9 +585,13 @@ def test_separate_kit_request_on_a_box_without_passkeys_stays_pending(client, bk
     assert client.get("/v1/backups/kit", headers=OWNER).json()["state"] == "missing"
     assert client.post("/v1/backups/kit", headers=headers, json=body).status_code == 202
     assert approve(client, action["id"])["state"] == "succeeded"
-    issued = client.post("/v1/backups/kit", headers=headers, json=body)
-    assert issued.status_code == 201 and issued.json()["one_time"]["text"]
-    assert client.post("/v1/backups/kit", headers=headers, json=body).status_code == 409
+    # The old private delivery token is gone: the field is refused, and repeating the request never delivers.
+    old = client.post("/v1/backups/kit", headers=headers, json={"approve": False, "delivery_token": secrets.token_hex(32)})
+    assert old.status_code == 422 and "owner_key" not in old.text
+    again = client.post("/v1/backups/kit", headers=headers, json=body)
+    assert again.status_code == 409 and "owner_key" not in again.text
+    claim = client.post(f"/v1/backups/kit/{action['id']}/claim", headers=OWNER)
+    assert claim.status_code == 403 and "owner_key" not in claim.text
 
 
 def test_emergency_kit_is_shown_once_and_must_be_typed_back(client, bk, settings):
@@ -900,11 +907,16 @@ def test_restore_app_key_is_gone_after_a_restart_and_nothing_changes(client, bk)
 
 
 # ---- owner shortcut passes the same approval guards as the approve route (F-2) -----------------------
-def test_owner_shortcuts_need_a_passkey_once_one_is_registered(client, bk):
+def test_owner_shortcuts_require_verification_after_setup(client, bk):
+    from fastapi.testclient import TestClient
+
+    from test_identity import LOCAL_PEER, setup_bearer_owner
+
     add_usb(client, bk)
     assert client.post("/v1/backups/runs", headers=OWNER, json={"approve": True}).json()["state"] == "succeeded"
     snap = client.get("/v1/backups/snapshots", headers=OWNER, params={"app_id": "notes"}).json()[0]
-    client.app.state.identity.passkeys_active = lambda: True  # as if an owner had registered a passkey
+    home = TestClient(client.app, client=LOCAL_PEER)
+    setup_bearer_owner(home)
     jobs = len(bk.agent.jobs)
     # the control: the normal approve route is refused
     ctl = client.post("/v1/backups/runs", headers=OWNER, json={})
@@ -1096,6 +1108,161 @@ def test_onboarding_state_follows_settings_and_kit(client, bk):
     assert client.post("/v1/backups/kit/confirm", headers=OWNER, json={"answers": right}).status_code == 200
     assert client.get("/v1/onboarding/state", headers=OWNER).json()["complete"] is True
     assert client.get("/v1/onboarding/state", headers=ADULT).status_code == 403
+
+
+def test_signed_in_owner_can_claim_approved_backup_kit_and_finish_onboarding(settings, clock, executor):
+    from fastapi.testclient import TestClient
+
+    from onemind_core.app import create_app
+    from onemind_core.identity.crypto import totp_code
+
+    from test_identity import LOCAL_PEER, PASSWORD, audit_events, box_code, id_settings, setup_bearer_owner
+
+    app = create_app(id_settings(settings), clock=clock, executor=executor)
+    with TestClient(app, client=LOCAL_PEER) as home:
+        backups = app.state.backups
+        backups.agent = FakeAgent(clock)
+        add_usb(home, backups)
+        headers = setup_bearer_owner(home)
+        pending = home.post("/v1/auth/totp/setup", headers=headers)
+        assert pending.status_code == 200, pending.text
+        secret = pending.json()["one_time"]["secret"]
+
+        def next_code():
+            clock.advance(30)
+            return totp_code(secret, int(clock.now.timestamp()) // 30)
+
+        assert home.post("/v1/auth/totp/confirm", headers=headers, json={"code": next_code()}).status_code == 204
+        config = {"box_name": "home-hub", "time_zone": "UTC", "backup_choice": "usb",
+                  "backup_destination_id": backups.destinations()[0]["id"]}
+        assert home.put("/v1/onboarding/settings", headers=headers, json=config).status_code == 200
+        assert home.get("/v1/onboarding/state", headers=headers).json()["complete"] is False
+
+        requested = home.post("/v1/backups/kit/request", headers=headers)
+        assert requested.status_code == 202, requested.text
+        action = requested.json()
+        assert action["type"] == "backup.kit.issue" and action["state"] == "awaiting_approval"
+        path = f"/v1/actions/{action['id']}"
+        claim = f"/v1/backups/kit/{action['id']}/claim"
+        assert home.post(claim, headers=headers).status_code == 409
+        assert home.post(f"{path}/approve", headers=headers).json()["reason"] == "step_up_required"
+        assert "backup.key.add" not in backups.agent.kinds()
+
+        options = home.post(f"{path}/approve-options", headers=headers, json={"method": "password+totp", "at_box": True})
+        assert options.status_code == 200 and options.json()["box_code_required"], options.text
+        proof = {"challenge": options.json()["challenge"], "password": PASSWORD, "totp": next_code()}
+        approved = home.post(f"{path}/approve", headers=headers, json={"password_totp": proof, "box_code": box_code(home)})
+        assert approved.status_code == 200 and approved.json()["state"] == "succeeded", approved.text
+        assert home.get("/v1/onboarding/state", headers=headers).json()["complete"] is False
+
+        other_login = home.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD,
+                                "client": "cli", "totp": next_code()})
+        assert other_login.status_code == 200, other_login.text
+        another_session = {"Authorization": f"Bearer {other_login.json()['access_token']}"}
+        assert home.post(claim, headers=another_session).status_code == 409
+        assert home.post(claim, headers=ADULT).status_code == 403
+        resumed = home.post("/v1/backups/kit/request", headers=headers).json()
+        assert resumed["id"] == action["id"] and resumed["state"] == "succeeded"
+
+        delivered = home.post(claim, headers=headers)
+        assert delivered.status_code == 200 and delivered.headers["cache-control"] == "no-store", delivered.text
+        one = delivered.json()["one_time"]
+        assert home.post(claim, headers=headers).status_code == 409
+        assert backups.agent.kinds().count("backup.key.add") == 1
+        assert one["owner_key"] not in approved.text + home.get(path, headers=headers).text + str(audit_events(settings))
+
+        positions = delivered.json()["kit"]["positions"]
+        answers = {str(pos): one["groups"][pos - 1] for pos in positions}
+        assert home.post("/v1/backups/kit/confirm", headers=headers, json={"answers": answers}).status_code == 200
+        state = home.get("/v1/onboarding/state", headers=headers).json()
+        assert state["complete"] is True and state["kit"]["state"] == "confirmed"
+
+
+def test_existing_headless_owner_recovers_l2_to_finish_backup_kit(settings, clock, executor, tmp_path, root):
+    from fastapi.testclient import TestClient
+
+    from onemind_core.app import create_app
+    from onemind_core.identity.crypto import hash_password
+    from onemind_core.identity.models import UserRow
+
+    from test_identity import LOCAL_PEER, PASSWORD, audit_events, csrf, id_settings
+    from test_identity_levels import BIO_AAGUID, AttestedAuthenticator
+    from test_identity_signin import enable_totp
+
+    allow = tmp_path / "allowlist.json"
+    allow.write_text(json.dumps({"version": 1, "entries": [{
+        "kind": "fido_aaguid", "aaguid": BIO_AAGUID, "name": "Test Bio Key", "roots": [root.pem],
+        "user_verification": ["fingerprint_internal"],
+    }]}))
+    cfg = id_settings(settings, box_code_file=None, allowlist_file=allow)
+    with TestClient(create_app(cfg, clock=clock, executor=executor), client=LOCAL_PEER) as home:
+        backups = home.app.state.backups
+        backups.agent = FakeAgent(clock)
+        add_usb(home, backups)
+        home.app.state.identity.repo.add(UserRow(id="usr_existing", username="zeus", display_name="Existing owner",
+                                                role="owner", password_hash=hash_password(PASSWORD),
+                                                created_at=clock.now, updated_at=clock.now, created_by="legacy"))
+        login = {"username": "zeus", "password": PASSWORD}
+        assert home.post("/v1/auth/login", json=login).status_code == 200
+        kit_path = "/v1/auth/setup/kit?legacy_upgrade=true"
+        assert home.post(kit_path, headers=csrf(home)).json()["reason"] == "step_up_required"
+        secret = enable_totp(home, clock)
+
+        def sign_in():
+            from onemind_core.identity.crypto import totp_code
+
+            proof = {**login, "totp": totp_code(secret, int(clock.now.timestamp()) // 30)}
+            r = home.post("/v1/auth/login", json=proof)
+            assert r.status_code == 200, r.text
+
+        sign_in()
+        config = {"box_name": "home-hub", "time_zone": "UTC", "backup_choice": "usb",
+                  "backup_destination_id": backups.destinations()[0]["id"]}
+        assert home.put("/v1/onboarding/settings", headers=csrf(home), json=config).status_code == 200
+        assert home.get("/v1/onboarding/state").json()["complete"] is False
+        requested = home.post("/v1/backups/kit/request", headers=csrf(home))
+        assert requested.status_code == 202, requested.text
+        action = f"/v1/actions/{requested.json()['id']}"
+        assert home.post(f"{action}/approve", headers=csrf(home)).json()["reason"] == "step_up_required"
+        assert "backup.key.add" not in backups.agent.kinds()
+
+        remote = "/v1/auth/recovery/remote"
+        assert home.get(remote).json()["upgrade_kit_available"] is True
+        kit = home.post(kit_path, headers=csrf(home))
+        assert kit.status_code == 200 and kit.headers["cache-control"] == "no-store", kit.text
+        code = kit.json()["recovery_code"]
+        assert kit.json()["disk_recovery_key"] is None
+        assert home.post(kit_path, headers=csrf(home)).status_code == 409
+        assert home.post(remote, headers=csrf(home), json={"recovery_code": code}).json()["state"] == "waiting"
+        opts = "/v1/auth/passkeys/register/options?remote_recovery=true"
+        clock.advance(72 * 3600 - 1)
+        sign_in()
+        assert home.post(opts, headers=csrf(home)).json()["reason"] == "remote_recovery_wait"
+        assert home.get("/v1/onboarding/state").json()["complete"] is False
+        clock.advance(1)
+        options = home.post(opts, headers=csrf(home))
+        assert options.status_code == 200, options.text
+        key = AttestedAuthenticator(root)
+        registered = home.post("/v1/auth/passkeys/register", headers=csrf(home),
+                               json={"credential": key.register(options.json())})
+        assert registered.status_code == 201 and registered.json()["level"] == "L2", registered.text
+
+        requested = home.post("/v1/backups/kit/request", headers=csrf(home))
+        assert requested.status_code == 202, requested.text
+        aid = requested.json()["id"]
+        action = f"/v1/actions/{aid}"
+        options = home.post(f"{action}/approve-options", headers=csrf(home))
+        assert options.status_code == 200 and options.json()["required_level"] == "L2", options.text
+        proof = {"webauthn": key.assert_(options.json()["publicKey"]["challenge"])}
+        done = home.post(f"{action}/approve", headers=csrf(home), json=proof)
+        assert done.status_code == 200 and done.json()["state"] == "succeeded", done.text
+        issued = home.post(f"/v1/backups/kit/{aid}/claim", headers=csrf(home))
+        assert issued.status_code == 200, issued.text
+        groups = issued.json()["one_time"]["groups"]
+        answers = {str(pos): groups[pos - 1] for pos in issued.json()["kit"]["positions"]}
+        assert home.post("/v1/backups/kit/confirm", headers=csrf(home), json={"answers": answers}).status_code == 200
+        assert home.get("/v1/onboarding/state").json()["complete"] is True
+        assert code not in str(audit_events(settings))
 
 
 # ---- content tier (BAK-03, REC-NOMAD-07) -------------------------------------------------------

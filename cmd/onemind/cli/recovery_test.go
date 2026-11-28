@@ -3,7 +3,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -34,7 +33,7 @@ func kitHub(t *testing.T, deliveryStatus int) *kitHubState {
 	isolate(t)
 	state := &kitHubState{}
 	var mu sync.Mutex
-	var key, token string
+	var key string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
@@ -55,23 +54,18 @@ func kitHub(t *testing.T, deliveryStatus int) *kitHubState {
 			}
 			jsonOut(w, 200, map[string]any{"id": "a_kit", "type": "backup.kit.issue", "state": actionState, "idempotency_key": key})
 		case r.Method == http.MethodPost && r.URL.Path == "/v1/backups/kit":
-			var body struct {
-				Approve *bool  `json:"approve"`
-				Token   string `json:"delivery_token"`
+			t.Error("the CLI must not use the issue shortcut or any token-only delivery")
+			jsonOut(w, 422, map[string]string{"error": "conflict", "message": "unexpected"})
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/backups/kit/request":
+			if r.ContentLength > 0 || r.Header.Get("Idempotency-Key") == "" {
+				t.Error("kit request must carry an Idempotency-Key and no body (no delivery token)")
 			}
-			if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Approve == nil || *body.Approve || len(body.Token) != 64 || r.Header.Get("Idempotency-Key") == "" {
-				t.Error("kit POST must request separate approval with a key and a delivery token")
-				jsonOut(w, 422, map[string]string{"error": "conflict", "message": "expected separate approval"})
-				return
-			}
+			state.issues.Add(1)
+			key = r.Header.Get("Idempotency-Key")
+			jsonOut(w, 202, map[string]any{"id": "a_kit", "type": "backup.kit.issue", "state": "awaiting_approval", "idempotency_key": key})
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/backups/kit/a_kit/claim":
 			if !state.approved.Load() {
-				state.issues.Add(1)
-				key, token = r.Header.Get("Idempotency-Key"), body.Token
-				jsonOut(w, 202, map[string]any{"id": "a_kit", "type": "backup.kit.issue", "state": "awaiting_approval", "idempotency_key": key})
-				return
-			}
-			if r.Header.Get("Idempotency-Key") != key || body.Token != token {
-				t.Error("collection did not reuse the original credentials")
+				t.Error("claimed before approval")
 			}
 			if state.collections.Add(1) != 1 && deliveryStatus == 201 {
 				jsonOut(w, 409, map[string]string{"error": "stale_precondition", "message": "the kit was already collected"})
@@ -81,7 +75,7 @@ func kitHub(t *testing.T, deliveryStatus int) *kitHubState {
 				jsonOut(w, deliveryStatus, map[string]string{"error": "unavailable", "message": "delivery was interrupted"})
 				return
 			}
-			jsonOut(w, 201, map[string]any{"action": map[string]string{"id": "a_kit"}, "kit": map[string]any{"state": "issued", "fingerprint": "0123456789abcdef",
+			jsonOut(w, 200, map[string]any{"action": map[string]string{"id": "a_kit"}, "kit": map[string]any{"state": "issued", "fingerprint": "0123456789abcdef",
 				"disk_key_included": true, "uncovered_destinations": []string{}},
 				"one_time": map[string]any{"owner_key": testKitKey, "disk_recovery_key": testDiskKey,
 					"text": "ONEMIND EMERGENCY KIT\n" + testKitKey + "\n" + testDiskKey + "\n"}})
@@ -121,7 +115,7 @@ func TestRecoveryKitIssueOnlyFilesAPendingRequestOnABoxWithoutPasskeys(t *testin
 	state := kitHub(t, 201)
 	receipt := filepath.Join(t.TempDir(), "receipt.json")
 	r := run(t, "", false, "--json", "recovery", "kit", "issue", "--receipt", receipt)
-	if r.code != 0 || !strings.Contains(r.out, `"awaiting_approval"`) || strings.Contains(r.out, `"delivery_token":`) || strings.Contains(r.out, testKitKey) {
+	if r.code != 0 || !strings.Contains(r.out, `"awaiting_approval"`) || strings.Contains(r.out, "delivery_token") || strings.Contains(r.out, testKitKey) {
 		t.Fatalf("issue %+v", r)
 	}
 	if st, err := os.Stat(receipt); err != nil || st.Mode().Perm() != 0o600 {

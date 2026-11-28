@@ -45,12 +45,13 @@ def passkey_step_up(gw: Gateway):
         if spec is None or not spec[3]:
             return
         identity_present = any(getattr(g, "__name__", "") == "approval_guard" for g in gw.approval_guards)
-        if body.get("webauthn") is None or not identity_present:
+        if not (body.get("webauthn") or body.get("password_totp")) or not identity_present:
             gw.events.publish_event(
                 "auth", "step_up.required",
                 {"attempted": "approve", "action_id": action_id, "type": action.get("type"), "reason": "factory_reset_needs_passkey"},
                 principal=p.as_dict(), severity="warning", action_id=action_id)
-            raise ApiError(401, "unauthenticated", "a factory reset needs your passkey: register one, then approve with it",
+            raise ApiError(401, "unauthenticated", "a factory reset needs a proven passkey or a sign-in check "
+                           "with the code from the box's screen",
                            reason="step_up_required")
 
     return guard
