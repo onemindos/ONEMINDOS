@@ -164,15 +164,21 @@ function ShareDialog({ api, run, space, entry, onClose }: { api: FilesApi; run: 
   const inFlight = useRef(false);
   const [busy, setBusy] = useState(false);
   const chars = [...password].length; // the gateway counts characters: 8 to 200
+  const close = () => { if (!inFlight.current) onClose(); };
   // One click, one POST: a create is never retried or repeated, as a second link's secret would be lost.
   const create = () => {
     if (inFlight.current) return;
     inFlight.current = true; setBusy(true);
     void run(async () => {
-      setMade(await api.createShare({ name: entry.name, items: [{ root: space.root, path: entry.path }], expires_at: new Date(Date.now() + ttl).toISOString(), ...(password ? { password } : {}) }));
+      setMade(await api.createShare({
+        ...([...entry.name].length <= 120 ? { name: entry.name } : {}),
+        items: [{ root: space.root, path: entry.path }],
+        expires_at: new Date(Date.now() + ttl).toISOString(),
+        ...(password ? { password } : {}),
+      }));
     }, 'Could not create the share link').finally(() => { inFlight.current = false; setBusy(false); });
   };
-  return <Dialog open onClose={onClose} title={`Share link for ${entry.name}`}
+  return <Dialog open onClose={close} title={`Share link for ${entry.name}`}
     description="Anyone who has the link can download this file until it expires or you end it. They need no account."
     actions={made ? <Button onClick={onClose}>Done</Button> : <Button disabled={busy || (chars > 0 && (chars < 8 || chars > 200))} onClick={create}>Create link</Button>}>
     {made ? <>
@@ -182,6 +188,7 @@ function ShareDialog({ api, run, space, entry, onClose }: { api: FilesApi; run: 
       <Button variant="secondary" onClick={() => void copy()}>Copy link</Button>
       {copied && <p role="status">{copied}</p>}
     </> : <>
+      {busy && <p role="status">Creating the link…</p>}
       <label htmlFor="share-ttl">Expires after</label>
       <select id="share-ttl" value={ttl} onChange={(e) => setTtl(Number(e.target.value))}>{EXPIRIES.map(([l, ms]) => <option key={l} value={ms}>{l}</option>)}</select>
       <TextField id="share-password" label="Password (optional, 8 to 200 characters)" type="password" value={password} onChange={setPassword} />

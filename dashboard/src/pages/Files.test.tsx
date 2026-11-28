@@ -17,6 +17,11 @@ const entries = [
 const request = { id: 'frq_1', type: 'files.grant.create', plan: { summary: 'app photos gets read-only access to shared:/' }, risk: 'write', state: 'awaiting_approval', reason: null, requested_by: { id: 'agent-1', kind: 'agent' }, expires_at: '2026-11-22T10:00:00Z', plan_sha256: 'sha256:abc', deny_reason: null };
 type Call = { method: string; path: string; search: URLSearchParams; headers: Headers; body: string };
 const json = (v: unknown, status = 200, headers: Record<string, string> = {}) => new Response(JSON.stringify(v), { status, headers: { 'content-type': 'application/json', ...headers } });
+const createdShare = {
+  id: 'shl_1', name: 'notes.txt', created_by: 'owner', state: 'active', items: [],
+  password: false, created_at: '2026-11-27T10:00:00Z', expires_at: '2026-12-04T10:00:00Z', opened_count: 0,
+  one_time: { token: 'oms_x', path: '/v1/share/oms_x', url: 'https://hub.test/v1/share/oms_x' },
+};
 
 function mount(handler: (c: Call) => Response | Promise<Response> | undefined = () => undefined, who = 'owner-demo') {
   const calls: Call[] = [];
@@ -217,18 +222,19 @@ it('renames a file with the new name only, then reloads the folder', async () =>
   await u.clear(field); await u.type(field, 'a/b');
   expect(within(dlg).getByRole('button', { name: 'Rename' })).toBeDisabled();
   await u.clear(field); await u.type(field, 'plan.txt');
+  const lists = () => calls.filter((c) => c.method === 'GET' && c.path === '/v1/files/list').length;
+  const listsBefore = lists();
   await u.click(within(dlg).getByRole('button', { name: 'Rename' }));
   await waitFor(() => expect(calls.some((c) => c.path === '/v1/files/ops')).toBe(true));
   const op = calls.find((c) => c.path === '/v1/files/ops')!;
   expect(op.method).toBe('POST');
   expect(JSON.parse(op.body)).toEqual({ op: 'rename', root: 'home:owner', path: '/notes.txt', name: 'plan.txt' });
-  const listsBefore = 1; // the folder was listed once when the screen opened
-  await waitFor(() => expect(calls.filter((c) => c.path === '/v1/files/list').length).toBeGreaterThan(listsBefore));
+  await waitFor(() => expect(lists()).toBeGreaterThan(listsBefore));
 });
 
 it('makes a share link for a file and shows its secret URL once', async () => {
   const calls = mount((c) => c.path === '/v1/files/shares' && c.method === 'POST'
-    ? json({ id: 'shl_1', name: 'notes.txt', created_by: 'owner', state: 'active', items: [], password: false, created_at: '2026-11-27T10:00:00Z', expires_at: '2026-12-04T10:00:00Z', opened_count: 0, one_time: { token: 'oms_x', path: '/v1/share/oms_x', url: 'https://hub.test/v1/share/oms_x' } }, 201) : undefined);
+    ? json(createdShare, 201) : undefined);
   const u = userEvent.setup();
   await u.click(await screen.findByRole('button', { name: 'Share link for notes.txt' }));
   expect(screen.queryByRole('button', { name: 'Share link for Docs' })).toBeNull();
@@ -242,11 +248,51 @@ it('makes a share link for a file and shows its secret URL once', async () => {
   const post = calls.find((c) => c.path === '/v1/files/shares' && c.method === 'POST')!;
   const body = JSON.parse(post.body);
   expect(body.items).toEqual([{ root: 'home:owner', path: '/notes.txt' }]);
+  expect(body.name).toBe('notes.txt');
   expect(body.password).toBeUndefined();
   const ms = Date.parse(body.expires_at) - Date.now();
   expect(ms).toBeGreaterThan(23 * 3_600_000); expect(ms).toBeLessThan(25 * 3_600_000);
   // the gateway does not replay share creates by key, so none is sent (a retry could make a second link)
   expect(post.headers.get('Idempotency-Key')).toBeNull();
+});
+
+it('shares a file whose name exceeds the gateway label limit', async () => {
+  const name = 'a'.repeat(121);
+  const path = `/${name}`;
+  const calls = mount((c) => {
+    if (c.path === '/v1/files/list') return json([{ ...entries[1], name, path }]);
+    if (c.path === '/v1/files/shares' && c.method === 'POST') {
+      const label = (JSON.parse(c.body) as { name?: string }).name;
+      if (label !== undefined && [...label].length > 120) return json({ error: 'conflict', message: 'Label too long' }, 422);
+      return json({ ...createdShare, name: '1 shared item' }, 201);
+    }
+  });
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: `Share link for ${name}` }));
+  await u.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Create link' }));
+  const post = calls.find((c) => c.path === '/v1/files/shares' && c.method === 'POST')!;
+  const body = JSON.parse(post.body);
+  expect(body.items).toEqual([{ root: 'home:owner', path }]);
+  expect(body.name).toBeUndefined();
+  expect(await screen.findByDisplayValue('https://hub.test/v1/share/oms_x')).toBeInTheDocument();
+});
+
+it.each(['Escape', 'Close', 'backdrop'])('keeps the pending share open on %s until the URL is shown', async (dismiss) => {
+  let release!: (r: Response) => void;
+  const slow = new Promise<Response>((res) => { release = res; });
+  mount((c) => c.path === '/v1/files/shares' && c.method === 'POST' ? slow : undefined);
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Share link for notes.txt' }));
+  const dlg = screen.getByRole('dialog');
+  await u.click(within(dlg).getByRole('button', { name: 'Create link' }));
+  if (dismiss === 'Escape') await u.keyboard('{Escape}');
+  else if (dismiss === 'Close') await u.click(within(dlg).getByRole('button', { name: 'Close' }));
+  else await u.click(dlg.parentElement!);
+  expect(dlg).toBeInTheDocument();
+  release(json(createdShare, 201));
+  expect(await within(dlg).findByDisplayValue('https://hub.test/v1/share/oms_x')).toBeInTheDocument();
+  await u.click(within(dlg).getByRole('button', { name: 'Done' }));
+  expect(dlg).not.toBeInTheDocument();
 });
 
 it('sends one POST when Create link is clicked twice while the first is in flight', async () => {
