@@ -117,7 +117,7 @@ jobs:
     name: test (${{ matrix.backend }} ${{ matrix.shard }})
     needs: plan
     if: needs.plan.outputs.run_postgresql == 'true'
-    runs-on: ubuntu-24.04   # service containers need Docker; the local runner has none
+    runs-on: ${{ (vars.KVM_RUNNER == 'on' && (contains(fromJSON('["push","schedule","workflow_dispatch","merge_group"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && fromJSON('["self-hosted","onemind-kvm"]') || 'ubuntu-24.04' }}
     timeout-minutes: 60   # a safety net (raised from 40, founder 2026-11-23); a shard takes about 15 min (CI-03 target: under 20)
     strategy:
       fail-fast: false
@@ -135,6 +135,12 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s --health-retries 10
     steps:
+      # Tools GitHub's image has and our onemind-kvm template lacks; a no-op on hosted runners.
+      - name: Install the tools the hosted image preinstalls
+        if: runner.environment == 'self-hosted'
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends postgresql-client
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -175,7 +181,7 @@ jobs:
 
   image:
     if: ${{ !github.event.pull_request.draft && github.event_name != 'merge_group' }} # built on ready PRs
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (vars.KVM_RUNNER == 'on' && (contains(fromJSON('["push","schedule","workflow_dispatch","merge_group"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && fromJSON('["self-hosted","onemind-kvm"]') || 'ubuntu-24.04' }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0

@@ -19,6 +19,12 @@ WF = ROOT / ".github" / "workflows"
 KIT = ROOT / "scripts" / "ci-runner-kvm"
 SECRET_USE = re.compile(r"secrets\.(?!GITHUB_TOKEN\b)|secrets:\s*inherit|toJSON\(secrets\)", re.I)
 LABEL = "onemind-kvm"
+MOVED = {("ci.yml", "mqtt-bridge"), ("ci.yml", "rauc-build"), ("ci-core.yml", "test-postgresql"),
+         ("ci-core.yml", "image"), ("ci-deploy.yml", "deploy-lint"),
+         ("ci-deploy.yml", "e2e-systemd"), ("cli-packages.yml", "packages"), ("ci-onemindd.yml", "go"),
+         ("image.yml", "scope"), ("image.yml", "dataenc"), ("ci-apps.yml", "plan"),
+         ("go-fuzz.yml", "fuzz"), ("reproducible.yml", "repro"),
+         ("net-2vm.yml", "two-vm"), ("restore-drill.yml", "restore-drill")}
 
 
 def workflows():
@@ -35,6 +41,12 @@ def kvm_jobs():
 
 class KvmRunnerPolicy(unittest.TestCase):
     def test_the_x86_kvm_jobs_use_it(self):
+        # compose-e2e (ci-deploy.yml) stays hosted: two bake targets export the same tag, which the droplets' Docker refuses.
+        # golden-path (e2e.yml) and spatial (xr-emulator.yml) stay hosted: their harness starts an 8 GiB QEMU guest
+        # and the onemind-kvm label also lands on 8 GB hosts. Every hosted-only x86 job moved here to get past GitHub's free-plan hosted-job cap (a stated reason, not a
+        # convenience): none reads a secret or an environment, none is on the release path.
+        for want in MOVED:
+            self.assertIn(want, {(wf, name) for wf, _, name, _ in kvm_jobs()})
         found = {(wf, name) for wf, _, name, _ in kvm_jobs()}
         for want in [("image.yml", "image"), ("image.yml", "smoke"), ("image.yml", "cloud"),
                      ("image.yml", "installer"), ("battery.yml", "battery"), ("ci-apps.yml", "gate-kvm")]:
@@ -51,6 +63,10 @@ class KvmRunnerPolicy(unittest.TestCase):
             ("image.yml", "smoke"): f"${{{{ ({kvm}) && {sel} || 'ubuntu-24.04' }}}}",
             ("image.yml", "cloud"): f"${{{{ ({kvm}) && {sel} || 'ubuntu-24.04' }}}}",
             ("image.yml", "installer"): f"${{{{ ({kvm}) && {sel} || 'ubuntu-24.04' }}}}",
+            **{k: f"${{{{ ({kvm}) && {sel} || 'ubuntu-24.04' }}}}" for k in MOVED - {
+                ("ci.yml", "rauc-build")}},
+            # rauc-build keeps its arm64 leg on GitHub-hosted arm64; only the x86 leg moves.
+            ("ci.yml", "rauc-build"): f"${{{{ (matrix.runner == 'ubuntu-24.04' && {kvm}) && {sel} || matrix.runner }}}}",
             ("battery.yml", "battery"): (f"${{{{ (inputs.runner == 'ubuntu-24.04' && github.workflow != 'security-nightly' && "
                                          f"{kvm}) && {sel} || inputs.runner }}}}"),
         }

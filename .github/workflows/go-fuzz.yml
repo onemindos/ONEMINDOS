@@ -29,7 +29,7 @@ concurrency:
 jobs:
   fuzz:
     if: ${{ !github.event.pull_request.draft }}
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (vars.KVM_RUNNER == 'on' && (contains(fromJSON('["push","schedule","workflow_dispatch","merge_group"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && fromJSON('["self-hosted","onemind-kvm"]') || 'ubuntu-24.04' }}
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -50,6 +50,7 @@ jobs:
       - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
           go-version-file: go.mod
+          cache: false   # reused hosts: no shared module cache between jobs
       - name: go test -fuzz (30 s on a PR, 8 min at night)
         env:
           FUZZTIME: ${{ github.event_name == 'pull_request' && '30s' || '8m' }}
