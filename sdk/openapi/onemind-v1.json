@@ -50216,6 +50216,13 @@
             "description": "unavailable: the files storage is not usable"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "files:use"
+            ]
+          }
+        ],
         "summary": "What changed in a root since a cursor",
         "tags": [
           "sync"
@@ -50634,7 +50641,7 @@
         "security": [
           {
             "bearer": [
-              "*"
+              "files:use"
             ]
           }
         ],
@@ -50741,7 +50748,7 @@
         "security": [
           {
             "bearer": [
-              "*"
+              "files:use"
             ]
           }
         ],
@@ -50804,7 +50811,7 @@
         "security": [
           {
             "bearer": [
-              "*"
+              "files:use"
             ]
           }
         ],
@@ -50901,7 +50908,7 @@
         "security": [
           {
             "bearer": [
-              "*"
+              "files:use"
             ]
           }
         ],
@@ -51002,7 +51009,7 @@
         "security": [
           {
             "bearer": [
-              "*"
+              "files:use"
             ]
           }
         ],

@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
@@ -710,6 +711,32 @@ def test_limits_on_size_open_uploads_and_free_space(settings, clock, root):
         phone = Phone(c, OWNER)
         r = phone.create(phone.key("d"), blob(44, 10))
         assert r.status_code == 409 and "free space" in r.json()["message"]
+
+
+def test_concurrent_creates_reserve_from_one_disk_budget(pc, monkeypatch):
+    phones = (Phone(pc, OWNER), Phone(pc, ADULT))
+    svc = pc.app.state.photos
+    data = blob(45, 100)
+    start = threading.Barrier(2)
+    checking_space = threading.Barrier(2, timeout=2)
+
+    def free_bytes():
+        # Without serialization, let both requests read pending bytes before either inserts.
+        try:
+            checking_space.wait()
+        except threading.BrokenBarrierError:
+            pass
+        return svc.settings.reserve_bytes + len(data)
+
+    def create(phone):
+        start.wait(timeout=5)
+        return phone.create(phone.key("concurrent"), data)
+
+    monkeypatch.setattr(svc.files, "free_bytes", free_bytes)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        accepted, refused = sorted(pool.map(create, phones), key=lambda r: r.status_code)
+    assert accepted.status_code == 201, accepted.text
+    assert refused.status_code == 409 and "free space" in refused.json()["message"]
 
 
 def test_create_validates_headers(pc):

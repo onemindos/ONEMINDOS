@@ -9,6 +9,7 @@ import { FilesApi, human, type CreatedShare, type Entry, type FileRequest, type 
 import { SendToButton } from './FilesSendTo';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
+import { useShell } from '../shell/Shell';
 import { FilesQuotas } from './FilesQuotas';
 import { Load, TextField, useRun } from './parts';
 
@@ -17,12 +18,19 @@ const parent = (p: string) => p.replace(/\/[^/]+$/, '') || '/';
 const when = (iso: string) => (Number.isNaN(Date.parse(iso)) ? iso : new Date(iso).toLocaleString());
 
 export function Files() {
-  const { token, person, mock, principal } = useSignedIn();
+  const { token, person, mock, account, principal } = useSignedIn();
+  const { role } = useShell();
   if (mock) return <><PageHeader title="Files" /><p role="status">Connect to a real hub to browse files. Demo mode has no file storage.</p></>;
-  return <LiveFiles key={person} token={token} person={person} owner={principal?.role === 'owner'} canShare={principal?.role === 'owner' || principal?.role === 'adult'} />;
+  return <LiveFiles key={person} token={token} person={account?.id ?? principal?.id} role={role} />;
 }
 
-function LiveFiles({ token, person, owner, canShare }: { token: string; person: string; owner: boolean; canShare: boolean }) {
+// #1232: every person role uses Files for their own data. A guest has no Home (so no trash of their own) and
+// only an owner stores limits or decides a request; the hub enforces all of it, this only decides what is offered.
+function LiveFiles({ token, person, role }: { token: string; person?: string; role: string | null | undefined }) {
+  const owner = role === 'owner';
+  const canUseSharedTrash = owner || role === 'adult';
+  const canUseTrash = canUseSharedTrash || role === 'teen' || role === 'child';
+  const canShare = owner || role === 'adult'; // share links (#1310): the owner and adults ask, the owner approves
   const api = useMemo(() => new FilesApi(token), [token]);
   const run = useRun();
   const roots = usePoll(() => api.roots(), 60_000);
@@ -32,7 +40,7 @@ function LiveFiles({ token, person, owner, canShare }: { token: string; person: 
   return <div className="dash-stack">
     <PageHeader title="Files" lede="Your files on your box. The owner reviews rename and sharing requests, folder access and permanent trash deletion in Sharing." />
     <div role="group" aria-label="Files sections">
-      {(owner ? ['files', 'trash', 'sharing', 'quotas'] as const : ['files', 'trash', 'sharing'] as const).map((t) => <Button key={t} variant={tab === t ? 'primary' : 'secondary'} aria-pressed={tab === t} onClick={() => setTab(t)}>{t === 'files' ? 'Files' : t === 'trash' ? 'Trash' : t === 'sharing' ? 'Sharing' : 'Storage limits'}</Button>)}
+      {(['files', ...(canUseTrash ? ['trash'] : []), 'sharing', ...(owner ? ['quotas'] : [])] as Tab[]).map((t) => <Button key={t} variant={tab === t ? 'primary' : 'secondary'} aria-pressed={tab === t} onClick={() => setTab(t)}>{t === 'files' ? 'Files' : t === 'trash' ? 'Trash' : t === 'sharing' ? 'Sharing' : 'Storage limits'}</Button>)}
     </div>
     <Load res={roots} what="Loading your spaces">{(rs) => rs.length === 0 ? <p>No space is available to this account.</p> : <>
       {tab === 'files' && <>
@@ -41,7 +49,7 @@ function LiveFiles({ token, person, owner, canShare }: { token: string; person: 
         </div>
         {current && <Browser key={current.root} api={api} space={current} run={run} canShare={canShare} onChanged={() => void roots.reload()} />}
       </>}
-      {tab === 'trash' && <TrashTab api={api} run={run} />}
+      {tab === 'trash' && canUseTrash && <TrashTab api={api} run={run} canUseSharedTrash={canUseSharedTrash} owner={owner} />}
       {tab === 'quotas' && owner && <FilesQuotas api={api} run={run} />}
       {tab === 'sharing' && <Sharing api={api} run={run} person={person} roots={rs} canShare={canShare} owner={owner} />}
     </>}</Load>
@@ -200,8 +208,9 @@ function ShareDialog({ api, run, space, entry, onClose }: { api: FilesApi; run: 
   </Dialog>;
 }
 
-function TrashTab({ api, run }: { api: FilesApi; run: Run }) {
-  const [which, setWhich] = useState<'home' | 'shared'>('home');
+function TrashTab({ api, run, canUseSharedTrash, owner }: { api: FilesApi; run: Run; canUseSharedTrash: boolean; owner: boolean }) {
+  const [selected, setWhich] = useState<'home' | 'shared'>('home');
+  const which = canUseSharedTrash ? selected : 'home';
   const items = usePoll(() => api.trashList(which), 30_000);
   const key = useRef<{ which: string; key: string } | undefined>(undefined);
   const [filed, setFiled] = useState('');
@@ -214,15 +223,15 @@ function TrashTab({ api, run }: { api: FilesApi; run: Run }) {
   }, 'Could not file the request');
   return <Card title="Trash">
     <div role="group" aria-label="Which trash">
-      {(['home', 'shared'] as const).map((w) => <Button key={w} size="sm" variant={which === w ? 'primary' : 'secondary'} aria-pressed={which === w} onClick={() => setWhich(w)}>{w === 'home' ? 'My trash' : 'Shared trash'}</Button>)}
-      <Button size="sm" variant="secondary" onClick={() => setConfirm(true)}>Ask to empty this trash</Button>
+      {(canUseSharedTrash ? (['home', 'shared'] as const) : (['home'] as const)).map((w) => <Button key={w} size="sm" variant={which === w ? 'primary' : 'secondary'} aria-pressed={which === w} onClick={() => setWhich(w)}>{w === 'home' ? 'My trash' : 'Shared trash'}</Button>)}
+      {owner && <Button size="sm" variant="secondary" onClick={() => setConfirm(true)}>Ask to empty this trash</Button>}
     </div>
     {filed && <p role="status">Request {filed} filed. Nothing is deleted until a person approves it in the Sharing tab.</p>}
     <Load res={items} what="Loading the trash">{(rows: TrashItem[]) => rows.length === 0 ? <p>The trash is empty.</p> : <ul>
       {rows.map((t) => <li key={t.id}><strong>{t.name}</strong> from {t.path} · {human(t.size)} · trashed {when(t.trashed_at)} · deleted for good {when(t.purge_at)}{' '}
         <Button size="sm" variant="secondary" aria-label={`Restore ${t.name}`} onClick={() => void run(async () => { await api.restore(t.id); await items.reload(); }, `Could not restore ${t.name}`)}>Restore</Button></li>)}
     </ul>}</Load>
-    <Dialog role="alertdialog" open={confirm} onClose={() => setConfirm(false)} title="Ask to empty the trash for good" description="This files a request. Nothing is deleted until it is approved, and what it deletes is shown to the approver first."
+    <Dialog role="alertdialog" open={owner && confirm} onClose={() => setConfirm(false)} title="Ask to empty the trash for good" description="This files a request. Nothing is deleted until it is approved, and what it deletes is shown to the approver first."
       actions={<Button onClick={ask}>File the request</Button>}><p>Trash: {which === 'home' ? 'mine' : 'shared'}.</p></Dialog>
   </Card>;
 }
@@ -242,7 +251,7 @@ function ShareLinks({ api, run, onRequested }: { api: FilesApi; run: Run; onRequ
   </Card>;
 }
 
-function Sharing({ api, run, person, roots, canShare, owner }: { api: FilesApi; run: Run; person: string; roots: FileRoot[]; canShare: boolean; owner: boolean }) {
+function Sharing({ api, run, person, roots, canShare, owner }: { api: FilesApi; run: Run; person?: string; roots: FileRoot[]; canShare: boolean; owner: boolean }) {
   const grants = usePoll(() => api.grants(), 30_000);
   const reqs = usePoll(() => api.requests(), 15_000);
   const [form, setForm] = useState(false);
@@ -267,7 +276,7 @@ function Sharing({ api, run, person, roots, canShare, owner }: { api: FilesApi; 
     setDeciding(undefined); reload();
   }, `Could not ${how} the request`);
   return <>
-    <Card title="Who can reach these files" aside={<Button size="sm" onClick={() => { pending.current = undefined; setForm(true); }}>Request folder access</Button>}>
+    <Card title="Who can reach these files" aside={owner && <Button size="sm" onClick={() => { pending.current = undefined; setForm(true); }}>Request folder access</Button>}>
       <Load res={grants} what="Loading grants">{(rows) => rows.length === 0 ? <p>No app or agent has folder access.</p> : <ul>
         {rows.map((g) => <li key={g.id}><strong>{g.subject.kind} {g.subject.id}</strong> · {g.access === 'rw' ? 'read and write' : 'read only'} · {g.root}:{g.path}{' '}
           <Button size="sm" variant="secondary" aria-label={`Revoke access for ${g.subject.id}`} onClick={() => void run(async () => { await api.revoke(g.id); reload(); }, 'Could not revoke')}>Revoke</Button></li>)}
@@ -283,7 +292,7 @@ function Sharing({ api, run, person, roots, canShare, owner }: { api: FilesApi; 
             {r.requested_by.id === person && <Button size="sm" variant="secondary" aria-label={`Cancel request ${r.id}`} onClick={() => decide(r, 'cancel')}>Cancel request</Button>}</>}</li>)}
       </ul>}</Load>
     </Card>
-    <Dialog open={form} onClose={() => setForm(false)} title="Request folder access" description="This files a request. The app or agent gets nothing until a person approves it."
+    <Dialog open={owner && form} onClose={() => setForm(false)} title="Request folder access" description="This files a request. The app or agent gets nothing until a person approves it."
       actions={<Button disabled={!subjectId.trim()} onClick={send}>File the request</Button>}>
       <label htmlFor="grant-kind">Gives access to</label>
       <select id="grant-kind" value={subject} onChange={(e) => setSubject(e.target.value as 'app' | 'agent')}><option value="app">An app</option><option value="agent">An agent</option></select>

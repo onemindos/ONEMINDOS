@@ -299,7 +299,6 @@ security POST /v1/storage/recovery-key owner=core:storage
 security GET /v1/subjects owner=core:subjects
 security GET /v1/subjects/check owner=core:subjects
 security GET /v1/surfaces owner=core:apps
-security GET /v1/sync/changes owner=core:sync
 security GET /v1/system-apps owner=core:apps
 security POST /v1/system/actions owner=core:system
 security GET /v1/system/controls owner=core:system

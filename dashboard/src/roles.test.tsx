@@ -43,6 +43,12 @@ describe('role → view', () => {
     expect(showsNav('home', 'simple')).toBe(true);
   });
 
+  it('Files and Photos are in the nav of every person role, simple or pro (#1232)', () => {
+    for (const r of ['owner', 'adult', 'teen', 'child', 'guest']) {
+      for (const id of ['files', 'photos']) expect(showsNav(id, viewFor(r), r), `${r} ${id}`).toBe(true);
+    }
+  });
+
   it('the Network screen is for owners only: an adult is Pro but gets no nav entry or palette command', () => {
     expect(showsNav('network', 'pro', 'owner')).toBe(true);
     expect(showsNav('network', 'pro', 'adult')).toBe(false);
