@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 1222
 branch: claude/nats-callout-xkey
 ---
-A detailed plan for encrypting the NATS auth-callout requests with an xkey (docs/security/nats-callout-xkey.md); nothing is built yet.
+The revised plan in [PR #1222](https://github.com/onemindos/ONEMINDOS/pull/1222) details how OneMind will encrypt NATS auth callout traffic, activate it with a coordinated restart, and recover a lost xkey. Implementation is tracked in #1221.
