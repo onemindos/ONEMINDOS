@@ -23,6 +23,10 @@ func radiosCommands(a *App) []*cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(*cobra.Command, []string) error {
 			return a.read("/v1/radios", func(w io.Writer, v any) error {
+				if len(list(v)) == 0 {
+					_, err := io.WriteString(w, "No radios found.\n")
+					return err
+				}
 				var rows [][]string
 				for _, r := range list(v) {
 					m := obj(r)
@@ -68,7 +72,11 @@ func radiosCommands(a *App) []*cobra.Command {
 			}
 			return a.withJSONOrText(v, func(w io.Writer, v any) error {
 				c := obj(obj(v)["confirm"])
-				return kv(w, [][2]string{{"radio", id}, {"confirmed as", str(c["label"])}, {"at", dash(str(c["confirmed_at"]))}})
+				if err := kv(w, [][2]string{{"radio", id}, {"confirmed as", str(c["label"])}, {"at", dash(str(c["confirmed_at"]))}}); err != nil {
+					return err
+				}
+				_, err := io.WriteString(w, "Nothing was opened or sent.\n")
+				return err
 			})
 		},
 	}
