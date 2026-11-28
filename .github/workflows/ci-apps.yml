@@ -215,16 +215,25 @@ jobs:
   gate:
     needs: plan
     if: ${{ !github.event.pull_request.draft && (needs.plan.outputs.apps != '[]') }}
-    runs-on: ubuntu-24.04
+    # Same trust rule as image.yml's KVM jobs: our single-use onemind-kvm runners (x86, Docker) for trusted events,
+    # GitHub-hosted for fork pull requests and when KVM_RUNNER is off. Hosted jobs are capped by the free plan, so
+    # only the self-hosted pool fans out wider.
+    runs-on: ${{ (vars.KVM_RUNNER == 'on' && (contains(fromJSON('["push","schedule","workflow_dispatch","merge_group"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && fromJSON('["self-hosted","onemind-kvm"]') || 'ubuntu-24.04' }}
     timeout-minutes: 120
     strategy:
       fail-fast: false
-      max-parallel: 4
+      max-parallel: ${{ fromJSON((vars.KVM_RUNNER == 'on' && (contains(fromJSON('["push","schedule","workflow_dispatch","merge_group"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && '12' || '4') }}
       matrix:
         app: ${{ fromJSON(needs.plan.outputs.apps) }}
     env:
       HAS_DOCKERHUB: ${{ secrets.DOCKERHUB_TOKEN != '' }}
     steps:
+      - name: Remove a leftover gate cluster (reused self-hosted runner)
+        if: runner.environment == 'self-hosted'
+        run: |
+          docker ps -aq --filter name=k3d-gate | xargs -r docker rm -f 2>/dev/null || true
+          docker network rm k3d-gate 2>/dev/null || true
+
       - name: Check out
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -256,9 +265,9 @@ jobs:
       # D18: optional Docker Hub login, so docker.io pulls by trivy, crane and the k3d node image count against the
       # account's rate limit, not the runner's shared IP. Skipped when DOCKERHUB_TOKEN is not set and on pull
       # requests from forks (which never receive secrets). The token is only read by docker/login-action and is
-      # never echoed. Images the k3s node itself pulls during the smoke test are not covered by this login.
+      # never echoed. Never runs on our self-hosted runners (anonymous pulls per droplet IP), so no secret is read there. Images the k3s node itself pulls during the smoke test are not covered by this login.
       - name: Docker Hub login (optional, D18)
-        if: env.HAS_DOCKERHUB == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        if: runner.environment != 'self-hosted' && env.HAS_DOCKERHUB == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -310,3 +319,10 @@ jobs:
             ${{ runner.temp }}/out/
           if-no-files-found: ignore
           retention-days: 30
+
+      - name: Delete the gate cluster (reused self-hosted runner)
+        if: always() && runner.environment == 'self-hosted'
+        run: |
+          if command -v k3d >/dev/null 2>&1; then k3d cluster delete gate || true; fi
+          docker ps -aq --filter name=k3d-gate | xargs -r docker rm -f 2>/dev/null || true
+          docker network rm k3d-gate 2>/dev/null || true
