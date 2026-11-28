@@ -4,11 +4,16 @@
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 
 import pytest
 
-from conftest import ADULT, AGENT, OWNER, make_client
-from onemind_core.taint import FOREVER, TTL
+from conftest import ADULT, AGENT, OWNER, action_body, make_client
+from onemind_core.auth import Principal
+from onemind_core.identity.crypto import new_secret, sha256_hex
+from onemind_core.identity.models import TokenRow
+from onemind_core.taint import FOREVER, TTL, plan_taint
+from onemind_core.taint_store import NODE_JOIN_REQUESTER
 from test_mcp import call
 from test_tainted_input import (  # noqa: F401  (fixtures and helpers)
     agent_removes_whoami, install_whoami, owner_allows_removals, tclient, hostile_apps,
@@ -81,8 +86,9 @@ def test_every_agent_and_plugin_is_exposed_by_default_and_people_are_not(tclient
     assert ins.inputs("agent:hermes", "agent") == ("agent",) and ins.inputs("hermes", "agent") == ("agent",)
     assert ins.inputs("hermes") == ("agent",)  # an unknown kind fails closed
     assert ins.inputs("owner", "person") == () and ins.inputs("automation:r1", "automation") == ()
-    # a joining node is not an AI reader (it asks for node.join only, and the owner checks its code)
-    assert ins.inputs("node:n1", "node") == () and ins.inputs("node:n1") == ("agent",)
+    # a node token counts as exposed (#1166 review); only the fabric's node.join path is exempt
+    assert ins.inputs("node:n1", "node") == ("agent",) and ins.inputs("node:n1") == ("agent",)
+    assert ins.inputs("node:n1", NODE_JOIN_REQUESTER) == ()
     assert tclient.app.state.gateway.actions.taint.get("hermes", "agent").permanent
     assert tclient.app.state.gateway.actions.taint.get("owner", "person") is None
     v = tclient.get("/v1/agents/agent:whoami/inputs", headers=OWNER).json()
@@ -225,3 +231,75 @@ def test_the_inputs_audit_records_how_presence_was_proved_and_a_removed_app_forg
     assert v["declared"] is False and v["exposed"] is True  # back to the fail-closed default
     cleared = [x for x in audit(tclient) if x["event"] == "agent.inputs.cleared"]
     assert cleared and cleared[-1]["data"]["reason"] == "identity_ended"
+
+
+
+@pytest.mark.default_exposure
+def test_only_the_fabric_node_join_request_skips_a_nodes_exposure(tclient, clock):
+    """#1166 review: kind "node" is exposed on every path; only ActionService.file("node.join") is exempt.
+
+    POST /v1/actions and the feature path look the taint up as taint.get(principal.id, principal.kind),
+    so a node principal there now gets the default exposure.
+    """
+    from datetime import timedelta
+
+    actions = tclient.app.state.gateway.actions
+    assert actions.taint.get("node:n1", "node").permanent  # the lookup the request paths make
+    for t in ("node.join", "test.node_other"):
+        if t not in actions.handlers:
+            actions.register_handler(t, lambda *a, **k: None)
+    req, exp = {"id": "node:n1", "kind": "node"}, clock() + timedelta(minutes=10)
+    joined = actions.file("node.join", {"join_request_id": "jr_t", "node_id": "n1"}, req,
+                          expires_at=exp, idempotency_key="fabric:jr_t")
+    assert plan_taint(joined.plan) is None
+    other = actions.file("test.node_other", {"x": 1}, req, expires_at=exp, idempotency_key="node:other")
+    assert plan_taint(other.plan)["sources"] == ["input:agent"]
+    assert other.state == "awaiting_approval"
+
+
+@pytest.mark.default_exposure
+def test_a_node_token_holding_actions_request_is_still_taint_checked(tclient, clock, monkeypatch):
+    """#1166 review: scopes.py lets a node token hold the broad actions:request scope (actions:request:*).
+
+    Such a token must never file a request that skips the taint check agents get. Today the actor
+    gate (Principal.can_request_actions) refuses a node on POST /v1/actions before anything is filed;
+    behind that gate the taint lookup is the second wall, so with the gate opened for nodes the
+    request still carries the default exposure and no standing approval accepts it.
+    """
+    install_whoami(tclient, clock)
+    owner_allows_removals(tclient)  # a rule that accepts any untainted request (control below)
+    secret = new_secret("nod")
+    tclient.app.state.identity.repo.add(TokenRow(
+        id="tok_node_n1", prefix=secret[:11], name="Node n1", hash=sha256_hex(secret), kind="node",
+        principal_id="node:n1", owner_user_id=None, scopes=["instance:read", "actions:request", "actions:read"],
+        source="api", created_by="owner", created_at=clock(), expires_at=clock() + timedelta(days=1)))
+    node = {"Authorization": "Bearer " + secret}
+    me = tclient.get("/v1/me", headers=node)
+    assert me.status_code == 200, me.text
+    assert "actions:request" in me.json()["scopes"]  # the scope survives minting rules for kind node
+
+    def node_restarts_whoami(key: str):
+        return tclient.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key=key), headers=node)
+
+    # 1. Today: refused at the actor gate, and nothing is filed.
+    refused = node_restarts_whoami("node-gate")
+    assert refused.status_code == 403 and refused.json()["error"] == "permission_denied", refused.text
+    listed = tclient.get("/v1/actions", headers=OWNER).json()
+    assert not [a for a in listed if a["requested_by"]["id"] == "node:n1"]
+
+    # 2. The lookup POST /v1/actions makes for this principal (taint.get(principal.id, principal.kind)).
+    taint = tclient.app.state.gateway.actions.taint.get("node:n1", "node")
+    assert taint is not None and taint.permanent and taint.sources == ("input:agent",)
+
+    # 3. Behind the gate: open it for nodes only, and the request is still taint-checked.
+    real = Principal.can_request_actions
+    monkeypatch.setattr(Principal, "can_request_actions",
+                        property(lambda self: real.fget(self) or (self.kind, self.role) == ("node", "node")))
+    r = node_restarts_whoami("node-tainted")
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["requested_by"] == {"id": "node:n1", "kind": "node"}
+    assert body["state"] == "awaiting_approval"  # the owner's rule did not accept it: a person decides
+    assert plan_taint(body["plan"])["sources"] == ["input:agent"]
+    filed = [x for x in audit(tclient) if x["event"] == "action.requested" and x.get("action_id") == body["id"]]
+    assert filed and filed[-1]["data"]["tainted_by"] == ["input:agent"]

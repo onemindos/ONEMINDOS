@@ -1,0 +1,21 @@
+# Build provenance: Kanidm v1.12.0 Debian packages, built natively on a disposable Debian 13 VM (VM 504: 6 vCPU, 8 GB RAM + 8 GB swap)
+# with the project's own packaging scripts. Same recipe as run-1 (tools/build-1.sh, build-2-resume.sh; here tools/build.sh in one go).
+# Excerpt of the real build log, selected with grep; lines unchanged.
+
+26:+ git clone --branch v1.12.0 --depth 1 https://github.com/kanidm/kanidm.git
+52:+ git rev-parse HEAD
+a52b723ce8efb1f4d0a6bc2a2c36b4071f95317d
+55: d5327e7eab843f5a08ad16e49800703522aa0dab platform/debian/kanidm_ppa_automation (d5327e7)
+95:  1.96.0-x86_64-unknown-linux-gnu unchanged - rustc 1.96.0 (ac68faa20 2026-05-25)
+145:  1.96-x86_64-unknown-linux-gnu installed - rustc 1.96.1 (31fca3adb 2026-06-26)
+152:Building for: x86_64-unknown-linux-gnu  with profile release_debian & rust 1.96 on Debian GNU/Linux 13 (trixie)
+1339:    Finished `release` profile [optimized + debuginfo] target(s) in 22m 56s
+1546:    Finished `release` profile [optimized + debuginfo] target(s) in 3m 51s
+1727:    Finished `release` profile [optimized] target(s) in 1m 53s   (cargo-deb v2.11.2)
+1730:Package version: 1.12.0-202611010319+a52b723
+
+2f64115bc56b751de7e69efd2417e95046766d7d7d9017053d8d42ba79c2c57f  kanidmd_1.12.0-202611010319+a52b723_amd64.deb
+a6334593732750c63010b8321eb7dd6d37de5b5b5ead86f5559006b7ef038eb0  kanidm_1.12.0-202611010319+a52b723_amd64.deb
+
+# Same git commit and packaging submodule as run-1. The package hashes differ from run-1 (31de180e.../88112601...): the .deb files are
+# not bit-for-bit reproducible between builds. Both machines in this run installed these exact two files (AK-0-vm502/503.txt).

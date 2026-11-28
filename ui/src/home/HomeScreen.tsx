@@ -60,6 +60,10 @@ export interface HomeScreenProps {
   showDock?: boolean;
   /** Loads Home's data again: widgets that failed to load offer a Retry button when this is given. */
   onRetry?: () => void;
+  /** Host content shown under the greeting and search, before the widgets ("is everything fine?", IA §2.1). */
+  status?: ReactNode;
+  /** Host content shown after the apps, at the end of Home (recent visits, IA §2.1). */
+  footer?: ReactNode;
 }
 
 export function HomeScreen({
@@ -80,6 +84,8 @@ export function HomeScreen({
   initialEditing = false,
   showDock = true,
   onRetry,
+  status,
+  footer,
 }: HomeScreenProps) {
   const [editing, setEditing] = useState(initialEditing);
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -177,6 +183,8 @@ export function HomeScreen({
         </div>
       )}
 
+      {status}
+
       <section className="omh-section" aria-labelledby={widgetsHead}>
         <div className="omh-section-head">
           <h2 id={widgetsHead}>Overview</h2>
@@ -237,6 +245,8 @@ export function HomeScreen({
             </div>
           ))}
       </section>
+
+      {footer}
 
       {showDock && <Dock apps={docked} layout={layout} editing={editing} hubLive={hubLive} hrefFor={hrefFor} appsHref={links.apps} onChange={change} />}
 

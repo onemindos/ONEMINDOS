@@ -100,3 +100,26 @@ def test_full_disk_and_unsigned_catalog_never_download(box, clock, monkeypatch):
     response = request_pack(client, clock, "add", {"region_id": REGION_ID})
     assert response.status_code == 503 and response.json()["reason"] == "map_catalog_unavailable", response.text
     assert list(root.iterdir()) == []
+
+
+def test_box_without_offline_maps_lists_nothing_and_refuses_with_a_reason(settings, clock):
+    # api-fuzz run 45729613634: GET /v1/map/packs answered 503 on a box with no packs volume configured.
+    # Not set up is a state the owner can change, not a server fault: the list is empty and a pack
+    # request is a 409 that names why.
+    with make_client(settings, clock) as client:
+        listed = client.get("/v1/map/packs", headers=AGENT)
+        assert listed.status_code == 200, listed.text
+        assert listed.json() == {"packs": [], "free_bytes": None}
+        for kind, params in (("add", {"region_id": REGION_ID}), ("remove", {"pack_id": REGION_ID})):
+            refused = request_pack(client, clock, kind, params)
+            assert refused.status_code == 409, refused.text
+            assert refused.json()["reason"] == "map_storage_not_configured", refused.text
+
+
+def test_configured_volume_that_did_not_mount_is_still_unavailable(settings, clock, tmp_path):
+    # A configured path that is missing (or a symlink) is a real fault on the box and stays 503.
+    sections = {**settings.sections, "map": MapSettings(tmp_path / "absent", None)}
+    with make_client(settings, clock, sections=sections) as client:
+        response = client.get("/v1/map/packs", headers=OWNER)
+        assert response.status_code == 503, response.text
+        assert response.json()["reason"] == "map_storage_unavailable", response.text

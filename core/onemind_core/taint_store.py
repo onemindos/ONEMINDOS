@@ -44,9 +44,14 @@ INPUT_KINDS = ("web", "email", "files", "chat")
 DEFAULT_APP_INPUTS = ("app",)
 DEFAULT_PLUGIN_INPUTS = ("plugin",)
 DEFAULT_AGENT_INPUTS = ("agent",)  # any other agent: it reads outside text on its own
-# Not AI readers: people, the rules they wrote, and a node asking to join (it can ask for node.join only,
-# §12.1, and the owner checks its match code). Every other kind, known or not, counts as exposed.
-NOT_EXPOSED_KINDS = frozenset({"person", "automation", "node"})
+# A joining node filing node.join through the fabric (§12.11): the owner checks its match code, and
+# that one request is not an AI reader's. ActionService.file looks the taint up under this marker for
+# that path only; it is never a principal's kind (crypto.TOKEN_KINDS), so a node token on any other
+# path (POST /v1/actions with actions:request:*) still counts as exposed.
+NODE_JOIN_REQUESTER = "node.join-requester"
+# Not AI readers: people, the rules they wrote, and the node.join path above. Every other kind, known
+# or not, including "node", counts as exposed.
+NOT_EXPOSED_KINDS = frozenset({"person", "automation", NODE_JOIN_REQUESTER})
 MAX_ACCEPT = 20
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9._:-]{0,79}$")  # the same as agent_principals.NAME_RE
 TYPE_RE = re.compile(r"^[a-z][a-z0-9_.]{0,79}$")
