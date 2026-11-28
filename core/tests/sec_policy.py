@@ -505,6 +505,10 @@ POLICY |= {
     ("GET", "/v1/apps/{app_id}/exposure"): Row(grid(200, 200, 200, 404, 200), w.p_static(f"/v1/apps/{w.TARGET_APP}/exposure"), "12.22: any reader"),
     ("GET", "/v1/system-apps"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/system-apps"),
                                     "built-in apps list: any reader; a child or agent sees only the apps shared with them, as in /v1/apps"),
+    ("GET", "/v1/settings/photos"): Row(grid(200, 200, 200, 404, 404), w.p_static("/v1/settings/photos"),
+                                          "Photos visibility follows /v1/system-apps; only owners with approval scope see pending IDs"),
+    ("PUT", "/v1/settings/photos"): Row(grid(202, 403, 403, 403, 403), w.p_missing("/v1/settings/photos", json={"enabled": False}),
+                                          "only an owner may ask to switch Photos; it files app.disable/app.enable for approval"),
     ("GET", "/v1/builtins"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/builtins"),
                                  "#603 built-in descriptors: any reader; a child or agent sees only the apps shared with them"),
     # ---- share (Send to, #612; core/tests/test_share.py) -------------------------------------------------------

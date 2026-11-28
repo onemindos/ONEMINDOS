@@ -51,7 +51,7 @@ is where that rule is enforced in code, not in a prompt:
 | `onemind_core/nodes.py`, `bus.py` | Heartbeat registry (online/stale/offline) and the NATS connection |
 | `onemind_core/catalog.py` | App catalog from `ONEMIND_APPS_DIR/*/onemind.app.yaml`, incl. `links`, `tier`, `scan`, `spec.agent` |
 | `onemind_core/scan.py` | Reads `apps/<id>/scan.json` (§11.1) and decides whether an install may run (§10.3) |
-| `onemind_core/photos/` | Phone photo backup, box side: resumable digest-verified uploads, per-person libraries, receipts with backup levels (`/v1/photos/...`, off unless `ONEMIND_PHOTOS_ENABLED=1`; [PHOTOS.md](../docs/leap/core/PHOTOS.md)) |
+| `onemind_core/photos/` | Phone photo backup, box side: resumable digest-verified uploads, per-person libraries, receipts with backup levels (`/v1/photos/...`, on by default; `ONEMIND_PHOTOS_ENABLED=0` turns it off; the owner's switch is `GET/PUT /v1/settings/photos`; [PHOTOS.md](../docs/leap/core/PHOTOS.md)) |
 | `onemind_core/hostlink.py` | The gateway's link to the host executor (`onemindd host serve` on `/run/onemind/host.sock`): sends an owner-approved restart, shutdown, factory reset or OS install by action id, then closes the ledger action from the host's journal. No socket: the action ends `failed`, never `succeeded`. `ONEMIND_HOSTLINK_SOCKET`, `_POLL_S`, `_TIMEOUT_S`, `_GIVE_UP_S` ([HOST-ACTIONS.md](../docs/leap/core/HOST-ACTIONS.md)) |
 | `onemind_core/mcp/` | `POST /mcp`: MCP Streamable HTTP for agent principals (§11.3, §12.19): `server.py`, `tools.py` (catalogue), `untrusted.py`, `limits.py` |
 | `onemind_core/auditread.py`, `routers/audit.py` | §12.16 `GET /v1/audit/events[/{seq}]`, `/v1/audit/verify` |
@@ -253,7 +253,7 @@ Runs as uid 10001 (non-root), data in `/var/lib/onemind`, kubectl v1.37.2 (sha25
 | `ONEMIND_APP_SCHEMA` | `sdk/schema/onemind.app.schema.json` if present | manifest JSON Schema |
 | `ONEMIND_APPSTORE_SOURCES_DIR` | `<folder of ONEMIND_AUDIT_PATH>/sources` | pinned checkouts of community sources |
 | `ONEMIND_APPSTORE_GIT`, `ONEMIND_APPSTORE_FETCH_TIMEOUT_S`, `ONEMIND_APPSTORE_MAX_SOURCE_MB` | `git`, `120`, `64` | community source fetch: git binary, timeout, checkout size limit |
-| `ONEMIND_PHOTOS_ENABLED`, `ONEMIND_PHOTOS_DIR`, `ONEMIND_PHOTOS_*` | `0`, none | Photos backup routes and library folder; the rest in [PHOTOS.md §6](../docs/leap/core/PHOTOS.md#6-settings-config_sectionphotos) |
+| `ONEMIND_PHOTOS_ENABLED`, `ONEMIND_PHOTOS_DIR`, `ONEMIND_PHOTOS_*` | `1` (on), `<ONEMIND_DATA_DIR>/photos` | Photos backup routes and library folder; the rest in [PHOTOS.md §6](../docs/leap/core/PHOTOS.md#6-settings-config_sectionphotos) |
 | `ONEMIND_SANDBOX_RULES` | `sdk/policy/app-objects.yaml` (repo or image) | install sandbox rule file; the `kubernetes` executor refuses to start without it (and without `ONEMIND_APP_SCHEMA`) |
 | `ONEMIND_SANDBOX_GATEWAY_SA` | unset | `<namespace>/<serviceaccount>` the executor binds to `onemind-app-deployer` in each `app-<id>` (`deploy/install.sh` sets it) |
 | `ONEMIND_LIMITS_*` | `MAX_BODY_BYTES=262144`, `READ_RATE=20`/`READ_BURST=60`, `REQUEST_RATE=2`/`REQUEST_BURST=10`, `MAX_PENDING=10`, `AUTH_FAILURES_PER_MIN=10`, `AUTH_BACKOFF_S=900`, `ENABLED=1` | contract §12.1 limits (`core/onemind_core/guard.py`) |

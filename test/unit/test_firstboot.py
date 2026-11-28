@@ -474,14 +474,15 @@ class Hub(Box):
 
     def test_built_in_data_is_in_the_system_unit_on_a_new_hub(self):
         # #616: the gateway writes the built-ins' table export into backup-export before each run, and the
-        # agent's system unit copies it with the files root, so photos and files reach restic.
+        # agent's system unit copies it with both media folders.
         st = self.first_boot()
         system = json.load(open(self.p.backup_conf))["units"]["system"]
-        self.assertEqual(system["paths"][-2:], [self.p.backup_export, self.p.files])
+        self.assertEqual(system["paths"][-3:], [self.p.backup_export, self.p.files, self.p.photos])
         self.assertEqual(self.mode(self.p.backup_export), 0o700)
+        self.assertEqual(self.mode(self.p.photos), 0o700)
         for gw in (self.etc("gateway.env"), fb.gateway_env(self.p, st, MESH_IP)):
             self.assertIn(f"ONEMIND_BACKUPS_EXPORT_DIR={self.p.backup_export}\n", gw)
-            self.assertIn("ONEMIND_BACKUPS_AGENT_DIRS=ONEMIND_FILES_ROOT\n", gw)
+            self.assertIn("ONEMIND_BACKUPS_AGENT_DIRS=ONEMIND_FILES_ROOT,ONEMIND_PHOTOS_DIR\n", gw)
         self.assertEqual(self.etc("gateway.env").count("ONEMIND_BACKUPS_EXPORT_DIR="), 1)
 
     def test_a_hub_set_up_before_616_gets_the_built_in_paths_and_keeps_the_rest(self):
@@ -501,6 +502,27 @@ class Hub(Box):
         self.assertEqual({k: v for k, v in got.items() if k != "units"}, {k: v for k, v in conf.items() if k != "units"})
         self.assertEqual(self.etc("gateway.env").count("ONEMIND_BACKUPS_EXPORT_DIR="), 1)
         self.assertEqual(self.etc("gateway.env").count("ONEMIND_BACKUPS_ENABLED=1"), 1)
+        self.assertEqual(self.etc("gateway.env").count("ONEMIND_BACKUPS_AGENT_PATHS="), 1)
+
+    def test_a_hub_upgrades_existing_backup_configuration_to_include_photos(self):
+        self.first_boot()
+        photo_dir = os.path.join(self.p.gateway, "photos")
+        conf = json.loads(self.read(self.p.backup_conf))
+        conf["units"]["system"]["paths"] = [p for p in conf["units"]["system"]["paths"] if p != photo_dir]
+        conf["retention"]["daily"] = 9
+        self.put("data/onemind/backup/agent.json", json.dumps(conf))
+        env = self.etc("gateway.env").replace("ONEMIND_FILES_ROOT,ONEMIND_PHOTOS_DIR", "ONEMIND_FILES_ROOT")
+        self.put("data/onemind/etc/gateway.env", env)
+        if os.path.exists(photo_dir):
+            os.rmdir(photo_dir)
+
+        fb.apply(self.p)
+        fb.apply(self.p)
+        conf["units"]["system"]["paths"].append(photo_dir)
+        self.assertEqual(json.loads(self.read(self.p.backup_conf)), conf)
+        self.assertEqual(self.mode(photo_dir), 0o700)
+        self.assertEqual(self.etc("gateway.env").count("ONEMIND_BACKUPS_AGENT_DIRS="), 1)
+        self.assertIn("ONEMIND_BACKUPS_AGENT_DIRS=ONEMIND_FILES_ROOT,ONEMIND_PHOTOS_DIR\n", self.etc("gateway.env"))
 
     def test_a_failed_job_key_leaves_backups_off_but_the_box_boots(self):
         with mock.patch("onemind_core.backups.jobs.load_or_create_job_key", side_effect=OSError("disk full")):
@@ -509,6 +531,47 @@ class Hub(Box):
         self.assertNotIn("ONEMIND_BACKUPS_ENABLED", self.etc("gateway.env"))
         self.assertFalse(os.path.exists(self.p.backup_conf))
         self.assertIn("backups not set up: disk full", self.out.getvalue())
+
+    def test_a_half_done_backup_setup_never_reports_backups_on(self):
+        # The job key exists but agent.json could not be written: the gateway must not say backups are on.
+        with mock.patch.object(fb, "backup_agent_conf", side_effect=OSError("disk full")):
+            st = self.first_boot()
+        self.assertTrue(os.path.exists(self.p.job_key))
+        self.assertFalse(os.path.exists(self.p.backup_conf))
+        self.assertNotIn("ONEMIND_BACKUPS_ENABLED", self.etc("gateway.env"))
+        self.assertNotIn("ONEMIND_BACKUPS_ENABLED", fb.gateway_env(self.p, st, MESH_IP))   # nor after `mesh`
+        self.assertIn("backups not set up: disk full", self.out.getvalue())
+
+    def test_a_photos_link_in_the_gateway_tree_is_not_followed(self):
+        # The gateway owns its tree: a link it put where the Photos folder goes must not make root
+        # create, chmod or chown anything through it, and backups stay honestly off.
+        outside = os.path.join(self.tmp.name, "outside")
+        os.makedirs(outside, mode=0o755)
+        os.chmod(outside, 0o755)
+        os.makedirs(self.p.gateway)
+        os.symlink(outside, self.p.photos)
+        self.first_boot()
+        self.assertEqual(self.mode(outside), 0o755)
+        self.assertTrue(os.path.islink(self.p.photos))
+        self.assertFalse(os.path.exists(self.p.backup_conf))
+        self.assertNotIn("ONEMIND_BACKUPS_ENABLED", self.etc("gateway.env"))
+        self.assertIn("backups not set up:", self.out.getvalue())
+
+    def test_the_agent_paths_follow_agent_json(self):
+        # ONEMIND_BACKUPS_AGENT_PATHS tells the gateway which folders the agent really copies; it follows an
+        # agent.json an owner extended and is never duplicated.
+        st = self.first_boot()
+        line = "ONEMIND_BACKUPS_AGENT_PATHS=" + ",".join(fb.backup_system_paths(self.p)) + "\n"
+        self.assertIn(line, self.etc("gateway.env"))
+        self.assertIn(line, fb.gateway_env(self.p, st, MESH_IP))
+        conf = json.load(open(self.p.backup_conf))
+        conf["units"]["system"]["paths"].append("/data/extra")
+        open(self.p.backup_conf, "w").write(json.dumps(conf))
+        fb.apply(self.p)
+        fb.apply(self.p)
+        env = self.etc("gateway.env")
+        self.assertEqual(env.count("ONEMIND_BACKUPS_AGENT_PATHS="), 1)
+        self.assertIn(line.rstrip("\n") + ",/data/extra\n", env)
 
     def test_workers_get_no_backup_files(self):
         fb.ensure_backup(self.p, {"role": "worker", "node_id": "abc"})
@@ -636,6 +699,22 @@ class Mesh(Box):
         self.assertEqual(self.fake.names(), ["hs users list", "wait-ip 60s", "wait-ip 60s"])  # no new key, no API key
         self.assertEqual(self.started, [("start", "onemind-headscale.service"), ("start", "tailscaled.service")])
         self.assertEqual(files, {f: self.read(f) for f in files})
+
+    def test_mesh_keeps_the_operators_photos_settings(self):
+        # The operator's Photos hard-off and library folder survive the mesh step's rewrite of gateway.env,
+        # every boot, without duplicating them (or restarting the gateway again for nothing).
+        env = os.path.join(self.p.etc, "gateway.env")
+        with open(env, "a") as f:
+            f.write("ONEMIND_PHOTOS_ENABLED=0\nONEMIND_PHOTOS_DIR=/data/elsewhere/photos\n")
+        self.assertEqual(fb.mesh(self.p), 0)
+        self.assertIn(f"ONEMIND_MESH_HUB_IP={MESH_IP}\n", self.etc("gateway.env"))
+        self.started.clear()
+        self.assertEqual(fb.mesh(self.p), 0)
+        got = self.etc("gateway.env")
+        for line in ("ONEMIND_PHOTOS_ENABLED=0\n", "ONEMIND_PHOTOS_DIR=/data/elsewhere/photos\n"):
+            self.assertEqual(got.count(line), 1, got)
+        self.assertNotIn(("try-restart", "onemind-gateway.service"), self.started)
+        self.assertEqual(got.count("ONEMIND_BACKUPS_ENABLED=1"), 1)
 
     def test_headscale_down_fails_clearly_and_mints_nothing(self):
         os.remove(self.p.hs_sock)
@@ -819,6 +898,29 @@ class Wizard(Box):
         with self.assertRaises(urllib.error.HTTPError) as e:
             urllib.request.urlopen(base + "/setup", data=b"role=hub")
         self.assertEqual(e.exception.code, 409)
+
+    @needs_core
+    def test_wizard_sets_up_backups_with_the_gateway_account_present(self):
+        # The helper has no CAP_SETUID/CAP_SETGID (onemind-setup-helper@.service), so nothing in setup may
+        # switch user: a wizard hub gets agent.json and a Photos folder the gateway owns.
+        ids = (os.getuid(), os.getgid())
+        real_run = subprocess.run
+
+        def helper_run(argv, *a, **k):
+            if argv and argv[0] in ("runuser", "su", "setpriv", "sudo"):
+                raise subprocess.CalledProcessError(1, argv, b"", b"runuser: cannot set groups: Operation not permitted")
+            return real_run(argv, *a, **k)
+
+        with mock.patch.object(fb, "onemind_ids", lambda: ids), mock.patch.object(fb.subprocess, "run", helper_run):
+            body = urllib.request.urlopen(self.serve() + "/setup", data=b"role=hub&name=Lab").read().decode()
+        self.assertRegex(body, r"<code>[0-9a-f]{64}</code>")
+        self.assertTrue(os.path.exists(self.p.backup_conf), self.out.getvalue())
+        self.assertIn(f"ONEMIND_BACKUP_CONF={self.p.backup_conf}\n", self.etc("onemindd.env"))
+        self.assertIn("ONEMIND_BACKUPS_ENABLED=1\n", self.etc("gateway.env"))
+        st = os.lstat(self.p.photos)
+        self.assertTrue(stat.S_ISDIR(st.st_mode))
+        self.assertEqual((stat.S_IMODE(st.st_mode), st.st_uid, st.st_gid), (0o700, *ids))
+        self.assertNotIn("backups not set up", self.out.getvalue())
 
     def test_wizard_configures_a_worker_with_a_join_code(self):
         from urllib.parse import urlencode

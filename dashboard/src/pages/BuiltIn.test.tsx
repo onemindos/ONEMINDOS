@@ -21,14 +21,19 @@ const NEVER_OFF = ['Approvals', 'Backups', 'Files', 'Market', 'Notifications', '
 
 function response(value: unknown, status = 200) { return new Response(JSON.stringify(value), { status, headers: { 'content-type': 'application/json' } }); }
 
-function mount(route: string, token: keyof typeof DEMO_TOKENS = 'owner-demo') {
+function mount(route: string, token: keyof typeof DEMO_TOKENS = 'owner-demo', notebookOn = true) {
   const calls: Array<{ method: string; path: string; body: Record<string, unknown> | undefined }> = [];
   const fetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
     const path = new URL(String(url)).pathname;
     const method = init?.method ?? 'GET';
     const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : undefined;
     calls.push({ method, path, body });
-    if (path === '/v1/system-apps') return response(FIXTURE.system_apps);
+    if (path === '/v1/system-apps') return response(FIXTURE.system_apps.map((row) =>
+      row.id === 'notebook' ? { ...row, enabled: notebookOn } : row));
+    if (path === '/v1/settings/photos' && method === 'GET') return response({
+      enabled: false, owner_switch_on: false, operator_off: false,
+      can_change: token === 'owner-demo', pending_action_id: null,
+    });
     if (path === '/v1/apps/notebook/dependencies') return response(FIXTURE.notebook_dependencies);
     if (path === '/v1/instance') return response({ name: 'test-box', version: '0.0.0' });
     if (path === '/v1/actions' && method === 'POST') return response({ id: 'act-617', state: 'awaiting_approval', requested_by: 'owner', created_at: '2026-11-22T00:00:00Z', ...body }, 201);
@@ -65,9 +70,9 @@ describe('Built in (#617)', () => {
       expect(within(card(name)).queryByRole('switch')).toBeNull();
       expect(within(card(name)).getByText('Always on')).toBeInTheDocument();
     }
+    expect(await screen.findByRole('switch', { name: 'Photos: off' })).toHaveAttribute('aria-checked', 'false');
     expect(screen.getAllByRole('switch')).toHaveLength(2);
     expect(screen.getByRole('switch', { name: 'Notebook: on' })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('switch', { name: 'Photos: off' })).toHaveAttribute('aria-checked', 'false');
     expect(calls.some((c) => c.method === 'GET' && c.path === '/v1/system-apps')).toBe(true);
   });
 
@@ -92,9 +97,10 @@ describe('Built in (#617)', () => {
   });
 
   it('switching a switched-off app back on files an app.enable approval', async () => {
-    const calls = mount('/built-in');
-    await userEvent.setup().click(await screen.findByRole('switch', { name: 'Photos: off' }));
-    await waitFor(() => expect(calls.find((c) => c.method === 'POST')?.body).toMatchObject({ type: 'app.enable', params: { app_id: 'photos' } }));
+    const calls = mount('/built-in', 'owner-demo', false);
+    await userEvent.setup().click(await screen.findByRole('switch', { name: 'Notebook: off' }));
+    await waitFor(() => expect(calls.find((c) => c.method === 'POST' && c.path === '/v1/actions')?.body)
+      .toMatchObject({ type: 'app.enable', params: { app_id: 'notebook' } }));
   });
 
   it('Settings → Apps shows the same list from the same route', async () => {

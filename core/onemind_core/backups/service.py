@@ -40,7 +40,7 @@ from .kit import answer_ok, challenge, kit_text, new_owner_key
 from .kube import DryKube, Kube, KubeError, Workload
 from .manifest import BackupSpec, backup_spec, database_spec
 from .settings import BackupsSettings
-from .units import EXPORT_FILE, public_view, unit_set, write_export
+from .units import EXPORT_FILE, dir_fingerprint, public_view, unit_set, write_export
 from .store import (
     SCHEMA,  # noqa: F401  (importing the module registers the tables)
     BackupsRepository,
@@ -415,7 +415,7 @@ class BackupService:
     def builtin_units(self) -> list[dict]:
         """The gateway database and every switched-on built-in's declared tables and folders (#616)."""
         return unit_set(self.gw, self.builtins, export=self.s.export_dir is not None,
-                        agent_dirs=self.s.agent_dir_names())
+                        agent_dirs=self.s.agent_dir_names(), agent_paths=self.s.agent_path_list())
 
     def _export_builtins(self, hooks: list[dict], failed: dict[str, str]) -> None:
         """Write the built-ins' table export where the agent's `system` unit copies it (#616). A failure
@@ -426,6 +426,10 @@ class BackupService:
         try:
             write_export(self.gw, self.builtins, Path(self.s.export_dir))
             rec["ok"] = True
+            # Which folders this snapshot carries, as they are now: the status reads this, never today's
+            # settings, so a folder added or moved later is not reported as in this snapshot (D-028).
+            rec["carried"] = {x["name"]: dir_fingerprint(x["path"]) for u in self.builtin_units()
+                              if u["kind"] == "builtin" for x in u["dirs"] if x["carried"]}
         except (OSError, ValueError, SQLAlchemyError) as e:
             rec.update(ok=False, error=str(e)[:300])
             for u in self.builtin_units():
@@ -433,13 +437,14 @@ class BackupService:
                     failed.setdefault(u["unit"], f"built-in export failed: {str(e)[:200]}")
         hooks.append(rec)
 
-    def _export_in_last_system_snapshot(self) -> bool:
-        """The newest run whose `system` unit succeeded also wrote the built-ins' export before it."""
+    def _export_in_last_system_snapshot(self) -> dict | None:
+        """The export hook of the newest run whose `system` unit succeeded, if that run wrote the built-ins'
+        export before it (its `carried` says which folders that snapshot holds)."""
         for r in self.repo.runs(50):
             if any(u.get("unit") == "system" and u.get("state") == "succeeded" for u in r.units or []):
-                return any(h.get("unit") == "builtins" and h.get("command") == EXPORT_FILE and h.get("ok")
-                           for h in r.hooks or [])
-        return False
+                return next((h for h in r.hooks or [] if h.get("unit") == "builtins"
+                             and h.get("command") == EXPORT_FILE and h.get("ok")), None)
+        return None
 
     def _agent_status(self) -> dict:
         return self._job("backup.status", {}) or {}
@@ -475,8 +480,9 @@ class BackupService:
         out["badges"] = {"box": s.get("box") or {"state": "none"}, "system": units.get("system") or {"state": "none"},
                          "apps": apps}
         snapped = {n for n, b in units.items() if _ts(b.get("last_success_at"))}
-        out["builtin_units"] = public_view(units_set, snapped,
-                                           snapped & {"system"} if self._export_in_last_system_snapshot() else set())
+        export = self._export_in_last_system_snapshot()
+        out["builtin_units"] = public_view(units_set, snapped, snapped & {"system"} if export else set(),
+                                           (export or {}).get("carried"))
         succ = [t for t in (_ts(b.get("last_success_at")) for b in units.values()) if t]
         ver = [t for t in (_ts(v.get("finished_at")) for v in (s.get("last_verified") or {}).values()) if t]
         out["last_success_at"] = iso(max(succ)) if succ else None

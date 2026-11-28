@@ -202,7 +202,7 @@ class PhotosService:
     # ---- who may use it ----------------------------------------------------------------------
     def person(self, p: Principal) -> str:
         """The caller's own library owner id. Photos off: 404. Guests and agents: 403."""
-        if not self.settings.enabled:
+        if not self.settings.active:
             raise PhotosError(404, "not_found", "Photos is not turned on on this box")
         if p.kind != "person" or p.role not in PERSON_ROLES:
             self.audit.append("authz.denied", p.as_dict(), None,
@@ -420,7 +420,7 @@ class PhotosService:
 
     def sweep(self, limit: int = 200) -> int:
         """Delete expired uploads and their staged bytes. Skips an upload a request still holds."""
-        if not self.settings.enabled:
+        if not self.settings.active:
             return 0
         done = 0
         for upload_id, state in self.repo.expired_uploads(self.clock(), limit):
@@ -512,7 +512,7 @@ class PhotosService:
     def on_backup_run(self, envelope: dict) -> None:
         """backup.run.finished: a succeeded snapshot that holds the photos unit counts as backed up."""
         data = envelope.get("data") or {}
-        if not self.settings.enabled or data.get("result") != "succeeded" or not _covers_photos(data):
+        if not self.settings.active or data.get("result") != "succeeded" or not _covers_photos(data):
             return
         snapshot, started = data.get("snapshot_id"), _time(data.get("started_at"))
         if not isinstance(snapshot, str) or not snapshot or len(snapshot) > 128 or started is None:
@@ -524,7 +524,7 @@ class PhotosService:
     def on_backup_verify(self, envelope: dict) -> None:
         """backup.verify.finished: a passed restore check of a known snapshot makes it verified."""
         data = envelope.get("data") or {}
-        if not self.settings.enabled or data.get("result") != "passed" or not _covers_photos(data):
+        if not self.settings.active or data.get("result") != "passed" or not _covers_photos(data):
             return
         snapshot = data.get("snapshot_id")
         if not isinstance(snapshot, str) or not snapshot:
@@ -538,5 +538,5 @@ class PhotosService:
         data = envelope.get("data") or {}
         ids = data.get("snapshot_ids") or ([data["snapshot_id"]] if isinstance(data.get("snapshot_id"), str) else [])
         ids = [i for i in ids if isinstance(i, str) and i]
-        if self.settings.enabled and ids:
+        if self.settings.active and ids:
             self.repo.mark_removed(str(data.get("target_id") or "")[:128], ids, self.clock())

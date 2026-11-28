@@ -99,23 +99,26 @@ def _coerce(value: str, typ: Any, var: str) -> Any:
     raise TypeError(f"{var}: unsupported type {typ!r}")
 
 
-def load_section(cls: type[T], env: Mapping[str, str]) -> T:
+def parse_fields(cls: type[T], env: Mapping[str, str]) -> T:
+    """The section built field by field from ONEMIND_<SECTION>_<FIELD> (no validate); a custom
+    from_env can fill in a default from other variables, then call this."""
     name = section_name(cls)
+    hints = typing.get_type_hints(cls)
+    kwargs: dict[str, Any] = {}
+    for f in dataclasses.fields(cls):
+        if not f.init:
+            continue
+        var = env_name(name, f.name)
+        if var in env:
+            kwargs[f.name] = _coerce(env[var], hints[f.name], var)
+        elif f.default is dataclasses.MISSING and f.default_factory is dataclasses.MISSING:
+            raise ValueError(f"{var} is required")
+    return cls(**kwargs)
+
+
+def load_section(cls: type[T], env: Mapping[str, str]) -> T:
     custom = cls.__dict__.get("from_env")
-    if custom is not None:
-        obj = cls.from_env(env)  # type: ignore[attr-defined]
-    else:
-        hints = typing.get_type_hints(cls)
-        kwargs: dict[str, Any] = {}
-        for f in dataclasses.fields(cls):
-            if not f.init:
-                continue
-            var = env_name(name, f.name)
-            if var in env:
-                kwargs[f.name] = _coerce(env[var], hints[f.name], var)
-            elif f.default is dataclasses.MISSING and f.default_factory is dataclasses.MISSING:
-                raise ValueError(f"{var} is required")
-        obj = cls(**kwargs)
+    obj = cls.from_env(env) if custom is not None else parse_fields(cls, env)  # type: ignore[attr-defined]
     validate = getattr(obj, "validate", None)
     if callable(validate):
         validate()

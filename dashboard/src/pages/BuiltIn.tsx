@@ -16,6 +16,7 @@ import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
 import { StoreTabs } from './Market';
+import { PhotosSwitchCard } from './PhotosSwitch';
 import { Load, useRun } from './parts';
 
 export type SystemAppRow = components['schemas']['SystemAppRow'];
@@ -132,18 +133,22 @@ function LiveBuiltIn({ token }: { token: string }) {
           const link = appDeepLink(row.id);
           const web = appWebPath(row.id);
           const off = day(row.disabled_at);
+          const details = (
+            <dl className="om-facts" aria-label={`${row.name} licence card`}>
+              <div><dt>Version</dt><dd>{row.version ?? (row.update === 'os' ? 'Same as the OS' : 'Not reported')}</dd></div>
+              <div><dt>Update channel</dt><dd>{channel(row.update_channel)}</dd></div>
+              <div><dt>Licence</dt><dd>{licence(row)}</dd></div>
+              {off && <div><dt>Switched off</dt><dd>{off}</dd></div>}
+              {link && <div><dt>Link</dt><dd><code>{link}</code></dd></div>}
+            </dl>
+          );
+          if (row.id === 'photos') return <PhotosSwitchCard key={row.id} client={client} web={web}>{details}</PhotosSwitchCard>;
           return (
             <Card key={row.id} level={3} title={row.name} subtitle={row.kind === 'native' ? 'Part of the system' : 'App, kept up to date like any other'}
               aside={row.can_disable
                 ? <StatusPill tone={row.enabled ? 'ok' : 'neutral'} label={row.enabled ? 'On' : 'Off'} />
                 : <StatusPill tone="info" label="Always on" />}>
-              <dl className="om-facts" aria-label={`${row.name} licence card`}>
-                <div><dt>Version</dt><dd>{row.version ?? (row.update === 'os' ? 'Same as the OS' : 'Not reported')}</dd></div>
-                <div><dt>Update channel</dt><dd>{channel(row.update_channel)}</dd></div>
-                <div><dt>Licence</dt><dd>{licence(row)}</dd></div>
-                {off && <div><dt>Switched off</dt><dd>{off}</dd></div>}
-                {link && <div><dt>Link</dt><dd><code>{link}</code></dd></div>}
-              </dl>
+              {details}
               {row.can_disable ? (
                 canRequest && (
                   <p className="dash-row">

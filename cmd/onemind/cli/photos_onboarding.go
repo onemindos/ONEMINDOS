@@ -4,8 +4,8 @@ package cli
 
 // onemind photos and onemind onboarding.
 //
-// `photos` is read-only: the library the box holds, and, for each phone or computer that backs up, how
-// much of it is safe (GET /v1/photos/library, /sources/{id}/coverage, /sources/{id}/receipts).
+// `photos` shows the library and the backup status of each phone (GET /v1/photos/library,
+// /sources/{id}/coverage, /sources/{id}/receipts). Its settings command files owner approval requests.
 // Registering a source and uploading are done by the phone app, which holds the originals.
 //
 // `onboarding` shows first-run progress and the first-run choices (GET /v1/onboarding/state,
@@ -21,7 +21,7 @@ import (
 )
 
 func photosCommands(a *App) []*cobra.Command {
-	root := &cobra.Command{Use: "photos", Short: "Your photo library on the box and how much of each phone is safely backed up (read only)"}
+	root := &cobra.Command{Use: "photos", Short: "Your photo library, phone backup status and Photos settings"}
 	var limit int
 	var cursor string
 	lib := &cobra.Command{
@@ -85,6 +85,7 @@ func photosCommands(a *App) []*cobra.Command {
 		},
 	})
 	root.Commands()[len(root.Commands())-1].Flags().IntVar(&rLimit, "limit", 50, "at most this many receipts")
+	root.AddCommand(photosSettingsCommand(a))
 	return []*cobra.Command{root}
 }
 

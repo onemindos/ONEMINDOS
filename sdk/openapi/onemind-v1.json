@@ -9488,6 +9488,59 @@
         "title": "PersonAssignee",
         "type": "object"
       },
+      "PhotosSwitch": {
+        "properties": {
+          "can_change": {
+            "title": "Can Change",
+            "type": "boolean"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "operator_off": {
+            "title": "Operator Off",
+            "type": "boolean"
+          },
+          "owner_switch_on": {
+            "title": "Owner Switch On",
+            "type": "boolean"
+          },
+          "pending_action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Action Id"
+          }
+        },
+        "required": [
+          "enabled",
+          "owner_switch_on",
+          "operator_off",
+          "can_change"
+        ],
+        "title": "PhotosSwitch",
+        "type": "object"
+      },
+      "PhotosSwitchBody": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "PhotosSwitchBody",
+        "type": "object"
+      },
       "PlacementReason": {
         "description": "Why a node cannot run an app (`blocking`), or runs it with a warning.",
         "properties": {
@@ -37432,6 +37485,172 @@
         "summary": "Query",
         "tags": [
           "monitoring"
+        ]
+      }
+    },
+    "/v1/settings/photos": {
+      "get": {
+        "description": "Is Photos on? Pending approval details require an owner credential with approval permission.",
+        "operationId": "photos.switch.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotosSwitch"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "apps:read"
+            ]
+          }
+        ],
+        "summary": "Get Switch",
+        "tags": [
+          "photos"
+        ]
+      },
+      "put": {
+        "description": "Ask to switch Photos on or off (owner only). Files app.enable or app.disable; it waits in\nApprovals and nothing changes until an owner approves it. Photos data is kept either way.",
+        "operationId": "photos.switch.set",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhotosSwitchBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "A matching request is already open, or replaying the Idempotency-Key that filed an action returned it in its current state. No new request was filed."
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "actions:approve"
+            ]
+          }
+        ],
+        "summary": "Put Switch",
+        "tags": [
+          "photos"
         ]
       }
     },

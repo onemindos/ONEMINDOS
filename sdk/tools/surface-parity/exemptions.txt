@@ -357,10 +357,12 @@ mobile files.wopi.get_file mobile-files-browse-only
 mobile files.wopi.lock mobile-files-browse-only
 mobile files.wopi.put_file mobile-files-browse-only
 mobile files.wopi.tokens.create mobile-files-browse-only
-group mobile-photos-backup-only issue=#1232 Mobile 1.0 scope (founder to confirm): the phone backs photos up; the library view is on the dashboard.
+group mobile-photos-backup-only issue=#1232 Mobile 1.0 scope (founder to confirm): the phone backs photos up; the library view and the owner-only Photos on/off switch (an owner approval) are on the dashboard and CLI.
 mobile photos.asset_content mobile-photos-backup-only
 mobile photos.library mobile-photos-backup-only
 mobile photos.receipts mobile-photos-backup-only
+mobile photos.switch.get mobile-photos-backup-only
+mobile photos.switch.set mobile-photos-backup-only
 
 # ---- scanner blind spot, not a gap ---------------------------------------------------------------------
 # A resumable upload (tus) answers its create with a Location header, and every later chunk (PATCH) and

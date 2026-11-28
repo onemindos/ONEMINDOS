@@ -19,6 +19,7 @@ from onemind_core.files.store import ShareRow
 from onemind_core.photos import PhotosSettings
 
 from files_support import ADULT, AGENT, GUEST, OWNER, audit_events, fc, files_root, files_settings, mkdir, ok, upload  # noqa: F401
+from test_appstore import run
 from test_photos import Phone, blob, sha
 
 PASSWORD = "a long share password"
@@ -179,6 +180,28 @@ def test_photos_are_shared_by_content_from_your_own_library(pfc, clock):
     assert share(pfc, OWNER, clock, [{"photo": sha(data)}]).status_code == 404
     assert share(pfc, ADULT, clock, [{"photo": sha(b"nope")}]).status_code == 404
     assert share(pfc, ADULT, clock, [{"photo": "sha256:XYZ"}]).status_code == 422
+
+
+def test_photos_switch_blocks_new_and_existing_photo_shares_only(pfc, clock):
+    phone = Phone(pfc, ADULT)
+    data = blob(1, 5000)
+    phone.upload(phone.key("a1"), data)
+    photo = {"photo": sha(data)}
+    file = put(pfc, ADULT, "shared", "/", "notes.txt", b"trip notes")
+    token = ok(share(pfc, ADULT, clock, [photo, file]), 201)["one_time"]["token"]
+    url = f"/v1/share/{token}"
+    assert pfc.get(f"{url}/items/0").content == data
+
+    assert run(pfc, clock, "app.disable", {"app_id": "photos"}).json()["state"] == "succeeded"
+    assert share(pfc, ADULT, clock, [photo]).status_code == 404
+    assert pfc.get(f"{url}/items/0").status_code == 404
+    assert [item["available"] for item in ok(pfc.get(url))["items"]] == [False, True]
+    assert pfc.get(f"{url}/items/1").content == b"trip notes"
+    assert share(pfc, ADULT, clock, [file]).status_code == 201
+
+    assert run(pfc, clock, "app.enable", {"app_id": "photos"}).json()["state"] == "succeeded"
+    assert share(pfc, ADULT, clock, [photo]).status_code == 201
+    assert pfc.get(f"{url}/items/0").content == data
 
 
 def test_an_owner_oversees_links_without_reading_another_persons_home(fc, settings, clock):

@@ -121,7 +121,7 @@ class ShareService:
         return m.group(1)
 
     def _photo_path(self, owner: str, h: str) -> str:
-        if not self.photos_settings.enabled or self.photo_files is None:
+        if not self.photos_settings.active or self.photo_files is None or "photos" in self.gw.disabled_apps():
             raise not_found("Photos is not turned on on this box")
         found = self.photos_repo.person_asset(owner, h)
         if found is None:

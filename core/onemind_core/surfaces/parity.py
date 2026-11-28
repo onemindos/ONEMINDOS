@@ -319,6 +319,8 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/onboarding/restore/candidates": WRITE,
     "PUT /v1/onboarding/settings": WRITE,
     "POST /v1/photos/sources": WRITE,
+    "PUT /v1/settings/photos": WRITE,
+    "GET /v1/settings/photos": CONSOLE,  # the owner's Photos switch; an agent files app.enable/app.disable instead
     "POST /v1/photos/sources/{source_id}/check": WRITE,
     "POST /v1/plugins/{plugin_id}/settings": WRITE,
     "POST /v1/restores": WRITE,
