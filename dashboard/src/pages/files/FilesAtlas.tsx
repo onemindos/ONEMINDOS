@@ -35,14 +35,20 @@ async function readOrNull(sdk: OneMind, path: string): Promise<unknown | null> {
 export function FilesLayout({ roots, current, onPick, children }: { roots: FileRoot[]; current: FileRoot | undefined; onPick: (r: FileRoot) => void; children: ReactNode }) {
   const { token, account, principal } = useSignedIn();
   const sdk = useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1 }), [token]);
+  // On a real box the role comes from GET /v1/me (account); principal is only known in demo and tests.
+  const role = account?.role ?? principal?.role;
+  const owner = role === 'owner';
+  // The gateway lets the owner and adults read backups (routers/backups.py reader); a teen, child or guest is not
+  // asked on their behalf (#1232: a household role's Files calls only what the hub lists for it).
+  const readsBackups = owner || role === 'adult';
   const backups = usePoll(async () => {
+    if (!readsBackups) return null;
     const raw = await readOrNull(sdk, '/v1/backups/status');
     if (raw === null) return null;
     const runs = await readOrNull(sdk, '/v1/backups/runs');
     return runs === null ? null : toBackupState(raw, runs);
   }, 60_000);
-  // On a real box the role comes from GET /v1/me (account); principal is only known in demo and tests.
-  const owner = (account?.role ?? principal?.role) === 'owner';
+  useEffect(() => { if (readsBackups) void backups.reload(); }, [readsBackups]); // eslint-disable-line react-hooks/exhaustive-deps
   const disks = usePoll(async () => (owner ? readOrNull(sdk, '/v1/storage/devices') : null), 60_000);
   useEffect(() => { if (owner) void disks.reload(); }, [owner]); // eslint-disable-line react-hooks/exhaustive-deps
   // A later failed refresh clears the backup facts: an old answer is never shown as current.

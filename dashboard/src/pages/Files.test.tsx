@@ -519,7 +519,9 @@ it.each([['adult-demo', 'alex'], ['teen-demo', 'tess'], ['child-demo', 'kai']])(
   await u.click(screen.getByRole('button', { name: 'Sharing' }));
   expect(await screen.findByText(/app photos gets read-only access/)).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Review request frq_1' })).not.toBeInTheDocument();
-  expect(calls.every((c) => c.path.startsWith('/v1/files/'))).toBe(true);
+  // Atlas Files (#1350) shows backup facts to the roles the gateway lets read them: an adult's two GETs, nobody else's.
+  const backupReads = who === 'adult-demo' ? ['/v1/backups/status', '/v1/backups/runs'] : [];
+  expect(calls.every((c) => c.path.startsWith('/v1/files/') || (c.method === 'GET' && backupReads.includes(c.path)))).toBe(true);
   expect(calls.some((c) => c.path === '/v1/files/quotas')).toBe(false);
 });
 
