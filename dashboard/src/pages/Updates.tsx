@@ -8,6 +8,7 @@ import { Link } from 'react-router';
 import { OneMind, OneMindError } from '@onemind/sdk';
 import { Button, Card, PageHeader } from '@onemind/ui';
 import { UpdatePolicy } from './UpdatePolicy';
+import { Fleet } from './updates/Fleet';
 import { ApiError } from '../api/types';
 import { usePoll } from '../lib/hooks';
 import { uuidv4 } from '../lib/uuid';
@@ -106,5 +107,6 @@ function LiveUpdates({ token }: { token: string }) {
         <li key={i}>{r.type === 'os.rollback' ? 'Go back to' : 'Install'} {text(r.version)} on {text(r.node_id)} · {text(r.state)}{typeof r.message === 'string' && r.message ? ` · ${r.message}` : ''}</li>)}</ul>}
     </Card>}</Load>
     <UpdatePolicy />
+    <Fleet />
   </div>;
 }
