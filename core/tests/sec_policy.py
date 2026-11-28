@@ -285,6 +285,53 @@ POLICY |= {
     ("DELETE", "/v1/work/projects/{project_id}/tasks/{task_id}"): Row(
         cells(403, **GONE, owner=422, adult=422, child=422),
         w.p_static("/v1/work/projects/missing/tasks/missing"), "Work revision deletion is people-only"),
+    ("GET", "/v1/work/projects"): Row(cells(403, **GONE, owner=200, adult=200, child=200),
+                                       w.p_static("/v1/work/projects"), "Work lists only the caller's projects"),
+    ("GET", "/v1/work/projects/{project_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing"), "Work hides missing and other people's projects"),
+    ("PATCH", "/v1/work/projects/{project_id}"): Row(
+        cells(403, **GONE, owner=422, adult=422, child=422),
+        w.p_static("/v1/work/projects/missing"), "Work project edits are people-only and creator-only"),
+    ("DELETE", "/v1/work/projects/{project_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing"), "Work project deletion is people-only and creator-only"),
+    ("GET", "/v1/work/projects/{project_id}/members"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/members"), "Work lists members of visible projects only"),
+    ("PUT", "/v1/work/projects/{project_id}/members/{person_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=403),
+        w.p_static("/v1/work/projects/missing/members/missing"), "Work member adds are for adults; a child or teen is refused by role first"),
+    ("DELETE", "/v1/work/projects/{project_id}/members/{person_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/members/missing"), "Work member changes are people-only"),
+    ("GET", "/v1/work/projects/{project_id}/tasks/{task_id}/activity"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/tasks/missing/activity"), "Work history follows task visibility"),
+    ("POST", "/v1/work/parse"): Row(cells(403, **GONE, owner=422, adult=422, child=422),
+                                     w.p_static("/v1/work/parse"), "Work parse preview is people-only"),
+    ("GET", "/v1/work/projects/{project_id}/tasks/{task_id}/comments"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/tasks/missing/comments"), "Work comments follow task visibility"),
+    ("POST", "/v1/work/projects/{project_id}/tasks/{task_id}/comments"): Row(
+        cells(403, **GONE, owner=422, adult=422, child=422),
+        w.p_static("/v1/work/projects/missing/tasks/missing/comments"), "Work comments are people-only"),
+    ("DELETE", "/v1/work/projects/{project_id}/tasks/{task_id}/comments/{comment_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/tasks/missing/comments/missing"), "Only a comment's author deletes it"),
+    ("GET", "/v1/work/projects/{project_id}/sections"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/sections"), "Work lists sections of visible projects only"),
+    ("POST", "/v1/work/projects/{project_id}/sections"): Row(
+        cells(403, **GONE, owner=422, adult=422),
+        w.p_static("/v1/work/projects/missing/sections"), "Work section changes are for adults; a child or teen is refused by role first (#1137)"),
+    ("PATCH", "/v1/work/projects/{project_id}/sections/{section_id}"): Row(
+        cells(403, **GONE, owner=422, adult=422),
+        w.p_static("/v1/work/projects/missing/sections/missing"), "Work section changes are for adults; a child or teen is refused by role first (#1137)"),
+    ("DELETE", "/v1/work/projects/{project_id}/sections/{section_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404),
+        w.p_static("/v1/work/projects/missing/sections/missing"),
+        "Work section changes are for adults; a child or teen is refused by role first (#1137)"),
     ("GET", "/v1/series"): Row(CHILD_CANNOT, w.p_static("/v1/series?node_id=node1&metric=cpu_pct"),
                                "Node metric history, with the same monitoring:read scope as live metrics"),
     ("GET", "/v1/monitoring/summary"): Row(CHILD_CANNOT, w.p_static("/v1/monitoring/summary"),
@@ -368,6 +415,8 @@ POLICY |= {
                                            f"{_AUTOMATION}: only the owner grants a standing approval"),
     ("DELETE", "/v1/approval-policies/{policy_id}"): Row(OWNER_ONLY_404, w.p_missing("/v1/approval-policies/{policy}"),
                                                          f"{_AUTOMATION}: only the owner revokes one"),
+    ("POST", "/v1/approval-policies/{policy_id}/confirm"): Row(OWNER_ONLY_404, w.p_missing("/v1/approval-policies/{policy}/confirm"),
+                                                              f"{_AUTOMATION}: only the owner confirms a paused one"),
     ("GET", "/v1/automation/rules"): Row(READ_ANY, w.p_static("/v1/automation/rules"), f"{_AUTOMATION}: any reader"),
     ("POST", "/v1/automation/rules"): Row(grid(201, 403, 403, 403, 403), w.p_rule_create,
                                           f"{_AUTOMATION}: only the owner writes rules (an agent is refused)"),
@@ -400,6 +449,11 @@ POLICY |= {
     ("POST", "/v1/agents/{name}/resume"): Row(ONLY_OWNER, w.p_missing("/v1/agents/hermes/resume", json={}),
                                               "AIG-03: an agent never resumes itself"),
     # #627: an agent's NATS user (account AGENTS) is the owner's to add or remove; an agent never keys itself
+    ("GET", "/v1/agents/{name}/inputs"): Row(ONLY_OWNER, w.p_static("/v1/agents/agent:probe/inputs"),
+                                             "PR 6: only the owner reads what an agent can read outside"),
+    ("PUT", "/v1/agents/{name}/inputs"): Row(ONLY_OWNER, w.p_missing("/v1/agents/agent:probe/inputs",
+                                                                     json={"external_inputs": ["web"]}),
+                                             "PR 6: only the owner changes it (an agent never lowers its own taint)"),
     ("GET", "/v1/agents/{name}/nats-key"): Row(ONLY_OWNER, w.p_static("/v1/agents/agent:probe/nats-key"),
                                                "#627: only the owner reads an agent's NATS key"),
     ("PUT", "/v1/agents/{name}/nats-key"): Row(ONLY_OWNER, w.p_missing("/v1/agents/agent:probe/nats-key", json={
@@ -878,6 +932,11 @@ POLICY |= {
         cells(403, **GONE, owner=409, plugin=DENIED, automation=DENIED, node=DENIED),
         w.p_static("/v1/system/services/onemind-gateway.service/logs"),
         "core/onemind_core/routers/services.py: a unit's redacted journal; owner only, audited"),
+    # P-07: the whole-system journal is owner only and audited; with no host socket in this world the owner gets 409.
+    ("GET", "/v1/system/journal"): Row(
+        cells(403, **GONE, owner=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        w.p_static("/v1/system/journal"),
+        "core/onemind_core/routers/journal.py: the redacted system journal; owner only, read only, audited, rate and size limited"),
     # #636: the owner and agents pass authorization and get 409 (no host socket: nothing is filed); with a host
     # the request is filed and waits for the owner's passkey approval (tests/test_service_actions.py).
     ("POST", "/v1/system/services/{unit}/restart"): Row(

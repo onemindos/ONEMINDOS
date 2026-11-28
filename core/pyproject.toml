@@ -60,4 +60,5 @@ testpaths = ["tests"]
 markers = [
   "nats: needs a reachable NATS server (ONEMIND_TEST_NATS_URL)",
   "postgres: needs a reachable PostgreSQL (ONEMIND_TEST_DB_URL)",
+  "default_exposure: keep the real default (every agent and plugin is exposed until the owner declares otherwise)",
 ]

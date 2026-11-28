@@ -73,7 +73,7 @@ def update_attempt(client, clock, state: str, app_id="whoami") -> None:
     clock.now += timedelta(minutes=1)
     gw(client).repo.create(Action(
         id=str(uuid.uuid4()), type="app.update", params={"app_id": app_id}, state=state,
-        requested_by={"id": "automation:rule_x", "kind": "automation"}, idempotency_key=f"upd-{next(_keys)}",
+        requested_by={"id": "automation:update-policy", "kind": "automation"}, idempotency_key=f"upd-{next(_keys)}",
         created_at=clock.now, updated_at=clock.now, expires_at=clock.now + timedelta(hours=1)))
 
 
@@ -167,11 +167,11 @@ def test_backoff_pauses_after_failures_in_a_row_until_the_owner_resumes(client, 
 def test_a_held_update_waits_for_a_person_even_with_a_standing_approval(client, clock, auto_settings):
     install(client, clock)
     offer(auto_settings, released=NIGHT - timedelta(hours=1))
-    body = {"allow": {"types": ["app.update"], "requested_by": ["automation:*"]}, "limits": {"per_day": 3},
+    body = {"allow": {"types": ["app.update"], "requested_by": ["automation:update-policy"]}, "limits": {"per_day": 3},
             "window_id": "win_nightly", "expires_at": iso(clock.now + timedelta(days=30))}
     assert client.post("/v1/approval-policies", json=body, headers=OWNER).status_code == 201
     pol = client.app.state.automation.policies
-    who = {"id": "automation:rule_x", "kind": "automation"}
+    who = {"id": "automation:update-policy", "kind": "automation"}
     params = {"app_id": "whoami", "to_version": "1.10.2"}
     assert pol.evaluate("app.update", params, who, NIGHT, paused=False).reason == "cool_off"
     put(client, cool_off_hours=0)
@@ -190,7 +190,7 @@ def test_dry_run_says_what_would_update_tonight(client, clock, auto_settings):
     [item] = d["apps"]
     assert item["app_id"] == "whoami" and (item["from_version"], item["to_version"], item["kind"]) == ("1.10.1", "1.10.2", "patch")
     assert (item["outcome"], item["reason"]) == ("needs_approval", "no_policy")  # nobody said yes in advance
-    body = {"allow": {"types": ["app.update"], "requested_by": ["automation:*"]}, "limits": {"per_day": 3},
+    body = {"allow": {"types": ["app.update"], "requested_by": ["automation:update-policy"]}, "limits": {"per_day": 3},
             "window_id": "win_nightly", "expires_at": iso(clock.now + timedelta(days=30))}
     assert client.post("/v1/approval-policies", json=body, headers=OWNER).status_code == 201
     [item] = client.get("/v1/update-policy/dry-run", headers=OWNER).json()["apps"]

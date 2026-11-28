@@ -96,7 +96,7 @@ func runHost(args []string) int {
 	}
 	log.Info("host service listening", "socket", *sock, "journal", svc.Store != nil, "boot_id", svc.BootID, "gateway_uid", uid)
 	err = (&host.Server{S: svc, AllowUID: uid, AllowGID: -1, Ctx: ctx, Network: networkView,
-		Services: serviceCards, ServiceLogs: units.Logs}).Serve(ctx, l)
+		Services: serviceCards, ServiceLogs: units.Logs, SystemJournal: units.SystemJournal}).Serve(ctx, l)
 	stop()
 	svc.Wait()
 	if err != nil {
