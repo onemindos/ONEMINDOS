@@ -91,10 +91,13 @@ export interface SiteFrame { toLocal: (lat: number, lon: number) => { x: number;
 export function siteFrame(anchors: readonly Anchor[]): SiteFrame | undefined {
   const n = anchors.length;
   if (n < 3) return undefined;
+  // Unwrap longitudes next to the first anchor, so a site across the 180° meridian is not 360° wide.
+  const ref = anchors[0]!.lon;
+  const unwrap = (lon: number) => lon - 360 * Math.round((lon - ref) / 360);
   const lat0 = anchors.reduce((s, a) => s + a.lat, 0) / n;
-  const lon0 = anchors.reduce((s, a) => s + a.lon, 0) / n;
+  const lon0 = anchors.reduce((s, a) => s + unwrap(a.lon), 0) / n;
   const k = Math.cos((lat0 * Math.PI) / 180);
-  const en = (lat: number, lon: number) => ({ e: (lon - lon0) * k * 111_320, n: (lat - lat0) * 110_574 });
+  const en = (lat: number, lon: number) => ({ e: (unwrap(lon) - lon0) * k * 111_320, n: (lat - lat0) * 110_574 });
   const pts = anchors.map((a) => ({ ...en(a.lat, a.lon), x: a.x, y: a.y }));
   const me = pts.reduce((s, p) => s + p.e, 0) / n;
   const mn = pts.reduce((s, p) => s + p.n, 0) / n;
@@ -106,7 +109,8 @@ export function siteFrame(anchors: readonly Anchor[]): SiteFrame | undefined {
     ee += de * de; eN += de * dn; nn += dn * dn; ex += de * dx; nx += dn * dx; ey += de * dy; ny += dn * dy;
   }
   const det = ee * nn - eN * eN;
-  if (!(det > 1e-9 * (ee + nn) ** 2)) return undefined;
+  // The same degeneracy test as core geo/sites.py project (relative 1e-12), here on the east/north side.
+  if (!(det > 1e-12 * (ee + nn) ** 2)) return undefined;
   const solve = (be: number, bn: number) => ({ a: (be * nn - bn * eN) / det, b: (bn * ee - be * eN) / det });
   const fx = solve(ex, nx), fy = solve(ey, ny);
   return {
@@ -278,8 +282,10 @@ export function mapItems(i: MapInputs): MapItem[] {
 /** The text on a marker: name, value and age. A value never appears without its age. */
 export function labelOf(item: MapItem): string {
   const age = shortAge(item.age);
+  // The state is a word on the label too, not only a shape or colour: "off", "stale", "unknown"; fresh needs none.
   if (item.state === 'offline') return `${item.name} · off ${age}`;
-  return item.value ? `${item.name} · ${item.value} · ${age}` : `${item.name} · ${age}`;
+  const when = item.state === 'stale' ? `stale ${age}` : item.state === 'unknown' ? `unknown · ${age}` : age;
+  return item.value ? `${item.name} · ${item.value} · ${when}` : `${item.name} · ${when}`;
 }
 
 /** The om.js lint (design-v2 final/lib/om.js): a label that shows a value must also show an age. */

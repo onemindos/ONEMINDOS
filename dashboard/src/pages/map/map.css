@@ -50,12 +50,14 @@ button.dash-map-state { cursor: pointer; }
 
 .dash-map-marker { display: inline-flex; align-items: center; gap: var(--om-space-1); max-width: 18rem; background: var(--om-color-surface); color: var(--om-color-text); border: 1px solid var(--om-color-border); border-radius: var(--om-radius-pill); padding: var(--om-space-0-5) var(--om-space-2); font: inherit; font-size: var(--om-font-size-sm); white-space: nowrap; cursor: pointer; box-shadow: var(--om-shadow-1); }
 .dash-map-marker .dash-map-label { overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
-.dash-map-marker.is-stale { border-style: dashed; }
+.dash-map-marker.is-stale { border-style: dashed; border-color: var(--om-color-warn-border); }
 .dash-map-marker.is-offline, .dash-map-marker.is-unknown { color: var(--om-color-text-muted); border-style: dotted; }
 .dash-map-marker.is-box { font-weight: var(--om-font-weight-semibold); }
 .dash-map-marker[aria-pressed='true'] { border-color: var(--om-color-accent); outline: 2px solid var(--om-color-accent-soft); }
 .dash-map-marker:focus-visible, .dash-map button:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
-.dash-map-marker.is-simulated { border-style: dashed; color: var(--om-color-text-muted); }
+/* Simulated (DESIGN.md "Simulated"): hatched and labelled, never mistaken for a stale live value (dashed amber edge). */
+.dash-map-marker.is-simulated { border-style: double; border-width: 3px; border-color: var(--om-color-border-strong); color: var(--om-color-text-muted);
+  background: repeating-linear-gradient(135deg, var(--om-color-surface) 0 6px, var(--om-color-surface-sunken) 6px 9px); }
 .dash-map-tag { font-size: var(--om-font-size-xs); border: 1px dashed var(--om-color-border-strong); border-radius: var(--om-radius-xs); padding: 0 var(--om-space-1); color: var(--om-color-text-muted); }
 
 .dash-map-shelf ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--om-space-2); }

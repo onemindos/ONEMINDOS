@@ -23,6 +23,15 @@ describe('siteFrame', () => {
     expect(local.y).toBeCloseTo(7.25, 1);
   });
 
+  it('places a site that crosses the 180° meridian in metres, not 360° apart', () => {
+    const across = [{ x: 0, y: 0, lat: 0.001, lon: 179.9995 }, { x: 111, y: 0, lat: 0.001, lon: -179.9995 }, { x: 0, y: 111, lat: 0.002, lon: 179.9995 }];
+    const f = siteFrame(across)!;
+    const p = f.toLocal(0.0015, -179.99975);
+    expect(p.x).toBeGreaterThan(70);
+    expect(p.x).toBeLessThan(95);
+    expect(p.y).toBeCloseTo(55.5, 0);
+  });
+
   it('refuses anchors on one line, which cannot fix a plan to the earth', () => {
     expect(siteFrame([at(0, 0), at(10, 0), at(20, 0)])).toBeUndefined();
     expect(siteFrame([at(0, 0), at(10, 0)])).toBeUndefined();
@@ -95,6 +104,8 @@ describe('mapItems', () => {
     expect(labelOf(byKey('sensor:greenhouse-air'))).toBe('greenhouse-air · 31.8 °C · 8 s');
     expect(labelOf(byKey('node:garage-pi'))).toBe('garage-pi · off 6 min');
     expect(labelHasAge('Vent · 15 %')).toBe(false);
+    const stale = mapItems({ now: NOW, nodes: [], nodeStatus: status, machines: [], assets: new Map([value('door', 'back', 'state', { time: ago(300), value: 'open', quality: 'live' })]) });
+    expect(labelOf(stale[0]!)).toBe('back · open · stale 5 min');
   });
 });
 

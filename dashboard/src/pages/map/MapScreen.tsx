@@ -16,7 +16,8 @@ import { useGateway, viaSdk } from '../../lib/gateway';
 import { usePoll } from '../../lib/hooks';
 import { useSignedIn } from '../../session';
 import { counts, gridStep, labelOf, layerName, mapItems, planBounds, shortAge, type GeoSite, type MapItem } from './model';
-import { useAssetStream, type FeedState } from './useAssetStream';
+import { useAssetStream, type AssetsState, type FeedState } from './useAssetStream';
+import { useShell } from '../../shell/Shell';
 import './map.css';
 
 type Packs = components['schemas']['Packs'];
@@ -27,9 +28,22 @@ const FEED_WORD: Record<FeedState, string> = {
   off: 'No live feed in demo mode',
   connecting: 'Connecting to the live feed…',
   live: 'Live',
+  reconnecting: 'Reconnecting… showing the last values received',
   denied: 'This account may not read asset values',
   unavailable: 'Live feed unavailable; showing nodes and machines only',
 };
+/** What the hub said about its own asset values in stream.snapshot (core fanout.py AssetState). */
+const ASSETS_WORD: Record<Exclude<AssetsState, 'ready'>, string> = {
+  pending: 'Asset values pending: the hub is still waiting for its message bus',
+  off: 'Asset values are off on this hub',
+  error: 'Asset values unavailable: the hub could not read them',
+};
+
+/** The header line: the connection first, then, once connected, the hub's own asset state. */
+function feedWord(feed: FeedState, assets: AssetsState | undefined): string {
+  if (feed === 'live' && assets && assets !== 'ready') return ASSETS_WORD[assets];
+  return FEED_WORD[feed];
+}
 
 export function MapScreen() {
   const { token, api, mock } = useSignedIn();
@@ -38,7 +52,8 @@ export function MapScreen() {
   const sites = usePoll(() => (mock ? Promise.resolve([] as GeoSite[]) : viaSdk(() => sdk.call<GeoSite[]>({ method: 'GET', path: '/v1/sites' }))), 60_000);
   const packs = usePoll(() => (mock ? Promise.resolve(undefined) : viaSdk(() => sdk.call<Packs>({ method: 'GET', path: '/v1/map/packs' }))), 300_000);
   const machines = usePoll(async () => (api.machines ? api.machines() : ([] as MachineRecord[])), 15_000);
-  const { values, feed } = useAssetStream(sdk, !mock);
+  const { values, feed, assets } = useAssetStream(sdk, !mock);
+  const pro = useShell().view === 'pro';
 
   const [siteId, setSiteId] = useState<string>();
   const [floor, setFloor] = useState<string>();
@@ -61,16 +76,29 @@ export function MapScreen() {
   const shown = all.filter((it) => !hidden.has(it.layer) && (states.size === 0 || states.has(it.state)));
   const onPlan = shown.filter((it) => it.place && (!floor || it.place.frame === floor));
   const shelf = shown.filter((it) => !it.place);
+  const filteredOut = all.length - shown.length;
+  const otherFloors = floor ? shown.filter((it) => it.place && it.place.frame !== floor).length : 0;
   const tally = counts(all);
   const current = all.find((it) => it.key === selected);
   const toggle = <T,>(set: ReadonlySet<T>, v: T) => { const n = new Set(set); if (n.has(v)) n.delete(v); else n.add(v); return n; };
   const loading = hub.nodes.data === undefined && !hub.nodes.error;
+  // "Nothing reported" is said only when it is known: the feed delivered a complete snapshot from a ready hub
+  // and the node list was read. Otherwise the screen says what it is still waiting for, or what failed.
+  const knownEmpty = !hub.nodes.error && feed === 'live' && assets === 'ready';
+  const nothingYet = (): string => {
+    if (knownEmpty) return 'No assets yet. Nodes, machines and devices appear here as soon as they report.';
+    if (hub.nodes.error) return `Could not read the nodes: ${hub.nodes.error.message}`;
+    if (feed === 'off') return 'No live feed in demo mode, so no asset values.';
+    if (feed === 'connecting' || feed === 'reconnecting') return 'Waiting for the live feed before saying what is here.';
+    if (feed === 'denied' || feed === 'unavailable') return `${FEED_WORD[feed]}.`;
+    return `${assets && assets !== 'ready' ? ASSETS_WORD[assets] : 'The hub did not say whether asset values are available'}.`;
+  };
 
   return (
     <div className="dash-map">
       <PageHeader title="Map" lede={<>
         {site ? site.name : 'No place drawn yet'} · {all.length} {all.length === 1 ? 'item' : 'items'}
-        {' · '}<span className={`dash-map-feed dash-map-feed-${feed}`} role="status">{FEED_WORD[feed]}</span>
+        {' · '}<span className={`dash-map-feed dash-map-feed-${feed === 'live' && assets && assets !== 'ready' ? 'unavailable' : feed}`} role="status">{feedWord(feed, assets)}</span>
       </>} actions={
         <div className="dash-map-views" role="group" aria-label="View">
           {(['plan', 'list'] as const).map((v) => (
@@ -104,7 +132,7 @@ export function MapScreen() {
           )}
           <section>
             <h2>Layers</h2>
-            {layers.length === 0 ? <p className="om-note">Nothing has reported yet.</p> : (
+            {layers.length === 0 ? <p className="om-note">{knownEmpty ? 'Nothing has reported yet.' : nothingYet()}</p> : (
               <ul className="dash-map-layers">
                 {layers.map(([layer, n]) => (
                   <li key={layer}>
@@ -134,25 +162,33 @@ export function MapScreen() {
         <section className="dash-map-main" aria-label={view === 'plan' ? 'Plan' : 'List'}>
           {loading ? <p role="status">Loading the box and its nodes…</p> : view === 'plan' ? (
             <>
-              {site ? <Plan site={site} items={onPlan} selected={selected} onSelect={setSelected} /> : (
+              {site ? <Plan site={site} items={onPlan} selected={selected} onSelect={setSelected} /> : sites.error ? null : sites.data === undefined ? (
+                <p role="status">Loading places…</p>
+              ) : (
                 <EmptyState icon="map" title="Draw your first place">
                   <p>A place is a plan in metres fixed to the earth by three surveyed points. Once one exists, everything that reports a position shows up on it. Until then, what this box knows is listed below.</p>
                 </EmptyState>
               )}
-              {sites.error && <p className="om-note" role="status">Could not read places: {sites.error.message}</p>}
+              {sites.error && <p className="om-note" role="alert">Could not read places: {sites.error.message}{sites.data ? ' Showing the places last read.' : ''}</p>}
+              {(filteredOut > 0 || otherFloors > 0) && (
+                <p className="om-note" role="status">
+                  {filteredOut > 0 && `${filteredOut} hidden by the layer and state filters. `}
+                  {otherFloors > 0 && `${otherFloors} placed on other floors.`}
+                </p>
+              )}
               <section className="dash-map-shelf" aria-label="Not on the plan yet">
                 <h2>Not on the plan yet <span>{shelf.length}</span></h2>
-                {shelf.length === 0 ? <p className="om-note">{all.length === 0 ? 'No assets yet. Nodes, machines and devices appear here as soon as they report.' : 'Everything shown is placed.'}</p> : (
+                {shelf.length === 0 ? <p className="om-note">{all.length === 0 ? nothingYet() : filteredOut > 0 ? 'Nothing unplaced passes the filters.' : 'Everything shown is placed.'}</p> : (
                   <ul>{shelf.map((it) => <li key={it.key}><Marker item={it} selected={selected === it.key} onSelect={setSelected} /></li>)}</ul>
                 )}
               </section>
             </>
           ) : (
-            <ItemList items={shown} selected={selected} onSelect={setSelected} />
+            <ItemList items={shown} empty={all.length === 0 ? nothingYet() : 'Nothing passes the layer and state filters.'} selected={selected} onSelect={setSelected} />
           )}
         </section>
 
-        {current && <AssetCard item={current} onClose={() => setSelected(undefined)} />}
+        {current && <AssetCard item={current} pro={pro} onClose={() => setSelected(undefined)} />}
       </div>
     </div>
   );
@@ -203,8 +239,8 @@ function Plan({ site, items, selected, onSelect }: { site: GeoSite; items: MapIt
   );
 }
 
-function ItemList({ items, selected, onSelect }: { items: MapItem[]; selected?: string; onSelect: (k: string) => void }) {
-  if (items.length === 0) return <p className="om-note">No assets yet. Nodes, machines and devices appear here as soon as they report.</p>;
+function ItemList({ items, empty, selected, onSelect }: { items: MapItem[]; empty: string; selected?: string; onSelect: (k: string) => void }) {
+  if (items.length === 0) return <p className="om-note">{empty}</p>;
   return (
     <table className="dash-map-list">
       <thead><tr><th scope="col">Name</th><th scope="col">Layer</th><th scope="col">State</th><th scope="col">Value</th><th scope="col">Age</th><th scope="col">Place</th></tr></thead>
@@ -224,7 +260,7 @@ function ItemList({ items, selected, onSelect }: { items: MapItem[]; selected?: 
   );
 }
 
-function AssetCard({ item, onClose }: { item: MapItem; onClose: () => void }) {
+function AssetCard({ item, pro, onClose }: { item: MapItem; pro: boolean; onClose: () => void }) {
   return (
     <aside className="dash-map-card" aria-label={`${item.name} details`}>
       <header>
@@ -245,7 +281,8 @@ function AssetCard({ item, onClose }: { item: MapItem; onClose: () => void }) {
       )}
       <p>{item.place ? `Placed at ${item.place.x.toFixed(1)} m east, ${item.place.y.toFixed(1)} m north on ${item.place.frame}.` : `Not on the plan yet. ${item.unplaced ?? ''}`}</p>
       <p className="om-note">Read only. The Map never moves anything; changes are requests that wait in Approvals for a person.</p>
-      {item.link && <Link to={item.link}>{item.kind === 'machine' ? 'Open Machines' : item.kind === 'node' ? 'Open Nodes' : 'Open'}</Link>}
+      {/* Nodes and Machines are Pro screens (shell/roles.ts): no link a guest or child would only bounce off. */}
+      {item.link && pro && <Link to={item.link}>{item.kind === 'machine' ? 'Open Machines' : item.kind === 'node' ? 'Open Nodes' : 'Open'}</Link>}
     </aside>
   );
 }
