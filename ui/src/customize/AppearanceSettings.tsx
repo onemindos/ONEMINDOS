@@ -236,7 +236,7 @@ function AccentSection() {
             <span>Pick a colour</span>
             <input
               type="color"
-              value={normalizeHex(prefs.accentCustom) ?? '#1f6a66'}
+              value={normalizeHex(prefs.accentCustom) ?? ACCENTS[DEFAULT_ACCENT].light}
               onChange={(e) => {
                 setDraft(null);
                 update({ accentCustom: e.target.value });
