@@ -202,7 +202,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const boxName = hub.instance.data?.name ?? brand.shortName;
   const knownPerson = signedInAccount ?? me.data?.principal ?? principal;
   const canLock = knownPerson?.kind !== 'agent';
-  const lockNow = () => lock({ boxName, waiting });
+  const lockNow = () => lock({ boxName, waiting, ...(displayName ? { person: displayName } : {}) });
   const idle = useIdleLockPreference(knownPerson?.kind === 'person' ? knownPerson.id : undefined, role === 'owner');
   useIdleLock(canLock && knownPerson ? idle : 0, lockNow);
   const bell = (

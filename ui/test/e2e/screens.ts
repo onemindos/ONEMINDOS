@@ -22,6 +22,8 @@ export interface Screen {
   query?: Record<string, string>;
   /** Dashboard screens need a signed-in session; the sign-in page does not. */
   signedIn?: boolean;
+  /** Dashboard: open on the lock screen (the snapshot session.tsx keeps while a workspace is locked). */
+  locked?: boolean;
 }
 
 const ui = (route: string, query?: Record<string, string>, name?: string): Screen => ({
@@ -68,6 +70,7 @@ export const DASH_SCREENS: Screen[] = [
   { name: 'dash-map', target: 'dashboard', route: 'map', signedIn: true },
   { name: 'dash-plugins', target: 'dashboard', route: 'plugins', signedIn: true },
   { name: 'dash-files', target: 'dashboard', route: 'files', signedIn: true },
+  { name: 'dash-lock', target: 'dashboard', route: '', locked: true },
 ];
 
 export function urlFor(s: Screen, theme: Theme): string {
@@ -91,6 +94,9 @@ export async function open(page: Page, s: Screen, theme: Theme): Promise<void> {
   await page.clock.setFixedTime(FIXED_TIME);
   if (s.signedIn) {
     await page.addInitScript((token) => window.sessionStorage.setItem('onemind.token', token), DASH_TOKEN);
+  }
+  if (s.locked) {
+    await page.addInitScript(() => window.sessionStorage.setItem('onemind.locked', JSON.stringify({ boxName: 'Home', waiting: 2, person: 'Sam Rivera' })));
   }
   await page.goto(urlFor(s, theme));
   if (s.target === 'ui') {
