@@ -24,7 +24,7 @@ it('calls only routes the hub serves (or feature-detected ones it does not ship 
   const fn: FetchLike = async (url, init) => {
     const path = new URL(url).pathname.replace(/\/x1(?=\/|$)/g, '/{}');
     seen.push(`${init?.method ?? 'GET'} ${path}`);
-    const list = /\/(nodes|apps|actions|notifications|alerts|registrations|destinations|runs|rules|roots|list|plans)$/.test(path) && init?.method !== 'POST';
+    const list = /\/(nodes|apps|actions|notifications|alerts|registrations|destinations|runs|rules|roots|list|plans|sites)$/.test(path) && init?.method !== 'POST';
     return new Response(JSON.stringify(list ? [] : { key: 'k', marked: 0 }), { status: 200 });
   };
   const api = new HttpApi({ baseUrl: 'https://hub.test', token: 't', fetchFn: fn });
@@ -50,7 +50,7 @@ it('calls only routes the hub serves (or feature-detected ones it does not ship 
     () => api.setRuleEnabled(id, true), () => api.setRuleEnabled(id, false), () => api.setAutomationPaused(true), () => api.setAutomationPaused(false),
     () => api.filesRoots(), () => api.filesList('r', '/'), () => api.migratePlans(),
     () => api.osUpdates(), () => api.osUpdateHistory(), () => api.monitoringSummary(), () => api.nodeMetrics(id), () => api.appMetrics(id),
-    () => api.mesh(),
+    () => api.mesh(), () => api.sites(),
     () => api.myDevices(), () => api.removeMyDevice(id),
   ];
   for (const c of calls) await c().catch(() => undefined);

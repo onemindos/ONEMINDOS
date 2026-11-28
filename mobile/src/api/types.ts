@@ -789,3 +789,12 @@ export interface SystemPlanPreview {
 export type { StatusView } from '@onemind/sdk';
 export type SourceStatus = SdkStatusView['alerts'];
 export type HealthState = SdkStatusView['state'];
+
+/** `GET /v1/sites`: a site's reference anchors (plan x,y in metres with their WGS-84 place), floors and areas. */
+export interface GeoSite {
+  id: string;
+  name: string;
+  anchors: Array<{ x: number; y: number; lat: number; lon: number }>;
+  floors?: Array<{ id: string; name: string }>;
+  areas?: Array<{ id: string; name: string; floor_id?: string | null }>;
+}
