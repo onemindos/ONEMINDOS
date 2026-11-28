@@ -37,11 +37,15 @@ class BackupsSettings:
     # The built-in folder settings (ONEMIND_<SECTION>_<FIELD>) whose folders the agent's `system` unit
     # also copies, separated by spaces or commas (onemind-firstboot writes the ones it adds).
     agent_dirs: str = ""
+    # Owner-provisioned export.key and trust.json, separate from the gateway job key.
+    copy_keys_dir: Path | None = None
 
     def agent_dir_names(self) -> frozenset[str]:
         return frozenset(n for n in self.agent_dirs.replace(",", " ").split() if n)
 
     def validate(self) -> None:
+        if self.copy_keys_dir is not None and not self.copy_keys_dir.is_absolute():
+            raise ValueError("ONEMIND_BACKUPS_COPY_KEYS_DIR must be absolute")
         u = urlsplit(self.agent_url)
         if u.scheme != "http" or (u.hostname or "") not in LOOPBACK_HOSTS:
             raise ValueError("ONEMIND_BACKUPS_AGENT_URL must be http://127.0.0.1:<port> (the agent is loopback-only)")

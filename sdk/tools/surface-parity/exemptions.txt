@@ -80,6 +80,7 @@ dashboard backups.snapshots.file s5-backups
 dashboard backups.snapshots.get s5-backups
 dashboard backups.snapshots.tree s5-backups
 dashboard backups.verify s5-backups
+dashboard backups.copies.request s5-backups
 dashboard restores.get s5-backups
 cli backups.content.set s5-backups
 cli backups.destinations.add s5-backups
@@ -178,6 +179,7 @@ dashboard os.rollouts.list later-os-fleet
 group later-search-share-restore-tips issue=#1232 Later: search, the Send to menu (share targets and types), onboarding restore and tips state and what's new have no dashboard screen.
 dashboard onboarding.restore.app later-search-share-restore-tips
 dashboard onboarding.restore.candidates later-search-share-restore-tips
+dashboard onboarding.restore.copy later-search-share-restore-tips
 dashboard share.send later-search-share-restore-tips
 dashboard share.targets later-search-share-restore-tips
 dashboard share.types later-search-share-restore-tips
@@ -424,4 +426,5 @@ indirect mobile files.download FilesScreen.tsx downloads (GET) the url filesDown
 indirect cli agents.kill_switch.set agents.go sends PUT through call(http.MethodPut, body) with const path
 indirect cli backups.runs.request backup.go `backup run` sends POST through backupRequest, gwDoKeyed(http.MethodPost)
 indirect cli backups.verify backup.go `backup verify` sends POST through backupRequest, gwDoKeyed(http.MethodPost)
+indirect cli backups.copies.request backup_copy.go `backup copy start` sends POST through backupRequest, gwDoKeyed(http.MethodPost)
 indirect cli restores.request backup.go `restore` sends POST through backupRequest, gwDoKeyed(http.MethodPost)

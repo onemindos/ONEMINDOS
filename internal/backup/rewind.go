@@ -95,7 +95,7 @@ func (a *Agent) ListSnapshotsOfBox(ctx context.Context, targetID, boxID, unit, r
 		}
 		repo = r
 	} else {
-		r, cleanup, err := a.openWithKey(targetID, recoveryKey)
+		r, cleanup, err := a.openWithKey(targetID, boxID, recoveryKey)
 		if err != nil {
 			return nil, err
 		}
@@ -370,7 +370,7 @@ func lookupNode(ctx context.Context, repo Repo, id, p string) (Node, error) {
 
 // openWithKey opens target targetID with a caller-supplied password and never
 // creates the repository. The caller must call cleanup (it removes the key file).
-func (a *Agent) openWithKey(targetID, key string) (Repo, func(), error) {
+func (a *Agent) openWithKey(targetID, boxID, key string) (Repo, func(), error) {
 	t, ok := a.target(targetID)
 	if !ok {
 		return nil, nil, errUnknownTarget(targetID)
@@ -382,6 +382,18 @@ func (a *Agent) openWithKey(targetID, key string) (Repo, func(), error) {
 		}
 	}
 	c := a.conf()
+	if t.Sovereign {
+		if !copyBoxID(boxID) {
+			return nil, nil, errors.New("invalid source box ID")
+		}
+		c.BoxID = boxID
+		repo, err := NewRestic(&c, t, nil)
+		if err != nil {
+			return nil, nil, err
+		}
+		repo.useRecoveryKey(key)
+		return repo, func() {}, nil
+	}
 	if err := os.MkdirAll(c.StateDir, 0o700); err != nil {
 		return nil, nil, err
 	}
@@ -443,7 +455,7 @@ func (a *Agent) findSnapshotOfBox(ctx context.Context, targetID, boxID, recovery
 		}
 		repo = r
 	} else {
-		r, c, err := a.openWithKey(targetID, recoveryKey)
+		r, c, err := a.openWithKey(targetID, boxID, recoveryKey)
 		if err != nil {
 			return nil, Snapshot{}, noop, err
 		}

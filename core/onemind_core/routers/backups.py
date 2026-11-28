@@ -15,18 +15,21 @@ import re
 import secrets
 from datetime import datetime, timedelta
 from typing import Annotated, Literal
+from urllib.parse import urlsplit
 
 from fastapi import Depends, FastAPI, Header, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
 
 from ..auth import Principal
+from ..backups.copies import SovereignCopies
 from ..backups.jobs import AgentError
 from ..backups.service import BackupService, Unavailable
 from ..backups.settings import BackupsSettings
+from ..boxbundle.sovereign import KEY
 from ..catalog import APP_ID_RE
 from ..context import Gateway
-from ..errors import ApiError, error_responses as _error_responses
+from ..errors import ApiError, error_response, error_responses as _error_responses
 from ..identity.scopes import register_route_scope
 from ..jsonbody import JsonBody
 from ..ledger import utc
@@ -35,6 +38,7 @@ from ..ledger import utc
 # switching the tier is owner-only, and `backups:admin` is a scope only the owner role holds.
 register_route_scope("GET,HEAD", r"/v1/backups/content", ("backups:read",))
 register_route_scope("POST", r"/v1/backups/content", ("backups:admin",))
+register_route_scope("POST", r"/v1/backups/copies", ("*",))
 
 
 def error_responses(*statuses: int) -> dict[int, dict]:
@@ -121,8 +125,40 @@ class KitConfirmBody(BaseModel):
     answers: dict[str, str] = Field(max_length=4)
 
 
+class SovereignCopyBody(JsonBody):
+    model_config = ConfigDict(extra="forbid")
+    destination_id: str = Field(pattern=DEST_RE)
+    recovery_key: str = Field(pattern=KEY, json_schema_extra={"writeOnly": True})
+    reason: str | None = Field(default=None, max_length=500)
+
+
+def _https_origin(value: str | bool) -> bool:
+    # Match the whole authority before parsing the port or IPv6 literal.
+    if not isinstance(value, str) or not re.fullmatch(
+        r"https://(?:[A-Za-z0-9.-]+|\[[A-Fa-f0-9:.]+\])(?::[0-9]{1,5})?/?", value
+    ):
+        return False
+    try:
+        origin = urlsplit(value)
+        port = origin.port
+    except ValueError:
+        return False
+    host = origin.hostname
+    if not host or port == 0:
+        return False
+    if ":" in host:
+        return True  # urlsplit validated the IPv6 literal
+    return len(host) <= 253 and all(
+        re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label)
+        for label in host.removesuffix(".").split(".")
+    )
+
+
 def _check_destination(b: DestinationBody) -> dict:
     c, creds = dict(b.config), b.credentials or {}
+    sovereign = c.get("sovereign", False)
+    if not isinstance(sovereign, bool) or (sovereign and b.kind not in ("usb", "s3")):
+        raise ApiError(422, "conflict", "sovereign copies require a mounted destination or S3")
     problem = None
     if b.kind == "usb":
         if not USB_UUID_RE.match(str(c.get("usb_uuid", ""))):
@@ -135,7 +171,9 @@ def _check_destination(b: DestinationBody) -> dict:
             problem = "credentials.password is required"
         c = {"url": c.get("url"), "user": c.get("user"), "append_only": bool(c.get("append_only", b.kind == "box"))}
     else:
-        if not str(c.get("endpoint", "")).startswith("https://") or not c.get("bucket"):
+        if sovereign and not _https_origin(c.get("endpoint", "")):
+            problem = "config.endpoint must be an HTTPS origin (host with optional port and trailing slash)"
+        elif not str(c.get("endpoint", "")).startswith("https://") or not c.get("bucket"):
             problem = "config.endpoint must be https:// and config.bucket is required"
         elif not creds.get("access_key") or not creds.get("secret_key"):
             problem = "credentials.access_key and credentials.secret_key are required"
@@ -144,6 +182,8 @@ def _check_destination(b: DestinationBody) -> dict:
         problem = "credentials may hold password, ca, access_key and secret_key only"
     if problem:
         raise ApiError(422, "conflict", problem)
+    if sovereign:
+        c["sovereign"] = True
     return c
 
 
@@ -155,6 +195,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     settings = gw.settings.section(BackupsSettings)
     svc = BackupService(gw, settings, pg=getattr(app.state, "databases", None))
     app.state.backups = svc
+    copies = app.state.sovereign_copies = SovereignCopies(svc)
     svc.builtins = getattr(app.state, "builtins", None)  # registered earlier (ORDER 135): the backup set, #616
     gw.on_startup(svc.startup)
     gw.on_shutdown(svc.shutdown)
@@ -222,6 +263,16 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return header or "auto:" + secrets.token_hex(16)
 
     tags = ["backups"]
+
+    @app.post("/v1/backups/copies", operation_id="backups.copies.request", tags=tags, status_code=202,
+              openapi_extra={"security": [{"bearer": ["*"]}]}, responses=error_responses(401, 403, 404, 409, 422))
+    def request_copy(body: SovereignCopyBody, p: Principal = Depends(owner), idem: IdemHeader = None):
+        """File an owner approval for a sovereign copy of the destination's latest whole-box backup."""
+        action, created = copies.request(p, body.destination_id, body.recovery_key, key(idem), body.reason)
+        headers = {"Location": f"/v1/actions/{action['id']}", "Cache-Control": "no-store"}
+        if not created:
+            headers["OneMind-Idempotent-Replay"] = "true"
+        return JSONResponse(status_code=202, content=action, headers=headers)
 
     @app.get("/v1/backups/status", operation_id="backups.status", tags=tags, responses=error_responses(401, 403))
     def status(_: Principal = Depends(reader)):
@@ -352,21 +403,41 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def kit(_: Principal = Depends(owner)):
         return svc.kit_state()
 
-    @app.post("/v1/backups/kit", operation_id="backups.kit.issue", tags=tags, status_code=201, responses=error_responses(401, 403, 409))
+    @app.post("/v1/backups/kit", operation_id="backups.kit.issue", tags=tags, status_code=201, responses={
+        **error_responses(403, 409),
+        401: {**_error_responses(401)[401], "headers": {
+            "Location": {"description": "Action to approve when step-up is required.", "schema": {"type": "string"}},
+            "Idempotency-Key": {"description": "Key to send back after approval.", "schema": {"type": "string"}},
+        }},
+    })
     def issue_kit(request: Request, p: Principal = Depends(owner), idem: IdemHeader = None):
-        """Owner shortcut: files backup.kit.issue and approves it; the key is in this response only."""
+        """Issue the emergency kit and return its key once to the requesting owner.
+
+        If step-up is required, approve the action named by Location and retry with the returned Idempotency-Key.
+        """
         if not svc.enabled:
             raise Unavailable("backups are not switched on (ONEMIND_BACKUPS_ENABLED=1)", "backups_disabled")
-        action, created = gw.actions.request_feature(p, "backup.kit.issue", {}, idempotency_key=key(idem),
+        request_key = key(idem)
+        # The action service enforces that a replay belongs to the same requester.
+        action, created = gw.actions.request_feature(p, "backup.kit.issue", {}, idempotency_key=request_key,
                                                      expires_at=gw.clock() + timedelta(minutes=10))
-        if not created:
-            raise ApiError(409, "conflict", "this kit was already issued; it is never shown twice")
-        action = approve_as_owner(p, action["id"], request)
-        one_time = svc.take_one_time(action["id"])
-        if action["state"] != "succeeded" or one_time is None:
+        if created:
+            try:
+                action = approve_as_owner(p, action["id"], request)
+            except ApiError as exc:
+                if exc.status != 401 or exc.reason != "step_up_required":
+                    raise
+                response = error_response(exc.status, exc.error, exc.message, reason=exc.reason)
+                response.headers.update({"Location": f"/v1/actions/{action['id']}",
+                                         "Idempotency-Key": request_key, "Cache-Control": "no-store"})
+                return response
+        if action["state"] != "succeeded":
             raise ApiError(409, "stale_precondition", (action.get("result") or {}).get("message") or "the kit was not issued")
+        issued = svc.take_one_time(action["id"])
+        if issued is None:
+            raise ApiError(409, "conflict", "the kit is no longer available to collect; it is never shown twice")
         return JSONResponse(status_code=201, headers={"Cache-Control": "no-store"},
-                            content={"action": action, "kit": svc.kit_state(), "one_time": one_time})
+                            content={"action": action, **issued})
 
     @app.post("/v1/backups/kit/confirm", operation_id="backups.kit.confirm", tags=tags, responses=error_responses(401, 403, 404, 409))
     def confirm_kit(body: KitConfirmBody, p: Principal = Depends(owner)):

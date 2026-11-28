@@ -429,6 +429,9 @@ POLICY |= {
     ("DELETE", "/v1/backups/destinations/{dest_id}"): Row(OWNER_ONLY_404, w.p_missing("/v1/backups/destinations/{dest}"),
                                                           f"{_BACKUPS}: only the owner changes where backups go"),
     ("POST", "/v1/backups/runs"): Row(OFF, w.p_missing("/v1/backups/runs", json={}), f"{_BACKUPS}: request; owner approves"),
+    ("POST", "/v1/backups/copies"): Row(OFF_OWNER_ONLY, w.p_missing("/v1/backups/copies", json={
+        "destination_id": "dst_0123456789abcdef", "recovery_key": "-".join(["AAAA"] * 13)}),
+        "sovereign export: only an owner can request a copy"),
     ("GET", "/v1/backups/runs"): Row(HOUSEHOLD, w.p_static("/v1/backups/runs"), f"{_BACKUPS}: household read"),
     ("GET", "/v1/backups/runs/{run_id}"): Row(HOUSEHOLD_404, w.p_missing("/v1/backups/runs/{run}"), f"{_BACKUPS}: household read"),
     ("GET", "/v1/backups/snapshots"): Row(OFF_HOUSEHOLD, w.p_static("/v1/backups/snapshots"), f"{_BACKUPS}: household read"),
@@ -464,6 +467,9 @@ POLICY |= {
         "box_name": "home-hub", "time_zone": "UTC", "backup_choice": "later"}), "contract 12.41: owner only, audited"),
     ("POST", "/v1/onboarding/restore/candidates"): Row(OFF_OWNER_ONLY, w.p_missing("/v1/onboarding/restore/candidates", json={
         "destination_id": "dst_0123456789abcdef"}), "UMB-P08: first-run restore listing is owner only (503: backups off in the matrix)"),
+    ("POST", "/v1/onboarding/restore/copy"): Row(OFF_OWNER_ONLY, w.p_missing("/v1/onboarding/restore/copy", json={
+        "destination_id": "dst_0123456789abcdef", "box_id": "old-box", "root_fingerprint": "a" * 64,
+        "recovery_key": "-".join(["AAAA"] * 13)}), "sovereign discovery: first-run owner only"),
     ("POST", "/v1/onboarding/restore/apps"): Row(OFF_OWNER_ONLY, w.p_missing("/v1/onboarding/restore/apps", json={
         "destination_id": "dst_0123456789abcdef", "box_id": "old-box", "recovery_key": "K" * 40, "run_id": "run_old",
         "app_id": "notes"}), "UMB-P08: restoring an app from another box's backup is owner only (503: backups off in the matrix)"),

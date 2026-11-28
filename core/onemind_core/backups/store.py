@@ -172,6 +172,11 @@ class BackupsRepository(SqlRepository):
         with self.db.session() as s:
             return s.get(RunRow, run_id)
 
+    def runs_for_destination(self, destination_id: str) -> list[RunRow]:
+        with self.db.session() as s:
+            return list(s.scalars(select(RunRow).where(RunRow.destination_id == destination_id, RunRow.state == "succeeded")
+                                  .order_by(RunRow.started_at.desc(), RunRow.id.desc())))
+
     def fail_unfinished_runs(self, now: datetime) -> int:
         with self.db.session.begin() as s:
             res = s.execute(update(RunRow).where(RunRow.state == "running").values(

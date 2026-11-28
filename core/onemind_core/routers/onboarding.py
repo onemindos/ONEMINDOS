@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from ..auth import Principal
 from ..backups.service import Unavailable
+from ..boxbundle.sovereign import BOX_ID, HEX, KEY, Completion
 from ..context import Gateway
 from ..errors import ApiError, error_responses
 from ..identity.scopes import register_route_scope
@@ -20,6 +21,7 @@ from ..onboarding import OnboardingService
 
 # Owner only (#323): the row asks for every scope, the same answer as the fail-closed fallback.
 register_route_scope("GET", r"/v1/onboarding/state", ("*",))
+register_route_scope("POST", r"/v1/onboarding/restore/copy", ("*",))
 
 
 class OnboardingSettingsBody(BaseModel):
@@ -81,6 +83,19 @@ class RestoreCandidatesView(BaseModel):
     points: list[RestorePoint]
 
 
+class DiscoverCopyBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    destination_id: str = Field(pattern=r"^dst_[0-9a-f]{16}$")
+    box_id: str = Field(pattern=BOX_ID)
+    root_fingerprint: str = Field(pattern=HEX)
+    recovery_key: str = Field(pattern=KEY, json_schema_extra={"writeOnly": True})
+
+
+class DiscoverCopyView(BaseModel):
+    candidate: Completion | None
+    rejected_candidates: int
+
+
 class OnboardingSettingsView(BaseModel):
     box_name: str | None
     time_zone: str | None
@@ -134,6 +149,23 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return {"complete": saved and (dests == 0 or kit["state"] == "confirmed"), "settings_saved": saved,
                 "backups_enabled": bool(backups.enabled), "destinations": dests,
                 "kit": {k: kit[k] for k in ("state", "confirmed_at", "fingerprint", "positions")}}
+
+    @app.post("/v1/onboarding/restore/copy", operation_id="onboarding.restore.copy", tags=["onboarding"],
+              response_model=DiscoverCopyView, openapi_extra={"security": [{"bearer": ["*"]}]},
+              responses=error_responses(401, 403, 404, 409, 422, 503))
+    def discover_copy(body: DiscoverCopyBody, response: Response, p: Principal = Depends(owner)):
+        """Find the newest complete copy that verifies against the owner's kit. Changes no box data."""
+        if body.box_id in (".", ".."):
+            raise ApiError(422, "conflict", "invalid source box ID")
+        if svc.read()["saved"]:
+            raise ApiError(409, "stale_precondition", "sovereign copy discovery is for a fresh box")
+        copy, refused = app.state.sovereign_copies.discover(
+            body.destination_id, body.box_id, body.root_fingerprint, body.recovery_key)
+        gw.audit.append("onboarding.restore.copy", p.as_dict(), None,
+                        {"destination_id": body.destination_id, "box_id": body.box_id,
+                         "copy_id": copy.copy_id if copy else None, "rejected_candidates": refused})
+        response.headers["Cache-Control"] = "no-store"
+        return DiscoverCopyView(candidate=copy, rejected_candidates=refused)
 
     @app.get("/v1/onboarding/settings", operation_id="onboarding.settings.get", tags=["onboarding"],
              response_model=OnboardingSettingsView, responses=error_responses(401, 403))

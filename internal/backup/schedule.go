@@ -132,8 +132,8 @@ func (a *Agent) runJob(ctx context.Context, job string) {
 			}
 		}
 		for _, t := range c.Targets {
-			if t.AppendOnly {
-				continue // pruning an append-only target is an owner job on that node
+			if t.AppendOnly || t.Sovereign {
+				continue // these repositories retain the saved snapshots
 			}
 			if err := a.Prune(ctx, t.ID); err != nil {
 				a.Log.Warn("prune", "target", t.ID, "error", err)
@@ -165,6 +165,9 @@ func (a *Agent) Prune(ctx context.Context, targetID string) error {
 	}
 	if t.AppendOnly {
 		return errAppendOnly
+	}
+	if t.Sovereign {
+		return errSovereignRetention
 	}
 	if err := a.acquire(ctx, "prune"); err != nil {
 		return err

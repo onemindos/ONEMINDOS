@@ -131,12 +131,14 @@ const (
 
 // Restic is a Repo backed by the restic binary.
 type Restic struct {
-	Binary  string
-	KeyFile string // RESTIC_PASSWORD_FILE
-	Repo    string // repository string (local path, rest:..., s3:...)
-	Env     []string
-	Flags   []string // global flags such as --cacert
-	Runner  Runner
+	Binary   string
+	KeyFile  string // RESTIC_PASSWORD_FILE
+	Repo     string // repository string (local path, rest:..., s3:...)
+	Env      []string
+	Flags    []string // global flags such as --cacert
+	Runner   Runner
+	nasMount string // sovereign local repositories are served over a private socket
+	nasBox   string
 }
 
 // NewRestic builds the client for target t. Credentials are read from their
@@ -160,6 +162,13 @@ func NewRestic(c *Config, t Target, r Runner) (*Restic, error) {
 	case KindUSB:
 		mount := filepath.Join(t.MountRoot, t.USBUUID)
 		rs.Repo = filepath.Join(mount, "onemind-restic")
+		if t.Sovereign {
+			if !copyBoxID(c.BoxID) {
+				return nil, errors.New("invalid sovereign repository box ID")
+			}
+			rs.Repo = filepath.Join(mount, "boxes", c.BoxID, "data")
+			rs.nasMount, rs.nasBox = mount, c.BoxID
+		}
 	case KindNode:
 		pw, err := readSecret(t.PasswordFile)
 		if err != nil {
@@ -182,6 +191,9 @@ func NewRestic(c *Config, t Target, r Runner) (*Restic, error) {
 		rs.Repo = "s3:" + strings.TrimSuffix(t.Endpoint, "/") + "/" + t.Bucket
 		if p := strings.Trim(t.Prefix, "/"); p != "" {
 			rs.Repo += "/" + p
+		}
+		if t.Sovereign {
+			rs.Repo += "/boxes/" + c.BoxID + "/data"
 		}
 		env = append(env, "AWS_ACCESS_KEY_ID="+ak, "AWS_SECRET_ACCESS_KEY="+sk)
 		if t.Region != "" {
@@ -226,7 +238,19 @@ func IsLocked(err error) bool {
 
 func (r *Restic) run(ctx context.Context, op string, stdin io.Reader, stdout io.Writer, args ...string) (int, error) {
 	full := append(append([]string{}, r.Flags...), args...)
-	stderr, code, err := r.Runner.Run(ctx, r.Binary, full, r.Env, stdin, stdout)
+	env := r.Env
+	if r.nasMount != "" {
+		endpoint, stop, err := serveNASRestic(r.nasMount, r.nasBox, op == "init")
+		if errors.Is(err, os.ErrNotExist) {
+			return exitNoRepo, &ResticError{Op: op, ExitCode: exitNoRepo, Stderr: "NAS repository is missing"}
+		}
+		if err != nil {
+			return -1, fmt.Errorf("open sovereign NAS repository: %w", err)
+		}
+		defer stop()
+		env = append(append([]string(nil), env...), "RESTIC_REPOSITORY="+endpoint)
+	}
+	stderr, code, err := r.Runner.Run(ctx, r.Binary, full, env, stdin, stdout)
 	if err != nil {
 		if ctx.Err() != nil {
 			return code, ctx.Err()
@@ -418,7 +442,11 @@ func (r *Restic) Restore(ctx context.Context, id, subPath, target string) error 
 
 // AddKey implements Repo.
 func (r *Restic) AddKey(ctx context.Context, newKeyFile string) error {
-	_, err := r.output(ctx, "key add", "key", "add", "--new-password-file", newKeyFile)
+	return r.addKey(ctx, newKeyFile, nil)
+}
+
+func (r *Restic) addKey(ctx context.Context, newKeyFile string, stdin io.Reader) error {
+	_, err := r.run(ctx, "key add", stdin, io.Discard, "key", "add", "--new-password-file", newKeyFile)
 	return err
 }
 

@@ -91,6 +91,8 @@ type Target struct {
 	Kind    string `json:"kind"`
 	Name    string `json:"name"`
 	Primary bool   `json:"primary"`
+	// Sovereign targets use a per-box namespace and keep all snapshots.
+	Sovereign bool `json:"sovereign,omitempty"`
 
 	// usb: the disk is mounted at MountRoot/<USBUUID>; the repository is
 	// the "onemind-restic" directory on it.
@@ -279,6 +281,9 @@ func (c *Config) Validate() error {
 		if err := t.validate(); err != nil {
 			return fmt.Errorf("target %q: %w", t.ID, err)
 		}
+		if t.Sovereign && !copyBoxID(c.BoxID) {
+			return fmt.Errorf("box_id is not a safe copy namespace")
+		}
 		if seen[t.ID] {
 			return fmt.Errorf("target id %q used twice", t.ID)
 		}
@@ -318,6 +323,9 @@ func (c *Config) Validate() error {
 func (t *Target) validate() error {
 	if !tagValueRe.MatchString(t.ID) {
 		return fmt.Errorf("id must be tag-safe")
+	}
+	if t.Sovereign && t.Kind != KindUSB && t.Kind != KindS3 {
+		return fmt.Errorf("sovereign copies require a mounted path or S3")
 	}
 	switch t.Kind {
 	case KindUSB:
