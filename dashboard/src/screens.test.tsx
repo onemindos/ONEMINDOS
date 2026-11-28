@@ -60,7 +60,9 @@ describe('Home', () => {
       expect(await within(health).findByText('Last backup failed')).toBeInTheDocument();
       const history = within(await screen.findByRole('region', { name: 'Recent' }));
       expect(await history.findByRole('link', { name: 'Market' })).toHaveAttribute('href', '/market');
-      expect(await screen.findByText('Backups: Last backup failed')).toBeInTheDocument();
+      // "Needs you" repeats the failing source as a styled row: the source as a pill, then the box's summary.
+      const needs = within(await screen.findByRole('list', { name: 'Box status requiring attention' }, T));
+      expect(needs.getByText('Last backup failed').closest('li')).toHaveTextContent('Backups');
     } finally {
       vi.unstubAllGlobals();
     }
@@ -96,12 +98,13 @@ describe('Market and the install loop', () => {
     expect(screen.getByRole('button', { name: /^Home & IoT/ })).toBeInTheDocument();
   });
 
-  it('Browsers row lists Firefox and Chromium, and installing one is a request that waits for the owner', async () => {
+  it('Browsers row lists Firefox, and installing one is a request that waits for the owner', async () => {
     const u = userEvent.setup();
     renderApp({ token: 'owner-demo', route: '/market' });
     const row = (await screen.findByRole('heading', { name: 'Browsers' }, T)).closest('section')!;
     expect(within(row).getByRole('link', { name: 'Firefox' })).toBeInTheDocument();
-    expect(within(row).getByRole('link', { name: 'Chromium' })).toBeInTheDocument();
+    // apps/chromium declares licenceClass: unknown, so the default green-licence filter (#867) leaves it out.
+    expect(within(row).queryByRole('link', { name: 'Chromium' })).toBeNull();
     expect(within(row).queryByText(/Chrome$|Edge/)).toBeNull();
     await u.click(within(row).getByRole('link', { name: 'Firefox' }));
     await u.click(await screen.findByRole('button', { name: /Request install/ }, T));
@@ -263,12 +266,23 @@ describe('one notification centre', () => {
     await waitFor(async () => expect((await api.notifications({ unread: true })).length).toBe(0), T);
   });
 
-  it('Home shows an unknown verdict for every source when the box status is unavailable', async () => {
+  it('Home says once that the box status is unknown when it is unavailable, after the greeting', async () => {
     renderApp({ token: 'owner-demo' });
     const card = await screen.findByRole('region', { name: 'Box health' }, T);
-    // Other services can answer while the aggregate status source is unavailable.
-    expect(within(card).getAllByText('Unknown')).toHaveLength(7);
+    // Other services can answer while the aggregate status source is unavailable: one Unknown line, never green.
+    expect(within(card).getAllByText('Unknown')).toHaveLength(1);
+    expect(within(card).getByText('The box has not reported its status yet.')).toBeInTheDocument();
     expect(card.querySelector('.om-tone-ok')).toBeNull();
+    // IA §2.1: the greeting comes first, then Box health; Recent is at the end, after the apps.
+    const greeting = screen.getByRole('heading', { level: 1, name: /Good/ });
+    expect(greeting.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const recent = screen.getByRole('region', { name: 'Recent' });
+    const apps = screen.getByRole('heading', { name: 'Your apps' });
+    expect(apps.compareDocumentPosition(recent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // "Needs you" lists no Unknown bullets; the waiting request is in the card.
+    const needs = within(screen.getByRole('region', { name: /Needs you/ }));
+    expect(needs.queryAllByText('Unknown')).toHaveLength(0);
+    expect(needs.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
   });
 });
 
