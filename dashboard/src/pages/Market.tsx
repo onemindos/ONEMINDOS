@@ -4,7 +4,7 @@
 // POST /v1/actions → Approvals, then the app page follows the action live until it ends.
 import { AppMachineFit } from './AppMachineFit';
 import { useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { AppDetail, Market as StoreMarket, PageHeader, type Collection, type LoadState } from '@onemind/ui';
 import { openUrl, toStoreApp } from '../data/adapters';
 import { openAppOrSay } from '../lib/openApp';
@@ -15,6 +15,9 @@ import { useHub, type Hub } from '../data/hub';
 import type { Polled } from '../lib/hooks';
 import { href } from '../shell/routes';
 import { useShell } from '../shell/Shell';
+import { AppWaitingTrack } from './market/AppWaitingTrack';
+import { BringYourOwn } from './market/BringYourOwn';
+import { MarketLayout } from './market/MarketSidebar';
 
 /**
  * Editorial rails (PU-11: a repo file, not an API). Ids missing from the catalog are skipped,
@@ -78,6 +81,8 @@ export function Market() {
   const { api } = useSignedIn();
   const navigate = useNavigate();
   const { appId } = useParams();
+  const [search] = useSearchParams();
+  const pluginsOnly = search.get('plugins') === '1';
   const apps = useMemo(() => (hub.apps.data ?? []).map(toStoreApp), [hub.apps.data]);
   const state = loadState(hub.apps, hub);
   const byId = (id: string) => hub.apps.data?.find((a) => a.id === id);
@@ -89,6 +94,10 @@ export function Market() {
     else navigate(href.manage(id));
   };
   const appJob = hub.actionList.find((a) => a.params.app_id === appId);
+  // Atlas 05: an install or update for this app that waits for an owner gets the waiting track.
+  const waiting = hub.actionList.find((a) => a.params.app_id === appId && a.state === 'awaiting_approval' && (a.type === 'app.install' || a.type === 'app.update'));
+  // Bring your own files owner-only requests (custom apps, Compose import), so only owners see it.
+  const canRequestOwn = hub.canDecide !== 'no' && !pluginsOnly;
   const isChild = shell.role === 'child';
   const blockedForYou =
     hub.canRequest === 'no' ? (isChild ? 'You cannot install apps yourself. Ask a parent.' : 'Your account can look but not request installs. Ask the owner.') : undefined;
@@ -106,7 +115,8 @@ export function Market() {
   if (appId) {
     const app = apps.find((a) => a.id === appId);
     return (
-      <>
+      <MarketLayout current="app">
+        {waiting && <AppWaitingTrack key={waiting.id} action={waiting} app={hub.apps.data?.find((a) => a.id === appId)} />}
         <AppDetail
           app={app}
           state={state}
@@ -118,24 +128,25 @@ export function Market() {
           onRequestInstall={(a) => request('app.install', a.id)}
           onOpen={(a) => open(a.id)}
           onRetry={hub.reloadAll}
-          requestBlocked={blockedForYou}
+          requestBlocked={blockedForYou ?? (waiting ? `An ${waiting.type === 'app.update' ? 'update' : 'install'} request for this app is already waiting for approval.` : undefined)}
         />
-        {appJob && <ActionStatus action={appJob} label="App request progress" now={hub.now} />}
+        {appJob && appJob !== waiting && <ActionStatus action={appJob} label="App request progress" now={hub.now} />}
         {app && shell.view === "pro" && <AppMachineFit key={appId} appId={appId} />}
         {app && <AppDepth key={appId} appId={appId} />}
         {blockedForYou && <p className="om-note om-tone-info">{blockedForYou}</p>}
         {askParent}
-      </>
+      </MarketLayout>
     );
   }
 
   return (
-    <>
+    <MarketLayout current={pluginsOnly ? 'plugins' : 'discover'}>
       <PageHeader title="Market" lede="Every app is checked for licence, vulnerabilities and malware before it is offered. Installing is a request: the owner approves it first." />
-      <StoreTabs current="discover" />
       {blockedForYou && <p className="om-note om-tone-info">{blockedForYou}</p>}
       {askParent}
       <StoreMarket
+        key={pluginsOnly ? 'plugins' : 'all'}
+        initialFilters={pluginsOnly ? { pluginsOnly: true } : undefined}
         apps={apps}
         state={state}
         now={hub.now}
@@ -150,6 +161,7 @@ export function Market() {
         onRetry={hub.reloadAll}
         requestBlocked={blockedForYou}
       />
-    </>
+      {canRequestOwn && <BringYourOwn />}
+    </MarketLayout>
   );
 }
