@@ -63,6 +63,7 @@ export const DASH_SCREENS: Screen[] = [
   { name: 'dash-nodes', target: 'dashboard', route: 'nodes', signedIn: true },
   { name: 'dash-market', target: 'dashboard', route: 'market', signedIn: true },
   { name: 'dash-market-uptime-kuma', target: 'dashboard', route: 'market/uptime-kuma', signedIn: true },
+  { name: 'dash-market-requests', target: 'dashboard', route: 'market/requests', signedIn: true },
   { name: 'dash-approvals', target: 'dashboard', route: 'approvals', signedIn: true },
 ];
 
