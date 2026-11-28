@@ -2,7 +2,7 @@
 import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
-import { FirstRun, firstSite, landingAfterSetup, useWizardPending } from './FirstRun';
+import { FirstRun, firstSite, landingAfterSetup, placeOf, useWizardPending } from './FirstRun';
 
 const h = vi.hoisted(() => ({
   get: vi.fn(), save: vi.fn(), state: vi.fn(), issue: vi.fn(), confirm: vi.fn(), plan: vi.fn(), request: vi.fn(), destinations: vi.fn(), done: vi.fn(), navigate: vi.fn(),
@@ -160,6 +160,8 @@ it('builds the first site from the place: its name, the owner\'s address text an
   expect(site.anchors[0]).toEqual({ x: 0, y: 0, lat: 40.7128, lon: -74.006 });
   expect(firstSite({ placeName: ' ', address: ' ', location: place.location })).not.toHaveProperty('address');
   expect(firstSite({ placeName: ' ', address: '', location: place.location })).toMatchObject({ id: 'home', name: 'Home' });
+  expect(firstSite({ ...place, address: ' Lane\u0000 1\u202e ' })).toMatchObject({ address: 'Lane  1' });
+  expect(placeOf('saved', { ...site, anchors: site.anchors.slice(1) })).toEqual({ status: 'saved', name: 'Rivera Home', address: '12 Orchard Lane' });
 });
 
 it('ends on the desktop Map when this build has it, otherwise on Approvals or Home', () => {
@@ -173,7 +175,9 @@ it('saves the place through POST /v1/sites with the owner token, and keeps an ex
   h.get.mockResolvedValue({ ...values, saved: true });
   h.destinations.mockResolvedValue([]);
   const calls: Array<{ url: string; method: string; body: unknown; auth: string | null }> = [];
+  const older = { ...firstSite({ ...place, address: 'Old Mill Road', location: { lat: 10.5, lon: 20.25, source: 'typed' } })!, id: 'rivera-home' };
   const replies = [Response.json(firstSite(place), { status: 201 }), Response.json({ error: 'conflict', message: 'Site ID already exists' }, { status: 409 }),
+    Response.json([older]),
     Response.json({ error: 'permission_denied', message: 'Only an owner can write map records' }, { status: 403 })];
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const req = new Request(input, init);
@@ -183,12 +187,14 @@ it('saves the place through POST /v1/sites with the owner token, and keeps an ex
   try {
     render(<FirstRun onDone={h.done} />);
     await screen.findByText('Existing wizard');
-    const saveLocation = h.props.onSaveLocation as (d: unknown) => Promise<string>;
-    await expect(saveLocation(place)).resolves.toBe('saved');
+    const saveLocation = h.props.onSaveLocation as (d: unknown) => Promise<unknown>;
+    await expect(saveLocation(place)).resolves.toEqual({ status: 'saved', name: 'Rivera Home', address: '12 Orchard Lane', location: { lat: 40.7128, lon: -74.006 } });
     expect(calls[0]).toMatchObject({ url: '/v1/sites', method: 'POST', auth: 'Bearer owner-token', body: firstSite(place) });
-    await expect(saveLocation(place)).resolves.toBe('exists');
+    // 409: what is shown is the site already on the box, read back with GET /v1/sites.
+    await expect(saveLocation(place)).resolves.toEqual({ status: 'exists', name: 'Rivera Home', address: 'Old Mill Road', location: { lat: 10.5, lon: 20.25 } });
+    expect(calls[2]).toMatchObject({ url: '/v1/sites', method: 'GET' });
     await expect(saveLocation(place)).rejects.toThrow('Only an owner can write map records');
-    expect(calls).toHaveLength(3);
+    expect(calls).toHaveLength(4);
   } finally {
     vi.unstubAllGlobals();
   }

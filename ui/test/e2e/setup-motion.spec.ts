@@ -72,5 +72,6 @@ test('the address step moves the map offline and sends nothing anywhere', async 
   await expect(page.locator('.oms-setup-map figcaption')).toContainText('41.89020° N, 12.49220° E · from a map link you pasted');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('heading', { level: 2, name: 'Where is your place?' })).toBeVisible();
+  await page.waitForLoadState('networkidle');
   expect(elsewhere).toEqual([]);
 });

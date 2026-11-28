@@ -11,11 +11,14 @@ import type { PracticeAnswer } from '../firstRun';
 
 export function DecideStep({ answer, onAnswer }: { answer: PracticeAnswer; onAnswer: (a: PracticeAnswer) => void }) {
   const result = useRef<HTMLParagraphElement>(null);
+  const actions = useRef<HTMLDivElement>(null);
   const title = useId();
   const answered = useRef(answer !== 'none');
   useEffect(() => {
     // After an answer, focus goes to the "Practice done" row (HANDBACK: focus is kept when the card redraws).
     if (answer !== 'none' && !answered.current) result.current?.focus();
+    // "Try again" removes the button that had focus: focus goes to the hold button that replaces it.
+    if (answer === 'none' && answered.current) actions.current?.querySelector<HTMLElement>('.om-hold-button')?.focus();
     answered.current = answer !== 'none';
   }, [answer]);
 
@@ -37,7 +40,7 @@ export function DecideStep({ answer, onAnswer }: { answer: PracticeAnswer; onAns
           <div><dt>If nobody answers</dt><dd>nothing moves</dd></div>
         </dl>
         {answer === 'none' ? (
-          <div className="oms-practice-actions">
+          <div ref={actions} className="oms-practice-actions">
             <HoldToApprove label="Hold to approve the practice request" onApprove={() => onAnswer('approved')} />
             <button type="button" className="om-btn om-btn-secondary" onClick={() => onAnswer('denied')}>Say no</button>
           </div>

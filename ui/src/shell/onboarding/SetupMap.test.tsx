@@ -87,3 +87,17 @@ it('keeps input focus on edits and moves focus to the next step heading with red
   expect(screen.getByRole('button', { name: 'Create passkey' })).toBeDisabled();
   expect(screen.queryByText('Passkey saved')).toBeNull();
 });
+
+it('a position given during the drawing finishes the drawing first, so only the two movements run', async () => {
+  const finish = vi.fn();
+  const started: string[] = [];
+  const { container, rerender } = render(<SetupMap boxName="hill-hub" timeZone="UTC" drawn ready />);
+  for (const el of container.querySelectorAll('svg [data-map-grid], svg [data-map-draw], svg [data-map-pin], svg [data-map-ring], svg [data-map-pan]')) {
+    Object.defineProperty(el, 'animate', { value: vi.fn(() => { started.push(el.getAttribute('class') ?? el.tagName); return { finish, cancel: vi.fn(), finished: new Promise(() => {}) }; }) });
+  }
+  await userEvent.click(screen.getByRole('button', { name: 'Draw my map' }));
+  expect(started).toHaveLength(7);
+  rerender(<SetupMap boxName="hill-hub" timeZone="UTC" drawn ready location={{ lat: 51.5, lon: -0.12, source: 'typed' }} />);
+  expect(finish).toHaveBeenCalledTimes(7);
+  expect(started).toHaveLength(9);
+});

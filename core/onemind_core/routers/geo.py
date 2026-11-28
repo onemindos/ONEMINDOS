@@ -33,6 +33,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return body
 
     @app.get("/v1/sites", tags=["geo"], operation_id="geo.list_sites", responses=error_responses(401, 403))
-    def list_sites(_: Principal = Depends(gw.principal)) -> list[GeoSite]:
+    def list_sites(p: Principal = Depends(gw.principal)) -> list[GeoSite]:
         with gw.db.session() as s:
-            return [GeoSite.model_validate(row) for row in s.scalars(select(SiteRow.record).order_by(SiteRow.id))]
+            sites = [GeoSite.model_validate(row) for row in s.scalars(select(SiteRow.record).order_by(SiteRow.id))]
+        # The owner's address text is the owner's own data: other readers (family, guests, agents with
+        # nodes:read) get the site without it. Its anchors still carry the position (flagged for the Map work).
+        return sites if p.is_owner else [site.model_copy(update={"address": None}) for site in sites]

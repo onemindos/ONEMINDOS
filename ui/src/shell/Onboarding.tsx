@@ -42,6 +42,14 @@ import { DecideStep } from './onboarding/DecideStep';
 import { formatLocation } from './onboarding/location';
 import './shell.css';
 
+/** The place as the gateway holds it after the address step. */
+export interface SavedPlace {
+  status: 'saved' | 'exists';
+  name: string;
+  address?: string | null;
+  location?: { lat: number; lon: number };
+}
+
 export interface OnboardingProps {
   apps: StarterApp[];
   initial?: Partial<OnboardingDraft>;
@@ -64,9 +72,10 @@ export interface OnboardingProps {
   kit?: OnboardingKit;
   /**
    * Saves the place (name, address, position) as the box's first site, when the owner gave a position.
-   * 'exists' when a site with that ID is already saved (it is kept as it is).
+   * Resolves with what the box now holds: the new site, or ('exists') the one already saved under that ID,
+   * which is kept as it is.
    */
-  onSaveLocation?: (draft: OnboardingDraft) => Promise<'saved' | 'exists'>;
+  onSaveLocation?: (draft: OnboardingDraft) => Promise<SavedPlace>;
   /** Asks this device for its position; defaults to the browser's, offered only on a secure page. */
   deviceLocation?: () => Promise<{ lat: number; lon: number }>;
   /** The last button's words (the connected wizard ends on the desktop Map). */
@@ -203,8 +212,19 @@ export function Onboarding({
   const [kitSkipped, setKitSkipped] = useState(false);
   const [kitDownloaded, setKitDownloaded] = useState(!!initial?.backup?.kitSaved);
   const [cat, setCat] = useState<CategorySlug | 'all'>('all');
-  const [site, setSite] = useState<'saved' | 'exists'>();
+  const [site, setSite] = useState<SavedPlace>();
   const [mapPlay, setMapPlay] = useState(0);
+  const [drawing, setDrawing] = useState(false);
+  // The "drawing" announcement lasts as long as the beat (motion.signature, 1.6 s) or until Escape.
+  useEffect(() => {
+    if (!mapPlay) return;
+    setDrawing(true);
+    const done = () => setDrawing(false);
+    const timer = setTimeout(done, 1600);
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') done(); };
+    document.addEventListener('keydown', esc);
+    return () => { clearTimeout(timer); document.removeEventListener('keydown', esc); };
+  }, [mapPlay]);
   const askDevice = useMemo(() => deviceLocation ?? browserLocation(), [deviceLocation]);
   const heading = useRef<HTMLHeadingElement>(null);
   const form = useRef<HTMLFormElement>(null);
@@ -365,8 +385,8 @@ export function Onboarding({
           <div className="oms-note om-tone-ok" role="status">
             <ShellIcon name="check" size={16} />
             <span>
-              {site === 'saved' ? 'Saved on this box as your first place' : 'A place with this name was already saved on this box; it was kept as it is'}:{' '}
-              <strong>{d.placeName.trim() || 'Home'}</strong>{d.address.trim() && <>, {d.address.trim()}</>}{d.location && <> · {formatLocation(d.location)}</>}. The Map opens on it.
+              {site.status === 'saved' ? 'Saved on this box as your first place' : 'A place with this name was already saved on this box; it was kept as it is'}:{' '}
+              <strong>{site.name}</strong>{site.address && <>, {site.address}</>}{site.location && <> · {formatLocation(site.location)}</>}. The Map opens on it.
             </span>
           </div>
         ) : (
@@ -661,8 +681,12 @@ export function Onboarding({
                 <dt>Place</dt>
                 <dd>
                   <span>
-                    <strong>{d.placeName.trim() || 'Home'}</strong>
-                    {d.location ? <> · {formatLocation(d.location)} · {site ? 'saved on this box' : onSaveLocation ? 'not saved' : 'on your map'}</> : ' · no position yet; draw it later on the Map'}
+                    {site ? (
+                      <><strong>{site.name}</strong>{site.location && <> · {formatLocation(site.location)}</>} · {site.status === 'saved' ? 'saved on this box' : 'already on this box, kept as it was'}</>
+                    ) : (
+                      <><strong>{d.placeName.trim() || 'Home'}</strong>
+                        {d.location ? <> · {formatLocation(d.location)} · {onSaveLocation ? 'not saved' : 'on your map'}</> : ' · no position yet; draw it later on the Map'}</>
+                    )}
                   </span>
                 </dd>
               </div>
@@ -719,7 +743,7 @@ export function Onboarding({
 
   const lede: Record<(typeof ONBOARDING_STEPS)[number]['id'], string> = {
     box: onSaveSettings ? 'The place name goes on your Map. The box name is a software display name and the time zone a preference; host settings stay unchanged.' : 'The place name shows on your Map and your phone. The box name is how you find it on your network.',
-    address: 'Type your address and your map moves there. Everything stays on this box: no outside account, no online lookup.',
+    address: 'Paste coordinates or a map link and your map moves there. Your address is kept on this box; OneMind looks nothing up online.',
     decide: 'Agents and family members can ask. Only you approve, and nothing moves until you do. Try it once.',
     owner: 'The owner approves every change: installs, updates, restores. Agents can only ask.',
     appearance: 'Pick a theme and an accent. Everyone who signs in can choose their own later.',
@@ -771,7 +795,7 @@ export function Onboarding({
           backup={step > at('backups') && d.backup.destination !== 'later'}
           ready={step > at('box')}
         />
-        <p className="om-visually-hidden" role="status">{mapPlay > 0 && s.id === 'address' ? 'Your map is drawing itself. Press Escape to skip the animation.' : ''}</p>
+        <p className="om-visually-hidden" role="status">{drawing ? 'Your map is drawing itself. Press Escape to skip the animation.' : ''}</p>
         <p className="oms-onb-side-foot">Everything here can also be done with <code>onemind init</code>.</p>
       </aside>
       <div className="oms-onb-main">

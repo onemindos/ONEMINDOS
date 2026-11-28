@@ -29,8 +29,22 @@ def test_site_keeps_the_owners_address_text(client):
     site = {**deepcopy(SITE), "id": "home", "address": "12 Orchard Lane, Springfield"}
     assert client.post("/v1/sites", json=site, headers=OWNER).status_code == 201
     assert client.get("/v1/sites", headers=OWNER).json() == [site]
-    for bad in ("", "x" * 257):
-        assert client.post("/v1/sites", json={**site, "id": "other", "address": bad}, headers=OWNER).status_code == 422
+    bad_text = ("", "   ", "\t", "x" * 257, "12 Orchard Lane\nSpringfield", "nul\x00here", "esc\x1b[2J", "del\x7f",
+                "evil\u202eenaL", "iso\u2066late\u2069")
+    for i, bad in enumerate(bad_text):
+        reply = client.post("/v1/sites", json={**site, "id": f"other-{i}", "address": bad}, headers=OWNER)
+        assert reply.status_code == 422, repr(bad)
+    assert client.get("/v1/sites", headers=OWNER).json() == [site]
+
+
+def test_site_address_is_for_the_owner_only(client):
+    site = {**deepcopy(SITE), "id": "home", "address": "12 Orchard Lane, Springfield"}
+    assert client.post("/v1/sites", json=site, headers=OWNER).status_code == 201
+    assert client.get("/v1/sites", headers=OWNER).json()[0]["address"] == "12 Orchard Lane, Springfield"
+    for headers in (GUEST, AGENT):
+        reply = client.get("/v1/sites", headers=headers)
+        assert reply.status_code == 200
+        assert reply.json() == [{**site, "address": None}]
 
 
 @pytest.mark.parametrize("bad", ["two", "flat", "latitude", "longitude", "null_island", "area_floor"])

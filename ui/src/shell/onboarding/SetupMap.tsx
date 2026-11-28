@@ -46,6 +46,7 @@ export function SetupMap({ boxName, timeZone, placeName = '', address = '', loca
   const beat = play + replays;
   const where = location ? `${location.lat},${location.lon}` : '';
   const lastWhere = useRef(where);
+  const beatRun = useRef<Array<Animation | undefined>>([]);
 
   // The signature: the grid fades in, four contours draw, the box settles, one ring. Colours stay tokens,
   // so the grid is not revealed through a luminance mask (that would need a literal white).
@@ -62,6 +63,7 @@ export function SetupMap({ boxName, timeZone, placeName = '', address = '', loca
     if (pin) run.push(animate(pin, [{ opacity: 0, transform: 'translateY(-14px)' }, { opacity: 1, transform: 'none' }], { duration: 240, delay: 1000, easing: EASE_ENTER, fill: 'backwards' }, reduced));
     const ring = svg.querySelector('[data-map-ring]');
     if (ring) run.push(animate(ring, [{ opacity: 0 }, { opacity: 1 }], { duration: 240, delay: 1180, fill: 'backwards' }, reduced));
+    beatRun.current = run;
     return () => run.forEach((a) => a?.cancel());
   }, [beat, drawn, reduced]);
 
@@ -76,6 +78,10 @@ export function SetupMap({ boxName, timeZone, placeName = '', address = '', loca
     const angle = Math.atan2((lat1 ?? 0) - (lat0 ?? 0), (lon1 ?? 0) - (lon0 ?? 0));
     const dx = Math.round(Math.cos(angle) * 48);
     const dy = Math.round(-Math.sin(angle) * 48);
+    // A position given while the map is still drawing: the drawing finishes first, so at most the two
+    // movements below run (the animation cap holds).
+    beatRun.current.forEach((a) => a?.finish());
+    beatRun.current = [];
     const pan = map.current.querySelector('[data-map-pan]');
     const pin = map.current.querySelector('[data-map-pin]');
     const run = [
