@@ -72,13 +72,16 @@ export async function approveOnScreen(page: Page, title: string, timeout: number
 
 /**
  * Go to a screen through the main navigation (other links on a page may share the word). On the
- * desktop (D-016) the dock holds the everyday screens and Launchpad ("All screens and apps") holds
- * every screen; in the Console view the sidebar holds them all.
+ * desktop (D-016) the dock holds the everyday screens and the launcher dialog ("Launcher", opened from
+ * the logo tile "launcher: all screens and apps", #1341) holds every screen; in the Console view the
+ * sidebar holds them all.
  */
 export async function navTo(page: Page, screen: 'Home' | 'Nodes' | 'Market' | 'Approvals'): Promise<void> {
   const nav = page.getByRole('navigation', { name: 'Main' });
   const direct = nav.getByRole('link', { name: screen, exact: true });
   if ((await direct.count()) > 0) return direct.first().click();
   await nav.getByRole('button', { name: /screens and apps/ }).click();
-  await page.getByRole('dialog', { name: 'Launchpad' }).getByRole('link', { name: screen, exact: true }).click();
+  // A launcher tile's name is the screen name plus its badge when work waits there ("Approvals 1 waiting").
+  const tile = new RegExp(`^${screen}(?: \\d+ waiting)?$`);
+  await page.getByRole('dialog', { name: 'Launcher' }).getByRole('link', { name: tile }).click();
 }
