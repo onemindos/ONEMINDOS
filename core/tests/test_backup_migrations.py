@@ -63,14 +63,14 @@ def test_upgrade_backup_byte_counters_from_v1(settings, clock, has_content_tier)
             app_id="large-app", size_bytes=large_count, action_id="new-action", enabled_at=clock.now,
         ), "large-app")
 
-        assert versions["backups"] == 2
-        assert migrate(engine)["backups"] == 2
+        assert versions["backups"] == 3
+        assert migrate(engine)["backups"] == 3
         assert repo.run("old").bytes_added == 1024
         assert repo.run("pending").bytes_added == large_count
         sizes = {app: row.size_bytes for app, row in repo.content_tier().items()}
         assert sizes.pop("large-app") == large_count
         assert sizes == ({"old-app": 2048} if has_content_tier else {})
         with engine.connect() as conn:
-            assert conn.scalar(select(SchemaVersionRow.version).where(SchemaVersionRow.feature == "backups")) == 2
+            assert conn.scalar(select(SchemaVersionRow.version).where(SchemaVersionRow.feature == "backups")) == 3
     finally:
         engine.dispose()

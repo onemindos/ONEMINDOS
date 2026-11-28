@@ -155,6 +155,6 @@ def test_destination_copy_cadence_migrates_existing_backups_database(client, clo
     backups.add_destination(DestinationRow(id=dest_id, kind="usb", label="Disk", config={}, created_at=clock.now))
     with db.engine.begin() as conn:
         conn.execute(text("ALTER TABLE backups_destinations DROP COLUMN copy_cadence"))
-        conn.execute(SchemaVersionRow.__table__.update().where(SchemaVersionRow.feature == "backups").values(version=1))
-    assert migrate(db.engine, schemas=[SCHEMA]) == {"backups": 2}
+        conn.execute(SchemaVersionRow.__table__.update().where(SchemaVersionRow.feature == "backups").values(version=2))
+    assert migrate(db.engine, schemas=[SCHEMA]) == {"backups": 3}
     assert [(row.id, row.copy_cadence) for row in backups.destinations()] == [(dest_id, "manual")]
