@@ -9,6 +9,7 @@ import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
 import { Load } from './parts';
+import { OfflineMaps } from './OfflineMaps';
 
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('The hub returned an invalid storage record.');
@@ -77,5 +78,6 @@ function LiveStorage({ token }: { token: string }) {
         </li>;
       })}</ul>}
     </Card>}</Load>
+    <OfflineMaps token={token} />
   </div>;
 }
