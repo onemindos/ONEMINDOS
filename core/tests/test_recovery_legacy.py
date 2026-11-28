@@ -27,7 +27,7 @@ from onemind_core.app import create_app
 from onemind_core.errors import ApiError
 from onemind_core.recovery.legacy import LegacyContacts
 from recovery_support import ContactPhone, owner_with_passkey as setup_passkey_owner
-from test_identity import LOCAL_PEER, PASSWORD, SoftAuthenticator, audit_events, csrf, enrol, id_settings, register_passkey, setup_owner
+from test_identity import LOCAL_PEER, PASSWORD, SoftAuthenticator, audit_events, box_code, csrf, enrol, id_settings, register_passkey, setup_owner
 
 DAY = 86400
 PDF = base64.b64encode(b"%PDF-1.4 death certificate").decode()
@@ -74,7 +74,10 @@ def request_invite(rc, name="Ana", headers=None, **extra):
 def invite_approval(rc, action_id):
     options = rc.post(f"/v1/actions/{action_id}/approve-options", headers=csrf(rc))
     assert options.status_code == 200, options.text
-    return {"webauthn": rc.legacy_passkey.assert_(options.json()["challenge"])}
+    proof = {"webauthn": rc.legacy_passkey.assert_(options.json()["challenge"])}
+    if options.json().get("box_code_required"):  # D-028: L2; during the grace an L1 key plus the box's code
+        proof["box_code"] = box_code(rc)
+    return proof
 
 
 def add_legacy(rc, name="Ana", **extra):

@@ -229,7 +229,12 @@ class RecoveryContacts:
     def add(self, ctx: AuthContext | None, kind: str, display_name: str, household_user_id: str | None,
             cooling_off_days: int | None, extra: dict | None = None) -> dict:
         owner = self._session_owner(ctx, f"add a {self.noun}")
-        via = self.ident.require_step_up(ctx, ctx.principal, f"add a {self.noun}")
+        # D-028 and admin.high_risk: adding a contact is L2 (a proven key, or L1 plus the box's code at home), and
+        # the step-up is bound to this exact contact.
+        via = self.ident.require_step_up(ctx, ctx.principal, f"add a {self.noun}", op="recovery.contacts.add",
+                                         body={"kind": kind, "display_name": display_name,
+                                               "household_user_id": household_user_id,
+                                               "cooling_off_days": cooling_off_days, **(extra or {})})
         return self._issue_invite(owner, ctx.principal, kind, display_name, household_user_id, cooling_off_days,
                                   via=via, extra=extra)
 

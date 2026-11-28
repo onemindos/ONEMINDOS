@@ -87,6 +87,7 @@ TYPE_ROWS = {
     "backup.kit.issue": "admin.high_risk",
     "users.invite": "admin.high_risk",
     "users.reinvite": "admin.high_risk",
+    "legacy.contact.add": "admin.high_risk",  # D-028: adding a contact is L2, as for a recovery contact
     "plugin.key.enroll": "security.settings",
     "plugin.key.revoke": "security.settings",
 }
@@ -95,6 +96,7 @@ TYPE_ROWS = {
 STEP_UP_ROWS = {
     "auth.passkeys.register": "admin.high_risk",
     "auth.approver_keys.register": "admin.high_risk",
+    "recovery.contacts.add": "admin.high_risk",  # D-028: adding a recovery contact is L2
     "users.create": "admin.high_risk",
     "users.update": "admin.high_risk",
     "agents.inputs.set": "admin.high_risk",

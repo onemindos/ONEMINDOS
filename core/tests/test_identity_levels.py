@@ -1405,3 +1405,77 @@ def test_member_promotion_requires_vouch_for_a_previously_trusted_key(lvc, root,
     g = grant_from(lvc, bio, step)
     r = lvc.patch(f"/v1/users/{ana_id}", json=body, headers={**csrf(lvc), "OneMind-Step-Up": g})
     assert r.status_code == 200 and r.json()["role"] == "owner", r.text
+
+
+# ---- adding a recovery contact is L2 (D-028, admin.high_risk) ----------------------------------------------
+CONTACTS = "/v1/auth/recovery/contacts"
+
+
+def _contact(name: str) -> dict:
+    return {"kind": "outside", "display_name": name}
+
+
+def test_an_l1_passkey_cannot_add_a_recovery_contact_once_a_proven_key_exists(lvc, root):
+    """A synced (L1) passkey session is refused: the step-up is L2 and only proven keys are offered."""
+    phone, bio = _household_with_a_proven_key(lvc, root)
+    r = lvc.post(CONTACTS, json=_contact("Ana"), headers=csrf(lvc))
+    step = step_up_of(r)
+    assert step["op"] == "recovery.contacts.add" and step["required_level"] == "L2", step
+    opts = lvc.post("/v1/auth/step-up/options", json={k: step[k] for k in ("op", "target", "body")},
+                    headers=csrf(lvc)).json()
+    assert [k["id"] for k in opts["publicKey"]["allowCredentials"]] == [b64url(bio.cred_id)]
+    r = lvc.post("/v1/auth/step-up", json={"credential": phone.assert_(opts["publicKey"]["challenge"])},
+                 headers=csrf(lvc))
+    assert r.status_code == 401
+    assert lvc.get(CONTACTS, headers=csrf(lvc)).json() == []
+    # A grant for another contact does not add this one; the proven key's own grant does, once.
+    other = grant(lvc, bio, step["op"], step["target"], {**step["body"], "display_name": "Eve"})
+    assert lvc.post(CONTACTS, json=_contact("Ana"), headers={**csrf(lvc), "OneMind-Step-Up": other}).status_code == 401
+    g = grant_from(lvc, bio, step)
+    assert lvc.post(CONTACTS, json=_contact("Ana"), headers={**csrf(lvc), "OneMind-Step-Up": g}).status_code == 201
+
+
+def test_at_home_an_l1_passkey_adds_a_contact_with_the_box_code(lvc):
+    """Before any proven key (the grace), L1 plus the code on the box's own screen meets L2, at home only."""
+    setup_owner(lvc)
+    phone = SoftAuthenticator()
+    add_key(lvc, phone, "phone")
+    step = step_up_of(lvc.post(CONTACTS, json=_contact("Ana"), headers=csrf(lvc)))
+    assert step["op"] == "recovery.contacts.add" and step["box"] == "required", step  # an L1 key plus the code
+    opts = lvc.post("/v1/auth/step-up/options", json={k: step[k] for k in ("op", "target", "body")},
+                    headers=csrf(lvc))
+    assert opts.status_code == 200 and opts.json()["box_code_required"], opts.text
+    sent = {"credential": phone.assert_(opts.json()["publicKey"]["challenge"])}
+    assert lvc.post("/v1/auth/step-up", json=sent, headers=csrf(lvc)).status_code == 401  # no box code
+    opts = lvc.post("/v1/auth/step-up/options", json={k: step[k] for k in ("op", "target", "body")}, headers=csrf(lvc))
+    sent = {"credential": phone.assert_(opts.json()["publicKey"]["challenge"]), "box_code": box_code(lvc)}
+    r = lvc.post("/v1/auth/step-up", json=sent, headers=csrf(lvc))
+    assert r.status_code == 200, r.text
+    added = lvc.post(CONTACTS, json=_contact("Ana"), headers={**csrf(lvc), "OneMind-Step-Up": r.json()["step_up"]})
+    assert added.status_code == 201, added.text
+
+
+def test_away_from_home_a_proven_key_adds_a_contact(lvc, root):
+    _, bio = _household_with_a_proven_key(lvc, root)
+    remote = TestClient(lvc.app, client=(str(MESH_NETS[0].network_address + 1), 50000))
+    opts = remote.post("/v1/auth/login/options").json()
+    assert remote.post("/v1/auth/login", json={"passkey": bio.assert_(opts["publicKey"]["challenge"])}).status_code == 200
+    step = step_up_of(remote.post(CONTACTS, json=_contact("Ana"), headers=csrf(remote)))
+    assert not step["box"], step  # no box code is offered away from home (D-034)
+    g = grant_from(remote, bio, step)
+    r = remote.post(CONTACTS, json=_contact("Ana"), headers={**csrf(remote), "OneMind-Step-Up": g})
+    assert r.status_code == 201, r.text
+
+
+def test_a_password_only_owner_adds_a_contact_with_an_authenticator_and_the_box_code(lvc, clock):
+    setup_owner(lvc)
+    secret = _enable_totp(lvc, clock)
+    step = step_up_of(lvc.post(CONTACTS, json=_contact("Ana"), headers=csrf(lvc)))
+    opts = lvc.post("/v1/auth/step-up/options", json={"op": step["op"], "target": step["target"],
+                    "body": step["body"], "method": "password+totp"}, headers=csrf(lvc))
+    assert opts.status_code == 200 and opts.json()["box_code_required"], opts.text
+    r = lvc.post("/v1/auth/step-up", json={"password_totp": _totp_proof(opts.json(), secret, clock),
+                 "box_code": box_code(lvc)}, headers=csrf(lvc))
+    assert r.status_code == 200 and r.json()["level"] == "L2", r.text
+    added = lvc.post(CONTACTS, json=_contact("Ana"), headers={**csrf(lvc), "OneMind-Step-Up": r.json()["step_up"]})
+    assert added.status_code == 201, added.text

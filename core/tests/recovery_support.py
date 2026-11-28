@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from onemind_core.identity.approver_keys import parse_public_key
 from onemind_core.identity.crypto import b64url
 from onemind_core.recovery.crypto import accept_payload, unb64
-from test_identity import SoftAuthenticator, csrf, register_passkey, setup_owner
+from test_identity import SoftAuthenticator, csrf, register_passkey, setup_owner, stepped
 
 
 class ContactPhone:
@@ -71,8 +71,10 @@ def owner_with_passkey(c: TestClient) -> SoftAuthenticator:
 
 
 def add_contact(c: TestClient, name: str = "Ana", **extra):
+    """Add a contact as the owner at the box: adding one is L2 (D-028), so stepped() answers the named step-up
+    with this session's passkey and, during the grace, the box's code."""
     body = {"kind": "outside", "display_name": name, **extra}
-    return c.post("/v1/auth/recovery/contacts", json=body, headers=csrf(c))
+    return stepped(c, "POST", "/v1/auth/recovery/contacts", json=body)
 
 
 def invite_and_accept(c: TestClient, name: str = "Ana", **extra) -> ContactPhone:

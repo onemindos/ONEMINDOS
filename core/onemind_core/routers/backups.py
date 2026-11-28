@@ -269,10 +269,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
             raise deny(p, "approve (owner shortcut)")
 
     def approve_as_owner(p: Principal, action_id: str, request: Request) -> dict:
-        """The owner shortcut passes the same gates as POST /v1/actions/{id}/approve (passkey step-up F-2,
-        destructive storage guard). The shortcut cannot carry an assertion, so once a passkey is
-        registered it is refused (401 step_up_required) and the action stays awaiting_approval for the
-        normal approve route."""
+        """The owner shortcut passes the same gates as POST /v1/actions/{id}/approve (D-034 verification levels,
+        destructive storage guard). The shortcut carries no proof, so once the box has a household account it is
+        refused (401 step_up_required) unless the session itself meets the level, and the action stays
+        awaiting_approval for the normal approve route. Before any account exists, the install owner token may
+        use it (#1124)."""
         for guard in gw.approval_guards:
             guard(p, action_id, {}, request)
         return gw.actions.approve(p, action_id)
@@ -508,6 +509,10 @@ def register(app: FastAPI, gw: Gateway) -> None:
         ctx = ctx_of(request)
         if action["decided_by"]["id"] != p.id or ctx is None or ctx.session is None:
             raise deny(p, "claim this backup kit")
+        if svc.approved_without_session(action_id):
+            raise ApiError(409, "stale_precondition", "this kit was approved without a signed-in session, so no "
+                           "session can claim it; request a new kit and approve it from this session",
+                           reason="approved_without_session")
         return deliver_kit(action, ctx.session.id, 200)
 
     @app.post("/v1/backups/kit/confirm", operation_id="backups.kit.confirm", tags=tags, response_model=KitState,

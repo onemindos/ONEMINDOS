@@ -1009,22 +1009,47 @@ def test_kit_claim_refuses_an_old_or_expired_approval(idc, clock):
 
 
 def test_kit_approved_by_a_token_is_never_claimable(idc):
-    """An approval made without a signed-in session (a static owner token with the owner's passkey, the
-    break-glass path) binds the page to no session, so no session and no token can claim it."""
+    """An approval made without a signed-in session (a static owner token or the owner's own API token, with the
+    owner's passkey) binds the page to no session, so no session and no token can claim it."""
     setup_owner(idc)
     key = SoftAuthenticator()
     register_passkey(idc, key)
-    aid = _file_kit(idc, "kit-token-approved")
-    approve = f"/v1/actions/{aid}/approve"
-    opts = idc.post(approve + "-options", headers=OWNER, json={"at_box": True})
-    assert opts.status_code == 200, opts.text
-    proof = {"webauthn": key.assert_(opts.json()["challenge"]), **at_box(idc, opts.json())}
-    done = idc.post(approve, headers=OWNER, json=proof)
-    assert done.status_code == 200 and done.json()["state"] == "succeeded", done.text
-    claim = f"/v1/backups/kit/{aid}/claim"
-    assert idc.post(claim, headers=OWNER).status_code == 403
-    assert idc.post(claim, headers=csrf(idc)).status_code in (403, 409)
+    made = idc.post("/v1/tokens", headers=csrf(idc), json={"name": "laptop", "scopes": ["*"]})
+    assert made.status_code == 201, made.text
+    pat = {"Authorization": f"Bearer {made.json()['one_time']['token']}"}  # the owner's own API token
+    for who, headers in (("static", OWNER), ("pat", pat)):
+        aid = _file_kit(idc, f"kit-token-approved-{who}")
+        approve = f"/v1/actions/{aid}/approve"
+        opts = idc.post(approve + "-options", headers=headers, json={"at_box": True})
+        assert opts.status_code == 200, opts.text
+        proof = {"webauthn": key.assert_(opts.json()["challenge"]), **at_box(idc, opts.json())}
+        done = idc.post(approve, headers=headers, json=proof)
+        assert done.status_code == 200 and done.json()["state"] == "succeeded", done.text
+        claim = f"/v1/backups/kit/{aid}/claim"
+        assert idc.post(claim, headers=headers).status_code == 403  # a token has no session
+        r = idc.post(claim, headers=csrf(idc))
+        if who == "pat":  # the same person, but the approval bound no session
+            assert r.status_code == 409 and r.json()["reason"] == "approved_without_session", r.text
+        else:  # a static token is another principal altogether
+            assert r.status_code == 403, r.text
+        assert "owner_key" not in r.text
 
+
+def test_on_a_household_box_the_kit_shortcut_needs_proof_and_the_request_stays_waiting(idc):
+    """POST /v1/backups/kit with no body is the file-and-approve shortcut. Once a household account exists it
+    carries no proof, so a static owner token and the owner's own API token both get 401 step_up_required, and
+    what was filed stays waiting for the normal approval."""
+    setup_owner(idc)
+    made = idc.post("/v1/tokens", headers=csrf(idc), json={"name": "laptop", "scopes": ["*"]})
+    assert made.status_code == 201, made.text
+    pat = {"Authorization": f"Bearer {made.json()['one_time']['token']}"}  # the owner's own API token
+    for headers in (OWNER, pat):
+        r = idc.post("/v1/backups/kit", headers=headers)
+        assert r.status_code == 401 and r.json()["reason"] == "step_up_required", r.text
+        assert "owner_key" not in r.text
+    kits = [a for a in idc.get("/v1/actions", headers=OWNER).json() if a["type"] == "backup.kit.issue"]
+    assert kits and all(a["state"] == "awaiting_approval" for a in kits), kits
+    assert idc.get("/v1/backups/kit", headers=OWNER).json()["state"] == "missing"
 
 def test_interrupted_reissue_retains_confirmed_console_key_across_restart(settings, clock, executor):
     s = id_settings(settings)

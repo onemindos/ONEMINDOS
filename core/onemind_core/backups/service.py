@@ -1223,6 +1223,12 @@ class BackupService:
             return None
         return reveal if reveal.session_id == session_id else None
 
+    def approved_without_session(self, action_id: str) -> bool:
+        """The current page belongs to this action, but its approval bound no session (a token approved it)."""
+        with self._kit_lock:
+            reveal = self._unclaimed_kit(None)
+            return reveal is not None and reveal.action_id == action_id
+
     def claimable_kit(self, session_id: str) -> str | None:
         with self._kit_lock:
             reveal = self._unclaimed_kit(session_id)

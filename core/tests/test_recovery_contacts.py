@@ -143,8 +143,9 @@ def test_adding_needs_an_owner_session_and_the_passkey_step_up_removing_does_not
     owner_with_passkey(rc)
     adult = enrol(rc, "adult", "ana")
     clock.advance(301)  # the passkey proof is older than step_up_s
-    r = add_contact(rc, "Ana")
+    r = rc.post("/v1/auth/recovery/contacts", json={"kind": "outside", "display_name": "Ana"}, headers=csrf(rc))
     assert r.status_code == 401 and r.json()["reason"] == "step_up_required"
+    assert rc.get("/v1/auth/recovery/contacts").json() == []
     # A static owner token holds no session, an adult is not the owner.
     r = rc.post("/v1/auth/recovery/contacts", json={"kind": "outside", "display_name": "Ana"}, headers=OWNER)
     assert r.status_code == 403
@@ -221,17 +222,24 @@ def test_waits_come_from_set_options_and_shortening_needs_the_step_up(rc, clock)
 
 
 def test_without_any_passkey_yet_the_owner_session_can_still_add_a_contact(rc, clock):
-    """No passkey is needed (D-034: passkeys are optional), but adding a contact adds power, so a plain password
-    session must first prove L1: here a fresh sign-in with the password and an authenticator code."""
+    """No passkey is needed (D-034: passkeys are optional), but adding a contact is L2 (D-028): a plain password
+    session is refused, and the password with an authenticator code plus the box's code at home meets it."""
     from onemind_core.identity.crypto import totp_code
-    from test_identity import PASSWORD
+    from test_identity import PASSWORD, box_code
     from test_identity_signin import enable_totp
 
     setup_owner(rc)
-    refused = add_contact(rc, "Ana")
+    body = {"kind": "outside", "display_name": "Ana"}
+    refused = rc.post("/v1/auth/recovery/contacts", json=body, headers=csrf(rc))
     assert refused.status_code == 401 and refused.json()["reason"] == "step_up_required", refused.text
+    step = next(d["step_up"] for d in refused.json()["details"] if "step_up" in d)
     secret = enable_totp(rc, clock)
-    login = rc.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD,
-                                            "totp": totp_code(secret, int(clock.now.timestamp()) // 30)})
-    assert login.status_code == 200, login.text
-    assert add_contact(rc, "Ana").status_code == 201
+    opts = rc.post("/v1/auth/step-up/options", headers=csrf(rc), json={
+        "op": step["op"], "target": step["target"], "body": step["body"], "method": "password+totp"})
+    assert opts.status_code == 200 and opts.json()["box_code_required"], opts.text
+    proof = {"challenge": opts.json()["challenge"], "password": PASSWORD,
+             "totp": totp_code(secret, int(clock.now.timestamp()) // 30)}
+    g = rc.post("/v1/auth/step-up", headers=csrf(rc), json={"password_totp": proof, "box_code": box_code(rc)})
+    assert g.status_code == 200, g.text
+    added = rc.post("/v1/auth/recovery/contacts", json=body, headers={**csrf(rc), "OneMind-Step-Up": g.json()["step_up"]})
+    assert added.status_code == 201, added.text
