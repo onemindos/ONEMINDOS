@@ -55,10 +55,13 @@ export interface SettingsLayoutProps {
   hints?: Partial<Record<SettingsSectionId, { tone: Tone; label: string }>>;
   /** Sections left out of the list (e.g. screens that are not for this person's role). */
   hidden?: ReadonlySet<SettingsSectionId>;
+  onSearch?: (query: string) => void;
+  extraSearchResults?: ReactNode;
   children: ReactNode;
 }
 
-export function SettingsLayout({ current, explicit, hrefFor, indexHref, hints = {}, hidden, children }: SettingsLayoutProps) {
+export function SettingsLayout({ current, explicit, hrefFor, indexHref, hints = {}, hidden, onSearch, extraSearchResults,
+  children }: SettingsLayoutProps) {
   const [q, setQ] = useState('');
   const searchId = useId();
   const shown = SETTINGS_SECTIONS.filter((s) => !hidden?.has(s.id) && matchSection(s, q));
@@ -71,9 +74,12 @@ export function SettingsLayout({ current, explicit, hrefFor, indexHref, hints = 
           <label className="om-set-search" htmlFor={searchId}>
             <SetIcon name="search" size={18} />
             <span className="om-visually-hidden">Search settings</span>
-            <input id={searchId} type="search" placeholder="Search settings" value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off" />
+            <input id={searchId} type="search" placeholder="Search settings" value={q} onChange={(e) => {
+              setQ(e.target.value);
+              onSearch?.(e.target.value);
+            }} autoComplete="off" />
           </label>
-          {shown.length === 0 && (
+          {shown.length === 0 && !extraSearchResults && (
             <p className="om-hint om-set-nomatch" role="status">
               No setting matches “{q}”.
             </p>
@@ -101,6 +107,7 @@ export function SettingsLayout({ current, explicit, hrefFor, indexHref, hints = 
               </ul>
             </div>
           ))}
+          {extraSearchResults}
         </nav>
         <div className="om-set-content" key={current}>
           <a className="om-set-back" href={indexHref}>
