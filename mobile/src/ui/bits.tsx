@@ -1,25 +1,29 @@
 // SPDX-License-Identifier: Apache-2.0
+import { Contour } from './Contour';
 import type { ReactNode } from 'react';
 import { ActivityIndicator, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { ActionState, NodeStatus, PrincipalKind } from '../api/types';
 import { useHubData } from '../data';
 import { safeHttpUrl } from '../lib/scan';
 import { formatAgo } from '../lib/time';
-import { font, radius, radiusControl, space, touchTarget, useTheme, type Palette } from './theme';
+import { font, radiusControl, space, touchTarget, useTheme, type Palette } from './theme';
 
 export function Screen({ children, testID }: { children: ReactNode; testID?: string }) {
   const t = useTheme();
   const { refreshing, reload } = useHubData();
   return (
-    <ScrollView
-      testID={testID}
-      style={{ backgroundColor: t.bg }}
-      contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: space.xl * 2 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void reload()} tintColor={t.muted} />}
-    >
-      <DataAge />
-      {children}
-    </ScrollView>
+    <View style={{ flex: 1 }}>
+      <Contour />
+      <ScrollView
+        testID={testID}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: space.xl * 2 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void reload()} tintColor={t.muted} />}
+      >
+        <DataAge />
+        {children}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -147,9 +151,9 @@ export function Button({
   testID?: string;
 }) {
   const t = useTheme();
-  // ui/src/styles/components.css: primary = accent, secondary = surface with a strong border, danger = danger.
-  const bg = variant === 'primary' ? t.accent : variant === 'danger' ? t.danger : t.card;
-  const fg = variant === 'primary' ? t.accentText : variant === 'danger' ? t.dangerText : t.text;
+  // Atlas uses action red for primary controls and accent teal for selection.
+  const bg = variant === 'primary' ? t.action : variant === 'danger' ? t.danger : t.card;
+  const fg = variant === 'primary' ? t.actionText : variant === 'danger' ? t.dangerText : t.text;
   const border = variant === 'secondary' ? t.borderStrong : bg;
   return (
     <Pressable
@@ -158,7 +162,12 @@ export function Button({
       accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [s.btn, { backgroundColor: bg, borderColor: border, opacity: disabled ? 0.55 : pressed ? 0.85 : 1 }]}
+      style={({ pressed }) => [s.btn, {
+        minHeight: variant === 'primary' ? 48 : touchTarget,
+        backgroundColor: pressed && variant === 'primary' ? t.actionHover : bg,
+        borderColor: border,
+        opacity: disabled ? 0.55 : pressed && variant !== 'primary' ? 0.85 : 1,
+      }]}
     >
       <Text style={{ color: fg, fontWeight: font.semibold, fontSize: font.sm }}>{label}</Text>
     </Pressable>
@@ -196,7 +205,7 @@ export function Loading({ what }: { what: string }) {
 }
 
 export const s = StyleSheet.create({
-  card: { borderWidth: 1, borderRadius: radius, padding: space.lg, gap: space.sm },
+  card: { borderWidth: 1, borderRadius: 18, padding: 14, gap: space.sm },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: space.md },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, alignItems: 'center' },
   badge: { paddingHorizontal: space.sm, paddingVertical: 3, borderRadius: 999, borderWidth: 1, alignSelf: 'flex-start' },
