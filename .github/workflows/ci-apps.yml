@@ -214,7 +214,9 @@ jobs:
 
   gate:
     needs: plan
-    if: ${{ !github.event.pull_request.draft && (needs.plan.outputs.apps != '[]') }}
+    # Not run when gate-kvm takes the trusted events below: this copy keeps the optional Docker Hub login (D18) and its
+    # secret, so it only ever runs on GitHub-hosted runners.
+    if: ${{ !github.event.pull_request.draft && (needs.plan.outputs.apps != '[]') && !(vars.KVM_RUNNER == 'on' && (contains(fromJSON('["push","schedule","workflow_dispatch","merge_group"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     strategy:
@@ -310,3 +312,106 @@ jobs:
             ${{ runner.temp }}/out/
           if-no-files-found: ignore
           retention-days: 30
+
+  gate-kvm:
+    needs: plan
+    # Same steps as `gate` minus the Docker Hub login and every secret: a job that mentions secrets.* gets them
+    # delivered to its runner even when the step is skipped, and our hosts keep passwordless sudo, so this job
+    # mentions none. A test keeps the two step lists in step.
+    if: ${{ !github.event.pull_request.draft && (needs.plan.outputs.apps != '[]') && (vars.KVM_RUNNER == 'on' && (contains(fromJSON('["push","schedule","workflow_dispatch","merge_group"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) }}
+    runs-on: [self-hosted, onemind-kvm]
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 12
+      matrix:
+        app: ${{ fromJSON(needs.plan.outputs.apps) }}
+    steps:
+      # The host is reused between jobs (only the VM is fresh in the KVM pool; a hand-run droplet is not), so
+      # remove any leftover gate cluster first.
+      - name: Remove a leftover gate cluster (reused host)
+        run: |
+          docker ps -aq --filter 'name=^k3d-gate-' | xargs -r docker rm -f || true
+          docker network rm k3d-gate 2>/dev/null || true
+
+      - name: Check out
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'release/next' || '' }}
+          persist-credentials: false
+
+      - name: Set up Go for the shared plugin validator
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+
+      # cmd/onemind imports sdk/go, whose generated types are not committed (CI-16).
+      - name: Generate the Go SDK code from the committed spec
+        uses: ./.github/actions/sdk-gen
+        with:
+          langs: go
+
+      - name: Build the box plugin validator
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          go build -trimpath -buildvcs=false -o "$RUNNER_TEMP/bin/onemind" ./cmd/onemind
+          echo "ONEMIND_PLUGIN_VALIDATOR=$RUNNER_TEMP/bin/onemind" >> "$GITHUB_ENV"
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+
+      - name: Install the gate's tools (pinned by version and sha256)
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check -r sdk/tools/requirements.txt
+          sdk/tools/ci/install-tools.sh "$RUNNER_TEMP/bin" trivy crane cosign k3d kubectl kustomize kubeconform
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          # ClamAV from the Ubuntu archive (apt-verified); signatures are updated in this job (§9.4 check 5).
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq clamav clamav-freshclam
+          sudo systemctl stop clamav-freshclam || true
+          for i in 1 2 3; do sudo freshclam --stdout && break; sleep $((i * 20)); done
+          clamscan --version
+
+      - name: Throwaway k3s cluster (k3d)
+        run: |
+          k3d cluster create gate --wait --timeout 300s --no-lb \
+            --image docker.io/rancher/k3s:v1.37.2-k3s1@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332
+          kubectl get nodes
+
+      - name: Resolve the app directory
+        id: app-path
+        env:
+          APP: ${{ matrix.app }}
+        run: |
+          app_path=$(python3 -I sdk/tools/app-select path "$APP")
+          echo "path=$app_path" >> "$GITHUB_OUTPUT"
+
+      - name: App gate (§9.4 checks 2-9)
+        env:
+          APP_PATH: ${{ steps.app-path.outputs.path }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          python3 -I sdk/tools/app-gate --apps-dir "${APP_PATH%/*}" "${APP_PATH##*/}" --smoke --tier check --fail-on claim --clamav-db /var/lib/clamav \
+            --workdir "$RUNNER_TEMP" --report "$RUNNER_TEMP/out/report.json" --sbom-dir "$RUNNER_TEMP/out/sbom"
+
+      - name: Upload scan results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: app-gate-${{ matrix.app }}
+          path: |
+            ${{ steps.app-path.outputs.path }}/scan.json
+            ${{ runner.temp }}/out/
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Delete the gate cluster (reused host)
+        if: always()
+        run: |
+          if command -v k3d >/dev/null 2>&1; then k3d cluster delete gate || true; fi
+          docker ps -aq --filter 'name=^k3d-gate-' | xargs -r docker rm -f || true
+          docker network rm k3d-gate 2>/dev/null || true
