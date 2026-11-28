@@ -65,14 +65,10 @@ cli notifications.read s3-notifications
 cli notifications.read_all s3-notifications
 cli notifications.send s3-notifications
 group s4-storage-domains issue=#1232 S4: storage plans, actions and the recovery key, and domain names (ask, approve, remove a host) have no screen; StorageCare is in PR #1190.
-dashboard storage.actions.create s4-storage-domains
 dashboard storage.operations.get s4-storage-domains
-dashboard storage.plans.create s4-storage-domains
 dashboard storage.recovery_key.take s4-storage-domains
 cli domains.check s4-storage-domains
 cli domains.remove s4-storage-domains
-cli storage.actions.create s4-storage-domains
-cli storage.plans.create s4-storage-domains
 cli storage.recovery_key.take s4-storage-domains
 group s5-backups issue=#1232 S5: backup content selection, verification history, run and snapshot detail and destination removal have no screen; several backup writes have no command.
 dashboard backups.content.set s5-backups

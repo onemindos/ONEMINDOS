@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Read-only gateway storage view. No disk mutations, recovery keys or device probing in the browser.
+// Gateway storage view. Disk changes are only requested from storage/Changes.tsx (plan first, owner approves in Approvals); no recovery keys or device probing in the browser.
 import { useMemo } from 'react';
 import { OneMind, OneMindError } from '@onemind/sdk';
 import { Link } from 'react-router';
@@ -10,6 +10,7 @@ import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
 import { Load } from './parts';
 import { StorageCare } from './StorageCare';
+import { StorageChanges } from './storage/Changes';
 
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('The hub returned an invalid storage record.');
@@ -44,7 +45,7 @@ function LiveStorage({ token }: { token: string }) {
   const summary = usePoll(async () => status(await read(client, '/v1/storage')), 30_000);
   const devices = usePoll(async () => records(await read(client, '/v1/storage/devices')), 30_000);
   return <div className="dash-stack">
-    <PageHeader title="Storage" lede="Storage and disk health reported by your hub. This page cannot change a disk; the one thing it can ask for is safely removing a USB drive, which an owner approves." />
+    <PageHeader title="Storage" lede="Storage and disk health reported by your hub. Safely removing a USB drive and changing the disks (at the bottom) always wait for an owner's approval." />
     <Button onClick={() => { void summary.reload(); void devices.reload(); }}>Refresh storage</Button>
     {[summary, devices].some((r) => r.error && r.data !== undefined) && <p role="status">Could not refresh. Showing previously fetched storage data; refresh to check again.</p>}
     <Load res={summary} what="Loading storage status">{(s) => <Card as="article" title="Storage health">
@@ -79,5 +80,6 @@ function LiveStorage({ token }: { token: string }) {
       })}</ul>}
     </Card>}</Load>
     <StorageCare client={client} />
+    <StorageChanges summary={summary.data} disks={devices.data} />
   </div>;
 }

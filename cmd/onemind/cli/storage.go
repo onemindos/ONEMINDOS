@@ -263,13 +263,15 @@ func contains(xs []string, v string) bool {
 func storageCommands(a *App) []*cobra.Command {
 	root := &cobra.Command{
 		Use:                "storage disks|health|status|plan ...",
-		Short:              "List disks, check their health and print storage plans (read-only)",
+		Short:              "List disks, check their health and print storage plans (read-only); request and operation use the gateway",
 		DisableFlagParsing: true,
 		RunE: func(_ *cobra.Command, args []string) error {
 			return storageCmd(args, a.Stdout)
 		},
 	}
-	// trim-status and eject go through the hub (storage_care.go); the rest stay local and read-only.
+	// trim-status and eject go through the hub (storage_care.go); disk changes are requested through the hub
+	// (storage_changes.go); the rest stay local and read-only.
 	root.AddCommand(storageCareCommands(a)...)
+	root.AddCommand(storageGatewayCommands(a)...)
 	return []*cobra.Command{root}
 }
