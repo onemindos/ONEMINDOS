@@ -33,8 +33,9 @@ export async function signIn(page: Page, token: string): Promise<void> {
   await page.getByRole('button', { name: 'Sign in' }).click();
   const nav = page.getByRole('navigation', { name: 'Main' });
   // The wizard's page heading (h1 "Set up OneMind") is visually hidden; each step's title is its visible
-  // h2, and a fresh box opens on the first step (PR #1071, ui/src/shell/Onboarding.tsx).
-  const wizard = page.getByRole('heading', { level: 2, name: 'Name your box' });
+  // h2, and a fresh box opens on the first step, "Your place" (PR #1071 and the mixed first run,
+  // ui/src/shell/firstRun.ts ONBOARDING_STEPS).
+  const wizard = page.getByRole('heading', { level: 2, name: 'Name your place and box' });
   await expect(nav.or(wizard)).toBeVisible();
   if (await wizard.isVisible()) await finishFirstRun(page, token);
   await expect(nav).toBeVisible();

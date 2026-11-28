@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Demo of the shell-wide pieces (src/shell): #/shell/<screen>.
-// palette, palette-search, notifications, toasts, states, onboarding-1 … onboarding-6.
+// palette, palette-search, notifications, toasts, states, onboarding-1 … onboarding-8.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Card,
@@ -198,17 +198,24 @@ function StatesDemo() {
 }
 
 const TZ = ['UTC', 'Europe/London', 'Europe/Berlin', 'America/New_York', 'Asia/Tokyo'];
+const PLACE: Partial<OnboardingDraft> = { boxName: 'home-hub', placeName: 'Rivera Home', timeZone: 'Europe/London' };
+// Demo position only (a public square in London), typed as coordinates; nothing is looked up.
+const WHERE: Partial<OnboardingDraft> = { ...PLACE, address: 'Trafalgar Square, London', location: { lat: 51.50809, lon: -0.12804, source: 'typed' } };
+const OWNER: Partial<OnboardingDraft> = { ...WHERE, practice: 'approved', ownerName: 'Dana' };
+const APPS: Partial<OnboardingDraft> = { ...OWNER, passkey: 'registered', accent: 'lagoon', starterApps: ['home-assistant', 'vaultwarden', 'hermes-agent'] };
 const DRAFTS: Array<Partial<OnboardingDraft>> = [
-  { boxName: 'home-hub', timeZone: 'Europe/London' },
-  { boxName: 'home-hub', timeZone: 'Europe/London', ownerName: 'Dana' },
-  { boxName: 'home-hub', timeZone: 'Europe/London', ownerName: 'Dana', passkey: 'registered', accent: 'lagoon' },
-  { boxName: 'home-hub', timeZone: 'Europe/London', ownerName: 'Dana', passkey: 'registered', accent: 'lagoon', starterApps: ['home-assistant', 'vaultwarden', 'hermes-agent'] },
-  { boxName: 'home-hub', timeZone: 'Europe/London', ownerName: 'Dana', passkey: 'registered', accent: 'lagoon', starterApps: ['home-assistant', 'vaultwarden', 'hermes-agent'] },
-  { boxName: 'home-hub', timeZone: 'Europe/London', ownerName: 'Dana', passkey: 'registered', accent: 'lagoon', starterApps: ['home-assistant', 'vaultwarden', 'hermes-agent'], backup: { destination: 'usb', kitSaved: true } },
+  PLACE,
+  PLACE,
+  WHERE,
+  OWNER,
+  { ...OWNER, passkey: 'registered', accent: 'lagoon' },
+  APPS,
+  APPS,
+  { ...APPS, backup: { destination: 'usb', kitSaved: true } },
 ];
 
 function OnboardingDemo({ step }: { step: number }) {
-  const i = Math.min(Math.max(step, 1), 6) - 1;
+  const i = Math.min(Math.max(step, 1), DRAFTS.length) - 1;
   return (
     <Onboarding
         key={i}

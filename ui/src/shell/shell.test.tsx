@@ -440,7 +440,11 @@ describe('first-run logic', () => {
     expect(stepIssues('owner', { ...complete, passkey: 'failed' })[0]).toMatch(/passkey/);
     expect(finishIssues(complete)).toEqual([]);
     expect(furthestReachable(emptyDraft())).toBe(0);
-    expect(furthestReachable(complete)).toBe(5);
+    expect(furthestReachable(complete)).toBe(7);
+    // The address and the practice are optional; a position that is given must be one the gateway accepts.
+    expect(stepIssues('address', complete)).toEqual([]);
+    expect(stepIssues('decide', complete)).toEqual([]);
+    expect(stepIssues('address', { ...complete, location: { lat: 0, lon: 0, source: 'typed' } })[0]).toMatch(/0, 0/);
   });
   it('starter apps become requests, never installs; only installable classes are offered', () => {
     expect(finishRequests(complete)).toEqual([{ type: 'app.install', params: { app_id: 'home-assistant' } }]);
@@ -468,14 +472,26 @@ describe('Onboarding', () => {
     const onFinish = vi.fn();
     const user = userEvent.setup();
     render(<Onboarding apps={starter} initial={{ timeZone: 'Europe/London' }} timeZones={['Europe/London', 'UTC']} onCreatePasskey={async () => true} onThemeChange={() => {}} onFinish={onFinish} />);
-    expect(screen.getByRole('heading', { level: 2, name: 'Name your box' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Name your place and box' })).toBeInTheDocument();
     await noAxeViolations(document.body);
 
     await user.click(screen.getByRole('button', { name: /Continue/ }));
     expect(screen.getByRole('alert')).toHaveTextContent('Give your box a name.');
     await user.type(screen.getByLabelText('Box name'), 'Home Hub');
     expect(screen.getByLabelText('Box name')).toHaveValue('home-hub');
+    await user.type(screen.getByLabelText('Place name'), 'Rivera Home');
     await user.click(screen.getByRole('button', { name: /Continue/ }));
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Where is your place?' })).toHaveFocus();
+    await user.type(screen.getByLabelText('Coordinates'), '51.50809, -0.12804');
+    await user.click(screen.getByRole('button', { name: /Move my map here/ }));
+    expect(screen.getAllByText(/51\.50809° N, 0\.12804° W/).length).toBeGreaterThan(0);
+    await noAxeViolations(document.body);
+    await user.click(screen.getByRole('button', { name: /Continue/ }));
+
+    expect(screen.getByRole('heading', { level: 2, name: 'AI can ask. Only you approve.' })).toHaveFocus();
+    await noAxeViolations(document.body);
+    await user.click(screen.getByRole('button', { name: 'Skip' }));
 
     const h = screen.getByRole('heading', { level: 2, name: 'Create the owner' });
     expect(h).toHaveFocus();
@@ -507,7 +523,7 @@ describe('Onboarding', () => {
     expect(screen.getByText(/1 install request will wait/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /Go to Home/ }));
     expect(onFinish).toHaveBeenCalledWith(
-      expect.objectContaining({ boxName: 'home-hub', accent: 'orchid', ownerName: 'Dana' }),
+      expect.objectContaining({ boxName: 'home-hub', placeName: 'Rivera Home', location: { lat: 51.50809, lon: -0.12804, source: 'typed' }, practice: 'none', accent: 'orchid', ownerName: 'Dana' }),
       [{ type: 'app.install', params: { app_id: 'immich' } }],
     );
   });
