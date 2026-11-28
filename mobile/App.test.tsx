@@ -122,6 +122,35 @@ describe('approval notifications open the named card', () => {
     expect(api.deny).not.toHaveBeenCalled();
   });
 
+  it('turns a newly fetched iOS inbox approval into an actionable local notification', async () => {
+    const { api, session } = asOwner();
+    const item = { ...makeInbox(Date.now(), 'owner')[0]!, topic: 'approvals', action_id: target, read_at: null };
+    const notifications = jest.spyOn(api, 'notifications').mockResolvedValue([]);
+    const schedule = jest.mocked(Notifications.scheduleNotificationAsync);
+    schedule.mockClear();
+
+    await render(<AppRoot deps={session} />);
+    await waitFor(() => expect(notifications).toHaveBeenCalled());
+    await act(async () => undefined);
+    expect(schedule).not.toHaveBeenCalled();
+
+    notifications.mockResolvedValue([item]);
+    await fireEvent.press(screen.getByTestId('tab-me'));
+    await fireEvent.press(await screen.findByTestId('more-Inbox'));
+    await act(async () => screen.getByTestId('inbox').props.refreshControl.props.onRefresh());
+    await waitFor(() => expect(schedule).toHaveBeenCalledWith({
+      identifier: `ntf:${item.id}`,
+      content: {
+        title: item.title, body: item.body,
+        categoryIdentifier: 'approval',
+        data: { route: 'approvals', action_id: target },
+      },
+      trigger: null,
+    }));
+    expect(api.approve).not.toHaveBeenCalled();
+    expect(api.deny).not.toHaveBeenCalled();
+  });
+
   it('opens the requested card from an Android foreground Review and reopens it from another segment', async () => {
     const listeners: ((event: { url: string }) => void)[] = [];
     jest.spyOn(Linking, 'addEventListener').mockImplementation((_type, fn) => {

@@ -1,7 +1,11 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Lock-screen approvals and Lock OneMind device check
 
-Refs #704 and #909. Run on an Android 14 phone and an iPhone with a PIN and biometrics enrolled. Install native builds made from the PR head. Sign in as an owner on a test hub with an enrolled approval credential and working phone notifications. On Android, register a UnifiedPush distributor. On iPhone, use an APNs-enabled build and confirm notification delivery first.
+Refs #704 and #909. Run on an Android 14 phone and an iPhone with a PIN and biometrics enrolled. Install native builds made from the PR head, allow OneMind notifications, and sign in as an owner on a test hub with an enrolled approval credential.
+
+- **Android 14:** Register a UnifiedPush distributor. For the closed-app run, exit OneMind before queuing the requests and use the generic notification supplied by UnifiedPush.
+- **iPhone local notifications:** Open OneMind and let it finish its first refresh. Queue the requests from another client, then refresh OneMind while it is still open. Confirm both new approval notifications appear in Notification Center before locking the phone. For the cold-start run, close OneMind after the notifications arrive, then tap Review on one of those notifications.
+- **iPhone remote push:** The gateway in this build rejects APNs registrations. Track remote delivery and the Review and Deny buttons on a remotely delivered notification separately under #704 and [#208](https://github.com/onemindos/ONEMINDOS/issues/208).
 
 1. Queue two harmless test requests with the same title and different request IDs. Lock the phone. The actionable notification should offer Review and Deny. The operating system should require unlock for either button. Check that no notification button approves anything.
 2. Tap Review on the older request. Verify that the older card opens expanded and the newer card stays collapsed. Check the action ledger from a second client. Both requests must still be waiting. Repeat with OneMind running in the background and with a cold start. On Android, verify the cold-start case from the generic UnifiedPush notification. Also tap an approval notification body and verify it performs no decision.
@@ -14,6 +18,7 @@ Refs #704 and #909. Run on an Android 14 phone and an iPhone with a PIN and biom
 | Device | App commit and hub version | Steps 1–7 | Sanitized evidence |
 | --- | --- | --- | --- |
 | Android 14 | Pending | Pending | Pending |
-| iPhone | Pending | Pending | Pending |
+| iPhone (local notifications) | Pending | Pending | Pending |
+| iPhone (APNs delivery and actions) | Pending | Blocked on APNs support | Pending |
 
 Record the OS versions, per-step results, and relevant request states. Keep credentials, hub addresses, and personal screenshots out of public evidence.
