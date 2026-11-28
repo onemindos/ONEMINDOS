@@ -9,6 +9,8 @@ export const href = {
   home: '/',
   market: '/market',
   app: (id: string) => `/market/${encodeURIComponent(id)}`,
+  /** Atlas Market (04): the person's own app requests, waiting and decided. */
+  marketRequests: '/market/requests',
   installed: '/installed',
   /** #617: the Market's Built in tab (GET /v1/system-apps). */
   builtIn: '/built-in',

@@ -161,12 +161,15 @@ describe('Role-shaped UI (UX-01)', () => {
     for (const b of install) expect(b).toBeDisabled();
     expect(screen.queryByRole('link', { name: 'Sources' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Import Compose' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Add a source' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Compose file' })).not.toBeInTheDocument();
   });
 
-  it('an owner sees the Sources and Compose tabs', async () => {
+  it('an owner sees the Sources and Compose entries in the Market sidebar', async () => {
     renderApp({ token: 'owner-demo', route: '/market' });
-    expect(await screen.findByRole('link', { name: 'Sources' }, T)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Import Compose' })).toBeInTheDocument();
+    const nav = await screen.findByRole('navigation', { name: 'Market' }, T);
+    expect(await within(nav).findByRole('link', { name: 'Add a source' }, T)).toHaveAttribute('href', '/sources');
+    expect(within(nav).getByRole('link', { name: 'Compose file' })).toHaveAttribute('href', '/compose');
   });
 
   it('a child is told Machines is not for their role', async () => {
