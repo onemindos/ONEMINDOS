@@ -19,5 +19,7 @@ systemctl enable onemind-rpi5-grow.service onemind-rpi5-eeprom-check.service >/d
 # multi-user.target so bluetoothd runs before an adapter shows up (Debian only starts it when udev finds one).
 test -x /usr/libexec/bluetooth/bluetoothd
 test -x /usr/bin/pipewire && test -x /usr/bin/wireplumber && test -x /usr/bin/pipewire-pulse
+# The kiosk (on by default): without these the box's monitor falls back to the text screen.
+test -x /usr/bin/cage && test -x /usr/bin/chromium
 systemctl add-wants multi-user.target bluetooth.service
 echo "rpi5: kernels $(ls /lib/modules | tr '\n' ' ')"

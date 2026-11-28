@@ -5,7 +5,8 @@
 [Unit]
 Description=OneMind: the box's own screen
 ConditionPathExists=!/data/onemind/kiosk/enabled
-After=plymouth-quit.service systemd-user-sessions.service
+# After first boot, which may switch the kiosk on (then this unit is skipped).
+After=plymouth-quit.service systemd-user-sessions.service onemind-firstboot.service
 Conflicts=getty@tty1.service
 Before=getty@tty1.service
 

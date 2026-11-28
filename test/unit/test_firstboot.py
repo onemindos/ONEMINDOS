@@ -1074,3 +1074,134 @@ class ChownTreeRace(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class KioskDefault(Box):
+    """Founder decision 2026-11-28: a monitor on a fresh box shows the OneMind desktop (kiosk on), once, on an image
+    that has the compositor; the owner's "off" sticks; a worker or leaf screen stays on the text screen."""
+
+    def with_compositor(self):
+        self.put(fb.KIOSK_COMPOSITOR.lstrip("/"), "")
+
+    def test_fresh_screen_box_switches_kiosk_on_once_before_setup(self):
+        self.with_compositor()
+        fb.apply(self.p)                                     # not configured: waits for the wizard
+        self.assertTrue(os.path.exists(self.p.kiosk_flag))
+        self.assertTrue(os.path.exists(self.p.kiosk_marker))
+        self.assertEqual(self.mode(self.p.kiosk_dir), 0o755)  # the kiosk user must see the flag
+        self.assertIn(("start", "--no-block", "onemind-setup.service"), self.started)
+        self.assertIn("kiosk on", self.console())
+        os.unlink(self.p.kiosk_flag)                         # the owner turned it off (onemind kiosk disable)
+        fb.apply(self.p)
+        self.assertFalse(os.path.exists(self.p.kiosk_flag))  # first boot never turns it back on
+
+    def test_an_image_without_the_compositor_keeps_the_text_screen(self):
+        fb.apply(self.p)
+        self.assertFalse(os.path.exists(self.p.kiosk_flag))
+        self.assertFalse(os.path.exists(self.p.kiosk_marker))
+
+    def test_a_box_set_up_before_keeps_its_screen(self):
+        self.with_compositor()
+        self.put("data/onemind/firstboot/state.json", json.dumps({"role": "worker", "node_id": "n1", "mesh": 1}))
+        fb.apply(self.p)
+        self.assertFalse(os.path.exists(self.p.kiosk_flag))
+        self.assertFalse(os.path.exists(self.p.kiosk_marker))
+
+    def test_kiosk_setting_is_on_or_off(self):
+        self.assertEqual(fb.parse_conf("role = hub\nkiosk = off\n")["kiosk"], "off")
+        self.assertEqual(fb.validate({"role": "hub", "kiosk": "Off"})["kiosk"], "off")
+        self.assertEqual(fb.validate({"role": "hub", "kiosk": "yes"})["kiosk"], "on")
+        self.assertEqual(fb.validate({"role": "hub", "kiosk": "False"})["kiosk"], "off")   # YAML `kiosk: false`
+        self.assertNotIn("kiosk", fb.validate({"role": "hub"}))
+        with self.assertRaises(fb.ConfigError):
+            fb.validate({"role": "hub", "kiosk": "maybe"})
+
+    def test_a_worker_screen_shows_the_text_screen(self):
+        self.with_compositor()
+        fb.apply(self.p)
+        self.assertTrue(os.path.exists(self.p.kiosk_flag))
+        fb.configure(self.p, fb.validate({"role": "worker", "join_code": JOIN, "kiosk": "on"}), "wizard")
+        self.assertFalse(os.path.exists(self.p.kiosk_flag))
+        self.assertEqual(json.load(open(self.p.state))["kiosk"], "off")
+
+    @needs_core
+    def test_a_hub_seed_with_kiosk_off_turns_it_off(self):
+        self.with_compositor()
+        self.put("boot/efi/onemind.conf", "role = hub\nkiosk = off\n")
+        fb.apply(self.p)
+        self.assertFalse(os.path.exists(self.p.kiosk_flag))
+        self.assertTrue(os.path.exists(self.p.kiosk_marker))
+        self.assertEqual(json.load(open(self.p.state))["kiosk"], "off")
+
+
+class WizardOnTheBoxScreen(Box):
+    """The box's own monitor opens the wizard on loopback: it gets the phone panel (address, QR, setup code) and the
+    monitor question; the LAN never gets the code."""
+
+    def serve(self, local=True):
+        setup.Wizard.helper = in_process_helper(self.p)
+        setup.Wizard.done = threading.Event()
+        setup.Wizard.gate = setup.Gate()
+        code = setup.Wizard.gate.new(in_process_helper(self.p).publish_code)
+        if not local:
+            patcher = mock.patch.object(setup, "is_local", return_value=False)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        for pt in (mock.patch.object(setup, "lan_address", lambda: LAN),
+                   mock.patch.object(setup.fb, "KIOSK_COMPOSITOR", self.put("usr/bin/cage", ""))):
+            pt.start()
+            self.addCleanup(pt.stop)
+        srv = setup.ThreadingHTTPServer(("127.0.0.1", 0), setup.Wizard)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(srv.shutdown)
+        return f"http://127.0.0.1:{srv.server_address[1]}", code
+
+    def test_the_box_screen_shows_how_to_set_up_from_a_phone(self):
+        base, code = self.serve()
+        page = urllib.request.urlopen(base + "/").read().decode()
+        self.assertIn(code, page)
+        self.assertIn(f"http://{LAN}:8080/", page)
+        self.assertIn("<svg", page)
+        self.assertNotIn('name="code"', page)                # the box itself needs no code
+        self.assertIn('name="kiosk" value="on" checked', page)
+
+    def test_the_lan_never_sees_the_code(self):
+        base, code = self.serve(local=False)
+        page = urllib.request.urlopen(base + "/").read().decode()
+        self.assertNotIn(code, page)
+        self.assertNotIn("<svg", page)
+        self.assertIn('name="code"', page)
+        try:
+            urllib.request.urlopen(base + "/setup", data=b"role=hub&code=wrong")
+        except urllib.error.HTTPError as e:
+            self.assertNotIn(code, e.read().decode())
+
+    def test_no_monitor_question_without_the_compositor(self):
+        base, _ = self.serve()
+        with mock.patch.object(setup.fb, "KIOSK_COMPOSITOR", os.path.join(self.tmp.name, "absent")):
+            page = urllib.request.urlopen(base + "/").read().decode()
+        self.assertNotIn('name="kiosk"', page)
+
+    def test_qr_code_is_the_setup_address(self):
+        svg = setup.qr_svg(f"http://{LAN}:8080/")
+        n = len(setup.screen.qr_matrix(f"http://{LAN}:8080/"))
+        self.assertIn(f'viewBox="0 0 {n + 4} {n + 4}"', svg)
+        self.assertEqual(svg.count("<rect ") - 1, sum(map(sum, setup.screen.qr_matrix(f"http://{LAN}:8080/"))))
+
+    @needs_core
+    def test_the_box_screen_continues_to_the_desktop_and_keeps_the_token_on_screen(self):
+        base, _ = self.serve()
+        body = urllib.request.urlopen(base + "/setup", data=b"role=hub&name=Lab&kiosk=on").read().decode()
+        self.assertRegex(body, r"<code>[0-9a-f]{64}</code>")
+        self.assertIn("Continue to the OneMind desktop", body)
+        self.assertIn('location.replace("/"+location.search)', body)   # keeps the kiosk=1 marker
+        self.assertIn("setTimeout(hide,120000)", body)                   # the token is hidden again, the page stays
+        self.assertIn('id="copy"', body)
+        self.assertNotIn("setTimeout(function(){location", body)   # never leaves the token page by itself
+        self.assertTrue(os.path.exists(self.p.kiosk_flag))
+
+    @needs_core
+    def test_a_hub_set_up_with_the_text_screen(self):
+        base, _ = self.serve()
+        urllib.request.urlopen(base + "/setup", data=b"role=hub&name=Lab&kiosk=off").read()
+        self.assertFalse(os.path.exists(self.p.kiosk_flag))

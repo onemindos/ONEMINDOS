@@ -1,0 +1,11 @@
+{
+  "URLBlocklist": ["*", "chrome://*", "file://*", "javascript://*"],
+  "URLAllowlist": ["http://127.0.0.1:8080/*"],
+  "DeveloperToolsAvailability": 2,
+  "AllowFileSelectionDialogs": false,
+  "DownloadRestrictions": 3,
+  "BrowserGuestModeEnabled": false,
+  "PrintingEnabled": false,
+  "PasswordManagerEnabled": false,
+  "BrowserSignin": 0
+}

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""OneMind QEMU battery, first boot (F0-F13, F14, F15, F16). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
+"""OneMind QEMU battery, first boot (F0-F13, F14, F15, F16, F17). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
 (pre-registered; never edited to make a result pass). Reuses run-tests.py's VM driver.
 
 Input: the battery's fixtures (`make fixtures`: disk.img = slot A v1 + test overlay, bundles.img with
@@ -753,6 +753,50 @@ def f16(vm, board):
     return token
 
 
+# F17 (CRITERIA-FIRSTBOOT.md section 12): the box's own monitor shows the OneMind desktop by default (kiosk on).
+F17_NO_MONITOR = "kiosk: no monitor is connected; showing the text screen until one is"
+F17_FACTS = (
+    "echo PKGS=$(dpkg-query -W -f='${Package}:${Status} ' cage chromium 2>/dev/null | grep -o '[a-z]*:install ok installed' | cut -d: -f1 | sort | tr '\\n' ' '); "
+    "echo BINS=$(test -x /usr/bin/cage && test -x /usr/bin/chromium && echo yes || echo no); "
+    "echo FLAG=$(test -e /data/onemind/kiosk/enabled && echo yes || echo no); "
+    "echo DIROWNER=$(stat -c %U /data/onemind/kiosk 2>/dev/null); "
+    "echo MARKER=$(test -e /data/onemind/firstboot/kiosk-default && echo yes || echo no); "
+    "echo KIOSK=$(systemctl is-active onemind-kiosk.service 2>&1 | head -1); "
+    "echo SCREEN=$(systemctl is-active onemind-screen.service 2>&1 | head -1); "
+    "echo TEXTPROC=$(grep -l onemind_screen.py $(sed 's#^#/proc/#; s#$#/cmdline#' /sys/fs/cgroup/system.slice/onemind-kiosk.service/cgroup.procs 2>/dev/null) 2>/dev/null | wc -l); "
+    "echo CHROMIUM=$(pgrep -x chromium 2>/dev/null | wc -l); "
+    "journalctl -u onemind-kiosk.service -b --no-pager -o cat 2>/dev/null | sed 's/^/KLOG /'; true")
+
+
+def f17_judge(out, board, after_reboot=False):
+    """F17's or F17r's verdict from the guest's output (pure, so test/unit can feed it canned text)."""
+    g = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or [""])[-1]
+    klog = "\n".join(re.findall(r"^KLOG (.*)$", out, re.M))
+    pkgs = set(g("PKGS").split())
+    if after_reboot:
+        return {"owner_off_kept": g("FLAG") == "no", "text_screen_active": g("SCREEN") == "active",
+                "kiosk_not_active": g("KIOSK") != "active" and g("KIOSK") != ""}
+    if board not in SCREEN_BOARDS:
+        return {"no_kiosk_packages": not ({"cage", "chromium"} & pkgs),
+                "no_flag": g("FLAG") == "no", "text_screen_active": g("SCREEN") == "active"}
+    return {"image_packages": {"cage", "chromium"} <= pkgs and g("BINS") == "yes",
+            "default_on": g("FLAG") == "yes" and g("DIROWNER") == "onemind" and g("MARKER") == "yes",
+            "kiosk_active": g("KIOSK") == "active", "text_unit_skipped": g("SCREEN") not in ("active", ""),
+            "no_monitor_fallback": F17_NO_MONITOR in klog and (g("TEXTPROC") or "0").isdigit() and int(g("TEXTPROC") or 0) >= 1
+            and g("CHROMIUM") == "0",
+            "nothing_secret": re.search(r"\b[0-9a-f]{64}\b", klog) is None and "ONEMIND OWNER TOKEN" not in klog}
+
+
+def f17(vm, board, tid="F17", after_reboot=False):
+    """Kiosk on by default on a screen board, the text screen inside it with no monitor; none on a no-screen board.
+    F17r: after the reboot, the owner's "off" (F15 removed the flag) is kept."""
+    # Give the kiosk unit a moment after boot: it starts after first boot and waits on nothing else here.
+    _, out = vm.run("t0=$SECONDS; while [ $((SECONDS - t0)) -lt 60 ] && ! systemctl -q is-active onemind-kiosk.service "
+                    "&& ! systemctl -q is-active onemind-screen.service; do sleep 2; done; sleep 5; " + F17_FACTS, 120)
+    c = f17_judge(out, board, after_reboot)
+    record(tid, all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" board={board}")
+
+
 def f16_after(vm, tid, token):
     """F16r / F16u: the same pairing directory and marker after a reboot or an A/B update."""
     st = f16_pairing_state(vm)
@@ -841,6 +885,7 @@ def main():
         vm.mark("NW1-NW4 NetworkManager: wired DHCP, k3s order, unmanaged k3s links, saved profile")
         netcheck.nw1(vm, record); netcheck.nw2(vm, record); netcheck.nw3(vm, record)
         nw4 = netcheck.nw4_before(vm)
+        vm.mark("F17 the box's own monitor shows the desktop by default (kiosk on)"); f17(vm, a.board)
         vm.mark("F15 the owner shell: key-only SSH, tty2 login, no baked password"); f15(vm)
         vm.mark("F16 audio and Bluetooth on the screen boards (Step 3)"); btmark = f16(vm, a.board)
         vm.mark("F14 onemind completion and man pages (#882)"); f14(vm)
@@ -860,6 +905,8 @@ def main():
             record("F3", not new_toks and ids3 == ids and hz3 == "200" and bool(same) and bool(token),
                    f"'{al[:70]}' new_tokens={len(new_toks)} same_ids={ids3 == ids} healthz={hz3} listed={listed3} gate={g3}")
             netcheck.nw4_after(vm, record, nw4)
+            if a.board in SCREEN_BOARDS:
+                f17(vm, a.board, "F17r", after_reboot=True)
             if btmark:
                 f16_after(vm, "F16r", btmark)
         else:
