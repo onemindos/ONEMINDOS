@@ -11,6 +11,7 @@ import { href } from '../shell/routes';
 import { Load } from './parts';
 import { object, read, rows, text } from './backups/shared';
 import { RestoreSection } from './backups/Restore';
+import { OtherBoxRestore } from './backups/OtherBox';
 import { DestinationForm } from './backups/Destinations';
 import { ContentSection, VerificationsSection } from './backups/Content';
 
@@ -117,6 +118,7 @@ function LiveBackups({ token, person, owner }: { token: string; person: string; 
     </Card>}</Load>
     <RestoreSection sdk={sdk} token={token} />
     {owner && <EmergencyKit />}
+    {targets.data && <OtherBoxRestore sdk={sdk} destinations={targets.data.flatMap((d) => (typeof d.id === 'string' ? [{ id: d.id, label: text(d.label, d.id) }] : []))} />}
     <VerificationsSection sdk={sdk} token={token} />
     <ContentSection sdk={sdk} token={token} owner={owner} />
     <Load res={runs} what="Loading backup runs">{(items) => <Card title="Backup runs">

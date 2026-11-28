@@ -193,14 +193,10 @@ dashboard os.fleet later-os-fleet
 dashboard os.rollouts.get later-os-fleet
 dashboard os.rollouts.list later-os-fleet
 group later-search-share-restore-tips issue=#1232 Later: search, the Send to menu (share targets and types), onboarding restore and tips state and what's new have no dashboard screen.
-dashboard onboarding.restore.app later-search-share-restore-tips
-dashboard onboarding.restore.candidates later-search-share-restore-tips
 dashboard share.send later-search-share-restore-tips
 dashboard share.targets later-search-share-restore-tips
 dashboard share.types later-search-share-restore-tips
 dashboard tips.set_state later-search-share-restore-tips
-cli onboarding.restore.app later-search-share-restore-tips
-cli onboarding.restore.candidates later-search-share-restore-tips
 cli share.send later-search-share-restore-tips
 
 # ---- found by this ratchet, not in the report (#1244) ------------------------------------------------
