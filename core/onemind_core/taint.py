@@ -31,20 +31,30 @@ and is tainted by that read. Should an answer ever carry plan or result text, th
 agent once the answer is built (`answer_source`): the request itself is filed clean, the next one
 is not. Owner-set approval policies therefore keep working for an agent that reads nothing.
 
-Taint is held in memory for the gateway process and expires after `TTL` without a new read. Each
-read renews it. A restart forgets who was tainted, but the plan note on an action already filed
-survives in the ledger, so a pending tainted request stays tainted. Nothing an agent sends can
-lower its own taint; an agent may only add to it.
+Taint expires after `TTL` without a new read. Each read renews it. It is written through to the
+database (`agents_taint_marks`, taint_store.py) on every mark and read back at start, so a restart no
+longer forgets who was tainted, and the TTL runs on across the restart. Nothing an agent sends
+can lower its own taint; an agent may only add to it.
+
+An *exposed* agent is tainted all the time (gateway permissions PR 6, F-11 = a). The gateway sees only
+the text an agent reads through the gateway; a web page, an email or a file the agent opens with
+its own tools is invisible to it. So every agent and plugin is treated as permanently tainted until the owner
+declares what it reads (D-028; including "nothing") (`exposure`, taint_store.py): `get` answers a taint that
+never expires, with a source per input. Only the owner can change that declaration.
 """
 
 from __future__ import annotations
 
+import logging
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
+
+log = logging.getLogger("onemind.taint")
 
 TTL = timedelta(hours=1)
+FOREVER = datetime(9999, 12, 31, tzinfo=UTC)  # `until` of an exposed agent: it never expires
 MAX_SOURCES = 8
 PLAN_KEY = "taint"  # where the note sits in Action.plan (outside the fingerprint, see actions.py)
 MAX_SOURCE_LEN = 80
@@ -57,17 +67,32 @@ REST_READ_POSTS = frozenset({"/v1/plans", "/v1/storage/plans"})
 
 
 @dataclass(frozen=True)
+class Exposure:
+    """What an agent is declared (or defaults) to read outside the gateway's sight."""
+
+    inputs: tuple[str, ...]  # "web", "email", "files", "chat", "app", "plugin", "agent"
+    since: datetime
+
+
+@dataclass(frozen=True)
 class Taint:
     sources: tuple[str, ...]  # what the agent read, e.g. "mcp:list_apps"; newest last, capped
     since: datetime
     until: datetime
+
+    @property
+    def permanent(self) -> bool:
+        return self.until >= FOREVER
 
     def note(self) -> dict:
         """The record stored on the action's plan and shown on the approval card."""
         return {
             "sources": list(self.sources),
             "since": self.since.isoformat().replace("+00:00", "Z"),
-            "message": "This agent read text written by third parties before asking. "
+            "message": "This agent can read text written by third parties outside OneMind (web, email, files). "
+                       "Check the request against what you wanted, not against what the agent says."
+                       if self.permanent else
+                       "This agent read text written by third parties before asking. "
                        "Check the request against what you wanted, not against what the agent says.",
         }
 
@@ -78,30 +103,77 @@ class TaintLedger:
         self._ttl = ttl
         self._lock = threading.Lock()
         self._by_principal: dict[str, Taint] = {}
+        # Set by attach(): durable storage for the transient marks, exposure lookup, audit hook.
+        self._store = None
+        self._exposure: Callable[..., Exposure | None] = lambda _pid, _kind=None: None
+        self._on_event: Callable[[str, str, dict], None] | None = None
+
+    def attach(self, store, exposure: Callable[..., Exposure | None],
+               on_event: Callable[[str, str, dict], None] | None = None) -> None:
+        """Back the ledger with the database and an exposure lookup; reload marks still alive."""
+        now = self._clock()
+        loaded = {pid: t for pid, t in store.load().items() if t.until > now}
+        with self._lock:
+            self._store, self._exposure, self._on_event = store, exposure, on_event
+            for pid, t in loaded.items():
+                self._by_principal.setdefault(pid, t)
+
+    def _emit(self, event: str, pid: str, data: dict) -> None:
+        if self._on_event is not None:
+            try:
+                self._on_event(event, pid, data)
+            except Exception:  # an audit failure must not lose the taint
+                log.exception("taint audit failed")
 
     def mark(self, principal_id: str, source: str) -> None:
         source = source[:MAX_SOURCE_LEN]
         now = self._clock()
+        fresh = False
         with self._lock:
             old = self._by_principal.get(principal_id)
             if old is not None and old.until <= now:
                 old = None
+            fresh = old is None
             sources = old.sources if old else ()
             if source not in sources:
                 sources += (source,)
-            self._by_principal[principal_id] = Taint(
-                sources[-MAX_SOURCES:], old.since if old else now, now + self._ttl)
+            t = Taint(sources[-MAX_SOURCES:], old.since if old else now, now + self._ttl)
+            self._by_principal[principal_id] = t
             if len(self._by_principal) > 1024:  # drop expired entries; live ones are never dropped
                 self._by_principal = {k: v for k, v in self._by_principal.items() if v.until > now}
+            store = self._store
+        if store is not None:  # the database write stays outside the process-wide lock
+            try:
+                store.save(principal_id, t)
+            except Exception:  # the in-memory mark still holds; never fail a read for storage
+                log.exception("taint store write failed")
+        if fresh:
+            self._emit("taint.set", principal_id, {"source": source})
 
-    def get(self, principal_id: str) -> Taint | None:
+    def get(self, principal_id: str, kind: str | None = None) -> Taint | None:
+        """The taint of a caller. Pass the principal's kind: an unknown kind counts as exposed."""
         now = self._clock()
+        exposed = self._exposure(principal_id, kind)  # an Exposure, or None
+        expired = False
         with self._lock:
             t = self._by_principal.get(principal_id)
             if t is not None and t.until <= now:
                 del self._by_principal[principal_id]
-                return None
-            return t
+                expired = True
+                t = None
+        if expired and self._store is not None:  # the database write stays outside the process-wide lock
+            try:
+                self._store.delete(principal_id)
+            except Exception:
+                log.exception("taint store delete failed")
+        if expired and exposed is None:
+            self._emit("taint.cleared", principal_id, {"reason": "expired"})
+        if exposed is not None:
+            names = tuple(f"input:{n}" for n in exposed.inputs)
+            room = MAX_SOURCES - len(names)
+            read = t.sources[-room:] if (t and room > 0) else ()
+            return Taint(names + read, exposed.since, FOREVER)
+        return t
 
 
 def plan_taint(plan: dict | None) -> dict | None:

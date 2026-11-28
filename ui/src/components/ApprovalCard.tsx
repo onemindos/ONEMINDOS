@@ -65,6 +65,7 @@ const VERB: Record<string, string> = {
   'node.drain': 'Drain',
   'repair.apply': 'Fix',
   'exposure.enable': 'Expose to the internet',
+  'legacy.contact.add': 'Add legacy contact',
 };
 
 export function actionTitle(a: Pick<ActionSummary, 'type' | 'params'> & { target_name?: string }): string {

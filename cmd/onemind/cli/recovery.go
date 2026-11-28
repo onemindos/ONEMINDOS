@@ -53,14 +53,14 @@ func (r kitReceipt) headers() map[string]string {
 	return map[string]string{"Idempotency-Key": r.Key}
 }
 
-// recoveryCommands is `onemind recovery kit`: the printed emergency kit (D-028). `status` shows where the kit
+// recoveryKitCommand is `onemind recovery kit`: the printed emergency kit (D-028). It is added to the one
+// `onemind recovery` group built in recovery_contacts.go (train 2026-11-28 merge of #1323 and #1196). `status` shows where the kit
 // stands and never a key. `issue` files a request and saves a private receipt. After an owner approves,
 // `collect` claims the page once. The page
 // holds the owner key and, when /data is encrypted and its key is still waiting, the disk recovery key; both
 // are shown once, so the page goes to a new 0600 file or stdout. Confirming it in Backups activates the
 // new console key.
-func recoveryCommands(a *App) []*cobra.Command {
-	g := &cobra.Command{Use: "recovery", Short: "Getting back in: the printed emergency kit"}
+func recoveryKitCommand(a *App) *cobra.Command {
 	kit := &cobra.Command{Use: "kit", Short: "The printed emergency kit (GET/POST /v1/backups/kit)"}
 	kit.AddCommand(&cobra.Command{
 		Use:   "status",
@@ -210,6 +210,5 @@ func recoveryCommands(a *App) []*cobra.Command {
 	}
 	collect.Flags().StringVar(&out, "out", "", "write the kit page to this new file (mode 0600) instead of the terminal")
 	kit.AddCommand(issue, collect)
-	g.AddCommand(kit)
-	return []*cobra.Command{g}
+	return kit
 }

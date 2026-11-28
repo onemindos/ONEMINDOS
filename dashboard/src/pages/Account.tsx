@@ -3,7 +3,7 @@
 // signed in. Adding a passkey runs the browser's WebAuthn ceremony; removing a passkey or signing
 // a device out only takes power away, so it happens at once (the gateway still audits it).
 // App passwords (WebDAV for Finder and Linux file managers, #722) are in AppPasswords.tsx; the owner's SSH keys and
-// SSH switch (P-06) are in SshKeys.tsx.
+// SSH switch (P-06) are in SshKeys.tsx; recovery contacts (25d, D-028) in RecoveryContacts.tsx.
 import { Button, Card, PageHeader, StatusPill, Table, useToast } from '@onemind/ui';
 import { useHub } from '../data/hub';
 import { AccountSignIn } from './AccountSignIn';
@@ -14,6 +14,7 @@ import { formatAgo, secondsSince } from '../lib/time';
 import { useSignedIn } from '../session';
 import { AppPasswords } from './AppPasswords';
 import { SshKeys } from './SshKeys';
+import { RecoveryContacts } from './RecoveryContacts';
 import { Load, useRun } from './parts';
 import { MyDevices } from './MyDevices';
 
@@ -106,6 +107,7 @@ export function Account() {
           )}
         </Load>
       </Card>
+      <RecoveryContacts />
       <MyDevices />
       <AppPasswords />
       <SshKeys />

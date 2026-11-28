@@ -123,6 +123,20 @@ class HostServicesClient:
     def logs(self, unit: str, lines: int, follow: bool, follow_max_s: float) -> "LogStream":
         """Open the host's journal stream for unit. Raises StorageUnavailable / StorageTimeout when the host
         cannot be reached. The lines are not redacted yet: the caller must redact every one."""
+        return self._stream(f"/v1/services/{quote(unit, safe='')}/logs?lines={int(lines)}&follow={1 if follow else 0}",
+                            follow, follow_max_s)
+
+    def journal(self, unit: str | None, priority: str | None, boot: int, lines: int, follow: bool,
+                follow_max_s: float) -> "LogStream":
+        """Open the host's whole-system journal stream (GET /v1/journal, P-07). Same contract as logs()."""
+        q = f"lines={int(lines)}&boot={int(boot)}&follow={1 if follow else 0}"
+        if unit:
+            q += f"&unit={quote(unit, safe='')}"
+        if priority:
+            q += f"&priority={quote(priority, safe='')}"
+        return self._stream(f"/v1/journal?{q}", follow, follow_max_s)
+
+    def _stream(self, target: str, follow: bool, follow_max_s: float) -> "LogStream":
         conn = _UnixConnection(self.path, follow_max_s + 30 if follow else max(self.timeout_s, 35))
         try:
             conn.connect()
@@ -130,7 +144,7 @@ class HostServicesClient:
             conn.close()
             raise StorageUnavailable(exc.__class__.__name__) from None
         try:
-            conn.request("GET", f"/v1/services/{quote(unit, safe='')}/logs?lines={int(lines)}&follow={1 if follow else 0}")
+            conn.request("GET", target)
             return LogStream(conn, conn.getresponse())
         except Exception as exc:
             conn.close()

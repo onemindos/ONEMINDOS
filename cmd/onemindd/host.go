@@ -126,7 +126,7 @@ func runHost(args []string) int {
 		log.Error("firewall owner rules not loaded; new ones are refused until the firewall has its owner lists", "err", err)
 	}
 	err = (&host.Server{S: svc, AllowUID: uid, AllowGID: -1, Ctx: ctx, Network: networkView, Firewall: firewallView(allow), FirewallAllow: allow,
-		Services: serviceCards, ServiceLogs: units.Logs,
+		Services: serviceCards, ServiceLogs: units.Logs, SystemJournal: units.SystemJournal,
 		Time:     func(ctx context.Context) (any, error) { return (&host.Timezone{}).Status(ctx), nil },
 		Hostname: func() (string, error) { return host.CurrentHostname("") }}).Serve(ctx, l)
 	stop()

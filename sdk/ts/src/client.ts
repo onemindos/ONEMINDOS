@@ -126,7 +126,7 @@ export interface AuditQuery {
 }
 
 interface Req {
-  method: "GET" | "POST" | "PUT" | "DELETE";
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   path: string;
   body?: unknown;
   retry?: boolean;

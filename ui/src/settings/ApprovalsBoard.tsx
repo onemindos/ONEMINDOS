@@ -194,7 +194,11 @@ export function ApprovalsBoard({ actions, plans, decided = [], now, canDecide, o
                         technical={technicalNote}
                         extra={
                           <>
-                            {!plans[current.id] && planNote ? <p className="om-note om-tone-info">{planNote}</p> : <EffectsCard plan={plans[current.id] ?? { status: 'loading' }} now={now} />}
+                            {(!current.impact || plans[current.id]) && (
+                              !plans[current.id] && planNote
+                                ? <p className="om-note om-tone-info">{planNote}</p>
+                                : <EffectsCard plan={plans[current.id] ?? { status: 'loading' }} now={now} />
+                            )}
                             <p className="om-hint">{approveHint ?? 'Approving asks for your passkey and signs exactly this plan. If the plan changes, the request has to be approved again.'}</p>
                           </>
                         }

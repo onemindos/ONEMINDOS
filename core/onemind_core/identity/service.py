@@ -68,7 +68,7 @@ CSRF_HEADER = "onemind-csrf"
 # A version 3 onion address: 56 base32 characters, then ".onion" (lower case, as Tor Browser sends it).
 ONION_V3 = re.compile(r"[a-z2-7]{56}\.onion")
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
-TOUCH_EVERY = timedelta(seconds=60)  # last_seen / last_used are written at most once a minute
+TOUCH_EVERY = timedelta(seconds=60)  # session and token display timestamps are throttled
 CHALLENGE_TTL = timedelta(seconds=120)
 ENROL_TTL = timedelta(hours=24)
 PAT_DEFAULT_DAYS, PAT_MAX_DAYS = 90, 365
@@ -288,7 +288,17 @@ class IdentityService:
     def _touch_session(self, s: SessionRow, user: UserRow, now: datetime) -> None:
         if now - utc(s.last_seen_at) >= TOUCH_EVERY:
             self.repo.update(SessionRow, [SessionRow.id == s.id], {"last_seen_at": now})
-            self.repo.update(UserRow, [UserRow.id == user.id], {"last_seen_at": now})
+            if user.role != "owner":
+                self.repo.update(UserRow, [UserRow.id == user.id], {"last_seen_at": now})
+        self._touch_owner(user, now)
+
+    def _touch_owner(self, user: UserRow, now: datetime) -> None:
+        # Legacy recovery consumes this watermark. A request within the display throttle can
+        # still be the first activity after a claim opens. Keep concurrent writes monotonic.
+        if user.role == "owner":
+            self.repo.update(UserRow, [UserRow.id == user.id,
+                                       UserRow.last_seen_at.is_(None) | (UserRow.last_seen_at < now)],
+                             {"last_seen_at": now})
 
     def _cookie_session(self, request: Request, raw: str, now: datetime) -> AuthContext | None:
         s = self.repo.one(select(SessionRow).where(SessionRow.secret_hash == sha256_hex(raw)))
@@ -344,6 +354,7 @@ class IdentityService:
         if t.kind == "person":
             if owner is None:
                 return None
+            self._touch_owner(owner, now)
             principal = self.principal_for(owner)
         else:
             principal = Principal(id=t.principal_id, kind=t.kind, role=t.kind)
@@ -389,7 +400,10 @@ class IdentityService:
                              expires_at=exp, **common)
             out.update(csrf_token=csrf, _cookies={"session": cookie, "csrf": csrf, "max_age": int((exp - now).total_seconds())})
         self.repo.add(row)
-        self.repo.update(UserRow, [UserRow.id == user.id], {"last_seen_at": now})
+        if user.role == "owner":
+            self._touch_owner(user, now)
+        else:
+            self.repo.update(UserRow, [UserRow.id == user.id], {"last_seen_at": now})
         p = self.principal_for(user)
         self.emit("auth", "login.succeeded", {"user_id": user.id, "method": method, "session_id": sid,
                                               "transport": row.transport, "source": source_of(request)}, p)
@@ -450,6 +464,7 @@ class IdentityService:
         )
         if not done:  # a concurrent refresh won
             raise ApiError(401, "unauthenticated", "refresh token already used")
+        self._touch_owner(user, now)
         self.emit("auth", "session.refreshed", {"session_id": s.id}, self.principal_for(user))
         return {"access_token": access, "expires_at": iso(access_exp), "refresh_token": refresh,
                 "refresh_expires_at": iso(utc(s.expires_at)), "session": {"id": s.id, "expires_at": iso(s.expires_at)}}
@@ -527,7 +542,10 @@ class IdentityService:
                                         origins=origins, public_key=cred.public_key, sign_count=cred.sign_count)
         except pk.PasskeyError as exc:
             raise ApiError(401, "unauthenticated", str(exc)[:300], reason="assertion_invalid") from None
-        self.repo.update(PasskeyRow, [PasskeyRow.id == cred.id], {"sign_count": count, "last_used_at": self.now()})
+        now = self.now()
+        if (user := self._live_user(cred.user_id)) is not None:
+            self._touch_owner(user, now)
+        self.repo.update(PasskeyRow, [PasskeyRow.id == cred.id], {"sign_count": count, "last_used_at": now})
         return cred
 
     def login_passkey(self, request: Request, credential: dict) -> UserRow:
@@ -618,6 +636,10 @@ class IdentityService:
         step_up_s seconds. Returns how the caller proved presence (audited by the caller)."""
         if not self.passkeys_active():
             return "token" if ctx is None or ctx.session is None else ctx.session.auth_method
+        return self.require_fresh_passkey(ctx, p, what)
+
+    def require_fresh_passkey(self, ctx: AuthContext | None, p: Principal, what: str) -> str:
+        """Require recent passkey verification even during password-only setup."""
         s = ctx.session if ctx else None
         if s is not None and s.passkey_at is not None and \
                 (self.now() - utc(s.passkey_at)).total_seconds() <= self.cfg.step_up_s:
@@ -720,16 +742,6 @@ class IdentityService:
 
     # ---- password and TOTP -------------------------------------------------------------------------
     # ---- device-bound approver keys (#702) ------------------------------------------------------
-    def _require_fresh_passkey(self, ctx: AuthContext | None, p: Principal, what: str) -> None:
-        """A passkey sign-in (or registration) on this session in the last step_up_s seconds, always:
-        unlike require_step_up, there is no password-only path while the box has no passkey yet."""
-        s = ctx.session if ctx else None
-        if s is not None and s.passkey_at is not None and \
-                (self.now() - utc(s.passkey_at)).total_seconds() <= self.cfg.step_up_s:
-            return
-        self.emit("auth", "step_up.required", {"attempted": what}, p, severity="warning")
-        raise ApiError(401, "unauthenticated", "sign in again with your passkey to do this", reason="step_up_required")
-
     @staticmethod
     def approver_key_json(k: ApproverKeyRow) -> dict:
         return {"key_id": k.id, "label": k.label, "key_kind": k.key_kind, "fingerprint": k.fingerprint,
@@ -739,7 +751,7 @@ class IdentityService:
         user = self._account(ctx, "register an approver key")
         if user.role != "owner":
             raise self.deny(ctx.principal, "register an approver key", reason="owner_only")
-        self._require_fresh_passkey(ctx, ctx.principal, "register an approver key")
+        self.require_fresh_passkey(ctx, ctx.principal, "register an approver key")
         if key_kind not in ak.KEY_KINDS:
             raise ApiError(422, "conflict", f"key_kind must be one of {', '.join(ak.KEY_KINDS)}")
         if key_kind == "hardware-attested":  # nothing verifies an attestation chain yet: never claim it
@@ -1171,6 +1183,14 @@ class IdentityService:
             return  # actions.approve refuses and audits non-owners itself
         ctx = ctx_of(request)
         assertion = body.get("webauthn")
+        action = self.gw.repo.get(action_id)
+        spec = self.gw.actions.feature_types.get(action.type) if action is not None else None
+        if spec is not None and spec.owner_passkey:
+            owner = self._account(ctx, "approve an owner security setting")
+            if owner.id != action.requested_by.get("id"):
+                raise self.deny(p, "approve another owner's security setting", reason="owner_only")
+            if assertion is None:
+                raise self._step_up_failed(p, action_id, "approve this security setting with your passkey")
         if body.get("device_signature") is not None:
             if assertion is not None:
                 raise ApiError(422, "conflict", "send a passkey assertion or a device signature, not both")
@@ -1262,7 +1282,9 @@ class IdentityService:
             ak.verify(key.public_key, payload, str(sig.get("signature") or ""))
         except ak.ApproverKeyError as exc:
             raise self._step_up_failed(p, action_id, str(exc)) from None
-        self.repo.update(ApproverKeyRow, [ApproverKeyRow.id == key.id], {"last_used_at": self.now()})
+        now = self.now()
+        self._touch_owner(owner, now)
+        self.repo.update(ApproverKeyRow, [ApproverKeyRow.id == key.id], {"last_used_at": now})
         self.emit("auth", "step_up.succeeded", {"action_id": action_id, "approval": "device_key", "key_id": key.id,
                                                 "key_kind": key.key_kind, "device": key.label,
                                                 "approver_user_id": owner.id}, p)
