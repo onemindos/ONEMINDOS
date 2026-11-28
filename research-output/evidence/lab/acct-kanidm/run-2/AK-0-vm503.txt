@@ -1,0 +1,19 @@
+# 2026-11-25T11:28:49Z environment: VM-503
++ grep -E '^PRETTY_NAME=' /etc/os-release; cat /etc/debian_version; uname -rm; nproc; free -m | head -2; df -h / | tail -1
+PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
+13.8
+6.12.118+deb13-cloud-amd64 x86_64
+2
+               total        used        free      shared  buff/cache   available
+Mem:            3922         378        1881           0        1910        3544
+/dev/sda1        20G  2.2G   17G  12% /
+  (exit 0)
++ chromium --version; chromedriver --version | head -1; python3 -c 'import selenium; print("selenium", selenium.__version__)'
+Chromium 156.0.8078.108 built on Debian GNU/Linux 13 (trixie)
+ChromeDriver 156.0.8078.108 (730482a940ce25ae7cf051320d8340e793acf8b9-refs/branch-heads/8078@{#2244})
+selenium 4.31.1
+  (exit 0)
++ sha256sum /root/aklab/debs/*.deb
+a6334593732750c63010b8321eb7dd6d37de5b5b5ead86f5559006b7ef038eb0  /root/aklab/debs/kanidm_1.12.0-202611010319+a52b723_amd64.deb
+2f64115bc56b751de7e69efd2417e95046766d7d7d9017053d8d42ba79c2c57f  /root/aklab/debs/kanidmd_1.12.0-202611010319+a52b723_amd64.deb
+  (exit 0)
