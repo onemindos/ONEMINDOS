@@ -56,3 +56,11 @@ def test_sqlite_ledger_uses_wal(tmp_path):
         assert c.exec_driver_sql("PRAGMA journal_mode").scalar() == "wal"
         assert c.exec_driver_sql("PRAGMA synchronous").scalar() == 2  # FULL
     engine.dispose()
+
+
+def test_sqlite_ledger_waits_for_a_writer_instead_of_failing_fast(tmp_path):
+    # SQLite's default lock wait is 5 s; a loaded box can hold a write longer (seen in CI, 2026-11-28).
+    engine = make_engine(f"sqlite:///{tmp_path}/ledger.db")
+    with engine.connect() as c:
+        assert c.exec_driver_sql("PRAGMA busy_timeout").scalar() >= 30_000  # milliseconds
+    engine.dispose()

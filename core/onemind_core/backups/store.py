@@ -11,13 +11,27 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, String, Text, delete, select, update
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, String, Text, delete, inspect, select, text, update
+from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..ledger import Base, iso, utc
 from ..store import FeatureSchema, SqlRepository
 
-SCHEMA = FeatureSchema("backups")  # version 1 = the shape below
+SCHEMA = FeatureSchema("backups")
+
+
+@SCHEMA.step(2, "widen backup byte counters to BIGINT on PostgreSQL")
+def _backups_v2(conn: Connection) -> None:
+    if conn.dialect.name != "postgresql":  # SQLite INTEGER already stores 64-bit values.
+        return
+
+    inspector = inspect(conn)
+    # create_all has already created any missing tables with BIGINT columns.
+    for table, name in (("backups_runs", "bytes_added"), ("backups_content_tier", "size_bytes")):
+        columns = {column["name"]: column["type"] for column in inspector.get_columns(table)}
+        if not isinstance(columns[name], BigInteger):
+            conn.execute(text(f"ALTER TABLE {table} ALTER COLUMN {name} TYPE BIGINT"))
 
 
 class DestinationRow(Base):
@@ -43,7 +57,7 @@ class RunRow(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     units: Mapped[list] = mapped_column(JSON)
     hooks: Mapped[list] = mapped_column(JSON)
-    bytes_added: Mapped[int | None] = mapped_column(nullable=True)
+    bytes_added: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
@@ -83,7 +97,7 @@ class ContentTierRow(Base):
     A new table, so create_all adds it to an existing database; no row means the tier is off."""
     __tablename__ = "backups_content_tier"
     app_id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    size_bytes: Mapped[int] = mapped_column()  # what the owner was shown when switching it on
+    size_bytes: Mapped[int] = mapped_column(BigInteger)  # what the owner was shown when switching it on
     action_id: Mapped[str] = mapped_column(String(36))
     enabled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 

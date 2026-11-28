@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Contributing to OneMind OS
 
-Thank you for helping. This page is the short version for people; AI coding agents follow [AGENTS.md](AGENTS.md) and [docs/leap/AGENT-QUEUE.md](docs/leap/AGENT-QUEUE.md), which say the same things in more detail.
+Thank you for helping. This page is the short version for people; AI coding agents follow [AGENTS.md](AGENTS.md) and [docs/leap/AGENT-QUEUE.md](docs/leap/AGENT-QUEUE.md), which say the same things in more detail. Read [docs/leap/BUILDER-BRIEFING.md](docs/leap/BUILDER-BRIEFING.md) before an OS or gateway change.
 
 ## Before you start
 
@@ -11,7 +11,7 @@ Thank you for helping. This page is the short version for people; AI coding agen
 
 ## Making a change
 
-1. Branch from a fresh `main`: `feat/…`, `fix/…`, `docs/…` or `ci/…`.
+1. Branch from a fresh `origin/release/next`: `feat/…`, `fix/…`, `docs/…` or `ci/…`. Open the PR against `release/next`; it lands on `main` through the merge queue. Use merge commits, and never rebase or force-push.
 2. Keep it to one issue, under about 600 changed lines. Split bigger work into several PRs.
 3. Add tests in the same PR. A new behaviour needs a test that fails without the change.
 4. Make it reachable: a route, a dashboard screen or an `onemind` command. No mock or sample data on a screen a user can reach.
@@ -31,7 +31,7 @@ make hygiene
 
 ## Opening the pull request
 
-Use the template (*Why / What / Tests / Not done*) and write `Closes #<issue>` or `Refs #<issue>`. CODEOWNERS requests the reviewer. A PR is merged only when every check is green and the review approves it.
+Use the template (*Why / What / Tests / Not done*) and write `Refs #<issue>`, never `Closes` (issues are closed by hand once the work is truly done). CODEOWNERS requests the reviewer. A PR is merged only when every check is green and the review approves it.
 
 ## Treat every commit as public
 

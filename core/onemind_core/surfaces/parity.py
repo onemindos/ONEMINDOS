@@ -197,6 +197,7 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/auth/login": CREDENTIAL,
     "POST /v1/auth/login/options": CREDENTIAL,
     "POST /v1/auth/logout": CREDENTIAL,
+    "GET /v1/auth/methods": CREDENTIAL,
     "GET /v1/auth/passkeys": CREDENTIAL,
     "POST /v1/auth/passkeys/register": CREDENTIAL,
     "POST /v1/auth/passkeys/register/options": CREDENTIAL,

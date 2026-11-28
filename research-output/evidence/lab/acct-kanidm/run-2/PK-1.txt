@@ -1,0 +1,38 @@
+# 2026-11-25T11:30:09Z PK-1: one canonical name, two access paths
++ grep -E '^(bindaddress|domain|origin)' /etc/kanidmd/server.toml; ss -ltn | grep 8443
+bindaddress = "0.0.0.0:8443"
+domain = "idm.onemind.test"
+origin = "https://idm.onemind.test:8443"
+LISTEN 0      128          0.0.0.0:8443      0.0.0.0:*   
+  (exit 0)
++ ip -br addr | grep -E 'v-ns|^lo'
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+v-nsl@if3        UP             192.0.2.1/24 fe80::40c0:30ff:fee2:6ab/64 
+v-nsm@if5        UP             198.51.100.1/24 fe80::8f0:7ff:fef0:d998/64 
+  (exit 0)
++ echo '== nsl resolves:'; ip netns exec nsl getent hosts idm.onemind.test; ip netns exec nsl curl -sS --cacert /etc/kanidm/ca.pem -o /dev/null -w 'status=%{http_code} server_addr=%{remote_ip} client_addr=%{local_ip} tls_verify=%{ssl_verify_result}\n' https://idm.onemind.test:8443/status; ip netns exec nsl curl -sS --cacert /etc/kanidm/ca.pem https://idm.onemind.test:8443/status; echo; ip netns exec nsl curl -sS --cacert /etc/kanidm/ca.pem -o /dev/null -w 'login page http=%{http_code}\n' https://idm.onemind.test:8443/ui/login
+== nsl resolves:
+192.0.2.1       idm.onemind.test
+status=200 server_addr=192.0.2.1 client_addr=192.0.2.2 tls_verify=0
+true
+login page http=200
+  (exit 0)
++ echo '== nsm resolves:'; ip netns exec nsm getent hosts idm.onemind.test; ip netns exec nsm curl -sS --cacert /etc/kanidm/ca.pem -o /dev/null -w 'status=%{http_code} server_addr=%{remote_ip} client_addr=%{local_ip} tls_verify=%{ssl_verify_result}\n' https://idm.onemind.test:8443/status; ip netns exec nsm curl -sS --cacert /etc/kanidm/ca.pem https://idm.onemind.test:8443/status; echo; ip netns exec nsm curl -sS --cacert /etc/kanidm/ca.pem -o /dev/null -w 'login page http=%{http_code}\n' https://idm.onemind.test:8443/ui/login
+== nsm resolves:
+198.51.100.1    idm.onemind.test idm.mesh.test mesh.idm.onemind.test
+status=200 server_addr=198.51.100.1 client_addr=198.51.100.2 tls_verify=0
+true
+login page http=200
+  (exit 0)
++ echo 'what kanidmd itself logged for those two requests (client address as seen by the server):'; timeout 20 journalctl -u kanidmd --no-pager -o cat | grep 'uri: /ui/login' | grep -oE 'uri: /ui/login|client_address: "[0-9.]+"' | paste - - | tail -2
+what kanidmd itself logged for those two requests (client address as seen by the server):
+uri: /ui/login	client_address: "192.0.2.2"
+uri: /ui/login	client_address: "198.51.100.2"
+  (exit 0)
++ ip netns exec nsl ping -c1 -W2 198.51.100.1 || echo 'the LAN client has no route to the mesh address (paths are separate)'
+ping: connect: Network is unreachable
+the LAN client has no route to the mesh address (paths are separate)
+  (exit 0)
++ openssl x509 -in /etc/kanidmd/chain.pem -noout -ext subjectAltName | tail -1
+    DNS:idm.onemind.test, DNS:idm.mesh.test, DNS:mesh.idm.onemind.test, DNS:localhost, IP Address:127.0.0.1
+  (exit 0)

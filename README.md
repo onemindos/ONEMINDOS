@@ -19,8 +19,31 @@
 | **SDK and contracts** | OpenAPI spec, generated clients, app manifest schema. | [`sdk/`](sdk/) |
 | **Install and deploy** | Developer install on a stock Debian, and a Docker hub for a laptop. | [`deploy/`](deploy/) |
 | **Website** | Landing page, docs and the apps catalogue (Astro). | [`site/`](site/) |
+| **Mac client** | Native Finder location for a OneMind box (Swift spike). | [`desktop-mac/`](desktop-mac/) |
 
 The foundation choices (Debian 13, RAUC A/B, k3s, NATS, restic backups, plugin sockets E1–E10, the capability gateway) are locked founder decisions: see [docs/DECISIONS.md](docs/DECISIONS.md).
+
+## Repo map
+
+| Directory | One line |
+|---|---|
+| `os/` | OS image: rootfs layers, board files, RAUC, update channel |
+| `core/` | Gateway (Python, FastAPI) |
+| `cmd/`, `internal/` | `onemindd` node daemon and `onemind` CLI (Go) |
+| `sdk/` | OpenAPI spec (committed), generated clients, app manifest schema |
+| `dashboard/`, `ui/` | Web dashboard (the desktop front door) and the design system |
+| `mobile/`, `desktop/`, `desktop-mac/` | Phone app (Expo), desktop app (Tauri), Mac Finder client (Swift) |
+| `apps/` | Market apps, scanned and licence-checked in CI |
+| `deploy/` | Developer install script and the Docker compose hub |
+| `site/`, `tips/`, `brand/` | Website (Astro), in-product tips, brand assets |
+| `test/`, `tests/e2e/` | Unit, acceptance and QEMU suites; Playwright end-to-end |
+| `lab-kits/` | Scripts for testing on real hardware |
+| `scripts/`, `changes/` | Repo tooling; one change fragment per PR |
+| `docs/`, `context/`, `research/`, `research-output/` | Requirements, decisions and plans; research behind them (`context/` is protected) |
+
+## Branches and landing
+
+Branch from `release/next` and open the pull request against `release/next` (draft first). Work lands on `release/next`, and `release/next` lands on `main` through the GitHub merge queue. Use merge commits; never rebase or force-push. Write `Refs #n`, not `Closes #n` (issues are closed by hand). Details: [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/leap/BUILDER-BRIEFING.md](docs/leap/BUILDER-BRIEFING.md).
 
 ## Try it
 
@@ -56,10 +79,10 @@ On a Mac, the tool setup is in [docs/learning/mac-dev-loop.md](docs/learning/mac
 | Path | What |
 |---|---|
 | [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) | Requirements with IDs: the source of truth for *what* we build |
-| [docs/DECISIONS.md](docs/DECISIONS.md) | Founder decisions D-001 to D-014 |
+| [docs/DECISIONS.md](docs/DECISIONS.md) | Founder decisions D-001 to D-031 (no D-030) |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/architecture/](docs/architecture/) | Architecture. Where they differ, D-007 and the code in `os/` win |
 | [docs/security/](docs/security/) | Threat model and hardening backlog |
-| [docs/leap/](docs/leap/) | The build plan: [status board](docs/leap/STATUS.md), [agent work queue](docs/leap/AGENT-QUEUE.md), [what is left](docs/leap/CONTINUE.md) |
+| [docs/leap/](docs/leap/) | The build plan: [status board](docs/leap/STATUS.md), [agent work queue](docs/leap/AGENT-QUEUE.md), [builder briefing](docs/leap/BUILDER-BRIEFING.md), [alpha checklist](docs/leap/ALPHA-CHECKLIST.md) |
 | [docs/learning/](docs/learning/) | Plain-language lessons on how the OS works |
 | [research-output/](research-output/), [research/](research/), [context/](context/) | The research behind the decisions (competitors, base OS, 180-day plan) |
 | [CHANGELOG.md](CHANGELOG.md), [changes/](changes/) | What changed, and the per-PR change fragments that feed it |
@@ -67,7 +90,7 @@ On a Mac, the tool setup is in [docs/learning/mac-dev-loop.md](docs/learning/mac
 
 ## Contributing
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md). In short: one issue per PR, tests in the same PR, a change fragment in `changes/`, and every commit signed off (`git commit -s`). AI coding agents start with [AGENTS.md](AGENTS.md).
+Read [CONTRIBUTING.md](CONTRIBUTING.md). In short: PRs go into `release/next`, one issue per PR, tests in the same PR, a change fragment in `changes/`, and every commit signed off (`git commit -s`). AI coding agents start with [AGENTS.md](AGENTS.md) and [docs/leap/BUILDER-BRIEFING.md](docs/leap/BUILDER-BRIEFING.md).
 
 ## Security
 
