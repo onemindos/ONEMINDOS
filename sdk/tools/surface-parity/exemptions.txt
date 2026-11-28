@@ -42,7 +42,6 @@ group m5-step-up-owner-screens issue=#1214 M5: app sharing and standing approval
 dashboard approvals.policies.create m5-step-up-owner-screens
 dashboard approvals.policies.delete m5-step-up-owner-screens
 dashboard approvals.policies.confirm m5-step-up-owner-screens
-dashboard apps.access.set m5-step-up-owner-screens
 cli approvals.policies.create m5-step-up-owner-screens
 cli approvals.policies.confirm m5-step-up-owner-screens
 cli apps.access.set m5-step-up-owner-screens
@@ -216,8 +215,6 @@ group found-owner-screens issue=#1244 Found by the ratchet (not in the 2026-11-2
 dashboard agents.budget.set found-owner-screens
 dashboard agents.cancel found-owner-screens
 dashboard agents.get found-owner-screens
-dashboard agents.inputs.get found-owner-screens
-dashboard agents.inputs.set found-owner-screens
 dashboard agents.nats_key.delete found-owner-screens
 dashboard agents.nats_key.get found-owner-screens
 dashboard agents.nats_key.set found-owner-screens
@@ -449,6 +446,9 @@ indirect dashboard photos.library Photos.tsx sends GET through client.call with 
 indirect dashboard photos.asset_content Photos.tsx fetches GET (fetch default) with the bearer token
 indirect dashboard tls.ca TrustThisBox.tsx links CA_URL with a download anchor (GET)
 indirect dashboard tls.profile TrustThisBox.tsx links PROFILE_URL with a download anchor (GET)
+indirect dashboard apps.access.set PermissionEditors.tsx sends PUT through client.call with the path variable
+indirect dashboard agents.inputs.get PermissionEditors.tsx sends GET through client.call with the path variable
+indirect dashboard agents.inputs.set PermissionEditors.tsx sends PUT through client.call with the path variable
 indirect dashboard system.journal.read LogViewer.tsx reads the journal with fetch() (GET, the SDK client speaks JSON only) on the URL query() builds
 indirect mobile files.download FilesScreen.tsx downloads (GET) the url filesDownloadRequest returns
 # cmd/onemind/cli: the path is a constant or an argument of a helper that takes the method.
