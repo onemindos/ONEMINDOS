@@ -35,8 +35,11 @@ it('restores the Home command bar from the signed-in person’s appearance choic
   expect(await screen.findByRole('combobox')).toBeVisible();
 });
 
-it('keeps the Search button on Pro Home while the command bar is off', async () => {
+it('keeps search one click away on the desktop while the command bar is off', async () => {
   renderApp({ token: 'owner-demo', route: '/' });
-  expect(await screen.findByRole('button', { name: /Search apps, nodes and settings/ })).toBeVisible();
+  // The Atlas desktop Home has no search field of its own: search lives in the menu bar.
+  await screen.findByRole('heading', { level: 1, name: /^Good/ });
+  expect(screen.queryByRole('button', { name: /Search apps, nodes and settings/ })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Search (Ctrl K)' })).toBeVisible();
   expect(screen.queryByRole('group', { name: 'Home commands' })).toBeNull();
 });

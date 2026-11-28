@@ -9,7 +9,7 @@
 // one colour per screen, approvals first.
 // Links are plain anchors: Shell's click handler routes them without a page reload.
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { useLocation } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { flushSync } from 'react-dom';
 import { WindowFrame } from './wm/WindowFrame';
 import { useWindows } from './wm/useWindows';
@@ -17,7 +17,7 @@ import { WORKSPACES, onWorkspace, position, toggleMax } from './wm/store';
 import { LAYOUT_LABELS, nextLayout } from './wm/tiling';
 import { useKeymap } from './keys/useKeymap';
 import { ShortcutSheet } from './keys/ShortcutSheet';
-import { routeFor } from './wm/ScreenRoutes';
+import { routeFor, ScreenRoutes } from './wm/ScreenRoutes';
 import './wm/wm.css';
 import { AppIcon, BrandMark, Icon, type NavItem } from '@onemind/ui';
 import { DOCK_ORDER, HUES } from '../screens/registry';
@@ -307,9 +307,14 @@ function Launchpad({ nav, apps, onClose, onShortcuts }: { nav: NavItem[]; apps: 
 export function DesktopShell(props: DesktopShellProps) {
   const { boxName, status, bell, nav, current, pinned = [], apps = [], now, timeZone, person, displayName, demo, onSearch, onConsoleView, onSignOut, onLock, children } = props;
   const location = useLocation();
+  const navigate = useNavigate();
   const atHome = current === 'home';
   const wm = useWindows();
   const managed = !!routeFor(location.pathname);
+  // Home loads once the person has been on the desktop: a deep link opens just its window over the
+  // wallpaper, and a phone (every window full screen) never pays for a Home nobody can see.
+  const [desktopSeen, setDesktopSeen] = useState(atHome);
+  if (atHome && !desktopSeen) setDesktopSeen(true);
   function closeWindow(id: string) {
     const frame = rootRef.current?.querySelector<HTMLElement>(`[data-window-id="${id}"]`);
     if (document.startViewTransition && frame && window.matchMedia?.('(prefers-reduced-motion: no-preference)').matches) {
@@ -400,14 +405,22 @@ export function DesktopShell(props: DesktopShellProps) {
         </div>
       </header>
 
-      {(atHome || !managed) && <main id="om-main" tabIndex={-1} className="dsk-desktop">{children}</main>}
-      <main id={managed ? 'om-main' : undefined} tabIndex={-1} className="dsk-stage wm-stage" hidden={atHome || !managed}>
+      {/* The desktop (Home) stays painted under the windows, so a window opens over the wallpaper and the
+          tile column instead of replacing them. While a window has focus the desktop is inert, and a click on
+          the bare wallpaper comes back to it. One element in both cases, so Home never remounts. */}
+      {atHome || managed ? (
+        <div id={managed ? undefined : 'om-main'} role={managed ? undefined : 'main'} tabIndex={-1} className="dsk-desktop" inert={managed} aria-hidden={managed || undefined}>
+          {(atHome || (desktopSeen && !wm.narrow)) && <ScreenRoutes location="/" />}
+        </div>
+      ) : <main id="om-main" tabIndex={-1} className="dsk-desktop">{children}</main>}
+      <div id={managed ? 'om-main' : undefined} role={managed ? 'main' : undefined} tabIndex={-1} className="dsk-stage wm-stage" hidden={!atHome && !managed}
+        onPointerDown={(e) => { if (managed && e.target === e.currentTarget) navigate('/'); }}>
         {[...wm.windows].reverse().map((item, index) => <WindowFrame z={wm.windows.length - index} key={item.id} item={item} active={wm.active === item.id} narrow={wm.narrow} here={item.ws === wm.workspace} tile={wm.tiles[item.id]}
           onSend={n => wm.sendWindow(item.id, n)}
           onPosition={rect => wm.update(position(wm.windows, item.id, rect))}
           onMax={() => wm.update(toggleMax(wm.windows, item.id))}
           onMinimise={() => wm.dismiss(item.id, true)} onClose={() => closeWindow(item.id)} />)}
-      </main>
+      </div>
 
       <nav className="dsk-dock" aria-label="Main">
         <ul className="dsk-dock-group">

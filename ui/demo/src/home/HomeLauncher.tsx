@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Demo of the Home launcher on fixtures. `#/home/<variant>` shows a state:
-// edit, loading, offline, errors, fresh. Approve/Deny only change local demo state and say
+// edit, loading, offline, errors, fresh; desktop and desktop-edit show the Atlas desktop Home. Approve/Deny only change local demo state and say
 // which API call the dashboard would make; nothing talks to a gateway.
 import { useMemo, useState } from 'react';
 import { useToast } from '../../../src/components/Toast';
 import { equivalentCall, type ActionSummary } from '../../../src/components/ApprovalCard';
 import { useOptionalCustomize } from '../../../src/customize/CustomizeProvider';
+import { DesktopHome } from '../../../src/home/DesktopHome';
 import { HomeScreen } from '../../../src/home/HomeScreen';
 import { DEFAULT_LAYOUT, browserLayoutStore, type HomeLayout } from '../../../src/home/layout';
 import type { HomeData } from '../../../src/home/types';
@@ -44,6 +45,27 @@ export function HomeLauncher({ variant }: { variant?: string }) {
       }),
     [data.apps, data.approvals],
   );
+
+  if (variant === 'desktop' || variant === 'desktop-edit') {
+    return (
+      <DesktopHome
+        data={data}
+        now={NOW}
+        timeZone={TIME_ZONE}
+        personName={PERSON.name}
+        layout={layout}
+        onLayoutChange={(next) => {
+          setLayout(next);
+          store.save(PERSON.id, next);
+        }}
+        defaultLayout={demoLayout}
+        canDecide={{ allowed: true }}
+        onApprove={(a) => decide(a, 'approve')}
+        onDeny={(a) => decide(a, 'deny')}
+        initialEditing={variant === 'desktop-edit'}
+      />
+    );
+  }
 
   return (
     <>

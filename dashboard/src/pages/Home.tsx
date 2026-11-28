@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Home launcher (IA §2.1) on @onemind/ui HomeScreen, fed by /v1/nodes, /v1/apps and /v1/actions.
 // Backups, updates and mesh read /v1/backups/status, /v1/os/updates and /v1/mesh (data/homeExtras).
+// On the desktop layout Home is the Atlas desktop itself (DesktopHome: a column of tiles on the
+// wallpaper, windows over the rest); the Console layout keeps the launcher page (HomeScreen).
 import { useMemo, useState, type ReactNode } from 'react';
-import { HomeScreen, StateView, useOptionalCustomize, useToast, type ActionSummary, type BackupStatus, type StorageStatus, type HomeData, type HomeLayout, type HomeLoadable } from '@onemind/ui';
+import { DesktopHome, HomeScreen, StateView, useOptionalCustomize, useToast, type ActionSummary, type BackupStatus, type StorageStatus, type HomeData, type HomeLayout, type HomeLoadable } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import { useHomeExtras } from '../data/homeExtras';
 import { homeActivity, toActionSummary, toHomeApp, toHomeNode } from '../data/adapters';
@@ -21,6 +23,7 @@ import { HomeCommandBar } from './HomeCommandBar';
 import { HomeHealth } from './HomeHealth';
 import { SimpleHome } from './SimpleHome';
 import { HomeRecent } from './HomeRecent';
+import './home-desktop.css';
 
 /**
  * Home's first layout: "Needs you" and System on top, then a trust tile, Storage and Backups for
@@ -107,24 +110,65 @@ function ProHome({ commandBar }: { commandBar: ReactNode }) {
       },
     );
 
+  const canDecide = hub.canDecide === 'no' ? { allowed: false as const, reason: 'Only the owner can approve or deny.' } : { allowed: true as const };
+  const onRetry = () => {
+    hub.reloadAll();
+    void backups.reload();
+    void storage.reload();
+  };
+  const onLayoutChange = (next: HomeLayout) => {
+    setLayout(next);
+    store.save(person, next);
+  };
+  const links = {
+    approvals: href.approvals,
+    // Nodes and Backups are Pro screens (roles.ts): a guest or child gets no link to them.
+    nodes: pro ? href.nodes : '',
+    activity: href.activity,
+    backups: pro ? href.backups : '',
+    updates: href.updates,
+    mesh: pro ? href.nodes : '',
+    apps: href.market,
+    storage: pro ? href.storage : '',
+    app: (id: string) => (hub.apps.data?.find((a) => a.id === id)?.installed ? href.manage(id) : href.app(id)),
+    approval: (id: string) => href.approval(id),
+  };
+
+  if (shell.layout === 'desktop') {
+    // IA §2.1 on the Atlas desktop: the greeting, then box health, then the tiles; recent visits last.
+    return (
+      <DesktopHome
+        data={{ ...data, boxStatus }}
+        now={hub.now}
+        timeZone={Intl.DateTimeFormat().resolvedOptions().timeZone}
+        personName={personName}
+        layout={layout}
+        onLayoutChange={onLayoutChange}
+        defaultLayout={dashboardHomeLayout(pro)}
+        canDecide={canDecide}
+        onApprove={(a) => void decide(a, 'approve')}
+        onDeny={(a) => void decide(a, 'deny')}
+        busy={hub.busy}
+        onRetry={onRetry}
+        commandBar={commandBar}
+        status={<HomeHealth pro={pro} status={boxStatus} />}
+        footer={<HomeRecent />}
+        links={links}
+      />
+    );
+  }
+
   return (
     <HomeScreen
       data={{ ...data, boxStatus }}
       now={hub.now}
       timeZone={Intl.DateTimeFormat().resolvedOptions().timeZone}
       personName={personName}
-      onRetry={() => {
-        hub.reloadAll();
-        void backups.reload();
-        void storage.reload();
-      }}
+      onRetry={onRetry}
       layout={layout}
-      onLayoutChange={(next) => {
-        setLayout(next);
-        store.save(person, next);
-      }}
+      onLayoutChange={onLayoutChange}
       wallpaper={customize && customize.prefs.wallpaper !== 'none' ? 'host' : 'tide'}
-      canDecide={hub.canDecide === 'no' ? { allowed: false, reason: 'Only the owner can approve or deny.' } : { allowed: true }}
+      canDecide={canDecide}
       onApprove={(a) => void decide(a, 'approve')}
       onDeny={(a) => void decide(a, 'deny')}
       busy={hub.busy}
@@ -134,19 +178,7 @@ function ProHome({ commandBar }: { commandBar: ReactNode }) {
       footer={<HomeRecent />}
       onOpenSearch={shell.openPalette}
       showDock={shell.layout === 'console'}
-      links={{
-        approvals: href.approvals,
-        // Nodes and Backups are Pro screens (roles.ts): a guest or child gets no link to them.
-        nodes: pro ? href.nodes : '',
-        activity: href.activity,
-        backups: pro ? href.backups : '',
-        updates: href.updates,
-        mesh: pro ? href.nodes : '',
-        apps: href.market,
-        storage: pro ? href.storage : '',
-        app: (id) => (hub.apps.data?.find((a) => a.id === id)?.installed ? href.manage(id) : href.app(id)),
-        approval: (id) => href.approval(id),
-      }}
+      links={links}
     />
   );
 }

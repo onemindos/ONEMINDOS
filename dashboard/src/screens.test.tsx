@@ -26,7 +26,10 @@ describe('Home', () => {
   it('shows the launcher fed by nodes, apps and actions, and passes axe', async () => {
     const { container } = renderApp({ token: 'owner-demo' });
     expect((await screen.findAllByText(/install ollama/i, {}, T)).length).toBeGreaterThan(0);
-    expect(await screen.findByRole('link', { name: /Uptime Kuma/ }, T)).toBeInTheDocument();
+    expect(await seriousViolations(container)).toEqual([]);
+    // Installed apps feed the dock part of Home's edit mode (the desktop has no app grid on Home).
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Edit Home and dock' }));
+    expect(await screen.findByRole('button', { name: 'Uptime Kuma in the dock' }, T)).toBeInTheDocument();
     expect(await seriousViolations(container)).toEqual([]);
   });
 
@@ -48,7 +51,8 @@ describe('Home', () => {
       const firstClient = renderApp({ token: 'owner-demo', route: '/installed', mock: false });
       const dock = within(await screen.findByRole('navigation', { name: 'Main' }, T));
       const market = dock.getByRole('link', { name: 'Market' });
-      expect(fetch.mock.calls.some(([url]) => new URL(String(url)).pathname === '/v1/me/home')).toBe(false);
+      // Home stays painted under the window and reads its recent list, but a direct load writes nothing.
+      expect(fetch.mock.calls.some(([url, init]) => new URL(String(url)).pathname === '/v1/me/home' && init?.method === 'PUT')).toBe(false);
       market.focus();
       await userEvent.setup().keyboard('{Enter}');
       await waitFor(() => expect(recent).toEqual(['sys:market']), T);
@@ -273,12 +277,14 @@ describe('one notification centre', () => {
     expect(within(card).getAllByText('Unknown')).toHaveLength(1);
     expect(within(card).getByText('The box has not reported its status yet.')).toBeInTheDocument();
     expect(card.querySelector('.om-tone-ok')).toBeNull();
-    // IA §2.1: the greeting comes first, then Box health; Recent is at the end, after the apps.
+    // IA §2.1: the greeting comes first, then Box health; Recent is at the end, after the tiles.
     const greeting = screen.getByRole('heading', { level: 1, name: /Good/ });
     expect(greeting.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const recent = screen.getByRole('region', { name: 'Recent' });
-    const apps = screen.getByRole('heading', { name: 'Your apps' });
-    expect(apps.compareDocumentPosition(recent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const tiles = screen.getByRole('region', { name: 'Home tiles' });
+    expect(tiles.compareDocumentPosition(recent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The Atlas desktop has no app grid on Home: apps live in the dock and the launcher.
+    expect(screen.queryByRole('heading', { name: 'Your apps' })).toBeNull();
     // "Needs you" lists no Unknown bullets; the waiting request is in the card.
     const needs = within(screen.getByRole('region', { name: /Needs you/ }));
     expect(needs.queryAllByText('Unknown')).toHaveLength(0);
