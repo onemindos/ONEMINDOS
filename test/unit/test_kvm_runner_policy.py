@@ -37,7 +37,7 @@ class KvmRunnerPolicy(unittest.TestCase):
     def test_the_x86_kvm_jobs_use_it(self):
         found = {(wf, name) for wf, _, name, _ in kvm_jobs()}
         for want in [("image.yml", "image"), ("image.yml", "smoke"), ("image.yml", "cloud"),
-                     ("image.yml", "installer"), ("battery.yml", "battery"), ("ci-apps.yml", "gate")]:
+                     ("image.yml", "installer"), ("battery.yml", "battery"), ("ci-apps.yml", "gate-kvm")]:
             self.assertIn(want, found)
 
     def test_selection_is_exactly_the_reviewed_expression(self):
@@ -51,12 +51,35 @@ class KvmRunnerPolicy(unittest.TestCase):
             ("image.yml", "smoke"): f"${{{{ ({kvm}) && {sel} || 'ubuntu-24.04' }}}}",
             ("image.yml", "cloud"): f"${{{{ ({kvm}) && {sel} || 'ubuntu-24.04' }}}}",
             ("image.yml", "installer"): f"${{{{ ({kvm}) && {sel} || 'ubuntu-24.04' }}}}",
-            ("ci-apps.yml", "gate"): f"${{{{ ({kvm}) && {sel} || 'ubuntu-24.04' }}}}",
             ("battery.yml", "battery"): (f"${{{{ (inputs.runner == 'ubuntu-24.04' && github.workflow != 'security-nightly' && "
                                          f"{kvm}) && {sel} || inputs.runner }}}}"),
         }
+        # ci-apps gate-kvm: a fixed runner list, with the whole trust expression in its `if` (and the hosted twin
+        # `gate` taking exactly the opposite), so the KVM job and the hosted job can never both run or both skip.
         got = {(wf, name): job["runs-on"] for wf, _, name, job in kvm_jobs()}
+        apps = yaml.safe_load((WF / "ci-apps.yml").read_text())["jobs"]
+        self.assertEqual(got.pop(("ci-apps.yml", "gate-kvm")), ["self-hosted", "onemind-kvm"])
+        self.assertTrue(apps["gate-kvm"]["if"].endswith(f"&& ({kvm}) }}}}"), apps["gate-kvm"]["if"])
+        self.assertTrue(apps["gate"]["if"].endswith(f"&& !({kvm}) }}}}"), apps["gate"]["if"])
+        self.assertEqual(apps["gate"]["runs-on"], "ubuntu-24.04")
         self.assertEqual(got, want)
+
+    def test_gate_kvm_is_the_hosted_gate_without_its_secret(self):
+        apps = yaml.safe_load((WF / "ci-apps.yml").read_text())["jobs"]
+        hosted, kvm = apps["gate"], apps["gate-kvm"]
+        # The hosted twin keeps the Docker Hub login (D18); the KVM job must not mention a secret at all, because a
+        # job that mentions one gets it delivered to its runner even when the step is skipped.
+        self.assertTrue(any("docker/login-action" in str(s.get("uses", "")) for s in hosted["steps"]))
+        self.assertNotIn("HAS_DOCKERHUB", kvm.get("env", {}))
+        self.assertNotRegex(json.dumps(kvm), SECRET_USE)
+        # Same work: the KVM steps are the hosted steps minus the login, plus the host clean-up bookends.
+        steps = [s for s in hosted["steps"] if "docker/login-action" not in str(s.get("uses", ""))]
+        core = [s for s in kvm["steps"] if "k3d-gate" not in s.get("run", "")]
+        self.assertEqual(core, steps)
+        self.assertEqual(kvm["strategy"]["max-parallel"], 12)
+        self.assertEqual(hosted["strategy"]["max-parallel"], 4)
+        self.assertEqual(kvm["strategy"]["matrix"], hosted["strategy"]["matrix"])
+        self.assertEqual(kvm["needs"], hosted["needs"])
 
     def test_every_self_hosted_job_is_a_reviewed_one(self):
         # Runners carry only self-hosted + their own label, but a job asking for [self-hosted] alone
@@ -70,30 +93,10 @@ class KvmRunnerPolicy(unittest.TestCase):
     def test_no_job_that_can_pick_it_can_read_a_secret(self):
         for wf, d, name, job in kvm_jobs():
             where = f"{wf}:{name}"
-            # The one reviewed exception: the gate's optional Docker Hub login, which must be skipped on self-hosted
-            # runners (test_gate_docker_hub_login_never_runs_on_self_hosted pins that), plus the flag it reads.
-            body = {k: v for k, v in job.items() if k != "steps"}
-            steps = list(job.get("steps", []))
-            if (wf, name) == ("ci-apps.yml", "gate"):
-                steps = [x for x in steps if "docker/login-action" not in str(x.get("uses", ""))]
-                body["env"] = {k: v for k, v in job.get("env", {}).items() if k != "HAS_DOCKERHUB"}
-            body["steps"] = steps
-            self.assertNotRegex(json.dumps(body), SECRET_USE, where)
+            self.assertNotRegex(json.dumps(job), SECRET_USE, where)
             self.assertNotRegex(json.dumps(d.get("env", {})), SECRET_USE, f"{wf} top-level env")
             self.assertNotIn("environment", job, where)
-            if (wf, name) != ("ci-apps.yml", "gate"):
-                self.assertNotIn("docker/login-action", json.dumps(job), where)
-
-    def test_gate_docker_hub_login_never_runs_on_self_hosted(self):
-        job = yaml.safe_load((WF / "ci-apps.yml").read_text())["jobs"]["gate"]
-        env_secret = [k for k, v in job.get("env", {}).items() if SECRET_USE.search(str(v))]
-        self.assertEqual(env_secret, ["HAS_DOCKERHUB"])
-        logins = [x for x in job["steps"] if "docker/login-action" in str(x.get("uses", ""))]
-        self.assertEqual(len(logins), 1)
-        self.assertTrue(logins[0]["if"].startswith("runner.environment != 'self-hosted' &&"), logins[0]["if"])
-        # nothing else in the job may touch a secret
-        rest = [x for x in job["steps"] if x not in logins]
-        self.assertNotRegex(json.dumps(rest), SECRET_USE)
+            self.assertNotIn("docker/login-action", json.dumps(job), where)
 
     def test_no_caller_hands_the_battery_a_secret(self):
         for wf, d in workflows():
