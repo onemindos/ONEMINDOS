@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """A small background clock for recovery: close lapsed requests and send the notices due during a wait.
 
-Every route also catches up lazily, so a stopped ticker only delays a reminder; it never lets a wait
-end early (a wait ends at its not_before time whatever the ticker does)."""
+Run a pass on startup to pick up notices left by the previous gateway process.
+The wait ends at its not_before time whatever the ticker does."""
 
 from __future__ import annotations
 
@@ -33,9 +33,10 @@ class Ticker:
             self._thread = None
 
     def _run(self) -> None:
-        while not self._stop.wait(self.every_s):
+        while not self._stop.is_set():
             for job in self.jobs:
                 try:
                     job()
                 except Exception:  # one bad tick must not stop the clock
                     log.exception("recovery tick failed")
+            self._stop.wait(self.every_s)

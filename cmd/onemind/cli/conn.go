@@ -84,7 +84,7 @@ func readSecretLine(r io.Reader) (string, error) {
 	return tok, nil
 }
 
-func (a *App) clientFor(t *target) (*onemind.Client, error) {
+func (a *App) clientFor(t *target, extra ...onemind.Option) (*onemind.Client, error) {
 	opts := []onemind.Option{
 		onemind.WithToken(t.token), onemind.WithTimeout(a.G.Timeout), onemind.WithPrincipal(t.principal),
 		onemind.WithUserAgent("onemind-cli/" + version.Version),
@@ -99,7 +99,7 @@ func (a *App) clientFor(t *target) (*onemind.Client, error) {
 			fmt.Fprintf(a.Stderr, "%s %s %d %s (Authorization redacted)\n", method, path, status, d.Round(time.Millisecond))
 		}))
 	}
-	c, err := onemind.New(t.hub, opts...)
+	c, err := onemind.New(t.hub, append(opts, extra...)...)
 	if err != nil {
 		return nil, exitWith(ExitUsage, "usage", err.Error())
 	}
