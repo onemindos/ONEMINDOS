@@ -22,6 +22,8 @@ echo "== every NATS subject in code is in the subject tree (#600, sdk/schema/one
 python3 -I sdk/tools/subject-lint || rc=1
 echo "== notification alerts have a fix action or help link (#684)"
 python3 -I core/onemind_core/notify/catalogue.py || rc=1
+echo "== engine register and D-032 licences"
+python3 -I scripts/check-engines.py || rc=1
 echo "== no naive gate outside test fixtures (B5)"
 if git grep -n 'NAIVE' -- os/ | grep -v 'assemble.py'; then echo "naive gate code in os/"; rc=1; fi
 echo "== no Ubuntu image is uploaded (Z-01)"
