@@ -167,7 +167,10 @@ def register(app: FastAPI, gw: Gateway) -> None:
             verified_presence=bool(getattr(request.state, "action_bound_proof", False)),
             hold_ms=body.hold_ms if body else None,
         )
-        return actions.approve(p, action_id, body.plan_sha256 if body else None, strict, extra)
+        action = actions.approve(p, action_id, body.plan_sha256 if body else None, strict, extra)
+        for observe in gw.approval_observers:
+            observe(request, p, action)
+        return action
 
     @app.post(
         "/v1/actions/{action_id}/deny", tags=["actions"], operation_id="actions.deny",

@@ -4,7 +4,8 @@ import { Button, QrSvg } from '@onemind/ui';
 import type { components } from '@onemind/sdk';
 import type { WiringApi } from '../api/wiring';
 import { t } from '../i18n';
-import { createPasskey, webauthnSupported } from '../lib/webauthn';
+import { registerPasskey } from '../lib/registerPasskey';
+import { webauthnSupported } from '../lib/webauthn';
 import { TextField, useBusy } from './parts';
 
 export function IdentityFactors({ api, totp, email, emailVerified, offerEmail, offerPasskey, reload }: {
@@ -136,8 +137,7 @@ export function IdentityFactors({ api, totp, email, emailVerified, offerEmail, o
       {offerPasskey && <section>
         <h3>{t('account.passkeys')}</h3>
         {passkeyAdded ? <p>{t('account.passkeys.added')}</p> : webauthnSupported() ? <Button disabled={busy} onClick={() => attempt(async () => {
-          const options = await api.passkeyRegisterOptions();
-          await api.passkeyRegister(await createPasskey(options.publicKey));
+          await registerPasskey(api);
           setPasskeyAdded(true);
         })}>{t('account.passkeys.add')}</Button> : <p className="om-hint">{t('account.passkeys.unsupported')}</p>}
       </section>}

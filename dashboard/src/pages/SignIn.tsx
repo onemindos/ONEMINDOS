@@ -225,7 +225,7 @@ export function SignIn({ mock, lockedBox, onReturnToLock, switchPerson, onEnroll
         {view === 'signin' && (
           <>
             <h1>{lockedBox ? (switchPerson ? t('lock.switchPerson') : t('lock.unlockTitle', { name: lockedBox })) : t('signin.title', { name: boxName || brand.shortName })}</h1>
-            <p className="om-hint">{t('signin.lede')}</p>
+            <p className="om-hint">{passkeyOk ? t('signin.lede') : t('signin.passwordOnly')}</p>
             {mock && !lockedBox && !chipGone && (
               <p id={hintId} className="dash-chip">
                 <span>{t('signin.mockHint')}</span>
@@ -242,12 +242,12 @@ export function SignIn({ mock, lockedBox, onReturnToLock, switchPerson, onEnroll
               <Button type="submit" variant="primary" disabled={busy}>{t('signin.account.submit')}</Button>
             </form>
             {passkeyOk && <Button onClick={onPasskey} disabled={busy}>{t('signin.passkey')}</Button>}
-            <details className="dash-signin-more" open={mock || undefined}>
+            <details className="dash-signin-more" open={!passkeyOk || undefined}>
               <summary>{t('signin.more')}</summary>
               <form onSubmit={onToken} noValidate className="dash-signin-form">
                 <h2 className="dash-signin-sub">{t('signin.token.heading')}</h2>
                 <Field label={t('signin.token.label')} name="token" type="password" autoComplete="off" value={token} onChange={setToken} invalid={bad('token')} describedBy={describe('token', mock && !lockedBox && !chipGone ? hintId : undefined)} />
-                <Button type="submit" variant="primary" disabled={busy}>
+                <Button type="submit" disabled={busy}>
                   {busy ? t('signin.busy') : t('signin.token.submit')}
                 </Button>
               </form>

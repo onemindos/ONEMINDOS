@@ -47,7 +47,7 @@ export function PasswordRecovery({ api, onBack }: { api: WiringApi; onBack: () =
     });
   };
   return <>
-    <h1>{t(replacement ? 'recovery.done' : 'recovery.title')}</h1>
+    <h1>{replacement ? t('recovery.done') : t('recovery.title')}</h1>
     {replacement ? <>
       <p>{t('recovery.replace')}</p>
       <RecoveryKit kit={{ recovery_code: replacement, disk_recovery_key: null }} busy={false} onSaved={onBack} />

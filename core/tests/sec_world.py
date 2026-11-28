@@ -169,7 +169,21 @@ class World:
         return r.json()["id"]
 
     def owner_approve(self, action_id: str) -> dict:
-        r = self.client.post(f"/v1/actions/{action_id}/approve", headers=self.static("owner"))
+        path = f"/v1/actions/{action_id}"
+        owner = self._identity.get("owner")
+        if owner is None:
+            r = self.client.post(f"{path}/approve", headers=self.static("owner"))
+        else:
+            from test_identity import box_code
+
+            options = self.client.post(f"{path}/approve-options", headers=owner)
+            assert options.status_code == 200, options.text
+            opts = options.json()
+            proof = {"webauthn": self._identity["passkey"].assert_(opts["publicKey"]["challenge"]),
+                     "plan_sha256": opts["plan_sha256"]}
+            if opts["box_code_required"]:
+                proof["box_code"] = box_code(self.client)
+            r = self.client.post(f"{path}/approve", headers=owner, json=proof)
         assert r.status_code == 200, r.text
         return r.json()
 
@@ -334,9 +348,14 @@ class World:
 
     def id_user(self, role: str = "guest") -> tuple[str, str]:
         """(user id, enrolment code) of a new household member, created by the household owner."""
-        r = self.client.post("/v1/users/invites", headers=self._identity_owner(),
+        owner = self._identity_owner()
+        r = self.client.post("/v1/users/invites", headers=owner,
                              json={"display_name": "Probe", "role": role})
-        assert r.status_code == 201, r.text
+        assert r.status_code == 202, r.text
+        action_id = r.json()["id"]
+        assert self.owner_approve(action_id)["state"] == "succeeded"
+        r = self.client.post(f"/v1/users/invites/{action_id}/claim", headers=owner)
+        assert r.status_code == 200, r.text
         return r.json()["id"], _enrol_code(r.json())
 
     def id_token(self) -> str:

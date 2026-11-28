@@ -6,6 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 import { App } from '../App';
+import { HttpApi } from '../api/client';
 import { MockApi } from '../api/mock';
 import { ApiError, type Action, type ApproveBody } from '../api/types';
 import { toActionPlan } from '../data/adapters';
@@ -141,6 +142,82 @@ describe('Approvals page', () => {
     expect(body.plan_sha256).toBe(SHA);
     expect(body.sealed).toMatchObject({ alg: 'X25519-AES256GCM', kid: 'k1' });
     expect(JSON.stringify(body)).not.toContain('sk-live-secret-value');
+  });
+});
+
+describe('family invitations through Approvals', () => {
+  it.each([
+    { replacement: false, name: 'Sam', title: 'Invite Sam', route: '/v1/users/invites' },
+    { replacement: true, name: 'Alex', title: 'Replace invite for Alex', route: '/v1/users/alex/invite' },
+  ])('shows the one-time link after the owner approves $title', async ({ replacement, name, title, route }) => {
+    const api = new MockApi('owner-demo');
+    const row = (await api.users()).find((p) => p.id === 'alex')!;
+    const invitePath = '/v1/users/invites/act-invite/claim';
+    const optsPath = '/v1/actions/act-invite/approve-options';
+    const approvePath = '/v1/actions/act-invite/approve';
+    const code = 'family-invite-fixture';
+    const link = `https://box.example/signin#enrol=${code}`;
+    const writes: Array<[string, unknown]> = [];
+    const pending = { id: 'act-invite', type: replacement ? 'users.reinvite' : 'users.invite', state: 'awaiting_approval',
+      params: replacement ? { user_id: 'alex', display_name: name, credential_revision: 2 } : { display_name: name, role: 'teen', username: null },
+      expires_at: future(), created_at: '2026-11-27T10:00:00Z', updated_at: '2026-11-27T10:00:00Z' };
+    const other = { ...pending, id: 'act-other', type: 'app.install', params: { app_id: 'ollama' }, created_at: '2026-11-27T10:01:00Z' };
+    let action: typeof pending | undefined;
+    const http = new HttpApi({ token: 'owner-demo', fetchFn: async (url, req) => {
+      const path = new URL(url, window.location.origin).pathname;
+      if (req?.method === 'GET' && path === '/v1/actions') return Response.json(action ? [other, action] : [other]);
+      if (req?.method === 'POST') {
+        const body = req.body ? JSON.parse(String(req.body)) : undefined;
+        writes.push([path, body]);
+        if (path === route) {
+          action = pending;
+          return Response.json(pending, { status: 202 });
+        }
+        if (path === optsPath) return Response.json({ challenge: 'c', action_sha256: 'invite-fingerprint', expires_at: future(), publicKey: { challenge: 'c' }, password_totp_available: false });
+        if (path === approvePath) {
+          if (!body.webauthn) return Response.json({ error: 'unauthenticated', reason: 'step_up_required', message: 'Verify this approval.' }, { status: 401 });
+          action = { ...pending, state: 'succeeded', updated_at: '2026-11-27T10:02:00Z' };
+          return Response.json(action);
+        }
+        if (path === invitePath && action?.state === 'succeeded' && new Headers(req.headers).get('Authorization') === 'Bearer owner-demo') {
+          return Response.json({ ...row, display_name: name, one_time: { enrolment_url: link, enrolment_code: code, expires_at: future() } });
+        }
+      }
+      return Response.json({ error: 'not_found', message: 'Not found.' }, { status: 404 });
+    } });
+    Object.assign(api, {
+      actions: http.actions.bind(http), createInvite: http.createInvite, reissueInvite: http.reissueInvite,
+      claimInvite: http.claimInvite, approveOptions: http.approveOptions.bind(http), approve: http.approve.bind(http),
+    });
+    window.sessionStorage.setItem('onemind.token', 'owner-demo');
+    render(<MemoryRouter initialEntries={['/settings/users']}><SessionProvider deps={{ mock: false, makeApi: () => api, knownPrincipal: () => ({ id: 'owner', kind: 'person', role: 'owner' }) }}><App mock={false} /></SessionProvider></MemoryRouter>);
+    const user = userEvent.setup();
+    if (replacement) {
+      await user.click(await screen.findByRole('button', { name: `Send a new invite to ${name}` }, T));
+      await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'New invite' }));
+    } else {
+      await user.click(await screen.findByRole('button', { name: 'Invite a person' }, T));
+      const form = within(screen.getByRole('dialog', { name: 'Invite a person' }));
+      await user.type(form.getByLabelText('Name'), name);
+      await user.selectOptions(form.getByLabelText('Role'), 'teen');
+      await user.click(form.getByRole('button', { name: 'Create invite' }));
+    }
+    const approve = await screen.findByRole('button', { name: `Approve ${title}` }, T);
+    expect(screen.getByText(replacement ? /signs this person out and clears their existing sign-in credentials/ : /Create a teen account with a one-time invitation/)).toBeVisible();
+    expect(screen.queryByText(code)).not.toBeInTheDocument();
+    const request = [route, replacement ? undefined : { display_name: name, role: 'teen' }];
+    expect(writes).toEqual([request]);
+
+    await user.click(approve);
+    const dialog = within(await screen.findByRole('dialog', { name: 'Invite a person' }, T));
+    expect(dialog.getByLabelText('Invite link')).toHaveValue(link);
+    expect(dialog.getByText(code)).toBeVisible();
+    expect(dialog.getByRole('img', { name: 'Invite QR code' })).toBeVisible();
+    expect(writes).toEqual([request, [optsPath, {}], [approvePath, {}],
+      [approvePath, { webauthn: { id: 'cred-1', type: 'public-key' } }], [invitePath, undefined]]);
+    expect(JSON.stringify({ ...window.sessionStorage, ...window.localStorage })).not.toContain(code);
+    await user.click(dialog.getAllByRole('button', { name: 'Close' }).at(-1)!);
+    expect(screen.queryByText(code)).not.toBeInTheDocument();
   });
 });
 

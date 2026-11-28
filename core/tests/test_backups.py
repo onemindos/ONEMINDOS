@@ -871,6 +871,74 @@ def test_onboarding_state_follows_settings_and_kit(client, bk):
     assert client.get("/v1/onboarding/state", headers=ADULT).status_code == 403
 
 
+def test_signed_in_owner_can_claim_approved_backup_kit_and_finish_onboarding(settings, clock, executor):
+    from fastapi.testclient import TestClient
+
+    from onemind_core.app import create_app
+    from onemind_core.identity.crypto import totp_code
+
+    from test_identity import LOCAL_PEER, PASSWORD, audit_events, box_code, id_settings, setup_bearer_owner
+
+    app = create_app(id_settings(settings), clock=clock, executor=executor)
+    with TestClient(app, client=LOCAL_PEER) as home:
+        backups = app.state.backups
+        backups.agent = FakeAgent(clock)
+        add_usb(home, backups)
+        headers = setup_bearer_owner(home)
+        pending = home.post("/v1/auth/totp/setup", headers=headers)
+        assert pending.status_code == 200, pending.text
+        secret = pending.json()["one_time"]["secret"]
+
+        def next_code():
+            clock.advance(30)
+            return totp_code(secret, int(clock.now.timestamp()) // 30)
+
+        assert home.post("/v1/auth/totp/confirm", headers=headers, json={"code": next_code()}).status_code == 204
+        config = {"box_name": "home-hub", "time_zone": "UTC", "backup_choice": "usb",
+                  "backup_destination_id": backups.destinations()[0]["id"]}
+        assert home.put("/v1/onboarding/settings", headers=headers, json=config).status_code == 200
+        assert home.get("/v1/onboarding/state", headers=headers).json()["complete"] is False
+
+        requested = home.post("/v1/backups/kit/request", headers=headers)
+        assert requested.status_code == 202, requested.text
+        action = requested.json()
+        assert action["type"] == "backup.kit.issue" and action["state"] == "awaiting_approval"
+        path = f"/v1/actions/{action['id']}"
+        claim = f"/v1/backups/kit/{action['id']}/claim"
+        assert home.post(claim, headers=headers).status_code == 409
+        assert home.post(f"{path}/approve", headers=headers).json()["reason"] == "step_up_required"
+        assert "backup.key.add" not in backups.agent.kinds()
+
+        options = home.post(f"{path}/approve-options", headers=headers, json={"method": "password+totp", "at_box": True})
+        assert options.status_code == 200 and options.json()["box_code_required"], options.text
+        proof = {"challenge": options.json()["challenge"], "password": PASSWORD, "totp": next_code()}
+        approved = home.post(f"{path}/approve", headers=headers, json={"password_totp": proof, "box_code": box_code(home)})
+        assert approved.status_code == 200 and approved.json()["state"] == "succeeded", approved.text
+        assert home.get("/v1/onboarding/state", headers=headers).json()["complete"] is False
+
+        other_login = home.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD,
+                                "client": "cli", "totp": next_code()})
+        assert other_login.status_code == 200, other_login.text
+        another_session = {"Authorization": f"Bearer {other_login.json()['access_token']}"}
+        assert home.post(claim, headers=another_session).status_code == 409
+        assert home.post(claim, headers=ADULT).status_code == 403
+        resumed = home.post("/v1/backups/kit/request", headers=headers).json()
+        assert resumed["id"] == action["id"] and resumed["state"] == "succeeded"
+
+        delivered = home.post(claim, headers=headers)
+        assert delivered.status_code == 200 and delivered.headers["cache-control"] == "no-store", delivered.text
+        one = delivered.json()["one_time"]
+        assert home.post(claim, headers=headers).status_code == 409
+        assert backups.agent.kinds().count("backup.key.add") == 1
+        assert one["owner_key"] not in approved.text + home.get(path, headers=headers).text + str(audit_events(settings))
+
+        positions = delivered.json()["kit"]["positions"]
+        answers = {str(pos): one["groups"][pos - 1] for pos in positions}
+        assert home.post("/v1/backups/kit/confirm", headers=headers, json={"answers": answers}).status_code == 200
+        state = home.get("/v1/onboarding/state", headers=headers).json()
+        assert state["complete"] is True and state["kit"]["state"] == "confirmed"
+
+
 # ---- content tier (BAK-03, REC-NOMAD-07) -------------------------------------------------------
 LIBRARY = NOTES.replace("id: notes, name: Notes", "id: library, name: Library").split("  backup:")[0] + """  backup:
     mode: hot

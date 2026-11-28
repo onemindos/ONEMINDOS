@@ -5,7 +5,7 @@
 //  - Owner identity and its recovery kit are handled before opening this settings wizard (D-034).
 //  - Each starter app the owner ticks becomes an `app.install` REQUEST in Approvals. Nothing is
 //    installed by the wizard (AI and automation never actuate; the owner approves each one).
-//  - The recovery kit step issues the owner key through /v1/backups/kit and confirms two typed-back groups.
+//  - The recovery kit step claims the owner key after verified approval and confirms two typed-back groups.
 //    The key lives only in the step's memory, is never stored, and is never logged or put in a URL.
 //  - Each starter install shows its read-only plan first; the request carries that plan's hash, so the
 //    approval is bound to exactly what was shown.
@@ -64,7 +64,8 @@ export function FirstRun({ onDone }: { onDone: () => void }) {
     state: state.kit.state, positions: state.kit.positions,
     issue: async () => {
       const r = await issueKit.call(api);
-      return { ...r.one_time, positions: r.kit.positions };
+      const { groups, check, text } = r.one_time;
+      return { groups, check, text, positions: r.kit.positions };
     },
     confirm: (answers) => confirmKit.call(api, answers),
   } : undefined;

@@ -8,7 +8,8 @@ import { Button, Card, PageHeader, StatusPill, Table, useToast } from '@onemind/
 import { useHub } from '../data/hub';
 import { t } from '../i18n';
 import { usePoll } from '../lib/hooks';
-import { createPasskey, webauthnSupported } from '../lib/webauthn';
+import { registerPasskey } from '../lib/registerPasskey';
+import { webauthnSupported } from '../lib/webauthn';
 import { formatAgo, secondsSince } from '../lib/time';
 import { useSignedIn } from '../session';
 import { AppPasswords } from './AppPasswords';
@@ -60,9 +61,7 @@ export function Account() {
 
   const addPasskey = () =>
     void run(async () => {
-      const o = await api.passkeyRegisterOptions();
-      const credential = await createPasskey(o.publicKey);
-      await api.passkeyRegister(credential, 'Dashboard passkey');
+      await registerPasskey(api, 'Dashboard passkey');
       toast.show({ tone: 'ok', title: t('account.passkeys.added') });
       await Promise.all([passkeys.reload(), me.reload()]);
     }, t('account.passkeys.add'));

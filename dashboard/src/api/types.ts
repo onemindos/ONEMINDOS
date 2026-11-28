@@ -297,6 +297,7 @@ export type ApiErrorCode =
   | 'rate_limited'
   | 'payload_too_large'
   | 'policy_refused'
+  | 'unavailable'
   /** The hub no longer serves this dashboard's protocol generation (sdk/contracts/protocol-versions.md). */
   | 'upgrade_required';
 

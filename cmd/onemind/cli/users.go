@@ -2,9 +2,8 @@
 
 package cli
 
-// onemind users: the people on this box, over the gateway (GET/POST /v1/users,
-// POST /v1/users/{id}/disable). Only an owner may use these routes; the gateway answers 403 to
-// anyone else (an agent token included) and audits it. The CLI holds no extra power.
+// onemind users: the people on this box. The gateway authorizes the owner.
+// The CLI submits family invitation requests for approval and delivery in the dashboard.
 
 import (
 	"fmt"
@@ -42,23 +41,19 @@ func usersCommands(a *App) []*cobra.Command {
 	})
 
 	var role, username string
-	var secretsStdin bool
 	invite := &cobra.Command{
 		Use:   "invite NAME",
-		Short: "Add a person and print their one-time 24-hour invitation link",
+		Short: "Request a family invitation or invite another owner",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			body := map[string]any{"display_name": args[0], "role": role, "username": nil}
 			if username != "" {
 				body["username"] = username
 			}
-			var v any
-			var err error
-			if role == "owner" {
-				v, err = a.gwDo(http.MethodPost, "/v1/users", body)
-			} else {
-				v, err = a.familyInvite("/v1/users/invites", "users.invite", "", body, secretsStdin, false)
+			if role != "owner" {
+				return a.requestFamilyInvite("/v1/users/invites", body)
 			}
+			v, err := a.gwDo(http.MethodPost, "/v1/users", body)
 			if err != nil {
 				return err
 			}
@@ -77,22 +72,16 @@ func usersCommands(a *App) []*cobra.Command {
 	}
 	invite.Flags().StringVar(&role, "role", "adult", "owner, adult, teen, child or guest")
 	invite.Flags().StringVar(&username, "username", "", "sign-in name (optional)")
-	invite.Flags().BoolVar(&secretsStdin, "secrets-stdin", false, "read password and authenticator code from stdin if step-up is required")
 
-	var reinviteStdin, reinviteYes bool
-	reinvite := &cobra.Command{Use: "reinvite USER_ID", Short: "Reset a family member's sign-in with a new invitation",
+	var reinviteYes bool
+	reinvite := &cobra.Command{Use: "reinvite USER_ID", Short: "Request a replacement invitation for a family member",
 		Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 			if !reinviteYes {
-				return usageErr(cmd, "issuing a replacement invitation clears this person's sign-in credentials and sessions. Repeat with --yes to confirm")
+				return usageErr(cmd, "approving a replacement invitation clears this person's sign-in credentials and sessions. Repeat with --yes to submit the request")
 			}
-			v, err := a.familyInvite("/v1/users/"+url.PathEscape(args[0])+"/invite", "users.reinvite", args[0], nil, reinviteStdin, true)
-			if err != nil {
-				return err
-			}
-			return a.accountResult(str(obj(obj(v)["one_time"])["enrolment_url"]), v)
+			return a.requestFamilyInvite("/v1/users/"+url.PathEscape(args[0])+"/invite", nil)
 		}}
-	reinvite.Flags().BoolVar(&reinviteYes, "yes", false, "confirm clearing current sign-in credentials and sessions")
-	reinvite.Flags().BoolVar(&reinviteStdin, "secrets-stdin", false, "read password, authenticator code and screen code from separate stdin lines")
+	reinvite.Flags().BoolVar(&reinviteYes, "yes", false, "confirm submitting a request to clear current sign-in credentials and sessions")
 
 	var yes bool
 	disable := &cobra.Command{
@@ -117,4 +106,28 @@ func usersCommands(a *App) []*cobra.Command {
 	disable.Flags().BoolVar(&yes, "yes", false, "confirm")
 	root.AddCommand(invite, reinvite, disable)
 	return []*cobra.Command{root}
+}
+
+func (a *App) requestFamilyInvite(path string, body any) error {
+	c, err := a.selectedAccountClient(false)
+	if err != nil {
+		return err
+	}
+	var action map[string]any
+	if err := c.Do(bg(), http.MethodPost, path, body, &action); err != nil {
+		return explainGateway(err)
+	}
+	id := str(action["id"])
+	if id == "" || action["state"] != "awaiting_approval" {
+		return fmt.Errorf("the box did not return a pending invitation request")
+	}
+	if a.G.JSON {
+		return printJSON(a.Stdout, action)
+	}
+	if a.G.Quiet {
+		_, err = fmt.Fprintln(a.Stdout, sanitize(id))
+		return err
+	}
+	_, err = fmt.Fprintf(a.Stdout, "Invitation requested (%s). Open Approvals in the dashboard to verify the request and collect the link.\n", sanitize(id))
+	return err
 }

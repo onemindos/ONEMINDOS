@@ -1,16 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
-// Settings > People (owner only): GET/POST /v1/users, PATCH /v1/users/{id}, POST …/disable. These
-// are the owner's own acts in their own session; the gateway enforces owner-only, step-up and the
-// "last owner" guard. An invite code is shown once in a dialog and never stored.
+// Settings > People (owner only): invitations are filed for review in Approvals. Older hubs
+// and the demo can still return an invite directly.
 import { useEffect, useState, type FormEvent } from 'react';
-import { Button, Card, Dialog, PageHeader, QrSvg, StatusPill, Table } from '@onemind/ui';
-import { AGE_PRESETS, type PersonRole, type UserCreated, type UserInfo } from '../api/wiring';
+import { useNavigate } from 'react-router';
+import { Button, Card, Dialog, PageHeader, StatusPill, Table } from '@onemind/ui';
+import { AGE_PRESETS, type InviteRequestResult, type PersonRole, type UserCreated, type UserInfo } from '../api/wiring';
 import { useHub } from '../data/hub';
 import { t } from '../i18n';
 import { usePoll } from '../lib/hooks';
 import { formatAgo, secondsSince } from '../lib/time';
 import { useSignedIn } from '../session';
-import { Load, TextField, useRun } from './parts';
+import { href } from '../shell/routes';
+import { InviteDialog } from './InviteDialog';
+import { Load, TextField, useBusy, useRun } from './parts';
 
 const ROLES: PersonRole[] = ['adult', 'teen', 'child', 'guest', 'owner'];
 
@@ -34,7 +36,9 @@ function AgeRating({ user }: { user: UserInfo }) {
 export function Users() {
   const { api } = useSignedIn();
   const hub = useHub();
+  const navigate = useNavigate();
   const run = useRun();
+  const [busy, whileBusy] = useBusy();
   const users = usePoll(() => api.users(), 0);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
@@ -43,17 +47,26 @@ export function Users() {
   const [confirm, setConfirm] = useState<UserInfo>();
   const [replace, setReplace] = useState<UserInfo>();
 
+  const showInviteResult = async (result: InviteRequestResult) => {
+    if ('state' in result) {
+      void hub.actions.reload();
+      navigate(href.approval(result.id));
+    } else {
+      setInvite(result);
+      await users.reload();
+    }
+  };
+
   const create = (e: FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
-    void run(async () => {
+    if (!name.trim() || busy) return;
+    void whileBusy(() => run(async () => {
       const input = { display_name: name.trim(), role };
-      const u = api.createInvite ? await api.createInvite(input) : await api.createUser(input);
+      const result = api.createInvite ? await api.createInvite(input) : await api.createUser(input);
       setAdding(false);
       setName('');
-      setInvite(u);
-      await users.reload();
-    }, t('users.add'));
+      await showInviteResult(result);
+    }, t('users.add')));
   };
 
   return (
@@ -100,7 +113,7 @@ export function Users() {
           )}
         </Load>
       </Card>
-      <Dialog open={adding} onClose={() => setAdding(false)} title={t('users.invite.title')} actions={<><Button variant="ghost" onClick={() => setAdding(false)}>{t('common.cancel')}</Button><Button variant="primary" onClick={create}>{t('users.invite.submit')}</Button></>}>
+      <Dialog open={adding} onClose={() => setAdding(false)} title={t('users.invite.title')} actions={<><Button variant="ghost" onClick={() => setAdding(false)}>{t('common.cancel')}</Button><Button variant="primary" busy={busy} onClick={create}>{t('users.invite.submit')}</Button></>}>
         <form className="dash-form" onSubmit={create}>
           <TextField id="invite-name" label={t('users.name')} value={name} onChange={setName} />
           <label htmlFor="invite-role">{t('users.role')}</label>
@@ -113,24 +126,15 @@ export function Users() {
       </Dialog>
       <Dialog open={!!confirm} role="alertdialog" onClose={() => setConfirm(undefined)} title={t('users.disable', { name: confirm?.display_name ?? '' })} description={t('users.disable.confirm', { name: confirm?.display_name ?? '' })} actions={<><Button variant="ghost" onClick={() => setConfirm(undefined)}>{t('common.cancel')}</Button><Button variant="danger" onClick={() => { const u = confirm; setConfirm(undefined); if (u) void run(async () => { await api.disableUser(u.id); await users.reload(); }, t('users.disable', { name: u.display_name })); }}>Disable</Button></>} />
       <Dialog open={!!replace} role="alertdialog" onClose={() => setReplace(undefined)} title={t('users.invite.reset', { name: replace?.display_name ?? '' })} description={t('users.invite.replaceWarning')}
-        actions={<><Button variant="ghost" onClick={() => setReplace(undefined)}>{t('common.cancel')}</Button><Button variant="danger" onClick={() => {
-          const user = replace;
-          setReplace(undefined);
-          if (user && api.reissueInvite) void run(async () => {
-            setInvite(await api.reissueInvite?.(user.id));
-            await users.reload();
-          }, t('users.invite.replace'));
+        actions={<><Button variant="ghost" onClick={() => setReplace(undefined)}>{t('common.cancel')}</Button><Button variant="danger" busy={busy} onClick={() => {
+          const request = api.reissueInvite;
+          if (replace && request) void whileBusy(() => run(async () => {
+            const result = await request.call(api, replace.id);
+            setReplace(undefined);
+            await showInviteResult(result);
+          }, t('users.invite.replace')));
         }}>{t('users.invite.replace')}</Button></>} />
-      <Dialog open={!!invite} onClose={() => setInvite(undefined)} title={t('users.add')} description={t('users.invite.done', { name: invite?.display_name ?? '' })}
-        actions={<Button onClick={() => setInvite(undefined)}>{t('common.close')}</Button>}>
-        {invite && <div className="dash-invite">
-          <QrSvg text={invite.one_time.enrolment_url} label={t('users.invite.qr')} />
-          <label htmlFor="family-invite-link">{t('users.invite.link')}</label>
-          <input id="family-invite-link" readOnly value={invite.one_time.enrolment_url} onFocus={(e) => e.target.select()} />
-          <code className="dash-secret">{invite.one_time.enrolment_code}</code>
-          {invite.one_time.expires_at && <p className="om-hint">{t('users.invite.expiry', { expires: new Date(invite.one_time.expires_at).toLocaleString() })}</p>}
-        </div>}
-      </Dialog>
+      <InviteDialog invite={invite} onClose={() => setInvite(undefined)} />
     </div>
   );
 }

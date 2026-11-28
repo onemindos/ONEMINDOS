@@ -117,6 +117,9 @@ func actionsCommands(a *App) []*cobra.Command {
 				if x.State != "awaiting_approval" {
 					return exitWith(ExitConflict, "conflict", fmt.Sprintf("action is %s, not awaiting approval", x.State))
 				}
+				if verb == "approve" && (x.Type == "users.invite" || x.Type == "users.reinvite") {
+					return exitWith(ExitPending, "pending", "Open Approvals in the dashboard to verify the invitation request and collect its link")
+				}
 				if !yes {
 					target, _ := x.Params["app_id"].(string)
 					var ok bool

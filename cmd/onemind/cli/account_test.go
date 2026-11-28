@@ -152,46 +152,38 @@ func TestAccountLoginPromptsForTOTPAndRenewsTheSavedSessionOnce(t *testing.T) {
 	}
 }
 
-func TestFamilyInviteUsesOperationBoundAuthenticatorProof(t *testing.T) {
+func TestFamilyInviteRequestsWaitForDashboardApprovalWithoutStepUpOrRetries(t *testing.T) {
 	isolate(t)
-	stage := atomic.Int32{}
+	var invites, replacements atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&body)
-		if r.URL.Path == "/v1/auth/login" {
+		if r.Method+" "+r.URL.Path == "POST /v1/auth/login" {
 			jsonOut(w, 200, accountTestSession("owner-access", "owner-refresh"))
 			return
 		}
-		if r.Header.Get("Authorization") != "Bearer owner-access" {
-			t.Error("family invitation must use the owner's session")
+		if r.Header.Get("Authorization") != "Bearer owner-access" || r.Header.Get("OneMind-Step-Up") != "" {
+			t.Error("a family invitation request must use the owner's session without submitting proof")
 		}
-		n := stage.Add(1)
-		switch r.URL.Path {
-		case "/v1/users/invites":
-			if body["role"] != "child" || body["display_name"] != "Sam" {
-				t.Errorf("invite request %+v", body)
+		switch r.Method + " " + r.URL.Path {
+		case "POST /v1/users/invites":
+			if len(body) != 3 || body["role"] != "child" || body["display_name"] != "Sam" || body["username"] != "sam" {
+				t.Errorf("incorrect invite request: %+v", body)
 			}
-			if n == 1 {
-				jsonOut(w, 401, map[string]string{"error": "unauthenticated", "reason": "step_up_required"})
+			if invites.Add(1) != 1 {
+				jsonOut(w, 503, map[string]string{"error": "unavailable", "message": "gateway unavailable"})
 				return
 			}
-			if n != 4 || r.Header.Get("OneMind-Step-Up") != "confirmed-proof" {
-				t.Error("invite sent without exact-change proof")
+			jsonOut(w, 202, map[string]any{"id": "act_invite", "type": "users.invite", "state": "awaiting_approval", "params": body})
+		case "POST /v1/users/usr_sam/invite":
+			replacements.Add(1)
+			if body != nil {
+				t.Errorf("replacement must name its target in the URL alone: %+v", body)
 			}
-			jsonOut(w, 201, map[string]any{"one_time": map[string]string{"enrolment_url": "https://box.example/signin#enrol=family"}})
-		case "/v1/auth/step-up/options":
-			if n != 2 || body["op"] != "users.invite" || body["method"] != "password+totp" || obj(body["body"])["display_name"] != "Sam" {
-				t.Errorf("step-up options %+v", body)
-			}
-			jsonOut(w, 200, map[string]string{"challenge": "step-challenge"})
-		case "/v1/auth/step-up":
-			proof := obj(body["password_totp"])
-			if n != 3 || proof["challenge"] != "step-challenge" || proof["totp"] != "112233" || proof["password"] != "test passphrase" {
-				t.Errorf("step-up proof %+v", body)
-			}
-			jsonOut(w, 200, map[string]string{"step_up": "confirmed-proof"})
+			jsonOut(w, 202, map[string]any{"id": "act_replace", "type": "users.reinvite", "state": "awaiting_approval",
+				"params": map[string]string{"user_id": "usr_sam"}})
 		default:
-			t.Errorf("unexpected request %s", r.URL.Path)
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
 			w.WriteHeader(404)
 		}
 	}))
@@ -200,9 +192,51 @@ func TestFamilyInviteUsesOperationBoundAuthenticatorProof(t *testing.T) {
 	if r.code != 0 {
 		t.Fatalf("owner CLI sign-in %+v", r)
 	}
-	r = run(t, "test passphrase\n112233\n", false, "users", "invite", "Sam", "--role", "child", "--secrets-stdin")
-	if r.code != 0 || stage.Load() != 4 || !strings.Contains(r.out, "#enrol=family") {
-		t.Fatalf("invite %+v", r)
+	invite := []string{"users", "invite", "Sam", "--role", "child", "--username", "sam"}
+	r = run(t, "test passphrase\n112233\n", true, invite...)
+	if r.code != 0 || invites.Load() != 1 || !strings.Contains(r.out, "act_invite") ||
+		!strings.Contains(r.out, "Approvals in the dashboard") || strings.Contains(r.out+r.errOut, "112233") ||
+		strings.Contains(r.out+r.errOut, "test passphrase") || strings.Contains(r.out, "#enrol=") {
+		t.Fatalf("queued invite %+v", r)
+	}
+	r = run(t, "", true, invite...)
+	if r.code == 0 || invites.Load() != 2 {
+		t.Fatalf("failed invite request was retried or reported success: %+v (%d POSTs)", r, invites.Load())
+	}
+	if r := run(t, "", false, "users", "reinvite", "usr_sam"); r.code != ExitUsage || replacements.Load() != 0 ||
+		!strings.Contains(r.errOut, "clears this person's sign-in credentials and sessions") {
+		t.Fatalf("replacement without confirmation %+v", r)
+	}
+	r = run(t, "", false, "users", "reinvite", "usr_sam", "--yes", "--json")
+	if r.code != 0 || replacements.Load() != 1 {
+		t.Fatalf("queued replacement %+v", r)
+	}
+	action := obj(mustJSON2(t, r.out))
+	if action["id"] != "act_replace" || action["state"] != "awaiting_approval" || action["type"] != "users.reinvite" ||
+		obj(action["params"])["user_id"] != "usr_sam" || action["one_time"] != nil {
+		t.Fatalf("unexpected replacement action: %+v", action)
+	}
+}
+
+func TestCLIApprovalLeavesInvitationWaitingForDashboard(t *testing.T) {
+	isolate(t)
+	t.Setenv("ONEMIND_TOKEN", ownerTok)
+	var decisions atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			decisions.Add(1)
+			w.WriteHeader(404)
+			return
+		}
+		typ := strings.TrimPrefix(r.URL.Path, "/v1/actions/")
+		jsonOut(w, 200, map[string]string{"id": typ, "type": typ, "state": "awaiting_approval"})
+	}))
+	t.Cleanup(srv.Close)
+	for _, typ := range []string{"users.invite", "users.reinvite"} {
+		r := run(t, "", true, "--hub", srv.URL, "actions", "approve", typ, "--yes", "--json")
+		if r.code != ExitPending || decisions.Load() != 0 || !strings.Contains(r.errOut, "Approvals in the dashboard") {
+			t.Errorf("%s approval must stay in the queue for dashboard delivery: %+v", typ, r)
+		}
 	}
 }
 

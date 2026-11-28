@@ -5,12 +5,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, Header, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
+from ..apimodels import Action
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import error_responses
@@ -18,11 +19,13 @@ from ..identity import IdentityService, ctx_of
 from ..identity import email as account_email
 from ..identity import remote_recovery
 from ..identity.approver_keys import KeyKind
+from ..identity.family_invites import FamilyInvites
 from ..jsonbody import JsonBody
 
 SIGNIN_HTML = Path(__file__).resolve().parent.parent / "identity" / "signin.html"
 
 ProofMethod = Literal["passkey", "password+totp"]
+IdemHeader = Annotated[str | None, Header(alias="Idempotency-Key", min_length=1, max_length=200)]
 
 
 class PasswordTotpProof(BaseModel):
@@ -51,7 +54,7 @@ class ApprovalChallenge(BaseModel):
     box_code_required: bool = Field(default=False, description="N-1 b: during the grace an L2 approval also needs "
                                     "the code the box's own screen now shows; send it as box_code")
     box_available: bool = Field(default=False, description="this home-network request can use the box's screen for L2")
-    password_totp_available: bool = Field(default=False, description="the signed-in person has an authenticator set up")
+    password_totp_available: bool = Field(default=False, description="this request can use a password and authenticator code")
     decided_by: str = Field(description="the verification-table row that set the level")
 
 
@@ -196,7 +199,7 @@ class SetupKit(BaseModel):
     disk_recovery_key: str | None
 
 
-class SetupFinishBody(BaseModel):
+class SetupFinishBody(JsonBody):
     saved: bool
     method: Literal["download", "print"]
     recovery_code: str = Field(max_length=128)
@@ -398,6 +401,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     gw.people_sources.append(svc.people)
     app.state.identity = svc
     svc.levels.register()
+    invites = FamilyInvites(svc)
     principal = gw.principal
     cfg = svc.cfg
 
@@ -450,8 +454,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.post("/v1/auth/setup/finish", operation_id="auth.setup.finish", tags=["auth"], status_code=204,
               responses=R(401, 403, 409, 422), openapi_extra={"security": [{"bearer": ["*"]}]})
-    def setup_finish(body: SetupFinishBody, ctx=Depends(human_session)):
-        svc.onboarding.finish(ctx, body.saved, body.method, body.recovery_code)
+    def setup_finish(body: SetupFinishBody, request: Request, p: Principal = Depends(principal)):
+        svc.onboarding.finish(human_session(request, p), body.saved, body.method, body.recovery_code)
         return Response(status_code=204)
 
     @app.post("/v1/auth/recovery/options", operation_id="auth.recovery.options", tags=["auth"], response_model=BoxChallenge,
@@ -638,18 +642,27 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def create_user(body: UserCreateBody, request: Request, p: Principal = Depends(principal)):
         return svc.create_user(request, ctx_of(request), p, body.display_name, body.role, body.username)
 
-    @app.post("/v1/users/invites", operation_id="users.invite", tags=["users"], status_code=201, response_model=UserInvite,
+    @app.post("/v1/users/invites", operation_id="users.invite", tags=["users"], status_code=202, response_model=Action,
               responses=R(401, 403, 409, 422), openapi_extra={"security": [{"bearer": ["users:admin"]}]})
-    def invite_user(body: UserCreateBody, request: Request, response: Response, ctx=Depends(human_session)):
-        response.headers["Cache-Control"] = "no-store"
-        return svc.create_user(request, ctx, ctx.principal, body.display_name, body.role, body.username, invite=True)
+    def invite_user(body: UserCreateBody, response: Response, ctx=Depends(human_session), idem: IdemHeader = None):
+        action = invites.request_invite(ctx, body.model_dump(), idem)
+        response.headers["Location"] = f"/v1/actions/{action['id']}"
+        return action
 
-    @app.post("/v1/users/{user_id}/invite", operation_id="users.reinvite", tags=["users"], status_code=201,
-              response_model=UserInvite, responses=R(401, 403, 404, 409),
+    @app.post("/v1/users/{user_id}/invite", operation_id="users.reinvite", tags=["users"], status_code=202,
+              response_model=Action, responses=R(401, 403, 404, 409, 422),
               openapi_extra={"security": [{"bearer": ["users:admin"]}]})
-    def reinvite_user(user_id: str, request: Request, response: Response, ctx=Depends(human_session)):
+    def reinvite_user(user_id: str, response: Response, ctx=Depends(human_session), idem: IdemHeader = None):
+        action = invites.request_replacement(ctx, user_id, idem)
+        response.headers["Location"] = f"/v1/actions/{action['id']}"
+        return action
+
+    @app.post("/v1/users/invites/{action_id}/claim", operation_id="users.invites.claim", tags=["users"],
+              response_model=UserInvite, responses=R(401, 403, 409),
+              openapi_extra={"security": [{"bearer": ["users:admin"]}]})
+    def claim_invite(action_id: str, request: Request, response: Response, ctx=Depends(human_session)):
         response.headers["Cache-Control"] = "no-store"
-        return svc.reinvite_user(request, ctx, ctx.principal, user_id)
+        return invites.claim(request, ctx, action_id)
 
     @app.patch("/v1/users/{user_id}", operation_id="users.update", tags=["users"], responses=R(401, 403, 404, 409, 422))
     def update_user(user_id: str, body: UserPatchBody, request: Request, p: Principal = Depends(principal)):

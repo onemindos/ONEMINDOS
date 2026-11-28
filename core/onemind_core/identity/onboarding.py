@@ -74,11 +74,14 @@ class AccountSetup:
             raise ApiError(409, "conflict", ALREADY_SET_UP, reason="already_set_up")
         return self._options(request, "setup", "set up OneMind")
 
-    def _verify_screen(self, challenge_id: str, code: str, purpose: str, label: str) -> ChallengeRow:
+    def _screen_challenge(self, challenge_id: str, purpose: str) -> ChallengeRow:
         row = self.repo.get(ChallengeRow, challenge_id)
-        if row is None:
+        if row is None or row.purpose != purpose:
             raise ApiError(401, "unauthenticated", "ask for a new code on the box", reason="box_code_required")
-        row = self.svc._claim_challenge(row.challenge, purpose)
+        return row
+
+    def _verify_screen(self, row: ChallengeRow, code: str, label: str) -> ChallengeRow:
+        row = self.svc._claim_challenge(row.challenge, row.purpose)
         self.svc.presence.check(row.data["box_sha256"], code, label)
         return row
 
@@ -88,7 +91,8 @@ class AccountSetup:
 
         now, source = self.svc.now(), source_of(request)
         self.svc.limiter.check(source, now)
-        self._require_home(request)
+        if token or challenge_id is not None:
+            self._require_home(request)
         if challenge_id is not None:
             if not box_code:
                 raise ApiError(401, "unauthenticated", "type the code on the box", reason="box_code_required")
@@ -104,7 +108,7 @@ class AccountSetup:
         username = self.svc._new_username(username)
         display_name, email = clean_profile_name(display_name), clean_email(email)
         if challenge_id is not None:
-            self._verify_screen(challenge_id, box_code, "setup", "set up OneMind")
+            self._verify_screen(self._screen_challenge(challenge_id, "setup"), box_code, "set up OneMind")
         user = UserRow(id=new_id("usr"), username=username, display_name=display_name, email=email, role="owner",
                        password_hash=hash_password(password), setup_pending=True,
                        created_at=now, updated_at=now, created_by="setup")
@@ -173,11 +177,12 @@ class AccountSetup:
     def reset(self, request: Request, challenge_id: str, box_code: str, recovery_code: str, password: str) -> dict:
         from .service import source_of
 
-        self._require_home(request)
         now, source = self.svc.now(), source_of(request)
         self.svc.limiter.check(source, now)
+        challenge = self._screen_challenge(challenge_id, "reset-password")
+        self._require_home(request)
         self.svc._check_password(password)
-        row = self._verify_screen(challenge_id, box_code, "reset-password", "reset a OneMind password")
+        row = self._verify_screen(challenge, box_code, "reset a OneMind password")
         user = self.svc._live_user(row.user_id)
         digest = sha256_hex(recovery_code)
         if user is None or user.setup_pending or not user.recovery_hash or not hmac.compare_digest(

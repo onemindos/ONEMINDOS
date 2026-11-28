@@ -731,7 +731,7 @@ class IdentityService:
         need, strict = self.levels.for_row(row)
         if home and self.levels.grace(need, strict):
             return 1, "required"
-        return need, "alt" if home and need == 2 else ""
+        return need, "alt" if home and need == 2 and not strict else ""
 
     def _last_proven(self, credential_id: str) -> bool:
         """This credential is the only proven key any active owner holds."""
@@ -944,15 +944,15 @@ class IdentityService:
         if existing and not recovery_id:  # adding a second key is adding power: prove you hold the first
             self.require_step_up(ctx, ctx.principal, "register a passkey", op="auth.passkeys.register")
         rp_id, _ = self.rp(request)
-        # N-1 = b: until the household has had a proven key, the first one is added at the box, so an L1 key
-        # (a synced phone passkey somewhere else) can't enrol a key of its own that would be L2. The screen
-        # shows a code now; an L1 key (a phone or computer passkey) enrols without it.
-        # Only an owner's key counts for the household's level, so only an owner's enrolment needs the box.
-        box = user.role == "owner" and self.passkeys_active() and not self.levels.note_proven("household_level")
-        data, shown = {"box_for_proven": box}, False
+        # Only an owner's key counts for approvals. A first or replacement proven owner key
+        # needs the screen (N-1 = b) or a completed remote recovery (D-034).
+        box = user.role == "owner" and not self._keys_meeting(user.id, 2)
+        data = {"session_id": ctx.session.id, "credential_revision": user.credential_revision,
+                "box_for_proven": box}
+        shown = False
         if recovery_id:
-            data = {"remote_recovery_id": recovery_id, "session_id": ctx.session.id}
-        elif box and self.presence.available:
+            data["remote_recovery_id"] = recovery_id
+        elif box and ctx.home and self.presence.available:
             try:
                 data["box_sha256"] = self.presence.issue("add a proven key", self.now() + CHALLENGE_TTL)
                 shown = True
@@ -974,8 +974,10 @@ class IdentityService:
             row = self._consume_challenge(credential, "register")
         except pk.PasskeyError as exc:
             raise ApiError(422, "conflict", str(exc)[:300], reason="assertion_invalid") from None
-        if row.user_id != user.id:
-            raise ApiError(401, "unauthenticated", "challenge belongs to another account", reason="assertion_invalid")
+        if (row.user_id != user.id or row.data.get("session_id") != ctx.session.id
+                or row.data.get("credential_revision") != user.credential_revision):
+            raise ApiError(401, "unauthenticated", "registration belongs to another session or credential revision",
+                           reason="assertion_invalid")
         rp_id, origins = self.rp(request)
         try:
             v = pk.verify_registration(credential=credential, challenge=pk.unb64url(row.challenge), rp_id=rp_id,
@@ -994,17 +996,20 @@ class IdentityService:
         level, why = lv.credential_level(fmt=v["fmt"], has_chain=v["has_chain"], backup_eligible=v["backup_eligible"],
                                          model=model, chain_ok=v["chain_ok"])
         recovery_id = row.data.get("remote_recovery_id")
-        if recovery_id and (row.data.get("session_id") != ctx.session.id or lv.rank(level) < 2):
+        if recovery_id and lv.rank(level) < 2:
             raise ApiError(409, "conflict", "remote approval recovery needs a proven key on this session",
                            reason="remote_recovery_proven_key_required")
-        if lv.rank(level) >= 2 and row.data.get("box_for_proven"):
+        if lv.rank(level) >= 2 and row.data.get("box_for_proven") and not recovery_id:
+            if not ctx.home:
+                raise ApiError(409, "conflict", "use remote approval recovery to add a proven key away from the box",
+                               reason="remote_recovery_required")
             if (refused := row.data.get("box_refused")) is not None:
                 raise ApiError(refused["status"], "rate_limited" if refused["status"] == 429 else "unavailable",
                                refused["message"], reason=refused["reason"])
             if not row.data.get("box_sha256"):
                 raise ApiError(409, "conflict", "this is a proven key, and the first one is added at the box, which "
                                "this install has no screen for; nothing was saved", reason="box_presence_unavailable")
-            self.presence.check(row.data["box_sha256"], box_code, "add a proven key")
+            self._check_local_box(request, row.data["box_sha256"], box_code, "add a proven key")
         passkey_row = PasskeyRow(id=v["id"], user_id=user.id, label=label, public_key=v["public_key"],
                                  sign_count=v["sign_count"], transports=v["transports"], created_at=now,
                                  install_id=install_id, aaguid=v["aaguid"], att_fmt=v["fmt"][:24],
@@ -1012,14 +1017,30 @@ class IdentityService:
                                  backed_up=v["backed_up"], level=level, level_reason=why,
                                  model=model.name if model and level != "L1" else None)
         with self.repo.db.session.begin() as db:
+            # Serialize on the same user row that password resets and replacement invites update.
+            current = db.execute(update(UserRow).where(
+                UserRow.id == user.id, UserRow.role == user.role, UserRow.disabled.is_(False),
+                UserRow.credential_revision == user.credential_revision,
+            ).values(credential_revision=UserRow.credential_revision).returning(UserRow.id)).scalar_one_or_none()
+            if current is None:
+                raise ApiError(409, "conflict", "the account credentials changed; sign in and try again",
+                               reason="credentials_changed")
+            session = ctx.session
+            now = self.now()
+            transport_live = (SessionRow.last_seen_at > now - timedelta(hours=self.cfg.session_idle_hours)
+                              if session.transport == "cookie" else SessionRow.access_expires_at > now)
+            updated = db.execute(update(SessionRow).where(
+                SessionRow.id == session.id, SessionRow.user_id == user.id,
+                SessionRow.credential_revision == user.credential_revision, SessionRow.revoked_at.is_(None),
+                SessionRow.expires_at > now, transport_live,
+            ).values(passkey_at=now, step_up_credential_id=v["id"]).returning(SessionRow.id)).scalar_one_or_none()
+            if updated is None:
+                raise ApiError(401, "unauthenticated", "the session ended; sign in and try again", reason="session_required")
             if recovery_id:
                 remote_recovery.consume(self, db, ctx, recovery_id)
             db.add(passkey_row)
         if recovery_id:
             self.emit("auth", "remote_recovery.completed", {"user_id": user.id}, ctx.principal, severity="warning")
-        if ctx.session is not None:  # registering just proved presence on this device
-            self.repo.update(SessionRow, [SessionRow.id == ctx.session.id], {"passkey_at": now,
-                                                                             "step_up_credential_id": v["id"]})
         self.emit("auth", "passkey.registered", {"user_id": user.id, "credential_id": v["id"], "label": label,
                                                  "level": level, "level_reason": why, "aaguid": v["aaguid"],
                                                  "attestation": v["fmt"]}, ctx.principal)
@@ -1210,14 +1231,15 @@ class IdentityService:
         return role
 
     def create_user(self, request: Request, ctx: AuthContext | None, p: Principal, display_name: str, role: str,
-                    username: str | None, *, invite: bool = False) -> dict:
+                    username: str | None) -> dict:
         self._owner_only(p, "create users")
-        if invite:
-            self._account(ctx, "invite a family member")
-        if invite and role == "owner":
-            raise ApiError(422, "conflict", "a family invitation must be for a non-owner role", reason="invalid_role")
-        via = self.require_step_up(ctx, p, "create users", op="users.invite" if invite else "users.create",
+        via = self.require_step_up(ctx, p, "create users", op="users.create",
                                    body={"display_name": display_name, "role": role, "username": username})
+        u, code = self._create_invited_user(p, display_name, role, username, via)
+        return self._invite_response(request, u, code, "/signin")
+
+    def _create_invited_user(self, p: Principal, display_name: str, role: str, username: str | None,
+                             via: str) -> tuple[UserRow, str]:
         now = self.now()
         code = secrets.token_urlsafe(24)
         u = UserRow(id=new_id("usr"), username=self._new_username(username) if username else None,
@@ -1228,29 +1250,23 @@ class IdentityService:
         self.emit("user", "created", {"user_id": u.id, "role": u.role, "step_up": via}, p)
         for hook in self.role_hooks:
             hook(u.id, u.role, p)
-        return self._invite_response(request, u, code, "/" if invite else "/signin")
+        return u, code
 
     def _invite_response(self, request: Request, u: UserRow, code: str, path: str) -> dict:
         base = (self.gw.settings.public_url or str(request.base_url)).rstrip("/")
         return {**self.user_json(u), "one_time": {"enrolment_code": code, "enrolment_url": f"{base}{path}#enrol={code}",
                                                   "expires_at": iso(u.enrol_expires_at)}}
 
-    def reinvite_user(self, request: Request, ctx: AuthContext | None, p: Principal, user_id: str) -> dict:
-        self._owner_only(p, "replace a family invitation")
-        self._account(ctx, "replace a family invitation")
-        user = self._live_user(user_id)
-        if user is None or user.role == "owner":
-            raise ApiError(404, "not_found", "no active family account with that ID")
-        via = self.require_step_up(ctx, p, "replace a family invitation", op="users.reinvite", target=user_id)
+    def _replace_invite(self, p: Principal, user_id: str, revision: int | None) -> str:
         now, code = self.now(), secrets.token_urlsafe(24)
         with self.repo.db.session.begin() as db:
             changed = db.execute(update(UserRow).where(
                 UserRow.id == user_id, UserRow.role != "owner", UserRow.disabled.is_(False),
-                UserRow.credential_revision == user.credential_revision,
+                UserRow.credential_revision == revision,
             ).values(enrol_hash=sha256_hex(code), enrol_expires_at=now + ENROL_TTL, password_hash=None,
                      totp_secret=None, totp_pending=None, totp_last_step=None, recovery_hash=None, email=None,
                      email_verified_at=None,
-                     credential_revision=(user.credential_revision or 0) + 1, updated_at=now
+                     credential_revision=(revision or 0) + 1, updated_at=now
                      ).returning(UserRow.id)).scalar_one_or_none()
             if changed is None:
                 raise ApiError(409, "conflict", "the account changed; request a new confirmation")
@@ -1258,8 +1274,8 @@ class IdentityService:
             db.execute(delete(PasskeyRow).where(PasskeyRow.user_id == user_id))
             db.execute(update(TokenRow).where(TokenRow.owner_user_id == user_id, TokenRow.revoked_at.is_(None)).values(
                 revoked_at=now, prev_hash=None))
-        self.emit("user", "invite.replaced", {"user_id": user_id, "step_up": via}, p, severity="warning")
-        return self._invite_response(request, self.user(user_id), code, "/")
+        self.emit("user", "invite.replaced", {"user_id": user_id, "step_up": "approval"}, p, severity="warning")
+        return code
 
     def _last_owner_guard(self, u: UserRow, becomes_non_owner: bool) -> None:
         if u.role == "owner" and not u.disabled and becomes_non_owner and self.active_owner_ids() == [u.id]:
@@ -1545,10 +1561,12 @@ class IdentityService:
             return request.app.state.files_service.get_request(p, action_id)
         return self.gw.actions.get(action_id)
 
-    def _approval_verification(self, need: int, home: bool, ctx: AuthContext | None) -> dict:
+    def _approval_verification(self, need: int, strict: bool, home: bool, ctx: AuthContext | None) -> dict:
         user = ctx.user if ctx and ctx.session else None
-        return {"required_level": lv.name(need), "box_available": need == 2 and home and self.presence.available,
-                "password_totp_available": bool(user and user.password_hash and user.totp_secret)}
+        box_available = need == 2 and not strict and home and self.presence.available
+        return {"required_level": lv.name(need), "box_available": box_available,
+                "password_totp_available": bool((need <= 1 or box_available) and user
+                                                and user.password_hash and user.totp_secret)}
 
     def approve_options(self, request: Request, p: Principal, action_id: str, *, at_box: bool = False,
                         method: str = "passkey") -> dict:
@@ -1558,6 +1576,8 @@ class IdentityService:
         if action.get("state") != "awaiting_approval":
             raise ApiError(409, "conflict", f"action is {action.get('state')}, not awaiting_approval")
         ctx = ctx_of(request)
+        if action["type"] in lv.FAMILY_INVITE_ACTIONS:
+            self._account(ctx, "approve a family invitation")
         a_sha = self.action_sha256(action)
         p_sha = action.get("plan_sha256") or ""
         nonce = os.urandom(32)
@@ -1567,10 +1587,12 @@ class IdentityService:
         need, strict, decided_by = self.levels.for_action(action)
         home = self.is_home(request)
         eased = home and self.levels.grace(need, strict)
-        box = need == 2 and home and (at_box or eased)
+        box = need == 2 and not strict and home and (at_box or eased)
         factor_need = 1 if box else need
         what = f"approve {action.get('type')}"
-        verification = self._approval_verification(need, home, ctx)
+        verification = self._approval_verification(need, strict, home, ctx)
+        if at_box and strict:
+            raise self._level_unmet(p, what, need, details=[{"approval_verification": verification}])
         allow = self._keys_meeting(allow_users, factor_need) if method == "passkey" else []
         if method == "password+totp":
             user = self._account(ctx, "approve with an authenticator")
@@ -1610,27 +1632,33 @@ class IdentityService:
         password_totp = body.get("password_totp")
         if sum(proof is not None for proof in (assertion, password_totp, body.get("device_signature"))) > 1:
             raise ApiError(422, "conflict", "send one approval proof")
-        if body.get("device_signature") is not None:
-            return self._approve_with_device_key(p, ctx, action_id, body)
-        if assertion is None and password_totp is None and not self.account_setup_exists():
+        if assertion is None and password_totp is None and body.get("device_signature") is None \
+                and not self.account_setup_exists():
             return  # installation owner before the box has a household account
         action = self._approval_view(request, p, action_id)
+        family = action["type"] in lv.FAMILY_INVITE_ACTIONS
+        if family:
+            self._account(ctx, "approve a family invitation")
+        if body.get("device_signature") is not None:
+            if family:
+                raise self._step_up_failed(p, action_id, "approve this family invitation with your passkey or authenticator")
+            return self._approve_with_device_key(p, ctx, action_id, body)
         need, strict, decided_by = self.levels.for_action(action)
         if assertion is None and password_totp is None:
             fresh = self._fresh_l1(ctx)
             low_risk = need <= 1 and decided_by in {"tier.T0", "tier.T1"} and not strict
-            if (fresh == "password+totp" and need <= 1) or (
+            if not family and ((fresh == "password+totp" and need <= 1) or (
                     low_risk and ctx is not None and ctx.session is not None and ctx.home
-                    and (not self.cfg.require_passkey_approval or ctx.session.auth_method != "passkey")):
+                    and (not self.cfg.require_passkey_approval or ctx.session.auth_method != "passkey"))):
                 self.emit("auth", "approval.token", {"action_id": action_id, "via": fresh or ctx.session.auth_method}, p)
                 return
             self.emit("auth", "step_up.required", {"attempted": "approve", "action_id": action_id,
                                                    "required_level": lv.name(need)}, p, severity="warning")
             raise ApiError(401, "unauthenticated", "approve with your authenticator code and password, or with "
                            "your passkey", reason="step_up_required", details=[{"approval_verification":
-                               self._approval_verification(need, bool(ctx and ctx.home), ctx)}])
+                               self._approval_verification(need, strict, bool(ctx and ctx.home), ctx)}])
         if password_totp is not None:
-            self._approve_with_password_totp(request, ctx, p, action, body, need)
+            self._approve_with_password_totp(request, ctx, p, action, body, need, strict)
             return
         try:
             credential = pk.normalize(assertion)
@@ -1640,6 +1668,8 @@ class IdentityService:
         except ApiError as exc:
             raise self._step_up_failed(p, action_id, exc.message) from None
         self._check_bound(p, action_id, row, body, action=action)
+        if family and row.data.get("session_id") != ctx.session.id:
+            raise self._step_up_failed(p, action_id, "challenge belongs to another session")
         if row.data.get("method", "passkey") != "passkey":
             raise self._step_up_failed(p, action_id, "challenge was made for another sign-in method")
         try:
@@ -1653,7 +1683,7 @@ class IdentityService:
             raise self._step_up_failed(p, action_id, "passkey belongs to another account")
         have = self.levels.cred_level(cred)
         at_box = bool(row.data.get("box_sha256"))
-        if have < need and not (have >= 1 and need == 2 and at_box):
+        if have < need and not (have >= 1 and need == 2 and at_box and not strict):
             raise self._step_up_failed(p, action_id, f"this approval needs your proven key ({lv.name(need)}); "
                                        f"this key is {lv.name(have)}", reason="level_unmet")
         if at_box:
@@ -1668,7 +1698,7 @@ class IdentityService:
                                                 "grace": at_box and not self.levels.latched(), "at_box": at_box}, p)
 
     def _approve_with_password_totp(self, request: Request, ctx: AuthContext | None, p: Principal,
-                                    action: dict, body: dict, need: int) -> None:
+                                    action: dict, body: dict, need: int, strict: bool) -> None:
         user = self._account(ctx, "approve with an authenticator")
         proof = body["password_totp"]
         row = self._claim_challenge(proof["challenge"], "approve")
@@ -1678,7 +1708,7 @@ class IdentityService:
                 or row.data.get("session_id") != ctx.session.id:
             raise self._step_up_failed(p, action_id, "challenge belongs to another session or sign-in method")
         at_box = bool(row.data.get("box_sha256"))
-        self._require_totp_available(user, p, f"approve {action_id}", 1 if need == 2 and at_box else need)
+        self._require_totp_available(user, p, f"approve {action_id}", 1 if need == 2 and at_box and not strict else need)
         self.verify_password_totp(request, user, proof["password"], proof["totp"])
         if at_box:
             self._check_local_box(request, row.data["box_sha256"], body.get("box_code"), f"approve {action_id}")

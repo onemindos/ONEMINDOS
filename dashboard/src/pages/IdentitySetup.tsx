@@ -38,7 +38,7 @@ export function IdentitySetup({ owner, onDone }: { owner: boolean; onDone: () =>
   });
 
   return <SignInCard>
-    <h1>{t(owner ? 'setup.identity.title' : 'enrol.identity.title')}</h1>
+    <h1>{owner ? t('setup.identity.title') : t('enrol.identity.title')}</h1>
     {kit ? <RecoveryKit kit={kit} busy={busy} onSaved={finish} /> : <>
       <p className="om-hint">{t('factors.optional')}</p>
       <IdentityFactors api={api} offerEmail offerPasskey email={me.data?.email} emailVerified={me.data?.email_verified} totp={me.data?.totp} reload={me.reload} />

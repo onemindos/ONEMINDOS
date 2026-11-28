@@ -18,9 +18,11 @@ import { useState } from 'react';
 import { completeStepUp, OneMind, OneMindError, STEP_UP_HEADER, type components } from '@onemind/sdk';
 import { Button, Card, PageHeader, StatusPill, Table, VerificationBadge, type VerificationLevel } from '@onemind/ui';
 import { ApiError } from '../api/types';
+import type { PasskeyRegisterOptions } from '../api/wiring';
 import { keyErrorText } from '../lib/keyErrors';
 import { usePoll } from '../lib/hooks';
 import { useGateway } from '../lib/gateway';
+import { registerPasskey } from '../lib/registerPasskey';
 import { createPasskey, getPasskey, webauthnSupported } from '../lib/webauthn';
 import { askBoxCode } from '../lib/boxcode';
 import { askVerification } from '../lib/verification';
@@ -76,19 +78,13 @@ function LiveSignInKeys({ token, owner }: { token: string; owner: boolean }) {
     // Once you hold a proven key it vouches for the new one first (a new device can't vouch for itself):
     // the hub names that step-up and the client makes it before the options come back.
     const name = label.trim() || 'Security key';
-    const register = async (atBox: boolean) => {
-      const options = await call<{ publicKey: Json; box_code_if_proven?: boolean }>(client, 'POST', '/v1/auth/passkeys/register/options', {});
-      // N-1 b: the box's first proven key is added at the box. Asked only after the key turned out to be one.
-      const box_code = atBox && options.box_code_if_proven ? await askBoxCode('add a proven key') : undefined;
-      const credential = await createPasskey(options.publicKey);
-      return call<Registered>(client, 'POST', '/v1/auth/passkeys/register', { credential, label: name, ...(box_code ? { box_code } : {}) });
-    };
-    let r: Registered;
-    try { r = await register(false); } catch (e) {
-      if (!(e instanceof ApiError && e.reason === 'box_code_required')) throw e;
+    const r = await registerPasskey({
+      passkeyRegisterOptions: () => call<PasskeyRegisterOptions>(client, 'POST', '/v1/auth/passkeys/register/options', {}),
+      passkeyRegister: (credential, label, box_code) => call<Registered>(client, 'POST', '/v1/auth/passkeys/register',
+        { credential, label, box_code } satisfies components['schemas']['PasskeyRegisterBody']),
+    }, name, () => {
       setNote({ tone: 'warn', text: `${name} is a proven key. Your box's first proven key is added at the box: type the code its screen shows, then use the key once more.` });
-      r = await register(true);
-    }
+    });
     setLabel('');
     setNote({ tone: strong(r) ? 'ok' : 'warn', text: `${r.label} added at ${r.level}. ${r.explanation}` });
   }, 'Adding the key');

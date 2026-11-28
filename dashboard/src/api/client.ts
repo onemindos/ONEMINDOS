@@ -54,7 +54,7 @@ export interface OneMindApi extends WiringApi {
   saveOnboardingSettings(body: FirstRunSettingsBody): Promise<FirstRunSettings>;
   /** Server-side wizard state: whether to open the wizard and where the emergency kit stands. */
   onboardingState(): Promise<FirstRunState>;
-  /** Issues the emergency kit. The key is in this one answer only; callers must not store or log it. */
+  /** Requests, approves and claims the emergency kit. Callers must only keep the key in memory. */
   issueKit?(): Promise<IssuedKitResponse>;
   confirmKit?(answers: Record<string, string>): Promise<void>;
   backupDestinations(): Promise<BackupDestinationRecord[]>;
@@ -156,10 +156,7 @@ export interface FirstRunState {
   destinations: number;
   kit: { state: 'missing' | 'issued' | 'confirmed'; confirmed_at: string | null; fingerprint: string | null; positions: number[] };
 }
-export interface IssuedKitResponse {
-  kit: FirstRunState['kit'];
-  one_time: { groups: string[]; check: string; text: string };
-}
+export type IssuedKitResponse = components['schemas']['BackupKitIssue'];
 export interface SourceAddParams { name: string; url: string; commit: string }
 export interface BackupDestinationRecord { id: string; kind: string; label: string }
 
@@ -174,6 +171,7 @@ const KNOWN_CODES = new Set([
   'rate_limited',
   'payload_too_large',
   'policy_refused',
+  'unavailable',
   'upgrade_required',
 ]);
 
@@ -201,8 +199,20 @@ export class HttpApi implements OneMindApi {
   onboardingSettings = () => this.req<FirstRunSettings>('GET', '/v1/onboarding/settings');
   saveOnboardingSettings = (body: FirstRunSettingsBody) => this.req<FirstRunSettings>('PUT', '/v1/onboarding/settings', body);
   onboardingState = () => this.req<FirstRunState>('GET', '/v1/onboarding/state');
-  issueKit = () => this.req<IssuedKitResponse>('POST', '/v1/backups/kit');
-  confirmKit = async (answers: Record<string, string>) => { await this.req<unknown>('POST', '/v1/backups/kit/confirm', { answers }); };
+  async issueKit(): Promise<IssuedKitResponse> {
+    const action = await this.sdkCall<components['schemas']['Action']>('POST', '/v1/backups/kit/request');
+    if (action.type !== 'backup.kit.issue' || !action.id) throw new ApiError(200, 'unknown', 'Invalid backup kit request');
+    const approved = action.state === 'awaiting_approval'
+      ? await approveWithStepUp(this, { id: action.id, plan_sha256: action.plan_sha256 ?? undefined }) : action;
+    if (approved.state !== 'succeeded') {
+      const message = approved.result?.message;
+      throw new ApiError(409, 'stale_precondition', typeof message === 'string' ? message : 'The backup kit was not issued');
+    }
+    return this.sdkCall<IssuedKitResponse>('POST', `/v1/backups/kit/${encodeURIComponent(action.id)}/claim`);
+  }
+  confirmKit = async (answers: Record<string, string>) => {
+    await this.sdkCall<unknown>('POST', '/v1/backups/kit/confirm', { answers } satisfies components['schemas']['KitConfirmBody']);
+  };
   backupDestinations = () => this.req<BackupDestinationRecord[]>('GET', '/v1/backups/destinations', undefined, 'array');
   private readonly base: string;
   private readonly token: string;
@@ -471,15 +481,15 @@ export class HttpApi implements OneMindApi {
   /** A raw approve; callers without a body can still complete a sign-in check in place. */
   async approve(id: string, body?: ApproveBody): Promise<Action> {
     const path = `/v1/actions/${encodeURIComponent(id)}/approve`;
-    if (body !== undefined) return this.req<Action>('POST', path, body);
-    try { return await this.req<Action>('POST', path); }
+    if (body !== undefined) return this.sdkCall<Action>('POST', path, body, false, undefined, false);
+    try { return await this.sdkCall<Action>('POST', path, undefined, false, undefined, false); }
     catch (error) {
       if (!(error instanceof ApiError) || error.reason !== 'step_up_required') throw error;
       return approveWithStepUp(this, { id }, { forceProof: true });
     }
   }
   approveOptions(id: string, body: Partial<components['schemas']['ApprovalOptionsBody']> = {}) {
-    return this.req<ApproveOptions>('POST', `/v1/actions/${encodeURIComponent(id)}/approve-options`, body);
+    return this.sdkCall<ApproveOptions>('POST', `/v1/actions/${encodeURIComponent(id)}/approve-options`, body, false, undefined, false);
   }
   deny(id: string) {
     return this.req<Action>('POST', `/v1/actions/${encodeURIComponent(id)}/deny`);
@@ -531,10 +541,10 @@ export class HttpApi implements OneMindApi {
     return this.req<W.PasskeyInfo[]>('GET', '/v1/auth/passkeys', undefined, 'array');
   }
   passkeyRegisterOptions() {
-    return this.sdkCall<W.WebAuthnOptions>('POST', '/v1/auth/passkeys/register/options', {});
+    return this.sdkCall<W.PasskeyRegisterOptions>('POST', '/v1/auth/passkeys/register/options', {});
   }
-  passkeyRegister(credential: Record<string, unknown>, label?: string) {
-    return this.sdkCall<W.PasskeyInfo>('POST', '/v1/auth/passkeys/register', { credential, label } satisfies components['schemas']['PasskeyRegisterBody']);
+  passkeyRegister(credential: Record<string, unknown>, label?: string, boxCode?: string) {
+    return this.sdkCall<W.PasskeyInfo>('POST', '/v1/auth/passkeys/register', { credential, label, box_code: boxCode } satisfies components['schemas']['PasskeyRegisterBody']);
   }
   async deletePasskey(id: string) {
     await this.req<void>('DELETE', `/v1/auth/passkeys/${encodeURIComponent(id)}`);
@@ -545,8 +555,9 @@ export class HttpApi implements OneMindApi {
   createUser(b: { display_name: string; role: W.PersonRole; username?: string }) {
     return this.req<W.UserCreated>('POST', '/v1/users', b);
   }
-  createInvite = (body: components['schemas']['UserCreateBody']) => this.sdkCall<W.UserCreated>('POST', '/v1/users/invites', body);
-  reissueInvite = (userId: string) => this.sdkCall<W.UserCreated>('POST', `/v1/users/${encodeURIComponent(userId)}/invite`);
+  createInvite = (body: components['schemas']['UserCreateBody']) => this.sdkCall<W.InviteRequestResult>('POST', '/v1/users/invites', body);
+  reissueInvite = (userId: string) => this.sdkCall<W.InviteRequestResult>('POST', `/v1/users/${encodeURIComponent(userId)}/invite`);
+  claimInvite = (actionId: string) => this.sdkCall<W.UserCreated>('POST', `/v1/users/invites/${encodeURIComponent(actionId)}/claim`, undefined, false, undefined, false);
   updateUser(id: string, b: { display_name?: string; role?: W.PersonRole }) {
     return this.req<W.UserInfo>('PATCH', `/v1/users/${encodeURIComponent(id)}`, b);
   }

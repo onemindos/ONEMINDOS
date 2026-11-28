@@ -7,6 +7,8 @@ import { App } from '../App';
 import { HttpApi } from '../api/client';
 import { DEMO_TOKENS } from '../api/fixtures';
 import { MockApi } from '../api/mock';
+import { BoxCodeHost } from '../lib/boxcode';
+import * as webauthn from '../lib/webauthn';
 import { SessionProvider } from '../session';
 import { IdentityFactors } from './IdentityFactors';
 
@@ -189,4 +191,46 @@ it('leaves email optional when SMTP is unavailable and verifies it only with the
   expect(await screen.findByText('Email address verified.')).toBeVisible();
   const verify = fetchRequest.mock.calls.find(([url]) => new URL(url).pathname === '/v1/auth/email/verify');
   expect(JSON.parse(String(verify?.[1]?.body))).toEqual({ challenge_id: 'screen-challenge', code: '012345' });
+});
+
+it('enrols an everyday passkey directly and tries a proven key again with fresh options and the screen code', async () => {
+  vi.spyOn(webauthn, 'webauthnSupported').mockReturnValue(true);
+  const ceremony = vi.spyOn(webauthn, 'createPasskey').mockImplementation(async ({ challenge }) => ({ id: challenge }));
+  let options = 0;
+  const submitted: unknown[] = [];
+  const api = new HttpApi({ token: 'owner-demo', fetchFn: async (url, init) => {
+    const path = new URL(url).pathname;
+    if (path === '/v1/auth/passkeys/register/options') {
+      const id = `passkey-${++options}`;
+      return json({ ...challenge, challenge_id: id, publicKey: { challenge: id }, box_code_if_proven: true });
+    }
+    if (path === '/v1/auth/passkeys/register') {
+      const body = JSON.parse(String(init?.body));
+      submitted.push(body);
+      if (body.credential.id === 'passkey-2') return json({ error: 'unauthenticated', reason: 'box_code_required', message: 'Use the code on the box.' }, 401);
+      return json({ credential_id: body.credential.id, level: body.box_code ? 'L2' : 'L1' }, 201);
+    }
+    return json({ error: 'not_found', message: 'Not found.' }, 404);
+  } });
+  const { rerender } = render(<><IdentityFactors key="everyday" api={api} offerPasskey /><BoxCodeHost /></>);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Add a passkey' }));
+  expect(await screen.findByText('Passkey added.')).toBeVisible();
+  expect(screen.queryByRole('alertdialog')).toBeNull();
+  expect(submitted).toEqual([{ credential: { id: 'passkey-1' } }]);
+
+  rerender(<><IdentityFactors key="proven" api={api} offerPasskey /><BoxCodeHost /></>);
+  await user.click(screen.getByRole('button', { name: 'Add a passkey' }));
+  const dialog = within(await screen.findByRole('alertdialog', { name: 'Confirm at the box' }));
+  expect(options).toBe(3);
+  expect(ceremony).toHaveBeenCalledTimes(2);
+  await user.type(dialog.getByLabelText("Code on the box's screen"), '482913');
+  await user.click(dialog.getByRole('button', { name: 'Continue' }));
+  expect(await screen.findByText('Passkey added.')).toBeVisible();
+  expect(ceremony.mock.calls).toEqual(['passkey-1', 'passkey-2', 'passkey-3'].map((id) => [{ challenge: id }]));
+  expect(submitted).toEqual([
+    { credential: { id: 'passkey-1' } },
+    { credential: { id: 'passkey-2' } },
+    { credential: { id: 'passkey-3' }, box_code: '482913' },
+  ]);
 });

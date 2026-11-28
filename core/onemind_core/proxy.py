@@ -146,11 +146,12 @@ def _probe(token: str, authenticators: list, path: NetPath) -> tuple[Request, Pr
 
     Only sessions open apps. An API token is scoped to routes (`instance:read`, `apps:read`...),
     while an app host is whole-app interactive access, so a scoped token must not open one; it is
-    simply "not signed in" here. The authenticators take a Request, so one is made for GET /v1/me;
-    a refusal (ApiError: disabled account) is also "not signed in". The returned request carries
-    `state.identity` for the sharing filters.
+    simply "not signed in" here. Probe the app-session route so the same authentication checks
+    apply to creating an app cookie and using an existing one. A refusal is also "not signed in".
+    The returned request carries `state.identity` for the sharing filters.
     """
-    request = Request({"type": "http", "method": "GET", "path": "/v1/me", "raw_path": b"/v1/me",
+    request = Request({"type": "http", "method": "POST", "path": "/v1/auth/app-session",
+                       "raw_path": b"/v1/auth/app-session",
                        "query_string": b"", "scheme": "https", "client": None, "server": None,
                        SCOPE_PATH_KEY: path,
                        "headers": [(b"authorization", f"Bearer {token}".encode("latin-1"))]})

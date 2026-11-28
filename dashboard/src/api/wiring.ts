@@ -66,6 +66,10 @@ export interface WebAuthnOptions {
   publicKey: Record<string, unknown>;
 }
 
+export interface PasskeyRegisterOptions extends WebAuthnOptions {
+  box_code_if_proven?: boolean;
+}
+
 export interface UserInfo {
   id: string;
   username: string | null;
@@ -79,6 +83,8 @@ export interface UserInfo {
   totp: boolean;
 }
 export interface UserCreated extends UserInfo, Pick<components['schemas']['UserInvite'], 'one_time'> {}
+/** Older gateways return the invitation directly. Current gateways return a request for approval. */
+export type InviteRequestResult = components['schemas']['Action'] | UserCreated;
 
 export interface TokenInfo {
   id: string;
@@ -225,14 +231,15 @@ export interface WiringApi {
   sessions(): Promise<SessionInfo[]>;
   revokeSession(id: string): Promise<void>;
   passkeys(): Promise<PasskeyInfo[]>;
-  passkeyRegisterOptions(): Promise<WebAuthnOptions>;
-  passkeyRegister(credential: Record<string, unknown>, label?: string): Promise<PasskeyInfo>;
+  passkeyRegisterOptions(): Promise<PasskeyRegisterOptions>;
+  passkeyRegister(credential: Record<string, unknown>, label?: string, boxCode?: string): Promise<PasskeyInfo>;
   deletePasskey(id: string): Promise<void>;
   // people and tokens
   users(): Promise<UserInfo[]>;
   createUser(body: { display_name: string; role: PersonRole; username?: string }): Promise<UserCreated>;
-  createInvite?(body: components['schemas']['UserCreateBody']): Promise<UserCreated>;
-  reissueInvite?(userId: string): Promise<UserCreated>;
+  createInvite?(body: components['schemas']['UserCreateBody']): Promise<InviteRequestResult>;
+  reissueInvite?(userId: string): Promise<InviteRequestResult>;
+  claimInvite?(actionId: string): Promise<UserCreated>;
   updateUser(id: string, body: { display_name?: string; role?: PersonRole }): Promise<UserInfo>;
   disableUser(id: string): Promise<UserInfo>;
   familyProfile(id: string): Promise<FamilyProfile>;

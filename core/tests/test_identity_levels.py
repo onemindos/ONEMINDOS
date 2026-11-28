@@ -628,14 +628,28 @@ def test_adding_a_key_needs_a_proven_key_once_one_exists(lvc, root, clock):
     add_key(lvc, SoftAuthenticator(), "phone", grant=grant(lvc, bio, "auth.passkeys.register"))
 
 
-def test_the_motion_lockout_stays_strict_without_a_proven_key(lvc):
+def test_the_motion_lockout_stays_strict_without_a_proven_key(lvc, monkeypatch):
     setup_owner(lvc)
-    add_key(lvc, SoftAuthenticator(), "phone")
-    r = lvc.put("/v1/physical/lockout", json={"locked": False, "reason": None}, headers=csrf(lvc))
-    assert r.status_code == 401 and r.json()["reason"] == "step_up_required"
-    r = lvc.post("/v1/auth/step-up/options", json={"op": "physical.lockout.set", "body": {"locked": False, "reason": None}},
-                 headers=csrf(lvc))
-    assert r.status_code == 409 and r.json()["reason"] == "verification_level_unmet"
+    phone = SoftAuthenticator()
+    add_key(lvc, phone, "phone")
+    path = "/v1/physical/lockout"
+    body = {"locked": False, "reason": None}
+    assert lvc.put(path, json={"locked": True}, headers=csrf(lvc)).status_code == 200
+    locked = lvc.get(path).json()
+    r = lvc.put(path, json=body, headers=csrf(lvc))
+    assert step_up_of(r)["box"] is None
+    for explicit in ({}, {"at_box": True}):
+        r = lvc.post("/v1/auth/step-up/options", json={"op": "physical.lockout.set", "body": body, **explicit},
+                     headers=csrf(lvc))
+        assert r.status_code == 409 and r.json()["reason"] == "verification_level_unmet", r.text
+
+    # An outstanding grant issued under the old rule cannot turn off the lockout either.
+    with monkeypatch.context() as old:
+        old.setattr(lvc.app.state.identity, "_op_rule", lambda *a, **kw: (2, "alt"))
+        issued = grant(lvc, phone, "physical.lockout.set", body=body, at_box=True)
+    refused = lvc.put(path, json=body, headers={**csrf(lvc), "OneMind-Step-Up": issued})
+    assert refused.status_code == 401 and refused.json()["reason"] == "step_up_required"
+    assert lvc.get(path).json() == locked
 
 
 def test_grace_keeps_l1_owner_changes_working_at_the_box_and_says_so(lvc, settings):
@@ -755,7 +769,8 @@ def test_during_grace_a_step_up_in_place_replaces_signing_in_again(lvc, clock, s
     assert list(keys(lvc)) == ["phone"]
 
 
-def test_a_physical_approval_stays_l2_during_the_grace(lvc, clock):
+@pytest.mark.parametrize("method", ["passkey", "password+totp"])
+def test_a_physical_approval_stays_l2_during_the_grace(lvc, clock, method, monkeypatch):
     from onemind_core.actions import FeatureAction
     from onemind_core.executors import ExecResult
 
@@ -770,11 +785,30 @@ def test_a_physical_approval_stays_l2_during_the_grace(lvc, clock):
     setup_owner(lvc)
     phone = SoftAuthenticator()
     add_key(lvc, phone, "phone")
+    secret = _enable_totp(lvc, clock)
     assert lvc.get("/v1/verification-requirements").json()["grace"] is True
     aid = file_action(lvc, clock, "test.pump.run", {"pump": "garden"}, "pump1")
     r = lvc.post(f"/v1/actions/{aid}/approve-options", headers=csrf(lvc))
     # tier.P is strict: the grace that eases T3 to L1 never reaches it, so the phone is told plainly.
     assert r.status_code == 409 and r.json()["reason"] == "verification_level_unmet", r.text
+    r = lvc.post(f"/v1/actions/{aid}/approve-options", json={"at_box": True, "method": method}, headers=csrf(lvc))
+    assert r.status_code == 409 and r.json()["reason"] == "verification_level_unmet", r.text
+    assert r.json()["details"][0]["approval_verification"]["box_available"] is False
+
+    # Simulate an unconsumed challenge issued before the strict rule was enforced.
+    levels = lvc.app.state.identity.levels
+    need, _, row = levels.for_action(lvc.get(f"/v1/actions/{aid}").json())
+    with monkeypatch.context() as old:
+        old.setattr(levels, "for_action", lambda _: (need, False, row))
+        r = lvc.post(f"/v1/actions/{aid}/approve-options", json={"at_box": True, "method": method}, headers=csrf(lvc))
+    assert r.status_code == 200 and r.json()["box_code_required"], r.text
+    opts = r.json()
+    proof = ({"webauthn": phone.assert_(opts["publicKey"]["challenge"])} if method == "passkey"
+             else {"password_totp": _totp_proof(opts, secret, clock)})
+    refused = lvc.post(f"/v1/actions/{aid}/approve", headers=csrf(lvc),
+                       json={**proof, "plan_sha256": opts["plan_sha256"], "hold_ms": 2000, "box_code": box_code(lvc)})
+    assert refused.status_code in (401, 409), refused.text
+    assert refused.json()["reason"] == ("step_up_required" if method == "passkey" else "verification_level_unmet")
     assert lvc.get(f"/v1/actions/{aid}").json()["state"] == "awaiting_approval"
 
 
