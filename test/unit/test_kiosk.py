@@ -23,7 +23,7 @@ class Plan(unittest.TestCase):
     def test_cage_around_chromium_on_the_local_gateway(self):
         argv = k.plan(have("cage", "chromium"))
         self.assertEqual(argv[:3], ["/usr/bin/cage", "--", "/usr/bin/chromium"])
-        self.assertEqual(argv[-1], "http://127.0.0.1:8080/")
+        self.assertEqual(argv[-1], "http://127.0.0.1:8080/?kiosk=1")     # the dashboard's forced-idle-lock marker
         self.assertIn("--kiosk", argv)
         self.assertIn("--incognito", argv)             # nothing saved: no token or cookie survives the session
         self.assertIn("--user-data-dir=/run/onemind-kiosk/profile", argv)   # tmpfs, gone at stop
@@ -85,6 +85,27 @@ class Monitor(unittest.TestCase):
         fb = importlib.util.spec_from_file_location("firstboot", os.path.join(ROOT, "test", "qemu", "firstboot.py"))
         src = open(fb.origin).read()
         self.assertIn(k.NO_MONITOR, src)              # F17 (CRITERIA-FIRSTBOOT.md section 12)
+
+
+class BrowserPolicy(unittest.TestCase):
+    """Chromium's managed policy: only the local gateway, no devtools, downloads, files, printing or saved passwords."""
+    PATH = os.path.join(ROOT, "os", "rootfs", "layers", "onemind", "etc", "chromium", "policies", "managed", "onemind-kiosk.json")
+
+    def test_policy_ships_and_locks_the_browser_down(self):
+        import json
+        with open(self.PATH) as f:
+            pol = json.load(f)
+        self.assertEqual(pol["URLBlocklist"], ["*", "chrome://*", "file://*", "javascript://*"])
+        self.assertEqual(pol["URLAllowlist"], ["http://127.0.0.1:8080/*"])
+        self.assertTrue(k.KIOSK_URL.startswith(pol["URLAllowlist"][0].rstrip("*")))
+        self.assertEqual({key: pol[key] for key in ("DeveloperToolsAvailability", "AllowFileSelectionDialogs", "DownloadRestrictions",
+                                                    "BrowserGuestModeEnabled", "PrintingEnabled", "PasswordManagerEnabled", "BrowserSignin")},
+                         {"DeveloperToolsAvailability": 2, "AllowFileSelectionDialogs": False, "DownloadRestrictions": 3,
+                          "BrowserGuestModeEnabled": False, "PrintingEnabled": False, "PasswordManagerEnabled": False, "BrowserSignin": 0})
+
+    def test_the_layer_is_copied_into_the_image(self):
+        with open(os.path.join(ROOT, "os", "rootfs", "Containerfile")) as f:
+            self.assertIn("COPY os/rootfs/layers/onemind/ /", f.read())
 
 
 class Environment(unittest.TestCase):

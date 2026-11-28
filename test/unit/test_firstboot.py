@@ -1194,7 +1194,9 @@ class WizardOnTheBoxScreen(Box):
         body = urllib.request.urlopen(base + "/setup", data=b"role=hub&name=Lab&kiosk=on").read().decode()
         self.assertRegex(body, r"<code>[0-9a-f]{64}</code>")
         self.assertIn("Continue to the OneMind desktop", body)
-        self.assertIn('location.replace("/")', body)
+        self.assertIn('location.replace("/"+location.search)', body)   # keeps the kiosk=1 marker
+        self.assertIn("setTimeout(hide,120000)", body)                   # the token is hidden again, the page stays
+        self.assertIn('id="copy"', body)
         self.assertNotIn("setTimeout(function(){location", body)   # never leaves the token page by itself
         self.assertTrue(os.path.exists(self.p.kiosk_flag))
 

@@ -4,9 +4,12 @@
 On by default on the boards that ship a compositor and a browser (founder decision 2026-11-28): first boot
 creates the flag file below once (onemind_firstboot.kiosk_default), so a monitor on a fresh box shows the setup
 page and then the desktop, not the text screen. The owner can turn it off in setup, with `onemind kiosk
-disable` or over the API; first boot never turns it back on. Read-only by design: the kiosk browser opens only
-the local gateway address, in a private profile on tmpfs that is gone at stop, and never holds the owner token
-(the person at the box signs in like anyone else). With no monitor connected, or if the compositor (cage) or a
+disable` or over the API; first boot never turns it back on. The kiosk browser opens only the local gateway
+address (Chromium's managed policy /etc/chromium/policies/managed/onemind-kiosk.json blocks every other URL,
+developer tools, downloads, file dialogs, printing and saved passwords), in a private profile on tmpfs that is
+gone at stop. The launcher holds no token; a person who signs in at the box holds that session's token in the
+browser until it ends, and the dashboard locks it after an idle time it will not let anyone switch off here
+(the URL's kiosk=1 marker). With no monitor connected, or if the compositor (cage) or a
 browser is not in the image, the launcher shows the text screen (onemind_screen.py) instead, so the kiosk never
 leaves a blank monitor; a monitor plugged in later is picked up within a few seconds.
 Run by onemind-kiosk.service.
@@ -16,6 +19,8 @@ import glob, os, shutil, subprocess, sys, time, urllib.request
 PORT = 8080
 FLAG = "/data/onemind/kiosk/enabled"
 URL = f"http://127.0.0.1:{PORT}/"
+# What the browser opens: kiosk=1 tells the dashboard it runs on the box's own screen (forced idle lock).
+KIOSK_URL = URL + "?kiosk=1"
 RUNTIME = "/run/onemind-kiosk"
 PROFILE = RUNTIME + "/profile"
 # (executable, flags that put it full screen with no chrome and no saved state), first one found wins.
@@ -56,7 +61,7 @@ def plan(which=shutil.which):
     for name, flags in BROWSERS:
         path = which(name)
         if path:
-            return [cage, "--", path, *flags, URL]
+            return [cage, "--", path, *flags, KIOSK_URL]
     return None
 
 

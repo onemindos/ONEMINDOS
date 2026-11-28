@@ -92,8 +92,18 @@ KIOSK_FIELD = """<fieldset><legend>This box's own monitor (hub only)</legend>
 CONTINUE = """<p><button type="button" id="go" disabled>Starting OneMind...</button></p>
 <script>(function(){var b=document.getElementById("go");function poll(){fetch("/healthz",{cache:"no-store"})
 .then(function(r){return r.ok?r.text():"";}).then(function(t){if(t&&t.trim()!=="setup"){b.disabled=false;
-b.textContent="Continue to the OneMind desktop";b.onclick=function(){location.replace("/");};}else{setTimeout(poll,3000);}})
+b.textContent="Continue to the OneMind desktop";b.onclick=function(){location.replace("/"+location.search);};}else{setTimeout(poll,3000);}})
 .catch(function(){setTimeout(poll,3000);});}setTimeout(poll,3000);})();</script>"""
+
+
+# The owner token on the done page is hidden again once it was copied, or after two minutes, so a monitor left
+# on this page (the box's own screen) does not keep showing it. The page stays; nothing navigates away.
+MASK = """<p><button type="button" id="copy">Copy the token</button></p>
+<script>(function(){var c=document.querySelector("code"),b=document.getElementById("copy");if(!c)return;
+function hide(){c.textContent="(hidden: it was shown once)";b.disabled=true;}
+b.onclick=function(){var t=c.textContent;(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject())
+.then(hide,function(){var r=document.createRange();r.selectNodeContents(c);var s=getSelection();s.removeAllRanges();s.addRange(r);
+document.execCommand("copy");hide();});};setTimeout(hide,120000);})();</script>"""
 
 
 def kiosk_field() -> str:
@@ -385,7 +395,7 @@ class Wizard(BaseHTTPRequestHandler):
             t = res.get("token")
             if isinstance(t, str) and t:          # the helper hands it over once and deletes its copy
                 token = ("<p>Your <strong>owner token</strong>. Copy it now: it is shown once and only its "
-                         f"sha256 is kept.</p><p><code>{html.escape(t)}</code></p>")
+                         f"sha256 is kept.</p><p><code>{html.escape(t)}</code></p>" + MASK)
             else:
                 token = "<p>The owner token was printed on the box's console.</p>"
             nxt = "Reload this address in a minute for the dashboard."

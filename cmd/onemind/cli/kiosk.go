@@ -45,7 +45,7 @@ func kioskCommands(a *App) []*cobra.Command {
 	})
 	k.AddCommand(&cobra.Command{
 		Use:   "enable",
-		Short: "Turn kiosk mode on: the monitor shows the dashboard (no owner token is kept; a keyboard on the box can still sign in)",
+		Short: "Turn kiosk mode on: the monitor shows the dashboard (the launcher keeps no token; a session signed in at the box locks when idle)",
 		Args:  cobra.NoArgs,
 		RunE: func(*cobra.Command, []string) error {
 			if err := os.MkdirAll(filepath.Dir(flag), 0o755); err != nil {
