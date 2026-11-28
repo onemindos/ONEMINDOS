@@ -47,7 +47,7 @@ export function credentialJson(c: PublicKeyCredential): Json {
 /** Ask the authenticator to sign in. Rejects when the person cancels. */
 export async function getPasskey(publicKey: Json): Promise<Json> {
   const c = (await navigator.credentials.get({ publicKey: decodeOptions(publicKey) as unknown as PublicKeyCredentialRequestOptions })) as PublicKeyCredential | null;
-  if (!c) throw new Error('No passkey was chosen.');
+  if (!c) throw new DOMException('No passkey was chosen.', 'NotAllowedError');
   return credentialJson(c);
 }
 

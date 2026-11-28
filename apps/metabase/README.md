@@ -7,7 +7,7 @@ Business intelligence: ask questions of your databases and build charts and dash
 
 | | |
 |---|---|
-| Version | 0.65.3 (upstream release `v0.65.3`, published 2026-11-06) |
+| Version | 0.65.7 (upstream release `v0.65.7`, published 2026-11-24) |
 | Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | monitoring |
@@ -34,8 +34,8 @@ Storage: PVC `metabase-db` 5Gi.
 
 Images:
 
-- `docker.io/metabase/metabase:v0.65.3@sha256:9930a9b0e6974926319f691d1e55f0f9f97996e9ab658cd0cc04d9f86b0f0c1c`
-- `docker.io/library/postgres:18.6-alpine@sha256:9ba53c7d41ea093baf5c1ba635ba5434c4f979880527d49bb7d9237d3193085b`
+- `docker.io/metabase/metabase:v0.65.7@sha256:f8dbde1aa67b525ed64637f1903a79c9320319360a9d7a3b995d68b8c0f3c2bb`
+- `docker.io/library/postgres:18.7-alpine@sha256:0115267ab5a509022df9319c77be365cef335adb71556c75f60f5360ee247e71`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -93,6 +93,8 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 **Unblock attempt (apps/market-unblock-2, 2026-11-13):** Only the bundled `postgres:18.6-trixie` blocked this app (the Metabase `v0.65.3` image, licence, ClamAV and smoke test passed). The sidecar moved to `postgres:18.6-alpine`, the same image `paperless-ngx` uses (tag and digest read from the Docker Hub registry on 2026-11-13; digest `sha256:9ba53c7d…193085b`). The Alpine image uses `su-exec` (C) instead of the Go helper `gosu` and has no Debian `ssl-cert` package, which is where the snakeoil private key came from. It has not been scanned by us yet: the CI gate decides the tier, and this app stays `blocked` until a run passes. The Alpine `postgres` user is UID/GID 70 (Debian: 999). Alpine uses musl, so text sorting differs from the Debian image; a database made by one image must not be opened by the other, which is safe only because nobody has installed this app yet. Metabase `v0.65.4` exists but is not needed for this fix.
 
 **Gate result (ci-apps run 43468040302, 2026-11-13): still blocked.** The Alpine image also ships Go `stdlib` v1.24.6, so CVE-2025-68121 remains (fixed in 1.24.13, 1.25.7 or 1.26.0-rc.3). The snakeoil private-key finding is gone and the smoke test passed on the Alpine sidecar. What would unblock it: an upstream `postgres` image of the same major built with a fixed Go; the daily `apps-rescan` workflow picks that up without a code change.
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** Metabase v0.65.3 to v0.65.7 (patch line, no notes read beyond the release list) and PostgreSQL 18.6 to 18.7 (Alpine flavour kept). The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

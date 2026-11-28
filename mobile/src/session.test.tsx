@@ -344,10 +344,10 @@ describe('identity (§12.6)', () => {
 });
 
 describe('inbox notifications', () => {
-  const item = (id: string, read = false, action_id?: string): InboxItem => ({
+  const item = (id: string, read = false, action_id?: string, topic = 'apps'): InboxItem => ({
     id,
     severity: 'info',
-    topic: 'apps',
+    topic,
     title: `t${id}`,
     body: 'b',
     link: null,
@@ -358,7 +358,7 @@ describe('inbox notifications', () => {
   });
   it('raises nothing on the first refresh, then only new unread items; approvals open the Approvals tab', () => {
     expect(inboxAlerts(undefined, [item('1')])).toEqual([]);
-    const out = inboxAlerts(new Set(['1']), [item('1'), item('2'), item('3', true), item('4', false, 'act-1')]);
+    const out = inboxAlerts(new Set(['1']), [item('1'), item('2'), item('3', true), item('4', false, 'act-1', 'approvals')]);
     expect(out.map((a) => [a.id, a.route])).toEqual([
       ['ntf:2', 'inbox'],
       ['ntf:4', 'approvals'],

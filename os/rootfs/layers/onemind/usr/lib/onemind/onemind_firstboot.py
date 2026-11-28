@@ -39,9 +39,11 @@ import shutil
 import socket
 import subprocess
 import sys
-import tempfile
 import time
 from urllib.parse import parse_qs, urlsplit
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import onemind_k3s_state as durable  # noqa: E402  (atomic writes, syncfs; same folder, -I does not add it)
 
 ROLES = ("hub", "worker", "leaf")
 # Started on every boot. A unit whose Condition* is not met yet is skipped without error (for
@@ -51,7 +53,7 @@ ROLE_UNITS = {
     "hub": ["onemind-starting.service", "onemind-nats.service", "onemind-nats-accounts.path", "onemindd.service", "onemind-gateway.service",
             "onemind-gateway-kube.service", "tailscaled.service", "onemind-headscale.service",
             "onemind-mesh-setup.service", "onemind-rescue.service", "onemind-host.service",
-            "onemind-storage.service", "onemind-images.service"],
+            "onemind-storage.service", "onemind-images.service", "onemind-k3s-settle.service"],
     # A worker and a leaf both get the mesh and a local NATS leaf (internal/fabric Installer.Apply).
     "worker": ["tailscaled.service", "onemind-nats-leaf.service", "onemindd.service", "onemind-fabric-join.service"],
     "leaf": ["tailscaled.service", "onemind-nats-leaf.service", "onemindd.service", "onemind-fabric-join.service"],
@@ -59,7 +61,7 @@ ROLE_UNITS = {
 # A box configured before IMG-MESH-01 (state.json without "mesh") keeps the units it was set up for.
 LEGACY_ROLE_UNITS = {
     "hub": ["onemind-nats.service", "onemindd.service", "onemind-gateway.service", "onemind-gateway-kube.service",
-            "onemind-rescue.service", "onemind-host.service"],
+            "onemind-rescue.service", "onemind-host.service", "onemind-k3s-settle.service"],
     "worker": ["onemindd.service"],
     "leaf": ["onemind-nats.service", "onemindd.service"],
 }
@@ -130,6 +132,7 @@ class Paths:
         self.backup_export = j("data", "onemind", "gateway", "backup-export")  # the built-ins' export (#616)
         self.rescue_tls = j("data", "onemind", "tls")   # https.crt/https.key for onemind-rescue (CORE-UPDATE-9)
         self.files = j("data", "onemind", "files")      # the gateway's ONEMIND_FILES_ROOT (and Samba's shares)
+        self.map_packs = j("data", "onemind", "maps", "packs")
         self.k3s_data = j("data", "k3s")                # k3s --data-dir (a leaf removes it, retire_k3s)
         self.k3s_run = j("run", "k3s")                  # tmpfs: exists only if k3s started on this boot
 
@@ -293,7 +296,8 @@ def run_dir(p: "Paths") -> None:
 
 
 def write(path: str, data: str, mode: int = 0o600, owner: tuple[int, int] | None = None) -> bool:
-    """Atomic write: a power cut leaves the old file or the new one, never half of one.
+    """Atomic and durable write: temp file, fsync, rename, fsync of the folder. A power cut leaves the old file
+    or the new one, never half of one, and once this returns the new one is on the disk (VM 501, bug 1).
     Returns False (and touches nothing) when the file already has exactly this content, mode and owner."""
     try:
         st = os.stat(path)
@@ -302,22 +306,7 @@ def write(path: str, data: str, mode: int = 0o600, owner: tuple[int, int] | None
             return False
     except OSError:
         pass
-    d = os.path.dirname(path)
-    os.makedirs(d, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=d, prefix=".tmp-")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(data)
-            f.flush()
-            os.fsync(f.fileno())
-        os.chmod(tmp, mode)
-        if owner:
-            os.chown(tmp, *owner)
-        os.replace(tmp, path)
-    except BaseException:
-        if os.path.exists(tmp):
-            os.unlink(tmp)
-        raise
+    durable.atomic_write(path, data, mode, owner)      # temp + fsync + rename + fsync of the folder
     return True
 
 
@@ -475,14 +464,34 @@ def nats_service_keys(p: Paths) -> None:
     os.makedirs(p.nats_keys, mode=0o755, exist_ok=True)
     os.chmod(os.path.dirname(p.nats_keys), 0o755)
     os.chmod(p.nats_keys, 0o755)
-    for name in ("gateway", "onemindd"):
+    # "observer" (#620) is the gateway's read-only reader of the server's connect and auth-error events:
+    # natsconf puts it in the SYS account, not the hub account.
+    for name in ("gateway", "onemindd", "observer"):
         natsconf.make_service_key(Path(p.nats_keys), name)
     ids = onemind_ids()
     if ids:
-        os.chown(os.path.join(p.nats_keys, "gateway.nk"), *ids)
+        for name in ("gateway", "observer"):
+            os.chown(os.path.join(p.nats_keys, f"{name}.nk"), *ids)
     # The first accounts file (hub account with the two service keys); the gateway owns and rewrites it.
     os.environ.setdefault("ONEMIND_FABRIC_JETSTREAM_MAX_BYTES", str(jetstream_max_bytes(p)))
     natsconf.main([p.accounts, p.nats_keys])
+
+
+def ensure_observer_key(p: Paths) -> None:
+    """Every boot, hub only (#620): a box set up before the observer existed and updated through RAUC has
+    no observer key, so the bus would stay unwatched for good. Make the key now, before the gateway starts:
+    the gateway rewrites the accounts file at startup and puts the key in the SYS account. A key that is
+    already there is kept."""
+    from pathlib import Path
+
+    from onemind_core import natsconf
+    if not os.path.isfile(os.path.join(p.nats_keys, "gateway.nk")) or os.path.isfile(os.path.join(p.nats_keys, "observer.nk")):
+        return
+    natsconf.make_service_key(Path(p.nats_keys), "observer")
+    ids = onemind_ids()
+    if ids:
+        os.chown(os.path.join(p.nats_keys, "observer.nk"), *ids)
+    log("NATS observer key made (the bus is watched from the next gateway start)")
 
 
 # The hub NATS reads copies of these from its runtime dir (onemind-nats.service, onemind-nats-files).
@@ -570,7 +579,7 @@ def gateway_env(p: Paths, st: dict, mesh_ip: str | None = None, js_max_bytes: in
            f"ONEMIND_FABRIC_NATS_SERVICE_KEYS={p.nats_keys}\n"
            f"ONEMIND_FABRIC_NATS_NKEY_SEED={p.nats_keys}/gateway.nk\n"
            f"ONEMIND_FABRIC_JETSTREAM_MAX_BYTES={js_max_bytes}\nONEMIND_FABRIC_JETSTREAM_PATH={JETSTREAM_MOUNT}\n")
-    out += backup_gateway_env(p)
+    out += map_gateway_env(p) + backup_gateway_env(p)
     if mesh_ip:
         out += ("# The mesh (written by `onemind-firstboot mesh` once the hub has its mesh address).\n"
                 "ONEMIND_MESH_ENABLED=1\n"
@@ -579,6 +588,12 @@ def gateway_env(p: Paths, st: dict, mesh_ip: str | None = None, js_max_bytes: in
                 f"ONEMIND_MESH_HEADSCALE_KEY_FILE={p.hs_key}\n"
                 f"ONEMIND_MESH_HUB_IP={mesh_ip}\n")
     return out
+
+
+def map_gateway_env(p: Paths) -> str:
+    return (f"ONEMIND_MAP_PACKS_DIR={p.map_packs}\n"
+            f"ONEMIND_MAP_REGION_CATALOG={p.lib}/maps/regions.json\n"
+            f"ONEMIND_MAP_REGION_KEY_FILE={p.lib}/keys/map-regions.pub\n")
 
 
 # ------------------------------------------------------------------ hub: backups (IMG-BACKUP-01)
@@ -884,6 +899,9 @@ def configure(p: Paths, cfg: dict, source: str) -> str | None:
             st["hub_addr"] = cfg["hub_addr"]
         st["hub"] = parse_join_code(cfg["join_code"])["hub"]
     write(os.path.join(p.etc, "role"), role + "\n", 0o644)
+    # Everything above (helpers from onemind_core wrote some of it) is on the disk before the box says it is
+    # configured: state.json is the "done" mark, and a power cut after it must not find empty secrets.
+    durable.sync_fs(p.data if os.path.isdir(p.data) else p.root)
     st["configured_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     write(p.state, json.dumps(st, indent=2) + "\n", 0o644)
     return owner
@@ -949,6 +967,21 @@ def ensure_files_root(p: Paths) -> None:
         os.chown(p.files, *ids)
 
 
+def ensure_map_storage(p: Paths, ids: tuple[int, int] | None) -> None:
+    os.makedirs(p.map_packs, mode=0o755, exist_ok=True)
+    os.chmod(p.map_packs, 0o755)
+    if ids:
+        os.chown(p.map_packs, *ids)
+    # Images updated after initial setup already have a gateway.env. Keep explicit settings.
+    path = os.path.join(p.etc, "gateway.env")
+    if os.path.isfile(path):
+        env = _read(path)
+        keys = {line.partition("=")[0] for line in env.splitlines()}
+        missing = [line for line in map_gateway_env(p).splitlines() if line.partition("=")[0] not in keys]
+        if missing:
+            write(path, env.rstrip("\n") + "\n" + "\n".join(missing) + "\n")
+
+
 # What k3s writes under its --data-dir. /data/k3s itself and /data/k3s/storage are made on every box by
 # onemind-data-layout.service and tmpfiles.d/onemind-backup.conf, so they stay.
 K3S_WRITES = ("server", "agent", "data")
@@ -985,9 +1018,11 @@ def start_units(p: Paths, st: dict) -> None:
         retire_k3s(p)
     if role == "hub":
         ensure_files_root(p)               # before the gateway: its sandbox needs the folder to exist
+        ids = onemind_ids()
+        ensure_map_storage(p, ids)
         ensure_rescue_tls(p)               # boxes configured before CORE-UPDATE-9 get their pair now
         # uid of "onemind" is fixed in the image (961), but re-own after an update anyway.
-        chown_tree(p.gateway, onemind_ids())
+        chown_tree(p.gateway, ids)
         ensure_backup(p, st)               # boxes configured before IMG-BACKUP-01 get backups on this boot
     units = ROLE_UNITS if st.get("mesh") else LEGACY_ROLE_UNITS
     systemctl("start", "--no-block", *units[role])
@@ -1002,6 +1037,11 @@ def apply(p: Paths) -> int:
             msg = ("ONEMIND-FIRSTBOOT: this box was set up before the mesh (IMG-MESH-01) and keeps running as it is; "
                    "to put it on the mesh, reinstall it (docs/leap/core/IMAGES.md §3)")
             log(msg); console(p, msg)
+        if st.get("role") == "hub":
+            try:
+                ensure_observer_key(p)
+            except Exception as exc:   # never blocks boot: the bus stays unwatched, nothing else changes
+                log(f"observer key not made: {exc.__class__.__name__}")
         start_units(p, st)
         return 0
     try:
@@ -1050,6 +1090,10 @@ def finish(p: Paths, cfg: dict, source: str) -> int:
         log(ca); console(p, ca)
         hint = join_hint(p)
         log(hint); console(p, hint)
+    try:
+        os.sync()                           # the boot menu lock on the ESP and the rest: all on disk before the role starts
+    except OSError:
+        pass
     start_units(p, st)
     return 0
 

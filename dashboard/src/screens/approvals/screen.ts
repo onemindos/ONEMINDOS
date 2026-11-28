@@ -8,7 +8,7 @@ const screen: ScreenDef = {
   icon: 'approvals',
   section: 'primary',
   order: 30,
-  dock: 4,
+  dock: 3,
   hue: ['#f59e0b', '#b45309'],
   badge: 'approvals',
   load: () => import('../../pages/Approvals').then((m) => ({ default: m.Approvals })),

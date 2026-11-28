@@ -172,7 +172,8 @@ class McpEndpoint:
             return {}
         if method == "tools/list":
             builtin = [t for t, typ in self.catalogue.builtin_tools() if authz.may_request(principal, typ)]
-            return {"tools": [t for t in TOOLS if authz.may_call(principal, t["name"])] + builtin}
+            return {"tools": [t for t in TOOLS if authz.may_call(principal, t["name"])
+                              and self.catalogue.core_tool_enabled(t["name"])] + builtin}
         if method == "tools/call":
             name = params.get("name")
             targs = params.get("arguments")

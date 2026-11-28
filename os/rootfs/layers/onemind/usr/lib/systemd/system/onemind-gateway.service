@@ -42,7 +42,7 @@ CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 ProtectSystem=strict
 # /data/onemind/kiosk holds only the kiosk flag file the owner switches over the API (UX-07, #242).
-ReadWritePaths=/data/onemind/gateway /data/onemind/files -/data/onemind/kiosk
+ReadWritePaths=/data/onemind/gateway /data/onemind/files -/data/onemind/kiosk -/data/onemind/maps/packs
 ProtectHome=yes
 PrivateTmp=yes
 PrivateDevices=yes

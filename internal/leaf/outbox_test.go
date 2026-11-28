@@ -17,7 +17,7 @@ import (
 
 func connectJS(t *testing.T, url string) jetstream.JetStream {
 	t.Helper()
-	nc, err := nats.Connect(url, nats.Timeout(5*time.Second))
+	nc, err := dialLeaf(url, nats.Timeout(5*time.Second))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -22,6 +22,13 @@ class ImageScope(unittest.TestCase):
                       ["sdk/go/internal/gen/types.gen.go", "sdk/schema/app.json"]):
             self.assertFalse(scope.needs_full_image(files), files)
 
+    def test_printing_fixture_changes_trigger_smoke_only(self):
+        text = (ROOT / ".github/workflows/image.yml").read_text()
+        for event in ("pull_request", "push"):
+            paths = re.search(rf"\n  {event}:\n(?:    .*\n)*?    paths: \[(.*)\]", text).group(1)
+            self.assertIn("'test/printing/**'", paths)
+        self.assertFalse(scope.needs_full_image(["test/printing/check.py"]))
+
     def test_os_prs_get_the_full_matrix(self):
         for files in (["os/rootfs/Containerfile"], ["test/qemu/run.sh"], ["internal/rescue/unit.go"],
                       ["cmd/onemindd/main.go"], ["go.sum"], ["Makefile"], [".dockerignore"],

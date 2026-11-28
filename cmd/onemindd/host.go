@@ -18,9 +18,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/onemindos/onemindos/internal/firewall"
+	"github.com/onemindos/onemindos/internal/flatpak"
 	"github.com/onemindos/onemindos/internal/host"
+	"github.com/onemindos/onemindos/internal/netset"
 	"github.com/onemindos/onemindos/internal/netview"
+	"github.com/onemindos/onemindos/internal/ownerssh"
 	"github.com/onemindos/onemindos/internal/smb"
+	"github.com/onemindos/onemindos/internal/storage"
 	"github.com/onemindos/onemindos/internal/storage/ops"
 	"github.com/onemindos/onemindos/internal/svcregistry"
 	"github.com/onemindos/onemindos/internal/update"
@@ -28,7 +33,9 @@ import (
 )
 
 const hostUsage = `usage:
-  onemindd host serve [--socket PATH] [--user NAME] [--journal DIR] [--update-conf FILE] [--delay 3s]
+  onemindd host serve [--socket PATH] [--user NAME] [--journal DIR] [--update-conf FILE] [--firewall-dir DIR] [--delay 3s]
+  onemindd host apply-hostname [--file PATH]   at boot: give the box the name the owner saved (before avahi)
+  onemindd host mdns-aliases [--file PATH]     keep answering to the old names (onemind.local, the name before a rename)
   onemindd host plan factory-reset    print what a factory reset would erase and keep (JSON, read-only, root)
   onemindd factory-reset wipe [--esp DIR]   early boot only: run the armed reset (onemind-factory-reset.service)
 `
@@ -45,6 +52,12 @@ func runHost(args []string) int {
 		_ = enc.Encode(p)
 		return 0
 	}
+	if len(args) >= 1 && args[0] == "mdns-aliases" {
+		return runMDNSAliases(args[1:])
+	}
+	if len(args) >= 1 && args[0] == "apply-hostname" {
+		return runApplyHostname(args[1:])
+	}
 	if len(args) == 0 || args[0] != "serve" {
 		fmt.Fprint(os.Stderr, hostUsage)
 		return 2
@@ -54,6 +67,8 @@ func runHost(args []string) int {
 	gwUser := fs.String("user", env("ONEMIND_HOST_USER", "onemind"), "the one user besides root allowed on the socket (the gateway's)")
 	journal := fs.String("journal", env("ONEMIND_HOST_JOURNAL", "/data/onemind/host/actions"), "action journal directory")
 	conf := fs.String("update-conf", env("ONEMIND_UPDATE_CONF", update.DefaultConfigPath), "update.conf for OS installs")
+	fwDir := fs.String("firewall-dir", env("ONEMIND_HOST_FIREWALL_DIR", "/data/onemind/firewall"), "where confirmed owner allow rules are kept")
+	fwTTL := fs.Duration("firewall-ttl", envDuration("ONEMIND_HOST_FIREWALL_TTL", firewall.DefaultTTL), "how long a new owner allow rule waits for confirmation before it reverts")
 	delay := fs.Duration("delay", 3*time.Second, "wait before the box goes down, so the gateway records the answer first")
 	if err := fs.Parse(args[1:]); err != nil {
 		return 2
@@ -61,13 +76,21 @@ func runHost(args []string) int {
 	log := newLogger()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	units := &svcregistry.Reader{Version: version.Version} // service cards, logs and approved restarts (#623, #636)
+	nm := &netset.Manager{Run: netset.ExecRunner{}, BootID: host.BootID(), Log: log} // wired address changes with rollback (P-08)
+	units := &svcregistry.Reader{Version: version.Version}                           // service cards, logs and approved restarts (#623, #636)
 	svc := &host.Service{Power: host.Systemd{}, OS: &host.UpdateEngine{ConfigPath: *conf, Log: log},
 		Roll:   &host.SlotRollback{ConfigPath: *conf},
 		BootID: host.BootID(), Delay: *delay, Log: log,
-		Reset: &host.FactoryReset{},
-		Units: units,
-		SMB:   &smb.Manager{P: smb.DefaultPaths(), Run: smb.ExecRunner{}}}
+		Reset:   &host.FactoryReset{},
+		Units:   units,
+		Zones:   &host.Timezone{},
+		Names:   host.SystemHostname{},
+		Media:   &host.Housekeeping{Run: storage.ExecRunner{}},
+		Keymap:  &host.KeymapStore{Units: units}, // P-11: /data/onemind/console/keyboard, the console and kiosk units
+		SMB:     &smb.Manager{P: smb.DefaultPaths(), Run: smb.ExecRunner{}},
+		SSH:     &ownerssh.Manager{Run: ownerssh.ExecRunner{}},
+		Flatpak: flatpak.NewDefault(),
+		Net:     nm}
 	if st, err := host.OpenStore(*journal); err != nil {
 		log.Error("host journal unavailable: status only, every action refused", "dir", *journal, "err", err)
 	} else {
@@ -78,6 +101,8 @@ func runHost(args []string) int {
 		log.Error("host journal unreadable: status only, every action refused", "err", err)
 		svc.Store = nil
 	}
+	nm.Recover(ctx)                     // a change that was waiting for confirmation when the box went down
+	go nm.Watch(ctx, netset.WatchEvery) // and later: the way back never waits for somebody to open the Network screen
 	uid := -1
 	if u, err := user.Lookup(*gwUser); err == nil {
 		uid, _ = strconv.Atoi(u.Uid)
@@ -95,8 +120,15 @@ func runHost(args []string) int {
 		return 1
 	}
 	log.Info("host service listening", "socket", *sock, "journal", svc.Store != nil, "boot_id", svc.BootID, "gateway_uid", uid)
-	err = (&host.Server{S: svc, AllowUID: uid, AllowGID: -1, Ctx: ctx, Network: networkView,
-		Services: serviceCards, ServiceLogs: units.Logs}).Serve(ctx, l)
+	// Owner allow rules (P-09 part 2): confirmed ones come back from /data, pending ones are dropped (reverted).
+	allow := &firewall.Allower{Dir: *fwDir, Reload: reloadOwnerFirewall, TTL: *fwTTL, Log: log}
+	if err := allow.Open(ctx); err != nil {
+		log.Error("firewall owner rules not loaded; new ones are refused until the firewall has its owner lists", "err", err)
+	}
+	err = (&host.Server{S: svc, AllowUID: uid, AllowGID: -1, Ctx: ctx, Network: networkView, Firewall: firewallView(allow), FirewallAllow: allow,
+		Services: serviceCards, ServiceLogs: units.Logs, SystemJournal: units.SystemJournal,
+		Time:     func(ctx context.Context) (any, error) { return (&host.Timezone{}).Status(ctx), nil },
+		Hostname: func() (string, error) { return host.CurrentHostname("") }}).Serve(ctx, l)
 	stop()
 	svc.Wait()
 	if err != nil {
@@ -174,9 +206,83 @@ func networkView() (any, error) {
 	return netview.System(read, exists).Collect()
 }
 
+// firewallReadSocket is where onemind-firewall-read.socket prints `nft -j list ruleset`. The host service
+// has no CAP_NET_ADMIN (the kernel wants it even to read nf_tables), so it cannot run nft itself.
+const firewallReadSocket = "/run/onemind/firewall-read.sock"
+
+// firewallView is GET /v1/firewall: the ruleset read from the firewall read socket (internal/firewall),
+// parsed into a structured form, plus the owner allow rules. Output is capped and the read has a deadline,
+// so a stuck reader cannot hold the host service.
+func firewallView(al *firewall.Allower) func(context.Context) (any, error) {
+	return func(ctx context.Context) (any, error) { return collectFirewall(ctx, al) }
+}
+
+func collectFirewall(ctx context.Context, al *firewall.Allower) (any, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	c := firewall.Collector{Allower: al, Run: firewall.SocketReader(firewallReadSocket)}
+	return c.Collect(ctx)
+}
+
 // serviceCards is GET /v1/services (#623): every unit in the image's services registry
 // (/usr/lib/onemind/services.yaml) with systemd's state and memory, plus OneMind units the registry
 // does not list (known=false). Read-only: systemctl show and list-unit-files only.
 func serviceCards(ctx context.Context) (any, error) {
 	return (&svcregistry.Reader{Version: version.Version}).Collect(ctx)
+}
+
+// runApplyHostname is `onemindd host apply-hostname`, run at boot by a drop-in of onemind-data-layout.service
+// (before avahi). The name the owner approved lives on /data (the root is read-only), so the kernel's name is
+// set from it here. A box that was never renamed has no file and keeps the image's name.
+func runApplyHostname(args []string) int {
+	fs := flag.NewFlagSet("onemindd host apply-hostname", flag.ContinueOnError)
+	file := fs.String("file", host.DefaultHostnameFile, "the saved name")
+	if fs.Parse(args) != nil {
+		return 2
+	}
+	name, err := host.ApplyHostname(*file, "", func(n string) error { return exec.Command("hostname", n).Run() })
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "apply-hostname:", err)
+		return 1
+	}
+	if name != "" {
+		fmt.Println("host name:", name)
+	}
+	return 0
+}
+
+// runMDNSAliases is `onemindd host mdns-aliases`, run by onemind-mdns-aliases.service: after a rename the box
+// keeps answering to onemind.local and its old name (P-05), because avahi publishes only the host name.
+func runMDNSAliases(args []string) int {
+	fs := flag.NewFlagSet("onemindd host mdns-aliases", flag.ContinueOnError)
+	file := fs.String("file", host.DefaultAliasesFile, "the saved old names, one per line")
+	if fs.Parse(args) != nil {
+		return 2
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := host.RunAliases(ctx, *file, 15*time.Second); err != nil {
+		fmt.Fprintln(os.Stderr, "mdns-aliases:", err)
+		return 1
+	}
+	return 0
+}
+
+// envDuration is a duration from an environment variable; unset or not a positive duration gives def.
+func envDuration(key string, def time.Duration) time.Duration {
+	if d, err := time.ParseDuration(os.Getenv(key)); err == nil && d > 0 {
+		return d
+	}
+	return def
+}
+
+// reloadOwnerFirewall has systemd load /data/onemind/firewall/live.nft. The unit holds CAP_NET_ADMIN, the host
+// service does not: it can only hand over a file, and `nft -c` in the unit refuses a file that is not valid.
+func reloadOwnerFirewall(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	if out, err := exec.CommandContext(ctx, "systemctl", "restart", "onemind-firewall-owner.service").CombinedOutput(); err != nil {
+		return fmt.Errorf("systemctl restart onemind-firewall-owner.service: %w: %s", err, out)
+	}
+	return nil
 }

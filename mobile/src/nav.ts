@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { NavigatorScreenParams } from '@react-navigation/native';
 
-/** Atlas phone tabs. The Map tab lands separately (#656). */
+/** Atlas phone tabs: Home, Map (#656), Approvals, Apps, Me. */
 export type TabParams = {
   Home: undefined;
-  Approvals: { id: string } | undefined;
+  Map: undefined;
+  Approvals: { id?: string; reviewKey?: number } | undefined;
   Apps: undefined;
   Me: undefined;
 };

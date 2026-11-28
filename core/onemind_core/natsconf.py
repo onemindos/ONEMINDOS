@@ -35,6 +35,13 @@ join and removal, and a systemd path unit reloads NATS):
   delivery subject as a stream export. The delivery subject sits under the node's own prefix, so a
   node can feed only its own source stream, and ONEMIND exports nothing back for it.
 
+- account SYS and `system_account: SYS` (#620), written only when the service-key directory holds an
+  `observer.pub`: one nkey user, the gateway's read-only observer, allowed on STANDARD connections
+  only, that may subscribe to exactly the connect, disconnect and auth-error events of the server and
+  may publish nothing. No other user is in SYS, so no app, agent or machine can read or send `$SYS`.
+  The server then announces every client and leaf connection and every refused sign-in there, and the
+  gateway turns those into `fabric.*` audit lines and alerts (core/onemind_core/fabricwatch.py).
+
 The file holds public keys only; no secret is written.
 """
 
@@ -53,6 +60,14 @@ NODE_ID_RE = re.compile(r"^[a-z0-9]{1,32}$")
 _B32 = re.compile(r"^[A-Z2-7]+$")
 
 SERVICE_RE = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
+
+# The system account (#620). The one service key that does not go into the hub account: the gateway's
+# read-only observer of the server's own connect, disconnect and auth-error events.
+SYS_ACCOUNT = "SYS"
+OBSERVER_SERVICE = "observer"
+# Exactly what the observer may subscribe to (nats-server v2.15.3 server/events.go: connectEventSubj,
+# disconnectEventSubj, authErrorEventSubj). It publishes nothing: `deny: [">"]`.
+OBSERVER_SUBJECTS = ("$SYS.ACCOUNT.*.CONNECT", "$SYS.ACCOUNT.*.DISCONNECT", "$SYS.SERVER.*.CLIENT.AUTH.ERR")
 
 # Subjects a node publishes (contract §12.9), relative to onemind.node.<node_id>.
 NODE_EXPORTS = ("status", "event.>", "jobresult.>")
@@ -232,8 +247,10 @@ def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey]
     and agent accounts never get JetStream: a leaf's events are kept by its own outbox and by the hub
     account. With no agents the AGENTS account is left out and the file is byte for byte as before."""
     nodes = sorted({n.node_id: n for n in nodes}.values(), key=lambda n: n.node_id)
-    agents = sorted({a.token: a for a in agents}.values(), key=lambda a: a.token)
     services = sorted({s.name: s for s in services}.values(), key=lambda s: s.name)
+    observer = next((s for s in services if s.name == OBSERVER_SERVICE), None)
+    services = [s for s in services if s.name != OBSERVER_SERVICE]  # the observer lives in SYS, not ONEMIND
+    agents = sorted({a.token: a for a in agents}.values(), key=lambda a: a.token)
     if services:  # strict: every hub-local client signs with its own key
         hub_users = [f'      {{nkey: "{s.nkey}", allowed_connection_types: ["STANDARD"]}}  # {s.name}'
                      for s in services]
@@ -288,7 +305,17 @@ def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey]
         ]
     if agents:
         out += render_agents_account(agents)
+    if observer is not None:
+        subs = ", ".join(f'"{x}"' for x in OBSERVER_SUBJECTS)
+        out += [
+            f"  {SYS_ACCOUNT}: {{",
+            f'    users: [{{nkey: "{observer.nkey}", allowed_connection_types: ["STANDARD"], '
+            f'permissions: {{publish: {{deny: [">"]}}, subscribe: {{allow: [{subs}]}}}}}}]  # {OBSERVER_SERVICE}',
+            "  }",
+        ]
     out.append("}")
+    if observer is not None:
+        out.append(f"system_account: {SYS_ACCOUNT}")
     if not services:
         out.append(f'no_auth_user: "{HUB_LOCAL_USER}"')
     out.append("")

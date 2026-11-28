@@ -6,6 +6,8 @@
 //
 //	ONEMIND_NATS_URL    hub NATS URL, e.g. nats://hub.local:4222 (empty = API only)
 //	ONEMIND_NATS_NKEY_SEED  this daemon's NATS user seed file on a strict hub (#161)
+//	ONEMIND_NATS_INBOX_PREFIX  reply prefix on a joined machine's local leaf (G1): the leaf lets
+//	                    onemindd subscribe only to _INBOX_onemindd.>; `onemind fabric join` sets it
 //	ONEMIND_NODE_ROLE   hub | node (default node)
 //	ONEMIND_NODE_ID     override the id derived from /etc/machine-id
 //	ONEMIND_AGENT_ADDR  local API address (default 127.0.0.1:7480, loopback only)
@@ -117,6 +119,7 @@ func main() {
 	listen := flag.String("listen", env("ONEMIND_AGENT_ADDR", agent.DefaultListen), "local API listen address")
 	natsURL := flag.String("nats", os.Getenv("ONEMIND_NATS_URL"), "hub NATS URL (empty = do not publish)")
 	natsSeed := flag.String("nats-nkey", os.Getenv("ONEMIND_NATS_NKEY_SEED"), "NATS user seed file (empty = no nkey)")
+	natsInbox := flag.String("nats-inbox-prefix", os.Getenv("ONEMIND_NATS_INBOX_PREFIX"), "reply-subject prefix for the local leaf (empty = default)")
 	role := flag.String("role", env("ONEMIND_NODE_ROLE", "node"), "hub or node")
 	interval := flag.Duration("interval", agent.DefaultInterval, "heartbeat interval")
 	durable := flag.Bool("durable-events", os.Getenv("ONEMIND_AGENT_DURABLE") == "1", "store node events and heartbeats of record in the leaf outbox (NATS URL must be the local leaf)")
@@ -150,7 +153,7 @@ func main() {
 	log.Info("onemindd starting", "version", version.Version, "node_id", col.ID(), "role", *role, "board", col.Board())
 	optionalServices = append(optionalServices, watchdogService(*role)) // watchdog.go (#687)
 	meshReport, fabricReport := netReports(*role, log)                  // net.go
-	a := agent.New(agent.Config{Listen: *listen, NATSURL: *natsURL, NATSNkeySeed: *natsSeed, Durable: *durable, Interval: *interval, Collector: col, Logger: log,
+	a := agent.New(agent.Config{Listen: *listen, NATSURL: *natsURL, NATSNkeySeed: *natsSeed, NATSInboxPrefix: *natsInbox, Durable: *durable, Interval: *interval, Collector: col, Logger: log,
 		UpdateReport: updateReport(env("ONEMIND_UPDATE_CONF", update.DefaultConfigPath), log),
 		MeshReport:   meshReport,
 		FabricReport: fabricReport,

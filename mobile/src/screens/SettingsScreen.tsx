@@ -5,6 +5,7 @@ import { View } from 'react-native';
 import { useHubData } from '../data';
 import { loadLink, type DeviceLink } from '../lib/device';
 import { renameThisPhone, useThisPhone } from '../lib/install';
+import { LockSection } from '../lock/LockSection';
 import { setupNotifications, showAlert } from '../notify';
 import { allowNotifications } from '../device/notifications';
 import { useSignedIn } from '../session';
@@ -56,6 +57,7 @@ export function SettingsScreen() {
       <H1>Settings</H1>
       <IdentitySection phone={phone} />
       <AppearanceSection />
+      <LockSection />
       <BoxSettingsSection />
       <DeviceSection link={link} onLink={onLink} name={name} onName={onName}
         onPermissions={() => nav.navigate('Permissions' as never)} />

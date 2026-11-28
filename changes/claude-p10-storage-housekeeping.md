@@ -1,0 +1,5 @@
+---
+pr: 1152
+branch: claude/p10-storage-housekeeping
+---
+Storage housekeeping (wave 2, P-10). The Storage screen and the new onemind storage trim-status command show when the SSD was last trimmed and when it runs next. smartd (the disk watcher) is now on instead of masked, with a configuration that mails nobody and writes each warning to a feed on /data; the host service reads it and the hub raises one Notifications alert per warning. A new host action kind eject unmounts and powers off a USB drive: the Storage screen's Safely remove button and onemind storage eject only ask, an owner approves, and the host checks again that it is a removable drive the box is not using. New gateway routes GET /v1/storage/housekeeping and POST /v1/storage/removable/NAME/eject. First-boot checks F25, F25b and F25c (pre-registered in CRITERIA-FIRSTBOOT.md section 19, which replaces the smartd-masked clause of F13), Go, gateway, CLI and dashboard tests. Real smartd warnings and a real USB eject need the Dell all-in-one.

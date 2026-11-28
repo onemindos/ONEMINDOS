@@ -13,10 +13,20 @@ export type StatusView = components["schemas"]["StatusView"];
 export type Node = components["schemas"]["Node"];
 export type CatalogApp = components["schemas"]["CatalogApp"];
 export type Action = components["schemas"]["Action"];
+export type AgentBrowserSite = components["schemas"]["AgentBrowserSite"];
+export type AgentBrowserSession = components["schemas"]["AgentBrowserSession"];
+export type AgentBrowserSiteBody = components["schemas"]["SiteBody"];
+export type AgentBrowserSiteRemoved = components["schemas"]["SiteRemoved"];
 export type AuditRecord = components["schemas"]["AuditRecord"];
 export type AuditVerify = components["schemas"]["AuditVerify"];
 /** This box's interfaces, gateway, DNS and listening ports, read only (`/v1/network`, owner only). */
 export type NetworkView = components["schemas"]["NetworkView"];
+/** What to change on a wired interface (`PUT /v1/network/{iface}`, P-08): a fixed IPv4 setup or back to DHCP. */
+export type NetworkConfigBody = components["schemas"]["NetworkConfigBody"];
+/** The approval and reachability check for a pending wired network change. */
+export type NetworkConfirmBody = components["schemas"]["NetworkConfirmBody"];
+/** The answer of `POST /v1/network/{iface}/confirm`. */
+export type NetworkConfirm = components["schemas"]["NetworkConfirm"];
 /** The box's own screen as the full-screen dashboard (`/v1/instance/kiosk`, owner only). */
 export type KioskState = components["schemas"]["KioskState"];
 
@@ -45,6 +55,12 @@ export interface DomainsSummary {
   domains: DomainView[];
 }
 
+/** The box's live firewall, explained in plain words, read only (`/v1/network/firewall`, owner only). */
+export type FirewallView = components["schemas"]["FirewallView"];
+/** One port the owner opened (P-09 part 2): pending until confirmed, then kept; a pending rule reverts at `expires_at`. */
+export type AllowRule = components["schemas"]["AllowRule"];
+/** What to ask for: one port, one protocol, the home network (`lan`) or the mesh. The internet is not an option. */
+export type AllowRequest = components["schemas"]["AllowRequest"];
 /** The caller's own Home document (UMB-P07, `/v1/me/home`). */
 export type HomeView = components["schemas"]["HomeView"];
 export type HomeBody = components["schemas"]["HomeBody"];
@@ -114,7 +130,7 @@ export interface AuditQuery {
 }
 
 interface Req {
-  method: "GET" | "POST" | "PUT" | "DELETE";
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   path: string;
   body?: unknown;
   retry?: boolean;
@@ -227,12 +243,49 @@ export class OneMind {
   /** status.get (FD-01): what needs attention, per source. A source that cannot be read is "unknown", never "ok". */
   readonly status = { get: () => this.call<StatusView>({ method: "GET", path: "/v1/status" }) };
 
+  /** Offline maps: the installed basemap packs and the map sites. Removing a pack only FILES a request; the owner approves it. */
+  readonly maps = {
+    packs: () => this.call<components["schemas"]["Packs"]>({ method: "GET", path: "/v1/map/packs" }),
+    sites: () => this.call<components["schemas"]["GeoSite"][]>({ method: "GET", path: "/v1/sites" }),
+    requestPackRemoval: async (packId: string, idempotencyKey?: string): Promise<Action> => {
+      await this.instance.get(); // learn the hub clock first
+      const key = idempotencyKey ?? uuid4();
+      return this.call<Action>({ method: "POST", path: "/v1/actions", retry: true,
+        body: { type: "map.pack.remove", params: { pack_id: packId }, idempotency_key: key, expires_at: this.expiryFor(key, 24 * 3600_000) } });
+    },
+  };
+
+  /** The event subject tree: who may publish where, and how long each stream keeps messages. Read only. */
+  readonly subjects = {
+    tree: () => this.call<components["schemas"]["SubjectTree"]>({ method: "GET", path: "/v1/subjects" }),
+    check: (subject: string, publisher: "gateway" | "node" | "app" | "agent", ownerId?: string) =>
+      this.call<components["schemas"]["SubjectTreeCheck"]>({ method: "GET",
+        path: `/v1/subjects/check?${new URLSearchParams({ subject, publisher, ...(ownerId ? { owner_id: ownerId } : {}) })}` }),
+  };
+
   readonly nodes = {
     list: () => this.call<Node[]>({ method: "GET", path: "/v1/nodes" }),
     get: (id: string) => this.call<Node>({ method: "GET", path: `/v1/nodes/${encodeURIComponent(id)}` }),
   };
 
-  readonly network = { view: () => this.call<NetworkView>({ method: "GET", path: "/v1/network" }) };
+  readonly network = {
+    view: () => this.call<NetworkView>({ method: "GET", path: "/v1/network" }),
+    /** network.firewall (P-09 part 1): what the box's firewall lets in, and from where. Read only. */
+    firewall: () => this.call<FirewallView>({ method: "GET", path: "/v1/network/firewall" }),
+    /** network.firewall.allow (P-09 part 2): files a `firewall.allow` action; an owner approves it with a passkey,
+     * then the rule is pending until `confirmAllow`. Safe to retry (one idempotency key). */
+    allow: (input: AllowRequest) => this.call<Action>({ method: "POST", path: "/v1/network/firewall/allow", body: input, retry: true }),
+    /** network.firewall.allow.confirm: keep a pending rule (owner only). A rule that reverted already is a 404. */
+    confirmAllow: (id: string) => this.call<{ id: string; state: string }>({ method: "POST", path: `/v1/network/firewall/allow/${encodeURIComponent(id)}/confirm` }),
+    /** network.firewall.allow.remove: take a rule away, pending or confirmed (owner only). */
+    removeAllow: (id: string) => this.call<{ id: string; removed: boolean }>({ method: "DELETE", path: `/v1/network/firewall/allow/${encodeURIComponent(id)}` }),
+    /** Ask for a fixed address or DHCP on a cable interface. Files an action an owner approves with a passkey; nothing changes before. */
+    configure: (iface: string, body: NetworkConfigBody) =>
+      this.call<Action>({ method: "PUT", path: `/v1/network/${encodeURIComponent(iface)}`, body, retry: true }),
+    /** Keep the identified change after verifying the dashboard loads at the interface's new IPv4 address. */
+    confirm: (iface: string, body: NetworkConfirmBody) =>
+      this.call<NetworkConfirm>({ method: "POST", path: `/v1/network/${encodeURIComponent(iface)}/confirm`, body }),
+  };
 
   // Tips are served by the hub. Do not follow a redirect out to a content host.
   readonly tips = {
@@ -253,6 +306,26 @@ export class OneMind {
 
   readonly apps = {
     list: () => this.call<CatalogApp[]>({ method: "GET", path: "/v1/apps" }),
+  };
+
+  /**
+   * The agent browser (#694): the sites an AI agent may visit and its browsing sessions. The owner reads everything and can
+   * take a site away or end a session at once. Adding a site only FILES a request (`agentbrowser.site.allow`) that the owner
+   * approves in the approval queue; nothing here approves it.
+   */
+  readonly agentBrowser = {
+    sites: () => this.call<AgentBrowserSite[]>({ method: "GET", path: "/v1/agent-browser/sites" }),
+    /**
+     * Files the request. Always keyed (a fresh key when none is given), so the SDK's own retry after a lost reply replays
+     * the first request instead of filing a second one; pass the same key again to make a manual retry safe too.
+     */
+    requestSite: (body: AgentBrowserSiteBody, idempotencyKey: string = uuid4()) =>
+      this.call<Action>({ method: "POST", path: "/v1/agent-browser/sites", body, retry: true, headers: { "Idempotency-Key": idempotencyKey } }),
+    removeSite: (id: string) =>
+      this.call<AgentBrowserSiteRemoved>({ method: "DELETE", path: `/v1/agent-browser/sites/${encodeURIComponent(id)}` }),
+    sessions: () => this.call<AgentBrowserSession[]>({ method: "GET", path: "/v1/agent-browser/sessions" }),
+    endSession: (id: string) =>
+      this.call<AgentBrowserSession>({ method: "DELETE", path: `/v1/agent-browser/sessions/${encodeURIComponent(id)}` }),
   };
 
   readonly actions = {

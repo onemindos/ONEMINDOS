@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: onemind.app/v1
+kind: App
+metadata:
+  id: search
+  name: Search
+  description: Search across enabled apps the caller can access.
+spec:
+  routes:
+    owns: [/v1/search]
+    calls:
+      - GET /v1/search
+  backup:
+    units: []
+    none: index is rebuilt from providers; excluded from backups on purpose
+  data: {owns: [], reads: [owner, private]}
+  phone: {entry: none}

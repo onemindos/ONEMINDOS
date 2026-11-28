@@ -1,0 +1,5 @@
+---
+pr: pending
+branch: claude/areas-a-storage-changes
+---
+Changing the disks is now possible from the Storage page and the command line, always in two steps. The owner picks one of the five mirror actions (start a mirror, add a disk, replace a member, take a member out, repair) and first sees the box's own plan: which blank disks would be erased, each safety check, the warnings and the number of steps. Only then can they ask for approval, which files a request that an owner approves with a passkey in Approvals; a plan the box blocks cannot be requested. Only disks the box reports as blank are offered. Taking a member out offers "Allow the mirror to drop to one disk" (needed to leave a two-disk mirror), and replacing or taking out a member offers "Erase the old disk afterwards"; both are off unless ticked, and disk sizes read like a disk label (1.5 TB). `onemind storage request ACTION` does the same (with `--dry-run` to only look) and `onemind storage operation ID` shows the stored plan and journal. The disk recovery key stays out of this change: its API is off by default.

@@ -73,8 +73,8 @@ export async function seriousViolations(node: Element = document.body) {
 type User = ReturnType<typeof userEvent.setup>;
 
 /**
- * Every screen the person can reach (D-016): the dock shows the everyday ones and Launchpad
- * lists all of them, so this opens Launchpad and returns it. In the Console view (sidebar)
+ * Every screen the person can reach (D-016): the dock shows the Atlas places and the launcher
+ * lists all of them, so this opens the launcher and returns it. In the Console view (sidebar)
  * it returns the sidebar instead.
  */
 export async function screensNav(u: User, timeout = 4000) {
@@ -82,10 +82,10 @@ export async function screensNav(u: User, timeout = 4000) {
   const all = within(nav).queryByRole('button', { name: /screens and apps/ });
   if (!all) return within(nav);
   await u.click(all);
-  return within(await screen.findByRole('dialog', { name: 'Launchpad' }, { timeout }));
+  return within(await screen.findByRole('dialog', { name: 'Launcher' }, { timeout }));
 }
 
-/** Open a screen the way a person would: from the dock, or from Launchpad when it is not docked. */
+/** Open a screen the way a person would: from the dock, or from the launcher when it is not docked. */
 export async function openScreen(u: User, name: string | RegExp) {
   const nav = await screen.findByRole('navigation', { name: 'Main' }, { timeout: 4000 });
   const docked = within(nav).queryAllByRole('link', { name });

@@ -2,6 +2,7 @@
 # Creates the bind-mount sources on onemind-data before the binds in /etc/fstab run, so a
 # freshly made data partition (factory reset, restore) still boots. var-lib-extensions and var-lib-confexts
 # are where /var/lib/extensions and /var/lib/confexts point (symlinks in the image; signed host extensions, #186).
+# /data/state/localtime is the time zone (P-04): /etc/localtime is a symlink to it, seeded as UTC; the host service swaps it.
 [Unit]
 Description=OneMind: create state directories on the data partition
 DefaultDependencies=no
@@ -11,4 +12,4 @@ Before=local-fs.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/bin/sh -c 'for d in etc-rancher-node var-lib-rancher var-lib-kubelet var-lib-cni var-log var-tmp var-lib-systemd home root var-lib-cloud var-lib-tailscale var-lib-onemind-headscale var-lib-onemind-nats-leaf var-lib-onemind-nats var-lib-extensions var-lib-confexts var-lib-btrfs; do mkdir -p /data/state/$$d; done; chmod 0755 /data/state/var-lib-extensions /data/state/var-lib-confexts; mkdir -p /data/onemind /data/rauc /data/k3s; chmod 1777 /data/state/var-tmp; chmod 0700 /data/state/root; chmod 0700 /data/state/var-lib-tailscale; chown 963:963 /data/state/var-lib-onemind-headscale; chmod 0700 /data/state/var-lib-onemind-headscale; chown 962:962 /data/state/var-lib-onemind-nats-leaf; chmod 0700 /data/state/var-lib-onemind-nats-leaf; chmod 0711 /data/state/var-lib-onemind-nats; [ -f /data/state/etc-hosts ] || install -m 0644 /usr/lib/onemind/hosts.default /data/state/etc-hosts'
+ExecStart=/bin/sh -c 'for d in etc-rancher-node var-lib-rancher var-lib-kubelet var-lib-cni var-log var-tmp var-lib-systemd home root var-lib-cloud var-lib-tailscale var-lib-onemind-headscale var-lib-onemind-nats-leaf var-lib-onemind-nats var-lib-extensions var-lib-confexts var-lib-btrfs var-lib-fwupd var-cache-fwupd var-lib-rasdaemon var-lib-udisks2 var-lib-smartmontools; do mkdir -p /data/state/$$d; done; chmod 0755 /data/state/var-lib-extensions /data/state/var-lib-confexts; mkdir -p /data/onemind /data/rauc /data/k3s; chmod 1777 /data/state/var-tmp; chmod 0700 /data/state/root; chmod 0700 /data/state/var-lib-tailscale; chown 963:963 /data/state/var-lib-onemind-headscale; chmod 0700 /data/state/var-lib-onemind-headscale; chown 962:962 /data/state/var-lib-onemind-nats-leaf; chmod 0700 /data/state/var-lib-onemind-nats-leaf; chmod 0711 /data/state/var-lib-onemind-nats; [ -f /data/state/etc-hosts ] || install -m 0644 /usr/lib/onemind/hosts.default /data/state/etc-hosts; [ -L /data/state/localtime ] || ln -s /usr/share/zoneinfo/UTC /data/state/localtime'

@@ -20,7 +20,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Which shards run (scripts/ci-core-matrix.py): a PR push runs the 3 SQLite shards; the merge
+  # Which shards run (scripts/ci-core-matrix.py): a PR push runs the 6 SQLite shards; the merge
   # queue runs the 4 PostgreSQL shards once per merge (founder, 2026-11-15: the org's 20 shared
   # runners were the bottleneck); pushes to main and manual runs run all 7.
   plan:
@@ -52,7 +52,7 @@ jobs:
         run: python3 scripts/ci-core-matrix.py
 
   # CI-03 (#228): the suite used to run twice in one job, SQLite (~33 min) then PostgreSQL + NATS
-  # (~106 min). Now each backend is split into shards (3 SQLite, 4 PostgreSQL; one SQLite job on
+  # (~106 min). Now each backend is split into shards (6 SQLite since 2026-11-28, 4 PostgreSQL; one SQLite job on
   # 4 cores still took over 30 min in CI)
   # (ONEMIND_TEST_SHARD, tests/conftest.py), and every job runs pytest-xdist on all runner cores.
   # Each xdist worker gets its own PostgreSQL database; real-NATS tests share one worker.
@@ -95,12 +95,14 @@ jobs:
         uses: ./.github/actions/sdk-gen
         with:
           langs: go py
+      - name: nats-server for the real-bus tests (pinned and checksum-checked)
+        run: bash sdk/tools/ci/install-nats.sh
       - name: Core suite (${{ matrix.backend }}, shard ${{ matrix.shard }})
         env:
           ONEMIND_TEST_SHARD: ${{ matrix.shard }}
           ONEMIND_PROPERTY_BACKEND: ${{ matrix.backend }}
           ONEMIND_PROPERTY_ARTIFACTS: ${{ github.workspace }}/property-evidence/${{ matrix.backend }}
-          # Empty: the suite then uses SQLite and skips the real-NATS tests.
+          # Use SQLite; tests that need a NATS server start the pinned local binary.
           ONEMIND_TEST_DB_URL: ''
           ONEMIND_TEST_NATS_URL: ''
         run: make -C core test PYTEST_ARGS="-n auto --dist loadgroup --durations=20"
@@ -117,7 +119,7 @@ jobs:
     name: test (${{ matrix.backend }} ${{ matrix.shard }})
     needs: plan
     if: needs.plan.outputs.run_postgresql == 'true'
-    runs-on: ubuntu-24.04   # service containers need Docker; the local runner has none
+    runs-on: ${{ (vars.KVM_RUNNER == 'on' && (contains(fromJSON('["push","schedule","workflow_dispatch","merge_group"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && fromJSON('["self-hosted","onemind-kvm"]') || 'ubuntu-24.04' }}
     timeout-minutes: 60   # a safety net (raised from 40, founder 2026-11-23); a shard takes about 15 min (CI-03 target: under 20)
     strategy:
       fail-fast: false
@@ -135,6 +137,12 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s --health-retries 10
     steps:
+      # Tools GitHub's image has and our onemind-kvm template lacks; a no-op on hosted runners.
+      - name: Install the tools the hosted image preinstalls
+        if: runner.environment == 'self-hosted'
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends postgresql-client
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -156,6 +164,8 @@ jobs:
             -c "ALTER SYSTEM SET synchronous_commit = off" \
             -c "ALTER SYSTEM SET full_page_writes = off" \
             -c "SELECT pg_reload_conf()"
+      - name: nats-server for the real-bus tests (pinned and checksum-checked)
+        run: bash sdk/tools/ci/install-nats.sh
       - name: Core suite (${{ matrix.backend }}, shard ${{ matrix.shard }})
         env:
           ONEMIND_TEST_SHARD: ${{ matrix.shard }}
@@ -175,7 +185,7 @@ jobs:
 
   image:
     if: ${{ !github.event.pull_request.draft && github.event_name != 'merge_group' }} # built on ready PRs
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (vars.KVM_RUNNER == 'on' && (contains(fromJSON('["push","schedule","workflow_dispatch","merge_group"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && fromJSON('["self-hosted","onemind-kvm"]') || 'ubuntu-24.04' }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0

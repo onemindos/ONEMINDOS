@@ -40,6 +40,7 @@ describe('screen registry', () => {
       ['files', '/files', 'Your box'],
       ['search', '/search', 'Your box'],
       ['installed', '/installed', 'Your box'],
+      ['map', '/map', 'Your box'],
       ['nodes', '/nodes', 'Your box'],
       ['add-machine', '/add-machine', 'Your box'],
       ['world', '/world', 'Your box'],
@@ -54,6 +55,8 @@ describe('screen registry', () => {
       ['troubleshoot', '/troubleshoot', 'Your box'],
       ['tips', '/tips', 'Your box'],
       ['network', '/network', 'Your box'],
+      ['desktop-apps', '/desktop-apps', 'Your box'],
+      ['library', '/library', 'Your box'],
       ['automation', '/automation', 'Your box'],
       ['updates', '/updates', 'Your box'],
       ['settings', '/settings', 'Your box'],
@@ -64,9 +67,18 @@ describe('screen registry', () => {
     expected.splice(expected.findIndex(([id]) => id === 'storage'), 0, ['work', '/work', 'Your box']);
     expect(navItems(2).map((n) => [n.id, n.href, n.group ?? 'primary'])).toEqual(expected);
     expect(navItems(2).find((n) => n.id === 'approvals')).toMatchObject({ badge: 2, badgeLabel: '2 waiting' });
-    expect([...PRO_SCREEN_IDS].sort()).toEqual(['add-machine', 'agents', 'automation', 'backups', 'control-hub', 'dashboards', 'file-sharing', 'machines', 'migrate', 'network', 'nodes', 'photos', 'storage', 'troubleshoot', 'updates', 'usage', 'world']);
-    expect(DOCK_ORDER).toEqual(['home', 'market', 'installed', 'approvals', 'activity', 'settings']);
+    expect([...PRO_SCREEN_IDS].sort()).toEqual(['add-machine', 'agents', 'automation', 'backups', 'control-hub', 'dashboards', 'desktop-apps', 'file-sharing', 'library', 'machines', 'migrate', 'network', 'nodes', 'storage', 'troubleshoot', 'updates', 'usage', 'world']);
+    // The Atlas default dock (final design 01); Map takes slot 2 when its screen is registered.
+    expect(DOCK_ORDER.filter((id) => id !== 'map')).toEqual(['home', 'approvals', 'files', 'market', 'backups', 'machines']);
     expect(SCREENS.every((s) => s.title.length > 0)).toBe(true);
+  });
+
+  it('keeps dock slot 2 for Map: a registered map screen docks second, at /map', () => {
+    const map = SCREENS.find((s) => s.id === 'map');
+    if (map) {
+      expect(DOCK_ORDER[1]).toBe('map');
+      expect(map.path).toBe('/map');
+    } else expect(SCREENS.some((s) => s.dock === 2)).toBe(false);
   });
 
   it('maps detail pages and tabs to their screen', () => {
@@ -82,10 +94,10 @@ describe('screen registry', () => {
 });
 
 describe('settings registry', () => {
-  it('has exactly one page for each @onemind/ui settings section, each with a page, a link to its own screen or a coming note', () => {
+  it('has exactly one page for each @onemind/ui settings section, each with a page or a link to its own screen', () => {
     expect(Object.values(SETTINGS_FILES).length).toBe(SETTINGS_PAGES.size);
     expect([...SETTINGS_PAGES.keys()].sort()).toEqual(SETTINGS_SECTIONS.map((s) => s.id).sort());
-    for (const p of SETTINGS_PAGES.values()) expect([p.load, p.to, p.coming].filter(Boolean)).toHaveLength(1);
+    for (const p of SETTINGS_PAGES.values()) expect([p.load, p.to].filter(Boolean)).toHaveLength(1);
   });
 
   it('links each section that has its own screen to the path that screen redirects from /settings/<id>', () => {

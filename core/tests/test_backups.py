@@ -10,12 +10,15 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import secrets
 from dataclasses import replace
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+from onemind_core.errors import ApiError
 from onemind_core.backups.jobs import AgentError, canonical, sign_job
 from onemind_core.backups.kit import check_group_ok
 from onemind_core.backups.kube import Kube, KubeError, Workload
@@ -50,6 +53,7 @@ class FakeAgent:
         self.clock = clock
         self.jobs: list[tuple[str, dict, str | None]] = []
         self.snaps: list[dict] = []
+        self.targets: list[dict] = []
         self.verified: dict[str, dict] = {}
         self.fail: dict[str, str] = {}
         self.run_state = "succeeded"
@@ -84,7 +88,8 @@ class FakeAgent:
                 units[u] = {"state": "verified", "last_success_at": v["finished_at"], "verified_at": v["finished_at"]}
             box = {"state": "verified" if units and all(b["state"] == "verified" for b in units.values()) else
                    ("unverified" if units else "none")}
-            return {"status": {"box": box, "units": units, "last_verified": self.verified, "fenced": False},
+            return {"status": {"box": box, "units": units, "last_verified": self.verified, "fenced": False,
+                               "copies": len(self.targets)},
                     "runs": [], "verifications": list(self.verified.values())}
         if kind == "backup.verify":
             out = []
@@ -100,7 +105,10 @@ class FakeAgent:
             return [{"id": a["id"], "bytes": self.content_bytes.get(a["id"], 0), "files": 1} for a in params["apps"]]
         if kind == "backup.tree":
             return [{"name": "notes.txt", "path": params["path"].rstrip("/") + "/notes.txt", "type": "file", "size": 2}]
-        if kind in ("backup.configure", "backup.restore.finish", "backup.key.add"):
+        if kind == "backup.configure":
+            self.targets = params["targets"]
+            return {"targets": [target["id"] for target in self.targets]}
+        if kind in ("backup.restore.finish", "backup.key.add"):
             return {"ok": True}
         raise AssertionError(kind)
 
@@ -435,6 +443,67 @@ def test_agent_refusal_is_unavailable_not_a_crash(client, bk):
     assert r.status_code == 503 and r.json()["error"] == "unavailable" and r.json()["reason"] == "agent_failed"
 
 
+def test_snapshots_before_any_destination_is_an_empty_list_with_a_reason_not_a_wait(client, bk):
+    r = client.get("/v1/backups/snapshots", headers=OWNER)
+    assert r.status_code == 200 and r.json() == []
+    assert r.headers["OneMind-Reason"] == "no backup destination yet"
+    assert not any(j[0] == "backup.snapshots" for j in bk.agent.jobs)  # no repository lookup
+    add_usb(client, bk)
+    r = client.get("/v1/backups/snapshots", headers=OWNER)
+    assert r.status_code == 200 and r.json() == [] and "OneMind-Reason" not in r.headers
+    assert any(j[0] == "backup.snapshots" for j in bk.agent.jobs)  # with a destination the agent is asked
+
+
+def test_agent_only_destination_keeps_snapshots_discoverable_and_restorable(client, bk):
+    snap = restorable(client, bk)
+    destination, = bk.repo.destinations()
+    bk.repo.remove_destination(destination.id)  # simulate losing the row after the agent saved its config
+    assert not bk.repo.destinations()
+    assert [target["id"] for target in bk.agent.targets] == [destination.id]
+
+    listed = client.get("/v1/backups/snapshots", params={"app_id": "notes"}, headers=OWNER)
+    assert listed.status_code == 200 and listed.json() == [snap]
+    assert "OneMind-Reason" not in listed.headers
+    detail = client.get(f"/v1/backups/snapshots/{snap['id']}", headers=OWNER)
+    assert detail.status_code == 200 and detail.json() == snap
+    restore = client.post("/v1/restores", headers=OWNER, json={"snapshot_id": snap["id"], "scope": {"app_id": "notes"}})
+    assert restore.status_code == 202, restore.text
+    assert restore.json()["state"] == "awaiting_approval"
+    assert restore.json()["restore"]["plan"]["snapshot"]["id"] == snap["id"]
+    assert "backup.restore" not in bk.agent.kinds()
+
+
+def test_snapshot_list_without_destinations_preserves_agent_refusal(client, bk):
+    bk.agent.fail["backup.status"] = "could not read backup status"
+    r = client.get("/v1/backups/snapshots", headers=OWNER)
+    assert r.status_code == 503 and r.json()["reason"] == "agent_failed"
+    assert "OneMind-Reason" not in r.headers
+
+
+def test_snapshot_list_reason_matches_the_listing_when_a_destination_is_removed(client, bk, monkeypatch):
+    add_usb(client, bk)
+    destination, = bk.repo.destinations()
+    job = bk.agent.job
+
+    def remove_after_listing(kind, params, **kwargs):
+        out = job(kind, params, **kwargs)
+        if kind == "backup.snapshots":
+            job("backup.configure", {"targets": []})
+            bk.repo.remove_destination(destination.id)
+        return out
+
+    monkeypatch.setattr(bk.agent, "job", remove_after_listing)
+    r = client.get("/v1/backups/snapshots", headers=OWNER)
+    assert r.status_code == 200 and r.json() == []
+    assert "OneMind-Reason" not in r.headers
+    assert not bk.repo.destinations()
+
+
+def test_snapshots_with_backups_switched_off_stay_503_even_without_a_destination(client):
+    r = client.get("/v1/backups/snapshots", headers=OWNER)
+    assert r.status_code == 503 and r.json()["reason"] == "backups_disabled" and r.headers["retry-after"] == "30"
+
+
 def test_destination_request_replays_with_the_same_idempotency_key(client, bk):
     body = {"kind": "usb", "label": "USB disk", "config": {"usb_uuid": "1234-ABCD"}}
     first = client.post("/v1/backups/destinations", headers={**OWNER, "Idempotency-Key": "k-1"}, json=body)
@@ -502,10 +571,25 @@ def test_cold_backup_scales_every_stopped_app_back_up_when_stopping_fails_midway
 
 
 # ---- emergency kit ---------------------------------------------------------------------------------
+def test_separate_kit_request_on_a_box_without_passkeys_stays_pending(client, bk):
+    assert not client.app.state.identity.passkeys_active()
+    headers = {**OWNER, "Idempotency-Key": "separate-kit-request"}
+    body = {"approve": False, "delivery_token": secrets.token_hex(32)}
+    request = client.post("/v1/backups/kit", headers=headers, json=body)
+    assert request.status_code == 202, request.text
+    action = request.json()
+    assert action["state"] == "awaiting_approval" and "one_time" not in action
+    assert client.get("/v1/backups/kit", headers=OWNER).json()["state"] == "missing"
+    assert client.post("/v1/backups/kit", headers=headers, json=body).status_code == 202
+    assert approve(client, action["id"])["state"] == "succeeded"
+    issued = client.post("/v1/backups/kit", headers=headers, json=body)
+    assert issued.status_code == 201 and issued.json()["one_time"]["text"]
+    assert client.post("/v1/backups/kit", headers=headers, json=body).status_code == 409
+
+
 def test_emergency_kit_is_shown_once_and_must_be_typed_back(client, bk, settings):
-    assert client.post("/v1/backups/kit", headers=OWNER).status_code == 409, "a destination comes first"
-    add_usb(client, bk)
     assert client.post("/v1/backups/kit", headers=ADULT).status_code == 403
+    add_usb(client, bk)
     r = client.post("/v1/backups/kit", headers=OWNER, json=None)
     assert r.status_code == 201, r.text
     assert r.headers["cache-control"] == "no-store"
@@ -843,6 +927,154 @@ def test_owner_shortcuts_need_a_passkey_once_one_is_registered(client, bk):
     assert [a["state"] for a in acts if a["type"] == "backup.restore"] == ["awaiting_approval"]
     assert len([a for a in acts if a["type"] == "backup.destination.add"]) == 2 and \
         [a["state"] for a in acts if a["type"] == "backup.destination.add"].count("awaiting_approval") == 1
+
+
+def test_kit_needs_no_backup_destination(client, bk):
+    """D-028: a box with no backup target still gets a kit; a destination added later is listed as not covered
+    until a new kit is issued, and issuing again adds a key beside the old one (restic key add), never replaces."""
+    r = client.post("/v1/backups/kit", headers=OWNER)
+    assert r.status_code == 201, r.text
+    one = r.json()["one_time"]
+    assert check_group_ok(one["groups"], one["check"]) and one["owner_key"] in one["text"]
+    assert "none yet" in one["text"] and "disk_recovery_key" not in one
+    assert "backup.key.add" not in bk.agent.kinds(), "no destination: nothing to add the key to"
+    kit = client.get("/v1/backups/kit", headers=OWNER).json()
+    assert kit["state"] == "issued" and kit["uncovered_destinations"] == [] and kit["disk_key_included"] is False
+    right = {str(p): one["groups"][p - 1] for p in kit["positions"]}
+    assert client.post("/v1/backups/kit/confirm", headers=OWNER, json={"answers": right}).json()["state"] == "confirmed"
+    add_usb(client, bk)
+    dest = bk.repo.destinations()[0].id
+    kit = client.get("/v1/backups/kit", headers=OWNER).json()
+    assert kit["uncovered_destinations"] == [dest], kit
+    assert client.get("/v1/backups/status", headers=OWNER).json()["kit"]["uncovered_destinations"] == [dest]
+
+
+def test_kit_reissue_adds_a_key_and_covers_destinations(client, bk):
+    add_usb(client, bk)
+    first = client.post("/v1/backups/kit", headers=OWNER).json()["one_time"]["owner_key"]
+    assert client.get("/v1/backups/kit", headers=OWNER).json()["uncovered_destinations"] == []
+    r = client.post("/v1/backups/destinations", headers=OWNER,
+                    json={"kind": "usb", "label": "Second disk", "config": {"usb_uuid": "5678-EFGH"}})
+    approve(client, r.json()["id"])
+    assert len(client.get("/v1/backups/kit", headers=OWNER).json()["uncovered_destinations"]) == 1
+    # a new kit (new idempotency key) adds its key on every destination and never removes the first key
+    r = client.post("/v1/backups/kit", headers=OWNER, json=None)
+    assert r.status_code in (201, 409)
+    keys = [j for j in bk.agent.jobs if j[0] == "backup.key.add"]
+    assert keys[0][1]["key"] == first and all(j[1]["which"] == "owner" for j in keys)
+    assert "backup.key.remove" not in bk.agent.kinds()
+
+
+def test_disk_key_goes_into_the_kit_and_a_later_kit_names_the_page_that_holds_it(client, bk, settings):
+    """D-028: the LUKS recovery key is read for the kit step only, printed, never stored. Confirming the kit
+    destroys the node's copy; a later kit then points at the page that holds the key (no new dead end)."""
+    waiting = ["MODHEX-DISK-KEY-FOR-TESTS-ONLY"]
+    forgotten = []
+    svc = client.app.state.backups
+    svc.disk_key_source = lambda: waiting[0] if waiting else None
+    svc.disk_key_forget = lambda: (forgotten.append(1), waiting.clear())
+    disk = waiting[0]
+    add_usb(client, bk)
+    r = client.post("/v1/backups/kit", headers=OWNER)
+    assert r.status_code == 201, r.text
+    one = r.json()["one_time"]
+    assert one["disk_recovery_key"] == disk and disk in one["text"]
+    kit = client.get("/v1/backups/kit", headers=OWNER).json()
+    assert kit["disk_key_included"] is True and kit["disk_key_kit"]["fingerprint"] == kit["fingerprint"]
+    assert forgotten == [], "an unconfirmed page may be lost: the node keeps the key"
+    for blob in (json.dumps(client.get("/v1/actions", headers=OWNER).json()), settings.audit_path.read_text(),
+                 json.dumps(client.get("/v1/backups/kit", headers=OWNER).json()),
+                 json.dumps(client.get("/v1/backups/status", headers=OWNER).json())):
+        assert disk not in blob
+    if settings.db_url.startswith("sqlite:///"):
+        assert disk.encode() not in Path(settings.db_url[len("sqlite:///"):]).read_bytes()
+    right = {str(p): one["groups"][p - 1] for p in kit["positions"]}
+    assert client.post("/v1/backups/kit/confirm", headers=OWNER, json={"answers": right}).json()["state"] == "confirmed"
+    assert forgotten == [1]
+    first = kit
+    # a re-issue has no disk key to print, but says which kit holds it, in its text and in the kit status
+    again = client.post("/v1/backups/kit", headers=OWNER).json()
+    assert "disk_recovery_key" not in again["one_time"] and disk not in again["one_time"]["text"]
+    assert "NOT on this page" in again["one_time"]["text"]
+    assert first["fingerprint"] in again["one_time"]["text"] and first["issued_at"] in again["one_time"]["text"]
+    now = client.get("/v1/backups/kit", headers=OWNER).json()
+    assert now["disk_key_included"] is False
+    assert now["disk_key_kit"] == {"fingerprint": first["fingerprint"], "issued_at": first["issued_at"]}
+    assert disk not in json.dumps(now)
+
+
+def test_kit_reissue_is_announced_and_kit_without_disk_key_has_no_marker(client, bk):
+    one = client.post("/v1/backups/kit", headers=OWNER).json()
+    assert "NOT on this page" not in one["one_time"]["text"] and one["kit"]["disk_key_kit"] is None
+    seen: list[dict] = []
+    client.app.state.gateway.events.subscribe("backup.>", seen.append)
+    client.post("/v1/backups/kit", headers=OWNER)
+    ev = [e for e in seen if e["type"] == "backup.kit.reissued"]
+    assert len(ev) == 1 and ev[0]["severity"] == "warning", seen  # the first issue is not a re-issue; the second is
+    assert ev[0]["data"]["old_fingerprint"] == one["kit"]["fingerprint"], ev[0]
+
+
+def test_failed_kit_issue_does_not_use_up_the_disk_key(client, bk):
+    taken = []
+    client.app.state.backups.disk_key_source = lambda: taken.append(1) or "KEY"
+    add_usb(client, bk)
+    bk.agent.fail["backup.key.add"] = "boom"
+    assert client.post("/v1/backups/kit", headers=OWNER).status_code == 409
+    assert taken == [], "the disk key is read after everything that can fail"
+
+
+def test_console_kit_check_locks_after_five_wrong_tries_and_never_wipes(client, bk, clock):
+    from onemind_core.backups.kit import new_owner_key
+    one = client.post("/v1/backups/kit", headers=OWNER).json()["one_time"]
+    svc = client.app.state.backups
+    principal = type("P", (), {"as_dict": lambda self: {"id": "console", "kind": "static"}})()
+    wrong = new_owner_key().password
+    for _ in range(5):
+        with pytest.raises(ApiError) as e:
+            svc.verify_console_kit(principal, wrong)
+        assert e.value.status == 401
+    with pytest.raises(ApiError) as e:  # now locked, even for the right key
+        svc.verify_console_kit(principal, one["owner_key"])
+    assert e.value.status == 429 and e.value.retry_after_s >= 15 * 60 - 1
+    clock.advance(16 * 60)
+    with pytest.raises(ApiError) as e:  # a wrong try after the first lock doubles it
+        svc.verify_console_kit(principal, wrong)
+    assert e.value.status == 401
+    with pytest.raises(ApiError) as e:
+        svc.verify_console_kit(principal, one["owner_key"])
+    assert e.value.status == 429 and e.value.retry_after_s > 29 * 60
+    clock.advance(31 * 60)
+    assert svc.verify_console_kit(principal, one["owner_key"].lower().replace("-", " "))["fingerprint"]
+    assert svc.verify_console_kit(principal, one["owner_key"] + " " + one["check"])["fingerprint"]
+    assert svc.repo.kit_lock().fails == 0
+    with pytest.raises(ApiError) as e:  # a mistyped key is not a try
+        svc.verify_console_kit(principal, "AAAA-BBBB")
+    assert e.value.status == 422 and svc.repo.kit_lock().fails == 0
+    assert svc.repo.kit() is not None and "backup.restore" not in bk.agent.kinds()
+
+
+def test_console_checks_a_full_salted_hash_not_the_public_fingerprint(client, bk):
+    """The fingerprint is shown (status, event, page) and is only 64 bits, so it must never be the proof."""
+    import hashlib
+    one = client.post("/v1/backups/kit", headers=OWNER).json()["one_time"]
+    svc = client.app.state.backups
+    k = svc.repo.kit()
+    v = k.challenge["console_verify"]
+    assert len(v["hash"]) == 64 and v["salt"] and v["hash"] != hashlib.sha256(one["owner_key"].encode()).hexdigest()
+    assert k.fingerprint not in v["hash"] and one["owner_key"] not in json.dumps(k.challenge)
+    principal = type("P", (), {"as_dict": lambda self: {"id": "console", "kind": "static"}})()
+    assert svc.verify_console_kit(principal, one["owner_key"])["fingerprint"] == k.fingerprint
+    # a key that matches only the 16-hex fingerprint of the real one would not pass: the check is the hash
+    tampered = dict(k.challenge, console_verify={"salt": v["salt"], "hash": "0" * 64})
+    svc.repo.update_kit(challenge=tampered)
+    with pytest.raises(ApiError) as e:
+        svc.verify_console_kit(principal, one["owner_key"])
+    assert e.value.status == 401
+    # a kit issued before the hash was stored still opens with its key (no dead end), until a new kit replaces it
+    legacy = {kk: vv for kk, vv in k.challenge.items() if kk != "console_verify"}
+    svc.repo.update_kit(challenge=legacy)
+    svc.repo.put_kit_lock(0, None)
+    assert svc.verify_console_kit(principal, one["owner_key"])["fingerprint"] == k.fingerprint
 
 
 # ---- first-run wizard state (driven by the server, not a browser flag) --------------------------------

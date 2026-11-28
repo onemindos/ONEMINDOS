@@ -183,8 +183,13 @@ done
 check "the gateway lists 2 online machines (got $ONLINE)" [ "$ONLINE" -ge 2 ]
 if on "$HUB" "$VERIFY_DIR/node-check.sh" > "$WORK/nc-hub.log" 2>&1; then res PASS "node-check.sh on the hub"
 else res FAIL "node-check.sh on the hub"; cat "$WORK/nc-hub.log"; fi
+check "node signs NKey challenges with system Python, without a gateway venv" \
+  on "$NODE" sh -c 'test ! -x /opt/onemind/venv/bin/python && python3 -I -c "from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey"'
 if on "$NODE" "$VERIFY_DIR/node-check.sh" > "$WORK/nc-node.log" 2>&1; then res PASS "node-check.sh on the node"
 else res FAIL "node-check.sh on the node"; cat "$WORK/nc-node.log"; fi
+check "node-check authenticates with the installed credentials" \
+  grep -Eq "^PASS .*NATS answers with this machine's credentials" "$WORK/nc-node.log"
+check "node-check sees its own heartbeat" grep -Eq '^PASS .*own heartbeat on ' "$WORK/nc-node.log"
 
 if on "$HUB" "$VERIFY_DIR/verify.sh" http://127.0.0.1:8080 --token-file /root/owner.token \
      --agent-token-file /root/agent.token --audit-file /var/lib/onemind/audit.jsonl --app "$APP" \

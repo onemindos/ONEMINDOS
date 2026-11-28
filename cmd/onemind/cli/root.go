@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"golang.org/x/term"
 
 	"github.com/onemindos/onemindos/internal/update"
@@ -77,25 +78,42 @@ var groups = []func(a *App) []*cobra.Command{
 	natsCommands,
 	storageCommands,
 	servicesCommands,
+	networkCommands,
 	domainCommands,
+	timeCommands,
+	systemCommands,
+	firewallCommands,
+	desktopAppCommands,
+	logsCommands,
 	bridgeCommands,
 	notifyCommands,
 	workCommands,
+	recoveryCommands,
+	printCommands,
 	machinesCommands,
 	syncCommands,
 	mcpCommands,
 	migrateCommands,
 	kioskCommands,
 	myDevicesCommands,
+	keyboardCommands,
 	appCommands,
 	gatewayAdminCommands,
 	usersCommands,
+	legacyCommands,
 	accountCommands,
 	backupCommands,
 	careCommands,
 	grantsCommands,
+	nameCommands,
+	sshCommands,
 	extCommands,
 	tipsCommands,
+	agentBrowserCommands,
+	boxRestoreCommands,
+	shareCommands,
+	mapCommands,
+	subjectsCommands,
 	searchCommands,
 	radiosCommands,
 	versionCommands,
@@ -159,6 +177,59 @@ func NewRoot(env Env) (*cobra.Command, *App) {
 	}
 	setUsageOnGroups(root)
 	return root, a
+}
+
+// insertJSON puts --json right after the first n subcommand words (and after the sub-subcommand
+// of `storage plan X`). It must not go at the end: the commands parse with Go's flag package,
+// which stops at the first positional, so a trailing --json after a DISK would be read as a disk.
+func insertJSON(args []string, n int) []string {
+	if len(args) > 0 && args[0] == "plan" {
+		n = 2
+	}
+	if len(args) < n {
+		return args
+	}
+	out := append([]string{}, args[:n]...)
+	out = append(out, "--json")
+	return append(out, args[n:]...)
+}
+
+// takeLeadingGlobals is for commands that set DisableFlagParsing because they parse their own
+// flags (storage, mesh status). Cobra then leaves global flags that were typed before the
+// subcommand word (onemind --hub URL storage disks) in args. This applies those leading global
+// flags and returns the rest. Flags after the first non-flag word stay with the command, so
+// `storage disks --json` keeps its own --json. Combined short flags (-qv) are not split: they fall
+// through and the command's own parser rejects them. A global --json is recorded in a.G.JSON; the
+// callers pass it on to the command's own --json. A value-taking global that comes after the
+// subcommand word is consumed too (storage --hub X disks).
+func takeLeadingGlobals(cmd *cobra.Command, args []string) ([]string, error) {
+	pf := cmd.Root().PersistentFlags()
+	for len(args) > 0 && strings.HasPrefix(args[0], "-") && args[0] != "-" && args[0] != "--" {
+		name, val, hasVal := strings.Cut(strings.TrimLeft(args[0], "-"), "=")
+		var f *pflag.Flag
+		if strings.HasPrefix(args[0], "--") {
+			f = pf.Lookup(name)
+		} else if len(name) == 1 {
+			f = pf.ShorthandLookup(name)
+		}
+		if f == nil {
+			break // not a global flag: the command's own parser reports it
+		}
+		args = args[1:]
+		if !hasVal {
+			if f.NoOptDefVal != "" {
+				val = f.NoOptDefVal
+			} else if len(args) == 0 {
+				return nil, usageErr(cmd, fmt.Sprintf("flag needs an argument: --%s", f.Name))
+			} else {
+				val, args = args[0], args[1:]
+			}
+		}
+		if err := pf.Set(f.Name, val); err != nil {
+			return nil, usageErr(cmd, err.Error())
+		}
+	}
+	return args, nil
 }
 
 // setUsageOnGroups makes a bare group (`onemind apps`) a usage error, not a silent help page.

@@ -11,7 +11,7 @@ import {
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Notifications } from './src/device/notifications';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { HubDataProvider, useHubData } from './src/data';
@@ -26,6 +26,9 @@ import { PhotoAlbumsScreen } from './src/photos/PhotoAlbumsScreen';
 import { PhotoBackupScreen } from './src/photos/PhotoBackupScreen';
 import { usePushPings } from './src/pushPings';
 import { IncomingFiles } from './src/files/IncomingFiles';
+import { allowNavigationLink, isRequestId } from './src/lock/actions';
+import { LockProvider } from './src/lock/LockProvider';
+import { NotificationActions } from './src/lock/NotificationActions';
 import { ActivityScreen } from './src/screens/ActivityScreen';
 import { AppDetailScreen } from './src/screens/AppDetailScreen';
 import { AgentsScreen } from './src/screens/AgentsScreen';
@@ -39,6 +42,7 @@ import { ApprovalsScreen } from './src/screens/ApprovalsScreen';
 import { ConnectScreen } from './src/screens/ConnectScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { InboxScreen } from './src/screens/InboxScreen';
+import { MapScreen } from './src/screens/MapScreen';
 import { MoreScreen, useMoreBadge } from './src/screens/MoreScreen';
 import { NodesScreen } from './src/screens/NodesScreen';
 import { DeviceInfoScreen, LiveUsageScreen, NetworkScreen, OsUpdatesScreen, SystemControlsScreen } from './src/screens/SystemScreens';
@@ -54,8 +58,6 @@ import { useIsDark, useTheme } from './src/ui/theme';
 
 const Tab = createBottomTabNavigator<TabParams>();
 const Stack = createNativeStackNavigator<RootParams>();
-const navRef = createNavigationContainerRef<RootParams>();
-
 
 /** Sessions renew with this phone's device key when the box has registered it (lib/device). */
 const SESSION_DEPS: SessionDeps = { renewWithDevice };
@@ -68,10 +70,11 @@ onForgetHub(async (api, hubUrl) => {
 
 const linking: LinkingOptions<RootParams> = {
   prefixes: ['onemind://'],
+  filter: allowNavigationLink,
   config: {
     initialRouteName: 'Tabs',
     screens: {
-      Tabs: { screens: { Home: 'home', Approvals: 'approvals', Apps: 'apps', Me: { path: 'me', alias: ['more'] } } },
+      Tabs: { screens: { Home: 'home', Map: 'map', Approvals: 'approvals', Apps: 'apps', Me: { path: 'me', alias: ['more'] } } },
       Activity: 'activity',
       AppDetail: 'apps/:id',
       Tips: 'tips/:id?',
@@ -117,21 +120,12 @@ function Tabs() {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
+      <Tab.Screen name="Map" component={MapScreen} options={{ headerShown: false, tabBarButtonTestID: 'tab-map' }} />
       <Tab.Screen name="Approvals" component={ApprovalsScreen} options={{ tabBarBadge: pendingCount || undefined }} />
       <Tab.Screen name="Apps" component={AppsScreen} />
       <Tab.Screen name="Me" component={MoreScreen} options={{ headerShown: false, tabBarBadge: moreBadge, tabBarButtonTestID: 'tab-me' }} />
     </Tab.Navigator>
   );
-}
-
-/** Where a notification tap goes. A ping (ids only) opens the Inbox; nothing is ever approved from a tap. */
-function routeTo(data: Record<string, unknown> | undefined) {
-  if (!navRef.isReady()) return;
-  const route = data?.route;
-  if (route === 'approvals') navRef.navigate('Tabs', { screen: 'Approvals' });
-  else if (route === 'activity') navRef.navigate('Activity');
-  else if (route === 'nodes') navRef.navigate('Nodes');
-  else if (route === 'inbox' || parsePing(data)) navRef.navigate('Inbox');
 }
 
 /** Pings from the box while the app runs (mobile/docs/push.md §5). */
@@ -146,6 +140,32 @@ function PushPings() {
 }
 
 function SignedIn() {
+  const [navRef] = useState(() => createNavigationContainerRef<RootParams>());
+  const pendingOpen = useRef<Record<string, unknown> | undefined>(undefined);
+  const reviewKey = useRef(0);
+
+  const open = useCallback((data: Record<string, unknown> | undefined) => {
+    if (!data) return;
+    if (!navRef.isReady()) {
+      pendingOpen.current = data;
+      return;
+    }
+    if (data.route === 'approvals') {
+      const id = isRequestId(data.action_id) ? data.action_id : undefined;
+      navRef.navigate('Tabs', { screen: 'Approvals', params: { id, reviewKey: ++reviewKey.current } });
+    } else if (data.route === 'activity') navRef.navigate('Activity');
+    else if (data.route === 'nodes') navRef.navigate('Nodes');
+    else if (data.route === 'inbox' || parsePing(data)) {
+      const id = isRequestId(data.notification_id) ? data.notification_id : undefined;
+      navRef.navigate('Inbox', { id });
+    }
+  }, [navRef]);
+  const onNavReady = useCallback(() => {
+    const target = pendingOpen.current;
+    pendingOpen.current = undefined;
+    open(target);
+  }, [open]);
+
   const dark = useIsDark();
   const t = useTheme();
   const navTheme = useMemo<NavTheme>(() => {
@@ -158,17 +178,17 @@ function SignedIn() {
 
   useEffect(() => {
     void setupNotifications().catch(() => false);
-    const sub = Notifications.addNotificationResponseReceivedListener((r) => routeTo(r.notification.request.content.data));
-    return () => sub.remove();
   }, []);
 
   return (
+    <LockProvider>
     <HubDataProvider onAlerts={onAlerts}>
+      <NotificationActions open={open} />
       <PushPings />
       <IncomingFiles />
       <PrefsProvider>
       <PhotoBackupProvider>
-        <NavigationContainer ref={navRef} linking={linking} theme={navTheme}>
+        <NavigationContainer ref={navRef} linking={linking} theme={navTheme} onReady={onNavReady}>
           <Stack.Navigator screenOptions={{ headerBackTitle: 'Back', headerStyle: { backgroundColor: t.card }, headerTintColor: t.text }}>
             <Stack.Screen name="Tabs" component={Tabs} options={{ headerShown: false }} />
             <Stack.Screen name="Activity" component={ActivityScreen} />
@@ -196,6 +216,7 @@ function SignedIn() {
       </PhotoBackupProvider>
       </PrefsProvider>
     </HubDataProvider>
+    </LockProvider>
   );
 }
 

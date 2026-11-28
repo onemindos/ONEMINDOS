@@ -19,7 +19,8 @@ from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError, error_responses
 from ..identity.scopes import register_route_scope
-from ..system import CONTROLS, RESET_PHRASE, DiagnosticsBundle, SystemActionRequest, SystemControls, SystemService
+from ..system import (CONTROLS, RESET_PHRASE, DiagnosticsBundle, HostLinkExecutor, SystemActionRequest, SystemControls,
+                      SystemService)
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
 ORDER = 340
@@ -62,7 +63,7 @@ register_route_scope("POST", r"/v1/system/actions", ("actions:request",))
 
 
 def register(app: FastAPI, gw: Gateway) -> None:
-    svc = SystemService(gw)
+    svc = SystemService(gw, HostLinkExecutor(app.state.hostlink))
     for action_type, (_, risk, requesters, _) in CONTROLS.items():
         gw.actions.register_type(action_type, FeatureAction(risk, svc.run, requesters))
     gw.approval_guards.append(passkey_step_up(gw))
@@ -110,7 +111,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
             if req.confirm != RESET_PHRASE:
                 raise ApiError(422, "conflict", f'a factory reset needs confirm set to "{RESET_PHRASE}", typed by the owner',
                                reason="confirm_mismatch")
-            params = {"confirm": RESET_PHRASE}
+            # The wipe is bound to the plan the host showed now: it refuses a plan that changed before it runs.
+            plan = svc.executor.reset_plan_hash() if isinstance(svc.executor, HostLinkExecutor) else None
+            if isinstance(svc.executor, HostLinkExecutor) and plan is None:
+                raise ApiError(409, "conflict", "the host service could not give the factory-reset plan; nothing was filed",
+                               reason="host_unavailable")
+            params = {"confirm": RESET_PHRASE, **({"plan_sha256": plan} if plan else {})}
         elif req.confirm is not None:
             raise ApiError(422, "conflict", "confirm is only for system.factory_reset")
         body, created = gw.actions.request_feature(

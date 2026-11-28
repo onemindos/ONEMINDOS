@@ -155,7 +155,7 @@ def _open_archive(folder: int, entry_name: str, managed: bool) -> BinaryIO | Non
 def _archives(managed: bool, wanted: str | None = None) -> Iterator[tuple[str, BinaryIO]]:
     if wanted is not None and not PACK_ID.fullmatch(wanted):
         return
-    directory = MAPS_DIR / PACKS_FOLDER if managed else MAPS_DIR
+    directory = Path(os.environ.get("MAP_PACKS_DIR", MAPS_DIR / PACKS_FOLDER)) if managed else MAPS_DIR
     try:
         folder = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     except OSError:

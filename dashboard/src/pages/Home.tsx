@@ -6,6 +6,7 @@ import { HomeScreen, StateView, useOptionalCustomize, useToast, type ActionSumma
 import { ApiError } from '../api/types';
 import { useHomeExtras } from '../data/homeExtras';
 import { homeActivity, toActionSummary, toHomeApp, toHomeNode } from '../data/adapters';
+import { PASSKEY_NOT_USED, PASSKEY_UNAVAILABLE } from '../lib/approve';
 import { errorText, useHub, type Hub } from '../data/hub';
 import { useHomeBackups } from '../data/homeBackups';
 import { useDisplayName } from '../data/homeMe';
@@ -73,7 +74,8 @@ export function Home() {
   const customize = useOptionalCustomize();
   const { apps } = useHub();
   if (shell.view === 'unknown') return <StateView state="loading" what="Checking your role" skeleton="list" />;
-  const commandBar = customize?.prefs.commandBar
+  // On the desktop the run bar lives in the dock (shell/RunBar.tsx); the Console view keeps it on Home.
+  const commandBar = customize?.prefs.commandBar && shell.layout !== 'desktop'
     ? <HomeCommandBar openPalette={shell.openPalette} apps={shell.role === 'owner' ? apps.data ?? [] : []} />
     : undefined;
   return shell.view === 'simple' ? <SimpleHome commandBar={commandBar} /> : <ProHome commandBar={commandBar} />;
@@ -103,7 +105,8 @@ function ProHome({ commandBar }: { commandBar: ReactNode }) {
       (e: unknown) => {
         const { code, message } = errorText(e);
         const licence = e instanceof ApiError && e.reason === 'licence_unconfirmed';
-        toast.show({ tone: 'bad', title: `Could not ${how}`, body: licence ? 'This app needs its licence accepted. Open Approvals to read it and confirm.' : `${message} (${code})` });
+        const passkey = e instanceof ApiError && (e.reason === PASSKEY_NOT_USED || e.reason === PASSKEY_UNAVAILABLE);
+        toast.show({ tone: 'bad', title: `Could not ${how}`, body: passkey ? 'This needs your passkey. Open Approvals to approve it there.' : licence ? 'This app needs its licence accepted. Open Approvals to read it and confirm.' : `${message} (${code})` });
       },
     );
 

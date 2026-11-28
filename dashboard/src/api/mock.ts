@@ -175,6 +175,7 @@ export class MockApi extends MockWiringBase implements OneMindApi {
     const ts = new Date(this.now()).toISOString();
     const action: Action = {
       ...req,
+      params: { ...req.params },
       id: `act-${String(this.seq++).padStart(4, '0')}`,
       state: 'awaiting_approval',
       requested_by: p,

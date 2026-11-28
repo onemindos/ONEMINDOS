@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Modal } from 'react-native';
 import type { Directory } from '../device/files';
 import { OP } from '../api/client';
+import { useIsLocked } from '../lock/LockProvider';
 import { useSignedIn } from '../session';
 import { uploadProblem } from '../lib/filesTransfer';
 import { Button, H1, Notice, P, Screen } from '../ui/bits';
@@ -13,7 +14,10 @@ import { scheduleShare, unscheduleShare } from './shareBackground';
 
 export function IncomingFiles() {
   const { connection, principal } = useSignedIn();
-  return connection.mode === 'live' && principal?.kind === 'person' ?
+  // A Modal is its own native window and would draw above the lock screen, so show nothing while locked.
+  // The shared files stay in the hook state and the sheet opens after the unlock.
+  const locked = useIsLocked();
+  return !locked && connection.mode === 'live' && principal?.kind === 'person' ?
     <Inbox key={JSON.stringify([connection.hubUrl, principal.id])} hub={connection.hubUrl} person={principal.id} /> : null;
 }
 

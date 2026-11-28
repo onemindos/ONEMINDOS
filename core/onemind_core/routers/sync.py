@@ -36,15 +36,16 @@ from ..identity.scopes import ALL, register_route_scope
 from ..jsonbody import JsonBody
 from .files import CURSOR_RE, MAX_QUOTA_BYTES, Root, RootQ, errs
 
-# Like /v1/files/*: no narrower scope covers files yet, so a scoped token needs every scope ("*");
-# the handler then checks read access to the whole root (a person's role, or an agent's grant on "/").
-register_route_scope("GET,HEAD", r"/v1/sync/changes", (ALL,))
-register_route_scope("GET,HEAD", r"/v1/sync/versions", (ALL,))
-register_route_scope("POST", r"/v1/sync/(chunks/missing|commit)", (ALL,))
-register_route_scope("PUT", r"/v1/sync/chunks/[^/]+", (ALL,))
-register_route_scope("GET,HEAD", r"/v1/sync/locks", (ALL,))
-register_route_scope("POST", r"/v1/sync/locks(/[^/]+/refresh)?", (ALL,))
-register_route_scope("DELETE", r"/v1/sync/locks/[^/]+", (ALL,))
+FILES_USE = ("files:use",)
+OWNER_SCOPE = (ALL,)
+# The feed, versions and advisory locks use the Files scope, with access checked by each handler.
+register_route_scope("GET,HEAD", r"/v1/sync/(changes|versions|locks)", FILES_USE)
+register_route_scope("POST", r"/v1/sync/locks(/[^/]+/refresh)?", FILES_USE)
+register_route_scope("DELETE", r"/v1/sync/locks/[^/]+", FILES_USE)
+# Chunk staging and lease renewal stay owner-scoped until staging has per-space limits
+# and expired chunks are reclaimed independently of successful commits.
+register_route_scope("POST", r"/v1/sync/(chunks/missing|commit)", OWNER_SCOPE)
+register_route_scope("PUT", r"/v1/sync/chunks/[^/]+", OWNER_SCOPE)
 
 TAG = ["sync"]
 ORDER = 305  # after files (300)
@@ -56,7 +57,8 @@ _412 = {412: {"model": ErrorBody, "description": "stale_precondition (stale_base
 # Names the bearer scheme and the route's scope in /openapi.json (contract lint rules `security` and `scopes`).
 # It never refuses by itself: gw.principal decides, and a session cookie works as on every other route.
 _BEARER = HTTPBearer(scheme_name="bearer", auto_error=False, description="A gateway token or a signed-in session (contract §3)")
-SECURED = [Security(_BEARER, scopes=[ALL])]
+FILES_SECURITY = [Security(_BEARER, scopes=list(FILES_USE))]
+OWNER_SECURITY = [Security(_BEARER, scopes=list(OWNER_SCOPE))]
 
 
 def body_errs(*codes: int) -> dict:
@@ -205,6 +207,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
              description=("Entries with a revision after the cursor, oldest first, each once at its latest state. "
                           "No cursor: every live entry. 410 (cursor_expired): list again with no cursor. "
                           "422 (invalid_cursor): the cursor was issued for another root or caller."),
+             dependencies=FILES_SECURITY,
              responses={410: {"description": "expired: the cursor is older than the remembered deletions"},
                         **errs(401, 403, 422, 503)})
     def changes(root: RootQ, cursor: str | None = Query(None, max_length=64, json_schema_extra={"pattern": CURSOR_RE}),
@@ -216,7 +219,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
               description=("Ask before sending, and again after an interruption: only the missing chunks need sending. "
                            "Needs write access to the whole root (an agent: a read-write grant on \"/\"). "
                            "Chunks named here stay on the hub for a day even if no version uses them yet."),
-              dependencies=SECURED, responses=body_errs(401, 403, 422, 503))
+              dependencies=OWNER_SECURITY, responses=body_errs(401, 403, 422, 503))
     def chunks_missing(body: MissingQuestion, p: Principal = Depends(principal)):
         return {"missing": transfer.missing(p, body.root, body.hashes)}
 
@@ -224,7 +227,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
              summary="Send one chunk",
              description=(f"The raw bytes (1 to {CHUNK_LIMIT}). 422 (hash_mismatch): they do not hash to the name. "
                           "Sending a chunk the root already holds is harmless."),
-             dependencies=SECURED, responses=body_errs(401, 403, 413, 422, 503))
+             dependencies=OWNER_SECURITY, responses=body_errs(401, 403, 413, 422, 503))
     @reads_body
     async def chunk_put(request: Request, root: RootQ,
                         chunk_hash: Annotated[str, Path(max_length=64, json_schema_extra={"pattern": HEX_RE})],
@@ -242,7 +245,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
               description=("409 (chunks_missing): details list the chunks to send first. 412 (stale_base): another "
                            "device changed the file; details carry its revision. 413 (quota_exceeded). "
                            "The replaced content stays as a version."),
-              dependencies=SECURED, responses={**body_errs(401, 403, 404, 409, 413, 422, 503), **_412})
+              dependencies=OWNER_SECURITY, responses={**body_errs(401, 403, 404, 409, 413, 422, 503), **_412})
     def commit(body: CommitBody, if_match: Annotated[str | None, Header(max_length=40)] = None,
                p: Principal = Depends(principal)):
         base = _if_match(if_match) if if_match is not None else body.base_revision
@@ -250,7 +253,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return transfer.commit(p, body.root, body.path, body.size, body.sha256, chunks, base, body.manifest_chunks)
 
     @app.get("/v1/sync/versions", operation_id="sync.versions.list", tags=TAG, response_model=SyncVersions,
-             summary="The kept versions of a file", dependencies=SECURED,
+             summary="The kept versions of a file", dependencies=FILES_SECURITY,
              responses=body_errs(401, 403, 404, 422, 503))
     def versions(root: RootQ, path: str = Query(..., max_length=4096), p: Principal = Depends(principal)):
         return transfer.versions(p, root, path)
@@ -261,23 +264,23 @@ def register(app: FastAPI, gw: Gateway) -> None:
               summary="Take an advisory lock on a file or folder (WebDAV class 2)",
               description=f"The lock lasts ttl_s seconds (default 300, at most {TTL_MAX_S}) unless refreshed. Advisory: "
                           "it warns other clients, it never blocks a write.",
-              dependencies=SECURED, responses={**body_errs(401, 403, 404, 422, 503), **_423})
+              dependencies=FILES_SECURITY, responses={**body_errs(401, 403, 404, 422, 503), **_423})
     def lock_take(body: LockBody, p: Principal = Depends(principal)):
         return locks.take(p, body.root, body.path, body.ttl_s, body.note)
 
     @app.get("/v1/sync/locks", operation_id="sync.locks.list", tags=TAG, response_model=SyncLocks,
-             summary="Live locks at or inside a path", dependencies=SECURED, responses=body_errs(401, 403, 422, 503))
+             summary="Live locks at or inside a path", dependencies=FILES_SECURITY, responses=body_errs(401, 403, 422, 503))
     def lock_list(root: RootQ, path: str = Query("/", max_length=4096), p: Principal = Depends(principal)):
         return {"locks": locks.list(p, root, path)}
 
     @app.post("/v1/sync/locks/{lock_id}/refresh", operation_id="sync.locks.refresh", tags=TAG, response_model=SyncLock,
-              summary="Extend your lock", dependencies=SECURED, responses=body_errs(401, 404, 422))
+              summary="Extend your lock", dependencies=FILES_SECURITY, responses=body_errs(401, 404, 422))
     def lock_refresh(lock_id: Annotated[str, Path(max_length=40)], body: LockRefresh | None = None,
                      p: Principal = Depends(principal)):
         return locks.refresh(p, lock_id, body.ttl_s if body else None)
 
     @app.delete("/v1/sync/locks/{lock_id}", operation_id="sync.locks.delete", tags=TAG, status_code=204,
-                summary="Release your lock (an owner may clear anyone's)", dependencies=SECURED, responses=body_errs(401, 404))
+                summary="Release your lock (an owner may clear anyone's)", dependencies=FILES_SECURITY, responses=body_errs(401, 404))
     def lock_release(lock_id: Annotated[str, Path(max_length=40)], p: Principal = Depends(principal)):
         locks.release(p, lock_id)
         return Response(status_code=204)

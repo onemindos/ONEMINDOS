@@ -28,3 +28,15 @@
 - Pod-to-host traffic and the forward path (H-04), IPv6, and rules loaded from `/etc/onemind/host.local.nft` by an owner.
 - Cloud boards' own `host.d` rule (22, 443, 8443 from anywhere): covered by `CRITERIA-CLOUD.md` C2/C3, which need SSH and HTTPS to answer.
 - Real hardware NICs.
+
+## 4. Amendment (2026-11-25): FWP1, printing (CUPS, TCP 631) is LAN-only (Step 3, claude/s3-printing)
+
+**Status:** PRE-REGISTERED before FWP1 was implemented in `firewall.py` or run, in the commit before the code that adds it. FW2, FW3 and FW4 above are unchanged. **FW1 changes in exactly one way:** the scan list gains TCP **631**, and the LAN-reachable TCP set becomes 443, **631**, 7443, 8443, 8444 (UDP unchanged). Every other port must still be dropped from the LAN, and nothing is reachable from the public address (FW2, unchanged). The sha256 of this file with this section is appended to `PREREGISTRATION.sha256`. **Serves:** the Step 3 printing lane: CUPS with driverless printing; the web admin and IPP port 631 open to the LAN and the mesh in `host.nft`, never to the internet; remote administration off by default.
+
+The box's `cupsd` listens on every address (`Listen *:631`), so the firewall and CUPS's own access rules are both in play. FWP1 runs after FW4, from the scanner, against the box's real `cupsd` (the first-boot hub seed is the same as for FW1).
+
+| ID | Test | PASS if | FAIL if |
+|---|---|---|---|
+| FWP1 | CUPS answers the LAN, never the public address, and never lets the LAN administer | From the LAN address `GET http://<box>:631/` returns HTTP 200 (a LAN client can reach the print service); from the LAN address `GET /admin`, `/admin/conf` and `/admin/log` each return HTTP 403 (remote administration is off); from the public address a connect to 631 does not open (no HTTP status, curl code 000); and the box's counters show 631 accepted from the LAN address and dropped from the public address (FW1 and FW2 judge the same counters) | 631 unreachable from the LAN, an admin page other than 403 from the LAN, any answer from the public address |
+
+Required for this task's "done": FW1 to FWP1 PASS on x86_64-efi. It is written without having run QEMU on this lane's machine; a harness bug found on the first run may be fixed and re-run once, named as such, under section 1's rule.

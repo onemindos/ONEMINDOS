@@ -39,6 +39,7 @@ log = logging.getLogger("onemind.serve")
 # om_wopi_ bearer token as ?access_token= (routers/wopi.py), and the access log prints each path
 # with its query string to stdout and so to journald.
 _SECRET_QUERY = re.compile(r"(?i)((?:^|[?&])access_token=)[^&\s\"]*")
+_SHARE_SECRET = re.compile(r"(/v1/share/)oms_[A-Za-z0-9_-]{43}(?=[/?\s\"]|$)")
 
 
 def redact_query(text: str) -> str:
@@ -46,24 +47,27 @@ def redact_query(text: str) -> str:
     return _SECRET_QUERY.sub(r"\1[redacted]", text)
 
 
+def redact_access_secrets(text: str) -> str:
+    return _SHARE_SECRET.sub(r"\1[redacted]", redact_query(text))
+
+
 class RedactAccessToken(logging.Filter):
-    """Redacts access_token query values from uvicorn.access records before any handler sees them."""
+    """Redacts request credentials from uvicorn.access records before any handler sees them."""
 
     def filter(self, record: logging.LogRecord) -> bool:
         if isinstance(record.args, tuple):
-            record.args = tuple(redact_query(a) if isinstance(a, str) else a for a in record.args)
+            record.args = tuple(redact_access_secrets(a) if isinstance(a, str) else a for a in record.args)
         elif isinstance(record.args, dict):
-            record.args = {k: redact_query(v) if isinstance(v, str) else v for k, v in record.args.items()}
+            record.args = {k: redact_access_secrets(v) if isinstance(v, str) else v for k, v in record.args.items()}
         if isinstance(record.msg, str):
-            record.msg = redact_query(record.msg)
+            record.msg = redact_access_secrets(record.msg)
         return True
 
 
 def log_config() -> dict[str, Any]:
     """uvicorn's default logging config with RedactAccessToken on the uvicorn.access logger.
 
-    Every uvicorn.Config and uvicorn.run here takes it (log_config=...), so no listener writes a
-    WOPI access token, whichever port or handler the record reaches."""
+    Every listener takes it so neither WOPI tokens nor public share credentials reach the logs."""
     cfg = copy.deepcopy(uvicorn.config.LOGGING_CONFIG)
     cfg.setdefault("filters", {})["redact_access_token"] = {"()": RedactAccessToken}
     access = cfg["loggers"].setdefault("uvicorn.access", {})
@@ -206,7 +210,7 @@ def pinned_path_app(app, path: str, *, peers=None, enabled=None):
 
 def https_cert(settings: Settings, net: NetSettings) -> tuple[str, str]:
     tls_dir = net.tls_dir or settings.audit_path.parent / "tls"
-    cert = BoxCA(tls_dir, net.box()).ensure_https_cert()
+    cert = BoxCA(tls_dir, net.tls_box(tls_dir)).ensure_https_cert()
     return str(cert.cert_path), str(cert.key_path)
 
 
@@ -247,7 +251,7 @@ async def serve_all(app, settings: Settings) -> None:
                 return bool(st and st.status == "installed")
 
             tor = _Server(uvicorn.Config(pinned_path_app(app, "tor", peers=TOR_PEER_NETWORKS, enabled=tor_installed),
-                                         lifespan="off", proxy_headers=False))
+                                         lifespan="off", proxy_headers=False, log_config=log_config()))
             extra.append((tor, [sock]))
     servers = [main] + [s for s, _ in extra]
 

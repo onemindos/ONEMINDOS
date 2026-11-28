@@ -35,7 +35,7 @@ Storage: PVC `photoprism-db` 5Gi, PVC `photoprism-originals` 50Gi, PVC `photopri
 Images:
 
 - `docker.io/photoprism/photoprism:261029@sha256:9409cf8e5a6ebcbe3170d14537556cbc20997aaa307096d6eeedbfc5eeef6719`
-- `docker.io/library/mariadb:12.3.3@sha256:4ebbcf100a3ba320766dfa0e1af008df12261301db6ef72798c7650f70794aed`
+- `docker.io/library/mariadb:12.3.3@sha256:4aaf88b3106382c8c18e49f0cec60267be618fc22f858c4503afb2a2555afed3`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -85,6 +85,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 To unblock: the crash loop is fixed above (rerun the gate to confirm); move the image pins to upstream releases that fix the CVEs (tags verified with `crane`). Then rerun `sdk/tools/app-gate`.
 
 **Hold (apps/market-unblock-2, 2026-11-13):** The gate run 43405572161 could not start the cluster on Docker Hub pulls (infrastructure, not an image verdict); the earlier image findings (`linux-libc-dev`, mariadb Go `stdlib`) are unchanged. `261029` is the newest release; mariadb `13.0.2` is a different major. Unblock: a gate run with the optional Docker Hub login (D18) in place, and a photoprism rebuild.
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** Only the MariaDB 12.3.3 tag was re-pinned: the tag now points to a newer rebuild. PhotoPrism 261029 is still the newest release. The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

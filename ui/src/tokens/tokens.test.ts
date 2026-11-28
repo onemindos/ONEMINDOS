@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest';
 import committedCss from './tokens.css?raw';
-import { dark, light, TONES, toCss, toJson, type Theme } from './tokens';
+import { dark, LIVE_STATES, light, scale, TONES, toCss, toJson, type Theme } from './tokens';
 
 function lum(hex: string): number {
   const n = hex.replace('#', '');
@@ -22,6 +22,16 @@ describe('tokens', () => {
     expect(Object.keys(dark).sort()).toEqual(Object.keys(light).sort());
   });
 
+  it("uses the founder's final design: stone and night backgrounds, one signal red, a 14 px window", () => {
+    expect([light.bg, light.surface, dark.bg, dark.surface]).toEqual(['#e8e7e3', '#fafaf8', '#0d0e10', '#17181b']);
+    for (const t of [light, dark]) {
+      expect(t.action).toBe('#cc1f2b');
+      expect(t['action-text']).toBe('#ffffff');
+    }
+    expect([light.accent, dark.accent]).toEqual(['#1e6870', '#5fc4cb']);
+    expect(scale.layout['window-radius']).toBe('14px');
+  });
+
   it('JSON export round-trips', () => {
     expect(JSON.parse(toJson()).light.accent).toBe(light.accent);
   });
@@ -40,6 +50,8 @@ describe('tokens', () => {
       ['text-muted', 'surface'],
       ['text-muted', 'surface-sunken'],
       ['text-subtle', 'surface'],
+      ['text', 'surface-2'],
+      ['text-muted', 'surface-2'],
       ['accent', 'surface'],
       ['accent', 'bg'],
       ['accent', 'accent-soft'],
@@ -59,6 +71,19 @@ describe('tokens', () => {
 
     it.each([['surface'], ['surface-sunken'], ['surface-raised']] as Array<[keyof Theme]>)('control border ≥ 3 on %s (WCAG 1.4.11)', (bg) => {
       expect(contrast(t['control-border'], t[bg])).toBeGreaterThanOrEqual(3);
+    });
+
+    // Words in these colours sit on the desktop background and on windows (needs you, fault, layers, simulated).
+    it.each(
+      (['needs', 'fault', 'plugin-layer', 'network-layer', 'simulated', ...LIVE_STATES.map((s) => `state-${s}`)] as Array<keyof Theme>).flatMap((fg) =>
+        (['bg', 'surface', 'surface-2'] as Array<keyof Theme>).map((bg) => [fg, bg]),
+      ),
+    )('%s text on %s ≥ 4.5', (fg, bg) => {
+      expect(contrast(t[fg], t[bg])).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it('focused window edge ≥ 3 against bg (WCAG 1.4.11)', () => {
+      expect(contrast(t['window-edge'], t.bg)).toBeGreaterThanOrEqual(3);
     });
 
     it('focus ring ≥ 3 against bg and surface', () => {

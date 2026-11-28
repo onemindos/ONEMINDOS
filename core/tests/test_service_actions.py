@@ -69,7 +69,7 @@ class FakeHost:
             def do_GET(self):
                 if self.path == "/v1/status":
                     ops = [{"kind": k, "available": True, "unavailable_reason": None}
-                           for k in ("restart", "shutdown", "factory-reset", "os-install", "service-restart")]
+                           for k in ("restart", "shutdown", "factory-reset", "os-install", "service-restart", "set-hostname")]
                     return self.send(200, {"schema": "onemind.host/v1", "journal": True, "operations": ops})
                 if self.path == "/v1/services":
                     return self.send(200, CARDS)

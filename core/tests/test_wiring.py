@@ -7,6 +7,7 @@ tests, and nobody called them. A new module that nothing imports now fails this 
 
 from __future__ import annotations
 
+import ast
 import re
 from pathlib import Path
 
@@ -53,9 +54,23 @@ def _discovered_routers() -> set[str]:
     return {"routers." + r.__module__.rsplit(".", 1)[1] for r in discover()}
 
 
+def _descriptor_packages(mods: dict[str, str]) -> set[str]:
+    """Data-only packages mounted by the signed built-in descriptor loader."""
+    from onemind_core import builtins, systemlist
+
+    found, _ = builtins.load(systemlist.load(systemlist.REPO_FILE))
+    packages = set()
+    for app_id in found:
+        if (PKG / app_id / "__init__.py").is_file():
+            module = ast.parse(mods[app_id])
+            if not module.body or (len(module.body) == 1 and ast.get_docstring(module) is not None):
+                packages.add(app_id)
+    return packages
+
+
 def test_every_module_is_imported_or_listed():
     mods = _modules()
-    mounted = _discovered_routers()
+    mounted = _discovered_routers() | _descriptor_packages(mods)
     orphans = sorted(
         n for n in mods
         if n.split(".")[-1] not in ENTRY_POINTS and n not in NOT_MOUNTED_YET and n not in mounted

@@ -8,7 +8,7 @@ kind: App
 metadata:
   id: cyberchef
   name: "CyberChef"
-  version: "11.5.0"
+  version: "11.6.0"
   description: "The Cyber Swiss Army Knife: encode, decode, encrypt, compress and analyse data in the browser."
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tag (tools) is listed in README.md until
   # the schema has metadata.tags.
@@ -24,7 +24,7 @@ metadata:
     github: "https://github.com/gchq/CyberChef"
     website: "https://gchq.github.io/CyberChef"
     support: "https://github.com/gchq/CyberChef/issues"
-  upstream: {release: "v11.5.0", released_at: "2026-09-18T11:54:19Z", archived: false}
+  upstream: {release: "v11.6.0", released_at: "2026-11-20T17:36:54Z", archived: false}
   tier: blocked   # starting value written by hand, never above the gate verdict; CI (app-gate --tier write) owns it from here
 spec:
   archs: [amd64, arm64]

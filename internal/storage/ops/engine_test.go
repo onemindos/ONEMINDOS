@@ -639,6 +639,24 @@ func TestServerAPI(t *testing.T) {
 	if st.Mirror == nil || st.Mirror.State != storage.StateProtected || !st.RecoveryKeyPending || !st.Journal {
 		t.Errorf("status %+v", st)
 	}
+	for i := 0; i < 2; i++ { // the printed kit reads the key without using it up
+		if code, body := post("/v1/recovery-key/peek", ``); code != 200 || body["recovery_key"] != "cbdefghi-jklnrtuv" {
+			t.Errorf("peek %d: %d %v", i, code, body)
+		}
+	}
+	if _, err := os.Stat(keyFile); err != nil {
+		t.Fatalf("peek removed the key file: %v", err)
+	}
+	if code, body := post("/v1/recovery-key/forget", ``); code != 200 || body["forgotten"] != true {
+		t.Errorf("forget: %d %v", code, body)
+	}
+	if code, _ := post("/v1/recovery-key/peek", ``); code != 404 {
+		t.Errorf("peek after forget: %d", code)
+	}
+	if code, _ := post("/v1/recovery-key/forget", ``); code != 404 {
+		t.Errorf("second forget: %d", code)
+	}
+	os.WriteFile(keyFile, []byte("cbdefghi-jklnrtuv"), 0o600)
 	if code, body := post("/v1/recovery-key/take", ``); code != 200 || body["recovery_key"] != "cbdefghi-jklnrtuv" {
 		t.Errorf("take: %d %v", code, body)
 	}

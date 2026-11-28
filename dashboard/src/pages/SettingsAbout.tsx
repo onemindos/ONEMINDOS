@@ -10,7 +10,10 @@ import { SpatialStatus } from '../screens/spatial/SpatialStatus';
 import { AboutBox } from './AboutBox';
 import { DeviceCard } from './DeviceCard';
 import { PrivacyCard } from './PrivacyCard';
+import { RenameBoxCard } from './RenameBoxCard';
+import { SettingsBusEvents } from './SettingsBusEvents';
 import { SettingsEngine } from './SettingsEngine';
+import { SettingsSubjects } from './SettingsSubjects';
 import { UpsCard } from './UpsCard';
 
 export function SettingsAbout() {
@@ -28,6 +31,7 @@ export function SettingsAbout() {
       ) : (
         <p className="om-hint">{hub.instance.error ? `Could not read this box: ${hub.instance.error.message}` : 'Loading…'}</p>
       )}
+      <RenameBoxCard current={i?.name} />
       <UpsCard />
       <PrivacyCard />
       <details className="dash-tech">
@@ -50,6 +54,8 @@ export function SettingsAbout() {
         <AboutBox />
       </details>
       <SettingsEngine />
+      <SettingsBusEvents />
+      <SettingsSubjects />
       <SpatialStatus />
       <Card title="Plugin signing trust">
         <p>Owners can enroll public signing keys for private plugins. Changes wait for approval.</p>

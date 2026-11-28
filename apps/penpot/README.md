@@ -7,7 +7,7 @@ Design and prototyping platform for teams, working with open standards (SVG, CSS
 
 | | |
 |---|---|
-| Version | 2.19.1 (upstream release `2.19.1`, published 2026-11-11) |
+| Version | 2.19.5 (upstream release `2.19.5`, published 2026-11-24) |
 | Licence | `MPL-2.0`, Market class **L1** (licence gate, scan of 2026-11-21) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | developer |
@@ -37,11 +37,11 @@ Storage: PVC `penpot-data` 20Gi, PVC `penpot-db` 20Gi.
 
 Images:
 
-- `docker.io/penpotapp/backend:2.19.1@sha256:bc26c263b33f107a63868ed298bebd9089f252c3799872c31ec1266fef321d29`
-- `docker.io/library/postgres:15.19-alpine@sha256:eab009ce9447a891d9482702d370bbf132c18563bb87cfdcc2b815c6d3b0372f`
+- `docker.io/penpotapp/backend:2.19.5@sha256:6bb018a295812ed1a7f0b996079187a72c314feeab1aa7ea65b5b0dc35aad341`
+- `docker.io/library/postgres:15.20-alpine@sha256:e18480a22d6e48f4d816a6696769b1ec09ac73a824c5649e49c7d8b684913f3d`
 - `docker.io/valkey/valkey:8.1.11-trixie@sha256:8f836008e0986c36adf50da714c7060cf689dbb335f61fe077939d90fa650809`
-- `docker.io/penpotapp/frontend:2.19.1@sha256:b5b363a4bd38bf2aa781c6255e5208b4b305fa3f12fae1170abeb705ce510032`
-- `docker.io/penpotapp/exporter:2.19.1@sha256:bb25e0ee63ec37228848c714c7b60998d9c9d07f998ab7aebe2e3281d39b2962`
+- `docker.io/penpotapp/frontend:2.19.5@sha256:5b7ad570f137162b0c4cae300e42a376c15e05cb6ec89404f67e43a0996d0107`
+- `docker.io/penpotapp/exporter:2.19.5@sha256:30eb19b6d86daa9f36fbfcbf3284835ae9da9cbe03ca2eab472bd1b8a6054e95`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -101,6 +101,10 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 **Unblock attempt (apps/market-unblock-2, 2026-11-13):** Only the bundled `postgres:15.19-trixie` blocked this app on images (backend, frontend, exporter, valkey, ClamAV and smoke test passed); the licence-matrix row is still missing (brief 30 B10), which the gate reports as a note about preinstalling on sold boxes. The sidecar moved to `postgres:15.19-alpine` (same major and minor; tag and digest read from the Docker Hub registry on 2026-11-13; digest `sha256:eab009ce…b0372f`). The Alpine image uses `su-exec` (C) instead of the Go helper `gosu` and has no Debian `ssl-cert` package, which is where the snakeoil private key came from. It has not been scanned by us yet: the CI gate decides the tier. The Alpine `postgres` user is UID/GID 70 (Debian: 999). Alpine uses musl, so text sorting differs from the Debian image; this is safe only because nobody has installed this app yet.
 
 **Gate result (ci-apps run 43468040302, 2026-11-13): still blocked.** The Alpine image also ships Go `stdlib` v1.24.6, so CVE-2025-68121 remains (fixed in 1.24.13, 1.25.7 or 1.26.0-rc.3). The snakeoil private-key finding is gone and the smoke test passed on the Alpine sidecar. What would unblock it: an upstream `postgres` image of the same major built with a fixed Go; the daily `apps-rescan` workflow picks that up without a code change.
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** Penpot 2.19.1 to 2.19.5 (patch releases, no notes of breaking changes) and PostgreSQL 15.19 to 15.20 (Alpine flavour kept, same major). The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
+
+**Valkey sidecar (ma/market-bump-45-blocked-app-images, 2026-11-27):** left at 8.1.11 on purpose: the committed scan shows 0 CRITICAL for it, and a newer patch (8.1.12) was not adopted in this change. The CI gate decides the tier.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

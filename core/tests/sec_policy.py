@@ -178,7 +178,94 @@ POLICY |= {
                                               "D-014 owner; 409 until a passkey is registered", ID),
     ("POST", "/v1/auth/rescue/verify"): Row({**OWNER_ONLY, "owner": 401}, w.p_rescue_verify,
                                              "D-014 owner; the probe's assertion does not verify", ID),
+    ("POST", "/v1/auth/rescue/kit"): Row({**OWNER_ONLY, "owner": 403}, w.p_rescue_kit,
+                                          "D-028 3.13: accepted from the box itself only; the matrix probe is a network source, "
+                                          "so even the owner is refused before the key is looked at", ID),
     ("GET", "/signin"): Row(OPEN, w.p_static("/signin"), "the sign-in page is public", ID),
+    # 25d recovery contacts (D-028): an owner's signed-in session only (a static token holds no session), the
+    # invitee's own list, the box-signed invite as the only credential to accept, and the contact principal alone
+    # on its own routes (the matrix has no contact column: every kind here is refused).
+    ("GET", "/v1/auth/recovery/contacts"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static("/v1/auth/recovery/contacts"),
+                                               "25d an owner session", ID),
+    ("POST", "/v1/auth/recovery/contacts"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing(
+        "/v1/auth/recovery/contacts", json={"kind": "outside", "display_name": "Probe"}), "25d an owner session plus the step-up", ID),
+    ("DELETE", "/v1/auth/recovery/contacts/{contact_id}"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static(
+        "/v1/auth/recovery/contacts/rc_none"), "25d an owner session (L0)", ID),
+    ("GET", "/v1/auth/recovery/settings"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static("/v1/auth/recovery/settings"),
+                                               "25d an owner session", ID),
+    ("PUT", "/v1/auth/recovery/settings"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing(
+        "/v1/auth/recovery/settings", json={"cooling_off_days": 14}), "25d an owner session", ID),
+    ("GET", "/v1/auth/recovery/invitations"): Row(own_credentials(200), w.p_static("/v1/auth/recovery/invitations"),
+                                                  "25d a household person's own invitations", ID),
+    ("POST", "/v1/recovery/invites/{invite_id}/accept"): Row(cells(422), w.p_missing(
+        "/v1/recovery/invites/rc_none/accept", json={}), "25d no principal: the signed invite is the credential", ID),
+    ("GET", "/v1/recovery/contact"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static("/v1/recovery/contact"),
+                                         "25d the contact principal only", ID),
+    ("GET", "/v1/recovery/contact/notices"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static("/v1/recovery/contact/notices"),
+                                                 "25d the contact principal only", ID),
+    # 25e: the starter's routes take only the request token (none of these principals holds one: 401); the owner's
+    # banner list needs an owner principal (the static owner token is one); the contact routes stay contact-only.
+    ("POST", "/v1/auth/recovery"): Row(cells(422), w.p_missing("/v1/auth/recovery", json={}),
+                                       "25e anyone at the sign-in page; the body is the credential", ID),
+    ("GET", "/v1/auth/recovery"): Row(cells(403, **GONE, owner=200, **PENDING_DENY), w.p_static("/v1/auth/recovery"),
+                                      "25e every owner sees running recoveries (no codes)", ID),
+    ("GET", "/v1/auth/recovery/requests/{request_id}"): Row(cells(401), w.p_static("/v1/auth/recovery/requests/rr_none"),
+                                                            "25e the request token only", ID),
+    ("POST", "/v1/auth/recovery/requests/{request_id}/code"): Row(cells(401), w.p_missing(
+        "/v1/auth/recovery/requests/rr_none/code", json={"code": "12345678"}), "25e the request token only", ID),
+    ("POST", "/v1/auth/recovery/requests/{request_id}/cancel"): Row(cells(403, **GONE, owner=404, **PENDING_DENY), w.p_missing(
+        "/v1/auth/recovery/requests/rr_none/cancel"), "25e the request token, or any owner (L0)", ID),
+    ("POST", "/v1/auth/recovery/requests/{request_id}/complete/options"): Row(cells(401), w.p_missing(
+        "/v1/auth/recovery/requests/rr_none/complete/options"), "25e the request token only", ID),
+    ("POST", "/v1/auth/recovery/requests/{request_id}/complete"): Row(cells(401), w.p_missing(
+        "/v1/auth/recovery/requests/rr_none/complete", json={"new_password": "x" * 12}), "25e the request token only", ID),
+    ("GET", "/v1/recovery/requests"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static("/v1/recovery/requests"),
+                                          "25e the contact principal only", ID),
+    ("POST", "/v1/recovery/requests/{request_id}/vouch"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing(
+        "/v1/recovery/requests/rr_none/vouch", json={"picked": "00", "signature": "AA"}), "25e the contact principal only", ID),
+    ("POST", "/v1/recovery/requests/{request_id}/cancel"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing(
+        "/v1/recovery/requests/rr_none/cancel"), "25e the contact principal only", ID),
+    # 25f legacy: owner-session routes as 25d; the household's claim views for owners and adults (static tokens too);
+    # the invite accept with no principal; the legacy principal alone on /v1/legacy/... (no column for it: all refused).
+    ("GET", "/v1/auth/legacy/contacts"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static("/v1/auth/legacy/contacts"),
+                                             "25f an owner session", ID),
+    ("POST", "/v1/auth/legacy/contacts"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing(
+        "/v1/auth/legacy/contacts", json={"kind": "outside", "display_name": "Probe"}), "25f an owner session files an approval", ID),
+    ("GET", "/v1/auth/legacy/contacts/{contact_id}/invite"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static(
+        "/v1/auth/legacy/contacts/rc_none/invite"), "25f an owner session reads its own approved invite", ID),
+    ("DELETE", "/v1/auth/legacy/contacts/{contact_id}"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static(
+        "/v1/auth/legacy/contacts/rc_none"), "25f an owner session (L0)", ID),
+    ("GET", "/v1/auth/legacy/invitations"): Row(own_credentials(200), w.p_static("/v1/auth/legacy/invitations"),
+                                                "25f a household person's own invitations", ID),
+    ("GET", "/v1/auth/legacy/claims"): Row(cells(403, **GONE, owner=200, adult=200, **PENDING_DENY),
+                                           w.p_static("/v1/auth/legacy/claims"), "25f every owner and adult is told", ID),
+    ("GET", "/v1/auth/legacy/claims/{claim_id}/certificate"): Row(cells(403, **GONE, owner=404, adult=404, **PENDING_DENY),
+                                                                  w.p_static("/v1/auth/legacy/claims/lcl_none/certificate"),
+                                                                  "25f owners and adults read the evidence", ID),
+    ("POST", "/v1/auth/legacy/claims/{claim_id}/cancel"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing(
+        "/v1/auth/legacy/claims/lcl_none/cancel"), "25f any owner session (L0)", ID),
+    ("POST", "/v1/auth/legacy/claims/{claim_id}/confirm"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing(
+        "/v1/auth/legacy/claims/lcl_none/confirm"), "25f a signed-in household adult is the second person", ID),
+    ("POST", "/v1/legacy/invites/{invite_id}/accept"): Row(cells(422), w.p_missing(
+        "/v1/legacy/invites/rc_none/accept", json={}), "25f no principal: the signed invite is the credential", ID),
+    ("GET", "/v1/legacy/contact"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static("/v1/legacy/contact"),
+                                       "25f the legacy principal only", ID),
+    ("GET", "/v1/legacy/contact/notices"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static("/v1/legacy/contact/notices"),
+                                               "25f the legacy principal only", ID),
+    ("POST", "/v1/legacy/contact/resign"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing("/v1/legacy/contact/resign"),
+                                               "25f the legacy principal only", ID),
+    ("GET", "/v1/legacy/claims"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static("/v1/legacy/claims"),
+                                      "25f the legacy principal only", ID),
+    ("POST", "/v1/legacy/claims"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing("/v1/legacy/claims", json={
+        "access_key": "x", "certificate_type": "image/png", "certificate": "AA=="}), "25f the legacy principal only", ID),
+    ("POST", "/v1/legacy/claims/{claim_id}/confirm"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing(
+        "/v1/legacy/claims/lcl_none/confirm"), "25f the legacy principal only", ID),
+    ("GET", "/v1/legacy/export"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static("/v1/legacy/export"),
+                                      "25f the legacy principal with a granted claim only", ID),
+    ("GET", "/v1/legacy/export/download"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static("/v1/legacy/export/download"),
+                                               "25f the legacy principal with a granted claim only", ID),
+    ("POST", "/v1/recovery/contact/resign"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing("/v1/recovery/contact/resign"),
+                                                 "25d the contact principal only", ID),
 }
 
 # ---- notifications, alerts and push: feat/notify-monitor (contract §12.14) ----------------------------
@@ -285,6 +372,53 @@ POLICY |= {
     ("DELETE", "/v1/work/projects/{project_id}/tasks/{task_id}"): Row(
         cells(403, **GONE, owner=422, adult=422, child=422),
         w.p_static("/v1/work/projects/missing/tasks/missing"), "Work revision deletion is people-only"),
+    ("GET", "/v1/work/projects"): Row(cells(403, **GONE, owner=200, adult=200, child=200),
+                                       w.p_static("/v1/work/projects"), "Work lists only the caller's projects"),
+    ("GET", "/v1/work/projects/{project_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing"), "Work hides missing and other people's projects"),
+    ("PATCH", "/v1/work/projects/{project_id}"): Row(
+        cells(403, **GONE, owner=422, adult=422, child=422),
+        w.p_static("/v1/work/projects/missing"), "Work project edits are people-only and creator-only"),
+    ("DELETE", "/v1/work/projects/{project_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing"), "Work project deletion is people-only and creator-only"),
+    ("GET", "/v1/work/projects/{project_id}/members"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/members"), "Work lists members of visible projects only"),
+    ("PUT", "/v1/work/projects/{project_id}/members/{person_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=403),
+        w.p_static("/v1/work/projects/missing/members/missing"), "Work member adds are for adults; a child or teen is refused by role first"),
+    ("DELETE", "/v1/work/projects/{project_id}/members/{person_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/members/missing"), "Work member changes are people-only"),
+    ("GET", "/v1/work/projects/{project_id}/tasks/{task_id}/activity"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/tasks/missing/activity"), "Work history follows task visibility"),
+    ("POST", "/v1/work/parse"): Row(cells(403, **GONE, owner=422, adult=422, child=422),
+                                     w.p_static("/v1/work/parse"), "Work parse preview is people-only"),
+    ("GET", "/v1/work/projects/{project_id}/tasks/{task_id}/comments"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/tasks/missing/comments"), "Work comments follow task visibility"),
+    ("POST", "/v1/work/projects/{project_id}/tasks/{task_id}/comments"): Row(
+        cells(403, **GONE, owner=422, adult=422, child=422),
+        w.p_static("/v1/work/projects/missing/tasks/missing/comments"), "Work comments are people-only"),
+    ("DELETE", "/v1/work/projects/{project_id}/tasks/{task_id}/comments/{comment_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/tasks/missing/comments/missing"), "Only a comment's author deletes it"),
+    ("GET", "/v1/work/projects/{project_id}/sections"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/sections"), "Work lists sections of visible projects only"),
+    ("POST", "/v1/work/projects/{project_id}/sections"): Row(
+        cells(403, **GONE, owner=422, adult=422),
+        w.p_static("/v1/work/projects/missing/sections"), "Work section changes are for adults; a child or teen is refused by role first (#1137)"),
+    ("PATCH", "/v1/work/projects/{project_id}/sections/{section_id}"): Row(
+        cells(403, **GONE, owner=422, adult=422),
+        w.p_static("/v1/work/projects/missing/sections/missing"), "Work section changes are for adults; a child or teen is refused by role first (#1137)"),
+    ("DELETE", "/v1/work/projects/{project_id}/sections/{section_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404),
+        w.p_static("/v1/work/projects/missing/sections/missing"),
+        "Work section changes are for adults; a child or teen is refused by role first (#1137)"),
     ("GET", "/v1/series"): Row(CHILD_CANNOT, w.p_static("/v1/series?node_id=node1&metric=cpu_pct"),
                                "Node metric history, with the same monitoring:read scope as live metrics"),
     ("GET", "/v1/monitoring/summary"): Row(CHILD_CANNOT, w.p_static("/v1/monitoring/summary"),
@@ -340,7 +474,7 @@ READ_ANY_404 = grid(404, 404, 404, 403, 404)     # §5.5 "any": a missing object
 READ_ANY = grid(200, 200, 200, 403, 200)
 HOUSEHOLD = grid(200, 200, 403, 403, 200)        # backups/migrate reads: owner, adult, agent; not guests or children
 HOUSEHOLD_404 = grid(404, 404, 403, 403, 404)
-OWNER_ADULT = grid(200, 200, 403, 403, 403)      # databases, trash: owner and adult only
+OWNER_ADULT = grid(200, 200, 403, 403, 403)      # owner and adult only
 ONLY_OWNER = grid(200, 403, 403, 403, 403)
 # A backup, restore or migration is a request: allowed callers file an action, the owner approves it. The matrix
 # gateway runs with BACKUPS switched off, so a caller that reaches the service is told 503 "unavailable"
@@ -353,12 +487,13 @@ OFF_HOUSEHOLD = grid(503, 503, 403, 403, 503)
 BASIC_ONLY = cells(401)
 
 _AUTOMATION = "docs/leap/dev/API.md §5.5; core/tests/test_automation.py"
+_CONTENT = "NMD-02 #127; core/tests/test_content.py"
 _BACKUPS = "docs/leap/dev/API.md §5.2 backups; core/tests/test_backups.py"
 _FILES = "docs/leap/dev/API.md files; core/tests/test_files_*.py"
 _WOPI = "issue #675; core/tests/test_files_wopi.py"
 _WOPI_FILE = "/v1/files/wopi/files/wf_0123456789abcdef"
 _PHOTOS = "docs/leap/core/PHOTOS.md section 2; core/tests/test_photos.py"
-PHOTOS_404 = grid(404, 404, 403, 403, 403)  # owner and adult own a library; a missing object is 404 for them
+PHOTOS_404 = grid(404, 404, 403, 404, 403)  # every person with a Home owns a library (not guests); a missing object is 404 for them
 _TIPS = "issue #669; core/tests/test_tips.py"
 POLICY |= {
     # ---- automation, standing approvals and windows ------------------------------------------------------
@@ -368,6 +503,8 @@ POLICY |= {
                                            f"{_AUTOMATION}: only the owner grants a standing approval"),
     ("DELETE", "/v1/approval-policies/{policy_id}"): Row(OWNER_ONLY_404, w.p_missing("/v1/approval-policies/{policy}"),
                                                          f"{_AUTOMATION}: only the owner revokes one"),
+    ("POST", "/v1/approval-policies/{policy_id}/confirm"): Row(OWNER_ONLY_404, w.p_missing("/v1/approval-policies/{policy}/confirm"),
+                                                              f"{_AUTOMATION}: only the owner confirms a paused one"),
     ("GET", "/v1/automation/rules"): Row(READ_ANY, w.p_static("/v1/automation/rules"), f"{_AUTOMATION}: any reader"),
     ("POST", "/v1/automation/rules"): Row(grid(201, 403, 403, 403, 403), w.p_rule_create,
                                           f"{_AUTOMATION}: only the owner writes rules (an agent is refused)"),
@@ -400,6 +537,11 @@ POLICY |= {
     ("POST", "/v1/agents/{name}/resume"): Row(ONLY_OWNER, w.p_missing("/v1/agents/hermes/resume", json={}),
                                               "AIG-03: an agent never resumes itself"),
     # #627: an agent's NATS user (account AGENTS) is the owner's to add or remove; an agent never keys itself
+    ("GET", "/v1/agents/{name}/inputs"): Row(ONLY_OWNER, w.p_static("/v1/agents/agent:probe/inputs"),
+                                             "PR 6: only the owner reads what an agent can read outside"),
+    ("PUT", "/v1/agents/{name}/inputs"): Row(ONLY_OWNER, w.p_missing("/v1/agents/agent:probe/inputs",
+                                                                     json={"external_inputs": ["web"]}),
+                                             "PR 6: only the owner changes it (an agent never lowers its own taint)"),
     ("GET", "/v1/agents/{name}/nats-key"): Row(ONLY_OWNER, w.p_static("/v1/agents/agent:probe/nats-key"),
                                                "#627: only the owner reads an agent's NATS key"),
     ("PUT", "/v1/agents/{name}/nats-key"): Row(ONLY_OWNER, w.p_missing("/v1/agents/agent:probe/nats-key", json={
@@ -408,6 +550,20 @@ POLICY |= {
                                                   "#627: only the owner removes an agent's NATS key"),
     ("GET", "/v1/windows"): Row(READ_ANY, w.p_static("/v1/windows"), f"{_AUTOMATION}: any reader"),
     ("PUT", "/v1/windows/{window_id}"): Row(ONLY_OWNER, w.p_window_put, f"{_AUTOMATION}: only the owner edits windows"),
+    # ---- offline content manager (NMD-02 #127). The security world has no Kiwix app in its catalogue, so the
+    # owner's catalogue reads and plans stop at 409 kiwix_missing (no network is touched); everyone else is 403.
+    ("GET", "/v1/content"): Row(ONLY_OWNER, w.p_static("/v1/content"), f"{_CONTENT}: the library is the owner's"),
+    ("GET", "/v1/content/wikipedia"): Row(grid(409, 403, 403, 403, 403), w.p_static("/v1/content/wikipedia?lang=en"),
+                                          f"{_CONTENT}: owner only"),
+    ("GET", "/v1/content/updates"): Row(grid(409, 403, 403, 403, 403), w.p_static("/v1/content/updates"),
+                                        f"{_CONTENT}: owner only"),
+    ("POST", "/v1/content/plan"): Row(grid(409, 403, 403, 403, 403), w.p_missing("/v1/content/plan", json={}),
+                                      f"{_CONTENT}: owner only"),
+    ("POST", "/v1/content/changes"): Row(grid(409, 403, 403, 403, 403),
+                                         w.p_missing("/v1/content/changes", json={"download_bytes": 0, "idempotency_key": "k"}),
+                                         f"{_CONTENT}: owner only; the change itself waits for owner approval"),
+    ("PUT", "/v1/content/auto-update"): Row(ONLY_OWNER, w.p_missing("/v1/content/auto-update", json={"enabled": False}),
+                                            f"{_CONTENT}: only the owner turns the auto-update check on or off"),
     # ---- update policy for apps (NMD-07, #132: core/onemind_core/routers/updatepolicy.py) -------------------
     ("GET", "/v1/update-policy"): Row(READ_ANY, w.p_static("/v1/update-policy"), "NMD-07: any reader sees the knobs"),
     ("PUT", "/v1/update-policy"): Row(ONLY_OWNER, w.p_missing("/v1/update-policy", json={}),
@@ -449,7 +605,8 @@ POLICY |= {
     ("GET", "/v1/restores"): Row(HOUSEHOLD, w.p_static("/v1/restores"), f"{_BACKUPS}: household read"),
     ("GET", "/v1/restores/{restore_id}"): Row(HOUSEHOLD_404, w.p_missing("/v1/restores/{restore}"), f"{_BACKUPS}: household read"),
     ("GET", "/v1/backups/kit"): Row(ONLY_OWNER, w.p_static("/v1/backups/kit"), f"{_BACKUPS}: the emergency kit is owner only"),
-    ("POST", "/v1/backups/kit"): Row(OFF_OWNER_ONLY, w.p_static("/v1/backups/kit"), f"{_BACKUPS}: the emergency kit is owner only"),
+    # #1124: the kit is issued even with backups off (a kit without a destination), so the owner gets 201
+    ("POST", "/v1/backups/kit"): Row(grid(201, 403, 403, 403, 403), w.p_static("/v1/backups/kit"), f"{_BACKUPS}: the emergency kit is owner only"),
     ("POST", "/v1/backups/kit/confirm"): Row(OWNER_ONLY_404, w.p_missing("/v1/backups/kit/confirm", json={"answers": {}}),
                                              f"{_BACKUPS}: the emergency kit is owner only"),
     # ---- first-run settings (contract 12.41) ----------------------------------------------------------------
@@ -527,42 +684,42 @@ POLICY |= {
     ("POST", "/v1/deploy/compose"): Row(grid(422, 403, 403, 403, 403), w.p_missing("/v1/deploy/compose", json={"app_id": "imp", "compose": "x"}),
                                         "12.22: Compose import is owner only; the probe's text is not Compose (422)"),
     # ---- files ----------------------------------------------------------------------------------------------
-    ("GET", "/v1/files/roots"): Row(grid(200, 200, 200, 403, 200), w.p_static("/v1/files/roots"), f"{_FILES}: people list their spaces"),
-    ("GET", "/v1/files/list"): Row(grid(200, 200, 200, 403, 403), w.p_static("/v1/files/list?root=shared&path=/"),
+    ("GET", "/v1/files/roots"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/files/roots"), f"{_FILES}: people list their spaces"),
+    ("GET", "/v1/files/list"): Row(grid(200, 200, 200, 200, 403), w.p_static("/v1/files/list?root=shared&path=/"),
                                    f"{_FILES}: people browse; an agent needs a grant (none here)"),
-    ("GET", "/v1/files/stat"): Row(grid(200, 200, 200, 403, 403), w.p_static("/v1/files/stat?root=shared&path=/"),
+    ("GET", "/v1/files/stat"): Row(grid(200, 200, 200, 200, 403), w.p_static("/v1/files/stat?root=shared&path=/"),
                                    f"{_FILES}: people browse; an agent needs a grant"),
     ("GET", "/v1/search"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/search?q=report"),
                                "#611 global search: any signed-in caller; each hit is filtered by the caller's own grants"),
-    ("GET", "/v1/sync/changes"): Row(grid(200, 200, 200, 403, 403), w.p_static("/v1/sync/changes?root=shared"),
+    ("GET", "/v1/sync/changes"): Row(grid(200, 200, 200, 200, 403), w.p_static("/v1/sync/changes?root=shared"),
                                      f"{_FILES}: the change feed (#698) follows read access to the whole root"),
     ("POST", "/v1/sync/chunks/missing"): Row(grid(200, 200, 403, 403, 403), w.p_missing(
         "/v1/sync/chunks/missing", json={"root": "shared", "hashes": ["0" * 64]}),
-        f"{_FILES}: sending a file (#699) needs write access to the root; guests read Shared only"),
+        f"{_FILES}: chunk leases are owner-scoped for sessions and need root write access"),
     ("PUT", "/v1/sync/chunks/{chunk_hash}"): Row(grid(200, 200, 403, 403, 403), w.p_missing(
         "/v1/sync/chunks/2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881?root=shared", content=b"x"),
-        f"{_FILES}: a chunk (#699) needs write access to the root"),
+        f"{_FILES}: staging chunks is owner-scoped for sessions and needs root write access"),
     ("POST", "/v1/sync/commit"): Row(grid(404, 404, 403, 403, 403), w.p_missing("/v1/sync/commit", json={
         "root": "shared", "path": "/no-such-folder/probe", "size": 0,
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "chunks": []}),
-        f"{_FILES}: a commit (#699) needs write access to the entry; the probe's folder is missing (404)"),
+        f"{_FILES}: chunked commits are owner-scoped for sessions and need write access; the probe folder is missing"),
     ("POST", "/v1/sync/locks"): Row(grid(404, 404, 403, 403, 403), w.p_missing("/v1/sync/locks", json={"root": "shared", "path": "/no-such-file"}),
                                    f"{_FILES}: an advisory lock (#699) is a write intent; the probe's file is missing (404)"),
-    ("GET", "/v1/sync/locks"): Row(grid(200, 200, 200, 403, 403), w.p_static("/v1/sync/locks?root=shared"),
+    ("GET", "/v1/sync/locks"): Row(grid(200, 200, 200, 200, 403), w.p_static("/v1/sync/locks?root=shared"),
                                   f"{_FILES}: locks (#699) follow read access to the path"),
-    ("POST", "/v1/sync/locks/{lock_id}/refresh"): Row(grid(404, 404, 404, 403, 404), w.p_missing(
+    ("POST", "/v1/sync/locks/{lock_id}/refresh"): Row(grid(404, 404, 404, 404, 404), w.p_missing(
         "/v1/sync/locks/lck_00000000000000000000000000/refresh", json={}), f"{_FILES}: only the holder refreshes (none here)"),
-    ("DELETE", "/v1/sync/locks/{lock_id}"): Row(grid(404, 404, 404, 403, 404), w.p_missing(
+    ("DELETE", "/v1/sync/locks/{lock_id}"): Row(grid(404, 404, 404, 404, 404), w.p_missing(
         "/v1/sync/locks/lck_00000000000000000000000000"), f"{_FILES}: the holder or an owner releases (none here)"),
-    ("GET", "/v1/sync/versions"): Row(grid(404, 404, 404, 403, 403), w.p_static("/v1/sync/versions?root=shared&path=/a"),
+    ("GET", "/v1/sync/versions"): Row(grid(404, 404, 404, 404, 403), w.p_static("/v1/sync/versions?root=shared&path=/a"),
                                       f"{_FILES}: versions (#699) follow read access; the probe's file is missing"),
-    ("GET", "/v1/files/preview"): Row(grid(404, 404, 404, 403, 403), w.p_static("/v1/files/preview?root=shared&path=/a"),
+    ("GET", "/v1/files/preview"): Row(grid(404, 404, 404, 404, 403), w.p_static("/v1/files/preview?root=shared&path=/a"),
                                       f"{_FILES}: people browse; an agent needs a grant"),
-    ("GET", "/v1/files/download"): Row(grid(404, 404, 404, 403, 403), w.p_static("/v1/files/download?root=shared&path=/a"),
+    ("GET", "/v1/files/download"): Row(grid(404, 404, 404, 404, 403), w.p_static("/v1/files/download?root=shared&path=/a"),
                                        f"{_FILES}: people browse; an agent needs a grant"),
     ("POST", "/v1/files/ops"): Row(grid(200, 200, 403, 403, 403), w.p_missing("/v1/files/ops", json={"op": "mkdir", "root": "shared", "path": "/probe"}),
                                    f"{_FILES}: owner and adult write; guests read only; an agent needs a grant"),
-    ("GET", "/v1/files/trash"): Row(OWNER_ADULT, w.p_static("/v1/files/trash"), f"{_FILES}: owner and adult"),
+    ("GET", "/v1/files/trash"): Row(grid(200, 200, 403, 200, 403), w.p_static("/v1/files/trash"), f"{_FILES}: each person with a Home can read their trash"),
     ("GET", "/v1/files/quotas"): Row(ONLY_OWNER, w.p_static("/v1/files/quotas"), f"{_FILES}: owner only"),
     ("PUT", "/v1/files/quotas/{person_id}"): Row(ONLY_OWNER, w.p_missing("/v1/files/quotas/owner", json={"limit_bytes": 1}),
                                                  f"{_FILES}: owner only"),
@@ -570,38 +727,36 @@ POLICY |= {
         "/v1/files/grants", json={"subject": {"kind": "app", "id": "whoami"}, "root": "shared", "path": "/", "access": "r"}),
         f"{_FILES}: only the owner asks to open files to an app or agent, and it waits for approval"),
     ("POST", "/v1/files/trash/empty"): Row(grid(202, 202, 403, 403, 403), w.p_missing("/v1/files/trash/empty", json={}),
-                                           f"{_FILES}: owner and adult request; destroying needs approval"),
-    ("GET", "/v1/files/requests"): Row(READ_ANY, w.p_static("/v1/files/requests"), f"{_FILES}: each sees their own"),
-    ("GET", "/v1/files/requests/{request_id}"): Row(READ_ANY_404, w.p_missing("/v1/files/requests/{request}"), f"{_FILES}: each sees their own"),
+                                           f"{_FILES}: signed-in owners file; the legacy adult token still needs owner approval"),
+    ("GET", "/v1/files/requests"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/files/requests"), f"{_FILES}: each sees their own"),
+    ("GET", "/v1/files/requests/{request_id}"): Row(grid(404, 404, 404, 404, 404), w.p_missing("/v1/files/requests/{request}"), f"{_FILES}: each sees their own"),
     ("POST", "/v1/files/requests/{request_id}/approve"): Row(OWNER_ONLY_404, w.p_missing("/v1/files/requests/{request}/approve"),
                                                              f"{_FILES}: only the owner approves; agents never"),
     ("POST", "/v1/files/requests/{request_id}/deny"): Row(OWNER_ONLY_404, w.p_missing("/v1/files/requests/{request}/deny"),
                                                           f"{_FILES}: only the owner denies"),
-    ("POST", "/v1/files/requests/{request_id}/cancel"): Row(READ_ANY_404, w.p_missing("/v1/files/requests/{request}/cancel"),
+    ("POST", "/v1/files/requests/{request_id}/cancel"): Row(grid(404, 404, 404, 404, 404), w.p_missing("/v1/files/requests/{request}/cancel"),
                                                             f"{_FILES}: a requester cancels their own"),
-    ("GET", "/v1/files/grants"): Row(READ_ANY, w.p_static("/v1/files/grants"), f"{_FILES}: each sees their own"),
-    ("DELETE", "/v1/files/grants/{grant_id}"): Row(READ_ANY_404, w.p_missing("/v1/files/grants/{grant}"), f"{_FILES}: revoking what you hold"),
+    ("GET", "/v1/files/grants"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/files/grants"), f"{_FILES}: each sees their own"),
+    ("DELETE", "/v1/files/grants/{grant_id}"): Row(grid(404, 404, 404, 404, 404), w.p_missing("/v1/files/grants/{grant}"), f"{_FILES}: revoking what you hold"),
     # #693 browser downloads in quarantine: people see their own (owners all); only an owner asks to release one.
-    ("GET", "/v1/files/downloads"): Row(grid(200, 200, 200, 403, 403), w.p_static("/v1/files/downloads"),
+    ("GET", "/v1/files/downloads"): Row(grid(200, 200, 200, 200, 403), w.p_static("/v1/files/downloads"),
                                         f"{_FILES}: each person their own held downloads, an owner all; agents refused"),
     ("POST", "/v1/files/downloads/{download_id}/release"): Row(OWNER_ONLY_404, w.p_missing("/v1/files/downloads/{download}/release"),
                                                               f"{_FILES}: only an owner asks; an owner approves the action"),
-    ("DELETE", "/v1/files/downloads/{download_id}"): Row(grid(404, 404, 404, 403, 403), w.p_missing("/v1/files/downloads/{download}"),
+    ("DELETE", "/v1/files/downloads/{download_id}"): Row(grid(404, 404, 404, 404, 403), w.p_missing("/v1/files/downloads/{download}"),
                                                          f"{_FILES}: the person who downloaded it or an owner; others see 404"),
     ("OPTIONS", "/v1/files/uploads"): Row(cells(204), w.p_static("/v1/files/uploads"), "tus capability discovery is open and read only"),
     ("POST", "/v1/files/uploads"): Row(grid(201, 201, 403, 403, 403), w.p_missing(
         "/v1/files/uploads", headers={**w.TUS, "Upload-Length": "1", "Upload-Metadata": w.UPLOAD_META}),
         f"{_FILES}: owner and adult upload; guests read only; an agent needs a grant"),
-    ("HEAD", "/v1/files/uploads/{upload_id}"): Row(READ_ANY_404, w.p_missing("/v1/files/uploads/{upload}", headers=w.TUS), f"{_FILES}: your own upload"),
-    ("GET", "/v1/files/uploads/{upload_id}"): Row(READ_ANY_404, w.p_missing("/v1/files/uploads/{upload}"), f"{_FILES}: your own upload"),
-    ("PATCH", "/v1/files/uploads/{upload_id}"): Row(READ_ANY_404, w.p_missing(
+    ("HEAD", "/v1/files/uploads/{upload_id}"): Row(grid(404, 404, 404, 404, 404), w.p_missing("/v1/files/uploads/{upload}", headers=w.TUS), f"{_FILES}: your own upload"),
+    ("GET", "/v1/files/uploads/{upload_id}"): Row(grid(404, 404, 404, 404, 404), w.p_missing("/v1/files/uploads/{upload}"), f"{_FILES}: your own upload"),
+    ("PATCH", "/v1/files/uploads/{upload_id}"): Row(grid(404, 404, 404, 404, 404), w.p_missing(
         "/v1/files/uploads/{upload}", content=b"x",
         headers={**w.TUS, "Content-Type": "application/offset+octet-stream", "Upload-Offset": "0"}), f"{_FILES}: your own upload"),
-    ("DELETE", "/v1/files/uploads/{upload_id}"): Row(READ_ANY_404, w.p_missing("/v1/files/uploads/{upload}", headers=w.TUS), f"{_FILES}: your own upload"),
-    # ---- WOPI host (#675): like every /v1/files/* route the token route needs the "*" scope, so the child (a household
-    # session) is refused by scope; only a signed-in person's session mints a file token, so the static tokens file,
-    # API tokens and agents are 403 too. The WOPI operations take only that file token (access_token), never a bearer
-    # token, so every column is 401.
+    ("DELETE", "/v1/files/uploads/{upload_id}"): Row(grid(404, 404, 404, 404, 404), w.p_missing("/v1/files/uploads/{upload}", headers=w.TUS), f"{_FILES}: your own upload"),
+    # ---- WOPI host (#675): minting still needs a signed-in owner session, so none of these callers can
+    # mint a file token. WOPI operations use that file token (access_token) and return 401 without it.
     ("POST", "/v1/files/wopi/tokens"): Row(grid(403, 403, 403, 403, 403), w.p_missing(
         "/v1/files/wopi/tokens", json={"root": "shared", "path": "/probe.docx"}), f"{_WOPI}: the owner's own signed-in editor only"),
     ("GET", "/v1/files/wopi/files/{file_id}"): Row(cells(401), w.p_static(_WOPI_FILE), f"{_WOPI}: CheckFileInfo takes the file token"),
@@ -611,15 +766,15 @@ POLICY |= {
     ("POST", "/v1/files/wopi/files/{file_id}/contents"): Row(cells(401), w.p_missing(
         f"{_WOPI_FILE}/contents", content=b"x", headers={"X-WOPI-Override": "PUT", "X-WOPI-Lock": "probe"}), f"{_WOPI}: PutFile takes the file token"),
     # ---- photos (a person's phone backup; PHOTOS.md section 2) -----------------------------------------------
-    # The service's own gate (PhotosService.person) runs before any lookup: only a person with role owner or adult has a
-    # photo library, so guests, children and agents are 403 and the two library owners reach the (missing) object: 404.
-    ("POST", "/v1/photos/sources"): Row(grid(201, 201, 403, 403, 403), w.p_missing(
-        "/v1/photos/sources", json={"client_id": "probe-phone", "name": "Probe", "platform": "other"}), f"{_PHOTOS}: owner and adult register a phone"),
+    # The service's own gate (PhotosService.person) runs before any lookup: only a person with role owner, adult, teen or child has a
+    # photo library (#1232), so guests and agents are 403 and the library owners reach the (missing) object: 404.
+    ("POST", "/v1/photos/sources"): Row(grid(201, 201, 403, 201, 403), w.p_missing(
+        "/v1/photos/sources", json={"client_id": "probe-phone", "name": "Probe", "platform": "other"}), f"{_PHOTOS}: anyone with their own library can register a phone"),
     ("POST", "/v1/photos/sources/{source_id}/check"): Row(PHOTOS_404, w.p_missing(
         "/v1/photos/sources/{source}/check", json={"items": []}), f"{_PHOTOS}: your own phone only"),
     ("GET", "/v1/photos/sources/{source_id}/coverage"): Row(PHOTOS_404, w.p_missing("/v1/photos/sources/{source}/coverage"), f"{_PHOTOS}: your own phone only"),
     ("GET", "/v1/photos/sources/{source_id}/receipts"): Row(PHOTOS_404, w.p_missing("/v1/photos/sources/{source}/receipts"), f"{_PHOTOS}: your own phone only"),
-    ("GET", "/v1/photos/library"): Row(grid(200, 200, 403, 403, 403), w.p_static("/v1/photos/library"), f"{_PHOTOS}: your own photos only"),
+    ("GET", "/v1/photos/library"): Row(grid(200, 200, 403, 200, 403), w.p_static("/v1/photos/library"), f"{_PHOTOS}: your own photos only"),
     ("GET", "/v1/photos/assets/{asset_id}/content"): Row(PHOTOS_404, w.p_missing("/v1/photos/assets/{asset}/content"), f"{_PHOTOS}: your own photo only"),
     ("POST", "/v1/photos/uploads"): Row(PHOTOS_404, w.p_missing("/v1/photos/uploads", headers={
         "Upload-Length": "1", "Upload-Complete": "?0", "OneMind-Source-Id": w.MISSING["source"],
@@ -766,7 +921,7 @@ POLICY |= {
                                         f"{_SYS}: restart, shutdown, reset and their pending requests; owner only"),
     ("GET", "/v1/system/diagnostics"): Row(OWNER_ONLY, w.p_static("/v1/system/diagnostics"),
                                            f"{_SYS}: the redacted diagnostic bundle; owner only, audited"),
-    # The owner and agents pass authorization; the gateway has no host path yet (NoHostPath), so the
+    # The owner and agents pass authorization; a test box has no host socket (HostLinkExecutor says engine_unreachable), so the
     # request answers 409 host_unavailable instead of filing it. With a host, it is filed (202) and waits
     # for the owner's approval (tests/test_system_controls.py). Everyone else is refused first (403).
     ("POST", "/v1/system/actions"): Row(cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED,
@@ -841,6 +996,23 @@ POLICY |= {
                                                  f"{_SHR}: only an owner stops a share; the one probed does not exist"),
 }
 
+# ---- SSH keys and the SSH switch (P-06: core/onemind_core/routers/ssh.py) -----------------------------------------
+# Owner only for reads and for asking; an agent never asks (the ssh.* types have no agent requesters). No host service
+# in this world, so the owner's requests answer 409 ssh_unavailable (nothing is filed); the probed key id is unknown (404).
+_SSH = "core/onemind_core/routers/ssh.py"
+_SSH_KEY = ("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKyF1pG7Y3o0m5mK2yHn8sV6wq9Z4b1xT0uJ3eRcL7dN "
+            "matrix@test")
+POLICY |= {
+    ("GET", "/v1/ssh"): Row(ONLY_OWNER, w.p_static("/v1/ssh"), f"{_SSH}: who may log in over SSH and the rules it runs under; owner only"),
+    ("GET", "/v1/ssh/keys"): Row(ONLY_OWNER, w.p_static("/v1/ssh/keys"), f"{_SSH}: the authorised keys with fingerprints; owner only"),
+    ("POST", "/v1/ssh/keys"): Row(grid(409, 403, 403, 403, 403), lambda _w: w.Req("/v1/ssh/keys", json={"public_key": _SSH_KEY}),
+                                  f"{_SSH}: only an owner asks to let a key in (409: no host service here, nothing filed); never an agent"),
+    ("DELETE", "/v1/ssh/keys/{key_id}"): Row(grid(404, 403, 403, 403, 403), w.p_missing("/v1/ssh/keys/unknown-key"),
+                                             f"{_SSH}: only an owner asks to remove a key; the one probed does not exist"),
+    ("PUT", "/v1/ssh"): Row(grid(409, 403, 403, 403, 403), lambda _w: w.Req("/v1/ssh", json={"enabled": False}),
+                            f"{_SSH}: only an owner asks to switch SSH on or off (409: no host service here); never an agent"),
+}
+
 # ---- WebDAV app passwords (files-webdav, #722: core/onemind_core/routers/webdav.py) --------------------------
 # The /dav tree is a middleware outside the router (files/webdav.py): it takes only app passwords, so every
 # bearer token gets 401 there; core/tests/test_files_webdav.py covers it, including each token kind.
@@ -878,12 +1050,46 @@ POLICY |= {
         cells(403, **GONE, owner=409, plugin=DENIED, automation=DENIED, node=DENIED),
         w.p_static("/v1/system/services/onemind-gateway.service/logs"),
         "core/onemind_core/routers/services.py: a unit's redacted journal; owner only, audited"),
+    # P-07: the whole-system journal is owner only and audited; with no host socket in this world the owner gets 409.
+    ("GET", "/v1/system/journal"): Row(
+        cells(403, **GONE, owner=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        w.p_static("/v1/system/journal"),
+        "core/onemind_core/routers/journal.py: the redacted system journal; owner only, read only, audited, rate and size limited"),
     # #636: the owner and agents pass authorization and get 409 (no host socket: nothing is filed); with a host
     # the request is filed and waits for the owner's passkey approval (tests/test_service_actions.py).
     ("POST", "/v1/system/services/{unit}/restart"): Row(
         cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED, automation=DENIED, node=DENIED),
         lambda _w: w.Req("/v1/system/services/onemind-gateway.service/restart", json={}),
         "core/onemind_core/routers/services.py: owner or agent asks for a service restart; only an owner approves it"),
+    # P-04: the clock is owner only, read only; in this world there is no host socket, so the owner gets 200 with available=false.
+    ("GET", "/v1/system/time"): Row(OWNER_ONLY, w.p_static("/v1/system/time"),
+                                    "core/onemind_core/routers/clock.py: the hub's time zone and clock sync state; owner only"),
+    # P-04: the owner and agents pass authorization and get 409 (no host socket: nothing is filed); with a host the request
+    # is filed and waits for the owner's approval (tests/test_system_time.py).
+    ("POST", "/v1/system/time/zone"): Row(
+        cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        lambda _w: w.Req("/v1/system/time/zone", json={"zone": "Europe/Berlin"}),
+        "core/onemind_core/routers/clock.py: owner or agent asks for a time zone change; only an owner approves it"),
+    # Storage housekeeping (P-10: core/onemind_core/routers/storage_care.py). Owner only; with no host socket in this
+    # world the owner gets 200 with available=false. The eject request follows the service restart: the owner and agents
+    # pass authorization and get 409 (nothing is filed); with a host it waits for the owner's approval
+    # (tests/test_storage_care.py).
+    ("GET", "/v1/storage/housekeeping"): Row(OWNER_ONLY, w.p_static("/v1/storage/housekeeping"),
+                                             "core/onemind_core/routers/storage_care.py: last TRIM, smartd warnings and removable drives; owner only"),
+    ("POST", "/v1/storage/removable/{name}/eject"): Row(
+        cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        lambda _w: w.Req("/v1/storage/removable/sdb/eject", json={}),
+        "core/onemind_core/routers/storage_care.py: owner or agent asks to safely remove a USB drive; only an owner approves it"),
+    # The keyboard layout (P-11: core/onemind_core/routers/keyboard.py). Owner only, read only (scope system:admin); no host
+    # socket in this world, so the owner gets 200 with available=false.
+    ("GET", "/v1/system/keyboard"): Row(OWNER_ONLY, w.p_static("/v1/system/keyboard"),
+                                        "core/onemind_core/routers/keyboard.py: the console layout and what the image offers; owner only"),
+    # The owner and agents pass authorization and get 409 (no host socket: nothing is filed); with a host the request is
+    # filed and waits for the owner's approval (tests/test_keyboard.py).
+    ("POST", "/v1/system/keyboard"): Row(
+        cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        lambda _w: w.Req("/v1/system/keyboard", json={"layout": "de"}),
+        "core/onemind_core/routers/keyboard.py: owner or agent asks for a layout change; only an owner approves it"),
     # The UPS battery (IMG-06, #244: core/onemind_core/routers/ups.py). Read only; no upsd in this world, so a
     # reader gets 200 with present=false. Device health like /v1/os/about: a child has no nodes:read.
     ("GET", "/v1/system/ups"): Row(CHILD_CANNOT, w.p_static("/v1/system/ups"),
@@ -894,6 +1100,27 @@ POLICY |= {
 POLICY |= {
     ("GET", "/v1/network"): Row(grid(200, 403, 403, 403, 403), w.p_static("/v1/network"),
                                 "core/onemind_core/routers/network.py: every address, MAC and open port of the box; owner only"),
+    ("GET", "/v1/network/firewall"): Row(grid(200, 403, 403, 403, 403), w.p_static("/v1/network/firewall"),
+                                         "core/onemind_core/routers/network.py: every rule of the box's firewall (P-09 part 1); owner only, read only"),
+    # P-09 part 2: the matrix world has no host socket, so an owner (or an agent, for the request) passes authorization
+    # and gets 409 (nothing is filed); the switched-on paths are in tests/test_firewall_allow.py.
+    ("POST", "/v1/network/firewall/allow"): Row(
+        cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        lambda _w: w.Req("/v1/network/firewall/allow", json={"proto": "tcp", "port": 8123, "scope": "lan"}),
+        "core/onemind_core/routers/network.py: owner or agent asks to open a port to the LAN or mesh; only an owner approves, with a passkey"),
+    ("POST", "/v1/network/firewall/allow/{rule_id}/confirm"): Row(
+        grid(409, 403, 403, 403, 403), w.p_static("/v1/network/firewall/allow/no-such-rule/confirm"),
+        "core/onemind_core/routers/network.py: keep a pending allow rule; owner only, audited"),
+    ("DELETE", "/v1/network/firewall/allow/{rule_id}"): Row(
+        grid(409, 403, 403, 403, 403), w.p_static("/v1/network/firewall/allow/no-such-rule"),
+        "core/onemind_core/routers/network.py: take an allow rule away; owner only, audited, no approval (removing exposure)"),
+    # P-08 (netchange.py): only an owner asks for a wired address change or confirms one; agents and scoped tokens
+    # never (HUMAN_ONLY in surfaces/parity.py). No host socket in this world, so the owner gets 409 host_unavailable
+    # and nothing is filed; with a host the request waits for the owner's passkey (tests/test_network_change.py).
+    ("PUT", "/v1/network/{iface}"): Row(grid(409, 403, 403, 403, 403), w.p_missing("/v1/network/eth0", json={"mode": "dhcp"}),
+                                        "core/onemind_core/routers/network.py: an owner files a network change for approval; nobody else"),
+    ("POST", "/v1/network/{iface}/confirm"): Row(grid(409, 403, 403, 403, 403), w.p_missing("/v1/network/eth0/confirm", json={"action_id": "act-1", "verified_reachable": True}),
+                                                 "core/onemind_core/routers/network.py: an owner keeps a pending change; nothing is pending here"),
 }
 
 # ---- bring your own domain (NET-DOM-01, #238: core/onemind_core/routers/domains.py) -----------------------------
@@ -1008,6 +1235,16 @@ POLICY |= {
                                        f"{_KIOSK}: only the owner changes the screen; an agent can never switch it"),
 }
 
+# ---- rename the box (P-05: core/onemind_core/routers/instance_name.py) ---------------------------------------------
+POLICY |= {
+    # The owner and agents pass authorization and get 409 (first-run setup not saved in this world, so nothing is
+    # filed); with a host the request waits for the owner's approval (tests/test_instance_rename.py).
+    ("PUT", "/v1/instance/name"): Row(
+        cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        lambda _w: w.Req("/v1/instance/name", json={"name": "kitchen"}),
+        "core/onemind_core/routers/instance_name.py: an owner or agent asks to rename the box; only an owner approves it"),
+}
+
 # ---- bridge intake (#610: core/onemind_core/routers/bridges.py) --------------------------------------------
 # Only the bridge's own installation token posts events (plugins/auth.allows_bridge_intake); every person and
 # agent is refused. Owners and adults read status; the probe names a bridge that is not installed (404).
@@ -1108,4 +1345,20 @@ POLICY |= {
         grid(404, 403, 403, 403, 404),
         w.p_missing("/v1/agent-browser/sessions/abs_missing/visit", json={"url": "https://example.org/"}),
         f"{_AB}: owner or agent opens a page in its own session; none exists"),
+}
+
+# ---- desktop apps (#1097, PR #1142: core/onemind_core/routers/desktop_apps.py) and the NATS observer (N3, PR #1135) --
+POLICY |= {
+    ("GET", "/v1/desktop-apps"): Row(OWNER_ONLY, w.p_static("/v1/desktop-apps"),
+                                     "core/onemind_core/routers/desktop_apps.py: owner-only list of desktop apps"),
+    # owner only; no host socket in this world, so the owner's search is refused with 409 (nothing to ask)
+    ("GET", "/v1/desktop-apps/search"): Row({**OWNER_ONLY, "owner": 409}, lambda _w: w.Req("/v1/desktop-apps/search?q=ob"),
+                                            "core/onemind_core/routers/desktop_apps.py: owner-only Flathub search"),
+    ("POST", "/v1/desktop-apps/{app_id}/launch"): Row(
+        cells(403, **GONE, owner=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        lambda _w: w.Req("/v1/desktop-apps/org.example.App/launch", json={}),
+        "core/onemind_core/routers/desktop_apps.py: only the owner can request a desktop app launch"),
+    # owners and adults (audit:read); unlike the audit log, agents get no own-scope view of the bus's sign-ins
+    ("GET", "/v1/fabric/events"): Row({**AUDIT_READ, "agent": 403, "app-agent": 403}, w.p_static("/v1/fabric/events"),
+                                      "core/onemind_core/routers/fabric_events.py: owners and adults (audit:read)"),
 }

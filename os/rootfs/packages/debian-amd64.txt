@@ -2,3 +2,6 @@
 linux-image-amd64 grub-efi-amd64-bin
 # efibootmgr: RAUC's efi backend switches slots with it on a Secure Boot (efi route) box (S-13, #148)
 efibootmgr
+# thermald (Intel thermal daemon, x86 only: it needs Intel thermal interfaces and is not packaged for the arm boards) and
+# the signed fwupd UEFI binary, which UEFI capsule firmware updates need under Secure Boot (Step 2b, check F14).
+fwupd-signed thermald

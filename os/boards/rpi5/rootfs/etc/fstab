@@ -4,7 +4,12 @@
 # mounted read-only (no "rw" on the kernel command line). The autoboot partition (autoboot.txt,
 # slot markers, onemind.conf) is mounted at /boot/efi like every board's FAT partition.
 PARTUUID=4f4d5035-01  /boot/efi  vfat  umask=0077                          0 1
-PARTUUID=4f4d5035-07  /data      ext4  defaults,noatime,nofail,x-systemd.device-timeout=30s  0 2
+# nodelalloc on /data (VM 501 bug 1, CRITERIA-FIRSTBOOT.md F26): ext4's default delayed allocation writes a new file's
+# blocks and size only when it flushes, up to ~30 s later, after the metadata naming the file is already on the disk;
+# a power cut in between leaves 0-byte or torn files (k3s's certificates, the binaries of freshly unpacked images,
+# which then crash with SIGSEGV for good). Without it, data=ordered writes a file's data before the metadata that
+# points to it, so a program's fsync (containerd's, sqlite's) also carries the files it wrote before.
+PARTUUID=4f4d5035-07  /data      ext4  defaults,nodelalloc,noatime,nofail,x-systemd.device-timeout=30s  0 2
 # Writable state lives on onemind-data and is bind-mounted over the read-only root.
 # "nofail" on /data and every bind from it: a dead data disk must not fail local-fs.target (that
 # means emergency mode: no network, no page). onemind-data-check.service restores the ordering and
@@ -28,3 +33,15 @@ PARTUUID=4f4d5035-07  /data      ext4  defaults,noatime,nofail,x-systemd.device-
 /data/state/var-lib-onemind-nats      /var/lib/onemind-nats         none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
 /data/state/etc-hosts                 /etc/hosts                    none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
 /data/state/var-lib-btrfs             /var/lib/btrfs                none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+# Box care (Step 2b): fwupd metadata and cache, the rasdaemon error database and udisks2 state, kept across reboots and A/B updates.
+/data/state/var-lib-fwupd         /var/lib/fwupd        none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-cache-fwupd       /var/cache/fwupd      none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-lib-rasdaemon     /var/lib/rasdaemon    none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-lib-udisks2       /var/lib/udisks2      none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+# Storage housekeeping (P-10): smartd's state and the warnings feed the host service reads, kept across reboots and A/B updates.
+/data/state/var-lib-smartmontools /var/lib/smartmontools none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+# Printing (Step 3): CUPS's settings and printers, its spool and cache, and ipp-usb's state live on the data disk.
+/data/state/etc-cups                  /etc/cups                     none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-spool-cups            /var/spool/cups               none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-cache-cups            /var/cache/cups               none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-lib-ipp-usb           /var/lib/ipp-usb              none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0

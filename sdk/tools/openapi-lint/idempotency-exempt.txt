@@ -42,5 +42,42 @@ DELETE /v1/agent-browser/sessions/{session_id}  # ending a session twice is the 
 DELETE /v1/agent-browser/sites/{site_id}  # removing an approved site twice leaves the same allowlist (the second answers 404)
 PATCH /v1/work/projects/{project_id}/tasks/{task_id}  # guarded by If-Match; replay cannot change a task at a newer revision
 DELETE /v1/work/projects/{project_id}/tasks/{task_id}  # the second removal sees no task
+POST /v1/network/{iface}/confirm  # keeps the one pending change; confirming twice changes nothing more (the second answers 409 no_pending_change)
+POST /v1/content/plan  # read only: computes what a change would download and stop serving; files nothing (#127)
+POST /v1/content/changes  # contract §12.1: keeps its §3 body field idempotency_key, like POST /v1/actions; the same key answers the same request (#127)
+PUT /v1/content/auto-update  # sets the one auto-update setting: the same body twice leaves the same state (#127)
 POST /v1/custom-apps/plan  # asking again for the same commit refreshes that revision's scan and never adds a second revision; nothing is installed
 POST /v1/custom-apps/{app_id}/rollback  # a repeat picks the same earlier revision and points the catalog at it again; the update that applies it is its own approved action
+POST /v1/network/firewall/allow/{rule_id}/confirm  # confirming a confirmed rule is a no-op; a rule that already reverted answers 404, never a second effect
+DELETE /v1/network/firewall/allow/{rule_id}  # removing a rule that is gone answers 404; repeating it changes nothing
+POST /v1/desktop-apps/{app_id}/launch  # starts the installed app the box already has; asking twice is the same as once and nothing new is created (#1097)
+POST /v1/approval-policies/{policy_id}/confirm  # re-enables one paused rule: a repeat finds no paused rule, answers 404 and changes nothing
+PUT /v1/agents/{name}/inputs  # replaces the whole declaration: the same body twice leaves the same state
+POST /v1/work/parse  # read only: previews quick-add text and creates nothing
+PATCH /v1/work/projects/{project_id}  # sets fields to the stated values, so a repeat changes nothing more
+DELETE /v1/work/projects/{project_id}  # the second removal sees no project
+PUT /v1/work/projects/{project_id}/members/{person_id}  # adding a member twice is the same as once
+DELETE /v1/work/projects/{project_id}/members/{person_id}  # removing a member twice is the same as once
+DELETE /v1/work/projects/{project_id}/tasks/{task_id}/comments/{comment_id}  # the second removal sees no comment
+PATCH /v1/work/projects/{project_id}/sections/{section_id}  # sets the name to the stated value, so a repeat changes nothing more
+DELETE /v1/work/projects/{project_id}/sections/{section_id}  # the second removal sees no section
+POST /v1/auth/recovery/contacts  # answers with a fresh signed invite whose nonce a replay store must not keep; a retry makes a second invite the owner can withdraw (the 5-contact limit still holds)
+DELETE /v1/auth/recovery/contacts/{contact_id}  # removing twice is the same as once: the repeat answers the removed contact and changes nothing
+PUT /v1/auth/recovery/settings  # sets each named wait to the given option: the same body twice leaves the same state
+POST /v1/recovery/invites/{invite_id}/accept  # answers with the contact token and secret once, which a replay store must not keep; the single-use invite refuses a retry (409 invite_used)
+POST /v1/recovery/contact/resign  # resigning twice is the same as once: the token stops at the first, so a repeat is refused before it changes anything
+POST /v1/auth/recovery  # answers with a fresh request token once, which a replay store must not keep; a second start while one runs answers 409 already_running
+POST /v1/auth/recovery/requests/{request_id}/code  # a code is checked once per try and the request moves on or counts the try; a replay store must not let a retry skip the 3-try limit
+POST /v1/auth/recovery/requests/{request_id}/cancel  # cancelling twice is the same as once: the repeat answers the cancelled request and changes nothing
+POST /v1/auth/recovery/requests/{request_id}/complete/options  # returns a fresh single-use WebAuthn challenge; nothing changes
+POST /v1/auth/recovery/requests/{request_id}/complete  # answers with fresh session tokens, which a replay store must not keep; a retry finds the request completed (409)
+POST /v1/recovery/requests/{request_id}/vouch  # the first confirmation moves the request to waiting; a repeat answers 409 and changes nothing
+POST /v1/recovery/requests/{request_id}/cancel  # cancelling twice is the same as once
+POST /v1/auth/legacy/contacts  # files a short-lived request; a retry creates a separate pending request that requires its own owner passkey approval
+DELETE /v1/auth/legacy/contacts/{contact_id}  # removing twice is the same as once
+POST /v1/auth/legacy/claims/{claim_id}/cancel  # cancelling twice is the same as once: the repeat answers the cancelled claim
+POST /v1/auth/legacy/claims/{claim_id}/confirm  # the first confirmation is recorded; a repeat changes nothing
+POST /v1/legacy/invites/{invite_id}/accept  # answers with the token, secret and access key once, which a replay store must not keep; the single-use invite refuses a retry
+POST /v1/legacy/contact/resign  # resigning twice is the same as once: the token stops at the first
+POST /v1/legacy/claims  # one open claim per owner: a retry answers 409 already_open and stores no second certificate
+POST /v1/legacy/claims/{claim_id}/confirm  # the first confirmation is recorded; a repeat changes nothing

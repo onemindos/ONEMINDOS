@@ -83,6 +83,7 @@ class VM:
         self.vars = None
         self.fwd = FWD                  # host port forwarded to the guest :8080 (firewall.py runs two VMs)
         self.extra_args = []            # more QEMU arguments, passed once (firewall.py/wizard.py: a socket link NIC; dataenc.py: a TPM)
+        self.nic_extra = ""             # appended to the user NIC's options (updatesigned.py: a guestfwd to the host's channel server)
         if self.cfg["vars"]:
             self.vars = os.path.join(workdir, "VARS.fd")
             shutil.copy(self.cfg["vars"], self.vars)
@@ -91,7 +92,7 @@ class VM:
         c = self.cfg
         cmd = [c["qemu"], "-machine", c["machine"], "-accel", self.accel, "-cpu", self.cpu,
                "-smp", "4", "-m", os.environ.get("ONEMIND_QEMU_MEM", "3072"), "-nodefaults", "-display", "none", "-vga", "none",
-               "-nic", f"user,model=virtio-net-pci,restrict=on,hostfwd=tcp:127.0.0.1:{self.fwd}-:8080",
+               "-nic", f"user,model=virtio-net-pci,restrict=on,hostfwd=tcp:127.0.0.1:{self.fwd}-:8080{self.nic_extra}",
                "-device", "i6300esb", "-action", "watchdog=reset"]
         cmd += self.extra_args
         if c["code"]:
@@ -176,14 +177,28 @@ class VM:
                 self.pos = max(self.pos, whole.end())
         return whole or m
 
-    def wait_gate(self, timeout=1800):
+    def wait_gate(self, timeout=1800, since=None):
+        """The next gate RESULT line. With since (a here() mark taken before the reboot), a RESULT line that is
+        already complete anywhere after that mark counts: the gate and the first-boot "already configured" line
+        start at the same time and print in either order, so a test that first waits for the second one must not
+        then wait for a first one that has already gone by (found on F3 and B2, 2026-11-25)."""
+        if since is not None:
+            with self.lock:
+                m = re.compile(GATE).search(self.buf, since)
+                done = bool(m) and "\n" in self.buf[m.end():]
+                if done:
+                    self.pos = max(self.pos, m.end())
+            if done:
+                self.last_gate = m.group(0)
+                return m.group(1), m.group(2), m.group(3)
         m = self.expect_line(GATE, timeout)
         self.last_gate = m.group(0)
         return m.group(1), m.group(2), m.group(3)
 
     def shell_ready(self):
         time.sleep(2); self.send("")
-        self.expect(r"root@onemind:~# ", 300)
+        # Any host name: F13 renames the box (P-05) and F3 then reboots into the new name.
+        self.expect(r"root@[a-z0-9-]+:~# ", 300)
         self.run("bind 'set enable-bracketed-paste off' 2>/dev/null; stty cols 200; export SYSTEMD_PAGER= SYSTEMD_COLORS=0 KUBECONFIG=/run/k3s/k3s.yaml")
         self.run("mkdir -p /run/onemind-test && (mountpoint -q /run/onemind-test || "
                  "mount -o ro /dev/disk/by-label/onemind-test /run/onemind-test)")

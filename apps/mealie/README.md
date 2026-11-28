@@ -7,7 +7,7 @@ Recipe manager and meal planner with shopping lists; imports recipes from a URL.
 
 | | |
 |---|---|
-| Version | 3.30.0 (upstream release `v3.30.0`, published 2026-10-31) |
+| Version | 3.31.0 (upstream release `v3.31.0`, published 2026-11-13) |
 | Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | family |
@@ -32,7 +32,7 @@ Storage: PVC `mealie-data` 5Gi.
 
 Images:
 
-- `ghcr.io/mealie-recipes/mealie:v3.30.0@sha256:90f83da6f3ab0a421efc827118a556168573930105f13fa3321768f42163d784`
+- `ghcr.io/mealie-recipes/mealie:v3.31.0@sha256:97e21ac96e9a8d1ee15aaf558ba3f14998936b9d6f334e40ebb4c6c2127dc12f`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -88,6 +88,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 
 **Hold (apps/market-unblock-2, 2026-11-13):** 45 secret-shaped strings in the bundled `yt_dlp` sources (one `aws-access-key-id`, CRITICAL) in `v3.30.0`. A newer tag `v3.31.0` exists (digest `sha256:97e21ac9…7dc12f`) but it has not been scanned and the finding is in a bundled Python package, so no fix is claimed. Unblock: a gate run on a `v3.31.0` pin showing the findings are gone.
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** Mealie v3.30.0 to v3.31.0. Upstream: request bodies are capped by `MAX_UPLOAD_SIZE_MB` (default 1024; raise it for larger migrations or backups) and the recipe cook time field moves to `performTime` automatically. v3.30.0 removed `OPENAI_CUSTOM_PROMPT_DIR`; this manifest does not set it. The secret-shaped strings in the bundled yt_dlp noted above are not shown to be fixed. The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

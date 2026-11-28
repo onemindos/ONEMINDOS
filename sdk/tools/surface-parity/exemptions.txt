@@ -41,8 +41,10 @@ dashboard radios.list m2-radio-confirm
 group m5-step-up-owner-screens issue=#1214 M5: app sharing and standing approvals are written through the body-bound step-up, which no dashboard screen or command does yet.
 dashboard approvals.policies.create m5-step-up-owner-screens
 dashboard approvals.policies.delete m5-step-up-owner-screens
+dashboard approvals.policies.confirm m5-step-up-owner-screens
 dashboard apps.access.set m5-step-up-owner-screens
 cli approvals.policies.create m5-step-up-owner-screens
+cli approvals.policies.confirm m5-step-up-owner-screens
 cli apps.access.set m5-step-up-owner-screens
 group m7-approver-keys issue=#1213 M7: proven approver keys: the Sign-in keys screen is in PR #1186 and the `keys` command in PR #1184, not merged.
 dashboard auth.approver_keys.list m7-approver-keys
@@ -63,14 +65,10 @@ cli notifications.read s3-notifications
 cli notifications.read_all s3-notifications
 cli notifications.send s3-notifications
 group s4-storage-domains issue=#1232 S4: storage plans, actions and the recovery key, and domain names (ask, approve, remove a host) have no screen; StorageCare is in PR #1190.
-dashboard storage.actions.create s4-storage-domains
 dashboard storage.operations.get s4-storage-domains
-dashboard storage.plans.create s4-storage-domains
 dashboard storage.recovery_key.take s4-storage-domains
 cli domains.check s4-storage-domains
 cli domains.remove s4-storage-domains
-cli storage.actions.create s4-storage-domains
-cli storage.plans.create s4-storage-domains
 cli storage.recovery_key.take s4-storage-domains
 group s5-backups issue=#1232 S5: backup content selection, verification history, run and snapshot detail and destination removal have no screen; several backup writes have no command.
 dashboard backups.content.set s5-backups
@@ -85,15 +83,38 @@ cli backups.content.set s5-backups
 cli backups.destinations.add s5-backups
 cli backups.destinations.remove s5-backups
 cli backups.kit.confirm s5-backups
-cli backups.kit.issue s5-backups
-group s6-work issue=#1232 S6: Work projects, quick-add and task edit and delete have no screen (PR #1166 covers part); some have no command.
+group s6-work issue=#1232 S6: Work has quick-add and task edit screens, but project get, list, update and delete, sections, members, comments, task activity, parse and capture have no dashboard screen; project, section, member and comment writes have no `onemind` command.
 dashboard work.project_create s6-work
-dashboard work.quick_add s6-work
+dashboard work.capture s6-work
+dashboard work.comment_add s6-work
+dashboard work.comment_delete s6-work
+dashboard work.comments_list s6-work
+dashboard work.member_add s6-work
+dashboard work.member_remove s6-work
+dashboard work.members_list s6-work
+dashboard work.parse s6-work
+dashboard work.project_delete s6-work
+dashboard work.project_get s6-work
+dashboard work.project_update s6-work
+dashboard work.projects_list s6-work
+dashboard work.section_create s6-work
+dashboard work.section_delete s6-work
+dashboard work.section_update s6-work
+dashboard work.sections_list s6-work
+dashboard work.task_activity s6-work
 dashboard work.task_delete s6-work
 dashboard work.task_get s6-work
-dashboard work.task_update s6-work
 cli work.capture s6-work
 cli work.project_create s6-work
+cli work.comment_add s6-work
+cli work.comment_delete s6-work
+cli work.member_add s6-work
+cli work.member_remove s6-work
+cli work.project_delete s6-work
+cli work.project_update s6-work
+cli work.section_create s6-work
+cli work.section_delete s6-work
+cli work.section_update s6-work
 cli work.task_delete s6-work
 group s7-windows issue=#1232 S7: windows (/v1/windows) have no caller on any surface.
 dashboard windows.list s7-windows
@@ -106,6 +127,9 @@ cli automation.resume s8-cli-groups
 cli automation.rules.disable s8-cli-groups
 cli automation.rules.enable s8-cli-groups
 cli automation.rules.update s8-cli-groups
+cli content.auto_update s8-cli-groups
+cli content.changes s8-cli-groups
+cli content.plan s8-cli-groups
 cli deploy.compose s8-cli-groups
 cli fabric.ticket_revoke s8-cli-groups
 cli files.app_passwords.create s8-cli-groups
@@ -113,11 +137,9 @@ cli files.app_passwords.revoke s8-cli-groups
 cli files.downloads.discard s8-cli-groups
 cli files.downloads.release s8-cli-groups
 cli files.grants.request s8-cli-groups
-cli files.ops s8-cli-groups
 cli files.requests.approve s8-cli-groups
 cli files.requests.cancel s8-cli-groups
 cli files.requests.deny s8-cli-groups
-cli files.shares.create s8-cli-groups
 cli files.trash.empty s8-cli-groups
 cli files.uploads.create s8-cli-groups
 cli files.uploads.delete s8-cli-groups
@@ -134,31 +156,18 @@ cli migrate.revert s8-cli-groups
 cli physical.lockout.set s8-cli-groups
 cli plans.create s8-cli-groups
 cli shares.smb.password s8-cli-groups
-cli system.actions.create s8-cli-groups
 cli tips.set_state s8-cli-groups
 cli updates.policy.resume s8-cli-groups
 cli users.update s8-cli-groups
 
 # ---- later (report section 4) ------------------------------------------------------------------------
 group later-agent-browser issue=#1232 Later: the agent browser (sessions and allowed sites) has no owner screen or command.
-dashboard agentbrowser.sessions.end later-agent-browser
-dashboard agentbrowser.sessions.list later-agent-browser
 dashboard agentbrowser.sessions.start later-agent-browser
 dashboard agentbrowser.sessions.visit later-agent-browser
-dashboard agentbrowser.sites.list later-agent-browser
-dashboard agentbrowser.sites.remove later-agent-browser
-dashboard agentbrowser.sites.request later-agent-browser
-cli agentbrowser.sessions.end later-agent-browser
 cli agentbrowser.sessions.start later-agent-browser
 cli agentbrowser.sessions.visit later-agent-browser
-cli agentbrowser.sites.remove later-agent-browser
-cli agentbrowser.sites.request later-agent-browser
 group later-sites-map issue=#1232 Later: sites, map packs and subjects have no screen or command.
 dashboard geo.create_site later-sites-map
-dashboard geo.list_sites later-sites-map
-dashboard map.packs_list later-sites-map
-dashboard subjects.check later-sites-map
-dashboard subjects.list later-sites-map
 cli geo.create_site later-sites-map
 group later-file-transfer issue=#1232 Later: file downloads, quotas and stat have no dashboard screen.
 dashboard files.downloads.discard later-file-transfer
@@ -167,30 +176,24 @@ dashboard files.downloads.release later-file-transfer
 dashboard files.quotas.list later-file-transfer
 dashboard files.quotas.set later-file-transfer
 dashboard files.requests.get later-file-transfer
-dashboard files.shares.create later-file-transfer
-dashboard files.shares.list later-file-transfer
-dashboard files.shares.revoke later-file-transfer
 dashboard files.stat later-file-transfer
 group later-os-fleet issue=#1232 Later: the OS fleet and staged rollouts console has no screen or command.
 dashboard os.fleet later-os-fleet
 dashboard os.rollouts.get later-os-fleet
 dashboard os.rollouts.list later-os-fleet
 group later-search-share-restore-tips issue=#1232 Later: search, the Send to menu (share targets and types), onboarding restore and tips state and what's new have no dashboard screen.
-dashboard onboarding.restore.app later-search-share-restore-tips
-dashboard onboarding.restore.candidates later-search-share-restore-tips
 dashboard share.send later-search-share-restore-tips
 dashboard share.targets later-search-share-restore-tips
 dashboard share.types later-search-share-restore-tips
 dashboard tips.set_state later-search-share-restore-tips
-cli onboarding.restore.app later-search-share-restore-tips
-cli onboarding.restore.candidates later-search-share-restore-tips
-cli share.send later-search-share-restore-tips
 
 # ---- found by this ratchet, not in the report (#1244) ------------------------------------------------
 group found-owner-screens issue=#1244 Found by the ratchet (not in the 2026-11-26 report): owner controls with an API but no dashboard screen.
 dashboard agents.budget.set found-owner-screens
 dashboard agents.cancel found-owner-screens
 dashboard agents.get found-owner-screens
+dashboard agents.inputs.get found-owner-screens
+dashboard agents.inputs.set found-owner-screens
 dashboard agents.nats_key.delete found-owner-screens
 dashboard agents.nats_key.get found-owner-screens
 dashboard agents.nats_key.set found-owner-screens
@@ -252,6 +255,8 @@ dashboard meta.protocol door
 dashboard monitoring.metrics door
 dashboard push.vapid_key door
 dashboard surfaces.list door
+group dashboard-wider-read issue=#1232 The dashboard screen shows this same list through a wider read, so a second request would only repeat it: Settings > SSH keys (SshKeys.tsx) reads GET /v1/ssh (ssh.get), which returns the service state plus the same SshKey list from the same call (core/onemind_core/routers/ssh.py svc.view()); `onemind ssh-key list` calls the narrower read. test_surface_parity and core test_ssh_access check both halves. Founder to confirm.
+dashboard ssh.keys.list dashboard-wider-read
 group outsider-share-link issue=#1232 The page an outsider opens from a share link is served by the gateway itself, not the signed-in dashboard.
 dashboard share.download outsider-share-link
 dashboard share.open outsider-share-link
@@ -323,6 +328,42 @@ cli auth.setup cli-browser-ceremony
 group cli-visual-layout issue=#1232 A layout a person arranges on screen (Home, the dashboard card); a terminal has nothing to arrange. Founder to confirm.
 cli me.dashboard_card.save cli-visual-layout
 cli me.home.save cli-visual-layout
+group recovery-contact-phone issue=#1196 The recovery contact's own side (gateway permissions 25d) is called by that person's phone with a contact token, not by the owner's dashboard session; the phone screens and the contact-side commands are not built in this PR.
+dashboard recovery.contact.get recovery-contact-phone
+dashboard recovery.contact.notices recovery-contact-phone
+dashboard recovery.contact.resign recovery-contact-phone
+dashboard recovery.invites.accept recovery-contact-phone
+cli recovery.contact.resign recovery-contact-phone
+cli recovery.invites.accept recovery-contact-phone
+dashboard recovery.requests.list recovery-contact-phone
+dashboard recovery.requests.cancel recovery-contact-phone
+dashboard recovery.requests.vouch recovery-contact-phone
+cli recovery.requests.cancel recovery-contact-phone
+cli recovery.requests.vouch recovery-contact-phone
+group recovery-locked-out issue=#1197 The person who is locked out has no session, so these steps belong on the sign-in page, which this PR does not build; the `onemind recovery` commands run the flow from a terminal (start, code, status, complete).
+dashboard recovery.start recovery-locked-out
+dashboard recovery.code recovery-locked-out
+dashboard recovery.status recovery-locked-out
+dashboard recovery.complete recovery-locked-out
+dashboard recovery.complete_options recovery-locked-out
+cli recovery.complete_options cli-browser-ceremony
+group legacy-contact-phone issue=#1208 The legacy contact's own side (a claim, the export and its download, accept and resign) is called by that person's phone with a legacy-contact token, not by the owner's dashboard session; the phone screens and the contact-side commands are not built in this PR.
+dashboard legacy.claims.list legacy-contact-phone
+dashboard legacy.claims.start legacy-contact-phone
+dashboard legacy.claims.confirm legacy-contact-phone
+dashboard legacy.contact.get legacy-contact-phone
+dashboard legacy.contact.notices legacy-contact-phone
+dashboard legacy.contact.resign legacy-contact-phone
+dashboard legacy.export.manifest legacy-contact-phone
+dashboard legacy.export.download legacy-contact-phone
+dashboard legacy.invites.accept legacy-contact-phone
+cli legacy.claims.start legacy-contact-phone
+cli legacy.claims.confirm legacy-contact-phone
+cli legacy.contact.resign legacy-contact-phone
+cli legacy.invites.accept legacy-contact-phone
+group legacy-household-screens issue=#1208 The owner's and adults' household views of a claim: the certificate and the invitations list have no dashboard screen yet (the invitations are accepted in the phone app).
+dashboard legacy.claims.certificate legacy-household-screens
+dashboard legacy.invitations.list legacy-household-screens
 
 # ---- the phone's 1.0 scope: what the phone leaves to the dashboard (FOUNDER TO CONFIRM) --------------
 group mobile-files-browse-only issue=#1232 Mobile 1.0 scope (founder to confirm): the phone browses, downloads and uploads files and handles Send to; file requests, sharing, trash, quotas, app passwords, the office editor, and polling or cancelling an unfinished upload are dashboard-only.
@@ -385,7 +426,10 @@ indirect dashboard files.roots.list FilesApi.roots sends GET through get(P.roots
 indirect dashboard files.list FilesApi.list sends GET through get(P.list)
 indirect dashboard files.preview FilesApi.preview sends GET through get(P.preview)
 indirect dashboard files.download FilesApi.fetchBlob sends GET (fetch default) to P.download
-indirect dashboard files.ops FilesApi.mkdir, trash and restore send POST through post(P.ops)
+indirect dashboard files.ops FilesApi.mkdir, rename, trash and restore send POST through post(P.ops)
+indirect dashboard files.shares.create FilesApi.createShare sends POST through post(P.shares)
+indirect dashboard files.shares.list FilesApi.shares sends GET through get(P.shares)
+indirect dashboard files.shares.revoke FilesApi.revokeShare sends DELETE to P.share through sdk.call
 indirect dashboard files.trash.list FilesApi.trashList sends GET through get(P.trash)
 indirect dashboard files.trash.empty FilesApi.requestTrashEmpty sends POST through post(P.trashEmpty)
 indirect dashboard files.grants.request FilesApi.requestGrant sends POST through post(P.grants)
@@ -417,9 +461,13 @@ indirect dashboard photos.library Photos.tsx sends GET through client.call with 
 indirect dashboard photos.asset_content Photos.tsx fetches GET (fetch default) with the bearer token
 indirect dashboard tls.ca TrustThisBox.tsx links CA_URL with a download anchor (GET)
 indirect dashboard tls.profile TrustThisBox.tsx links PROFILE_URL with a download anchor (GET)
+indirect dashboard system.journal.read LogViewer.tsx reads the journal with fetch() (GET, the SDK client speaks JSON only) on the URL query() builds
+indirect dashboard legacy.claims.cancel RecoveryContacts.tsx LegacyClaims sends POST through its act(path, body) helper (sdk.call method POST)
+indirect dashboard legacy.claims.confirm_adult RecoveryContacts.tsx LegacyClaims sends POST through its act(path, body) helper (sdk.call method POST)
 indirect mobile files.download FilesScreen.tsx downloads (GET) the url filesDownloadRequest returns
 # cmd/onemind/cli: the path is a constant or an argument of a helper that takes the method.
 indirect cli agents.kill_switch.set agents.go sends PUT through call(http.MethodPut, body) with const path
+indirect cli agents.inputs.set agents.go `agents inputs set` sends PUT through c.Do(http.MethodPut, path(id), body)
 indirect cli backups.runs.request backup.go `backup run` sends POST through backupRequest, gwDoKeyed(http.MethodPost)
 indirect cli backups.verify backup.go `backup verify` sends POST through backupRequest, gwDoKeyed(http.MethodPost)
 indirect cli restores.request backup.go `restore` sends POST through backupRequest, gwDoKeyed(http.MethodPost)

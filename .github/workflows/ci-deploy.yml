@@ -22,8 +22,14 @@ jobs:
   # Not named `lint`: main's required checks match by job name, so a failure here would block PRs like ci's `lint`.
   deploy-lint:
     if: ${{ !github.event.pull_request.draft }}
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (vars.KVM_RUNNER == 'on' && (contains(fromJSON('["push","schedule","workflow_dispatch","merge_group"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && fromJSON('["self-hosted","onemind-kvm"]') || 'ubuntu-24.04' }}
     steps:
+      # Tools GitHub's image has and our onemind-kvm template lacks; a no-op on hosted runners.
+      - name: Install the tools the hosted image preinstalls
+        if: runner.environment == 'self-hosted'
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends shellcheck docker-compose-v2
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: shellcheck (preinstalled on the runner image)
         run: |
@@ -38,6 +44,7 @@ jobs:
             bash deploy/install.sh --role hub --dry-run --target "$t" > "hub-$t.log"
             bash deploy/install.sh --role node --dry-run --target "$t" \
               --join 'onemind-join:v1?c=K10example-code&box=box1&role=worker' > "node-$t.log"
+            grep -Eq 'apt-get install .*\bpython3-cryptography\b' "node-$t.log"
             grep -q 'unsupported developer install, no OS rollback' "hub-$t.log"
             if grep -q 'K10example' "node-$t.log"; then echo "dry run printed the join code" >&2; exit 1; fi
           done
@@ -121,7 +128,7 @@ jobs:
   # app becoming Available in k3s, dry run and uninstall. Needs privileged Docker; about 10 minutes.
   e2e-systemd:
     if: ${{ !github.event.pull_request.draft }}
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (vars.KVM_RUNNER == 'on' && (contains(fromJSON('["push","schedule","workflow_dispatch","merge_group"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && fromJSON('["self-hosted","onemind-kvm"]') || 'ubuntu-24.04' }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2

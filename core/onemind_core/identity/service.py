@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import ipaddress
 import json
 import logging
 import os
@@ -67,7 +68,7 @@ CSRF_HEADER = "onemind-csrf"
 # A version 3 onion address: 56 base32 characters, then ".onion" (lower case, as Tor Browser sends it).
 ONION_V3 = re.compile(r"[a-z2-7]{56}\.onion")
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
-TOUCH_EVERY = timedelta(seconds=60)  # last_seen / last_used are written at most once a minute
+TOUCH_EVERY = timedelta(seconds=60)  # session and token display timestamps are throttled
 CHALLENGE_TTL = timedelta(seconds=120)
 ENROL_TTL = timedelta(hours=24)
 PAT_DEFAULT_DAYS, PAT_MAX_DAYS = 90, 365
@@ -287,7 +288,17 @@ class IdentityService:
     def _touch_session(self, s: SessionRow, user: UserRow, now: datetime) -> None:
         if now - utc(s.last_seen_at) >= TOUCH_EVERY:
             self.repo.update(SessionRow, [SessionRow.id == s.id], {"last_seen_at": now})
-            self.repo.update(UserRow, [UserRow.id == user.id], {"last_seen_at": now})
+            if user.role != "owner":
+                self.repo.update(UserRow, [UserRow.id == user.id], {"last_seen_at": now})
+        self._touch_owner(user, now)
+
+    def _touch_owner(self, user: UserRow, now: datetime) -> None:
+        # Legacy recovery consumes this watermark. A request within the display throttle can
+        # still be the first activity after a claim opens. Keep concurrent writes monotonic.
+        if user.role == "owner":
+            self.repo.update(UserRow, [UserRow.id == user.id,
+                                       UserRow.last_seen_at.is_(None) | (UserRow.last_seen_at < now)],
+                             {"last_seen_at": now})
 
     def _cookie_session(self, request: Request, raw: str, now: datetime) -> AuthContext | None:
         s = self.repo.one(select(SessionRow).where(SessionRow.secret_hash == sha256_hex(raw)))
@@ -343,6 +354,7 @@ class IdentityService:
         if t.kind == "person":
             if owner is None:
                 return None
+            self._touch_owner(owner, now)
             principal = self.principal_for(owner)
         else:
             principal = Principal(id=t.principal_id, kind=t.kind, role=t.kind)
@@ -388,7 +400,10 @@ class IdentityService:
                              expires_at=exp, **common)
             out.update(csrf_token=csrf, _cookies={"session": cookie, "csrf": csrf, "max_age": int((exp - now).total_seconds())})
         self.repo.add(row)
-        self.repo.update(UserRow, [UserRow.id == user.id], {"last_seen_at": now})
+        if user.role == "owner":
+            self._touch_owner(user, now)
+        else:
+            self.repo.update(UserRow, [UserRow.id == user.id], {"last_seen_at": now})
         p = self.principal_for(user)
         self.emit("auth", "login.succeeded", {"user_id": user.id, "method": method, "session_id": sid,
                                               "transport": row.transport, "source": source_of(request)}, p)
@@ -449,6 +464,7 @@ class IdentityService:
         )
         if not done:  # a concurrent refresh won
             raise ApiError(401, "unauthenticated", "refresh token already used")
+        self._touch_owner(user, now)
         self.emit("auth", "session.refreshed", {"session_id": s.id}, self.principal_for(user))
         return {"access_token": access, "expires_at": iso(access_exp), "refresh_token": refresh,
                 "refresh_expires_at": iso(utc(s.expires_at)), "session": {"id": s.id, "expires_at": iso(s.expires_at)}}
@@ -526,7 +542,10 @@ class IdentityService:
                                         origins=origins, public_key=cred.public_key, sign_count=cred.sign_count)
         except pk.PasskeyError as exc:
             raise ApiError(401, "unauthenticated", str(exc)[:300], reason="assertion_invalid") from None
-        self.repo.update(PasskeyRow, [PasskeyRow.id == cred.id], {"sign_count": count, "last_used_at": self.now()})
+        now = self.now()
+        if (user := self._live_user(cred.user_id)) is not None:
+            self._touch_owner(user, now)
+        self.repo.update(PasskeyRow, [PasskeyRow.id == cred.id], {"sign_count": count, "last_used_at": now})
         return cred
 
     def login_passkey(self, request: Request, credential: dict) -> UserRow:
@@ -617,6 +636,10 @@ class IdentityService:
         step_up_s seconds. Returns how the caller proved presence (audited by the caller)."""
         if not self.passkeys_active():
             return "token" if ctx is None or ctx.session is None else ctx.session.auth_method
+        return self.require_fresh_passkey(ctx, p, what)
+
+    def require_fresh_passkey(self, ctx: AuthContext | None, p: Principal, what: str) -> str:
+        """Require recent passkey verification even during password-only setup."""
         s = ctx.session if ctx else None
         if s is not None and s.passkey_at is not None and \
                 (self.now() - utc(s.passkey_at)).total_seconds() <= self.cfg.step_up_s:
@@ -719,16 +742,6 @@ class IdentityService:
 
     # ---- password and TOTP -------------------------------------------------------------------------
     # ---- device-bound approver keys (#702) ------------------------------------------------------
-    def _require_fresh_passkey(self, ctx: AuthContext | None, p: Principal, what: str) -> None:
-        """A passkey sign-in (or registration) on this session in the last step_up_s seconds, always:
-        unlike require_step_up, there is no password-only path while the box has no passkey yet."""
-        s = ctx.session if ctx else None
-        if s is not None and s.passkey_at is not None and \
-                (self.now() - utc(s.passkey_at)).total_seconds() <= self.cfg.step_up_s:
-            return
-        self.emit("auth", "step_up.required", {"attempted": what}, p, severity="warning")
-        raise ApiError(401, "unauthenticated", "sign in again with your passkey to do this", reason="step_up_required")
-
     @staticmethod
     def approver_key_json(k: ApproverKeyRow) -> dict:
         return {"key_id": k.id, "label": k.label, "key_kind": k.key_kind, "fingerprint": k.fingerprint,
@@ -738,7 +751,7 @@ class IdentityService:
         user = self._account(ctx, "register an approver key")
         if user.role != "owner":
             raise self.deny(ctx.principal, "register an approver key", reason="owner_only")
-        self._require_fresh_passkey(ctx, ctx.principal, "register an approver key")
+        self.require_fresh_passkey(ctx, ctx.principal, "register an approver key")
         if key_kind not in ak.KEY_KINDS:
             raise ApiError(422, "conflict", f"key_kind must be one of {', '.join(ak.KEY_KINDS)}")
         if key_kind == "hardware-attested":  # nothing verifies an attestation chain yet: never claim it
@@ -1146,7 +1159,7 @@ class IdentityService:
     def approve_options(self, request: Request, p: Principal, action_id: str) -> dict:
         if not p.is_owner:
             raise self.deny(p, "approve actions", action_id=action_id)
-        action = self.gw.actions.get(action_id)  # 404 when unknown
+        action = self._approval_action(p, action_id)  # 404 when unknown
         if action.get("state") != "awaiting_approval":
             raise ApiError(409, "conflict", f"action is {action.get('state')}, not awaiting_approval")
         ctx = ctx_of(request)
@@ -1165,17 +1178,34 @@ class IdentityService:
                 "device_payload": ak.signing_payload(row.challenge, action_id, a_sha, p_sha or None).decode(),
                 "publicKey": pk.authentication_options(rp_id=rp_id, challenge=raw, allow=allow)}
 
+    def _approval_action(self, p: Principal, action_id: str) -> dict:
+        for lookup in self.gw.approval_lookups:
+            if (action := lookup(p, action_id)) is not None:
+                return action
+        return self.gw.actions.get(action_id)
+
     def approval_guard(self, p: Principal, action_id: str, body: dict, request: Request) -> None:
         if not p.is_owner:
             return  # actions.approve refuses and audits non-owners itself
         ctx = ctx_of(request)
         assertion = body.get("webauthn")
+        action = self.gw.repo.get(action_id)
+        spec = self.gw.actions.feature_types.get(action.type) if action is not None else None
+        if spec is not None and spec.owner_passkey:
+            owner = self._account(ctx, "approve an owner security setting")
+            if owner.id != action.requested_by.get("id"):
+                raise self.deny(p, "approve another owner's security setting", reason="owner_only")
+            if assertion is None:
+                raise self._step_up_failed(p, action_id, "approve this security setting with your passkey")
         if body.get("device_signature") is not None:
             if assertion is not None:
                 raise ApiError(422, "conflict", "send a passkey assertion or a device signature, not both")
             return self._approve_with_device_key(p, ctx, action_id, body)
         if assertion is None:
-            if self.cfg.require_passkey_approval and self.passkeys_active():
+            # D-028 keeps tightening at L0, including ending a public bearer link.
+            tightening = (body.get("plan_sha256") and action_id.startswith("frq_")
+                          and self._approval_action(p, action_id)["type"] == "files.shares.revoke")
+            if not tightening and self.cfg.require_passkey_approval and self.passkeys_active():
                 self.emit("auth", "step_up.required", {"attempted": "approve", "action_id": action_id}, p,
                           severity="warning")
                 raise ApiError(401, "unauthenticated", "approvals need a passkey on this box", reason="step_up_required")
@@ -1209,7 +1239,7 @@ class IdentityService:
         """The claimed challenge was made for this action, and neither the action nor its plan changed."""
         if row.action_id != action_id:
             raise self._step_up_failed(p, action_id, "challenge was issued for another action")
-        current = self.gw.actions.get(action_id)
+        current = self._approval_action(p, action_id)
         if row.data.get("action_sha256") != self.action_sha256(current) or \
                 (row.data.get("plan_sha256") or None) != (current.get("plan_sha256") or None):
             raise self._step_up_failed(p, action_id, "the action changed since the challenge", reason="plan_changed")
@@ -1261,7 +1291,9 @@ class IdentityService:
             ak.verify(key.public_key, payload, str(sig.get("signature") or ""))
         except ak.ApproverKeyError as exc:
             raise self._step_up_failed(p, action_id, str(exc)) from None
-        self.repo.update(ApproverKeyRow, [ApproverKeyRow.id == key.id], {"last_used_at": self.now()})
+        now = self.now()
+        self._touch_owner(owner, now)
+        self.repo.update(ApproverKeyRow, [ApproverKeyRow.id == key.id], {"last_used_at": now})
         self.emit("auth", "step_up.succeeded", {"action_id": action_id, "approval": "device_key", "key_id": key.id,
                                                 "key_kind": key.key_kind, "device": key.label,
                                                 "approver_user_id": owner.id}, p)
@@ -1280,8 +1312,12 @@ class IdentityService:
     def rescue_options(self, request: Request, p: Principal) -> dict:
         if not p.is_owner:
             raise self.deny(p, "start a rescue session")
+        kit = self._kit_ready(request)
         if not self.passkeys_active():
-            raise ApiError(409, "conflict", "no owner passkey is registered on this box", reason="no_passkey")
+            if kit:  # D-028: no dead end. The printed kit, typed at the console, stands in for a passkey.
+                return {"methods": ["kit"], "kit": True}
+            raise ApiError(409, "conflict", "no owner passkey is registered on this box, and no emergency kit was issued",
+                           reason="no_passkey")
         now = self.now()
         if self.repo.count(ChallengeRow, ChallengeRow.purpose == "rescue", ChallengeRow.used_at.is_(None),
                            ChallengeRow.expires_at > now) >= MAX_OPEN_RESCUE_CHALLENGES:
@@ -1293,8 +1329,56 @@ class IdentityService:
         allow = list(self.repo.all(select(PasskeyRow.id).where(PasskeyRow.user_id.in_(allow_users))))
         row, raw = self._new_challenge("rescue", user_id=user_id)
         rp_id, _ = self.rp(request)
-        return {"challenge_id": row.id, "expires_at": iso(row.expires_at),
-                "publicKey": pk.authentication_options(rp_id=rp_id, challenge=raw, allow=allow)}
+        return {"challenge_id": row.id, "expires_at": iso(row.expires_at), "methods": ["passkey"] + (["kit"] if kit else []),
+                "kit": kit, "publicKey": pk.authentication_options(rp_id=rp_id, challenge=raw, allow=allow)}
+
+    @staticmethod
+    def _backups(request: Request):
+        return getattr(request.app.state, "backups", None)
+
+    def _kit_ready(self, request: Request) -> bool:
+        b = self._backups(request)
+        return b is not None and b.kit_ready()
+
+    _PROXY_HEADERS = ("x-forwarded-for", "x-forwarded-host", "x-real-ip", "forwarded")
+
+    @classmethod
+    def _from_this_box(cls, request: Request) -> bool:
+        """The TCP peer is loopback and no proxy header says the request came from further away (a reverse proxy
+        on the box would also connect from loopback)."""
+        host = request.client.host if request.client else ""
+        try:
+            loopback = ipaddress.ip_address(host).is_loopback
+        except ValueError:
+            return False
+        return loopback and not any(h in request.headers for h in cls._PROXY_HEADERS)
+
+    def rescue_kit(self, request: Request, p: Principal, kit_key: str) -> dict:
+        """D-028: the owner lost every passkey. The printed kit's owner key, typed at the box's console, proves
+        owner access (the console only offers it to a browser on the box itself). Same answer as rescue_verify.
+        It opens nothing itself, deletes nothing and never reads or shows a disk or backup key."""
+        if not p.is_owner:
+            raise self.deny(p, "start a rescue session")
+        # Design 3.13 path 2: the kit key is typed at the box itself. The rescue console on the box calls this from
+        # loopback; any other source, or a request that came through a proxy, is refused before the key is looked at,
+        # so a LAN client with the owner token can neither test kit keys nor use up the shared lockout.
+        if not self._from_this_box(request):
+            err = self.deny(p, "use the printed kit away from the box", reason="kit_not_at_box")
+            raise ApiError(err.status, err.error, "the printed kit is accepted at the box itself only", reason="kit_not_at_box")
+        b = self._backups(request)
+        if b is None:
+            raise ApiError(409, "conflict", "no emergency kit has been issued on this box", reason="no_kit")
+        try:
+            got = b.verify_console_kit(p, kit_key)
+        except ApiError as exc:
+            self.emit("auth", "step_up.failed", {"attempted": "rescue session", "detail": exc.message[:200], "approval": "kit"}, p,
+                      severity="warning")
+            raise
+        owners = self.active_owner_ids()
+        self.emit("auth", "step_up.succeeded", {"attempted": "rescue session", "credential_id": f"kit:{got['fingerprint']}",
+                                                "approval": "kit"}, p)
+        return {"credential_id": f"kit:{got['fingerprint']}", "user_id": owners[0] if owners else None,
+                "verified_at": iso(self.now())}
 
     def rescue_verify(self, request: Request, p: Principal, credential: dict) -> dict:
         """Single-use, two minutes: the assertion must answer a challenge made by rescue_options and

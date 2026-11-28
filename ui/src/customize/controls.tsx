@@ -83,7 +83,7 @@ export interface RangeFieldProps {
 
 export function RangeField({ label, value, min, max, step = 1, onChange, format, hint, floor, disabled }: RangeFieldProps) {
   const id = useId();
-  const pct = (v: number) => `${((v - min) / (max - min)) * 100}%`;
+  const pct = (v: number) => `${Math.min(100, Math.max(0, ((v - min) / (max - min)) * 100))}%`;
   return (
     <div className={cx('om-cz-range', disabled && 'om-cz-disabled')}>
       <div className="om-cz-range-head">

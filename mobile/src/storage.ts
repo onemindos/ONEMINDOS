@@ -63,10 +63,15 @@ export async function saveConnection(c: Connection): Promise<void> {
 /** Small helpers for other secure-store records (device key, device link, push registration). */
 export async function loadSecret(key: string): Promise<string | null> {
   try {
-    return await SecureStore.getItemAsync(key, OPTS);
+    return await readSecret(key);
   } catch {
     return null;
   }
+}
+
+/** Read a record where a storage failure must be distinct from an absent value. */
+export function readSecret(key: string): Promise<string | null> {
+  return SecureStore.getItemAsync(key, OPTS);
 }
 
 export async function saveSecret(key: string, value: string): Promise<void> {

@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { AppState } from 'react-native';
 import { unifiedPush, type UnifiedPushNative } from '../modules/onemind-unifiedpush';
 import type { OneMindApi } from './api/client';
+import { inboxAlert } from './lib/alerts';
 import { loadPushRecord, parsePing, rotateEndpoint } from './lib/push';
 import { showAlert } from './notify';
 import { loadSecret, saveSecret } from './storage';
@@ -16,8 +17,7 @@ const GENERIC = { title: 'OneMind', body: 'Something new on your box. Open the a
 export async function showPinged(api: OneMindApi, id: string | undefined): Promise<void> {
   if (!id) return showAlert({ id: 'ntf:ping', ...GENERIC, route: 'inbox' });
   try {
-    const n = await api.notification(id);
-    await showAlert({ id: `ntf:${n.id}`, title: n.title, body: n.body, route: n.action_id ? 'approvals' : 'inbox' });
+    await showAlert(inboxAlert(await api.notification(id)));
   } catch {
     await showAlert({ id: `ntf:${id}`, ...GENERIC, route: 'inbox' });
   }

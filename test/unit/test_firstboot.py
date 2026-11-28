@@ -151,6 +151,24 @@ class Parsing(unittest.TestCase):
 
 
 class Files(unittest.TestCase):
+    def test_map_gateway_env_matches_installer_and_preserves_existing_settings(self):
+        with open(os.path.join(ROOT, "deploy", "install.sh"), encoding="utf-8") as file:
+            function = re.search(r"^gateway_env\(\) \{\n.*?^\}", file.read(), re.M | re.S).group()
+        installer = subprocess.check_output(["bash", "-c", function + "\ngateway_env ''"], text=True)
+        map_lines = [line for line in installer.splitlines() if line.startswith("ONEMIND_MAP_")]
+        self.assertEqual(len(map_lines), 3)
+        self.assertEqual(map_lines, fb.map_gateway_env(fb.Paths()).splitlines())
+
+        with tempfile.TemporaryDirectory() as root:
+            p = fb.Paths(root)
+            env = os.path.join(p.etc, "gateway.env")
+            fb.write(env, "ONEMIND_MAP_PACKS_DIR=/example/explicit\n")
+            fb.ensure_map_storage(p, None)
+            self.assertTrue(os.path.isdir(p.map_packs))
+            with open(env, encoding="utf-8") as file:
+                actual = file.read().splitlines()
+            self.assertEqual(actual, ["ONEMIND_MAP_PACKS_DIR=/example/explicit", *fb.map_gateway_env(p).splitlines()[1:]])
+
     def test_hosts_block_like_install_sh(self):
         with tempfile.TemporaryDirectory() as d:
             h = os.path.join(d, "hosts")
@@ -1024,6 +1042,11 @@ class HubAccounts(Box):
         acc = self.read(self.p.accounts)
         for name in ("gateway", "onemindd"):
             self.assertIn(self.read(os.path.join(self.p.nats_keys, f"{name}.pub")).strip(), acc)
+        # #620: the observer's key is in the SYS account, never in the hub account
+        obs = self.read(os.path.join(self.p.nats_keys, "observer.pub")).strip()
+        self.assertIn(obs, acc)
+        self.assertIn("system_account: SYS", acc)
+        self.assertNotIn(obs, acc.split("  SYS: {")[0])
         # adding two node accounts gives each its own account (no shared node user)
         a, b = natsconf.new_user_key()[1], natsconf.new_user_key()[1]
         out = natsconf.render_accounts([natsconf.NodeAccount("n1", a), natsconf.NodeAccount("n2", b)],
@@ -1033,6 +1056,19 @@ class HubAccounts(Box):
         self.assertIn("NODE_n1", out)
         self.assertIn("NODE_n2", out)                          # one account per node
         self.assertNotIn("password", out)
+
+    def test_a_hub_set_up_before_the_observer_gets_its_key_at_the_next_boot(self):
+        # #620: a box updated through RAUC never ran the first-boot key step again
+        self.put("boot/efi/onemind.conf", "role = hub\nname = Home\n")
+        fb.apply(self.p)
+        seed, pub = (os.path.join(self.p.nats_keys, f"observer.{x}") for x in ("nk", "pub"))
+        os.remove(seed)
+        os.remove(pub)
+        fb.apply(self.p)                       # an ordinary later boot
+        self.assertTrue(os.path.isfile(seed) and os.path.isfile(pub))
+        kept = self.read(pub)
+        fb.apply(self.p)                       # and a third boot keeps it
+        self.assertEqual(self.read(pub), kept)
 
     @unittest.skipUnless(__import__("shutil").which("nats-server"), "needs nats-server")
     def test_nats_server_accepts_the_hub_conf(self):

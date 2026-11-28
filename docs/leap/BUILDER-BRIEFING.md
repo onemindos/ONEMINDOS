@@ -33,7 +33,19 @@ OneMind is an appliance OS: a read-only root, A/B updates through RAUC, health-g
 7. **Root never follows a path the owner or an app controls.** Refuse symlinks (`-L`) in home and app directories, or do the write as that user (`runuser`). A symlinked `authorized_keys` pointing at the shadow file was a real hole.
 8. **Network and firewall changes** must have an automatic revert (NetworkManager checkpoint, or a revert timer) that a failure cannot skip: save first, then stop the timer.
 9. **Durable writes** for anything first boot creates: write a temp file, fsync it, rename, fsync the directory, then `syncfs` before marking first boot done. A power cut in the first minute otherwise leaves 0-byte keys.
-10. **Before every push and in the PR:**
+10. **Sovereignty check (founder, 2026-11-26; [docs/design/SOVEREIGNTY.md](../design/SOVEREIGNTY.md)).** For every new dependency, engine, service, Market app or feature, answer these in the PR:
+    - Does it work offline on the box?
+    - Is its licence open? Under D-035, only MIT/BSD/Apache-2.0/MPL-2.0/public-domain code goes in app binaries, and never Google Play Services or another closed SDK.
+    - Does it need any outside account or cloud?
+    - Is the data open and exportable?
+    - Does it call home?
+    - Can the owner use their own keys and their own update source?
+    - Can it be swapped?
+    - Did you check for a Debian package or Linux feature first?
+
+    A "no" needs a written reason or an issue.
+11. **Every app is API, CLI and MCP native** (D-035): a REST route in the OpenAPI, an `onemind <app>` CLI group, and MCP tools (reads, plus request-only tools that a person approves), all in the same PR.
+12. **Before every push and in the PR:**
    - `make lint`, `python3 -I scripts/changes.py check`, `make hygiene`, gitleaks. Sign off every commit (`git commit -s`). Never rebase or force-push; merge `origin/release/next` in instead. Never export `GIT_DIR` or `GIT_WORK_TREE`.
    - The base branch is `release/next`.
    - Write **`Refs #n`, never `Closes #n`**: this is the gate rule in force. Known conflict, flagged for the founder: `docs/leap/AGENT-QUEUE.md` and `.github/pull_request_template.md` still say `Closes #`. Follow the gate rule until they are fixed.

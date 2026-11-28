@@ -3,13 +3,15 @@
 import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { OneMind, OneMindError, uuid4, type components } from '@onemind/sdk';
-import { Button, Card, Dialog, EmptyState, PageHeader, StatusPill } from '@onemind/ui';
+import { Button, Card, Dialog, EmptyState, PageHeader, RecoveryKit, StatusPill } from '@onemind/ui';
+import { recoveryKit } from '../data/recoveryKit';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
 import { Load } from './parts';
 import { object, read, rows, text } from './backups/shared';
 import { RestoreSection } from './backups/Restore';
+import { OtherBoxRestore } from './backups/OtherBox';
 import { DestinationForm } from './backups/Destinations';
 import { ContentSection, VerificationsSection } from './backups/Content';
 
@@ -31,6 +33,17 @@ export function Backups() {
   if (mock) return <><PageHeader title="Backups" lede="Backup health and destinations reported by your hub." /><EmptyState icon="backups" title="No backup proved yet" action={<Link className="om-btn om-btn-primary" to={href.setting('backups')}>Set up backups</Link>}>A backup counts once a restore test has passed. Demo mode has no backup data; connect a real hub to set one up.</EmptyState></>;
   return <LiveBackups key={person} token={token} person={person} owner={principal?.role === 'owner'} />;
 }
+
+function EmergencyKit() {
+  const { api } = useSignedIn();
+  const status = usePoll(async () => api.kitState?.(), 0);
+  if (!api.kitState) return null;
+  return <Load res={status} what="Loading the emergency kit">{(state) => {
+    const kit = state && recoveryKit(api, state);
+    return kit && <RecoveryKit kit={kit} allowReplacement onConfirmed={() => void status.reload()} />;
+  }}</Load>;
+}
+
 function LiveBackups({ token, person, owner }: { token: string; person: string; owner: boolean }) {
   const sdk = useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1 }), [token]);
   const status = usePoll(async () => backupStatus(await read(sdk, '/v1/backups/status')), 30_000);
@@ -104,6 +117,8 @@ function LiveBackups({ token, person, owner }: { token: string; person: string; 
       <DestinationForm sdk={sdk} token={token} />
     </Card>}</Load>
     <RestoreSection sdk={sdk} token={token} />
+    {owner && <EmergencyKit />}
+    {targets.data && <OtherBoxRestore sdk={sdk} destinations={targets.data.flatMap((d) => (typeof d.id === 'string' ? [{ id: d.id, label: text(d.label, d.id) }] : []))} />}
     <VerificationsSection sdk={sdk} token={token} />
     <ContentSection sdk={sdk} token={token} owner={owner} />
     <Load res={runs} what="Loading backup runs">{(items) => <Card title="Backup runs">

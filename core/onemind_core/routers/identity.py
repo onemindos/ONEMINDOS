@@ -89,6 +89,10 @@ class ApproverKey(BaseModel):
     revoked_at: str | None
 
 
+class RescueKitBody(BaseModel):
+    kit_key: str = Field(min_length=8, max_length=256, json_schema_extra={"writeOnly": True})
+
+
 class RescueVerifyBody(BaseModel):
     credential: dict[str, Any]
 
@@ -365,6 +369,10 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.post("/v1/auth/rescue/options", include_in_schema=False)
     def rescue_options(request: Request, p: Principal = Depends(principal)):
         return svc.rescue_options(request, p)
+
+    @app.post("/v1/auth/rescue/kit", include_in_schema=False)
+    def rescue_kit(body: RescueKitBody, request: Request, p: Principal = Depends(principal)):
+        return JSONResponse(svc.rescue_kit(request, p, body.kit_key), headers={"Cache-Control": "no-store"})
 
     @app.post("/v1/auth/rescue/verify", include_in_schema=False)
     def rescue_verify(body: RescueVerifyBody, request: Request, p: Principal = Depends(principal)):

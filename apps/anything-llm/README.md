@@ -7,7 +7,7 @@ Chat with your documents using a local or hosted language model, with agents and
 
 | | |
 |---|---|
-| Version | 1.19.0 (upstream release `v1.19.0`, published 2026-10-26) |
+| Version | 1.20.0 (upstream release `v1.20.0`, published 2026-11-17) |
 | Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-21) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | ai |
@@ -33,7 +33,7 @@ Storage: PVC `anything-llm-data` 20Gi.
 
 Images:
 
-- `docker.io/mintplexlabs/anythingllm:1.19.0@sha256:daf5a6ae9d363ed578e7d41e2d0668c7eaa604bd90b0ff27435f893b0906833e`
+- `docker.io/mintplexlabs/anythingllm:1.20.0@sha256:3e2b7bc8eb0f73a130fc575f1372bd4e7189e399a63c037497fc183c141fc0ae`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -90,6 +90,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 
 **Hold (apps/market-unblock-2, 2026-11-13):** CRITICAL findings in `linux-libc-dev` and npm packages, plus a `gitlab-pat`-shaped string in the JS bundle. `1.19.0` is the newest tag. Unblock: a release rebuilt on a newer Debian base without the example token string. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** AnythingLLM 1.19.0 to 1.20.0. The release notes list no breaking change, data migration or renamed variable (new: browser extension chat bar, MCP identity forwarding and per-server timeouts, opt-in). The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

@@ -17,7 +17,7 @@ from onemind_core.auth import Principal
 from onemind_core.eventstream import EventStream
 from onemind_core.files.watch import Inotify
 
-from files_support import ADULT, AGENT, GUEST, OWNER, fc, files_root, files_settings, mkdir, ok, upload  # noqa: F401
+from files_support import ADULT, AGENT, GUEST, OWNER, fc, files_root, files_settings, mkdir, ok, rename, upload  # noqa: F401
 
 
 def feed(c, headers, root, cursor=None, limit=None, status=200):
@@ -55,7 +55,7 @@ def test_api_writes_smb_writes_and_a_folder_rename_give_one_change_per_file_with
     assert smb["hash"] == "sha256:" + hashlib.sha256(b"written over SMB\n").hexdigest()
 
     # Rename the folder through the API: each entry appears once, keeping its id.
-    ok(fc.post("/v1/files/ops", headers=OWNER, json={"op": "rename", "root": "shared", "path": "/Docs", "name": "Papers"}))
+    rename(fc, OWNER, "shared", "/Docs", "Papers")
     watcher(fc).scan()  # the scanner sees nothing new: no second change for any file
     renamed = feed(fc, OWNER, "shared", after_smb["next_cursor"])
     got = {e["id"]: e["path"] for e in renamed["changes"]}

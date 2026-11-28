@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+[Unit]
+Description=Check for a released Offline Maps volume while the hub is running
+PartOf=k3s.service
+
+[Timer]
+OnActiveSec=20s
+OnUnitInactiveSec=20s
+AccuracySec=5s
+
+[Install]
+WantedBy=k3s.service

@@ -5,19 +5,24 @@
 # (mesh-guard.nft, k3s/flannel/kube-proxy keep their own).
 #
 # Reachable from the LAN only (private ranges below):  443 and 8443 (gateway, HTTPS), 8444 (Headscale join, until
-#   the mesh is up), 7443 (rescue console, owner login), 5353/udp (mDNS), 3478/udp (STUN), 41641/udp (mesh).
+#   the mesh is up), 7443 (rescue console, owner login), 631 (CUPS printing: IPP and its web page; /admin is
+#   localhost-only in cupsd.conf), 5353/udp (mDNS), 3478/udp (STUN), 41641/udp (mesh).
 # Reachable from loopback, the mesh and the pod network only:  k3s API 6443, kubelet 10250, flannel 8472/51820/51821,
 #   NATS leaf 7422. A home box has no reason to offer them to the LAN.
 # Everything else is dropped. Outgoing traffic is not filtered here. Pod-to-host filtering (H-04) and
 # optional services (Samba, SSH) open their own port through the "samba" and "ssh" chains below; other steps: they add rules to this table, see /etc/onemind/host.local.nft
 # (the owner's file) and /etc/onemind/host.d/*.nft (shipped by an image: the cloud boards open 22/443/8443 there).
 # The setup wizard (8080) is opened from the LAN only while the box has no role, through the "setup" chain below.
-# Samba file sharing (445, D-017) is opened from the LAN only while onemind-smb.service runs, through the "samba" chain.
+# Ports the owner opens from the dashboard (approved with a passkey, reverted unless confirmed) go in owner_lan and
+# owner_mesh below. Samba file sharing (445, D-017) is opened from the LAN only while onemind-smb.service runs, through the "samba" chain.
 add table inet onemind_host
 flush table inet onemind_host
 table inet onemind_host {
   set lan4 { type ipv4_addr; flags interval; elements = { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, 100.64.0.0/10 } }
   set lan6 { type ipv6_addr; flags interval; elements = { fc00::/7, fe80::/10 } }
+  # Per-source counters for the port 22 rate limit (ssh.service.d/30-onemind-firewall.conf adds the rules that use them).
+  set ssh_new_v4 { type ipv4_addr; flags dynamic,timeout; size 65535; }
+  set ssh_new_v6 { type ipv6_addr; flags dynamic,timeout; size 65535; }
 
   chain input {
     type filter hook input priority filter; policy drop;
@@ -33,7 +38,9 @@ table inet onemind_host {
     iifname "tailscale0" udp dport { 8472, 51820, 51821 } accept
     iifname "flannel*" udp dport { 8472, 51820, 51821 } accept
     iifname "tailscale0" tcp dport { 443, 8443, 7422 } accept
+    iifname "tailscale0" tcp dport 631 accept
     iifname "tailscale0" jump ssh
+    iifname "tailscale0" jump owner_mesh
 
     # Network basics: ping, path-MTU, IPv6 neighbour discovery, DHCP replies (they arrive before conntrack knows them).
     meta l4proto icmp accept
@@ -50,7 +57,9 @@ table inet onemind_host {
     jump setup
     jump samba
     jump ssh
+    jump owner_lan
     tcp dport { 443, 8443, 8444, 7443 } accept
+    tcp dport 631 accept
     udp dport { 5353, 3478, 41641 } accept
   }
 
@@ -70,6 +79,14 @@ table inet onemind_host {
   # a key: ssh.service.d/20-onemind-owner-key.conf) and flushes it when it stops. Reached from the lan chain and from the
   # mesh interface only, so SSH is never offered to a public address, and a box with no owner key answers nothing on 22.
   chain ssh {
+  }
+
+  # Empty on purpose. onemindd host serve (P-09 part 2) writes the ports the owner approved here, one accept line
+  # each, and flushes them again when an unconfirmed rule runs out of time. owner_lan is reached from the lan chain
+  # (private source addresses only); owner_mesh from the mesh interface only. No rule can name the internet.
+  chain owner_lan {
+  }
+  chain owner_mesh {
   }
 
   # Forwarded (pod) traffic is the CNI's and kube-proxy's business; this table does not touch it.
