@@ -59,6 +59,8 @@ import {
   type PlanPreview,
   type PushRegistration,
   type PushRegistrationRequest,
+  type AppSecrets,
+  type SecretsPublicKey,
   type WebAuthnAssertion,
   type WebAuthnAttestation,
   type WebAuthnCreationOptions,
@@ -134,6 +136,9 @@ export const OP = {
   systemPlan: 'GET /v1/system/plan',
   myDevices: 'GET /v1/me/devices',
   myDeviceRemove: 'DELETE /v1/me/devices/{}',
+  /** #528: an install's declared secrets (names and set flags only) and the box key the form is sealed to. */
+  appSecrets: 'GET /v1/apps/{}/secrets',
+  secretsPublicKey: 'GET /v1/secrets/public-key',
 } as const;
 
 export type Op = (typeof OP)[keyof typeof OP];
@@ -243,6 +248,9 @@ export interface OneMindApi {
   /** #702 (optional: only the live client has them; feature-detect with OP.approverKeys). */
   approverKeyRegister?(body: { public_key: string; label: string; key_kind: 'hardware-reported' | 'software' }): Promise<ApproverKey>;
   approverKeyRevoke?(keyId: string): Promise<void>;
+  /** #528 (optional: only the live client has them; feature-detect with OP.appSecrets and OP.secretsPublicKey). */
+  appSecrets?(appId: string): Promise<AppSecrets>;
+  secretsPublicKey?(): Promise<SecretsPublicKey>;
   /** `me`: the newer `/v1/me/devices` routes (only when `features()` lists OP.meDevices). */
   deviceRequest(body: DeviceRequestBody, o?: { me?: boolean }): Promise<DeviceRequest>;
   deviceRequestStatus(id: string, pollCode?: string, o?: { me?: boolean }): Promise<DeviceRequest>;
@@ -572,7 +580,7 @@ export class HttpApi implements OneMindApi {
     return this.req<Action>('GET', `/v1/actions/${enc(id)}`);
   }
   approve(id: string, body?: ApproveBody) {
-    const b = body && (body.plan_sha256 || body.webauthn || body.device_signature) ? body : undefined;
+    const b = body && (body.plan_sha256 || body.webauthn || body.device_signature || body.sealed) ? body : undefined;
     return this.req<Action>('POST', `/v1/actions/${enc(id)}/approve`, b);
   }
   deny(id: string, reason?: string) {
@@ -654,6 +662,12 @@ export class HttpApi implements OneMindApi {
   }
   approverKeyRegister(body: { public_key: string; label: string; key_kind: 'hardware-reported' | 'software' }) {
     return this.req<ApproverKey>('POST', '/v1/auth/approver-keys', body);
+  }
+  appSecrets(appId: string) {
+    return this.req<AppSecrets>('GET', `/v1/apps/${enc(appId)}/secrets`);
+  }
+  secretsPublicKey() {
+    return this.req<SecretsPublicKey>('GET', '/v1/secrets/public-key');
   }
   async approverKeyRevoke(keyId: string) {
     await this.req<unknown>('DELETE', `/v1/auth/approver-keys/${enc(keyId)}`, undefined, 'any');

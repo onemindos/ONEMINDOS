@@ -294,7 +294,55 @@ export interface ApproveBody {
   accept_licence?: string;
   /** #702: or this phone's approval key's signature over approve-options' `device_payload`. */
   device_signature?: DeviceSignature;
+  /** #528: an install's owner-typed secrets, sealed on the phone to `GET /v1/secrets/public-key` (never a plain value). */
+  sealed?: SealedInput;
 }
+
+// #528 install secrets. Same shapes as ui/src/secrets/types.ts (the gateway's responses are untyped in the
+// OpenAPI spec). None of them carries a secret value: values leave the phone only inside SealedInput.
+export type SecretKind = 'api-key' | 'password' | 'token' | 'url';
+
+/** One declared key and whether the box holds a value for it. */
+export interface SecretKeyState {
+  key: string;
+  kind: SecretKind;
+  description: string;
+  required: boolean;
+  /** owner: typed by the owner; generated: made by the box at install. */
+  source: 'owner' | 'generated';
+  set: boolean;
+  version: number | null;
+  updated_at: string | null;
+}
+
+/** `GET /v1/apps/{id}/secrets` */
+export interface AppSecrets {
+  app_id: string;
+  secrets: Array<{ name: string; description: string; keys: SecretKeyState[] }>;
+  /** "<secret>/<key>" of required keys without a value. */
+  missing_required: string[];
+  key_id: string;
+}
+
+/** `GET /v1/secrets/public-key` */
+export interface SecretsPublicKey {
+  alg: 'X25519';
+  /** base64url, 32 bytes */
+  key: string;
+  key_id: string;
+  sealed_alg: 'X25519-AES256GCM';
+}
+
+/** Contract §12.1 sealed input. */
+export interface SealedInput {
+  alg: 'X25519-AES256GCM';
+  kid?: string;
+  epk: string;
+  ct: string;
+}
+
+/** `{ <secret name>: { <key>: <value> } }`: lives only in the form until it is sealed. */
+export type SecretValues = Record<string, Record<string, string>>;
 
 /** #702: an approval key's ECDSA P-256 SHA-256 signature (DER, base64url) over `device_payload`. */
 export interface DeviceSignature {
