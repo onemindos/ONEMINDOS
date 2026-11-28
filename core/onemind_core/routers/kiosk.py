@@ -5,10 +5,12 @@ GET /v1/instance/kiosk   owner: {enabled, apply}
 PUT /v1/instance/kiosk   owner: {enabled} creates or removes the flag file the screen units test
 
 The flag file (ConditionPathExists in onemind-kiosk.service and onemind-screen.service) is the whole
-switch, so this is the way an owner reaches it on a box with a locked root account and no SSH. The
+switch, so this is the way an owner reaches it on a box with a locked root account and no SSH. First boot
+creates it once on the boards made for a monitor (kiosk on by default, founder decision 2026-11-28). The
 gateway user owns /data/onemind/kiosk only; onemind-kiosk.path notices the change and restarts the
-screen units, so the gateway holds no privilege to do it. The kiosk browser never holds a token and
-the keyboard and mouse on the box stay live: whoever sits at it can sign in through the browser.
+screen units, so the gateway holds no privilege to do it. The kiosk launcher holds no token; the keyboard and mouse on the
+box stay live, so whoever sits at it can sign in through the browser, and that session (its token in the
+browser) locks after an idle time the dashboard does not let anyone switch off in the kiosk.
 """
 
 from __future__ import annotations

@@ -13,6 +13,11 @@ deploy/install.sh box are set up the same way, IMG-MESH-01 #292).
   onemind-firstboot join         worker/leaf: `onemind fabric join` with the saved join code
                                  (onemind-fabric-join.service; the owner approves on the hub)
 
+The box's own monitor shows the OneMind desktop (kiosk, onemind-kiosk.service) by default on the boards whose
+image has the compositor (founder decision 2026-11-28): `apply` switches it on once, before setup, so a monitor on
+a fresh box shows the setup page and then the desktop. `kiosk = off` in the settings, the wizard's choice, or
+`onemind kiosk disable` turns it off, and first boot never turns it back on.
+
 Where the settings come from, first match wins:
   1. a cloud-init / NoCloud seed: `onemind:` mapping in the #cloud-config user-data
      (cloud-init's copy on cloud boards, else a filesystem labelled CIDATA/cidata, read-only)
@@ -65,7 +70,12 @@ LEGACY_ROLE_UNITS = {
     "worker": ["onemindd.service"],
     "leaf": ["onemind-nats.service", "onemindd.service"],
 }
-KEYS = ("role", "name", "join_code", "hub_addr")
+KEYS = ("role", "name", "join_code", "hub_addr", "kiosk")
+# The kiosk switch (onemind-kiosk.service and onemind-screen.service test the flag; core routers/kiosk.py and
+# `onemind kiosk` write the same file). The marker records that first boot set the default, so it does so once.
+KIOSK_ON = ("on", "yes", "true", "1")
+KIOSK_OFF = ("off", "no", "false", "0")
+KIOSK_COMPOSITOR = "/usr/bin/cage"     # only the screen boards' images carry it (os/boards/*/packages-debian.txt)
 NAME_RE = re.compile(r"^[^\x00-\x1f\"\\]{1,64}$")
 SCHEMA = "onemind.firstboot/v1"
 
@@ -117,6 +127,10 @@ class Paths:
         self.fabric_state = j("data", "onemind", "etc", "fabric.json")  # written by `onemind fabric join`
         self.hosts = j("etc", "hosts")                                   # a bind mount from /data on the image
         self.state = j("data", "onemind", "firstboot", "state.json")
+        self.kiosk_dir = j("data", "onemind", "kiosk")                   # the gateway owns it (onemind-gateway.service)
+        self.kiosk_flag = j("data", "onemind", "kiosk", "enabled")
+        self.kiosk_marker = j("data", "onemind", "firstboot", "kiosk-default")
+        self.compositor = j(KIOSK_COMPOSITOR.lstrip("/"))
         self.esp_conf = j("boot", "efi", "onemind.conf")
         self.esp_boot = j("boot", "efi", "EFI", "BOOT")                  # grub.cfg, grubenv and user.cfg live here
         self.esp_user_cfg = j("boot", "efi", "EFI", "BOOT", "user.cfg")  # the boot menu lock (os/assemble/grub.cfg.in)
@@ -223,6 +237,11 @@ def validate(cfg: dict) -> dict:
     out = {"role": role, "name": cfg.get("name", "").strip() or "OneMind"}
     if not NAME_RE.match(out["name"]):
         raise ConfigError("name: 1-64 printable characters, no quotes or backslashes")
+    kiosk = str(cfg.get("kiosk", "") or "").strip().lower()
+    if kiosk:
+        if kiosk not in KIOSK_ON + KIOSK_OFF:
+            raise ConfigError("kiosk: on or off (whether a monitor on this box shows the OneMind desktop)")
+        out["kiosk"] = "on" if kiosk in KIOSK_ON else "off"
     code, addr = cfg.get("join_code", "").strip(), cfg.get("hub_addr", "").strip()
     if role == "hub":
         if code or addr:
@@ -864,6 +883,34 @@ def ensure_rescue_tls(p: Paths) -> None:
 
 
 # ------------------------------------------------------------------ configure
+def set_kiosk(p: Paths, on: bool) -> None:
+    """Create or remove the kiosk flag. The folder belongs to the gateway user (it switches the flag over the
+    API), so a flag made here as root stays removable by it. onemind-kiosk.path applies the change."""
+    if on:
+        os.makedirs(p.kiosk_dir, mode=0o755, exist_ok=True)
+        os.chmod(p.kiosk_dir, 0o755)        # the unit's UMask=0077 would make it 0700: the kiosk user must see the flag
+        ids = onemind_ids()
+        if ids:
+            os.chown(p.kiosk_dir, *ids)
+        write(p.kiosk_flag, "on\n", 0o644, ids)
+    else:
+        try:
+            os.unlink(p.kiosk_flag)
+        except FileNotFoundError:
+            pass
+
+
+def kiosk_default(p: Paths) -> bool:
+    """Kiosk on by default (founder 2026-11-28), on a box that is not set up yet and whose image has the
+    compositor. Once only: the marker keeps an owner's later "off" off across reboots and updates, and a box set
+    up before this change keeps the screen its owner knows. True when it switched the kiosk on."""
+    if os.path.exists(p.kiosk_marker) or not os.path.exists(p.compositor):
+        return False
+    set_kiosk(p, True)
+    write(p.kiosk_marker, "kiosk switched on by first boot (default); the owner may turn it off\n", 0o644)
+    return True
+
+
 def configure(p: Paths, cfg: dict, source: str) -> str | None:
     """Write role, secrets and service settings. Returns the owner token (hub) or None.
     state.json is written last: until it exists, the next boot configures again from scratch."""
@@ -920,6 +967,12 @@ def configure(p: Paths, cfg: dict, source: str) -> str | None:
         if cfg.get("hub_addr"):
             st["hub_addr"] = cfg["hub_addr"]
         st["hub"] = parse_join_code(cfg["join_code"])["hub"]
+    # The desktop is the hub's (it serves the dashboard); a worker or leaf screen shows the text screen, which
+    # says to manage it from the hub. On a hub an explicit choice wins; without one the default stays.
+    kiosk = cfg.get("kiosk") if role == "hub" else "off"
+    if kiosk:
+        set_kiosk(p, kiosk == "on")
+        st["kiosk"] = kiosk
     write(os.path.join(p.etc, "role"), role + "\n", 0o644)
     # Everything above (helpers from onemind_core wrote some of it) is on the disk before the box says it is
     # configured: state.json is the "done" mark, and a power cut after it must not find empty secrets.
@@ -1066,6 +1119,9 @@ def apply(p: Paths) -> int:
                 log(f"observer key not made: {exc.__class__.__name__}")
         start_units(p, st)
         return 0
+    if kiosk_default(p):
+        msg = "ONEMIND-FIRSTBOOT: a monitor on this box shows the OneMind desktop (kiosk on; `onemind kiosk disable` turns it off)"
+        log(msg); console(p, msg)
     try:
         cfg, source = find_config(p)
     except ConfigError as exc:

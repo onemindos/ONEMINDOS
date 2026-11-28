@@ -7,7 +7,7 @@ import type { OneMindApi } from '../../api/client';
 import { usePoll } from '../../lib/hooks';
 import { SessionProvider, useSession, useSignedIn } from '../../session';
 import { LockScreen } from './LockScreen';
-import { readIdleLock, readLock, saveIdleLock, useIdleLock } from './state';
+import { inKiosk, readIdleLock, readLock, saveIdleLock, useIdleLock } from './state';
 
 afterEach(() => {
   sessionStorage.clear();
@@ -161,4 +161,19 @@ it('sign-in offers the password and authenticator code beside the passkey, not h
   expect(screen.getByLabelText('Authenticator code (only if you set one up)')).toHaveAttribute('inputmode', 'numeric');
   expect(screen.getByLabelText('Access token').closest('details')).not.toBeNull();
   vi.unstubAllGlobals();
+});
+
+it('on the box\'s own screen (kiosk=1) every role locks when idle and nobody can switch it off', () => {
+  expect(inKiosk()).toBe(false);
+  expect(readIdleLock('adult', false)).toBe(0);                 // a normal browser: the role default
+  window.history.replaceState(null, '', '/?kiosk=1');
+  expect(inKiosk()).toBe(true);
+  window.history.replaceState(null, '', '/');                   // the router drops the query; the tab keeps the marker
+  expect(inKiosk()).toBe(true);
+  expect(readIdleLock('adult', false)).toBe(5);
+  expect(readIdleLock('owner', true)).toBe(15);
+  expect(saveIdleLock('owner', 0)).toBe(false);
+  expect(readIdleLock('owner', true)).toBe(15);
+  expect(saveIdleLock('owner', 60)).toBe(true);
+  expect(readIdleLock('owner', true)).toBe(60);
 });

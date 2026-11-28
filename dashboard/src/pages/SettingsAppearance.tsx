@@ -7,7 +7,7 @@ import { KioskCard } from './KioskCard';
 import { DockOrderSection, HomeTilesSection } from './SettingsAppearanceLayout';
 import { LanguagePicker } from './LanguagePicker';
 import { useSignedIn } from '../session';
-import { idleOptions, saveIdleLock, useIdleLockPreference, type IdleMinutes } from '../shell/lock/state';
+import { idleOptions, inKiosk, saveIdleLock, useIdleLockPreference, type IdleMinutes } from '../shell/lock/state';
 
 export function SettingsAppearance() {
   const { account, principal } = useSignedIn();
@@ -25,7 +25,7 @@ export function SettingsAppearance() {
       {person && <section>
         <label htmlFor="idle-lock">Lock the desktop after</label>
         <select id="idle-lock" value={idle} onChange={(event) => setLockSaveError(!saveIdleLock(person, Number(event.target.value) as IdleMinutes))}>
-          {idleOptions.map((minutes) => <option key={minutes} value={minutes}>{minutes ? `${minutes} minutes` : 'Off'}</option>)}
+          {idleOptions.filter((minutes) => minutes || !inKiosk()).map((minutes) => <option key={minutes} value={minutes}>{minutes ? `${minutes} minutes` : 'Off'}</option>)}
         </select>
         {lockSaveError && <p role="alert">Could not save the lock preference in this browser.</p>}
       </section>}

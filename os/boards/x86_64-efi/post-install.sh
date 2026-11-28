@@ -10,6 +10,8 @@ set -eu
 [ "${LEG:-debian}" = debian ] || { echo "x86_64-efi: leg ${LEG} has no audio or Bluetooth packages, skipped"; exit 0; }
 test -x /usr/libexec/bluetooth/bluetoothd
 test -x /usr/bin/pipewire && test -x /usr/bin/wireplumber && test -x /usr/bin/pipewire-pulse
+# The kiosk (on by default): without these the box's monitor falls back to the text screen.
+test -x /usr/bin/cage && test -x /usr/bin/chromium
 test -f /usr/share/pipewire/pipewire.conf.d/50-onemind-stream-sink.conf
 systemctl add-wants multi-user.target bluetooth.service
 test -L /etc/systemd/system/multi-user.target.wants/bluetooth.service
