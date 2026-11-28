@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { Features, HttpApi, normalizeHubUrl, OP, type OneMindApi, type TokenSource } from './api/client';
 import type { LoginResult, Me, Principal } from './api/types';
 import { clearConnection, loadConnection, saveConnection, type Connection, type LiveConnection } from './storage';
+import { activateLocalDatabases, lockLocalDatabases, resumeLocalDatabases, wipeLocalDatabases } from './device/localDb';
 
 /**
  * Can this person approve, deny or request? With `GET /v1/me` (§12.6) the hub says so. On a v0 hub
@@ -87,6 +88,11 @@ export function buildSession(c: Connection, makeApi: (c: Connection, tokens: Tok
   return { connection: c, api: makeApi(c, t), principal: undefined, me: undefined, features: Features.none(), canDecide: 'unknown', canRequest: 'unknown', label, remembered: true };
 }
 
+/** The key for a person's local app data; undefined (so: locked) when the hub gives no node id. */
+export function localAccountKey(hubNodeId: string | undefined, p: Pick<Principal, 'kind' | 'id'>): string | undefined {
+  return hubNodeId ? JSON.stringify([hubNodeId, p.kind, p.id]) : undefined;
+}
+
 /** Read features and identity from the hub. Never throws: a v0 hub simply has neither. */
 async function enrich(s: Session): Promise<Session> {
   const features = await s.api.features().catch(() => Features.none());
@@ -104,6 +110,7 @@ export function SessionProvider({ deps = {}, children }: { deps?: SessionDeps; c
   const { makeApi = defaultApi, load = loadConnection, save = saveConnection, clear = clearConnection, renewWithDevice } = deps;
   const conn = useRef<Connection | null>(null);
   const live = useRef<Session | null>(null);
+  const signingOut = useRef(false);
   live.current = session;
 
   /** Bearer for every request; renews a passkey session once when the hub says it expired. */
@@ -113,7 +120,7 @@ export function SessionProvider({ deps = {}, children }: { deps?: SessionDeps; c
       refresh: async () => {
         const c = conn.current;
         const s = live.current;
-        if (!c || c.auth !== 'passkey' || !s) return undefined;
+        if (!c || c.auth !== 'passkey' || !s || signingOut.current) return undefined;
         // Right after start the session may not know the hub's routes yet (enrich still running): ask now.
         const features = s.features.source === 'unknown' ? await s.api.features().catch(() => s.features) : s.features;
         let r: LoginResult | undefined;
@@ -123,7 +130,7 @@ export function SessionProvider({ deps = {}, children }: { deps?: SessionDeps; c
           r = undefined;
         }
         if (!r && c.refreshToken && features.has(OP.authRefresh)) r = await s.api.refreshSession(c.refreshToken).catch(() => undefined);
-        if (!r) return undefined;
+        if (!r || conn.current !== c || signingOut.current) return undefined;
         const next: LiveConnection = { ...c, token: r.access_token, expiresAt: r.expires_at, refreshToken: r.refresh_token ?? c.refreshToken };
         conn.current = next;
         await save(next).catch(() => undefined);
@@ -144,13 +151,30 @@ export function SessionProvider({ deps = {}, children }: { deps?: SessionDeps; c
 
   useEffect(() => {
     let alive = true;
-    void load().then((c) => {
+    void load().then(async (c) => {
+      await resumeLocalDatabases(c?.localAccount).catch(() => undefined);
       if (!alive) return;
       if (c) {
         const s = adopt(c);
         setSession(s);
         // Show the app at once; features and identity follow (an unreachable hub must not block the start).
-        void enrich(s).then((e) => alive && setSession((cur) => (cur?.api === s.api ? { ...e, connection: cur.connection } : cur)));
+        void enrich(s).then(async (e) => {
+          // A sign-in saved before local data existed has no account key: derive it once the hub names the person.
+          let localAccount = c.localAccount;
+          if (!localAccount && e.principal) {
+            const key = localAccountKey((await s.api.instance().catch(() => undefined))?.hub_node_id, e.principal);
+            if (key && alive && conn.current === c) {
+              const ok = await activateLocalDatabases(key).then(() => true, () => false);
+              if (ok) {
+                localAccount = key;
+                const next = { ...conn.current, localAccount: key };
+                conn.current = next;
+                await save(next).catch(() => undefined);
+              }
+            }
+          }
+          if (alive) setSession((cur) => (cur?.api === s.api ? { ...e, connection: { ...cur.connection, localAccount } } : cur));
+        });
       }
       setReady(true);
     });
@@ -163,15 +187,18 @@ export function SessionProvider({ deps = {}, children }: { deps?: SessionDeps; c
 
   const connect = useCallback(
     async (raw: Connection) => {
-      const c: Connection = { ...raw, hubUrl: normalizeHubUrl(raw.hubUrl), token: raw.token.trim() };
-      const prev = conn.current;
-      const s = adopt(c);
-      try {
-        await s.api.instance(); // a wrong token throws ApiError 401 before anything is saved
-      } catch (e) {
-        conn.current = prev;
-        throw e;
+      const c: Connection = { ...raw, hubUrl: normalizeHubUrl(raw.hubUrl), token: raw.token.trim(), localAccount: undefined };
+      const candidate = buildSession(c, makeApi);
+      const instance = await candidate.api.instance(); // wrong tokens fail before changing the session
+      const verified = await enrich(candidate);
+      const key = verified.principal ? localAccountKey(instance.hub_node_id, verified.principal) : undefined;
+      if (key) {
+        c.localAccount = key;
+        await activateLocalDatabases(key).catch(() => undefined);
+      } else {
+        await lockLocalDatabases().catch(() => undefined);
       }
+      const s = adopt(c);
       let remembered = true;
       try {
         await save(c);
@@ -180,31 +207,48 @@ export function SessionProvider({ deps = {}, children }: { deps?: SessionDeps; c
         // Never fall back to plain storage; keep the session in memory only.
         remembered = false;
       }
-      const e = await enrich(s);
       setExpiredHub(undefined);
-      setSession({ ...e, remembered });
+      setSession({ ...verified, api: s.api, connection: c, remembered });
     },
-    [adopt, save],
+    [adopt, makeApi, save],
   );
 
   const disconnect = useCallback(async () => {
-    const s = live.current;
-    if (s) {
-      for (const fn of forgetHooks) await fn(s.api, s.connection.hubUrl).catch(() => undefined);
-      if (s.connection.auth === 'passkey') await s.api.logout().catch(() => undefined);
+    signingOut.current = true;
+    const before = conn.current;
+    try {
+      // The wipe records its intent on disk before closing or deleting anything.
+      await wipeLocalDatabases().catch(() => undefined);
+      const s = live.current;
+      if (s) {
+        for (const fn of forgetHooks) await fn(s.api, s.connection.hubUrl).catch(() => undefined);
+        if (s.connection.auth === 'passkey') await s.api.logout().catch(() => undefined);
+      }
+    } finally {
+      conn.current = null;
+      try {
+        // Forget the stored sign-in while the signed-in screen is still up, so a failure can be shown there
+        // and Disconnect tried again (the stored sign-in would otherwise return on the next launch).
+        await clear();
+      } catch (e) {
+        conn.current = before;
+        throw e;
+      } finally {
+        signingOut.current = false;
+      }
+      setExpiredHub(undefined);
+      setSession(null);
     }
-    await clear();
-    conn.current = null;
-    setExpiredHub(undefined);
-    setSession(null);
   }, [clear]);
 
   const expire = useCallback(async () => {
+    if (signingOut.current) return;
     const c = conn.current;
-    await clear();
     conn.current = null;
     setExpiredHub(c?.hubUrl);
     setSession(null);
+    await lockLocalDatabases().catch(() => undefined);
+    await clear();
   }, [clear]);
 
   const markForbidden = useCallback(() => setSession((s) => (s ? { ...s, canDecide: 'no' } : s)), []);

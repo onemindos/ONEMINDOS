@@ -15,6 +15,7 @@ export type RootParams = {
   AppDetail: { id: string };
   Tips: { id?: string } | undefined;
   Settings: undefined;
+  Permissions: undefined;
   PhotoBackup: undefined;
   PhotoAlbums: undefined;
   /** Under More (IA §3); pushes open it directly. */

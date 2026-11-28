@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { digestStringAsync, CryptoDigestAlgorithm, randomUUID } from 'expo-crypto';
-import { Directory, File, Paths } from 'expo-file-system';
+import { Directory, File, Paths } from '../device/files';
 import type { OneMindApi, TusTransport } from '../api/client';
 import { ApiError } from '../api/types';
 import { uploadLocalFile, uploadProblem } from '../lib/filesTransfer';

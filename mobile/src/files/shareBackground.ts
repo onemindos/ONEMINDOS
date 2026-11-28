@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import * as BackgroundTask from 'expo-background-task';
-import * as TaskManager from 'expo-task-manager';
+import { BackgroundTask, TaskManager } from '../device/background';
 import { HttpApi } from '../api/client';
 import { loadConnection } from '../storage';
 import { deliverShare, readShare, shareDirectory } from './shareQueue';

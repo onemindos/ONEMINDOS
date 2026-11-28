@@ -45,6 +45,7 @@ export function MoreScreen() {
       <Screen testID="more">
         <H1>Me</H1>
         <Item to="Settings" label="Settings" detail="You, this phone, push, connection" />
+        <Item to="Permissions" label="This phone" detail="Permissions and why OneMind asks for them" />
         <Item to="Activity" label="Activity" detail="Requests, decisions and results" />
         <Item to="Inbox" label="Inbox" detail="Alerts and notifications from your box" badge={unreadCount + open || undefined} />
         <Item to="Nodes" label="Nodes" detail="Every machine in your OneMind, and whether it is live" />

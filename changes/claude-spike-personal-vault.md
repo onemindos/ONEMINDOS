@@ -1,0 +1,5 @@
+---
+pr: 1198
+branch: claude/spike-personal-vault
+---
+Spike for the personal vault behind Advanced protection (gateway permissions design 25g, D-028, question N-10), no product code. A QEMU/KVM guest on the Debian 13 kernel (6.12) with a btrfs /data measured both candidates against pre-registered checks RC0 to RC7 (test/qemu/CRITERIA-RECOVERY-VAULT.md). fscrypt is refused on btrfs by that kernel, so it would need its own ext4 loop file anyway. A per-owner LUKS2 vault file on /data (no copy-on-write, ext4 inside) passed every check: the raw file holds only ciphertext, the vault is locked after a restart until its key is given, two keyslots each open it and a wrong key fails, and a restic backup keeps it as ciphertext that the printed kit's restic key cannot read while a 1 MiB change inside a 512 MiB vault adds only about 3 MiB to the repository. A plain-folder run fails the same checks, as it must. Recommendation for PR 25h: the LUKS2 vault file, formatted with a fast key-derivation setting because no slot is a human password. Harness and design note in test/qemu/vaultspike/ (run.sh, README.md).

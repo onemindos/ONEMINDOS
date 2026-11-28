@@ -2,7 +2,7 @@
 // Local notifications (expo-notifications): what the app shows itself, with text it read from the
 // box over HTTPS. Remote pings (mobile/docs/push.md) carry no text; while the app is open their
 // generic banner is suppressed and the app shows the real text instead.
-import * as Notifications from 'expo-notifications';
+import { Notifications } from './device/notifications';
 import { Platform } from 'react-native';
 import type { Alert } from './lib/alerts';
 import { parsePing } from './lib/push';
@@ -25,10 +25,7 @@ export async function setupNotifications(): Promise<boolean> {
       });
     }
   }
-  const current = await Notifications.getPermissionsAsync();
-  if (current.granted) return true;
-  if (!current.canAskAgain) return false;
-  return (await Notifications.requestPermissionsAsync()).granted;
+  return (await Notifications.getPermissionsAsync()).granted;
 }
 
 export async function showAlert(a: Alert): Promise<void> {

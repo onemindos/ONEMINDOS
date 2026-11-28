@@ -9,7 +9,7 @@
 //            APNs device token to the box (never Expo's push service, which would add a third-party
 //            cloud); the box asks the relay to ping it. The relay needs the founder's Apple
 //            developer account (F-4).
-import * as Notifications from 'expo-notifications';
+import { Notifications, requestNotificationPermission } from '../device/notifications';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { unifiedPush as defaultUp, type UnifiedPushNative, type UpEndpoint } from '../../modules/onemind-unifiedpush';
@@ -47,7 +47,11 @@ export interface PushTransport {
 const ENDPOINT_TIMEOUT_MS = 20_000;
 
 /** Android: UnifiedPush through the native module (mobile/modules/onemind-unifiedpush). */
-export function unifiedPushTransport(up: UnifiedPushNative | undefined = defaultUp, timeoutMs = ENDPOINT_TIMEOUT_MS): PushTransport {
+export function unifiedPushTransport(
+  up: UnifiedPushNative | undefined = defaultUp,
+  timeoutMs = ENDPOINT_TIMEOUT_MS,
+  askNotifications: () => Promise<boolean> = requestNotificationPermission,
+): PushTransport {
   const handle = (e: UpEndpoint): PushHandle => ({
     platform: 'unifiedpush',
     endpoint: e.url,
@@ -64,6 +68,8 @@ export function unifiedPushTransport(up: UnifiedPushNative | undefined = default
       if (!up) throw new PushError('no_module', 'UnifiedPush is not part of this build');
       if (!up.savedDistributor() && !(await up.useDefaultDistributor()))
         throw new PushError('no_distributor', 'No UnifiedPush distributor was chosen');
+      // Android 13+: without POST_NOTIFICATIONS the pings arrive but nothing can be shown (asked here, not at launch).
+      if (!(await askNotifications())) throw new PushError('no_permission', 'Notifications are off for OneMind');
       return new Promise<PushHandle>((resolve, reject) => {
         const subs = [
           up.addListener('onNewEndpoint', (e) => done(() => resolve(handle(e)))),
