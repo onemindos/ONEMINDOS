@@ -68,3 +68,19 @@ it('skip for now is offered while the kit is unconfirmed', async () => {
   await u.click(screen.getByRole('button', { name: 'Skip for now' }));
   expect(skip).toHaveBeenCalled();
 });
+
+it('shows the disk recovery key once when the kit carries it (D-020, design 25a)', async () => {
+  const u = userEvent.setup();
+  const kit = make({ issue: vi.fn().mockResolvedValue({ ...issued, disk_key: 'cbdefghi-jklnrtuv' }) });
+  render(<RecoveryKit kit={kit} onConfirmed={() => {}} />);
+  await u.click(screen.getByRole('button', { name: /Create my emergency kit/ }));
+  expect(await screen.findByLabelText('Disk recovery key')).toHaveTextContent('cbdefghi-jklnrtuv');
+});
+
+it('shows no disk key section for a plain disk', async () => {
+  const u = userEvent.setup();
+  render(<RecoveryKit kit={make()} onConfirmed={() => {}} />);
+  await u.click(screen.getByRole('button', { name: /Create my emergency kit/ }));
+  await screen.findByLabelText('Owner recovery key');
+  expect(screen.queryByLabelText('Disk recovery key')).toBeNull();
+});

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -35,9 +36,13 @@ type Server struct {
 	E               *Engine
 	Net             *netmount.Manager // NAS mounts (#718); nil leaves the routes off
 	RecoveryKeyFile string            // default storage.RecoveryKeyFile
-	AllowUID        int               // besides root; -1 none
-	AllowGID        int               // -1 none
-	HealthEvery     time.Duration     // SMART is read at most this often (default 10 min, storage.md §4.7)
+	// FirstBootKeyFile is where the image's first boot (data_encrypt.py) leaves the
+	// /data recovery key; default storage.FirstBootRecoveryKeyFile. The emergency kit
+	// takes it from here once (design 25a, D-020: the disk key goes in the owner kit).
+	FirstBootKeyFile string
+	AllowUID         int           // besides root; -1 none
+	AllowGID         int           // -1 none
+	HealthEvery      time.Duration // SMART is read at most this often (default 10 min, storage.md §4.7)
 
 	mu       sync.Mutex
 	health   map[string]storage.Health
@@ -269,11 +274,27 @@ func (s *Server) Handler() http.Handler {
 	})
 }
 
-func (s *Server) keyFile() string {
-	if s.RecoveryKeyFile != "" {
-		return s.RecoveryKeyFile
+// keyFiles lists where a pending recovery key may wait, in the order they are
+// taken: a set made by `onemindd storage init`, then the image's first boot.
+func (s *Server) keyFiles() []string {
+	own, first := s.RecoveryKeyFile, s.FirstBootKeyFile
+	if own == "" {
+		own = storage.RecoveryKeyFile
 	}
-	return storage.RecoveryKeyFile
+	if first == "" {
+		first = storage.FirstBootRecoveryKeyFile
+	}
+	return []string{own, first}
+}
+
+// keyFile is the first file that holds a pending key ("" when none does).
+func (s *Server) keyFile() string {
+	for _, p := range s.keyFiles() {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
 }
 
 // takeRecoveryKey returns the pending key and destroys the file (overwrite,
@@ -282,6 +303,9 @@ func (s *Server) takeRecoveryKey() (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	path := s.keyFile()
+	if path == "" {
+		return "", os.ErrNotExist
+	}
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return "", err
@@ -294,15 +318,14 @@ func (s *Server) takeRecoveryKey() (string, error) {
 	if err := os.Remove(path); err != nil {
 		return "", err
 	}
-	return string(b), nil
+	// data_encrypt.py ends the file with a newline; the key itself never has one.
+	return strings.TrimSpace(string(b)), nil
 }
 
 // Status reads the set and disks now; SMART at most every HealthEvery.
 func (s *Server) Status(ctx context.Context) (Status, error) {
 	st := Status{Mount: s.E.Mount, Journal: s.E.Store != nil, Active: s.E.Active(), TPM2: storage.TPM2Present(), At: s.E.now()}
-	if _, err := os.Stat(s.keyFile()); err == nil {
-		st.RecoveryKeyPending = true
-	}
+	st.RecoveryKeyPending = s.keyFile() != ""
 	m, err := s.E.Facts.Mirror(ctx, s.E.Mount)
 	if err != nil {
 		return st, err

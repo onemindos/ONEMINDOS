@@ -451,6 +451,31 @@ class StorageService:
                 pass
         return _redacted(row, principal)
 
+    def kit_disk_key(self) -> tuple[str, str | None]:
+        """For the emergency kit only (design 25a, D-020): ('included', key) once, when the /data recovery key is still
+        waiting on this node; ('not_encrypted', None) for a plain disk; ('not_available', None) otherwise. The key is
+        taken (onemindd destroys its copy) and handed to the kit; the gateway never stores or logs it. This is not the
+        general POST /v1/storage/recovery-key route, which stays off (StorageSettings.recovery_key_api)."""
+        if not self.cfg.enabled:
+            return "not_available", None
+        try:
+            status, st = self.client.call("GET", "/v1/status")
+        except (StorageUnavailable, StorageTimeout):
+            return "not_available", None
+        st = st if status == 200 and isinstance(st, dict) else {}
+        if status == 200 and not st.get("recovery_key_pending"):
+            encrypted = (st.get("mirror") or {}).get("encrypted", False)
+            return ("not_available" if encrypted else "not_encrypted"), None
+        try:
+            status, body = self.client.call("POST", "/v1/recovery-key/take")
+        except (StorageUnavailable, StorageTimeout):
+            return "not_available", None
+        key = (body or {}).get("recovery_key") if status == 200 else None
+        if not key:
+            return "not_available", None
+        self.gw.events.publish_event("storage", "recovery_key.shown", {"node_id": self.node_id, "via": "emergency_kit"})
+        return "included", key
+
     def take_recovery_key(self, principal: Principal) -> dict:
         status, body = self._call("POST", "/v1/recovery-key/take")
         if status == 404:

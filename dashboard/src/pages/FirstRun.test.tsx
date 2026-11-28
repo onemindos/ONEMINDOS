@@ -54,7 +54,7 @@ it('shows load failure and retries without presenting an empty destination list 
   await waitFor(() => expect(screen.getByText('Existing wizard')).toBeInTheDocument());
 });
 
-it('offers the recovery kit only when a destination exists, and the key goes through issue once, unstored', async () => {
+it('offers the recovery kit, and the key goes through issue once, unstored', async () => {
   h.get.mockResolvedValue({ ...values, saved: true });
   h.destinations.mockResolvedValue([{ id: values.backup_destination_id, kind: 'usb', label: 'Existing disk' }]);
   h.state.mockResolvedValueOnce({ complete: false, settings_saved: true, backups_enabled: true, destinations: 1, kit: noKit });
@@ -70,9 +70,23 @@ it('offers the recovery kit only when a destination exists, and the key goes thr
   expect(JSON.stringify({ ...window.sessionStorage })).not.toContain('AAAA');
 });
 
-it('does not offer a kit without any backup destination', async () => {
+it('offers a kit without any backup destination, with the disk key (design 25a)', async () => {
   h.get.mockResolvedValue({ ...values, saved: true });
   h.destinations.mockResolvedValue([]);
+  h.state.mockResolvedValueOnce({ complete: true, settings_saved: true, backups_enabled: true, destinations: 0, kit: noKit });
+  h.issue.mockResolvedValue({ kit: { ...noKit, state: 'issued', positions: [1, 3] },
+    one_time: { groups: ['AAAA'], check: 'ZZZZ', text: 'KIT TEXT', disk_key: 'cbdefghi-jklnrtuv' } });
+  render(<FirstRun onDone={h.done} />);
+  await screen.findByText('Existing wizard');
+  const kit = h.props.kit as { issue: () => Promise<{ disk_key?: string | null }> };
+  expect(kit).toBeDefined();
+  expect((await kit.issue()).disk_key).toBe('cbdefghi-jklnrtuv');
+});
+
+it('does not offer a kit when backups are off on this box', async () => {
+  h.get.mockResolvedValue({ ...values, saved: true });
+  h.destinations.mockResolvedValue([]);
+  h.state.mockResolvedValueOnce({ complete: true, settings_saved: true, backups_enabled: false, destinations: 0, kit: noKit });
   render(<FirstRun onDone={h.done} />);
   await screen.findByText('Existing wizard');
   expect(h.props.kit).toBeUndefined();

@@ -503,6 +503,8 @@ POLICY |= {
     ("GET", "/v1/restores/{restore_id}"): Row(HOUSEHOLD_404, w.p_missing("/v1/restores/{restore}"), f"{_BACKUPS}: household read"),
     ("GET", "/v1/backups/kit"): Row(ONLY_OWNER, w.p_static("/v1/backups/kit"), f"{_BACKUPS}: the emergency kit is owner only"),
     ("POST", "/v1/backups/kit"): Row(OFF_OWNER_ONLY, w.p_static("/v1/backups/kit"), f"{_BACKUPS}: the emergency kit is owner only"),
+    ("POST", "/v1/backups/kit/attach"): Row(OFF_OWNER_ONLY, w.p_missing("/v1/backups/kit/attach", json={"groups": ["AAAA"] * 13, "check": "AAAA"}),
+                                            f"{_BACKUPS}: the emergency kit is owner only (25a: attach it to newer destinations)"),
     ("POST", "/v1/backups/kit/confirm"): Row(OWNER_ONLY_404, w.p_missing("/v1/backups/kit/confirm", json={"answers": {}}),
                                              f"{_BACKUPS}: the emergency kit is owner only"),
     # ---- first-run settings (contract 12.41) ----------------------------------------------------------------

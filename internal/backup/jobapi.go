@@ -277,6 +277,9 @@ func (a *Agent) runJobKind(ctx context.Context, j Job) (any, error) {
 		var p struct {
 			Which string `json:"which"`
 			Key   string `json:"key"`
+			// TargetIDs limits the add to these destinations (an emergency kit attached to
+			// destinations added after it was issued); empty means every destination.
+			TargetIDs []string `json:"target_ids"`
 		}
 		if err := decodeParams(j.Params, &p); err != nil {
 			return nil, err
@@ -287,7 +290,7 @@ func (a *Agent) runJobKind(ctx context.Context, j Job) (any, error) {
 		if len(p.Key) < 32 || strings.ContainsAny(p.Key, "\r\n") {
 			return nil, badParams{fmt.Errorf("key must be at least 32 characters on one line")}
 		}
-		return a.AddKey(ctx, p.Key)
+		return a.AddKey(ctx, p.Key, p.TargetIDs...)
 
 	case KindStatus:
 		var p struct{}
@@ -335,15 +338,32 @@ type KeyResult struct {
 }
 
 // AddKey adds a recovery key to every destination's repository (BACKUPS.md
-// §5.1: the same keys open every target). The key exists on disk only in a
-// 0600 temporary file while restic reads it.
-func (a *Agent) AddKey(ctx context.Context, key string) ([]KeyResult, error) {
+// §5.1: the same keys open every target), or only to the destinations named in
+// only. The key exists on disk only in a 0600 temporary file while restic reads it.
+func (a *Agent) AddKey(ctx context.Context, key string, only ...string) ([]KeyResult, error) {
 	if err := a.acquire(ctx, "key-add"); err != nil {
 		return nil, err
 	}
 	defer a.release()
 	c := a.conf()
-	if len(c.Targets) == 0 {
+	targets := c.Targets
+	if len(only) > 0 {
+		want := map[string]bool{}
+		for _, id := range only {
+			want[id] = true
+		}
+		targets = nil
+		for _, t := range c.Targets {
+			if want[t.ID] {
+				targets = append(targets, t)
+				delete(want, t.ID)
+			}
+		}
+		if len(want) > 0 {
+			return nil, badParams{fmt.Errorf("unknown destination in target_ids")}
+		}
+	}
+	if len(targets) == 0 {
 		return nil, errors.New("no destination is set up yet")
 	}
 	if err := os.MkdirAll(c.StateDir, 0o700); err != nil {
@@ -363,7 +383,7 @@ func (a *Agent) AddKey(ctx context.Context, key string) ([]KeyResult, error) {
 	}
 	out := []KeyResult{}
 	var failed int
-	for _, t := range c.Targets {
+	for _, t := range targets {
 		r := KeyResult{TargetID: t.ID}
 		repo, err := a.readyRepo(ctx, t)
 		if err == nil {

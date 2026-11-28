@@ -18,6 +18,7 @@ Long work runs on one worker thread, in order, so a restore never overlaps a bac
 from __future__ import annotations
 
 import hashlib
+import hmac
 import logging
 import queue
 import secrets
@@ -36,7 +37,7 @@ from ..errors import ApiError
 from ..executors import ExecResult
 from ..ledger import Action, iso, utc
 from .jobs import AgentClient, AgentError, load_or_create_job_key
-from .kit import answer_ok, challenge, kit_text, new_owner_key
+from .kit import answer_ok, challenge, check_group_ok, kit_text, new_owner_key
 from .kube import DryKube, Kube, KubeError, Workload
 from .manifest import BackupSpec, backup_spec, database_spec
 from .settings import BackupsSettings
@@ -137,6 +138,15 @@ class BackupService:
         # action id -> (owner recovery key, expiry): a first-run restore from another box's backup. Memory only, never in
         # the action's params, the audit log or the database; dropped when used, expired or the gateway restarts.
         self._pending_keys: dict[str, tuple[str, datetime]] = {}
+        # action id -> the owner key typed back to attach the kit to newer destinations (memory only).
+        self._attach_keys: dict[str, str] = {}
+        # Kit issues whose answer the owner will see (the POST /v1/backups/kit shortcut). Only those take the disk key:
+        # it is destroyed on the node when taken, so a kit approved elsewhere, whose one-time answer nobody reads,
+        # must not consume it.
+        self._shown: set[str] = set()
+        # () -> (disk key state, key or None): the /data recovery key, taken once from onemindd for the kit.
+        # routers/storage.py (registered after this, ORDER 310) sets it; None means no storage service.
+        self.disk_key_source: Callable[[], tuple[str, str | None]] | None = None
         self._stop = threading.Event()
         self._last_slot: datetime | None = None
         acts = gw.actions
@@ -147,6 +157,8 @@ class BackupService:
         acts.register_type("backup.destination.add", FeatureAction("sensitive", self._act_dest_add))
         acts.register_type("backup.destination.remove", FeatureAction("destructive", self._act_dest_remove))
         acts.register_type("backup.kit.issue", FeatureAction("sensitive", self._act_kit_issue))
+        acts.register_type("backup.kit.attach", FeatureAction("sensitive", self._act_kit_attach,
+                                                              release=lambda a: self._attach_keys.pop(a.id, None)))
         acts.register_type("backup.content.set", FeatureAction("write", self._act_content_set))
 
     # ---- plumbing ---------------------------------------------------------------------------
@@ -406,11 +418,18 @@ class BackupService:
 
     # ---- status, runs, snapshots --------------------------------------------------------------
     def kit_state(self) -> dict:
+        """The kit's state, never the key. `missing_on`: destinations whose repository does not hold the owner key
+        yet (added after the kit was issued; POST /v1/backups/kit/attach adds it). `disk_key`: what the kit says
+        about the /data recovery key (D-020: it goes in the kit)."""
         k = self.repo.kit()
         if k is None:
-            return {"state": "missing", "issued_at": None, "confirmed_at": None, "fingerprint": None, "positions": []}
+            return {"state": "missing", "issued_at": None, "confirmed_at": None, "fingerprint": None, "positions": [],
+                    "missing_on": [], "disk_key": None}
+        have = None if k.destinations is None else set(k.destinations)
+        missing = [] if have is None else [d.id for d in self.repo.destinations() if d.id not in have]
         return {"state": k.state, "issued_at": iso(k.issued_at), "confirmed_at": iso(k.confirmed_at),
-                "fingerprint": k.fingerprint, "positions": k.challenge.get("positions", [])}
+                "fingerprint": k.fingerprint, "positions": k.challenge.get("positions", []),
+                "missing_on": missing, "disk_key": k.disk_key}
 
     def builtin_units(self) -> list[dict]:
         """The gateway database and every switched-on built-in's declared tables and folders (#616)."""
@@ -1045,30 +1064,112 @@ class BackupService:
         finish(ExecResult("succeeded", msg, [{"app_id": app_id, "enabled": p["enabled"]}]))
 
     # ---- emergency kit ------------------------------------------------------------------------
+    def will_show(self, action_id: str) -> None:
+        self._shown.add(action_id)
+
+    def forget_show(self, action_id: str) -> None:
+        self._shown.discard(action_id)
+
+    def is_shown(self, action_id: str) -> bool:
+        return action_id in self._shown
+
+    def pending_kit_request(self, principal, action_id: str) -> str:
+        """The kit request POST /v1/backups/kit may finish with a passkey: a backup.kit.issue still awaiting approval,
+        filed by this same principal (the key goes to whoever finishes it, so nobody finishes another's request)."""
+        a = self.gw.actions.get(action_id)  # 404 when unknown; expires it when due
+        if a["type"] != "backup.kit.issue":
+            raise ApiError(409, "conflict", "that action is not an emergency kit request")
+        if (a.get("requested_by") or {}).get("id") != principal.id:
+            self.gw.audit.append("authz.denied", principal.as_dict(), action_id,
+                                 {"attempted": "finish another principal's kit request", "reason": "permission_denied"})
+            raise ApiError(403, "permission_denied", "only whoever asked for this kit can finish it")
+        if a["state"] != "awaiting_approval":
+            raise ApiError(409, "conflict", f"this kit request is {a['state']}; a kit is shown once, ask for a new one")
+        return action_id
+
+    def _disk_key(self, previous: KitRow | None, action_id: str) -> tuple[str, str | None]:
+        """The /data recovery key for the kit, taken once from onemindd (D-020). Never stored or logged."""
+        state, key = "not_available", None
+        if self.disk_key_source is not None and action_id in self._shown:
+            try:
+                state, key = self.disk_key_source()
+            except Exception as exc:  # a missing key never blocks the kit; the kit says so instead
+                log.warning("kit: the disk key could not be read from the storage service (%s)", type(exc).__name__)
+        if state != "included" and previous is not None and previous.disk_key in ("included", "earlier_kit"):
+            state = "earlier_kit"  # shown once, in an earlier kit: that page still unlocks the disk
+        return state, key if state == "included" else None
+
     def _act_kit_issue(self, a: Action, finish: Callable[[ExecResult], None]) -> None:
+        """Every owner gets a kit (design 25a): with no destination yet, the key is attached to each destination added
+        later (kit/attach). A re-issue only ADDS the new key: the old one stays in every repository, so no snapshot
+        becomes unopenable (removing it is backup.key.rotate, not this)."""
+        if a.id not in self._shown:
+            # Approved where nobody sees the answer (a path past the route's guard): issue nothing, so no restic key
+            # nobody holds is added, the owner's kit stays, and the disk key stays with onemindd.
+            finish(ExecResult("failed", "the emergency kit is shown once, to whoever approves it: "
+                              "issue it in Backups, Emergency Kit"))
+            return
         dests = [destination_json(d) for d in self.repo.destinations()]
-        if not dests:
-            finish(ExecResult("failed", "add a backup destination first: the key is added to its repository"))
-            return
         key = new_owner_key()
-        try:
-            res = self._job("backup.key.add", {"which": "owner", "key": key.password}, a.id)
-        except (AgentError, Unavailable) as e:
-            finish(ExecResult("failed", f"the key could not be added to every destination: {e}"))
-            return
+        res: object = []
+        if dests:
+            try:
+                res = self._job("backup.key.add", {"which": "owner", "key": key.password}, a.id)
+            except (AgentError, Unavailable) as e:
+                finish(ExecResult("failed", f"the key could not be added to every destination: {e}"))
+                return
+        previous = self.repo.kit()
+        disk_state, disk_key = self._disk_key(previous, a.id)
+        self._shown.discard(a.id)
         now = self.gw.clock()
         ch = challenge(key)
         self.repo.put_kit(KitRow(id="kit", state="issued", fingerprint=key.fingerprint, challenge=ch, issued_at=utc(now),
-                                 confirmed_at=None, attempts=0))
+                                 confirmed_at=None, attempts=0, destinations=[d["id"] for d in dests], disk_key=disk_state))
         self._one_time[a.id] = {
             "owner_key": key.password, "groups": list(key.groups), "check": key.check,
             "qr_payload": f"onemind-kit:v1?key={key.password}&box={self.gw.settings.node_id or ''}",
+            "disk_key": disk_key, "disk_key_state": disk_state,
             "text": kit_text(box_name=self.gw.settings.instance_name, instance_id=self.gw.settings.node_id or "",
-                             key=key, destinations=dests, issued_at=now),
+                             key=key, destinations=dests, issued_at=now, disk_key=disk_key, disk_key_state=disk_state),
         }
-        self._event("kit.issued", {"fingerprint": key.fingerprint, "destinations": len(dests)}, action_id=a.id)
+        self._event("kit.issued", {"fingerprint": key.fingerprint, "destinations": len(dests), "disk_key": disk_state},
+                    action_id=a.id)
         finish(ExecResult("succeeded", "emergency kit issued; it is shown once",
-                          [{"fingerprint": key.fingerprint, "destinations": res}]))
+                          [{"fingerprint": key.fingerprint, "destinations": res, "disk_key": disk_state}]))
+
+    def hold_attach_key(self, action_id: str, password: str) -> None:
+        self._attach_keys[action_id] = password
+
+    def check_kit_key(self, groups: list[str], check: str) -> str:
+        """The typed kit key -> its restic password, if it is THIS box's current kit (fingerprint, constant time)."""
+        k = self.repo.kit()
+        if k is None:
+            raise ApiError(404, "not_found", "no emergency kit has been issued")
+        if not check_group_ok(groups, check):
+            raise ApiError(422, "conflict", "the check group does not match those 13 groups; look at the printed key again")
+        password = "-".join(g.strip().upper() for g in groups)
+        if not hmac.compare_digest(hashlib.sha256(password.encode()).hexdigest()[:16], k.fingerprint):
+            raise ApiError(409, "conflict", "that is not the current kit of this box")
+        return password
+
+    def _act_kit_attach(self, a: Action, finish: Callable[[ExecResult], None]) -> None:
+        password = self._attach_keys.pop(a.id, None)
+        if password is None:
+            finish(ExecResult("failed", "the key was held in memory only and is gone; type it again"))
+            return
+        missing = self.kit_state()["missing_on"]
+        if not missing:
+            finish(ExecResult("succeeded", "every destination already holds the owner key", []))
+            return
+        try:
+            res = self._job("backup.key.add", {"which": "owner", "key": password, "target_ids": missing}, a.id)
+        except (AgentError, Unavailable) as e:
+            finish(ExecResult("failed", f"the key could not be added: {e}"))
+            return
+        k = self.repo.kit()
+        self.repo.update_kit(destinations=sorted(set(k.destinations or []) | set(missing)))
+        self._event("kit.attached", {"fingerprint": k.fingerprint, "destinations": missing}, action_id=a.id)
+        finish(ExecResult("succeeded", f"the owner key now opens {len(missing)} more destination(s)", res))
 
     def take_one_time(self, action_id: str) -> dict | None:
         return self._one_time.pop(action_id, None)

@@ -17,7 +17,17 @@ from sqlalchemy.orm import Mapped, mapped_column
 from ..ledger import Base, iso, utc
 from ..store import FeatureSchema, SqlRepository
 
-SCHEMA = FeatureSchema("backups")  # version 1 = the shape below
+SCHEMA = FeatureSchema("backups")  # version 1 = the shape below; 2 = the kit's destinations and disk key
+
+
+@SCHEMA.step(2, "emergency kit: which destinations hold the owner key, and whether the kit printed the disk key (25a)")
+def _backups_v2(conn) -> None:
+    from sqlalchemy import inspect, text
+
+    have = {c["name"] for c in inspect(conn).get_columns("backups_kit")}
+    for name, ddl in (("destinations", "JSON"), ("disk_key", "VARCHAR(16)")):
+        if name not in have:
+            conn.execute(text(f"ALTER TABLE backups_kit ADD COLUMN {name} {ddl}"))
 
 
 class DestinationRow(Base):
@@ -75,6 +85,13 @@ class KitRow(Base):
     issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     attempts: Mapped[int] = mapped_column(default=0)
+    # Ids of the destinations whose repository holds the owner key. None on a kit issued before
+    # schema 2: every destination of that time got the key, so it reads as "all of them".
+    destinations: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # What this kit says about the /data disk key: included (printed in it, never stored),
+    # not_encrypted (the disk has no key), not_available (encrypted, but the key was already shown
+    # once or the storage service could not be asked). None: issued before schema 2.
+    disk_key: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
 
 class ContentTierRow(Base):

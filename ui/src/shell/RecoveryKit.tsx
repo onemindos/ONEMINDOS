@@ -13,6 +13,8 @@ export interface IssuedKit {
   text: string;
   /** 1-based positions of the two groups to type back. */
   positions: number[];
+  /** The data disk's recovery key (D-020), when this kit carries it. Shown once, like the owner key. */
+  disk_key?: string | null;
 }
 export interface OnboardingKit {
   state: 'missing' | 'issued' | 'confirmed';
@@ -91,6 +93,12 @@ export function RecoveryKit({ kit, onConfirmed, onSkip }: { kit: OnboardingKit; 
           <>
             <pre className="om-code" aria-label="Owner recovery key"><code>{issued.groups.join('-')}</code></pre>
             <p className="om-hint">Check group: <strong>{issued.check}</strong>. Save this page offline, away from this box.</p>
+            {issued.disk_key && (
+              <>
+                <p className="om-hint">Disk recovery key. It unlocks this box's data disk if the security chip cannot (a moved disk, a new motherboard). It is on the kit page too.</p>
+                <pre className="om-code" aria-label="Disk recovery key"><code>{issued.disk_key}</code></pre>
+              </>
+            )}
             <div className="oms-kit-actions">
               <button type="button" className={cx('om-btn', saved ? 'om-btn-secondary' : 'om-btn-primary')} onClick={download}>
                 <ShellIcon name={saved ? 'check' : 'download'} size={18} /> {saved ? 'Saved · download again' : 'Download emergency kit'}

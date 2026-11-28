@@ -34,8 +34,9 @@ owner / agent ──REST──▶ gateway ── kubectl exec (hooks, pg_dump, p
 | `GET /v1/backups/verifications` | read | `{unit, snapshot_id, mode, result: pass\|fail\|error, probes}` |
 | `POST /v1/restores` | owner | `{snapshot_id, scope: {app_id} \| {app_id, path}}` → `202` `backup.restore` plus `restore.plan` |
 | `GET /v1/restores`, `/restores/{id}` | read | state, plan, steps, `pre_restore_snapshot_id`, `health_gate` |
-| `GET /v1/backups/kit` | owner | `{state: missing\|issued\|confirmed, positions}` |
-| `POST /v1/backups/kit` | owner | issues the emergency kit; `201` with `one_time: {owner_key, groups, check, text, qr_payload}`, shown once |
+| `GET /v1/backups/kit` | owner | `{state: missing\|issued\|confirmed, positions, missing_on, disk_key}`: `missing_on` lists destinations added after the kit (their repository lacks the owner key); `disk_key` is `included\|earlier_kit\|not_encrypted\|not_available` |
+| `POST /v1/backups/kit` | owner | issues the emergency kit, with or without a destination; `201` with `one_time: {owner_key, groups, check, text, qr_payload, disk_key, disk_key_state}`, shown once. When `/data` is LUKS2 the kit takes the disk recovery key from onemindd once (D-020); it is never stored. A re-issue only adds a key |
+| `POST /v1/backups/kit/attach` | owner | `{groups, check}`: the printed key typed back; adds it to the `missing_on` destinations (`backup.kit.attach`) |
 | `POST /v1/backups/kit/confirm` | owner | `{answers: {"<pos>": "<group>"}}`: two key groups typed back |
 | `GET /v1/databases` | owner, adult | apps' databases on the shared PostgreSQL (no passwords) |
 

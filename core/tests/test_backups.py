@@ -170,7 +170,11 @@ def notes_app(settings):
 @pytest.fixture
 def bk(client, clock, notes_app):
     """The backups service with fakes, switched on, notes installed."""
-    app = client.app
+    return switch_on_backups(client.app, clock)
+
+
+def switch_on_backups(app, clock):
+    """Backups switched on with fakes (onemindd, Kubernetes, PostgreSQL) on any test gateway, notes installed."""
     svc = app.state.backups
     svc.agent = FakeAgent(clock)
     svc.kube = FakeKube()
@@ -503,8 +507,7 @@ def test_cold_backup_scales_every_stopped_app_back_up_when_stopping_fails_midway
 
 # ---- emergency kit ---------------------------------------------------------------------------------
 def test_emergency_kit_is_shown_once_and_must_be_typed_back(client, bk, settings):
-    assert client.post("/v1/backups/kit", headers=OWNER).status_code == 409, "a destination comes first"
-    add_usb(client, bk)
+    add_usb(client, bk)  # a kit without a destination: test_recovery_kit.py
     assert client.post("/v1/backups/kit", headers=ADULT).status_code == 403
     r = client.post("/v1/backups/kit", headers=OWNER, json=None)
     assert r.status_code == 201, r.text
@@ -993,3 +996,18 @@ def test_byte_counts_use_64_bit_columns():
 
     assert isinstance(ContentTierRow.__table__.c.size_bytes.type, BigInteger)
     assert isinstance(RunRow.__table__.c.bytes_added.type, BigInteger)
+
+
+def test_byte_counts_are_bigint_in_the_postgresql_schema():
+    """Review of #1191: a merge had dropped the BigIntegers of 2b0ee0b9d. Check the DDL PostgreSQL actually gets,
+    where a plain INTEGER caps a backup at 2 GiB added (SQLite would store the value anyway)."""
+    from sqlalchemy.dialects import postgresql
+    from sqlalchemy.schema import CreateTable
+
+    from onemind_core.backups.store import ContentTierRow, RunRow
+
+    def ddl(table) -> str:
+        return " ".join(str(CreateTable(table).compile(dialect=postgresql.dialect())).split())
+
+    assert "bytes_added BIGINT" in ddl(RunRow.__table__)
+    assert "size_bytes BIGINT NOT NULL" in ddl(ContentTierRow.__table__)

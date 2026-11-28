@@ -159,7 +159,7 @@ export interface FirstRunState {
 }
 export interface IssuedKitResponse {
   kit: FirstRunState['kit'];
-  one_time: { groups: string[]; check: string; text: string };
+  one_time: { groups: string[]; check: string; text: string; disk_key?: string | null };
 }
 export interface SourceAddParams { name: string; url: string; commit: string }
 export interface BackupDestinationRecord { id: string; kind: string; label: string }
@@ -195,7 +195,19 @@ export class HttpApi implements OneMindApi {
   onboardingSettings = () => this.req<FirstRunSettings>('GET', '/v1/onboarding/settings');
   saveOnboardingSettings = (body: FirstRunSettingsBody) => this.req<FirstRunSettings>('PUT', '/v1/onboarding/settings', body);
   onboardingState = () => this.req<FirstRunState>('GET', '/v1/onboarding/state');
-  issueKit = () => this.req<IssuedKitResponse>('POST', '/v1/backups/kit');
+  /** POST /v1/backups/kit. Once the owner has a passkey, the first call stops at step_up_required and names its
+   *  request in `details`; the passkey signs that request's challenge and the same route then shows the kit once
+   *  (#1232). The signed call is never retried: an assertion is single-use. */
+  issueKit = async (): Promise<IssuedKitResponse> => {
+    try { return await this.req<IssuedKitResponse>('POST', '/v1/backups/kit'); }
+    catch (error) {
+      const actionId = error instanceof ApiError && error.reason === 'step_up_required' ? error.details?.[0]?.action_id : undefined;
+      if (typeof actionId !== 'string' || !actionId) throw error;
+      const options = await this.approveOptions(actionId);
+      const assertion = await getPasskey(options.publicKey);
+      return this.req<IssuedKitResponse>('POST', '/v1/backups/kit', { action_id: actionId, webauthn: assertion });
+    }
+  };
   confirmKit = async (answers: Record<string, string>) => { await this.req<unknown>('POST', '/v1/backups/kit/confirm', { answers }); };
   backupDestinations = () => this.req<BackupDestinationRecord[]>('GET', '/v1/backups/destinations', undefined, 'array');
   private readonly base: string;
@@ -249,7 +261,7 @@ export class HttpApi implements OneMindApi {
       }
     }
     if (!res.ok) {
-      if (isErrorBody(data)) throw new ApiError(res.status, data.error, data.message, data.reason);
+      if (isErrorBody(data)) throw new ApiError(res.status, data.error, data.message, data.reason, data.details);
       const code = res.status === 401 ? 'unauthenticated' : res.status === 404 ? 'not_found' : 'unknown';
       throw new ApiError(res.status, code, `HTTP ${res.status}`);
     }

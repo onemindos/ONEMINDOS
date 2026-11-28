@@ -67,6 +67,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
     gw.on_startup(svc.start)
     gw.on_shutdown(svc.stop)
     app.state.storage = svc
+    if (backups := getattr(app.state, "backups", None)) is not None:  # registered earlier (ORDER 200)
+        backups.disk_key_source = svc.kit_disk_key  # D-020: the disk key goes in the emergency kit, once
     principal = gw.principal
 
     def owner(p: Principal) -> None:

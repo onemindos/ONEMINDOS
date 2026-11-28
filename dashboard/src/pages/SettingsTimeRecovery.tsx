@@ -87,12 +87,52 @@ export function SettingsDateTime() {
   </>;
 }
 
+/** GET /v1/backups/kit (design 25a): never the key, only where it is and whether the kit printed the disk key. */
+interface KitView { state?: string; missing_on?: string[]; disk_key?: string | null }
+
+const DISK_KEY: Record<string, string> = {
+  included: 'In the kit', earlier_kit: 'In an earlier kit', not_encrypted: 'Not needed (disk not encrypted)', not_available: 'Not in the kit',
+};
+
+/** Adds the printed owner key to backup destinations added after the kit (POST /v1/backups/kit/attach). */
+function KitAttach({ api, missing, onDone }: { api: OneMind; missing: number; onDone: () => Promise<void> }) {
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const groups = text.toUpperCase().match(/\b[A-Z2-7]{4}\b/g) ?? [];
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (groups.length !== 14 || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      await api.call<unknown>({ method: 'POST', path: '/v1/backups/kit/attach', body: { groups: groups.slice(0, 13), check: groups[13] } });
+      setText(''); // the key never outlives the request
+      await onDone();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not add the key.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return <form onSubmit={(event) => void submit(event)}>
+    <p role="alert">{missing} backup destination{missing === 1 ? ' was' : 's were'} added after your kit. Type the key from your kit to let it open {missing === 1 ? 'it' : 'them'} too.</p>
+    <label htmlFor="kit-attach-key">Owner recovery key and check group</label>
+    <textarea id="kit-attach-key" value={text} autoComplete="off" spellCheck={false} onChange={(event) => setText(event.target.value)} />
+    <Button type="submit" disabled={groups.length !== 14 || busy}>Add the key to the new destinations</Button>
+    {error && <p role="alert">{error}</p>}
+  </form>;
+}
+
 export function SettingsRecoveryReset() {
   const api = useSdk();
-  const kit = usePoll(() => checked(api.call<unknown>({ method: 'GET', path: '/v1/backups/kit' })), 0);
+  const { role } = useShell();
+  const kit = usePoll(() => checked(api.call<KitView>({ method: 'GET', path: '/v1/backups/kit' })), 0);
   const backup = usePoll(() => checked(api.call<unknown>({ method: 'GET', path: '/v1/backups/status' })), 0);
   const controls = usePoll(() => checked(api.call<Controls>({ method: 'GET', path: '/v1/system/controls' })), 0);
-  const kitState = kit.data && typeof kit.data === 'object' && 'state' in kit.data ? kit.data.state : undefined;
+  const kitState = kit.data?.state;
+  const missing = kit.data?.missing_on ?? [];
+  const diskKey = kit.data?.disk_key;
   const last = backup.data && typeof backup.data === 'object' && 'last_verified_restore_at' in backup.data
     ? backup.data.last_verified_restore_at : undefined;
   const kitLabel = kitState === 'missing' ? 'Missing' : kitState === 'issued' ? 'Needs confirmation' : kitState === 'confirmed' ? 'Confirmed' : 'Unknown';
@@ -101,8 +141,10 @@ export function SettingsRecoveryReset() {
     <Card title="Recovery">
       <dl>
         <dt>Emergency Kit</dt><dd>{kit.error ? failure(kit.error) : kitLabel}</dd>
+        {!kit.error && kitState && kitState !== 'missing' && <><dt>Disk recovery key</dt><dd>{diskKey ? DISK_KEY[diskKey] ?? 'Unknown' : 'Unknown'}</dd></>}
         <dt>Last verified restore</dt><dd>{backup.error ? failure(backup.error) : typeof last === 'string' ? last : last === null ? 'No verified restore' : 'Unknown'}</dd>
       </dl>
+      {role === 'owner' && missing.length > 0 && <KitAttach api={api} missing={missing.length} onDone={kit.reload} />}
       <div className="dash-actions"><Link to="/backups">Backups and Emergency Kit</Link><Link to="/settings/storage">Storage recovery key</Link></div>
     </Card>
     <Card title="Restart, shutdown and reset">

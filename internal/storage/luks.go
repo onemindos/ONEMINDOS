@@ -57,6 +57,10 @@ const (
 	RunDir = "/run/onemind/storage"
 	// RecoveryKeyFile is the one-time recovery key waiting to be shown.
 	RecoveryKeyFile = RunDir + "/recovery-key"
+	// FirstBootRecoveryKeyFile is where the image's first boot leaves the /data
+	// recovery key (os/.../data_encrypt.py RECOVERY_FILE): tmpfs, root only, until
+	// the emergency kit takes it.
+	FirstBootRecoveryKeyFile = "/run/onemind/data-recovery-key"
 	// PBKDFMemoryKiB pins argon2id memory for the recovery keyslot so the
 	// smallest supported board (4 GiB) can unlock (lab finding 4).
 	PBKDFMemoryKiB = "262144"

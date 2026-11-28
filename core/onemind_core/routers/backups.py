@@ -35,6 +35,7 @@ from ..ledger import utc
 # switching the tier is owner-only, and `backups:admin` is a scope only the owner role holds.
 register_route_scope("GET,HEAD", r"/v1/backups/content", ("backups:read",))
 register_route_scope("POST", r"/v1/backups/content", ("backups:admin",))
+register_route_scope("POST", r"/v1/backups/kit/attach", ("*",))  # the owner key from the kit: owner credentials only
 
 
 def error_responses(*statuses: int) -> dict[int, dict]:
@@ -121,6 +122,22 @@ class KitConfirmBody(BaseModel):
     answers: dict[str, str] = Field(max_length=4)
 
 
+class KitIssueBody(BaseModel):
+    """Finishing a kit request that stopped at the passkey step (401 step_up_required, its `details` name the action):
+    the action id and the passkey assertion over that action's approve-options challenge. No body files a new one."""
+    model_config = ConfigDict(extra="forbid")
+    action_id: str | None = Field(default=None, min_length=1, max_length=64)
+    webauthn: dict | None = Field(default=None, json_schema_extra={"writeOnly": True})
+
+
+class KitAttachBody(BaseModel):
+    """The printed owner key, typed back: 13 groups of 4 letters and the check group. Held in memory only."""
+    model_config = ConfigDict(extra="forbid")
+    groups: list[Annotated[str, Field(min_length=4, max_length=4, pattern=r"^[A-Za-z2-7]{4}$")]] = Field(
+        min_length=13, max_length=13, json_schema_extra={"writeOnly": True})
+    check: str = Field(min_length=4, max_length=4, pattern=r"^[A-Za-z2-7]{4}$")
+
+
 def _check_destination(b: DestinationBody) -> dict:
     c, creds = dict(b.config), b.credentials or {}
     problem = None
@@ -199,14 +216,33 @@ def register(app: FastAPI, gw: Gateway) -> None:
         if body.approve and not p.is_owner:
             raise deny(p, "approve (owner shortcut)")
 
-    def approve_as_owner(p: Principal, action_id: str, request: Request) -> dict:
+    def approve_as_owner(p: Principal, action_id: str, request: Request, body: dict | None = None) -> dict:
         """The owner shortcut passes the same gates as POST /v1/actions/{id}/approve (passkey step-up F-2,
-        destructive storage guard). The shortcut cannot carry an assertion, so once a passkey is
-        registered it is refused (401 step_up_required) and the action stays awaiting_approval for the
-        normal approve route."""
+        destructive storage guard). Without an assertion in `body`, once a passkey is registered it is
+        refused (401 step_up_required) and the action stays awaiting_approval for the normal approve route
+        (or, for the kit, for POST /v1/backups/kit with the assertion)."""
         for guard in gw.approval_guards:
-            guard(p, action_id, {}, request)
+            guard(p, action_id, body or {}, request)
         return gw.actions.approve(p, action_id)
+
+    def kit_shown_only_where_asked(p: Principal, action_id: str, body: dict, request: Request) -> None:
+        """A kit is shown once, in the answer of POST /v1/backups/kit. Approved anywhere else (Approvals, a phone),
+        nobody would see it: the box would add a restic key nobody holds, replace the kit the owner has, and take
+        the disk key from onemindd. So that approval is refused before anything runs; the request stays pending
+        for the kit screen (Refs #1232, review of #1191)."""
+        if svc.is_shown(action_id):
+            return
+        try:
+            kind = gw.actions.get(action_id).get("type")
+        except ApiError:
+            return  # unknown action: the approve route answers 404 itself
+        if kind == "backup.kit.issue":
+            raise ApiError(409, "conflict", "the emergency kit is shown once, to whoever approves it: finish this "
+                           "request in Backups, Emergency Kit, where your passkey approves it and the key is shown",
+                           reason="kit_not_shown_here")
+
+    # First, so it refuses before a passkey assertion is spent on an approval that would show nothing.
+    gw.approval_guards.insert(0, kit_shown_only_where_asked)
 
     def filed(p: Principal, body: _Request, action: dict, created: bool, request: Request,
               extra: dict | None = None) -> JSONResponse:
@@ -352,21 +388,62 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def kit(_: Principal = Depends(owner)):
         return svc.kit_state()
 
-    @app.post("/v1/backups/kit", operation_id="backups.kit.issue", tags=tags, status_code=201, responses=error_responses(401, 403, 409))
-    def issue_kit(request: Request, p: Principal = Depends(owner), idem: IdemHeader = None):
-        """Owner shortcut: files backup.kit.issue and approves it; the key is in this response only."""
+    @app.post("/v1/backups/kit", operation_id="backups.kit.issue", tags=tags, status_code=201, responses=error_responses(401, 403, 404, 409, 422))
+    def issue_kit(request: Request, body: KitIssueBody | None = None, p: Principal = Depends(owner),
+                  idem: IdemHeader = None):
+        """Owner shortcut: files backup.kit.issue and approves it; the key is in this response only.
+
+        Once an owner passkey exists, approving needs an assertion bound to the action (F-2), which a first call
+        cannot have: it answers 401 step_up_required with `details: [{"action_id": ...}]`. Sign that action's
+        challenge (POST /v1/actions/{id}/approve-options) and call again with `action_id` and `webauthn`."""
         if not svc.enabled:
             raise Unavailable("backups are not switched on (ONEMIND_BACKUPS_ENABLED=1)", "backups_disabled")
-        action, created = gw.actions.request_feature(p, "backup.kit.issue", {}, idempotency_key=key(idem),
-                                                     expires_at=gw.clock() + timedelta(minutes=10))
-        if not created:
-            raise ApiError(409, "conflict", "this kit was already issued; it is never shown twice")
-        action = approve_as_owner(p, action["id"], request)
+        if body is not None and body.action_id is not None:
+            aid = svc.pending_kit_request(p, body.action_id)
+        elif body is not None and body.webauthn is not None:
+            raise ApiError(422, "conflict", "webauthn needs the action_id it was signed for")
+        else:
+            action, created = gw.actions.request_feature(p, "backup.kit.issue", {}, idempotency_key=key(idem),
+                                                         expires_at=gw.clock() + timedelta(minutes=10))
+            if not created:
+                raise ApiError(409, "conflict", "this kit was already issued; it is never shown twice")
+            aid = action["id"]
+        # This answer shows the kit, so it may carry the disk key. The mark lives only while this request approves:
+        # if the approval stops here (a passkey step-up, an error), a later approval elsewhere must not take the
+        # disk key from onemindd into a one-time answer that no route returns.
+        svc.will_show(aid)
+        try:
+            action = approve_as_owner(p, aid, request, {"webauthn": body.webauthn} if body and body.webauthn else None)
+        except ApiError as exc:
+            if exc.reason != "step_up_required":
+                raise
+            raise ApiError(exc.status, exc.error, exc.message, reason=exc.reason, details=[{"action_id": aid}],
+                           retry_after_s=exc.retry_after_s) from None
+        finally:
+            svc.forget_show(aid)
         one_time = svc.take_one_time(action["id"])
         if action["state"] != "succeeded" or one_time is None:
             raise ApiError(409, "stale_precondition", (action.get("result") or {}).get("message") or "the kit was not issued")
         return JSONResponse(status_code=201, headers={"Cache-Control": "no-store"},
                             content={"action": action, "kit": svc.kit_state(), "one_time": one_time})
+
+    @app.post("/v1/backups/kit/attach", operation_id="backups.kit.attach", tags=tags, responses=error_responses(401, 403, 404, 409, 422),
+              openapi_extra={"security": [{"bearer": ["*"]}]})  # owner credentials only, as its route scope says
+    def attach_kit(body: KitAttachBody, request: Request, p: Principal = Depends(owner), idem: IdemHeader = None):
+        """Add the owner key from the printed kit to the destinations added after it was issued (`missing_on` in
+        GET /v1/backups/kit). The key must be this box's current kit (its fingerprint); it is held in memory for the
+        approval only, never stored or logged. Files backup.kit.attach and approves it as the owner."""
+        if not svc.enabled:
+            raise Unavailable("backups are not switched on (ONEMIND_BACKUPS_ENABLED=1)", "backups_disabled")
+        password = svc.check_kit_key(body.groups, body.check)
+        if not svc.kit_state()["missing_on"]:
+            return {"action": None, "kit": svc.kit_state()}
+        action, created = gw.actions.request_feature(p, "backup.kit.attach", {}, idempotency_key=key(idem),
+                                                     expires_at=gw.clock() + timedelta(minutes=10))
+        if created:
+            svc.hold_attach_key(action["id"], password)
+        action = approve_as_owner(p, action["id"], request)
+        return {"action": action, "kit": svc.kit_state()}
 
     @app.post("/v1/backups/kit/confirm", operation_id="backups.kit.confirm", tags=tags, responses=error_responses(401, 403, 404, 409))
     def confirm_kit(body: KitConfirmBody, p: Principal = Depends(owner)):

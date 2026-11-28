@@ -6716,6 +6716,38 @@
         "title": "KioskState",
         "type": "object"
       },
+      "KitAttachBody": {
+        "additionalProperties": false,
+        "description": "The printed owner key, typed back: 13 groups of 4 letters and the check group. Held in memory only.",
+        "properties": {
+          "check": {
+            "maxLength": 4,
+            "minLength": 4,
+            "pattern": "^[A-Za-z2-7]{4}$",
+            "title": "Check",
+            "type": "string"
+          },
+          "groups": {
+            "items": {
+              "maxLength": 4,
+              "minLength": 4,
+              "pattern": "^[A-Za-z2-7]{4}$",
+              "type": "string"
+            },
+            "maxItems": 13,
+            "minItems": 13,
+            "title": "Groups",
+            "type": "array",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "groups",
+          "check"
+        ],
+        "title": "KitAttachBody",
+        "type": "object"
+      },
       "KitConfirmBody": {
         "additionalProperties": false,
         "properties": {
@@ -6732,6 +6764,40 @@
           "answers"
         ],
         "title": "KitConfirmBody",
+        "type": "object"
+      },
+      "KitIssueBody": {
+        "additionalProperties": false,
+        "description": "Finishing a kit request that stopped at the passkey step (401 step_up_required, its `details` name the action):\nthe action id and the passkey assertion over that action's approve-options challenge. No body files a new one.",
+        "properties": {
+          "action_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Id"
+          },
+          "webauthn": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Webauthn",
+            "writeOnly": true
+          }
+        },
+        "title": "KitIssueBody",
         "type": "object"
       },
       "LatestValue": {
@@ -23370,7 +23436,7 @@
         ]
       },
       "post": {
-        "description": "Owner shortcut: files backup.kit.issue and approves it; the key is in this response only.",
+        "description": "Owner shortcut: files backup.kit.issue and approves it; the key is in this response only.\n\nOnce an owner passkey exists, approving needs an assertion bound to the action (F-2), which a first call\ncannot have: it answers 401 step_up_required with `details: [{\"action_id\": ...}]`. Sign that action's\nchallenge (POST /v1/actions/{id}/approve-options) and call again with `action_id` and `webauthn`.",
         "operationId": "backups.kit.issue",
         "parameters": [
           {
@@ -23392,6 +23458,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/KitIssueBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "content": {
@@ -23421,6 +23504,16 @@
             },
             "description": "The principal may not do this (permission_denied)"
           },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
           "409": {
             "content": {
               "application/json": {
@@ -23430,6 +23523,16 @@
               }
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -23453,6 +23556,133 @@
           }
         },
         "summary": "Issue Kit",
+        "tags": [
+          "backups"
+        ]
+      }
+    },
+    "/v1/backups/kit/attach": {
+      "post": {
+        "description": "Add the owner key from the printed kit to the destinations added after it was issued (`missing_on` in\nGET /v1/backups/kit). The key must be this box's current kit (its fingerprint); it is held in memory for the\napproval only, never stored or logged. Files backup.kit.attach and approves it as the owner.",
+        "operationId": "backups.kit.attach",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KitAttachBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Attach Kit",
         "tags": [
           "backups"
         ]
