@@ -38,8 +38,8 @@ CopyCadence = Literal["every_backup", "hourly", "daily", "weekly", "manual"]
 DEFAULT_COPY_CADENCE: CopyCadence = "manual"
 
 
-@SCHEMA.step(2, "store the owner's sovereign copy cadence per destination")
-def _backups_v2(conn) -> None:
+@SCHEMA.step(3, "store the owner's sovereign copy cadence per destination")
+def _backups_v3(conn) -> None:
     from sqlalchemy import inspect, text
 
     if "copy_cadence" not in {c["name"] for c in inspect(conn).get_columns("backups_destinations")}:
