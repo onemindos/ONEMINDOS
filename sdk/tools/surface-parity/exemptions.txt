@@ -83,7 +83,6 @@ cli backups.content.set s5-backups
 cli backups.destinations.add s5-backups
 cli backups.destinations.remove s5-backups
 cli backups.kit.confirm s5-backups
-cli backups.kit.issue s5-backups
 group s6-work issue=#1232 S6: Work has quick-add and task edit screens, but project get, list, update and delete, sections, members, comments, task activity, parse and capture have no dashboard screen; project, section, member and comment writes have no `onemind` command.
 dashboard work.project_create s6-work
 dashboard work.capture s6-work
@@ -128,6 +127,9 @@ cli automation.resume s8-cli-groups
 cli automation.rules.disable s8-cli-groups
 cli automation.rules.enable s8-cli-groups
 cli automation.rules.update s8-cli-groups
+cli content.auto_update s8-cli-groups
+cli content.changes s8-cli-groups
+cli content.plan s8-cli-groups
 cli deploy.compose s8-cli-groups
 cli fabric.ticket_revoke s8-cli-groups
 cli files.app_passwords.create s8-cli-groups

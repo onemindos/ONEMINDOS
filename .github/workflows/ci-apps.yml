@@ -379,9 +379,12 @@ jobs:
           clamscan --version
 
       - name: Throwaway k3s cluster (k3d)
+        env:
+          APP: ${{ matrix.app }}
         run: |
           k3d cluster create gate --wait --timeout 300s --no-lb \
             --image docker.io/rancher/k3s:v1.37.2-k3s1@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332
+          bash sdk/tools/ci/map-packs-volume.sh "$APP" gate
           kubectl get nodes
 
       - name: Resolve the app directory
