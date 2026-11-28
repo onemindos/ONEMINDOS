@@ -84,7 +84,7 @@ cli backups.destinations.add s5-backups
 cli backups.destinations.remove s5-backups
 cli backups.kit.confirm s5-backups
 cli backups.kit.issue s5-backups
-group s6-work issue=#1232 S6: Work projects, quick-add and task edit and delete have no screen (PR #1166 covers part); some have no command.
+group s6-work issue=#1232 S6: Work has quick-add and task edit screens, but project get, list, update and delete, sections, members, comments, task activity, parse and capture have no dashboard screen; project, section, member and comment writes have no `onemind` command.
 dashboard work.project_create s6-work
 dashboard work.capture s6-work
 dashboard work.comment_add s6-work
