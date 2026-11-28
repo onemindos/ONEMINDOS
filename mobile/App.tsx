@@ -42,6 +42,7 @@ import { ApprovalsScreen } from './src/screens/ApprovalsScreen';
 import { ConnectScreen } from './src/screens/ConnectScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { InboxScreen } from './src/screens/InboxScreen';
+import { MapScreen } from './src/screens/MapScreen';
 import { MoreScreen, useMoreBadge } from './src/screens/MoreScreen';
 import { NodesScreen } from './src/screens/NodesScreen';
 import { DeviceInfoScreen, LiveUsageScreen, NetworkScreen, OsUpdatesScreen, SystemControlsScreen } from './src/screens/SystemScreens';
@@ -73,7 +74,7 @@ const linking: LinkingOptions<RootParams> = {
   config: {
     initialRouteName: 'Tabs',
     screens: {
-      Tabs: { screens: { Home: 'home', Approvals: 'approvals', Apps: 'apps', Me: { path: 'me', alias: ['more'] } } },
+      Tabs: { screens: { Home: 'home', Map: 'map', Approvals: 'approvals', Apps: 'apps', Me: { path: 'me', alias: ['more'] } } },
       Activity: 'activity',
       AppDetail: 'apps/:id',
       Tips: 'tips/:id?',
@@ -119,6 +120,7 @@ function Tabs() {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
+      <Tab.Screen name="Map" component={MapScreen} options={{ headerShown: false, tabBarButtonTestID: 'tab-map' }} />
       <Tab.Screen name="Approvals" component={ApprovalsScreen} options={{ tabBarBadge: pendingCount || undefined }} />
       <Tab.Screen name="Apps" component={AppsScreen} />
       <Tab.Screen name="Me" component={MoreScreen} options={{ headerShown: false, tabBarBadge: moreBadge, tabBarButtonTestID: 'tab-me' }} />
