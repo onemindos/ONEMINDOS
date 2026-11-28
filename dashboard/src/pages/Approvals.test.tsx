@@ -23,7 +23,7 @@ const PLAN = { summary: 'Install Ollama.', objects: [], images: [], volumes: [{ 
 const SHA = 'sha256:plan-one';
 const future = () => new Date(Date.now() + 3600_000).toISOString();
 
-function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string; hold?: { plan: boolean; stepUp?: boolean }; level?: Action['required_level'] } = {}) {
+function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string; hold?: { plan: boolean; stepUp?: boolean }; levelUnmet?: boolean; level?: Action['required_level'] } = {}) {
   const calls: Array<{ id: string; body?: ApproveBody }> = [];
   const options: string[] = [];
   const api = new MockApi('owner-demo');
@@ -37,7 +37,7 @@ function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string;
     actions: async () => [action],
     action: async () => action,
     me: async () => ({ principal: { id: 'owner', kind: 'person', role: 'owner' }, token: null, session: null, passkeys: opts.passkey ? 1 : 0, scopes: [], capabilities: [], step_up: { passkeys_active: !!opts.passkey, require_passkey_approval: false } }),
-    approveOptions: async (id: string) => { options.push(id); return { challenge: 'c', action_sha256: 'a', plan_sha256: opts.hold && !opts.hold.plan ? undefined : (opts.serverSha ?? SHA), expires_at: future(), publicKey: { challenge: 'c' } }; },
+    approveOptions: async (id: string) => { options.push(id); if (opts.levelUnmet) throw new ApiError(409, 'conflict', 'this needs your proven key (L2); add one under Settings > Security > Sign-in keys', 'verification_level_unmet'); return { challenge: 'c', action_sha256: 'a', plan_sha256: opts.hold && !opts.hold.plan ? undefined : (opts.serverSha ?? SHA), expires_at: future(), publicKey: { challenge: 'c' } }; },
     approve: async (id: string, body?: ApproveBody) => {
       if (opts.hold?.stepUp && !body?.webauthn) { calls.push({ id, body }); throw new ApiError(401, 'unauthenticated', 'passkey needed', 'step_up_required'); }
       calls.push({ id, body }); return { ...action, state: 'accepted' as const }; },
@@ -100,6 +100,14 @@ describe('Approvals page', () => {
     const adv = screen.getByText(/Advanced: raw plan/).closest('details')!;
     expect(adv).not.toHaveAttribute('open');
     expect(adv).toHaveTextContent(SHA);
+  });
+
+  it('an approval that needs a proven key says so in plain words and the card shows the level', async () => {
+    const { calls, user } = setup({ passkey: true, levelUnmet: true });
+    await user.click(await screen.findByRole('button', { name: /^Approve/ }, T));
+    expect(await screen.findByText(/needs your proven key \(L2\).*Settings > Security > Sign-in keys/, {}, T)).toBeInTheDocument();
+    expect(await screen.findByText('Needs L2 · Proven key', {}, T)).toBeInTheDocument();
+    expect(calls).toEqual([]);
   });
 
   it('with a passkey: approve-options, then approve carrying the plan hash and the signed assertion', async () => {

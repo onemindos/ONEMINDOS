@@ -4,11 +4,11 @@
 // form sealed in this browser, a passkey signs the exact plan, and the gateway checks all of it.
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { ApprovalsBoard, Button, Dialog, HoldToApprove, SecretsForm, actionTitle, sealValues, useToast, type ActionPlan, type ActionSummary, type AppSecrets, type SecretsSubmission, type SettingsLoadable } from '@onemind/ui';
+import { ApprovalsBoard, Button, Dialog, HoldToApprove, SecretsForm, actionTitle, sealValues, useToast, type ActionPlan, type ActionSummary, type AppSecrets, type SecretsSubmission, type SettingsLoadable, type VerificationLevel } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import { toActionPlan, toActionSummary } from '../data/adapters';
 import { errorText, subjectOf, useHub } from '../data/hub';
-import type { ApproveOpts } from '../lib/approve';
+import { levelOf, type ApproveOpts } from '../lib/approve';
 import { usePoll } from '../lib/hooks';
 import { webauthnSupported } from '../lib/webauthn';
 import { useSignedIn } from '../session';
@@ -24,7 +24,9 @@ export function Approvals() {
   const [params] = useSearchParams();
   const me = usePoll(() => api.me(), 0);
   const passkey = me.data?.step_up.passkeys_active === true && webauthnSupported();
-  const all = hub.actionList.map((a) => toActionSummary(a, hub.appName));
+  // D-028: the key level a request needs, once the hub has said so (approve-options' 409); the card shows it.
+  const [levels, setLevels] = useState<Record<string, VerificationLevel>>({});
+  const all = hub.actionList.map((a) => toActionSummary(a, hub.appName)).map((a) => (levels[a.id] ? { ...a, required_level: levels[a.id] } : a));
   const waiting = all.filter((a) => a.state === 'awaiting_approval');
   const decided = all.filter((a) => a.state !== 'awaiting_approval' && a.state !== 'requested').slice(0, 10);
   const stale = hub.freshness === 'stale' || hub.freshness === 'offline';
@@ -70,6 +72,8 @@ export function Approvals() {
           setLicence({ action: a, appId: a.params.app_id, message: e.message, sealed, typed: '' });
           return false;
         }
+        const level = how === 'approve' ? levelOf(e) : undefined;
+        if (level) setLevels((m) => ({ ...m, [a.id]: level }));
         fail(how, e);
         return false;
       },

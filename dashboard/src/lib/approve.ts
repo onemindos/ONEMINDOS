@@ -24,6 +24,20 @@ export interface ApproveOpts {
   boxCode?: (what: string) => Promise<string>;
 }
 
+/** The level a verification_level_unmet refusal names (D-028), L2 when it names none. */
+export function levelOf(e: unknown): 'L2' | 'L3' | undefined {
+  if (!(e instanceof ApiError) || e.reason !== 'verification_level_unmet') return undefined;
+  return /\bL3\b/.test(e.message) ? 'L3' : 'L2';
+}
+
+/** approve-options' 409 verification_level_unmet in plain words: which key is missing and where to add it. */
+export function plainLevelError(e: unknown): unknown {
+  const level = levelOf(e);
+  if (!level) return e;
+  const what = level === 'L3' ? 'a biometric-only key (L3)' : 'your proven key (L2): a security key that proves its make and model';
+  return new ApiError(409, 'conflict', `This approval needs ${what}. None of your sign-in keys is one yet. Add one under Settings > Security > Sign-in keys, then approve again.`, 'verification_level_unmet');
+}
+
 export async function approveWithStepUp(api: OneMindApi, action: Pick<Action, 'id' | 'plan_sha256'>, opts: ApproveOpts = {}): Promise<Action> {
   const extra: ApproveBody = { ...(opts.sealed ? { sealed: opts.sealed } : {}), ...(opts.acceptLicence ? { accept_licence: opts.acceptLicence } : {}),
     ...(opts.hold ? { hold_ms: opts.hold.ms } : {}) };
@@ -34,7 +48,8 @@ export async function approveWithStepUp(api: OneMindApi, action: Pick<Action, 'i
     throw new ApiError(400, 'unknown', 'Passkey approval is not available on this client.', 'approve_options_unavailable');
   if (!api.approveOptions) return api.approve(action.id, Object.keys(extra).length ? extra : undefined);
   const sign = opts.sign ?? getPasskey;
-  const challenge = await api.approveOptions(action.id);
+  let challenge: Awaited<ReturnType<NonNullable<OneMindApi['approveOptions']>>>;
+  try { challenge = await api.approveOptions(action.id); } catch (e) { throw plainLevelError(e); }
   // The plan on screen must be the plan the passkey signs. If it moved, the owner reads it again.
   if (action.plan_sha256 && challenge.plan_sha256 !== action.plan_sha256)
     throw new ApiError(409, 'stale_precondition', 'The plan changed since you opened this request. Review it again before approving.', 'plan_changed');
