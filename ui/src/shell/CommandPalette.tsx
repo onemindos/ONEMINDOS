@@ -63,6 +63,9 @@ export interface CommandPaletteProps {
   /** Seconds since the data was confirmed, for stale/offline. */
   ageSeconds?: number;
   initialQuery?: string;
+  onSearch?: (query: string) => void;
+  tipResults?: PaletteCommand[];
+  tipQuery?: string;
 }
 
 function Highlight({ text, query }: { text: string; query: string }): ReactNode {
@@ -79,7 +82,8 @@ function Highlight({ text, query }: { text: string; query: string }): ReactNode 
   );
 }
 
-export function CommandPalette({ open, onClose, commands, onRun, recent, state = 'ready', ageSeconds, initialQuery = '' }: CommandPaletteProps) {
+export function CommandPalette({ open, onClose, commands, onRun, recent, state = 'ready', ageSeconds, initialQuery = '',
+  onSearch, tipResults, tipQuery }: CommandPaletteProps) {
   const [query, setQuery] = useState(initialQuery);
   const [active, setActive] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
@@ -89,7 +93,14 @@ export function CommandPalette({ open, onClose, commands, onRun, recent, state =
   const hintId = useId();
   const optId = (i: number) => `${listId}-o${i}`;
 
-  const groups = useMemo(() => searchCommands(commands, query, { recent }), [commands, query, recent]);
+  const { scope, text } = parseQuery(query);
+  const searchText = open && scope === 'all' ? text : '';
+  useEffect(() => onSearch?.(searchText), [onSearch, searchText]);
+  const groups = useMemo(() => {
+    const local = searchCommands(commands, query, { recent });
+    return searchText && searchText === tipQuery && tipResults?.length
+      ? [...local, { group: 'Tips' as const, items: tipResults }] : local;
+  }, [commands, query, recent, searchText, tipQuery, tipResults]);
   const flat = useMemo(() => flatten(groups), [groups]);
   const current = flat[active];
 
@@ -159,12 +170,12 @@ export function CommandPalette({ open, onClose, commands, onRun, recent, state =
     }
   };
 
-  const scope = parseQuery(query).scope;
   const scopeIndex = { all: 0, requests: 1, nodes: 2, category: 3 }[scope];
   let index = -1;
 
   const body = (() => {
-    if (state === 'loading' || state === 'error' || state === 'forbidden') {
+    if ((state === 'loading' || state === 'error' || state === 'forbidden') &&
+      !groups.some(group => group.group === 'Tips')) {
       return (
         <div className="oms-palette-state">
           <StateView state={state} compact what="Loading apps and nodes" error={{ error: 'unreachable', message: 'The hub did not answer. Navigation still works.' }} />
@@ -210,6 +221,7 @@ export function CommandPalette({ open, onClose, commands, onRun, recent, state =
                     {(c.subtitle || c.disabledReason) && <span className="oms-option-sub">{c.disabledReason && !c.href ? c.disabledReason : c.subtitle}</span>}
                   </span>
                   {c.request && <span className="oms-req-tag">Request</span>}
+                  {c.group === 'Tips' && <span className="oms-open-tag">Open</span>}
                   {c.pill && <StatusPill tone={c.pill.tone} label={c.pill.label} className="oms-option-pill" />}
                   <span className="oms-option-enter" aria-hidden="true">
                     <ShellIcon name="enter" size={16} />

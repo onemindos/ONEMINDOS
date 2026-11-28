@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: Apache-2.0
+# Inside the cluster only (ClusterIP). Reaching TAK from phones on the LAN needs the host-port exception
+# the install sandbox does not grant yet (spec.hostPorts in onemind.app.yaml; README "Not done").
+# Not exposed at all: 8090 QUIC, 8444 and 9000/9001 federation, and the plain-text 8087/8088/8080 inputs,
+# which the image's first start switches off or leaves commented out in CoreConfig.xml.
+# The database has no Service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: tak-server
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: tak-server
+  ports:
+    - name: cot-tls
+      port: 8089
+      targetPort: cot-tls
+      protocol: TCP
+    - name: https
+      port: 8443
+      targetPort: https
+      protocol: TCP
+    - name: enroll
+      port: 8446
+      targetPort: enroll
+      protocol: TCP
