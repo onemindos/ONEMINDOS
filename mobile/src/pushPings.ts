@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // What the app does when a ping from the box arrives while its JavaScript runs (mobile/docs/push.md §5):
 // refresh from the box, and when the app is not on screen, show the text it fetched over HTTPS.
-import * as Notifications from 'expo-notifications';
+import { Notifications } from './device/notifications';
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
 import { unifiedPush, type UnifiedPushNative } from '../modules/onemind-unifiedpush';

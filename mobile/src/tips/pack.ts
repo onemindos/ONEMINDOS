@@ -3,7 +3,7 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
 import { NetworkError, OneMindError, type components, type OneMind } from '@onemind/sdk';
 import { getRandomBytes } from 'expo-crypto';
-import { Directory, File, Paths } from 'expo-file-system';
+import { Directory, File, Paths } from '../device/files';
 import { loadSecret, saveSecret } from '../storage';
 
 type Tip = Pick<components['schemas']['TipView'], 'id' | 'title' | 'body'>;

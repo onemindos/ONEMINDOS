@@ -74,6 +74,24 @@ describe('UnifiedPush transport (Android)', () => {
   });
 });
 
+describe('UnifiedPush transport: notification permission (Android 13+)', () => {
+  it('asks once when push is turned on, before registering', async () => {
+    const up = fakeUp();
+    const ask = jest.fn(async () => true);
+    await unifiedPushTransport(up, 10, ask).obtain();
+    expect(ask).toHaveBeenCalledTimes(1);
+    expect(up.registered).toHaveLength(1);
+  });
+
+  it('fails with no_permission and does not register when notifications stay blocked', async () => {
+    const up = fakeUp();
+    const ask = jest.fn(async () => false);
+    await expect(unifiedPushTransport(up, 10, ask).obtain()).rejects.toMatchObject({ blocker: 'no_permission' });
+    expect(ask).toHaveBeenCalledTimes(1);
+    expect(up.registered).toHaveLength(0);
+  });
+});
+
 describe('APNs transport (iPhone)', () => {
   const N = (over: Partial<Parameters<typeof apnsTransport>[0]> = {}) => ({
     getPermissionsAsync: jest.fn(async () => ({ granted: true, canAskAgain: true }) as never),

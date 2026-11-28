@@ -15,6 +15,8 @@ export type LiveConnection = {
   auth?: 'token' | 'passkey';
   refreshToken?: string;
   expiresAt?: string;
+  /** Hub and principal identity verified at sign-in, for reopening its local app data. */
+  localAccount?: string;
 };
 
 /** Only a real hub. A stored demo entry from an older build (`mode: 'mock'`) loads as signed out. */
@@ -37,6 +39,7 @@ function parse(raw: string | null): Connection | null {
       if (l.auth === 'passkey' || l.auth === 'token') c.auth = l.auth;
       if (typeof l.refreshToken === 'string') c.refreshToken = l.refreshToken;
       if (typeof l.expiresAt === 'string') c.expiresAt = l.expiresAt;
+      if (typeof l.localAccount === 'string') c.localAccount = l.localAccount;
       return c;
     }
   } catch {
