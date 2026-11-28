@@ -83,9 +83,8 @@ This is the one YubiKey procedure for the first ceremony ([D-031](../../docs/DEC
 
 ### Online handoff and installer rehearsal
 
-1. **Verify the public root and gate on main.** On the online computer, mount the transfer drive. `sha256sum root.json` (or `shasum -a 256 root.json` on macOS) must match the paper record. Submit only the public root for review at `os/rootfs/layers/base/usr/lib/onemind/tuf/security/root.json`. On a hash mismatch, stop and repeat the transfer from the verified offline copy.
-2. **Gate: wait for main before any dry run.** The dry run (step 4 below) uses the `installer` job of `security-nightly.yml`, which [#1320](https://github.com/onemindos/ONEMINDOS/pull/1320) adds. Do not continue until both the reviewed root PR and the installer job are on `main`. Check: `gh api 'repos/onemindos/ONEMINDOS/contents/.github/workflows/security-nightly.yml?ref=main' -q .content | base64 -d | grep -n '^  installer:'` prints a line.
-3. **Create the environment and load the three online TUF keys.** In GitHub: Settings → Environments → `tuf-signing` (create it if needed) → Deployment branches and tags → **Selected branches and tags** (not "Protected branches") → add `main`. Leave required reviewers off so nightly signing and timestamp refresh can run. **Verify before any `gh secret set`:**
+1. **Verify the public root.** On the online computer, mount the transfer drive. `sha256sum root.json` (or `shasum -a 256 root.json` on macOS) must match the paper record. Submit only the public root for review at `os/rootfs/layers/base/usr/lib/onemind/tuf/security/root.json`. On a hash mismatch, stop and repeat the transfer from the verified offline copy.
+2. **Create the environment and load the three online TUF keys.** In GitHub: Settings → Environments → `tuf-signing` (create it if needed) → Deployment branches and tags → **Selected branches and tags** (not "Protected branches") → add `main`. Leave required reviewers off so nightly signing and timestamp refresh can run. **Verify before any `gh secret set`:**
 
    ```sh
    gh api repos/onemindos/ONEMINDOS/environments/tuf-signing -q .deployment_branch_policy
@@ -103,6 +102,7 @@ This is the one YubiKey procedure for the first ceremony ([D-031](../../docs/DEC
 
    Each upload must exit zero. The list shows names and timestamps. If an upload fails, verify the repository and environment, retry the failed upload, and confirm all three names.
    **Then delete and wipe.** Only after all three names are listed: securely delete `online/*.key` (`shred -u online/*.key`) on this online computer and on the transfer drive, then wipe the transfer drive as a whole (for example `cryptsetup luksErase` on the device, then re-create or `shred`/overwrite it; for flash media treat the wipe as best effort and discard the drive if in doubt). Do not clean up before the list is confirmed.
+3. **Gate: wait for main before the dry run.** The dry run (step 4 below) uses the `installer` job of `security-nightly.yml`, which [#1320](https://github.com/onemindos/ONEMINDOS/pull/1320) adds. Do not continue until both the reviewed root PR and the installer job are on `main`. Check: `gh api 'repos/onemindos/ONEMINDOS/contents/.github/workflows/security-nightly.yml?ref=main' -H 'Accept: application/vnd.github.raw' | grep -n '^  installer:'` prints a line. This gate comes after the secrets step on purpose: the environment and secrets do not need the installer job, so the online keys leave the transfer drive (it is wiped) before you wait for `main`; only the dry run needs `main`.
 4. **Rehearse the installer in CI before enabling publication.** From the online checkout, run:
 
    ```sh
@@ -115,7 +115,7 @@ This is the one YubiKey procedure for the first ceremony ([D-031](../../docs/DEC
 5. **BLOCKED until a RAUC signing key procedure exists (see [KEYS.md](KEYS.md), "Decision 1: where the RAUC CA lives", RAUC CA options A, B and C).** The repository has no procedure that makes the RAUC release signing key, signer certificate or CA, and this runbook does not invent one. RAUC is the separate bundle signer. The current `build` job reads repository-accessible `ONEMIND_RAUC_SIGNING_KEY`, `ONEMIND_RAUC_SIGNING_CERT` and optional `ONEMIND_RAUC_KEYRING_CERT`; the `decide` job checks the first two for presence. Do not proceed to steps 6 and 7 until Zeus has chosen an option and a reviewed procedure is in the repo. **Open follow-up:** those RAUC signing secrets are repository-wide, not scoped to the `tuf-signing` environment, so any workflow on any branch that can read repository secrets could read the signing key. Scoping them to an environment is not designed yet; see [installer workflow and RAUC follow-up](../boards/installer-x86_64/UPDATES.md). Keep the three TUF secrets scoped to `tuf-signing`. Once a CA exists, record its SHA-256 on the checklist with `openssl x509 -in "$RAUC_CA" -noout -fingerprint -sha256`.
 6. **Build the production stick. BLOCKED, as step 5.** Once ready to publish, set repository variable `ONEMIND_SECURITY_PUBLISH=true`. Repeat the workflow commands above with `-f dry_run=false` and the new run ID. Expect `publish=true (keys=true committed_root=true switch=true dry_run=false)`, a build log that reports `dry_run=false`, TUF client verification, installer mode `release`, the same keyring/package check, and I1–I5 passing. If any check fails, stop before flashing. Use the workflow logs to resolve the failed gate and check for an already published release before retrying.
 7. **Verify the artifact and installed trust. BLOCKED, as step 5.** Verify `gh release view "os-security-$VERSION" -R onemindos/ONEMINDOS` succeeds for the version printed by the run. Download its same-run installer with `gh run download "$RUN_ID" -R onemindos/ONEMINDOS -n installer-security-x86_64-release -D installer-release`. In the artifact's installer directory, read `README.txt` (must say `RELEASE-keyed` for that version), decompress the `.img.xz` with `xz -dk`, and run `sha256sum -c SHA256SUMS` on Linux. Expect `OK` for the image. Compare `openssl x509 -in release-ca.cert.pem -noout -fingerprint -sha256` with the recorded CA. On any mismatch, stop and recheck the run, release tag and artifact. Use the [installer instructions](../boards/installer-x86_64/README.md) on the intended Dell disk. After install, compare `sha256sum /usr/lib/onemind/tuf/security/root.json` and `openssl x509 -in /etc/rauc/keyring.pem -noout -fingerprint -sha256` with the paper record before applying a later update.
-8. **First signed update, then rollback.** With the box installed from the release stick, the first real signed update is applied and then rolled back, the test the D-031 decision ties to Step 5. The tampered, wrong-key and older-update refusals are covered with throwaway keys in [#1188](https://github.com/onemindos/ONEMINDOS/pull/1188); the runbook for that is [#1178](https://github.com/onemindos/ONEMINDOS/pull/1178) and must be reconciled with the installer workflow above.
+8. **First signed update, then rollback. BLOCKED, as step 5** (it needs the release stick from step 6). With the box installed from the release stick, the first real signed update is applied and then rolled back, the test the D-031 decision ties to Step 5. The tampered, wrong-key and older-update refusals are covered with throwaway keys in [#1188](https://github.com/onemindos/ONEMINDOS/pull/1188); the runbook for that is [#1178](https://github.com/onemindos/ONEMINDOS/pull/1178) and must be reconciled with the installer workflow above.
 
 ## Words you need
 
@@ -130,7 +130,7 @@ This is the one YubiKey procedure for the first ceremony ([D-031](../../docs/DEC
 | Item | Notes |
 |---|---|
 | 3 USB sticks, one per holder | Encrypted at the file-system level (step 3). Kept in 3 places: home, off-site, a trusted person (D-010) |
-| 1 extra stick, the "transfer stick" | Carries only **public** files in and out. Never a private key |
+| 1 extra stick, the "transfer stick" | File-key procedure: carries only **public** files in and out, never a root private key. In the YubiKey ceremony it is the LUKS-encrypted transfer drive, which also carries the three **online** private keys for the GitHub step and is wiped after |
 | 1 offline computer | Best: a laptop booted from a Debian live USB (it forgets everything at shutdown). A Mac with networking off also works |
 | 3 people | You, the other two holders, ideally all three in one room. Only 2 sign, but all 3 sticks are made |
 | Paper and a printer | To print the sheet from step 7 and the checklist |
@@ -138,7 +138,7 @@ This is the one YubiKey procedure for the first ceremony ([D-031](../../docs/DEC
 
 **Easiest way:** `python3 scripts/ceremony-guide.py` walks you through all of this below step by step on the offline machine (`--rehearsal` first, with throwaway keys). The manual steps stay the source of truth.
 
-**Using YubiKeys from the first day instead of sticks:** see [Ceremony on YubiKeys](#ceremony-on-yubikeys-d-031) below (`python3 scripts/ceremony-guide.py --yubikey`). D-031 (2026-11-25): the first ceremony runs on the founder's three YubiKeys, with a rehearsal on one real key first.
+**Using YubiKeys from the first day instead of sticks:** see [Ceremony on YubiKeys](#ceremony-on-yubikeys-d-031) below (`python3 scripts/ceremony-guide.py --yubikey --rehearsal`, rehearsal only). The **real run follows the [Rehearsal checklist](#rehearsal-checklist)**, not the guide: the guide's real-run text still points to a section that no longer exists and describes a plain transfer stick (no LUKS drive, copy list or `shred`). D-031 (2026-11-25): the first ceremony runs on the founder's three YubiKeys, with a rehearsal on one real key first.
 
 ## Before the day: rehearse (step 0)
 
@@ -181,11 +181,11 @@ Use the commands as written. `<stick-a>` is where holder A's stick is mounted (f
    - Commit `root.json` as `os/rootfs/layers/base/usr/lib/onemind/tuf/security/root.json` (and `.../stable/root.json` for the stable channel) in a PR, so the gate reviews it. `root.json` is public.
    - Put the three online private keys into the GitHub **Environment** `tuf-signing` (D-010). First create it: repository **Settings → Environments → New environment → `tuf-signing`**, then *Deployment branches and tags* → *Selected branches and tags* → add `main` only. Leave *Required reviewers* off (a reviewer would stop the nightly and the 6-hourly re-sign). Then set the three secrets **in that environment**:
      ```sh
-     gh secret set ONEMIND_TUF_TARGETS_KEY   --env tuf-signing < online/targets.key
-     gh secret set ONEMIND_TUF_SNAPSHOT_KEY  --env tuf-signing < online/snapshot.key
-     gh secret set ONEMIND_TUF_TIMESTAMP_KEY --env tuf-signing < online/timestamp.key
+     gh secret set ONEMIND_TUF_TARGETS_KEY   --env tuf-signing -R onemindos/ONEMINDOS < online/targets.key
+     gh secret set ONEMIND_TUF_SNAPSHOT_KEY  --env tuf-signing -R onemindos/ONEMINDOS < online/snapshot.key
+     gh secret set ONEMIND_TUF_TIMESTAMP_KEY --env tuf-signing -R onemindos/ONEMINDOS < online/timestamp.key
      ```
-     Carry the three `.key` files on the **transfer stick only for this step**, then wipe it. Only the jobs `decide`, `tuf` and `timestamp` of `security-nightly.yml` declare `environment: tuf-signing`, and `test/unit/test_tuf_secrets.py` fails if any other job or workflow reads these keys. Because `main` is the only branch allowed, a manual dispatch from another branch stops at `decide`: run dry runs on `main`. Do **not** also set them as repository secrets.
+     Carry the three online `.key` files (never a root key) on the LUKS-encrypted transfer drive only for this step, then `shred -u` them and wipe the drive. Only the jobs `decide`, `tuf` and `timestamp` of `security-nightly.yml` declare `environment: tuf-signing`, and `test/unit/test_tuf_secrets.py` fails if any other job or workflow reads these keys. Because `main` is the only branch allowed, a manual dispatch from another branch stops at `decide`: run dry runs on `main`. Do **not** also set them as repository secrets.
    - Signed releases need more than the TUF keys: `ONEMIND_RAUC_SIGNING_KEY`, `ONEMIND_RAUC_SIGNING_CERT` and the variable `ONEMIND_SECURITY_PUBLISH=true` ([README](README.md)). Those are not made here.
 10. **Wipe the online machine.** Shut the live USB down (it forgets), or securely delete `online/` and `out/`. The root `.key` files exist only on the three sticks. Wipe the transfer stick.
 11. **Store the sticks** in three places, one each: home, off-site, a trusted person. The succession note (who may act if you cannot, and where the sticks and passphrases are) goes in a **sealed envelope, never in the repo**.
@@ -238,6 +238,8 @@ It runs the whole ceremony, then a renewal signed by holders B and C (A absent),
 **Order matters:** publish the renewed root on the channel (the next nightly after the PR merges) **before** the old one expires, and keep every older `<N>.root.json` on the channel: a box that was off for months needs the whole chain. Test it once the PR is in: on a spare box or VM image built before the renewal, update; it must reach the new root without help.
 
 ## Rotate the root onto hardware keys (REL-02, #272)
+
+> **Not for the D-031 ceremony. Only for rotating an existing file-key root onto hardware later; a D-031 root is already on YubiKeys.** This section uses a plain `ykman`/`pkcs11-tool` key generation (no PIN or touch policy, no attestation) and `hsm:2?label=` references. Do not use it for the YubiKey ceremony; follow the [Rehearsal checklist](#rehearsal-checklist).
 
 **What this is.** Today (after the ceremony above) the three root keys are files on three encrypted sticks. This moves the root onto **hardware keys**: three small devices, each holding one root key that **can never be copied out of the device**. Stealing the stick's file or its passphrase is no longer enough; the thief needs the device **and** its PIN. It is a **root rotation**: a new `root.json` (version 2) with a new set of root keys. Boxes that ship the version-1 root follow it by themselves, because TUF requires version 2 to be signed by **2 of the 3 OLD keys and 2 of the 3 NEW keys** (spec 5.3.4). If either group is short, a box refuses the new root, and `rotate-root` refuses to write it. The same command also **renews an expiring root** (use the same keys as old and new).
 

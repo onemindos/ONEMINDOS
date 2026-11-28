@@ -56,7 +56,7 @@ Yubico PIV CA file SHA-256 (recorded online, compared offline): ________________
   - Serials (public): A ____________ B ____________ C ____________
   - Root key IDs printed: A ____________ B ____________ C ____________
 - [ ] Y5. Online keys made (`online-keys "$W/online"`)
-- [ ] Y6. Root signed by two YubiKeys plugged in together: `create "$W/out" <channel> 2 'hsm:2?yubikey=<A>' 'hsm:2?yubikey=<B>' "$W/pubs/c.pub" -- online/...pub` (two PINs typed at prompts, two touches)
+- [ ] Y6. Root signed by two YubiKeys plugged in together: `create "$W/out" <channel> 2 'hsm:2?yubikey=<A>' 'hsm:2?yubikey=<B>' "$W/pubs/c.pub" -- "$W/online/targets.pub" "$W/online/snapshot.pub" "$W/online/timestamp.pub"` (two PINs typed at prompts, two touches)
 - [ ] Y7. `check "$W/out" 2 3`: no `FAIL`; threshold 2 of 3; the three key IDs match Y4.
   - **sha256 of root.json:** ______________________________________  Initials: ____
 - [ ] Y8. Copied to the LUKS transfer drive before any reboot (live USB keeps `mktemp` folders in RAM): `out/root.json`, `out/1.root.json`, `pubs/*.pub` + attestation files (evidence), `online/*.key`. sha256 of `root.json` on the drive matches Y7
@@ -68,9 +68,11 @@ Yubico PIV CA file SHA-256 (recorded online, compared offline): ________________
 - [ ] Y14. Dry run on `main` (`security-nightly.yml -f dry_run=true`): `publish=false`, I1 to I5 passed, artifact `installer-security-x86_64-dev`. Run ID: ____________
 - [ ] Y15. **BLOCKED until a RAUC signing key procedure exists** (KEYS.md, RAUC CA options): publish run, release artifact check. RAUC CA SHA-256 fingerprint: ______________________________________________
 - [ ] Y16. YubiKeys stored in three different places: ____________ · ____________ · ____________. Succession note (D-010) sealed, location: ____________
-- [ ] Y17. First signed update installed on the Dell, then rolled back ([#1178](https://github.com/onemindos/ONEMINDOS/pull/1178))
+- [ ] Y17. **BLOCKED, as Y15** (needs the release stick). First signed update installed on the Dell, then rolled back ([#1178](https://github.com/onemindos/ONEMINDOS/pull/1178))
 
 ## Rotate the root onto hardware keys (REL-02, #272): full steps in [CEREMONY.md](CEREMONY.md)
+**Not for the D-031 ceremony. Only for rotating an existing file-key root onto hardware later; a D-031 root is already on YubiKeys.** (Plain key generation here: no PIN/touch policy, no attestation.)
+
 Date: ____________  Current root.json sha256 (the one being replaced): ______________________________
 Needs: 3 hardware tokens (PIN set on each), their PKCS#11 module path, 2 old sticks + passphrases, `opensc` or `ykman`, offline machine.
 - [ ] R0. Rehearsal passed: `scripts/tuf-bootstrap-root.sh rehearse-rotate /tmp/rotate-rehearsal-1` printed `REHEARSAL PASSED`; the YubiKey steps tried first on a **spare** device (not yet tested on hardware)
