@@ -9,7 +9,7 @@
 // docs/learning/umbrelos-2-teardown.md). OneMind's own look (founder picks 2026-11-21): today's logo, Atlas's
 // muted tiles, status first, approvals one click away.
 // Links are plain anchors: Shell's click handler routes them without a page reload.
-import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { flushSync } from 'react-dom';
 import { WindowFrame } from './wm/WindowFrame';

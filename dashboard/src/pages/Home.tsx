@@ -131,7 +131,7 @@ function ProHome({ commandBar }: { commandBar: ReactNode }) {
     );
   };
 
-  const canDecide = hub.canDecide === 'no' ? { allowed: false as const, reason: 'Only the owner can approve or deny.' } : { allowed: true as const };
+  const canDecide = decideState(shell.role, hub.canDecide) === 'no' ? { allowed: false as const, reason: 'Only the owner can approve or deny.' } : { allowed: true as const };
   const onRetry = () => {
     hub.reloadAll();
     void backups.reload();
