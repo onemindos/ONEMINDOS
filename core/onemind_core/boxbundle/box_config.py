@@ -67,7 +67,8 @@ def collect(db: Database) -> tuple[dict, list[dict]]:
     doc = {
         "schema": LAYER_SCHEMA,
         "box": {"box_name": onboarding["box_name"], "time_zone": onboarding["time_zone"]},
-        "updates": UpdatePolicyBody.model_validate(policy["doc"]).model_dump() if policy else None,
+        "updates": (UpdatePolicyBody.model_validate(policy["doc"]).model_dump()
+                    if policy and policy["doc"] is not None else None),
         "backups": {
             "choice": onboarding["backup_choice"],
             "primary_destination_id": next((d["id"] for d in destinations if d["is_primary"]), None),

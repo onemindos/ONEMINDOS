@@ -434,6 +434,8 @@ class FeatureAction:
     # derived from the request's params (part of plan_sha256).
     limits_for: Callable[[dict], list[dict]] | None = None
     preview_for: Callable[[dict], dict | None] | None = None
+    # Bind ordinary owner approval to the exact plan this feature puts on the approval card.
+    bind_plan: bool = False
 
 
 FEATURE_OUTCOMES = ("succeeded", "failed", "outcome_unknown")
@@ -1054,6 +1056,13 @@ class ActionService:
                 fresh = None if spec.physical else feature_plan(a.type, a.params)[1]
                 self._check_tainted_approval(a, plan_sha256, standing, fresh)
                 facts = {**(facts or {}), "tainted": True, "plan_sha256": a.plan_sha256}
+            if spec.bind_plan and not spec.physical:
+                if plan_sha256 is None:
+                    raise ApiError(409, "stale_precondition", "send plan_sha256 for the plan you reviewed",
+                                   reason="plan_unchecked")
+                if plan_sha256 != a.plan_sha256 or feature_plan(a.type, a.params)[1] != a.plan_sha256:
+                    raise ApiError(409, "stale_precondition", "the approval names a different plan",
+                                   reason="plan_changed")
             return self._approve_feature(principal, a, spec, standing, facts)
         handler = self.handlers.get(a.type)
         if handler is not None:
@@ -1557,7 +1566,7 @@ class ActionService:
             if plan is None:
                 plan, plan_sha = feature_plan(action_type, params)
             plan = {**plan, PLAN_KEY: taint.note()}
-        if plan is None and self._rule_could_cover(action_type, params, risk):
+        if plan is None and (spec.bind_plan or self._rule_could_cover(action_type, params, risk)):
             plan, plan_sha = feature_plan(action_type, params)  # an approval by rule is bound to these params
         action = Action(
             id=new_action_id(), type=action_type, params=params, state="requested",
@@ -1567,6 +1576,9 @@ class ActionService:
         )
         stored, created = self.repo.create(action)
         if not created:
+            if (stored.type != action_type or stored.params != params
+                    or stored.requested_by.get("id") != principal.id):
+                raise ApiError(409, "conflict", "idempotency_key was already used for a different request")
             return self.expire_if_due(stored).to_json(), False
         self.audit.append("action.requested", principal.as_dict(), stored.id, {
             "type": action_type, "params": params, "risk": risk, "expires_at": iso(exp),

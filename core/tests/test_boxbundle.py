@@ -111,7 +111,7 @@ def test_layer_bytes_are_canonical_and_never_hold_credentials(make_box):
     # Logically equal documents give the same bytes whatever the key order.
     assert manifest.canonical({"b": 1, "a": [2, {"d": 3, "c": 4}]}) == manifest.canonical({"a": [2, {"c": 4, "d": 3}], "b": 1})
     whats = [e["what"] for e in doc["excluded"]]
-    assert "passkeys and other sign-in keys" in whats and "OneMind's release signing keys" in whats
+    assert "passkey private keys (they never leave the person's device)" in whats and "OneMind's release signing keys" in whats
     # Same box, same settings: same bytes and checksum, whatever the bundle id or time.
     assert box_config.layer(a)[0].entry["sha256"] == doc["layers"][0]["sha256"]
 
@@ -289,3 +289,53 @@ def test_secret_schema_marker_overrides_cleartext_permission(make_box, monkeypat
 
     doc = yaml.safe_load(config_export.export_settings(db))
     assert doc["backups"]["destinations"] == [{"label": "Offsite"}, {"label": "USB disk"}]
+
+
+def test_real_schema_cleartext_annotations_and_secret_sentinels(make_box, monkeypatch):
+    rules = manifest.schema()
+    annotated = []
+
+    def check(rule, ancestors_exported=True):
+        exported = rule.get("x-config-export") is True
+        marked = rule.get("x-secret") or rule.get("writeOnly")
+        assert not (marked and exported)
+        assert not exported or ancestors_exported
+        if marked:
+            annotated.append(rule)
+        for keyword in ("properties", "patternProperties", "dependentSchemas"):
+            for field in rule.get(keyword, {}).values():
+                check(field, ancestors_exported and exported)
+        for keyword in ("items", "additionalProperties", "contains", "if", "then", "else", "not"):
+            if isinstance(child := rule.get(keyword), dict):
+                check(child, ancestors_exported and exported)
+        for keyword in ("oneOf", "anyOf", "allOf", "prefixItems"):
+            for field in rule.get(keyword, ()):
+                check(field, ancestors_exported and exported)
+        for field in rule.get("$defs", {}).values():
+            check(field)
+
+    check(rules)
+    assert annotated, "the invariant should exercise secret-marked fields"
+
+    sentinel = "secret-schema-sentinel"
+    injected = []
+
+    def plant(node, rule):
+        if rule.get("x-secret") or rule.get("writeOnly"):
+            injected.append(rule)
+            return sentinel
+        if isinstance(node, dict):
+            return {key: plant(node.get(key, {}), child)
+                    for key, child in rule.get("properties", {}).items()}
+        if isinstance(node, list):
+            return [plant(item, rule.get("items", {})) for item in node]
+        return node
+
+    db = make_box("sentinels")
+    set_up(db)
+    doc, _ = box_config.collect(db)
+    seeded = plant(doc, rules["$defs"]["boxConfig"])
+    assert {id(rule) for rule in injected} == {id(rule) for rule in annotated}
+    monkeypatch.setattr(config_export, "collect", lambda _: (seeded, []))
+    assert sentinel in json.dumps(seeded)
+    assert sentinel not in config_export.export_settings(db)

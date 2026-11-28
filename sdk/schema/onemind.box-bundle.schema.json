@@ -121,10 +121,11 @@
                   "items": {
                     "x-config-export": true,
                     "type": "object",
+                    "required": ["start", "end"],
                     "properties": {
-                      "days": {"x-config-export": true, "items": {"x-config-export": true}},
-                      "start": {"x-config-export": true},
-                      "end": {"x-config-export": true}
+                      "days": {"x-config-export": true, "type": "array", "items": {"x-config-export": true, "enum": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]}},
+                      "start": {"x-config-export": true, "type": "string"},
+                      "end": {"x-config-export": true, "type": "string"}
                     }
                   }
                 }
