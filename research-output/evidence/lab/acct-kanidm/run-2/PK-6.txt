@@ -1,0 +1,20 @@
+# 2026-11-25T11:59:23Z PK-6: a host name UNDER the canonical domain (https://mesh.idm.onemind.test:8443)
++ W nsm signin https://mesh.idm.onemind.test:8443 owner owner.cred ok
+{"origin": "https://mesh.idm.onemind.test:8443", "page": "Kanidm idm.onemind.test | Username | Remember My Username | Begin | Powered by Kanidm", "step": "login_page"}
+{"browser_console": [], "credential_fp": "91bb8de03044ddc5", "ok": true, "origin": "https://mesh.idm.onemind.test:8443", "page": "Kanidm idm.onemind.test | Applications | Profile | Sign out | Applications | OneMind test app |  | Powered by Kanidm", "profile": "Kanidm idm.onemind.test | Applications | Profile | Sign out | Profile | Credentials | Enrol Device | RADIUS | Profile | Name | Display Name | Email addresses | ", "result": "signed-in", "sign_count_after": [15], "sign_count_before": [13], "step": "signin", "url": "https://mesh.idm.onemind.test:8443/ui/apps"}
+  (exit 0)
+# enrolling a NEW passkey from the sub-domain name, then using it on the canonical name
++ reset_token owner owner.reset
+reset link issued for owner (link and token kept in the secrets dir, not printed)
+This token will expire at: 2026-11-25T12:59:30Z
+  (exit 0)
++ W nsm enrol https://mesh.idm.onemind.test:8443 owner owner2.cred ok
+{"ok": true, "origin": "https://mesh.idm.onemind.test:8443", "page": "Updating Credentials | User: Home Owner (owner) | Kanidm domain: Kanidm idm.onemind.test | Adding a new passkey Please n", "step": "open_reset"}
+{"credentials_in_authenticator": 1, "ok": true, "origin": "https://mesh.idm.onemind.test:8443", "page": "Updating Credentials | User: Home Owner (owner) | Kanidm domain: Kanidm idm.onemind.test | Passkeys | Easy to use digital credentials with self-contained multi-factor authentication designed to replac", "rp_id": "idm.onemind.test", "step": "passkey_created"}
+{"ok": true, "page": "Kanidm idm.onemind.test | Username | Remember My Username | Begin | Powered by Kanidm", "step": "saved"}
+{"count": 1, "credential_fp": "c1fdda496e5d8c0c", "ok": true, "step": "credential_exported"}
+  (exit 0)
++ W nsl signin https://idm.onemind.test:8443 owner owner2.cred ok
+{"origin": "https://idm.onemind.test:8443", "page": "Kanidm idm.onemind.test | Username | Remember My Username | Begin | Powered by Kanidm", "step": "login_page"}
+{"browser_console": [], "credential_fp": "c1fdda496e5d8c0c", "ok": true, "origin": "https://idm.onemind.test:8443", "page": "Kanidm idm.onemind.test | Applications | Profile | Sign out | Applications | OneMind test app |  | Powered by Kanidm", "profile": "Kanidm idm.onemind.test | Applications | Profile | Sign out | Profile | Credentials | Enrol Device | RADIUS | Profile | Name | Display Name | Email addresses | ", "result": "signed-in", "sign_count_after": [3], "sign_count_before": [1], "step": "signin", "url": "https://idm.onemind.test:8443/ui/apps"}
+  (exit 0)

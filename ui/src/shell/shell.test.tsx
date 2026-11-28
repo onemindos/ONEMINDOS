@@ -11,7 +11,7 @@ import { CommandPalette } from './CommandPalette';
 import { NotificationBell, NotificationCentre } from './NotificationCentre';
 import { Onboarding } from './Onboarding';
 import { StateView } from './StateView';
-import { buildCommands, isPaletteHotkey, moveActive, parseQuery, pushRecent, scoreCommand, searchCommands, SETTINGS_COMMANDS, type PaletteApp, type PaletteCommand } from './palette';
+import { COMMAND_GROUPS, buildCommands, isPaletteHotkey, moveActive, parseQuery, pushRecent, scoreCommand, searchCommands, SETTINGS_COMMANDS, type PaletteApp, type PaletteCommand } from './palette';
 import { filterNotifications, groupByDay, markAllRead, needsYou, safeDeepLink, setRead, unreadCount, type ShellNotification } from './notifications';
 import { newArrivals, toastForNotification, toastForRequest, useNotificationToasts } from './toasts';
 import { viewState, isSlow } from './states';
@@ -167,6 +167,47 @@ describe('palette logic', () => {
 });
 
 describe('CommandPalette', () => {
+  const tip: PaletteCommand = {
+    id: 'inspect-backup', group: 'Tips', title: 'Check the verified restore date',
+    icon: 'info', href: '/tips/inspect-backup',
+  };
+
+  it('drops Tips results as soon as the query changes', async () => {
+    const user = userEvent.setup();
+    const onSearch = vi.fn();
+    render(<CommandPalette open onClose={vi.fn()} commands={[]} onRun={vi.fn()}
+      initialQuery="backup" onSearch={onSearch} tipQuery="backup" tipResults={[tip]} />);
+    expect(screen.getByRole('option', { name: /Check the verified restore date/ })).toBeInTheDocument();
+
+    await user.type(screen.getByRole('combobox'), 's');
+    expect(onSearch).toHaveBeenLastCalledWith('backups');
+    expect(screen.queryByRole('group', { name: 'Tips' })).not.toBeInTheDocument();
+  });
+
+  it.each(['loading', 'error', 'forbidden'] as const)('opens a matching tip while the hub state is %s', async state => {
+    const onRun = vi.fn();
+    const user = userEvent.setup();
+    render(<CommandPalette open onClose={vi.fn()} commands={[]} onRun={onRun} state={state}
+      initialQuery="backup" tipQuery="backup" tipResults={[tip]} />);
+    expect(screen.getByRole('option', { name: /Check the verified restore date/ })).toBeInTheDocument();
+
+    await user.keyboard('{Enter}');
+    expect(onRun).toHaveBeenCalledWith(tip);
+  });
+
+  it('puts Tips after Go to in the group order and labels the tip action', () => {
+    const navigation: PaletteCommand = { id: 'backup', group: 'Go to', title: 'Backups', icon: 'backups' };
+    render(<CommandPalette open onClose={vi.fn()} commands={[navigation]} onRun={vi.fn()}
+      initialQuery="backup" tipQuery="backup" tipResults={[tip]} />);
+    const groups = screen.getAllByRole('group');
+    expect(COMMAND_GROUPS.slice(-2)).toEqual(['Go to', 'Tips']);
+    expect(groups).toHaveLength(2);
+    expect(within(groups[0]!).getByText('Go to')).toBeInTheDocument();
+    const tips = screen.getByRole('group', { name: 'Tips' });
+    expect(groups[1]).toBe(tips);
+    expect(within(tips).getByText('Open')).toHaveClass('oms-open-tag');
+  });
+
   function Harness({ onRun }: { onRun: (c: PaletteCommand) => void }) {
     const [open, setOpen] = useState(true);
     return <CommandPalette open={open} onClose={() => setOpen(false)} commands={cmds} onRun={onRun} />;
