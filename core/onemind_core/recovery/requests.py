@@ -13,7 +13,10 @@ one of the owner's contacts confirms, in one of three ways, all bound to this on
   It needs no network path between the contact and the box (works for iPhone-only households, D-021);
 - *C, in person:* the contact does A or B standing beside the owner.
 Each request allows 3 wrong tries, expires in 15 minutes, and an owner can start at most one contact
-request a day. A contact can never start a request.
+request a day. The contact routes cannot start a request, and a contact's token is not a request token. The start
+route itself is public (no token), so this is a known limit: a single contact who turns hostile can start one from any browser, compute the
+8-digit code with their own secret and confirm alone; the 24 to 72 hour wait and the notices to every
+owner and contact (any of whom can cancel) are the safeguard, as D-028 designs it.
 
 **Path 4, remote, with a wait.** No contact or kit: a password **and** the authenticator code (or a
 passkey the owner still has) start it. A password alone never does.
@@ -45,7 +48,8 @@ import secrets
 from datetime import datetime, timedelta
 
 from fastapi import Request
-from sqlalchemy import DateTime, Integer, String, select, update
+from sqlalchemy import DateTime, Index, Integer, String, select, text, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
@@ -81,6 +85,11 @@ class RequestRow(Base):
     """Feature "recovery": a new table, so create_all adds it at this shape."""
 
     __tablename__ = "recovery_requests"
+    # At most one open request per owner, enforced by the database itself (the check in start() is only
+    # the friendly answer): two parallel starts cannot both insert.
+    __table_args__ = (Index("uq_recovery_one_open", "owner_user_id", unique=True,
+                            sqlite_where=text("state IN ('awaiting_contact','waiting')"),
+                            postgresql_where=text("state IN ('awaiting_contact','waiting')")),)
     id: Mapped[str] = mapped_column(String(40), primary_key=True)  # rr_<ulid>
     owner_user_id: Mapped[str] = mapped_column(String(40), index=True)
     path: Mapped[str] = mapped_column(String(16))  # contact | remote
@@ -104,6 +113,7 @@ class RequestRow(Base):
     end_reason: Mapped[str | None] = mapped_column(String(40), nullable=True)
     ended_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
     notices_sent: Mapped[list] = mapped_column(JSON, default=list)
+    notices_n: Mapped[int] = mapped_column(Integer, default=0)  # bumped with every notices_sent write (compare-and-set)
 
 
 def code_for(secret: bytes, request_id: str, request_code: str) -> str:
@@ -132,14 +142,14 @@ class Recoveries:
         with self.db.session() as s:
             return s.get(RequestRow, request_id)
 
-    def _set(self, row: RequestRow, expect: tuple[str, ...], **values) -> bool:
+    def _set(self, row: RequestRow, expect: tuple[str, ...], only_if: tuple | None = None, **values) -> bool:
         """Compare-and-set: write `values` only while the request is still in one of the `expect` states.
         Every state write goes through here (or is an equally conditional UPDATE), so two writers that
         both read an old row can never overwrite each other's ending: the second one changes nothing.
         Returns whether this call made the change."""
         with self.db.session.begin() as s:
-            done = s.execute(update(RequestRow).where(RequestRow.id == row.id, RequestRow.state.in_(expect))
-                             .values(**values).returning(RequestRow.id)).scalar()
+            done = s.execute(update(RequestRow).where(RequestRow.id == row.id, RequestRow.state.in_(expect),
+                                                      *(only_if or ())).values(**values).returning(RequestRow.id)).scalar()
         return done is not None
 
     def _end(self, row: RequestRow, state: str, reason: str, by: str | None,
@@ -150,7 +160,7 @@ class Recoveries:
         ended = self._set(row, expect, state=state, ended_at=self.now(), end_reason=reason, ended_by=by)
         row = self._get(row.id)
         if ended:
-            severity = "warning" if state == "cancelled" else "info"
+            severity = "warning" if state in ("cancelled", "failed") else "info"
             self.contacts.tell(row.owner_user_id, f"recovery.request.{state}",
                                {"request_id": row.id, "path": row.path, "reason": reason}, severity=severity)
         return row
@@ -203,14 +213,6 @@ class Recoveries:
                 src.fail(f"recovery:{request.client.host if request.client else 'unknown'}", now)
                 raise ApiError(409, "conflict", "recovery with a contact is not available for this account yet",
                                reason="no_usable_contact")
-            with self.db.session() as s:
-                recent = s.scalar(select(RequestRow.created_at).where(
-                    RequestRow.owner_user_id == owner.id, RequestRow.path == "contact",
-                    RequestRow.created_at > now - timedelta(days=1)).order_by(RequestRow.created_at.desc()))
-            if recent is not None:
-                wait = int((utc(recent) + timedelta(days=1) - now).total_seconds()) + 1
-                raise ApiError(429, "rate_limited", "one recovery with a contact a day; try again later",
-                               reason="one_a_day", retry_after_s=wait)
             rng = secrets.SystemRandom()
             code = f"{rng.choice(WORDS)}-{rng.choice(WORDS)}-{rng.randrange(10000):04d}"
             values = dict(path="contact", state="awaiting_contact", vouch_expires_at=now + VOUCH_TTL,
@@ -231,19 +233,38 @@ class Recoveries:
             hours = self.settings(owner.id)["remote_wait_hours"]
             values = dict(path="remote", state="waiting", wait_hours=hours, not_before=now + timedelta(hours=hours))
         else:
-            raise ApiError(422, "conflict", "path must be contact or remote")
+            raise ApiError(422, "conflict", "path must be contact or remote", reason="bad_path")
+        # A request nobody confirmed in time is closed first (outside the lock below), so it cannot block.
         with self.db.session() as s:
-            open_ = s.scalar(select(RequestRow.id).where(RequestRow.owner_user_id == owner.id,
-                                                         RequestRow.state.in_(OPEN_STATES)))
-        if open_ is not None and self._fresh(self._get(open_)).state in OPEN_STATES:
-            raise ApiError(409, "conflict", "a recovery is already running for this account; cancel it first",
-                           reason="already_running")
+            stale = list(s.scalars(select(RequestRow).where(RequestRow.owner_user_id == owner.id,
+                                                            RequestRow.state.in_(OPEN_STATES))))
+        for r in stale:
+            self._fresh(r)
         token = REQUEST_TOKEN_PREFIX + secrets.token_urlsafe(32)
         row = RequestRow(id=new_id("rr"), owner_user_id=owner.id, created_at=now, starter_token_hash=token_hash(token),
                          source=(request.client.host if request.client else "unknown")[:80], tries=0,
                          liveness_raised=False, notices_sent=["start"], **values)
-        with self.db.session.begin() as s:
-            s.add(row)
+        already = ApiError(409, "conflict", "a recovery is already running for this account; cancel it first",
+                           reason="already_running")
+        try:
+            with self.db.session.begin() as s:
+                # Lock this owner for the check and the insert: a write to the owner's row first, so a parallel
+                # start waits here (PostgreSQL row lock; SQLite's single writer) and then sees this one's insert.
+                s.execute(update(UserRow).where(UserRow.id == owner.id).values(id=UserRow.id))
+                if s.scalar(select(RequestRow.id).where(RequestRow.owner_user_id == owner.id,
+                                                        RequestRow.state.in_(OPEN_STATES))) is not None:
+                    raise already
+                if path == "contact":
+                    recent = s.scalar(select(RequestRow.created_at).where(
+                        RequestRow.owner_user_id == owner.id, RequestRow.path == "contact",
+                        RequestRow.created_at > now - timedelta(days=1)).order_by(RequestRow.created_at.desc()))
+                    if recent is not None:
+                        wait = int((utc(recent) + timedelta(days=1) - now).total_seconds()) + 1
+                        raise ApiError(429, "rate_limited", "one recovery with a contact a day; try again later",
+                                       reason="one_a_day", retry_after_s=wait)
+                s.add(row)
+        except IntegrityError:  # the partial unique index: a parallel start got in first
+            raise already from None
         self.contacts.tell(owner.id, "recovery.request.started", {"request_id": row.id, "path": row.path},
                            severity="warning", audit_only={"source": row.source})
         return {**self.view(row, starter=True), "one_time": {"request_token": token}}
@@ -256,7 +277,11 @@ class Recoveries:
 
     def choices(self, request_id: str, contact_id: str, matching: str) -> list[str]:
         """Three numbers for this contact, one of them the owner's; the same on every poll."""
-        rng = random.Random(f"{request_id}:{contact_id}")  # noqa: S311 - decoys, not a secret
+        # Seeded from a box-only key: the contact knows both ids, so an id-only seed would let them re-run the
+        # generator and spot the owner's number as the one that is not a predicted decoy.
+        seed = hmac.new(self.contacts.sealer.derive("recovery-decoys"), f"{request_id}:{contact_id}".encode(),
+                        hashlib.sha256).digest()
+        rng = random.Random(seed)  # noqa: S311 - only picks decoys; the seed is a box secret
         decoys: set[str] = set()
         while len(decoys) < 2:
             n = f"{rng.randrange(100):02d}"
@@ -281,23 +306,31 @@ class Recoveries:
                             "created_at": iso(r.created_at), "not_before": iso(r.not_before)})
                 continue
             out.append({"id": r.id, "state": r.state, "owner_display_name": owner.display_name if owner else None,
-                        "created_at": iso(r.created_at), "source": r.source, "expires_at": iso(r.vouch_expires_at),
+                        "created_at": iso(r.created_at), "expires_at": iso(r.vouch_expires_at),
                         "choices": self.choices(r.id, contact.id, r.matching_number or ""),
                         "challenge": r.vouch_challenge})
         return out
 
-    def _one_try(self, row: RequestRow, what: str) -> ApiError:
-        # One atomic UPDATE ... SET tries = tries + 1 ... RETURNING, not read-change-write: parallel wrong
-        # answers each count, so nobody gets more than MAX_TRIES by sending them at the same moment.
+    def _take_try(self, row: RequestRow) -> int:
+        """Take one of the MAX_TRIES BEFORE an answer is compared: one atomic UPDATE ... SET tries = tries + 1
+        WHERE state = awaiting_contact AND tries < MAX RETURNING tries. Only a caller that got a row back may
+        compare, so parallel guesses can never evaluate more than MAX_TRIES answers between them."""
         with self.db.session.begin() as s:
             tries = s.execute(update(RequestRow)
-                              .where(RequestRow.id == row.id, RequestRow.state == "awaiting_contact")
+                              .where(RequestRow.id == row.id, RequestRow.state == "awaiting_contact",
+                                     RequestRow.tries < MAX_TRIES)
                               .values(tries=RequestRow.tries + 1).returning(RequestRow.tries)).scalar()
         if tries is None:
-            return ApiError(409, "conflict", "this request is no longer waiting for a contact", reason="not_awaiting")
-        row = self._get(row.id)
+            now = self._get(row.id)
+            if now is not None and now.state == "awaiting_contact":  # tries used up, the closing is in flight
+                raise ApiError(409, "conflict", f"this request is closed after {MAX_TRIES} tries", reason="request_closed")
+            raise ApiError(409, "conflict", "this request is no longer waiting for a contact", reason="not_awaiting")
+        return tries
+
+    def _wrong(self, row: RequestRow, tries: int, what: str) -> ApiError:
+        """The answer taken at try number `tries` was wrong: close the request on the last one."""
         if tries >= MAX_TRIES:
-            self._end(row, "failed", "too_many_tries", None, expect=("awaiting_contact",))
+            self._end(self._get(row.id), "failed", "too_many_tries", None, expect=("awaiting_contact",))
             return ApiError(409, "conflict", f"{what}; this request is closed after {MAX_TRIES} tries", reason="request_closed")
         return ApiError(422, "conflict", f"{what}; {MAX_TRIES - tries} tries left", reason="wrong_answer")
 
@@ -317,9 +350,10 @@ class Recoveries:
         except ak.ApproverKeyError:
             raise ApiError(401, "unauthenticated", "the contact key's signature does not verify",
                            reason="signature_invalid") from None
+        tries = self._take_try(row)  # the try is taken first; only then is the number compared
         if not hmac.compare_digest(picked, row.matching_number or ""):
             self.gw.audit.append("recovery.request.wrong_number", p.as_dict(), None, {"request_id": row.id})
-            raise self._one_try(row, "that is not the number on the owner's screen")
+            raise self._wrong(row, tries, "that is not the number on the owner's screen")
         return self._vouched(row, contact, "online", p)
 
     def vouch_code(self, request: Request, request_id: str, code: str) -> dict:
@@ -327,6 +361,7 @@ class Recoveries:
         if row.state != "awaiting_contact":
             raise ApiError(409, "conflict", f"this request is {row.state}", reason=row.state)
         code = "".join(ch for ch in (code or "") if ch.isdigit())
+        tries = self._take_try(row)  # one try per submission, taken before any contact's code is computed
         for contact in self.contacts.usable(row.owner_user_id):
             try:
                 want = code_for(self.contacts.secret_of(contact), row.id, row.request_code or "")
@@ -335,7 +370,7 @@ class Recoveries:
             if len(code) == 8 and hmac.compare_digest(code, want):
                 p = Principal(f"contact:{contact.id}", "contact", "contact")
                 return self._vouched(row, contact, "code", p)
-        raise self._one_try(row, "that code does not match")
+        raise self._wrong(row, tries, "that code does not match")
 
     def _liveness(self, owner_id: str, now: datetime) -> bool:
         since = now - LIVENESS_WINDOW
@@ -353,13 +388,21 @@ class Recoveries:
         if raised:
             hours = LIVENESS_WAIT_HOURS
         with self.db.session.begin() as s:
-            done = s.execute(update(RequestRow).where(RequestRow.id == row.id, RequestRow.state == "awaiting_contact")
+            done = s.execute(update(RequestRow).where(RequestRow.id == row.id, RequestRow.state == "awaiting_contact",
+                                                      RequestRow.tries <= MAX_TRIES)
                              .values(state="waiting", vouched_by=contact.id, vouched_at=now, vouch_method=method,
                                      wait_hours=hours, liveness_raised=raised, not_before=now + timedelta(hours=hours),
                                      notices_sent=["start", "vouched"])).rowcount
         if done != 1:
             raise ApiError(409, "conflict", "this request is no longer waiting for a contact", reason="not_awaiting")
         row = self._get(row.id)
+        live = self.contacts._get(contact.id)
+        if live is None or self.contacts.state_of(live) != "active":
+            # Removed or resigned between the check and this write: _contact_ended may have missed this request
+            # (it was not waiting yet), so stop it here, on a confirmation that no longer stands.
+            self._end(row, "cancelled", "contact_ended", f"contact:{contact.id}", expect=("waiting",))
+            raise ApiError(409, "conflict", "this contact no longer counts, so the recovery was stopped",
+                           reason="contact_ended")
         self.contacts.tell(row.owner_user_id, "recovery.request.vouched",
                            {"request_id": row.id, "contact_id": contact.id, "method": method, "wait_hours": hours,
                             "not_before": iso(row.not_before)}, p, severity="warning")
@@ -426,6 +469,8 @@ class Recoveries:
         row = self._starter(request, request_id)
         self._ready(row)
         owner = self.ident.user(row.owner_user_id)
+        if owner is None or owner.disabled:
+            raise ApiError(409, "conflict", "this account is disabled", reason="account_disabled")
         rp_id, _ = self.ident.rp(request)
         existing = list(self.ident.repo.all(select(PasskeyRow.id).where(PasskeyRow.user_id == owner.id)))
         challenge, raw = self.ident._new_challenge(CHALLENGE_PURPOSE, user_id=owner.id, action_id=row.id)
@@ -517,7 +562,8 @@ class Recoveries:
             new = [d for d in due if d not in (r.notices_sent or [])]
             if not new:
                 continue
-            if not self._set(r, ("waiting",), notices_sent=[*(r.notices_sent or []), *new]):
+            if not self._set(r, ("waiting",), only_if=(RequestRow.notices_n == (r.notices_n or 0),),
+                             notices_n=(r.notices_n or 0) + 1, notices_sent=[*(r.notices_sent or []), *new]):
                 continue  # completed or cancelled meanwhile: no reminder for an ended request
             self.contacts.tell(r.owner_user_id, "recovery.request.reminder",
                                {"request_id": r.id, "path": r.path, "not_before": iso(r.not_before),

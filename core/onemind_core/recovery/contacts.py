@@ -10,7 +10,8 @@ phone app, no account on the box). What a contact can do is deliberately tiny:
 - their bearer token (`omc_`) makes them the principal `contact:<id>`, which reaches the contact
   routes only (`CONTACT_PATHS`); every other route answers 403 and is audited;
 - they never see, list or export the owner's data, never approve, never change a setting, never
-  become owner, never start a recovery. In Standard mode they hold no key material for the owner's
+  become owner; the contact routes cannot start a recovery (the public sign-in route needs no token, so a
+  hostile contact can start one like anyone; the wait and the notices are the safeguard, recovery/requests.py). In Standard mode they hold no key material for the owner's
   data (§3.13 "What a contact can never do").
 
 Adding a contact is a security setting: owner only, from a signed-in session, behind the gateway's

@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 
 from conftest import OWNER
 from onemind_core.app import create_app
+from onemind_core.errors import ApiError
 from onemind_core.identity.crypto import new_id, totp_code
 from onemind_core.recovery.requests import MAX_TRIES, code_for, vouch_payload
 from recovery_support import ContactPhone, invite_and_accept, owner_with_passkey
@@ -254,15 +255,36 @@ def test_every_contact_and_owner_hears_of_the_recovery_and_reminders_during_the_
     assert {"recovery.request.started", "recovery.request.vouched", "recovery.request.reminder"} <= set(seen)
 
 
-def test_a_contact_cannot_start_a_recovery_or_see_another_owners(rc, clock):
+def test_a_contacts_token_reaches_no_starter_route_and_a_wrong_signature_is_refused(rc, clock):
+    """What is enforced: the contact routes have no way to start a request, and the contact's omc_ token is
+    not a request token (every starter route refuses it). What is NOT enforced: the public start route
+    needs no token, so a contact can start one like anyone (the documented D-028 limit, the next test)."""
     owner_with_passkey(rc)
     phone = ready_contact(rc, clock)
     r = TestClient(rc.app).post("/v1/recovery/requests", headers=phone.auth, json={"path": "contact"})
-    assert r.status_code in (403, 405)
+    assert r.status_code == 405
     s = start(rc).json()
+    for method, tail in (("get", ""), ("post", "/cancel"), ("post", "/code")):
+        r = getattr(TestClient(rc.app), method)(f"/v1/auth/recovery/requests/{s['id']}{tail}", headers=phone.auth,
+                                                **({"json": {"code": "12345678"}} if tail == "/code" else {}))
+        assert r.status_code in (401, 403), (tail, r.text)  # never a success
     r = TestClient(rc.app).post(f"/v1/recovery/requests/{s['id']}/vouch", headers=phone.auth,
                                 json={"picked": s["matching_number"], "signature": ContactPhone().sign(b"x")})
     assert r.status_code == 401 and r.json()["reason"] == "signature_invalid"
+
+
+def test_a_contact_who_turns_hostile_can_start_and_confirm_alone_but_only_into_the_wait(rc, clock):
+    """The documented limit (D-028): with their own secret a contact can start and confirm with flow B. The
+    safeguards are the wait and the notices, so this test pins that the request only reaches waiting and
+    cannot be finished before the wait is over."""
+    owner_with_passkey(rc)
+    phone = ready_contact(rc, clock)
+    s = start(rc).json()
+    code = code_for(phone.secret, s["id"], s["request_code"])
+    r = as_starter(rc, s).post(f"/v1/auth/recovery/requests/{s['id']}/code", json={"code": code})
+    assert r.status_code == 200 and r.json()["state"] == "waiting"
+    r = as_starter(rc, s).post(f"/v1/auth/recovery/requests/{s['id']}/complete", json={"new_password": "a brand new passphrase"})
+    assert r.status_code == 409 and r.json()["reason"] == "waiting"
 
 
 def test_a_cancel_that_lands_while_finishing_leaves_the_credentials_unchanged(rc, clock):
@@ -298,18 +320,144 @@ def test_a_cancel_that_lands_while_finishing_leaves_the_credentials_unchanged(rc
 
 
 def test_tries_are_counted_atomically_even_from_a_stale_read(rc, clock):
-    """Two wrong answers that both read tries=0 (parallel requests) still count as two tries."""
+    """Wrong answers that all read tries=0 (parallel requests) still count one try each, taken before comparing."""
     owner_with_passkey(rc)
     ready_contact(rc, clock)
     s = start(rc).json()
     rec = rc.app.state.recoveries
     stale = rec._get(s["id"])
-    for _ in range(MAX_TRIES - 1):
-        assert rec._one_try(stale, "wrong").reason == "wrong_answer"  # same stale row object each time
-    err = rec._one_try(stale, "wrong")
-    assert err.reason == "request_closed"
+    for n in range(1, MAX_TRIES):
+        assert rec._wrong(stale, rec._take_try(stale), "wrong").reason == "wrong_answer"  # same stale row each time
+        assert rec._get(s["id"]).tries == n
+    assert rec._wrong(stale, rec._take_try(stale), "wrong").reason == "request_closed"
     assert rec._get(s["id"]).state == "failed" and rec._get(s["id"]).tries == MAX_TRIES
-    assert rec._one_try(stale, "wrong").reason == "not_awaiting"  # a closed request takes no more tries
+    with pytest.raises(ApiError) as e:
+        rec._take_try(stale)  # a closed request takes no more tries
+    assert e.value.reason == "not_awaiting"
+
+
+def test_parallel_code_guesses_compare_at_most_max_tries_answers(rc, clock, monkeypatch):
+    """24 parallel guesses released together: the try is taken before the compare, so at most MAX_TRIES are
+    ever compared, tries never exceeds MAX_TRIES and the request is closed."""
+    import threading
+
+    from onemind_core.recovery import requests as reqmod
+    owner_with_passkey(rc)
+    phone = ready_contact(rc, clock)
+    s = start(rc).json()
+    compared, lock = [], threading.Lock()
+    real = reqmod.code_for
+
+    def counting(secret, request_id, request_code):
+        with lock:
+            compared.append(1)
+        return real(secret, request_id, request_code)
+
+    monkeypatch.setattr(reqmod, "code_for", counting)
+    barrier, results = threading.Barrier(24), []
+
+    def guess(n):
+        c = as_starter(rc, s)
+        barrier.wait()
+        # The right code is among the guesses: it must not get through once the tries are used up.
+        code = real(phone.secret, s["id"], s["request_code"]) if n == 23 else f"{n:08d}"
+        results.append(c.post(f"/v1/auth/recovery/requests/{s['id']}/code", json={"code": code}).status_code)
+
+    threads = [threading.Thread(target=guess, args=(n,)) for n in range(24)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    row = rc.app.state.recoveries._get(s["id"])
+    assert row.tries <= MAX_TRIES and len(compared) <= MAX_TRIES, (row.tries, len(compared))
+    assert len(results) == 24
+    assert row.state in ("failed", "waiting")  # failed, unless the right code happened to be among the first 3
+
+
+def test_parallel_starts_make_one_request_and_one_a_day(rc, clock):
+    """8 parallel starts for one owner: exactly one 201, the rest 409/429, one row, one notice."""
+    import threading
+    owner_with_passkey(rc)
+    ready_contact(rc, clock)
+    barrier, codes = threading.Barrier(8), []
+
+    def go():
+        c = TestClient(rc.app)
+        barrier.wait()
+        codes.append(c.post("/v1/auth/recovery", json={"path": "contact", "username": "zeus"}).status_code)
+
+    threads = [threading.Thread(target=go) for _ in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert codes.count(201) == 1, codes
+    assert all(c in (201, 409, 429) for c in codes), codes
+    from onemind_core.recovery.requests import RequestRow
+    with rc.app.state.recoveries.db.session() as db:
+        assert db.query(RequestRow).count() == 1
+
+
+def test_the_database_itself_refuses_a_second_open_request_for_one_owner(rc, clock):
+    from sqlalchemy.exc import IntegrityError
+
+    from onemind_core.recovery.requests import RequestRow
+    owner_with_passkey(rc)
+    ready_contact(rc, clock)
+    s = start(rc).json()
+    rec = rc.app.state.recoveries
+    row = rec._get(s["id"])
+    dup = RequestRow(id=new_id("rr"), owner_user_id=row.owner_user_id, path="contact", state="waiting",
+                     created_at=row.created_at, starter_token_hash="x" * 64, source="t", tries=0, notices_sent=[])
+    with pytest.raises(IntegrityError), rec.db.session.begin() as db:
+        db.add(dup)
+
+
+def test_a_contact_removed_just_as_they_confirm_cannot_leave_a_recovery_running(rc, clock):
+    """The contact is removed after vouch_online's check but before the state write: _vouched re-checks and stops it."""
+    owner_with_passkey(rc)
+    phone = ready_contact(rc, clock)
+    s = start(rc).json()
+    rec = rc.app.state.recoveries
+    real_get, calls = rec._open_for_vouch, []
+
+    def open_then_remove(request_id, owner_id):
+        row = real_get(request_id, owner_id)
+        calls.append(1)
+        # the owner's removal commits after the contact's checks passed (its hook finds nothing waiting yet)
+        rec.contacts._end(rec.contacts.usable(owner_id)[0], "removed")
+        return row
+
+    rec._open_for_vouch = open_then_remove
+    try:
+        r, _ = vouch(rc, phone, s["id"], picked=s["matching_number"])
+    finally:
+        rec._open_for_vouch = real_get
+    assert calls and r.status_code in (401, 403, 409), r.text
+    state = as_starter(rc, s).get(f"/v1/auth/recovery/requests/{s['id']}").json()["state"]
+    assert state != "waiting"
+
+
+def test_decoys_cannot_be_derived_from_the_ids_the_contact_knows(rc, clock):
+    import random
+    owner_with_passkey(rc)
+    ready_contact(rc, clock)
+    rec = rc.app.state.recoveries
+    wrong = 0
+    for i in range(200):
+        rid, cid, match = f"rr_{i}", "ct_1", f"{i % 100:02d}"
+        shown = rec.choices(rid, cid, match)
+        assert match in shown and len(set(shown)) == 3
+        rng = random.Random(f"{rid}:{cid}")  # the old, id-only seed an attacker could re-run
+        guess, decoys = None, set()
+        while len(decoys) < 2:
+            n = f"{rng.randrange(100):02d}"
+            if n != match:
+                decoys.add(n)
+        odd = [n for n in shown if n not in decoys]
+        wrong += odd != [match]
+    assert wrong > 100  # the old derivation found the number about 98% of the time; now it is a coin toss
+    assert rec.choices("rr_1", "ct_1", "42") == rec.choices("rr_1", "ct_1", "42")  # still stable per poll
 
 
 def test_the_request_token_and_the_8_digit_code_never_reach_the_audit_events_or_notices(rc, clock, settings):
