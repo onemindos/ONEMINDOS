@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""OneMind QEMU battery, Secure Boot and signed UKI (SB1-SB5). Criteria: test/qemu/CRITERIA-SECUREBOOT.md
+"""OneMind QEMU battery, Secure Boot and signed UKI (SB1-SB7). Criteria: test/qemu/CRITERIA-SECUREBOOT.md
 (pre-registered; never edited to make a result pass). Reuses run-tests.py's VM driver.
 
 Input is one disk built with `assemble.py ... --boot efi` and `--sb-key K --sb-cert C`, and a bundles disk with one
@@ -9,7 +9,7 @@ throwaway PK, KEK and db, enrols them in a copy of OVMF's variable store, and bo
 No real key is read or written. Runs in the tools container:
 
   python3 -I secureboot.py --disk disk.img --keys DIR --work DIR --log serial.log [--results r.json]
-                           [--bundles bundles.img]   (default: bundles.img next to the disk; SB5 needs it)
+                           [--bundles bundles.img]   (default: bundles.img next to the disk; SB5-SB7 need it)
   (--keys: the directory with db.crt, the certificate that signed the image; PK and KEK are made here)
 """
 import argparse, importlib.util, json, os, platform, re, shutil, subprocess, sys, tempfile, threading, time
@@ -32,6 +32,9 @@ WATCH = 240
 GATE_WAIT = 1500
 INSTALL_WAIT = 2400
 SB5_BUNDLE = "good.raucb"
+SB6_BUNDLE = "bad-k3s.raucb"       # version 3: k3s exits at start, the health gate rejects slot B
+SB7_BUNDLE = "bad-boot.raucb"      # version 5: PID 1 exits, the kernel panics in slot B's one trial boot
+BAD_BOOT_MARK = "BAD-BOOT: broken init exiting"
 BOOTED = r"rauc[.]slot=[AB]|Booted from: [^(]*[(]\w+[)]"     # the booted slot as the kernel and RAUC name it
 RESULTS = []
 
@@ -123,6 +126,30 @@ def sb5_verdict(installed, gate1, gate2, after):
             and after["B"] is not None and after["BootCurrent"] == after["B"]
             and "onemind-B.efi" in after["B_line"]
             and after["BootOrder"][:1] == [after["B"]])
+
+
+def back_on_a(installed, gate1, gate3, after):
+    """The shared tail of SB6 and SB7: slot A committed first, `rauc install` set BootNext to B's entry, and after the
+    failed trial the box is on slot A again (BootCurrent = A's entry, A leads BootOrder, the gate committed or fell
+    back to A at version 1)."""
+    return (gate1[0].startswith("committed") and gate1[1] == "A"
+            and installed["B"] is not None and installed["BootNext"] == installed["B"]
+            and after["A"] is not None and after["BootCurrent"] == after["A"]
+            and after["BootOrder"][:1] == [after["A"]]
+            and gate3[1:] == ("A", "1"))
+
+
+def sb6_verdict(installed, gate1, gate2, gate3, after):
+    """SB6 PASS rule (CRITERIA-SECUREBOOT.md section 5): the gate rejected slot B (`mark-bad`, version 3) and the next
+    boot, back on A, committed version 1. Secure Boot being on in all three boots is checked by the caller."""
+    return (back_on_a(installed, gate1, gate3, after) and tuple(gate2) == ("mark-bad", "B", "3")
+            and gate3[0] == "committed-boot")
+
+
+def sb7_verdict(installed, gate1, gate3, after, panics):
+    """SB7 PASS rule (CRITERIA-SECUREBOOT.md section 5): slot B's trial boot panicked exactly once (BootNext is used up
+    by the firmware, so there is no second try) and A came back, with the gate's `fell-back` decision for version 1."""
+    return back_on_a(installed, gate1, gate3, after) and gate3[0] == "fell-back" and panics == 1
 
 
 def efi_state(vm):
@@ -266,6 +293,66 @@ def main():
                     except (TimeoutError, RuntimeError) as e:
                         record("SB5", False, f"{e} accel={accel}")
                     vm.stop()
+            # SB6 and SB7 (#148, rollback under Secure Boot): a bad update must come back to slot A.
+            def failed_update(tid, bundle):
+                vm = boot(tid, fresh_disk(a.disk, a.work, f"{tid.lower()}.img"), a.bundles)
+                try:
+                    vm.expect(SB_ON, 600)
+                    gate1 = vm.wait_gate(GATE_WAIT)
+                    if not (gate1[0].startswith("committed") and gate1[1] == "A"):
+                        raise RuntimeError(f"slot A did not commit first: {vm.last_gate!r}")
+                    first = vm.last_gate
+                    vm.shell_ready()
+                    rc, out = battery.install(vm, bundle, INSTALL_WAIT)
+                    if rc:
+                        raise RuntimeError(f"rauc install {bundle} rc={rc}: {out.strip()[-300:]!r}")
+                    installed = efi_state(vm)
+                    seg = vm.here()
+                    vm.send("systemctl reboot")
+                    return vm, gate1, first, installed, seg
+                except BaseException:
+                    vm.stop()
+                    raise
+
+            if (not want or "SB6" in want) and not a.kernel_only and os.path.exists(a.bundles):
+                try:
+                    vm, gate1, first, installed, seg = failed_update("SB6", SB6_BUNDLE)
+                    try:
+                        vm.expect(SB_ON, 600)                    # slot B's own signed UKI starts (BootNext)
+                        gate2 = vm.wait_gate(GATE_WAIT * 2); second = vm.last_gate   # the gate rejects it, reboots
+                        vm.expect(SB_ON, 900)                    # and the firmware returns to slot A, still signed
+                        gate3 = vm.wait_gate(GATE_WAIT); third = vm.last_gate
+                        vm.shell_ready()
+                        after = efi_state(vm)
+                        record("SB6", sb6_verdict(installed, gate1, gate2, gate3, after),
+                               f"gate1={first!r} after_install={short(installed)} secure_boot_on_all_boots=True "
+                               f"gate2={second!r} gate3={third!r} after={short(after)} accel={accel}")
+                    finally:
+                        vm.stop()
+                except (TimeoutError, RuntimeError) as e:
+                    record("SB6", False, f"{e} accel={accel}")
+            elif (not want or "SB6" in want) and not a.kernel_only:
+                record("SB6", "BLOCKED", f"no bundles disk at {a.bundles}")
+
+            if (not want or "SB7" in want) and not a.kernel_only and os.path.exists(a.bundles):
+                try:
+                    vm, gate1, first, installed, seg = failed_update("SB7", SB7_BUNDLE)
+                    try:
+                        vm.expect(SB_ON, 600)                    # slot B starts and panics ...
+                        vm.expect(SB_ON, 900)                    # ... the firmware has used BootNext: A, still signed
+                        gate3 = vm.wait_gate(GATE_WAIT); third = vm.last_gate
+                        panics = vm.since(seg).count(BAD_BOOT_MARK)
+                        vm.shell_ready()
+                        after = efi_state(vm)
+                        record("SB7", sb7_verdict(installed, gate1, gate3, after, panics),
+                               f"gate1={first!r} after_install={short(installed)} panics={panics} "
+                               f"gate3={third!r} after={short(after)} accel={accel}")
+                    finally:
+                        vm.stop()
+                except (TimeoutError, RuntimeError) as e:
+                    record("SB7", False, f"{e} accel={accel}")
+            elif (not want or "SB7" in want) and not a.kernel_only:
+                record("SB7", "BLOCKED", f"no bundles disk at {a.bundles}")
         finally:
             if a.results:
                 json.dump({"board": "x86_64-efi", "results": RESULTS, "accel": accel, "cpus": os.cpu_count()},

@@ -116,7 +116,19 @@ jobs:
           export JAVA_HOME="$JAVA_HOME_17_X64"
           npx expo prebuild --platform android --no-install
           cd android
-          ./gradlew assembleDebug --no-daemon --console=plain
+          gradle_log=$(mktemp)
+          gradle_args=(assembleDebug --no-daemon --console=plain)
+          for attempt in 1 2 3; do
+            if ./gradlew "${gradle_args[@]}" 2>&1 | tee "$gradle_log"; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ] || ! grep -Fq "could not resolve plugin artifact 'org.gradle.toolchains.foojay-resolver-convention:" "$gradle_log"; then
+              exit 1
+            fi
+            echo "::warning::Gradle could not resolve the Foojay plugin. Retrying the debug build."
+            gradle_args=(assembleDebug --no-daemon --console=plain --refresh-dependencies)
+            sleep "$((attempt * 15))"
+          done
           ls -l app/build/outputs/apk/debug/app-debug.apk
           # The release step below re-runs expo prebuild, which can remove android/build outputs: keep a copy.
           mkdir -p "$RUNNER_TEMP/debug-apk"

@@ -105,7 +105,7 @@ when Go is installed); `--no-airgap` leaves the images out (k3s then pulls them)
 |---|---|---|
 | apt: `unattended-upgrades`, `needrestart` | Debian's documented switch (`dpkg-reconfigure unattended-upgrades`), then `52onemind-security-only` limits it to **security origins** (`#clear` + `Debian-Security` patterns; on L4T Ubuntu `${distro_codename}-security`). `needrestart` restarts affected services itself (`$nrconf{restart}='a'`) | `/etc/apt/apt.conf.d/`, `/etc/needrestart/conf.d/` |
 | k3s `v1.37.2+k3s1` | binary from `os/versions.lock.yaml` (sha256-checked), then upstream `install.sh` **at the tag commit, sha256-pinned**, run with `INSTALL_K3S_SKIP_DOWNLOAD=true` (it only writes the unit, links and uninstall scripts). The hub is a **server** with a separate `agent-token`; nodes join as **agents** with that token, so a node can never join as a server and holds no admin kubeconfig (D-B6.2, checked in the test) | `/usr/local/bin/k3s`, `/etc/rancher/k3s/config.yaml` |
-| NATS `v2.15.2` (hub; D-B6.5) | release tarball, sha256-pinned; unit `onemind-nats` as a dynamic user | `/usr/local/bin/nats-server`, `/etc/onemind/nats.conf` |
+| NATS `v2.15.3` (hub; D-B6.5) | release tarball, sha256-pinned; unit `onemind-nats` as a dynamic user | `/usr/local/bin/nats-server`, `/etc/onemind/nats.conf` |
 | `onemindd` + `onemind` CLI | **built from this checkout with Go 1.26.11** (pinned tarball): no release artifact exists yet. Static, `-trimpath`. Unit = `systemd/onemindd.service` | `/usr/local/bin/`, `/etc/onemind/onemindd.env` |
 | gateway (hub) | `core/` installed by **uv 0.13.7** (pinned) from `core/uv.lock` (`--frozen`, hash-checked); uv downloads Python 3.12 and checks its hash. Runs as user `onemind`, `ONEMIND_EXECUTOR=kubernetes` | `/opt/onemind/{core,venv,python,apps,sdk}`, `/etc/onemind/gateway.env`, data in `/var/lib/onemind` |
 | dashboard (hub) | `npm ci --ignore-scripts` + `vite build` with **Node v24.22.3** (pinned), run as user `onemind` (never root: npm packages are third-party code), served by the gateway via `ONEMIND_DASHBOARD_DIST` | `/opt/onemind/dashboard` |
@@ -209,7 +209,7 @@ docker compose up -d --build
 open http://127.0.0.1:8080         # sign in with the owner token
 docker compose down -v
 ```
-Services: `nats` (2.15.2), `dashboard` (builds `dashboard/` into a volume, then exits), `gateway`
+Services: `nats` (2.15.3, clients sign in with per-client nkeys made by `nats-keys`), `dashboard` (builds `dashboard/` into a volume, then exits), `gateway`
 (`core/Dockerfile`, **noop executor**, so nothing is really installed), `node-sim` (`onemindd` with
 `ONEMIND_NODE_ID=compose-node-1`), and two **simulated machines** (ported from PR #27), `sim-rpi5`
 and `sim-jetson`: [`simnode`](compose/simnode/main.go) runs onemindd's own agent code
@@ -272,7 +272,7 @@ Exit code 0 only when nothing failed.
 ## Tests of the deploy kit (ported from PR #27; CI: `ci-deploy.yml`)
 | Test | What it proves | Run |
 |---|---|---|
-| [`verify/tests/test_verify.py`](verify/tests/test_verify.py) | `verify.sh` passes a correct hub with **nothing skipped** (`--strict`) and FAILs the right line for each of 15 broken hubs (no auth, agent may approve, no expiry, deny not cancelled, no idempotency, changed params, failed install, no online node, leaked IP, bad board, person on `/mcp`, an approve tool, broken audit chain, a heartbeat for another node, no dashboard). A hub that answers with node ids made of Python code runs nothing (the #26 eval bug). Tokens never reach curl's command line. `natscheck.py` against no-auth, token and nkey servers, `leafz`, and (with Docker) a real nats-server 2.15.2 with a token and TLS from a CA made at test time | `python3 -I deploy/verify/tests/test_verify.py -v` (about 80 s) |
+| [`verify/tests/test_verify.py`](verify/tests/test_verify.py) | `verify.sh` passes a correct hub with **nothing skipped** (`--strict`) and FAILs the right line for each of 15 broken hubs (no auth, agent may approve, no expiry, deny not cancelled, no idempotency, changed params, failed install, no online node, leaked IP, bad board, person on `/mcp`, an approve tool, broken audit chain, a heartbeat for another node, no dashboard). A hub that answers with node ids made of Python code runs nothing (the #26 eval bug). Tokens never reach curl's command line. `natscheck.py` against no-auth, token and nkey servers, `leafz`, and (with Docker) a real nats-server 2.15.3 with a token and TLS from a CA made at test time | `python3 -I deploy/verify/tests/test_verify.py -v` (about 80 s) |
 | [`verify/tests/mock_gateway.py`](verify/tests/mock_gateway.py) | Not a test itself: an imitation hub (HTTP API with `/mcp`, plus a tiny NATS with heartbeats and a hash-chained `onemind.audit`), `--bug` breaks one rule | used by the test above |
 | [`verify/tests/e2e-systemd/run.sh`](verify/tests/e2e-systemd/run.sh) | The real thing on two "stock Debian 13 machines" (containers with systemd as PID 1): `bundle.sh`, hub and node installed **from the bundle only**, tokens printed once and absent from disk, idempotent re-run, 2 Ready nodes, node-check on both, `verify.sh` with the kubernetes executor, an app Available in k3s, a dry run that changes no file, `--uninstall --purge` | `deploy/verify/tests/e2e-systemd/run.sh` (privileged Docker; about 4 min on arm64; `KEEP=1`, `E2E_APP`, `E2E_BUNDLE`) |
 

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # OneMind hub NATS (contract §1, :4222). Installed by deploy/install.sh --role hub.
-# Config: /etc/onemind/nats.conf. Core NATS only (heartbeats, onemind.audit); no JetStream yet.
+# Config: /etc/onemind/nats.conf. Core NATS, plus file-backed JetStream for the hub account when the install sets a cap (app event streams, leaf outbox sourcing).
 [Unit]
 Description=OneMind hub NATS server (:4222)
 Documentation=https://docs.nats.io/

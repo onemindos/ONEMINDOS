@@ -77,7 +77,7 @@ rm -f "$W/v.ext4"
 
 log "T0 checks"
 python3 -I - "$T" "$W/bundles" "$K/dev-ca.pem" "$SRC/os/versions.lock.yaml" "$OUT/t0.json" "$BOARD" <<'PY'
-import hashlib, json, re, subprocess, sys, yaml
+import hashlib, json, os, re, subprocess, sys, yaml
 tree, bdir, ca, lock, out, board = sys.argv[1:]
 lk = yaml.safe_load(open(lock)); checks = {}
 def sh(*c, root=None):
@@ -102,6 +102,15 @@ checks["wrong_key_rejected"] = info.get("wrong-key.raucb", {}).get("rc", 0) != 0
 checks["verity_bundles_verity"] = all(v["format"] == "verity" and v["verified"] for k, v in info.items()
                                       if k not in ("wrong-key.raucb", "plain-good.raucb"))
 checks["plain_good_is_plain_and_signed"] = info.get("plain-good.raucb", {}).get("format") == "plain" and info["plain-good.raucb"]["verified"]
+# Step 2 PR 9: the base is made by mmdebstrap from the pinned snapshot, not taken from a Docker Hub image, so none of
+# that image's container leftovers may be in the tree (a policy-rc.d stops every service start on the box).
+import glob
+left = [p for p in ("usr/sbin/policy-rc.d", ".dockerenv") if os.path.lexists(f"{tree}/{p}")]
+left += [os.path.relpath(p, tree) for g in ("etc/apt/apt.conf.d/docker-*", "etc/dpkg/dpkg.cfg.d/docker-*", "etc/dpkg/dpkg.cfg.d/onemind-build-*")
+         for p in glob.glob(f"{tree}/{g}")]
+checks["no_container_leftovers"] = not left
+if left:
+    print("container leftovers in the image:", left)
 checks["no_naive_gate_in_v1"] = "NAIVE" not in open(f"{tree}/usr/lib/onemind/onemind-k3s-check").read()
 res = {"test": "T0", "board": board, "pass": all(checks.values()), "checks": checks, "bundles": info,
        "rauc_version": v.strip(), "k3s_sha256": {"binary": binsha, "airgap": imgsha}}

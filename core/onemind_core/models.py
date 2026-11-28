@@ -69,6 +69,15 @@ class CatalogSource(BaseModel):
     commit: str
 
 
+class CustomSource(BaseModel):
+    """PLG-GIT-01: the Git repository a custom app was linked from, at the revision the catalog serves."""
+
+    url: str
+    ref: str
+    commit: str
+    revision: int
+
+
 class AppBuild(BaseModel):
     """metadata.build: OneMind rebuilt this app's image (sdk/tools/app-factory); upstream did not publish it."""
 
@@ -79,6 +88,14 @@ class AppBuild(BaseModel):
     patched: list[str] = Field(description="Operating-system packages OneMind upgraded on top of the base")
     built_at: str = Field(description="RFC 3339 time of the build")
     image: str = Field(description="The OneMind-built image the app runs, pinned by digest")
+
+
+class MachineNeeds(BaseModel):
+    """What an app needs from a machine at each strength, in the sdk/schema $defs/machineNeeds shape (#724)."""
+
+    requires: dict = Field(default_factory=dict, description="The machine must have these, or the app is not placed there")
+    recommends: dict = Field(default_factory=dict, description="Not required: the app runs without these and better with them")
+    supports: dict = Field(default_factory=dict, description="The app can use these when the machine has them")
 
 
 class CatalogApp(BaseModel):
@@ -102,7 +119,12 @@ class CatalogApp(BaseModel):
     )
     source: str | None
     archs: list[str]
-    requires: dict
+    requires: dict = Field(description="spec.requires exactly as the manifest writes it, in either spelling; read "
+                           "machine_needs for one shape")
+    machine_needs: MachineNeeds = Field(
+        default_factory=MachineNeeds,
+        description="#724: requires / recommends / supports normalised to one shape (arch, memoryMb, storageFreeGb, "
+        "accelerator, devices, radios, models), whichever spelling the manifest uses; a fact it does not state is left out")
     web_port: int | None
     browser: bool = Field(default=False, description="A browser app (#692): open it with POST /v1/browsers/{app_id}/session, "
                           "which gives the person their own profile; its own app name is never served")
@@ -135,6 +157,9 @@ class CatalogApp(BaseModel):
     )
     catalog_source: CatalogSource | None = Field(
         default=None, description="§12.22: the community source and pinned commit; null for the official catalog"
+    )
+    custom_source: CustomSource | None = Field(
+        default=None, description="PLG-GIT-01: the Git repository, ref, commit and revision of a custom app; null otherwise"
     )
 
     @field_validator("ai_policy", mode="before")

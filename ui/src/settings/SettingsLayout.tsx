@@ -9,7 +9,7 @@ import type { Tone } from '../tokens/tokens';
 import { matchSection } from './logic';
 import { SetIcon, type SetIconName } from './primitives';
 
-export type SettingsSectionId = 'default-apps' | 'appearance' | 'account' | 'users' | 'devices' | 'network' | 'backups' | 'updates' | 'notifications' | 'automation' | 'agents' | 'storage' | 'apps' | 'care' | 'about';
+export type SettingsSectionId = 'default-apps' | 'appearance' | 'account' | 'users' | 'devices' | 'network' | 'backups' | 'updates' | 'notifications' | 'automation' | 'agents' | 'storage' | 'apps' | 'care' | 'about' | 'time' | 'recovery' | 'security' | 'permissions' | 'activity-monitor' | 'accessibility';
 
 export interface SettingsSectionMeta {
   id: SettingsSectionId;
@@ -21,14 +21,20 @@ export interface SettingsSectionMeta {
 }
 
 export const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
+  { id: 'accessibility', label: 'Accessibility and motion', icon: 'eye', group: 'You', keywords: ['reduce motion', 'text size', 'contrast', 'focus', 'underline'] },
   { id: 'appearance', label: 'Appearance', icon: 'eye', group: 'You', keywords: ['theme', 'dark', 'light', 'accent', 'wallpaper', 'colour', 'color', 'density', 'font'] },
   { id: 'default-apps', label: 'Default apps', icon: 'settings', group: 'You', keywords: ['open with', 'preferred', 'browser'] },
-  { id: 'account', label: 'Account & security', icon: 'lock', group: 'People and access', keywords: ['passkey', 'password', 'sessions', 'tokens', 'sign in', '2fa', 'totp'] },
+  { id: 'account', label: 'Account & security', icon: 'lock', group: 'People and access', keywords: ['passkey', 'password', 'sessions', 'tokens', 'sign in', '2fa', 'totp', 'my devices', 'lost phone'] },
   { id: 'users', label: 'Users & roles', icon: 'users', group: 'People and access', keywords: ['people', 'family', 'invite', 'owner', 'guest'] },
   { id: 'agents', label: 'Agents & MCP', icon: 'agent', group: 'People and access', keywords: ['ai', 'hermes', 'mcp', 'tools', 'revoke', 'suspend'] },
+  { id: 'security', label: 'Security overview', icon: 'lock', group: 'Security', keywords: ['passkeys', 'devices', 'tokens', 'audit', 'approval', 'exposure'] },
+  { id: 'permissions', label: 'Permissions', icon: 'lock', group: 'Security', keywords: ['people', 'agents', 'file grants', 'app access', 'scopes', 'data access', 'data grants', 'hardware access', 'host grants', 'revoke'] },
+  { id: 'activity-monitor', label: 'Activity monitor', icon: 'info', group: 'Security', keywords: ['apps', 'services', 'cpu', 'memory', 'sessions'] },
   { id: 'devices', label: 'Devices & nodes', icon: 'nodes', group: 'Machines', keywords: ['fabric', 'join', 'qr', 'hub', 'worker', 'leaf', 'add node'] },
   { id: 'network', label: 'Network & mesh', icon: 'globe', group: 'Machines', keywords: ['remote', 'vpn', 'mesh', 'dns', 'mdns', 'certificate', 'https', 'tls'] },
   { id: 'storage', label: 'Storage', icon: 'disk', group: 'Machines', keywords: ['disk', 'space', 'usage', 'categories'] },
+  { id: 'time', label: 'Date and time', icon: 'settings', group: 'Keeping it healthy', keywords: ['time zone', 'clock', 'ntp'] },
+  { id: 'recovery', label: 'Recovery and reset', icon: 'backups', group: 'Keeping it healthy', keywords: ['restore', 'emergency kit', 'reset', 'restart', 'shutdown'] },
   { id: 'care', label: 'Care', icon: 'info', group: 'Keeping it healthy', keywords: ['box check-up', 'health', 'drift'] },
   { id: 'backups', label: 'Backups', icon: 'backups', group: 'Keeping it healthy', keywords: ['restore', 'snapshot', 'usb', 's3', 'emergency kit'] },
   { id: 'updates', label: 'Updates', icon: 'updates', group: 'Keeping it healthy', keywords: ['os', 'version', 'channel', 'rollback', 'release notes', 'slot'] },
@@ -49,10 +55,13 @@ export interface SettingsLayoutProps {
   hints?: Partial<Record<SettingsSectionId, { tone: Tone; label: string }>>;
   /** Sections left out of the list (e.g. screens that are not for this person's role). */
   hidden?: ReadonlySet<SettingsSectionId>;
+  onSearch?: (query: string) => void;
+  extraSearchResults?: ReactNode;
   children: ReactNode;
 }
 
-export function SettingsLayout({ current, explicit, hrefFor, indexHref, hints = {}, hidden, children }: SettingsLayoutProps) {
+export function SettingsLayout({ current, explicit, hrefFor, indexHref, hints = {}, hidden, onSearch, extraSearchResults,
+  children }: SettingsLayoutProps) {
   const [q, setQ] = useState('');
   const searchId = useId();
   const shown = SETTINGS_SECTIONS.filter((s) => !hidden?.has(s.id) && matchSection(s, q));
@@ -65,9 +74,12 @@ export function SettingsLayout({ current, explicit, hrefFor, indexHref, hints = 
           <label className="om-set-search" htmlFor={searchId}>
             <SetIcon name="search" size={18} />
             <span className="om-visually-hidden">Search settings</span>
-            <input id={searchId} type="search" placeholder="Search settings" value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off" />
+            <input id={searchId} type="search" placeholder="Search settings" value={q} onChange={(e) => {
+              setQ(e.target.value);
+              onSearch?.(e.target.value);
+            }} autoComplete="off" />
           </label>
-          {shown.length === 0 && (
+          {shown.length === 0 && !extraSearchResults && (
             <p className="om-hint om-set-nomatch" role="status">
               No setting matches “{q}”.
             </p>
@@ -95,6 +107,7 @@ export function SettingsLayout({ current, explicit, hrefFor, indexHref, hints = 
               </ul>
             </div>
           ))}
+          {extraSearchResults}
         </nav>
         <div className="om-set-content" key={current}>
           <a className="om-set-back" href={indexHref}>

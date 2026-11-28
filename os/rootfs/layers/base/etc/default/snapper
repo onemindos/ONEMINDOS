@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# libsnapper takes its list of configs from here, not from the files in /etc/snapper/configs. The root is read-only,
+# so this file and /etc/snapper/configs/storage are baked into the image instead of made by `snapper create-config`.
+SNAPPER_CONFIGS="storage"
+# No apt on this box (packages arrive as RAUC slot updates).
+DISABLE_APT_SNAPSHOT="yes"

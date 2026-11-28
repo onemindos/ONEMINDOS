@@ -10,7 +10,33 @@
 #                 check what the runs left behind (core/tests/api_fuzz_check.py): no 5xx, documented
 #                 statuses and bodies, nothing approved while only the agent was fuzzing, every
 #                 decision by the owner, an intact audit chain, no traceback in the gateway log.
-#   properties    nightly: the Hypothesis property tests with 20x the PR example budget.
+#   changes       merge queue only: the queue has no paths filter, so this job reads the merge group's
+#                 changed files and lets the fuzz job run only when they touch the paths a push to
+#                 main fuzzes (the same list); anything it cannot read counts as a change.
+#   properties    main, nightly and manual: the Hypothesis property tests with 20x the PR example budget.
+#   report        nightly and manual runs only, when the fuzz job failed or timed out: opens ONE issue titled
+#                 "api-fuzz nightly finding" (or comments on the open one) with the seed, each failing
+#                 endpoint and check, and the commands that replay it (scripts/api-fuzz-finding.py).
+#
+# Seeds (founder decision 2026-11-25: the same code always gets the same verdict; nothing is removed):
+#   gated runs     pull_request, merge_group and a push to main fuzz with the fixed seed API_FUZZ_SEED
+#                  below, one worker and no example database, so a red or green verdict changes only
+#                  when the code, the schema or this file changes. Every role, every check and every
+#                  custom check (core/tests/api_fuzz_hooks.py) stays on; the gated budgets are unchanged
+#                  (40 cases per operation on a PR and in the queue, 400 on main).
+#                  Only the gateway's own fresh ids, tokens and clock still differ between runs, and
+#                  the checks never depend on them.
+#   exploration    the nightly schedule and a manual run draw a fresh random seed (the first step prints
+#                  it) and fuzz 600 cases per operation, 1.5x main's budget; that is where new inputs
+#                  are found. A manual run can take a seed
+#                  (`gh workflow run api-fuzz.yml --ref main -f seed=N`) to replay a finding.
+#   reproduce      a gated failure: rerun the job, or locally use --seed with API_FUZZ_SEED. Any run:
+#                  `cd core && .venv/bin/schemathesis --config-file "$FUZZ/schemathesis.toml" run
+#                  http://127.0.0.1:8080/openapi.json -H "Authorization: Bearer $AGENT_TOKEN" --checks all
+#                  --exclude-path /mcp --include-path <path> --include-method <METHOD> --max-examples <N>
+#                  --seed <seed> --workers 1 --generation-database none` against a gateway started as in
+#                  the steps below (docs/testing/PROPERTY-AND-FUZZ.md). One operation's coverage and
+#                  fuzzing inputs depend only on the seed and that operation, so the filter keeps them.
 name: api-fuzz
 
 on:
@@ -22,9 +48,18 @@ on:
   push:
     branches: [main]
     paths: ["core/**", "sdk/schema/**", "sdk/tools/applib/**", "apps/*/onemind.app.yaml", ".github/workflows/api-fuzz.yml"]
+  # The merge queue gets the same deterministic run as a pull request, when the merge group touches the
+  # push paths above (job changes: this event has no paths filter).
+  merge_group:
   schedule:
     - cron: "17 3 * * *"
   workflow_dispatch:
+    inputs:
+      seed:
+        description: "Seed to replay (digits; empty draws a fresh random seed)"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -34,15 +69,55 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  schemathesis:
-    if: ${{ !github.event.pull_request.draft }}
+  # Merge queue only. Without it every queue entry, a docs change too, would pay for a ~45 minute fuzz run.
+  changes:
+    if: ${{ github.event_name == 'merge_group' }}
     runs-on: ubuntu-24.04
-    # PRs fuzz 40 cases per operation (~7 min a phase). Nightly and manual runs fuzz 400, about 10x as long
-    # over three phases; 45 minutes cancelled the first full run on main (run 43558739985, A9).
-    timeout-minutes: ${{ github.event_name == 'pull_request' && 45 || 180 }}
+    timeout-minutes: 5
+    outputs:
+      fuzz: ${{ steps.diff.outputs.fuzz }}
+    steps:
+      - name: Does the merge group touch what api-fuzz fuzzes?
+        id: diff
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          HEAD_SHA: ${{ github.event.merge_group.head_sha }}
+          # The push paths of this workflow (on.push.paths); test/unit/test_api_fuzz_wiring.py keeps them equal.
+          FUZZ_PATHS: '["core/**", "sdk/schema/**", "sdk/tools/applib/**", "apps/*/onemind.app.yaml", ".github/workflows/api-fuzz.yml"]'
+        # The compare API lists at most 300 files; that many, or a failed call, counts as a change.
+        run: |
+          if ! files=$(gh api "repos/$GITHUB_REPOSITORY/compare/$BASE_SHA...$HEAD_SHA" --jq '.files[].filename'); then
+            echo "::warning::could not list the merge group's files; fuzzing anyway"
+            echo "fuzz=true" | tee -a "$GITHUB_OUTPUT"; exit 0
+          fi
+          printf '%s\n' "$files" | python3 -I -c '
+          import fnmatch, json, os, sys
+          files = [f for f in sys.stdin.read().splitlines() if f]
+          pats = json.loads(os.environ["FUZZ_PATHS"])
+          hit = len(files) >= 300 or any(fnmatch.fnmatch(f, p) for f in files for p in pats)
+          print("fuzz=" + ("true" if hit else "false"))
+          ' | tee -a "$GITHUB_OUTPUT"
+
+  schemathesis:
+    needs: changes
+    # !cancelled() lets it run while changes is skipped (every event but merge_group). A merge group runs it
+    # unless changes said "false", so a failed changes job still fuzzes.
+    if: ${{ !cancelled() && !github.event.pull_request.draft && (github.event_name != 'merge_group' || needs.changes.outputs.fuzz != 'false') }}
+    runs-on: ubuntu-24.04
+    # PRs and the merge queue fuzz 40 cases per operation (~7 min a phase). Main fuzzes 400, about 10x as
+    # long over three phases (nightly at 400: 82, 105 and 130 min on 2026-11-23..25, growing with the API); 45 minutes cancelled the first full run on main (run 43558739985,
+    # A9). Nightly and manual runs fuzz 600 (about 195 min projected from those runs), so they get 300 minutes (a hosted job may run 360).
+    timeout-minutes: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') && 45 || (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 300 || 180 }}
+    outputs:
+      seed: ${{ steps.seed.outputs.seed }}
     env:
-      # Generated cases per operation in the fuzzing phase: quick on PRs, deep at night.
-      EXAMPLES: ${{ github.event_name == 'pull_request' && '40' || '400' }}
+      # Generated cases per operation in the fuzzing phase: quick on PRs and in the queue, deep on main,
+      # deeper when exploring with a random seed (nightly, manual).
+      EXAMPLES: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') && '40' || (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '600' || '400' }}
+      # The committed seed of every gated run (pull_request, merge_group, push to main). Changing it is a
+      # reviewed change like any other: the new seed must pass on the PR that sets it.
+      API_FUZZ_SEED: "20261125"
       GATEWAY: http://127.0.0.1:8080
       FUZZ: ${{ github.workspace }}/fuzz-run
       PYTHONPATH: ${{ github.workspace }}/core/tests
@@ -55,6 +130,28 @@ jobs:
         with:
           # Exact version: "latest" resolves through the GitHub API, which times out now and then and fails the job. 0.13.9 is what CI ran when this was pinned.
           version: "0.13.9"
+
+      # Gated runs: the committed API_FUZZ_SEED. Nightly and manual: a fresh random seed, or the one a
+      # manual run was given. Printed here and in the job summary so any run can be replayed.
+      - name: Pick the seed
+        id: seed
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_SEED: ${{ inputs.seed }}
+        run: |
+          case "$EVENT" in
+            schedule|workflow_dispatch)
+              seed="${INPUT_SEED:-$(python3 -I -c 'import secrets; print(secrets.randbelow(2**32))')}"
+              how="random exploration" ;;
+            *)
+              seed="$API_FUZZ_SEED"
+              how="fixed (API_FUZZ_SEED)" ;;
+          esac
+          if ! [[ "$seed" =~ ^[0-9]{1,19}$ ]]; then echo "::error::seed must be digits, got: $seed"; exit 1; fi
+          echo "seed=$seed" >> "$GITHUB_OUTPUT"
+          echo "SEED=$seed" >> "$GITHUB_ENV"
+          echo "api-fuzz seed: $seed ($how, $EXAMPLES examples per operation)"
+          echo "api-fuzz seed: \`$seed\` ($how, $EXAMPLES examples per operation)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Install the gateway and the pinned fuzz group (versions and hashes from uv.lock)
         working-directory: core
@@ -86,6 +183,7 @@ jobs:
           EOF
 
       - name: Start the gateway (noop executor, no NATS)
+        id: gateway
         working-directory: core
         env:
           ONEMIND_TOKENS_FILE: ${{ env.FUZZ }}/tokens.yaml
@@ -111,41 +209,69 @@ jobs:
           cat "$FUZZ/gateway.log"; exit 1
 
       - name: Aim the fuzzers at real apps and at actions the agent requested
+        id: prepare
         working-directory: core
         run: .venv/bin/python tests/api_fuzz_check.py --phase prepare --config "$FUZZ/schemathesis.toml"
 
+      # --workers 1 keeps the request order fixed; --generation-database none means no example store
+      # (a stale local .hypothesis directory) can change what a seed replays.
       - name: Fuzz as the agent
+        id: fuzz-agent
         working-directory: core
         run: |
           .venv/bin/schemathesis --config-file "$FUZZ/schemathesis.toml" run "$GATEWAY/openapi.json" -H "Authorization: Bearer $AGENT_TOKEN" \
-            --checks all --exclude-path /mcp --max-examples "$EXAMPLES" --seed "${{ github.run_id }}" \
+            --checks all --exclude-path /mcp --max-examples "$EXAMPLES" --seed "$SEED" --workers 1 --generation-database none \
             --report junit --report-dir "$FUZZ/report-agent"
 
       - name: Nothing was decided while only the agent was fuzzing
+        id: check-agent
         working-directory: core
-        run: .venv/bin/python tests/api_fuzz_check.py --phase agent --audit "$FUZZ/data/audit.jsonl" --log "$FUZZ/gateway.log"
+        # shell: bash adds pipefail, so the check's own exit status (not tee's) decides the step.
+        shell: bash
+        run: .venv/bin/python tests/api_fuzz_check.py --phase agent --audit "$FUZZ/data/audit.jsonl" --log "$FUZZ/gateway.log" 2>&1 | tee "$FUZZ/check-agent.log"
 
       - name: Fuzz as the owner
+        id: fuzz-owner
         working-directory: core
         run: |
           .venv/bin/schemathesis --config-file "$FUZZ/schemathesis.toml" run "$GATEWAY/openapi.json" -H "Authorization: Bearer $OWNER_TOKEN" \
-            --checks all --exclude-path /mcp --max-examples "$EXAMPLES" --seed "${{ github.run_id }}" \
+            --checks all --exclude-path /mcp --max-examples "$EXAMPLES" --seed "$SEED" --workers 1 --generation-database none \
             --report junit --report-dir "$FUZZ/report-owner"
 
       # /mcp is one JSON-RPC endpoint (MCP Streamable HTTP): its protocol answers (400, 406) are not
       # in the OpenAPI document, so only "no server error" applies here. MCP conformance itself is
       # the MCP stream's suite (test/mcp-conformance).
       - name: Fuzz /mcp for server errors (agent and owner)
+        id: fuzz-mcp
         working-directory: core
         run: |
-          for token in "$AGENT_TOKEN" "$OWNER_TOKEN"; do
+          for role in agent owner; do
+            if [ "$role" = agent ]; then token="$AGENT_TOKEN"; else token="$OWNER_TOKEN"; fi
             .venv/bin/schemathesis --config-file "$FUZZ/schemathesis.toml" run "$GATEWAY/openapi.json" -H "Authorization: Bearer $token" \
-              --include-path /mcp --checks not_a_server_error --max-examples "$EXAMPLES" --seed "${{ github.run_id }}"
+              --include-path /mcp --checks not_a_server_error --max-examples "$EXAMPLES" --seed "$SEED" --workers 1 --generation-database none \
+              --report junit --report-dir "$FUZZ/report-mcp-$role"
           done
 
       - name: Every decision was the owner's, and the audit chain is intact
+        id: check-owner
         working-directory: core
-        run: .venv/bin/python tests/api_fuzz_check.py --phase owner --audit "$FUZZ/data/audit.jsonl" --log "$FUZZ/gateway.log"
+        # shell: bash adds pipefail, so the check's own exit status (not tee's) decides the step.
+        shell: bash
+        run: .venv/bin/python tests/api_fuzz_check.py --phase owner --audit "$FUZZ/data/audit.jsonl" --log "$FUZZ/gateway.log" 2>&1 | tee "$FUZZ/check-owner.log"
+
+      # Nightly and manual runs only: the issue body the report job files. Written here, where the
+      # checkout is, so the report job needs nothing but issues: write.
+      - name: Write the finding for the report job
+        if: ${{ failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+        env:
+          OUTCOMES: >-
+            gateway=${{ steps.gateway.outcome }},prepare=${{ steps.prepare.outcome }},fuzz-agent=${{ steps.fuzz-agent.outcome }},check-agent=${{ steps.check-agent.outcome }},fuzz-owner=${{ steps.fuzz-owner.outcome }},fuzz-mcp=${{ steps.fuzz-mcp.outcome }},check-owner=${{ steps.check-owner.outcome }}
+          REF: ${{ github.ref_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python3 -I scripts/api-fuzz-finding.py --fuzz-dir "$FUZZ" --seed "$SEED" --examples "$EXAMPLES" \
+            --sha "$GITHUB_SHA" --ref "$REF" --run-url "$RUN_URL" --outcomes "$OUTCOMES" > "$FUZZ/finding.md"
+          cat "$FUZZ/finding.md" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Keep the reports, the gateway log and the audit log
         if: always()
@@ -154,13 +280,56 @@ jobs:
           name: api-fuzz-${{ github.run_id }}
           path: |
             fuzz-run/report-*
+            fuzz-run/check-*.log
+            fuzz-run/finding.md
             fuzz-run/gateway.log
             fuzz-run/data/audit.jsonl
           retention-days: 14
           if-no-files-found: ignore
 
+  # A nightly or manual finding becomes ONE open issue: the first opens it, later ones comment on it,
+  # matched by its exact title. Only this job can write issues; it checks nothing out and runs no repo code.
+  # always() and the result check, not failure(): a job stopped by timeout-minutes may be reported as
+  # cancelled, and a timed-out exploration is a finding too. (Cancelling a run by hand also files one.)
+  report:
+    needs: schemathesis
+    if: ${{ always() && (needs.schemathesis.result == 'failure' || needs.schemathesis.result == 'cancelled') && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      issues: write
+    steps:
+      # A fuzz job that timed out uploaded nothing; the issue is still filed, with the seed and the run.
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        continue-on-error: true
+        with:
+          name: api-fuzz-${{ github.run_id }}
+          path: fuzz-run
+      - name: Open or update the "api-fuzz nightly finding" issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: api-fuzz nightly finding
+          SEED: ${{ needs.schemathesis.outputs.seed }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        # pipefail: a failed issue listing stops here instead of reading as "no open issue" (a duplicate).
+        shell: bash
+        run: |
+          body=fuzz-run/finding.md
+          if [ ! -s "$body" ]; then
+            mkdir -p fuzz-run
+            printf 'The api-fuzz nightly failed or timed out before it could write its finding.\n\n- **Seed:** %s\n- **Run:** %s\n' "${SEED:-unknown}" "$RUN_URL" > "$body"
+          fi
+          number=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" \
+            --jq ".[] | select(.pull_request == null and .title == env.TITLE) | .number" | sed -n 1p)
+          if [ -n "$number" ]; then
+            gh api "repos/$GITHUB_REPOSITORY/issues/$number/comments" -F "body=@$body" --jq .html_url
+          else
+            gh api "repos/$GITHUB_REPOSITORY/issues" -f "title=$TITLE" -F "body=@$body" --jq .html_url
+          fi
+
   properties:
-    if: ${{ !github.event.pull_request.draft && (github.event_name != 'pull_request') }}
+    # The deep property run stays out of pull requests and the merge queue: main, nightly and manual only.
+    if: ${{ !github.event.pull_request.draft && (github.event_name != 'pull_request') && (github.event_name != 'merge_group') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:

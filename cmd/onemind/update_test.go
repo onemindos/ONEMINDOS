@@ -81,7 +81,7 @@ func TestUpdateCheckApplyStatus(t *testing.T) {
 	}
 
 	out.Reset()
-	if code := run([]string{"update", "apply", "--config", conf, "--no-reboot"}, &out, &errb); code != 0 {
+	if code := run([]string{"update", "apply", "--local", "--config", conf, "--no-reboot"}, &out, &errb); code != 0 {
 		t.Fatalf("apply exit %d: %s %s", code, out.String(), errb.String())
 	}
 	if len(inst.got) != 1 || rb.n != 0 || !strings.Contains(out.String(), "pending_reboot") {
@@ -144,11 +144,11 @@ func TestUpdateApplyFromMirror(t *testing.T) {
 		return e
 	}
 	var out, errb bytes.Buffer
-	if code := run([]string{"update", "apply", "--config", conf, "--no-reboot"}, &out, &errb); code == 0 {
+	if code := run([]string{"update", "apply", "--local", "--config", conf, "--no-reboot"}, &out, &errb); code == 0 {
 		t.Fatal("apply without the mirror should fail: the channel URL is unreachable")
 	}
 	out.Reset()
-	if code := run([]string{"update", "apply", "--config", conf, "--no-reboot", "--mirror", usb}, &out, &errb); code != 0 {
+	if code := run([]string{"update", "apply", "--local", "--config", conf, "--no-reboot", "--mirror", usb}, &out, &errb); code != 0 {
 		t.Fatalf("apply --mirror exit %d: %s %s", code, out.String(), errb.String())
 	}
 	if len(inst.got) != 1 || !strings.Contains(out.String(), "pending_reboot") {

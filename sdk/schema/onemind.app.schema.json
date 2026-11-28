@@ -624,12 +624,10 @@
           }
         },
         "requires": {
+          "description": "What a machine must have to run the app (#724), in the same shape as recommends and supports ($defs/machineNeeds): arch, memoryMb, storageFreeGb, accelerator, devices, radios and models. The older keys (gpu, minMemoryMb, gpuCount, minVramMb, cpuLevel, accelerator.optional) stay valid and mean the same thing; core/onemind_core/machine_needs.py maps them onto the new keys, and a manifest may not say one fact in both spellings. Memory is always stated (memoryMb, or the older minMemoryMb).",
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "gpu",
-            "minMemoryMb"
-          ],
+          "anyOf": [{"required": ["memoryMb"]}, {"required": ["minMemoryMb"]}],
           "if": {
             "required": [
               "accelerator"
@@ -657,52 +655,51 @@
             }
           },
           "properties": {
+            "arch": {"$ref": "#/$defs/machineArch"},
+            "memoryMb": {"$ref": "#/$defs/machineNeeds/properties/memoryMb"},
+            "storageFreeGb": {"$ref": "#/$defs/machineNeeds/properties/storageFreeGb"},
+            "devices": {"$ref": "#/$defs/machineDevices"},
+            "radios": {"$ref": "#/$defs/machineRadios"},
+            "models": {"$ref": "#/$defs/machineModels"},
             "gpu": {
+              "description": "Older spelling: true means a required accelerator (accelerator: {capability: gpu-compute}).",
               "type": "boolean"
             },
             "minMemoryMb": {
+              "description": "Older spelling of memoryMb.",
               "type": "integer",
               "minimum": 1
             },
             "gpuCount": {
-              "description": "How many NVIDIA graphics cards the app needs (default 1). Only meaningful with gpu: true. The Market places the app on a machine that reports at least this many.",
+              "description": "Older spelling of accelerator.count: how many graphics cards the app needs (default 1). Only meaningful with gpu: true. The Market places the app on a machine that reports at least this many.",
               "type": "integer",
               "minimum": 1
             },
             "minVramMb": {
-              "description": "Memory the smallest graphics card must have, in MB. Only meaningful with gpu: true. A machine that does not report its card memory is not used (unknown is refused, never assumed).",
+              "description": "Older spelling of accelerator.minMemoryMb: memory the smallest graphics card must have, in MB. Only meaningful with gpu: true. A machine that does not report its card memory is not used (unknown is refused, never assumed).",
               "type": "integer",
               "minimum": 1
             },
             "accelerator": {
-              "description": "The accelerator the app needs, in vendor-neutral terms (S-5). The box reports what it has and the gateway maps one to the other; the app never names a vendor or a driver. Without optional: true the app is refused on a box that has none, so gpu must be true. With optional: true the app runs without it and only gains speed; overlay then names a directory next to spec.manifests (a kustomize overlay on it) that is rendered instead of the plain manifests on a box with a big enough accelerator.",
+              "description": "The accelerator the app needs, in vendor-neutral terms (S-5): $defs/machineAccelerator plus the older optional flag. The box reports what it has and the gateway maps one to the other; the app never names a vendor or a driver. Without optional: true the app is refused on a box that has none (with the older gpu key, gpu must then be true). optional: true is the older spelling of recommends.accelerator: the app runs without it and only gains speed.",
               "type": "object",
               "additionalProperties": false,
               "required": [
                 "capability"
               ],
               "properties": {
-                "capability": {
-                  "enum": [
-                    "gpu-compute"
-                  ]
-                },
-                "minMemoryMb": {
-                  "description": "Memory of the accelerator itself, not of the machine.",
-                  "type": "integer",
-                  "minimum": 256
-                },
+                "capability": {"$ref": "#/$defs/acceleratorCapability"},
+                "minMemoryMb": {"$ref": "#/$defs/machineAccelerator/properties/minMemoryMb"},
+                "rtCores": {"$ref": "#/$defs/machineAccelerator/properties/rtCores"},
+                "count": {"$ref": "#/$defs/machineAccelerator/properties/count"},
+                "overlay": {"$ref": "#/$defs/machineAccelerator/properties/overlay"},
                 "optional": {
                   "type": "boolean"
-                },
-                "overlay": {
-                  "type": "string",
-                  "pattern": "^[a-z0-9][a-z0-9-]*$"
                 }
               }
             },
             "cpuLevel": {
-              "description": "Lowest CPU level the pinned images need, per architecture. Install and update are refused on a box below it (NMD-09, #134). x86-64 levels follow the x86-64 psABI (-march=x86-64-vN). Omit when the images run on any CPU of the architecture.",
+              "description": "Older spelling of an x86-64 level in arch: lowest CPU level the pinned images need, per architecture. Install and update are refused on a box below it (NMD-09, #134). x86-64 levels follow the x86-64 psABI (-march=x86-64-vN). Omit when the images run on any CPU of the architecture.",
               "type": "object",
               "additionalProperties": false,
               "minProperties": 1,
@@ -718,6 +715,14 @@
               }
             }
           }
+        },
+        "recommends": {
+          "description": "What makes the app run better on a machine that has it (#724): the app still runs without it. A Market verdict says yes but slow when a recommended fact is missing, and not checked when the machine did not report it.",
+          "$ref": "#/$defs/machineNeeds"
+        },
+        "supports": {
+          "description": "What the app can use when a machine has it (#724), such as a radio, a device class or model quantisations; nothing is needed.",
+          "$ref": "#/$defs/machineNeeds"
         },
         "web": {
           "description": "Web UI port. A Service in the rendered manifests must expose it.",
@@ -954,6 +959,16 @@
                 "maximum": 65535
               }
             }
+          }
+        },
+        "desktop": {
+          "description": "The app streams a desktop to a browser tab (issue #786). Every workload of the app is then held to the desktop rules: non-root, unprivileged, the one runtime named by apps/_bases/desktop/base.yaml, and its own login off only behind the gateway's policy (sdk/tools/factorylib/desktop.py). Required for any app whose image is built FROM ghcr.io/onemindos/bases/desktop (such images carry the label com.onemindos.base=desktop) or that runs a streaming runtime.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["runtime"],
+          "properties": {
+            "runtime": {"enum": ["neko", "selkies", "xpra"], "description": "Must be the runtime of the desktop base; the validator refuses any other."},
+            "base": {"const": "desktop", "description": "Set when the app's image is built FROM the OneMind desktop base."}
           }
         },
         "system": {
@@ -1489,6 +1504,68 @@
     }
   },
   "$defs": {
+    "machineNeeds": {
+      "description": "One strength of what an app (and later a model, engine, simulator or bridge manifest) needs from a machine (#724): spec.requires (must have), spec.recommends (runs better with) and spec.supports (can use). Vendor-neutral names only: never a vendor resource such as nvidia.com/gpu, never a host path. A fact the machine did not report is unknown, never yes or no.",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "arch": {"$ref": "#/$defs/machineArch"},
+        "memoryMb": {"description": "Memory of the machine, in MB.", "type": "integer", "minimum": 1},
+        "storageFreeGb": {"description": "Free space on the machine's data disk, in GB.", "type": "integer", "minimum": 1},
+        "accelerator": {"$ref": "#/$defs/machineAccelerator"},
+        "devices": {"$ref": "#/$defs/machineDevices"},
+        "radios": {"$ref": "#/$defs/machineRadios"},
+        "models": {"$ref": "#/$defs/machineModels"}
+      }
+    },
+    "machineArch": {
+      "description": "CPU architectures, each named once. x86-64-v1 to x86-64-v4 mean amd64 at that x86-64 psABI level or newer (the older requires.cpuLevel.amd64). In spec.requires the architectures must be the ones spec.archs names (the images' own list).",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"enum": ["amd64", "arm64", "x86-64-v1", "x86-64-v2", "x86-64-v3", "x86-64-v4"]}
+    },
+    "acceleratorCapability": {
+      "description": "What the accelerator does, in vendor-neutral words (S-5). The node's hardware profile reports the same words.",
+      "enum": ["gpu-compute"]
+    },
+    "machineAccelerator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capability"],
+      "properties": {
+        "capability": {"$ref": "#/$defs/acceleratorCapability"},
+        "minMemoryMb": {"description": "Memory of the accelerator itself, not of the machine.", "type": "integer", "minimum": 256},
+        "rtCores": {"description": "true: needs hardware ray-tracing cores (simulators).", "type": "boolean"},
+        "count": {"description": "How many accelerators (default 1).", "type": "integer", "minimum": 1},
+        "overlay": {"description": "A directory next to spec.manifests (a kustomize overlay on it) that is rendered instead of the plain manifests on a box with this accelerator.", "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"}
+      }
+    },
+    "machineDevices": {
+      "description": "Reserved for bridges (#724): device classes in vendor-neutral words (for example serial-port or camera). Nothing grants a device yet; a later owner-approved grant passes one device node into one pod. Never a vendor resource such as nvidia.com/gpu, never a host path such as /dev/ttyUSB0.",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {"type": "string", "maxLength": 63, "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"}
+    },
+    "machineRadios": {
+      "description": "Radios on the machine, by protocol (#724).",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"enum": ["zigbee", "thread", "z-wave", "lora", "bluetooth"]}
+    },
+    "machineModels": {
+      "description": "Model files the app can run, by quantisation in lowercase (for example q4_k_m, q8_0, fp16, int8).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["quantisations"],
+      "properties": {
+        "quantisations": {"type": "array", "minItems": 1, "maxItems": 32, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_]{0,31}$"}}
+      }
+    },
     "backupUnit": {
       "description": "One thing a built-in module backs up from the gateway itself (#603). table: a gateway database table. dir: the folder a gateway setting (ONEMIND_*) names.",
       "type": "object",

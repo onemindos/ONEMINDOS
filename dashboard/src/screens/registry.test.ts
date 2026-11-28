@@ -38,9 +38,11 @@ describe('screen registry', () => {
       ['approvals', '/approvals', 'primary'],
       ['activity', '/activity', 'primary'],
       ['files', '/files', 'Your box'],
+      ['search', '/search', 'Your box'],
       ['installed', '/installed', 'Your box'],
       ['nodes', '/nodes', 'Your box'],
       ['add-machine', '/add-machine', 'Your box'],
+      ['world', '/world', 'Your box'],
       ['machines', '/machines', 'Your box'],
       ['photos', '/photos', 'Your box'],
       ['alerts', '/alerts', 'Your box'],
@@ -50,6 +52,7 @@ describe('screen registry', () => {
       ['backups', '/backups', 'Your box'],
       ['file-sharing', '/file-sharing', 'Your box'],
       ['troubleshoot', '/troubleshoot', 'Your box'],
+      ['tips', '/tips', 'Your box'],
       ['network', '/network', 'Your box'],
       ['library', '/library', 'Your box'],
       ['automation', '/automation', 'Your box'],
@@ -62,7 +65,7 @@ describe('screen registry', () => {
     expected.splice(expected.findIndex(([id]) => id === 'storage'), 0, ['work', '/work', 'Your box']);
     expect(navItems(2).map((n) => [n.id, n.href, n.group ?? 'primary'])).toEqual(expected);
     expect(navItems(2).find((n) => n.id === 'approvals')).toMatchObject({ badge: 2, badgeLabel: '2 waiting' });
-    expect([...PRO_SCREEN_IDS].sort()).toEqual(['add-machine', 'agents', 'automation', 'backups', 'control-hub', 'dashboards', 'file-sharing', 'library', 'machines', 'migrate', 'network', 'nodes', 'photos', 'storage', 'troubleshoot', 'updates', 'usage']);
+    expect([...PRO_SCREEN_IDS].sort()).toEqual(['add-machine', 'agents', 'automation', 'backups', 'control-hub', 'dashboards', 'file-sharing', 'library', 'machines', 'migrate', 'network', 'nodes', 'photos', 'storage', 'troubleshoot', 'updates', 'usage', 'world']);
     expect(DOCK_ORDER).toEqual(['home', 'market', 'installed', 'approvals', 'activity', 'settings']);
     expect(SCREENS.every((s) => s.title.length > 0)).toBe(true);
   });
@@ -74,14 +77,25 @@ describe('screen registry', () => {
     expect(navIdFor('/compose')).toBe('market');
     expect(navIdFor('/installed/x')).toBe('installed');
     expect(navIdFor('/settings/users')).toBe('settings');
+    expect(navIdFor('/tips/find-an-app')).toBe('tips');
     expect(navIdFor('/nowhere')).toBe('nowhere');
   });
 });
 
 describe('settings registry', () => {
-  it('has exactly one page for each @onemind/ui settings section, each with a page or a coming note', () => {
+  it('has exactly one page for each @onemind/ui settings section, each with a page, a link to its own screen or a coming note', () => {
     expect(Object.values(SETTINGS_FILES).length).toBe(SETTINGS_PAGES.size);
     expect([...SETTINGS_PAGES.keys()].sort()).toEqual(SETTINGS_SECTIONS.map((s) => s.id).sort());
-    for (const p of SETTINGS_PAGES.values()) expect(!!p.load !== !!p.coming).toBe(true);
+    for (const p of SETTINGS_PAGES.values()) expect([p.load, p.to, p.coming].filter(Boolean)).toHaveLength(1);
+  });
+
+  it('links each section that has its own screen to the path that screen redirects from /settings/<id>', () => {
+    const linked = [...SETTINGS_PAGES.values()].filter((p) => p.to);
+    expect(linked.map((p) => p.id).sort()).toEqual(['automation', 'backups', 'devices', 'network', 'storage', 'updates']);
+    for (const p of linked) {
+      const screen = SCREENS.find((s) => s.path === p.to);
+      expect(screen, `${p.id} links to ${p.to}`).toBeDefined();
+      expect(screen!.redirects ?? []).toContainEqual({ from: `/settings/${p.id}`, to: p.to });
+    }
   });
 });

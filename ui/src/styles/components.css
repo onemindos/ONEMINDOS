@@ -321,3 +321,29 @@
   .om-set-qitem[aria-current='true']::after { background: Highlight; }
   :focus-visible { outline: 3px solid Highlight; box-shadow: none; }
 }
+
+.om-hold { display: flex; flex-wrap: wrap; gap: var(--om-space-2); }
+.om-hold-button { position: relative; overflow: hidden; touch-action: none; }
+.om-hold-label { position: relative; }
+.om-hold-fill {
+  position: absolute;
+  inset: 0;
+  background: currentColor;
+  opacity: 0.18;
+  transform-origin: left;
+  transform: scaleX(0);
+}
+.om-hold-button[data-holding="true"] .om-hold-fill {
+  transform: scaleX(1);
+  transition: transform var(--hold-duration) linear;
+}
+@media (prefers-reduced-motion: reduce) {
+  .om-hold-fill { transform: none; opacity: 0; }
+  .om-hold-button[data-holding="true"] .om-hold-fill {
+    transform: none;
+    opacity: 0.18;
+    transition: opacity var(--hold-duration) linear;
+  }
+}
+:root[data-om-motion='reduce'] .om-hold-fill { transform: none; opacity: 0; }
+:root[data-om-motion='reduce'] .om-hold-button[data-holding="true"] .om-hold-fill { transform: none; opacity: 0.18; }

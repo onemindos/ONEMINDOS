@@ -19,3 +19,12 @@ it('renders an absent source or a source without an observation as unknown, neve
   expect(widget.getByText('backups are current').closest('li')?.querySelector('.om-tone-ok')).toBeTruthy();
   expect(widget.getByText('update rolled back').closest('li')?.querySelector('.om-tone-bad')).toBeTruthy();
 });
+
+it('says once that nothing has reported when every source is unknown, instead of seven Unknown pills', () => {
+  render(<BoxHealth rows={statusRows(null)} links={{ alerts: '/alerts' }} />);
+  const widget = within(screen.getByRole('region', { name: 'Box health' }));
+  expect(widget.getAllByText('Unknown')).toHaveLength(1);
+  expect(widget.getByText('The box has not reported its status yet.')).toBeInTheDocument();
+  expect(widget.queryByRole('link')).toBeNull();
+  expect(document.querySelector('.om-tone-ok')).toBeNull();
+});

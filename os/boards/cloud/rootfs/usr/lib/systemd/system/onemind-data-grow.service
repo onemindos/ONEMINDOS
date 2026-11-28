@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
-# cloud-init's growpart grows the onemind-data partition to the instance's disk; this grows the
-# ext4 filesystem on it (online). A no-op when nothing changed.
+# cloud-init's growpart grows the onemind-data partition to the instance's disk; this grows what is on it: the
+# LUKS2 volume (a Proxmox VM with a TPM) and the btrfs or ext4 filesystem, online. A no-op when nothing changed.
+# It is the same program as onemind-data-extend.service (usr/lib/onemind/data_extend.py), here with --fs so an
+# ext4 box (a cloud image from before #152) also gets its filesystem grown. The leading '-' on ExecStart: growing is
+# never a reason for a failed unit (the health gate treats one as fatal).
 [Unit]
 Description=OneMind: grow the data filesystem to its partition
 After=cloud-init-network.service cloud-init.service
@@ -8,7 +11,7 @@ RequiresMountsFor=/data
 
 [Service]
 Type=oneshot
-ExecStart=/sbin/resize2fs /dev/disk/by-partlabel/onemind-data
+ExecStart=-/usr/lib/onemind/data-extend --fs
 
 [Install]
 WantedBy=multi-user.target

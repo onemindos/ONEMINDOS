@@ -44,6 +44,9 @@ export interface AppearancePreferences {
   fontScale: FontScale;
   corners: Corners;
   motion: MotionPref;
+  higherContrast: boolean;
+  focusAlways: boolean;
+  underlineLinks: boolean;
   transparency: TransparencyPref;
 }
 
@@ -64,6 +67,9 @@ export const DEFAULT_PREFERENCES: AppearancePreferences = {
   fontScale: 1,
   corners: 'standard',
   motion: 'system',
+  higherContrast: false,
+  focusAlways: false,
+  underlineLinks: false,
   transparency: 'system',
 };
 
@@ -101,6 +107,9 @@ export function normalizePreferences(input: unknown): AppearancePreferences {
     fontScale: (FONT_SCALES as readonly number[]).includes(o.fontScale as number) ? (o.fontScale as FontScale) : d.fontScale,
     corners: pick(o.corners, ['sharp', 'standard', 'round'], d.corners),
     motion: pick(o.motion, ['system', 'reduce'], d.motion),
+    higherContrast: o.higherContrast === true,
+    focusAlways: o.focusAlways === true,
+    underlineLinks: o.underlineLinks === true,
     transparency: pick(o.transparency, ['system', 'on', 'off'], d.transparency),
   };
 }
@@ -212,6 +221,9 @@ export function applyPreferences(p: AppearancePreferences, env: ApplyEnv = {}): 
   root.setAttribute('data-om-density', p.density);
   root.setAttribute('data-om-corners', p.corners);
   root.setAttribute('data-om-motion', p.motion);
+  root.toggleAttribute('data-om-high-contrast', p.higherContrast);
+  root.toggleAttribute('data-om-focus-always', p.focusAlways);
+  root.toggleAttribute('data-om-underline-links', p.underlineLinks);
   root.setAttribute('data-om-wallpaper', p.wallpaper === 'none' ? 'none' : 'on');
   const glass = p.transparency === 'on' || (p.transparency === 'system' && !env.systemReducedTransparency);
   root.setAttribute('data-om-glass', glass && p.wallpaper !== 'none' ? 'on' : 'off');
@@ -228,7 +240,7 @@ export function applyPreferences(p: AppearancePreferences, env: ApplyEnv = {}): 
 
 /** Remove everything applyPreferences() wrote. */
 export function clearPreferences(root: HTMLElement = document.documentElement): void {
-  for (const a of ['data-om-density', 'data-om-corners', 'data-om-motion', 'data-om-wallpaper', 'data-om-glass']) root.removeAttribute(a);
+  for (const a of ['data-om-density', 'data-om-corners', 'data-om-motion', 'data-om-wallpaper', 'data-om-glass', 'data-om-high-contrast', 'data-om-focus-always', 'data-om-underline-links']) root.removeAttribute(a);
   root.style.removeProperty('font-size');
   root.ownerDocument.getElementById(STYLE_ID)?.remove();
 }

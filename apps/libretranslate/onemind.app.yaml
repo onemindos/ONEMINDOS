@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: Apache-2.0
+# LibreTranslate: issue #129 (NMD-04, Supply Depot), written by hand from primary sources: the GitHub API
+# (repos/LibreTranslate/LibreTranslate, releases/latest; licence AGPL-3.0 detected by GitHub),
+# scripts/entrypoint.sh and libretranslate/default_values.py at tag v1.9.6, and the image config.
+# Image digest and archs read from the Docker Hub registry API (v2 manifest endpoint, anonymous token) on
+# 2026-11-19. The language models are separate downloads with their own terms (README.md).
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: libretranslate
+  name: "LibreTranslate"
+  version: "1.9.6"
+  description: "Machine translation that runs on your own box: a web page and an HTTP API, no cloud service."
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tag (translation) is listed in README.md
+  # until the schema has metadata.tags.
+  category: ai
+  age_rating: 7   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Translates text the person types in; no accounts, chat or sharing with outsiders."
+  icon: icon.svg
+  license: "AGPL-3.0"
+  licenceClass: L2
+  source: https://github.com/LibreTranslate/LibreTranslate
+  links:
+    docs: "https://docs.libretranslate.com"
+    github: "https://github.com/LibreTranslate/LibreTranslate"
+    website: "https://libretranslate.com"
+    support: "https://github.com/LibreTranslate/LibreTranslate/issues"
+  upstream: {release: "v1.9.6", released_at: "2026-05-26T17:45:39Z", archived: false}
+  tier: blocked   # starting value written by hand, never above the gate verdict; CI (app-gate --tier write) owns it from here
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 1024}   # sum of the memory requests in manifests/
+  web: {port: 5000}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

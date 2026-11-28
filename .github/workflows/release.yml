@@ -169,6 +169,12 @@ jobs:
           RUN_ID: ${{ inputs.image_run_id }}
         run: |
           mkdir -p dl rel
+          # A normal image.yml run builds tier 1 + 2 only. Tier 3 (vm-do, rpi5, aws, azure, gcp, hetzner; issue #1110)
+          # exists only in a run started with workflow_dispatch full=true, and a release publishes all of them.
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/artifacts" --paginate --jq '.artifacts[] | select(.expired | not) | .name' > artifacts.txt
+          for n in image-debian-vm-do image-debian-rpi5 image-debian-cloud-aws image-debian-cloud-azure image-debian-cloud-gcp image-debian-cloud-hetzner; do
+            grep -qx "$n" artifacts.txt || { echo "REFUSED: run $RUN_ID has no $n artifact; a release needs a full image.yml run (workflow_dispatch with full=true)"; exit 2; }
+          done
           gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --dir dl
           # Every file is classified (images, RAUC bundles, installer stick, cloud images) or the release is
           # refused; development builds are refused too (scripts/release/collect.py).

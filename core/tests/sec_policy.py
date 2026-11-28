@@ -149,6 +149,7 @@ POLICY |= {
                                            "#702 own approver keys", ID, UNAUDITED),
     ("DELETE", "/v1/auth/approver-keys/{key_id}"): Row(own_credentials(404), w.p_static("/v1/auth/approver-keys/apk_none"),
                                                        "#702 own approver keys", ID, UNAUDITED),
+    ("GET", "/v1/auth/methods"): Row(own_credentials(200), w.p_static("/v1/auth/methods"), "§12.6 own sign-in methods", ID, UNAUDITED),
     ("POST", "/v1/auth/password"): Row(own_credentials(204), w.p_password, "§12.6 own credentials", ID, UNAUDITED),
     ("POST", "/v1/auth/totp/setup"): Row(own_credentials(200), w.p_static("/v1/auth/totp/setup"), "§12.6 own credentials", ID, UNAUDITED),
     ("POST", "/v1/auth/totp/confirm"): Row(own_credentials(409), w.p_totp_confirm, "§12.6 own credentials (no setup started: 409)", ID, UNAUDITED),
@@ -264,9 +265,9 @@ POLICY |= {
     ("GET", "/v1/nodes/{node_id}/metrics"): Row(CHILD_CANNOT, w.p_node_metrics, "§12.15; a child has no monitoring:read"),
     ("GET", "/v1/metrics"): Row(CHILD_CANNOT, w.p_static("/v1/metrics"),
                                 "Prometheus text of node, app and alert numbers; a child has no monitoring:read"),
-    ("GET", "/v1/map/packs"): Row(cells(503, **GONE, child=403, plugin=DECIDE, automation=DECIDE, node=DECIDE),
+    ("GET", "/v1/map/packs"): Row(cells(200, **GONE, child=403, plugin=DECIDE, automation=DECIDE, node=DECIDE),
                                   w.p_static("/v1/map/packs"),
-                                  "Map uses nodes:read; the pack volume is unavailable in the security fixture"),
+                                  "Map uses nodes:read; no pack volume is configured in the security fixture, so the list is empty"),
     ("GET", "/v1/work/tasks"): Row(cells(403, **GONE, owner=200, adult=200, child=200),
                                     w.p_static("/v1/work/tasks"), "Work lists only visible tasks"),
     ("GET", "/v1/work/projects/{project_id}/tasks/{task_id}"): Row(
@@ -276,6 +277,8 @@ POLICY |= {
                                          w.p_static("/v1/work/projects"), "Work project creation is people-only"),
     ("POST", "/v1/work/capture"): Row(cells(403, **GONE, owner=422, adult=422, child=422),
                                         w.p_static("/v1/work/capture"), "Work capture is people-only"),
+    ("POST", "/v1/work/quick-add"): Row(cells(403, **GONE, owner=422, adult=422, child=422),
+                                          w.p_static("/v1/work/quick-add"), "Work quick-add is people-only"),
     ("PATCH", "/v1/work/projects/{project_id}/tasks/{task_id}"): Row(
         cells(403, **GONE, owner=422, adult=422, child=422),
         w.p_static("/v1/work/projects/missing/tasks/missing"), "Work revision edits are people-only"),
@@ -360,7 +363,8 @@ PHOTOS_404 = grid(404, 404, 403, 403, 403)  # owner and adult own a library; a m
 _TIPS = "issue #669; core/tests/test_tips.py"
 POLICY |= {
     # ---- automation, standing approvals and windows ------------------------------------------------------
-    ("GET", "/v1/approval-policies"): Row(READ_ANY, w.p_static("/v1/approval-policies"), f"{_AUTOMATION}: any reader"),
+    ("GET", "/v1/approval-policies"): Row(ONLY_OWNER, w.p_static("/v1/approval-policies"),
+                                          f"{_AUTOMATION}: only the owner reads the rules (gateway permissions gap 3)"),
     ("POST", "/v1/approval-policies"): Row(grid(201, 403, 403, 403, 403), w.p_policy_create,
                                            f"{_AUTOMATION}: only the owner grants a standing approval"),
     ("DELETE", "/v1/approval-policies/{policy_id}"): Row(OWNER_ONLY_404, w.p_missing("/v1/approval-policies/{policy}"),
@@ -529,6 +533,12 @@ POLICY |= {
                                  "#605 surface registry: any reader; a child or agent sees only the apps shared with them"),
     ("GET", "/v1/sources"): Row(READ_ANY, w.p_static("/v1/sources"), "12.22: any reader"),
     ("GET", "/v1/sources/{source_id}"): Row(READ_ANY_404, w.p_static("/v1/sources/src_00000000000000000000000000"), "12.22: any reader; missing is 404"),
+    ("GET", "/v1/custom-apps"): Row(ONLY_OWNER, w.p_static("/v1/custom-apps"), "PLG-GIT-01: repository URLs and deploy history are the owner's"),
+    ("GET", "/v1/custom-apps/{app_id}"): Row(OWNER_ONLY_404, w.p_static("/v1/custom-apps/no-such-app"), "PLG-GIT-01: owner only; missing is 404"),
+    ("POST", "/v1/custom-apps/plan"): Row(grid(422, 403, 403, 403, 403), w.p_missing("/v1/custom-apps/plan", json={"url": "http://x.invalid/r", "ref": "main"}),
+                                          "PLG-GIT-01: planning fetches a repository, so owner only; the probe's http URL is refused (422) before any fetch"),
+    ("POST", "/v1/custom-apps/{app_id}/rollback"): Row(OWNER_ONLY_404, w.p_missing("/v1/custom-apps/no-such-app/rollback", json={}),
+                                                       "PLG-GIT-01: owner only; a missing custom app is 404"),
     ("POST", "/v1/deploy/compose"): Row(grid(422, 403, 403, 403, 403), w.p_missing("/v1/deploy/compose", json={"app_id": "imp", "compose": "x"}),
                                         "12.22: Compose import is owner only; the probe's text is not Compose (422)"),
     # ---- files ----------------------------------------------------------------------------------------------

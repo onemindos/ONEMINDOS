@@ -63,6 +63,10 @@ func (s Share) Validate() error {
 	if !userRe.MatchString(s.User) {
 		return fmt.Errorf("share %s: user %q is not valid", s.Name, s.User)
 	}
+	if s.User == "admin" || s.User == "root" {
+		// admin is the owner's own Unix account (console and SSH); an SMB person of that name would share its shadow line
+		return fmt.Errorf("share %s: the name %q is reserved", s.Name, s.User)
+	}
 	parts := strings.Split(s.Path, "/")
 	switch {
 	case s.Kind == KindHome && len(parts) == 2 && parts[0] == "home":

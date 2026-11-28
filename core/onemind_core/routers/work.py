@@ -13,6 +13,7 @@ from ..identity import ctx_of
 from ..identity.scopes import has_any, register_route_scope
 from ..jsonbody import JsonBody
 from ..work.access import WORK_ROLES, delegated_reader
+from ..work.parse import parse_quick_add
 from ..work.service import CaptureFields, PersonAssignee, Project, ProjectFields, Task, TaskFields, TaskView, WorkService
 
 ORDER = 260
@@ -31,6 +32,15 @@ class ProjectBody(ProjectFields, JsonBody):
 
 class CaptureBody(CaptureFields, JsonBody):
     pass
+
+
+class QuickAddBody(JsonBody):
+    """One line such as `Pay rent tomorrow at 5pm #Home @bills p1`; see work/parse.py."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    text: str = Field(min_length=1, max_length=400)
+    tz: str | None = Field(default=None, max_length=64)
 
 
 class ChangeBody(JsonBody):
@@ -116,6 +126,34 @@ def register(app: FastAPI, gw: Gateway) -> None:
                          **error_responses(401, 403, 404, 409, 422)})
     def capture(body: CaptureBody, key: IdempotencyKey, response: Response, p: Principal = Depends(writer)) -> Task:
         task, fresh = service.capture(p, body, key)
+        if fresh:
+            emit("task_created", p, task.project_id, task.id)
+        else:
+            response.status_code = 200
+        return task
+
+    @app.post(BASE + "/quick-add", tags=["work"], operation_id="work.quick_add", status_code=201,
+              openapi_extra={"security": [{"bearer": ["work:write"]}]},
+              responses={200: {"model": Task, "description": "Idempotent quick-add replay"},
+                         **error_responses(401, 403, 404, 409, 422)})
+    def quick_add(body: QuickAddBody, key: IdempotencyKey, response: Response, p: Principal = Depends(writer)) -> Task:
+        request = {"text": body.text, "tz": body.tz}
+        earlier = service.quick_add_replay(p, request, key)
+        if earlier is not None:
+            response.status_code = 200
+            return earlier
+        try:
+            parsed = parse_quick_add(body.text, gw.clock(), body.tz)
+            project_id = service.project_id_named(p, parsed["project"]) if parsed["project"] else None
+            assignee = {"id": parsed["assignee"]} if parsed["assignee"] else None
+            fields = CaptureFields.model_validate({
+                "title": parsed["title"], "labels": parsed["labels"], "priority": parsed["priority"] or 4,
+                "due_at": parsed["due_at"], "assignee": assignee, "project_id": project_id,
+            })
+        except (ValueError, ValidationError) as error:
+            raise ApiError(422, "conflict", str(error) if isinstance(error, ValueError) and not isinstance(
+                error, ValidationError) else "Invalid quick-add text", reason="bad_quick_add") from None
+        task, fresh = service.capture(p, fields, key, request=request)
         if fresh:
             emit("task_created", p, task.project_id, task.id)
         else:

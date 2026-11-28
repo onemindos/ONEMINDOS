@@ -11,6 +11,7 @@ import { usePoll } from '../lib/hooks';
 import { getPasskey, webauthnSupported } from '../lib/webauthn';
 import { useSignedIn } from '../session';
 import { useShell } from '../shell/Shell';
+import { TipsGuide } from './Tips';
 import { FixProblem } from './troubleshoot/FixProblem';
 import { ReportProblem, saveJson } from './troubleshoot/ReportProblem';
 import { href } from '../shell/routes';
@@ -50,6 +51,7 @@ function LiveTroubleshoot({ token }: { token: string }) {
   return <div className="dash-stack">
     <PageHeader title="Troubleshoot" lede="Review box health, request a fix or prepare a diagnostic report." />
     <FixProblem client={client} status={currentStatus} owner={owner} />
+    <TipsGuide client={client} />
     {owner ? <>
       <ReportProblem client={client} status={currentStatus} />
       <SystemControls client={client} />

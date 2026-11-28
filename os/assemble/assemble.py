@@ -25,7 +25,12 @@ OS_DIR = os.path.dirname(HERE)
 # Fixed namespace so partition UUIDs are the same on every box built from a layout (lab and HAOS
 # do the same); RAUC finds slots by PARTLABEL, GRUB passes root=PARTUUID.
 PU_NS = uuid.UUID("6e0a8b0e-0000-4a00-8000-000000000000")
-GPT_TYPES = {"esp": "EF00", "bios": "EF02", "linux": "8300"}
+# "data" is OneMind's own partition type GUID (uuid5 of "onemind-data-partition-type" in PU_NS, written out so it never
+# changes): the data partition is LUKS2 or btrfs or ext4 depending on the box, so the generic Linux type 8300 (which
+# every system and recovery slot also carries) says nothing about it. It is not a Discoverable Partitions Spec type, so
+# systemd-gpt-auto-generator never mounts it by itself (the /srv type would).
+DATA_TYPE_GUID = "d6bbb545-ec40-5f2a-9cfe-3c397e4d8112"
+GPT_TYPES = {"esp": "EF00", "bios": "EF02", "linux": "8300", "data": DATA_TYPE_GUID}
 CHUNK = 1 << 20
 
 
@@ -91,7 +96,7 @@ def validate_layout(layout):
 
 # The data partition ships as ext4 (existing boards) or "luks2": left BLANK in the image, and encrypted on the
 # box's first boot (usr/lib/onemind/data_encrypt.py). A key made at build time would be the same on every box.
-DATA_FS = ("ext4", "luks2")
+DATA_FS = ("ext4", "luks2")   # "luks2" = shipped blank; the box picks LUKS2+btrfs or plain btrfs (D-020)
 
 
 def part(layout, label):
@@ -217,12 +222,57 @@ def tree_mib(tree):
     return int(out("du", "-s", "-B1M", "--apparent-size", tree).split()[0])
 
 
+def source_date_epoch(environ=None):
+    """SOURCE_DATE_EPOCH (reproducible-builds.org spec) as an int, or None when unset. A set but malformed value
+    is an error, never silently ignored: a build that thinks it is reproducible and is not is worse than a loud stop."""
+    v = (os.environ if environ is None else environ).get("SOURCE_DATE_EPOCH", "").strip()
+    if not v:
+        return None
+    if not v.isdigit():
+        sys.exit(f"ERROR: SOURCE_DATE_EPOCH must be whole seconds since 1970, got {v!r}")
+    return int(v)
+
+
+def tree_release_keys(tree):
+    """(ONEMIND_BOARD, ONEMIND_VERSION) that finalize() wrote into the tree's os-release."""
+    kv = {}
+    for l in open(os.path.join(tree, "usr", "lib", "os-release")).read().splitlines():
+        k, _, v = l.partition("=")
+        kv[k] = v.strip('"')
+    return kv.get("ONEMIND_BOARD", ""), kv.get("ONEMIND_VERSION", "")
+
+
+def root_fs_uuid(board, version, epoch):
+    """The root filesystem's UUID and directory hash seed: a function of what the image is (board, version, build
+    epoch), not of the build run. Two builds of the same commit then give the same rootfs.ext4; a different version
+    gets a different UUID, so slot A (installed) and slot B (the next bundle) never share one."""
+    return str(uuid.uuid5(PU_NS, f"onemind-root-fs:{board}:{version}:{epoch}"))
+
+
+def mke2fs_root_cmd(tree, out_path, size, epoch, fs_uuid):
+    """The mke2fs call for the root filesystem. With a build epoch every field that would otherwise vary between
+    builds is fixed: UUID (-U), directory hash seed (hash_seed), and, through E2FSPROGS_FAKE_TIME in cmd_ext4, the
+    creation and inode times. Without one (a developer's ad hoc run) the old random UUID stays."""
+    cmd = ["mke2fs", "-q", "-t", "ext4", "-L", "onemind-root"]
+    ext = ["root_owner=0:0"]
+    if epoch is not None:
+        cmd += ["-U", fs_uuid]
+        ext.append(f"hash_seed={fs_uuid}")
+    return cmd + ["-E", ",".join(ext), "-d", tree, out_path, f"{size}M"]
+
+
 def cmd_ext4(a):
     tree = os.path.join(a.work, "tree")
     size = a.size_mib or (int(tree_mib(tree) * 1.3) + 384 + 63) // 64 * 64
     if os.path.exists(a.out):
         os.remove(a.out)
-    run("mke2fs", "-q", "-t", "ext4", "-L", "onemind-root", "-E", "root_owner=0:0", "-d", tree, a.out, f"{size}M")
+    epoch = source_date_epoch()
+    board, version = tree_release_keys(tree)
+    cmd = mke2fs_root_cmd(tree, a.out, size, epoch, root_fs_uuid(board, version, epoch))
+    env = dict(os.environ)
+    if epoch is not None:
+        env["E2FSPROGS_FAKE_TIME"] = str(epoch)
+    run(*cmd, env=env)
     log(f"{a.out}: {size} MiB ext4 from a {tree_mib(tree)} MiB tree")
 
 

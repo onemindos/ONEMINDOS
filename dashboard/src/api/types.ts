@@ -73,6 +73,17 @@ export type AppTier = 'verified' | 'community' | 'blocked';
 /** §11.1 scan record as summarised in the catalog (§11.4). */
 export type ScanSummary = components['schemas']['ScanSummary'];
 
+/** #724: one strength of what an app needs from a machine (sdk/schema $defs/machineNeeds). A fact the manifest does not state is absent. */
+export interface MachineNeedsBlock {
+  arch?: string[];
+  memoryMb?: number;
+  storageFreeGb?: number;
+  accelerator?: { capability?: string; minMemoryMb?: number; rtCores?: boolean; count?: number; overlay?: string };
+  devices?: string[];
+  radios?: string[];
+  models?: { quantisations?: string[] };
+}
+
 /** §3 `GET /v1/apps` item, built from §4 `onemind.app.yaml`, plus the §11.4 fields. */
 export interface CatalogApp {
   id: string;
@@ -87,7 +98,10 @@ export interface CatalogApp {
   licence_class?: components['schemas']['CatalogApp']['licence_class'];
   source: string | null;
   archs: string[];
+  /** spec.requires exactly as written, in either spelling; read machine_needs for one shape. */
   requires: { gpu?: boolean; minMemoryMb?: number };
+  /** #724: requires / recommends / supports in one shape, whichever spelling the manifest uses. */
+  machine_needs?: { requires: MachineNeedsBlock; recommends: MachineNeedsBlock; supports: MachineNeedsBlock };
   web_port: number | null;
   /** #692: a browser app, opened in a dashboard window with the person's own profile (/browser/<id>). */
   browser?: boolean;
@@ -137,6 +151,12 @@ export interface CommunitySource {
   apps: Array<{ id: string; version: string; scan: { result: string; scanned_at: string | null } | null }>;
   errors: string[];
 }
+
+/** PLG-GIT-01: the custom-app shapes come from the generated client, not hand-written types. */
+export type CustomPlan = components['schemas']['CustomPlanResult'];
+export type CustomRevision = components['schemas']['CustomRevisionOut'];
+export type CustomApp = components['schemas']['CustomAppRow'];
+export type CustomRollbackPlan = components['schemas']['CustomRollbackResult'];
 
 /** POST /v1/deploy/compose (PD-13): a conversion only; it writes nothing on the box. */
 export interface ComposeResult {
@@ -250,6 +270,7 @@ export interface ActionResult {
  * to "unknown" instead of crashing if the gateway names them differently.
  */
 export interface Action extends ActionRequest {
+  approval?: components['schemas']['Action']['approval'];
   plan?: PlanPreview['plan'] | null;
   progress?: { step: string; pct: number } | null;
   id: string;

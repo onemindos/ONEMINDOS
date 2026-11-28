@@ -11,6 +11,8 @@
 
 > **Current run (from 2026-11-19):** [run-2026-11-19/](run-2026-11-19/README.md) has the one-week leap run: lanes, Codex prompts and how the gate lands PRs.
 
+> **Latest run (2026-11-21):** [run-2026-11-21/](run-2026-11-21/README.md) is the record of the hardware-ready sprint: waves, PRs, review verdicts, lab and security findings, and the path to gate G1.
+
 ## 1. Positioning
 
 **OneMind is the self-hosted OS where AI agents can only ask. The gateway, not the prompt, makes them wait for your tap.**

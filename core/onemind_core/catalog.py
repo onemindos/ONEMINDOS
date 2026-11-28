@@ -19,6 +19,7 @@ import yaml
 from .ai_policy import UNKNOWN, catalog_policy
 from .appsecrets.spec import SecretDecl, parse_secrets, secret_spec_errors
 from .filesig import cache_signature
+from .machine_needs import machine_needs, vendor_errors
 from .manifest_convert import CURRENT, OLDER
 from .manifest_rules import ManifestRules
 from .scan import ScanRecord, read_scan
@@ -122,6 +123,13 @@ class AppEntry:
         return read_scan(self.dir)
 
     @property
+    def manifest_tier(self) -> str | None:
+        """The tier this app is treated as everywhere a decision depends on it. A repository's claim
+        is capped for custom and community-source apps (their entries override this)."""
+        tier = (self.manifest.get("metadata") or {}).get("tier")
+        return tier if tier in TIERS else None
+
+    @property
     def licence_class(self) -> str:
         declared = (self.manifest.get("metadata") or {}).get("licenceClass")
         return declared if declared in LICENCE_CLASSES else "unknown"
@@ -152,16 +160,19 @@ class AppEntry:
             "source": md.get("source"),
             "archs": list(archs) if isinstance(archs, list) else [],
             "requires": dict(requires) if isinstance(requires, dict) else {},
+            # #724: the same facts in one shape whichever spelling the manifest uses, plus recommends / supports.
+            "machine_needs": machine_needs(spec),
             "web_port": web.get("port") if isinstance(web, dict) else None,
             # #692: opened in a dashboard browser window with a per-person profile (browsers.py), not on its own name.
             "browser": isinstance(spec.get("browser"), dict) and isinstance(web, dict),
             # §11.4 additions.
             "links": {k: _http_url(links.get(k)) for k in LINK_KEYS},
-            "tier": md.get("tier") if md.get("tier") in TIERS else None,
+            "tier": self.manifest_tier,
             "scan": scan.summary() if scan is not None else None,
             "build": build_summary(md.get("build")),
             # §12.22: set by a community source's entry; the official catalog has none.
             "catalog_source": None,
+            "custom_source": None,  # PLG-GIT-01: set by a custom app's entry
         }
 
 
@@ -291,7 +302,14 @@ class Catalog:
             if rules is not None:
                 # The cross-field rules read the spec as the schema shapes it, so like validateBlocks in Go
                 # they run only on a schema-valid manifest; a host that is a map is the schema's error alone.
-                errs = [rules.hide(e) for e in errs] if errs else rules.errors(doc)
+                if errs:
+                    # The Go validator names a vendor resource or host path before the schema runs
+                    # (validateMachineNames), because that message says what to write instead of quoting the
+                    # schema pattern. vendor_errors reads only strings, so it is safe on a schema-invalid doc.
+                    spec = doc.get("spec") if isinstance(doc, dict) else None
+                    errs = [rules.hide(e) for e in [*vendor_errors(spec), *errs]]
+                else:
+                    errs = rules.errors(doc)
             md = doc.get("metadata") if isinstance(doc, dict) else None
             app_id = md.get("id") if isinstance(md, dict) else None
             if not isinstance(app_id, str) or not APP_ID_RE.match(app_id):

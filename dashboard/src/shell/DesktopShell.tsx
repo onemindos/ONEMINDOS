@@ -60,6 +60,7 @@ export interface DesktopShellProps {
   onSearch: () => void;
   onConsoleView: () => void;
   onSignOut: () => void;
+  onLock?: () => void;
   children: ReactNode;
 }
 
@@ -142,7 +143,8 @@ export function avatarInitial(displayName?: string, id?: string): string {
   return (Array.from((displayName ?? '').trim()[0] ? displayName!.trim() : (id ?? '').trim())[0] ?? '?').toUpperCase();
 }
 
-function PersonMenu({ person, displayName, demo, onConsoleView, onSignOut }: Pick<DesktopShellProps, 'person' | 'displayName' | 'demo' | 'onConsoleView' | 'onSignOut'>) {
+/** `usageHref`: on a phone the Live usage icon leaves the menu bar (it no longer fits) and lives here instead. */
+function PersonMenu({ person, displayName, demo, onConsoleView, onSignOut, onLock, usageHref }: Pick<DesktopShellProps, 'person' | 'displayName' | 'demo' | 'onConsoleView' | 'onSignOut' | 'onLock'> & { usageHref?: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const menuId = useId();
@@ -185,6 +187,11 @@ function PersonMenu({ person, displayName, demo, onConsoleView, onSignOut }: Pic
           <a className="dsk-menu-item" href="/settings" onClick={() => setOpen(false)}>
             <Icon name="settings" size={16} /> Settings
           </a>
+          {usageHref && (
+            <a className="dsk-menu-item dsk-phone-only" href={usageHref} onClick={() => setOpen(false)}>
+              <Icon name="gauge" size={16} /> Live usage
+            </a>
+          )}
           <button
             type="button"
             className="dsk-menu-item"
@@ -195,6 +202,7 @@ function PersonMenu({ person, displayName, demo, onConsoleView, onSignOut }: Pic
           >
             <Icon name="menu" size={16} /> Console view
           </button>
+          {onLock && <button type="button" className="dsk-menu-item" onClick={onLock}>Lock now</button>}
           <button type="button" className="dsk-menu-item dsk-menu-danger" onClick={onSignOut}>
             <Icon name="lock" size={16} /> Sign out
           </button>
@@ -297,7 +305,7 @@ function Launchpad({ nav, apps, onClose, onShortcuts }: { nav: NavItem[]; apps: 
 }
 
 export function DesktopShell(props: DesktopShellProps) {
-  const { boxName, status, bell, nav, current, pinned = [], apps = [], now, timeZone, person, displayName, demo, onSearch, onConsoleView, onSignOut, children } = props;
+  const { boxName, status, bell, nav, current, pinned = [], apps = [], now, timeZone, person, displayName, demo, onSearch, onConsoleView, onSignOut, onLock, children } = props;
   const location = useLocation();
   const atHome = current === 'home';
   const wm = useWindows();
@@ -383,12 +391,12 @@ export function DesktopShell(props: DesktopShellProps) {
             <Icon name="search" size={18} />
           </button>
           {nav.some((n) => n.id === 'usage') && (
-            <a href="/usage" className="dsk-iconbtn" aria-label="Live usage" title="Live usage" aria-current={current === 'usage' ? 'page' : undefined}>
+            <a href="/usage" className="dsk-iconbtn dsk-wide-only" aria-label="Live usage" title="Live usage" aria-current={current === 'usage' ? 'page' : undefined}>
               <Icon name="gauge" size={18} />
             </a>
           )}
           {bell}
-          <PersonMenu person={person} displayName={displayName} demo={demo} onConsoleView={onConsoleView} onSignOut={onSignOut} />
+          <PersonMenu person={person} displayName={displayName} demo={demo} onConsoleView={onConsoleView} onSignOut={onSignOut} onLock={onLock} usageHref={nav.some((n) => n.id === 'usage') ? '/usage' : undefined} />
         </div>
       </header>
 
