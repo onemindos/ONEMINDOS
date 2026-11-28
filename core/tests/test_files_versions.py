@@ -192,6 +192,8 @@ def test_household_sessions_reach_files_permissions(fc, files_root, snapshots):
         ok(member.get("/v1/files/preview", params=params))
         assert versions(member, {}, **params)["versions"][0]["version"] == version
         assert member.get("/v1/files/versions", params={"root": "home:adult", "path": "/notes.txt"}).status_code == 403
+        if role != "adult":
+            assert restore(member, csrf(member), "shared", "/notes.txt", version).status_code == 403
     assert adult is not None
     copy = ok(restore(adult, csrf(adult), "shared", "/notes.txt", version))
     assert read(adult, {}, "shared", copy["path"]) == b"yesterday"
