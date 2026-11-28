@@ -1,0 +1,95 @@
+# 2026-11-25T11:28:59Z AK-1 part 1: install and first start
++ grep -E '^(PRETTY_NAME|VERSION_ID)=' /etc/os-release; cat /etc/debian_version; uname -rm; nproc; free -m | head -2
+PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
+VERSION_ID="13"
+13.8
+6.12.118+deb13-cloud-amd64 x86_64
+2
+               total        used        free      shared  buff/cache   available
+Mem:            3922         396        1862           0        1910        3525
+  (exit 0)
++ bash /root/aklab/setup2.sh deb /root/aklab/debs; bash /root/aklab/netns.sh
+2f64115bc56b751de7e69efd2417e95046766d7d7d9017053d8d42ba79c2c57f  kanidmd_1.12.0-202611010319+a52b723_amd64.deb
+a6334593732750c63010b8321eb7dd6d37de5b5b5ead86f5559006b7ef038eb0  kanidm_1.12.0-202611010319+a52b723_amd64.deb
+Only then: systemctl enable kanidmd.service
+Full examples are in /usr/share/kanidmd/
+kanidmd.service is a disabled or a static unit, not starting it.
+total 32
+-rw------- 1 root root     241 Nov 25 11:29 ca.key
+-rw-r--r-- 1 root root     603 Nov 25 11:29 ca.pem
+-rw-r--r-- 1 root root      41 Nov 25 11:29 ca.srl
+-rw-r----- 1 root kanidmd 1324 Nov 25 11:29 chain.pem
+-rw-r----- 1 root kanidmd  241 Nov 25 11:29 key.pem
+-rw-r--r-- 1 root root     135 Nov 25 11:29 san.ext
+-rw-r----- 1 root kanidmd  461 Nov 25 11:29 server.toml
+-rw-r--r-- 1 root root     363 Nov 25 11:29 srv.csr
+v-nsl@if3        UP             192.0.2.1/24 fe80::40c0:30ff:fee2:6ab/64 
+v-nsm@if5        UP             198.51.100.1/24 fe80::8f0:7ff:fef0:d998/64 
+== nsl
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+c-nsl@if4        UP             192.0.2.2/24 fe80::288f:b6ff:fe33:a0a0/64 
+127.0.0.1 localhost
+192.0.2.1 idm.onemind.test
+== nsm
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+c-nsm@if6        UP             198.51.100.2/24 fe80::e446:cfff:feb5:318f/64 
+127.0.0.1 localhost
+198.51.100.1 idm.onemind.test idm.mesh.test mesh.idm.onemind.test
+  (exit 0)
++ dpkg-query -W -f='${Package} ${Version} ${Installed-Size}KiB\n' kanidmd kanidm
+kanidm 1.12.0-202611010319+a52b723 114078KiB
+kanidmd 1.12.0-202611010319+a52b723 246640KiB
+  (exit 0)
++ kanidmd version; kanidm version
+kanidmd 1.12.0 a52b723ce8
+kanidm 1.12.0 a52b723ce8
+  (exit 0)
++ systemctl cat kanidmd | grep -E '^(ExecStart|DynamicUser|StateDirectory|Type)='
+Type=notify
+DynamicUser=yes
+StateDirectory=kanidmd
+ExecStart=/usr/bin/kanidmd server
+  (exit 0)
++ systemctl enable --now kanidmd
+Created symlink '/etc/systemd/system/multi-user.target.wants/kanidmd.service' → '/usr/lib/systemd/system/kanidmd.service'.
+  (exit 0)
++ for i in $(seq 1 30); do systemctl is-active -q kanidmd && break; sleep 1; done; systemctl is-active kanidmd; systemctl is-enabled kanidmd
+active
+enabled
+  (exit 0)
++ sleep 3; curl -sS --cacert /etc/kanidm/ca.pem https://idm.onemind.test:8443/status; echo
+true
+  (exit 0)
++ kanidmd scripting healthcheck -c /etc/kanidmd/server.toml
+{"status":"ok"}
+  (exit 0)
++ systemctl list-unit-files --no-legend | grep -E "k3s|containerd|docker|podman|crio" || echo "no k3s/container units"; for b in k3s kubectl docker podman containerd ctr crio runc; do command -v $b || true; done; echo "(no container binaries listed above = none installed)"
+no k3s/container units
+(no container binaries listed above = none installed)
+  (exit 0)
+# 2026-11-25T11:30:36Z AK-1 part 2: after reboot
++ uptime -s; cat /proc/sys/kernel/random/boot_id; systemctl is-system-running || true
+2026-11-25 11:30:20
+dee19255-6e9b-4cd6-97f9-b502209734d1
+running
+  (exit 0)
++ systemctl is-active kanidmd; systemctl is-enabled kanidmd; systemctl show kanidmd -p ActiveEnterTimestamp -p ExecMainStartTimestamp -p NRestarts
+active
+enabled
+NRestarts=0
+ExecMainStartTimestamp=Wed 2026-11-25 11:30:33 UTC
+ActiveEnterTimestamp=Wed 2026-11-25 11:30:35 UTC
+  (exit 0)
++ curl -sS --cacert /etc/kanidm/ca.pem https://idm.onemind.test:8443/status; echo
+true
+  (exit 0)
++ kanidmd scripting healthcheck -c /etc/kanidmd/server.toml
+{"status":"ok"}
+  (exit 0)
++ systemctl list-unit-files --no-legend | grep -E "k3s|containerd|docker|podman|crio" || echo "no k3s/container units"; for b in k3s kubectl docker podman containerd ctr crio runc; do command -v $b || true; done; echo "(no container binaries listed above = none installed)"
+no k3s/container units
+(no container binaries listed above = none installed)
+  (exit 0)
++ systemd-analyze blame --no-pager | grep -E 'kanidmd|network-online|networking' || true
+2.089s kanidmd.service
+  (exit 0)
