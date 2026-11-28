@@ -42,7 +42,8 @@ TOUCH_POLICY = {1: "never", 2: "always", 3: "cached"}
 
 
 def _certs(path):
-    data = open(path, "rb").read()
+    with open(path, "rb") as f:
+        data = f.read()
     if b"-----BEGIN" in data:
         return x509.load_pem_x509_certificates(data)
     return [x509.load_der_x509_certificate(data)]
@@ -94,7 +95,8 @@ def check(pub_path, attestation, chain, ca=None, pin_policy="always", touch_poli
     else:
         problems.append("no Yubico PIV CA given (--ca): without it any software can mint an f9-style certificate "
                         "for an imported key, so the attestation proves nothing")
-    want = serialization.load_pem_public_key(open(pub_path, "rb").read())
+    with open(pub_path, "rb") as f:
+        want = serialization.load_pem_public_key(f.read())
     if _spki(att.public_key()) != _spki(want):
         problems.append(f"the attested key is NOT the key in {pub_path}")
     else:

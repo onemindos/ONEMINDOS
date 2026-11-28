@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
-# Release keys: who holds what, and the decision still open
+# Release keys: who holds what
 
-**Status:** proposal for the founder (2026-11-25). It changes nothing by itself: D-010 stays in force until Zeus records a new decision entry in `docs/DECISIONS.md`. The key list follows brief 30 B4.6 (K-ROOT, K-RAUC-CA/SIGN, K-TUF-ONLINE, K-SB). No agent makes, holds or sees a real key.
+**Status:** K-ROOT on YubiKeys is decided (D-031, 2026-11-25); Zeus is the sole key holder (2026-11-27). The other keys below are still choices for Zeus. The key list follows brief 30 B4.6 (K-ROOT, K-RAUC-CA/SIGN, K-TUF-ONLINE, K-SB). No agent makes, holds or sees a real key.
 
 ## Why there is more than one key
 
@@ -16,7 +16,7 @@ With **Secure Boot** on (the `efi` route, D-019), the firmware adds a third chec
 
 | Key | What it signs | How often | Where it lives (proposal) | State |
 |---|---|---|---|---|
-| K-ROOT (TUF root, 3 keys, any 2 sign) | `root.json`: which keys may sign the update lists | Once a year (renewal) | **3 YubiKeys, PIV slot 9c**, one per holder ([CEREMONY.md, Ceremony on YubiKeys](CEREMONY.md#ceremony-on-yubikeys-proposed-changes-d-010)). D-010 today: encrypted key files on 3 sticks | Tooling and rehearsal ready; real-YubiKey steps UNVERIFIED; **founder decision needed** |
+| K-ROOT (TUF root, 3 keys, any 2 sign) | `root.json`: which keys may sign the update lists | Once a year (renewal) | **3 YubiKeys, PIV slot 9c**, kept in three different places ([CEREMONY.md, Ceremony on YubiKeys (D-031)](CEREMONY.md#ceremony-on-yubikeys-d-031)) | Decided (D-031); tooling and rehearsal ready; real-YubiKey steps UNVERIFIED until the spare trial |
 | K-TUF-ONLINE (targets, snapshot, timestamp) | The update lists | Nightly and every 6 hours | GitHub Environment `tuf-signing`, `main` only (D-010) | Unchanged |
 | K-RAUC-SIGN | Every bundle | Nightly | GitHub secret `ONEMIND_RAUC_SIGNING_KEY` + `_CERT`: online, because the nightly signs without a person | Unchanged; the cert should be short-lived (1 year) and issued by K-RAUC-CA |
 | K-RAUC-CA | Only the K-RAUC-SIGN certificate, once a year | Yearly, offline | **Open: see decision 1** | Open |
@@ -48,6 +48,5 @@ The firmware holds one PK (owner of the box's key lists) and any number of KEKs 
 
 ## What each choice needs from Zeus
 
-1. A decision entry for **K-ROOT on YubiKeys from the first ceremony** (changes D-010's "sticks first, rotate later").
-2. Decision 1 (RAUC CA: A, B or C).
-3. Decision 2 (PK/KEK), or "after Step 5".
+1. Decision 1 (RAUC CA: A, B or C).
+2. Decision 2 (PK/KEK), or "after Step 5".

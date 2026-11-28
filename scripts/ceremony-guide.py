@@ -13,7 +13,7 @@ verifies each result before moving on, and prints the final sheet.
     python3 scripts/ceremony-guide.py --work DIR      resume an interrupted ceremony (same DIR)
     python3 scripts/ceremony-guide.py --yubikey       the root keys are made ON three YubiKeys instead of
                                                       key files on sticks (os/update/CEREMONY.md "Ceremony
-                                                      on YubiKeys"; NOT yet D-010: needs the founder's entry)
+                                                      on YubiKeys (D-031)"); ONE person, three YubiKeys
     python3 scripts/ceremony-guide.py --yubikey --rehearsal
                                                       the same walk on three throwaway SoftHSM tokens
 
@@ -73,8 +73,9 @@ NEEDS_YUBIKEY = """\
 WHAT YOU NEED AND HOW LONG IT TAKES  (YubiKey ceremony; one page, read it before you start)
 
   Time      About 45 to 60 minutes the first time. Rehearsal (SoftHSM tokens): about a minute.
-  People    Three key holders in one room. Only two of them sign, but all three make a key.
-  Things    - 3 YubiKeys (YubiKey 5 series, PIV), one per holder, each ALREADY PREPARED the day before
+  People    You alone (D-031: the founder is the sole key holder). Only two YubiKeys sign, but all
+            three make a key; the three YubiKeys are kept in three different places afterwards.
+  Things    - 3 YubiKeys (YubiKey 5 series, PIV), each ALREADY PREPARED the day before
               (os/update/CEREMONY.md "Prepare each YubiKey"): own PIN and PUK set, management key
               changed and PIN-protected, slot 9c empty. Plug in only the one asked for.
             - 1 USB stick (the "transfer stick") for root.json (public) and, only for the GitHub step,
@@ -84,16 +85,14 @@ WHAT YOU NEED AND HOW LONG IT TAKES  (YubiKey ceremony; one page, read it before
               installed BEFORE going offline. PYKCS11LIB set to the module's full path.
             - Yubico's PIV attestation CA, downloaded and compared (sha256 on the checklist) before going
               offline, in YUBICO_PIV_CA. Required: the guide checks each key was made on a real YubiKey.
-  Each holder  types their own PIN at prompts that show nothing, and touches their YubiKey when it
-            blinks. Three wrong PINs lock the PIN (the PUK unlocks it). Nobody else sees a PIN.
+  You        type each YubiKey's PIN at prompts that show nothing, and touch the YubiKey when it
+            blinks. Three wrong PINs lock the PIN (the PUK unlocks it). A PIN is never stored with its YubiKey.
   The private keys never exist anywhere but inside the three YubiKeys. There is nothing to back up:
   any two of the three YubiKeys can sign, so one lost YubiKey changes nothing by itself.
   You can stop at any time (Ctrl+C) and continue later with the same --work folder.
 """
 
-YUBIKEY_DIFFERS = ("YubiKey mode: the root keys live on three YubiKeys, not as key files on encrypted sticks. "
-                   "D-010 (2026-11-14) says sticks first and hardware keys later by rotation, so using "
-                   "YubiKeys for the FIRST ceremony needs the founder's decision entry before this root is used.")
+YUBIKEY_DIFFERS = "D-031 (2026-11-25): the first ceremony runs on the founder's three YubiKeys."
 
 D010 = ("D-010 requires: three root keys, each held by a different person on their own encrypted "
         "stick, and any 2 of the 3 must sign. One lost or stolen stick changes nothing by itself.")
@@ -622,6 +621,15 @@ class TokenGuide(Guide):
     NEEDS = NEEDS_YUBIKEY
     MODE = "yubikey"
 
+    def holders(self):
+        """D-031 and the founder's call of 2026-11-27: one person (the sole key holder) with three YubiKeys."""
+        io = self.io
+        io.say("\nSTEP 2 of 7: who is here")
+        io.say("One person, three YubiKeys: you are the sole key holder (D-031). The keys are named A, B and C.")
+        name = io.ask("Your name:", auto="Rehearsal Operator") or "operator"
+        self.state["holders"] = {h: name for h in HOLDERS}
+        io.say("holders: " + ", ".join(f"{h}={name}" for h in HOLDERS))
+
     def token_ref(self, h):
         if self.rehearsal:
             return f"hsm:2?label=onemind-guide-{h.lower()}"
@@ -683,8 +691,7 @@ class TokenGuide(Guide):
         for h in HOLDERS:
             if h in done:
                 io.say(f"  holder {h}: key already made."); continue
-            who = self.state["holders"][h]
-            io.say(f"\n--- holder {h}: {who} ---")
+            io.say(f"\n--- YubiKey {h} of 3 ---")
             pub = os.path.join(pubs, f"{h.lower()}.pub")
             if self.rehearsal:
                 label = f"onemind-guide-{h.lower()}"
@@ -695,15 +702,15 @@ class TokenGuide(Guide):
                 if self.run_script("token-keygen", self.token_ref(h)) != 0 or self.run_script("token-pub", self.token_ref(h), pub) != 0:
                     raise Stop(f"making holder {h}'s token key failed (message above).")
             else:
-                io.say(f"  >> {who}: plug in YOUR OWN YubiKey now, and unplug every other YubiKey.")
+                io.say(f"  >> Plug in YubiKey {h} now, and unplug every other YubiKey.")
                 io.pause()
                 seen = self.plugged()
                 if len(seen) != 1:
                     raise Stop(f"exactly one YubiKey must be plugged in (seen {len(seen)}). Unplug the others and run again.")
                 ser = seen[0]
                 if ser in [v for k, v in serials.items() if k != h]:
-                    raise Stop("that YubiKey already holds another holder's key. Each holder uses their own YubiKey.")
-                io.confirm_word(f"  YubiKey serial {ser} (printed on its back). Is it {who}'s, prepared the day before?", "MINE")
+                    raise Stop("that YubiKey already holds another key of this ceremony. Each of the three keys needs its own YubiKey.")
+                io.confirm_word(f"  YubiKey serial {ser} (printed on its back). Is it YubiKey {h}, prepared the day before?", "MINE")
                 serials[h] = ser
                 self.save()
                 io.say("  ykman now asks for the management key or the PIN (prompts show nothing), then the key blinks: touch it.")
@@ -746,13 +753,13 @@ class TokenGuide(Guide):
                 raise Stop("signing reported success but root.json is missing.")
 
     def custody_lines(self):
-        lines = ["  YubiKeys          Each holder keeps their own YubiKey in their own place: home, off-site, a trusted person.",
+        lines = ["  YubiKeys          Three YubiKeys in three different places; a PIN is never stored with its YubiKey.",
                  "                    The key inside it cannot be copied; any two of the three sign, so one lost YubiKey breaks nothing.",
-                 "  PINs and PUKs     Each holder keeps their own safe. Never in the repo, chat or email."]
+                 "  PINs and PUKs     You keep them safe, apart from the YubiKeys. Never in the repo, chat or email."]
         if not self.rehearsal:
             lines.append("  Serials           " + "  ".join(f"{h}={self.state['serials'][h]}" for h in HOLDERS) +
                          "  (write them on the checklist; they are public)")
-        lines.append("  Decision          " + YUBIKEY_DIFFERS)
+        lines.append("  Decision          " + YUBIKEY_DIFFERS + " D-010's sealed succession note still applies.")
         return lines
 
     def release_proof(self):
@@ -782,7 +789,7 @@ def main(argv=None):
         if a.solo and a.rehearsal:
             raise Stop("--rehearsal already uses three throwaway holders; do not combine it with the solo flag.")
         if a.yubikey and a.solo:
-            raise Stop("--yubikey needs three holders with three YubiKeys; it does not have a solo mode.")
+            raise Stop("--yubikey is already a one-person ceremony (D-031); the solo flag is only for the stick ceremony.")
         if os.environ.get(PIN_ENV) and not a.rehearsal:
             raise Stop(f"{PIN_ENV} is set in this shell. A real PIN is typed, never kept in the environment: unset it and run again.")
         if os.environ.get(PASSPHRASE_ENV) and not a.rehearsal:
