@@ -5,6 +5,7 @@ import type { components } from '@onemind/sdk';
 import type { MachineMedia, MachineParams, MachineSource } from '../api/types';
 import { FilesApi } from '../files/api';
 import { useSignedIn } from '../session';
+import { useShell } from '../shell/Shell';
 import { TextField } from './parts';
 
 type Image = components['schemas']['CatalogueImage'];
@@ -16,7 +17,8 @@ const inRange = (value: string, min: number, max: number) => /^\d+$/.test(value)
 export function MachineCreateForm({ catalogue, names, busy, onClose, onSend }: {
   catalogue: Image[]; names: string[]; busy: boolean; onClose: () => void; onSend: (p: MachineParams) => Promise<boolean>;
 }) {
-  const { token, principal } = useSignedIn();
+  const { token, principal, account } = useSignedIn();
+  const { role } = useShell();
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [kind, setKind] = useState<'catalogue' | 'iso' | 'disk'>(catalogue.length ? 'catalogue' : 'iso');
@@ -33,7 +35,7 @@ export function MachineCreateForm({ catalogue, names, busy, onClose, onSend }: {
   const [peers, setPeers] = useState(false);
   const loading = !!progress || busy;
   const image = catalogue.find((entry) => entry.url === imageUrl);
-  const canUpload = principal?.kind === 'person' && principal.role === 'owner';
+  const canUpload = role === 'owner' && !!(account ?? principal)?.id; // the upload target is the person's home
   const nameProblem = !/^[a-z][a-z0-9-]{0,38}[a-z0-9]$/.test(name) ? 'Use 2 to 40 lowercase letters, digits or dashes, starting with a letter.'
     : ['capabilities', 'enable', 'disable', ...names].includes(name) ? 'Choose another machine name. This one is reserved or already in use.' : '';
   const source: MachineSource | undefined = kind === 'catalogue' ? image && { kind, url: image.url, sha256: image.sha256 }
@@ -54,7 +56,7 @@ export function MachineCreateForm({ catalogue, names, busy, onClose, onSend }: {
     const stored = new File([chosen], `${crypto.randomUUID()}-${chosen.name}`);
     setProgress(`Uploading ${chosen.name}…`);
     try {
-      const location = await files.upload(stored, `home:${principal.id}`, '/', (done) => setProgress(`Uploading ${chosen.name}: ${Math.round(100 * done / chosen.size)}%`));
+      const location = await files.upload(stored, `home:${(account ?? principal)?.id}`, '/', (done) => setProgress(`Uploading ${chosen.name}: ${Math.round(100 * done / chosen.size)}%`));
       const media = await files.completedUpload(location);
       if (media.size_bytes !== chosen.size) throw new Error('The stored upload size differs from the file you selected.');
       set({ name: chosen.name, media });

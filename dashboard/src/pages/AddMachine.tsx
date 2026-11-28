@@ -10,6 +10,7 @@ import { AddDevice, Card, NetworkPage, PageHeader, type FabricSummary, type Load
 import { usePoll, type Polled } from '../lib/hooks';
 import { useHub } from '../data/hub';
 import { useSignedIn } from '../session';
+import { useShell } from '../shell/Shell';
 import { href } from '../shell/routes';
 
 function loadable<T>(p: Polled<T>): Loadable<T> {
@@ -19,7 +20,8 @@ function loadable<T>(p: Polled<T>): Loadable<T> {
 }
 
 export function AddMachine() {
-  const { api, principal } = useSignedIn();
+  const { api } = useSignedIn();
+  const { role } = useShell();
   const hub = useHub();
   const navigate = useNavigate();
   const [adding, setAdding] = useState(false);
@@ -27,7 +29,7 @@ export function AddMachine() {
   const mesh = usePoll<MeshView>(() => (api.meshView ? api.meshView() : Promise.reject(new Error('unsupported'))), 15_000);
   const fabric = usePoll<FabricSummary>(() => (api.fabricSummary ? api.fabricSummary() : Promise.reject(new Error('unsupported'))), adding ? 3_000 : 15_000);
   const tls = usePoll(() => (api.tlsInfo ? api.tlsInfo() : Promise.reject(new Error('unsupported'))), 60_000);
-  const isOwner = principal?.role === 'owner';
+  const isOwner = role === 'owner';
 
   if (!supported) {
     return (
@@ -43,7 +45,7 @@ export function AddMachine() {
   return (
     <>
       <PageHeader title="Add a machine" lede="Make a one-time code, enter it on the new machine, then approve the request it files. Nothing joins until you approve." />
-      {!isOwner && <p className="om-note om-tone-warn" role="status">Only an owner can make a join code. You can look at the network.</p>}
+      {!isOwner && role !== undefined && <p className="om-note om-tone-warn" role="status">Only an owner can make a join code. You can look at the network.</p>}
       <NetworkPage mesh={m} fabric={f} now={hub.now} isOwner={isOwner} onAddDevice={() => setAdding(true)}
         onReviewJoin={(id) => navigate(href.approval(id))} onRetry={reload} />
       <Card title="Box certificate" level={2}>

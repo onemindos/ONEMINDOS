@@ -10,6 +10,7 @@ import { Button, Card, Dialog, StatusPill } from '@onemind/ui';
 import { usePoll } from '../../lib/hooks';
 import { uuidv4 } from '../../lib/uuid';
 import { useSignedIn } from '../../session';
+import { useShell } from '../../shell/Shell';
 import { href } from '../../shell/routes';
 import { Load } from '../parts';
 import { getJson, record, records, str } from '../records';
@@ -22,9 +23,10 @@ const machines = (n: unknown) => (typeof n === 'number' ? `${n} ${n === 1 ? 'mac
 const stage = (r: Record<string, unknown>) => `wave ${(typeof r.stage === 'number' ? r.stage : 0) + 1} of ${Array.isArray(r.stages) ? r.stages.length : '?'}`;
 
 export function Fleet() {
-  const { token, person, mock, principal } = useSignedIn();
+  const { token, person, mock } = useSignedIn();
+  const { role } = useShell(); // a real hub's session has no principal; the role comes from GET /v1/me
   if (mock) return null;
-  return <LiveFleet key={person} token={token} owner={principal?.role === 'owner'} />;
+  return <LiveFleet key={person} token={token} owner={role === 'owner'} />;
 }
 
 function LiveFleet({ token, owner }: { token: string; owner: boolean }) {

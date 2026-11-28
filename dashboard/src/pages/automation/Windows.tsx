@@ -8,6 +8,7 @@ import { OneMind, OneMindError } from '@onemind/sdk';
 import { Button, Card, StatusPill } from '@onemind/ui';
 import { usePoll } from '../../lib/hooks';
 import { useSignedIn } from '../../session';
+import { useShell } from '../../shell/Shell';
 import { Load } from '../parts';
 import { getJson, records, str, strs } from '../records';
 
@@ -43,12 +44,13 @@ function problem(d: Draft, taken: string[]): string {
 }
 
 export function Windows() {
-  const { token, person, mock, principal } = useSignedIn();
+  const { token, person, mock } = useSignedIn();
+  const { role } = useShell(); // a real hub's session has no principal; the role comes from GET /v1/me
   if (mock) return null;
-  return <LiveWindows key={person} token={token} owner={principal?.role === 'owner'} />;
+  return <LiveWindows key={person} token={token} owner={role === 'owner'} roleKnown={role !== undefined} />;
 }
 
-function LiveWindows({ token, owner }: { token: string; owner: boolean }) {
+function LiveWindows({ token, owner, roleKnown }: { token: string; owner: boolean; roleKnown: boolean }) {
   const sdk = useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1 }), [token]);
   const list = usePoll(async () => records(await getJson(sdk, '/v1/windows')), 30_000);
   const [draft, setDraft] = useState<Draft>();
@@ -88,7 +90,7 @@ function LiveWindows({ token, owner }: { token: string; owner: boolean }) {
           {owner && <Button size="sm" variant="secondary" onClick={() => { setSaved(''); setError(''); setDraft({ id: str(w.id), name: str(w.name, ''), tz: str(w.tz, 'box'), ranges: rs, isNew: false }); }}>Edit {str(w.name, str(w.id))}</Button>}
         </li>;
       })}</ul>}
-      {!owner && <p className="om-note">Only an owner can change a window.</p>}
+      {!owner && roleKnown && <p className="om-note">Only an owner can change a window.</p>}
       {saved && <p role="status">{saved}</p>}
       {draft && <form aria-label={draft.isNew ? 'New window' : `Edit ${draft.name}`} onSubmit={(e) => { e.preventDefault(); void save(); }}>
         <p><label htmlFor="win-name">Name</label>{' '}
