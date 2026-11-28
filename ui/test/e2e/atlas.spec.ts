@@ -44,6 +44,19 @@ for (const theme of ['light', 'dark'] as const) {
         await expect.poll(() => primary.evaluate((el) => el.getAnimations().length)).toBe(0);
         // Capture the viewport so taking the screenshot cannot scroll the button again.
         await primary.scrollIntoViewIfNeeded();
+        // WebKit on the CI runner paints in software. After the theme switch, the first frames of the glass
+        // surfaces (an 18px backdrop blur over the wallpaper) take several seconds each before it is back to
+        // about 16 ms a frame. Wait until two frames in a row arrive at frame rate, so the stability check below
+        // measures the button and not that repaint. Bounded by the test timeout, like the click and the scroll.
+        await page.evaluate(async () => {
+          const frame = () => new Promise<number>((resolve) => requestAnimationFrame(resolve));
+          let last = await frame();
+          for (let quick = 0; quick < 2; ) {
+            const now = await frame();
+            quick = now - last < 50 ? quick + 1 : 0;
+            last = now;
+          }
+        });
         let shot: { png: Buffer; box: Pick<DOMRect, 'x' | 'y' | 'width' | 'height'> } | undefined;
         await expect.poll(async () => {
           const box = await primary.evaluate(async (el) => {

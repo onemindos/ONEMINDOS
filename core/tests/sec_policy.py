@@ -149,6 +149,7 @@ POLICY |= {
                                            "#702 own approver keys", ID, UNAUDITED),
     ("DELETE", "/v1/auth/approver-keys/{key_id}"): Row(own_credentials(404), w.p_static("/v1/auth/approver-keys/apk_none"),
                                                        "#702 own approver keys", ID, UNAUDITED),
+    ("GET", "/v1/auth/methods"): Row(own_credentials(200), w.p_static("/v1/auth/methods"), "§12.6 own sign-in methods", ID, UNAUDITED),
     ("POST", "/v1/auth/password"): Row(own_credentials(204), w.p_password, "§12.6 own credentials", ID, UNAUDITED),
     ("POST", "/v1/auth/totp/setup"): Row(own_credentials(200), w.p_static("/v1/auth/totp/setup"), "§12.6 own credentials", ID, UNAUDITED),
     ("POST", "/v1/auth/totp/confirm"): Row(own_credentials(409), w.p_totp_confirm, "§12.6 own credentials (no setup started: 409)", ID, UNAUDITED),
