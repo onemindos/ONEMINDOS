@@ -3,7 +3,7 @@ import { Features, OP } from '../api/client';
 import { makeActions } from '../api/fixtures';
 import { ApiError, type AppSecrets } from '../api/types';
 import { v0Api } from '../test/fakes';
-import { compactValues, formProblems, generatedCount, installAppId, ownerKeys, secretsToAsk, valueProblem } from './installSecrets';
+import { compactValues, formProblems, generatedCount, installAppId, ownerKeys, sealInstallSecrets, secretsToAsk, valueProblem } from './installSecrets';
 
 const SECRETS: AppSecrets = {
   app_id: 'ollama', key_id: 'k1', missing_required: ['ollama-auth/API_KEY'],
@@ -11,7 +11,7 @@ const SECRETS: AppSecrets = {
     name: 'ollama-auth', description: 'Auth', keys: [
       { key: 'API_KEY', kind: 'api-key', description: 'Provider key', required: true, source: 'owner', set: false, version: null, updated_at: null },
       { key: 'HOOK_URL', kind: 'url', description: '', required: false, source: 'owner', set: false, version: null, updated_at: null },
-      { key: 'SESSION', kind: 'token', description: '', required: true, source: 'generated', set: false, version: null, updated_at: null },
+      { key: 'SESSION', kind: 'token', description: '', required: false, source: 'generated', set: false, version: null, updated_at: null },
     ],
   }],
 };
@@ -41,6 +41,11 @@ describe('install secrets rules', () => {
   it('seals only typed values for declared owner keys', () => {
     expect(compactValues(SECRETS, { 'ollama-auth': { API_KEY: 'sk-1', HOOK_URL: '', SESSION: 'x' }, other: { Z: 'y' } }))
       .toEqual({ 'ollama-auth': { API_KEY: 'sk-1' } });
+  });
+
+  it('refuses to seal when the hub key changed since the form was read', async () => {
+    const api = v0Api({ secretsPublicKey: async () => ({ alg: 'X25519', key: 'AAAA', key_id: 'k2', sealed_alg: 'X25519-AES256GCM' }) });
+    await expect(sealInstallSecrets(api, SECRETS, { 'ollama-auth': { API_KEY: 'sk-1234' } })).rejects.toThrow(/sealing key changed/);
   });
 
   it('opens the form only for an install whose app needs owner-typed values on a hub that seals', async () => {

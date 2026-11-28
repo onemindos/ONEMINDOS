@@ -45,7 +45,7 @@ describe('sealValues on the phone', () => {
     const aes: AesGcm = jest.fn(nativeAesGcm);
     await expect(sealValues(pkOf(new Uint8Array(31)), 'x', { s: { K: 'abcd' } }, aes)).rejects.toThrow(/32 bytes/);
     // An all-zero (low-order) box key gives an all-zero shared secret: refused, as the box does.
-    await expect(sealValues(pkOf(new Uint8Array(32)), 'x', { s: { K: 'abcd' } }, aes)).rejects.toThrow();
+    await expect(sealValues(pkOf(new Uint8Array(32)), 'x', { s: { K: 'abcd' } }, aes)).rejects.toThrow(/not usable/);
     await expect(sealValues({ ...pkOf(new Uint8Array(32)), sealed_alg: 'RSA' as never }, 'x', { s: { K: 'abcd' } }, aes)).rejects.toThrow(/cannot seal/);
     expect(aes).not.toHaveBeenCalled();
   });

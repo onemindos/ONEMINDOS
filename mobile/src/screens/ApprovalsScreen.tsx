@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { Fragment, useContext, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContext, NavigationRouteContext } from '@react-navigation/native';
 import type { TabParams } from '../nav';
@@ -32,6 +32,12 @@ const SYSTEM_TITLES: Record<string, string> = {
 
 function requestTitle(a: Action): string {
   return a.plan?.summary || (Object.hasOwn(SYSTEM_TITLES, a.type) ? SYSTEM_TITLES[a.type]! : actionTitle(a));
+}
+
+/** The request behind an open secrets form is still waiting and not expired (hub clock). */
+function formStillOpen(id: string, actions: Action[] | undefined, hubNow: number): boolean {
+  const a = actions?.find((x) => x.id === id);
+  return !!a && isPending(a) && Date.parse(a.expires_at) > hubNow;
 }
 
 const SEGMENTS = ['Waiting', 'Decided', 'Agents'] as const;
@@ -315,6 +321,13 @@ export function ApprovalsScreen({ keyNative = approvalKeyNative }: { keyNative?:
     return r.ok;
   }
 
+  // A form stays open only while its request is still waiting and not expired. When the request is decided
+  // elsewhere, expires or drops on reload, the form closes, so the other cards are usable again.
+  useEffect(() => {
+    if (secretsForm && !formStillOpen(secretsForm.action.id, actions, hubNow)) setSecretsForm(undefined);
+  }, [secretsForm, actions, hubNow]);
+  const openForm = secretsForm && formStillOpen(secretsForm.action.id, actions, hubNow) ? secretsForm : undefined;
+
   if (loading && !actions) return <Loading what="requests" />;
   const latest = sortByRecent(actions ?? []);
   const pending = latest.filter(isPending);
@@ -356,13 +369,13 @@ export function ApprovalsScreen({ keyNative = approvalKeyNative }: { keyNative?:
             {!visible.length && <P muted>Nothing is waiting.</P>}
             {visible.map((a) => (
               <Fragment key={a.id}>
-                <PendingCard a={a} now={hubNow} canDecide={canDecide} busy={busy !== undefined || !!secretsForm} offline={!!error}
+                <PendingCard a={a} now={hubNow} canDecide={canDecide} busy={busy !== undefined || !!openForm} offline={!!error}
                   keyed={!!key.signer} canSign={canSign} hasCredential={hasCredential} expanded={a.id === expandedId}
                   onExpand={() => setSelection({ reviewId, segment: 'Waiting', id: a.id })}
                   onDecide={(x, d, holdMs) => void (d === 'approve' ? onApprove(x, holdMs) : onDecide(x, d, holdMs))} />
-                {secretsForm?.action.id === a.id && (
-                  <InstallSecretsForm appName={secretsForm.secrets.app_id} secrets={secretsForm.secrets}
-                    busy={sealing || busy !== undefined} error={secretsForm.error} submitLabel="Seal and approve"
+                {openForm?.action.id === a.id && (
+                  <InstallSecretsForm appName={openForm.secrets.app_id} secrets={openForm.secrets}
+                    busy={sealing || busy !== undefined} error={openForm.error} submitLabel="Seal and approve"
                     onSubmit={(v) => void submitSecrets(v)} onCancel={() => setSecretsForm(undefined)} />
                 )}
               </Fragment>

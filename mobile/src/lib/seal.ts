@@ -56,8 +56,14 @@ export async function seal(
   const eph = random(32);
   try {
     const epk = x25519.getPublicKey(eph);
-    const shared = x25519.getSharedSecret(eph, boxPublic);
-    // An all-zero shared secret means a low-order box key: refuse, as the box does on its side.
+    // A low-order box key gives an all-zero shared secret: refuse, as the box does on its side.
+    // @noble already rejects it; the check below stays in case that ever changes.
+    let shared: Uint8Array;
+    try {
+      shared = x25519.getSharedSecret(eph, boxPublic);
+    } catch {
+      throw new Error('the box public key is not usable');
+    }
     if (shared.every((b) => b === 0)) throw new Error('the box public key is not usable');
     const key = hkdf(sha256, shared, concat(epk, boxPublic), INFO, 32);
     const nonce = random(NONCE_BYTES);

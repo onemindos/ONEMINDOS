@@ -83,5 +83,8 @@ export async function secretsToAsk(api: OneMindApi, features: Features, a: Actio
 /** Seal the typed values to the box's current key, bound to this app. Nothing is sent here. */
 export async function sealInstallSecrets(api: OneMindApi, s: AppSecrets, values: SecretValues, aes?: AesGcm): Promise<SealedInput> {
   if (!api.secretsPublicKey) throw new ApiError(404, 'not_found', 'This hub cannot take sealed secrets.');
-  return sealValues(await api.secretsPublicKey(), s.app_id, compactValues(s, values), aes);
+  const pk = await api.secretsPublicKey();
+  // The form was read for one box key; if the hub's key changed since, the hub would refuse the box anyway.
+  if (s.key_id && pk.key_id !== s.key_id) throw new Error("the hub's sealing key changed since the form opened; close it and approve again");
+  return sealValues(pk, s.app_id, compactValues(s, values), aes);
 }
