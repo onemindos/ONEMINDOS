@@ -99,6 +99,19 @@ def test_both_recipients_and_wrong_credentials(keys):
         open_bundle(bundle, root_fingerprint=_pin(root), passphrase=PHRASE + " ")
 
 
+def test_opened_bundle_repr_hides_payload(keys):
+    root, _, kit = keys
+    payload = b"synthetic private bundle content"
+    opened = open_bundle(_seal(keys, payload), root_fingerprint=_pin(root), owner_key=kit)
+    description = repr(opened)
+    assert description.startswith(f"OpenedBundle(source_instance_id={SOURCE!r}, ")
+    assert f"box_name={opened.box_name!r}" in description
+    assert "created_at=" in description
+    assert "payload=" not in description
+    assert payload.decode() not in description
+    assert opened.payload == payload
+
+
 def _parts(bundle):
     line, ciphertext = bundle[len(MAGIC):].split(b"\n", 1)
     return json.loads(line), ciphertext
@@ -149,19 +162,34 @@ def test_public_recipient_does_not_make_foreign_signer_trusted(keys):
         open_bundle(forged, root_fingerprint=_pin(root), owner_key=kit)
 
 
-def test_wrong_purpose_and_source_are_refused(keys):
+def test_wrong_export_purpose_is_refused(keys):
     root, export, kit = keys
-    bundle = _seal(keys, b"test payload")
-    header, ciphertext = _parts(bundle)
+    header, ciphertext = _parts(_seal(keys, b"test payload"))
     signer = header["signer"]
     signer.pop("signature")
     signer["purpose"] = "job"
     signer["signature"] = root.sign(envelope._DOMAIN + b"certificate\0" + canonical(signer)).hex()
-    for change in (header, {**_parts(bundle)[0], "source_instance_id": "other-box"}):
-        with pytest.raises(BundleRefused):
-            open_bundle(_resign(change, ciphertext, export), root_fingerprint=_pin(root), owner_key=kit)
+    with pytest.raises(BundleRefused, match="^invalid recovery bundle export certificate$"):
+        open_bundle(_resign(header, ciphertext, export), root_fingerprint=_pin(root), owner_key=kit)
     with pytest.raises(ValueError, match="distinct purpose key"):
         certify_export_key(root, root.public_key(), source_instance_id=SOURCE)
+
+
+def test_wrong_export_source_is_refused(keys):
+    root, export, kit = keys
+    header, ciphertext = _parts(_seal(keys, b"test payload"))
+    header["source_instance_id"] = "other-box"
+    with pytest.raises(BundleRefused, match="^invalid recovery bundle export certificate$"):
+        open_bundle(_resign(header, ciphertext, export), root_fingerprint=_pin(root), owner_key=kit)
+
+
+def test_bad_export_certificate_signature_is_refused_under_pinned_root(keys):
+    root, export, kit = keys
+    header, ciphertext = _parts(_seal(keys, b"test payload"))
+    signature = bytes.fromhex(header["signer"]["signature"])
+    header["signer"]["signature"] = (bytes([signature[0] ^ 1]) + signature[1:]).hex()
+    with pytest.raises(BundleRefused, match="^invalid recovery bundle export certificate$"):
+        open_bundle(_resign(header, ciphertext, export), root_fingerprint=_pin(root), owner_key=kit)
 
 
 def test_version_compatibility(keys):

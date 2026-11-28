@@ -948,7 +948,8 @@ def main():
         print(" | ".join((r["test"], r["verdict"], r["detail"])))
     logf.close()
     if a.results:
-        json.dump({"env": env, "minutes": round(total, 1), "criteria": "test/qemu/CRITERIA-FIRSTBOOT.md",
+        json.dump({"env": env, "minutes": round(total, 1),
+                   "criteria": "test/qemu/CRITERIA-FIRSTBOOT.md, test/qemu/CRITERIA-BOXBUNDLE.md",
                    "results": RESULTS}, open(a.results, "w"), indent=2)
     shutil.rmtree(os.path.join(a.work, "seed"), ignore_errors=True)
     return 0 if RESULTS and all(r["verdict"] == "PASS" for r in RESULTS) else 1

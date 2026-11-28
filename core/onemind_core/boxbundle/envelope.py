@@ -20,7 +20,7 @@ import hmac
 import json
 import secrets
 import struct
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from cryptography.exceptions import InvalidSignature, InvalidTag, UnsupportedAlgorithm
@@ -59,7 +59,7 @@ class OpenedBundle:
     source_instance_id: str
     box_name: str
     created_at: datetime
-    payload: bytes
+    payload: bytes = field(repr=False)
 
 
 def _kit_keys(owner_key: OwnerKey) -> tuple[mlkem.MLKEM768PrivateKey, x25519.X25519PrivateKey]:
@@ -279,7 +279,10 @@ def open_bundle(
         if created_at.utcoffset() is None:
             raise ValueError("missing timezone")
         _hex(root_fingerprint, _KEY_SIZE)
-        signer = _verify_certificate(header["signer"], root_fingerprint, source)
+        try:
+            signer = _verify_certificate(header["signer"], root_fingerprint, source)
+        except (InvalidSignature, ValueError):
+            raise BundleRefused(["invalid recovery bundle export certificate"]) from None
         signature = _hex(header.pop("signature"), 64)
         signer.verify(signature, _DOMAIN + b"header\0" + canonical(header))
         ciphertext = bundle[start:]
