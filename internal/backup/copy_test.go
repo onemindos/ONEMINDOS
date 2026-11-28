@@ -13,6 +13,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 // Design 25b: a restore into a new folder copies into an EMPTY folder under the
@@ -148,10 +150,17 @@ func TestRestoreCopyChecksFreeSpaceFirst(t *testing.T) {
 
 // Review of #1193: openEmptyDir hands back an fd that it alone owns. It once
 // wrapped fd in an os.File and dropped it, so the garbage collector closed fd
-// under the copy (random "bad file descriptor" in unrelated tests).
+// under the copy (random "bad file descriptor" in unrelated tests), and the
+// number could then be reused by another job's file. So the fd must still be
+// open after GCs AND still be this folder, after new files had the chance to
+// take a freed number.
 func TestOpenEmptyDirFdSurvivesTheGarbageCollector(t *testing.T) {
 	dir, err := filepath.EvalSymlinks(t.TempDir()) // macOS: /var is a symlink
 	if err != nil {
+		t.Fatal(err)
+	}
+	var want syscall.Stat_t
+	if err := syscall.Stat(dir, &want); err != nil {
 		t.Fatal(err)
 	}
 	fd, err := openEmptyDir(dir)
@@ -163,8 +172,150 @@ func TestOpenEmptyDirFdSurvivesTheGarbageCollector(t *testing.T) {
 		runtime.GC()
 		time.Sleep(time.Millisecond)
 	}
+	others := t.TempDir()
+	for i := range 4 { // reuse any number a finalizer freed
+		f, err := os.Create(filepath.Join(others, strings.Repeat("x", i+1)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer f.Close()
+	}
 	var st syscall.Stat_t
 	if err := syscall.Fstat(fd, &st); err != nil {
 		t.Fatalf("the fd was closed behind our back: %v", err)
+	}
+	if st.Dev != want.Dev || st.Ino != want.Ino {
+		t.Fatalf("the fd now points at another file (dev %d ino %d, want %d %d)", st.Dev, st.Ino, want.Dev, want.Ino)
+	}
+}
+
+// openFds counts this process's open descriptors (Linux /proc; elsewhere the
+// test is skipped).
+func openFds(t *testing.T) int {
+	t.Helper()
+	entries, err := os.ReadDir("/proc/self/fd")
+	if err != nil {
+		t.Skipf("no /proc/self/fd here: %v", err)
+	}
+	return len(entries)
+}
+
+// Review of #1193: the listing in openEmptyDir uses a second descriptor; it is
+// closed before openEmptyDir returns, on success and on refusal, so a long-running
+// agent never piles up descriptors one copy at a time.
+func TestOpenEmptyDirLeavesNoDescriptorBehind(t *testing.T) {
+	empty, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	full, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(full, "kept.txt"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runtime.GC()
+	warm, err := openEmptyDir(empty) // the runtime opens what it needs once (poller), before counting
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeDir(warm)
+	before := openFds(t)
+	for range 20 {
+		fd, err := openEmptyDir(empty)
+		if err != nil {
+			t.Fatal(err)
+		}
+		closeDir(fd)
+		if _, err := openEmptyDir(full); err == nil || !strings.Contains(err.Error(), "not empty") {
+			t.Fatalf("a folder with a file in it: err = %v", err)
+		}
+	}
+	// only a rise is a leak: a finalizer of another test's file may close one meanwhile
+	if after := openFds(t); after > before {
+		t.Fatalf("open descriptors went from %d to %d over 20 rounds", before, after)
+	}
+}
+
+// closeOnExec reports whether fd has FD_CLOEXEC set.
+func closeOnExec(t *testing.T, fd int) bool {
+	t.Helper()
+	flags, err := unix.FcntlInt(uintptr(fd), unix.F_GETFD, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return flags&unix.FD_CLOEXEC != 0
+}
+
+// Review of #1319: the listing duplicate must be close-on-exec, or a restic
+// child started by another job while openEmptyDir reads would inherit it. A
+// child's inherited descriptor is not visible from this process, so the flag
+// itself is checked. The source here is opened WITHOUT O_CLOEXEC, and plain
+// dup(2) is the control: it shows this kernel clears the flag on a dup, so the
+// check would catch a return to unix.Dup.
+func TestDupCloexecSetsCloseOnExec(t *testing.T) {
+	src, err := unix.Open(t.TempDir(), unix.O_RDONLY|unix.O_DIRECTORY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unix.Close(src)
+	if closeOnExec(t, src) {
+		t.Fatal("the source was opened without O_CLOEXEC but has FD_CLOEXEC")
+	}
+	plain, err := unix.Dup(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unix.Close(plain)
+	if closeOnExec(t, plain) {
+		t.Fatal("control: dup(2) set FD_CLOEXEC, so this check could not tell the two apart")
+	}
+	dup, err := dupCloexec(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unix.Close(dup)
+	if dup == src || dup == plain {
+		t.Fatalf("dupCloexec returned an fd already in use (%d)", dup)
+	}
+	if !closeOnExec(t, dup) {
+		t.Fatal("dupCloexec made a duplicate without FD_CLOEXEC: a child process would inherit it")
+	}
+}
+
+// Review of #1319: openEmptyDir itself reads the listing through a
+// close-on-exec duplicate (not only the helper), on success and on refusal.
+func TestOpenEmptyDirListsThroughACloseOnExecDuplicate(t *testing.T) {
+	empty, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	full, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(full, "kept.txt"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var seen []bool
+	testHookListingDup = func(dup int) { seen = append(seen, closeOnExec(t, dup)) }
+	t.Cleanup(func() { testHookListingDup = nil })
+
+	fd, err := openEmptyDir(empty)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeDir(fd)
+	if _, err := openEmptyDir(full); err == nil || !strings.Contains(err.Error(), "not empty") {
+		t.Fatalf("a folder with a file in it: err = %v", err)
+	}
+	if len(seen) != 2 {
+		t.Fatalf("the listing duplicate was made %d times, want 2 (once per call)", len(seen))
+	}
+	for i, ok := range seen {
+		if !ok {
+			t.Fatalf("call %d: the listing duplicate is not close-on-exec", i+1)
+		}
 	}
 }

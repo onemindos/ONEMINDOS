@@ -20,6 +20,7 @@ from fastapi.testclient import TestClient
 
 from onemind_core import protocol as p
 from onemind_core.app import create_app
+from onemind_core.files.settings import FilesSettings
 from onemind_core.protocol import ProtocolSettings
 
 CORPUS = Path(__file__).parent / "fixtures" / "protocol"
@@ -47,8 +48,19 @@ def corpus_versions() -> list[int]:
     return list(range(p.PROTOCOL_MINIMUM, p.PROTOCOL_CURRENT))
 
 
+@pytest.fixture
+def corpus_client(settings, clock, executor, tmp_path):
+    # The corpus records Files with unavailable storage. A file in place of
+    # the storage directory makes that true on every worker, even as root.
+    root = tmp_path / "unavailable-files"
+    root.touch()
+    isolated = replace(settings, sections={**settings.sections, "files": FilesSettings(root=root)})
+    with TestClient(create_app(isolated, clock=clock, executor=executor)) as client:
+        yield client
+
+
 @pytest.mark.parametrize("version", corpus_versions())
-def test_recorded_old_requests_still_work(client, version):
+def test_recorded_old_requests_still_work(corpus_client, version):
     path = CORPUS / f"v{version}.json"
     assert path.is_file(), f"generation {version} is still served, so its recorded corpus {path.name} must exist"
     doc = json.loads(path.read_text())
@@ -57,7 +69,7 @@ def test_recorded_old_requests_still_work(client, version):
     broken = []
     for r in doc["requests"]:
         headers = {**AS[r["as"]], **r.get("headers", {})}
-        res = client.request(r["method"], r["path"], headers=headers, json=r.get("body"))
+        res = corpus_client.request(r["method"], r["path"], headers=headers, json=r.get("body"))
         got = {"status": res.status_code, "shape": shape(res.json()) if res.content else {"type": "empty"}}
         if record:
             r.update(got)

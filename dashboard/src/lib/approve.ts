@@ -22,8 +22,9 @@ export interface ApproveOpts {
 }
 
 /** Design 25b (data-first recovery): types that only reach the owner's own data. The gateway approves them with the
- * everyday sign-in even when a passkey is registered, so an owner who lost every passkey is not sent to a passkey
- * prompt they cannot answer. The page still signs if the gateway asks (step_up_required below). */
+ * everyday sign-in of the person who asked for them, even when a passkey is registered, so an owner who lost every
+ * passkey is not sent to a passkey prompt they cannot answer. Anyone else's approval still needs the passkey: the
+ * page then signs when the gateway asks (step_up_required below). */
 export const DATA_ACCESS_TYPES: ReadonlySet<string> = new Set(['backup.restore.copy']);
 
 export async function approveWithStepUp(api: OneMindApi, action: Pick<Action, 'id' | 'plan_sha256'> & { type?: string }, opts: ApproveOpts = {}): Promise<Action> {

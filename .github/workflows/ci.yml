@@ -34,6 +34,33 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - run: sudo apt-get install -y python3-yaml
+      - name: Prepare reproducible ext4 tests
+        if: runner.os == 'Linux'
+        run: |
+          # Ubuntu 24.04 has mke2fs 1.47.0, which copies mutable host inode times even with
+          # E2FSPROGS_FAKE_TIME. The Debian 13 assembler uses 1.47.2 and clamps those times.
+          if output=$(mke2fs -V 2>&1); then
+            version=$(printf '%s\n' "$output" | awk '$1 == "mke2fs" {print $2}')
+            if [ -n "$version" ] && dpkg --compare-versions "$version" ge 1.47.1; then
+              printf '%s\n' "$output"
+              exit 0
+            fi
+          fi
+          build_dir=$(mktemp -d)
+          trap 'rm -rf "$build_dir"' EXIT
+          cd "$build_dir"
+          # Kernel.org's signed sha256sums.asc for v1.47.2.
+          curl -fsSLo e2fsprogs-1.47.2.tar.xz https://www.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/v1.47.2/e2fsprogs-1.47.2.tar.xz
+          echo '08242e64ca0e8194d9c1caad49762b19209a06318199b63ce74ae4ef2d74e63c  e2fsprogs-1.47.2.tar.xz' | sha256sum -c -
+          tar -xf e2fsprogs-1.47.2.tar.xz
+          cd e2fsprogs-1.47.2
+          ./configure --disable-nls
+          make -j4 libs
+          make -j4 -C misc mke2fs
+          bin="$RUNNER_TEMP/onemind-e2fsprogs/bin"
+          install -D misc/mke2fs "$bin/mke2fs"
+          "$bin/mke2fs" -V
+          echo "$bin" >> "$GITHUB_PATH"
       # test_unit_security.py (systemd-analyze score gate) must run on Linux runners, never skip there.
       - run: python3 -I -m unittest discover -s test/unit -v
         env:

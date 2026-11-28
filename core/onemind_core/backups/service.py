@@ -159,7 +159,8 @@ class BackupService:
         acts.register_type("backup.restore", FeatureAction("destructive", self._act_restore, check=self._check_restore))
         # Design 25b: a copy into a NEW folder of the requester's Files is data access, never destructive (T1): nothing
         # is overwritten and no app stops, so it never needs more than the everyday sign-in step (L1): data_access lets
-        # an owner who lost every passkey approve it after signing in with password and authenticator code.
+        # an owner who lost every passkey approve their OWN copy from their own session signed in with password and
+        # authenticator code (IdentityService._own_data_access); a token or another owner still needs the passkey.
         acts.register_type("backup.restore.copy", FeatureAction("write", self._act_restore_copy, data_access=True))
         acts.register_type("backup.destination.add", FeatureAction("sensitive", self._act_dest_add))
         acts.register_type("backup.destination.remove", FeatureAction("destructive", self._act_dest_remove))
