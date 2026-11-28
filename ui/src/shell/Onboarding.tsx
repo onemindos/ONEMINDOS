@@ -251,7 +251,7 @@ export function Onboarding({
     ? (kit && !kitConfirmed && !kitSkipped ? ['Create and confirm your emergency kit first. Without it nobody can recover this box.'] : [])
     : stepIssues(s.id, d);
   const reach = onSaveSettings ? Math.min(step, steps.length - 2) : furthestReachable(d);
-  const at = (id: StepId) => ONBOARDING_STEPS.findIndex((x) => x.id === id);
+  const at = (id: StepId) => steps.findIndex((x) => x.id === id);
   const set = (patch: Partial<OnboardingDraft>) => setD((x) => ({ ...x, ...patch }));
 
   useEffect(() => {
