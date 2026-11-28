@@ -6,12 +6,17 @@ actions, filed through `POST /v1/actions` and approved by an owner (desktopapps.
 from __future__ import annotations
 
 import re
+import uuid
+from datetime import timedelta
+from typing import Annotated
 
-from fastapi import Depends, FastAPI, Query
+from fastapi import Depends, FastAPI, Header, Query
+from fastapi.responses import JSONResponse
 
+from ..apimodels import Action
 from ..auth import Principal
 from ..context import Gateway
-from ..desktopapps import APP_ID_RE, DesktopAppsService, DesktopAppsView, LaunchResult, SearchResult
+from ..desktopapps import APP_ID_RE, LAUNCH, DesktopAppsService, DesktopAppsView, SearchResult
 from ..errors import ApiError, error_responses
 from ..identity.scopes import register_route_scope
 
@@ -46,11 +51,20 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return svc.search(q)
 
     @app.post("/v1/desktop-apps/{app_id}/launch", tags=["apps"], operation_id="desktopapps.launch",
-              response_model=LaunchResult, responses=error_responses(401, 403, 404, 409))
-    def desktop_apps_launch(app_id: str, p: Principal = Depends(gw.principal)):
-        """Start an installed app in the streaming session. Owner only, audited. It is not an approval:
-        the owner already approved the install, and the app stays inside its sandbox."""
+              status_code=202, response_model=Action,
+              responses={200: {"model": Action, "description": "Idempotent replay"}, **error_responses(401, 403, 404, 409, 422, 429)},
+              openapi_extra={"security": [{"bearer": ["system:admin"]}]})
+    def desktop_apps_launch(app_id: str, p: Principal = Depends(gw.principal),
+                            idem: Annotated[str | None, Header(alias="Idempotency-Key", min_length=1, max_length=200)] = None):
+        """Request that an installed app start in the streaming session. It starts after an owner approves
+        the returned action. Retry with the same Idempotency-Key to retrieve that action."""
         owner(p, "launch a desktop app")
         if not re.fullmatch(APP_ID_RE, app_id) or len(app_id) > 255:
             raise ApiError(404, "not_found", "that is not a Flatpak application id")
-        return svc.launch(app_id, p)
+        params = {"app_id": app_id}
+        if idem is None or gw.repo.get_by_idempotency_key(idem) is None:
+            svc.check_request("launch")(params, p)
+        body, created = gw.actions.request_feature(
+            p, LAUNCH, params, idempotency_key=idem or f"desktop-launch:{uuid.uuid4()}",
+            expires_at=gw.clock() + timedelta(minutes=10), pending_cap=True)
+        return JSONResponse(status_code=202 if created else 200, content=body, headers={"Location": f"/v1/actions/{body['id']}"})

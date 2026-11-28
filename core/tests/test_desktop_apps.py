@@ -175,13 +175,25 @@ def test_a_host_failure_ends_the_action_failed_with_the_reason(box):
     assert box.svc.host.installed == {}
 
 
-def test_launch_is_audited_and_needs_an_installed_app(box, settings):
-    box.svc.host.fail = FlatpakHostError("not_installed", f"{OBSIDIAN} is not installed")
+def test_launch_needs_an_installed_app_and_separate_owner_approval(box, settings):
     r = box.post(f"/v1/desktop-apps/{OBSIDIAN}/launch", headers=OWNER)
     assert r.status_code == 409 and r.json()["reason"] == "not_installed"
-    box.svc.host.fail = None
-    ok = box.post(f"/v1/desktop-apps/{OBSIDIAN}/launch", headers=OWNER)
-    assert ok.status_code == 200 and ok.json()["launched"] is True and ("launch", OBSIDIAN) in box.svc.host.calls
+    install = ask(box, "install")
+    approve(box, install)
+    assert settled(box, install)["state"] == "succeeded"
+    path = f"/v1/desktop-apps/{OBSIDIAN}/launch"
+    headers = {**OWNER, "Idempotency-Key": "launch-once"}
+    request = box.post(path, headers=headers)
+    assert request.status_code == 202 and request.json()["state"] == "awaiting_approval"
+    assert request.json()["type"] == "desktop.app.launch"
+    action_path = request.headers["location"]
+    replay = box.post(path, headers=headers)
+    assert replay.status_code == 200 and replay.json()["id"] == request.json()["id"]
+    assert box.post(f"{action_path}/approve", headers=AGENT).status_code == 403
+    assert ("launch", OBSIDIAN) not in box.svc.host.calls
+    assert box.post(f"{action_path}/approve", headers=OWNER).status_code == 200
+    assert settled(box, request)["state"] == "succeeded"
+    assert box.svc.host.calls.count(("launch", OBSIDIAN)) == 1
     assert "desktopapp.launched" in [e["event"] for e in audit_events(settings)]
 
 

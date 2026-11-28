@@ -61,6 +61,27 @@ it('an already issued kit can be re-issued when the copy is lost, then confirmed
   await waitFor(() => expect(done).toHaveBeenCalled());
 });
 
+it('replaces a confirmed kit and binds confirmation to the replacement page', async () => {
+  const u = userEvent.setup();
+  const print = vi.spyOn(window, 'print').mockImplementation(() => {});
+  const fingerprint = '1122334455667788';
+  const kit = make({ state: 'confirmed', fingerprint: '1234567890abcdef',
+    issue: vi.fn().mockResolvedValue({ ...issued, fingerprint }) });
+  const done = vi.fn();
+  render(<RecoveryKit kit={kit} allowReplacement onConfirmed={done} />);
+  await u.click(screen.getByRole('button', { name: 'Replace emergency kit' }));
+  await screen.findByLabelText('Owner recovery key');
+  expect(screen.queryByRole('button', { name: 'Confirm my kit' })).toBeNull();
+  await u.click(screen.getByRole('button', { name: 'Print' }));
+  expect(print).toHaveBeenCalledOnce();
+  print.mockRestore();
+  await u.type(screen.getByLabelText('Group 1'), 'abcd');
+  await u.type(screen.getByLabelText('Group 3'), 'jklm');
+  await u.click(screen.getByRole('button', { name: 'Confirm my kit' }));
+  await waitFor(() => expect(done).toHaveBeenCalled());
+  expect(kit.confirm).toHaveBeenCalledWith({ '1': 'ABCD', '3': 'JKLM' }, fingerprint);
+});
+
 it('skip for now is offered while the kit is unconfirmed', async () => {
   const u = userEvent.setup();
   const skip = vi.fn();

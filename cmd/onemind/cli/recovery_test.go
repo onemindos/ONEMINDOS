@@ -98,8 +98,7 @@ func TestRecoveryKitIssueWritesAPrivateFileOnceAndNeverOverwrites(t *testing.T) 
 	if b2, _ := os.ReadFile(path); string(b2) != string(b) {
 		t.Error("an existing file was overwritten")
 	}
-	// The file is opened before the POST: a second kit would replace the console fingerprint and add a restic key
-	// nobody holds, so a file that exists must stop the command with the gateway untouched.
+	// The file is opened before the POST so the gateway does not issue a page without a place to save it.
 	if *issues != 1 {
 		t.Errorf("issues = %d, want 1: an existing --out file must not issue a kit", *issues)
 	}

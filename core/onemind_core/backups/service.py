@@ -137,10 +137,11 @@ class BackupService:
         # router sets both to the storage service; None, or no key waiting, leaves the disk key out of the kit.
         self.disk_key_source: Callable[[], str | None] | None = None
         self.disk_key_forget: Callable[[], None] | None = None
-        self._console_lock = threading.Lock()  # the wrong-try count is read, changed and written under this
+        # Serialize publishing a page, confirming it, and checking its console verifier and try count.
+        self._kit_lock = threading.Lock()
         self.builtins = None  # the built-in registry (builtins.py); the router sets it (#616)
         self._pending_secrets: dict[str, dict] = {}  # action id -> destination credentials (memory only)
-        self._one_time: dict[str, dict] = {}
+        self._one_time_kit: tuple[str, datetime, dict] | None = None  # latest page, memory only
         # action id -> (owner recovery key, expiry): a first-run restore from another box's backup. Memory only, never in
         # the action's params, the audit log or the database; dropped when used, expired or the gateway restarts.
         self._pending_keys: dict[str, tuple[str, datetime]] = {}
@@ -194,6 +195,8 @@ class BackupService:
     def shutdown(self) -> None:
         self._stop.set()
         self.worker.stop()
+        with self._kit_lock:
+            self._one_time_kit = None
 
     def installed_apps(self) -> list[AppEntry]:
         states = self.gw.repo.list_app_states()
@@ -1072,28 +1075,35 @@ class BackupService:
         # destination added later is listed as "not covered" until a new kit is issued.
         now = self.gw.clock()
         ch = challenge(key)
-        disk_key = self._peek_disk_key()
         ch["covered"] = [d["id"] for d in dests]
-        ch["disk_key"] = bool(disk_key)
         ch["console_verify"] = verifier(key.password)
-        before = self.repo.kit()
-        marker = before.challenge.get("disk_key_kit") if before else None
-        if disk_key:  # this kit holds it (and any older page with it is just as good until this one is confirmed)
-            marker = {"fingerprint": key.fingerprint, "issued_at": iso(now)}
-        ch["disk_key_kit"] = marker
+        with self._kit_lock:
+            before = self.repo.kit()
+            disk_key = self._peek_disk_key()
+            marker = before.challenge.get("disk_key_kit") if before else None
+            if disk_key:  # any older page with the disk key still works
+                marker = {"fingerprint": key.fingerprint, "issued_at": iso(now)}
+            ch["disk_key"] = bool(disk_key)
+            ch["disk_key_kit"] = marker
+            if before is not None:
+                previous = before.challenge.get("confirmed_console")
+                if before.state == "confirmed":
+                    previous = self._console_verifier(before)
+                if previous is not None:
+                    ch["confirmed_console"] = previous
+            self.repo.put_kit(KitRow(id="kit", state="issued", fingerprint=key.fingerprint, challenge=ch, issued_at=utc(now),
+                                     confirmed_at=None, attempts=0))
+            self._one_time_kit = (a.id, utc(a.expires_at), {
+                "owner_key": key.password, "groups": list(key.groups), "check": key.check,
+                "qr_payload": f"onemind-kit:v1?key={key.password}&box={self.gw.settings.node_id or ''}",
+                "text": kit_text(box_name=self.gw.settings.instance_name, instance_id=self.gw.settings.node_id or "",
+                                 key=key, destinations=dests, issued_at=now, disk_key=disk_key,
+                                 disk_key_marker=None if disk_key else marker),
+                **({"disk_recovery_key": disk_key} if disk_key else {}),
+            })
         if before is not None:
             self._event("kit.reissued", {"old_fingerprint": before.fingerprint, "fingerprint": key.fingerprint},
                         severity="warning", action_id=a.id)
-        self.repo.put_kit(KitRow(id="kit", state="issued", fingerprint=key.fingerprint, challenge=ch, issued_at=utc(now),
-                                 confirmed_at=None, attempts=0))
-        self._one_time[a.id] = {
-            "owner_key": key.password, "groups": list(key.groups), "check": key.check,
-            "qr_payload": f"onemind-kit:v1?key={key.password}&box={self.gw.settings.node_id or ''}",
-            "text": kit_text(box_name=self.gw.settings.instance_name, instance_id=self.gw.settings.node_id or "",
-                             key=key, destinations=dests, issued_at=now, disk_key=disk_key,
-                             disk_key_marker=None if disk_key else marker),
-            **({"disk_recovery_key": disk_key} if disk_key else {}),
-        }
         self._event("kit.issued", {"fingerprint": key.fingerprint, "destinations": len(dests), "disk_key": bool(disk_key)},
                     action_id=a.id)
         finish(ExecResult("succeeded", "emergency kit issued; it is shown once",
@@ -1131,11 +1141,13 @@ class BackupService:
         """Does the typed owner key match the issued kit? Compared as a salted hash, in constant time. After 5 wrong tries
         the console waits 15 minutes, doubling per further wrong try up to 24 hours. It only waits: it never
         deletes, re-keys or wipes anything. A mistyped key (wrong length, bad check group) is not a try."""
-        k = self.repo.kit()
-        if k is None:
-            raise ApiError(409, "conflict", "no emergency kit has been issued on this box", reason="no_kit")
         password = parse_typed_key(typed)
-        with self._console_lock:  # read, check and write of the try count as one step: parallel tries cannot skip the limit
+        with self._kit_lock:
+            k = self.repo.kit()
+            if k is None:
+                raise ApiError(409, "conflict", "no emergency kit has been issued on this box", reason="no_kit")
+            active = k.challenge.get("confirmed_console") or self._console_verifier(k)
+            fingerprint = active["fingerprint"]
             now = utc(self.gw.clock())
             lock = self.repo.kit_lock()
             fails = lock.fails if lock else 0
@@ -1147,7 +1159,7 @@ class BackupService:
             if password is None:
                 raise ApiError(422, "conflict", "that is not a whole kit key: type the 13 groups (and the check group) as printed",
                                reason="kit_key_malformed")
-            if not self._kit_key_matches(k, password):
+            if not self._kit_key_matches(active, password):
                 fails += 1
                 until = None
                 if fails >= self.CONSOLE_FREE_TRIES:
@@ -1156,34 +1168,53 @@ class BackupService:
                 self.gw.audit.append("backup.kit.console_failed", principal.as_dict(), None, {"fails": fails})
                 raise ApiError(401, "unauthenticated", "that is not this box's kit key", reason="kit_key_wrong")
             self.repo.put_kit_lock(0, None)
-        self._event("kit.console_used", {"fingerprint": k.fingerprint}, principal=principal.as_dict())
-        return {"fingerprint": k.fingerprint}
+        self._event("kit.console_used", {"fingerprint": fingerprint}, principal=principal.as_dict())
+        return {"fingerprint": fingerprint}
 
     @staticmethod
-    def _kit_key_matches(k: KitRow, password: str) -> bool:
-        """The salted full hash stored at issue. A kit issued before that was stored has only the 64-bit
-        fingerprint to compare; a new kit replaces it (the fingerprint is shown, so it must never be the proof)."""
-        v = k.challenge.get("console_verify")
+    def _console_verifier(k: KitRow) -> dict:
+        return {"fingerprint": k.fingerprint, "verifier": k.challenge.get("console_verify")}
+
+    @staticmethod
+    def _kit_key_matches(active: dict, password: str) -> bool:
+        """Use the salted full hash. A legacy kit with only a fingerprint keeps working until replacement."""
+        v = active["verifier"]
         if v:
             return verifier_ok(v, password)
-        return hmac.compare_digest(hashlib.sha256(password.encode()).hexdigest()[:16], k.fingerprint)
+        return hmac.compare_digest(hashlib.sha256(password.encode()).hexdigest()[:16], active["fingerprint"])
 
-    def take_one_time(self, action_id: str) -> dict | None:
-        return self._one_time.pop(action_id, None)
+    def take_kit_page(self, action_id: str) -> dict | None:
+        with self._kit_lock:
+            if self._one_time_kit is None:
+                return None
+            issued_by, expires_at, page = self._one_time_kit
+            if expires_at <= utc(self.gw.clock()):
+                self._one_time_kit = None
+                return None
+            if action_id != issued_by:
+                return None
+            state = self.kit_state()
+            self._one_time_kit = None
+            return {"kit": state, "one_time": page}
 
-    def confirm_kit(self, principal, answers: dict[str, str]) -> dict:
-        k = self.repo.kit()
-        if k is None:
-            raise ApiError(404, "not_found", "no emergency kit has been issued")
-        if k.state == "confirmed":
-            return self.kit_state()
-        if not answer_ok(k.challenge, answers):
-            self.repo.update_kit(attempts=k.attempts + 1)
-            self.gw.audit.append("backup.kit.confirm_failed", principal.as_dict(), None, {"attempts": k.attempts + 1})
-            raise ApiError(409, "conflict", "those groups do not match your kit; look at the printed key again")
-        now = self.gw.clock()
-        self.repo.update_kit(state="confirmed", confirmed_at=utc(now))
-        if k.challenge.get("disk_key"):  # the owner proved the page was saved: the node can destroy its copy now
-            self._forget_disk_key()
+    def confirm_kit(self, principal, answers: dict[str, str], fingerprint: str | None = None) -> dict:
+        with self._kit_lock:
+            k = self.repo.kit()
+            if k is None:
+                raise ApiError(404, "not_found", "no emergency kit has been issued")
+            if fingerprint is not None and fingerprint != k.fingerprint:
+                raise ApiError(409, "stale_precondition", "a newer kit was issued; confirm the current kit")
+            if k.state == "confirmed":
+                return self.kit_state()
+            if not answer_ok(k.challenge, answers):
+                self.repo.update_kit(attempts=k.attempts + 1)
+                self.gw.audit.append("backup.kit.confirm_failed", principal.as_dict(), None, {"attempts": k.attempts + 1})
+                raise ApiError(409, "conflict", "those groups do not match your kit; look at the printed key again")
+            ch = {name: value for name, value in k.challenge.items() if name != "confirmed_console"}
+            self.repo.update_kit(state="confirmed", confirmed_at=utc(self.gw.clock()), challenge=ch)
+            self._one_time_kit = None
+            if ch.get("disk_key"):  # the owner proved the page was saved: the node can destroy its copy now
+                self._forget_disk_key()
+            state = self.kit_state()
         self._event("kit.confirmed", {"fingerprint": k.fingerprint}, principal=principal.as_dict())
-        return self.kit_state()
+        return state

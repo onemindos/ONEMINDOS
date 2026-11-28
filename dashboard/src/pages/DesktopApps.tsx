@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Desktop apps from Flathub (issue #1097, D-026, D-027): search Flathub, ask to install, update or remove an app,
-// open an installed one in a browser tab. Reads GET /v1/desktop-apps and /search; installing, updating and
-// removing only file a desktop.app.* request, and nothing changes until an owner approves it. Every app runs in
+// open an installed one in a browser tab. Reads GET /v1/desktop-apps and /search; install, update, remove and
+// launch file desktop.app.* requests for owner approval. Every app runs in
 // its own sandbox with one folder of its own. While the box cannot run Flatpak the screen says so.
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { OneMind, OneMindError } from '@onemind/sdk';
+import { OneMind, OneMindError, type components } from '@onemind/sdk';
 import { Button, Card, PageHeader } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import { usePoll } from '../lib/hooks';
@@ -46,12 +46,11 @@ function LiveDesktopApps({ token }: { token: string }) {
   const [q, setQ] = useState('');
   const [results, setResults] = useState<Rec[]>();
   const [filed, setFiled] = useState<{ id: string; what: string }>();
-  const [started, setStarted] = useState<string>();
   const [failed, setFailed] = useState<string>();
   const [busy, setBusy] = useState(false);
 
   const run = async (job: () => Promise<void>, what: string) => {
-    setBusy(true); setFailed(undefined); setFiled(undefined); setStarted(undefined);
+    setBusy(true); setFailed(undefined); setFiled(undefined);
     try { await job(); } catch (e) { setFailed(`${what}: ${e instanceof Error ? e.message : String(e)}`); } finally { setBusy(false); }
   };
   const search = () => run(async () => {
@@ -66,15 +65,18 @@ function LiveDesktopApps({ token }: { token: string }) {
     setFiled({ id: a.id, what: `${verb} ${id}` });
   }, `Could not ask to ${verb}`);
   const launch = (id: string) => run(async () => {
-    await call(client, 'POST', `/v1/desktop-apps/${encodeURIComponent(id)}/launch`);
-    setStarted(id);
-  }, 'Could not start the app');
+    const action = await client.call<components['schemas']['Action']>({
+      method: 'POST', path: `/v1/desktop-apps/${encodeURIComponent(id)}/launch`,
+      headers: { 'Idempotency-Key': uuidv4() }, retry: true,
+    });
+    setFiled({ id: action.id, what: `launch ${id}` });
+  }, 'Could not ask to launch the app');
 
   return <div className="dash-stack">
-    <PageHeader title="Desktop apps" lede="Desktop apps from Flathub, the standard Linux app catalog. Each one runs in its own sandbox: it sees one folder of its own and nothing else on your box, and you open it in a browser tab. Every install, update and removal waits for an owner's approval." />
+    <PageHeader title="Desktop apps" lede="Install apps from Flathub and open them in your browser. Each app has a sandbox with its own folder. Installs, updates, removals and launches require owner approval." />
     <Button onClick={() => void status.reload()}>Refresh desktop apps</Button>
     {filed && <p role="status">Request {filed.id} to {filed.what} is waiting for an owner. <Link to={href.approval(filed.id)}>Open request in Approvals</Link></p>}
-    {started && <p role="status">{started} is starting. {status.data?.stream.installed === true ? <Link to="/apps/desktop-apps">Open the desktop session</Link> : 'The desktop session app is not installed yet, so there is no screen to open.'}</p>}
+    {status.data?.stream.installed === true && <Link to="/apps/desktop-apps">Open the desktop session</Link>}
     {failed && <p className="om-note om-tone-bad" role="status">{failed}</p>}
     <Load res={status} what="Loading desktop apps">{(s) => {
       const available = s.service.available === true;
@@ -101,7 +103,7 @@ function LiveDesktopApps({ token }: { token: string }) {
             return <li key={id}>
               {text(a.name, id)} · {id} · {text(a.version, 'no version')} · its folder: <code>{text(a.folder, 'none')}</code>{a.update_available === true ? ' · update waiting' : ''}
               {owner && <>
-                {' '}<Button disabled={busy} onClick={() => void launch(id)}>Open {text(a.name, id)}</Button>
+                {' '}<Button disabled={busy} onClick={() => void launch(id)}>Ask to launch {text(a.name, id)}</Button>
                 {a.update_available === true && <> <Button disabled={busy} onClick={() => void ask('update', id)}>Ask to update {text(a.name, id)}</Button></>}
                 {' '}<Button variant="ghost" disabled={busy} onClick={() => void ask('remove', id)}>Ask to remove {text(a.name, id)}</Button>
               </>}

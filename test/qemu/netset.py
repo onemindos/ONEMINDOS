@@ -62,8 +62,8 @@ CPS = ("echo CPS=$(busctl --system get-property org.freedesktop.NetworkManager /
        "org.freedesktop.NetworkManager Checkpoints 2>&1); ")
 
 
-def static_body(addr, gw, seconds=20):
-    return '{"mode":"static","address":"%s","gateway":"%s","dns":["%s"],"rollback_seconds":%d}' % (addr, gw, DNS, seconds)
+def static_body(action_id, addr, gw, seconds=20):
+    return '{"action_id":"%s","mode":"static","address":"%s","gateway":"%s","dns":["%s"],"rollback_seconds":%d}' % (action_id, addr, gw, DNS, seconds)
 
 
 def where(vm):
@@ -77,14 +77,14 @@ def ns1(vm, record):
     if not (w["dev"] and re.match(r"\d+\.\d+\.\d+\.\d+/\d+$", w["a0"])):
         return record("NS1", False, f"no wired device with a DHCP address: {w}")
     dev, a0 = w["dev"], w["a0"]
-    _, out = sh(vm, 
-        f"DEV={dev}; CON=\"{w['con']}\"; " + call("PUT", f"/v1/network/{dev}", static_body("192.0.2.50/24", "192.0.2.1"), "P")
+    _, out = sh(vm,
+        f"DEV={dev}; CON=\"{w['con']}\"; " + call("PUT", f"/v1/network/{dev}", static_body("ns1", "192.0.2.50/24", "192.0.2.1"), "P")
         + "sleep 2; echo APPLIED=$(ip -4 -o addr show dev $DEV | grep -cF 192.0.2.50/24); "
         f"echo OLDGONE=$(ip -4 -o addr show dev $DEV | grep -cF {a0}); " + STATE + SNAP, 120)
     during = {"put": kv(out, "PCODE"), "applied": kv(out, "APPLIED"), "oldgone": kv(out, "OLDGONE"), "pending": kv(out, "PENDING"),
               "method": kv(out, "METHOD")}
     # No confirm. The box has 20 s; wait for the static address to go, then for the lease to come back.
-    _, out = sh(vm, 
+    _, out = sh(vm,
         f"DEV={dev}; CON=\"{w['con']}\"; "
         "for i in $(seq 1 60); do ip -4 -o addr show dev $DEV | grep -qF 192.0.2.50/24 || break; sleep 1; done; "
         "for i in $(seq 1 60); do ip -4 -o addr show dev $DEV scope global | grep -q inet && break; sleep 1; done; "
@@ -111,10 +111,10 @@ def ns2_before(vm, record):
         record("NS2", False, f"no wired device with a DHCP address: {w}")
         return None
     dev = w["dev"]
-    _, out = sh(vm, 
-        f"DEV={dev}; CON=\"{w['con']}\"; T0=$(date +%s); " + call("PUT", f"/v1/network/{dev}", static_body(w["a0"], gw), "P")
+    _, out = sh(vm,
+        f"DEV={dev}; CON=\"{w['con']}\"; T0=$(date +%s); " + call("PUT", f"/v1/network/{dev}", static_body("ns2-static", w["a0"], gw), "P")
         + "echo PUT_SECONDS=$(( $(date +%s) - T0 )); " + CPS
-        + call("POST", f"/v1/network/{dev}/confirm", None, "C") + STATE
+        + call("POST", f"/v1/network/{dev}/confirm", '{"action_id":"ns2-static"}', "C") + STATE
         + "sleep 30; " + SNAP + "echo DNS=$(nmcli -g ipv4.dns connection show \"$CON\"); "
         f"F=$(grep -lx \"id=$CON\" {PROFILE_DIR}/*.nmconnection | head -1); echo MODE=$(stat -c %a \"$F\" 2>&1); " + STATE, 200)
     got = {"put": kv(out, "PCODE"), "confirm": kv(out, "CCODE"), "addrs": kv(out, "ADDRS"), "method": kv(out, "METHOD"),
@@ -129,10 +129,10 @@ def ns2_after(vm, record, st, rebooted=True):
     if st is None:
         return
     b = st["before"]
-    _, out = sh(vm, 
+    _, out = sh(vm,
         FIND + "echo DEV2=$DEV; " + SNAP + "echo DNS=$(nmcli -g ipv4.dns connection show \"$CON\"); "
-        + call("PUT", f"/v1/network/{st['dev']}", '{"mode":"dhcp","rollback_seconds":20}', "P")
-        + call("POST", f"/v1/network/{st['dev']}/confirm", None, "C")
+        + call("PUT", f"/v1/network/{st['dev']}", '{"action_id":"ns2-dhcp","mode":"dhcp","rollback_seconds":20}', "P")
+        + call("POST", f"/v1/network/{st['dev']}/confirm", '{"action_id":"ns2-dhcp"}', "C")
         + "for i in $(seq 1 60); do nmcli -g IP4.ADDRESS device show $DEV | grep -q . && break; sleep 1; done; sleep 3; "
         "echo BACKADDRS=$(ip -4 -o addr show dev $DEV scope global | awk '{print $4}' | tr '\\n' ,); "
         "echo BACKMETHOD=$(nmcli -g ipv4.method connection show \"$CON\"); "
@@ -153,13 +153,13 @@ def ns3(vm, record):
     dev = w["dev"]
     if not dev:
         return record("NS3", False, f"no wired device: {w}")
-    ok = '{"mode":"static","address":"192.0.2.50/24","gateway":"192.0.2.1"}'
-    cases = [("lo", ok), ("nosuch0", ok), (dev, '{"mode":"static","address":"192.0.2.50/24"}'),
-             (dev, '{"mode":"static","address":"192.0.2.50/24","gateway":"198.51.100.1"}')]
+    ok = '{"action_id":"ns3","mode":"static","address":"192.0.2.50/24","gateway":"192.0.2.1"}'
+    cases = [("lo", ok), ("nosuch0", ok), (dev, '{"action_id":"ns3","mode":"static","address":"192.0.2.50/24"}'),
+             (dev, '{"action_id":"ns3","mode":"static","address":"192.0.2.50/24","gateway":"198.51.100.1"}')]
     shell = f"DEV={dev}; CON=\"{w['con']}\"; " + SNAP
     for i, (name, body) in enumerate(cases):
         shell += call("PUT", f"/v1/network/{name}", body, f"R{i}")
-    shell += call("POST", f"/v1/network/{dev}/confirm", None, "R4") + f"echo REASON=$({PY} -c 'import json;print(json.load(open(\"/tmp/ns-R4.json\")).get(\"reason\"))'); " \
+    shell += call("POST", f"/v1/network/{dev}/confirm", '{"action_id":"ns3"}', "R4") + f"echo REASON=$({PY} -c 'import json;print(json.load(open(\"/tmp/ns-R4.json\")).get(\"reason\"))'); " \
         "echo AFTER; " + SNAP.replace("ADDRS", "ADDRS2").replace("METHOD", "METHOD2")
     _, out = sh(vm, shell, 200)
     codes = [kv(out, f"R{i}CODE") for i in range(5)]

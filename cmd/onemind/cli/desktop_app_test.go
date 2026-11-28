@@ -29,7 +29,10 @@ func desktopHub(t *testing.T, got *[]string) {
 			jsonOut(w, 200, map[string]any{"results": []map[string]any{{"app_id": "md.obsidian.Obsidian", "name": "Obsidian\x1b[31m",
 				"summary": "Knowledge base", "version": "1.8.9"}}})
 		case r.URL.Path == "/v1/desktop-apps/md.obsidian.Obsidian/launch":
-			jsonOut(w, 200, map[string]any{"launched": true, "app_id": "md.obsidian.Obsidian"})
+			if r.Method != http.MethodPost || r.Header.Get("Idempotency-Key") == "" {
+				t.Error("launch must be an idempotent POST")
+			}
+			jsonOut(w, 202, map[string]any{"id": "launch-9", "state": "awaiting_approval"})
 		case r.URL.Path == "/v1/actions" && r.Method == http.MethodPost:
 			jsonOut(w, 201, map[string]any{"id": "act-9", "state": "awaiting_approval"})
 		default:
@@ -89,8 +92,11 @@ func TestDesktopAppLaunch(t *testing.T) {
 	var got []string
 	desktopHub(t, &got)
 	r := run(t, "", false, "desktop-app", "launch", "md.obsidian.Obsidian")
-	if r.code != 0 || !strings.Contains(r.out, "is starting") {
+	if r.code != 0 || !strings.Contains(r.out, "Approval id: launch-9") || !strings.Contains(r.out, "An owner approves") {
 		t.Fatalf("launch %+v", r)
+	}
+	if len(got) != 1 || !strings.HasPrefix(got[0], "POST /v1/desktop-apps/md.obsidian.Obsidian/launch ") {
+		t.Fatalf("launch must only file the request: %v", got)
 	}
 	if r := run(t, "", false, "desktop-app", "launch", "nope.nope.Nope"); r.code == 0 {
 		t.Fatalf("an unknown app must fail: %+v", r)

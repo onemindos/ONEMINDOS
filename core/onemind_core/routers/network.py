@@ -2,7 +2,7 @@
 """The Network screen's routes: the read (NET-UI-01, #239: interfaces, addresses, gateway, DNS, Wi-Fi signal
 and listening ports of this box, from the host service, hostnet.py) and the wired change (P-08, netchange.py):
 `PUT /v1/network/{iface}` files an owner action (static IP, DNS, or back to DHCP) and
-`POST /v1/network/{iface}/confirm` keeps it after the owner reached the new address.
+`POST /v1/network/{iface}/confirm` keeps an identified change after the owner verifies reachability.
 
 Owner only: the answer names every address, MAC and open port of the box. Wi-Fi changes (with the same
 automatic revert) come later.
@@ -37,7 +37,8 @@ from ..hostfw import FirewallView
 from ..hostfw import read_view as read_firewall
 from ..hostnet import HostNetClient, NetworkView, read_view
 from ..identity.scopes import register_route_scope
-from ..netchange import ACTION as NET_ACTION, IFACE_RE, HostNetChangeClient, NetChangeService, NetworkConfigBody, NetworkConfirm
+from ..netchange import (ACTION as NET_ACTION, IFACE_RE, HostNetChangeClient, NetChangeService, NetworkConfigBody,
+                         NetworkConfirm, NetworkConfirmBody)
 from ..netconf import NetSettings
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
@@ -242,13 +243,18 @@ def register(app: FastAPI, gw: Gateway) -> None:
                             headers={"Location": f"/v1/actions/{body_out['id']}"})
 
     @app.post("/v1/network/{iface}/confirm", tags=["net"], operation_id="network.confirm", response_model=NetworkConfirm,
-              responses=error_responses(401, 403, 404, 409))
-    def network_confirm(iface: str, p: Principal = Depends(gw.principal)) -> NetworkConfirm:
-        """Keep the pending change on this interface: you reached the box at its new address.
+              responses=error_responses(401, 403, 404, 409, 422))
+    def network_confirm(iface: str, body: NetworkConfirmBody, p: Principal = Depends(gw.principal)) -> NetworkConfirm:
+        """Keep the pending change identified by the approved action ID.
 
-        409 `no_pending_change` when nothing waits for confirmation (it may have rolled back already)."""
+        Before sending this request, use another device on the wired network to open the dashboard directly at
+        the changed interface's IPv4 address, sign in, and verify that this box's Network page loads. For DHCP,
+        find the address assigned to this interface in the router. The request records the owner's attestation;
+        the gateway cannot infer that the check succeeded from the request's network path.
+
+        409 `no_pending_change` if nothing waits for confirmation or `change_mismatch` if a different action is pending."""
         owner(p, "confirm network change")
-        return svc.confirm(p, iface_name(iface))
+        return svc.confirm(p, iface_name(iface), body.action_id)
 
 
 def firewall_step_up(gw: Gateway):

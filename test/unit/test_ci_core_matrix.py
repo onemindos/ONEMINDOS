@@ -94,7 +94,7 @@ class Workflow(unittest.TestCase):
         self.assertIsNone(re.search(r"backend: postgresql, shard", wf), "shards live in the script now")
 
     def test_each_backend_has_its_own_job_and_only_postgresql_has_services(self):
-        """CI-13: the SQLite shards run without Docker (so the Mac can take them); PostgreSQL keeps its services."""
+        """SQLite shards run without Docker; PostgreSQL keeps its services."""
         import yaml
         jobs = yaml.safe_load((ROOT / ".github" / "workflows" / "ci-core.yml").read_text(encoding="utf-8"))["jobs"]
         sq, pg = jobs["test"], jobs["test-postgresql"]
@@ -108,6 +108,19 @@ class Workflow(unittest.TestCase):
         self.assertEqual(sq["name"], pg["name"])  # check names unchanged: test (<backend> <k>/<n>)
         for out in ("sqlite", "run_sqlite", "postgresql", "run_postgresql"):
             self.assertIn(out, jobs["plan"]["outputs"])
+
+    def test_shards_install_platform_pinned_nats_in_their_own_runner_space(self):
+        import yaml
+        jobs = yaml.safe_load((ROOT / ".github" / "workflows" / "ci-core.yml").read_text(encoding="utf-8"))["jobs"]
+        for job in (jobs["test"], jobs["test-postgresql"]):
+            self.assertIn("bash sdk/tools/ci/install-nats.sh", [s.get("run") for s in job["steps"]])
+        installer = (ROOT / "sdk/tools/ci/install-nats.sh").read_text(encoding="utf-8")
+        self.assertIn('mktemp -d "${RUNNER_TEMP:?}/nats.XXXXXX"', installer)
+        self.assertIn('case "$(uname -s)"', installer)
+        self.assertIn('os=linux; sum_var="NATS_SHA256_${arch}"; checksum=(sha256sum)', installer)
+        self.assertIn('os=darwin; sum_var="NATS_SHA256_darwin_${arch}"; checksum=(shasum -a 256)', installer)
+        self.assertIn('"${checksum[@]}" -c -', installer)
+        self.assertIn('"$bin/nats-server" --version', installer)
 
 
 if __name__ == "__main__":

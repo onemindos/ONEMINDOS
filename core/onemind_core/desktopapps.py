@@ -7,12 +7,10 @@ and writes every app's sandbox (no host files, no home folder, one granted folde
 half, and it holds no desired state of its own: Flatpak's installation is the truth, read from the host each time.
 
 Rules this module keeps:
-- Installing, updating and removing are owner approvals (`desktop.app.install|update|remove`, risk "actuate").
-  The owner or an AI agent may ask; only an owner approves; the CLI only asks. The request and the approval are
-  both checked against the host, so a stale card (already installed, already gone) is refused.
+- Installing, updating, removing and launching require owner approval (risk "actuate").
+  The request and approval are checked against the host so a stale card is refused.
 - The host's list of Flathub apps is read through the gateway, never from the browser, so the dashboard needs no
   new network rule and the box's own remote is the only one used.
-- Launching is a read-like owner action: it tells the streaming runtime which installed app to run.
 - When the host service or Flatpak is missing the routes say `available: false` with the reason; a request is
   refused instead of filed (nothing is approved that could not run).
 """
@@ -38,6 +36,7 @@ from .storage import StorageClient, StorageTimeout, StorageUnavailable
 
 log = logging.getLogger("onemind.desktopapps")
 TYPES = {"install": "desktop.app.install", "update": "desktop.app.update", "remove": "desktop.app.remove"}
+LAUNCH = "desktop.app.launch"
 APP_ID_RE = r"^[A-Za-z_][A-Za-z0-9_-]*(\.[A-Za-z_][A-Za-z0-9_-]*){2,}$"
 STREAM_APP = "desktop-apps"  # the Neko app that streams the session (apps/_bases/desktop, #799)
 UNAVAILABLE = ("flatpak_unavailable",
@@ -164,12 +163,6 @@ class SearchResult(BaseModel):
     results: list[FlathubApp]
 
 
-class LaunchResult(BaseModel):
-    launched: bool
-    app_id: str
-    stream: StreamInfo
-
-
 class AppParams(JsonBody):
     model_config = ConfigDict(extra="forbid")
     app_id: str = Field(pattern=APP_ID_RE, max_length=255)
@@ -197,7 +190,7 @@ class DesktopAppsService:
         except FlatpakHostError as e:
             raise ApiError(409, "policy_refused", e.message, reason=e.reason) from None
 
-    # ---- the three approvals ---------------------------------------------------------------
+    # ---- approvals ------------------------------------------------------------------------
     def refusal(self, kind: str, params: dict) -> tuple[str, str] | None:
         """Why this change cannot be filed or approved now, as (reason, message), or None."""
         ok, reason, message, apps = self.host.status()
@@ -226,7 +219,8 @@ class DesktopAppsService:
         return check
 
     def runner(self, kind: str):
-        done = {"install": "installed, sandboxed to its own folder", "update": "updated", "remove": "removed (its folder of files stays)"}
+        done = {"install": "installed, sandboxed to its own folder", "update": "updated",
+                "remove": "removed (its folder of files stays)", "launch": "started in the desktop session"}
 
         def run(a, finish) -> None:
             app_id = a.params["app_id"]
@@ -238,19 +232,12 @@ class DesktopAppsService:
                 log.exception("desktop app %s of %s failed", kind, app_id)
                 reason, message = "internal_error", f"The {kind} failed on the gateway ({type(e).__name__}); check the app list."
             else:
+                if kind == "launch":
+                    self.gw.audit.append("desktopapp.launched", None, a.id, {"app_id": app_id})
                 finish(ExecResult("succeeded", f"{app_id} {done[kind]}.", steps=[{"step": f"flatpak {kind}", "app_id": app_id, "result": "ok"}]))
                 return
             finish(ExecResult("failed", message, steps=[{"step": f"flatpak {kind}", "app_id": app_id, "result": reason}]))
         return run
-
-    # ---- launch ----------------------------------------------------------------------------
-    def launch(self, app_id: str, p: Principal) -> dict:
-        try:
-            self.host.launch(app_id)
-        except FlatpakHostError as e:
-            raise ApiError(409, "policy_refused", e.message, reason=e.reason) from None
-        self.gw.audit.append("desktopapp.launched", p.as_dict(), None, {"app_id": app_id})
-        return {"launched": True, "app_id": app_id, "stream": self.stream()}
 
     def register(self) -> None:
         for kind, action in TYPES.items():
@@ -258,3 +245,5 @@ class DesktopAppsService:
             self.gw.actions.register_type(action, FeatureAction(
                 "actuate", self.runner(kind), frozenset({"agent"}), check=self.recheck(kind), params_model=AppParams,
                 check_request=self.check_request(kind), background=True))
+        self.gw.actions.register_type(LAUNCH, FeatureAction(
+            "actuate", self.runner("launch"), frozenset(), check=self.recheck("launch"), background=True))

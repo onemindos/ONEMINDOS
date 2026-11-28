@@ -95,23 +95,14 @@ jobs:
         uses: ./.github/actions/sdk-gen
         with:
           langs: go py
-      - name: nats-server for the real-bus tests (pinned, checksum from deploy/pins.env; amd64 or arm64)
-        run: |
-          . deploy/pins.env
-          case "$(uname -m)" in x86_64) arch=amd64 ;; *) arch=arm64 ;; esac
-          sum_var="NATS_SHA256_${arch}"
-          pkg="nats-server-${NATS_VERSION}-linux-${arch}"
-          curl -fsSL -o /tmp/nats.tgz "https://github.com/nats-io/nats-server/releases/download/${NATS_VERSION}/${pkg}.tar.gz"
-          echo "${!sum_var}  /tmp/nats.tgz" | sha256sum -c -
-          mkdir -p "$HOME/bin" && tar -xzf /tmp/nats.tgz -C /tmp "${pkg}/nats-server"
-          install -m 0755 "/tmp/${pkg}/nats-server" "$HOME/bin/nats-server"
-          echo "$HOME/bin" >> "$GITHUB_PATH"
+      - name: nats-server for the real-bus tests (pinned and checksum-checked)
+        run: bash sdk/tools/ci/install-nats.sh
       - name: Core suite (${{ matrix.backend }}, shard ${{ matrix.shard }})
         env:
           ONEMIND_TEST_SHARD: ${{ matrix.shard }}
           ONEMIND_PROPERTY_BACKEND: ${{ matrix.backend }}
           ONEMIND_PROPERTY_ARTIFACTS: ${{ github.workspace }}/property-evidence/${{ matrix.backend }}
-          # Empty: the suite then uses SQLite and skips the real-NATS tests.
+          # Use SQLite; tests that need a NATS server start the pinned local binary.
           ONEMIND_TEST_DB_URL: ''
           ONEMIND_TEST_NATS_URL: ''
         run: make -C core test PYTEST_ARGS="-n auto --dist loadgroup --durations=20"
@@ -167,17 +158,8 @@ jobs:
             -c "ALTER SYSTEM SET synchronous_commit = off" \
             -c "ALTER SYSTEM SET full_page_writes = off" \
             -c "SELECT pg_reload_conf()"
-      - name: nats-server for the real-bus tests (pinned, checksum from deploy/pins.env; amd64 or arm64)
-        run: |
-          . deploy/pins.env
-          case "$(uname -m)" in x86_64) arch=amd64 ;; *) arch=arm64 ;; esac
-          sum_var="NATS_SHA256_${arch}"
-          pkg="nats-server-${NATS_VERSION}-linux-${arch}"
-          curl -fsSL -o /tmp/nats.tgz "https://github.com/nats-io/nats-server/releases/download/${NATS_VERSION}/${pkg}.tar.gz"
-          echo "${!sum_var}  /tmp/nats.tgz" | sha256sum -c -
-          mkdir -p "$HOME/bin" && tar -xzf /tmp/nats.tgz -C /tmp "${pkg}/nats-server"
-          install -m 0755 "/tmp/${pkg}/nats-server" "$HOME/bin/nats-server"
-          echo "$HOME/bin" >> "$GITHUB_PATH"
+      - name: nats-server for the real-bus tests (pinned and checksum-checked)
+        run: bash sdk/tools/ci/install-nats.sh
       - name: Core suite (${{ matrix.backend }}, shard ${{ matrix.shard }})
         env:
           ONEMIND_TEST_SHARD: ${{ matrix.shard }}

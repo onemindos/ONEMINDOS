@@ -5,10 +5,10 @@ name: image
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths: ['os/**', 'test/qemu/**', 'cmd/**', 'internal/**', 'core/**', 'dashboard/**', 'ui/src/**', 'apps/**', 'go.mod', 'go.sum', '.dockerignore', 'Makefile', '.github/workflows/image.yml', '.github/workflows/battery.yml']
+    paths: ['os/**', 'test/qemu/**', 'test/printing/**', 'cmd/**', 'internal/**', 'core/**', 'dashboard/**', 'ui/src/**', 'apps/**', 'go.mod', 'go.sum', '.dockerignore', 'Makefile', '.github/workflows/image.yml', '.github/workflows/battery.yml']
   push:
     branches: [main, release/next]
-    paths: ['os/**', 'test/qemu/**', 'cmd/**', 'internal/**', 'core/**', 'dashboard/**', 'ui/src/**', 'apps/**', 'go.mod', 'go.sum', '.dockerignore', 'Makefile', '.github/workflows/image.yml', '.github/workflows/battery.yml']
+    paths: ['os/**', 'test/qemu/**', 'test/printing/**', 'cmd/**', 'internal/**', 'core/**', 'dashboard/**', 'ui/src/**', 'apps/**', 'go.mod', 'go.sum', '.dockerignore', 'Makefile', '.github/workflows/image.yml', '.github/workflows/battery.yml']
   # Nightly, 3:17 AM ET (08:17 UTC in winter, 09:17 in summer; off the hour on purpose). Builds tier 1 + 2.
   schedule:
     - cron: '17 8 * * *'
@@ -173,6 +173,11 @@ jobs:
             --cache-from type=gha,scope=rootfs-debian-x86_64-efi \
             --cache-to type=gha,mode=max,scope=rootfs-debian-x86_64-efi \
             --output type=tar,dest=out/rootfs-debian-x86_64-efi.tar .
+      - name: Verify device TLS and owner-only print release
+        run: |
+          print_image=$(docker import out/rootfs-debian-x86_64-efi.tar)
+          trap 'docker image rm "$print_image" >/dev/null' EXIT
+          docker run --rm -v "$PWD:/src:ro" "$print_image" /usr/lib/onemind/gateway/venv/bin/python3 -I /src/test/printing/check.py
       - name: Build tools image
         run: |
           docker buildx build -f os/rootfs/Containerfile --target tools --progress plain \

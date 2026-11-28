@@ -45,7 +45,7 @@ class FakeHost:
         self.dir = tempfile.mkdtemp(prefix="nc")  # short: AF_UNIX paths are limited to about 100 bytes
         self.path = os.path.join(self.dir, "host.sock")
         self.puts: list[tuple[str, dict]] = []
-        self.confirms: list[str] = []
+        self.confirms: list[tuple[str, str]] = []
         self.pending: dict | None = None
         self.last: dict | None = None
         self.available = True
@@ -88,7 +88,7 @@ class FakeHost:
                 host.puts.append((self.path.rsplit("/", 1)[1], body))
                 if host.fail:
                     return self.send(*host.fail)
-                host.pending = {"interface": self.path.rsplit("/", 1)[1], "mode": body["mode"], "address": body.get("address"),
+                host.pending = {"action_id": body.get("action_id"), "interface": self.path.rsplit("/", 1)[1], "mode": body["mode"], "address": body.get("address"),
                                 "gateway": body.get("gateway"), "dns": body.get("dns", []), "result": "pending",
                                 "started_at": NOW, "deadline": LATER}
                 if host.put_delay:
@@ -99,10 +99,14 @@ class FakeHost:
                     pass  # the gateway gave up waiting
 
             def do_POST(self):
+                raw = self.rfile.read(int(self.headers.get("Content-Length", "0")))
+                action_id = json.loads(raw).get("action_id") if raw else None
                 iface = self.path.split("/")[3]
-                host.confirms.append(iface)
+                host.confirms.append((iface, action_id))
                 if host.pending is None or host.pending["interface"] != iface:
                     return self.send(409, {"error": "refused", "reason": "no_pending_change", "message": "nothing waiting"})
+                if not action_id or host.pending.get("action_id") != action_id:
+                    return self.send(409, {"error": "refused", "reason": "change_mismatch", "message": "a different change is pending"})
                 host.last, host.pending = {**host.pending, "result": "confirmed", "ended_at": LATER}, None
                 self.send(200, self.status())
 
@@ -148,6 +152,10 @@ def approve(c, action_id):
     return c.post(f"/v1/actions/{action_id}/approve", headers=OWNER, json={"webauthn": c.key.assert_(opts["challenge"], flat=True)})
 
 
+def confirm(c, action_id, who=OWNER, verified=True):
+    return c.post("/v1/network/eth0/confirm", headers=who, json={"action_id": action_id, "verified_reachable": verified})
+
+
 def audit(settings) -> list[dict]:
     return [json.loads(x) for x in settings.audit_path.read_text().splitlines() if x.strip()]
 
@@ -167,8 +175,7 @@ def test_nothing_changes_until_the_owner_approves_with_a_passkey(settings, clock
         assert host.puts == [] and c.get(f"/v1/actions/{a['id']}", headers=OWNER).json()["state"] == "awaiting_approval"
         ok = approve(c, a["id"])
         assert ok.status_code == 200, ok.text
-        assert host.puts == [("eth0", {"mode": "static", "address": "192.0.2.50/24", "gateway": "192.0.2.1",
-                                       "dns": ["192.0.2.53"], "rollback_seconds": 45})]
+        assert host.puts == [("eth0", {**STATIC, "action_id": a["id"]})]
         done = c.get(f"/v1/actions/{a['id']}", headers=OWNER).json()
         assert done["state"] == "succeeded" and "Confirm within 45 seconds" in done["result"]["message"], done
         assert "192.0.2.50" in done["result"]["message"]
@@ -185,20 +192,49 @@ def test_the_screen_sees_the_pending_change_and_confirm_keeps_it(settings, clock
         pend = c.get("/v1/network", headers=OWNER).json()["changes"]["pending"]
         assert pend["interface"] == "eth0" and pend["result"] == "pending" and pend["address"] == "192.0.2.50/24"
         assert pend["deadline"].startswith("2026-11-25T12:00:45")
-        r = c.post("/v1/network/eth0/confirm", headers=OWNER)
+        assert pend["action_id"] == a["id"]
+        r = confirm(c, a["id"])
         assert r.status_code == 200 and r.json() == {"confirmed": True, "interface": "eth0"}
         after = c.get("/v1/network", headers=OWNER).json()["changes"]
         assert after["pending"] is None and after["last"]["result"] == "confirmed"
-        assert any(x["event"] == "network.confirmed" and x["data"]["interface"] == "eth0" for x in audit(settings))
-        again = c.post("/v1/network/eth0/confirm", headers=OWNER)
+        assert any(x["event"] == "network.confirmed" and x["action_id"] == a["id"]
+                   and x["data"] == {"interface": "eth0", "verified_reachable": True} for x in audit(settings))
+        again = confirm(c, a["id"])
         assert again.status_code == 409 and again.json()["reason"] == "no_pending_change"
+
+
+def test_a_delayed_confirmation_cannot_keep_the_next_change(settings, clock, host):
+    with box(settings, clock, host.path) as c:
+        first = put(c, **STATIC).json()["id"]
+        assert approve(c, first).status_code == 200
+        host.last, host.pending = {**host.pending, "result": "rolled_back", "ended_at": LATER}, None
+        second = put(c, mode="dhcp").json()["id"]
+        assert approve(c, second).status_code == 200
+
+        stale = confirm(c, first)
+        assert stale.status_code == 409 and stale.json()["reason"] == "change_mismatch"
+        assert host.confirms == [("eth0", first)]
+        assert c.get("/v1/network", headers=OWNER).json()["changes"]["pending"]["action_id"] == second
+        assert not any(x["event"] == "network.confirmed" for x in audit(settings))
+        assert confirm(c, second).status_code == 200
+
+
+def test_confirmation_requires_an_explicit_reachability_attestation(settings, clock, host):
+    with box(settings, clock, host.path) as c:
+        action_id = put(c, **STATIC).json()["id"]
+        assert approve(c, action_id).status_code == 200
+        assert c.post("/v1/network/eth0/confirm", headers=OWNER, json={"action_id": action_id}).status_code == 422
+        for unverified in (False, 1, "true"):
+            assert confirm(c, action_id, verified=unverified).status_code == 422
+        assert host.confirms == [] and host.pending["action_id"] == action_id
+        assert confirm(c, action_id).status_code == 200
 
 
 def test_going_back_to_dhcp_sends_no_address(settings, clock, host):
     with box(settings, clock, host.path) as c:
         a = put(c, mode="dhcp").json()
         assert approve(c, a["id"]).status_code == 200
-        assert host.puts == [("eth0", {"mode": "dhcp", "rollback_seconds": 120})]
+        assert host.puts == [("eth0", {"mode": "dhcp", "rollback_seconds": 120, "action_id": a["id"]})]
         msg = c.get(f"/v1/actions/{a['id']}", headers=OWNER).json()["result"]["message"]
         assert "address the router gives it" in msg
 
@@ -273,7 +309,7 @@ def test_no_host_means_nothing_is_filed_and_the_view_says_so(settings, clock):
         r = put(c, mode="dhcp")
         assert r.status_code == 409 and r.json()["reason"] == "host_unavailable"
         assert c.get("/v1/actions", headers=OWNER).json() == []
-        assert c.post("/v1/network/eth0/confirm", headers=OWNER).status_code == 409
+        assert confirm(c, "act-1").status_code == 409
 
 
 def test_networkmanager_not_running_is_host_unavailable(settings, clock, host):
@@ -308,13 +344,13 @@ def test_only_owners_may_ask_or_confirm(settings, clock, host):
     with box(settings, clock, host.path) as c:
         for who in (ADULT, AGENT):
             assert put(c, who=who, mode="dhcp").status_code == 403
-            assert c.post("/v1/network/eth0/confirm", headers=who).status_code == 403
+            assert confirm(c, "act-1", who).status_code == 403
         assert c.get("/v1/actions", headers=OWNER).json() == [] and host.puts == [] and host.confirms == []
         denied = [x for x in audit(settings) if x["event"] == "authz.denied"]
         assert {d["data"]["attempted"] for d in denied} >= {"change network", "confirm network change"}
     with box(settings, clock, host.path, passkey=False) as anon:  # no session, no token
         assert anon.put("/v1/network/eth0", json={"mode": "dhcp"}).status_code == 401
-        assert anon.post("/v1/network/eth0/confirm").status_code == 401
+        assert confirm(anon, "act-1", who={}).status_code == 401
         assert host.puts == [] and host.confirms == []
 
 

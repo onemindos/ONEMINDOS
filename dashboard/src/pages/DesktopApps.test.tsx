@@ -55,11 +55,11 @@ it('searches Flathub and files an install request for the owner to approve', asy
   expect(screen.getByRole('link', { name: 'Open request in Approvals' })).toHaveAttribute('href', '/approvals?highlight=act-4');
 });
 
-it('lists installed apps with their folder, and updates, removes and opens them', async () => {
+it('lists installed apps with their folder and requests updates, removals and launches', async () => {
   const sent: string[] = [];
   mount((method, path, _q, body) => {
     if (method === 'POST' && path === '/v1/actions') { sent.push((body as { type: string }).type); return response({ id: 'act-5', state: 'awaiting_approval' }, 201); }
-    if (method === 'POST' && path === `/v1/desktop-apps/${OBS}/launch`) { sent.push('launch'); return response({ launched: true, app_id: OBS, stream: { app_id: 'desktop-apps', installed: false } }); }
+    if (method === 'POST' && path === `/v1/desktop-apps/${OBS}/launch`) { sent.push('launch'); return response({ id: 'act-6', state: 'awaiting_approval' }, 202); }
     return response(withApp);
   });
   const user = userEvent.setup();
@@ -67,9 +67,12 @@ it('lists installed apps with their folder, and updates, removes and opens them'
   expect(screen.getByText(/update waiting/)).toBeInTheDocument();
   expect(screen.getByRole('note')).toHaveTextContent('one folder of its own; no home folder');
   await user.click(screen.getByRole('button', { name: 'Ask to update Obsidian' }));
-  await user.click(await screen.findByRole('button', { name: 'Ask to remove Obsidian' }));
-  await user.click(screen.getByRole('button', { name: 'Open Obsidian' }));
-  expect(await screen.findByText(/md\.obsidian\.Obsidian is starting/)).toBeInTheDocument();
+  await screen.findByText(/to update .* is waiting/);
+  await user.click(screen.getByRole('button', { name: 'Ask to remove Obsidian' }));
+  await screen.findByText(/to remove .* is waiting/);
+  await user.click(screen.getByRole('button', { name: 'Ask to launch Obsidian' }));
+  expect(await screen.findByText(/Request act-6 to launch md\.obsidian\.Obsidian is waiting for an owner/)).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Open request in Approvals' })).toHaveAttribute('href', '/approvals?highlight=act-6');
   expect(sent).toEqual(['desktop.app.update', 'desktop.app.remove', 'launch']);
 });
 

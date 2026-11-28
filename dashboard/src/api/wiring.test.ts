@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { HttpApi } from './client';
 
 function rig(body: unknown = {}, status = 200) {
@@ -52,4 +52,42 @@ describe('approve', () => {
     await api.approve('a1');
     expect(calls[0]!.init.body).toBeUndefined();
   });
+});
+
+it.each([201, 503])('uses the SDK to collect the approved kit only once (response %i)', async (status) => {
+  const path = '/v1/backups/kit';
+  const kit = { state: 'issued', fingerprint: '0123456789abcdef', positions: [1, 3] };
+  const one_time = { text: 'OFFLINE KIT', groups: ['ABCD', 'EFGH', 'JKLM'], check: 'QRST' };
+  let approved = false;
+  const fetchFn = vi.fn(async (url: string, init?: RequestInit) => {
+    expect(init?.method).toBe('POST');
+    if (url.endsWith('/approve-options')) return Response.json({ publicKey: {} });
+    if (url.endsWith('/approve')) {
+      approved = true;
+      return Response.json({ id: 'a1', state: 'succeeded' });
+    }
+    const key = new Headers(init?.headers).get('Idempotency-Key');
+    const action = { id: 'a1', type: 'backup.kit.issue', state: 'awaiting_approval', idempotency_key: key };
+    if (url.endsWith('/confirm')) return Response.json({ ...kit, state: 'confirmed' });
+    expect(new URL(url).pathname).toBe(path); // the SDK resolves the absolute base URL
+    if (!approved) return Response.json(action, { status: 202 });
+    return status === 201 ? Response.json({ action, kit, one_time }, { status }) :
+      Response.json({ error: 'unavailable', message: 'The reply was interrupted' }, { status });
+  });
+  const api = new HttpApi({ token: 'owner', fetchFn });
+  if (status === 201) {
+    await expect(api.issueKit()).resolves.toMatchObject({ kit, one_time });
+    await api.confirmKit({ '1': 'ABCD', '3': 'JKLM' }, kit.fingerprint);
+    const confirm = fetchFn.mock.calls.at(-1)!;
+    expect(new URL(confirm[0]).pathname).toBe(`${path}/confirm`);
+    expect(JSON.parse(String(confirm[1]?.body))).toEqual({ answers: { '1': 'ABCD', '3': 'JKLM' }, fingerprint: kit.fingerprint });
+  } else {
+    await expect(api.issueKit()).rejects.toMatchObject({ status });
+  }
+  const kitCalls = fetchFn.mock.calls.filter(([url]) => url.endsWith(path));
+  expect(kitCalls).toHaveLength(2);
+  const [requested, delivered] = kitCalls;
+  expect(delivered?.[1]?.body).toBe(requested?.[1]?.body);
+  expect(JSON.parse(String(requested?.[1]?.body))).toMatchObject({ approve: false, delivery_token: expect.stringMatching(/^[0-9a-f]{64}$/) });
+  expect(new Headers(delivered?.[1]?.headers).get('Idempotency-Key')).toBe(new Headers(requested?.[1]?.headers).get('Idempotency-Key'));
 });

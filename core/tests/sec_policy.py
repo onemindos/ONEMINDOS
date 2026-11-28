@@ -963,7 +963,7 @@ POLICY |= {
     # and nothing is filed; with a host the request waits for the owner's passkey (tests/test_network_change.py).
     ("PUT", "/v1/network/{iface}"): Row(grid(409, 403, 403, 403, 403), w.p_missing("/v1/network/eth0", json={"mode": "dhcp"}),
                                         "core/onemind_core/routers/network.py: an owner files a network change for approval; nobody else"),
-    ("POST", "/v1/network/{iface}/confirm"): Row(grid(409, 403, 403, 403, 403), w.p_missing("/v1/network/eth0/confirm"),
+    ("POST", "/v1/network/{iface}/confirm"): Row(grid(409, 403, 403, 403, 403), w.p_missing("/v1/network/eth0/confirm", json={"action_id": "act-1", "verified_reachable": True}),
                                                  "core/onemind_core/routers/network.py: an owner keeps a pending change; nothing is pending here"),
 }
 
@@ -1201,7 +1201,7 @@ POLICY |= {
     ("POST", "/v1/desktop-apps/{app_id}/launch"): Row(
         cells(403, **GONE, owner=409, plugin=DENIED, automation=DENIED, node=DENIED),
         lambda _w: w.Req("/v1/desktop-apps/org.example.App/launch", json={}),
-        "core/onemind_core/routers/desktop_apps.py: only the owner launches an installed app on the box"),
+        "core/onemind_core/routers/desktop_apps.py: only the owner can request a desktop app launch"),
     # owners and adults (audit:read); unlike the audit log, agents get no own-scope view of the bus's sign-ins
     ("GET", "/v1/fabric/events"): Row({**AUDIT_READ, "agent": 403, "app-agent": 403}, w.p_static("/v1/fabric/events"),
                                       "core/onemind_core/routers/fabric_events.py: owners and adults (audit:read)"),

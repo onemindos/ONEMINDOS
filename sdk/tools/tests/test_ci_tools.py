@@ -164,6 +164,8 @@ class InstallToolsPins(unittest.TestCase):
             expected[tool] = {pin["sha256"], pin["arm64_sha256"]}
             self.assertIn(pin["version"].lstrip("v"), script, tool)
         expected["gitleaks"] = {lock["gitleaks"]["sha256"], lock["gitleaks"]["linux_arm64_sha256"]}
+        expected["kustomize"].update(lock["app_gate"]["kustomize"][key]
+                                    for key in ("darwin_sha256", "darwin_arm64_sha256"))
         blocks = re.split(r"\n    (?=[a-z0-9]+\)\s)", script)
         found = {}
         for b in blocks:

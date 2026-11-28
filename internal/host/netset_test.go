@@ -13,19 +13,21 @@ import (
 )
 
 type fakeNet struct {
-	why     string
-	status  netset.Status
-	applied []string
-	err     error
+	why       string
+	status    netset.Status
+	applied   []string
+	confirmed []string
+	err       error
 }
 
 func (f *fakeNet) Unavailable() string                  { return f.why }
 func (f *fakeNet) Status(context.Context) netset.Status { return f.status }
 func (f *fakeNet) Apply(_ context.Context, iface string, c netset.Config) (netset.Status, error) {
-	f.applied = append(f.applied, iface+" "+c.Mode+" "+c.Address)
+	f.applied = append(f.applied, iface+" "+c.Mode+" "+c.Address+" "+c.ActionID)
 	return f.status, f.err
 }
-func (f *fakeNet) Confirm(_ context.Context, iface string) (netset.Status, error) {
+func (f *fakeNet) Confirm(_ context.Context, iface, actionID string) (netset.Status, error) {
+	f.confirmed = append(f.confirmed, iface+" "+actionID)
 	return f.status, f.err
 }
 
@@ -38,23 +40,24 @@ func netCall(srv *Server, method, path, body string) *httptest.ResponseRecorder 
 func TestNetworkChangeRoutes(t *testing.T) {
 	f := &fakeNet{status: netset.Status{Available: true}}
 	srv := &Server{S: &Service{Net: f}}
-	body := `{"mode":"static","address":"192.0.2.50/24","gateway":"192.0.2.1"}`
+	body := `{"mode":"static","address":"192.0.2.50/24","gateway":"192.0.2.1","action_id":"act-1"}`
+	confirm := `{"action_id":"act-1"}`
 
-	if rec := netCall(srv, "PUT", "/v1/network/eth0", body); rec.Code != 200 || len(f.applied) != 1 || f.applied[0] != "eth0 static 192.0.2.50/24" {
+	if rec := netCall(srv, "PUT", "/v1/network/eth0", body); rec.Code != 200 || len(f.applied) != 1 || f.applied[0] != "eth0 static 192.0.2.50/24 act-1" {
 		t.Fatalf("%d %s %v", rec.Code, rec.Body, f.applied)
 	}
 	if rec := netCall(srv, "GET", "/v1/network/changes", ""); rec.Code != 200 || !strings.Contains(rec.Body.String(), `"available":true`) {
 		t.Fatalf("%d %s", rec.Code, rec.Body)
 	}
-	if rec := netCall(srv, "POST", "/v1/network/eth0/confirm", ""); rec.Code != 200 {
-		t.Fatalf("%d %s", rec.Code, rec.Body)
+	if rec := netCall(srv, "POST", "/v1/network/eth0/confirm", confirm); rec.Code != 200 || len(f.confirmed) != 1 || f.confirmed[0] != "eth0 act-1" {
+		t.Fatalf("%d %s %v", rec.Code, rec.Body, f.confirmed)
 	}
 	if rec := netCall(srv, "PUT", "/v1/network/eth0", `{"mode":"static","bogus":1}`); rec.Code != 400 || len(f.applied) != 1 {
 		t.Fatalf("unknown fields are refused before anything runs: %d", rec.Code)
 	}
 
 	f.err = &netset.Refusal{Reason: "no_pending_change", Message: "nothing waiting"}
-	if rec := netCall(srv, "POST", "/v1/network/eth0/confirm", ""); rec.Code != 409 || !strings.Contains(rec.Body.String(), `"reason":"no_pending_change"`) {
+	if rec := netCall(srv, "POST", "/v1/network/eth0/confirm", confirm); rec.Code != 409 || !strings.Contains(rec.Body.String(), `"reason":"no_pending_change"`) {
 		t.Fatalf("a refusal is 409 with its reason: %d %s", rec.Code, rec.Body)
 	}
 	f.err = context.DeadlineExceeded
@@ -76,7 +79,7 @@ func TestNetworkChangeWithoutManager(t *testing.T) {
 	if rec := netCall(srv, "PUT", "/v1/network/eth0", `{"mode":"dhcp"}`); rec.Code != 409 {
 		t.Fatalf("%d", rec.Code)
 	}
-	if rec := netCall(srv, "POST", "/v1/network/eth0/confirm", ""); rec.Code != 409 {
+	if rec := netCall(srv, "POST", "/v1/network/eth0/confirm", `{"action_id":"act-1"}`); rec.Code != 409 {
 		t.Fatalf("%d", rec.Code)
 	}
 }

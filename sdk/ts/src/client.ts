@@ -19,6 +19,8 @@ export type AuditVerify = components["schemas"]["AuditVerify"];
 export type NetworkView = components["schemas"]["NetworkView"];
 /** What to change on a wired interface (`PUT /v1/network/{iface}`, P-08): a fixed IPv4 setup or back to DHCP. */
 export type NetworkConfigBody = components["schemas"]["NetworkConfigBody"];
+/** The approval and reachability check for a pending wired network change. */
+export type NetworkConfirmBody = components["schemas"]["NetworkConfirmBody"];
 /** The answer of `POST /v1/network/{iface}/confirm`. */
 export type NetworkConfirm = components["schemas"]["NetworkConfirm"];
 /** The box's own screen as the full-screen dashboard (`/v1/instance/kiosk`, owner only). */
@@ -256,9 +258,9 @@ export class OneMind {
     /** Ask for a fixed address or DHCP on a cable interface. Files an action an owner approves with a passkey; nothing changes before. */
     configure: (iface: string, body: NetworkConfigBody) =>
       this.call<Action>({ method: "PUT", path: `/v1/network/${encodeURIComponent(iface)}`, body, retry: true }),
-    /** Keep the change that waits for confirmation on this interface; call it from the box's new address. */
-    confirm: (iface: string) =>
-      this.call<NetworkConfirm>({ method: "POST", path: `/v1/network/${encodeURIComponent(iface)}/confirm` }),
+    /** Keep the identified change after verifying the dashboard loads at the interface's new IPv4 address. */
+    confirm: (iface: string, body: NetworkConfirmBody) =>
+      this.call<NetworkConfirm>({ method: "POST", path: `/v1/network/${encodeURIComponent(iface)}/confirm`, body }),
   };
 
   // Tips are served by the hub. Do not follow a redirect out to a content host.

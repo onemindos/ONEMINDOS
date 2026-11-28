@@ -119,7 +119,6 @@ security GET /v1/databases owner=core:databases
 security POST /v1/deploy/compose owner=core:deploy
 security GET /v1/desktop-apps owner=core:desktop-apps
 security GET /v1/desktop-apps/search owner=core:desktop-apps
-security POST /v1/desktop-apps/{app_id}/launch owner=core:desktop-apps
 security GET /v1/domains owner=core:domains
 security POST /v1/domains owner=core:domains
 security DELETE /v1/domains/hosts/{hostname} owner=core:domains

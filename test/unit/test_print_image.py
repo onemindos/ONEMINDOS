@@ -5,8 +5,13 @@ the packages in both legs, no cups-browsed, the cupsd.conf defaults, the bind mo
 rule for 631 (LAN and mesh only), and that the criteria are pre-registered and wired into the harnesses."""
 import hashlib
 import os
+from pathlib import Path
 import re
+import runpy
+import subprocess
+import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 LAYER = "os/rootfs/layers/onemind"
@@ -49,6 +54,31 @@ class Packages(unittest.TestCase):
     def test_lists_stay_sorted_inside_the_new_line(self):
         line = [l for l in rd("os/rootfs/packages/debian-common.txt").splitlines() if l.startswith("cups ")][0].split()
         self.assertEqual(line, sorted(line))
+
+    def test_package_generated_certificate_is_removed_in_the_install_layer(self):
+        scrub = "os/rootfs/sources/strip-build-ssl-cert.sh"
+        self.assertRegex(CONTAINERFILE, r"apt-get install -y \$\(cat /tmp/onemind/pkgs\); \\\n"
+                         r"\s+sh /tmp/onemind/strip-build-ssl-cert\.sh /; \\")
+        with tempfile.TemporaryDirectory() as tmp:
+            ssl = Path(tmp) / "etc/ssl"
+            certs = ssl / "certs"
+            certs.mkdir(parents=True)
+            (ssl / "private").mkdir()
+            bad = certs / "ssl-cert-snakeoil.pem"
+            key = ssl / "private/ssl-cert-snakeoil.key"
+            alias = certs / "abcd1234.0"
+            bad.touch()
+            key.touch()
+            alias.symlink_to(bad.name)
+            good = certs / "other-ca.pem"
+            good.touch()
+            other = certs / "abcd1234.1"
+            other.symlink_to(good.name)
+            subprocess.run(["sh", os.path.join(ROOT, scrub), tmp], check=True)
+            self.assertFalse(bad.exists())
+            self.assertFalse(key.exists())
+            self.assertFalse(alias.is_symlink())
+            self.assertTrue(other.is_file())
 
 
 class Boards(unittest.TestCase):
@@ -100,7 +130,7 @@ class Config(unittest.TestCase):
             self.assertNotIn("@LOCAL", block)
             self.assertNotRegex(block, r"Allow (all|\*)")
 
-    def test_lan_can_print_but_the_root_location_names_no_public_allow(self):
+    def test_lan_can_read_ipp_but_the_root_location_names_no_public_allow(self):
         block = re.search(r"<Location />(.*?)</Location>", CONF, re.S).group(1)
         self.assertIn("Allow @LOCAL", block)
         self.assertNotRegex(block, r"Allow (all|\*)")
@@ -116,6 +146,18 @@ class Config(unittest.TestCase):
         d = directives(CONF)
         self.assertIn("Listen /run/cups/cups.sock", d)
         self.assertIn("Listen *:631", d)
+
+    def test_mutating_operations_require_local_root(self):
+        policy = re.search(r"<Policy default>(.*?)</Policy>", CONF, re.S).group(1)
+        limits = {op: directives(rule) for operations, rule in re.findall(r"<Limit ([^>]+)>(.*?)</Limit>", policy, re.S)
+                  for op in operations.split()}
+        self.assertEqual(limits.get("Get-Printer-Attributes"), ["Order deny,allow"])
+        for op in ("Print-Job", "Create-Job", "Send-Document", "Print-URI", "Send-URI", "Release-Job",
+                   "Set-Job-Attributes", "Restart-Job", "CUPS-Authenticate-Job", "Release-Held-New-Jobs",
+                   "CUPS-Create-Local-Printer", "All"):
+            with self.subTest(op=op):
+                self.assertEqual(limits.get(op, limits["All"]),
+                                 ["AuthType Basic", "Require user root", "Order allow,deny", "Allow localhost"])
 
 
 class State(unittest.TestCase):
@@ -163,6 +205,40 @@ class State(unittest.TestCase):
         u = rd(f"{LAYER}/usr/lib/systemd/system/cups.service.d/10-onemind.conf")
         self.assertRegex(u, r"(?m)^RequiresMountsFor=/data /etc/cups /var/spool/cups /var/cache/cups$")
         self.assertIn("systemctl enable cups.service cups.socket cups.path", CONTAINERFILE)
+
+    def test_an_upgrade_installs_managed_policy_and_quarantines_old_jobs(self):
+        helper = f"{LAYER}/usr/lib/onemind/onemind-print-policy.py"
+        unit = rd(f"{LAYER}/usr/lib/systemd/system/cups.service.d/10-onemind.conf")
+        self.assertIn("ExecStartPre=/usr/lib/onemind/gateway/venv/bin/python3 -I /usr/lib/onemind/onemind-print-policy.py ", unit)
+        enforce = runpy.run_path(os.path.join(ROOT, helper))["enforce"]
+        with tempfile.TemporaryDirectory() as tmp:
+            cups = Path(tmp)
+            seed = Path(ROOT, LAYER, "usr/lib/onemind/cupsd.conf.onemind")
+            config = cups / "cupsd.conf"
+            config.write_text("LogLevel info\nDefaultPolicy legacy\n<Policy legacy>\n"
+                              "<Limit All>\nOrder deny,allow\n</Limit>\n</Policy>\n")
+            printers = cups / "printers.conf"
+            printers.write_text("Info Owner printer\n")
+            spool = cups / "spool"
+            spool.mkdir()
+            job = spool / "c00001"
+            payload = spool / "d00001-001"
+            job.write_text("pre-upgrade job")
+            payload.write_text("pre-upgrade payload")
+            with patch("os.fchown"), patch("grp.getgrnam"):
+                enforce(seed, config, spool)
+                new_job = spool / "c00002"
+                new_job.touch()
+                enforce(seed, config, spool)
+            self.assertTrue(new_job.is_file())
+            self.assertEqual(printers.read_text(), "Info Owner printer\n")
+            self.assertIn("LogLevel info", config.read_text())
+            self.assertNotIn("legacy", config.read_text())
+            self.assertIn("<Policy default>", config.read_text())
+            self.assertFalse(job.exists())
+            self.assertFalse(payload.exists())
+            self.assertEqual((spool / ".pre-owner-release" / job.name).read_text(), "pre-upgrade job")
+            self.assertEqual((spool / ".pre-owner-release" / payload.name).read_text(), "pre-upgrade payload")
 
 
 class Firewall(unittest.TestCase):

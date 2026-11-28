@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Network, change a cable connection (P-08): a fixed address and DNS, or back to DHCP, with an automatic way back.
 // The form only ASKS (PUT /v1/network/{iface} files an action); an owner approves it with a passkey in Approvals.
-// After approval the box applies it, and this card (opened at the NEW address) shows a Confirm button and a countdown:
+// After approval the box applies it, and this card asks the owner to check the new address before confirming:
 // no confirmation, and the box puts its old settings back by itself, so a wrong address never strands anyone.
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
@@ -31,6 +31,8 @@ function Confirm({ client, pending, onDone, onExpired }: { client: OneMind; pend
   const [now, setNow] = useState(() => Date.now());
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [verified, setVerified] = useState(false);
+  const actionId = pending.action_id;
   useEffect(() => {
     const t = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(t);
@@ -42,10 +44,11 @@ function Confirm({ client, pending, onDone, onExpired }: { client: OneMind; pend
     return () => window.clearTimeout(t);
   }, [left, onExpired]);
   const confirm = async () => {
+    if (!verified || !actionId || left <= 0) return;
     setBusy(true);
     setErr(null);
     try {
-      await client.network.confirm(pending.interface);
+      await client.network.confirm(pending.interface, { action_id: actionId, verified_reachable: true });
       onDone();
     } catch (e) {
       setErr(words(e));
@@ -56,13 +59,21 @@ function Confirm({ client, pending, onDone, onExpired }: { client: OneMind; pend
   return (
     <Card as="article" title="Confirm the new address">
       <p role="status">
-        {pending.interface} now has {describe(pending)}. If you can read this page at its new address, press Confirm to keep it.
+        {pending.interface} now has {describe(pending)}.
         {left > 0 ? <> Without confirmation the box goes back to its old settings in <strong>{left} s</strong>.</> : <> The time is up: the box is going back to its old settings.</>}
       </p>
-      {pending.mode === 'static' && pending.address && <p className="om-hint">Open the box at {pending.address.split('/')[0]}, sign in there, and come back to this page.</p>}
-      <Button variant="primary" disabled={busy} onClick={() => void confirm()}>
-        Confirm {pending.interface}
-      </Button>
+      {actionId ? (
+        <>
+          <p className="om-hint">
+            {pending.mode === 'dhcp' && 'Find the IPv4 address your router assigned to this interface. '}
+            Open the box at {pending.address?.split('/')[0] ?? 'that IPv4 address'} from another device on the wired network. Sign in and verify that this box&apos;s Network page loads.
+          </p>
+          <p><label><input type="checkbox" checked={verified} onChange={(event) => setVerified(event.target.checked)} /> I verified the Network page at the new IPv4 address.</label></p>
+          <Button variant="primary" disabled={busy || !verified || left <= 0} onClick={() => void confirm()}>
+            Confirm {pending.interface}
+          </Button>
+        </>
+      ) : <p className="om-hint">Wait for this change to roll back before requesting it again. Its approval ID is missing.</p>}
       {err && <p className="om-note om-tone-warn" role="alert">{err}</p>}
     </Card>
   );
@@ -85,7 +96,7 @@ export function NetworkChange({ client, view, onChanged }: { client: OneMind; vi
 
   if (!changes) return null; // an older gateway: this page cannot change anything
   if (changes.pending) {
-    return <Confirm client={client} pending={changes.pending} onDone={() => { setKept(true); onChanged(); }} onExpired={onChanged} />;
+    return <Confirm key={changes.pending.action_id} client={client} pending={changes.pending} onDone={() => { setKept(true); onChanged(); }} onExpired={onChanged} />;
   }
   const rolledBack = changes.last?.result === 'rolled_back' ? changes.last : null;
   const submit = async (ev: FormEvent) => {

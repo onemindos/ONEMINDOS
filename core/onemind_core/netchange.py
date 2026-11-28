@@ -22,7 +22,7 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .actions import FeatureAction
 from .auth import Principal
@@ -30,7 +30,7 @@ from .ca import MESH_NETS
 from .context import Gateway
 from .errors import ApiError
 from .executors import ExecResult
-from .hostnet import HostNetClient, NetChanges, parse_changes, read_view
+from .hostnet import NETWORK_ACTION_ID, HostNetClient, NetChanges, parse_changes, read_view
 from .jsonbody import JsonBody
 from .storage import StorageClient, StorageTimeout, StorageUnavailable
 
@@ -59,6 +59,19 @@ class NetworkConfirm(BaseModel):
     model_config = ConfigDict(extra="forbid")
     confirmed: bool
     interface: str
+
+
+class NetworkConfirmBody(JsonBody):
+    model_config = ConfigDict(extra="forbid")
+    action_id: str = Field(pattern=NETWORK_ACTION_ID, description="The approved action ID from the pending network change.")
+    verified_reachable: Literal[True] = Field(description="The owner opened the dashboard directly at this interface's new IPv4 address from another device and verified it loaded.")
+
+    @field_validator("verified_reachable", mode="before")
+    @classmethod
+    def require_attestation(cls, value: object) -> object:
+        if value is not True:
+            raise ValueError("verify the box is reachable at its new IPv4 address before confirming")
+        return value
 
 
 class NetHostError(Exception):
@@ -105,8 +118,8 @@ class HostNetChangeClient:
     def apply(self, iface: str, body: dict) -> NetChanges:
         return parse_changes(self._ok(*self._call("PUT", f"/v1/network/{iface}", body)))
 
-    def confirm(self, iface: str) -> NetChanges:
-        return parse_changes(self._ok(*self._call("POST", f"/v1/network/{iface}/confirm")))
+    def confirm(self, iface: str, action_id: str) -> NetChanges:
+        return parse_changes(self._ok(*self._call("POST", f"/v1/network/{iface}/confirm", {"action_id": action_id})))
 
 
 def _bad(msg: str, reason: str = "invalid_config") -> ApiError:
@@ -199,6 +212,7 @@ class NetChangeService:
     def _run(self, a, finish) -> None:
         p = a.params
         host_body = {k: p[k] for k in ("mode", "address", "gateway", "dns", "rollback_seconds") if p.get(k) is not None}
+        host_body["action_id"] = a.id
         try:
             changes = self.host.apply(p["interface"], host_body)
         except NetHostError as e:
@@ -206,7 +220,7 @@ class NetChangeService:
                 # The host may still be applying: it can answer after this call gave up. Read it again before
                 # calling the action failed, because a change that is now pending is waiting for Confirm.
                 after = self.host.changes()
-                if after.pending is not None and after.pending.interface == p["interface"]:
+                if after.pending is not None and after.pending.interface == p["interface"] and after.pending.action_id == a.id:
                     changes = after
                     e = None
             if e is not None:
@@ -226,13 +240,13 @@ class NetChangeService:
                     "deadline": changes.pending.deadline.isoformat() if changes.pending else None}]))
 
     # ---- confirm ------------------------------------------------------------------------------------
-    def confirm(self, p: Principal, iface: str) -> NetworkConfirm:
+    def confirm(self, p: Principal, iface: str, action_id: str) -> NetworkConfirm:
         try:
-            self.host.confirm(iface)
+            self.host.confirm(iface, action_id)
         except NetHostError as e:
             status = 409
             raise ApiError(status, "conflict", e.message, reason=e.reason) from None
-        self.gw.audit.append("network.confirmed", p.as_dict(), None, {"interface": iface})
+        self.gw.audit.append("network.confirmed", p.as_dict(), action_id, {"interface": iface, "verified_reachable": True})
         return NetworkConfirm(confirmed=True, interface=iface)
 
     def changes(self) -> NetChanges:

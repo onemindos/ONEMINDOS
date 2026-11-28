@@ -66,7 +66,7 @@ func TestNetworkSetFilesTheRequestAndNeverApproves(t *testing.T) {
 	r := run(t, "", false, "network", "set", "eth0", "--address", "192.0.2.50/24", "--gateway", "192.0.2.1",
 		"--dns", "192.0.2.53,192.0.2.54", "--rollback-seconds", "45", "--reason", "fixed address for the printer")
 	if r.code != 0 || !strings.Contains(r.out, "Approval id: act-9") || !strings.Contains(r.out, "passkey") ||
-		!strings.Contains(r.out, "onemind network confirm eth0") || !strings.Contains(r.out, "192.0.2.50/24") || !strings.Contains(r.out, "45 seconds") {
+		!strings.Contains(r.out, "onemind network confirm eth0 act-9 --verified-reachable") || !strings.Contains(r.out, "192.0.2.50/24") || !strings.Contains(r.out, "45 seconds") {
 		t.Fatalf("network set %+v", r)
 	}
 	b := lastBody(t, got)
@@ -149,15 +149,27 @@ func TestNetworkRefusalsReachThePersonWordForWord(t *testing.T) {
 func TestNetworkConfirm(t *testing.T) {
 	var got []string
 	networkHub(t, &got)
-	r := run(t, "", false, "network", "confirm", "eth0")
-	if r.code != 0 || !strings.Contains(r.out, "Confirmed") || got[0] != "POST /v1/network/eth0/confirm " {
+	r := run(t, "", false, "network", "confirm", "eth0", "act-9", "--verified-reachable")
+	if r.code != 0 || !strings.Contains(r.out, "Confirmed") || !strings.HasPrefix(got[0], "POST /v1/network/eth0/confirm ") {
 		t.Fatalf("%+v %v", r, got)
 	}
-	if r := run(t, "", false, "--json", "network", "confirm", "eth0"); r.code != 0 || !strings.Contains(r.out, `"confirmed": true`) && !strings.Contains(r.out, `"confirmed":true`) {
+	if b := lastBody(t, got); b["action_id"] != "act-9" || b["verified_reachable"] != true {
+		t.Fatalf("wrong action or reachability attestation: %v", got)
+	}
+	if r := run(t, "", false, "--json", "network", "confirm", "eth0", "act-9", "--verified-reachable"); r.code != 0 || !strings.Contains(r.out, `"confirmed": true`) && !strings.Contains(r.out, `"confirmed":true`) {
 		t.Fatalf("--json: %+v", r)
 	}
-	if r := run(t, "", false, "network", "confirm", "eth1"); r.code != ExitConflict || !strings.Contains(r.errOut, "waiting for confirmation") {
+	if r := run(t, "", false, "network", "confirm", "eth1", "act-9", "--verified-reachable"); r.code != ExitConflict || !strings.Contains(r.errOut, "waiting for confirmation") {
 		t.Fatalf("nothing pending: %+v", r)
+	}
+}
+
+func TestNetworkConfirmRequiresReachabilityAttestation(t *testing.T) {
+	var got []string
+	networkHub(t, &got)
+	r := run(t, "", false, "network", "confirm", "eth0", "act-9")
+	if r.code != ExitUsage || !strings.Contains(r.errOut, "--verified-reachable") || len(got) != 0 {
+		t.Fatalf("no confirmation may be sent without verifying reachability: %+v %v", r, got)
 	}
 }
 

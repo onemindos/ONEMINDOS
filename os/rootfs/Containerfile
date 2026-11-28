@@ -205,6 +205,7 @@ COPY os/rootfs/layers/base/usr/share/initramfs-tools/ /usr/share/initramfs-tools
 # place before update-initramfs below, which puts the theme into the initramfs.
 COPY brand/generated/os/plymouth/onemind/ /usr/share/plymouth/themes/onemind/
 COPY brand/logo/png/white/onemind-mark-white-256.png /usr/share/plymouth/themes/onemind/logo.png
+COPY os/rootfs/sources/strip-build-ssl-cert.sh /tmp/onemind/strip-build-ssl-cert.sh
 RUN set -eu; \
     cat /tmp/onemind/packages/${LEG}-common.txt /tmp/onemind/packages/${LEG}-${TARGETARCH}.txt \
         $(ls /tmp/onemind/board/packages-${LEG}.txt 2>/dev/null) \
@@ -212,6 +213,7 @@ RUN set -eu; \
     apt-get update; \
     apt-get -y upgrade; \
     apt-get install -y $(cat /tmp/onemind/pkgs); \
+    sh /tmp/onemind/strip-build-ssl-cert.sh /; \
     rm -rf /var/lib/apt/lists/*
 
 # Firmware layer (os/rootfs/firmware/README.md): CPU microcode and closed firmware, its own step so it
@@ -280,6 +282,9 @@ COPY os/boards/${BOARD}/rootfs/ /
 RUN set -eu; \
     if dpkg-query -W -f='${Status}' cups-browsed 2>/dev/null | grep -q 'install ok installed'; then echo "ERROR: cups-browsed must not be installed" >&2; exit 1; fi; \
     install -m 0640 -o root -g lp /usr/lib/onemind/cupsd.conf.onemind /etc/cups/cupsd.conf; \
+    sed -i '/^[[:space:]]*ServerKeychain[[:space:]]/Id; /^[[:space:]]*CreateSelfSignedCerts[[:space:]]/Id' /etc/cups/cups-files.conf; \
+    printf '\nServerKeychain ssl\nCreateSelfSignedCerts Yes\n' >> /etc/cups/cups-files.conf; \
+    install -d -m 0700 -o root -g lp /etc/cups/ssl; \
     rm -rf /usr/lib/onemind/cups-default; mkdir -p /usr/lib/onemind/cups-default /var/lib/ipp-usb; \
     cp -a /etc/cups/. /usr/lib/onemind/cups-default/; \
     systemctl enable cups.service cups.socket cups.path >/dev/null; \
@@ -385,6 +390,8 @@ RUN set -eu; \
     # The build-time policy-rc.d and dpkg speedup (stage base), and any container-image leftovers a stock Ubuntu base \
     # brings: none may ship (a policy-rc.d would stop every service start on the box). \
     rm -f /usr/sbin/policy-rc.d /etc/dpkg/dpkg.cfg.d/onemind-build-speedup /etc/apt/apt.conf.d/docker-* /etc/dpkg/dpkg.cfg.d/docker-*; \
+    test ! -e /etc/ssl/private/ssl-cert-snakeoil.key -a ! -e /etc/ssl/certs/ssl-cert-snakeoil.pem; \
+    test -z "$(find /etc/cups/ssl /usr/lib/onemind/cups-default/ssl -mindepth 1 -print -quit)"; \
     cat /usr/lib/onemind/build-info.txt
 
 # ---------------------------------------------------------------- assembler / test toolbox

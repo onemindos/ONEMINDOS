@@ -36,9 +36,8 @@ type kitIssued struct {
 // recoveryCommands is `onemind recovery kit`: the printed emergency kit (D-028). `status` shows where the kit
 // stands and never a key. `issue` asks the gateway for a new kit, which needs no backup destination. The page
 // holds the owner key and, when /data is encrypted and its key is still waiting, the disk recovery key; both
-// are shown once and the box keeps neither, so the page goes to a file (0600, created before anything is issued, never overwritten) or stdout.
-// With an owner passkey on the box the gateway asks for it, and this command stops there (AI and the CLI only
-// request; a person approves).
+// are shown once, so the page goes to a new 0600 file or stdout. Confirming it in Backups activates the
+// new console key. With an owner passkey on the box, use the dashboard to authorize and collect the page.
 func recoveryCommands(a *App) []*cobra.Command {
 	g := &cobra.Command{Use: "recovery", Short: "Getting back in: the printed emergency kit"}
 	kit := &cobra.Command{Use: "kit", Short: "The printed emergency kit (GET/POST /v1/backups/kit)"}
@@ -78,8 +77,7 @@ func recoveryCommands(a *App) []*cobra.Command {
 			if err != nil {
 				return err
 			}
-			// Open the file first: a new kit replaces the console fingerprint and uses up the one-time disk key, so
-			// nothing may be issued unless the page has somewhere to go. An existing file stops us before the POST.
+			// Open the file first so the one-time page has somewhere to go before it is issued.
 			var f *os.File
 			if out != "" {
 				f, err = os.OpenFile(out, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
@@ -107,7 +105,7 @@ func recoveryCommands(a *App) []*cobra.Command {
 				if a.G.JSON {
 					return printJSON(a.Stdout, map[string]any{"kit": k.Kit, "saved_to": out})
 				}
-				fmt.Fprintf(a.Stdout, "kit saved to %s (fingerprint %s). Print it and keep it offline.\n", out, dash(deref(k.Kit.Fingerprint)))
+				fmt.Fprintf(a.Stdout, "kit saved to %s (fingerprint %s). Print it, keep it offline and confirm it in Backups.\n", out, dash(deref(k.Kit.Fingerprint)))
 				return nil
 			}
 			if a.G.JSON {

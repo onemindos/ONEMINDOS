@@ -402,6 +402,8 @@ memory_cgroup_check() {
 # ------------------------------------------------------------------------------------------
 # avahi + libnss-mdns: NAME.local and <app>.NAME.local (NETWORKING.md §9.1); sqlite3: Headscale backups.
 APT_PKGS="ca-certificates curl tar gzip iproute2 unattended-upgrades needrestart apt-listchanges avahi-daemon avahi-utils libnss-mdns sqlite3 nftables"
+# Node-only installs have no gateway venv. The system Python signs the local NATS NKey challenge.
+if [ "$ROLE" = node ]; then APT_PKGS="$APT_PKGS python3-cryptography"; fi
 apt_security_conf() {
   if [ "${ID:-}" = ubuntu ]; then
     cat <<'EOF'

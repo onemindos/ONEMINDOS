@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -84,21 +84,30 @@ it('shows the gateway\'s refusal word for word and files nothing', async () => {
 
 it('a change waiting for confirmation shows a countdown and a Confirm button instead of the form', async () => {
   const deadline = new Date(Date.now() + 90_000).toISOString();
-  const pending = { interface: 'eth0', mode: 'static', address: '192.0.2.50/24', gateway: '192.0.2.1', dns: [], result: 'pending', started_at: new Date().toISOString(), deadline, ended_at: null };
+  const pending = { action_id: 'act-7', interface: 'eth0', mode: 'static', address: '192.0.2.50/24', gateway: '192.0.2.1', dns: [], result: 'pending', started_at: new Date().toISOString(), deadline, ended_at: null };
   const calls = mount({ ...idle, pending }, (c) => (c.method === 'POST' && c.path === '/v1/network/eth0/confirm' ? json({ confirmed: true, interface: 'eth0' }) : undefined));
   const user = userEvent.setup();
   expect(await screen.findByText(/eth0 now has the fixed address 192\.0\.2\.50\/24/)).toBeInTheDocument();
   expect(screen.getByText(/goes back to its old settings in/)).toBeInTheDocument();
   expect(screen.getByText(/Open the box at 192\.0\.2\.50/)).toBeInTheDocument();
   expect(screen.queryByRole('form', { name: 'Change a cable connection' })).not.toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: 'Confirm eth0' }));
-  await waitFor(() => expect(calls.some((c) => c.method === 'POST' && c.path === '/v1/network/eth0/confirm')).toBe(true));
+  const button = screen.getByRole('button', { name: 'Confirm eth0' });
+  expect(button).toBeDisabled();
+  await user.click(button);
+  expect(calls.some((c) => c.method === 'POST')).toBe(false);
+  await user.click(screen.getByRole('checkbox', { name: /verified the Network page at the new IPv4 address/ }));
+  await user.click(button);
+  await waitFor(() => expect(calls).toContainEqual({
+    method: 'POST', path: '/v1/network/eth0/confirm', body: { action_id: 'act-7', verified_reachable: true },
+  }));
 });
 
 it('a late confirm says why it failed', async () => {
-  const pending = { interface: 'eth0', mode: 'dhcp', address: null, gateway: null, dns: [], result: 'pending', started_at: new Date().toISOString(), deadline: new Date(Date.now() + 60_000).toISOString(), ended_at: null };
+  const pending = { action_id: 'act-8', interface: 'eth0', mode: 'dhcp', address: null, gateway: null, dns: [], result: 'pending', started_at: new Date().toISOString(), deadline: new Date(Date.now() + 60_000).toISOString(), ended_at: null };
   mount({ ...idle, pending }, (c) => (c.method === 'POST' ? json({ error: 'conflict', reason: 'no_pending_change', message: 'no change to eth0 is waiting for confirmation (it may have rolled back already)' }, 409) : undefined));
-  await userEvent.setup().click(await screen.findByRole('button', { name: 'Confirm eth0' }));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('checkbox', { name: /verified the Network page/ }));
+  await user.click(screen.getByRole('button', { name: 'Confirm eth0' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('it may have rolled back already');
 });
 
@@ -124,11 +133,13 @@ it('a countdown that runs out is a rollback, never a confirmation', async () => 
   vi.useFakeTimers({ shouldAdvanceTime: true });
   const started = new Date().toISOString();
   const deadline = new Date(Date.now() + 5_000).toISOString();
-  const pending = { interface: 'eth0', mode: 'static', address: '192.0.2.50/24', gateway: '192.0.2.1', dns: [], result: 'pending', started_at: started, deadline, ended_at: null };
+  const pending = { action_id: 'act-9', interface: 'eth0', mode: 'static', address: '192.0.2.50/24', gateway: '192.0.2.1', dns: [], result: 'pending', started_at: started, deadline, ended_at: null };
   const last = { ...pending, result: 'rolled_back', ended_at: deadline };
   let rolledBack = false;
   const calls = mount(() => (rolledBack ? { ...idle, last } : { ...idle, pending }));
-  expect(await screen.findByRole('button', { name: 'Confirm eth0' })).toBeInTheDocument();
+  const button = await screen.findByRole('button', { name: 'Confirm eth0' });
+  fireEvent.click(screen.getByRole('checkbox', { name: /verified the Network page/ }));
+  expect(button).toBeEnabled();
   rolledBack = true; // the box puts the old settings back by itself once the time is up
   await act(async () => { await vi.advanceTimersByTimeAsync(5_000 + 4_000 + 1_000); });
   expect(await screen.findByText(/was not confirmed in time, so the box went back to its old settings/)).toBeInTheDocument();

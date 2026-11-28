@@ -15,9 +15,7 @@ import (
 // desktopAppCommands are `onemind desktop-app list|search|install|update|remove|launch` (issue #1097, D-026, D-027):
 // desktop apps from Flathub, each in its own sandbox, shown in a browser tab by the streaming runtime.
 //
-// install, update and remove only file a request (POST /v1/actions) and print its id: an owner approves it in the
-// dashboard or the phone app, so a script or an agent's token can ask but never run it. list, search and launch are
-// owner reads and one audited start; they change nothing on the box beyond starting an installed app.
+// install, update, remove and launch file approval requests. list and search are owner reads.
 func desktopAppCommands(a *App) []*cobra.Command {
 	g := &cobra.Command{Use: "desktop-app", Short: "Desktop apps from Flathub: search, install, update, remove, launch"}
 	g.AddCommand(&cobra.Command{
@@ -80,21 +78,18 @@ func desktopAppCommands(a *App) []*cobra.Command {
 		})
 	}
 	g.AddCommand(&cobra.Command{
-		Use: "launch APP_ID", Short: "Start an installed app in the streaming session (owner)", Args: cobra.ExactArgs(1),
+		Use: "launch APP_ID", Short: "Ask to start an app in the desktop session; an owner approves", Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			c, _, err := a.client()
 			if err != nil {
 				return err
 			}
 			var out map[string]any
-			if err := c.Do(bg(), http.MethodPost, "/v1/desktop-apps/"+url.PathEscape(args[0])+"/launch", nil, &out); err != nil {
+			key := fmt.Sprintf("cli-desktop-launch-%d", time.Now().UnixNano())
+			if err := c.DoIdempotent(bg(), http.MethodPost, "/v1/desktop-apps/"+url.PathEscape(args[0])+"/launch", key, nil, &out); err != nil {
 				return err
 			}
-			if a.G.JSON {
-				return printJSON(a.Stdout, out)
-			}
-			fmt.Fprintf(a.Stdout, "%s is starting. Open it in the dashboard under Desktop apps.\n", sanitize(args[0]))
-			return nil
+			return a.desktopRequested("launch", args[0], out)
 		},
 	})
 	return []*cobra.Command{g}
@@ -142,6 +137,10 @@ func (a *App) desktopRequest(verb, appID string) error {
 	if err := c.Do(bg(), http.MethodPost, "/v1/actions", body, &act); err != nil {
 		return err
 	}
+	return a.desktopRequested(verb, appID, act)
+}
+
+func (a *App) desktopRequested(verb, appID string, act map[string]any) error {
 	if a.G.JSON {
 		return printJSON(a.Stdout, act)
 	}

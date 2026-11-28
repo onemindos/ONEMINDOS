@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -30,7 +31,8 @@ func networkCommands(a *App) []*cobra.Command {
 		Use:   "set IFACE --address CIDR --gateway IP [--dns IP]...",
 		Short: "Ask for a fixed IPv4 address, gateway and DNS on a cable interface; prints the approval id",
 		Example: "  onemind network set eth0 --address 192.0.2.20/24 --gateway 192.0.2.1 --dns 192.0.2.1\n" +
-			"  # an owner approves with a passkey; then, from the new address:  onemind network confirm eth0",
+			"  # after passkey approval and verifying the dashboard at the new address:\n" +
+			"  onemind network confirm eth0 APPROVAL_ID --verified-reachable",
 		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			if address == "" || gateway == "" {
@@ -60,17 +62,24 @@ func networkCommands(a *App) []*cobra.Command {
 		c.Flags().StringVar(&reason, "reason", "", "why, shown to the owner on the approval card")
 	}
 
+	var verified bool
 	confirm := &cobra.Command{
-		Use:   "confirm IFACE",
-		Short: "Keep the pending change on this interface: run it from the box's NEW address",
-		Args:  cobra.ExactArgs(1),
+		Use:   "confirm IFACE APPROVAL_ID --verified-reachable",
+		Short: "Keep an approved change after verifying the new address",
+		Long: "From another device on the wired network, open the dashboard directly at the changed interface's IPv4 address. " +
+			"For DHCP, find that address in the router. Sign in and verify that this box's Network page loads before confirming.",
+		Args: cobra.ExactArgs(2),
 		RunE: func(_ *cobra.Command, args []string) error {
+			if !verified {
+				return exitWith(ExitUsage, "usage", "verify that the dashboard's Network page loads at the new IPv4 address, then use --verified-reachable")
+			}
 			c, _, err := a.client()
 			if err != nil {
 				return err
 			}
 			var out map[string]any
-			if err := c.Do(bg(), http.MethodPost, "/v1/network/"+url.PathEscape(args[0])+"/confirm", nil, &out); err != nil {
+			body := map[string]any{"action_id": args[1], "verified_reachable": verified}
+			if err := c.Do(bg(), http.MethodPost, "/v1/network/"+url.PathEscape(args[0])+"/confirm", body, &out); err != nil {
 				return err
 			}
 			if a.G.JSON {
@@ -82,6 +91,7 @@ func networkCommands(a *App) []*cobra.Command {
 			return nil
 		},
 	}
+	confirm.Flags().BoolVar(&verified, "verified-reachable", false, "attest that this box's dashboard loaded at the new address")
 	g.AddCommand(networkShowCmd(a), set, dhcp, confirm)
 	return []*cobra.Command{g}
 }
@@ -112,12 +122,13 @@ func (a *App) networkRequest(iface string, body map[string]any, rollback int, re
 	}
 	where := "the address the router gives it"
 	if address != "" {
-		where = address
+		where = fmt.Sprintf("IPv4 address %s (configured as %s)", strings.SplitN(address, "/", 2)[0], address)
 	}
 	fmt.Fprintf(a.Stdout, "Change of %s requested. Approval id: %s\n"+
 		"An owner approves it with a passkey (dashboard or phone app); follow it with: onemind actions info %s\n"+
-		"Then reach the box at %s and run: onemind network confirm %s\n"+
+		"From another device on the wired network, open the dashboard at %s, sign in, and verify this box's Network page loads.\n"+
+		"Then run onemind network confirm %s %s --verified-reachable\n"+
 		"You have %d seconds after approval. If you do not confirm, the box goes back to its old settings by itself.\n",
-		sanitize(iface), sanitize(id), sanitize(id), sanitize(where), sanitize(iface), rollback)
+		sanitize(iface), sanitize(id), sanitize(id), sanitize(where), sanitize(iface), sanitize(id), rollback)
 	return nil
 }

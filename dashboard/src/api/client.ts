@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { WiringApi } from './wiring';
+import { approveWithStepUp } from '../lib/approve';
 import { getPasskey } from '../lib/webauthn';
 import { withProtocol } from '../lib/protocol';
 import { uuidv4 } from '../lib/uuid';
@@ -53,8 +54,9 @@ export interface OneMindApi extends WiringApi {
   /** Server-side wizard state: whether to open the wizard and where the emergency kit stands. */
   onboardingState(): Promise<FirstRunState>;
   /** Issues the emergency kit. The key is in this one answer only; callers must not store or log it. */
-  issueKit?(): Promise<IssuedKitResponse>;
-  confirmKit?(answers: Record<string, string>): Promise<void>;
+  issueKit?(): Promise<components['schemas']['IssuedKit']>;
+  kitState?(): Promise<components['schemas']['KitState']>;
+  confirmKit?(answers: KitConfirmBody['answers'], fingerprint?: KitConfirmBody['fingerprint']): Promise<void>;
   backupDestinations(): Promise<BackupDestinationRecord[]>;
   healthz(): Promise<{ ok: boolean }>;
   instance(): Promise<Instance>;
@@ -153,20 +155,8 @@ export interface FirstRunSettings extends Omit<FirstRunSettingsBody, 'box_name' 
   saved: boolean;
 }
 export interface SecretsChangeBody { sealed?: SealedInput; generate: string[]; clear: string[]; reason?: string }
-export interface FirstRunState {
-  complete: boolean;
-  settings_saved: boolean;
-  backups_enabled: boolean;
-  destinations: number;
-  kit: { state: 'missing' | 'issued' | 'confirmed'; confirmed_at: string | null; fingerprint: string | null; positions: number[];
-    disk_key_included?: boolean; uncovered_destinations?: string[];
-    disk_key_kit?: { fingerprint: string; issued_at: string } | null };
-}
-export interface IssuedKitResponse {
-  kit: FirstRunState['kit'];
-  /** Shown once. `disk_recovery_key` is present only when /data is encrypted and its key was still waiting. */
-  one_time: { groups: string[]; check: string; text: string; disk_recovery_key?: string };
-}
+export type FirstRunState = components['schemas']['OnboardingStateView'];
+type KitConfirmBody = components['schemas']['KitConfirmBody'];
 export interface SourceAddParams { name: string; url: string; commit: string }
 export interface BackupDestinationRecord { id: string; kind: string; label: string }
 
@@ -200,9 +190,33 @@ export class HttpApi implements OneMindApi {
   private readonly sdk: OneMind;
   onboardingSettings = () => this.req<FirstRunSettings>('GET', '/v1/onboarding/settings');
   saveOnboardingSettings = (body: FirstRunSettingsBody) => this.req<FirstRunSettings>('PUT', '/v1/onboarding/settings', body);
-  onboardingState = () => this.req<FirstRunState>('GET', '/v1/onboarding/state');
-  issueKit = () => this.req<IssuedKitResponse>('POST', '/v1/backups/kit');
-  confirmKit = async (answers: Record<string, string>) => { await this.req<unknown>('POST', '/v1/backups/kit/confirm', { answers }); };
+  onboardingState = () => this.sdkCall<FirstRunState>('GET', '/v1/onboarding/state');
+  kitState = () => this.sdkCall<components['schemas']['KitState']>('GET', '/v1/backups/kit');
+  async issueKit() {
+    const headers = { 'Idempotency-Key': uuidv4() };
+    const body: components['schemas']['KitIssueBody'] = {
+      approve: false,
+      delivery_token: Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) => byte.toString(16).padStart(2, '0')).join(''),
+    };
+    const pending = await this.sdkCall<operations['backups.kit.issue']['responses'][202]['content']['application/json']>(
+      'POST', '/v1/backups/kit', body, false, headers, false);
+    if (pending.type !== 'backup.kit.issue' || pending.state !== 'awaiting_approval' ||
+        pending.idempotency_key !== headers['Idempotency-Key'] || typeof pending.id !== 'string') {
+      throw new ApiError(202, 'unknown', 'The hub returned a mismatched kit request.');
+    }
+    await approveWithStepUp(this, { id: pending.id, plan_sha256: pending.plan_sha256 ?? undefined });
+    // The response consumes the page even if the connection drops. A retry must be a new issuance.
+    const issued = await this.sdkCall<components['schemas']['IssuedKit']>('POST', '/v1/backups/kit', body, false, headers, false);
+    if (issued.action?.id !== pending.id || !issued.kit?.fingerprint || !Array.isArray(issued.one_time?.groups) ||
+        typeof issued.one_time.check !== 'string' || typeof issued.one_time.text !== 'string') {
+      throw new ApiError(201, 'unknown', 'The hub returned an invalid recovery kit.');
+    }
+    return issued;
+  }
+  async confirmKit(answers: KitConfirmBody['answers'], fingerprint?: KitConfirmBody['fingerprint']) {
+    const body: KitConfirmBody = { answers, ...(fingerprint ? { fingerprint } : {}) };
+    await this.sdkCall<components['schemas']['KitState']>('POST', '/v1/backups/kit/confirm', body, false, undefined, false);
+  }
   backupDestinations = () => this.req<BackupDestinationRecord[]>('GET', '/v1/backups/destinations', undefined, 'array');
   private readonly base: string;
   private readonly token: string;

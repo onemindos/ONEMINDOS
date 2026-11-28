@@ -108,7 +108,9 @@ func setup(t *testing.T) (*Manager, *fakeNM, *time.Time) {
 		Now: func() time.Time { return now }}, f, &now
 }
 
-var static = Config{Mode: "static", Address: "192.0.2.50/24", Gateway: "192.0.2.1", DNS: []string{"192.0.2.53"}, RollbackSeconds: 30}
+const staticAction = "act-static"
+
+var static = Config{ActionID: staticAction, Mode: "static", Address: "192.0.2.50/24", Gateway: "192.0.2.1", DNS: []string{"192.0.2.53"}, RollbackSeconds: 30}
 
 func reason(err error) string {
 	var r *Refusal
@@ -198,7 +200,7 @@ func TestApplyThenConfirm(t *testing.T) {
 	if _, err := m.Apply(context.Background(), "eth0", static); reason(err) != "change_pending" {
 		t.Fatalf("one change at a time: %v", err)
 	}
-	st, err = m.Confirm(context.Background(), "eth0")
+	st, err = m.Confirm(context.Background(), "eth0", staticAction)
 	if err != nil || st.Pending != nil || st.Last == nil || st.Last.Result != ResultConfirmed {
 		t.Fatalf("confirm: %+v %v", st, err)
 	}
@@ -208,15 +210,40 @@ func TestApplyThenConfirm(t *testing.T) {
 	if got := m.Status(context.Background()); got.Pending != nil || got.Last.Result != ResultConfirmed {
 		t.Fatalf("after confirm: %+v", got)
 	}
-	if _, err := m.Confirm(context.Background(), "eth0"); reason(err) != "no_pending_change" {
+	if _, err := m.Confirm(context.Background(), "eth0", staticAction); reason(err) != "no_pending_change" {
 		t.Fatalf("a second confirm: %v", err)
 	}
 	// And a new change may follow.
-	if _, err := m.Apply(context.Background(), "eth0", Config{Mode: "dhcp", RollbackSeconds: 30}); err != nil {
+	if _, err := m.Apply(context.Background(), "eth0", Config{ActionID: "act-dhcp", Mode: "dhcp", RollbackSeconds: 30}); err != nil {
 		t.Fatal(err)
 	}
 	if f.props["ipv4.method"] != "auto" || f.props["ipv4.addresses"] != "" || f.props["ipv4.dns"] != "" || f.props["ipv4.ignore-auto-dns"] != "no" {
 		t.Fatalf("back to DHCP clears address, gateway and DNS: %v", f.props)
+	}
+}
+
+func TestConfirmCannotKeepAReplacementChange(t *testing.T) {
+	m, f, _ := setup(t)
+	ctx := context.Background()
+	if _, err := m.Apply(ctx, "eth0", static); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := m.Confirm(ctx, "eth0", staticAction); err != nil {
+		t.Fatal(err)
+	}
+	replacement := Config{ActionID: "act-dhcp", Mode: "dhcp", RollbackSeconds: 30}
+	if _, err := m.Apply(ctx, "eth0", replacement); err != nil {
+		t.Fatal(err)
+	}
+	destroys := f.ran("CheckpointDestroy")
+	if _, err := m.Confirm(ctx, "eth0", staticAction); reason(err) != "change_mismatch" {
+		t.Fatalf("refuse confirmation for the preceding approval: %v", err)
+	}
+	if cur, _ := m.load(); cur == nil || cur.ActionID != replacement.ActionID || cur.ConfirmedAt != nil || f.ran("CheckpointDestroy") != destroys {
+		t.Fatalf("replacement must still have its checkpoint and rollback timer: %+v %v", cur, f.cmds)
+	}
+	if st, err := m.Confirm(ctx, "eth0", replacement.ActionID); err != nil || st.Last == nil || st.Last.ActionID != replacement.ActionID {
+		t.Fatalf("the replacement's own approval can confirm it: %+v %v", st, err)
 	}
 }
 
@@ -247,7 +274,7 @@ func TestNetworkManagerRollsBackByItself(t *testing.T) {
 	if f.ran("connection up") != ups {
 		t.Fatal("NetworkManager already restored everything: nothing is reactivated a second time")
 	}
-	if _, err := m.Confirm(context.Background(), "eth0"); reason(err) != "no_pending_change" {
+	if _, err := m.Confirm(context.Background(), "eth0", staticAction); reason(err) != "no_pending_change" {
 		t.Fatalf("a late confirm is refused: %v", err)
 	}
 }
@@ -364,7 +391,7 @@ func TestRecoverPutsBackAChangeThatWasWaitingAtReboot(t *testing.T) {
 	if _, err := m2.Apply(context.Background(), "eth0", static); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := m2.Confirm(context.Background(), "eth0"); err != nil {
+	if _, err := m2.Confirm(context.Background(), "eth0", staticAction); err != nil {
 		t.Fatal(err)
 	}
 	(&Manager{Run: f, StatePath: m.StatePath, BootID: "boot-3"}).Recover(context.Background())
@@ -438,7 +465,7 @@ func TestConfirmWhoseFinalRecordFailsIsStillKept(t *testing.T) {
 	var undo func()
 	f2 := &hookNM{fakeNM: f, onDestroy: func() { undo = blockSave(t, m) }}
 	m.Run = f2
-	st, err := m.Confirm(context.Background(), "eth0")
+	st, err := m.Confirm(context.Background(), "eth0", staticAction)
 	if err != nil || st.Last == nil || st.Last.Result != ResultConfirmed {
 		t.Fatalf("confirm: %+v %v", st, err)
 	}
@@ -480,7 +507,7 @@ func TestConfirmThatCannotBeRecordedConfirmsNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 	undo := blockSave(t, m)
-	if _, err := m.Confirm(context.Background(), "eth0"); reason(err) != "confirm_failed" {
+	if _, err := m.Confirm(context.Background(), "eth0", staticAction); reason(err) != "confirm_failed" {
 		t.Fatalf("got %v", err)
 	}
 	undo()
@@ -643,7 +670,7 @@ func TestAnUnreadableCheckpointListLeavesTheChangePending(t *testing.T) {
 		t.Fatalf("nothing was put back: %v", f.cmds)
 	}
 	f.failList = false
-	if _, err := m.Confirm(context.Background(), "eth0"); err != nil {
+	if _, err := m.Confirm(context.Background(), "eth0", staticAction); err != nil {
 		t.Fatalf("the owner can still confirm: %v", err)
 	}
 	// After the deadline an unreadable list no longer holds the way back.

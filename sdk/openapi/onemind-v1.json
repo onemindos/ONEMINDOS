@@ -4464,6 +4464,24 @@
         "title": "DiagnosticsBundle",
         "type": "object"
       },
+      "DiskKeyKit": {
+        "properties": {
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "issued_at": {
+            "title": "Issued At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fingerprint",
+          "issued_at"
+        ],
+        "title": "DiskKeyKit",
+        "type": "object"
+      },
       "DomainBody": {
         "additionalProperties": false,
         "properties": {
@@ -7113,6 +7131,26 @@
         "title": "IntakeResult",
         "type": "object"
       },
+      "IssuedKit": {
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/Action"
+          },
+          "kit": {
+            "$ref": "#/components/schemas/KitState"
+          },
+          "one_time": {
+            "$ref": "#/components/schemas/OneTimeKit"
+          }
+        },
+        "required": [
+          "action",
+          "kit",
+          "one_time"
+        ],
+        "title": "IssuedKit",
+        "type": "object"
+      },
       "JoinNode": {
         "properties": {
           "arch": {
@@ -7634,12 +7672,137 @@
             "maxProperties": 4,
             "title": "Answers",
             "type": "object"
+          },
+          "fingerprint": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{16}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fingerprint"
           }
         },
         "required": [
           "answers"
         ],
         "title": "KitConfirmBody",
+        "type": "object"
+      },
+      "KitIssueBody": {
+        "additionalProperties": false,
+        "properties": {
+          "approve": {
+            "default": true,
+            "description": "Set to false to file a request for separate approval.",
+            "title": "Approve",
+            "type": "boolean"
+          },
+          "delivery_token": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "32 random bytes in hex. Required with Idempotency-Key for separated approval and one-time delivery.",
+            "title": "Delivery Token",
+            "writeOnly": true
+          }
+        },
+        "title": "KitIssueBody",
+        "type": "object"
+      },
+      "KitState": {
+        "properties": {
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
+          },
+          "disk_key_included": {
+            "title": "Disk Key Included",
+            "type": "boolean"
+          },
+          "disk_key_kit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiskKeyKit"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fingerprint"
+          },
+          "issued_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issued At"
+          },
+          "positions": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Positions",
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "missing",
+              "issued",
+              "confirmed"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "uncovered_destinations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Uncovered Destinations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "state",
+          "issued_at",
+          "confirmed_at",
+          "fingerprint",
+          "positions",
+          "disk_key_included",
+          "uncovered_destinations",
+          "disk_key_kit"
+        ],
+        "title": "KitState",
         "type": "object"
       },
       "LatestValue": {
@@ -7691,28 +7854,6 @@
           "datapoint"
         ],
         "title": "LatestValue",
-        "type": "object"
-      },
-      "LaunchResult": {
-        "properties": {
-          "app_id": {
-            "title": "App Id",
-            "type": "string"
-          },
-          "launched": {
-            "title": "Launched",
-            "type": "boolean"
-          },
-          "stream": {
-            "$ref": "#/components/schemas/StreamInfo"
-          }
-        },
-        "required": [
-          "launched",
-          "app_id",
-          "stream"
-        ],
-        "title": "LaunchResult",
         "type": "object"
       },
       "LibraryItem": {
@@ -8843,6 +8984,19 @@
         "additionalProperties": false,
         "description": "One wired-address change (netconf of an interface, P-08) and what became of it.",
         "properties": {
+          "action_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The approved action for this change. Older records may have no action ID.",
+            "title": "Action Id"
+          },
           "address": {
             "anyOf": [
               {
@@ -9215,6 +9369,29 @@
           "interface"
         ],
         "title": "NetworkConfirm",
+        "type": "object"
+      },
+      "NetworkConfirmBody": {
+        "additionalProperties": false,
+        "properties": {
+          "action_id": {
+            "description": "The approved action ID from the pending network change.",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$",
+            "title": "Action Id",
+            "type": "string"
+          },
+          "verified_reachable": {
+            "const": true,
+            "description": "The owner opened the dashboard directly at this interface's new IPv4 address from another device and verified it loaded.",
+            "title": "Verified Reachable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "action_id",
+          "verified_reachable"
+        ],
+        "title": "NetworkConfirmBody",
         "type": "object"
       },
       "NetworkView": {
@@ -10689,6 +10866,55 @@
           "kit"
         ],
         "title": "OnboardingStateView",
+        "type": "object"
+      },
+      "OneTimeKit": {
+        "description": "The printable page and key material. Keep offline.",
+        "properties": {
+          "check": {
+            "title": "Check",
+            "type": "string"
+          },
+          "disk_recovery_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Present only while the disk key is available for printing.",
+            "title": "Disk Recovery Key"
+          },
+          "groups": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "owner_key": {
+            "title": "Owner Key",
+            "type": "string"
+          },
+          "qr_payload": {
+            "title": "Qr Payload",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner_key",
+          "groups",
+          "check",
+          "qr_payload",
+          "text"
+        ],
+        "title": "OneTimeKit",
         "type": "object"
       },
       "Options": {
@@ -24876,7 +25102,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/KitState"
+                }
               }
             },
             "description": "Successful Response"
@@ -24918,7 +25146,7 @@
         ]
       },
       "post": {
-        "description": "Owner shortcut: files backup.kit.issue and approves it; the key is in this response only.",
+        "description": "File and approve an issuance on a box without step-up, or use approve=false to file it.\n\nFor separate approval, use POST /v1/actions/{id}/approve and repeat the original request with\nthe same Idempotency-Key and private delivery token. Approval responses never carry the page.\nCollect the page once before the request expires. If delivery fails, file a new issuance.",
         "operationId": "backups.kit.issue",
         "parameters": [
           {
@@ -24940,14 +25168,51 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/KitIssueBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/IssuedKit"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Page delivered once",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Request awaiting the owner's approval"
           },
           "401": {
             "content": {
@@ -24978,6 +25243,16 @@
               }
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -25023,7 +25298,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/KitState"
+                }
               }
             },
             "description": "Successful Response"
@@ -27818,7 +28095,7 @@
     },
     "/v1/desktop-apps/{app_id}/launch": {
       "post": {
-        "description": "Start an installed app in the streaming session. Owner only, audited. It is not an approval:\nthe owner already approved the install, and the app stays inside its sandbox.",
+        "description": "Request that an installed app start in the streaming session. It starts after an owner approves\nthe returned action. Retry with the same Idempotency-Key to retrieve that action.",
         "operationId": "desktopapps.launch",
         "parameters": [
           {
@@ -27829,6 +28106,24 @@
               "title": "App Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
           }
         ],
         "responses": {
@@ -27836,7 +28131,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LaunchResult"
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Idempotent replay"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
                 }
               }
             },
@@ -27891,8 +28196,25 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "system:admin"
+            ]
+          }
+        ],
         "summary": "Desktop Apps Launch",
         "tags": [
           "apps"
@@ -35598,7 +35920,7 @@
     },
     "/v1/network/{iface}/confirm": {
       "post": {
-        "description": "Keep the pending change on this interface: you reached the box at its new address.\n\n409 `no_pending_change` when nothing waits for confirmation (it may have rolled back already).",
+        "description": "Keep the pending change identified by the approved action ID.\n\nBefore sending this request, use another device on the wired network to open the dashboard directly at\nthe changed interface's IPv4 address, sign in, and verify that this box's Network page loads. For DHCP,\nfind the address assigned to this interface in the router. The request records the owner's attestation;\nthe gateway cannot infer that the check succeeded from the request's network path.\n\n409 `no_pending_change` if nothing waits for confirmation or `change_mismatch` if a different action is pending.",
         "operationId": "network.confirm",
         "parameters": [
           {
@@ -35611,6 +35933,16 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NetworkConfirmBody"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -35661,6 +35993,16 @@
               }
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {

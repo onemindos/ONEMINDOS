@@ -8,7 +8,7 @@
 // screen they can no longer reach. NetworkManager has a built-in answer, the checkpoint (D-Bus
 // CheckpointCreate with a rollback timeout, see the NetworkManager reference manual): it remembers the
 // connection settings, and unless somebody calls CheckpointDestroy before the timer ends it puts them
-// back by itself. So the owner confirms from the NEW address; if they cannot reach it, nothing is
+// back by itself. The owner confirms the approved action after checking the new address; if they cannot reach it, nothing is
 // needed from them and the old settings return. The profile is a keyfile under
 // /etc/NetworkManager/system-connections, a bind mount from /data, so a confirmed change survives
 // reboots and A/B updates (os/rootfs/layers/networkmanager).
@@ -56,6 +56,7 @@ const (
 
 var (
 	ifaceRe      = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,14}$`) // the kernel's 15-character limit
+	actionIDRe   = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$`)
 	checkpointRe = regexp.MustCompile(`"(/org/freedesktop/NetworkManager/Checkpoint/\d+)"`)
 	devicePathRe = regexp.MustCompile(`"(/org/freedesktop/NetworkManager/Devices/\d+)"`)
 	// The properties a change touches, and so the ones that are saved and put back.
@@ -73,6 +74,7 @@ func refuse(reason, format string, a ...any) *Refusal {
 
 // Config is the wanted IPv4 setup of one interface.
 type Config struct {
+	ActionID        string   `json:"action_id"`                  // the gateway's approved action
 	Mode            string   `json:"mode"`                       // static | dhcp
 	Address         string   `json:"address,omitempty"`          // static: CIDR, e.g. 192.0.2.10/24
 	Gateway         string   `json:"gateway,omitempty"`          // static: a host inside the subnet
@@ -144,6 +146,7 @@ func broadcast(p netip.Prefix) netip.Addr {
 
 // Change is one change and what became of it (the record on /data).
 type Change struct {
+	ActionID   string            `json:"action_id,omitempty"`
 	Interface  string            `json:"interface"`
 	Connection string            `json:"connection"` // the profile's UUID (a name can collide with nmcli's own keywords)
 	Mode       string            `json:"mode"`
@@ -477,6 +480,9 @@ func (m *Manager) Apply(ctx context.Context, iface string, c Config) (Status, er
 	if !ifaceRe.MatchString(iface) {
 		return Status{}, refuse("unknown_interface", "that is not an interface name")
 	}
+	if !actionIDRe.MatchString(c.ActionID) {
+		return Status{}, refuse("invalid_action_id", "an approved network action ID is required")
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	st := m.statusLocked(ctx)
@@ -513,7 +519,7 @@ func (m *Manager) Apply(ctx context.Context, iface string, c Config) (Status, er
 		m.log().Error("network change: NetworkManager would not take a checkpoint", "interface", iface, "err", err, "reply", string(cp))
 		return Status{}, refuse("checkpoint_failed", "NetworkManager would not take a checkpoint, so nothing was changed")
 	}
-	ch := &Change{Interface: iface, Connection: con, Mode: c.Mode, Address: c.Address, Gateway: c.Gateway, DNS: c.DNS,
+	ch := &Change{ActionID: c.ActionID, Interface: iface, Connection: con, Mode: c.Mode, Address: c.Address, Gateway: c.Gateway, DNS: c.DNS,
 		Result: ResultPending, StartedAt: m.now(), Checkpoint: string(cm[1]), BootID: m.BootID, Previous: prev}
 	ch.Deadline = ch.StartedAt.Add(time.Duration(c.RollbackSeconds) * time.Second)
 	// Written before anything changes: a crash from here on is recovered from this record.
@@ -588,8 +594,8 @@ func splitTerse(s string, n int) []string {
 	return append(out, cur.String())
 }
 
-// Confirm keeps the pending change on iface: the owner reached the box at its new address.
-func (m *Manager) Confirm(ctx context.Context, iface string) (Status, error) {
+// Confirm keeps only the pending change for the identified approval.
+func (m *Manager) Confirm(ctx context.Context, iface, actionID string) (Status, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	st := m.statusLocked(ctx)
@@ -599,6 +605,9 @@ func (m *Manager) Confirm(ctx context.Context, iface string) (Status, error) {
 	cur, last := m.load() // the record, not the view: only the record knows the checkpoint's path
 	if cur == nil || cur.Result != ResultPending {
 		return Status{}, refuse("no_pending_change", "no change to %s is waiting for confirmation", iface)
+	}
+	if cur.ActionID == "" || cur.ActionID != actionID {
+		return Status{}, refuse("change_mismatch", "the pending change on %s does not match this approval; check the Network page", iface)
 	}
 	// The owner's confirmation is recorded first, while the checkpoint still exists. If that write fails, nothing
 	// is confirmed and the change rolls back at its deadline, which is what the owner is told.
@@ -614,7 +623,7 @@ func (m *Manager) Confirm(ctx context.Context, iface string) (Status, error) {
 		if err := m.save(cur, last); err != nil {
 			// The checkpoint is still listed, so Status keeps the change pending; it rolls back at the deadline. Only
 			// if NetworkManager loses the checkpoint before then is ConfirmedAt read, and the change is kept: the
-			// owner did reach the box at its new address.
+			// owner did attest to reaching the box at its new address.
 			m.log().Error("network change: the failed confirmation could not be undone in the record", "err", err)
 		}
 		return Status{}, refuse("confirm_failed", "NetworkManager would not confirm the change; it will roll back at its deadline")

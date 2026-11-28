@@ -17,7 +17,7 @@ type NetManager interface {
 	Unavailable() string
 	Status(ctx context.Context) netset.Status
 	Apply(ctx context.Context, iface string, c netset.Config) (netset.Status, error)
-	Confirm(ctx context.Context, iface string) (netset.Status, error)
+	Confirm(ctx context.Context, iface, actionID string) (netset.Status, error)
 }
 
 // netRoutes adds the wired-network change calls (P-08). The gateway sends them only for a change an owner
@@ -25,8 +25,8 @@ type NetManager interface {
 // the box's own record of the pending change is what makes a retry safe.
 //
 //	GET  /v1/network/changes          available, the change waiting for confirmation, the last finished one
-//	PUT  /v1/network/{iface}          {mode, address, gateway, dns, rollback_seconds}: apply with an automatic rollback
-//	POST /v1/network/{iface}/confirm  keep the pending change on that interface
+//	PUT  /v1/network/{iface}          {action_id, mode, address, gateway, dns, rollback_seconds}: apply with automatic rollback
+//	POST /v1/network/{iface}/confirm  {action_id}: keep the matching pending change on that interface
 func (s *Server) netRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /v1/network/changes", func(w http.ResponseWriter, r *http.Request) {
 		if s.S.Net == nil {
@@ -56,12 +56,21 @@ func (s *Server) netRoutes(mux *http.ServeMux) {
 		writeJSON(w, http.StatusOK, st)
 	})
 	mux.HandleFunc("POST /v1/network/{iface}/confirm", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			ActionID string `json:"action_id"`
+		}
+		dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
+		dec.DisallowUnknownFields()
+		if err := dec.Decode(&body); err != nil {
+			apiError(w, http.StatusBadRequest, "bad_request", "malformed", "the request body is not valid")
+			return
+		}
 		if !s.netReady(w) {
 			return
 		}
 		// Not cancelled with the request either: a gateway that dies mid-call must not cut Confirm between
 		// recording the confirmation and destroying the checkpoint.
-		st, err := s.S.Net.Confirm(context.WithoutCancel(r.Context()), r.PathValue("iface"))
+		st, err := s.S.Net.Confirm(context.WithoutCancel(r.Context()), r.PathValue("iface"), body.ActionID)
 		if err != nil {
 			s.netError(w, "confirm", err)
 			return

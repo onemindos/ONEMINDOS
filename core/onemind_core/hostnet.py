@@ -67,10 +67,14 @@ class NetPort(BaseModel):
     scope: Literal["any", "loopback", "address"] = Field(description="any = every interface; loopback = this machine only; address = one address")
 
 
+NETWORK_ACTION_ID = r"^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$"
+
+
 class NetChange(BaseModel):
     """One wired-address change (netconf of an interface, P-08) and what became of it."""
 
     model_config = ConfigDict(extra="forbid")
+    action_id: str | None = Field(default=None, pattern=NETWORK_ACTION_ID, description="The approved action for this change. Older records may have no action ID.")
     interface: str
     mode: Literal["static", "dhcp"]
     address: str | None = None
@@ -247,7 +251,7 @@ def _change(d: Any) -> NetChange | None:
     if not isinstance(d, dict):
         return None
     try:
-        return NetChange(interface=_name(d.get("interface")), mode=d.get("mode"),
+        return NetChange(action_id=d.get("action_id"), interface=_name(d.get("interface")), mode=d.get("mode"),
                          address=_cidr(d["address"]) if d.get("address") else None,
                          gateway=_ip(d["gateway"]) if d.get("gateway") else None,
                          dns=[_ip(x) for x in (d.get("dns") or [])][:3], result=d.get("result"),
