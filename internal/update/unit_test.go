@@ -67,7 +67,8 @@ func TestParseConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.Policy != PolicyAuto || c.RequireSnapshot || c.Window.String() != "02:00-05:00" ||
+	// Z-02 (founder, 2026-11-28): ask first, also on the security channel.
+	if c.Policy != PolicyNotify || c.RequireSnapshot || c.Window.String() != "02:00-05:00" ||
 		c.TargetsURL != "https://example.org/tuf/security" || c.CheckInterval != time.Hour {
 		t.Fatalf("security defaults wrong: %+v", c)
 	}
@@ -98,7 +99,7 @@ func TestParseConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unknown key refused: %v", err)
 	}
-	if c.Policy != PolicyAuto || strings.Join(c.Ignored, ",") != "future_key,polciy" {
+	if c.Policy != PolicyNotify || strings.Join(c.Ignored, ",") != "future_key,polciy" {
 		t.Fatalf("unknown keys: policy %s, ignored %v", c.Policy, c.Ignored)
 	}
 }

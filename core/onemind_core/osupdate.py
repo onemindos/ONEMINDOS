@@ -10,6 +10,12 @@ last result) and its A/B slots (`rauc`). This module turns those heartbeats into
 - the history: every commit and rollback the gateway saw a node report, kept in its own table so it
   survives a gateway restart;
 - `os.update.install`: an owner-approved action. Nothing installs at request time.
+- `os.update.settings` (REL-02, #154): the owner's update policy (`notify`, the default on every
+  channel since the founder answered Z-02 on 2026-11-28: ask first; `auto`, the opt-in that installs
+  inside the window; or `off`) and maintenance window. The host stores them under /data, where the
+  engine reads them on its next cycle; the image's read-only update.conf stays the default. Every
+  change is a security-related setting (D-028), so approving any of them takes the owner's passkey
+  (routers/osupdates.py).
 - `os.rollback` (P-16): go back to the previous OS version. The other A/B slot already holds it and
   already passed the health gate once, so nothing is downloaded: the host marks that slot active and
   reboots, and the gate commits it. Destructive (it discards the running version and its slot), so
@@ -28,11 +34,12 @@ Heartbeats come from any LAN device (no NATS users yet, H-06), so every field is
 from __future__ import annotations
 
 import logging
+import re
 import threading
 from collections import OrderedDict
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import DateTime, Integer, String, delete, func, select
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -50,6 +57,11 @@ log = logging.getLogger("onemind.osupdate")
 SCHEMA = FeatureSchema("osupdate")  # version 1 = the shape below
 ACTION = "os.update.install"
 ROLLBACK = "os.rollback"
+SETTINGS = "os.update.settings"
+POLICIES = ("auto", "notify", "off")  # internal/update Policy
+# internal/update ParseWindow: "any", or HH:MM-HH:MM local time that may wrap midnight, start != end.
+WINDOW = re.compile(r"^(?:any|(?:[01]\d|2[0-3]):[0-5]\d-(?:[01]\d|2[0-3]):[0-5]\d)$")
+SOURCES = ("image", "owner")
 STATES = ("idle", "downloading", "installing", "pending_reboot", "trial", "committed", "rolled_back", "error")
 BUSY = ("downloading", "installing", "pending_reboot", "trial")  # a new install would race the engine or the gate
 VERDICTS = ("committed", "rolled_back")  # what the history keeps
@@ -80,6 +92,26 @@ class RollbackParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
     node_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,64}$")
     version: str = Field(pattern=r"^[0-9A-Za-z.+-]{1,64}$")
+
+
+def valid_window(v: object) -> bool:
+    return isinstance(v, str) and WINDOW.fullmatch(v) is not None and (v == "any" or v[:5] != v[6:])
+
+
+class SettingsParams(BaseModel):
+    """The policy and window the owner will read on the approval card; the host stores exactly these."""
+
+    model_config = ConfigDict(extra="forbid")
+    node_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,64}$")
+    policy: str = Field(pattern=r"^(auto|notify|off)$")
+    window: str = Field(max_length=11)
+
+    @field_validator("window")
+    @classmethod
+    def _window(cls, v: str) -> str:
+        if not valid_window(v):
+            raise ValueError("window must be HH:MM-HH:MM (local time, may wrap past midnight, start and end differ) or any")
+        return v
 
 
 class OsUpdateEventRow(Base):
@@ -168,6 +200,9 @@ def node_view(n: dict) -> dict:
     }
     current = _text(up.get("current_version")) if up else None
     state = state if state in STATES else ("unknown" if up else None)
+    policy = up.get("policy") if up and up.get("policy") in POLICIES else None
+    window = up.get("window") if up and valid_window(up.get("window")) else None
+    source = up.get("settings_source") if up and up.get("settings_source") in SOURCES else None
     return {
         "node_id": n["node_id"],
         "hostname": _text(n.get("hostname")),
@@ -180,6 +215,10 @@ def node_view(n: dict) -> dict:
         "state": state,
         "last_check": _text(up.get("last_check")) if up else None,
         "last_result": _text(up.get("last_result"), 500) if up else None,
+        # REL-02: the update policy and window in force, and whose they are (null from an older onemindd).
+        "policy": policy,
+        "window": window,
+        "settings_source": source,
         "rauc": view_rauc,
         "rollback": rollback_view(up is not None, state, current, view_rauc, _text(up.get("previous_version")) if up else None),
     }
@@ -204,6 +243,19 @@ ROLLBACK_READY = {
     "reason": None,
     "message": "An approved rollback runs on this box through the host service: it marks the previous system slot "
                "active and reboots into it, and the health gate commits it.",
+}
+
+
+SETTINGS_ENGINE = {
+    "available": False,
+    "reason": "engine_unreachable",
+    "message": "The gateway cannot reach the box's host service yet, so an approved settings change does not run. "
+               "The image's settings stay in force: the box tells you about updates and installs nothing by itself.",
+}
+SETTINGS_READY = {
+    "available": True,
+    "reason": None,
+    "message": "An approved change is stored on this box by the host service and counts from the next update check.",
 }
 
 
@@ -234,13 +286,22 @@ class OsUpdateService:
         q = self.rollback_problem()
         rollback = ROLLBACK_READY if q is None else ROLLBACK_ENGINE if q[0] == UNREACHABLE else \
             {"available": False, "reason": q[0], "message": q[1]}
-        return {"nodes": [node_view(n) for n in self.gw.registry.list()], "install": install, "rollback": rollback}
+        r = self.settings_problem()
+        settings = SETTINGS_READY if r is None else SETTINGS_ENGINE if r[0] == UNREACHABLE else \
+            {"available": False, "reason": r[0], "message": r[1]}
+        return {"nodes": [node_view(n) for n in self.gw.registry.list()], "install": install, "rollback": rollback,
+                "settings": settings}
+
+    def settings_problem(self) -> tuple[str, str] | None:
+        """(reason, message) why an approved settings change cannot run on this box now, or None when it can."""
+        return self.link.problem(SETTINGS) if self.link is not None else (UNREACHABLE, SETTINGS_ENGINE["message"])
 
     def history(self) -> dict:
         reqs = [{"action_id": a["id"], "type": a["type"], "state": a["state"], "node_id": a["params"].get("node_id"),
-                 "version": a["params"].get("version"), "created_at": a["created_at"],
+                 "version": a["params"].get("version"), "policy": a["params"].get("policy"),
+                 "window": a["params"].get("window"), "created_at": a["created_at"],
                  "updated_at": a["updated_at"], "message": (a.get("result") or {}).get("message")}
-                for a in self.gw.actions.list() if a["type"] in (ACTION, ROLLBACK)][:100]
+                for a in self.gw.actions.list() if a["type"] in (ACTION, ROLLBACK, SETTINGS)][:100]
         return {"events": self.repo.list(), "requests": reqs}
 
     def observe(self, hb: dict) -> None:
@@ -345,6 +406,41 @@ class OsUpdateService:
         finish(ExecResult("failed", message, steps=[
             {"step": "reach update engine", "node_id": a.params["node_id"], "result": p[0]}]))
 
+    # ---- os.update.settings -------------------------------------------------------------------
+    def current_settings(self, node_id: str) -> dict | None:
+        n = self.gw.registry.get(node_id)
+        return node_view(n) if n is not None else None
+
+    def settings_refusal(self, params: dict) -> tuple[str, str] | None:
+        """Why this settings change cannot be filed (or approved) now, as (reason, message), or None."""
+        v = self.current_settings(params["node_id"])
+        if v is None:
+            return "unknown_node", f"No node {params['node_id']} has reported to this hub."
+        if not v["reported"]:
+            return "no_update_service", f"Node {v['node_id']} runs no update service, so it has no update settings."
+        if v["policy"] == params["policy"] and v["window"] == params["window"]:
+            return "no_change", f"Node {v['node_id']} already uses policy {v['policy']} with window {v['window']}."
+        if self.link is not None and self.link.present() and v["node_id"] != self.gw.settings.node_id:
+            return "other_node", "The host service changes update settings on this hub only; other machines are set at the box."
+        return None
+
+    def settings_check(self, a) -> str | None:
+        r = self.settings_refusal(a.params)
+        return r[1] if r else None
+
+    def check_settings_request(self, params: dict, _: Principal | None = None) -> None:
+        if (r := self.settings_refusal(params)) is not None:
+            raise ApiError(409, "policy_refused", r[1], reason=r[0])
+
+    def _run_settings(self, a, finish) -> None:
+        p = self.settings_problem()
+        if p is None:
+            self.link.run(a, finish)  # type: ignore[union-attr]
+            return
+        message = SETTINGS_ENGINE["message"] if p[0] == UNREACHABLE else p[1]
+        finish(ExecResult("failed", message, steps=[
+            {"step": "reach host service", "node_id": a.params["node_id"], "result": p[0]}]))
+
     def register(self) -> None:
         # "actuate": an install reboots the box into the other A/B slot (§12.3).
         self.gw.actions.register_type(ACTION, FeatureAction(
@@ -355,4 +451,9 @@ class OsUpdateService:
         self.gw.actions.register_type(ROLLBACK, FeatureAction(
             "destructive", self._run_rollback, frozenset({"person"}), check=self.rollback_check,
             params_model=RollbackParams, check_request=self._check_rollback_request))
+        # "sensitive": it changes whether security updates install by themselves (REL-02). Only an owner
+        # files it (contract §12.5: O); approving any change takes the owner's passkey (routers/osupdates.py).
+        self.gw.actions.register_type(SETTINGS, FeatureAction(
+            "sensitive", self._run_settings, frozenset(), check=self.settings_check,
+            params_model=SettingsParams, check_request=self.check_settings_request))
         self.gw.registry.listeners.append(self.observe)

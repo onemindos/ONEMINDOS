@@ -281,5 +281,8 @@ func Report(c *Config) *heartbeat.Update {
 	}
 	u := st.Update
 	u.Channel = c.Channel
+	// Read the settings now, not from the last cycle: an approved change shows on the next heartbeat.
+	p, w, src, _ := c.Effective()
+	u.Policy, u.Window, u.SettingsSource = string(p), w.String(), src
 	return &u
 }

@@ -285,3 +285,66 @@ func TestFactoryResetUnitOrdering(t *testing.T) {
 		t.Error("the image does not enable the wipe unit")
 	}
 }
+
+// REL-02 (#154): an approved os.update.settings writes the owner file the update engine reads; the
+// image's update.conf is never touched.
+func TestUpdateSettingsReachTheEngine(t *testing.T) {
+	dir := t.TempDir()
+	conf := filepath.Join(dir, "update.conf")
+	image := "channel = security\nurl = https://example.org/tuf\nstate_dir = " + dir + "/state\n"
+	if err := os.WriteFile(conf, []byte(image), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	u := &UpdateEngine{ConfigPath: conf}
+	st, err := OpenStore(filepath.Join(dir, "journal"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &Service{Store: st, Update: u, BootID: "b"}
+	if _, _, err := s.Submit(context.Background(), Request{ActionID: "s1", Kind: KindOSSettings, Policy: "off", Window: "01:00-03:00"}); err != nil {
+		t.Fatal(err)
+	}
+	s.Wait()
+	if op, _ := s.Store.Get("s1"); op.State != StateSucceeded || !strings.Contains(op.Message, "automatic updates are off") {
+		t.Fatalf("op %+v", op)
+	}
+	c, err := update.LoadConfig(conf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p, w, src, err := c.Effective(); err != nil || p != update.PolicyOff || w.String() != "01:00-03:00" || src != update.SourceOwner {
+		t.Fatalf("effective %s %s %s %v", p, w, src, err)
+	}
+	if b, _ := os.ReadFile(conf); string(b) != image {
+		t.Fatalf("image file changed: %q", b)
+	}
+	// The same id with other settings is a different request: refused, nothing rewritten.
+	if _, _, err := s.Submit(context.Background(), Request{ActionID: "s1", Kind: KindOSSettings, Policy: "auto", Window: "01:00-03:00"}); err == nil {
+		t.Fatal("reused action id accepted")
+	}
+	if p, _, _, _ := c.Effective(); p != update.PolicyOff {
+		t.Fatalf("policy %s after a refused reuse", p)
+	}
+}
+
+func TestUpdateSettingsRequestValidation(t *testing.T) {
+	for _, r := range []Request{
+		{ActionID: "a", Kind: KindOSSettings, Policy: "sometimes", Window: "any"},
+		{ActionID: "a", Kind: KindOSSettings, Policy: "off"},
+		{ActionID: "a", Kind: KindOSSettings, Policy: "off", Window: "03:00-03:00"},
+		{ActionID: "a", Kind: KindOSSettings, Policy: "off", Window: "any", Version: "1.0"},
+		{ActionID: "a", Kind: KindRestart, Policy: "off"},
+	} {
+		if err := r.Validate(); err == nil {
+			t.Errorf("accepted %+v", r)
+		}
+	}
+	u := &UpdateEngine{ConfigPath: filepath.Join(t.TempDir(), "update.conf")}
+	if why := u.SettingsUnavailable(); !strings.Contains(why, "not an A/B OneMind image") {
+		t.Fatalf("%q", why)
+	}
+	s := &Service{Store: nil}
+	if why := s.Unavailable(KindOSSettings); why == "" {
+		t.Fatal("no journal, yet settings available")
+	}
+}

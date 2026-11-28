@@ -12,7 +12,7 @@
 
 | Channel | Content | Default `policy` on the box |
 |---|---|---|
-| `security` | Nightly rebuilds of the current release with Debian security fixes (same features) | `auto`: installs inside the maintenance window |
+| `security` | Nightly rebuilds of the current release with Debian security fixes (same features) | `notify`: shows the update and waits for the owner (Z-02, founder 2026-11-28); `auto` is the owner's opt-in |
 | `stable` | Feature releases | `notify`: shows the update and waits for the owner |
 
 `policy` values:
@@ -76,7 +76,7 @@ All files of a channel sit side by side under one base URL `<url>`:
 channel=security
 url=https://github.com/onemindos/ONEMINDOS/releases/download/os-channel-security
 window=02:00-05:00
-policy=auto
+policy=notify
 ```
 
 | Key | Meaning | Default |
@@ -84,7 +84,7 @@ policy=auto
 | `channel` | `security` or `stable`; picks `/usr/lib/onemind/tuf/<channel>/root.json` | `security` |
 | `url` | Channel base URL (§3). A LAN or USB mirror is just another `url`, because trust comes from TUF, not the host | the GitHub Releases URL of the channel |
 | `window` | Local-time maintenance window `HH:MM-HH:MM`; may wrap past midnight (`23:00-04:00`) | `02:00-05:00` |
-| `policy` | `auto`, `notify` or `off` (§1) | `auto` for `security`, `notify` for `stable` |
+| `policy` | `auto`, `notify` or `off` (§1) | `notify` on both channels (Z-02, founder 2026-11-28); the owner opts in to `auto` (`owner.conf` under the state directory, set through `PUT /v1/os/settings`) |
 
 - The image ships the default file at `os/rootfs/layers/base/etc/onemind/update.conf`.
 - Owner changes are stored where the updater keeps writable state. Location and precedence belong to the updater stream.

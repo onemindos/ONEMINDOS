@@ -123,6 +123,11 @@ func newFixture(t *testing.T, channel string, conf string) *fixture {
 		"download_dir = " + filepath.Join(f.dir, "rauc") + "\ngate_dir = " + filepath.Join(f.dir, "gate") + "\n" +
 		"os_release = " + filepath.Join(f.dir, "os-release") + "\nrauc_conf = " + filepath.Join(f.dir, "system.conf") + "\n" +
 		"reboot_inhibit_file = " + filepath.Join(f.dir, "inhibit") + "\n" + conf
+	if channel == ChannelSecurity && !strings.Contains(conf, "policy") {
+		// These tests exercise the install path, so the security fixture box is one whose owner opted in
+		// to automatic installs. The shipped default is notify (Z-02, 2026-11-28; TestShippedImageAsksFirst).
+		text += "policy = auto\n"
+	}
 	if f.cfg, err = ParseConfig([]byte(text)); err != nil {
 		t.Fatal(err)
 	}
@@ -580,12 +585,17 @@ func TestTrialStateWhileGateDecides(t *testing.T) {
 	b, _ := json.Marshal(r)
 	var m map[string]any
 	_ = json.Unmarshal(b, &m)
-	for _, k := range []string{"channel", "current_version", "available_version", "state", "last_check", "last_result"} {
+	// REL-02 (#154): plus the update policy and window in force and who set them.
+	for _, k := range []string{"channel", "current_version", "available_version", "state", "last_check", "last_result",
+		"policy", "window", "settings_source"} {
 		if _, ok := m[k]; !ok {
 			t.Fatalf("heartbeat update object lacks %q: %s", k, b)
 		}
 	}
-	if len(m) != 6 {
+	if m["policy"] != "auto" || m["window"] != "any" || m["settings_source"] != "image" {
+		t.Fatalf("heartbeat update settings: %s", b)
+	}
+	if len(m) != 9 {
 		t.Fatalf("heartbeat update object has extra keys: %s", b)
 	}
 }

@@ -5140,6 +5140,7 @@
               "os.rollout.resume",
               "os.rollout.start",
               "os.update.install",
+              "os.update.settings",
               "plugin.configure",
               "plugin.invoke",
               "plugin.key.enroll",
@@ -9296,6 +9297,60 @@
           }
         },
         "title": "Options",
+        "type": "object"
+      },
+      "OsSettingsBody": {
+        "additionalProperties": false,
+        "description": "PUT /v1/os/settings (REL-02, #154). A field left out keeps the value the node reports now.",
+        "properties": {
+          "node_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,64}$",
+            "title": "Node Id",
+            "type": "string"
+          },
+          "policy": {
+            "anyOf": [
+              {
+                "pattern": "^(auto|notify|off)$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "notify: tell the owner and wait for approval (the default, Z-02); auto: install by themselves inside the window (opt-in); off: do not check",
+            "title": "Policy"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "window": {
+            "anyOf": [
+              {
+                "maxLength": 11,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "local-time maintenance window \"HH:MM-HH:MM\" (may wrap past midnight) or \"any\"",
+            "title": "Window"
+          }
+        },
+        "required": [
+          "node_id"
+        ],
+        "title": "OsSettingsBody",
         "type": "object"
       },
       "OverrideInput": {
@@ -34597,6 +34652,125 @@
           }
         },
         "summary": "Os Rollout Cancel",
+        "tags": [
+          "os"
+        ]
+      }
+    },
+    "/v1/os/settings": {
+      "put": {
+        "description": "Request a new OS update policy or maintenance window for one node (owner only). Nothing changes until\nthe owner approves the `os.update.settings` action with a passkey.",
+        "operationId": "os.settings.update",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OsSettingsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Idempotent replay"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "updates:admin"
+            ]
+          }
+        ],
+        "summary": "Os Settings",
         "tags": [
           "os"
         ]

@@ -16,8 +16,9 @@ url = https://updates.example.invalid/onemind/security
 
 # Local-time maintenance window (HH:MM-HH:MM, may wrap midnight) or "any".
 window = 02:00-05:00
-# auto | notify | off. Omit to use the channel default (BD-09).
-#policy = auto
+# auto | notify | off. Omit to use the default: notify on both channels (Z-02, founder 2026-11-28:
+# ask first; automatic installs are the owner's opt-in).
+#policy = notify
 # Refuse to install without a pre-update restic snapshot.
 # Default: false on security (install, log a warning), true on stable.
 #require_snapshot = false

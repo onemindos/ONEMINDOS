@@ -192,8 +192,9 @@ func (e *Engine) Run(ctx context.Context, mode Mode, noReboot bool) (*Result, er
 	if perr != nil {
 		e.Log.Warn("postpone-until unreadable; ignoring it", "err", perr)
 	}
+	policy, window := e.settings(st)
 	res.Decision, res.Reason = Decide(DecideInput{
-		Policy: e.Cfg.Policy, Window: e.Cfg.Window, Now: now, PostponeUntil: postpone,
+		Policy: policy, Window: window, Now: now, PostponeUntil: postpone,
 		TrialPending: box.MarkerPresent, HaveCandidate: cand != nil, Explicit: mode == ModeApply,
 	})
 	st.Decision, st.Reason = string(res.Decision), res.Reason
@@ -202,7 +203,7 @@ func (e *Engine) Run(ctx context.Context, mode Mode, noReboot bool) (*Result, er
 		avail = cand.Meta.Version
 	}
 	e.Log.Info("update decision", "channel", e.Cfg.Channel, "current", box.Version, "available", avail,
-		"policy", e.Cfg.Policy, "window", e.Cfg.Window.String(), "decision", res.Decision, "reason", res.Reason)
+		"policy", policy, "window", window.String(), "decision", res.Decision, "reason", res.Reason)
 	if mode == ModeCheck || res.Decision != DecideInstall {
 		switch {
 		case res.Decision == DecideInstall: // ModeCheck
@@ -362,14 +363,23 @@ func (e *Engine) clearTrialMarker(to string) error {
 }
 
 // maybeReboot reboots at a safe point: an explicit apply reboots now (unless
-// --no-reboot); the daemon only inside the window; never while the reboot
-// inhibit file exists (mission-safe reboot, BD-09).
+// --no-reboot); the daemon never once the owner turned updates off (the switch
+// may come after the install, REL-02), and otherwise only inside the window; never while the reboot inhibit file exists (mission-safe
+// reboot, BD-09).
 func (e *Engine) maybeReboot(ctx context.Context, st *Status, mode Mode, noReboot bool) bool {
 	switch {
 	case mode == ModeApply && noReboot:
 		return false
-	case mode == ModeScheduled && !e.Cfg.Window.Contains(e.Now()):
-		e.Log.Info("reboot waits for the maintenance window", "window", e.Cfg.Window.String())
+	}
+	policy, window := e.settings(st)
+	if mode == ModeScheduled && policy == PolicyOff {
+		st.LastResult = "installed " + st.TargetVersion + ", reboot waits for the owner: policy " + string(policy) +
+			" (run `onemind update apply` to restart into it)"
+		e.Log.Info("reboot waits for the owner", "policy", policy)
+		return false
+	}
+	if mode == ModeScheduled && !window.Contains(e.Now()) {
+		e.Log.Info("reboot waits for the maintenance window", "window", window.String())
 		return false
 	}
 	if _, err := os.Stat(e.Cfg.RebootInhibitFile); err == nil {
@@ -398,6 +408,18 @@ func (e *Engine) fail(st *Status, from, msg string) error {
 	}
 	e.Log.Error("update failed", "err", msg)
 	return errors.Join(errors.New(msg), st.Save(e.Cfg))
+}
+
+// settings returns the policy and window in force (the owner's file over the
+// image's update.conf, owner.go) and records them in the status. A bad owner
+// file is logged and the image's settings apply.
+func (e *Engine) settings(st *Status) (Policy, Window) {
+	p, w, src, err := e.Cfg.Effective()
+	if err != nil {
+		e.Log.Warn("owner update settings unreadable; the image's settings apply", "err", err)
+	}
+	st.Policy, st.Window, st.SettingsSource = string(p), w.String(), src
+	return p, w
 }
 
 // Daemon runs scheduled cycles until ctx ends: one at start (which also

@@ -22,7 +22,7 @@ import (
 )
 
 func updateCommands(a *App) []*cobra.Command {
-	upd := &cobra.Command{Use: "update", Short: "OS updates: status and check run the local engine (rollback needs root); apply files an approval; policy shows and sets the app update rules"}
+	upd := &cobra.Command{Use: "update", Short: "OS updates: status and check run the local engine (rollback needs root); apply files an approval; settings shows and requests the OS update policy and window; policy shows and sets the app update rules"}
 	var conf string
 	var noReboot bool
 	var mirror string
@@ -49,7 +49,7 @@ func updateCommands(a *App) []*cobra.Command {
 	gatewayApply(a, apply, func() error {
 		return updateCmd(&a.Env, "apply", apply.Flag("config").Value.String(), apply.Flag("mirror").Value.String(), a.G.JSON, noReboot, a.Stdout, a.Stderr)
 	})
-	upd.AddCommand(status, check, apply, updatePolicyCommand(a), rollbackCommand(a), fleetCommand(a), rolloutsCommand(a))
+	upd.AddCommand(status, check, apply, updatePolicyCommand(a), updateSettingsCommand(a), rollbackCommand(a), fleetCommand(a), rolloutsCommand(a))
 	return []*cobra.Command{upd}
 }
 
@@ -103,7 +103,11 @@ func printStatus(c *update.Config, asJSON bool, out io.Writer) error {
 	}
 	tw := tabwriter.NewWriter(out, 0, 2, 2, ' ', 0)
 	fmt.Fprintf(tw, "channel\t%s (%s)\n", c.Channel, c.URL)
-	fmt.Fprintf(tw, "policy\t%s, window %s\n", c.Policy, c.Window)
+	p, w, src, oerr := c.Effective()
+	fmt.Fprintf(tw, "policy\t%s, window %s (set by: %s)\n", p, w, src)
+	if oerr != nil {
+		fmt.Fprintf(tw, "warning\towner update settings ignored: %v\n", oerr)
+	}
 	fmt.Fprintf(tw, "current\t%s\n", dash(st.CurrentVersion))
 	fmt.Fprintf(tw, "available\t%s\n", avail)
 	fmt.Fprintf(tw, "state\t%s\n", st.State)

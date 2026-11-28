@@ -20,11 +20,13 @@ import (
 	"regexp"
 	"sync"
 	"time"
+
+	"github.com/onemindos/onemindos/internal/update"
 )
 
 // Kinds of host action. The gateway's action types map onto them:
 // system.restart, system.shutdown, system.factory_reset, os.update.install,
-// os.rollback, service.restart.
+// os.rollback, service.restart, os.update.settings.
 const (
 	KindRestart        = "restart"
 	KindShutdown       = "shutdown"
@@ -32,10 +34,11 @@ const (
 	KindOSInstall      = "os-install"
 	KindOSRollback     = "os-rollback"
 	KindServiceRestart = "service-restart"
+	KindOSSettings     = "os-update-settings" // REL-02 (#154): the owner's update policy and window
 )
 
 // Kinds lists every kind in a stable order (GET /v1/status).
-var Kinds = []string{KindRestart, KindShutdown, KindFactoryReset, KindOSInstall, KindOSRollback, KindServiceRestart}
+var Kinds = []string{KindRestart, KindShutdown, KindFactoryReset, KindOSInstall, KindOSRollback, KindServiceRestart, KindOSSettings}
 
 // Operation states. going_down: the box was told to reboot or power off; the
 // next boot turns it into succeeded.
@@ -78,6 +81,10 @@ type Request struct {
 	PlanSHA256 string `json:"plan_sha256,omitempty"`
 	// Unit (service-restart only, required) is the systemd unit the owner approved restarting.
 	Unit string `json:"unit,omitempty"`
+	// Policy and Window (os-update-settings only, both required) are the update policy and
+	// maintenance window the owner approved.
+	Policy string `json:"policy,omitempty"`
+	Window string `json:"window,omitempty"`
 }
 
 // Validate refuses a malformed request (HTTP 400).
@@ -87,6 +94,9 @@ func (r Request) Validate() error {
 	}
 	if (r.Kind == KindServiceRestart) != (r.Unit != "") {
 		return fmt.Errorf("unit is required for %s and only for it", KindServiceRestart)
+	}
+	if r.Kind != KindOSSettings && (r.Policy != "" || r.Window != "") {
+		return fmt.Errorf("policy and window are only for %s", KindOSSettings)
 	}
 	switch r.Kind {
 	case KindRestart, KindShutdown, KindFactoryReset:
@@ -120,8 +130,18 @@ func (r Request) Validate() error {
 		if !unitRe.MatchString(r.Unit) {
 			return errors.New("unit must be a systemd unit name")
 		}
+	case KindOSSettings:
+		if r.Version != "" || r.PlanSHA256 != "" {
+			return errors.New("os-update-settings takes only policy and window")
+		}
+		if _, err := update.ParsePolicy(r.Policy); err != nil {
+			return err
+		}
+		if _, err := update.ParseWindow(r.Window); err != nil {
+			return fmt.Errorf("window: %w", err)
+		}
 	default:
-		return fmt.Errorf("unknown kind %q (restart, shutdown, factory-reset, os-install, os-rollback, service-restart)", r.Kind)
+		return fmt.Errorf("unknown kind %q (restart, shutdown, factory-reset, os-install, os-rollback, service-restart, os-update-settings)", r.Kind)
 	}
 	return nil
 }
@@ -133,6 +153,8 @@ type Op struct {
 	Version    string     `json:"version,omitempty"`
 	PlanSHA256 string     `json:"plan_sha256,omitempty"` // factory-reset: the approved plan
 	Unit       string     `json:"unit,omitempty"`        // service-restart: the approved unit
+	Policy     string     `json:"policy,omitempty"`      // os-update-settings: the approved policy
+	Window     string     `json:"window,omitempty"`      // os-update-settings: the approved window
 	State      string     `json:"state"`
 	Reason     string     `json:"reason,omitempty"` // failed: a stable code
 	Message    string     `json:"message,omitempty"`
@@ -160,6 +182,15 @@ type OSInstaller interface {
 	// before the engine reboots. A *Refusal is returned when version is not the
 	// update on offer. With rebooted false, note says why the box stays up.
 	Install(ctx context.Context, version string, goingDown func()) (note string, rebooted bool, err error)
+}
+
+// OSSettings stores the owner's approved update policy and window (REL-02,
+// #154) where the update engine reads them (internal/update owner.go).
+type OSSettings interface {
+	// SettingsUnavailable says why this box has no update settings to change, or "".
+	SettingsUnavailable() string
+	// SetSettings validates and durably stores policy and window, and returns a note for the owner.
+	SetSettings(policy, window string) (string, error)
 }
 
 // Resetter arms the two-phase factory reset (HOST-ACTIONS.md §4).
@@ -190,6 +221,7 @@ type Service struct {
 	Reset  Resetter
 	SMB    SMBManager    // file sharing (smb.go); nil: not on this box
 	Units  Units         // service-restart; nil: refused
+	Update OSSettings    // os-update-settings; nil: refused
 	BootID string        // /proc/sys/kernel/random/boot_id
 	Delay  time.Duration // before the box goes down, so the gateway records "accepted" first
 	Now    func() time.Time
@@ -238,6 +270,11 @@ func (s *Service) Unavailable(kind string) string {
 		if s.Units == nil {
 			return "this host service cannot restart services"
 		}
+	case KindOSSettings:
+		if s.Update == nil {
+			return "this box has no OS update settings"
+		}
+		return s.Update.SettingsUnavailable()
 	case KindFactoryReset:
 		if s.Reset == nil {
 			return "factory reset is not in this OneMind version yet: the early-boot wipe ships separately (HOST-ACTIONS.md §4)"
@@ -271,7 +308,8 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if old, err := s.Store.Get(req.ActionID); err == nil {
-		if old.Kind != req.Kind || old.Version != req.Version || old.PlanSHA256 != req.PlanSHA256 || old.Unit != req.Unit {
+		if old.Kind != req.Kind || old.Version != req.Version || old.PlanSHA256 != req.PlanSHA256 || old.Unit != req.Unit ||
+			old.Policy != req.Policy || old.Window != req.Window {
 			return Op{}, false, &Refusal{"action_id_reused", "action " + req.ActionID + " was already sent as a different request"}
 		}
 		if s.active != nil && s.active.ID == old.ID {
@@ -288,8 +326,9 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 		return Op{}, false, &Refusal{"unavailable", why}
 	}
 	// A restart, shutdown or reset in the middle of an OS update would cut the
-	// install short or spend one of the health gate's trial boots.
-	if req.Kind != KindOSInstall && s.OS != nil {
+	// install short or spend one of the health gate's trial boots. Changing the
+	// settings takes nothing down, so it may run during an update.
+	if req.Kind != KindOSInstall && req.Kind != KindOSSettings && s.OS != nil {
 		if why := s.OS.UpdateBusy(); why != "" {
 			return Op{}, false, &Refusal{"update_in_progress", why}
 		}
@@ -308,7 +347,7 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 		}
 	}
 	now := s.now()
-	op = Op{ID: req.ActionID, Kind: req.Kind, Version: req.Version, PlanSHA256: req.PlanSHA256, Unit: req.Unit, State: StateAccepted, BootID: s.BootID,
+	op = Op{ID: req.ActionID, Kind: req.Kind, Version: req.Version, PlanSHA256: req.PlanSHA256, Unit: req.Unit, Policy: req.Policy, Window: req.Window, State: StateAccepted, BootID: s.BootID,
 		AcceptedAt: now, UpdatedAt: now, Message: "accepted"}
 	if err := s.Store.Put(op); err != nil {
 		return Op{}, false, err
@@ -431,6 +470,18 @@ func (s *Service) run(ctx context.Context, op Op) {
 			return
 		}
 		s.set(&op, StateSucceeded, "", op.Unit+" restarted")
+	case KindOSSettings:
+		s.set(&op, StateRunning, "", "saving update policy "+op.Policy+", window "+op.Window)
+		note, err := s.Update.SetSettings(op.Policy, op.Window)
+		var r *Refusal
+		if errors.As(err, &r) {
+			s.set(&op, StateFailed, r.Reason, r.Message)
+			return
+		} else if err != nil {
+			s.set(&op, StateFailed, "host_error", "the update settings were not changed: "+err.Error())
+			return
+		}
+		s.set(&op, StateSucceeded, "", note)
 	case KindFactoryReset:
 		s.set(&op, StateRunning, "", "arming the factory reset")
 		if err := s.Reset.Arm(ctx, op); err != nil {

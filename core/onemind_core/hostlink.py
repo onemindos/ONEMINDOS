@@ -13,7 +13,7 @@ half of that contract:
   admits root and the gateway's uid only (SO_PEERCRED), so no pod or host path is involved.
 - `HostLink.run(action, finish)`: after the owner's approval, `POST /v1/operations` with the action
   id (and the approved version for an install). The host writes its journal before it acts, so a retry
-  never runs twice. Argv never leaves the gateway: the host knows four kinds and nothing else.
+  never runs twice. Argv never leaves the gateway: the host knows the kinds in KINDS and nothing else.
 - a poller reads `GET /v1/operations/{id}` and closes the ledger action when the journal says
   `succeeded` or `failed`. `going_down` means the box is about to stop, so the action stays open;
   these types are SELF_RECONCILED (actions.py), so a gateway restarted by the reboot finds the action
@@ -52,6 +52,7 @@ KINDS = {
     "os.update.install": "os-install",
     "os.rollback": "os-rollback",  # P-16: back to the previous A/B slot
     "service.restart": "service-restart",  # #636: one registry unit; the host checks it is restartable
+    "os.update.settings": "os-update-settings",  # REL-02 (#154): the owner's update policy and window
 }
 ACTION_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 # RFC 1123 labels: what the host helper may call the box (H-06: the answer is checked, not trusted).
@@ -175,6 +176,12 @@ class HostLink:
             if not isinstance(version, str) or not version:
                 return ExecResult("failed", "the action has no approved version", steps=[{"step": "host", "result": "bad_request"}])
             body["version"] = version
+        if kind == "os-update-settings":
+            params = a.params or {}
+            policy, window = params.get("policy"), params.get("window")
+            if not isinstance(policy, str) or not isinstance(window, str) or not policy or not window:
+                return ExecResult("failed", "the action has no approved policy and window", steps=[{"step": "host", "result": "bad_request"}])
+            body["policy"], body["window"] = policy, window
         if kind == "service-restart":
             unit = (a.params or {}).get("unit")
             if not isinstance(unit, str) or not UNIT.fullmatch(unit):

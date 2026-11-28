@@ -193,6 +193,12 @@ type Update struct {
 	// gate committed that update: the version the other A/B slot still holds and can boot ("go back",
 	// P-16). Empty when unknown, and cleared when a new install starts or the gate rolled one back.
 	PreviousVersion string `json:"previous_version,omitempty"`
+	// Policy and Window are the update policy and maintenance window in force (REL-02, #154), and
+	// SettingsSource says whose they are: "image" (the read-only update.conf, BD-09 default) or
+	// "owner" (approved through the gateway). Empty from an updater that predates them.
+	Policy         string `json:"policy,omitempty"`
+	Window         string `json:"window,omitempty"`
+	SettingsSource string `json:"settings_source,omitempty"`
 }
 
 // OS is parsed from /etc/os-release.
