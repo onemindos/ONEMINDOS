@@ -16,6 +16,8 @@ var testHookAfterOpen func()
 
 func safeParent(string) error { return errUnsupported }
 
+func serveNASRestic(string, string, bool) (string, func(), error) { return "", nil, errUnsupported }
+
 func openDirNoFollow(string, bool) (int, error) { return -1, errUnsupported }
 func closeDir(int)                              {}
 func checkDestAt(int, string, bool) (bool, error) {

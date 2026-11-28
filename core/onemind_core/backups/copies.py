@@ -67,31 +67,39 @@ class SovereignCopies:
 
     def request(self, principal, destination_id: str, password: str, idempotency_key: str, reason: str | None):
         dest = self._target(destination_id)
-        box = self.gw.settings.node_id
-        if not box or self.backups.s.copy_keys_dir is None:
+        if not self.gw.settings.node_id or self.backups.s.copy_keys_dir is None:
             raise ApiError(409, "stale_precondition", "provision the owner-certified export key on this box first")
         kit = self.backups.repo.kit()
         fingerprint = hashlib.sha256(password.encode()).hexdigest()[:16]
         if kit is None or kit.state != "confirmed" or not hmac.compare_digest(fingerprint, kit.fingerprint):
             raise ApiError(409, "stale_precondition", "the confirmed owner recovery key is required")
-        # The latest complete box run on this destination is bound to the approval.
-        for run in self.backups.repo.runs_for_destination(destination_id):
-            snapshots = sorted(u["snapshot_id"] for u in run.units if u.get("snapshot_id"))
-            if run.state == "succeeded" and any(u.get("unit") == "system" and u.get("snapshot_id") for u in run.units):
-                break
-        else:
-            raise ApiError(409, "stale_precondition", "run a successful whole-box backup on this destination first")
         now = utc(self.gw.clock())
         expiry = now + timedelta(hours=1)
+        actions = self.gw.actions
         with self._lock:
             self._keys = {id_: held for id_, held in self._keys.items() if held[1] > now}
-            action, created = self.gw.actions.request_feature(
-                principal, "box.export", {"destination_id": destination_id, "destination": dest["label"],
-                                         "run_id": run.id, "snapshots": snapshots},
-                idempotency_key=idempotency_key, expires_at=expiry, reason=reason)
+            existing = actions.repo.get_by_idempotency_key(idempotency_key)
+            if existing is not None:
+                if existing.type != "box.export" or existing.params.get("destination_id") != destination_id:
+                    raise ApiError(409, "conflict", "idempotency_key was already used for a different request")
+                # Let the action service check the requester and expire a due action.
+                params = existing.params
+            else:
+                params = self._latest_point(destination_id, dest["label"])
+            action, created = actions.request_feature(
+                principal, "box.export", params, idempotency_key=idempotency_key, expires_at=expiry, reason=reason)
             if created:
                 self._keys[action["id"]] = (password, expiry)
         return action, created
+
+    def _latest_point(self, destination_id: str, destination_label: str) -> dict:
+        # Bind the latest complete box run to the approval on the first request.
+        for run in self.backups.repo.runs_for_destination(destination_id):
+            if run.state == "succeeded" and any(u.get("unit") == "system" and u.get("snapshot_id") for u in run.units):
+                return {"destination_id": destination_id, "destination": destination_label, "run_id": run.id,
+                        "attach_recovery_key": True,
+                        "snapshots": sorted(u["snapshot_id"] for u in run.units if u.get("snapshot_id"))}
+        raise ApiError(409, "stale_precondition", "run a successful whole-box backup on this destination first")
 
     def _execute(self, action, finish):
         held = self._take_key(action.id)
@@ -141,7 +149,8 @@ class SovereignCopies:
         complete = canonical({"trust": trust, "completion": copy.signed(b"complete/", key, record.model_dump(mode="json"))})
         self.backups._job(KIND, {**params, "operation": "publish", "copy_id": copy_id, "generation": generation,
                                 "repository": refs.repository, "bundle": copy.b64(bundle), "record": copy.b64(complete),
-                                "recovery_key": password}, action.id)
+                                "recovery_key": password,
+                                "attach_recovery_key": action.params.get("attach_recovery_key", False)}, action.id)
         return record
 
     def discover(self, destination_id: str, box_id: str, root: str, password: str) -> tuple[copy.Completion | None, int]:

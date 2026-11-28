@@ -14,6 +14,7 @@ from onemind_core.automation.registry import automatable, policy_may_cover
 
 from conftest import ADULT, AGENT, OWNER
 from test_backups import FakeAgent, approve
+from test_identity import SoftAuthenticator, csrf, idc, register_passkey, setup_owner
 
 START = "/v1/backups/copies"
 DISCOVER = "/v1/onboarding/restore/copy"
@@ -26,10 +27,16 @@ class CopyAgent(FakeAgent):
         self.damage = set()
         self.generation = 0
         self.repository = sha256(b"test repository")
+        self.target_keys = {}
 
     def job(self, kind, params, *, action_id=None, timeout=None):
         if kind != "backup.copy":
-            return super().job(kind, params, action_id=action_id, timeout=timeout)
+            result = super().job(kind, params, action_id=action_id, timeout=timeout)
+            if kind == "backup.configure":
+                self.target_keys = {t["id"]: self.target_keys.get(t["id"]) for t in params["targets"]}
+            if kind == "backup.key.add":
+                self.target_keys = dict.fromkeys(self.target_keys, params["key"])
+            return result
         self.jobs.append((kind, params, action_id))
         op, cid = params["operation"], params.get("copy_id")
         if op == "prepare":
@@ -37,6 +44,11 @@ class CopyAgent(FakeAgent):
                     "snapshots": [s for s in self.snaps if s["id"] in params["snapshots"]]}
         if op == "publish":
             assert action_id and params["repository"] == self.repository
+            target = params["target_id"]
+            if params.get("attach_recovery_key"):
+                self.target_keys[target] = params["recovery_key"]
+            if self.target_keys[target] != params["recovery_key"]:
+                raise AgentError(kind, "kit missing from this repository", reason="failed")
             self.objects[cid] = {k: params[k] for k in ("bundle", "record")}
         if op == "list":
             return list(self.objects)
@@ -51,8 +63,7 @@ class CopyAgent(FakeAgent):
         return None
 
 
-@pytest.fixture
-def copy_box(client, clock, tmp_path):
+def provision_copy(client, clock, tmp_path):
     svc = client.app.state.backups
     svc.agent = CopyAgent(clock)
     svc.worker.inline = True
@@ -65,20 +76,135 @@ def copy_box(client, clock, tmp_path):
     keyfile = tmp_path / "export.key"
     keyfile.write_bytes(signer.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()))
     keyfile.chmod(0o600)
+    return svc, box, sha256(root_pub), signer
 
+
+def make_kit(client, headers):
+    response = client.post("/v1/backups/kit", headers=headers)
+    assert response.status_code == 201, response.text
+    issued = response.json()
+    kit = issued["one_time"]
+    answers = {str(i): kit["groups"][i - 1] for i in issued["kit"]["positions"]}
+    assert client.post("/v1/backups/kit/confirm", headers=headers, json={"answers": answers}).status_code == 200
+    return kit["owner_key"]
+
+
+@pytest.fixture
+def copy_box(client, clock, tmp_path):
+    svc, box, root, signer = provision_copy(client, clock, tmp_path)
     dest = client.post("/v1/backups/destinations", headers=OWNER, json={
         "kind": "usb", "label": "Owner NAS", "config": {"usb_uuid": "nas", "sovereign": True}}).json()
     assert approve(client, dest["id"])["state"] == "succeeded"
     dest_id = dest["params"]["destination_id"]
     assert svc.agent.jobs[-1][1]["targets"][0]["sovereign"] is True
-    issued = client.post("/v1/backups/kit", headers=OWNER).json()
-    kit = issued["one_time"]
-    answers = {str(i): kit["groups"][i - 1] for i in issued["kit"]["positions"]}
-    assert client.post("/v1/backups/kit/confirm", headers=OWNER, json={"answers": answers}).status_code == 200
+    recovery_key = make_kit(client, OWNER)
     run = client.post("/v1/backups/runs", headers=OWNER, json={"destination_id": dest_id}).json()
     assert approve(client, run["id"])["state"] == "succeeded"
 
-    return svc, {"destination_id": dest_id, "recovery_key": kit["owner_key"]}, box, sha256(root_pub), signer
+    return svc, {"destination_id": dest_id, "recovery_key": recovery_key}, box, root, signer
+
+
+def test_existing_passkey_owner_can_publish_to_new_target(idc, clock, tmp_path):
+    svc, box, root, _ = provision_copy(idc, clock, tmp_path)
+    setup_owner(idc)
+    headers = csrf(idc)
+    dest = idc.post("/v1/backups/destinations", headers=headers, json={
+        "kind": "usb", "label": "Existing disk", "config": {"usb_uuid": "original"}, "approve": True})
+    assert dest.status_code == 202 and dest.json()["state"] == "succeeded", dest.text
+    recovery_key = make_kit(idc, headers)
+    authenticator = SoftAuthenticator()
+    register_passkey(idc, authenticator)
+    assert idc.app.state.identity.passkeys_active()
+
+    def step_up(action):
+        url = f"/v1/actions/{action['id']}"
+        options = idc.post(url + "/approve-options", headers=headers)
+        assert options.status_code == 200, options.text
+        assertion = authenticator.assert_(options.json()["challenge"], flat=True)
+        result = idc.post(url + "/approve", headers=headers, json={"webauthn": assertion})
+        assert result.status_code == 200 and result.json()["state"] == "succeeded", result.text
+        return result.json()
+
+    new_dest = idc.post("/v1/backups/destinations", headers=headers, json={
+        "kind": "usb", "label": "Owner NAS", "config": {"usb_uuid": "nas", "sovereign": True}})
+    assert new_dest.status_code == 202, new_dest.text
+    destination = step_up(new_dest.json())["params"]["destination_id"]
+    assert svc.agent.target_keys[destination] is None
+    run = idc.post("/v1/backups/runs", headers=headers, json={"destination_id": destination})
+    assert run.status_code == 202, run.text
+    step_up(run.json())
+    body = {"destination_id": destination, "recovery_key": recovery_key}
+    response = idc.post(START, headers=headers, json=body)
+    assert response.status_code == 202, response.text
+    action = response.json()
+    refused = idc.post(f"/v1/actions/{action['id']}/approve", headers=headers)
+    assert refused.status_code == 401 and refused.json()["reason"] == "step_up_required"
+    assert svc.agent.target_keys[destination] is None and not svc.agent.objects
+    done = step_up(action)
+    assert svc.agent.target_keys[destination] == recovery_key
+    assert idc.get("/v1/backups/kit", headers=headers).json()["state"] == "confirmed"
+    found = idc.post(DISCOVER, headers=headers, json={**body, "box_id": box, "root_fingerprint": root})
+    assert found.status_code == 200, found.text
+    assert found.json()["candidate"]["copy_id"] == done["result"]["steps"][0]["copy_id"]
+
+
+def test_copy_replay_preserves_original_run(client, clock, copy_box):
+    _, body, _, _, _ = copy_box
+    headers = {**OWNER, "Idempotency-Key": "retry-before-next-backup"}
+    first = client.post(START, headers=headers, json=body)
+    assert first.status_code == 202, first.text
+    clock.advance(1)
+    run = client.post("/v1/backups/runs", headers=OWNER, json={"destination_id": body["destination_id"]})
+    assert run.status_code == 202, run.text
+    assert approve(client, run.json()["id"])["state"] == "succeeded"
+    newer = client.post(START, headers=OWNER, json=body)
+    assert newer.status_code == 202, newer.text
+    assert newer.json()["params"]["run_id"] != first.json()["params"]["run_id"]
+    replay = client.post(START, headers=headers, json=body)
+    assert replay.status_code == 202, replay.text
+    assert replay.headers["OneMind-Idempotent-Replay"] == "true"
+    assert replay.json()["id"] == first.json()["id"]
+    assert replay.json()["params"] == first.json()["params"]
+    other = client.post("/v1/backups/destinations", headers=OWNER, json={
+        "kind": "usb", "label": "Other NAS", "config": {"usb_uuid": "other", "sovereign": True}, "approve": True})
+    assert other.status_code == 202 and other.json()["state"] == "succeeded", other.text
+    conflict = client.post(START, headers=headers,
+                           json={**body, "destination_id": other.json()["params"]["destination_id"]})
+    assert conflict.status_code == 409, conflict.text
+
+
+def test_sovereign_s3_endpoint_rejects_non_origins_before_approval(client, settings):
+    path = "/v1/backups/destinations"
+    before = client.get("/v1/actions", headers=OWNER).json()
+    userinfo = "fixture-user:fixture-secret"
+    for endpoint in (
+        f"https://{userinfo}@storage.example.test",
+        "https://storage.example.test/?fixture-secret", "https://storage.example.test/#fixture-secret",
+        "https://storage.example.test/path-fixture-secret", "https://storage.example.test/%2F",
+        "https://storage.example.test?", "https://storage.example.test#", "https://storage.example.test:65536",
+        "https://", "http://storage.example.test", "https://[::1]unexpected", "https://bad..example.test",
+    ):
+        response = client.post(path, headers=OWNER, json={
+            "kind": "s3", "label": "S3", "config": {"endpoint": endpoint, "bucket": "bucket", "sovereign": True},
+            "credentials": {"access_key": "test-access", "secret_key": "test-value"}})
+        assert response.status_code == 422, response.text
+        assert "fixture-secret" not in response.text
+    assert client.get("/v1/actions", headers=OWNER).json() == before
+    assert "fixture-secret" not in settings.audit_path.read_text()
+    for endpoint in ("https://storage.example.test:9443/", "https://[2001:db8::1]:9443"):
+        response = client.post(path, headers=OWNER, json={
+            "kind": "s3", "label": "S3", "config": {"endpoint": endpoint, "bucket": "bucket", "sovereign": True},
+            "credentials": {"access_key": "test-access", "secret_key": "test-value"}})
+        assert response.status_code == 202 and response.json()["params"]["config"]["endpoint"] == endpoint, response.text
+
+
+def test_sovereign_copy_openapi_keeps_migration_copy_body(client):
+    schema = client.get("/openapi.json").json()
+    operations = {method["operationId"]: method for path in schema["paths"].values() for method in path.values()}
+    assert operations["backups.copies.request"]["requestBody"]["content"]["application/json"]["schema"]["$ref"] == (
+        "#/components/schemas/SovereignCopyBody")
+    assert operations["migrate.copy"]["requestBody"]["content"]["application/json"]["schema"]["$ref"] == (
+        "#/components/schemas/CopyBody")
 
 
 def start_copy(client, request):

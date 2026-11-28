@@ -31,17 +31,18 @@ func copyBoxID(box string) bool {
 }
 
 type copyJob struct {
-	Operation   string   `json:"operation"`
-	TargetID    string   `json:"target_id"`
-	BoxID       string   `json:"box_id"`
-	CopyID      string   `json:"copy_id,omitempty"`
-	RunID       string   `json:"run_id,omitempty"`
-	Generation  int      `json:"generation,omitempty"`
-	Repository  string   `json:"repository,omitempty"`
-	Snapshots   []string `json:"snapshots,omitempty"`
-	RecoveryKey string   `json:"recovery_key,omitempty"`
-	Record      []byte   `json:"record,omitempty"`
-	Bundle      []byte   `json:"bundle,omitempty"`
+	Operation         string   `json:"operation"`
+	TargetID          string   `json:"target_id"`
+	BoxID             string   `json:"box_id"`
+	CopyID            string   `json:"copy_id,omitempty"`
+	RunID             string   `json:"run_id,omitempty"`
+	Generation        int      `json:"generation,omitempty"`
+	Repository        string   `json:"repository,omitempty"`
+	Snapshots         []string `json:"snapshots,omitempty"`
+	RecoveryKey       string   `json:"recovery_key,omitempty"`
+	AttachRecoveryKey bool     `json:"attach_recovery_key,omitempty"`
+	Record            []byte   `json:"record,omitempty"`
+	Bundle            []byte   `json:"bundle,omitempty"`
 }
 
 type copyBackup struct {
@@ -53,6 +54,10 @@ type copyBackup struct {
 func (a *Agent) sovereignCopy(ctx context.Context, p copyJob) (any, error) {
 	if !copyBoxID(p.BoxID) || (p.CopyID != "" && !copyID(p.CopyID)) {
 		return nil, errors.New("invalid copy namespace")
+	}
+	if p.Operation == "publish" && (p.CopyID == "" || len(p.Bundle) == 0 || len(p.Bundle) > maxCopyBundle ||
+		len(p.Record) == 0 || len(p.Record) > maxCopyRecord) {
+		return nil, errors.New("invalid copy ID, record or bundle")
 	}
 	if err := a.acquire(ctx, "sovereign copy"); err != nil {
 		return nil, err
@@ -83,12 +88,11 @@ func (a *Agent) sovereignCopy(ctx context.Context, p copyJob) (any, error) {
 			return nil, errors.New("the source generation is no longer current")
 		}
 		c.BoxID = p.BoxID
+		// A healthy local cache cannot stand in for bytes on the destination.
+		c.Restic.CacheDir = ""
 		repo, err := NewRestic(&c, t, nil)
 		if err != nil {
 			return nil, err
-		}
-		if p.RecoveryKey != "" {
-			repo.useRecoveryKey(p.RecoveryKey)
 		}
 		if !local {
 			repo.Flags = append(repo.Flags, "--no-lock")
@@ -103,6 +107,17 @@ func (a *Agent) sovereignCopy(ctx context.Context, p copyJob) (any, error) {
 			if err != nil || gen > c.Generation {
 				return nil, errors.New("cannot confirm that the source generation is current")
 			}
+		}
+		if p.RecoveryKey != "" {
+			recovery := *repo
+			recovery.Env = append([]string(nil), repo.Env...)
+			recovery.useRecoveryKey(p.RecoveryKey)
+			if p.Operation == "publish" && p.AttachRecoveryKey {
+				if err := attachCopyKey(ctx, repo, &recovery, p); err != nil {
+					return nil, err
+				}
+			}
+			repo = &recovery
 		}
 		point, err := repo.checkCopy(ctx, p)
 		if err != nil {
@@ -133,9 +148,6 @@ func (a *Agent) sovereignCopy(ctx context.Context, p copyJob) (any, error) {
 	case "bundle":
 		return store.get(ctx, dir+"box.omb", maxCopyBundle)
 	case "publish":
-		if len(p.Bundle) == 0 || len(p.Bundle) > maxCopyBundle || len(p.Record) == 0 || len(p.Record) > maxCopyRecord {
-			return nil, errors.New("copy record or bundle has an invalid size")
-		}
 		if err := putVerified(ctx, store, dir+"box.omb", p.Bundle); err != nil {
 			return nil, err
 		}
@@ -154,6 +166,29 @@ func (r *Restic) useRecoveryKey(key string) {
 	}
 }
 
+// Publication can attach the already-confirmed kit to a destination added
+// after kit issuance. Only the signed publish job can add the key.
+func attachCopyKey(ctx context.Context, device, recovery *Restic, p copyJob) error {
+	_, err := recovery.repositoryID(ctx)
+	if err == nil {
+		return nil
+	}
+	var resticErr *ResticError
+	if !errors.As(err, &resticErr) || resticErr.ExitCode != exitWrongKey {
+		return errors.New("cannot open the copy repository with this key")
+	}
+	id, err := device.repositoryID(ctx)
+	if err != nil || id != p.Repository {
+		return errors.New("copy repository identity does not match")
+	}
+	// Restic opens this password file once. Pipe the new key so the agent
+	// leaves no plaintext kit file behind if it is interrupted.
+	if err := device.addKey(ctx, "/dev/stdin", strings.NewReader(p.RecoveryKey+"\n")); err != nil {
+		return errors.New("cannot attach the owner recovery key to this destination")
+	}
+	return nil
+}
+
 // putVerified handles retries after a lost reply and never replaces an object.
 func putVerified(ctx context.Context, store copyStore, key string, data []byte) error {
 	if err := store.put(ctx, key, data); err != nil && !errors.Is(err, os.ErrExist) {
@@ -167,13 +202,24 @@ func putVerified(ctx context.Context, store copyStore, key string, data []byte) 
 		key, errors.Join(err, errors.New("bytes do not match")))
 }
 
-func (r *Restic) checkCopy(ctx context.Context, p copyJob) (copyBackup, error) {
+func (r *Restic) repositoryID(ctx context.Context) (string, error) {
 	raw, err := r.output(ctx, "copy config", "cat", "config")
+	if err != nil {
+		return "", err
+	}
+	var config struct{ ID string }
+	if json.Unmarshal(raw, &config) != nil || !fullID(config.ID) {
+		return "", errors.New("invalid copy repository identity")
+	}
+	return config.ID, nil
+}
+
+func (r *Restic) checkCopy(ctx context.Context, p copyJob) (copyBackup, error) {
+	id, err := r.repositoryID(ctx)
 	if err != nil {
 		return copyBackup{}, errors.New("cannot open the copy repository with this key")
 	}
-	var config struct{ ID string }
-	if json.Unmarshal(raw, &config) != nil || !fullID(config.ID) || (p.Repository != "" && p.Repository != config.ID) {
+	if p.Repository != "" && p.Repository != id {
 		return copyBackup{}, errors.New("copy repository identity does not match")
 	}
 	filter := []string{"onemind", "box=" + p.BoxID}
@@ -188,7 +234,7 @@ func (r *Restic) checkCopy(ctx context.Context, p copyJob) (copyBackup, error) {
 		}
 		wanted[id] = true
 	}
-	out := copyBackup{Repository: config.ID, Generation: p.Generation}
+	out := copyBackup{Repository: id, Generation: p.Generation}
 	hasSystem := false
 	for _, s := range snaps {
 		if !wanted[s.ID] || s.Tag("unit") == "" || s.Tag("unit") == "fence" ||

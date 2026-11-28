@@ -15,6 +15,7 @@ import re
 import secrets
 from datetime import datetime, timedelta
 from typing import Annotated, Literal
+from urllib.parse import urlsplit
 
 from fastapi import Depends, FastAPI, Header, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -124,11 +125,33 @@ class KitConfirmBody(BaseModel):
     answers: dict[str, str] = Field(max_length=4)
 
 
-class CopyBody(JsonBody):
+class SovereignCopyBody(JsonBody):
     model_config = ConfigDict(extra="forbid")
     destination_id: str = Field(pattern=DEST_RE)
     recovery_key: str = Field(pattern=KEY, json_schema_extra={"writeOnly": True})
     reason: str | None = Field(default=None, max_length=500)
+
+
+def _https_origin(value: str | bool) -> bool:
+    # Match the whole authority before parsing the port or IPv6 literal.
+    if not isinstance(value, str) or not re.fullmatch(
+        r"https://(?:[A-Za-z0-9.-]+|\[[A-Fa-f0-9:.]+\])(?::[0-9]{1,5})?/?", value
+    ):
+        return False
+    try:
+        origin = urlsplit(value)
+        port = origin.port
+    except ValueError:
+        return False
+    host = origin.hostname
+    if not host or port == 0:
+        return False
+    if ":" in host:
+        return True  # urlsplit validated the IPv6 literal
+    return len(host) <= 253 and all(
+        re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label)
+        for label in host.removesuffix(".").split(".")
+    )
 
 
 def _check_destination(b: DestinationBody) -> dict:
@@ -148,7 +171,9 @@ def _check_destination(b: DestinationBody) -> dict:
             problem = "credentials.password is required"
         c = {"url": c.get("url"), "user": c.get("user"), "append_only": bool(c.get("append_only", b.kind == "box"))}
     else:
-        if not str(c.get("endpoint", "")).startswith("https://") or not c.get("bucket"):
+        if sovereign and not _https_origin(c.get("endpoint", "")):
+            problem = "config.endpoint must be an HTTPS origin (host with optional port and trailing slash)"
+        elif not str(c.get("endpoint", "")).startswith("https://") or not c.get("bucket"):
             problem = "config.endpoint must be https:// and config.bucket is required"
         elif not creds.get("access_key") or not creds.get("secret_key"):
             problem = "credentials.access_key and credentials.secret_key are required"
@@ -241,7 +266,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.post("/v1/backups/copies", operation_id="backups.copies.request", tags=tags, status_code=202,
               openapi_extra={"security": [{"bearer": ["*"]}]}, responses=error_responses(401, 403, 404, 409, 422))
-    def request_copy(body: CopyBody, p: Principal = Depends(owner), idem: IdemHeader = None):
+    def request_copy(body: SovereignCopyBody, p: Principal = Depends(owner), idem: IdemHeader = None):
         """File an owner approval for a sovereign copy of the destination's latest whole-box backup."""
         action, created = copies.request(p, body.destination_id, body.recovery_key, key(idem), body.reason)
         headers = {"Location": f"/v1/actions/{action['id']}", "Cache-Control": "no-store"}

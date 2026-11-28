@@ -3380,6 +3380,73 @@
         "title": "ContentBody",
         "type": "object"
       },
+      "CopyBody": {
+        "additionalProperties": false,
+        "properties": {
+          "context": {
+            "anyOf": [
+              {
+                "maxLength": 253,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "kubeconfig": {
+            "maxLength": 65536,
+            "minLength": 1,
+            "title": "Kubeconfig",
+            "type": "string"
+          },
+          "pvcs": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 100,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pvcs"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "kubeconfig"
+        ],
+        "title": "CopyBody",
+        "type": "object"
+      },
       "Coverage": {
         "properties": {
           "as_of": {
@@ -12701,6 +12768,40 @@
         "title": "SourceStatus",
         "type": "object"
       },
+      "SovereignCopyBody": {
+        "additionalProperties": false,
+        "properties": {
+          "destination_id": {
+            "pattern": "^dst_[0-9a-f]{16}$",
+            "title": "Destination Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "recovery_key": {
+            "pattern": "^(?:[A-Z2-7]{4}-){12}[A-Z2-7]{4}$",
+            "title": "Recovery Key",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "destination_id",
+          "recovery_key"
+        ],
+        "title": "SovereignCopyBody",
+        "type": "object"
+      },
       "StatusView": {
         "properties": {
           "alerts": {
@@ -16090,40 +16191,6 @@
         "title": "ApproveBody",
         "type": "object"
       },
-      "onemind_core__routers__backups__CopyBody": {
-        "additionalProperties": false,
-        "properties": {
-          "destination_id": {
-            "pattern": "^dst_[0-9a-f]{16}$",
-            "title": "Destination Id",
-            "type": "string"
-          },
-          "reason": {
-            "anyOf": [
-              {
-                "maxLength": 500,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reason"
-          },
-          "recovery_key": {
-            "pattern": "^(?:[A-Z2-7]{4}-){12}[A-Z2-7]{4}$",
-            "title": "Recovery Key",
-            "type": "string",
-            "writeOnly": true
-          }
-        },
-        "required": [
-          "destination_id",
-          "recovery_key"
-        ],
-        "title": "CopyBody",
-        "type": "object"
-      },
       "onemind_core__routers__domains__ApproveBody": {
         "additionalProperties": false,
         "properties": {
@@ -16170,73 +16237,6 @@
           }
         },
         "title": "ApproveBody",
-        "type": "object"
-      },
-      "onemind_core__routers__migrate__CopyBody": {
-        "additionalProperties": false,
-        "properties": {
-          "context": {
-            "anyOf": [
-              {
-                "maxLength": 253,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Context"
-          },
-          "expires_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expires At"
-          },
-          "kubeconfig": {
-            "maxLength": 65536,
-            "minLength": 1,
-            "title": "Kubeconfig",
-            "type": "string"
-          },
-          "pvcs": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "maxItems": 100,
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pvcs"
-          },
-          "reason": {
-            "anyOf": [
-              {
-                "maxLength": 500,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reason"
-          }
-        },
-        "required": [
-          "kubeconfig"
-        ],
-        "title": "CopyBody",
         "type": "object"
       }
     },
@@ -22547,7 +22547,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/onemind_core__routers__backups__CopyBody"
+                "$ref": "#/components/schemas/SovereignCopyBody"
               }
             }
           },
@@ -32235,7 +32235,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/onemind_core__routers__migrate__CopyBody"
+                "$ref": "#/components/schemas/CopyBody"
               }
             }
           },

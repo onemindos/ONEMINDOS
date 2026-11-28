@@ -85,9 +85,6 @@ func (s nasCopyStore) get(_ context.Context, key string, max int64) ([]byte, err
 
 func (s nasCopyStore) records(_ context.Context) ([]string, error) {
 	entries, err := fs.ReadDir(s.FS(), ".")
-	if errors.Is(err, os.ErrNotExist) {
-		return nil, nil
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +96,8 @@ func (s nasCopyStore) records(_ context.Context) ([]string, error) {
 		if fi, err := s.Lstat(entry.Name() + "/complete.json"); err == nil && fi.Mode().IsRegular() {
 			ids = append(ids, entry.Name())
 		} else if err != nil && !errors.Is(err, os.ErrNotExist) {
-			return nil, err
+			// The record read can reject this candidate without hiding the others.
+			ids = append(ids, entry.Name())
 		}
 	}
 	return ids, nil
@@ -190,7 +188,8 @@ func (a *Agent) openCopyStore(t Target, box string, write bool) (copyStore, erro
 	case KindS3:
 		u, err := url.Parse(t.Endpoint)
 		if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" ||
-			u.User != nil || (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" {
+			u.User != nil || (u.Path != "" && u.Path != "/") || u.RawPath != "" ||
+			u.ForceQuery || u.RawQuery != "" || strings.Contains(t.Endpoint, "#") {
 			return nil, errors.New("invalid S3 endpoint")
 		}
 		access, err := readSecret(t.AccessKeyFile)

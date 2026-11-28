@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -56,9 +57,7 @@ func TestIntegrationSovereignCopies(t *testing.T) {
 				}
 			}
 			const ownerKey = "test-only-owner-repository-passphrase"
-			if _, err := a.AddKey(ctx, ownerKey); err != nil {
-				t.Fatal(err)
-			}
+			source := a
 			job := func(p copyJob) any {
 				t.Helper()
 				v, err := a.sovereignCopy(ctx, p)
@@ -84,8 +83,15 @@ func TestIntegrationSovereignCopies(t *testing.T) {
 			p.Operation, p.RecoveryKey, p.Repository = "publish", ownerKey, point.Repository
 			p.CopyID = strings.Repeat("1", 32)
 			p.Bundle, p.Record = []byte("encrypted octets"), []byte("signed completion bytes")
+			if _, err := a.sovereignCopy(ctx, p); err == nil {
+				t.Fatal("publication installed a key without the attachment flag")
+			}
+			p.AttachRecoveryKey = true
 			job(p)
 			job(p) // safe retry with identical bytes
+			if _, err := a.AddKey(ctx, "additional-test-passphrase"); err != nil {
+				t.Fatal(err)
+			}
 			original := p
 			p.Record = []byte("different completion bytes")
 			if _, err := a.sovereignCopy(ctx, p); err == nil {
@@ -167,23 +173,102 @@ func TestIntegrationSovereignCopies(t *testing.T) {
 			}
 			if kind == KindUSB {
 				repo := filepath.Join(tgt.MountRoot, tgt.USBUUID, "boxes", cfg.BoxID, "data")
+				// The same files must remain usable by stock restic directly on the
+				// mounted destination, without passing through the daemon.
+				var restored bytes.Buffer
+				stderr, _, err := (ExecRunner{}).Run(ctx, cfg.Restic.Binary, []string{"--no-cache", "--no-lock", "dump", ids[0], "/"},
+					[]string{"RESTIC_REPOSITORY=" + repo, "RESTIC_PASSWORD=" + ownerKey}, nil, &restored)
+				if err != nil || restored.Len() == 0 {
+					t.Fatalf("stock restic could not read the NAS copy with the existing kit: %v (%s)", err, stderr)
+				}
+				testNASKeyDirectory(t, source, repo, e.root)
+				cached, err := NewRestic(&cfg, tgt, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				cached.useRecoveryKey(ownerKey)
+				warm := func() {
+					t.Helper()
+					for _, id := range ids {
+						if err := cached.Dump(ctx, id, "/", io.Discard); err != nil {
+							t.Fatalf("expected a cached dump to succeed: %v", err)
+						}
+					}
+				}
+				warm()
+				cachedPacks, err := filepath.Glob(filepath.Join(cfg.Restic.CacheDir, point.Repository, "data", "*", "*"))
+				if err != nil || len(cachedPacks) == 0 {
+					t.Fatalf("expected restic to cache metadata packs: %v", err)
+				}
+				for _, pack := range cachedPacks {
+					name := filepath.Base(pack)
+					damagePack(t, filepath.Join(repo, "data", name[:2], name))
+				}
+				warm() // metadata is still sound in the cache alone
+				t.Run("warm-cache-discovery", func(t *testing.T) {
+					if _, err := a.sovereignCopy(ctx, p); err == nil || !strings.Contains(err.Error(), "data check") {
+						t.Fatalf("discovery should reject destination damage with a warm cache: %v", err)
+					}
+				})
+				t.Run("warm-cache-publication", func(t *testing.T) {
+					publication := original
+					publication.CopyID = strings.Repeat("3", 32)
+					if _, err := source.sovereignCopy(ctx, publication); err == nil || !strings.Contains(err.Error(), "data check") {
+						t.Fatalf("publication should reject destination damage with a warm cache: %v", err)
+					}
+				})
+				if got := job(copyJob{Operation: "list", TargetID: tgt.ID, BoxID: cfg.BoxID}).([]string); !slices.Equal(got, []string{original.CopyID}) {
+					t.Fatalf("the damaged copy was published: %v", got)
+				}
 				packs, err := filepath.Glob(filepath.Join(repo, "data", "*", "*"))
 				if err != nil || len(packs) == 0 {
 					t.Fatalf("expected real restic data packs: %v", err)
 				}
 				// Damage every pack so the required snapshots exist but cannot be read.
 				for _, pack := range packs {
-					if err := os.Chmod(pack, 0o600); err != nil {
-						t.Fatal(err)
-					}
-					if err := os.WriteFile(pack, []byte("damaged pack"), 0o600); err != nil {
-						t.Fatal(err)
-					}
+					damagePack(t, pack)
 				}
 				if _, err := a.sovereignCopy(ctx, p); err == nil {
 					t.Fatal("check accepted damaged snapshot data")
 				}
 			}
 		})
+	}
+}
+
+func damagePack(t *testing.T, pack string) {
+	t.Helper()
+	if err := os.Chmod(pack, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(pack, []byte("damaged pack"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func testNASKeyDirectory(t *testing.T, a *Agent, repo, outside string) {
+	t.Helper()
+	keys := filepath.Join(repo, "keys")
+	external := filepath.Join(outside, "external-keys")
+	if err := os.Rename(keys, external); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := errors.Join(os.Remove(keys), os.Rename(external, keys)); err != nil {
+			t.Error(err)
+		}
+	}()
+	if err := os.Symlink(external, keys); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadDir(external)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, addErr := a.AddKey(context.Background(), "nas-symlink-test-passphrase")
+	after, err := os.ReadDir(external)
+	if err != nil || len(before) != len(after) || addErr == nil {
+		t.Fatalf("restic followed the repository's keys symlink: key add %v, outside entries %d -> %d, read %v",
+			addErr, len(before), len(after), err)
 	}
 }

@@ -115,9 +115,11 @@ Keep the printed fabric root fingerprint with the recovery kit. Put the export
 private key in `export.key` alongside `trust.json` in the gateway's configured
 `ONEMIND_BACKUPS_COPY_KEYS_DIR`. Keep the fabric root private key offline.
 
-Issue and confirm the recovery kit after setting up the destination, then run a
-whole-box backup to it. Read the kit key into `onemind backup copy start DESTINATION`
-on stdin and approve the resulting `box.export` action. On a fresh box, configure
+Run a whole-box backup to the destination. Read the key from your confirmed
+recovery kit into `onemind backup copy start DESTINATION` on stdin and approve the
+resulting `box.export` action. Publication attaches the existing kit key if the
+new repository needs it and verifies the backup with that key directly from the
+destination. On a fresh box, configure
 the same NAS mount or S3 bucket and prefix. Run
 `onemind backup copy discover DESTINATION OLD_BOX_ID ROOT_FINGERPRINT` with the kit
 key on stdin. Use the CLI's `--timeout` with large backups because discovery reads
