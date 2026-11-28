@@ -60,20 +60,25 @@ IdleExitTimeout 0
     Order deny,allow
   </Limit>
   # Adding, changing or removing a printer or a class requires a local administrator.
-  <Limit CUPS-Add-Modify-Printer CUPS-Delete-Printer CUPS-Add-Modify-Class CUPS-Delete-Class CUPS-Set-Default CUPS-Get-Devices>
+  <Limit CUPS-Add-Modify-Printer CUPS-Delete-Printer CUPS-Add-Modify-Class CUPS-Delete-Class CUPS-Set-Default CUPS-Get-Devices Resume-Printer CUPS-Accept-Jobs Cancel-Job>
     AuthType Default
     Require user @SYSTEM
     Order allow,deny
     Allow localhost
   </Limit>
-  # Print-Job, Create-Job, Send-Document, Release-Job, Set-Job-Attributes and
-  # every other operation use the box's privileged path. The owner can hold
-  # a job with sudo -k lp -H hold, then approve its release with a fresh
-  # sudo -k lp -i <job-id> -H resume. CUPS authenticates root on its Unix socket.
-  <Limit All>
+  # The OS staging helper submits an indefinite hold as the gateway account.
+  # Only that account can release a job, through the gateway's physical action.
+  <Limit Print-Job Create-Job Send-Document Release-Job>
     AuthType Basic
-    Require user root
+    Require user onemind
     Order allow,deny
     Allow localhost
+  </Limit>
+  # In particular, job edits, moves, restarts and bulk releases are denied.
+  <Limit All>
+    AuthType Basic
+    Require user onemind-print-disabled
+    Order allow,deny
+    Deny all
   </Limit>
 </Policy>

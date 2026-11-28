@@ -147,17 +147,21 @@ class Config(unittest.TestCase):
         self.assertIn("Listen /run/cups/cups.sock", d)
         self.assertIn("Listen *:631", d)
 
-    def test_mutating_operations_require_local_root(self):
+    def test_only_local_gateway_identity_can_submit_or_release_jobs(self):
         policy = re.search(r"<Policy default>(.*?)</Policy>", CONF, re.S).group(1)
         limits = {op: directives(rule) for operations, rule in re.findall(r"<Limit ([^>]+)>(.*?)</Limit>", policy, re.S)
                   for op in operations.split()}
         self.assertEqual(limits.get("Get-Printer-Attributes"), ["Order deny,allow"])
-        for op in ("Print-Job", "Create-Job", "Send-Document", "Print-URI", "Send-URI", "Release-Job",
+        for op in ("Print-Job", "Create-Job", "Send-Document", "Release-Job"):
+            with self.subTest(op=op):
+                self.assertEqual(limits.get(op),
+                                 ["AuthType Basic", "Require user onemind", "Order allow,deny", "Allow localhost"])
+        for op in ("Print-URI", "Send-URI", "CUPS-Move-Job", "Hold-New-Jobs",
                    "Set-Job-Attributes", "Restart-Job", "CUPS-Authenticate-Job", "Release-Held-New-Jobs",
                    "CUPS-Create-Local-Printer", "All"):
             with self.subTest(op=op):
                 self.assertEqual(limits.get(op, limits["All"]),
-                                 ["AuthType Basic", "Require user root", "Order allow,deny", "Allow localhost"])
+                                 ["AuthType Basic", "Require user onemind-print-disabled", "Order allow,deny", "Deny all"])
 
 
 class State(unittest.TestCase):

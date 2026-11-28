@@ -240,6 +240,7 @@ type request struct {
 	path    string // with query string
 	body    any
 	retry   bool // safe to retry (GET, or POST with an idempotency key)
+	oneTime bool // consuming the response makes a replay unsafe
 	headers map[string]string
 }
 
@@ -269,6 +270,12 @@ func (c *Client) DoIdempotent(ctx context.Context, method, path, key string, bod
 func (c *Client) DoWithHeaders(ctx context.Context, method, path string, headers map[string]string, body, out any) (http.Header, error) {
 	_, keyed := headers["Idempotency-Key"]
 	return c.do(ctx, request{method: method, path: path, body: body, retry: method == http.MethodGet || keyed, headers: headers}, out)
+}
+
+// DoOnceWithHeaders sends a request whose response may consume one-time material.
+func (c *Client) DoOnceWithHeaders(ctx context.Context, method, path string, headers map[string]string, body, out any) error {
+	_, err := c.do(ctx, request{method: method, path: path, body: body, oneTime: true, headers: headers}, out)
+	return err
 }
 
 func (c *Client) do(ctx context.Context, r request, out any) (http.Header, error) {
@@ -302,7 +309,7 @@ func (c *Client) do(ctx context.Context, r request, out any) (http.Header, error
 			return hdr, nil
 		}
 		last = err
-		if status == http.StatusUnauthorized && !refreshed {
+		if status == http.StatusUnauthorized && !refreshed && !r.oneTime {
 			refreshed = true
 			if ok, _ := c.tokens.Refresh(ctx); ok {
 				i--
@@ -344,6 +351,10 @@ func (c *Client) once(ctx context.Context, r request, payload []byte, out any) (
 	req, err := http.NewRequestWithContext(actx, r.method, c.base.String()+r.path, body)
 	if err != nil {
 		return nil, 0, err
+	}
+	if r.oneTime {
+		// The standard transport treats an Idempotency-Key as permission to replay a rewindable body.
+		req.GetBody = nil
 	}
 	token, err := c.tokens.Token(ctx)
 	if err != nil {

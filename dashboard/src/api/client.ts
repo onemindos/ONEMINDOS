@@ -136,13 +136,7 @@ export interface OneMindApi extends WiringApi {
 export interface TlsInfo { ca_sha256: string; names: string[]; not_after: string | null; https: boolean }
 
 /** POST /v1/actions/{id}/approve-options: sign `publicKey` with a passkey, then approve with the result. */
-export interface ApproveOptions {
-  challenge: string;
-  action_sha256: string;
-  plan_sha256: string | null;
-  expires_at: string;
-  publicKey: Record<string, unknown>;
-}
+export type ApproveOptions = Pick<components['schemas']['ApprovalChallenge'], 'challenge' | 'action_sha256' | 'plan_sha256' | 'expires_at' | 'publicKey'>;
 export interface FirstRunSettingsBody {
   box_name: string;
   time_zone: string;
@@ -470,21 +464,22 @@ export class HttpApi implements OneMindApi {
   }
   /** With a body (lib/approve.ts: plan hash, passkey, sealed secrets) it is sent as is. Without one,
    *  a step_up_required answer is completed here with the action-bound passkey challenge (#180). */
-  async approve(id: string, body?: ApproveBody) {
+  async approve(id: string, body?: ApproveBody): Promise<Action> {
     const path = `/v1/actions/${encodeURIComponent(id)}/approve`;
-    if (body !== undefined) return this.req<Action>('POST', path, body);
-    try { return await this.req<Action>('POST', path); }
+    // The assertion is only usable once, including when the approval response is lost.
+    if (body !== undefined) return this.sdkCall<Action>('POST', path, body, false, undefined, false);
+    try { return await this.sdkCall<Action>('POST', path, undefined, false, undefined, false); }
     catch (error) {
       if (!(error instanceof ApiError) || error.reason !== 'step_up_required') throw error;
-      const options = await this.sdkCall<components['schemas']['ApprovalChallenge']>('POST', path + '-options', {}, false, undefined, false);
+      const options = await this.approveOptions(id);
       const assertion = await getPasskey(options.publicKey);
-      return this.sdkCall<Action>('POST', path, {
+      return this.approve(id, {
         webauthn: assertion, ...(options.plan_sha256 ? { plan_sha256: options.plan_sha256 } : {}),
-      }, false, undefined, false); // a consumed authenticator assertion must never be retried automatically
+      });
     }
   }
   approveOptions(id: string) {
-    return this.req<ApproveOptions>('POST', `/v1/actions/${encodeURIComponent(id)}/approve-options`, {});
+    return this.sdkCall<ApproveOptions>('POST', `/v1/actions/${encodeURIComponent(id)}/approve-options`, {}, false, undefined, false);
   }
   deny(id: string) {
     return this.req<Action>('POST', `/v1/actions/${encodeURIComponent(id)}/deny`);

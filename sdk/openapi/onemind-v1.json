@@ -5535,6 +5535,7 @@
               "plugin.invoke",
               "plugin.key.enroll",
               "plugin.key.revoke",
+              "print.job.release",
               "source.add",
               "source.move",
               "source.remove"

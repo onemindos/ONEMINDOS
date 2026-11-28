@@ -3,12 +3,17 @@
 package cli
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	onemind "github.com/onemindos/onemindos/sdk/go"
 )
 
 type kitState struct {
@@ -25,7 +30,8 @@ type kitState struct {
 }
 
 type kitIssued struct {
-	Kit     kitState `json:"kit"`
+	Action  onemind.Action `json:"action"`
+	Kit     kitState       `json:"kit"`
 	OneTime struct {
 		OwnerKey string `json:"owner_key"`
 		DiskKey  string `json:"disk_recovery_key"`
@@ -33,11 +39,26 @@ type kitIssued struct {
 	} `json:"one_time"`
 }
 
+type kitReceipt struct {
+	ActionID string `json:"action_id"`
+	Key      string `json:"idempotency_key"`
+	Token    string `json:"delivery_token"`
+}
+
+func (r kitReceipt) body() map[string]any {
+	return map[string]any{"approve": false, "delivery_token": r.Token}
+}
+
+func (r kitReceipt) headers() map[string]string {
+	return map[string]string{"Idempotency-Key": r.Key}
+}
+
 // recoveryCommands is `onemind recovery kit`: the printed emergency kit (D-028). `status` shows where the kit
-// stands and never a key. `issue` asks the gateway for a new kit, which needs no backup destination. The page
+// stands and never a key. `issue` files a request and saves a private receipt. After an owner approves,
+// `collect` claims the page once. The page
 // holds the owner key and, when /data is encrypted and its key is still waiting, the disk recovery key; both
 // are shown once, so the page goes to a new 0600 file or stdout. Confirming it in Backups activates the
-// new console key. With an owner passkey on the box, use the dashboard to authorize and collect the page.
+// new console key.
 func recoveryCommands(a *App) []*cobra.Command {
 	g := &cobra.Command{Use: "recovery", Short: "Getting back in: the printed emergency kit"}
 	kit := &cobra.Command{Use: "kit", Short: "The printed emergency kit (GET/POST /v1/backups/kit)"}
@@ -67,32 +88,104 @@ func recoveryCommands(a *App) []*cobra.Command {
 			return nil
 		},
 	})
-	var out string
+	var receiptPath, out string
 	issue := &cobra.Command{
 		Use:   "issue",
-		Short: "Make a new kit; the page is shown once (needs no backup destination)",
+		Short: "Request a new kit and save its private collection receipt",
 		Args:  cobra.NoArgs,
 		RunE: func(*cobra.Command, []string) error {
 			cl, _, err := a.client()
 			if err != nil {
 				return err
 			}
-			// Open the file first so the one-time page has somewhere to go before it is issued.
+			f, err := os.OpenFile(receiptPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+			if err != nil {
+				return exitWith(ExitError, "write_failed", "nothing was requested: "+err.Error())
+			}
+			saved := false
+			defer func() {
+				f.Close()
+				if !saved {
+					os.Remove(receiptPath)
+				}
+			}()
+			var token [32]byte
+			rand.Read(token[:]) // Go 1.26 guarantees success or terminates the process.
+			r := kitReceipt{Key: onemind.NewIdempotencyKey(), Token: hex.EncodeToString(token[:])}
+			var pending onemind.Action
+			if err := cl.DoOnceWithHeaders(bg(), http.MethodPost, "/v1/backups/kit", r.headers(), r.body(), &pending); err != nil {
+				return err
+			}
+			if pending.Id == "" || pending.Type != "backup.kit.issue" || pending.State != "awaiting_approval" || pending.IdempotencyKey != r.Key {
+				return exitWith(ExitError, "unexpected_response", "the hub did not return the pending kit request")
+			}
+			r.ActionID = pending.Id
+			if err := json.NewEncoder(f).Encode(r); err != nil {
+				return exitWith(ExitError, "write_failed", "the request was filed but its receipt could not be saved; file a new request")
+			}
+			if err := f.Close(); err != nil {
+				return exitWith(ExitError, "write_failed", "the request was filed but its receipt could not be saved; file a new request")
+			}
+			saved = true
+			if a.G.JSON {
+				return printJSON(a.Stdout, pending)
+			}
+			fmt.Fprintf(a.Stdout, "Requested %s. Approve it in Approvals, then run onemind recovery kit collect with the receipt file.\n", sanitize(pending.Id))
+			return nil
+		},
+	}
+	issue.Flags().StringVar(&receiptPath, "receipt", "", "save the private receipt to this new file (mode 0600)")
+	_ = issue.MarkFlagRequired("receipt")
+	collect := &cobra.Command{
+		Use:   "collect RECEIPT",
+		Short: "Collect the recovery page once after an owner approves the request",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			cl, _, err := a.client()
+			if err != nil {
+				return err
+			}
+			var r kitReceipt
+			data, err := os.ReadFile(args[0])
+			if err != nil {
+				return err
+			}
+			if err := json.Unmarshal(data, &r); err != nil || r.ActionID == "" || r.Key == "" || len(r.Token) != 64 {
+				return exitWith(ExitUsage, "usage", "invalid kit receipt")
+			}
+			action, err := cl.Actions.Get(bg(), r.ActionID)
+			if err != nil {
+				return err
+			}
+			if action.Type != "backup.kit.issue" || action.IdempotencyKey != r.Key {
+				return exitWith(ExitUsage, "usage", "receipt does not match the kit request")
+			}
+			if action.State == "awaiting_approval" || action.State == "accepted" || action.State == "dispatched" {
+				return exitWith(ExitPending, "pending", "the kit is waiting for owner approval or issuance")
+			}
+			if action.State != "succeeded" {
+				return exitWith(ExitConflict, "conflict", "the kit was not issued; file a new request")
+			}
+			// Reserve the output path before consuming the one-time page.
 			var f *os.File
 			if out != "" {
 				f, err = os.OpenFile(out, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 				if err != nil {
-					return exitWith(ExitError, "write_failed", "nothing was issued: "+out+" cannot be created ("+err.Error()+
+					return exitWith(ExitError, "write_failed", "nothing was collected: "+out+" cannot be created ("+err.Error()+
 						"); choose a new file name")
 				}
 			}
 			var k kitIssued
-			if err := cl.Do(bg(), http.MethodPost, "/v1/backups/kit", map[string]any{}, &k); err != nil {
-				if f != nil { // nothing was issued: leave no empty file behind
+			err = cl.DoOnceWithHeaders(bg(), http.MethodPost, "/v1/backups/kit", r.headers(), r.body(), &k)
+			if err != nil || k.Action.Id != r.ActionID || k.OneTime.Text == "" {
+				if f != nil {
 					f.Close()
 					os.Remove(out)
 				}
-				return err
+				if err != nil {
+					return err
+				}
+				return exitWith(ExitError, "unexpected_response", "the hub did not return the requested kit page")
 			}
 			if f != nil {
 				_, werr := f.WriteString(k.OneTime.Text)
@@ -115,8 +208,8 @@ func recoveryCommands(a *App) []*cobra.Command {
 			return err
 		},
 	}
-	issue.Flags().StringVar(&out, "out", "", "write the kit page to this new file (mode 0600) instead of the terminal")
-	kit.AddCommand(issue)
+	collect.Flags().StringVar(&out, "out", "", "write the kit page to this new file (mode 0600) instead of the terminal")
+	kit.AddCommand(issue, collect)
 	g.AddCommand(kit)
 	return []*cobra.Command{g}
 }

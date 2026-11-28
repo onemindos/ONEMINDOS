@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import secrets
 from dataclasses import replace
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -504,6 +505,22 @@ def test_cold_backup_scales_every_stopped_app_back_up_when_stopping_fails_midway
 
 
 # ---- emergency kit ---------------------------------------------------------------------------------
+def test_separate_kit_request_on_a_box_without_passkeys_stays_pending(client, bk):
+    assert not client.app.state.identity.passkeys_active()
+    headers = {**OWNER, "Idempotency-Key": "separate-kit-request"}
+    body = {"approve": False, "delivery_token": secrets.token_hex(32)}
+    request = client.post("/v1/backups/kit", headers=headers, json=body)
+    assert request.status_code == 202, request.text
+    action = request.json()
+    assert action["state"] == "awaiting_approval" and "one_time" not in action
+    assert client.get("/v1/backups/kit", headers=OWNER).json()["state"] == "missing"
+    assert client.post("/v1/backups/kit", headers=headers, json=body).status_code == 202
+    assert approve(client, action["id"])["state"] == "succeeded"
+    issued = client.post("/v1/backups/kit", headers=headers, json=body)
+    assert issued.status_code == 201 and issued.json()["one_time"]["text"]
+    assert client.post("/v1/backups/kit", headers=headers, json=body).status_code == 409
+
+
 def test_emergency_kit_is_shown_once_and_must_be_typed_back(client, bk, settings):
     assert client.post("/v1/backups/kit", headers=ADULT).status_code == 403
     add_usb(client, bk)

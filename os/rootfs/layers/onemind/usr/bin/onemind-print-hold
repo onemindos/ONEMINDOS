@@ -1,0 +1,18 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# Run as root with the document on stdin. The destination and title cannot supply CUPS options.
+set -eu
+[ "$(id -u)" -eq 0 ] && [ "$#" -eq 2 ] || {
+    echo 'usage: sudo onemind-print-hold PRINTER TITLE < DOCUMENT' >&2; exit 2;
+}
+case "$1" in ''|*[!a-zA-Z0-9_.-]*|[-.]* ) exit 2;; esac
+case "$2" in ''|*[!\ -~]* ) exit 2;; esac
+[ "${#1}" -le 127 ] && [ "${#2}" -le 120 ] || exit 2
+nonce=$(cat /proc/sys/kernel/random/uuid)
+title="$nonce $2"
+reply=$(/usr/sbin/runuser -u onemind -- /usr/bin/env -i LC_ALL=C /usr/bin/lp \
+    -h /run/cups/cups.sock -d "$1" -H hold -t "$title" -)
+job=${reply#request id is }
+job=${job%% *}
+case "$job" in "$1"-[0-9]*) ;; *) echo 'CUPS did not return a held job ID' >&2; exit 1;; esac
+printf '%s\n%s\n' "$job" "$title"

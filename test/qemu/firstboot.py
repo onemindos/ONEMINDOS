@@ -1308,7 +1308,13 @@ def printing(vm, tid, mode):
     """Printing (CRITERIA-FIRSTBOOT.md section 20): FP1 on the first boot, FP2 after the reboot, FP3 after the update.
     test/qemu/print-proof.sh runs in the guest as root (the owner) and prints KEY=value lines; judged here."""
     send_file(vm, "/run/print-proof.sh", open(os.path.join(HERE, "print-proof.sh")).read())
-    _, out = vm.run(f"sh /run/print-proof.sh {mode}; rm -f /run/print-proof.sh /run/onemind-print-test.ppd", 420)
+    for source, target in (("../printing/approve.py", "print-approve.py"),
+                           ("../../core/tests/soft_authenticator.py", "print-authenticator.py")):
+        with open(os.path.join(HERE, source)) as f:
+            send_file(vm, f"/run/{target}", f.read())
+        vm.run(f"chmod 644 /run/{target}")
+    _, out = vm.run(f"sh /run/print-proof.sh {mode}; rm -f /run/print-proof.sh /run/onemind-print-test.ppd "
+                    "/run/print-approve.py /run/print-authenticator.py", 420)
     g = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or [""])[-1]
     mnt = {m: g("MNT_" + m) for m in ("etc_cups", "var_spool_cups", "var_cache_cups", "var_lib_ipp_usb")}
     ctl = g("CTL")
@@ -1319,6 +1325,8 @@ def printing(vm, tid, mode):
                                               for n, v in mnt.items()),
          "defaults_off": all(f"_{k}=0" in ctl for k in ("remote_admin", "remote_any", "share_printers", "user_cancel_any")),
          "web_200": g("HTTP_ROOT") == "200", "admin_401": g("HTTP_ADMIN") == "401",
+         "direct_denied": g("DIRECT_SUBMIT_RC") not in ("", "0") and g("DIRECT_RELEASE_RC") not in ("", "0"),
+         "queued_owner_release": g("QUEUED_OWNER_RELEASE") == "ok",
          "filedevice_off_before": g("FILEDEV_BEFORE") == "0", "printed": g("LP_RC") == "0" and g("OUT_HEAD") == "%PDF"
          and g("OUT_SIZE").isdigit() and int(g("OUT_SIZE")) >= 1000,
          "filedevice_off_after": g("FILEDEV_AFTER") == "0", "finished": "PRINT-PROOF-DONE" in out}

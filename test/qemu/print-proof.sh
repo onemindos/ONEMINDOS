@@ -1,7 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: Apache-2.0
-# Printing proof, run inside the guest by firstboot.py (FP1-FP3, CRITERIA-FIRSTBOOT.md section 9) as root, which
-# plays the owner. Prints KEY=value lines; the harness judges them.
+# Printing proof, run inside the guest by firstboot.py (FP1-FP3, sections 20 and 26).
+# Root sets up the test queue and the gateway checks the owner's passkey. The harness judges KEY=value lines.
 #   print-proof.sh baseline   first boot: packages, services, defaults, a non-owner is refused, add a queue, print
 #   print-proof.sh again      after a reboot or an A/B update: the queue and the defaults are still there, print again
 mode=${1:-baseline}
@@ -91,7 +91,14 @@ fi
 
 # A "file:" device is refused unless FileDevice Yes: on only for the add and the print, then off again.
 rm -f "$OUT"
-lp -d "$Q" -t onemind-testpage /usr/share/cups/data/default-testpage.pdf
+lp -h /run/cups/cups.sock -d "$Q" -t onemind-testpage /usr/share/cups/data/default-testpage.pdf </dev/null
+echo "DIRECT_SUBMIT_RC=$?"
+receipt=$(/usr/bin/onemind-print-hold "$Q" onemind-testpage </usr/share/cups/data/default-testpage.pdf)
+job=$(printf '%s\n' "$receipt" | head -1)
+title=$(printf '%s\n' "$receipt" | tail -1)
+lp -h /run/cups/cups.sock -i "$job" -H resume </dev/null
+echo "DIRECT_RELEASE_RC=$?"
+runuser -u onemind -- /usr/lib/onemind/gateway/venv/bin/python3 -I /run/print-approve.py /run/print-authenticator.py "$job" "$title" "$OUT"
 echo "LP_RC=$?"
 for _ in $(seq 1 90); do
   [ -s "$OUT" ] && [ -z "$(lpstat -o "$Q" 2>/dev/null)" ] && break

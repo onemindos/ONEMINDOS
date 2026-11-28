@@ -3,11 +3,15 @@
 package cli
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 )
 
@@ -20,11 +24,20 @@ var (
 )
 
 // kitHub answers the kit routes with the shapes of core/onemind_core/routers/backups.py.
-func kitHub(t *testing.T, issueStatus int) *int {
+type kitHubState struct {
+	issues, collections atomic.Int32
+	approved            atomic.Bool
+}
+
+func kitHub(t *testing.T, deliveryStatus int) *kitHubState {
 	t.Helper()
 	isolate(t)
-	issues := new(int)
+	state := &kitHubState{}
+	var mu sync.Mutex
+	var key, token string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
 		if r.Header.Get("Authorization") != "Bearer "+ownerTok {
 			jsonOut(w, 401, map[string]string{"error": "unauthenticated", "message": "no"})
 			return
@@ -35,13 +48,40 @@ func kitHub(t *testing.T, issueStatus int) *int {
 				"fingerprint": "0123456789abcdef", "positions": []int{2, 9}, "disk_key_included": kitDiskKeyHere,
 				"disk_key_kit":           map[string]string{"fingerprint": "fedcba9876543210", "issued_at": "2026-11-20T08:00:00Z"},
 				"uncovered_destinations": []string{"dst_usb"}})
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/actions/a_kit":
+			actionState := "awaiting_approval"
+			if state.approved.Load() {
+				actionState = "succeeded"
+			}
+			jsonOut(w, 200, map[string]any{"id": "a_kit", "type": "backup.kit.issue", "state": actionState, "idempotency_key": key})
 		case r.Method == http.MethodPost && r.URL.Path == "/v1/backups/kit":
-			*issues++
-			if issueStatus != 201 {
-				jsonOut(w, issueStatus, map[string]string{"error": "unauthenticated", "message": "approvals need a passkey on this box", "reason": "step_up_required"})
+			var body struct {
+				Approve *bool  `json:"approve"`
+				Token   string `json:"delivery_token"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Approve == nil || *body.Approve || len(body.Token) != 64 || r.Header.Get("Idempotency-Key") == "" {
+				t.Error("kit POST must request separate approval with a key and a delivery token")
+				jsonOut(w, 422, map[string]string{"error": "conflict", "message": "expected separate approval"})
 				return
 			}
-			jsonOut(w, 201, map[string]any{"kit": map[string]any{"state": "issued", "fingerprint": "0123456789abcdef",
+			if !state.approved.Load() {
+				state.issues.Add(1)
+				key, token = r.Header.Get("Idempotency-Key"), body.Token
+				jsonOut(w, 202, map[string]any{"id": "a_kit", "type": "backup.kit.issue", "state": "awaiting_approval", "idempotency_key": key})
+				return
+			}
+			if r.Header.Get("Idempotency-Key") != key || body.Token != token {
+				t.Error("collection did not reuse the original credentials")
+			}
+			if state.collections.Add(1) != 1 && deliveryStatus == 201 {
+				jsonOut(w, 409, map[string]string{"error": "stale_precondition", "message": "the kit was already collected"})
+				return
+			}
+			if deliveryStatus != 201 {
+				jsonOut(w, deliveryStatus, map[string]string{"error": "unavailable", "message": "delivery was interrupted"})
+				return
+			}
+			jsonOut(w, 201, map[string]any{"action": map[string]string{"id": "a_kit"}, "kit": map[string]any{"state": "issued", "fingerprint": "0123456789abcdef",
 				"disk_key_included": true, "uncovered_destinations": []string{}},
 				"one_time": map[string]any{"owner_key": testKitKey, "disk_recovery_key": testDiskKey,
 					"text": "ONEMIND EMERGENCY KIT\n" + testKitKey + "\n" + testDiskKey + "\n"}})
@@ -52,7 +92,7 @@ func kitHub(t *testing.T, issueStatus int) *int {
 	t.Cleanup(srv.Close)
 	t.Setenv("ONEMIND_HUB", srv.URL)
 	t.Setenv("ONEMIND_TOKEN", ownerTok)
-	return issues
+	return state
 }
 
 func TestRecoveryKitStatusShowsTheStateAndNoKey(t *testing.T) {
@@ -77,10 +117,39 @@ func TestRecoveryKitStatusNamesTheKitThatHoldsTheDiskKey(t *testing.T) {
 	}
 }
 
-func TestRecoveryKitIssueWritesAPrivateFileOnceAndNeverOverwrites(t *testing.T) {
-	issues := kitHub(t, 201)
+func TestRecoveryKitIssueOnlyFilesAPendingRequestOnABoxWithoutPasskeys(t *testing.T) {
+	state := kitHub(t, 201)
+	receipt := filepath.Join(t.TempDir(), "receipt.json")
+	r := run(t, "", false, "--json", "recovery", "kit", "issue", "--receipt", receipt)
+	if r.code != 0 || !strings.Contains(r.out, `"awaiting_approval"`) || strings.Contains(r.out, `"delivery_token":`) || strings.Contains(r.out, testKitKey) {
+		t.Fatalf("issue %+v", r)
+	}
+	if st, err := os.Stat(receipt); err != nil || st.Mode().Perm() != 0o600 {
+		t.Fatalf("private receipt missing or has incorrect permissions: %v %v", st, err)
+	}
+	if r := run(t, "", false, "recovery", "kit", "collect", receipt); r.code != ExitPending || strings.Contains(r.out, testKitKey) {
+		t.Fatalf("collected pending kit %+v", r)
+	}
+	if state.issues.Load() != 1 || state.collections.Load() != 0 {
+		t.Fatal("request performed extra POSTs")
+	}
+}
+
+func requestKit(t *testing.T, state *kitHubState) string {
+	t.Helper()
+	receipt := filepath.Join(t.TempDir(), "receipt.json")
+	if r := run(t, "", false, "recovery", "kit", "issue", "--receipt", receipt); r.code != 0 {
+		t.Fatalf("request %+v", r)
+	}
+	state.approved.Store(true)
+	return receipt
+}
+
+func TestRecoveryKitCollectWritesAPrivateFileOnceAndNeverOverwrites(t *testing.T) {
+	state := kitHub(t, 201)
+	receipt := requestKit(t, state)
 	path := filepath.Join(t.TempDir(), "kit.txt")
-	r := run(t, "", false, "recovery", "kit", "issue", "--out", path)
+	r := run(t, "", false, "recovery", "kit", "collect", receipt, "--out", path)
 	if r.code != 0 || strings.Contains(r.out, testKitKey) || strings.Contains(r.out, testDiskKey) {
 		t.Fatalf("issue --out %+v: the keys must go to the file only", r)
 	}
@@ -91,40 +160,44 @@ func TestRecoveryKitIssueWritesAPrivateFileOnceAndNeverOverwrites(t *testing.T) 
 	if st, _ := os.Stat(path); st.Mode().Perm() != 0o600 {
 		t.Errorf("kit file mode %v, want 0600", st.Mode().Perm())
 	}
-	again := run(t, "", false, "recovery", "kit", "issue", "--out", path)
-	if again.code == 0 || !strings.Contains(again.errOut, "nothing was issued") {
+	again := run(t, "", false, "recovery", "kit", "collect", receipt, "--out", path)
+	if again.code == 0 || !strings.Contains(again.errOut, "nothing was collected") {
 		t.Fatalf("overwrite %+v", again)
 	}
 	if b2, _ := os.ReadFile(path); string(b2) != string(b) {
 		t.Error("an existing file was overwritten")
 	}
 	// The file is opened before the POST so the gateway does not issue a page without a place to save it.
-	if *issues != 1 {
-		t.Errorf("issues = %d, want 1: an existing --out file must not issue a kit", *issues)
+	if got := state.collections.Load(); got != 1 {
+		t.Errorf("collections = %d, want 1: an existing --out file must not consume the kit", got)
 	}
 }
 
-func TestRecoveryKitIssueLeavesNoEmptyFileWhenTheGatewayRefuses(t *testing.T) {
-	issues := kitHub(t, 401)
-	path := filepath.Join(t.TempDir(), "kit.txt")
-	if r := run(t, "", false, "recovery", "kit", "issue", "--out", path); r.code == 0 {
-		t.Fatalf("a refused issue succeeded %+v", r)
-	}
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		t.Errorf("an empty kit file was left behind: %v", err)
-	}
-	if *issues != 1 {
-		t.Errorf("issues = %d", *issues)
+func TestRecoveryKitCollectLeavesNoEmptyFileAndDoesNotRetry(t *testing.T) {
+	for _, status := range []int{http.StatusUnauthorized, http.StatusServiceUnavailable} {
+		t.Run(fmt.Sprint(status), func(t *testing.T) {
+			state := kitHub(t, status)
+			receipt := requestKit(t, state)
+			path := filepath.Join(t.TempDir(), "kit.txt")
+			if r := run(t, "", false, "recovery", "kit", "collect", receipt, "--out", path); r.code == 0 {
+				t.Fatalf("a refused collection succeeded %+v", r)
+			}
+			if _, err := os.Stat(path); !os.IsNotExist(err) {
+				t.Errorf("an empty kit file was left behind: %v", err)
+			}
+			if got := state.collections.Load(); got != 1 {
+				t.Errorf("collections = %d, want exactly one attempt", got)
+			}
+		})
 	}
 }
 
-func TestRecoveryKitIssueToTerminalAndRefusedWithoutAPasskey(t *testing.T) {
-	kitHub(t, 201)
-	if r := run(t, "", false, "recovery", "kit", "issue"); r.code != 0 || !strings.Contains(r.out, testKitKey) {
+func TestRecoveryKitCollectToTerminalOnlyOnce(t *testing.T) {
+	receipt := requestKit(t, kitHub(t, 201))
+	if r := run(t, "", false, "recovery", "kit", "collect", receipt); r.code != 0 || !strings.Contains(r.out, testKitKey) {
 		t.Fatalf("stdout issue %+v", r)
 	}
-	kitHub(t, 401)
-	r := run(t, "", false, "recovery", "kit", "issue")
+	r := run(t, "", false, "recovery", "kit", "collect", receipt)
 	if r.code == 0 || strings.Contains(r.out+r.errOut, testKitKey) {
 		t.Fatalf("refused issue %+v", r)
 	}

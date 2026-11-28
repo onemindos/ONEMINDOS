@@ -8,13 +8,16 @@ Use the default bridge network so TCP has a non-loopback address to test.
 import http.client
 import os
 from pathlib import Path
+import pwd
 import re
+from runpy import run_path
 import select
 import socket
 import ssl
 import struct
 import subprocess
 import time
+import traceback
 
 
 CUPS = Path("/etc/cups")
@@ -91,7 +94,7 @@ def assert_device_tls():
 def check_release(receiver):
     port = receiver.getsockname()[1]
     run("lpadmin", "-h", SOCKET, "-p", QUEUE, "-E", "-v", f"socket://127.0.0.1:{port}",
-        "-m", "drv:///sample.drv/generic.ppd", "-o", "printer-is-shared=true")
+        "-m", "raw", "-o", "printer-is-shared=true")
     lan = socket.gethostbyname(socket.gethostname())
     assert not lan.startswith("127."), "the fixture needs a non-loopback LAN address"
     assert ipp(lan, 0x000B) == (200, 0), "Get-Printer-Attributes must reach the shared queue from the LAN"
@@ -104,16 +107,41 @@ def check_release(receiver):
         stdin=subprocess.DEVNULL, capture_output=True, timeout=15,
     )
     assert local_submit.returncode != 0, "unprivileged Unix socket print succeeded"
-    assert not select.select([receiver], [], [], 0.1)[0], "a rejected job reached the printer"
+    direct = subprocess.run(["lp", "-h", SOCKET, "-d", QUEUE, str(PAGE)],
+                            stdin=subprocess.DEVNULL, capture_output=True, timeout=15)
+    assert direct.returncode != 0, "root bypassed the gateway and printed directly"
 
-    queued = run("lp", "-h", SOCKET, "-d", QUEUE, "-H", "hold", "-o", "raw", str(PAGE))
-    job_id = re.search(rf"{QUEUE}-(\d+)", queued).group(1)
-    assert not select.select([receiver], [], [], 0.1)[0], "a held job printed before authorization"
+    def no_output():
+        assert not select.select([receiver], [], [], 0.2)[0], "a job reached the printer before owner approval"
+
+    no_output()
+    with PAGE.open() as document_file:
+        job, title = run("/usr/bin/onemind-print-hold", QUEUE, "test page", stdin=document_file).splitlines()
+    job_id = job.rsplit("-", 1)[1]
+    no_output()
     for host in (lan, "127.0.0.1"):
         assert_denied(host, 0x000D, job=job_id)  # Release-Job
-    assert not select.select([receiver], [], [], 0.1)[0], "an unauthorized release reached the printer"
+    direct = subprocess.run(["lp", "-h", SOCKET, "-i", job, "-H", "resume"],
+                            stdin=subprocess.DEVNULL, capture_output=True, timeout=15)
+    assert direct.returncode != 0, "root released a held job without owner approval"
+    no_output()
 
-    run("lp", "-h", SOCKET, "-i", f"{QUEUE}-{job_id}", "-H", "resume")
+    path = Path(__file__)
+    child = os.fork()
+    if child == 0:
+        try:
+            user = pwd.getpwnam("onemind")
+            os.setgroups([])
+            os.setgid(user.pw_gid)
+            os.setuid(user.pw_uid)
+            auth = run_path(path.parents[2] / "core/tests/soft_authenticator.py")["SoftAuthenticator"]
+            run_path(path.with_name("approve.py"))["approved_release"](auth, job, title, no_output)
+        except Exception:
+            traceback.print_exc()
+            os._exit(1)
+        os._exit(0)
+    assert os.waitpid(child, 0)[1] == 0, "gateway approval proof failed"
+
     receiver.settimeout(10)
     connection, _ = receiver.accept()
     with connection, connection.makefile("rb") as printed:
