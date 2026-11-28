@@ -14,7 +14,7 @@ from onemind_core.automation.registry import automatable, policy_may_cover
 
 from conftest import ADULT, AGENT, OWNER
 from test_backups import FakeAgent, approve
-from test_identity import SoftAuthenticator, csrf, idc, register_passkey, setup_owner
+from test_identity import SoftAuthenticator, csrf, idc, new_session_client, register_passkey, setup_owner
 
 START = "/v1/backups/copies"
 DISCOVER = "/v1/onboarding/restore/copy"
@@ -83,6 +83,11 @@ def make_kit(client, headers):
     response = client.post("/v1/backups/kit", headers=headers)
     assert response.status_code == 201, response.text
     issued = response.json()
+
+    return confirm_kit(client, headers, issued)
+
+
+def confirm_kit(client, headers, issued):
     kit = issued["one_time"]
     answers = {str(i): kit["groups"][i - 1] for i in issued["kit"]["positions"]}
     assert client.post("/v1/backups/kit/confirm", headers=headers, json={"answers": answers}).status_code == 200
@@ -104,14 +109,14 @@ def copy_box(client, clock, tmp_path):
     return svc, {"destination_id": dest_id, "recovery_key": recovery_key}, box, root, signer
 
 
-def test_existing_passkey_owner_can_publish_to_new_target(idc, clock, tmp_path):
+@pytest.mark.parametrize("issue_key", ["first-kit-after-passkey", None])
+def test_existing_passkey_owner_can_publish_to_new_target(idc, clock, tmp_path, issue_key):
     svc, box, root, _ = provision_copy(idc, clock, tmp_path)
     setup_owner(idc)
     headers = csrf(idc)
     dest = idc.post("/v1/backups/destinations", headers=headers, json={
         "kind": "usb", "label": "Existing disk", "config": {"usb_uuid": "original"}, "approve": True})
     assert dest.status_code == 202 and dest.json()["state"] == "succeeded", dest.text
-    recovery_key = make_kit(idc, headers)
     authenticator = SoftAuthenticator()
     register_passkey(idc, authenticator)
     assert idc.app.state.identity.passkeys_active()
@@ -124,6 +129,34 @@ def test_existing_passkey_owner_can_publish_to_new_target(idc, clock, tmp_path):
         result = idc.post(url + "/approve", headers=headers, json={"webauthn": assertion})
         assert result.status_code == 200 and result.json()["state"] == "succeeded", result.text
         return result.json()
+
+    issue = "/v1/backups/kit"
+    assert idc.get(issue, headers=headers).json()["state"] == "missing"
+    issue_headers = {**headers, **({"Idempotency-Key": issue_key} if issue_key else {})}
+    pending = idc.post(issue, headers=issue_headers)
+    assert pending.status_code == 401 and pending.json()["reason"] == "step_up_required", pending.text
+    actions = idc.get("/v1/actions", headers=headers).json()
+    action = next(a for a in actions if a["type"] == "backup.kit.issue")
+    action_url = f"/v1/actions/{action['id']}"
+    assert action["state"] == "awaiting_approval"
+    assert "backup.key.add" not in svc.agent.kinds()
+    assert idc.post(action_url + "/approve", headers=headers).status_code == 401
+    approved = step_up(action)
+    assert "one_time" not in approved
+
+    retry_headers = {**headers, "Idempotency-Key": issue_key or pending.headers["Idempotency-Key"]}
+    with new_session_client(idc) as other:
+        wrong_owner = other.post(issue, headers={**OWNER, "Idempotency-Key": retry_headers["Idempotency-Key"]})
+    assert wrong_owner.status_code == 409 and "one_time" not in wrong_owner.json(), wrong_owner.text
+    issued = idc.post(issue, headers=retry_headers)
+    assert issued.status_code == 201 and issued.headers["Cache-Control"] == "no-store", issued.text
+    assert issued.json()["action"]["id"] == action["id"]
+    assert pending.headers["Location"] == action_url
+    assert pending.headers["Idempotency-Key"] == retry_headers["Idempotency-Key"]
+    replay = idc.post(issue, headers=retry_headers)
+    assert replay.status_code == 409 and "one_time" not in replay.json(), replay.text
+    assert svc.agent.kinds().count("backup.key.add") == 1
+    recovery_key = confirm_kit(idc, headers, issued.json())
 
     new_dest = idc.post("/v1/backups/destinations", headers=headers, json={
         "kind": "usb", "label": "Owner NAS", "config": {"usb_uuid": "nas", "sovereign": True}})
@@ -170,6 +203,24 @@ def test_copy_replay_preserves_original_run(client, clock, copy_box):
     assert other.status_code == 202 and other.json()["state"] == "succeeded", other.text
     conflict = client.post(START, headers=headers,
                            json={**body, "destination_id": other.json()["params"]["destination_id"]})
+    assert conflict.status_code == 409, conflict.text
+
+
+def test_copy_replays_after_destination_removal(client, copy_box):
+    _, body, _, _, _ = copy_box
+    headers = {**OWNER, "Idempotency-Key": "retry-after-destination-removal"}
+    first = client.post(START, headers=headers, json=body)
+    assert first.status_code == 202, first.text
+    removed = client.delete(f"/v1/backups/destinations/{body['destination_id']}", headers=OWNER)
+    assert removed.status_code == 202, removed.text
+    assert approve(client, removed.json()["id"])["state"] == "succeeded"
+
+    replay = client.post(START, headers=headers, json=body)
+    assert replay.status_code == 202, replay.text
+    assert replay.headers["OneMind-Idempotent-Replay"] == "true"
+    assert replay.json() == first.json()
+    assert client.post(START, headers=OWNER, json=body).status_code == 404
+    conflict = client.post(START, headers=headers, json={**body, "destination_id": "dst_0000000000000000"})
     assert conflict.status_code == 409, conflict.text
 
 

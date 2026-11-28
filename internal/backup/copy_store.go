@@ -8,14 +8,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -26,81 +23,6 @@ type copyStore interface {
 	get(context.Context, string, int64) ([]byte, error)
 	records(context.Context) ([]string, error)
 	close()
-}
-
-type nasCopyStore struct{ *os.Root }
-
-func (s nasCopyStore) close() { _ = s.Close() }
-
-func (s nasCopyStore) put(_ context.Context, key string, data []byte) error {
-	dir := path.Dir(key)
-	if err := s.MkdirAll(dir, 0o700); err != nil {
-		return err
-	}
-	tmp := dir + "/." + NewRunID(time.Now().UTC())
-	f, err := s.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-	if err != nil {
-		return err
-	}
-	defer s.Remove(tmp)
-	_, err = f.Write(data)
-	if err = errors.Join(err, f.Sync(), f.Close()); err != nil {
-		return err
-	}
-	linkErr := s.Link(tmp, key)
-	if linkErr != nil && !errors.Is(linkErr, os.ErrExist) {
-		return linkErr
-	}
-	// Persist the publication and the newly created directories up to the mount.
-	for {
-		d, err := s.Open(dir)
-		if err != nil {
-			return err
-		}
-		if err = errors.Join(d.Sync(), d.Close()); err != nil {
-			return err
-		}
-		if dir == "." {
-			return linkErr
-		}
-		dir = path.Dir(dir)
-	}
-}
-
-func (s nasCopyStore) get(_ context.Context, key string, max int64) ([]byte, error) {
-	fi, err := s.Lstat(key)
-	if err != nil {
-		return nil, err
-	}
-	if !fi.Mode().IsRegular() {
-		return nil, errors.New("copy object is not a regular file")
-	}
-	f, err := s.Open(key)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	return readCopyObject(f, max)
-}
-
-func (s nasCopyStore) records(_ context.Context) ([]string, error) {
-	entries, err := fs.ReadDir(s.FS(), ".")
-	if err != nil {
-		return nil, err
-	}
-	var ids []string
-	for _, entry := range entries {
-		if !entry.IsDir() || !copyID(entry.Name()) {
-			continue
-		}
-		if fi, err := s.Lstat(entry.Name() + "/complete.json"); err == nil && fi.Mode().IsRegular() {
-			ids = append(ids, entry.Name())
-		} else if err != nil && !errors.Is(err, os.ErrNotExist) {
-			// The record read can reject this candidate without hiding the others.
-			ids = append(ids, entry.Name())
-		}
-	}
-	return ids, nil
 }
 
 type s3CopyStore struct {
@@ -161,30 +83,7 @@ func (a *Agent) openCopyStore(t Target, box string, write bool) (copyStore, erro
 		if mounted, err := a.IsMount(mount); !t.AllowNonMountDir && (err != nil || !mounted) {
 			return nil, errors.New("backup destination is not mounted")
 		}
-		root, err := os.OpenRoot(mount)
-		if err != nil {
-			return nil, err
-		}
-		defer root.Close()
-		if write {
-			if err := root.MkdirAll(prefix, 0o700); err != nil {
-				return nil, err
-			}
-			for _, name := range []string{path.Dir(prefix), "boxes", "."} {
-				dir, err := root.Open(name)
-				if err != nil {
-					return nil, err
-				}
-				if err := errors.Join(dir.Sync(), dir.Close()); err != nil {
-					return nil, err
-				}
-			}
-		}
-		r, err := root.OpenRoot(prefix)
-		if err != nil {
-			return nil, err
-		}
-		return nasCopyStore{r}, nil
+		return openNASCopyStore(mount, box, write)
 	case KindS3:
 		u, err := url.Parse(t.Endpoint)
 		if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" ||

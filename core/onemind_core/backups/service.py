@@ -133,7 +133,8 @@ class BackupService:
         self.worker = Worker(inline)
         self.builtins = None  # the built-in registry (builtins.py); the router sets it (#616)
         self._pending_secrets: dict[str, dict] = {}  # action id -> destination credentials (memory only)
-        self._one_time: dict[str, dict] = {}
+        self._kit_lock = threading.Lock()
+        self._one_time: tuple[str, dict] | None = None  # latest kit's action id and one-time payload, memory only
         # action id -> (owner recovery key, expiry): a first-run restore from another box's backup. Memory only, never in
         # the action's params, the audit log or the database; dropped when used, expired or the gateway restarts.
         self._pending_keys: dict[str, tuple[str, datetime]] = {}
@@ -1060,20 +1061,28 @@ class BackupService:
             return
         now = self.gw.clock()
         ch = challenge(key)
-        self.repo.put_kit(KitRow(id="kit", state="issued", fingerprint=key.fingerprint, challenge=ch, issued_at=utc(now),
-                                 confirmed_at=None, attempts=0))
-        self._one_time[a.id] = {
+        payload = {
             "owner_key": key.password, "groups": list(key.groups), "check": key.check,
             "qr_payload": f"onemind-kit:v1?key={key.password}&box={self.gw.settings.node_id or ''}",
             "text": kit_text(box_name=self.gw.settings.instance_name, instance_id=self.gw.settings.node_id or "",
                              key=key, destinations=dests, issued_at=now),
         }
+        with self._kit_lock:
+            self.repo.put_kit(KitRow(id="kit", state="issued", fingerprint=key.fingerprint, challenge=ch, issued_at=utc(now),
+                                     confirmed_at=None, attempts=0))
+            self._one_time = (a.id, payload)
         self._event("kit.issued", {"fingerprint": key.fingerprint, "destinations": len(dests)}, action_id=a.id)
         finish(ExecResult("succeeded", "emergency kit issued; it is shown once",
                           [{"fingerprint": key.fingerprint, "destinations": res}]))
 
     def take_one_time(self, action_id: str) -> dict | None:
-        return self._one_time.pop(action_id, None)
+        with self._kit_lock:
+            if self._one_time is None or self._one_time[0] != action_id:
+                return None
+            kit = self.kit_state()
+            payload = self._one_time[1]
+            self._one_time = None
+            return {"kit": kit, "one_time": payload}
 
     def confirm_kit(self, principal, answers: dict[str, str]) -> dict:
         k = self.repo.kit()

@@ -29,7 +29,7 @@ from ..backups.settings import BackupsSettings
 from ..boxbundle.sovereign import KEY
 from ..catalog import APP_ID_RE
 from ..context import Gateway
-from ..errors import ApiError, error_responses as _error_responses
+from ..errors import ApiError, error_response, error_responses as _error_responses
 from ..identity.scopes import register_route_scope
 from ..jsonbody import JsonBody
 from ..ledger import utc
@@ -403,21 +403,41 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def kit(_: Principal = Depends(owner)):
         return svc.kit_state()
 
-    @app.post("/v1/backups/kit", operation_id="backups.kit.issue", tags=tags, status_code=201, responses=error_responses(401, 403, 409))
+    @app.post("/v1/backups/kit", operation_id="backups.kit.issue", tags=tags, status_code=201, responses={
+        **error_responses(403, 409),
+        401: {**_error_responses(401)[401], "headers": {
+            "Location": {"description": "Action to approve when step-up is required.", "schema": {"type": "string"}},
+            "Idempotency-Key": {"description": "Key to send back after approval.", "schema": {"type": "string"}},
+        }},
+    })
     def issue_kit(request: Request, p: Principal = Depends(owner), idem: IdemHeader = None):
-        """Owner shortcut: files backup.kit.issue and approves it; the key is in this response only."""
+        """Issue the emergency kit and return its key once to the requesting owner.
+
+        If step-up is required, approve the action named by Location and retry with the returned Idempotency-Key.
+        """
         if not svc.enabled:
             raise Unavailable("backups are not switched on (ONEMIND_BACKUPS_ENABLED=1)", "backups_disabled")
-        action, created = gw.actions.request_feature(p, "backup.kit.issue", {}, idempotency_key=key(idem),
+        request_key = key(idem)
+        # The action service enforces that a replay belongs to the same requester.
+        action, created = gw.actions.request_feature(p, "backup.kit.issue", {}, idempotency_key=request_key,
                                                      expires_at=gw.clock() + timedelta(minutes=10))
-        if not created:
-            raise ApiError(409, "conflict", "this kit was already issued; it is never shown twice")
-        action = approve_as_owner(p, action["id"], request)
-        one_time = svc.take_one_time(action["id"])
-        if action["state"] != "succeeded" or one_time is None:
+        if created:
+            try:
+                action = approve_as_owner(p, action["id"], request)
+            except ApiError as exc:
+                if exc.status != 401 or exc.reason != "step_up_required":
+                    raise
+                response = error_response(exc.status, exc.error, exc.message, reason=exc.reason)
+                response.headers.update({"Location": f"/v1/actions/{action['id']}",
+                                         "Idempotency-Key": request_key, "Cache-Control": "no-store"})
+                return response
+        if action["state"] != "succeeded":
             raise ApiError(409, "stale_precondition", (action.get("result") or {}).get("message") or "the kit was not issued")
+        issued = svc.take_one_time(action["id"])
+        if issued is None:
+            raise ApiError(409, "conflict", "the kit is no longer available to collect; it is never shown twice")
         return JSONResponse(status_code=201, headers={"Cache-Control": "no-store"},
-                            content={"action": action, "kit": svc.kit_state(), "one_time": one_time})
+                            content={"action": action, **issued})
 
     @app.post("/v1/backups/kit/confirm", operation_id="backups.kit.confirm", tags=tags, responses=error_responses(401, 403, 404, 409))
     def confirm_kit(body: KitConfirmBody, p: Principal = Depends(owner)):

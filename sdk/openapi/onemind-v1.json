@@ -22949,7 +22949,7 @@
         ]
       },
       "post": {
-        "description": "Owner shortcut: files backup.kit.issue and approves it; the key is in this response only.",
+        "description": "Issue the emergency kit and return its key once to the requesting owner.\n\nIf step-up is required, approve the action named by Location and retry with the returned Idempotency-Key.",
         "operationId": "backups.kit.issue",
         "parameters": [
           {
@@ -22988,7 +22988,21 @@
                 }
               }
             },
-            "description": "Missing or unknown bearer token (unauthenticated)"
+            "description": "Missing or unknown bearer token (unauthenticated)",
+            "headers": {
+              "Idempotency-Key": {
+                "description": "Key to send back after approval.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Location": {
+                "description": "Action to approve when step-up is required.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
             "content": {

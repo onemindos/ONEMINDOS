@@ -66,13 +66,6 @@ class SovereignCopies:
         return key, trust
 
     def request(self, principal, destination_id: str, password: str, idempotency_key: str, reason: str | None):
-        dest = self._target(destination_id)
-        if not self.gw.settings.node_id or self.backups.s.copy_keys_dir is None:
-            raise ApiError(409, "stale_precondition", "provision the owner-certified export key on this box first")
-        kit = self.backups.repo.kit()
-        fingerprint = hashlib.sha256(password.encode()).hexdigest()[:16]
-        if kit is None or kit.state != "confirmed" or not hmac.compare_digest(fingerprint, kit.fingerprint):
-            raise ApiError(409, "stale_precondition", "the confirmed owner recovery key is required")
         now = utc(self.gw.clock())
         expiry = now + timedelta(hours=1)
         actions = self.gw.actions
@@ -85,6 +78,13 @@ class SovereignCopies:
                 # Let the action service check the requester and expire a due action.
                 params = existing.params
             else:
+                dest = self._target(destination_id)
+                if not self.gw.settings.node_id or self.backups.s.copy_keys_dir is None:
+                    raise ApiError(409, "stale_precondition", "provision the owner-certified export key on this box first")
+                kit = self.backups.repo.kit()
+                fingerprint = hashlib.sha256(password.encode()).hexdigest()[:16]
+                if kit is None or kit.state != "confirmed" or not hmac.compare_digest(fingerprint, kit.fingerprint):
+                    raise ApiError(409, "stale_precondition", "the confirmed owner recovery key is required")
                 params = self._latest_point(destination_id, dest["label"])
             action, created = actions.request_feature(
                 principal, "box.export", params, idempotency_key=idempotency_key, expires_at=expiry, reason=reason)

@@ -29,7 +29,7 @@ func serveNASRestic(mount, box string, create bool) (string, func(), error) {
 		return "", nil, err
 	}
 	for _, part := range []string{"boxes", box, "data"} {
-		next, err := nasResticDir(fd, part, create)
+		next, err := openNASDir(fd, part, create)
 		closeDir(fd)
 		if err != nil {
 			return "", nil, err
@@ -88,7 +88,7 @@ func serveNASRestic(mount, box string, create bool) (string, func(), error) {
 	}, nil
 }
 
-func nasResticDir(fd int, name string, create bool) (int, error) {
+func openNASDir(fd int, name string, create bool) (int, error) {
 	if create {
 		err := unix.Mkdirat(fd, name, 0o700)
 		if err == nil {
@@ -120,13 +120,13 @@ func nasResticRequest(fd int, w http.ResponseWriter, r *http.Request) error {
 	if !fullID(name) {
 		return unix.EACCES
 	}
-	sub, err := nasResticDir(fd, dir, r.Method == http.MethodPost)
+	sub, err := openNASDir(fd, dir, r.Method == http.MethodPost)
 	if err != nil {
 		return err
 	}
 	defer closeDir(sub)
 	if dir == "data" {
-		packDir, err := nasResticDir(sub, name[:2], r.Method == http.MethodPost)
+		packDir, err := openNASDir(sub, name[:2], r.Method == http.MethodPost)
 		if err != nil {
 			return err
 		}
@@ -160,7 +160,7 @@ func nasResticObject(fd int, name string, lock bool, w http.ResponseWriter, r *h
 		if err != nil {
 			return err
 		}
-		f, err := openNASResticFile(fd, name)
+		f, err := openNASFile(fd, name)
 		if err != nil {
 			return err
 		}
@@ -173,7 +173,8 @@ func nasResticObject(fd int, name string, lock bool, w http.ResponseWriter, r *h
 	}
 }
 
-func openNASResticFile(fd int, name string) (*os.File, error) {
+// Open nonblocking so a FIFO swapped into the path cannot stall the backup lock.
+func openNASFile(fd int, name string) (*os.File, error) {
 	raw, err := unix.Openat(fd, name, unix.O_RDONLY|unix.O_NOFOLLOW|unix.O_NONBLOCK|unix.O_CLOEXEC, 0)
 	if err != nil {
 		return nil, err
@@ -205,7 +206,7 @@ func nasResticSave(fd int, name string, body io.Reader) error {
 	}
 	if err := unix.Linkat(fd, tmp, fd, name, 0); errors.Is(err, unix.EEXIST) {
 		// A lost reply can cause restic to resend an immutable object.
-		existing, err := openNASResticFile(fd, name)
+		existing, err := openNASFile(fd, name)
 		if err != nil {
 			return err
 		}
@@ -239,7 +240,7 @@ func nasResticList(fd int, name string, w http.ResponseWriter) error {
 }
 
 func nasResticListDir(parent int, name string, packs bool, entries *[]nasResticEntry) error {
-	fd, err := nasResticDir(parent, name, false)
+	fd, err := openNASDir(parent, name, false)
 	if err != nil {
 		return err
 	}

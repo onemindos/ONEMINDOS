@@ -14,6 +14,86 @@ import (
 	"testing"
 )
 
+func TestNASCopyRejectsLinkedNamespace(t *testing.T) {
+	const box = "test-box"
+	for _, part := range []string{"mount", "boxes", box, "copies"} {
+		t.Run(part, func(t *testing.T) {
+			root := t.TempDir()
+			target := Target{Kind: KindUSB, MountRoot: root, USBUUID: "mount", AllowNonMountDir: true}
+			a := newAgent(Config{}, nil)
+			prefix := filepath.Join(root, "mount", "boxes", box, "copies")
+			if err := os.MkdirAll(prefix, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			linked := filepath.Join(root, "mount")
+			for _, name := range []string{"boxes", box, "copies"} {
+				if filepath.Base(linked) == part {
+					break
+				}
+				linked = filepath.Join(linked, name)
+			}
+			sibling := linked + "-sibling"
+			if err := os.Rename(linked, sibling); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(filepath.Base(sibling), linked); err != nil {
+				t.Fatal(err)
+			}
+			for _, write := range []bool{false, true} {
+				if store, err := a.openCopyStore(target, box, write); err == nil {
+					store.close()
+					t.Errorf("opened linked %s with write=%t", part, write)
+				}
+			}
+		})
+	}
+}
+
+func TestNASCopyRejectsUnsafeCandidatesAndKeepsOlderCopy(t *testing.T) {
+	const box = "test-box"
+	root := t.TempDir()
+	target := Target{ID: "nas", Kind: KindUSB, MountRoot: root, USBUUID: "mount", AllowNonMountDir: true, Sovereign: true}
+	a := newAgent(Config{Targets: []Target{target}}, nil)
+	prefix := filepath.Join(root, "mount", "boxes", box, "copies")
+	older, linkedDir, linkedRecord, fifo := strings.Repeat("1", 32), strings.Repeat("2", 32), strings.Repeat("3", 32), strings.Repeat("4", 32)
+	for _, id := range []string{older, linkedRecord, fifo} {
+		if err := os.MkdirAll(filepath.Join(prefix, id), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, name := range []string{older + "/complete.json", older + "/box.omb", fifo + "/complete.json"} {
+		if err := os.WriteFile(filepath.Join(prefix, name), []byte("valid bytes"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Symlink(older, filepath.Join(prefix, linkedDir)); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("../"+older+"/complete.json", filepath.Join(prefix, linkedRecord, "complete.json")); err != nil {
+		t.Fatal(err)
+	}
+	if err := syscall.Mkfifo(filepath.Join(prefix, fifo, "box.omb"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	for _, bad := range []struct{ id, op string }{{linkedDir, "record"}, {linkedRecord, "record"}, {fifo, "bundle"}} {
+		if _, err := a.sovereignCopy(ctx, copyJob{Operation: bad.op, TargetID: target.ID, BoxID: box, CopyID: bad.id}); err == nil {
+			t.Errorf("read %s from unsafe candidate %s", bad.op, bad.id)
+		}
+	}
+	ids, err := a.sovereignCopy(ctx, copyJob{Operation: "list", TargetID: target.ID, BoxID: box})
+	if err != nil || !slices.Equal(ids.([]string), []string{older, fifo}) {
+		t.Fatalf("listing %v, error %v", ids, err)
+	}
+	for _, op := range []string{"record", "bundle"} {
+		got, err := a.sovereignCopy(ctx, copyJob{Operation: op, TargetID: target.ID, BoxID: box, CopyID: older})
+		if err != nil || string(got.([]byte)) != "valid bytes" {
+			t.Fatalf("the older copy's %s is unavailable: %v", op, err)
+		}
+	}
+}
+
 func TestNASListingSurvivesUnreadableCandidate(t *testing.T) {
 	const childEnv = "ONEMIND_TEST_UNREADABLE_NAS"
 	root := os.Getenv(childEnv)
@@ -64,12 +144,12 @@ func TestNASListingSurvivesUnreadableCandidate(t *testing.T) {
 			return
 		}
 	}
-	dir, err := os.OpenRoot(root)
+	fd, err := openDirNoFollow(root, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dir.Close()
-	store := nasCopyStore{dir}
+	store := nasCopyStore{os.NewFile(uintptr(fd), root)}
+	defer store.close()
 	ctx := context.Background()
 	ids, err := store.records(ctx)
 	if err != nil || !slices.Equal(ids, []string{older, unreadable}) {
