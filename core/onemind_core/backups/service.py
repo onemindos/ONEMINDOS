@@ -1070,6 +1070,23 @@ class BackupService:
     def forget_show(self, action_id: str) -> None:
         self._shown.discard(action_id)
 
+    def is_shown(self, action_id: str) -> bool:
+        return action_id in self._shown
+
+    def pending_kit_request(self, principal, action_id: str) -> str:
+        """The kit request POST /v1/backups/kit may finish with a passkey: a backup.kit.issue still awaiting approval,
+        filed by this same principal (the key goes to whoever finishes it, so nobody finishes another's request)."""
+        a = self.gw.actions.get(action_id)  # 404 when unknown; expires it when due
+        if a["type"] != "backup.kit.issue":
+            raise ApiError(409, "conflict", "that action is not an emergency kit request")
+        if (a.get("requested_by") or {}).get("id") != principal.id:
+            self.gw.audit.append("authz.denied", principal.as_dict(), action_id,
+                                 {"attempted": "finish another principal's kit request", "reason": "permission_denied"})
+            raise ApiError(403, "permission_denied", "only whoever asked for this kit can finish it")
+        if a["state"] != "awaiting_approval":
+            raise ApiError(409, "conflict", f"this kit request is {a['state']}; a kit is shown once, ask for a new one")
+        return action_id
+
     def _disk_key(self, previous: KitRow | None, action_id: str) -> tuple[str, str | None]:
         """The /data recovery key for the kit, taken once from onemindd (D-020). Never stored or logged."""
         state, key = "not_available", None
@@ -1086,6 +1103,12 @@ class BackupService:
         """Every owner gets a kit (design 25a): with no destination yet, the key is attached to each destination added
         later (kit/attach). A re-issue only ADDS the new key: the old one stays in every repository, so no snapshot
         becomes unopenable (removing it is backup.key.rotate, not this)."""
+        if a.id not in self._shown:
+            # Approved where nobody sees the answer (a path past the route's guard): issue nothing, so no restic key
+            # nobody holds is added, the owner's kit stays, and the disk key stays with onemindd.
+            finish(ExecResult("failed", "the emergency kit is shown once, to whoever approves it: "
+                              "issue it in Backups, Emergency Kit"))
+            return
         dests = [destination_json(d) for d in self.repo.destinations()]
         key = new_owner_key()
         res: object = []

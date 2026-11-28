@@ -6766,6 +6766,40 @@
         "title": "KitConfirmBody",
         "type": "object"
       },
+      "KitIssueBody": {
+        "additionalProperties": false,
+        "description": "Finishing a kit request that stopped at the passkey step (401 step_up_required, its `details` name the action):\nthe action id and the passkey assertion over that action's approve-options challenge. No body files a new one.",
+        "properties": {
+          "action_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Id"
+          },
+          "webauthn": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Webauthn",
+            "writeOnly": true
+          }
+        },
+        "title": "KitIssueBody",
+        "type": "object"
+      },
       "LatestValue": {
         "properties": {
           "datapoint": {
@@ -23402,7 +23436,7 @@
         ]
       },
       "post": {
-        "description": "Owner shortcut: files backup.kit.issue and approves it; the key is in this response only.",
+        "description": "Owner shortcut: files backup.kit.issue and approves it; the key is in this response only.\n\nOnce an owner passkey exists, approving needs an assertion bound to the action (F-2), which a first call\ncannot have: it answers 401 step_up_required with `details: [{\"action_id\": ...}]`. Sign that action's\nchallenge (POST /v1/actions/{id}/approve-options) and call again with `action_id` and `webauthn`.",
         "operationId": "backups.kit.issue",
         "parameters": [
           {
@@ -23424,6 +23458,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/KitIssueBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "content": {
@@ -23453,6 +23504,16 @@
             },
             "description": "The principal may not do this (permission_denied)"
           },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
           "409": {
             "content": {
               "application/json": {
@@ -23462,6 +23523,16 @@
               }
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -23604,6 +23675,13 @@
             "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
         "summary": "Attach Kit",
         "tags": [
           "backups"
