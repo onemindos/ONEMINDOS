@@ -12,6 +12,7 @@
 !ui/src/
 !brand/generated/os/
 !brand/logo/png/white/
+!brand/logo/png/on-dark/
 !sdk/schema/
 !sdk/policy/
 !sdk/go/

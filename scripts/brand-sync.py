@@ -29,8 +29,10 @@ import math
 import os
 import re
 import shutil
+import struct
 import subprocess
 import sys
+import zlib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BRAND = os.path.join(ROOT, "brand")
@@ -66,6 +68,158 @@ def norm_hex(v):
 def hex_rgb(h):
     h = norm_hex(h)
     return int(h[1:3], 16), int(h[3:5], 16), int(h[5:7], 16)
+
+
+def solid_png(hex_colour):
+    """A 1x1 opaque PNG of one colour (stdlib only, deterministic). The boot splash scales it into its bar:
+    Plymouth's script engine draws images, not rectangles."""
+    def chunk(kind, data):
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+    r, g, b = hex_rgb(hex_colour)
+    ihdr = struct.pack(">IIBBBBB", 1, 1, 8, 6, 0, 0, 0)
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", zlib.compress(bytes([0, r, g, b, 255]), 9))
+            + chunk(b"IEND", b""))
+
+
+def plymouth_script(logo, c):
+    """The boot splash (design-v2 final screen 12): black, the mark, the wordmark, a thin progress bar, the boot
+    steps systemd reports, a footer, and the disk password or recovery-key prompt when one is asked.
+    `c` maps the os.boot colour names to (r, g, b) floats in 0..1."""
+    f = lambda k: ", ".join(f"{v:.3f}" for v in c[k])
+    return f"""# {GEN_NOTE}
+# logo.png is {logo}, copied in by the image build; track.png and fill.png are 1x1 colours scaled into the bar.
+# The bar fills with os.boot.progress, the button red: the logo red stays in the logo files (design rule).
+# Steps: systemd tells Plymouth each unit it starts (update status). Only the units below are shown, in the order
+# systemd runs them; a step is ticked when the next one starts, which systemd allows only once it finished.
+Window.SetBackgroundTopColor({f("background")});
+Window.SetBackgroundBottomColor({f("background")});
+
+H = Window.GetHeight();
+W = Window.GetWidth();
+X0 = Window.GetX();
+Y0 = Window.GetY();
+CX = X0 + W / 2;
+BIG = Math.Int(H * 0.022) + 1;
+SMALL = Math.Int(H * 0.0105) + 1;
+
+logo.raw = Image("logo.png");
+logo.h = Math.Min(Math.Int(H * 0.15), logo.raw.GetHeight());
+logo.w = Math.Int(logo.raw.GetWidth() * logo.h / logo.raw.GetHeight());
+logo.sprite = Sprite(logo.raw.Scale(logo.w, logo.h));
+logo.sprite.SetPosition(CX - logo.w / 2, Y0 + H * 0.31, 1);
+
+word.a = Image.Text("OneMind", {f("text")}, 1, "DejaVu Sans Bold " + BIG);
+word.b = Image.Text(" OS", {f("muted")}, 1, "DejaVu Sans " + BIG);
+word.x = CX - (word.a.GetWidth() + word.b.GetWidth()) / 2;
+word.y = Y0 + H * 0.31 + logo.h + H * 0.03;
+word.sa = Sprite(word.a);
+word.sa.SetPosition(word.x, word.y, 1);
+word.sb = Sprite(word.b);
+word.sb.SetPosition(word.x + word.a.GetWidth(), word.y, 1);
+
+bar.w = Math.Int(H * 0.31);
+bar.x = CX - bar.w / 2;
+bar.y = word.y + word.a.GetHeight() + H * 0.045;
+bar.track = Sprite(Image("track.png").Scale(bar.w, 3));
+bar.track.SetPosition(bar.x, bar.y, 1);
+bar.fill_image = Image("fill.png");
+bar.fill = Sprite();
+bar.fill.SetPosition(bar.x, bar.y, 2);
+
+fun progress_callback(duration, progress) {{
+  w = Math.Int(bar.w * Math.Min(Math.Max(progress, 0), 1));
+  if (w < 1) {{
+    w = 1;
+  }}
+  bar.fill.SetImage(bar.fill_image.Scale(w, 3));
+}}
+Plymouth.SetBootProgressFunction(progress_callback);
+
+step.unit[0] = "onemind-data-encrypt.service"; step.now[0] = "opening the data disk"; step.done[0] = "data disk opened";
+step.unit[1] = "onemind-data-layout.service"; step.now[1] = "preparing /data"; step.done[1] = "/data prepared";
+step.unit[2] = "onemind-data-check.service"; step.now[2] = "checking the data disk"; step.done[2] = "data disk checked";
+step.unit[3] = "onemind-firstboot.service"; step.now[3] = "starting OneMind"; step.done[3] = "OneMind started";
+step.count = 4;
+step.at = -1;
+lines.x = bar.x;
+lines.y = bar.y + H * 0.025;
+lines.gap = SMALL * 2;
+lines.sprite[0] = Sprite();
+lines.sprite[1] = Sprite();
+lines.sprite[2] = Sprite();
+
+fun draw_steps() {{
+  first = Math.Max(0, step.at - 2);
+  for (i = 0; i < 3; i++) {{
+    k = first + i;
+    if (k > step.at) {{
+      lines.sprite[i].SetOpacity(0);
+    }} else {{
+      if (k < step.at) {{
+        img = Image.Text("\u2713 " + step.done[k], {f("ok")}, 1, "DejaVu Sans Mono " + SMALL);
+      }} else {{
+        img = Image.Text("\u203a " + step.now[k], {f("text")}, 1, "DejaVu Sans Mono " + SMALL);
+      }}
+      lines.sprite[i].SetImage(img);
+      lines.sprite[i].SetPosition(lines.x, lines.y + i * lines.gap, 1);
+      lines.sprite[i].SetOpacity(1);
+    }}
+  }}
+}}
+
+fun status_callback(status) {{
+  for (k = step.at + 1; k < step.count; k++) {{
+    if (status == step.unit[k]) {{
+      step.at = k;
+      draw_steps();
+    }}
+  }}
+}}
+Plymouth.SetUpdateStatusFunction(status_callback);
+
+foot.image = Image.Text("{{FOOTER}}", {f("footer")}, 1, "DejaVu Sans Mono " + SMALL);
+foot.sprite = Sprite(foot.image);
+foot.sprite.SetPosition(CX - foot.image.GetWidth() / 2, Y0 + H - SMALL * 4, 1);
+
+message.sprite = Sprite();
+fun message_callback(text) {{
+  img = Image.Text(text, {f("muted")}, 1, "DejaVu Sans " + SMALL);
+  message.sprite.SetImage(img);
+  message.sprite.SetPosition(CX - img.GetWidth() / 2, lines.y + 4 * lines.gap, 1);
+}}
+Plymouth.SetMessageFunction(message_callback);
+
+# The data disk's recovery key or password (systemd-cryptsetup asks through Plymouth while the splash runs).
+prompt.text = Sprite();
+prompt.entry = Sprite();
+fun show_prompt(label, value) {{
+  a = Image.Text(label, {f("text")}, 1, "DejaVu Sans " + SMALL);
+  prompt.text.SetImage(a);
+  prompt.text.SetPosition(CX - a.GetWidth() / 2, lines.y + 5 * lines.gap, 3);
+  prompt.text.SetOpacity(1);
+  b = Image.Text(value + "_", {f("text")}, 1, "DejaVu Sans Mono " + SMALL);
+  prompt.entry.SetImage(b);
+  prompt.entry.SetPosition(CX - b.GetWidth() / 2, lines.y + 6 * lines.gap, 3);
+  prompt.entry.SetOpacity(1);
+}}
+fun password_callback(label, bullets) {{
+  dots = "";
+  for (i = 0; i < bullets; i++) {{
+    dots = dots + "\u2022";
+  }}
+  show_prompt(label, dots);
+}}
+fun question_callback(label, entry) {{
+  show_prompt(label, entry);
+}}
+fun normal_callback() {{
+  prompt.text.SetOpacity(0);
+  prompt.entry.SetOpacity(0);
+}}
+Plymouth.SetDisplayPasswordFunction(password_callback);
+Plymouth.SetDisplayQuestionFunction(question_callback);
+Plymouth.SetDisplayNormalFunction(normal_callback);
+"""
 
 
 def rgb_hex(r, g, b):
@@ -541,30 +695,20 @@ def outputs(b):
          f"# {GEN_NOTE}\n"
          "[Plymouth Theme]\n"
          f"Name={osb['prettyName']}\n"
-         f"Description={osb['prettyName']} boot splash: the logo centred on a plain background\n"
+         f"Description={osb['prettyName']} boot splash: the mark, the wordmark, a progress bar and the boot steps\n"
          "ModuleName=script\n\n"
          "[script]\n"
          "ImageDir=/usr/share/plymouth/themes/onemind\n"
          "ScriptFile=/usr/share/plymouth/themes/onemind/onemind.script\n")
-    br, bg_, bb = (c / 255 for c in hex_rgb(col(boot["background"])))
+    keys = ("background", "text", "muted", "ok", "footer", "progress", "track")
+    rgb = {k: tuple(v / 255 for v in hex_rgb(col(boot[k]))) for k in keys}
+    if col(boot["progress"]) in {col(v["hex"]) for k, v in b["colors"].items() if k == "red"}:
+        raise BrandError("brand.json os.boot.progress: the logo red is kept for the logo files; use the button red")
+    footer = boot["footerText"].replace("\\", "").replace('"', "")
     text("brand/generated/os/plymouth/onemind/onemind.script",
-         f"# {GEN_NOTE}\n"
-         f"# logo.png is {png(b, boot['variant'], boot['size'])}, copied in by the image build.\n"
-         f"Window.SetBackgroundTopColor({br:.3f}, {bg_:.3f}, {bb:.3f});\n"
-         f"Window.SetBackgroundBottomColor({br:.3f}, {bg_:.3f}, {bb:.3f});\n"
-         "logo.image = Image(\"logo.png\");\n"
-         "logo.sprite = Sprite(logo.image);\n"
-         "logo.sprite.SetX(Window.GetX() + Window.GetWidth() / 2 - logo.image.GetWidth() / 2);\n"
-         "logo.sprite.SetY(Window.GetY() + Window.GetHeight() / 2 - logo.image.GetHeight() / 2);\n\n"
-         "message_sprite = Sprite();\n"
-         "message_sprite.SetPosition(Window.GetX() + Window.GetWidth() / 2, "
-         "Window.GetY() + Window.GetHeight() * 0.8, 1);\n"
-         "fun message_callback(text) {\n"
-         "  message_image = Image.Text(text, 1, 1, 1);\n"
-         "  message_sprite.SetImage(message_image);\n"
-         "  message_sprite.SetX(Window.GetX() + Window.GetWidth() / 2 - message_image.GetWidth() / 2);\n"
-         "}\n"
-         "Plymouth.SetMessageFunction(message_callback);\n")
+         plymouth_script(png(b, boot["variant"], boot["size"]), rgb).replace("{FOOTER}", footer))
+    out["brand/generated/os/plymouth/onemind/track.png"] = solid_png(col(boot["track"]))
+    out["brand/generated/os/plymouth/onemind/fill.png"] = solid_png(col(boot["progress"]))
     text("brand/generated/os/grub/onemind-brand.cfg",
          f"# {GEN_NOTE}\n"
          "# Source from the image's grub.cfg before the menu entries (brand/README.md).\n"

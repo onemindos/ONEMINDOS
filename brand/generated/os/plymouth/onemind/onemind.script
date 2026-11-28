@@ -1,17 +1,133 @@
 # Generated from brand/brand.json by scripts/brand-sync.py. Do not edit by hand.
-# logo.png is brand/logo/png/white/onemind-mark-white-256.png, copied in by the image build.
+# logo.png is brand/logo/png/on-dark/onemind-mark-on-dark-256.png, copied in by the image build; track.png and fill.png are 1x1 colours scaled into the bar.
+# The bar fills with os.boot.progress, the button red: the logo red stays in the logo files (design rule).
+# Steps: systemd tells Plymouth each unit it starts (update status). Only the units below are shown, in the order
+# systemd runs them; a step is ticked when the next one starts, which systemd allows only once it finished.
 Window.SetBackgroundTopColor(0.000, 0.000, 0.000);
 Window.SetBackgroundBottomColor(0.000, 0.000, 0.000);
-logo.image = Image("logo.png");
-logo.sprite = Sprite(logo.image);
-logo.sprite.SetX(Window.GetX() + Window.GetWidth() / 2 - logo.image.GetWidth() / 2);
-logo.sprite.SetY(Window.GetY() + Window.GetHeight() / 2 - logo.image.GetHeight() / 2);
 
-message_sprite = Sprite();
-message_sprite.SetPosition(Window.GetX() + Window.GetWidth() / 2, Window.GetY() + Window.GetHeight() * 0.8, 1);
+H = Window.GetHeight();
+W = Window.GetWidth();
+X0 = Window.GetX();
+Y0 = Window.GetY();
+CX = X0 + W / 2;
+BIG = Math.Int(H * 0.022) + 1;
+SMALL = Math.Int(H * 0.0105) + 1;
+
+logo.raw = Image("logo.png");
+logo.h = Math.Min(Math.Int(H * 0.15), logo.raw.GetHeight());
+logo.w = Math.Int(logo.raw.GetWidth() * logo.h / logo.raw.GetHeight());
+logo.sprite = Sprite(logo.raw.Scale(logo.w, logo.h));
+logo.sprite.SetPosition(CX - logo.w / 2, Y0 + H * 0.31, 1);
+
+word.a = Image.Text("OneMind", 0.953, 0.949, 0.937, 1, "DejaVu Sans Bold " + BIG);
+word.b = Image.Text(" OS", 0.651, 0.655, 0.675, 1, "DejaVu Sans " + BIG);
+word.x = CX - (word.a.GetWidth() + word.b.GetWidth()) / 2;
+word.y = Y0 + H * 0.31 + logo.h + H * 0.03;
+word.sa = Sprite(word.a);
+word.sa.SetPosition(word.x, word.y, 1);
+word.sb = Sprite(word.b);
+word.sb.SetPosition(word.x + word.a.GetWidth(), word.y, 1);
+
+bar.w = Math.Int(H * 0.31);
+bar.x = CX - bar.w / 2;
+bar.y = word.y + word.a.GetHeight() + H * 0.045;
+bar.track = Sprite(Image("track.png").Scale(bar.w, 3));
+bar.track.SetPosition(bar.x, bar.y, 1);
+bar.fill_image = Image("fill.png");
+bar.fill = Sprite();
+bar.fill.SetPosition(bar.x, bar.y, 2);
+
+fun progress_callback(duration, progress) {
+  w = Math.Int(bar.w * Math.Min(Math.Max(progress, 0), 1));
+  if (w < 1) {
+    w = 1;
+  }
+  bar.fill.SetImage(bar.fill_image.Scale(w, 3));
+}
+Plymouth.SetBootProgressFunction(progress_callback);
+
+step.unit[0] = "onemind-data-encrypt.service"; step.now[0] = "opening the data disk"; step.done[0] = "data disk opened";
+step.unit[1] = "onemind-data-layout.service"; step.now[1] = "preparing /data"; step.done[1] = "/data prepared";
+step.unit[2] = "onemind-data-check.service"; step.now[2] = "checking the data disk"; step.done[2] = "data disk checked";
+step.unit[3] = "onemind-firstboot.service"; step.now[3] = "starting OneMind"; step.done[3] = "OneMind started";
+step.count = 4;
+step.at = -1;
+lines.x = bar.x;
+lines.y = bar.y + H * 0.025;
+lines.gap = SMALL * 2;
+lines.sprite[0] = Sprite();
+lines.sprite[1] = Sprite();
+lines.sprite[2] = Sprite();
+
+fun draw_steps() {
+  first = Math.Max(0, step.at - 2);
+  for (i = 0; i < 3; i++) {
+    k = first + i;
+    if (k > step.at) {
+      lines.sprite[i].SetOpacity(0);
+    } else {
+      if (k < step.at) {
+        img = Image.Text("✓ " + step.done[k], 0.357, 0.788, 0.541, 1, "DejaVu Sans Mono " + SMALL);
+      } else {
+        img = Image.Text("› " + step.now[k], 0.953, 0.949, 0.937, 1, "DejaVu Sans Mono " + SMALL);
+      }
+      lines.sprite[i].SetImage(img);
+      lines.sprite[i].SetPosition(lines.x, lines.y + i * lines.gap, 1);
+      lines.sprite[i].SetOpacity(1);
+    }
+  }
+}
+
+fun status_callback(status) {
+  for (k = step.at + 1; k < step.count; k++) {
+    if (status == step.unit[k]) {
+      step.at = k;
+      draw_steps();
+    }
+  }
+}
+Plymouth.SetUpdateStatusFunction(status_callback);
+
+foot.image = Image.Text("OneMind OS · an update that does not start healthy is rolled back by itself", 0.549, 0.553, 0.573, 1, "DejaVu Sans Mono " + SMALL);
+foot.sprite = Sprite(foot.image);
+foot.sprite.SetPosition(CX - foot.image.GetWidth() / 2, Y0 + H - SMALL * 4, 1);
+
+message.sprite = Sprite();
 fun message_callback(text) {
-  message_image = Image.Text(text, 1, 1, 1);
-  message_sprite.SetImage(message_image);
-  message_sprite.SetX(Window.GetX() + Window.GetWidth() / 2 - message_image.GetWidth() / 2);
+  img = Image.Text(text, 0.651, 0.655, 0.675, 1, "DejaVu Sans " + SMALL);
+  message.sprite.SetImage(img);
+  message.sprite.SetPosition(CX - img.GetWidth() / 2, lines.y + 4 * lines.gap, 1);
 }
 Plymouth.SetMessageFunction(message_callback);
+
+# The data disk's recovery key or password (systemd-cryptsetup asks through Plymouth while the splash runs).
+prompt.text = Sprite();
+prompt.entry = Sprite();
+fun show_prompt(label, value) {
+  a = Image.Text(label, 0.953, 0.949, 0.937, 1, "DejaVu Sans " + SMALL);
+  prompt.text.SetImage(a);
+  prompt.text.SetPosition(CX - a.GetWidth() / 2, lines.y + 5 * lines.gap, 3);
+  prompt.text.SetOpacity(1);
+  b = Image.Text(value + "_", 0.953, 0.949, 0.937, 1, "DejaVu Sans Mono " + SMALL);
+  prompt.entry.SetImage(b);
+  prompt.entry.SetPosition(CX - b.GetWidth() / 2, lines.y + 6 * lines.gap, 3);
+  prompt.entry.SetOpacity(1);
+}
+fun password_callback(label, bullets) {
+  dots = "";
+  for (i = 0; i < bullets; i++) {
+    dots = dots + "•";
+  }
+  show_prompt(label, dots);
+}
+fun question_callback(label, entry) {
+  show_prompt(label, entry);
+}
+fun normal_callback() {
+  prompt.text.SetOpacity(0);
+  prompt.entry.SetOpacity(0);
+}
+Plymouth.SetDisplayPasswordFunction(password_callback);
+Plymouth.SetDisplayQuestionFunction(question_callback);
+Plymouth.SetDisplayNormalFunction(normal_callback);

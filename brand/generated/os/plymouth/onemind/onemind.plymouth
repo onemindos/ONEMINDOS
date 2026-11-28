@@ -1,7 +1,7 @@
 # Generated from brand/brand.json by scripts/brand-sync.py. Do not edit by hand.
 [Plymouth Theme]
 Name=OneMind OS
-Description=OneMind OS boot splash: the logo centred on a plain background
+Description=OneMind OS boot splash: the mark, the wordmark, a progress bar and the boot steps
 ModuleName=script
 
 [script]
