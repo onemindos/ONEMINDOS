@@ -355,7 +355,7 @@ exit 0
 
     def run_cycle(self, gate_runners, vms, round_script="exec sleep 60\n", until=None, files=(), timeout=1.5,
                   env_extra=None):
-        """Start `cycle` with stub gh and limactl, wait until `until(sets)` is true (or `timeout` seconds),
+        """Start `cycle` with stub gh and limactl, wait until `until(sets, output)` is true (or `timeout` seconds),
         stop it, and return the switch changes it made, in order, and its output."""
         with tempfile.TemporaryDirectory() as tmp:
             d = Path(tmp)
@@ -379,7 +379,7 @@ exit 0
                 return [line.split()[2:5:2] for line in lines if line.startswith("variable set")]
             try:
                 end = time.monotonic() + (20 if until else timeout)
-                while time.monotonic() < end and not (until and until(sets())):
+                while time.monotonic() < end and not (until and until(sets(), out.read_text())):
                     time.sleep(0.1)
                 os.killpg(p.pid, signal.SIGTERM)
                 p.wait(timeout=20)
@@ -413,7 +413,8 @@ exit 0
 
     def test_local_gate_goes_on_once_the_gate_runner_is_online(self):
         online = f'echo {self.GATE_RUNNER} > "$2/online"; exec sleep 60\n'
-        sets, _ = self.run_cycle("1", ["onemind-ci", "onemind-ci-gate"], online, until=lambda s: ["LOCAL_GATE", "on"] in s)
+        sets, _ = self.run_cycle("1", ["onemind-ci", "onemind-ci-gate"], online,
+                                 until=lambda sets, _: ["LOCAL_GATE", "on"] in sets)
         self.assertEqual(self.gate_sets(sets), ["off", "on", "off"])          # start, runner online, exit
         self.assertEqual(sets[-2:], [["LOCAL_GATE", "off"], ["LOCAL_RUNNER", "off"]])
 
@@ -422,8 +423,10 @@ exit 0
         sets, _ = self.run_cycle("1", ["onemind-ci", "onemind-ci-gate"], other, timeout=2)
         self.assertNotIn("on", self.gate_sets(sets))
 
-    def strikes_off(self, sets):
-        return self.gate_sets(sets).count("off") >= 2    # the start sets off once; the third failure again
+    def strikes_off(self, sets, output):
+        # The stub sees the switch write before cycle logs it. Let cycle log the
+        # third strike before the harness sends SIGTERM to the process group.
+        return self.gate_sets(sets).count("off") >= 2 and "3 gate failures in a row:" in output
 
     def test_three_failed_runner_rounds_switch_local_gate_off(self):
         # clone and start work; config.sh (or the runner) fails in every round
@@ -449,7 +452,7 @@ exit 0
     def test_after_switch_off_a_probe_whose_runner_is_online_switches_it_back_on(self):
         recover = f'[ "$1" -le 3 ] && exit 1\necho {self.GATE_RUNNER} > "$2/online"; exec sleep 60\n'
         sets, out = self.run_cycle("1", ["onemind-ci", "onemind-ci-gate"], recover,
-                                   until=lambda s: self.gate_sets(s)[-1:] == ["on"])
+                                   until=lambda sets, _: self.gate_sets(sets)[-1:] == ["on"])
         self.assertEqual(self.gate_sets(sets), ["off", "off", "on", "off"])   # start, 3 strikes, probe, exit
         self.assertIn("3 gate failures in a row: runner round failed", out)
 
