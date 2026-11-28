@@ -170,6 +170,8 @@ def check_manifest(doc: object) -> ManifestCheck:
         if not known:
             raise BundleRefused([f"every layer in this bundle is newer than this box understands ({', '.join(unknown)}); update this box first"])
     problems = problems_of(validator(), doc)
+    if not newer:  # this version wrote nothing else: an unknown field here is a typo or a hand edit, not a newer OneMind
+        problems += _unknown_fields(doc)
     ids = [entry["id"] for entry in doc.get("layers", []) if isinstance(entry, dict) and "id" in entry]
     if len(set(ids)) != len(ids):
         problems.append(f"layers: a layer appears twice ({ids})")
@@ -181,6 +183,30 @@ def check_manifest(doc: object) -> ManifestCheck:
     known_fields = set(schema()["properties"])
     return ManifestCheck(doc, newer_minor=newer, unknown_layers=unknown,
                          unknown_fields=sorted(k for k in doc if k not in known_fields))
+
+
+def _unknown_fields(doc: dict) -> list[str]:
+    """Fields the manifest schema does not name, in the manifest, `source` and each layer entry."""
+    defs = schema()
+    top = defs["properties"]
+    out = [f"{key}: not a field of bundle format {FORMAT_MAJOR}.{FORMAT_MINOR}" for key in sorted(doc) if key not in top]
+    source = doc.get("source")
+    if isinstance(source, dict):
+        out += [f"source/{key}: not a field of bundle format {FORMAT_MAJOR}.{FORMAT_MINOR}"
+                for key in sorted(source) if key not in top["source"].get("properties", {})]
+    layer_props = _layer_entry_props()
+    for i, entry in enumerate(doc.get("layers", [])):
+        if isinstance(entry, dict):
+            out += [f"layers/{i}/{key}: not a field of bundle format {FORMAT_MAJOR}.{FORMAT_MINOR}"
+                    for key in sorted(entry) if key not in layer_props]
+    return out
+
+
+def _layer_entry_props() -> set[str]:
+    items = schema()["properties"]["layers"]["items"]
+    if "$ref" in items:
+        items = schema()["$defs"][items["$ref"].rsplit("/", 1)[-1]]
+    return set(items.get("properties", {}))
 
 
 def check_layer(entry: dict, data: bytes) -> None:
