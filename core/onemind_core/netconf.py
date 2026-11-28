@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from .ca import BOX_RE, MESH_NETS, box_name_from_hostname
+from .ca import BOX_RE, MESH_NETS, box_name_from_hostname, existing_box_name
 from .netpath import parse_networks
 from .sections import config_section
 
@@ -42,6 +42,13 @@ class NetSettings:
     # screen reads the box's interfaces and listening ports (hostnet.py). Missing socket: the screen says so.
     host_socket: Path = Path("/run/onemind/host.sock")
     host_timeout_s: float = 5.0          # ONEMIND_NET_HOST_TIMEOUT_S
+    # ONEMIND_NET_HOSTNAME_FILE (P-05): the name the owner gave the box (host kind set-hostname). The image's root is
+    # read-only, so it lives on the data partition. When it holds a DNS label it wins over ONEMIND_NET_BOX_NAME
+    # (written once at first boot), so the box certificate and the join QR follow a rename.
+    hostname_file: Path = Path("/data/onemind/etc/hostname")
+    # ONEMIND_NET_CHANGE_TIMEOUT_S (P-08): how long the gateway waits for the host service to apply a wired
+    # address change (NetworkManager re-activates the connection, which can take most of a minute).
+    change_timeout_s: float = 60.0
     # ONEMIND_NET_TOR_PORT (#284): a plain-HTTP listener whose every request is classified as the
     # Tor path. The Tor app's onion service forwards raw TCP to it (an onion origin is http://), and
     # the socket peer is then a pod or masqueraded address that looks like the LAN, so the path is
@@ -51,6 +58,8 @@ class NetSettings:
     def validate(self) -> None:
         if self.host_timeout_s <= 0:
             raise ValueError("ONEMIND_NET_HOST_TIMEOUT_S must be positive")
+        if not 5 <= self.change_timeout_s <= 300:
+            raise ValueError("ONEMIND_NET_CHANGE_TIMEOUT_S must be between 5 and 300")
         if self.box_name is not None and not BOX_RE.match(self.box_name):
             raise ValueError("ONEMIND_NET_BOX_NAME must be a lowercase DNS label")
         if self.lan_addr is not None:
@@ -75,7 +84,18 @@ class NetSettings:
             raise ValueError("ONEMIND_NET_TRUSTED_PROXIES must be comma-separated CIDRs") from None
 
     def box(self) -> str:
+        try:
+            renamed = self.hostname_file.read_text(encoding="utf-8").strip()
+        except (OSError, ValueError):
+            renamed = ""
+        if renamed and BOX_RE.match(renamed):
+            return renamed
         return self.box_name or box_name_from_hostname(socket.gethostname())
+
+    def tls_box(self, tls_dir: Path) -> str:
+        """The box name for TLS: the one the existing CA was made with, else box(). A rename must not move the
+        certificate's names outside that CA's name constraints (P-05)."""
+        return existing_box_name(tls_dir) or self.box()
 
     def box_domains(self) -> tuple[str, ...]:
         """Suffixes app hosts live under: <app>.onemind.local, <app>.<box>.local, <app>.apps.onemind.internal."""

@@ -100,3 +100,14 @@ os/rootfs/layers/onemind/*	/home/admin	B-FP-6
 test/unit/*	/home/admin	B-FP-6
 os/rootfs/Containerfile	/home/admin	B-FP-6
 scripts/release/cli-packages.py	noreply@users\.noreply\.github\.com	B-FP-deb-maintainer
+# B-FP-ssh-keytype: OpenSSH names its two security-key public key types with an at-sign and a domain; they are algorithm names, not e-mail addresses (P-06).
+core/onemind_core/sshaccess.py	sk-(ssh-ed25519|ecdsa-sha2-nistp256)@openssh\.com	B-FP-ssh-keytype
+# B-FP-16 (same reason): the firewall view names the private ranges as ranges, in the code that classifies them and in its fixtures.
+core/onemind_core/hostfw.py	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-16
+core/tests/test_firewall_view.py	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-16
+internal/firewall/firewall_test.go	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-16
+dashboard/src/pages/Network.test.tsx	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-16
+internal/firewall/testdata/*	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-16
+# QEMU user-network (slirp) guest-side forward address: exists only inside the test VM, never a real host (CRITERIA-UPDATE-SIGNED.md)
+test/qemu/updatesigned.py	10\.0\.2\.100	B-FP-qemu-slirp
+test/qemu/usrelay.py	10\.0\.2\.100	B-FP-qemu-slirp

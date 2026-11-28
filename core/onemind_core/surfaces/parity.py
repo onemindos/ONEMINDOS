@@ -46,7 +46,7 @@ REASONS: dict[str, str] = {
     FLEET: "Fleet OS versions and staged rollouts (#156): a rollout starts only as an owner-approved action "
            "(os.rollout.start), which an agent follows through get_action; this is the owner's update console.",
     CONSOLE: "The owner's system console: host service logs (which can hold secrets until a redacted read tool "
-             "exists), the message-bus monitor (#619), bridge status (#610) and the UPS battery (#244). Agents read the world through the "
+             "exists), the message-bus monitor (#619), bridge status (#610), the UPS battery (#244) and the keyboard layout (P-11). Agents read the world through the "
              "data commons doors and request changes as actions.",
 }
 
@@ -144,6 +144,7 @@ HUMAN_ONLY: dict[str, str] = {
     "DELETE /v1/auth/passkeys/{credential_id}": CREDENTIAL,
     "POST /v1/auth/password": CREDENTIAL,
     "POST /v1/auth/refresh": CREDENTIAL,
+    "POST /v1/auth/rescue/kit": CREDENTIAL,
     "POST /v1/auth/rescue/options": CREDENTIAL,
     "POST /v1/auth/rescue/verify": CREDENTIAL,
     "GET /v1/auth/sessions": CREDENTIAL,
@@ -173,6 +174,13 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/push/vapid-public-key": CREDENTIAL,
     "GET /v1/secrets/public-key": CREDENTIAL,
     "POST /v1/shares/smb/password": CREDENTIAL,
+    # P-06: the owner's SSH keys and switch. Reading names who may log in; every change is the owner's alone (an agent may
+    # not even request one: ssh.* types have an empty requesters set).
+    "GET /v1/ssh": CREDENTIAL,
+    "GET /v1/ssh/keys": CREDENTIAL,
+    "POST /v1/ssh/keys": CREDENTIAL,
+    "DELETE /v1/ssh/keys/{key_id}": CREDENTIAL,
+    "PUT /v1/ssh": CREDENTIAL,
     "POST /v1/storage/recovery-key": CREDENTIAL,
     "GET /v1/tls/ca.crt": CREDENTIAL,
     "GET /v1/tls/onemind.mobileconfig": CREDENTIAL,
@@ -303,6 +311,8 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/files/downloads/{download_id}/release": WRITE,
     "DELETE /v1/files/downloads/{download_id}": WRITE,
     "PUT /v1/instance/kiosk": WRITE,
+    "PUT /v1/instance/name": WRITE,
+    "POST /v1/system/time/zone": WRITE,  # P-04: files a time zone change; only an owner approves it
     "POST /v1/machines/disable": WRITE,
     "POST /v1/machines/enable": WRITE,
     "POST /v1/migrate/plans": WRITE,
@@ -327,6 +337,7 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/sites": WRITE,
     "POST /v1/storage/actions": WRITE,
     "POST /v1/storage/plans": WRITE,
+    "POST /v1/storage/removable/{name}/eject": WRITE,
     "POST /v1/system/actions": WRITE,
     "PUT /v1/update-policy": WRITE,
     "POST /v1/update-policy/resume": WRITE,
@@ -353,10 +364,26 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/bridges/{bridge_id}/latest": CONSOLE,
     "GET /v1/engine": CONSOLE,
     "GET /v1/system/services/{unit}/logs": CONSOLE,
+    "GET /v1/system/keyboard": CONSOLE,
+    # desktop apps (#1097): owner-only list and Flathub search; launching starts a program on the box
+    "GET /v1/desktop-apps": CONSOLE,
+    "GET /v1/desktop-apps/search": CONSOLE,
+    "POST /v1/desktop-apps/{app_id}/launch": WRITE,
     "GET /v1/system/ups": CONSOLE,
+    "GET /v1/storage/housekeeping": CONSOLE,
+    "GET /v1/system/time": CONSOLE,  # P-04: the hub's zone and clock sync state, owner only
+    "GET /v1/network/firewall": CONSOLE,  # P-09: the live host firewall explained, owner only, read only
+    "GET /v1/fabric/events": CONSOLE,  # N3 (#620): the NATS system account's sign-ins and refusals, audit:read
     "POST /v1/bridges/{bridge_id}/resume": WRITE,
+    "POST /v1/system/keyboard": WRITE,
     "POST /v1/system/services/{unit}/restart": WRITE,
     "PUT /v1/mesh/settings": WRITE,
+    # P-09 part 2: an owner allow rule (LAN or mesh only) reverts unless confirmed; owner writes, never an agent tool
+    "POST /v1/network/firewall/allow": WRITE,
+    "POST /v1/network/firewall/allow/{rule_id}/confirm": WRITE,
+    "DELETE /v1/network/firewall/allow/{rule_id}": WRITE,
+    "PUT /v1/network/{iface}": WRITE,
+    "POST /v1/network/{iface}/confirm": WRITE,
     # ---- data commons (#615): the commons is itself the grant-checked door; grants are the owner's oversight
     "GET /v1/data/classes": DOOR,
     "GET /v1/data/classes/{data_class}": DOOR,

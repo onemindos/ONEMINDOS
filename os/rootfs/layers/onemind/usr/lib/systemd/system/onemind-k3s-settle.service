@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: Apache-2.0
+# First boot of a hub, last step for k3s (VM 501 bug 1, CRITERIA-FIRSTBOOT.md F26): while k3s starts for the
+# first time, force /data to the disk every few seconds, wait until k3s answers and the OS's own pods are up (their
+# images unpacked and started), sync once more and mark the
+# first setup done (/data/onemind/firstboot/k3s-settled). k3s writes its keys and certificates without fsync, so
+# without this a power cut in the first minute leaves them empty. Started by onemind-firstboot on the hub role
+# every boot; it exits at once when the marker exists. Type=simple: it never holds the login prompt back.
+[Unit]
+Description=OneMind: sync k3s's first setup to the data disk
+After=onemind-firstboot.service
+RequiresMountsFor=/data
+ConditionPathExists=!/data/onemind/firstboot/k3s-settled
+
+[Service]
+Type=simple
+ExecStart=/usr/lib/onemind/onemind-k3s-state settle
+TimeoutStartSec=20min
+Nice=10
+UMask=0077
+# Sandbox: it writes only the marker under /data and syncs; it reads k3s's kubeconfig and calls kubectl.
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectControlGroups=yes
+ProtectKernelTunables=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/data/onemind/firstboot
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6

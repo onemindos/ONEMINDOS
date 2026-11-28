@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { WiringApi } from './wiring';
+import { approveWithStepUp } from '../lib/approve';
 import { getPasskey } from '../lib/webauthn';
 import { withProtocol } from '../lib/protocol';
+import { uuidv4 } from '../lib/uuid';
 import type * as W from './wiring';
 import { OneMind, OneMindError, type components, type operations } from '@onemind/sdk';
 import type { FabricSummary, JoinTicket, MeshView } from '@onemind/ui';
@@ -52,13 +54,16 @@ export interface OneMindApi extends WiringApi {
   /** Server-side wizard state: whether to open the wizard and where the emergency kit stands. */
   onboardingState(): Promise<FirstRunState>;
   /** Issues the emergency kit. The key is in this one answer only; callers must not store or log it. */
-  issueKit?(): Promise<IssuedKitResponse>;
-  confirmKit?(answers: Record<string, string>): Promise<void>;
+  issueKit?(): Promise<components['schemas']['IssuedKit']>;
+  kitState?(): Promise<components['schemas']['KitState']>;
+  confirmKit?(answers: KitConfirmBody['answers'], fingerprint?: KitConfirmBody['fingerprint']): Promise<void>;
   backupDestinations(): Promise<BackupDestinationRecord[]>;
   healthz(): Promise<{ ok: boolean }>;
   instance(): Promise<Instance>;
   /** GET /v1/instance/name: open, so the sign-in page can say which box this is. Absent on test doubles. */
   instanceName?(): Promise<{ name: string }>;
+  /** PUT /v1/instance/name (P-05): asks to rename the box. Files an action an owner approves; absent on test doubles. */
+  renameInstance?(name: string): Promise<Action>;
   nodes(): Promise<NodeRecord[]>;
   node(nodeId: string): Promise<NodeRecord>;
   apps(): Promise<CatalogApp[]>;
@@ -131,13 +136,7 @@ export interface OneMindApi extends WiringApi {
 export interface TlsInfo { ca_sha256: string; names: string[]; not_after: string | null; https: boolean }
 
 /** POST /v1/actions/{id}/approve-options: sign `publicKey` with a passkey, then approve with the result. */
-export interface ApproveOptions {
-  challenge: string;
-  action_sha256: string;
-  plan_sha256: string | null;
-  expires_at: string;
-  publicKey: Record<string, unknown>;
-}
+export type ApproveOptions = Pick<components['schemas']['ApprovalChallenge'], 'challenge' | 'action_sha256' | 'plan_sha256' | 'expires_at' | 'publicKey'>;
 export interface FirstRunSettingsBody {
   box_name: string;
   time_zone: string;
@@ -150,17 +149,8 @@ export interface FirstRunSettings extends Omit<FirstRunSettingsBody, 'box_name' 
   saved: boolean;
 }
 export interface SecretsChangeBody { sealed?: SealedInput; generate: string[]; clear: string[]; reason?: string }
-export interface FirstRunState {
-  complete: boolean;
-  settings_saved: boolean;
-  backups_enabled: boolean;
-  destinations: number;
-  kit: { state: 'missing' | 'issued' | 'confirmed'; confirmed_at: string | null; fingerprint: string | null; positions: number[] };
-}
-export interface IssuedKitResponse {
-  kit: FirstRunState['kit'];
-  one_time: { groups: string[]; check: string; text: string };
-}
+export type FirstRunState = components['schemas']['OnboardingStateView'];
+type KitConfirmBody = components['schemas']['KitConfirmBody'];
 export interface SourceAddParams { name: string; url: string; commit: string }
 export interface BackupDestinationRecord { id: string; kind: string; label: string }
 
@@ -194,9 +184,33 @@ export class HttpApi implements OneMindApi {
   private readonly sdk: OneMind;
   onboardingSettings = () => this.req<FirstRunSettings>('GET', '/v1/onboarding/settings');
   saveOnboardingSettings = (body: FirstRunSettingsBody) => this.req<FirstRunSettings>('PUT', '/v1/onboarding/settings', body);
-  onboardingState = () => this.req<FirstRunState>('GET', '/v1/onboarding/state');
-  issueKit = () => this.req<IssuedKitResponse>('POST', '/v1/backups/kit');
-  confirmKit = async (answers: Record<string, string>) => { await this.req<unknown>('POST', '/v1/backups/kit/confirm', { answers }); };
+  onboardingState = () => this.sdkCall<FirstRunState>('GET', '/v1/onboarding/state');
+  kitState = () => this.sdkCall<components['schemas']['KitState']>('GET', '/v1/backups/kit');
+  async issueKit() {
+    const headers = { 'Idempotency-Key': uuidv4() };
+    const body: components['schemas']['KitIssueBody'] = {
+      approve: false,
+      delivery_token: Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) => byte.toString(16).padStart(2, '0')).join(''),
+    };
+    const pending = await this.sdkCall<operations['backups.kit.issue']['responses'][202]['content']['application/json']>(
+      'POST', '/v1/backups/kit', body, false, headers, false);
+    if (pending.type !== 'backup.kit.issue' || pending.state !== 'awaiting_approval' ||
+        pending.idempotency_key !== headers['Idempotency-Key'] || typeof pending.id !== 'string') {
+      throw new ApiError(202, 'unknown', 'The hub returned a mismatched kit request.');
+    }
+    await approveWithStepUp(this, { id: pending.id, plan_sha256: pending.plan_sha256 ?? undefined });
+    // The response consumes the page even if the connection drops. A retry must be a new issuance.
+    const issued = await this.sdkCall<components['schemas']['IssuedKit']>('POST', '/v1/backups/kit', body, false, headers, false);
+    if (issued.action?.id !== pending.id || !issued.kit?.fingerprint || !Array.isArray(issued.one_time?.groups) ||
+        typeof issued.one_time.check !== 'string' || typeof issued.one_time.text !== 'string') {
+      throw new ApiError(201, 'unknown', 'The hub returned an invalid recovery kit.');
+    }
+    return issued;
+  }
+  async confirmKit(answers: KitConfirmBody['answers'], fingerprint?: KitConfirmBody['fingerprint']) {
+    const body: KitConfirmBody = { answers, ...(fingerprint ? { fingerprint } : {}) };
+    await this.sdkCall<components['schemas']['KitState']>('POST', '/v1/backups/kit/confirm', body, false, undefined, false);
+  }
   backupDestinations = () => this.req<BackupDestinationRecord[]>('GET', '/v1/backups/destinations', undefined, 'array');
   private readonly base: string;
   private readonly token: string;
@@ -276,6 +290,10 @@ export class HttpApi implements OneMindApi {
   instance() {
     return this.req<Instance>('GET', '/v1/instance');
   }
+  /** One PUT, never retried; the key makes an unseen retry by the person replay the same action. */
+  renameInstance(name: string) {
+    return this.sdkCall<Action>('PUT', '/v1/instance/name', { name, idempotency_key: uuidv4() });
+  }
   nodes() {
     return this.req<NodeRecord[]>('GET', '/v1/nodes', undefined, 'array');
   }
@@ -313,7 +331,7 @@ export class HttpApi implements OneMindApi {
       return !req.plan_sha256 || action.plan_sha256 === req.plan_sha256;
     });
   }
-  private async sdkCall<T>(method: 'GET' | 'POST', path: string, body?: unknown, array = false, headers?: Record<string, string>, retry?: boolean): Promise<T> {
+  private async sdkCall<T>(method: 'GET' | 'POST' | 'PUT', path: string, body?: unknown, array = false, headers?: Record<string, string>, retry?: boolean): Promise<T> {
     try {
       const value = await this.sdk.call<T>({ method, path, body, ...(headers ? { headers } : {}), ...(retry !== undefined ? { retry } : {}) });
       if (!value || typeof value !== 'object' || Array.isArray(value) !== array) throw new ApiError(200, 'unknown', 'Unexpected response from the hub');
@@ -446,21 +464,22 @@ export class HttpApi implements OneMindApi {
   }
   /** With a body (lib/approve.ts: plan hash, passkey, sealed secrets) it is sent as is. Without one,
    *  a step_up_required answer is completed here with the action-bound passkey challenge (#180). */
-  async approve(id: string, body?: ApproveBody) {
+  async approve(id: string, body?: ApproveBody): Promise<Action> {
     const path = `/v1/actions/${encodeURIComponent(id)}/approve`;
-    if (body !== undefined) return this.req<Action>('POST', path, body);
-    try { return await this.req<Action>('POST', path); }
+    // The assertion is only usable once, including when the approval response is lost.
+    if (body !== undefined) return this.sdkCall<Action>('POST', path, body, false, undefined, false);
+    try { return await this.sdkCall<Action>('POST', path, undefined, false, undefined, false); }
     catch (error) {
       if (!(error instanceof ApiError) || error.reason !== 'step_up_required') throw error;
-      const options = await this.sdkCall<components['schemas']['ApprovalChallenge']>('POST', path + '-options', {}, false, undefined, false);
+      const options = await this.approveOptions(id);
       const assertion = await getPasskey(options.publicKey);
-      return this.sdkCall<Action>('POST', path, {
+      return this.approve(id, {
         webauthn: assertion, ...(options.plan_sha256 ? { plan_sha256: options.plan_sha256 } : {}),
-      }, false, undefined, false); // a consumed authenticator assertion must never be retried automatically
+      });
     }
   }
   approveOptions(id: string) {
-    return this.req<ApproveOptions>('POST', `/v1/actions/${encodeURIComponent(id)}/approve-options`, {});
+    return this.sdkCall<ApproveOptions>('POST', `/v1/actions/${encodeURIComponent(id)}/approve-options`, {}, false, undefined, false);
   }
   deny(id: string) {
     return this.req<Action>('POST', `/v1/actions/${encodeURIComponent(id)}/deny`);

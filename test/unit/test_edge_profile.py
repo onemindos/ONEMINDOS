@@ -196,6 +196,43 @@ class GateUsesTheLeafCheck(unittest.TestCase):
             self.assertIn(g, t)
 
 
+class EdgeJoinedBeforeG1TakesTheUpdate(unittest.TestCase):
+    """An edge that joined before the local sign-in (G1) has a leaf.conf the gate refuses (G3). The update
+    that ships G1 must repair it on its own trial boot before the gate looks, or the slot rolls back and
+    the release lands on the bad-releases list. The repair itself is tested in internal/fabric
+    (TestUpgradeLocalRepairsAPreG1Join); here: the image ships it, enables it and orders it before the gate."""
+    UNIT = ("os", "rootfs", "layers", "onemind", "usr", "lib", "systemd", "system", "onemind-leaf-local.service")
+
+    def test_unit_runs_the_upgrade_before_the_gate(self):
+        u = rd(*self.UNIT)
+        self.assertRegex(u, r"(?m)^Before=[^\n]*\bonemind-health-gate\.service\b")
+        self.assertRegex(u, r"(?m)^Before=[^\n]*\bonemindd\.service\b")
+        self.assertRegex(u, r"(?m)^After=[^\n]*\bonemind-data-layout\.service\b")
+        self.assertIn("RequiresMountsFor=/data", u)
+        self.assertIn("ConditionPathExists=/data/onemind/etc/leaf-config.json", u)
+        self.assertIn("Environment=ONEMIND_ETC_DIR=/data/onemind/etc", u)
+        self.assertRegex(u, r"(?m)^Type=oneshot$")
+        self.assertRegex(u, r"(?m)^ExecStart=/usr/bin/onemind fabric upgrade-local$")
+        self.assertRegex(u, r"(?m)^WantedBy=multi-user\.target$")
+
+    def test_image_enables_it(self):
+        c = rd("os", "rootfs", "Containerfile")
+        self.assertRegex(c, r"systemctl enable [^>]*\bonemind-leaf-local\.service\b")
+
+    def test_not_inside_onemindd(self):
+        """onemindd's sandbox (ProtectSystem=strict) cannot write /data/onemind/etc; a separate unit can."""
+        self.assertIn("ProtectSystem=strict", rd("os", "rootfs", "layers", "onemind", "usr", "lib", "systemd", "system", "onemindd.service"))
+        # It has its own sandbox instead, with exactly one writable place.
+        u = rd(*self.UNIT)
+        self.assertRegex(u, r"(?m)^ProtectSystem=strict$")
+        self.assertRegex(u, r"(?m)^ReadWritePaths=/data/onemind/etc$")
+
+    def test_old_open_conf_is_what_the_gate_refuses(self):
+        t = rd(LEAF_CHECK)
+        self.assertIn("no local nkey users", t)
+        self.assertIn("no_auth_user", t)
+
+
 @unittest.skipUnless(LINUX, "runs the bash check with GNU date (Linux, as in CI)")
 class LeafCheckRuns(unittest.TestCase):
     """onemind-leaf-check against a fake root: stub curl, systemctl and findmnt on PATH."""
@@ -232,9 +269,14 @@ class LeafCheckRuns(unittest.TestCase):
         p = subprocess.run(["bash", LEAF_CHECK], capture_output=True, text=True, env=env, timeout=30)
         return p.returncode, p.stdout.strip()
 
-    def leaf_conf(self, start):
-        put(os.path.join(self.root, "data/onemind/etc/nats/leaf.conf"), 
-            'server_name: "node-abc"\nlisten: "127.0.0.1:4222"\nhttp: "127.0.0.1:8222"\n')
+    # The nkey is a public key with no secret in it (gitleaks:allow).
+    AUTH = ('# no_auth_user is gone (this comment must not trip the check)\n'
+            'authorization {\n  users: [\n    {nkey: "UBSMVUZ4GQXTXWP5H5SMM4LPEZAIBCEU54ADTY25RCHRECSM2O5KJ25J", '  # gitleaks:allow
+            'permissions: {publish: {allow: ["onemind.node.abc.status"]}}}  # onemindd\n  ]\n}\n')
+
+    def leaf_conf(self, start, auth=None):
+        put(os.path.join(self.root, "data/onemind/etc/nats/leaf.conf"),
+            'server_name: "node-abc"\nlisten: "127.0.0.1:4222"\nhttp: "127.0.0.1:8222"\n' + (self.AUTH if auth is None else auth))
         self.active.add("onemind-nats-leaf.service")
         self.urls["http://127.0.0.1:8222/healthz?js-enabled-only=true"] = '{"status":"ok"}'
         self.urls["http://127.0.0.1:8222/varz"] = json.dumps({"server_name": "node-abc", "start": start})
@@ -277,6 +319,16 @@ class LeafCheckRuns(unittest.TestCase):
                 rc, out = self.run_check()
                 self.assertEqual(rc, 1)
                 self.assertEqual(out, f"fail G2: hub service {unit.removesuffix('.service')} is running on an edge")
+
+    def test_leaf_without_local_sign_in_fails(self):
+        """G1: a leaf any local program can use (no nkey users, or a passwordless user) is a bad leaf."""
+        for what, auth in (("no authorization block", ""),
+                           ("a passwordless user", self.AUTH + 'no_auth_user: "sensor"\n')):
+            with self.subTest(what):
+                self.leaf_conf(self.iso(self.btime + 20), auth=auth)
+                rc, out = self.run_check()
+                self.assertEqual(rc, 1, out)
+                self.assertTrue(out.startswith("fail G3:") and "local" in out, out)
 
     def test_leaf_nats_unhealthy_or_stale(self):
         self.leaf_conf(self.iso(self.btime + 20))

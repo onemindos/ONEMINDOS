@@ -19,6 +19,7 @@ import (
 //
 //	POST /v1/auth/rescue/options  makes a single-use challenge (120 s) for the owner's passkeys
 //	POST /v1/auth/rescue/verify   checks the browser's assertion and audits it
+//	POST /v1/auth/rescue/kit      checks the printed kit's owner key typed at the box (D-028: no passkey left)
 //
 // The console forwards the owner's own credential, so the gateway applies its owner check too. A fresh
 // assertion is needed once, to start a session; it is never remembered between sessions.
@@ -97,7 +98,9 @@ func (g *GatewayReauth) Challenge(r *http.Request) ([]byte, error) {
 	return nil, ErrReauthUnavailable
 }
 
-// Fresh implements Reauther: the request body is {"webauthn": <assertion>}; the gateway must accept it.
+// Fresh implements Reauther. The request body is {"webauthn": <assertion>} or, for an owner at the box with no
+// passkey (D-028), {"kit_key": "<printed owner key>"}; the gateway must accept it. The kit key is taken only from a
+// loopback client (a browser on the box, or an SSH tunnel to it): from the LAN the owner token alone never gets here.
 func (g *GatewayReauth) Fresh(r *http.Request) (string, error) {
 	in, err := io.ReadAll(http.MaxBytesReader(nil, r.Body, 16<<10))
 	if err != nil {
@@ -105,12 +108,27 @@ func (g *GatewayReauth) Fresh(r *http.Request) (string, error) {
 	}
 	var body struct {
 		WebAuthn map[string]any `json:"webauthn"`
+		KitKey   string         `json:"kit_key"`
 	}
-	if json.Unmarshal(in, &body) != nil || len(body.WebAuthn) == 0 {
+	if json.Unmarshal(in, &body) != nil {
 		return "", ErrNoFreshAuth
 	}
-	out, _ := json.Marshal(map[string]any{"credential": body.WebAuthn})
-	code, b, err := g.call(r, "/v1/auth/rescue/verify", out)
+	var path string
+	var out []byte
+	switch {
+	case len(body.WebAuthn) > 0 && body.KitKey == "":
+		path = "/v1/auth/rescue/verify"
+		out, _ = json.Marshal(map[string]any{"credential": body.WebAuthn})
+	case body.KitKey != "" && len(body.WebAuthn) == 0:
+		if !loopbackClient(r) {
+			return "", ErrNoFreshAuth
+		}
+		path = "/v1/auth/rescue/kit"
+		out, _ = json.Marshal(map[string]any{"kit_key": body.KitKey})
+	default:
+		return "", ErrNoFreshAuth
+	}
+	code, b, err := g.call(r, path, out)
 	switch {
 	case err != nil:
 		return "", err
@@ -126,4 +144,10 @@ func (g *GatewayReauth) Fresh(r *http.Request) (string, error) {
 		return "", ErrNoFreshAuth
 	}
 	return "", ErrReauthUnavailable
+}
+
+// loopbackClient reports whether the request came from this box itself.
+func loopbackClient(r *http.Request) bool {
+	ip := net.ParseIP(clientIP(r))
+	return ip != nil && ip.IsLoopback()
 }

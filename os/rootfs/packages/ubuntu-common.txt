@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Ubuntu 26.04 CI hedge only (founder override Z-38 = b): same definition, never published (Z-01).
 systemd systemd-sysv systemd-resolved udev dbus login passwd
+systemd-timesyncd tzdata
 # Compressed RAM swap (zram) so one big app cannot push the control plane into the OOM killer
 systemd-zram-generator
 kmod iproute2 iptables nftables procps util-linux mount e2fsprogs dosfstools
@@ -12,6 +13,9 @@ ca-certificates curl socat zstd squashfs-tools
 apparmor
 avahi-daemon avahi-utils openssl
 samba samba-vfs-modules libnss-extrausers
+# Desktop apps from Flathub (#1097): Flatpak itself. One system installation on /data (installations.d/onemind.conf), so the
+# read-only root is untouched and the apps survive a reboot and an A/B update. No remote is added until an owner searches.
+flatpak
 # NAS client tools (#871): mount an SMB or NFS share from a NAS as a Files location (#718). Clients only: no
 # nfs-kernel-server or ksmbd-tools, and the rpcbind and nfs-client units nfs-common enables are disabled below
 # (os/rootfs/Containerfile); rpc-statd still starts on demand for an NFSv3 lock. The kernel's cifs and nfs modules
@@ -20,9 +24,11 @@ cifs-utils nfs-common
 # Ubuntu 26.04 defaults to dracut; we name initramfs-tools explicitly [C-LAB-ubuntu-2604-leg-001]
 initramfs-tools
 grub-common
+# Console keyboard and charmap for the tty2 login (Step 3); see debian-common.txt. Proof: first-boot checks F30 and F31.
+console-setup keyboard-configuration
 libglib2.0-0t64 libssl3t64 libcurl4t64 libjson-glib-1.0-0 libfdisk1 libnl-genl-3-200
 # Disk and admin tools (Step 2 PRs 4 and 7). smartmontools is what internal/storage/smart.go calls (smartctl); its
-# smartd daemon (smartmontools.service, alias smartd.service) is masked below (the gateway reads SMART on demand). gdisk gives sgdisk, btrfs-progs the btrfs tool
+# smartd daemon (smartmontools.service, alias smartd.service) runs with /etc/smartd.conf and feeds Notifications (P-10). gdisk gives sgdisk, btrfs-progs the btrfs tool
 # for the coming btrfs /data. The rest is what an owner expects on an SSH or rescue shell. Proof: first-boot check F13.
 smartmontools gdisk btrfs-progs
 bash-completion less nano rsync htop jq iputils-ping pciutils usbutils dmidecode ethtool
@@ -31,3 +37,12 @@ bash-completion less nano rsync htop jq iputils-ping pciutils usbutils dmidecode
 openssh-server sudo libpam-systemd
 # Man pages: `man onemind` (the pages are generated from the CLI at image build; proof: first-boot check F14).
 man-db
+# Box care for a 24/7 machine (Step 2b): fwupd (firmware updates through LVFS, owner-approved only: the refresh timer
+# is masked in os/rootfs/Containerfile), lm-sensors (the sensors command), rasdaemon (hardware error log, its database
+# on /data), udisks2 (USB drives: detect only, never auto-mounted, os/rootfs/layers/base/usr/lib/udev). fstrim.timer
+# comes with util-linux; polkitd is not installed, so only root (the host helper) may mount or flash. Proof: first-boot check F24.
+fwupd lm-sensors rasdaemon udisks2
+# Printing (Step 3): CUPS with driverless (IPP Everywhere) printing. No cups-browsed: it would add queues by itself,
+# and adding a printer is an owner action. ipp-usb lets a USB printer speak IPP; avahi (above) announces it. "cups" brings
+# the web admin (the CGI programs) and cups-ppdc (the generic PPDs); the rest are named so a dependency change shows.
+cups cups-client cups-daemon cups-filters cups-ipp-utils ipp-usb

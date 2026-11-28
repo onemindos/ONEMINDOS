@@ -17,6 +17,10 @@ services:
      description: "Reports this machine's health to the hub every few seconds and answers the local API. Without it the hub shows the machine offline."}
   - {unit: k3s.service, name: Kubernetes (k3s), docs: docs/ARCHITECTURE.md, restartable: true, risk: high, depends_on: [],
      description: "Runs every app in its own sandbox. Stopping it stops all apps; their data stays on the data disk."}
+  - {unit: onemind-k3s-settle.service, name: Kubernetes first-start sync, docs: docs/leap/core/IMAGES.md, restartable: false, risk: low,
+     depends_on: [], description: "On a new hub, saves Kubernetes's first-start files to the disk while it starts, so a power cut in the first minutes cannot leave them empty."}
+  - {unit: onemind-k3s-reset.service, name: Kubernetes state reset, docs: docs/leap/core/IMAGES.md, restartable: false, risk: high,
+     depends_on: [k3s.service], description: "Only runs when the owner approves Reset k3s state in the rescue console: moves Kubernetes's generated state aside and starts it fresh. Files, app data and the gateway database are not touched."}
   - {unit: onemind-images.service, name: App image cleanup, docs: docs/leap/core/APP-LIFECYCLE.md, restartable: true, risk: low, depends_on: [k3s.service],
      description: "Removes app images that a newer version replaced, so the disk does not fill up. Images in use are never touched."}
   - {unit: onemind-catalog.service, name: Market catalog sync, docs: docs/learning/08-security-pipeline-and-tuf.md, restartable: false, risk: low,
@@ -59,8 +63,14 @@ services:
      depends_on: [onemind-screen.service, onemind-kiosk.service], description: "Restarts the box's screen after the owner turns kiosk mode on or off, so the monitor shows the right one."}
   - {unit: onemind-kiosk.path, name: Kiosk switch watcher, docs: docs/leap/core/IMAGES.md, restartable: false, risk: low,
      depends_on: [onemind-kiosk-apply.service], description: "Watches the kiosk switch the owner sets in the dashboard or the CLI and starts the kiosk switch when it changes."}
+  - {unit: onemind-hostname.service, name: Box name, docs: docs/leap/core/IMAGES.md, restartable: false, risk: low, depends_on: [],
+     description: "Gives the running system the name the owner chose for the box, so other devices find it as name.local. Starts after a rename and at every boot."}
+  - {unit: onemind-mdns-aliases.service, name: Old box names, docs: docs/leap/core/IMAGES.md, restartable: false, risk: low, depends_on: [],
+     description: "After a rename, keeps answering to onemind.local and the old name, so saved links, passkeys and apps keep working."}
   - {unit: onemind-firewall.service, name: Firewall, docs: docs/architecture/NETWORKING.md, restartable: false, risk: high, depends_on: [],
      description: "Loads the default-deny firewall at boot, so only the ports OneMind uses are open."}
+  - {unit: onemind-firewall-owner.service, name: Firewall allow rules, docs: docs/architecture/NETWORKING.md, restartable: false, risk: high, depends_on: [onemind-firewall.service],
+     description: "Opens the extra ports the owner approved to the home network or the mesh, and takes them away again unless the owner confirms."}
   - {unit: onemind-health-gate.service, name: Update health check, docs: docs/learning/07-image-ab-updates-health-gate.md, restartable: false, risk: high,
      depends_on: [onemind-local-api.service], description: "After an update, keeps the new system only if it boots healthy; otherwise the next boot goes back to the old one."}
   - {unit: onemind-local-api.service, name: Boot check helper, docs: docs/learning/07-image-ab-updates-health-gate.md, restartable: false, risk: low,
@@ -76,6 +86,8 @@ services:
      description: "Creates the folders every service keeps its state in on the data partition."}
   - {unit: onemind-data-check.service, name: Data disk check, docs: docs/leap/core/STORAGE-ACTIONS.md, restartable: false, risk: high,
      depends_on: [onemind-data-layout.service], description: "Checks the data partition at boot and starts recovery mode if it is not usable."}
+  - {unit: onemind-leaf-local.service, name: Local sign-in upgrade, docs: docs/learning/nats-fabric.md, restartable: false, risk: high,
+     depends_on: [onemind-data-layout.service], description: "Gives a machine that joined the fabric before this release its own local NATS sign-in, once, at boot."}
   - {unit: onemind-storage.service, name: Storage operations, docs: docs/leap/core/STORAGE-ACTIONS.md, restartable: true, risk: medium, depends_on: [],
      description: "Adds, replaces and removes data disks, but only for disk changes the owner approved."}
   - {unit: onemind-smb.service, name: File sharing, docs: docs/leap/core/FILE-SHARING.md, restartable: true, risk: medium, depends_on: [],
@@ -85,6 +97,10 @@ services:
      description: "Restarts, shuts down or updates the box, and only after the owner approved it. It also reads these service cards."}
   - {unit: onemind-host.socket, name: Host actions socket, docs: docs/leap/core/HOST-ACTIONS.md, restartable: false, risk: high, depends_on: [],
      description: "The private door between the gateway and the host actions service. Only the gateway and root may use it."}
+  - {unit: onemind-firewall-read.socket, name: Firewall read socket, docs: docs/architecture/NETWORKING.md, restartable: false, risk: medium, depends_on: [],
+     description: "The private door the host service uses to read the firewall rules. Only root may use it, and it can only print."}
+  - {unit: onemind-firewall-read@.service, name: Firewall read, docs: docs/architecture/NETWORKING.md, restartable: false, risk: medium, depends_on: [onemind-firewall-read.socket],
+     description: "Prints the firewall rules so the Network screen can show them. It cannot change a rule."}
   - {unit: onemind-update.service, name: OS updates, docs: docs/leap/core/UPDATES.md, restartable: true, risk: medium, depends_on: [],
      description: "Checks for signed OS updates, snapshots your data first and installs the new system next to the old one."}
   - {unit: onemind-rescue.service, name: Rescue console, docs: docs/security/rescue-terminal.md, restartable: false, risk: high, depends_on: [],
@@ -104,6 +120,8 @@ services:
      description: "Makes this machine's own SSH keys once and keeps them on the data disk, never in the shared system image."}
   - {unit: onemind-ssh-owner-key.path, name: SSH starts with the owner key, docs: docs/leap/core/IMAGES.md, restartable: false, risk: low,
      depends_on: [], description: "Starts the SSH service the moment the owner adds the first key; until then nothing listens on port 22."}
+  - {unit: onemind-ssh-apply.service, name: SSH key and switch changes, docs: docs/leap/core/IMAGES.md, restartable: false, risk: medium, depends_on: [],
+     description: "Applies the one SSH change the owner approved (add or remove a key, SSH on or off). Started by the host service only; it leaves its outcome on the data disk."}
   - {unit: onemind-installer-web.service, name: Installer page, docs: docs/see-onemind/beelink-usb.md, restartable: false, risk: medium, depends_on: [],
      description: "Installer USB only: the page on port 8080 that installs OneMind onto the box's disk."}
   - {unit: onemind-installer@.service, name: Installer menu, docs: docs/see-onemind/beelink-usb.md, restartable: false, risk: medium,
@@ -116,6 +134,9 @@ services:
      description: "Raspberry Pi 5 only: grows the data partition to fill the SD card or SSD."}
   - {unit: onemind-nvidia-setup.service, name: NVIDIA GPU setup, docs: docs/HARDWARE.md, restartable: false, risk: medium,
      depends_on: [onemind-data-layout.service], description: "GPU images only: loads the NVIDIA driver and lets apps use the card, when one is present."}
+  # ---- console: the text-login keyboard layout (Step 3) ----
+  - {unit: onemind-console-keyboard.service, name: Console keyboard layout, docs: docs/leap/core/IMAGES.md, restartable: true, risk: low,
+     depends_on: [onemind-data-layout.service], description: "Loads the keyboard layout you chose for the text console (the login on Ctrl+Alt+F2) from the data disk, so it survives restarts and updates. US until you choose another."}
   # ---- power: a UPS on USB (IMG-06, #244) ----
   - {unit: onemind-ups.service, name: UPS connection, docs: docs/HARDWARE.md, restartable: true, risk: low, depends_on: [],
      description: "Talks to a UPS plugged into the box by USB and reports its battery. Off on a box without a UPS; a UPS plugged in later is found at the next start."}

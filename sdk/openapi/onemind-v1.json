@@ -982,6 +982,188 @@
         "title": "Allow",
         "type": "object"
       },
+      "AllowRequest": {
+        "additionalProperties": false,
+        "description": "POST /v1/network/firewall/allow.",
+        "properties": {
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "port": {
+            "maximum": 65535.0,
+            "minimum": 1.0,
+            "title": "Port",
+            "type": "integer"
+          },
+          "proto": {
+            "enum": [
+              "tcp",
+              "udp"
+            ],
+            "title": "Proto",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why, shown to the owner on the approval card.",
+            "title": "Reason"
+          },
+          "scope": {
+            "description": "lan: devices on the home network; mesh: your other OneMind machines. Never the internet.",
+            "enum": [
+              "lan",
+              "mesh"
+            ],
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proto",
+          "port",
+          "scope"
+        ],
+        "title": "AllowRequest",
+        "type": "object"
+      },
+      "AllowRule": {
+        "additionalProperties": false,
+        "description": "One port the owner opened. `pending` rules revert at `expires_at` unless confirmed.",
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pending only: when the box takes the rule away again if nobody confirmed it.",
+            "title": "Expires At"
+          },
+          "id": {
+            "description": "The id of the approved action that opened it.",
+            "title": "Id",
+            "type": "string"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "proto": {
+            "enum": [
+              "tcp",
+              "udp"
+            ],
+            "title": "Proto",
+            "type": "string"
+          },
+          "scope": {
+            "enum": [
+              "lan",
+              "mesh"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "state": {
+            "description": "revert_failed: its time ran out and the box could not take it away yet; it keeps trying, and the owner can remove it now.",
+            "enum": [
+              "pending",
+              "confirmed",
+              "revert_failed"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "proto",
+          "port",
+          "scope",
+          "state",
+          "summary"
+        ],
+        "title": "AllowRule",
+        "type": "object"
+      },
+      "AllowView": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "rules": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/AllowRule"
+            },
+            "title": "Rules",
+            "type": "array"
+          },
+          "supported": {
+            "description": "False when this box's firewall has no owner rule lists yet (older image) or the host cannot take rules.",
+            "title": "Supported",
+            "type": "boolean"
+          },
+          "ttl_seconds": {
+            "description": "How long a new rule waits for confirmation before it reverts.",
+            "title": "Ttl Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "supported",
+          "ttl_seconds"
+        ],
+        "title": "AllowView",
+        "type": "object"
+      },
       "Anchor": {
         "additionalProperties": false,
         "properties": {
@@ -4056,6 +4238,30 @@
         "title": "DenyBody",
         "type": "object"
       },
+      "DesktopAppsView": {
+        "properties": {
+          "installed": {
+            "items": {
+              "$ref": "#/components/schemas/FlathubApp"
+            },
+            "title": "Installed",
+            "type": "array"
+          },
+          "service": {
+            "$ref": "#/components/schemas/ServiceInfo"
+          },
+          "stream": {
+            "$ref": "#/components/schemas/StreamInfo"
+          }
+        },
+        "required": [
+          "service",
+          "installed",
+          "stream"
+        ],
+        "title": "DesktopAppsView",
+        "type": "object"
+      },
       "DestinationBody": {
         "additionalProperties": false,
         "properties": {
@@ -4258,6 +4464,24 @@
         "title": "DiagnosticsBundle",
         "type": "object"
       },
+      "DiskKeyKit": {
+        "properties": {
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "issued_at": {
+            "title": "Issued At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fingerprint",
+          "issued_at"
+        ],
+        "title": "DiskKeyKit",
+        "type": "object"
+      },
       "DomainBody": {
         "additionalProperties": false,
         "properties": {
@@ -4315,6 +4539,38 @@
           }
         },
         "title": "DryRunBody",
+        "type": "object"
+      },
+      "EjectRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "EjectRequest",
         "type": "object"
       },
       "EngineAccount": {
@@ -4996,6 +5252,138 @@
         "title": "ErrorBody",
         "type": "object"
       },
+      "FabricEvent": {
+        "properties": {
+          "account": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account"
+          },
+          "cause": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cause"
+          },
+          "client": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client"
+          },
+          "event": {
+            "title": "Event",
+            "type": "string"
+          },
+          "identity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Identity"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "repeats": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repeats"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "ts": {
+            "title": "Ts",
+            "type": "string"
+          }
+        },
+        "required": [
+          "seq",
+          "ts",
+          "event"
+        ],
+        "title": "FabricEvent",
+        "type": "object"
+      },
+      "FabricEvents": {
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/FabricEvent"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "observer": {
+            "title": "Observer",
+            "type": "string"
+          }
+        },
+        "required": [
+          "observer",
+          "events"
+        ],
+        "title": "FabricEvents",
+        "type": "object"
+      },
       "FamilyProfile": {
         "additionalProperties": false,
         "properties": {
@@ -5115,6 +5503,9 @@
               "app.disable",
               "app.enable",
               "data.grant",
+              "desktop.app.install",
+              "desktop.app.remove",
+              "desktop.app.update",
               "exposure.mesh",
               "exposure.private",
               "exposure.public",
@@ -5144,6 +5535,7 @@
               "plugin.invoke",
               "plugin.key.enroll",
               "plugin.key.revoke",
+              "print.job.release",
               "source.add",
               "source.move",
               "source.remove"
@@ -5159,6 +5551,402 @@
           "params"
         ],
         "title": "FeatureActionRequest",
+        "type": "object"
+      },
+      "FirewallChain": {
+        "additionalProperties": false,
+        "properties": {
+          "audience": {
+            "anyOf": [
+              {
+                "enum": [
+                  "this_machine",
+                  "mesh",
+                  "pod_network",
+                  "lan",
+                  "specific_address",
+                  "one_interface",
+                  "any_network"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For a chain reached by jump: who can get into it.",
+            "title": "Audience"
+          },
+          "base": {
+            "description": "A base chain sees traffic first; the others are reached from a rule that jumps to them.",
+            "title": "Base",
+            "type": "boolean"
+          },
+          "hook": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hook"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "policy": {
+            "anyOf": [
+              {
+                "enum": [
+                  "accept",
+                  "drop"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What happens to traffic no rule matched (base chains).",
+            "title": "Policy"
+          },
+          "rules": {
+            "title": "Rules",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "base",
+          "rules"
+        ],
+        "title": "FirewallChain",
+        "type": "object"
+      },
+      "FirewallRule": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "accept",
+              "drop",
+              "reject",
+              "jump",
+              "goto",
+              "return",
+              "none"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "audience": {
+            "description": "Who this rule applies to (where the packet comes from).",
+            "enum": [
+              "this_machine",
+              "mesh",
+              "pod_network",
+              "lan",
+              "specific_address",
+              "one_interface",
+              "any_network"
+            ],
+            "title": "Audience",
+            "type": "string"
+          },
+          "chain": {
+            "title": "Chain",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "open_port",
+              "basics",
+              "state",
+              "internal",
+              "hand_off",
+              "block",
+              "other"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "ports": {
+            "description": "Destination ports or ranges the rule matches; empty when it names none.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Ports",
+            "type": "array"
+          },
+          "position": {
+            "description": "1-based place in its chain; rules are tried in order.",
+            "title": "Position",
+            "type": "integer"
+          },
+          "proto": {
+            "anyOf": [
+              {
+                "enum": [
+                  "tcp",
+                  "udp",
+                  "icmp",
+                  "ipv6-icmp"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proto"
+          },
+          "summary": {
+            "description": "One plain sentence: what the rule does and for whom.",
+            "title": "Summary",
+            "type": "string"
+          },
+          "understood": {
+            "description": "False when the rule uses something this screen cannot describe; the summary then says so.",
+            "title": "Understood",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "chain",
+          "position",
+          "action",
+          "kind",
+          "audience",
+          "ports",
+          "summary",
+          "understood"
+        ],
+        "title": "FirewallRule",
+        "type": "object"
+      },
+      "FirewallSet": {
+        "additionalProperties": false,
+        "properties": {
+          "elements": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Elements",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "elements"
+        ],
+        "title": "FirewallSet",
+        "type": "object"
+      },
+      "FirewallTable": {
+        "additionalProperties": false,
+        "properties": {
+          "chains": {
+            "title": "Chains",
+            "type": "integer"
+          },
+          "family": {
+            "title": "Family",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "rules": {
+            "title": "Rules",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "family",
+          "name",
+          "chains",
+          "rules"
+        ],
+        "title": "FirewallTable",
+        "type": "object"
+      },
+      "FirewallView": {
+        "additionalProperties": false,
+        "description": "The box's firewall, explained. `editable` is true when the box can take allow rules (`allow.supported`).",
+        "properties": {
+          "allow": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AllowView"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The ports the owner opened, with their state and deadline; null when the host service keeps none."
+          },
+          "at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "chains": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FirewallChain"
+            },
+            "title": "Chains",
+            "type": "array"
+          },
+          "default_action": {
+            "anyOf": [
+              {
+                "enum": [
+                  "accept",
+                  "drop"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the input chain does with traffic no rule allows.",
+            "title": "Default Action"
+          },
+          "dropped": {
+            "default": 0,
+            "description": "Entries the gateway refused because a field failed its checks, or past its own size caps.",
+            "title": "Dropped",
+            "type": "integer"
+          },
+          "editable": {
+            "default": false,
+            "description": "True when the owner can ask for allow rules (POST /v1/network/firewall/allow); false on an image or host that cannot take them.",
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "exposure": {
+            "anyOf": [
+              {
+                "enum": [
+                  "lan_and_mesh_only",
+                  "open_to_internet",
+                  "no_firewall",
+                  "not_fully_understood"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "lan_and_mesh_only: every rule was read and nothing is open to an unknown address. open_to_internet: at least one service is. no_firewall: the OneMind table is not loaded or does not drop by default. not_fully_understood: a rule that lets traffic in uses something this screen cannot read, or part of the ruleset was left out; the box is never called safe on a guess.",
+            "title": "Exposure"
+          },
+          "headline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The answer in one sentence.",
+            "title": "Headline"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "open_to_anywhere": {
+            "default": [],
+            "description": "proto/port of every service open to any address, e.g. tcp/22. Empty on a normal box.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Open To Anywhere",
+            "type": "array"
+          },
+          "other_tables": {
+            "default": [],
+            "description": "Tables other services keep (cluster, mesh guard), by name and size only.",
+            "items": {
+              "$ref": "#/components/schemas/FirewallTable"
+            },
+            "title": "Other Tables",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "host_service_unreachable",
+                  "host_service_error",
+                  "bad_response"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "rules": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FirewallRule"
+            },
+            "title": "Rules",
+            "type": "array"
+          },
+          "sets": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FirewallSet"
+            },
+            "title": "Sets",
+            "type": "array"
+          },
+          "truncated": {
+            "default": 0,
+            "description": "Chains, rules, sets and set members the host service left out because of its size caps. Not zero means the view is partial.",
+            "title": "Truncated",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "available"
+        ],
+        "title": "FirewallView",
         "type": "object"
       },
       "FixIn": {
@@ -5183,6 +5971,56 @@
           }
         },
         "title": "FixIn",
+        "type": "object"
+      },
+      "FlathubApp": {
+        "description": "One app: from the Flathub search, or installed (then `installed`, `update_available` and `folder` are set).",
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "folder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder"
+          },
+          "installed": {
+            "default": false,
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "name": {
+            "default": "",
+            "title": "Name",
+            "type": "string"
+          },
+          "summary": {
+            "default": "",
+            "title": "Summary",
+            "type": "string"
+          },
+          "update_available": {
+            "default": false,
+            "title": "Update Available",
+            "type": "boolean"
+          },
+          "version": {
+            "default": "",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id"
+        ],
+        "title": "FlathubApp",
         "type": "object"
       },
       "GeoSite": {
@@ -6016,6 +6854,72 @@
         "title": "HostStatus",
         "type": "object"
       },
+      "Housekeeping": {
+        "description": "GET /v1/storage/housekeeping.",
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why nothing is shown when the host service cannot be read",
+            "title": "Message"
+          },
+          "removable": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Removable"
+            },
+            "title": "Removable",
+            "type": "array"
+          },
+          "smart": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Smart"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "trim": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Trim"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "available"
+        ],
+        "title": "Housekeeping",
+        "type": "object"
+      },
       "ImportBody": {
         "additionalProperties": false,
         "properties": {
@@ -6228,6 +7132,26 @@
         "title": "IntakeResult",
         "type": "object"
       },
+      "IssuedKit": {
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/Action"
+          },
+          "kit": {
+            "$ref": "#/components/schemas/KitState"
+          },
+          "one_time": {
+            "$ref": "#/components/schemas/OneTimeKit"
+          }
+        },
+        "required": [
+          "action",
+          "kit",
+          "one_time"
+        ],
+        "title": "IssuedKit",
+        "type": "object"
+      },
       "JoinNode": {
         "properties": {
           "arch": {
@@ -6324,6 +7248,61 @@
         "title": "JoinRequestBody",
         "type": "object"
       },
+      "KeyAddRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 60,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A name for the key; defaults to the key's own comment.",
+            "title": "Label"
+          },
+          "public_key": {
+            "description": "The one line of a .pub file.",
+            "maxLength": 8192,
+            "minLength": 1,
+            "title": "Public Key",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "public_key"
+        ],
+        "title": "KeyAddRequest",
+        "type": "object"
+      },
       "KeyRequest": {
         "additionalProperties": false,
         "properties": {
@@ -6358,6 +7337,224 @@
           "expires_at"
         ],
         "title": "KeyRequest",
+        "type": "object"
+      },
+      "KeyboardLayout": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "variants": {
+            "items": {
+              "$ref": "#/components/schemas/KeyboardVariant"
+            },
+            "title": "Variants",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "variants"
+        ],
+        "title": "KeyboardLayout",
+        "type": "object"
+      },
+      "KeyboardRequest": {
+        "additionalProperties": false,
+        "description": "POST /v1/system/keyboard.",
+        "properties": {
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "layout": {
+            "description": "A layout id from GET /v1/system/keyboard, e.g. de.",
+            "pattern": "^[A-Za-z0-9_]{1,24}$",
+            "title": "Layout",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "variant": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_-]{1,32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "One of that layout's variant ids.",
+            "title": "Variant"
+          }
+        },
+        "required": [
+          "layout"
+        ],
+        "title": "KeyboardRequest",
+        "type": "object"
+      },
+      "KeyboardSetting": {
+        "additionalProperties": false,
+        "properties": {
+          "layout": {
+            "description": "The layout id, e.g. us, de, fr.",
+            "title": "Layout",
+            "type": "string"
+          },
+          "model": {
+            "description": "The keyboard model, as in /etc/default/keyboard (pc105 unless changed).",
+            "title": "Model",
+            "type": "string"
+          },
+          "options": {
+            "description": "xkb options, e.g. ctrl:nocaps; empty for none.",
+            "title": "Options",
+            "type": "string"
+          },
+          "variant": {
+            "description": "The variant id of that layout, empty for the plain layout.",
+            "title": "Variant",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model",
+          "layout",
+          "variant",
+          "options"
+        ],
+        "title": "KeyboardSetting",
+        "type": "object"
+      },
+      "KeyboardVariant": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "KeyboardVariant",
+        "type": "object"
+      },
+      "KeyboardView": {
+        "additionalProperties": false,
+        "description": "The keyboard layout of the text console and the box's own screen, and every layout this image offers.",
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "current": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KeyboardSetting"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dropped": {
+            "default": 0,
+            "description": "Entries the gateway refused because a field failed its checks.",
+            "title": "Dropped",
+            "type": "integer"
+          },
+          "layouts": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/KeyboardLayout"
+            },
+            "title": "Layouts",
+            "type": "array"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "host_service_unreachable",
+                  "host_service_error",
+                  "bad_response"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "seeded": {
+            "default": false,
+            "description": "True while nothing is chosen yet: the box then runs the US layout.",
+            "title": "Seeded",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "available"
+        ],
+        "title": "KeyboardView",
         "type": "object"
       },
       "KillSwitch": {
@@ -6476,12 +7673,137 @@
             "maxProperties": 4,
             "title": "Answers",
             "type": "object"
+          },
+          "fingerprint": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{16}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fingerprint"
           }
         },
         "required": [
           "answers"
         ],
         "title": "KitConfirmBody",
+        "type": "object"
+      },
+      "KitIssueBody": {
+        "additionalProperties": false,
+        "properties": {
+          "approve": {
+            "default": true,
+            "description": "Set to false to file a request for separate approval.",
+            "title": "Approve",
+            "type": "boolean"
+          },
+          "delivery_token": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "32 random bytes in hex. Required with Idempotency-Key for separated approval and one-time delivery.",
+            "title": "Delivery Token",
+            "writeOnly": true
+          }
+        },
+        "title": "KitIssueBody",
+        "type": "object"
+      },
+      "KitState": {
+        "properties": {
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
+          },
+          "disk_key_included": {
+            "title": "Disk Key Included",
+            "type": "boolean"
+          },
+          "disk_key_kit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiskKeyKit"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fingerprint"
+          },
+          "issued_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issued At"
+          },
+          "positions": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Positions",
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "missing",
+              "issued",
+              "confirmed"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "uncovered_destinations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Uncovered Destinations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "state",
+          "issued_at",
+          "confirmed_at",
+          "fingerprint",
+          "positions",
+          "disk_key_included",
+          "uncovered_destinations",
+          "disk_key_kit"
+        ],
+        "title": "KitState",
         "type": "object"
       },
       "LatestValue": {
@@ -7659,6 +8981,156 @@
         "title": "NatsKeyBody",
         "type": "object"
       },
+      "NetChange": {
+        "additionalProperties": false,
+        "description": "One wired-address change (netconf of an interface, P-08) and what became of it.",
+        "properties": {
+          "action_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The approved action for this change. Older records may have no action ID.",
+            "title": "Action Id"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "deadline": {
+            "description": "When NetworkManager puts the old settings back unless the owner confirms.",
+            "format": "date-time",
+            "title": "Deadline",
+            "type": "string"
+          },
+          "dns": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Dns",
+            "type": "array"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "gateway": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gateway"
+          },
+          "interface": {
+            "title": "Interface",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "static",
+              "dhcp"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "result": {
+            "description": "pending: applied, waiting for the owner to confirm before `deadline`; confirmed: kept; rolled_back: not confirmed in time (or it failed), the old settings are back",
+            "enum": [
+              "pending",
+              "confirmed",
+              "rolled_back"
+            ],
+            "title": "Result",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "interface",
+          "mode",
+          "result",
+          "started_at",
+          "deadline"
+        ],
+        "title": "NetChange",
+        "type": "object"
+      },
+      "NetChanges": {
+        "additionalProperties": false,
+        "description": "Whether this box can change its wired network, and the change waiting for confirmation.",
+        "properties": {
+          "can_change": {
+            "title": "Can Change",
+            "type": "boolean"
+          },
+          "last": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NetChange"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The most recent change that finished."
+          },
+          "pending": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NetChange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "can_change"
+        ],
+        "title": "NetChanges",
+        "type": "object"
+      },
       "NetGateway": {
         "additionalProperties": false,
         "properties": {
@@ -7793,6 +9265,136 @@
         "title": "NetPort",
         "type": "object"
       },
+      "NetworkConfigBody": {
+        "additionalProperties": false,
+        "description": "The wanted IPv4 setup of one wired interface. `dhcp` takes no address, gateway or DNS.",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "maxLength": 18,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "static: IPv4 address with prefix, like 192.0.2.20/24",
+            "title": "Address"
+          },
+          "dns": {
+            "description": "static: up to three DNS servers",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 3,
+            "title": "Dns",
+            "type": "array"
+          },
+          "gateway": {
+            "anyOf": [
+              {
+                "maxLength": 15,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "static: the router, inside the address's subnet",
+            "title": "Gateway"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "mode": {
+            "enum": [
+              "static",
+              "dhcp"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "shown to the owner on the approval card",
+            "title": "Reason"
+          },
+          "rollback_seconds": {
+            "default": 120,
+            "description": "how long the owner has to confirm from the new address before the old settings return",
+            "maximum": 600.0,
+            "minimum": 10.0,
+            "title": "Rollback Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "title": "NetworkConfigBody",
+        "type": "object"
+      },
+      "NetworkConfirm": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "interface": {
+            "title": "Interface",
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirmed",
+          "interface"
+        ],
+        "title": "NetworkConfirm",
+        "type": "object"
+      },
+      "NetworkConfirmBody": {
+        "additionalProperties": false,
+        "properties": {
+          "action_id": {
+            "description": "The approved action ID from the pending network change.",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$",
+            "title": "Action Id",
+            "type": "string"
+          },
+          "verified_reachable": {
+            "const": true,
+            "description": "The owner opened the dashboard directly at this interface's new IPv4 address from another device and verified it loaded.",
+            "title": "Verified Reachable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "action_id",
+          "verified_reachable"
+        ],
+        "title": "NetworkConfirmBody",
+        "type": "object"
+      },
       "NetworkView": {
         "additionalProperties": false,
         "description": "What the box listens on and how it is connected. It does not include firewall rules.",
@@ -7812,6 +9414,17 @@
           "available": {
             "title": "Available",
             "type": "boolean"
+          },
+          "changes": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NetChanges"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Wired address changes: whether they are possible, and the one waiting for confirmation."
           },
           "dns": {
             "default": [],
@@ -9256,6 +10869,55 @@
         "title": "OnboardingStateView",
         "type": "object"
       },
+      "OneTimeKit": {
+        "description": "The printable page and key material. Keep offline.",
+        "properties": {
+          "check": {
+            "title": "Check",
+            "type": "string"
+          },
+          "disk_recovery_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Present only while the disk key is available for printing.",
+            "title": "Disk Recovery Key"
+          },
+          "groups": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "owner_key": {
+            "title": "Owner Key",
+            "type": "string"
+          },
+          "qr_payload": {
+            "title": "Qr Payload",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner_key",
+          "groups",
+          "check",
+          "qr_payload",
+          "text"
+        ],
+        "title": "OneTimeKit",
+        "type": "object"
+      },
       "Options": {
         "additionalProperties": false,
         "properties": {
@@ -10579,6 +12241,95 @@
         "title": "RefreshBody",
         "type": "object"
       },
+      "Removable": {
+        "properties": {
+          "device": {
+            "description": "Device path, e.g. /dev/sdb",
+            "title": "Device",
+            "type": "string"
+          },
+          "ejectable": {
+            "description": "false while the box is using the drive; why_not says why",
+            "title": "Ejectable",
+            "type": "boolean"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "mountpoints": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Mountpoints",
+            "type": "array"
+          },
+          "name": {
+            "description": "The path segment for the eject route, e.g. sdb",
+            "title": "Name",
+            "type": "string"
+          },
+          "partitions": {
+            "title": "Partitions",
+            "type": "integer"
+          },
+          "serial": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The drive's own serial number when it reports one; the eject is bound to it",
+            "title": "Serial"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "why_not": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Why Not"
+          }
+        },
+        "required": [
+          "device",
+          "name",
+          "size_bytes",
+          "mountpoints",
+          "partitions",
+          "ejectable"
+        ],
+        "title": "Removable",
+        "type": "object"
+      },
       "RenameOp": {
         "additionalProperties": false,
         "properties": {
@@ -10612,6 +12363,50 @@
           "name"
         ],
         "title": "RenameOp",
+        "type": "object"
+      },
+      "RenameRequest": {
+        "additionalProperties": false,
+        "description": "PUT /v1/instance/name.",
+        "properties": {
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "name": {
+            "description": "One lower-case DNS label: a-z, 0-9 and -, not starting or ending with -. The box answers as <name>.local.",
+            "maxLength": 63,
+            "minLength": 1,
+            "pattern": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+            "title": "Name",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "RenameRequest",
         "type": "object"
       },
       "RestoreAppBody": {
@@ -11438,6 +13233,22 @@
         "title": "SearchHit",
         "type": "object"
       },
+      "SearchResult": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/FlathubApp"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "results"
+        ],
+        "title": "SearchResult",
+        "type": "object"
+      },
       "SecretsChange": {
         "additionalProperties": false,
         "description": "POST /v1/apps/{id}/secrets: what to change. An empty body re-applies the current values.",
@@ -11768,6 +13579,54 @@
         "title": "ServiceCard",
         "type": "object"
       },
+      "ServiceInfo": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "remote": {
+            "title": "Remote",
+            "type": "string"
+          },
+          "sandbox": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sandbox",
+            "type": "array"
+          }
+        },
+        "required": [
+          "available",
+          "remote",
+          "sandbox"
+        ],
+        "title": "ServiceInfo",
+        "type": "object"
+      },
       "ServiceRestartRequest": {
         "additionalProperties": false,
         "description": "POST /v1/system/services/{unit}/restart.",
@@ -11911,6 +13770,49 @@
           }
         },
         "title": "SessionBody",
+        "type": "object"
+      },
+      "SetZoneRequest": {
+        "additionalProperties": false,
+        "description": "POST /v1/system/time/zone.",
+        "properties": {
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "zone": {
+            "description": "IANA time zone name, e.g. Europe/Berlin",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Zone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "zone"
+        ],
+        "title": "SetZoneRequest",
         "type": "object"
       },
       "SettingsRequest": {
@@ -12541,6 +14443,64 @@
         "title": "SiteRemoved",
         "type": "object"
       },
+      "Smart": {
+        "properties": {
+          "alerts": {
+            "description": "Warnings smartd raised, newest first",
+            "items": {
+              "$ref": "#/components/schemas/SmartAlert"
+            },
+            "title": "Alerts",
+            "type": "array"
+          },
+          "daemon_state": {
+            "description": "state of smartd: active, inactive (a virtual machine has no disk to watch) or unknown",
+            "title": "Daemon State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "daemon_state",
+          "alerts"
+        ],
+        "title": "Smart",
+        "type": "object"
+      },
+      "SmartAlert": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "device": {
+            "title": "Device",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "smartd's warning type, e.g. Health, Temperature, FailedHealthCheck",
+            "title": "Kind",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "at",
+          "device",
+          "kind",
+          "message"
+        ],
+        "title": "SmartAlert",
+        "type": "object"
+      },
       "SourceIn": {
         "properties": {
           "client_id": {
@@ -12646,6 +14606,169 @@
           "summary"
         ],
         "title": "SourceStatus",
+        "type": "object"
+      },
+      "SshKey": {
+        "properties": {
+          "bits": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bits"
+          },
+          "comment": {
+            "title": "Comment",
+            "type": "string"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "fingerprint",
+          "type",
+          "bits",
+          "comment"
+        ],
+        "title": "SshKey",
+        "type": "object"
+      },
+      "SshKeys": {
+        "properties": {
+          "keys": {
+            "items": {
+              "$ref": "#/components/schemas/SshKey"
+            },
+            "title": "Keys",
+            "type": "array"
+          }
+        },
+        "required": [
+          "keys"
+        ],
+        "title": "SshKeys",
+        "type": "object"
+      },
+      "SshServiceInfo": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "max_keys": {
+            "title": "Max Keys",
+            "type": "integer"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "password_login": {
+            "title": "Password Login",
+            "type": "boolean"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "rate_limit": {
+            "title": "Rate Limit",
+            "type": "string"
+          },
+          "reach": {
+            "description": "Where port 22 answers from: lan and mesh, plus internet on a cloud board",
+            "items": {
+              "type": "string"
+            },
+            "title": "Reach",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "running": {
+            "title": "Running",
+            "type": "boolean"
+          },
+          "state": {
+            "description": "on | off | waiting_for_key | starting | unavailable",
+            "title": "State",
+            "type": "string"
+          },
+          "user": {
+            "title": "User",
+            "type": "string"
+          }
+        },
+        "required": [
+          "available",
+          "reason",
+          "message",
+          "state",
+          "enabled",
+          "running",
+          "port",
+          "user",
+          "reach",
+          "password_login",
+          "rate_limit",
+          "max_keys"
+        ],
+        "title": "SshServiceInfo",
+        "type": "object"
+      },
+      "SshView": {
+        "properties": {
+          "keys": {
+            "items": {
+              "$ref": "#/components/schemas/SshKey"
+            },
+            "title": "Keys",
+            "type": "array"
+          },
+          "service": {
+            "$ref": "#/components/schemas/SshServiceInfo"
+          }
+        },
+        "required": [
+          "service",
+          "keys"
+        ],
+        "title": "SshView",
         "type": "object"
       },
       "StatusView": {
@@ -13077,6 +15200,24 @@
           "available"
         ],
         "title": "StorageSummary",
+        "type": "object"
+      },
+      "StreamInfo": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "installed": {
+            "title": "Installed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "app_id",
+          "installed"
+        ],
+        "title": "StreamInfo",
         "type": "object"
       },
       "Subject": {
@@ -13971,6 +16112,45 @@
         "title": "SurfacesOut",
         "type": "object"
       },
+      "SwitchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "SwitchRequest",
+        "type": "object"
+      },
       "SyncChange": {
         "description": "One entry of the feed: a file, folder or symlink as it is now (or its deletion).",
         "properties": {
@@ -14708,6 +16888,147 @@
         "title": "TicketRequest",
         "type": "object"
       },
+      "TimeView": {
+        "additionalProperties": false,
+        "description": "GET /v1/system/time.",
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The hub's own clock now",
+            "title": "At"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "last_sync_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When systemd-timesyncd last set the clock",
+            "title": "Last Sync At"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "ntp_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The box is asked to keep its clock from the network (timedatectl NTP)",
+            "title": "Ntp Enabled"
+          },
+          "ntp_synchronized": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The clock is currently set from a time server (timedatectl NTPSynchronized)",
+            "title": "Ntp Synchronized"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the clock state could not be read (the zone is still given)",
+            "title": "Problem"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "host_service_unreachable",
+                  "host_service_error",
+                  "bad_response"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "server": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The time server systemd-timesyncd talked to last; null before it reached one",
+            "title": "Server"
+          },
+          "stratum": {
+            "anyOf": [
+              {
+                "maximum": 16.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stratum"
+          },
+          "zone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "IANA zone name, e.g. Europe/Berlin; null when the box names none",
+            "title": "Zone"
+          }
+        },
+        "required": [
+          "available"
+        ],
+        "title": "TimeView",
+        "type": "object"
+      },
       "TipClip": {
         "properties": {
           "caption": {
@@ -15218,6 +17539,79 @@
           "path"
         ],
         "title": "TrashOp",
+        "type": "object"
+      },
+      "Trim": {
+        "properties": {
+          "enabled": {
+            "description": "fstrim.timer is enabled (the image enables it)",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "last_result": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "systemd's result of that run, e.g. success",
+            "title": "Last Result"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the last TRIM finished; null: it has not run on this box yet",
+            "title": "Last Run At"
+          },
+          "last_trimmed_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How much the last run told the SSD it may reuse; null when not reported",
+            "title": "Last Trimmed Bytes"
+          },
+          "next_run_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the timer runs next; null when it has none",
+            "title": "Next Run At"
+          },
+          "timer_state": {
+            "description": "systemd state of the timer: active, inactive or unknown",
+            "title": "Timer State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "timer_state",
+          "last_run_at",
+          "last_trimmed_bytes",
+          "next_run_at"
+        ],
+        "title": "Trim",
         "type": "object"
       },
       "UpdatePolicyBody": {
@@ -22709,7 +25103,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/KitState"
+                }
               }
             },
             "description": "Successful Response"
@@ -22751,7 +25147,7 @@
         ]
       },
       "post": {
-        "description": "Owner shortcut: files backup.kit.issue and approves it; the key is in this response only.",
+        "description": "File and approve an issuance on a box without step-up, or use approve=false to file it.\n\nFor separate approval, use POST /v1/actions/{id}/approve and repeat the original request with\nthe same Idempotency-Key and private delivery token. Approval responses never carry the page.\nCollect the page once before the request expires. If delivery fails, file a new issuance.",
         "operationId": "backups.kit.issue",
         "parameters": [
           {
@@ -22773,14 +25169,51 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/KitIssueBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/IssuedKit"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Page delivered once",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Request awaiting the owner's approval"
           },
           "401": {
             "content": {
@@ -22811,6 +25244,16 @@
               }
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -22856,7 +25299,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/KitState"
+                }
               }
             },
             "description": "Successful Response"
@@ -25532,6 +27977,251 @@
         ]
       }
     },
+    "/v1/desktop-apps": {
+      "get": {
+        "description": "Whether the box can run Flathub desktop apps, the installed ones (with their folder and whether an\nupdate is waiting), the sandbox every app gets, and whether the streaming session app is installed.",
+        "operationId": "desktopapps.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesktopAppsView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Desktop Apps List",
+        "tags": [
+          "apps"
+        ]
+      }
+    },
+    "/v1/desktop-apps/search": {
+      "get": {
+        "description": "Flathub apps whose id, name or summary contains `q`, best name matches first (at most 50).",
+        "operationId": "desktopapps.search",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 2,
+              "title": "Q",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Desktop Apps Search",
+        "tags": [
+          "apps"
+        ]
+      }
+    },
+    "/v1/desktop-apps/{app_id}/launch": {
+      "post": {
+        "description": "Request that an installed app start in the streaming session. It starts after an owner approves\nthe returned action. Retry with the same Idempotency-Key to retrieve that action.",
+        "operationId": "desktopapps.launch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Idempotent replay"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "system:admin"
+            ]
+          }
+        ],
+        "summary": "Desktop Apps Launch",
+        "tags": [
+          "apps"
+        ]
+      }
+    },
     "/v1/domains": {
       "get": {
         "operationId": "domains.list",
@@ -26465,6 +29155,79 @@
           }
         },
         "summary": "Fabric Summary",
+        "tags": [
+          "fabric"
+        ]
+      }
+    },
+    "/v1/fabric/events": {
+      "get": {
+        "description": "The newest bus connections, disconnections and refused sign-ins, newest first.",
+        "operationId": "fabric.events",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "count",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Count",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FabricEvents"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "audit:read"
+            ]
+          }
+        ],
+        "summary": "Events",
         "tags": [
           "fabric"
         ]
@@ -30370,6 +33133,133 @@
         "tags": [
           "instance"
         ]
+      },
+      "put": {
+        "description": "Ask to rename the box. It waits for the owner to approve; the response is the action, whose id is\nthe approval to look for. An agent may ask, never approve. When the host has done it, the box answers as\n`<name>.local` (the gateway restarts a few seconds later to pick the name up) and GET /v1/instance/name says the new name.\n\n409 `setup_needed` before the first-run settings are saved; 409 `host_unavailable` while the host service\ncannot rename the box (nothing is filed). The `Idempotency-Key` header (or the body's `idempotency_key`)\nmakes a retry replay the same action.",
+        "operationId": "instance.rename",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Idempotent replay"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "actions:request"
+            ]
+          }
+        ],
+        "summary": "Rename",
+        "tags": [
+          "instance"
+        ]
       }
     },
     "/v1/machines": {
@@ -32522,7 +35412,7 @@
     },
     "/v1/network": {
       "get": {
-        "description": "This box's interfaces, addresses, gateway, DNS, Wi-Fi signal and listening ports (read only).\n\n`available` is false, with a reason, when the host service cannot be reached: the screen then\nsays so instead of showing nothing. Firewall rules are not part of this view yet.",
+        "description": "This box's interfaces, addresses, gateway, DNS, Wi-Fi signal and listening ports (read only).\n\n`available` is false, with a reason, when the host service cannot be reached: the screen then\nsays so instead of showing nothing. Firewall rules are in `/v1/network/firewall`.",
         "operationId": "network.view",
         "responses": {
           "200": {
@@ -32557,6 +35447,576 @@
           }
         },
         "summary": "Network View",
+        "tags": [
+          "net"
+        ]
+      }
+    },
+    "/v1/network/firewall": {
+      "get": {
+        "description": "The box's live firewall (nftables), checked and explained in plain words: what is open, and to whom\n(this box, the mesh, the apps on it, the home network, or any address). Read only.\n\n`exposure` answers the headline question; `open_to_anywhere` is empty on a normal box. `available`\nis false, with a reason, when the host service cannot be reached. Allow rules with automatic revert\nare a later step (P-09 part 2): `editable` is false until then.",
+        "operationId": "network.firewall",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirewallView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Network Firewall",
+        "tags": [
+          "net"
+        ]
+      }
+    },
+    "/v1/network/firewall/allow": {
+      "post": {
+        "description": "Ask to open one port to the home network (`lan`) or your mesh (`mesh`). The internet is not an option.\n\nIt waits for the owner, who approves it with a passkey; the response is the action, whose id is the\napproval to look for. After approval the rule is *pending*: the box removes it again after\n`ttl_seconds` (see the firewall view) unless the owner confirms it. An agent may ask, never approve.\n\n409 when the box cannot take the rule now (host unreachable, firewall not loaded, image too old, or the\nsame rule already exists); nothing is filed then.",
+        "operationId": "network.firewall.allow",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllowRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Idempotent replay"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "summary": "Network Firewall Allow",
+        "tags": [
+          "net"
+        ]
+      }
+    },
+    "/v1/network/firewall/allow/{rule_id}": {
+      "delete": {
+        "description": "Take an allow rule away, pending or confirmed. Owner only and audited; removing exposure needs no approval.",
+        "operationId": "network.firewall.allow.remove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "title": "Rule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Network Firewall Allow Remove",
+        "tags": [
+          "net"
+        ]
+      }
+    },
+    "/v1/network/firewall/allow/{rule_id}/confirm": {
+      "post": {
+        "description": "Keep a pending allow rule for good. Owner only and audited. A rule nobody confirmed in time is already gone: 404.\n\nDeliberately no step-up here: the passkey approval of the request came first, this only keeps what the owner\nalready approved open (it widens nothing), and the caller must be an owner.",
+        "operationId": "network.firewall.allow.confirm",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "title": "Rule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Network Firewall Allow Confirm",
+        "tags": [
+          "net"
+        ]
+      }
+    },
+    "/v1/network/{iface}": {
+      "put": {
+        "description": "Ask to give a wired interface a fixed IPv4 address and DNS, or to go back to DHCP. Nothing changes yet.\n\nThe request waits for an owner, who approves it with a passkey. After approval the box applies it\nand the owner has `rollback_seconds` (default 120) to open the box at the new address and confirm\n(`POST /v1/network/{iface}/confirm`); without that the old settings come back by themselves.\n\n409 `host_unavailable` while the box cannot change its network, `unknown_interface` / `not_wired` for an\ninterface that is not a cable, `change_pending` while an earlier change waits for confirmation (nothing\nis filed in these cases); 422 for an address, gateway or DNS no network can use. The `Idempotency-Key` header\n(or the body's `idempotency_key`) makes a retry replay the same request.",
+        "operationId": "network.configure",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "iface",
+            "required": true,
+            "schema": {
+              "title": "Iface",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NetworkConfigBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Idempotent replay"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "summary": "Network Configure",
+        "tags": [
+          "net"
+        ]
+      }
+    },
+    "/v1/network/{iface}/confirm": {
+      "post": {
+        "description": "Keep the pending change identified by the approved action ID.\n\nBefore sending this request, use another device on the wired network to open the dashboard directly at\nthe changed interface's IPv4 address, sign in, and verify that this box's Network page loads. For DHCP,\nfind the address assigned to this interface in the router. The request records the owner's attestation;\nthe gateway cannot infer that the check succeeded from the request's network path.\n\n409 `no_pending_change` if nothing waits for confirmation or `change_mismatch` if a different action is pending.",
+        "operationId": "network.confirm",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "iface",
+            "required": true,
+            "schema": {
+              "title": "Iface",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NetworkConfirmBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NetworkConfirm"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Network Confirm",
         "tags": [
           "net"
         ]
@@ -38261,6 +41721,502 @@
         ]
       }
     },
+    "/v1/ssh": {
+      "get": {
+        "description": "Whether SSH is on, whether it listens, the rules it runs under, and the keys that may log in (owner only).",
+        "operationId": "ssh.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SshView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "system:admin"
+            ]
+          }
+        ],
+        "summary": "Ssh Get",
+        "tags": [
+          "system"
+        ]
+      },
+      "put": {
+        "description": "Ask to switch SSH on or off. Off stops sshd and keeps it off after a reboot; on lets it listen again (once a\nkey exists). It waits for the owner; switching on needs a passkey once passkeys are active.",
+        "operationId": "ssh.switch",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SwitchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Idempotent replay"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "actions:request"
+            ]
+          }
+        ],
+        "summary": "Ssh Switch",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/v1/ssh/keys": {
+      "get": {
+        "description": "The SSH keys that may log in as admin, with fingerprints (owner only). Keys added on the box's console show too.",
+        "operationId": "ssh.keys.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SshKeys"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "system:admin"
+            ]
+          }
+        ],
+        "summary": "Ssh Keys",
+        "tags": [
+          "system"
+        ]
+      },
+      "post": {
+        "description": "Ask to let an SSH key log in as admin. It waits for the owner, who approves it with a passkey once passkeys\nare active. 422 for a key that is not a plain, supported, strong enough public key; 409 for a key already\nauthorised or a box that cannot manage SSH (nothing is filed).",
+        "operationId": "ssh.keys.add",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KeyAddRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Idempotent replay"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "actions:request"
+            ]
+          }
+        ],
+        "summary": "Ssh Key Add",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/v1/ssh/keys/{key_id}": {
+      "delete": {
+        "description": "Ask to remove a key (its id or SHA256 fingerprint). It waits for the owner. Logins with it are refused once\napproved; a session already open stays until it ends.",
+        "operationId": "ssh.keys.remove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key_id",
+            "required": true,
+            "schema": {
+              "title": "Key Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "reason",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reason"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Idempotent replay"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "actions:request"
+            ]
+          }
+        ],
+        "summary": "Ssh Key Remove",
+        "tags": [
+          "system"
+        ]
+      }
+    },
     "/v1/status": {
       "get": {
         "description": "Alerts, approvals, app health, storage, backups, updates and mesh, each with a state and when it was read.\n\nA source that cannot be read is `unknown`, never `ok`.",
@@ -38487,6 +42443,55 @@
         ]
       }
     },
+    "/v1/storage/housekeeping": {
+      "get": {
+        "description": "When the weekly TRIM last ran and runs next, smartd's warnings, and the USB drives that can be safely\nremoved. `available` is false, with a plain reason, when the host service cannot be read. Owner only.",
+        "operationId": "storage.housekeeping",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Housekeeping"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "system:admin"
+            ]
+          }
+        ],
+        "summary": "Storage Housekeeping",
+        "tags": [
+          "storage"
+        ]
+      }
+    },
     "/v1/storage/operations/{action_id}": {
       "get": {
         "description": "The stored plan and, while it runs, the node's journal (step by step).",
@@ -38693,6 +42698,161 @@
           }
         },
         "summary": "Storage Recovery Key",
+        "tags": [
+          "storage"
+        ]
+      }
+    },
+    "/v1/storage/removable/{name}/eject": {
+      "post": {
+        "description": "Ask to safely remove one USB drive (name from the housekeeping list, e.g. `sdb`). It waits for the owner\nto approve it; the response is the action. 404 for a drive that is not plugged in or not removable; 409\n`in_use` while the box is using it, `host_unavailable` while the host service cannot be reached.",
+        "operationId": "storage.removable.eject",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/EjectRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Req"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Idempotent replay"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "actions:request"
+            ]
+          }
+        ],
+        "summary": "Storage Eject",
         "tags": [
           "storage"
         ]
@@ -39973,6 +44133,192 @@
         ]
       }
     },
+    "/v1/system/keyboard": {
+      "get": {
+        "description": "The keyboard layout of the text console and the box's own screen, and every layout this image offers\nwith its variants (read only). `seeded` is true while nothing is chosen and the box runs the US layout.\n`available` is false, with a reason, when the host service cannot be reached.",
+        "operationId": "system.keyboard.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeyboardView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "system:admin"
+            ]
+          }
+        ],
+        "summary": "System Keyboard",
+        "tags": [
+          "system"
+        ]
+      },
+      "post": {
+        "description": "Ask to change the keyboard layout. It waits for the owner, who approves it on the Approvals screen; the\nresponse is the action, whose id is the approval to look for. An agent may ask, never approve. Once approved\nthe layout is saved on the data disk and loaded into the text console and the box's screen.\n\n404 for a layout or variant this image does not offer; 409 host_unavailable while the host service cannot\nchange the layout (nothing is filed). The `Idempotency-Key` header (or the body's `idempotency_key`) makes a\nretry replay the same action.",
+        "operationId": "system.keyboard.set",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KeyboardRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Idempotent replay"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "actions:request"
+            ]
+          }
+        ],
+        "summary": "System Keyboard Set",
+        "tags": [
+          "system"
+        ]
+      }
+    },
     "/v1/system/services": {
       "get": {
         "description": "Every systemd unit this OS ships, as a service card: plain name and description, docs page,\nrisk, restartable flag, dependencies, and systemd's state, memory and version (read only).\n\nA OneMind unit the image's registry does not list comes back with `known` false. `available` is\nfalse, with a reason, when the host service cannot be reached: the screen says so instead of\nshowing nothing.",
@@ -40274,6 +44620,184 @@
           }
         },
         "summary": "System Service Restart",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/v1/system/time": {
+      "get": {
+        "description": "The hub's time zone and whether its clock is set from a time server (read only, owner only).\n\n`available` is false, with a reason, when the host service cannot be reached; a field the clock\ndid not report is null, never guessed.",
+        "operationId": "system.time.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "system:admin"
+            ]
+          }
+        ],
+        "summary": "System Time",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/v1/system/time/zone": {
+      "post": {
+        "description": "Ask for a new time zone. It waits for the owner, who approves it; the response is the action, whose id\nis the approval to look for. An agent may ask, never approve.\n\n422 for a name that is not a time zone; 409 unknown_zone for a name this box has no zone file for;\n409 host_unavailable while the host service cannot set it (nothing is filed). The `Idempotency-Key`\nheader (or the body's `idempotency_key`) makes a retry replay the same action.",
+        "operationId": "system.time.set_zone",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetZoneRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Idempotent replay"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "actions:request"
+            ]
+          }
+        ],
+        "summary": "System Set Zone",
         "tags": [
           "system"
         ]

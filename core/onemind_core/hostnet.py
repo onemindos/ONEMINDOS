@@ -67,6 +67,35 @@ class NetPort(BaseModel):
     scope: Literal["any", "loopback", "address"] = Field(description="any = every interface; loopback = this machine only; address = one address")
 
 
+NETWORK_ACTION_ID = r"^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$"
+
+
+class NetChange(BaseModel):
+    """One wired-address change (netconf of an interface, P-08) and what became of it."""
+
+    model_config = ConfigDict(extra="forbid")
+    action_id: str | None = Field(default=None, pattern=NETWORK_ACTION_ID, description="The approved action for this change. Older records may have no action ID.")
+    interface: str
+    mode: Literal["static", "dhcp"]
+    address: str | None = None
+    gateway: str | None = None
+    dns: list[str] = []
+    result: Literal["pending", "confirmed", "rolled_back"] = Field(description="pending: applied, waiting for the owner to confirm before `deadline`; confirmed: kept; rolled_back: not confirmed in time (or it failed), the old settings are back")
+    started_at: datetime
+    deadline: datetime = Field(description="When NetworkManager puts the old settings back unless the owner confirms.")
+    ended_at: datetime | None = None
+
+
+class NetChanges(BaseModel):
+    """Whether this box can change its wired network, and the change waiting for confirmation."""
+
+    model_config = ConfigDict(extra="forbid")
+    can_change: bool
+    reason: str | None = None
+    pending: NetChange | None = None
+    last: NetChange | None = Field(default=None, description="The most recent change that finished.")
+
+
 class NetworkView(BaseModel):
     """What the box listens on and how it is connected. It does not include firewall rules."""
 
@@ -80,6 +109,7 @@ class NetworkView(BaseModel):
     dns: list[str] = []
     ports: list[NetPort] = []
     dropped: int = Field(default=0, description="Entries the gateway refused because a field failed its checks.")
+    changes: NetChanges | None = Field(default=None, description="Wired address changes: whether they are possible, and the one waiting for confirmation.")
 
 
 def unavailable(reason: Reason, message: str) -> NetworkView:
@@ -90,7 +120,7 @@ class HostNetClient:
     def __init__(self, path: str, timeout_s: float):
         self.path, self.timeout_s = path, timeout_s
 
-    def fetch(self) -> tuple[int, Any]:
+    def fetch(self, path: str = "/v1/network") -> tuple[int, Any]:
         conn = _UnixConnection(self.path, self.timeout_s)
         try:
             try:
@@ -98,7 +128,7 @@ class HostNetClient:
             except OSError as exc:
                 raise StorageUnavailable(exc.__class__.__name__) from None
             try:
-                conn.request("GET", "/v1/network")
+                conn.request("GET", path)
                 resp = conn.getresponse()
                 raw = resp.read(MAX_BODY + 1)
             except Exception as exc:  # timeout, reset, protocol error
@@ -215,3 +245,25 @@ def read_view(client: HostNetClient) -> NetworkView:
     if status != 200:
         return unavailable("host_service_error", f"the host service answered {status}")
     return parse_view(body)
+
+
+def _change(d: Any) -> NetChange | None:
+    if not isinstance(d, dict):
+        return None
+    try:
+        return NetChange(action_id=d.get("action_id"), interface=_name(d.get("interface")), mode=d.get("mode"),
+                         address=_cidr(d["address"]) if d.get("address") else None,
+                         gateway=_ip(d["gateway"]) if d.get("gateway") else None,
+                         dns=[_ip(x) for x in (d.get("dns") or [])][:3], result=d.get("result"),
+                         started_at=d.get("started_at"), deadline=d.get("deadline"), ended_at=d.get("ended_at"))
+    except (ValueError, TypeError):  # includes pydantic's ValidationError
+        return None
+
+
+def parse_changes(body: Any) -> NetChanges:
+    """The host service's GET /v1/network/changes, checked field by field. A bad answer means no change possible."""
+    if not isinstance(body, dict) or not isinstance(body.get("available"), bool):
+        return NetChanges(can_change=False, reason="the host service sent something the gateway does not understand")
+    why = body.get("unavailable_reason")
+    return NetChanges(can_change=body["available"], reason=None if body["available"] else str(why or "the host cannot change the network")[:300],
+                      pending=_change(body.get("pending")), last=_change(body.get("last")))

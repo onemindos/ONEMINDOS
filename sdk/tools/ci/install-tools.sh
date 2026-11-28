@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-# Install the app-gate tools on a linux/amd64 or linux/arm64 CI runner, each pinned by version and
-# sha256 per architecture (brief 30 §2 rule 2; the same pins are recorded in os/versions.lock.yaml
+# Install the app-gate tools on a linux/amd64 or linux/arm64 CI runner, or kustomize on macOS.
+# Each asset is pinned by version and sha256 (brief 30 §2 rule 2; the same pins are recorded in os/versions.lock.yaml
 # under tools.app_gate, and sdk/tools/tests checks that the two agree).
 # Usage: sdk/tools/ci/install-tools.sh <bin-dir> [tool ...]   (default: every tool)
 # ClamAV comes from the runner's Ubuntu archive (apt verifies its signatures); see the workflows.
@@ -22,9 +22,17 @@ case "$(uname -m)" in
 esac
 pick() { if [ "$arch" = amd64 ]; then echo "$1"; else echo "$2"; fi; }  # amd64-value arm64-value
 
+case "$(uname -s)" in
+  Linux) os=linux; checksum=(sha256sum) ;;
+  Darwin)
+    [ "$#" -eq 1 ] && [ "$1" = kustomize ] || { echo "only kustomize is supported on macOS" >&2; exit 2; }
+    os=darwin; checksum=(shasum -a 256) ;;
+  *) echo "unsupported OS: $(uname -s)" >&2; exit 2 ;;
+esac
+
 fetch() { # url sha256 file
   curl -fsSL --retry 3 -o "$dl/$3" "$1"
-  echo "$2  $dl/$3" | sha256sum -c - >/dev/null
+  echo "$2  $dl/$3" | "${checksum[@]}" -c - >/dev/null
 }
 
 for tool in "${tools[@]}"; do
@@ -50,8 +58,12 @@ for tool in "${tools[@]}"; do
         "$(pick c04487523e7aa7d1493f7808174c899db93d7a9cf57531420cd76b9bd415f8f4 fcc16f63186659d9722014b7e02d5fdd2d4e669cb8c0ab66365d7d3b8ba03509)" kubectl
       install -m 0755 "$dl/kubectl" "$bin/kubectl" ;;
     kustomize)
-      fetch "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.8.3/kustomize_v5.8.3_linux_$arch.tar.gz" \
-        "$(pick cb9e31198d3f63b44848bd0afc4c8efc56e6cfef9c93a4a39a211940e6decd61 9867b76482cfc6d25b546abc1d2b5a32bd137505aba640649b4b378f64f6d68f)" kustomize.tgz
+      if [ "$os" = darwin ]; then
+        kustomize_hash=$(pick d08fb85846c3d977f0e2a66e7ff45f1b5264c294685e5e726e1a8bdfe0da8dee 4cbb08e209d8fff47cd60bfb6407daaf5ee699f9b9295849a1065024fac2d1ef)
+      else
+        kustomize_hash=$(pick cb9e31198d3f63b44848bd0afc4c8efc56e6cfef9c93a4a39a211940e6decd61 9867b76482cfc6d25b546abc1d2b5a32bd137505aba640649b4b378f64f6d68f)
+      fi
+      fetch "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.8.3/kustomize_v5.8.3_${os}_$arch.tar.gz" "$kustomize_hash" kustomize.tgz
       tar -xzf "$dl/kustomize.tgz" -C "$bin" kustomize ;;
     kubeconform)
       fetch "https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-$arch.tar.gz" \

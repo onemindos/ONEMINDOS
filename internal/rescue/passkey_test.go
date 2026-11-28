@@ -24,6 +24,7 @@ type fakeGateway struct {
 	mu       sync.Mutex
 	options  int
 	verifies int
+	kits     int
 	auth     []string
 	hosts    []string
 	bodies   []string
@@ -41,6 +42,18 @@ func (g *fakeGateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "/v1/auth/rescue/options":
 		g.options++
 		_, _ = w.Write([]byte(`{"challenge_id":"chl_1","publicKey":{"challenge":"AAAAAAAAAAAAAAAAAAAAAA","userVerification":"required"}}`))
+	case "/v1/auth/rescue/kit":
+		g.kits++
+		var in struct {
+			KitKey string `json:"kit_key"`
+		}
+		_ = json.Unmarshal(b, &in)
+		if in.KitKey != "KIT-KEY-FOR-TESTS" {
+			w.WriteHeader(401)
+			_, _ = w.Write([]byte(`{"error":"unauthenticated","reason":"kit_key_wrong"}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"credential_id":"kit:abc123","user_id":"usr_1"}`))
 	case "/v1/auth/rescue/verify":
 		g.verifies++
 		var in struct {
@@ -291,4 +304,61 @@ func TestGatewayReauthErrorsAreDistinct(t *testing.T) {
 	if _, err := re.Challenge(r); !errors.Is(err, ErrNoPasskey) {
 		t.Errorf("409 = %v, want ErrNoPasskey", err)
 	}
+}
+
+// D-028: an owner who lost every passkey opens the terminal with the printed kit's owner key, at the box only.
+func TestKitKeyOpensTheShellFromTheBoxItselfNeverFromTheLAN(t *testing.T) {
+	e := newPkEnv(t, acceptOnce())
+	const kit = `{"kit_key":"KIT-KEY-FOR-TESTS"}`
+	if got := e.startWith(t, ownerToken, `{"kit_key":"wrong"}`).StatusCode; got != 401 {
+		t.Errorf("wrong kit key = %d, want 401", got)
+	}
+	if got := e.startWith(t, ownerToken, `{"kit_key":"KIT-KEY-FOR-TESTS","webauthn":{"id":"cred-1"}}`).StatusCode; got != 401 {
+		t.Errorf("both proofs at once = %d, want 401", got)
+	}
+	if e.spawn.count() != 0 || len(e.events(t)) != 0 {
+		t.Fatalf("a refused kit start opened something: %d %v", e.spawn.count(), e.eventNames(t))
+	}
+	// a client that is not on the box never reaches the gateway's kit route
+	kitsBefore := e.gw.kits
+	r := httptest.NewRequest("POST", "/terminal/sessions", strings.NewReader(kit))
+	r.RemoteAddr = "192.0.2.10:5555"
+	r.Header.Set("Authorization", "Bearer "+ownerToken)
+	if _, err := e.srv.cfg.Terminal.Reauth.Fresh(r); !errors.Is(err, ErrNoFreshAuth) {
+		t.Errorf("LAN client with the kit key = %v, want ErrNoFreshAuth", err)
+	}
+	if e.gw.kits != kitsBefore {
+		t.Error("a LAN client's kit key was forwarded to the gateway")
+	}
+	resp := e.startWith(t, ownerToken, kit) // the test server is on loopback
+	if resp.StatusCode != 200 || e.spawn.count() != 1 {
+		t.Fatalf("kit start at the box = %d spawned=%d", resp.StatusCode, e.spawn.count())
+	}
+	ev := e.events(t)
+	if len(ev) != 1 || ev[0]["data"].(map[string]any)["credential"] != "kit:abc123" {
+		t.Fatalf("chain = %v", ev)
+	}
+	if strings.Contains(string(mustRead(t, e.audit)), "KIT-KEY-FOR-TESTS") {
+		t.Error("the kit key reached the audit chain")
+	}
+}
+
+func TestPageOffersTheKitWhenThereIsNoPasskey(t *testing.T) {
+	e := newPkEnv(t, acceptOnce())
+	b, _ := io.ReadAll(e.req(t, "GET", "/terminal", ownerToken, false, "").Body)
+	page := string(b)
+	for _, want := range []string{`id="kit"`, "kit_key", "const atBox= true ", "printed emergency kit"} {
+		if !strings.Contains(page, want) {
+			t.Errorf("page lacks %q", want)
+		}
+	}
+}
+
+func mustRead(t *testing.T, path string) []byte {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
 }

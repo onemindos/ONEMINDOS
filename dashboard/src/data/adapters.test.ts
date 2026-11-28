@@ -231,4 +231,11 @@ describe('tainted agent request (AIG-04, #168)', () => {
     const p = toActionPlan({ ...base, plan: { summary: 'Remove whoami.', warnings: [] } } as unknown as Action)!;
     expect(p.effects.map((e) => e.label)).toEqual(['Remove whoami.']);
   });
+  it('shows the physical print job and printer on the approval plan', () => {
+    const a = { ...base, type: 'print.job.release', plan: {}, approval: {
+      physical: true, hold: true, hold_ms: 2000, limits: [],
+      preview: { kind: 'text', text: 'Print report.pdf on Office' },
+    } } as unknown as Action;
+    expect(toActionPlan(a)?.effects).toEqual([{ kind: 'note', risk: 'high', label: 'Print report.pdf on Office' }]);
+  });
 });

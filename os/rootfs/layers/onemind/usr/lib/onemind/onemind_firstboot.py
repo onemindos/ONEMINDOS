@@ -39,9 +39,11 @@ import shutil
 import socket
 import subprocess
 import sys
-import tempfile
 import time
 from urllib.parse import parse_qs, urlsplit
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import onemind_k3s_state as durable  # noqa: E402  (atomic writes, syncfs; same folder, -I does not add it)
 
 ROLES = ("hub", "worker", "leaf")
 # Started on every boot. A unit whose Condition* is not met yet is skipped without error (for
@@ -51,7 +53,7 @@ ROLE_UNITS = {
     "hub": ["onemind-starting.service", "onemind-nats.service", "onemind-nats-accounts.path", "onemindd.service", "onemind-gateway.service",
             "onemind-gateway-kube.service", "tailscaled.service", "onemind-headscale.service",
             "onemind-mesh-setup.service", "onemind-rescue.service", "onemind-host.service",
-            "onemind-storage.service", "onemind-images.service"],
+            "onemind-storage.service", "onemind-images.service", "onemind-k3s-settle.service"],
     # A worker and a leaf both get the mesh and a local NATS leaf (internal/fabric Installer.Apply).
     "worker": ["tailscaled.service", "onemind-nats-leaf.service", "onemindd.service", "onemind-fabric-join.service"],
     "leaf": ["tailscaled.service", "onemind-nats-leaf.service", "onemindd.service", "onemind-fabric-join.service"],
@@ -59,7 +61,7 @@ ROLE_UNITS = {
 # A box configured before IMG-MESH-01 (state.json without "mesh") keeps the units it was set up for.
 LEGACY_ROLE_UNITS = {
     "hub": ["onemind-nats.service", "onemindd.service", "onemind-gateway.service", "onemind-gateway-kube.service",
-            "onemind-rescue.service", "onemind-host.service"],
+            "onemind-rescue.service", "onemind-host.service", "onemind-k3s-settle.service"],
     "worker": ["onemindd.service"],
     "leaf": ["onemind-nats.service", "onemindd.service"],
 }
@@ -293,7 +295,8 @@ def run_dir(p: "Paths") -> None:
 
 
 def write(path: str, data: str, mode: int = 0o600, owner: tuple[int, int] | None = None) -> bool:
-    """Atomic write: a power cut leaves the old file or the new one, never half of one.
+    """Atomic and durable write: temp file, fsync, rename, fsync of the folder. A power cut leaves the old file
+    or the new one, never half of one, and once this returns the new one is on the disk (VM 501, bug 1).
     Returns False (and touches nothing) when the file already has exactly this content, mode and owner."""
     try:
         st = os.stat(path)
@@ -302,22 +305,7 @@ def write(path: str, data: str, mode: int = 0o600, owner: tuple[int, int] | None
             return False
     except OSError:
         pass
-    d = os.path.dirname(path)
-    os.makedirs(d, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=d, prefix=".tmp-")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(data)
-            f.flush()
-            os.fsync(f.fileno())
-        os.chmod(tmp, mode)
-        if owner:
-            os.chown(tmp, *owner)
-        os.replace(tmp, path)
-    except BaseException:
-        if os.path.exists(tmp):
-            os.unlink(tmp)
-        raise
+    durable.atomic_write(path, data, mode, owner)      # temp + fsync + rename + fsync of the folder
     return True
 
 
@@ -475,14 +463,34 @@ def nats_service_keys(p: Paths) -> None:
     os.makedirs(p.nats_keys, mode=0o755, exist_ok=True)
     os.chmod(os.path.dirname(p.nats_keys), 0o755)
     os.chmod(p.nats_keys, 0o755)
-    for name in ("gateway", "onemindd"):
+    # "observer" (#620) is the gateway's read-only reader of the server's connect and auth-error events:
+    # natsconf puts it in the SYS account, not the hub account.
+    for name in ("gateway", "onemindd", "observer"):
         natsconf.make_service_key(Path(p.nats_keys), name)
     ids = onemind_ids()
     if ids:
-        os.chown(os.path.join(p.nats_keys, "gateway.nk"), *ids)
+        for name in ("gateway", "observer"):
+            os.chown(os.path.join(p.nats_keys, f"{name}.nk"), *ids)
     # The first accounts file (hub account with the two service keys); the gateway owns and rewrites it.
     os.environ.setdefault("ONEMIND_FABRIC_JETSTREAM_MAX_BYTES", str(jetstream_max_bytes(p)))
     natsconf.main([p.accounts, p.nats_keys])
+
+
+def ensure_observer_key(p: Paths) -> None:
+    """Every boot, hub only (#620): a box set up before the observer existed and updated through RAUC has
+    no observer key, so the bus would stay unwatched for good. Make the key now, before the gateway starts:
+    the gateway rewrites the accounts file at startup and puts the key in the SYS account. A key that is
+    already there is kept."""
+    from pathlib import Path
+
+    from onemind_core import natsconf
+    if not os.path.isfile(os.path.join(p.nats_keys, "gateway.nk")) or os.path.isfile(os.path.join(p.nats_keys, "observer.nk")):
+        return
+    natsconf.make_service_key(Path(p.nats_keys), "observer")
+    ids = onemind_ids()
+    if ids:
+        os.chown(os.path.join(p.nats_keys, "observer.nk"), *ids)
+    log("NATS observer key made (the bus is watched from the next gateway start)")
 
 
 # The hub NATS reads copies of these from its runtime dir (onemind-nats.service, onemind-nats-files).
@@ -884,6 +892,9 @@ def configure(p: Paths, cfg: dict, source: str) -> str | None:
             st["hub_addr"] = cfg["hub_addr"]
         st["hub"] = parse_join_code(cfg["join_code"])["hub"]
     write(os.path.join(p.etc, "role"), role + "\n", 0o644)
+    # Everything above (helpers from onemind_core wrote some of it) is on the disk before the box says it is
+    # configured: state.json is the "done" mark, and a power cut after it must not find empty secrets.
+    durable.sync_fs(p.data if os.path.isdir(p.data) else p.root)
     st["configured_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     write(p.state, json.dumps(st, indent=2) + "\n", 0o644)
     return owner
@@ -1002,6 +1013,11 @@ def apply(p: Paths) -> int:
             msg = ("ONEMIND-FIRSTBOOT: this box was set up before the mesh (IMG-MESH-01) and keeps running as it is; "
                    "to put it on the mesh, reinstall it (docs/leap/core/IMAGES.md §3)")
             log(msg); console(p, msg)
+        if st.get("role") == "hub":
+            try:
+                ensure_observer_key(p)
+            except Exception as exc:   # never blocks boot: the bus stays unwatched, nothing else changes
+                log(f"observer key not made: {exc.__class__.__name__}")
         start_units(p, st)
         return 0
     try:
@@ -1050,6 +1066,10 @@ def finish(p: Paths, cfg: dict, source: str) -> int:
         log(ca); console(p, ca)
         hint = join_hint(p)
         log(hint); console(p, hint)
+    try:
+        os.sync()                           # the boot menu lock on the ESP and the rest: all on disk before the role starts
+    except OSError:
+        pass
     start_units(p, st)
     return 0
 
