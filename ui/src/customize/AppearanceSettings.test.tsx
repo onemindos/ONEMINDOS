@@ -208,15 +208,6 @@ describe('AppearanceSettings', () => {
     await waitFor(() => expect(store.saved.at(-1)).toMatchObject({ buttonsRed: false }));
   });
 
-  it('offers Always allow motion and saves it', async () => {
-    const user = userEvent.setup();
-    const store = new MemoryStore('local', saved());
-    mount(store);
-    await user.click(await screen.findByRole('radio', { name: 'Always allow' }));
-    expect(document.documentElement.getAttribute('data-om-motion')).toBe('allow');
-    await waitFor(() => expect(store.saved.at(-1)).toMatchObject({ motion: 'allow' }));
-  });
-
   it('shows the look command and undoes the last change', async () => {
     const user = userEvent.setup();
     mount(new MemoryStore('local', saved()));

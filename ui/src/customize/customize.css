@@ -39,13 +39,6 @@
   scroll-behavior: auto !important;
 }
 
-/* "Always allow motion" wins over a device that asks for less (it outranks the tokens' media query). */
-:root[data-om-motion='allow'] {
-  --om-motion-duration-fast: 120ms;
-  --om-motion-duration-base: 200ms;
-  --om-motion-duration-slow: 320ms;
-}
-
 /* ---------- wallpaper layer ---------- */
 .om-cz-wallpaper { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; background: var(--om-color-bg); }
 .om-cz-wallpaper-img { position: absolute; inset: calc(var(--om-wallpaper-blur) * -2); filter: blur(var(--om-wallpaper-blur)); }

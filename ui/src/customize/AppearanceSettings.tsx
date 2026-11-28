@@ -547,7 +547,7 @@ function EffectsSection() {
   const { prefs, update } = useCustomize();
   return (
     <Section title="Motion and effects">
-      <SettingRow title="Motion" description="Reduce stops sliding, fading and pulsing. Always allow plays motion even if your device asks for less. Status never needs motion.">
+      <SettingRow title="Motion" description="Stops sliding, fading and pulsing. Your device's setting is always respected. Status never needs motion.">
         <ChoiceGroup<MotionPref>
           legend="Motion"
           hideLegend
@@ -556,7 +556,6 @@ function EffectsSection() {
           choices={[
             { value: 'system', label: 'Like my device' },
             { value: 'reduce', label: 'Always reduce' },
-            { value: 'allow', label: 'Always allow' },
           ]}
         />
       </SettingRow>
@@ -711,8 +710,8 @@ export function AppearanceSettings() {
         }}
       />
       <div className="om-cz-lookbar">
-        <code className="om-cz-cmdline">$ {lookCommand(ctx.prefs)}</code>
-        <span className="om-cz-desc">CLI verb planned</span>
+        <code className="om-cz-cmdline">{lookCommand(ctx.prefs)}</code>
+        <span className="om-cz-desc">CLI verb planned, not shipped yet</span>
         <Button
           size="sm"
           disabled={!previous}

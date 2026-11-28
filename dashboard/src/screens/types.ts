@@ -20,7 +20,10 @@ export interface ScreenDef {
   section: 'primary' | 'Your box' | 'System';
   /** Position in the sidebar and Launchpad (ascending). Leave gaps of 10 so a new screen fits between two. */
   order: number;
-  /** Position in the dock when the screen is docked; omit and it is one click away in Launchpad. */
+  /**
+   * Position in the dock when the screen is docked; omit and it is one click away in the launcher. The Atlas
+   * default (final design 01): Home 1, Map 2, Approvals 3, Files 4, Market 5, Backups (Protect) 6, Machines 7.
+   */
   dock?: number;
   /** Tile gradient (two colours) with a white glyph on top. */
   hue: readonly [string, string];

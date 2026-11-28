@@ -4,7 +4,8 @@
 // Home editor writes. Moving is by button, so it works by keyboard and screen reader.
 import { useMemo, useState } from 'react';
 import { Button, removeWidget as removeHomeWidget, moveWidget as moveHomeWidget, useCustomize, widgetName, type HomeData, type HomeLayout } from '@onemind/ui';
-import { SCREENS, DOCK_ORDER } from '../screens/registry';
+import { SCREENS } from '../screens/registry';
+import { dockOrder } from '../shell/dock';
 import { orderDock } from '../shell/dockOrder';
 import { homeLayoutStore } from '../data/prefs';
 import { dashboardHomeLayout } from './Home';
@@ -36,13 +37,17 @@ function Row({ label, note, index, last, locked, onMove, onRemove }: { label: st
 
 export function DockOrderSection() {
   const { prefs, update } = useCustomize();
-  const order = useMemo(() => orderDock(DOCK_ORDER, prefs.dockOrder), [prefs.dockOrder]);
+  const shell = useShell();
+  // Only places this person's role can open; the others keep their saved place untouched.
+  const openable = useMemo(() => new Set(SCREENS.filter((s) => !s.hidden && showsNav(s.id, shell.view)).map((s) => s.id)), [shell.view]);
+  const full = useMemo(() => orderDock(dockOrder(), prefs.dockOrder), [prefs.dockOrder]);
+  const order = full.filter((id) => openable.has(id));
   const title = (id: string) => SCREENS.find((s) => s.id === id)?.title ?? id;
   const move = (from: number, to: number) => {
     const next = order.slice();
     const [id] = next.splice(from, 1);
     next.splice(to, 0, id!);
-    update({ dockOrder: next });
+    update({ dockOrder: [...next, ...full.filter((x) => !openable.has(x))] });
   };
   return (
     <section className="om-cz-section" aria-labelledby="om-dock-h">

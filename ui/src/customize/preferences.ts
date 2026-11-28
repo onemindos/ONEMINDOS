@@ -14,8 +14,7 @@ export type ThemeMode = 'system' | 'light' | 'dark' | 'schedule';
 export type AccentSource = 'wallpaper' | 'preset' | 'custom';
 export type Density = 'comfortable' | 'compact';
 export type Corners = 'sharp' | 'standard' | 'round';
-/** `allow` plays motion even when the device asks for reduced motion (founder, #1015). */
-export type MotionPref = 'system' | 'reduce' | 'allow';
+export type MotionPref = 'system' | 'reduce';
 export type TransparencyPref = 'system' | 'on' | 'off';
 
 export const FONT_SCALES = [0.9, 1, 1.125, 1.25] as const;
@@ -123,7 +122,7 @@ export function normalizePreferences(input: unknown): AppearancePreferences {
     density: pick(o.density, ['comfortable', 'compact'], d.density),
     fontScale: (FONT_SCALES as readonly number[]).includes(o.fontScale as number) ? (o.fontScale as FontScale) : d.fontScale,
     corners: pick(o.corners, ['sharp', 'standard', 'round'], d.corners),
-    motion: pick(o.motion, ['system', 'reduce', 'allow'], d.motion),
+    motion: pick(o.motion, ['system', 'reduce'], d.motion),
     higherContrast: o.higherContrast === true,
     focusAlways: o.focusAlways === true,
     underlineLinks: o.underlineLinks === true,
@@ -170,7 +169,11 @@ export function photoColour(colors: string[]): string {
 export function accentSeed(p: AppearancePreferences): { kind: 'preset'; id: AccentId } | { kind: 'custom'; hex: string } {
   if (p.accentSource === 'custom') return { kind: 'custom', hex: p.accentCustom };
   if (p.accentSource === 'wallpaper' && p.wallpaper === 'custom' && p.customWallpaperColors.length) return { kind: 'custom', hex: photoColour(p.customWallpaperColors) };
-  if (p.accentSource === 'wallpaper' && p.wallpaper !== 'none' && p.wallpaper !== 'custom') return { kind: 'preset', id: WALLPAPERS[p.wallpaper].accent };
+  if (p.accentSource === 'wallpaper' && p.wallpaper !== 'none' && p.wallpaper !== 'custom') {
+    // Red means act or needs you, so a red wallpaper never turns the highlight red (founder, 2026-11-21).
+    const id = WALLPAPERS[p.wallpaper].accent;
+    return { kind: 'preset', id: id === 'onemind' ? DEFAULT_ACCENT : id };
+  }
   return { kind: 'preset', id: p.accentSource === 'wallpaper' ? DEFAULT_ACCENT : p.accentPreset };
 }
 

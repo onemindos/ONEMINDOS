@@ -8,6 +8,7 @@ const screen: ScreenDef = {
   icon: 'backups',
   section: 'Your box',
   order: 100,
+  dock: 6,
   hue: ['#3fc6db', '#0c6b80'],
   pro: true,
   load: () => import('../../pages/Backups').then((m) => ({ default: m.Backups })),
