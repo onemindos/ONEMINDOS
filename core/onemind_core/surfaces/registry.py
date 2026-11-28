@@ -123,10 +123,14 @@ class SurfaceRegistry:
         self.openapi = openapi
 
     # ---- tools -----------------------------------------------------------------------------
-    @staticmethod
-    def core_tools() -> list[dict]:
+    def route_enabled(self, route: str) -> bool:
+        """Internal tool calls observe the same route ownership as the HTTP gate."""
+        owner = self.builtins.owner_of(route.split(" ", 1)[1])
+        return owner is None or owner.id not in self.builtins.disabled()
+
+    def core_tools(self) -> list[dict]:
         return [{"name": t.name, "app_id": None, "title": t.title, "effect": t.effect, "exposure": list(t.exposure),
-                 "route": t.route, "action_type": None, "scope": t.scope} for t in CORE_TOOLS]
+                 "route": t.route, "action_type": None, "scope": t.scope} for t in CORE_TOOLS if self.route_enabled(t.route)]
 
     def _app_tools(self, d: Descriptor, refused: list[dict]) -> list[dict]:
         out = []

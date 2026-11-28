@@ -9,6 +9,7 @@ from onemind_core.auth import Principal
 from onemind_core.errors import ApiError
 from onemind_core.eventstream import events_for_record
 from onemind_core.work.service import ProjectFields, TaskFields
+from test_appstore import run
 from test_identity import csrf, idc, setup_owner  # noqa: F401 (pytest fixture)
 from test_mcp import H, rpc
 
@@ -66,7 +67,7 @@ def test_child_or_teen_cannot_list_edit_or_borrow_non_owned_task(client, role):
         assert failure.value.status == 404
 
 
-def test_scoped_agent_reads_only_its_owners_opted_in_tasks_and_mcp_taints(idc):
+def test_scoped_agent_reads_only_its_owners_opted_in_tasks_and_mcp_taints(idc, clock):
     setup_owner(idc)
     headers = csrf(idc)
     for key, level in (("shared", "read"), ("private", "none")):
@@ -94,3 +95,12 @@ def test_scoped_agent_reads_only_its_owners_opted_in_tasks_and_mcp_taints(idc):
     assert {tool["name"] for tool in catalogue} == {"get_instance", "work_tasks_list", "work_task_get"}
     request = rpc(idc, "tools/call", {"name": "request_action", "arguments": {}}, headers={**H, **bearer})
     assert request.json()["result"]["isError"]
+
+    assert run(idc, clock, "app.disable", {"app_id": "work"}, headers=headers).json()["state"] == "succeeded"
+    off = rpc(idc, "tools/list", headers={**H, **bearer}).json()["result"]["tools"]
+    assert {tool["name"] for tool in off} == {"get_instance"}
+    for name, arguments in (("work_tasks_list", {}), ("work_task_get", {"project_id": "shared", "task_id": "task"})):
+        reply = rpc(idc, "tools/call", {"name": name, "arguments": arguments}, headers={**H, **bearer})
+        assert reply.json()["result"]["structuredContent"]["error"] == "app_disabled"
+    assert run(idc, clock, "app.enable", {"app_id": "work"}, headers=headers).json()["state"] == "succeeded"
+    assert rpc(idc, "tools/list", headers={**H, **bearer}).json()["result"]["tools"] == catalogue

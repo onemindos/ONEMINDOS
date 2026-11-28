@@ -55,7 +55,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
         area_reads=AreaReads(app.state, gw, lambda: app_rows(gw), can_see_alert),  # backups, logs, ... (#632)
     )
     limits = Limits(gw.settings.section(McpSettings), gw.clock)
-    mcp = McpEndpoint(Catalogue(services, limits), limits, refuse=lambda p, what: actions._deny(p, what))
+    catalogue = Catalogue(services, limits, route_enabled=app.state.surfaces.route_enabled)
+    mcp = McpEndpoint(catalogue, limits, refuse=lambda p, what: actions._deny(p, what))
 
     @app.post(
         "/mcp",
