@@ -1,0 +1,25 @@
+{
+  "$comment": "SPDX-License-Identifier: Apache-2.0. TEST-ONLY shared vector for onemind.job/v2 (D-029, N2 groundwork). The Ed25519 seed is the bytes 1..32, never a real key. core/tests/test_jobs_v2.py re-signs it and must get these exact bytes; internal/backup/job_v2_test.go verifies it as machine nodea and refuses it as nodeb.",
+  "seed_hex": "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+  "public_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAebVWLo/mVPlAeLES6KmLp5AfhTrmlb7X4OORC60ElmQ=\n-----END PUBLIC KEY-----\n",
+  "kid": "job-65b60673d6ed884b",
+  "now": "2026-11-25T12:05:00Z",
+  "envelope": {
+    "schema": "onemind.job/v2",
+    "job_id": "job_vector0000000001",
+    "action_id": "act_1",
+    "kind": "update.apply",
+    "params": {
+      "version": "1.2.3",
+      "rollout_id": "ro_1",
+      "node_id": "nodea"
+    },
+    "params_sha256": "sha256:4e2b265ddf633f1f3c7c4730d48befe1e1c7a896ff5eeb3e2ae4e4d30b39c513",
+    "issued_at": "2026-11-25T12:00:00Z",
+    "expires_at": "2026-11-25T13:00:00Z",
+    "aud": "node:nodea",
+    "kid": "job-65b60673d6ed884b",
+    "policy_epoch": 7,
+    "sig": "fmTRvK6p7nWbMBIXOG+t+NMzU0Vk/pbu8sTNbHpT3C5dAe6lM6xByqpr9s5E1xi3GPNI/k+jnNOl1IXZ51SaCw=="
+  }
+}

@@ -19,7 +19,7 @@ from fastapi.testclient import TestClient
 
 from conftest import ADULT, AGENT, OWNER
 from onemind_core.app import create_app
-from onemind_core.backups.jobs import canonical
+from onemind_core.backups.jobs import POLICY_EPOCH, canonical, job_kid
 from onemind_core.rollouts import RolloutStartParams, job_subject
 
 OLD, NEW = "0.1.20261101000000", "0.1.20261118000000"
@@ -90,6 +90,9 @@ def test_rollout_stages_pauses_on_an_injected_failure_and_resumes(fleet):
     key = c.svc._key.public_key()
     assert isinstance(key, Ed25519PublicKey)
     key.verify(base64.b64decode(job["sig"]), canonical({k: v for k, v in job.items() if k != "sig"}))
+    # v2 (D-029): addressed to n1 only, with the key id a machine pinned at join and the policy epoch.
+    assert job["schema"] == "onemind.job/v2" and job["aud"] == "node:n1"
+    assert job["kid"] == job_kid(key) and job["policy_epoch"] == POLICY_EPOCH
 
     c.svc.tick()
     assert offered(c, rid) == ["n1"]  # n1 has not reported yet: the next stage waits

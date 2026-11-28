@@ -29,6 +29,7 @@ from fastapi.testclient import TestClient
 
 import onemind_core.routers.net as net_router
 from onemind_core.app import create_app
+from onemind_core.backups.jobs import gateway_job_key_path, job_kid, load_or_create_job_key, public_pem
 from onemind_core.ca import BoxCA, box_name_from_hostname
 from onemind_core.fabric import (POLL_CONTEXT, SourceLimiter, code_hash, match_code, new_join_code, normalize_code,
                                   parse_join_qr)
@@ -256,6 +257,9 @@ def test_join_end_to_end(nc, hs, kube, clock, net_settings):
     store = verification.Store([x509.load_pem_x509_certificate(c["ca_cert"].encode())])
     verification.PolicyBuilder().store(store).time(clock.now).build_client_verifier().verify(cert, [])
     assert c["nats"] == {"url": "tls://100.64.0.1:7422", "account": f"NODE_{node.node_id}", "user_pubkey": node.nkey}
+    # The gateway's job public key (D-029): the same key file rollouts and backups sign with, and its kid.
+    job_key = load_or_create_job_key(gateway_job_key_path(net_settings))
+    assert c["job_pubkey"] == public_pem(job_key).decode() and c["job_kid"] == job_kid(job_key.public_key())
     m = c["mesh"]
     assert m["hostname"] == f"node-{node.node_id}" and m["hub_mesh_ip"] == "100.64.0.1"
     assert m["control_url"] == "https://control.onemind.internal:8444" and m["control_addrs"] == ["192.0.2.10"]
@@ -329,6 +333,23 @@ def test_uncollected_credentials_expire_and_account_goes(nc, clock, net_settings
     assert f"NODE_{node.node_id}" not in accounts.read_text()
     assert nc.get(f"/v1/actions/{jr['action']['id']}", headers=OWNER).json()["state"] == "failed"
     assert node.poll(nc, jr["join_request_id"], t["one_time"]["join_code"]).json()["state"] == "expired"
+
+
+def test_unreadable_job_key_delivers_nothing_and_a_retry_works(nc, net_settings, hs):
+    t = ticket(nc, role="leaf")
+    node = Node()
+    jr = nc.post("/v1/fabric/join-requests", json=node.body(t["one_time"]["join_code"])).json()
+    nc.post(f"/v1/actions/{jr['action']['id']}/approve", headers=OWNER)
+    path = gateway_job_key_path(net_settings)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("not a key")
+    keys_before = len(hs.keys)
+    r = node.poll(nc, jr["join_request_id"], t["one_time"]["join_code"])
+    assert r.status_code == 503 and r.json()["reason"] == "job_key_unavailable"
+    assert len(hs.keys) == keys_before  # no one-time mesh key was minted
+    path.unlink()  # the next read creates a fresh key
+    c = node.poll(nc, jr["join_request_id"], t["one_time"]["join_code"]).json()["credentials"]
+    assert c["job_kid"] == job_kid(load_or_create_job_key(path).public_key())
 
 
 def test_leaf_gets_no_k3s_and_shields_up(nc, kube):

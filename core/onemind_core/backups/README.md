@@ -13,7 +13,7 @@ owner / agent ──REST──▶ gateway ── kubectl exec (hooks, pg_dump, p
                           └─ signed onemind.job/v1 ─▶ 127.0.0.1:7480 onemindd (backup.Service) ── restic ──▶ USB / box / S3
 ```
 
-- **Job signature.** Ed25519 over canonical JSON (`jobs.py` and `internal/backup/canonical.go` agree byte for byte; both test suites hold the same vector). The job key is `<state>/custodian/job.key` (0600, created on first start); the agent reads the public half from `job_pubkey_file`. Each job has an id the agent remembers (no replay) and expires after 10 minutes (60 s clock skew allowed).
+- **Job signature.** Ed25519 over canonical JSON (`jobs.py` and `internal/backup/canonical.go` agree byte for byte; both test suites hold the same vector). The job key is `<state>/custodian/job.key` (0600, created on first start); the agent reads the public half from `job_pubkey_file`. Each job has an id the agent remembers (no replay) and expires after 10 minutes (60 s clock skew allowed). These loopback jobs are `onemind.job/v1`. Jobs for a joined machine (today the rollout's `update.apply`) are `onemind.job/v2`: they also carry `aud` (`node:<id>`), the key's `kid` and a `policy_epoch`, and the machine checks all three against the key it pinned at join (`job_pubkey` in the join reply) and its own high-water mark (D-029).
 - **Who may do what.** Reads (`status`, `runs`, `snapshots`, `verifications`, `restores`): owner, adult, agent. Browsing and downloading files from a snapshot: owner only, each read audited (`backup.browse`, `backup.download`). Requests: `backup.run` and `backup.verify` by owners and agents; `backup.restore`, `backup.destination.add|remove`, `backup.kit.issue` by owners only. Approving: owners only, always.
 
 ## API (contract §12.12)
