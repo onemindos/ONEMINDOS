@@ -267,8 +267,8 @@ class PasskeyRegisterBody(BaseModel):
     install_id: str | None = Field(default=None, pattern=INSTALL_ID)
     box_code: str | None = Field(default=None, max_length=12, description="N-1 b: the code on the box's own screen "
                                  "(register/options box_code_if_proven); an owner's proven key is added at the box "
-                                 "unless the owner's own proven key vouched for it or this is the household's "
-                                 "first owner passkey at setup")
+                                 "unless the owner's own proven key vouched for it or a remote recovery "
+                                 "completed (D-034)")
 
 
 class ApproverKeyBody(BaseModel):

@@ -8,11 +8,9 @@ from __future__ import annotations
 import hashlib
 import json
 import struct
-from concurrent.futures import ThreadPoolExecutor, wait
-from contextlib import contextmanager
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
-from threading import Barrier, Event
-from time import monotonic
+from threading import Event
 
 import cbor2
 import pytest
@@ -21,7 +19,6 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 from fastapi.testclient import TestClient
-from sqlalchemy import text
 
 from conftest import OWNER, action_body
 from onemind_core.app import create_app
@@ -1118,81 +1115,43 @@ def test_owner_proven_key_enrolment_requires_fresh_options_after_promotion(lvc, 
 def test_pending_first_passkey_options_cannot_enrol_a_later_proven_key(lvc, root):
     setup_owner(lvc)
     opts = lvc.post("/v1/auth/passkeys/register/options", headers=csrf(lvc))
-    assert opts.status_code == 200 and opts.json()["box_code_if_proven"] is False, opts.text
+    # D-034 (founder gate decision, train 2026-11-28): no first-owner-passkey exemption; the household's first
+    # proven key also needs the box's code at home, so even the first options ask for it.
+    assert opts.status_code == 200 and opts.json()["box_code_if_proven"] is True, opts.text
     assert add_key(lvc, SoftAuthenticator(), "first key", at_box=False)["level"] == "L1"
 
     key = AttestedAuthenticator(root)
     r = lvc.post("/v1/auth/passkeys/register", json={"credential": key.register(opts.json())}, headers=csrf(lvc))
-    assert r.status_code == 409 and r.json()["reason"] == "registration_options_stale", r.text
+    assert r.status_code == 401 and r.json()["reason"] == "box_code_required", r.text
     assert set(keys(lvc)) == {"first key"}
 
 
-def test_only_one_owner_can_use_the_first_passkey_exception(lvc, root, monkeypatch):
+def test_only_one_owner_can_use_the_first_passkey_exception(lvc, root):
+    """D-034 (founder gate decision, train 2026-11-28): there is no first-owner-passkey exemption left to race
+    for. Two owners enrolling their first keys at the same time each need the box's code: the one who types it
+    gets an L2 key, the one who doesn't gets nothing."""
     from test_identity import enrol
 
     setup_owner(lvc)
     bea = enrol(lvc, "owner", "bea")
-    bea_id = bea.get("/v1/me").json()["principal"]["id"]
-    identity = lvc.app.state.identity
-    engine = identity.repo.db.engine
-    postgres = engine.dialect.name == "postgresql"
-    ready = Barrier(2, timeout=15)
-    checked, commit = Event(), Event()
-    lock_user = identity.repo.lock_user
-    verification_active = identity._owner_verification_active
-    first_pid = None
 
-    @contextmanager
-    def queue_registration(user_id):
-        # Both requests have consumed their challenges before either starts its write transaction.
-        ready.wait()
-        if user_id == bea_id:
-            assert checked.wait(timeout=15)
-        with lock_user(user_id) as locked:
-            yield locked
+    def register(c, body):
+        return c.post("/v1/auth/passkeys/register", json=body, headers=csrf(c))
 
-    def hold_first_registration(session=None):
-        nonlocal first_pid
-        active = verification_active(session)
-        if session is not None and not checked.is_set():
-            assert active is False
-            if postgres:
-                first_pid = session.scalar(text("SELECT pg_backend_pid()"))
-            checked.set()
-            assert commit.wait(timeout=15)
-        return active
-
-    def register(c, credential):
-        return c.post("/v1/auth/passkeys/register", json={"credential": credential}, headers=csrf(c))
-
-    credentials = []
+    bodies = []
     for c in (lvc, bea):
         opts = c.post("/v1/auth/passkeys/register/options", headers=csrf(c))
-        assert opts.status_code == 200 and opts.json()["box_code_if_proven"] is False, opts.text
-        credentials.append(AttestedAuthenticator(root).register(opts.json()))
+        assert opts.status_code == 200 and opts.json()["box_code_if_proven"] is True, opts.text
+        bodies.append({"credential": AttestedAuthenticator(root).register(opts.json())})
+        if c is lvc:  # zeus reads his code off the screen before bea's request shows hers
+            bodies[-1]["box_code"] = box_code(lvc)
 
-    monkeypatch.setattr(identity.repo, "lock_user", queue_registration)
-    monkeypatch.setattr(identity, "_owner_verification_active", hold_first_registration)
     with ThreadPoolExecutor(max_workers=2) as clients:
-        first = clients.submit(register, lvc, credentials[0])
-        second = clients.submit(register, bea, credentials[1])
-        try:
-            assert checked.wait(timeout=15)
-            if postgres:
-                # Let the second transaction reach the database lock while the first still holds it.
-                # Without serialization the second finishes while the first is paused.
-                blocked = text("SELECT EXISTS (SELECT FROM pg_stat_activity WHERE datname = current_database() "
-                               "AND :first_pid = ANY(pg_blocking_pids(pid)))")
-                deadline = monotonic() + 10
-                with engine.connect() as monitor:
-                    while not second.done() and not monitor.scalar(blocked, {"first_pid": first_pid}):
-                        assert monotonic() < deadline, "second registration neither blocked nor completed"
-                        wait([second], timeout=0.02)
-        finally:
-            commit.set()
+        first = clients.submit(register, lvc, bodies[0])
+        second = clients.submit(register, bea, bodies[1])
         accepted, rejected = first.result(timeout=15), second.result(timeout=15)
     assert accepted.status_code == 201 and accepted.json()["level"] == "L2", accepted.text
-    assert rejected.status_code == 409 and rejected.json()["reason"] == "registration_options_stale", rejected.text
+    assert rejected.status_code == 401 and rejected.json()["reason"] == "box_code_required", rejected.text
     assert keys(bea) == {}
 
 
