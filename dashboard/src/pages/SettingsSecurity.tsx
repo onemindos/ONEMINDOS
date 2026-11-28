@@ -81,7 +81,7 @@ export function SettingsSecurity() {
         if (t.grace === true) return 'Before your first proven key: confirmed at the box';
         return typeof t.household_level === 'string' ? `Strongest key ${t.household_level}` : t.household_level === null ? 'No passkey yet' : undefined;
       })],
-      ['Standing approvals', '/settings/automation', summarize(get(sdk, '/v1/approval-policies'), count('configured'))],
+      ['Standing approvals', '/settings/standing-approvals', summarize(get(sdk, '/v1/approval-policies'), count('configured'))],
       ['Physical lockout', '/settings/automation', summarize(get(sdk, '/v1/physical/lockout'), (data) => {
         const value = object(data).locked;
         return value === true ? 'Locked' : value === false ? 'Unlocked' : undefined;

@@ -1746,6 +1746,90 @@
         "title": "ApprovalLimit",
         "type": "object"
       },
+      "ApprovalPolicy": {
+        "description": "A standing approval as the owner sees it (policies.to_json). Documents the answer for the SDK; the routes\nstill return the service's dict unchanged.",
+        "properties": {
+          "allow": {
+            "$ref": "#/components/schemas/Allow"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "additionalProperties": true,
+            "title": "Created By",
+            "type": "object"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/Limits"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "state": {
+            "description": "paused: a legacy wildcard rule migration paused until the owner confirms it",
+            "enum": [
+              "active",
+              "paused",
+              "expired"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "uses_24h": {
+            "description": "requests it approved in the last 24 hours",
+            "title": "Uses 24H",
+            "type": "integer"
+          },
+          "window_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window Id"
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "name",
+          "allow",
+          "limits",
+          "window_id",
+          "expires_at",
+          "created_by",
+          "created_at",
+          "state",
+          "uses_24h"
+        ],
+        "title": "ApprovalPolicy",
+        "type": "object"
+      },
       "ApprovalPreview": {
         "description": "The approval card's preview slot (#723): what the action will do, drawn by the host.",
         "properties": {
@@ -19811,7 +19895,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ApprovalPolicy"
+                  },
+                  "title": "Response 200 Approvals.Policies.List",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -19858,7 +19948,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalPolicy"
+                }
               }
             },
             "description": "Successful Response"
@@ -20003,7 +20095,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalPolicy"
+                }
               }
             },
             "description": "Successful Response"

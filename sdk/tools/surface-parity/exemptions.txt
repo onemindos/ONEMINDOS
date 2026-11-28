@@ -39,9 +39,6 @@ mobile-scope push
 group m2-radio-confirm issue=#1232 M2: confirming what a found radio is (human-only) has no screen or command; the list has no screen.
 dashboard radios.list m2-radio-confirm
 group m5-step-up-owner-screens issue=#1214 M5: app sharing and standing approvals are written through the body-bound step-up, which no dashboard screen or command does yet.
-dashboard approvals.policies.create m5-step-up-owner-screens
-dashboard approvals.policies.delete m5-step-up-owner-screens
-dashboard approvals.policies.confirm m5-step-up-owner-screens
 cli approvals.policies.create m5-step-up-owner-screens
 cli approvals.policies.confirm m5-step-up-owner-screens
 cli apps.access.set m5-step-up-owner-screens
@@ -120,8 +117,6 @@ cli work.section_create s6-work
 cli work.section_delete s6-work
 cli work.section_update s6-work
 cli work.task_delete s6-work
-group s7-windows issue=#1232 S7: windows (/v1/windows) have no caller on any surface.
-dashboard windows.list s7-windows
 group s8-cli-groups issue=#1232 S8: these settings have a dashboard screen but no `onemind` command group yet (automation, alerts, family, onboarding, files, sharing, plugins and others).
 cli alerts.ack s8-cli-groups
 cli alerts.resolve s8-cli-groups
