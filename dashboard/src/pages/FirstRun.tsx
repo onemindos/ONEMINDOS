@@ -9,16 +9,20 @@
 //    The key lives only in the step's memory, is never stored, and is never logged or put in a URL.
 //  - Each starter install shows its read-only plan first; the request carries that plan's hash, so the
 //    approval is bound to exactly what was shown.
+//  - The place (name, the owner's address text, a position given offline) is saved as the box's first
+//    site through POST /v1/sites, so the desktop Map opens on it. Setup ends on that Map when it exists.
 // Software settings persist through §12.41. Backup configuration stays in §12.12.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Onboarding, applyTheme, useToast, type StarterApp } from '@onemind/ui';
-import type { CatalogApp } from '../api/types';
+import { Onboarding, applyTheme, cleanAddress, siteAnchors, siteIdFor, useToast, type OnboardingDraft, type SavedPlace, type StarterApp } from '@onemind/ui';
+import type { components } from '@onemind/sdk';
+import { ApiError, type CatalogApp } from '../api/types';
 import type { BackupDestinationRecord, FirstRunSettings, FirstRunSettingsBody, FirstRunState } from '../api/client';
 import { categorySlug, deployClass } from '../data/adapters';
 import { useHub } from '../data/hub';
 import { recoveryKit } from '../data/recoveryKit';
-import { useGateway } from '../lib/gateway';
+import { useGateway, viaSdk } from '../lib/gateway';
+import { SCREENS } from '../screens/registry';
 import { useSignedIn } from '../session';
 import { RecoverRemoteApprovals } from './SignInKeys';
 
@@ -40,14 +44,38 @@ export function useWizardPending(): [boolean | undefined, (pending: boolean) => 
   return [pending, setPending];
 }
 
+type GeoSite = components['schemas']['GeoSite'];
+
+/** The box's first site from the wizard's place: its name, the owner's address text and three grid points. */
+export function firstSite(d: Pick<OnboardingDraft, 'placeName' | 'address' | 'location'>): GeoSite | undefined {
+  if (!d.location) return undefined;
+  const name = d.placeName.trim() || 'Home';
+  const address = cleanAddress(d.address).trim();
+  return { id: siteIdFor(name), name, ...(address ? { address } : {}), floors: [], areas: [], anchors: siteAnchors(d.location) };
+}
+
+/** What the owner is shown after the save: the site as the gateway holds it. */
+export function placeOf(status: SavedPlace['status'], site: GeoSite): SavedPlace {
+  const origin = site.anchors.find((a) => a.x === 0 && a.y === 0);
+  return { status, name: site.name, address: site.address ?? null, ...(origin ? { location: { lat: origin.lat, lon: origin.lon } } : {}) };
+}
+
+/** Setup ends on the desktop Map when this build has it (#1340); Approvals or Home otherwise. */
+export function landingAfterSetup(requests: number, screens: ReadonlyArray<{ path: string }> = SCREENS): string {
+  if (screens.some((s) => s.path === '/map')) return '/map';
+  return requests ? '/approvals' : '/';
+}
+
 export function FirstRun({ onDone }: { onDone: () => void }) {
-  const { api, account, anon } = useSignedIn();
+  const { api, account, anon, token, mock } = useSignedIn();
+  const sdk = useGateway(token);
   const hub = useHub();
   const toast = useToast();
   const navigate = useNavigate();
   const apps = useMemo(() => (hub.apps.data ?? []).map(toStarterApp).filter((a): a is StarterApp => !!a), [hub.apps.data]);
   const [loaded, setLoaded] = useState<{ settings: FirstRunSettings; destinations: BackupDestinationRecord[]; state: FirstRunState }>();
   const previewed = useRef(new Map<string, string>());
+  const landingRef = useRef('/');
   const [error, setError] = useState<string>();
   const [attempt, setAttempt] = useState(0);
   const [headless, setHeadless] = useState(false);
@@ -74,12 +102,32 @@ export function FirstRun({ onDone }: { onDone: () => void }) {
     previewed.current.set(id, plan.plan_sha256);
     return plan.plan.summary;
   } : undefined;
+  const landing = landingAfterSetup(0);
+  // No mock backend: the demo gateway has no sites, so the place stays on the setup map only.
+  const onSaveLocation = mock ? undefined : async (draft: OnboardingDraft): Promise<SavedPlace> => {
+    const body = firstSite(draft);
+    if (!body) throw new Error('Give the place a position first.');
+    try {
+      const saved = await viaSdk(() => sdk.call<GeoSite>({ method: 'POST', path: '/v1/sites', body }));
+      return placeOf('saved', saved ?? body);
+    } catch (e) {
+      if (!(e instanceof ApiError && e.status === 409)) throw e;
+      // A site with this ID is already on the box (a reload, a second browser): it is kept as it is, and
+      // the owner is shown what is actually saved, not what was just typed.
+      const sites = await viaSdk(() => sdk.call<GeoSite[]>({ method: 'GET', path: '/v1/sites' }));
+      const existing = sites.find((s) => s.id === body.id);
+      if (!existing) throw e;
+      return placeOf('exists', existing);
+    }
+  };
   return (<>
     {recover && <WizardRecovery onBack={() => setRecover(false)} />}
     <div hidden={recover}>
     <Onboarding
       apps={apps}
       ownerConfigured
+      onSaveLocation={onSaveLocation}
+      finishLabel={landing === '/map' ? 'Open my map' : undefined}
       kit={kit}
       backupRecoveryAction={headless && state.destinations > 0 && state.kit.state !== 'confirmed' &&
         <button type="button" className="om-btn om-btn-secondary" onClick={() => setRecover(true)}>
@@ -118,8 +166,11 @@ export function FirstRun({ onDone }: { onDone: () => void }) {
             }
           }
           if (requests.length) toast.show({ tone: sent === requests.length ? 'info' : 'warn', title: `${sent} of ${requests.length} install requests sent`, body: 'They wait in Approvals until you decide.' });
-          onDone();
-          navigate(requests.length ? '/approvals' : '/');
+          landingRef.current = landingAfterSetup(requests.length);
+      }}
+      onLeave={() => {
+        onDone();
+        navigate(landingRef.current);
       }}
     />
     </div>

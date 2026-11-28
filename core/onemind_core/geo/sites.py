@@ -66,7 +66,17 @@ def project(anchors: list[Anchor], x: float, y: float) -> tuple[float, float]:
     return fit([a.lat for a in anchors]), (origin + lon + 180) % 360 - 180
 
 
+_ADDRESS_CHAR = r"[^\x00-\x1f\x7f\u202a-\u202e\u2066-\u2069]"
+_ADDRESS_VISIBLE = r"[^\s\x00-\x1f\x7f\u202a-\u202e\u2066-\u2069]"
+ADDRESS_PATTERN = rf"^{_ADDRESS_CHAR}*{_ADDRESS_VISIBLE}{_ADDRESS_CHAR}*$"
+
+
 class GeoSite(NamedPlace):
+    # The owner's own words for where the place is, kept only on this box. The box never looks it up:
+    # there is no address index on it, and nothing is sent to an outside service (first run, #1016).
+    # One line, no control characters (NUL, newlines, escapes) and no bidirectional overrides that could
+    # make the text read differently from what is stored; never blank. Readable by the owner only.
+    address: Annotated[str, Field(min_length=1, max_length=256, pattern=ADDRESS_PATTERN)] | None = None
     floors: Annotated[list[NamedPlace], Field(max_length=128)] = []
     areas: Annotated[list[SiteArea], Field(max_length=512)] = []
     anchors: Annotated[list[Anchor], Field(min_length=3, max_length=128)]

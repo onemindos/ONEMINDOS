@@ -55,7 +55,7 @@ export const UI_SCREENS: Screen[] = [
   ...states('store'),
   // Shell: command palette, notifications, toasts, shared states, onboarding (ui/demo/src/shell/ShellScreens.tsx)
   ...['palette', 'palette-search', 'notifications', 'toasts', 'states'].map((a) => ui(`shell/${a}`)),
-  ...[1, 2, 3, 4, 5, 6].map((n) => ui(`shell/onboarding-${n}`)),
+  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ui(`shell/onboarding-${n}`)),
 ];
 
 // dashboard/src/App.tsx routes. The dashboard has one (light) theme today.

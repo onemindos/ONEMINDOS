@@ -7,9 +7,15 @@ import type { CSSProperties } from 'react';
 import { ACCENTS as APPEARANCE_ACCENTS, ACCENT_IDS as APPEARANCE_ACCENT_IDS, DEFAULT_ACCENT, presetAccent, type AccentId as AppearanceAccentId } from '../customize/accents';
 import type { ThemeChoice } from '../lib/theme';
 import { deployClass, type CategorySlug, type DeployClass } from './taxonomy';
+import { locationProblem, type PlaceLocation } from './onboarding/location';
 
+// The map draws itself (founder pick, 2026-11-28): the place first, so the map has something to draw,
+// then where it is (the map moves there), then the approval rule (the ring around the box). Each later
+// answer adds one honest thing to the same map, which the desktop Map then opens on.
 export const ONBOARDING_STEPS = [
-  { id: 'box', title: 'Name your box', short: 'Box' },
+  { id: 'box', title: 'Name your place and box', short: 'Your place' },
+  { id: 'address', title: 'Where is your place?', short: 'Address' },
+  { id: 'decide', title: 'AI can ask. Only you approve.', short: 'You decide' },
   { id: 'owner', title: 'Create the owner', short: 'Owner' },
   { id: 'appearance', title: 'Make it yours', short: 'Look' },
   { id: 'apps', title: 'Pick starter apps', short: 'Apps' },
@@ -44,9 +50,17 @@ export function accentVars(id: AccentId): CSSProperties {
 // ---------- draft ----------
 export type PasskeyState = 'none' | 'waiting' | 'registered' | 'failed';
 export type BackupDestination = 'usb' | 'peer' | 's3' | 'later';
+/** The approval practice: optional, and it calls no API. */
+export type PracticeAnswer = 'none' | 'approved' | 'denied';
 
 export interface OnboardingDraft {
   boxName: string;
+  /** Shown on the Map and the phone; saved as the site's name. */
+  placeName: string;
+  /** The owner's own words; kept on the box, never looked up online. */
+  address: string;
+  location?: PlaceLocation;
+  practice: PracticeAnswer;
   timeZone: string;
   ownerName: string;
   passkey: PasskeyState;
@@ -59,6 +73,9 @@ export interface OnboardingDraft {
 export function emptyDraft(timeZone = 'UTC'): OnboardingDraft {
   return {
     boxName: '',
+    placeName: '',
+    address: '',
+    practice: 'none',
     timeZone,
     ownerName: '',
     passkey: 'none',
@@ -97,6 +114,13 @@ export function stepIssues(step: StepId, d: OnboardingDraft): string[] {
     const e = validateBoxName(d.boxName);
     if (e) out.push(e);
     if (!d.timeZone) out.push('Choose a time zone.');
+    if (d.placeName.trim().length > 128) out.push('Use 128 characters or fewer for the place name.');
+  }
+  if (step === 'address') {
+    // Skippable: no position is fine. A position that is there must be one the gateway accepts.
+    const problem = d.location && locationProblem(d.location.lat, d.location.lon);
+    if (problem) out.push(problem);
+    if (d.address.trim().length > 256) out.push('Use 256 characters or fewer for the address.');
   }
   if (step === 'owner') {
     if (!d.ownerName.trim()) out.push('Enter your name.');

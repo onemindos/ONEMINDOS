@@ -159,7 +159,6 @@ dashboard agentbrowser.sessions.visit later-agent-browser
 cli agentbrowser.sessions.start later-agent-browser
 cli agentbrowser.sessions.visit later-agent-browser
 group later-sites-map issue=#1232 Later: sites, map packs and subjects have no screen or command.
-dashboard geo.create_site later-sites-map
 cli geo.create_site later-sites-map
 group later-file-transfer issue=#1232 Later: file downloads, quotas and stat have no dashboard screen.
 dashboard files.downloads.discard later-file-transfer
