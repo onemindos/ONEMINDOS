@@ -9,7 +9,7 @@
 
 .dash-map-views { display: inline-flex; border: 1px solid var(--om-color-border); border-radius: var(--om-radius-md); overflow: hidden; }
 .dash-map-views button { background: var(--om-color-surface); color: var(--om-color-text); border: 0; padding: var(--om-space-1) var(--om-space-3); font: inherit; cursor: pointer; min-height: var(--om-layout-touch-target); }
-.dash-map-views button[aria-pressed='true'] { background: var(--om-color-accent-soft); color: var(--om-color-accent-text); font-weight: var(--om-font-weight-semibold); }
+.dash-map-views button[aria-pressed='true'] { background: var(--om-color-accent-soft); color: var(--om-color-accent); font-weight: var(--om-font-weight-semibold); }
 
 .dash-map-body { display: grid; grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr); gap: var(--om-space-4); align-items: start; }
 .dash-map-body.has-card { grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr) minmax(14rem, 18rem); }
