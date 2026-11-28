@@ -9,6 +9,7 @@ import { Button, Card, Dialog, PageHeader, StatusPill } from '@onemind/ui';
 import { FilesApi, human, type Entry, type FileRequest, type FileRoot, type Preview, type TrashItem } from '../files/api';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
+import { useShell } from '../shell/Shell';
 import { FilesQuotas } from './FilesQuotas';
 import { Load, TextField, useRun } from './parts';
 
@@ -17,16 +18,18 @@ const parent = (p: string) => p.replace(/\/[^/]+$/, '') || '/';
 const when = (iso: string) => (Number.isNaN(Date.parse(iso)) ? iso : new Date(iso).toLocaleString());
 
 export function Files() {
-  const { token, person, mock, principal } = useSignedIn();
+  const { token, person, mock, account, principal } = useSignedIn();
+  const { role } = useShell();
   if (mock) return <><PageHeader title="Files" /><p role="status">Connect to a real hub to browse files. Demo mode has no file storage.</p></>;
-  return <LiveFiles key={person} token={token} person={person} role={principal?.role} />;
+  return <LiveFiles key={person} token={token} person={account?.id ?? principal?.id} role={role} />;
 }
 
 // #1232: every person role uses Files for their own data. A guest has no Home (so no trash of their own) and
 // only an owner stores limits or decides a request; the hub enforces all of it, this only decides what is offered.
-function LiveFiles({ token, person, role }: { token: string; person: string; role?: string }) {
+function LiveFiles({ token, person, role }: { token: string; person?: string; role: string | null | undefined }) {
   const owner = role === 'owner';
   const canUseSharedTrash = owner || role === 'adult';
+  const canUseTrash = canUseSharedTrash || role === 'teen' || role === 'child';
   const api = useMemo(() => new FilesApi(token), [token]);
   const run = useRun();
   const roots = usePoll(() => api.roots(), 60_000);
@@ -36,7 +39,7 @@ function LiveFiles({ token, person, role }: { token: string; person: string; rol
   return <div className="dash-stack">
     <PageHeader title="Files" lede="Your files on your box." />
     <div role="group" aria-label="Files sections">
-      {(['files', ...(role === 'guest' ? [] : ['trash']), 'sharing', ...(owner ? ['quotas'] : [])] as Tab[]).map((t) => <Button key={t} variant={tab === t ? 'primary' : 'secondary'} aria-pressed={tab === t} onClick={() => setTab(t)}>{t === 'files' ? 'Files' : t === 'trash' ? 'Trash' : t === 'sharing' ? 'Sharing' : 'Storage limits'}</Button>)}
+      {(['files', ...(canUseTrash ? ['trash'] : []), 'sharing', ...(owner ? ['quotas'] : [])] as Tab[]).map((t) => <Button key={t} variant={tab === t ? 'primary' : 'secondary'} aria-pressed={tab === t} onClick={() => setTab(t)}>{t === 'files' ? 'Files' : t === 'trash' ? 'Trash' : t === 'sharing' ? 'Sharing' : 'Storage limits'}</Button>)}
     </div>
     <Load res={roots} what="Loading your spaces">{(rs) => rs.length === 0 ? <p>No space is available to this account.</p> : <>
       {tab === 'files' && <>
@@ -45,7 +48,7 @@ function LiveFiles({ token, person, role }: { token: string; person: string; rol
         </div>
         {current && <Browser key={current.root} api={api} space={current} run={run} onChanged={() => void roots.reload()} />}
       </>}
-      {tab === 'trash' && <TrashTab api={api} run={run} canUseSharedTrash={canUseSharedTrash} owner={owner} />}
+      {tab === 'trash' && canUseTrash && <TrashTab api={api} run={run} canUseSharedTrash={canUseSharedTrash} owner={owner} />}
       {tab === 'quotas' && owner && <FilesQuotas api={api} run={run} />}
       {tab === 'sharing' && <Sharing api={api} run={run} person={person} roots={rs} owner={owner} />}
     </>}</Load>
@@ -173,7 +176,7 @@ function TrashTab({ api, run, canUseSharedTrash, owner }: { api: FilesApi; run: 
   </Card>;
 }
 
-function Sharing({ api, run, person, roots, owner }: { api: FilesApi; run: Run; person: string; roots: FileRoot[]; owner: boolean }) {
+function Sharing({ api, run, person, roots, owner }: { api: FilesApi; run: Run; person?: string; roots: FileRoot[]; owner: boolean }) {
   const grants = usePoll(() => api.grants(), 30_000);
   const reqs = usePoll(() => api.requests(), 15_000);
   const [form, setForm] = useState(false);

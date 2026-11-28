@@ -4,7 +4,6 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, expect, it, vi } from 'vitest';
 import { App } from '../App';
-import { DEMO_TOKENS } from '../api/fixtures';
 import { MockApi } from '../api/mock';
 import { SessionProvider } from '../session';
 import { seriousViolations } from '../test/helpers';
@@ -18,7 +17,7 @@ const request = { id: 'frq_1', type: 'files.grant.create', plan: { summary: 'app
 type Call = { method: string; path: string; search: URLSearchParams; headers: Headers; body: string };
 const json = (v: unknown, status = 200, headers: Record<string, string> = {}) => new Response(JSON.stringify(v), { status, headers: { 'content-type': 'application/json', ...headers } });
 
-function mount(handler: (c: Call) => Response | undefined = () => undefined, who = 'owner-demo') {
+function mount(handler: (c: Call) => Response | undefined = () => undefined, who = 'owner-demo', meReady?: Promise<void>) {
   const calls: Call[] = [];
   const fetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
     const u = new URL(String(url), 'http://hub.test');
@@ -36,7 +35,15 @@ function mount(handler: (c: Call) => Response | undefined = () => undefined, who
   });
   vi.stubGlobal('fetch', fetch);
   window.sessionStorage.setItem('onemind.token', who);
-  render(<MemoryRouter initialEntries={['/files']}><SessionProvider deps={{ mock: false, makeApi: () => new MockApi(who), knownPrincipal: () => DEMO_TOKENS[who] }}><App mock={false} /></SessionProvider></MemoryRouter>);
+  const api = new MockApi(who);
+  if (meReady) {
+    const me = api.me.bind(api);
+    vi.spyOn(api, 'me').mockImplementation(async () => {
+      await meReady;
+      return me();
+    });
+  }
+  render(<MemoryRouter initialEntries={['/files']}><SessionProvider deps={{ mock: false, makeApi: () => api }}><App mock={false} /></SessionProvider></MemoryRouter>);
   return calls;
 }
 afterEach(() => vi.unstubAllGlobals());
@@ -117,6 +124,27 @@ it('files a grant request with approve=false', async () => {
   await u.click(screen.getByRole('button', { name: 'File the request' }));
   await waitFor(() => expect(calls.some((c) => c.method === 'POST' && c.path === '/v1/files/grants')).toBe(true));
   expect(JSON.parse(calls.find((c) => c.method === 'POST')!.body)).toEqual({ subject: { kind: 'app', id: 'photos' }, root: 'home:owner', path: '/', access: 'r', approve: false });
+});
+
+it('waits for /v1/me before showing the owner Files controls', async () => {
+  let resolveMe!: () => void;
+  const meReady = new Promise<void>((resolve) => { resolveMe = resolve; });
+  const calls = mount(undefined, 'owner-demo', meReady);
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Sharing' }));
+  expect(await screen.findByText(/app photos gets read-only access/)).toBeInTheDocument();
+  for (const name of ['Trash', 'Storage limits', 'Request folder access', 'Review request frq_1']) {
+    expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
+  }
+  expect(calls.some((c) => c.path === '/v1/files/trash')).toBe(false);
+
+  resolveMe();
+  expect(await screen.findByRole('button', { name: 'Request folder access' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Review request frq_1' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Storage limits' })).toBeInTheDocument();
+  await u.click(screen.getByRole('button', { name: 'Trash' }));
+  expect(screen.getByRole('button', { name: 'Shared trash' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Ask to empty this trash' })).toBeInTheDocument();
 });
 
 it('lets an owner review and approve a request they filed themselves', async () => {

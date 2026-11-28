@@ -293,29 +293,30 @@ class PhotosService:
             if taken_at is None:
                 raise PhotosError(422, "conflict", "OneMind-Created-At must be an RFC 3339 time with an offset")
         h = m.group(1)
-        now = self.clock()
         self.sweep(limit=50)
-        existing = self.repo.find_open_upload(src.id, client_key, h, length, now)
-        if existing is not None:
-            size = self.files.staged_size(existing.id)
-            if size is not None:
-                return existing.id, size
-        open_count, pending = self.repo.open_stats(src.id, now)
-        if open_count >= self.settings.max_open_uploads:
-            raise PhotosError(409, "conflict", "this phone has too many unfinished uploads; finish them or let them expire")
-        if length + pending + self.settings.reserve_bytes > self.files.free_bytes():
-            raise PhotosError(409, "conflict", "not enough free space on the box for this file")
-        upload_id = new_id("upl")
-        self.repo.create_upload({
-            "id": upload_id, "owner": owner, "source_id": src.id, "client_key": client_key, "hash": h,
-            "length": length, "received": 0, "file_name": name, "taken_at": taken_at, "state": "open",
-            "receipt": None, "created_at": now, "updated_at": now, "expires_at": now + self.ttl,
-        })
-        try:
-            self.files.create_staging(upload_id)
-        except BaseException:
-            self.repo.delete_upload(upload_id)
-            raise
+        with self.files.upload_reservations():
+            now = self.clock()
+            existing = self.repo.find_open_upload(src.id, client_key, h, length, now)
+            if existing is not None:
+                size = self.files.staged_size(existing.id)
+                if size is not None:
+                    return existing.id, size
+            open_count, pending = self.repo.open_stats(src.id, now)
+            if open_count >= self.settings.max_open_uploads:
+                raise PhotosError(409, "conflict", "this phone has too many unfinished uploads; finish them or let them expire")
+            if length + pending + self.settings.reserve_bytes > self.files.free_bytes():
+                raise PhotosError(409, "conflict", "not enough free space on the box for this file")
+            upload_id = new_id("upl")
+            self.repo.create_upload({
+                "id": upload_id, "owner": owner, "source_id": src.id, "client_key": client_key, "hash": h,
+                "length": length, "received": 0, "file_name": name, "taken_at": taken_at, "state": "open",
+                "receipt": None, "created_at": now, "updated_at": now, "expires_at": now + self.ttl,
+            })
+            try:
+                self.files.create_staging(upload_id)
+            except BaseException:
+                self.repo.delete_upload(upload_id)
+                raise
         self.repo.touch_source(src.id, now)
         return upload_id, 0
 
