@@ -54,7 +54,8 @@ jobs:
   mqtt-bridge:
     # Issue #199 (FLD-02): an MQTT 5 client round-trips a message through apps/mosquitto's bridge into
     # NATS and back, with the pinned Mosquitto and NATS images (apps/mosquitto/README.md "Bridge to NATS").
-    # Needs Docker, so GitHub-hosted only; MOSQUITTO_BRIDGE_E2E=required turns a skip into a failure.
+    # Needs Docker, so it runs on the onemind-kvm pool for trusted events and GitHub-hosted otherwise;
+    # MOSQUITTO_BRIDGE_E2E=required turns a skip into a failure.
     if: ${{ !github.event.pull_request.draft }}
     runs-on: ${{ (vars.KVM_RUNNER == 'on' && (contains(fromJSON('["push","schedule","workflow_dispatch","merge_group"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && fromJSON('["self-hosted","onemind-kvm"]') || 'ubuntu-24.04' }}
     timeout-minutes: 10
