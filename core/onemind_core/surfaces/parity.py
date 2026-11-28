@@ -28,6 +28,7 @@ DOOR = "door"
 WRITE = "write"
 FLEET = "fleet"
 CONSOLE = "console"
+LIBRARY = "library"
 
 REASONS: dict[str, str] = {
     OVERSIGHT: "Approving, denying, approval policies, the motion lockout, confirming what a found radio is and "
@@ -48,6 +49,9 @@ REASONS: dict[str, str] = {
     CONSOLE: "The owner's system console: host service logs (which can hold secrets until a redacted read tool "
              "exists), the message-bus monitor (#619), bridge status (#610), the UPS battery (#244) and the keyboard layout (P-11). Agents read the world through the "
              "data commons doors and request changes as actions.",
+    LIBRARY: "The owner's offline library (#127): the Kiwix catalogue, sizes and update check are the owner's alone "
+             "(403 to everyone else, 409 until Kiwix is installed). A change is filed as an app.configure request "
+             "the owner approves; an agent has no tool for it.",
 }
 
 SKIP_METHODS = frozenset({"HEAD", "OPTIONS"})
@@ -92,6 +96,13 @@ def problems(keys: Iterable[str], tool_routes: dict[str, str]) -> list[str]:
 HUMAN_ONLY: dict[str, str] = {
     "POST /v1/work/projects": WRITE,
     "POST /v1/work/capture": WRITE,
+    # ---- offline content manager (NMD-02 #127): owner-only reads, and changes that wait for the owner's approval
+    "GET /v1/content": LIBRARY,
+    "GET /v1/content/wikipedia": LIBRARY,
+    "GET /v1/content/updates": LIBRARY,
+    "POST /v1/content/plan": LIBRARY,
+    "POST /v1/content/changes": LIBRARY,
+    "PUT /v1/content/auto-update": LIBRARY,
     "POST /v1/work/quick-add": WRITE,
     "PATCH /v1/work/projects/{project_id}/tasks/{task_id}": WRITE,
     "DELETE /v1/work/projects/{project_id}/tasks/{task_id}": WRITE,

@@ -43,6 +43,9 @@ DELETE /v1/agent-browser/sites/{site_id}  # removing an approved site twice leav
 PATCH /v1/work/projects/{project_id}/tasks/{task_id}  # guarded by If-Match; replay cannot change a task at a newer revision
 DELETE /v1/work/projects/{project_id}/tasks/{task_id}  # the second removal sees no task
 POST /v1/network/{iface}/confirm  # keeps the one pending change; confirming twice changes nothing more (the second answers 409 no_pending_change)
+POST /v1/content/plan  # read only: computes what a change would download and stop serving; files nothing (#127)
+POST /v1/content/changes  # contract §12.1: keeps its §3 body field idempotency_key, like POST /v1/actions; the same key answers the same request (#127)
+PUT /v1/content/auto-update  # sets the one auto-update setting: the same body twice leaves the same state (#127)
 POST /v1/custom-apps/plan  # asking again for the same commit refreshes that revision's scan and never adds a second revision; nothing is installed
 POST /v1/custom-apps/{app_id}/rollback  # a repeat picks the same earlier revision and points the catalog at it again; the update that applies it is its own approved action
 POST /v1/network/firewall/allow/{rule_id}/confirm  # confirming a confirmed rule is a no-op; a rule that already reverted answers 404, never a second effect

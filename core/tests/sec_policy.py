@@ -487,6 +487,7 @@ OFF_HOUSEHOLD = grid(503, 503, 403, 403, 503)
 BASIC_ONLY = cells(401)
 
 _AUTOMATION = "docs/leap/dev/API.md §5.5; core/tests/test_automation.py"
+_CONTENT = "NMD-02 #127; core/tests/test_content.py"
 _BACKUPS = "docs/leap/dev/API.md §5.2 backups; core/tests/test_backups.py"
 _FILES = "docs/leap/dev/API.md files; core/tests/test_files_*.py"
 _WOPI = "issue #675; core/tests/test_files_wopi.py"
@@ -549,6 +550,20 @@ POLICY |= {
                                                   "#627: only the owner removes an agent's NATS key"),
     ("GET", "/v1/windows"): Row(READ_ANY, w.p_static("/v1/windows"), f"{_AUTOMATION}: any reader"),
     ("PUT", "/v1/windows/{window_id}"): Row(ONLY_OWNER, w.p_window_put, f"{_AUTOMATION}: only the owner edits windows"),
+    # ---- offline content manager (NMD-02 #127). The security world has no Kiwix app in its catalogue, so the
+    # owner's catalogue reads and plans stop at 409 kiwix_missing (no network is touched); everyone else is 403.
+    ("GET", "/v1/content"): Row(ONLY_OWNER, w.p_static("/v1/content"), f"{_CONTENT}: the library is the owner's"),
+    ("GET", "/v1/content/wikipedia"): Row(grid(409, 403, 403, 403, 403), w.p_static("/v1/content/wikipedia?lang=en"),
+                                          f"{_CONTENT}: owner only"),
+    ("GET", "/v1/content/updates"): Row(grid(409, 403, 403, 403, 403), w.p_static("/v1/content/updates"),
+                                        f"{_CONTENT}: owner only"),
+    ("POST", "/v1/content/plan"): Row(grid(409, 403, 403, 403, 403), w.p_missing("/v1/content/plan", json={}),
+                                      f"{_CONTENT}: owner only"),
+    ("POST", "/v1/content/changes"): Row(grid(409, 403, 403, 403, 403),
+                                         w.p_missing("/v1/content/changes", json={"download_bytes": 0, "idempotency_key": "k"}),
+                                         f"{_CONTENT}: owner only; the change itself waits for owner approval"),
+    ("PUT", "/v1/content/auto-update"): Row(ONLY_OWNER, w.p_missing("/v1/content/auto-update", json={"enabled": False}),
+                                            f"{_CONTENT}: only the owner turns the auto-update check on or off"),
     # ---- update policy for apps (NMD-07, #132: core/onemind_core/routers/updatepolicy.py) -------------------
     ("GET", "/v1/update-policy"): Row(READ_ANY, w.p_static("/v1/update-policy"), "NMD-07: any reader sees the knobs"),
     ("PUT", "/v1/update-policy"): Row(ONLY_OWNER, w.p_missing("/v1/update-policy", json={}),
