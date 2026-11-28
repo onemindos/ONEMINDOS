@@ -702,7 +702,7 @@ class TokenGuide(Guide):
                 if self.run_script("token-keygen", self.token_ref(h)) != 0 or self.run_script("token-pub", self.token_ref(h), pub) != 0:
                     raise Stop(f"making holder {h}'s token key failed (message above).")
             else:
-                io.say(f"  >> {who}: plug in YubiKey {h} now, and unplug every other YubiKey.")
+                io.say(f"  >> Plug in YubiKey {h} now, and unplug every other YubiKey.")
                 io.pause()
                 seen = self.plugged()
                 if len(seen) != 1:
