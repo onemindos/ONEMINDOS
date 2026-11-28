@@ -18,7 +18,7 @@ const request = { id: 'frq_1', type: 'files.grant.create', plan: { summary: 'app
 type Call = { method: string; path: string; search: URLSearchParams; headers: Headers; body: string };
 const json = (v: unknown, status = 200, headers: Record<string, string> = {}) => new Response(JSON.stringify(v), { status, headers: { 'content-type': 'application/json', ...headers } });
 
-function mount(handler: (c: Call) => Response | undefined = () => undefined) {
+function mount(handler: (c: Call) => Response | undefined = () => undefined, token = 'owner-demo') {
   const calls: Call[] = [];
   const fetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
     const u = new URL(String(url), 'http://hub.test');
@@ -35,8 +35,8 @@ function mount(handler: (c: Call) => Response | undefined = () => undefined) {
     return json({ error: 'not_found', message: 'no' }, 404);
   });
   vi.stubGlobal('fetch', fetch);
-  window.sessionStorage.setItem('onemind.token', 'owner-demo');
-  render(<MemoryRouter initialEntries={['/files']}><SessionProvider deps={{ mock: false, makeApi: () => new MockApi('owner-demo'), knownPrincipal: () => DEMO_TOKENS['owner-demo'] }}><App mock={false} /></SessionProvider></MemoryRouter>);
+  window.sessionStorage.setItem('onemind.token', token);
+  render(<MemoryRouter initialEntries={['/files']}><SessionProvider deps={{ mock: false, makeApi: () => new MockApi(token), knownPrincipal: () => DEMO_TOKENS[token] }}><App mock={false} /></SessionProvider></MemoryRouter>);
   return calls;
 }
 afterEach(() => vi.unstubAllGlobals());
@@ -164,6 +164,61 @@ it('says when versions are off instead of offering a restore', async () => {
   await u.click(await screen.findByRole('button', { name: 'Show previous versions' }));
   expect(await screen.findByText(/Versions are not turned on/)).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: /^Restore the version/ })).not.toBeInTheDocument();
+});
+
+it('sends a file to an app that accepts files: a pointer, keyed once, never the content', async () => {
+  const calls = mount((c) => {
+    if (c.path === '/v1/share/targets') return json({ type: 'file', targets: [{ app_id: 'photos', name: 'Photos', verbs: ['open', 'add'] }] });
+    if (c.path === '/v1/share' && c.method === 'POST') return json({ id: 'evt1', to: 'photos', verb: 'add', object: { type: 'file', ref: 'home:owner:/notes.txt' }, link: 'onemind://photos/file/x', sent_at: '2026-11-26T12:00:00Z' }, 201);
+    return undefined;
+  });
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Send notes.txt to an app' }));
+  expect(calls.find((c) => c.path === '/v1/share/targets')!.search.get('type')).toBe('file');
+  const dialog = within(await screen.findByRole('dialog'));
+  await u.click(dialog.getByRole('button', { name: 'Add to Photos' }));
+  expect(await dialog.findByText(/Sent to Photos\. notes\.txt was added to Photos/)).toBeInTheDocument();
+  const post = calls.find((c) => c.path === '/v1/share' && c.method === 'POST')!;
+  expect(JSON.parse(post.body)).toEqual({ to: 'photos', verb: 'add', object: { type: 'file', ref: 'home:owner:/notes.txt' } });
+  expect(post.headers.get('Idempotency-Key')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Send Docs to an app' })).not.toBeInTheDocument(); // folders are not sent
+});
+
+it('says plainly when no app accepts files', async () => {
+  mount((c) => (c.path === '/v1/share/targets' ? json({ type: 'file', targets: [] }) : undefined));
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Send notes.txt to an app' }));
+  expect(await screen.findByText(/No app on this box accepts files yet/)).toBeInTheDocument();
+});
+
+it('shows a retry as the same share: the second press reuses the key', async () => {
+  let n = 0;
+  const calls = mount((c) => {
+    if (c.path === '/v1/share/targets') return json({ type: 'file', targets: [{ app_id: 'photos', name: 'Photos', verbs: ['open'] }] });
+    if (c.path === '/v1/share' && c.method === 'POST') return ++n === 1 ? json({ error: 'unavailable', message: 'try later' }, 400) : json({ id: 'evt1', to: 'photos', verb: 'open', object: { type: 'file', ref: 'home:owner:/notes.txt' }, link: 'onemind://photos/file/x', sent_at: '2026-11-26T12:00:00Z' }, 201);
+    return undefined;
+  });
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Send notes.txt to an app' }));
+  const dialog = within(await screen.findByRole('dialog'));
+  await u.click(dialog.getByRole('button', { name: 'Open in Photos' }));
+  expect(await dialog.findByText(/retries this one share/)).toBeInTheDocument();
+  await u.click(dialog.getByRole('button', { name: 'Open in Photos' }));
+  expect(await dialog.findByText(/Photos can now open notes\.txt/)).toBeInTheDocument();
+  const keys = calls.filter((c) => c.path === '/v1/share' && c.method === 'POST').map((c) => c.headers.get('Idempotency-Key'));
+  expect(keys).toHaveLength(2);
+  expect(keys[0]).toBe(keys[1]);
+});
+
+it.each(['child-demo', 'guest-demo'])('does not offer Send to as %s: only an owner or an adult sends', async (token) => {
+  const calls = mount(() => undefined, token);
+  expect(await screen.findByRole('button', { name: 'Download notes.txt' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /^Send .* to an app$/ })).not.toBeInTheDocument();
+  expect(calls.some((c) => c.path.startsWith('/v1/share'))).toBe(false);
+});
+
+it('offers Send to as an adult', async () => {
+  mount(() => undefined, 'adult-demo');
+  expect(await screen.findByRole('button', { name: 'Send notes.txt to an app' })).toBeInTheDocument();
 });
 
 it('lets an owner see storage per person and save one limit, in bytes, with no limit as null', async () => {

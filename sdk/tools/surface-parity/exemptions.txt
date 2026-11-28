@@ -197,7 +197,6 @@ dashboard share.send later-search-share-restore-tips
 dashboard share.targets later-search-share-restore-tips
 dashboard share.types later-search-share-restore-tips
 dashboard tips.set_state later-search-share-restore-tips
-cli share.send later-search-share-restore-tips
 
 # ---- found by this ratchet, not in the report (#1244) ------------------------------------------------
 group found-owner-screens issue=#1244 Found by the ratchet (not in the 2026-11-26 report): owner controls with an API but no dashboard screen.

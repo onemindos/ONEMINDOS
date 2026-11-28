@@ -11,6 +11,7 @@ import { uuid4 } from '@onemind/sdk';
 import { Button, Card, Dialog, PageHeader, StatusPill } from '@onemind/ui';
 import { FilesApi, human, type Entry, type FileRequest, type FileRoot, type FileVersion, type FileVersions, type Preview, type TrashItem } from '../files/api';
 import { href } from '../shell/routes';
+import { SendToButton } from './FilesSendTo';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { FilesQuotas } from './FilesQuotas';
@@ -122,6 +123,7 @@ function Browser({ api, space, run, onChanged }: { api: FilesApi; space: FileRoo
         <td><Button size="sm" variant="ghost" aria-label={`${e.type === 'dir' ? 'Open folder' : 'Preview'} ${e.name}`} onClick={() => open(e)}>{e.type === 'dir' ? '📁 ' : ''}{e.name}</Button></td>
         <td>{e.type === 'dir' ? '' : human(e.size)}</td><td>{when(e.mtime)}</td>
         <td>{e.type !== 'dir' && <Button size="sm" variant="secondary" aria-label={`Download ${e.name}`} onClick={() => download(e)}>Download</Button>}{' '}
+          {e.type !== 'dir' && <><SendToButton api={api} space={space} entry={e} />{' '}</>}
           {space.writable && <Button size="sm" variant="secondary" aria-label={`Move ${e.name} to trash`} onClick={() => setDoomed(e)}>Move to trash</Button>}</td>
       </tr>)}</tbody>
     </table>}</Load>
