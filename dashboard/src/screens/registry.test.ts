@@ -60,11 +60,12 @@ describe('screen registry', () => {
       ['migrate', '/migrate', 'System'],
       ['control-hub', '/control-hub', 'System'],
       ['agents', '/agents', 'System'],
+      ['plugins', '/plugins', 'System'],
     ];
     expected.splice(expected.findIndex(([id]) => id === 'storage'), 0, ['work', '/work', 'Your box']);
     expect(navItems(2).map((n) => [n.id, n.href, n.group ?? 'primary'])).toEqual(expected);
     expect(navItems(2).find((n) => n.id === 'approvals')).toMatchObject({ badge: 2, badgeLabel: '2 waiting' });
-    expect([...PRO_SCREEN_IDS].sort()).toEqual(['add-machine', 'agents', 'automation', 'backups', 'control-hub', 'dashboards', 'file-sharing', 'machines', 'migrate', 'network', 'nodes', 'photos', 'storage', 'troubleshoot', 'updates', 'usage', 'world']);
+    expect([...PRO_SCREEN_IDS].sort()).toEqual(['add-machine', 'agents', 'automation', 'backups', 'control-hub', 'dashboards', 'file-sharing', 'machines', 'migrate', 'network', 'nodes', 'photos', 'plugins', 'storage', 'troubleshoot', 'updates', 'usage', 'world']);
     expect(DOCK_ORDER).toEqual(['home', 'market', 'installed', 'approvals', 'activity', 'settings']);
     expect(SCREENS.every((s) => s.title.length > 0)).toBe(true);
   });

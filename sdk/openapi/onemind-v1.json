@@ -9732,6 +9732,50 @@
         "title": "PlanPreview",
         "type": "object"
       },
+      "PluginSlot": {
+        "description": "One of the five defined places a plugin can show up. `declared` is false when its manifest names nothing for it.",
+        "properties": {
+          "approval": {
+            "default": "none",
+            "description": "each_time when a command can change something: a person approves every call.",
+            "enum": [
+              "none",
+              "each_time"
+            ],
+            "title": "Approval",
+            "type": "string"
+          },
+          "declared": {
+            "title": "Declared",
+            "type": "boolean"
+          },
+          "names": {
+            "description": "Ids or names the plugin declares for this slot.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Names",
+            "type": "array"
+          },
+          "slot": {
+            "enum": [
+              "home_tile",
+              "map_layer",
+              "settings_panel",
+              "commands",
+              "dock_item"
+            ],
+            "title": "Slot",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slot",
+          "declared"
+        ],
+        "title": "PluginSlot",
+        "type": "object"
+      },
       "PluginSummary": {
         "properties": {
           "id": {
@@ -9753,6 +9797,14 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "slots": {
+            "description": "The five defined places, in a fixed order.",
+            "items": {
+              "$ref": "#/components/schemas/PluginSlot"
+            },
+            "title": "Slots",
+            "type": "array"
           },
           "status": {
             "enum": [

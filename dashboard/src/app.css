@@ -85,3 +85,22 @@
 .dash-tech > summary:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
 
 .dash-world-stale { color: var(--om-color-text-muted); }
+
+/* Plugins (Atlas screen 10): installed list, the five places, and the misbehaviour panel. Tokens only. */
+.dash-plugins-grid { display: grid; grid-template-columns: minmax(200px, 250px) minmax(0, 1fr) minmax(240px, 340px); gap: var(--om-space-4); align-items: start; }
+@media (max-width: 960px) { .dash-plugins-grid { grid-template-columns: minmax(0, 1fr); } }
+.dash-plugins-list { display: flex; flex-direction: column; gap: var(--om-space-2); }
+.dash-plugins-list h2, .dash-plugins-detail h2 { margin: 0; font-size: var(--om-font-size-md); display: flex; align-items: center; gap: var(--om-space-2); flex-wrap: wrap; }
+.dash-plugins-item { display: flex; align-items: center; justify-content: space-between; gap: var(--om-space-2); min-height: var(--om-layout-touch-target); padding: var(--om-space-2) var(--om-space-3); border-radius: var(--om-radius-md); border: 1px solid var(--om-color-border); background: var(--om-color-surface); color: var(--om-color-text); font: inherit; text-align: start; cursor: pointer; }
+.dash-plugins-item small { display: block; color: var(--om-color-text-muted); font-size: var(--om-font-size-xs); }
+.dash-plugins-item[aria-current='true'] { background: var(--om-color-accent-soft); border-color: var(--om-color-accent); }
+.dash-plugins-item:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
+.dash-plugins-detail { display: flex; flex-direction: column; gap: var(--om-space-3); min-width: 0; }
+.dash-plugins-table { width: 100%; border-collapse: collapse; font-size: var(--om-font-size-sm); }
+.dash-plugins-table th, .dash-plugins-table td { text-align: start; padding: var(--om-space-2); border-bottom: 1px solid var(--om-color-border); vertical-align: top; }
+.dash-plugins-table thead th { color: var(--om-color-text-muted); font-weight: var(--om-font-weight-semibold); }
+.dash-plugins-n { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--om-color-accent); color: var(--om-color-accent-text); font-size: var(--om-font-size-xs); }
+.dash-plugins-side { display: flex; flex-direction: column; gap: var(--om-space-3); }
+.dash-plugins-actions { display: flex; flex-wrap: wrap; gap: var(--om-space-2); margin: var(--om-space-3) 0; }
+.dash-plugins-cmd { display: block; overflow-wrap: anywhere; }
+.dash-plugins-never { margin: 0; padding-inline-start: var(--om-space-4); }

@@ -26,8 +26,8 @@ func pluginsBoxCommands(a *App) []*cobra.Command {
 		Short: "The installed plugins (GET /v1/plugins)",
 		Args:  cobra.NoArgs,
 		RunE: func(*cobra.Command, []string) error {
-			return a.getTable("/v1/plugins", "ID\tNAME\tVERSION\tSTATE", func(m map[string]any) []string {
-				return []string{str(m["id"]), str(m["name"]), dash(str(m["installed_version"])), str(m["status"])}
+			return a.getTable("/v1/plugins", "ID\tNAME\tVERSION\tSTATE\tPLACES", func(m map[string]any) []string {
+				return []string{str(m["id"]), str(m["name"]), dash(str(m["installed_version"])), str(m["status"]), dash(strings.Join(declaredSlots(m), ","))}
 			})
 		},
 	})
@@ -38,7 +38,21 @@ func pluginsBoxCommands(a *App) []*cobra.Command {
 		RunE: func(_ *cobra.Command, args []string) error {
 			return a.read("/v1/plugins/"+pathID(args[0]), func(w io.Writer, v any) error {
 				m := obj(v)
-				return kv(w, [][2]string{{"id", str(m["id"])}, {"name", str(m["name"])}, {"version", dash(str(m["installed_version"]))}, {"state", str(m["status"])}})
+				rows := [][2]string{{"id", str(m["id"])}, {"name", str(m["name"])}, {"version", dash(str(m["installed_version"]))}, {"state", str(m["status"])}}
+				for _, sl := range slotList(m) {
+					row := "not declared"
+					if sl["declared"] == true {
+						row = "declared"
+						if names := strs(sl["names"]); len(names) > 0 {
+							row += ": " + strings.Join(names, ", ")
+						}
+						if sl["approval"] == "each_time" {
+							row += " (asks a person each time)"
+						}
+					}
+					rows = append(rows, [2]string{"place " + str(sl["slot"]), row})
+				}
+				return kv(w, rows)
 			})
 		},
 	})
@@ -94,6 +108,24 @@ func pluginsBoxCommands(a *App) []*cobra.Command {
 	setSettings.Flags().StringVar(&file, "file", "", "the new settings, as a JSON object")
 	settings.AddCommand(setSettings)
 	root.AddCommand(settings)
+
+	// Lifecycle: each only files a request. The owner decides in Approvals; the CLI never approves (D-027).
+	for _, l := range []struct{ use, typ, short string }{
+		{"restart", "app.restart", "Request a restart of a plugin that stopped responding"},
+		{"disable", "app.stop", "Request that a plugin be stopped (its data is kept)"},
+		{"enable", "app.start", "Request that a stopped plugin be started again"},
+		{"update", "app.update", "Request the update the catalog offers; kept only if healthy, else the previous revision returns"},
+	} {
+		l := l
+		root.AddCommand(&cobra.Command{
+			Use:   l.use + " PLUGIN_ID",
+			Short: l.short + " (POST /v1/actions " + l.typ + ")",
+			Args:  cobra.ExactArgs(1),
+			RunE: func(_ *cobra.Command, args []string) error {
+				return a.fileAction(l.typ, map[string]any{"app_id": args[0]}, "", l.use+" plugin "+args[0])
+			},
+		})
+	}
 
 	root.AddCommand(pluginHostGrantsCmd(a), pluginKeysCmd(a))
 	return []*cobra.Command{root}
@@ -251,3 +283,36 @@ func pluginKeysCmd(a *App) *cobra.Command {
 }
 
 func init() { groups = append(groups, pluginsBoxCommands) }
+
+// slotList is the plugin's five defined places as the gateway reports them (GET /v1/plugins).
+func slotList(m map[string]any) []map[string]any {
+	var out []map[string]any
+	if raw, ok := m["slots"].([]any); ok {
+		for _, x := range raw {
+			if sl, ok := x.(map[string]any); ok {
+				out = append(out, sl)
+			}
+		}
+	}
+	return out
+}
+
+func declaredSlots(m map[string]any) []string {
+	var out []string
+	for _, sl := range slotList(m) {
+		if sl["declared"] == true {
+			out = append(out, str(sl["slot"]))
+		}
+	}
+	return out
+}
+
+func strs(v any) []string {
+	var out []string
+	if raw, ok := v.([]any); ok {
+		for _, x := range raw {
+			out = append(out, str(x))
+		}
+	}
+	return out
+}
