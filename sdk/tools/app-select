@@ -3,13 +3,18 @@
 """Select and route Market and container system apps for the app gate workflows.
 
   python3 -I sdk/tools/app-select matrix --old OLD.csv --new NEW.csv [--apps-dir apps]
+  python3 -I sdk/tools/app-select plan --event EVENT [--base-ref REF --base-sha SHA --head-sha SHA]
 
-Prints one app id per line (possibly none). Exit 0 ok, 2 on any problem: the caller then gates every
-app, so an error here can only make CI slower, never skip a scan.
+matrix prints one app id per line (possibly none). Exit 0 ok, 2 on any problem: the caller then gates
+every app, so an error here can only make CI slower, never skip a scan.
+plan prints the ci-apps gate matrix as one JSON list (applib/selection.py: plan) and its reason on
+stderr. Exit 2 on any problem: the workflow's plan job then fails and nothing is reported as passed.
 """
 from __future__ import annotations
 
 import argparse
+import json
+import subprocess
 import sys
 import tarfile
 from pathlib import Path
@@ -18,6 +23,39 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from applib import common, selection  # noqa: E402
+
+
+def git(repo: Path, *args: str) -> str:
+    proc = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, check=False)
+    if proc.returncode != 0:
+        raise ValueError(f"git {' '.join(args)} failed: {proc.stderr.strip()}")
+    return proc.stdout
+
+
+def plan(args: argparse.Namespace) -> list[str]:
+    keys = selection.inventory(args.apps_dir)
+    changed: list[str] = []
+    base = head = ""
+    if args.event == "pull_request" and args.base_ref not in selection.LANDING_BASES:
+        if not (args.base_sha and args.head_sha):
+            raise ValueError("a pull request plan needs --base-sha and --head-sha")
+        # What the PR itself changes: from the merge base, so commits that landed on the base branch after
+        # the PR branched off do not count as the PR's changes. --no-renames lists both sides of a move.
+        base = git(args.repo, "merge-base", args.base_sha, args.head_sha).strip()
+        head = args.head_sha
+        changed = git(args.repo, "diff", "--no-renames", "--name-only", base, head).splitlines()
+
+    def matrix_apps() -> list[str]:
+        try:
+            old = git(args.repo, "show", f"{base}:{selection.LICENCE_MATRIX}")
+        except ValueError:
+            old = ""  # the matrix did not exist at the merge base
+        new = git(args.repo, "show", f"{head}:{selection.LICENCE_MATRIX}")
+        return selection.apps_with_changed_rows(old, new, selection.app_repos(args.apps_dir))
+
+    ids, reason = selection.plan(args.event, args.base_ref, changed, keys, matrix_apps)
+    sys.stderr.write(f"{reason}; apps to gate: {len(ids)} of {len(keys)}\n")
+    return ids
 
 
 def main(argv: list[str]) -> int:
@@ -30,6 +68,13 @@ def main(argv: list[str]) -> int:
     inventory = sub.add_parser("inventory", help="gate keys for all or changed apps")
     inventory.add_argument("--changed", action="store_true", help="read changed paths from stdin")
     inventory.add_argument("--apps-dir", type=Path, default=common.APPS_DIR)
+    pl = sub.add_parser("plan", help="the ci-apps gate matrix for one workflow run, as a JSON list")
+    pl.add_argument("--event", required=True, help="github.event_name")
+    pl.add_argument("--base-ref", default="", help="the pull request's base branch")
+    pl.add_argument("--base-sha", default="")
+    pl.add_argument("--head-sha", default="")
+    pl.add_argument("--apps-dir", type=Path, default=common.APPS_DIR)
+    pl.add_argument("--repo", type=Path, default=common.REPO_ROOT)
     path = sub.add_parser("path", help="resolve a gate key to its repository-relative app directory")
     path.add_argument("key")
     scan = sub.add_parser("apply-scan", help="copy only a gate key's allowed refreshed files")
@@ -43,6 +88,9 @@ def main(argv: list[str]) -> int:
             return 0
         if args.cmd == "apply-scan":
             selection.apply_scan(args.key, args.files.read_text(encoding="utf-8"), args.archive, common.APPS_DIR.parent)
+            return 0
+        if args.cmd == "plan":
+            print(json.dumps(plan(args), separators=(",", ":")))
             return 0
         if args.cmd == "inventory":
             ids = selection.inventory(args.apps_dir)

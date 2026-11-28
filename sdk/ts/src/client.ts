@@ -226,6 +226,14 @@ export class OneMind {
     check: (domain: string) =>
       this.call<{ domain: DomainView; proof_found: boolean }>({ method: "POST", path: `/v1/domains/${encodeURIComponent(domain)}/check` }),
     remove: (domain: string) => this.call<void>({ method: "DELETE", path: `/v1/domains/${encodeURIComponent(domain)}` }),
+    /** Ask for `<app>.<domain>`. It stays "requested" until the owner approves the name, typed in full. */
+    requestHost: (domain: string, appId: string) =>
+      this.call<DomainHost>({ method: "POST", path: `/v1/domains/${encodeURIComponent(domain)}/hosts`, body: { app_id: appId } }),
+    /** Approve one name: `confirm` must be the hostname typed in full. Records a decision only; nothing is served yet. */
+    approveHost: (hostname: string, confirm: string) =>
+      this.call<DomainHost>({ method: "POST", path: `/v1/domains/hosts/${encodeURIComponent(hostname)}/approve`, body: { confirm } }),
+    /** Withdraw a requested or approved name. */
+    removeHost: (hostname: string) => this.call<void>({ method: "DELETE", path: `/v1/domains/hosts/${encodeURIComponent(hostname)}` }),
   };
 
   /** status.get (FD-01): what needs attention, per source. A source that cannot be read is "unknown", never "ok". */
@@ -245,6 +253,10 @@ export class OneMind {
     }),
     collections: () => this.call<components["schemas"]["TipCollections"]>({
       method: "GET", path: "/v1/tips/collections", redirect: "error",
+    }),
+    /** What changed in the running OneMind version, from the Tips pack that ships in the image. */
+    whatsNew: () => this.call<components["schemas"]["TipWhatsNew"]>({
+      method: "GET", path: "/v1/tips/whats-new", redirect: "error",
     }),
     get: (id: string) => this.call<components["schemas"]["TipView"]>({
       method: "GET", path: `/v1/tips/${encodeURIComponent(id)}`, redirect: "error",

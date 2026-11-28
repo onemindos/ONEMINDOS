@@ -24,6 +24,7 @@ import {
 import { isServerId, mergeNotifications, SERVER_PREFIX } from '../data/notificationFeed';
 import { useNotificationFeed } from '../data/useNotificationFeed';
 import { useDownloadToasts } from '../data/useDownloadToasts';
+import { useTipSearch } from '../data/useTipSearch';
 import { activityFrom, notificationsFrom, toActionSummary, toPaletteApp } from '../data/adapters';
 import { ActionJobs, jobsStackStyle } from './ActionJobs';
 import { useHub } from '../data/hub';
@@ -72,6 +73,10 @@ export function Shell({ children }: { children: ReactNode }) {
   const location = useLocation();
   const { requestApp, reviewDialog } = useAppRequest();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [tipQuery, setTipQuery] = useState('');
+  const tipResults: PaletteCommand[] = useTipSearch(paletteOpen ? tipQuery : '').map(tip => ({
+    ...tip, id: `tip:${tip.id}`, group: 'Tips', icon: 'info',
+  }));
   const [jobsShown, setJobsShown] = useState(false);
   const readStore = useMemo(() => personList(person, 'notifications.read'), [person]);
   const recentStore = useMemo(() => personList(person, 'palette.recent', 8), [person]);
@@ -280,6 +285,9 @@ export function Shell({ children }: { children: ReactNode }) {
           open={paletteOpen}
           onClose={() => setPaletteOpen(false)}
           commands={commands}
+          onSearch={setTipQuery}
+          tipResults={tipResults}
+          tipQuery={tipQuery}
           onRun={runCommand}
           recent={recent}
           state={hub.freshness === 'stale' || hub.freshness === 'offline' ? hub.freshness : hub.freshness === 'unknown' ? 'loading' : 'ready'}

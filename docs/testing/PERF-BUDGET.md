@@ -61,3 +61,15 @@ Only use it on a test hub: it adds an owner principal and starts extra `onemindd
 - **Real Pi numbers** (F-25 hardware): run the lab commands above on a Pi 5 4 GB and 16 GB, replace the VM column, drop the UNVERIFIED label.
 - **Boot-to-ready, app install time and disk** are measured by the lab run only.
 - The CI hub is Ubuntu 24.04 with `--force-os`; the shipping base is Debian 13 (D-007). Re-measure on the Debian image once the image line produces one.
+
+## Gateway ceiling raised to 120 MiB (founder, 2026-11-25)
+
+perf-smoke on the landing of release/next measured the idle gateway at **113.7 MiB** against the 100 MiB ceiling (75 MiB on 2026-11-12, 98.7 MiB at #849). There is no leak and no busy loop: memory is flat while idle and CPU is 0.7 %. The growth is about 49 new `onemind_core` modules loaded at startup and 369 routes from approved features (work, storage, custom apps, rollouts, map packs, care and more). Every other figure stayed inside its budget (hub total 715 MiB, API p95 about 10 ms).
+
+The founder chose to raise the gateway ceiling to **120 MiB** consciously ("do what recommended", 2026-11-25) so the landing could go ahead, and to bring the figure back down with follow-up work instead of holding the landing:
+1. import httpx only in the routes that need it (about 2.3 MiB);
+2. build pydantic validators on first use (about 3.5 MiB);
+3. load feature routers and their services on first use (the largest lever: registering the routers costs about 12.6 MiB, plus most of the 46 MiB import);
+4. precompile the managed Python's standard library at install (#1195; within noise on the CI runner).
+
+When those land, lower the ceiling again (target: back to 100 MiB).

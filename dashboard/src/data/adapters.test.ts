@@ -28,7 +28,8 @@ describe('catalog → Market (TAXONOMY §1, §11.4)', () => {
   });
 
   it('uses the gate class only for the current manifest licence', () => {
-    const app = makeApps(NOW)[0]!;
+    // An older gateway sends no declared class: only the gate's scan record can give one.
+    const app = { ...makeApps(NOW)[0]!, licence_class: undefined };
     const scan = { scanned_at: new Date(NOW).toISOString(), result: 'pass' as const };
     const checked = { ...scan, licence: { spdx: 'MIT', class: 'L1' as const } };
     expect(toStoreApp({ ...app, license: 'MIT', scan: checked }).licence_class).toBe('L1');
