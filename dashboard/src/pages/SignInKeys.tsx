@@ -28,6 +28,7 @@ import { askBoxCode } from '../lib/boxcode';
 import { askVerification } from '../lib/verification';
 import { formatAgo, secondsSince } from '../lib/time';
 import { useSignedIn } from '../session';
+import { useShell } from '../shell/Shell';
 import { Load, TextField, useBusy } from './parts';
 import { RecoveryKit } from './RecoveryKit';
 
@@ -52,9 +53,13 @@ async function call<T>(client: OneMind, method: 'GET' | 'POST' | 'DELETE', path:
 const ago = (iso: string | null | undefined, now: number) => (iso ? formatAgo(secondsSince(iso, now)) : 'Never');
 
 export function SignInKeys() {
-  const { token, mock, principal, account } = useSignedIn();
+  const { token, mock } = useSignedIn();
+  // A real gateway session carries no role; the shell asks GET /v1/me for it (as SettingsSecurity does). Refs #1284.
+  const { role } = useShell();
   if (mock) return <><PageHeader title="Sign-in keys" /><Card title="Sign-in keys"><p role="status">Connect to a real hub to manage sign-in keys. Demo mode has none.</p></Card></>;
-  return <LiveSignInKeys token={token} owner={(account?.role ?? principal?.role) === 'owner'} />;
+  // The key remounts when the role arrives, so the owner's verification table is fetched then, not skipped (GET /v1/me can answer after mount).
+  const owner = role === 'owner';
+  return <LiveSignInKeys key={owner ? 'owner' : 'other'} token={token} owner={owner} />;
 }
 
 function LiveSignInKeys({ token, owner }: { token: string; owner: boolean }) {
