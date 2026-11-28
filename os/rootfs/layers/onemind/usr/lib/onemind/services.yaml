@@ -54,7 +54,7 @@ services:
   - {unit: onemind-screen.service, name: Box screen, docs: docs/leap/core/IMAGES.md, restartable: true, risk: low, depends_on: [],
      description: "Draws the status screen on a monitor plugged into the box: its address and whether it is healthy."}
   - {unit: onemind-kiosk.service, name: Kiosk dashboard, docs: docs/leap/core/IMAGES.md, restartable: true, risk: low, depends_on: [onemind-gateway.service],
-     description: "Shows the dashboard full screen on a monitor plugged into the box, in place of the status screen. Runs only when the owner turns kiosk mode on."}
+     description: "Shows the OneMind desktop full screen on a monitor plugged into the box, in place of the status screen. On by default on boxes made for a monitor; the owner can turn it off."}
   - {unit: onemind-kiosk-apply.service, name: Kiosk switch, docs: docs/leap/core/IMAGES.md, restartable: false, risk: low,
      depends_on: [onemind-screen.service, onemind-kiosk.service], description: "Restarts the box's screen after the owner turns kiosk mode on or off, so the monitor shows the right one."}
   - {unit: onemind-kiosk.path, name: Kiosk switch watcher, docs: docs/leap/core/IMAGES.md, restartable: false, risk: low,

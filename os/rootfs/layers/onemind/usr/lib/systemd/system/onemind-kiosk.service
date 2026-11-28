@@ -1,11 +1,14 @@
 # SPDX-License-Identifier: Apache-2.0
-# Kiosk mode of the box's own screen (UX-07, #242): the local dashboard full screen on the monitor. Only
-# when the owner has enabled it (`onemind kiosk enable` creates the flag file); otherwise this unit is
-# skipped and onemind-screen.service shows the text screen. Not enabled by default in the image.
+# Kiosk mode of the box's own screen (UX-07, #242): the OneMind desktop full screen on the monitor, when the
+# flag file exists. First boot creates it once on the boards whose image has cage and a browser (founder
+# decision 2026-11-28, onemind_firstboot.kiosk_default); the owner turns it off in setup, with `onemind kiosk
+# disable` or over the API, and then onemind-screen.service shows the text screen. With no monitor connected
+# the launcher shows the text screen itself (onemind_kiosk.py).
 [Unit]
 Description=OneMind: kiosk dashboard on the box's screen
 ConditionPathExists=/data/onemind/kiosk/enabled
-After=plymouth-quit.service systemd-user-sessions.service onemind-gateway.service
+# After first boot: it creates the flag on a fresh box, and the condition below is checked at start.
+After=plymouth-quit.service systemd-user-sessions.service onemind-gateway.service onemind-firstboot.service
 # No Conflicts= on onemind-screen.service: both units are wanted by multi-user.target, the two
 # ConditionPathExists lines already make them exclusive, and a Conflicts= makes systemd drop both start
 # jobs (a blank monitor). Only the getty is conflicted.

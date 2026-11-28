@@ -152,3 +152,50 @@ class F15OwnerShell(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class F17KioskByDefault(unittest.TestCase):
+    """F17/F17r (CRITERIA-FIRSTBOOT.md section 12): kiosk on by default on a screen board, the text screen inside it
+    with no monitor, the owner's off kept after a reboot; none of it on a no-screen board."""
+
+    GOOD = ("PKGS=cage chromium \nBINS=yes\nFLAG=yes\nDIROWNER=onemind\nMARKER=yes\nKIOSK=active\nSCREEN=inactive\n"
+            "TEXTPROC=1\nCHROMIUM=0\nKLOG kiosk: no monitor is connected; showing the text screen until one is\n")
+
+    def setUp(self):
+        self.fb = load_firstboot()
+
+    def test_good_output_passes_every_check(self):
+        c = self.fb.f17_judge(self.GOOD, "x86_64-efi")
+        self.assertTrue(all(c.values()), c)
+
+    def test_each_failure_is_caught(self):
+        for old, new, check in [("PKGS=cage chromium", "PKGS=cage", "image_packages"),
+                                ("FLAG=yes", "FLAG=no", "default_on"),
+                                ("DIROWNER=onemind", "DIROWNER=root", "default_on"),
+                                ("MARKER=yes", "MARKER=no", "default_on"),
+                                ("KIOSK=active", "KIOSK=failed", "kiosk_active"),
+                                ("SCREEN=inactive", "SCREEN=active", "text_unit_skipped"),
+                                ("TEXTPROC=1", "TEXTPROC=0", "no_monitor_fallback"),
+                                ("CHROMIUM=0", "CHROMIUM=1", "no_monitor_fallback"),
+                                ("KLOG kiosk: no monitor", "KLOG kiosk: cage", "no_monitor_fallback")]:
+            c = self.fb.f17_judge(self.GOOD.replace(old, new), "x86_64-efi")
+            self.assertFalse(c[check], (old, new))
+        leak = self.GOOD + "KLOG token " + "ab" * 32 + "\n"
+        self.assertFalse(self.fb.f17_judge(leak, "x86_64-efi")["nothing_secret"])
+
+    def test_no_screen_board(self):
+        good = "PKGS=\nFLAG=no\nSCREEN=active\n"
+        self.assertTrue(all(self.fb.f17_judge(good, "arm64-efi").values()))
+        self.assertFalse(all(self.fb.f17_judge(good.replace("PKGS=", "PKGS=cage"), "arm64-efi").values()))
+        self.assertFalse(all(self.fb.f17_judge(good.replace("FLAG=no", "FLAG=yes"), "arm64-efi").values()))
+
+    def test_after_the_reboot_the_owners_off_is_kept(self):
+        good = "FLAG=no\nSCREEN=active\nKIOSK=inactive\n"
+        self.assertTrue(all(self.fb.f17_judge(good, "x86_64-efi", after_reboot=True).values()))
+        self.assertFalse(all(self.fb.f17_judge(good.replace("FLAG=no", "FLAG=yes"), "x86_64-efi", True).values()))
+        self.assertFalse(all(self.fb.f17_judge(good.replace("KIOSK=inactive", "KIOSK=active"), "x86_64-efi", True).values()))
+
+    def test_f17_runs_before_f15_removes_the_flag(self):
+        src = open(os.path.join(ROOT, "test", "qemu", "firstboot.py")).read()
+        self.assertLess(src.index("f17(vm, a.board)"), src.index("f15(vm)\n"))
+        self.assertIn('f17(vm, a.board, "F17r", after_reboot=True)', src)

@@ -2,5 +2,9 @@
 # rpi5 extras: sfdisk grows the MBR extended + data partitions at first boot (rpi5-grow).
 # The kernel comes from Raspberry Pi's archive as pinned debs (fetch-rpi.sh), not from this list.
 fdisk
+# The box's own screen (kiosk, onemind-kiosk.service; on by default since the founder decision of 2026-11-28):
+# cage is the one-window Wayland compositor, chromium the browser it shows full screen. Recommends are off, so the
+# GPU pieces wlroots and Chromium load at run time are listed too: EGL and the Mesa drivers, and the keyboard maps.
+cage chromium libegl-mesa0 libgl1-mesa-dri xkb-data
 # Audio and Bluetooth for the box's own screen (Step 3): same list as x86_64-efi, see os/boards/x86_64-efi/packages-debian.txt.
 alsa-ucm-conf bluez dbus-user-session libspa-0.2-bluetooth pipewire pipewire-bin pipewire-pulse pulseaudio-utils wireplumber

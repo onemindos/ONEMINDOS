@@ -1,0 +1,5 @@
+---
+pr: pending
+branch: claude/atlas-box-screen
+---
+The box's own monitor shows the OneMind desktop by default (founder decision 2026-11-28, kiosk on). The screen boards (x86_64-efi, rpi5) now ship cage and Chromium, and first boot switches the kiosk on once on a fresh box, so a monitor shows the setup page and then the desktop full screen instead of the text screen. On that monitor the setup page also shows the LAN address, its QR code and the one-time setup code for setting up from a phone (only the box itself is ever served the code), asks whether the monitor keeps showing the desktop, and after setup offers a Continue button that waits for the gateway and never leaves the owner-token page by itself. The owner can turn the kiosk off in setup, with `kiosk = off` in onemind.conf or cloud-init, with `onemind kiosk disable` or in Settings, and first boot never turns it back on; worker and leaf boxes keep the text screen. With no monitor connected the kiosk shows the text screen and switches to the browser when one is plugged in. New first-boot checks F17 and F17r (pre-registered in CRITERIA-FIRSTBOOT.md section 12).

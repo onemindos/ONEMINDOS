@@ -4,8 +4,9 @@ package cli
 
 // onemind kiosk: the owner turns the box's own screen from the text screen into the full-screen
 // dashboard (UX-07, #242 part 2). It is a local, root-on-the-box action: it creates or removes the
-// flag file that onemind-kiosk.service and onemind-screen.service test (ConditionPathExists), so the
-// choice is the owner's and nothing is enabled by default. It talks to no gateway and holds no token. An owner without a shell on the box does the same over
+// flag file that onemind-kiosk.service and onemind-screen.service test (ConditionPathExists). First boot
+// switches it on once on the boards made for a monitor (founder decision 2026-11-28); after that the choice
+// is the owner's and first boot never changes it back. It talks to no gateway and holds no token. An owner without a shell on the box does the same over
 // the API (PUT /v1/instance/kiosk): the root account is locked and the monitor boards ship no SSH.
 
 import (

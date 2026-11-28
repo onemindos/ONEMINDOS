@@ -1,4 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
+# The box's own screen (kiosk, onemind-kiosk.service; on by default since the founder decision of 2026-11-28):
+# cage is the one-window Wayland compositor, chromium the browser it shows full screen. Recommends are off, so the
+# GPU pieces wlroots and Chromium load at run time are listed too: EGL and the Mesa drivers, and the keyboard maps.
+cage chromium libegl-mesa0 libgl1-mesa-dri xkb-data
 # Audio and Bluetooth for a box with its own screen (Step 3, issue #786 streamed desktop apps; the kiosk is
 # onemind-kiosk.service). Cloud boards and the other server boards never get these. Same list as rpi5.
 # PipeWire (sound server for the screen session and streamed apps; pipewire-pulse speaks the PulseAudio protocol that
