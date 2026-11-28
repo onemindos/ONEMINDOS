@@ -1,4 +1,6 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
+
+> **Historical (marked 2026-11-26).** This page is the 2026-11-12 state; the merge ownership table and Wave G are out of date. Do not follow it. Current pointers: [STATUS.md](STATUS.md), [AGENT-QUEUE.md](AGENT-QUEUE.md), [BUILDER-BRIEFING.md](BUILDER-BRIEFING.md), [ALPHA-CHECKLIST.md](ALPHA-CHECKLIST.md).
 # Next wave (Wave G) and merge ownership
 
 **Prepared:** 2026-11-12, while Waves D, E and F run. **Board:** [STATUS.md](STATUS.md) · **Record:** [CHANGELOG.md](../../CHANGELOG.md)

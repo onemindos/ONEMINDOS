@@ -1,21 +1,30 @@
 # SPDX-License-Identifier: Apache-2.0
 # App CI gate (sdk/contracts/poc-v0.md §9.4, §11.1) on every PR that touches apps/ or the app tools.
-#   validate: unit tests, validate-apps (schema, pins, limits, kubeconform, Renovate list),
-#             generated READMEs up to date, gitleaks over the PR's commits
-#   gate:     sdk/tools/app-gate for each changed app (licence, pinning + archs, Trivy CVE + secrets,
+#   validate: unit tests, validate-apps over EVERY app (schema, pins, limits, kubeconform, Renovate list),
+#             generated READMEs up to date, gitleaks over the PR's commits. Runs on every run.
+#   plan:     which apps the gate runs for (sdk/tools/app-select plan; logic in applib/selection.py).
+#   gate:     sdk/tools/app-gate for each planned app (licence, pinning + archs, Trivy CVE + secrets,
 #             ClamAV, cosign, Scorecard, non-root) plus the k3d smoke test (check 9)
 #             The job fails when the PR claims more than the gate computes (metadata.tier above the
 #             computed tier, or a committed scan.json "pass" the gate does not reproduce), or when a
 #             tool fails. An app that honestly fails (tier blocked/community) can still merge: the
 #             gateway refuses to install it without a passing scan (§10.3, §11.1).
+# Which apps the gate runs for (founder decision 2026-11-25: speed up landings without weakening checks):
+#   - a pull request into release/next or a feature branch: only the apps whose apps/<id>/ files it
+#     changes, plus the apps whose licence-matrix rows it changes; EVERY app when it changes a shared gate
+#     input (selection.SHARED_GATE_INPUTS: the gate's tools, its pinned tools and packages, the app schema,
+#     this workflow); none when it changes no app (the gate job is skipped and the run still passes);
+#   - a pull request into main (a landing), the merge queue, the nightly schedule and a manual run
+#     (test-all): every app. The nightly run checks out release/next, where every PR lands.
 # The scan.json each gate run writes is uploaded as an artifact; the committed scan.json is refreshed
-# by .github/workflows/apps-rescan.yml.
-# A change to the licence matrix gates only the apps whose matrix rows changed (sdk/tools/app-select);
-# a change to the gate's own tools, schema or this workflow gates every app.
+# by .github/workflows/apps-rescan.yml. test/unit/test_ci_apps_plan.py locks this wiring in.
 name: ci-apps
 
 on:
   workflow_dispatch:   # docs/testing/README.md §2 (test-all)
+  schedule:
+    - cron: "47 6 * * *"   # nightly, every app on release/next (after apps-rescan at 04:17 and nightly)
+  merge_group:   # the merge queue into main: every app
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -25,18 +34,30 @@ on:
       - "sdk/tools/**"
       - "sdk/schema/**"
       - "test/gui/**"   # the GUI runtime bake-off; its logic is tested in sdk/tools/tests (#786)
-      # validate-apps runs the gateway's own manifest check (PLAN-E6, #175).
+      - "test/backup-wire/backup-probe/**"   # the drills' fixture app must load in the catalog (test_drill_fixture_apps.py)
+      # validate-apps runs the gateway's own manifest check (PLAN-E6, #175): every onemind_core module it
+      # imports at load (test/unit/test_ci_apps_plan.py follows the imports and fails on a missing one) ...
+      - "core/onemind_core/__init__.py"
       - "core/onemind_core/catalog.py"
       - "core/onemind_core/manifest_convert.py"
-      # ... and everything catalog.py imports at module load (its validation rules and import-time deps).
+      - "core/onemind_core/manifest_rules.py"
+      - "core/onemind_core/machine_needs.py"
+      - "core/onemind_core/filesig.py"
+      - "core/onemind_core/systemlist.py"
       - "core/onemind_core/ai_policy.py"
       - "core/onemind_core/scan.py"
       - "core/onemind_core/appsecrets/__init__.py"
       - "core/onemind_core/appsecrets/spec.py"
+      - "core/onemind_core/hostgrants/__init__.py"
+      - "core/onemind_core/hostgrants/kinds.py"
       # validate-apps check 12 reads the NetworkPolicies the gateway writes (policy.py, its rules and imports, #786).
       - "core/onemind_core/policy.py"
       - "core/onemind_core/sections.py"
+      # ... and the data files it reads: sandbox rules, reserved host ports, the image's system app list.
       - "sdk/policy/app-objects.yaml"
+      - "sdk/policy/host-ports.yaml"
+      - "os/rootfs/layers/onemind/usr/lib/onemind/system-apps.json"
+      - ".github/actions/sdk-gen/**"   # generates the Go SDK the plugin validator is built with
       - "cmd/onemind/**"
       - "internal/plugin/**"
       - "go.mod"
@@ -64,6 +85,8 @@ jobs:
       - name: Check out
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
+          # A scheduled run starts on main; the nightly checks release/next, where every PR lands.
+          ref: ${{ github.event_name == 'schedule' && 'release/next' || '' }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -160,60 +183,34 @@ jobs:
       - name: Check out
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
+          # A scheduled run starts on main; the nightly checks release/next, where every PR lands.
+          ref: ${{ github.event_name == 'schedule' && 'release/next' || '' }}
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Changed apps
+      # The plan itself: sdk/tools/app-select plan (logic and the shared input list in applib/selection.py,
+      # scenarios in test/unit/test_ci_apps_plan.py). It prints the gate matrix as a JSON list; an empty
+      # list skips the gate job and the run still passes (scripts/ci-gate.py counts skipped as passed).
+      # A plan error fails this job, so the run fails: nothing is reported as passed without a plan.
+      - name: Apps to gate
         id: changed
         env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          # A manual run (test-all) has no PR to diff: gate every app.
-          if [ "$GITHUB_EVENT_NAME" != pull_request ]; then
-            files=.github/workflows/ci-apps.yml
-          else
-            files=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
-          fi
           selector=(python3 -I sdk/tools/app-select)
           if ! python3 -I -c 'import yaml' 2>/dev/null; then
             python3 -m venv "$RUNNER_TEMP/app-list"
             "$RUNNER_TEMP/app-list/bin/python3" -m pip install -r sdk/tools/requirements.txt
             selector=("$RUNNER_TEMP/app-list/bin/python3" -I sdk/tools/app-select)
           fi
-          changed_apps=$("${selector[@]}" inventory --changed <<<"$files")
-          all_apps() {
-            local all
-            all=$("${selector[@]}" inventory) || return
-            printf '%s\n%s\n' "$changed_apps" "$all" | awk 'NF && !seen[$0]++'
-          }
-          matrix=research-output/evidence/license-matrix.csv
-          # A change to the gate itself (its tools, pinned tool installer, schema or this workflow) re-gates
-          # every app; otherwise only the apps the PR touches (SDK changes that are not gate inputs gate none).
-          if grep -qE '^(sdk/tools/((app-gate|app-select|validate-apps|requirements\.txt|ci/install-tools\.sh)$|applib/)|sdk/schema/|core/onemind_core/((catalog|manifest_convert|ai_policy|scan)\.py|appsecrets/(__init__|spec)\.py)$|cmd/onemind/|internal/plugin/|go\.(mod|sum)$|\.github/workflows/ci-apps\.yml$)' <<<"$files"; then
-            ids=$(all_apps)
-          else
-            ids=$changed_apps
-            # The licence matrix is read by the licence check only, through the rows that cite an app's own
-            # upstream repository. So a matrix-only change gates just the apps whose rows changed (every Market
-            # PR adds rows; gating all apps for that took ~45 min). If the rows cannot be compared, gate all.
-            if grep -qxF "$matrix" <<<"$files"; then
-              tmp=$(mktemp -d)
-              git show "$BASE_SHA:$matrix" > "$tmp/old.csv" 2>/dev/null || : > "$tmp/old.csv"
-              git show "$HEAD_SHA:$matrix" > "$tmp/new.csv"
-              if rows=$("${selector[@]}" matrix --old "$tmp/old.csv" --new "$tmp/new.csv"); then
-                ids=$(printf '%s\n%s\n' "$ids" "$rows" | sed '/^$/d' | sort -u)
-                echo "licence matrix changed; apps with changed rows: ${rows:-none}"
-              else
-                echo "licence matrix rows could not be compared: gating every app"
-                ids=$(all_apps)
-              fi
-              rm -rf "$tmp"
-            fi
-          fi
-          echo "apps=$(jq -cn --arg ids "$ids" '$ids | split("\n") | map(select(length > 0))')" >> "$GITHUB_OUTPUT"
-          echo "apps to gate: ${ids:-none}"
+          apps=$("${selector[@]}" plan --event "$GITHUB_EVENT_NAME" --base-ref "$BASE_REF" \
+            --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA")
+          jq -e 'type == "array"' <<<"$apps" >/dev/null
+          echo "apps=$apps" >> "$GITHUB_OUTPUT"
+          echo "apps to gate: $(jq -r 'if length == 0 then "none" else join(" ") end' <<<"$apps")"
 
   gate:
     needs: plan
@@ -231,6 +228,7 @@ jobs:
       - name: Check out
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
+          ref: ${{ github.event_name == 'schedule' && 'release/next' || '' }}
           persist-credentials: false
 
       - name: Set up Go for the shared plugin validator

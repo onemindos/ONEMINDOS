@@ -41,7 +41,7 @@ type notifyTestResult struct {
 // (`notify test sms`). The provider credential is typed by the person, read without echo or from
 // stdin, and sent once to the gateway, which seals it; it is never a flag (shell history).
 func notifyCommands(a *App) []*cobra.Command {
-	g := &cobra.Command{Use: "notify", Short: "Your alert channels: add an SMS channel, list, send a test"}
+	g := &cobra.Command{Use: "notify", Short: "Your alerts: channels (add SMS, list, test), delivery settings, and which senders to mute"}
 	ch := &cobra.Command{Use: "channel", Short: "Your alert channels (GET/POST /v1/notifications/channels)"}
 	ch.AddCommand(&cobra.Command{
 		Use:   "list",
@@ -59,7 +59,7 @@ func notifyCommands(a *App) []*cobra.Command {
 		},
 	})
 	ch.AddCommand(addSmsCommand(a))
-	g.AddCommand(ch)
+	g.AddCommand(ch, notifyPrefsCmd(a), notifySourcesCmd(a))
 
 	var channelID string
 	test := &cobra.Command{
