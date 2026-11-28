@@ -102,6 +102,7 @@ function LiveConfig({ token }: { token: string }) {
       }} />
       <div><Button type="submit" busy={busy === 'compare'} disabled={!files.length || Boolean(busy)}>{t('config.compare')}</Button></div>
     </form>
+    <p>{t('config.applyFromCli', { command: 'onemind config apply --dir <path>' })}</p>
     {error && <p className="om-note om-tone-bad" role="alert">{error}</p>}
     {diff && <>
       <p role="status">{diff.changes.length ? t('config.changed') : t('config.unchanged')}</p>

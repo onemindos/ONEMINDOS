@@ -72,6 +72,7 @@ it('compares selected YAML through the gateway and displays before and after wit
   expect(screen.getByRole('heading', { name: 'From your files' }).nextElementSibling?.textContent).toBe(after);
   expect(screen.getByRole('heading', { name: 'Resolve before requesting approval' })).toBeVisible();
   expect(screen.getByText('Prepare the backup destination.')).toBeVisible();
+  expect(screen.getByText(/onemind config apply --dir <path>.*approve the plan in Approvals/)).toBeVisible();
   expect(screen.queryByText('apps.yaml')).not.toBeInTheDocument();
   expect(request).toHaveBeenCalledTimes(1);
   expect(JSON.parse(String(request.mock.calls[0]?.[1].body))).toEqual({ files: { 'settings.yaml': after, 'apps.yaml': exported['apps.yaml'] } });

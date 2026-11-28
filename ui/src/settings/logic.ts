@@ -114,6 +114,7 @@ export function planRisk(p: Pick<ActionPlan, 'effects' | 'undo' | 'placement'>):
 
 export const UNDO_TEXT: Record<ActionPlan['undo'], string> = {
   reversible: 'Can be undone with one request.',
+  reapply: 'To restore saved settings, compare your earlier YAML with this box, request an apply, and approve the new plan in Approvals.',
   snapshot: 'A snapshot is taken first; it is reverted automatically if health checks fail.',
   'one-way': 'Cannot be undone.',
 };

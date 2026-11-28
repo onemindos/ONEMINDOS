@@ -2,7 +2,9 @@
 """Private Git export, dry run and the owner-only, revision-bound apply workflow."""
 
 import json
+from dataclasses import replace
 from shutil import copyfile
+from uuid import uuid4
 
 import pytest
 import yaml
@@ -10,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from conftest import ADULT, AGENT, OWNER, make_client
 from onemind_core.app import create_app
+from onemind_core.automation.cron import WEEKDAYS
 from onemind_core.automation.updatepolicy import UpdatePolicyRepository
 from onemind_core.backups.store import DestinationRow
 from onemind_core.boxbundle import config_export, manifest
@@ -171,13 +174,18 @@ def test_config_action_history_only_shows_the_patch_to_the_owner(client, clock, 
         assert row["params"] == {} and row.get("plan") is None and row.get("plan_sha256") is None
 
 
-def test_config_action_is_not_an_agent_mcp_request_even_if_principal_ids_match(settings, clock, tmp_path):
+@pytest.fixture
+def matching_agent_id(settings, tmp_path):
     tokens = yaml.safe_load(settings.tokens_file.read_text())
     principals = tokens["tokens"]
     principals[AGENT["Authorization"].removeprefix("Bearer ")]["id"] = "owner"
     token_file = tmp_path / "tokens.yaml"
     token_file.write_text(yaml.safe_dump(tokens))
-    with make_client(settings, clock, tokens_file=token_file) as client:
+    return token_file
+
+
+def test_config_action_is_not_an_agent_mcp_request_even_if_principal_ids_match(settings, clock, matching_agent_id):
+    with make_client(settings, clock, tokens_file=matching_agent_id) as client:
         files = proposed(client)
         queued = file_request(client, files, preview(client, files))
         assert queued.status_code == 202, queued.text
@@ -186,6 +194,46 @@ def test_config_action_is_not_an_agent_mcp_request_even_if_principal_ids_match(s
         assert listing["isError"] is False and listing["structuredContent"]["actions"] == []
         detail = call(client, "get_action", {"action_id": action["id"]})["result"]
         assert detail["isError"] is True and detail["structuredContent"]["error"] == "not_found"
+        audit = call(client, "search_audit", {"event": "action.*"})["result"]
+        assert audit["isError"] is False and audit["structuredContent"]["entries"] == []
+
+
+@pytest.mark.parametrize("legacy_agent_request", [False, True], ids=["shared-id", "legacy-agent"])
+def test_agent_cancellation_preserves_owner_config_and_redacts_audit(
+    settings, clock, matching_agent_id, monkeypatch, legacy_agent_request,
+):
+    with make_client(settings, clock, tokens_file=matching_agent_id) as client:
+        gateway = client.app.state.gateway
+        published = []
+        monkeypatch.setattr(gateway.audit, "publish", lambda _, line: published.append(json.loads(line)))
+        files = proposed(client)
+        queued = file_request(client, files, preview(client, files))
+        assert queued.status_code == 202, queued.text
+        action_id = queued.json()["id"]
+        if legacy_agent_request:
+            # Exercise cancellation redaction with a stored config action even though new ones require an owner.
+            stored = gateway.repo.get(action_id)
+            legacy, created = gateway.repo.create(replace(
+                stored, id=str(uuid4()), idempotency_key="legacy-config",
+                requested_by={"kind": "agent", "id": "owner"},
+            ))
+            assert created
+
+        response = client.post("/v1/agents/owner/cancel", headers=OWNER)
+        assert response.status_code == 200, response.text
+        action = client.get(f"/v1/actions/{action_id}", headers=OWNER).json()
+        assert action["state"] == "awaiting_approval"
+        assert response.json()["requests_cancelled"] == int(legacy_agent_request)
+        decisions = [row for row in published if row["event"] == "action.denied"]
+        if legacy_agent_request:
+            cancelled = client.get(f"/v1/actions/{legacy.id}", headers=OWNER).json()
+            assert cancelled["state"] == "cancelled"
+            assert [row["action_id"] for row in decisions] == [legacy.id]
+        else:
+            assert decisions == []
+        records = [json.loads(line) for line in settings.audit_path.read_text().splitlines()]
+        assert decisions == [row for row in records if row["event"] == "action.denied"]
+        assert all("patch" not in row["data"].get("params", {}) for row in decisions)
 
 
 def test_config_action_audit_records_decisions_without_publishing_the_patch(client, settings, monkeypatch):
@@ -229,6 +277,44 @@ def test_legacy_config_audit_patch_is_owner_only(client):
         assert client.get(f"{url}/{row['seq']}", headers=OWNER).json() == row
         assert client.get(f"{url}/{row['seq']}", headers=ADULT).status_code == 404
     assert client.get("/v1/audit/verify", headers=OWNER).json()["ok"]
+
+
+def test_live_off_hours_defaults_export_and_compare_without_changes(client):
+    off = [
+        {"start": "23:00", "end": "07:00", "days": None},
+        {"start": "08:00", "end": "09:00", "days": []},
+        {"start": "10:00", "end": "11:00"},
+        {"start": "12:00", "end": "13:00", "days": ["fri", "sat"]},
+    ]
+    saved = client.put("/v1/update-policy", headers=OWNER, json={"ai_schedule": {"off": off}})
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["ai_schedule"]["off"] == off
+
+    files = exported(client)
+    exported_off = yaml.safe_load(files["settings.yaml"])["updates"]["ai_schedule"]["off"]
+    assert exported_off == [{**entry, "days": list(WEEKDAYS)} for entry in off[:3]] + off[3:]
+    assert preview(client, files)["changes"] == []
+
+
+def test_legacy_v1_off_hours_days_remain_readable_for_diff_and_apply(client):
+    off = [{"start": "23:00", "end": "07:00", "days": list(WEEKDAYS)}]
+    saved = client.put("/v1/update-policy", headers=OWNER, json={"ai_schedule": {"off": off}})
+    assert saved.status_code == 200, saved.text
+    doc = yaml.safe_load(exported(client)["settings.yaml"])
+    doc["updates"]["ai_schedule"]["off"][0]["days"] = None
+    assert preview(client, {"settings.yaml": render(doc)})["changes"] == []
+
+    doc["box"] = {"box_name": "recovered-hub", "time_zone": "UTC"}
+    files = {"settings.yaml": render(doc)}
+    dry_run = preview(client, files)
+    queued = file_request(client, files, dry_run)
+    assert queued.status_code == 202, queued.text
+    action = queued.json()
+    assert set(action["params"]["patch"]) == {"box"}
+    approved = client.post(f"/v1/actions/{action['id']}/approve", headers=OWNER,
+                           json={"plan_sha256": action["plan_sha256"]})
+    assert approved.status_code == 200 and approved.json()["state"] == "succeeded", approved.text
+    assert preview(client, files)["changes"] == []
 
 
 def test_config_update_policy_records_the_approving_owner(client):

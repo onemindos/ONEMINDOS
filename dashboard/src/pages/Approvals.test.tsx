@@ -82,6 +82,10 @@ describe('Approvals page', () => {
     expect(effects.getByText('New hub').closest('div')).toHaveTextContent('After');
     expect(effects.queryByText(/Unbound (old|new) value/)).toBeNull();
     expect(effects.queryByText('No changes beyond the action itself.')).toBeNull();
+    expect(effects.queryByText('Can be undone with one request.')).toBeNull();
+    expect(effects.getByText(/compare your earlier YAML.*approve the new plan/)).toBeVisible();
+    expect(effects.getByText(/Saved copy cadence for/)).toBeVisible();
+    expect(effects.getByText(/takes effect when the sovereign-copy publisher is available/)).toBeVisible();
     await user.click(card.getByRole('button', { name: /^Approve / }));
     await waitFor(() => expect(calls).toEqual([{
       id: action.id, body: { plan_sha256: action.plan_sha256, webauthn: { id: 'cred-1', type: 'public-key' } },
@@ -233,6 +237,19 @@ describe('approveWithStepUp', () => {
 });
 
 describe('toActionPlan', () => {
+  it('explains how to restore a snapshot that had an unset box name or time zone', () => {
+    const action: Action = {
+      id: 'config', type: 'config.apply', params: {}, state: 'awaiting_approval',
+      idempotency_key: 'config', expires_at: future(), plan_sha256: SHA,
+      plan: { params: { patch: { box: {
+        before: { box_name: null, time_zone: null }, after: { box_name: 'Home', time_zone: 'UTC' },
+      } } } },
+    };
+    expect(toActionPlan(action)?.effects).toContainEqual(expect.objectContaining({
+      label: 'Choose a box name and time zone to restore a snapshot that had either field unset.',
+    }));
+  });
+
   it('maps a deleted volume to a high-risk, one-way effect and is undefined without a plan', () => {
     const a = { id: '1', type: 'app.delete_data', params: {}, idempotency_key: 'k', expires_at: '', state: 'awaiting_approval', plan: { summary: 's', volumes: [{ effect: 'deleted' }], warnings: ['All files and databases of this app are deleted. There is no undo.'] }, plan_sha256: 'h' } as unknown as Action;
     const p = toActionPlan(a)!;

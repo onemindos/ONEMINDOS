@@ -390,12 +390,21 @@ function configurationEffects(plan: Record<string, unknown>): PlanEffect[] {
     for (const [field, value] of Object.entries(after)) {
       if (value !== before[field]) add(labels[field] ?? field, before[field], value);
     }
+    if (before.box_name === null || before.time_zone === null) {
+      effects.push({ kind: 'note', risk: 'low',
+        label: 'Choose a box name and time zone to restore a snapshot that had either field unset.' });
+    }
   }
   const updates = record(patch.updates);
   if (updates) add('App update policy', updates.before, updates.after, 'Default policy');
-  for (const [destination, value] of Object.entries(record(patch.copy_cadence) ?? {})) {
+  const copies = Object.entries(record(patch.copy_cadence) ?? {});
+  for (const [destination, value] of copies) {
     const change = record(value);
-    if (change) add(`Backup copy cadence for ${destination}`, change.before, change.after);
+    if (change) add(`Saved copy cadence for ${destination}`, change.before, change.after);
+  }
+  if (copies.length) {
+    effects.push({ kind: 'note', risk: 'low',
+      label: 'The copy cadence takes effect when the sovereign-copy publisher is available. Scheduled backups currently run hourly.' });
   }
   return effects;
 }
@@ -436,6 +445,6 @@ export function toActionPlan(a: Action): ActionPlan | undefined {
     plan_hash: a.plan_sha256,
     computed_at: a.created_at ?? new Date(0).toISOString(),
     effects,
-    undo: a.type === ('app.delete_data' as string) ? 'one-way' : 'reversible',
+    undo: a.type === 'config.apply' ? 'reapply' : a.type === ('app.delete_data' as string) ? 'one-way' : 'reversible',
   };
 }

@@ -98,6 +98,23 @@ def test_round_trip_to_an_empty_box(make_box):
     assert {(c["section"], c["field"]): c["action"] for c in box_config.plan(after, checked)}[("box", "box_name")] == "same"
 
 
+def test_legacy_bundle_off_hours_compare_without_rewriting_the_policy(make_box):
+    box = make_box("a")
+    set_up(box)
+    repo = updatepolicy.UpdatePolicyRepository(box)
+    policy = repo.get()["doc"]
+    policy["ai_schedule"]["off"][0]["days"] = None
+    repo.put(now=NOW, doc=policy, updated_by=OWNER)
+    current, _ = box_config.collect(box)
+    legacy, _ = box_config.collect(box)
+    legacy["updates"] = policy
+
+    checked = box_config.check(legacy)
+    assert checked.doc["updates"] == current["updates"]
+    assert box_config.apply(box, checked, now=NOW, by=OWNER, window_exists=YES) == []
+    assert repo.get()["doc"] == policy
+
+
 def test_layer_bytes_are_canonical_and_never_hold_credentials(make_box):
     a = make_box("a")
     set_up(a)

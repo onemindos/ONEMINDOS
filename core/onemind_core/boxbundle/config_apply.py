@@ -22,6 +22,7 @@ from ..context import Gateway
 from ..executors import ExecResult
 from ..onboarding import OnboardingService
 from ..store import Database
+from .box_config import normalize_off_hours_days
 from .config_export import SETTINGS_SCHEMA, render, settings_document, settings_rules
 from .config_inventory import collect_inventory, validate_inventory
 from .manifest import BundleRefused, canonical, sha256
@@ -68,6 +69,7 @@ def read_documents(files: dict[str, str]) -> dict[str, dict]:
         if not isinstance(doc, dict) or doc.get("schema") != schema_id:
             raise BundleRefused([f"{name}: expected schema {schema_id}"])
         if schema_id == SETTINGS_SCHEMA:
+            normalize_off_hours_days(doc.get("updates"))
             if not Draft202012Validator(settings_rules()).is_valid(doc):
                 raise BundleRefused([f"{name}: invalid or unrecognized settings fields"])
             apps = doc["backups"]["content_tier_apps"]

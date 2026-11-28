@@ -30,7 +30,7 @@ from zoneinfo import available_timezones
 
 from pydantic import ValidationError
 
-from ..automation.cron import parse_ranges
+from ..automation.cron import WEEKDAYS, parse_ranges
 from ..automation.updatepolicy import UpdatePolicyBody, UpdatePolicyRepository
 from ..backups.store import BackupsRepository
 from ..onboarding import OnboardingService
@@ -44,6 +44,16 @@ LAYER_SCHEMA = "onemind.io/box-bundle/box-config/v1"
 LOCATION_KEYS = {"usb": frozenset({"usb_uuid"}), "box": frozenset({"url", "user", "append_only"}),
                  "rest": frozenset({"url", "user", "append_only"}), "s3": frozenset({"endpoint", "bucket", "prefix", "region"})}
 SAFE_SECTIONS = frozenset({"box", "updates"})
+
+
+def normalize_off_hours_days(updates: object) -> None:
+    """Write the scheduler's implicit every-day default as explicit weekdays."""
+    schedule = updates.get("ai_schedule") if isinstance(updates, dict) else None
+    ranges = schedule.get("off") if isinstance(schedule, dict) else None
+    if isinstance(ranges, list):
+        for entry in ranges:
+            if isinstance(entry, dict) and not entry.get("days"):
+                entry["days"] = list(WEEKDAYS)
 
 
 def collect(db: Database) -> tuple[dict, list[dict]]:
@@ -76,6 +86,7 @@ def collect(db: Database) -> tuple[dict, list[dict]]:
             "content_tier_apps": sorted(backups.content_tier()),
         },
     }
+    normalize_off_hours_days(doc["updates"])
     problems = problems_of(validator("boxConfig"), doc)
     if problems:  # the box holds something the schema does not allow: never write a bundle that cannot be read back
         raise BundleRefused(problems)
@@ -137,6 +148,7 @@ def check(doc: object) -> Checked:
     defs = schema()["$defs"]
     skipped: list[str] = []
     clean = _set_aside(copy.deepcopy(doc), defs["boxConfig"], defs, "", skipped)
+    normalize_off_hours_days(clean.get("updates"))
     problems = problems_of(validator("boxConfig"), clean)
     if problems:
         raise BundleRefused(problems)
@@ -209,8 +221,11 @@ def apply(db: Database, incoming: Checked, *, now: datetime, by: dict, window_ex
             raise BundleRefused([f"updates: this box has no update window {body.window_id!r}; create it first"])
         repo = UpdatePolicyRepository(db)
         current = repo.get()
-        if current is None or current["doc"] != body.model_dump():
-            policy = body.model_dump()
+        current_policy = current["doc"] if current else None
+        normalize_off_hours_days(current_policy)
+        proposed_policy = body.model_dump()
+        if current_policy != proposed_policy:
+            policy = proposed_policy
     # Every check passed: write.
     if written:
         svc.save(values)

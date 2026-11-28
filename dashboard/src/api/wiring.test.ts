@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { OneMind } from '@onemind/sdk';
 import { HttpApi } from './client';
 
 function rig(body: unknown = {}, status = 200) {
@@ -44,12 +45,44 @@ describe('approve', () => {
   it('sends the plan fingerprint so a tainted agent request can be approved', async () => {
     const { api, calls } = rig({ id: 'a1' });
     await api.approve('a1', { plan_sha256: 'sha256:abc' });
-    expect(calls[0]!.url).toBe('/v1/actions/a1/approve');
+    expect(calls[0]!.url).toBe(`${window.location.origin}/v1/actions/a1/approve`);
     expect(JSON.parse(String(calls[0]!.init.body))).toEqual({ plan_sha256: 'sha256:abc' });
   });
   it('sends no body when the action has no fingerprint', async () => {
     const { api, calls } = rig({ id: 'a1' });
     await api.approve('a1');
     expect(calls[0]!.init.body).toBeUndefined();
+  });
+  it('uses the SDK for queue reads and decisions without retrying the challenge or signed approval', async () => {
+    const assertion = { id: 'credential', response: { signature: 'assertion' } };
+    const signed = { plan_sha256: 'reviewed-plan', webauthn: assertion };
+    const approval = '/v1/actions/a%2Fb/approve';
+    const challenge = approval + '-options';
+    const fetchFn = vi.fn(async (url: string) => {
+      const path = new URL(url, window.location.origin).pathname;
+      if (path === approval || path === challenge) {
+        return Response.json({ error: 'conflict', message: 'temporarily unavailable' }, { status: 503 });
+      }
+      return Response.json(path === '/v1/actions' ? [] : { id: 'a/b' });
+    });
+    const call = vi.spyOn(OneMind.prototype, 'call');
+    try {
+      const api = new HttpApi({ token: 'tok', fetchFn });
+      await expect(api.actions()).resolves.toEqual([]);
+      await expect(api.action('a/b')).resolves.toMatchObject({ id: 'a/b' });
+      await expect(api.approveOptions('a/b')).rejects.toMatchObject({ status: 503, code: 'conflict' });
+      await expect(api.approve('a/b', signed)).rejects.toMatchObject({ status: 503, code: 'conflict' });
+      await expect(api.deny('a/b')).resolves.toMatchObject({ id: 'a/b' });
+      expect(call.mock.calls.map(([request]) => request)).toEqual([
+        expect.objectContaining({ method: 'GET', path: '/v1/actions' }),
+        expect.objectContaining({ method: 'GET', path: '/v1/actions/a%2Fb' }),
+        expect.objectContaining({ method: 'POST', path: challenge, retry: false }),
+        expect.objectContaining({ method: 'POST', path: approval, retry: false, body: signed }),
+        expect.objectContaining({ method: 'POST', path: '/v1/actions/a%2Fb/deny' }),
+      ]);
+      expect(fetchFn).toHaveBeenCalledTimes(5);
+    } finally {
+      call.mockRestore();
+    }
   });
 });

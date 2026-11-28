@@ -7,6 +7,7 @@ export const en = {
   'config.download': 'Download {name}',
   'config.files': 'Choose YAML files to compare',
   'config.compare': 'Compare with this box',
+  'config.applyFromCli': 'Request an apply from the CLI with {command}, then review and approve the plan in Approvals.',
   'config.changed': 'Review the proposed changes.',
   'config.unchanged': 'The selected files match this box.',
   'config.blockers': 'Resolve before requesting approval',

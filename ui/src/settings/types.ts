@@ -282,5 +282,5 @@ export interface ActionPlan {
   placement?: { node: string; fits: boolean; reason: string; stale?: boolean };
   effects: Effect[];
   scan?: { at: string; critical: number; high: number; malware: 'clean' | 'found' };
-  undo: 'reversible' | 'snapshot' | 'one-way';
+  undo: 'reversible' | 'reapply' | 'snapshot' | 'one-way';
 }
