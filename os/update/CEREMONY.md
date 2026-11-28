@@ -11,31 +11,36 @@
 
 **2026-11-27** · Step 5, M-LIVE (#234) · [D-031 and D-010](../../docs/DECISIONS.md)
 
-Use this section for the first ceremony. The file-key steps and printable file-key sheet below describe the older D-010 procedure. The file-key defaults in `scripts/ceremony-guide.py` also describe that procedure.
+This is the one YubiKey procedure for the first ceremony ([D-031](../../docs/DECISIONS.md), anchor `#ceremony-on-yubikeys-d-031`). The file-key steps and printable file-key sheet further down describe the older D-010 procedure; the file-key defaults in `scripts/ceremony-guide.py` also describe it. **Secrets rule:** you type every PIN, PUK and passphrase yourself at the tool's prompt. No AI agent ever sees, holds or types one. Never put one in a command line, a file, a chat or this repo.
 
 ### Before the day
 
-- [ ] Set aside one offline Debian laptop (a live USB works), three YubiKey 5 PIV devices for production, one spare with no credentials you need, and two USB ports or a hub so two keys can sign in the same command. Bring an encrypted transfer drive, the paper checklist, and a separate online computer with authenticated `gh` and repository settings access. For Step 5, bring a separate installer USB, the x86_64 Dell with console access, and a backup of anything on its install disk.
-- [ ] Record the reviewed commit. The release-key installer is on `release/next` via [#1320](https://github.com/onemindos/ONEMINDOS/pull/1320). The first-ceremony commands `yubikey-key`, `rehearse-tokens` and `hsm:2?yubikey=<serial>` come from [#1172](https://github.com/onemindos/ONEMINDOS/pull/1172). Use a reviewed commit containing that tooling. Check `git rev-parse HEAD`, `git status --short` (empty), and the usage printed by `scripts/tuf-bootstrap-root.sh` (exit 2 with no arguments). If the commands are absent, stop before touching the production keys. The single-device rehearsal and simultaneous signing are UNVERIFIED on real hardware.
-- [ ] While the laptop is online, install `ykman`, Yubico's PKCS#11 module (`libykcs11.so`), PC/SC support, SoftHSM, and the pinned Python dependencies. Use a venv outside the checkout to keep the source tree clean. Obtain the Yubico PIV attestation CA for your firmware, record its SHA-256 before transfer, and compare it on the ceremony machine. Use the actual absolute paths for the venv, module and CA. [Yubico PIV attestation documentation](https://developers.yubico.com/PIV/Introduction/PIV_attestation.html)
+- [ ] Set aside one offline Debian laptop (a live USB works), three YubiKey 5 PIV devices for production, one spare with no credentials you need, and two USB ports or a hub so two keys can sign in the same command. Bring the paper checklist and a separate online computer with authenticated `gh` and repository settings access. For Step 5, bring a separate installer USB, the x86_64 Dell with console access, and a backup of anything on its install disk.
+- [ ] **Make the transfer drive.** A USB drive used only to carry files between the offline machine and the online computer. On a Linux machine, encrypt it with LUKS (Disks → format → *Encrypted (LUKS)*, or `cryptsetup luksFormat`), with a passphrase you type yourself. It is the only thing that carries the online private keys, so it is the one place besides CI where they exist, and it is wiped at the end.
+- [ ] Record the reviewed commit. The release-key installer is on `release/next` via [#1320](https://github.com/onemindos/ONEMINDOS/pull/1320). The first-ceremony commands `yubikey-key`, `rehearse-tokens` and `hsm:2?yubikey=<serial>` come from [#1172](https://github.com/onemindos/ONEMINDOS/pull/1172). Use a reviewed commit containing that tooling. Check `git rev-parse HEAD`, `git status --short` (empty), and the usage printed by `scripts/tuf-bootstrap-root.sh` (exit 2 with no arguments). If the commands are absent, stop before touching the production keys. Write the commit hash on the printed checklist. The single-device rehearsal and simultaneous signing are UNVERIFIED on real hardware.
+- [ ] While the laptop is online, install `ykman`, Yubico's PKCS#11 module (`libykcs11.so`), PC/SC support, SoftHSM, and the pinned Python dependencies. On Debian: `sudo apt-get install yubikey-manager ykcs11 pcscd softhsm2` (UNVERIFIED package names: check with `apt-cache policy`). The module is then expected at `/usr/lib/x86_64-linux-gnu/libykcs11.so` (UNVERIFIED path: check with `dpkg -L ykcs11`). Run the `pip` line from the **repository root** (the path `os/update/requirements-tuf.txt` is relative to it). Use a venv outside the checkout to keep the source tree clean. Obtain the Yubico PIV attestation CA for your firmware, record its SHA-256 on the checklist before transfer, and compare it on the ceremony machine. [Yubico PIV attestation documentation](https://developers.yubico.com/PIV/Introduction/PIV_attestation.html)
 
   ```sh
   python3 -m venv "$HOME/onemind-tuf-venv"
   "$HOME/onemind-tuf-venv/bin/pip" install --require-hashes --only-binary :all: -r os/update/requirements-tuf.txt
   export PYTHON="$HOME/onemind-tuf-venv/bin/python"
-  export PYKCS11LIB=/path/to/libykcs11.so
+  export PYKCS11LIB=/usr/lib/x86_64-linux-gnu/libykcs11.so   # UNVERIFIED path; use the real one
   export YUBICO_PIV_CA=/path/to/yubico-piv-ca.pem
   sha256sum "$YUBICO_PIV_CA"
   ```
 
-  Pip must exit zero and the hash must match the recorded value. If either fails, resolve it while online. Turn off Wi-Fi and Bluetooth and unplug Ethernet before creating any keys. If the script prints a default-route warning, stop and isolate the laptop. Use fresh work directories on the live system or encrypted storage. Run `umask 077` and `unset ONEMIND_TUF_PIN ONEMIND_TUF_PASSPHRASE ONEMIND_ATTEST_WITHOUT_CA` in the ceremony shell so it uses the interactive prompts and requires attestation.
+  Pip must exit zero and the hash must match the recorded value. If either fails, resolve it while online. Turn off Wi-Fi and Bluetooth and unplug Ethernet before creating any keys. If the script prints a default-route warning, stop and isolate the laptop. Run `umask 077` and `unset ONEMIND_TUF_PIN ONEMIND_TUF_PASSPHRASE ONEMIND_ATTEST_WITHOUT_CA` in the ceremony shell so it uses the interactive prompts and requires attestation.
+- [ ] **A live USB keeps its work in RAM.** On a live system, `mktemp -d` folders (`$R`, `$W` below) vanish at reboot or power-off. Before shutting the offline machine down, copy what you need to the transfer drive (list in step 3 of production devices). Nothing is recoverable afterwards.
+- [ ] **YubiKey defaults.** A fresh YubiKey PIV has PIN `123456`, PUK `12345678` and a default management key. Anyone who knows these can use an unprepared key, so change them before the key holds a root. Three wrong PINs lock the PIN (the PUK unlocks it); three wrong PUKs block the PIV part until a reset, which erases its keys. A used or spare device is cleaned with `ykman --device "$SER" piv reset`: that erases every PIV key on it, so run it only on the spare or a brand-new key.
+- [ ] **Where PINs and PUKs are kept.** Choose now. Never with their YubiKey: use a password manager you control, or a paper sealed in an envelope kept in a different place from every YubiKey. [D-010](../../docs/DECISIONS.md)'s sealed succession note (who may act if you cannot, and where the keys and PINs are) still applies and also stays out of the repo.
 
 ### Offline rehearsal and root creation
 
-1. **Software rehearsal.** Run `scripts/tuf-bootstrap-root.sh rehearse-tokens /tmp/onemind-token-rehearsal` using the prepared `PYTHON`. Expect `REHEARSAL PASSED` for the 2-of-3 root, a verified test release, and a renewal using a different pair that refuses a lone signer. On failure, fix the logged dependency or signer error and use a fresh directory. Discard the rehearsal outputs.
-2. **One real spare.** With only the spare inserted, `ykman list --serials` must show its serial. Set `SER` to that serial. On a fresh device, use the commands below to set the PIN, PUK (PIN-unblock code), and PIN-protected management key. The first three commands prompt for credentials. `piv info` must show no certificate in slot 9c. If the spare has an occupied slot, stop and choose a clean spare. Export `PYKCS11LIB` to the installed Yubico module and keep `YUBICO_PIV_CA` set. Enter secrets at prompts and touch the key when it blinks.
+1. **Software rehearsal.** Run `scripts/tuf-bootstrap-root.sh rehearse-tokens /tmp/onemind-token-rehearsal` using the prepared `PYTHON`. Expect `REHEARSAL PASSED` for the 2-of-3 root, a verified test release, and a renewal using a different pair that refuses a lone signer. On failure, fix the logged dependency or signer error and use a fresh directory. Discard the rehearsal outputs. The same walk is available as `python3 scripts/ceremony-guide.py --yubikey --rehearsal`.
+2. **One real spare.** With only the spare inserted, `ykman list --serials` must show its serial. Set `SER` to that serial. Reset it if it was ever used, then set the PIN, PUK and PIN-protected management key. The first four `ykman` commands prompt for credentials and you type them (the PIN-protected management key stores a random one on the device behind your PIN). `piv info` must show no certificate in slot 9c. If a slot is occupied after a reset, stop and choose a clean spare. Export `PYKCS11LIB` to the installed Yubico module and keep `YUBICO_PIV_CA` set. Touch the key when it blinks.
 
    ```sh
+   ykman --device "$SER" piv reset
    ykman --device "$SER" piv access change-pin
    ykman --device "$SER" piv access change-puk
    ykman --device "$SER" piv access change-management-key --generate --protect
@@ -51,8 +56,8 @@ Use this section for the first ceremony. The file-key steps and printable file-k
    scripts/tuf-bootstrap-root.sh check "$R/out" 2 3
    ```
 
-   Run each command only after the previous one succeeds. `yubikey-key` must print the expected serial, `attestation OK`, PIN policy `always` and touch policy `always`, and write `spare.pub`. The two `root-key` calls write throwaway `root.key` and `root.pub` pairs. `online-keys` prints that it wrote three online key pairs. `create` must prompt for the spare's PIN and a touch to sign, then report root v1 and write `1.root.json` and `root.json`. The two temporary file keys exercise 2-of-3 with the spare without using the production devices. `check` must exit zero and show **2 of 3**, two valid trusted signatures, three distinct root key IDs including the spare's, one key per online role and about 365 days left. Record the result and discard the entire rehearsal directory. If the PIN, touch, attestation, or check fails, stop and diagnose the specific error. Check PC/SC, the module, the CA and the serial before retrying. Repeated PIN guesses can lock the device.
-3. **Production devices.** After the spare passes, repeat the four `ykman` preparation commands on each fresh production YubiKey, one plugged in at a time. Use a fresh work directory (`W=$(mktemp -d)`). Set `A`, `B` and `C` to the respective serials as you identify the devices. Run each of the first three commands below with only its named device inserted. Record the serial and the printed public key ID for each. After three successful attestations, generate the online keys once. Plug A and B in together and leave C unplugged. Use the PIN for each named device and touch it when prompted.
+   Run each command only after the previous one succeeds. The old PIN and PUK are the defaults above, then your own, typed twice. `yubikey-key` must print the expected serial, `attestation OK`, PIN policy `always` and touch policy `always`, and write `spare.pub` beside the attestation files. **Passphrase prompts:** each `root-key` call asks for a key-file passphrase **twice** (set and confirm); these are throwaway keys, use a throwaway passphrase. `online-keys` writes three online key pairs without a passphrase (they are secrets for CI). A passphrase must be at least the script's minimum length. `create` asks for the passphrase of the `$R/b/root.key` file key (once) and then the spare's PIN, and needs a touch to sign; it reports root v1 and writes `1.root.json` and `root.json`. The two temporary file keys exercise 2-of-3 with the spare without using the production devices. `check` must exit zero and show **2 of 3**, two valid trusted signatures, three distinct root key IDs including the spare's, one key per online role and about 365 days left. Record the result, then discard the entire rehearsal directory and run `ykman --device "$SER" piv reset` again. If the PIN, touch, attestation or check fails, stop and diagnose the specific error. Check PC/SC, the module, the CA and the serial before retrying. Repeated PIN guesses can lock the device.
+3. **Production devices.** After the spare passes, repeat the `change-pin`, `change-puk` and `change-management-key --generate --protect` commands and then `piv info` on each production YubiKey, one plugged in at a time (default PIN and PUK as above, then your own). Run `piv reset` on a production key only if you are sure it holds nothing you need. Use a fresh work directory (`W=$(mktemp -d)`). Set `A`, `B` and `C` to the respective serials as you identify the devices. Run each of the first three commands below with only its named device inserted. Record the serial and the printed public key ID for each on the printed checklist. After three successful attestations, generate the online keys once. Plug A and B in together and leave C unplugged. Use the PIN for each named device and touch it when prompted. `create` asks for no file passphrase here, only the two PINs.
 
    ```sh
    scripts/tuf-bootstrap-root.sh yubikey-key "$W/pubs" a "$A"
@@ -65,33 +70,52 @@ Use this section for the first ceremony. The file-key steps and printable file-k
    scripts/tuf-bootstrap-root.sh check "$W/out" 2 3
    ```
 
-   Verify the same v1, threshold, online-role, signature and expiry checks as for the spare. Match all three printed root key ID prefixes with the IDs recorded during generation and record the public `sha256` line on paper. If attestation fails or a slot is occupied, stop and retain the public diagnostics for review. For a signing or verification failure after successful attestation, fix the cause and retry with the same keys in a fresh output directory. Keep production devices intact. Store the three devices separately under your control and calendar renewal 90 days before expiry.
+   Verify the same v1, threshold, online-role, signature and expiry checks as for the spare. Match all three printed root key ID prefixes with the IDs recorded during generation and record the public `sha256` line on paper. If attestation fails or a slot is occupied, stop and retain the public diagnostics for review. For a signing or verification failure after successful attestation, fix the cause and retry with the same keys in a fresh output directory. Keep production devices intact.
+
+   **Copy to the transfer drive, then before reboot.** Mount the LUKS transfer drive and copy exactly this list from `$W`, and nothing else:
+   - `out/root.json` and `out/1.root.json` (public);
+   - `pubs/*.pub` (public) and, as evidence, the attestation files next to them (`pubs/*-attest.pem`, `pubs/*-f9.pem`, `pubs/*-ykman.pub`);
+   - `online/*.key` (the three online private keys, needed for the GitHub step; `online/*.pub` is also fine to copy).
+
+   The root private keys are inside the YubiKeys and are not copied. After the copy, run `sync`, unmount, and compare `sha256sum out/root.json` on the transfer drive with the paper record.
+4. **Secure deletion on the offline machine.** The online private keys now exist on the offline machine and on the transfer drive. On the offline machine, delete the `online/*.key` files with `shred -u "$W"/online/*.key` (on a live USB the RAM folders also vanish at power-off, so shut it down only after the copy is verified), then power the machine off. Do not rely on `rm`. `shred` is not reliable on SSDs and flash: that is why the drive is encrypted and wiped as a whole at the end of the handoff, and why the online keys are replaceable (rotating them is a new `online-keys` plus new secrets, no change to the root).
+5. **Store the YubiKeys.** Store the three devices in three different places under your sole control. Keep the PINs and PUKs elsewhere, apart from every YubiKey. Calendar renewal 90 days before expiry. Seal the succession note (D-010) in an envelope.
 
 ### Online handoff and installer rehearsal
 
-1. **Verify the public root.** On the online computer, `sha256sum root.json` (or `shasum -a 256 root.json` on macOS) must match the paper record. Submit only the public root for review at `os/rootfs/layers/base/usr/lib/onemind/tuf/security/root.json`. Wait for that root and #1320's installer workflow to reach `main` before the publishing run. On a hash mismatch, stop and repeat the transfer from the verified offline copy.
-2. **Load the three online TUF keys.** In GitHub Settings → Environments, select `tuf-signing`, allow deployment from `main` only, and leave required reviewers off so nightly signing and timestamp refresh can run. Transfer the three online role keys on the encrypted transfer drive. From the directory containing the transferred `online/` folder, run:
+1. **Verify the public root and gate on main.** On the online computer, mount the transfer drive. `sha256sum root.json` (or `shasum -a 256 root.json` on macOS) must match the paper record. Submit only the public root for review at `os/rootfs/layers/base/usr/lib/onemind/tuf/security/root.json`. On a hash mismatch, stop and repeat the transfer from the verified offline copy.
+2. **Gate: wait for main before any dry run.** The dry run (step 4 below) uses the `installer` job of `security-nightly.yml`, which [#1320](https://github.com/onemindos/ONEMINDOS/pull/1320) adds. Do not continue until both the reviewed root PR and the installer job are on `main`. Check: `gh api 'repos/onemindos/ONEMINDOS/contents/.github/workflows/security-nightly.yml?ref=main' -q .content | base64 -d | grep -n '^  installer:'` prints a line.
+3. **Create the environment and load the three online TUF keys.** In GitHub: Settings → Environments → `tuf-signing` (create it if needed) → Deployment branches and tags → **Selected branches and tags** (not "Protected branches") → add `main`. Leave required reviewers off so nightly signing and timestamp refresh can run. **Verify before any `gh secret set`:**
 
    ```sh
-   gh secret set ONEMIND_TUF_TARGETS_KEY --env tuf-signing < online/targets.key
-   gh secret set ONEMIND_TUF_SNAPSHOT_KEY --env tuf-signing < online/snapshot.key
-   gh secret set ONEMIND_TUF_TIMESTAMP_KEY --env tuf-signing < online/timestamp.key
-   gh secret list --env tuf-signing
+   gh api repos/onemindos/ONEMINDOS/environments/tuf-signing -q .deployment_branch_policy
+   gh api repos/onemindos/ONEMINDOS/environments/tuf-signing/deployment-branch-policies -q '.branch_policies[].name'
    ```
 
-   Each upload must exit zero. The list shows names and timestamps. If an upload fails, verify the repository and environment, retry the failed upload from the encrypted drive, and confirm all three names before cleaning up the transfer drive and temporary private files.
-3. **Rehearse the installer in CI before enabling publication.** From the online checkout, run:
+   The first must show `custom_branch_policies` true (and `protected_branches` false). The second must print only `main`. If not, stop and fix the setting. Then, from the directory on the transfer drive that holds the `online/` folder (pass `-R` so the secrets go to the repository, not to whatever repo the current folder belongs to), run:
 
    ```sh
-   gh workflow run security-nightly.yml --ref main -f force_rebuild=true -f dry_run=true
-   gh run list --workflow security-nightly.yml --branch main --event workflow_dispatch --limit 5
-   gh run watch "$RUN_ID" --exit-status
+   gh secret set ONEMIND_TUF_TARGETS_KEY --env tuf-signing -R onemindos/ONEMINDOS < online/targets.key
+   gh secret set ONEMIND_TUF_SNAPSHOT_KEY --env tuf-signing -R onemindos/ONEMINDOS < online/snapshot.key
+   gh secret set ONEMIND_TUF_TIMESTAMP_KEY --env tuf-signing -R onemindos/ONEMINDOS < online/timestamp.key
+   gh secret list --env tuf-signing -R onemindos/ONEMINDOS
    ```
 
-   Set `RUN_ID` to the new dispatch in the list. The summary must show `publish=false` and `dry_run=true`. The installer job selects `mode=dev`, rehearses the release image with a throwaway public CA, and logs `ok: ... image trusts the bundle's CA, RAUC accepts the bundle with it, same packages as the signed build`. Verify I1–I5 passed and that the artifact is `installer-security-x86_64-dev`. If a job fails or is skipped, inspect it with `gh run view "$RUN_ID" --log-failed` and resolve the cause before publishing.
-4. **Check the publishing prerequisites.** RAUC is the separate bundle signer. Have the release signing key, signer certificate, and trusted CA certificate ready. The current `build` job reads repository-accessible `ONEMIND_RAUC_SIGNING_KEY`, `ONEMIND_RAUC_SIGNING_CERT` and optional `ONEMIND_RAUC_KEYRING_CERT` (required when the signer certificate alone is insufficient as the trust anchor). The `decide` job checks the first two for presence. Keep the three TUF secrets scoped to `tuf-signing`. Record the SHA-256 fingerprint of the expected public RAUC CA with `openssl x509 -in "$RAUC_CA" -noout -fingerprint -sha256`. See [installer workflow and RAUC follow-up](../boards/installer-x86_64/UPDATES.md).
-5. **Build the production stick.** Once ready to publish, set repository variable `ONEMIND_SECURITY_PUBLISH=true`. Repeat the workflow commands above with `-f dry_run=false` and the new run ID. Expect `publish=true (keys=true committed_root=true switch=true dry_run=false)`, a build log that reports `dry_run=false`, TUF client verification, installer mode `release`, the same keyring/package check, and I1–I5 passing. If any check fails, stop before flashing. Use the workflow logs to resolve the failed gate and check for an already published release before retrying.
-6. **Verify the artifact and installed trust.** Verify `gh release view "os-security-$VERSION"` succeeds for the version printed by the run. Download its same-run installer with `gh run download "$RUN_ID" -n installer-security-x86_64-release -D installer-release`. In the artifact's installer directory, read `README.txt` (must say `RELEASE-keyed` for that version), decompress the `.img.xz` with `xz -dk`, and run `sha256sum -c SHA256SUMS` on Linux. Expect `OK` for the image. Compare `openssl x509 -in release-ca.cert.pem -noout -fingerprint -sha256` with the recorded CA. On any mismatch, stop and recheck the run, release tag and artifact. Use the [installer instructions](../boards/installer-x86_64/README.md) on the intended Dell disk. After install, compare `sha256sum /usr/lib/onemind/tuf/security/root.json` and `openssl x509 -in /etc/rauc/keyring.pem -noout -fingerprint -sha256` with the paper record before applying a later update.
+   Each upload must exit zero. The list shows names and timestamps. If an upload fails, verify the repository and environment, retry the failed upload, and confirm all three names.
+   **Then delete and wipe.** Only after all three names are listed: securely delete `online/*.key` (`shred -u online/*.key`) on this online computer and on the transfer drive, then wipe the transfer drive as a whole (for example `cryptsetup luksErase` on the device, then re-create or `shred`/overwrite it; for flash media treat the wipe as best effort and discard the drive if in doubt). Do not clean up before the list is confirmed.
+4. **Rehearse the installer in CI before enabling publication.** From the online checkout, run:
+
+   ```sh
+   gh workflow run security-nightly.yml --ref main -R onemindos/ONEMINDOS -f force_rebuild=true -f dry_run=true
+   gh run list --workflow security-nightly.yml --branch main --event workflow_dispatch --limit 5 -R onemindos/ONEMINDOS
+   gh run watch "$RUN_ID" --exit-status -R onemindos/ONEMINDOS
+   ```
+
+   Set `RUN_ID` to the new dispatch in the list. The summary must show `publish=false` and `dry_run=true`. The installer job selects `mode=dev`, rehearses the release image with a throwaway public CA, and logs `ok: ... image trusts the bundle's CA, RAUC accepts the bundle with it, same packages as the signed build`. Verify I1–I5 passed and that the artifact is `installer-security-x86_64-dev`. If a job fails or is skipped, inspect it with `gh run view "$RUN_ID" --log-failed -R onemindos/ONEMINDOS` and resolve the cause before publishing.
+5. **BLOCKED until a RAUC signing key procedure exists (see [KEYS.md](KEYS.md), "Decision 1: where the RAUC CA lives", RAUC CA options A, B and C).** The repository has no procedure that makes the RAUC release signing key, signer certificate or CA, and this runbook does not invent one. RAUC is the separate bundle signer. The current `build` job reads repository-accessible `ONEMIND_RAUC_SIGNING_KEY`, `ONEMIND_RAUC_SIGNING_CERT` and optional `ONEMIND_RAUC_KEYRING_CERT`; the `decide` job checks the first two for presence. Do not proceed to steps 6 and 7 until Zeus has chosen an option and a reviewed procedure is in the repo. **Open follow-up:** those RAUC signing secrets are repository-wide, not scoped to the `tuf-signing` environment, so any workflow on any branch that can read repository secrets could read the signing key. Scoping them to an environment is not designed yet; see [installer workflow and RAUC follow-up](../boards/installer-x86_64/UPDATES.md). Keep the three TUF secrets scoped to `tuf-signing`. Once a CA exists, record its SHA-256 on the checklist with `openssl x509 -in "$RAUC_CA" -noout -fingerprint -sha256`.
+6. **Build the production stick. BLOCKED, as step 5.** Once ready to publish, set repository variable `ONEMIND_SECURITY_PUBLISH=true`. Repeat the workflow commands above with `-f dry_run=false` and the new run ID. Expect `publish=true (keys=true committed_root=true switch=true dry_run=false)`, a build log that reports `dry_run=false`, TUF client verification, installer mode `release`, the same keyring/package check, and I1–I5 passing. If any check fails, stop before flashing. Use the workflow logs to resolve the failed gate and check for an already published release before retrying.
+7. **Verify the artifact and installed trust. BLOCKED, as step 5.** Verify `gh release view "os-security-$VERSION" -R onemindos/ONEMINDOS` succeeds for the version printed by the run. Download its same-run installer with `gh run download "$RUN_ID" -R onemindos/ONEMINDOS -n installer-security-x86_64-release -D installer-release`. In the artifact's installer directory, read `README.txt` (must say `RELEASE-keyed` for that version), decompress the `.img.xz` with `xz -dk`, and run `sha256sum -c SHA256SUMS` on Linux. Expect `OK` for the image. Compare `openssl x509 -in release-ca.cert.pem -noout -fingerprint -sha256` with the recorded CA. On any mismatch, stop and recheck the run, release tag and artifact. Use the [installer instructions](../boards/installer-x86_64/README.md) on the intended Dell disk. After install, compare `sha256sum /usr/lib/onemind/tuf/security/root.json` and `openssl x509 -in /etc/rauc/keyring.pem -noout -fingerprint -sha256` with the paper record before applying a later update.
+8. **First signed update, then rollback.** With the box installed from the release stick, the first real signed update is applied and then rolled back, the test the D-031 decision ties to Step 5. The tampered, wrong-key and older-update refusals are covered with throwaway keys in [#1188](https://github.com/onemindos/ONEMINDOS/pull/1188); the runbook for that is [#1178](https://github.com/onemindos/ONEMINDOS/pull/1178) and must be reconciled with the installer workflow above.
 
 ## Words you need
 
@@ -169,86 +193,25 @@ Use the commands as written. `<stick-a>` is where holder A's stick is mounted (f
 
 ## Ceremony on YubiKeys (D-031)
 
-**What this is.** The same ceremony, with one difference: each of the three root keys is made **inside its own YubiKey** and never exists anywhere else. There are no root key files and no passphrases: a key is used with the YubiKey plugged in, its **PIN** typed, and a **touch** on the device. The 2-of-3 rule, the online keys, `root.json`, the check, the sheet and the GitHub step do not change.
+**This is the same procedure as the [Rehearsal checklist](#rehearsal-checklist) at the top of this file.** There is one YubiKey procedure, that checklist; this heading stays so that links to `#ceremony-on-yubikeys-d-031` keep working. The printable version is [CEREMONY-CHECKLIST.md](CEREMONY-CHECKLIST.md).
 
-**Decision (D-031, 2026-11-25).** The first ceremony runs on the founder's three YubiKeys, with a rehearsal on one real key first. Zeus is the **sole key holder** (founder call, 2026-11-27): the three YubiKeys are kept in three different places, there is no second person, and a PIN is never stored with its YubiKey. D-010's sealed succession note still applies. What this means:
-- No rotation is needed later, and the "rotation drill" D-010 counted on is replaced by the renewal rehearsal (same keys, `renew`).
-- Nothing to back up, nothing to copy: the 2-of-3 rule is the backup. One lost YubiKey changes nothing by itself; two lost means a new root and a re-flash of every box, exactly as with two lost sticks.
-- The ceremony steps marked UNVERIFIED below have to work on a **spare** YubiKey first.
-- The other release keys (RAUC CA, Secure Boot PK/KEK) and the choices for them are in [KEYS.md](KEYS.md).
+**What is different from the file-key ceremony.** Each of the three root keys is made **inside its own YubiKey** and never exists anywhere else. There are no root key files and no root-key passphrases: a key is used with the YubiKey plugged in, its **PIN** typed, and a **touch** on the device. The 2-of-3 rule, the online keys, `root.json`, the check, the sheet and the GitHub step do not change.
 
-**Why it is safer.** A stick holds a key file; a copy of the file plus the passphrase is a copy of the key, and nobody can prove it was never copied. A YubiKey key is made on the device and the device refuses to export it. The device can even sign a statement saying so (its **attestation**, checked below).
+**Decision (D-031, 2026-11-25).** The first ceremony runs on the founder's three YubiKeys, with a rehearsal on one real key first. Zeus is the **sole key holder** (founder call, 2026-11-27): three YubiKeys in three different places, no second person, a PIN never stored with its YubiKey. D-010's sealed succession note still applies. No rotation is needed later; the 2-of-3 rule is the backup. One lost YubiKey changes nothing by itself; two lost means a new root and a re-flash of every box. The other release keys (RAUC CA, Secure Boot PK/KEK) are in [KEYS.md](KEYS.md).
 
 ### More words
 - **YubiKey PIV:** the smart-card part of a YubiKey 5. Its slot `9c` ("digital signature") holds the root key. PKCS#11 key id `2`.
-- **PIN** (6 to 8 digits): unlocks the key. Three wrong tries lock it; the **PUK** unlocks the PIN; three wrong PUKs make the PIV part unusable until it is reset (which erases the key). Default PIN `123456`, PUK `12345678` (Yubico, "PIV PIN and Management Key"): change both before the day.
-- **Management key:** a third secret that protects *changes* to the YubiKey (making a key). `--protect` stores a random one on the device behind the PIN, so the holder only ever types the PIN.
-- **PIN policy "always":** the device wants the PIN for every signature (slot 9c's default). The holder types it **once per key** at the tool's prompt; the tool hands it to the device again before each signature it makes in that run. **Touch policy "always":** every signature waits for a finger on the device, so malware on the computer cannot sign by itself even while it holds the PIN. The touch is the per-signature human check.
-- **Attestation:** a certificate the YubiKey signs about its own key: "this public key was generated here, with this PIN and touch policy". It chains to Yubico's PIV CA. An imported key gets none.
-- **ykman:** Yubico's command-line tool (YubiKey Manager). **libykcs11:** Yubico's PKCS#11 module, which lets the signing tool use the key.
-
-### What you need (in addition to the table above; no root sticks)
-| Item | Notes |
-|---|---|
-| 3 YubiKeys, kept in 3 different places | YubiKey 5 series (PIV, firmware 5.x). Plus **1 spare** for the trial |
-| ykman and libykcs11 on the offline machine | Debian: `apt-get install yubikey-manager ykcs11` (or `yubico-piv-tool`); Mac: `brew install ykman yubico-piv-tool`. Note the module path (Debian: `/usr/lib/x86_64-linux-gnu/libykcs11.so`; Mac: `$(brew --prefix)/lib/libykcs11.dylib`). UNVERIFIED package names: check with `apt-cache policy` / `brew info` while online |
-| Yubico's PIV attestation CA | Download while online (developers.yubico.com, "PIV attestation"), write its sha256 on the checklist, carry it over. Set `YUBICO_PIV_CA=<file>` at the table. UNVERIFIED: firmware 5.7 and later may use a newer CA; if the check says the chain does not end at the CA, stop and ask |
-| 1 transfer stick | Only `root.json` and, for the GitHub step, the online keys (as above) |
-
-### The day before: prepare each YubiKey (you, one at a time)
-UNVERIFIED on real hardware: do all of this on the **spare** first, then the full rehearsal below on the spare.
-```sh
-ykman list --serials                                   # note your YubiKey's serial (also printed on it)
-ykman --device <serial> piv reset                      # ONLY a new or spare YubiKey: erases its PIV part
-ykman --device <serial> piv access change-pin          # old PIN 123456, then your own (6-8 digits), twice
-ykman --device <serial> piv access change-puk          # old PUK 12345678, then your own, twice
-ykman --device <serial> piv access change-management-key --generate --protect   # asks your PIN
-ykman --device <serial> piv info                       # slot 9c must be empty
-```
-Never type a PIN, PUK or management key as part of a command (it would stay in the shell history): let ykman prompt.
-
-### Rehearse (any machine, any time)
-```sh
-PYTHON=V/bin/python scripts/tuf-bootstrap-root.sh rehearse-tokens /tmp/token-rehearsal-1   # needs softhsm2
-PYTHON=V/bin/python python3 scripts/ceremony-guide.py --yubikey --rehearsal               # the guided walk
-```
-Both end with `REHEARSAL PASSED`. They use **SoftHSM**, a software token that speaks the same PKCS#11 as a YubiKey, with PIN-every-signature keys like slot 9c. The two differences from the real day, and the only ones: the token (software instead of a YubiKey), and how each key is made (`token-keygen` instead of `ykman`, so there is no touch and no attestation). Every later command (`token-pub`, `create`, `check`, `renew`) is the same code. CI runs both on every change to `os/update/` (`os/update/tests/test_tuf_token_ceremony.py`), plus the box's own verifier on a channel whose first root is held by tokens.
-
-**On the spare YubiKey** (the go/no-go for the real day): prepare it as above, then
-```sh
-export PYKCS11LIB=<module path> YUBICO_PIV_CA=<downloaded CA file>
-scripts/tuf-bootstrap-root.sh yubikey-key /tmp/spare-trial spare
-```
-It must end with `attestation OK` and print `PIN policy always, touch policy always`. Then reset the spare (`ykman --device <serial> piv reset`). If this fails, stop: the real three are not touched until the spare works.
-
-`YUBICO_PIV_CA` is required. Without Yubico's CA the attestation proves nothing: any software can make a certificate that looks like the device's f9 certificate for a key that was imported, not made on the YubiKey. The script refuses to start without it. Only this spare trial may run without the CA (for example, to try ykman before the CA is downloaded): name the key `spare` and set `ONEMIND_ATTEST_WITHOUT_CA=spare-trial`. The script then writes `spare-NO-CA-RECORD.txt` (date, serial) and prints `attestation OK WITHOUT Yubico's CA (spare trial only)`. That does not count as Y1: run the trial again with the CA before the real day. The guide refuses the bypass.
-
-If an attestation fails, the script writes **no** `<name>.pub` (the public key stays under a temporary name until the check passes, then is renamed) and moves the attestation files to `<name>-attestation-FAILED/`. Do not use that YubiKey for a root key. The attestation must also name the YubiKey serial the script was pointed at.
-
-### The ceremony with YubiKeys
-`python3 scripts/ceremony-guide.py --yubikey` walks all of it. By hand:
-1. Steps 1 and 2 of the ceremony above (network off, commit checked). `export PYKCS11LIB=<module path> YUBICO_PIV_CA=<CA file>`.
-2. **Make each key on its YubiKey**, one at a time, with only that YubiKey plugged in:
-   ```sh
-   scripts/tuf-bootstrap-root.sh yubikey-key pubs a      # YubiKey A; then pubs b (YubiKey B), pubs c (YubiKey C)
-   ```
-   ykman asks for the PIN (the management key is PIN-protected), the key blinks: touch it. The script refuses if slot 9c already holds a key. It refuses without `YUBICO_PIV_CA`. It prints the device serial (checked against the YubiKey it was pointed at), `attestation OK` and both policies, and only then writes `pubs/a.pub` (public) beside the attestation files. Write each serial on the checklist.
-3. **Online keys:** step 5 above (`online-keys online`).
-4. **Sign the root.** You plug in two of the YubiKeys **together**; the third stays away:
-   ```sh
-   scripts/tuf-bootstrap-root.sh create out security 2 'hsm:2?yubikey=<serial A>' 'hsm:2?yubikey=<serial B>' pubs/c.pub -- \
-     online/targets.pub online/snapshot.pub online/timestamp.pub
-   ```
-   You type each PIN at its own prompt and touch each YubiKey when it blinks. Quotes as written (the `?`).
-5. **Check and read aloud:** step 7 above, unchanged (`check out 2 3`). The root key ids are the ones the three `yubikey-key` runs printed.
-6. Steps 8 to 12 above, unchanged, except: there are no root sticks to store; you keep the three **YubiKeys** in three different places, and the PINs and PUKs apart from them (a password manager or a sealed envelope; a PIN is never stored with its YubiKey), never in the repo.
-
-**Renewal** is the same `renew` command with two token references: `renew current/root.json out-renewed 'hsm:2?yubikey=<serial 1>' 'hsm:2?yubikey=<serial 2>'`.
+- **PIN** (6 to 8 digits), **PUK** (unblocks the PIN) and **management key** (protects changes to the device; `--protect` stores a random one behind the PIN): defaults and lock-out rules are in the checklist.
+- **PIN policy "always":** the device wants the PIN for every signature; the tool asks once per key per run. **Touch policy "always":** every signature waits for a finger on the device, so malware cannot sign by itself even while it holds the PIN.
+- **Attestation:** a certificate the YubiKey signs about its own key ("generated here, with this PIN and touch policy"), chained to Yubico's PIV CA. An imported key gets none. `YUBICO_PIV_CA` is required; `yubikey-key` refuses without it, except for a spare trial with `ONEMIND_ATTEST_WITHOUT_CA=spare-trial` (key named `spare`; it writes `spare-NO-CA-RECORD.txt` and does not count as a pass). On a failed attestation no `<name>.pub` is written and the files move to `<name>-attestation-FAILED/`; do not use that YubiKey.
+- **ykman:** Yubico's command-line tool. **libykcs11:** Yubico's PKCS#11 module.
 
 ### Not verified yet (needs the spare YubiKey)
-- Every `ykman` command above, the module path and package names, and that libykcs11 reports slot 9c's PIN-always key the way SoftHSM does (the signer logs in again for each signature when the key asks for it; SoftHSM proves that path, a YubiKey has not yet).
-- The attestation chain to Yubico's current CA (the checker is tested on synthetic certificates in Yubico's documented layout).
+- Every `ykman` command, the module path and package names, and that libykcs11 reports slot 9c's PIN-always key the way SoftHSM does.
+- The attestation chain to Yubico's current CA (firmware 5.7 and later may use a newer CA; if the check says the chain does not end at the CA, stop and ask).
 - The touch prompt while two YubiKeys sign in one command.
+
+**Renewal** is the same `renew` command with two token references: `renew current/root.json out-renewed 'hsm:2?yubikey=<serial 1>' 'hsm:2?yubikey=<serial 2>'`.
 
 ## Renewing the root
 A root lives 365 days. If it expires, every box refuses every update, security fixes included, and a box cannot fetch a new root by itself without one signed by keys it already trusts. So the root is renewed **before** it expires, offline, by the same 2-of-3 holders. Renewal makes root **version N+1** with the **same keys and thresholds** and a new expiry. It is not a key rotation (no key changes), so a box needs nothing but the new file: it walks `1.root.json`, `2.root.json`, … and accepts each one signed by the threshold of the keys the previous one trusted (TUF's root rotation rule, [CHANNEL.md §2](CHANNEL.md)).
