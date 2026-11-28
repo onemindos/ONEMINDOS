@@ -1,0 +1,43 @@
+# 2026-11-25T12:03:23Z PK-9: canonical name onemind.local
++ systemctl stop kanidmd; mv /var/lib/private/kanidmd /var/lib/private/kanidmd.before-pk9; bash /root/aklab/setup2.sh deb /root/aklab/debs >/dev/null 2>&1; bash /root/aklab/netns.sh >/dev/null; grep -E '^(domain|origin)' /etc/kanidmd/server.toml
+domain = "onemind.local"
+origin = "https://onemind.local:8443"
+  (exit 0)
++ systemctl restart kanidmd; sleep 6; systemctl is-active kanidmd; ip netns exec nsm curl -sS --cacert /etc/kanidm/ca.pem https://onemind.local:8443/status; echo; ip netns exec nsl getent hosts onemind.local; ip netns exec nsm getent hosts onemind.local
+active
+true
+192.0.2.1       onemind.local
+198.51.100.1    onemind.local idm.mesh.test mesh.onemind.local
+  (exit 0)
++ rm -f /root/aklab/secrets/*.cred /root/aklab/secrets/idm_admin.password; kanidmd scripting recover-account idm_admin -c /etc/kanidmd/server.toml 2>/dev/null | python3 -I -c 'import json,sys,os; d=json.load(sys.stdin); fd=os.open("/root/aklab/secrets/idm_admin.password",os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600); os.write(fd,d["output"].encode()); print("recover-account status:", d["status"])'
+recover-account status: ok
+  (exit 0)
++ printf 'uri = "https://onemind.local:8443"\nca_path = "/etc/kanidm/ca.pem"\n' > /etc/kanidm/config; rm -rf /root/.cache/kanidm_tokens; admin_login
+idm_admin login ok
+  (exit 0)
++ k person create owner 'Home Owner'
+Successfully created display_name="Home Owner" username=owner
+  (exit 0)
++ reset_token owner owner.reset
+reset link issued for owner (link and token kept in the secrets dir, not printed)
+This token will expire at: 2026-11-25T13:03:34Z
+  (exit 0)
++ W nsl enrol https://onemind.local:8443 owner owner.cred
+{"ok": true, "origin": "https://onemind.local:8443", "page": "Updating Credentials | User: Home Owner (owner) | Kanidm domain: Kanidm onemind.local | Adding a new passkey Please name", "step": "open_reset"}
+{"credentials_in_authenticator": 1, "ok": true, "origin": "https://onemind.local:8443", "page": "Updating Credentials | User: Home Owner (owner) | Kanidm domain: Kanidm onemind.local | Passkeys | Easy to use digital credentials with self-contained multi-factor authentication designed to replace p", "rp_id": "onemind.local", "step": "passkey_created"}
+{"ok": true, "page": "Kanidm onemind.local | Username | Remember My Username | Begin | Powered by Kanidm", "step": "saved"}
+{"count": 1, "credential_fp": "8419c6a891798baa", "ok": true, "step": "credential_exported"}
+  (exit 0)
++ W nsm signin https://onemind.local:8443 owner owner.cred ok
+{"origin": "https://onemind.local:8443", "page": "Kanidm onemind.local | Username | Remember My Username | Begin | Powered by Kanidm", "step": "login_page"}
+{"browser_console": [], "credential_fp": "8419c6a891798baa", "ok": true, "origin": "https://onemind.local:8443", "page": "Kanidm onemind.local | Applications | Profile | Sign out | Applications | No linked applications available |  | Powered by Kanidm", "profile": "Kanidm onemind.local | Applications | Profile | Sign out | Profile | Credentials | Enrol Device | RADIUS | Profile | Name | Display Name | Email addresses | Unl", "result": "signed-in", "sign_count_after": [2], "sign_count_before": [1], "step": "signin", "url": "https://onemind.local:8443/ui/apps"}
+  (exit 0)
++ W nsl signin https://onemind.local:8443 owner owner.cred ok
+{"origin": "https://onemind.local:8443", "page": "Kanidm onemind.local | Username | Remember My Username | Begin | Powered by Kanidm", "step": "login_page"}
+{"browser_console": [], "credential_fp": "8419c6a891798baa", "ok": true, "origin": "https://onemind.local:8443", "page": "Kanidm onemind.local | Applications | Profile | Sign out | Applications | No linked applications available |  | Powered by Kanidm", "profile": "Kanidm onemind.local | Applications | Profile | Sign out | Profile | Credentials | Enrol Device | RADIUS | Profile | Name | Display Name | Email addresses | Unl", "result": "signed-in", "sign_count_after": [3], "sign_count_before": [2], "step": "signin", "url": "https://onemind.local:8443/ui/apps"}
+  (exit 0)
++ W nsm signin https://mesh.onemind.local:8443 owner owner.cred ok
+{"origin": "https://mesh.onemind.local:8443", "page": "Kanidm onemind.local | Username | Remember My Username | Begin | Powered by Kanidm", "step": "login_page"}
+{"browser_console": [], "credential_fp": "8419c6a891798baa", "ok": true, "origin": "https://mesh.onemind.local:8443", "page": "Kanidm onemind.local | Applications | Profile | Sign out | Applications | No linked applications available |  | Powered by Kanidm", "profile": "Kanidm onemind.local | Applications | Profile | Sign out | Profile | Credentials | Enrol Device | RADIUS | Profile | Name | Display Name | Email addresses | Unl", "result": "signed-in", "sign_count_after": [4], "sign_count_before": [3], "step": "signin", "url": "https://mesh.onemind.local:8443/ui/apps"}
+  (exit 0)
+# 2026-11-25T12:04:02Z PK-9 end
