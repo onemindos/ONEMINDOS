@@ -22,6 +22,7 @@ from pathlib import Path
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+from conftest import apply_settings_change
 from onemind_core import callout, natsjwt
 from onemind_core.natsconf import AgentUser, CalloutAccount, NodeAccount, ServiceKey, render_accounts
 from test_net import hs, kube, net_settings  # noqa: F401 (pytest fixtures)
@@ -320,7 +321,7 @@ def test_callout_switch_writes_the_block_and_keeps_agents_out_of_the_file(net_se
     from onemind_core.natsconf import new_user_key
 
     _, pub = new_user_key()
-    assert client.put("/v1/agents/agent:aaa/nats-key", json={"nkey": pub}, headers=OWNER).status_code == 200
+    apply_settings_change(client, client.put("/v1/agents/agent:aaa/nats-key", json={"nkey": pub}, headers=OWNER))
     text = fab.nats_accounts_file.read_text()
     custodian = settings.audit_path.parent / "custodian"
     acct = callout.load_keys(custodian).account
@@ -346,7 +347,7 @@ def test_kill_switch_rewrites_the_accounts_file(net_settings, clock, tmp_path, m
 
     from fastapi.testclient import TestClient
 
-    from conftest import OWNER, ScriptedExecutor, apply_settings_change
+    from conftest import OWNER, ScriptedExecutor
     from onemind_core.app import create_app
     from onemind_core.natsconf import make_service_key, new_user_key
     from onemind_core.netconf import FabricSettings
@@ -357,7 +358,7 @@ def test_kill_switch_rewrites_the_accounts_file(net_settings, clock, tmp_path, m
     settings = replace(net_settings, sections={**net_settings.sections, "fabric": fab})
     client = TestClient(create_app(settings, clock=clock, executor=ScriptedExecutor()))
     _, pub = new_user_key()
-    assert client.put("/v1/agents/agent:aaa/nats-key", json={"nkey": pub}, headers=OWNER).status_code == 200
+    apply_settings_change(client, client.put("/v1/agents/agent:aaa/nats-key", json={"nkey": pub}, headers=OWNER))
     assert "  AGENTS: {" in fab.nats_accounts_file.read_text()
     confirmed = []
     monkeypatch.setattr(client.app.state.engine.reader, "wait_for_agent_cutoff", lambda marker: confirmed.append(marker) or True)
@@ -422,7 +423,7 @@ def test_kill_switch_http_waits_for_connected_agent_cutoff(net_settings, clock, 
     seed, pub = new_user_key()
     seed_file = tmp_path / "agent.nk"
     seed_file.write_text(seed)
-    assert client.put("/v1/agents/agent:aaa/nats-key", json={"nkey": pub}, headers=OWNER).status_code == 200
+    apply_settings_change(client, client.put("/v1/agents/agent:aaa/nats-key", json={"nkey": pub}, headers=OWNER))
     accounts = net_settings.section(FabricSettings).nats_accounts_file
     assert "  AGENTS: {" in accounts.read_text()
     port, monitor_port = _port(), _port()

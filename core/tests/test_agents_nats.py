@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from conftest import ADULT, AGENT, OWNER
+from conftest import ADULT, AGENT, OWNER, apply_settings_change
 from onemind_core import subjects
 from onemind_core.agents_nats import agent_token
 from onemind_core.mcp.tools import TOOL_NAMES
@@ -123,7 +123,15 @@ def accounts(client) -> str:
 def test_owner_registers_and_removes_an_agent_key(nc):  # noqa: F811
     r = nc.get(KEY_PATH, headers=OWNER)
     assert r.status_code == 200 and r.json()["nkey"] is None and r.json()["subjects"] == []
-    r = nc.put(KEY_PATH, json={"nkey": PUB_A}, headers=OWNER)
+    headers = {**OWNER, "Idempotency-Key": "register-agent-key"}
+    request = nc.put(KEY_PATH, json={"nkey": PUB_A}, headers=headers)
+    assert PUB_A not in accounts(nc)
+    done = apply_settings_change(nc, request)
+    replay = nc.put(KEY_PATH, json={"nkey": PUB_A}, headers=headers)
+    assert replay.status_code == 202 and replay.json()["id"] == done["id"]
+    assert replay.json()["state"] == "succeeded"
+    assert nc.put(KEY_PATH, json={"nkey": PUB_B}, headers=headers).status_code == 409
+    r = nc.get(KEY_PATH, headers=OWNER)
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["account"] == "AGENTS" and body["nkey"] == PUB_A and body["tools"] == []
@@ -132,7 +140,9 @@ def test_owner_registers_and_removes_an_agent_key(nc):  # noqa: F811
     assert f'{{nkey: "{PUB_A}"' in text and "# agent:aaa" in text
     assert '{service: "onemind.request.agent.>", accounts: ["AGENTS"]}' in text
     # A new key replaces the old one: one user per agent principal.
-    assert nc.put(KEY_PATH, json={"nkey": PUB_B}, headers=OWNER).status_code == 200
+    replacement = nc.put(KEY_PATH, json={"nkey": PUB_B}, headers=OWNER)
+    assert PUB_A in accounts(nc) and PUB_B not in accounts(nc)
+    apply_settings_change(nc, replacement)
     assert PUB_A not in accounts(nc) and PUB_B in accounts(nc)
     r = nc.delete(KEY_PATH, headers=OWNER)
     assert r.status_code == 200 and r.json()["nkey"] is None
@@ -141,7 +151,7 @@ def test_owner_registers_and_removes_an_agent_key(nc):  # noqa: F811
 
 
 def test_a_restart_writes_the_agent_users_back(nc):  # noqa: F811
-    assert nc.put(KEY_PATH, json={"nkey": PUB_A}, headers=OWNER).status_code == 200
+    apply_settings_change(nc, nc.put(KEY_PATH, json={"nkey": PUB_A}, headers=OWNER))
     path = nc.app.state.gateway.settings.section(FabricSettings).nats_accounts_file
     path.unlink()
     fabric_of(nc).reconcile()  # what the gateway runs at start
@@ -149,7 +159,7 @@ def test_a_restart_writes_the_agent_users_back(nc):  # noqa: F811
 
 
 def test_cancelling_an_agent_removes_its_nats_user(nc):  # noqa: F811
-    assert nc.put(KEY_PATH, json={"nkey": PUB_A}, headers=OWNER).status_code == 200
+    apply_settings_change(nc, nc.put(KEY_PATH, json={"nkey": PUB_A}, headers=OWNER))
     r = nc.post("/v1/agents/agent:aaa/cancel", json={}, headers=OWNER)
     assert r.status_code == 200, r.text
     assert PUB_A not in accounts(nc)
@@ -172,7 +182,7 @@ def fail_next_write(monkeypatch):
 
 
 def test_a_retried_delete_after_a_failed_write_still_revokes(nc, monkeypatch):  # noqa: F811
-    assert nc.put(KEY_PATH, json={"nkey": PUB_A}, headers=OWNER).status_code == 200
+    apply_settings_change(nc, nc.put(KEY_PATH, json={"nkey": PUB_A}, headers=OWNER))
     fail_next_write(monkeypatch)
     r = nc.delete(KEY_PATH, headers=OWNER)
     assert r.status_code == 503, r.text
@@ -184,7 +194,7 @@ def test_a_retried_delete_after_a_failed_write_still_revokes(nc, monkeypatch):  
 
 
 def test_a_retried_cancel_after_a_failed_write_still_revokes(nc, monkeypatch):  # noqa: F811
-    assert nc.put(KEY_PATH, json={"nkey": PUB_A}, headers=OWNER).status_code == 200
+    apply_settings_change(nc, nc.put(KEY_PATH, json={"nkey": PUB_A}, headers=OWNER))
     fail_next_write(monkeypatch)
     r = nc.post("/v1/agents/agent:aaa/cancel", json={}, headers=OWNER)
     assert r.status_code == 503, r.text
@@ -199,6 +209,15 @@ def test_only_the_owner_sets_an_agent_key(nc, headers):  # noqa: F811
     assert nc.put(KEY_PATH, json={"nkey": PUB_A}, headers=headers).status_code == 403
     assert nc.delete(KEY_PATH, headers=headers).status_code == 403
     assert PUB_A not in accounts(nc)
+
+
+@pytest.mark.real_mode_defaults
+def test_a_nats_key_cannot_be_registered_before_passkey_enrollment(nc):  # noqa: F811
+    r = nc.put(KEY_PATH, json={"nkey": PUB_A}, headers=OWNER)
+    assert r.status_code == 409 and r.json()["reason"] == "no_owner_passkey", r.text
+    assert nc.get(KEY_PATH, headers=OWNER).json()["nkey"] is None
+    assert PUB_A not in accounts(nc)
+    assert nc.get("/v1/actions", headers=OWNER).json() == []
 
 
 @pytest.mark.parametrize("path,body", [

@@ -50,6 +50,7 @@ export function useWindows() {
   const lastLayout = useRef<Layout>('halves');
   const order = useRef<string[]>([]);
   const loaded = useRef<string | undefined>(undefined);
+  const restorePath = useRef<string | undefined>(undefined);
   const allowed = useCallback((path: string) => {
     const route = routeFor(path);
     if (!route || (route.owner && role !== 'owner') || !showsNav(route.screen.id, view, role)) return;
@@ -98,16 +99,20 @@ export function useWindows() {
       next = next.filter(w => allowed(w.path));
     }
     const match = routeFor(path);
+    if (pathname !== '/') restorePath.current = undefined;
     if (pathname !== '/' && match) {
       if (next.length === LIMIT && !next.some(w => w.id === match.screen.id)) {
         toast.show({ title: `Closed ${routeFor(next[0]!.path)?.screen.title} to make room` });
       }
       next = open(next, match.screen.id, path, wsRef.current);
-    } else if (pathname === '/' && first && top(next, wsRef.current)) {
-      navigate(top(next, wsRef.current)!.path, { replace: true });
     } else if (pathname === '/') {
-      // Only this workspace goes to the desktop; the others keep their windows as they were.
-      next = next.map(w => w.ws === wsRef.current ? { ...w, minimised: true } : w);
+      const visible = top(next, wsRef.current)?.path;
+      if (first) restorePath.current = visible;
+      if (!visible || restorePath.current !== visible) {
+        restorePath.current = undefined;
+        // Only this workspace goes to the desktop; the others keep their windows as they were.
+        next = next.map(w => w.ws === wsRef.current ? { ...w, minimised: true } : w);
+      }
     }
     if (narrow) {
       const visible = top(next, wsRef.current);
@@ -117,6 +122,12 @@ export function useWindows() {
   // URL transitions, view changes and display size drive the stack. Frame changes leave the URL alone.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path, pathname, person, view, role, narrow, storage, allowed, update]);
+
+  useEffect(() => {
+    // On a fresh mount the router subscribes in its layout effect, after the window manager.
+    // The saved stack is ready before paint, and navigation waits until the router can receive it.
+    if (pathname === '/' && restorePath.current) navigate(restorePath.current, { replace: true });
+  }, [pathname, person, allowed, navigate]);
 
   function dismiss(id: string, minimiseOnly = false) {
     const next = (minimiseOnly ? minimise : close)(latest.current, id);

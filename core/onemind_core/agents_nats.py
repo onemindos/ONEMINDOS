@@ -113,12 +113,16 @@ class AgentNatsKeys:
         pid, _ = self._pid(name)
         return self.view(pid)
 
-    def set(self, p: Principal, name: str, nkey: str) -> dict:
+    def validate_set(self, p: Principal, name: str, nkey: str) -> str:
         if not p.is_owner:
             raise self._deny(p, "set an agent NATS key")
         pid, _ = self._pid(name)
         if not is_user_public_nkey(nkey):
             raise ApiError(422, "conflict", "nkey: a NATS user public key (U followed by 55 base32 characters)")
+        return pid
+
+    def set(self, p: Principal, name: str, nkey: str) -> dict:
+        pid = self.validate_set(p, name, nkey)
         now = self.clock()
         with self.db.session.begin() as s:
             s.merge(AgentNatsKeyRow(principal_id=pid, nkey=nkey, added_by=p.id, added_at=now))

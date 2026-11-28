@@ -29,9 +29,10 @@ def require_owner_passkey(app: FastAPI) -> None:
                        reason="no_owner_passkey")
 
 
-def request_change(app: FastAPI, gw: Gateway, p: Principal, kind: str, params: dict) -> JSONResponse:
+def request_change(app: FastAPI, gw: Gateway, p: Principal, kind: str, params: dict,
+                   *, idempotency_key: str | None = None) -> JSONResponse:
     require_owner_passkey(app)
-    action, _ = gw.actions.request_feature(p, kind, params, idempotency_key=str(uuid4()),
+    action, _ = gw.actions.request_feature(p, kind, params, idempotency_key=idempotency_key or str(uuid4()),
                                            expires_at=gw.clock() + timedelta(minutes=15), pending_cap=True)
     return JSONResponse(status_code=202, content=action)
 

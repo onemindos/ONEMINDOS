@@ -103,10 +103,19 @@ class AgentPrincipals:
                            reason="agent_budget", retry_after_s=3600)
 
     # ---- owner operations -------------------------------------------------------------------
-    @staticmethod
-    def _owner(p: Principal, what: str, svc: ActionService) -> None:
+    def owner_only(self, p: Principal, what: str) -> None:
         if not p.is_owner:
-            raise svc._deny(p, what)
+            raise self.actions._deny(p, what)
+
+    def control_state(self, pid: str) -> dict:
+        """Snapshot the agent and its limits for a queued permission change."""
+        row = self._row(pid)
+        return {
+            "budget_per_day": row.budget_per_day if row else DEFAULT_BUDGET_PER_DAY,
+            "cancelled_at": iso(row.cancelled_at) if row else None,
+            "updated_at": iso(row.updated_at) if row else None,
+            "principal_uid": self._uid(pid),
+        }
 
     def view(self, pid: str) -> dict:
         row = self._row(pid)
@@ -133,22 +142,22 @@ class AgentPrincipals:
         return sorted(ids)
 
     def list(self, p: Principal) -> list[dict]:
-        self._owner(p, "list agents", self.actions)
+        self.owner_only(p, "list agents")
         return [self.view(i) for i in self.known_ids()]
 
     def get(self, p: Principal, name: str) -> dict:
-        self._owner(p, "read an agent", self.actions)
+        self.owner_only(p, "read an agent")
         return self.view(self.principal_id(name))
 
     def set_budget(self, p: Principal, name: str, budget: int) -> dict:
-        self._owner(p, "set an agent budget", self.actions)
+        self.owner_only(p, "set an agent budget")
         pid = self.principal_id(name)
         self._save(pid, budget_per_day=budget)
         self.audit.append("agent.budget_set", p.as_dict(), None, {"agent": pid, "budget_per_day": budget})
         return self.view(pid)
 
     def cancel(self, p: Principal, name: str) -> dict:
-        self._owner(p, "cancel an agent", self.actions)
+        self.owner_only(p, "cancel an agent")
         pid = self.principal_id(name)
         now = self.clock()
         self._save(pid, cancelled_at=now, cancelled_by=p.id)
@@ -177,7 +186,7 @@ class AgentPrincipals:
             return res.rowcount or 0
 
     def resume(self, p: Principal, name: str) -> dict:
-        self._owner(p, "resume an agent", self.actions)
+        self.owner_only(p, "resume an agent")
         pid = self.principal_id(name)
         self._save(pid, cancelled_at=None, cancelled_by=None)
         self.audit.append("agent.resumed", p.as_dict(), None, {"agent": pid})

@@ -297,9 +297,9 @@ def test_mcp_tasks_get_carries_the_taint(tclient, clock, executor, monkeypatch, 
     created = mrpc(tclient, "tools/call", {"name": "request_action", "arguments": {
         "type": "app.install", "app_id": "uptime-kuma"}}, meta=TASKS_META).json()["result"]
     tid = created["taskId"]
-    monkeypatch.setattr(executor, "run", lambda *a, **k: ExecResult(outcome, HOSTILE))
-    assert tclient.post(f"/v1/actions/{tid}/approve", headers=OWNER).json()["state"] == outcome
-    monkeypatch.undo()
+    with monkeypatch.context() as patch:
+        patch.setattr(executor, "run", lambda *a, **k: ExecResult(outcome, HOSTILE))
+        assert tclient.post(f"/v1/actions/{tid}/approve", headers=OWNER).json()["state"] == outcome
     owner_allows_removals(tclient)
     got = mrpc(tclient, "tasks/get", {"taskId": tid}, meta=TASKS_META).json()["result"]
     assert HOSTILE in str(got)

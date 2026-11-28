@@ -23,7 +23,6 @@ POST /v1/files/wopi/files/{file_id}/contents  # WOPI PutFile (#675): needs the f
 POST /v1/files/shares  # answers with the link secret once, which a replay store must not keep; a retry makes a second link the creator can revoke
 DELETE /v1/files/shares/{share_id}  # revoking a link twice is the same as once: the second answer is the same revoked link
 POST /v1/os/rollouts/{rollout_id}/cancel  # cancelling twice leaves the same state: the second answer is 409 wrong_state and changes nothing
-PUT /v1/agents/{name}/nats-key  # sets one agent's one key: the same body twice leaves the same state
 DELETE /v1/agents/{name}/nats-key  # removing an agent's key twice is the same as once
 POST /v1/host-grants/requests  # files a host.grant action and keeps its §3 body field idempotency_key, like POST /v1/actions
 POST /v1/host-grants/{grant_id}/revoke  # revoking twice leaves the grant revoked; the repeat answers 404 and changes nothing

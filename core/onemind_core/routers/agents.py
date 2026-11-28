@@ -10,15 +10,17 @@ owner changes it. While it is on, every agent principal is refused at the door, 
 
 from __future__ import annotations
 
-from typing import Literal
+from collections.abc import Callable
+from threading import Lock
+from typing import Annotated, Literal
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Header
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ..agent_principals import MAX_BUDGET_PER_DAY, AgentPrincipals
 from ..agents_nats import AgentNatsKeys
 from ..agent_stop import AgentStop
-from ..apimodels import PrincipalRef
+from ..apimodels import Action, PrincipalRef
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError, error_responses
@@ -33,6 +35,9 @@ from ..taint_store import INPUT_KINDS, MAX_ACCEPT, AgentInputs, TaintStore
 ORDER = 155  # right after actions: its approval guard must see the actions it refuses
 
 TAGS = ["agents"]
+RESUME = "policy.agent.resume"
+RAISE_BUDGET = "policy.agent.budget.raise"
+SET_NATS_KEY = "policy.agent.nats_key.set"
 
 # Scope rows are registered once, at import (#323): register() runs per app and must not grow the
 # global registry. PUT is owner only: its row asks for every scope. Later rows override earlier
@@ -248,27 +253,64 @@ def register(app: FastAPI, gw: Gateway) -> None:
                           request_loosen=lambda params: request_change(app, gw, p, "policy.agent_inputs.change", params),
                           on_exposure=lambda: gained_exposure(pid))
 
+    # Like the global Stop switch, recheck the reviewed state and serialize the approved write
+    # with immediate settings changes in this gateway process.
+    controls = Lock()
+
+    def nats_state(pid: str) -> dict:
+        key = keys.view(pid)
+        return {**svc.control_state(pid), "nkey": key["nkey"], "added_at": key["added_at"]}
+
+    def register_agent_change(kind: str, state: Callable[[str], dict],
+                              apply: Callable[[Principal, dict], object]) -> None:
+        def checked(p: Principal, params: dict) -> None:
+            with controls:
+                if state(params["agent"]) != params["before"]:
+                    raise ApiError(409, "conflict", "agent settings changed since the request; file a new one")
+                apply(p, params)
+
+        register_change(app, gw, kind, checked)
+
+    register_agent_change(RESUME, svc.control_state, lambda p, params: svc.resume(p, params["agent"]))
+    register_agent_change(RAISE_BUDGET, svc.control_state,
+                          lambda p, params: svc.set_budget(p, params["agent"], params["budget_per_day"]))
+    register_agent_change(SET_NATS_KEY, nats_state, lambda p, params: keys.set(p, params["agent"], params["nkey"]))
+
     @app.put("/v1/agents/{name}/budget", operation_id="agents.budget.set", tags=TAGS,
-             responses={200: {"model": AgentView}, **error_responses(401, 403, 422)})
+             responses={200: {"model": AgentView}, **QUEUED, **error_responses(401, 403, 409, 422, 429)})
     def set_budget(name: str, body: BudgetBody, p: Principal = Depends(principal)):
-        return svc.set_budget(p, name, body.budget_per_day)
+        svc.owner_only(p, "set an agent budget")
+        pid = svc.principal_id(name)
+        with controls:
+            before = svc.control_state(pid)
+            if body.budget_per_day <= before["budget_per_day"]:
+                return svc.set_budget(p, pid, body.budget_per_day)
+        return request_change(app, gw, p, RAISE_BUDGET,
+                              {"agent": pid, "budget_per_day": body.budget_per_day, "before": before})
 
     @app.post("/v1/agents/{name}/cancel", operation_id="agents.cancel", tags=TAGS,
               responses={200: {"model": AgentCancelled}, **error_responses(401, 403, 422, 503)})
     def cancel_agent(name: str, p: Principal = Depends(principal)):
-        out = svc.cancel(p, name)
-        if name.startswith("agent:"):
-            try:
-                keys.remove(None, name, why="agent_cancelled")
-            except ApiError as exc:  # the cancel stands; a dotted name never had a NATS user
-                if exc.status != 422:
-                    raise
+        with controls:
+            out = svc.cancel(p, name)
+            if name.startswith("agent:"):
+                try:
+                    keys.remove(None, name, why="agent_cancelled")
+                except ApiError as exc:  # the cancel stands; a dotted name never had a NATS user
+                    if exc.status != 422:
+                        raise
         return out
 
     @app.post("/v1/agents/{name}/resume", operation_id="agents.resume", tags=TAGS,
-              responses={200: {"model": AgentView}, **error_responses(401, 403, 422)})
+              responses={200: {"model": AgentView}, **QUEUED, **error_responses(401, 403, 409, 422, 429)})
     def resume_agent(name: str, p: Principal = Depends(principal)):
-        return svc.resume(p, name)
+        svc.owner_only(p, "resume an agent")
+        pid = svc.principal_id(name)
+        with controls:
+            before = svc.control_state(pid)
+            if before["cancelled_at"] is None:
+                return svc.view(pid)
+        return request_change(app, gw, p, RESUME, {"agent": pid, "before": before})
 
     @app.get("/v1/agents/{name}/nats-key", operation_id="agents.nats_key.get", tags=TAGS,
              responses={200: {"model": AgentNatsKey}, **error_responses(401, 403, 422)})
@@ -276,11 +318,19 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return keys.get(p, name)
 
     @app.put("/v1/agents/{name}/nats-key", operation_id="agents.nats_key.set", tags=TAGS,
-             responses={200: {"model": AgentNatsKey}, **error_responses(401, 403, 422, 503)})
-    def set_nats_key(name: str, body: NatsKeyBody, p: Principal = Depends(principal)):
-        return keys.set(p, name, body.nkey)
+             response_model=Action, status_code=202, responses={**QUEUED, **error_responses(401, 403, 409, 422, 429)})
+    def set_nats_key(name: str, body: NatsKeyBody, p: Principal = Depends(principal),
+                     idem: Annotated[str | None, Header(alias="Idempotency-Key", min_length=1, max_length=200)] = None):
+        pid = keys.validate_set(p, name, body.nkey)
+        with controls:
+            previous = gw.actions.repo.get_by_idempotency_key(idem) if idem else None
+            # Replay the original reviewed snapshot even if the first request was already approved.
+            before = previous.params["before"] if previous and previous.type == SET_NATS_KEY else nats_state(pid)
+            return request_change(app, gw, p, SET_NATS_KEY, {"agent": pid, "nkey": body.nkey, "before": before},
+                                  idempotency_key=idem)
 
     @app.delete("/v1/agents/{name}/nats-key", operation_id="agents.nats_key.delete", tags=TAGS,
                 responses={200: {"model": AgentNatsKey}, **error_responses(401, 403, 422, 503)})
     def delete_nats_key(name: str, p: Principal = Depends(principal)):
-        return keys.remove(p, name)
+        with controls:
+            return keys.remove(p, name)

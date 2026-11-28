@@ -473,8 +473,9 @@ POLICY |= {
     # ---- AI agent principals (AIG-03 #167): the owner's budget, cancel and resume controls -------------------------
     ("GET", "/v1/agents"): Row(ONLY_OWNER, w.p_static("/v1/agents"), "AIG-03: only the owner lists agents"),
     ("GET", "/v1/agents/{name}"): Row(ONLY_OWNER, w.p_static("/v1/agents/hermes"), "AIG-03: only the owner reads an agent"),
-    ("PUT", "/v1/agents/{name}/budget"): Row(ONLY_OWNER, w.p_missing("/v1/agents/hermes/budget", json={"budget_per_day": 50}),
-                                             "AIG-03: an agent never raises its own budget"),
+    ("PUT", "/v1/agents/{name}/budget"): Row(grid(202, 403, 403, 403, 403),
+                                            w.p_missing("/v1/agents/hermes/budget", json={"budget_per_day": 250}),
+                                            "AIG-03, D-028: only the owner queues a budget raise for L2 approval"),
     ("POST", "/v1/agents/{name}/cancel"): Row(ONLY_OWNER, w.p_missing("/v1/agents/hermes/cancel", json={}),
                                               "AIG-03: only the owner cancels an agent"),
     ("POST", "/v1/agents/{name}/resume"): Row(ONLY_OWNER, w.p_missing("/v1/agents/hermes/resume", json={}),
@@ -487,8 +488,9 @@ POLICY |= {
                                              "PR 6: only the owner changes it (an agent never lowers its own taint)"),
     ("GET", "/v1/agents/{name}/nats-key"): Row(ONLY_OWNER, w.p_static("/v1/agents/agent:probe/nats-key"),
                                                "#627: only the owner reads an agent's NATS key"),
-    ("PUT", "/v1/agents/{name}/nats-key"): Row(ONLY_OWNER, w.p_missing("/v1/agents/agent:probe/nats-key", json={
-        "nkey": new_user_key()[1]}), "#627: an agent never registers its own NATS key"),
+    ("PUT", "/v1/agents/{name}/nats-key"): Row(grid(202, 403, 403, 403, 403),
+                                              w.p_missing("/v1/agents/agent:probe/nats-key", json={"nkey": new_user_key()[1]}),
+                                              "#627, D-028: only the owner queues a NATS key for L2 approval"),
     ("DELETE", "/v1/agents/{name}/nats-key"): Row(ONLY_OWNER, w.p_missing("/v1/agents/agent:probe/nats-key"),
                                                   "#627: only the owner removes an agent's NATS key"),
     ("GET", "/v1/windows"): Row(READ_ANY, w.p_static("/v1/windows"), f"{_AUTOMATION}: any reader"),

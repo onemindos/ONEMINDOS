@@ -150,12 +150,10 @@ def test_an_identity_token_agent_and_the_v0_token_are_tainted_until_the_owner_de
     assert agent_removes_whoami(tclient, clock, "declared-none").json()["state"] == "succeeded"
 
 
+@pytest.mark.real_mode_defaults
 def test_only_loosening_an_agents_inputs_needs_the_passkey(tclient, monkeypatch):
-    from onemind_core.permissions import changes
-
     ident = tclient.app.state.identity
-    monkeypatch.setattr(changes, "owner_has_passkey", lambda app: ident.passkeys_active())
-    ident.passkeys_active = lambda: True
+    monkeypatch.setattr(ident, "passkeys_active", lambda: True)
     # tightening is L0: adding an input, or none -> web, needs no step-up
     assert tclient.put(INPUTS, json={"external_inputs": ["web"]}, headers=OWNER).status_code == 200
     assert tclient.put(INPUTS, json={"external_inputs": ["web", "email"]}, headers=OWNER).status_code == 200
@@ -167,11 +165,11 @@ def test_only_loosening_an_agents_inputs_needs_the_passkey(tclient, monkeypatch)
         refused = tclient.post(f"/v1/actions/{r.json()['id']}/approve", headers=OWNER)
         assert refused.status_code in (401, 409) and refused.json()["reason"] in ("step_up_required", "needs_proven_key")
     assert tclient.get(INPUTS, headers=OWNER).json()["external_inputs"] == ["web", "email"]
-    ident.passkeys_active = lambda: False
+    monkeypatch.setattr(ident, "passkeys_active", lambda: False)
     ok = {"external_inputs": ["web", "email"], "accept_injection_risk": ["app.restart"]}
     r = tclient.put(INPUTS, json=ok, headers=OWNER)
     assert r.status_code == 409 and r.json()["reason"] == "no_owner_passkey"
-    ident.passkeys_active = lambda: True
+    monkeypatch.setattr(ident, "passkeys_active", lambda: True)
     apply_settings_change(tclient, tclient.put(INPUTS, json=ok, headers=OWNER))
     # removing an accepted risk (same inputs) tightens again
     assert tclient.put(INPUTS, json={"external_inputs": ["web", "email"]}, headers=OWNER).status_code == 200

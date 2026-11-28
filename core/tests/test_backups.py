@@ -22,7 +22,7 @@ from onemind_core.backups.kube import Kube, KubeError, Workload
 from onemind_core.backups.manifest import parse_backup, parse_database
 from onemind_core.databases import DatabasesSettings, SharedPostgres
 
-from conftest import ADULT, AGENT, OWNER
+from conftest import ADULT, AGENT, OWNER, apply_settings_change
 
 NOTES = """apiVersion: onemind.app/v1alpha1
 kind: App
@@ -254,7 +254,7 @@ def test_cancelled_or_unbudgeted_agent_is_refused_on_the_backup_routes(client, b
     for path in ("/v1/backups/runs", "/v1/backups/verify"):
         r = client.post(path, headers=AGENT, json={})
         assert r.status_code == 403 and r.json()["reason"] == "agent_cancelled", path
-    client.post("/v1/agents/hermes/resume", headers=OWNER)
+    apply_settings_change(client, client.post("/v1/agents/hermes/resume", headers=OWNER))
     client.put("/v1/agents/hermes/budget", json={"budget_per_day": 0}, headers=OWNER)
     assert client.post("/v1/backups/runs", headers=AGENT, json={}).status_code == 429
     assert client.post("/v1/backups/runs", headers=OWNER, json={}).status_code in (200, 202)

@@ -19764,6 +19764,16 @@
             },
             "description": "Successful Response"
           },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Change awaiting the owner's action-bound approval"
+          },
           "401": {
             "content": {
               "application/json": {
@@ -19784,6 +19794,16 @@
             },
             "description": "The principal may not do this (permission_denied)"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
           "413": {
             "content": {
               "application/json": {
@@ -19803,6 +19823,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
           }
         },
         "summary": "Set Budget",
@@ -20211,6 +20241,24 @@
               "title": "Name",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
           }
         ],
         "requestBody": {
@@ -20224,15 +20272,15 @@
           "required": true
         },
         "responses": {
-          "200": {
+          "202": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AgentNatsKey"
+                  "$ref": "#/components/schemas/Action"
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Change awaiting the owner's action-bound approval"
           },
           "401": {
             "content": {
@@ -20254,6 +20302,16 @@
             },
             "description": "The principal may not do this (permission_denied)"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
           "413": {
             "content": {
               "application/json": {
@@ -20274,7 +20332,7 @@
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
           },
-          "503": {
+          "429": {
             "content": {
               "application/json": {
                 "schema": {
@@ -20282,7 +20340,7 @@
                 }
               }
             },
-            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
           }
         },
         "summary": "Set Nats Key",
@@ -20316,6 +20374,16 @@
             },
             "description": "Successful Response"
           },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Change awaiting the owner's action-bound approval"
+          },
           "401": {
             "content": {
               "application/json": {
@@ -20336,6 +20404,16 @@
             },
             "description": "The principal may not do this (permission_denied)"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -20345,6 +20423,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
           }
         },
         "summary": "Resume Agent",
