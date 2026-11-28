@@ -23,6 +23,13 @@ const DefaultSAGroup = "239.2.3.1:6969"
 // Version 0 packets are plain XML and start with '<'.
 const ProtoMagic = 0xbf
 
+// MaxMulticastTTL is the highest multicast TTL a Sender accepts. TTL 1 keeps
+// packets on the local network; the design treats that as a security property.
+const MaxMulticastTTL = 1
+
+// ErrTTL means SenderOptions.TTL asked for more than the LAN.
+var ErrTTL = errors.New("cot: multicast ttl outside 0..1 is refused")
+
 // Sender writes CoT events as UDP datagrams to one address, normally the SA
 // multicast group. For a multicast address the TTL is 1 by default, so
 // packets stay on the local network and are not routed further.
@@ -32,7 +39,9 @@ type Sender struct {
 
 // SenderOptions tunes a Sender. The zero value is the safe default.
 type SenderOptions struct {
-	// TTL for multicast packets. 0 means 1 (LAN only).
+	// TTL for multicast packets. 0 means 1 (LAN only). Anything outside 0..1
+	// is refused by NewSender: routed multicast needs a phase decision first.
+	// The check also runs for unicast addresses, where TTL is ignored.
 	TTL int
 	// Interface for multicast packets; nil lets the OS choose.
 	Interface *net.Interface
@@ -43,6 +52,9 @@ type SenderOptions struct {
 
 // NewSender opens a UDP sender to addr ("host:port").
 func NewSender(addr string, opt SenderOptions) (*Sender, error) {
+	if opt.TTL < 0 || opt.TTL > MaxMulticastTTL {
+		return nil, fmt.Errorf("%w: ttl %d (multicast stays on the LAN, ttl 1)", ErrTTL, opt.TTL)
+	}
 	raddr, err := net.ResolveUDPAddr("udp4", addr)
 	if err != nil {
 		return nil, fmt.Errorf("cot: sender address: %w", err)
@@ -53,11 +65,7 @@ func NewSender(addr string, opt SenderOptions) (*Sender, error) {
 	}
 	if raddr.IP.IsMulticast() {
 		pc := ipv4.NewPacketConn(conn)
-		ttl := opt.TTL
-		if ttl <= 0 {
-			ttl = 1
-		}
-		if err := pc.SetMulticastTTL(ttl); err != nil {
+		if err := pc.SetMulticastTTL(1); err != nil {
 			conn.Close()
 			return nil, fmt.Errorf("cot: multicast ttl: %w", err)
 		}

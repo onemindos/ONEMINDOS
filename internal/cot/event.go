@@ -10,6 +10,7 @@ import (
 	"io"
 	"math"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -97,6 +98,37 @@ type Point struct {
 	HAE float64 `xml:"hae,attr"`
 	CE  float64 `xml:"ce,attr"`
 	LE  float64 `xml:"le,attr"`
+}
+
+// decimal formats v as a plain xs:decimal. The CoT base schema types point
+// and track numbers as decimals, which forbid the exponent form (1e-05,
+// 9.999999e+06) that strconv's 'g' and encoding/xml's float default write.
+func decimal(v float64) string {
+	if v == Unknown {
+		return "9999999.0"
+	}
+	return strconv.FormatFloat(v, 'f', -1, 64)
+}
+
+// MarshalXML writes the point with plain-decimal attributes.
+func (p Point) MarshalXML(enc *xml.Encoder, start xml.StartElement) error {
+	start.Attr = append(start.Attr,
+		xml.Attr{Name: xml.Name{Local: "lat"}, Value: decimal(p.Lat)},
+		xml.Attr{Name: xml.Name{Local: "lon"}, Value: decimal(p.Lon)},
+		xml.Attr{Name: xml.Name{Local: "hae"}, Value: decimal(p.HAE)},
+		xml.Attr{Name: xml.Name{Local: "ce"}, Value: decimal(p.CE)},
+		xml.Attr{Name: xml.Name{Local: "le"}, Value: decimal(p.LE)},
+	)
+	return enc.EncodeElement(struct{}{}, start)
+}
+
+// MarshalXML writes the track with plain-decimal attributes.
+func (t Track) MarshalXML(enc *xml.Encoder, start xml.StartElement) error {
+	start.Attr = append(start.Attr,
+		xml.Attr{Name: xml.Name{Local: "course"}, Value: decimal(t.Course)},
+		xml.Attr{Name: xml.Name{Local: "speed"}, Value: decimal(t.Speed)},
+	)
+	return enc.EncodeElement(struct{}{}, start)
 }
 
 // Detail holds the detail elements OneMind reads and writes. Elements this
@@ -230,7 +262,30 @@ func (e *Event) Validate(now time.Time) error {
 	if !now.IsZero() && e.Start.Sub(now) > MaxClockSkew {
 		return invalid("start is more than %s in the future", MaxClockSkew)
 	}
-	return e.Point.validate()
+	if err := e.Point.validate(); err != nil {
+		return err
+	}
+	if e.Detail != nil && e.Detail.Track != nil {
+		return e.Detail.Track.validate()
+	}
+	return nil
+}
+
+// validate refuses track numbers the schema's xs:decimal cannot carry (NaN,
+// infinities) and values outside the physical range.
+func (t Track) validate() error {
+	for _, v := range []float64{t.Course, t.Speed} {
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			return invalid("track has a NaN or infinite value")
+		}
+	}
+	if t.Course < 0 || t.Course > 360 {
+		return invalid("track course %v out of range 0..360", t.Course)
+	}
+	if t.Speed < 0 {
+		return invalid("track speed %v must not be negative", t.Speed)
+	}
+	return nil
 }
 
 func (p Point) validate() error {
