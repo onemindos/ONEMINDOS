@@ -17,6 +17,8 @@ Pure functions over the manifest and the node registry's dicts.
 
 from __future__ import annotations
 
+from .machine_needs import legacy_requires
+
 X86_LEVELS = ("x86-64-v1", "x86-64-v2", "x86-64-v3", "x86-64-v4")
 ARCH_NAMES = {"amd64": "x86 (amd64)", "arm64": "ARM (arm64)"}
 
@@ -41,7 +43,7 @@ def refusal(manifest: dict, node: dict | None) -> tuple[str, str, list[dict]] | 
         return ("arch_unsupported",
                 f"{name} is built for {built} only, and this box is {ARCH_NAMES.get(arch, arch)}.",
                 [{"field": "spec.archs", "problem": f"box is {arch}; app supports {archs}"}])
-    requires = spec.get("requires") if isinstance(spec.get("requires"), dict) else {}
+    requires = legacy_requires(spec)  # #724: requires.arch x86-64-vN is the newer spelling of cpuLevel
     levels = requires.get("cpuLevel") if isinstance(requires.get("cpuLevel"), dict) else {}
     need = levels.get(arch or "")  # a malformed cpuLevel is ignored here; the app gate rejects it
     have = node.get("cpu_level") or ""

@@ -2,3 +2,5 @@
 # rpi5 extras: sfdisk grows the MBR extended + data partitions at first boot (rpi5-grow).
 # The kernel comes from Raspberry Pi's archive as pinned debs (fetch-rpi.sh), not from this list.
 fdisk
+# Audio and Bluetooth for the box's own screen (Step 3): same list as x86_64-efi, see os/boards/x86_64-efi/packages-debian.txt.
+alsa-ucm-conf bluez dbus-user-session libspa-0.2-bluetooth pipewire pipewire-bin pipewire-pulse pulseaudio-utils wireplumber

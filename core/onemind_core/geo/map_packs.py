@@ -70,7 +70,9 @@ class InstalledPack(Record):
 
 class Packs(Record):
     packs: list[InstalledPack]
-    free_bytes: int = Field(ge=0)
+    # None when this box has no map packs volume configured (Offline Maps is not set up): there is
+    # no disk to measure, and an empty list is the truthful answer, not a server fault.
+    free_bytes: int | None = Field(ge=0)
 
 
 class Region(Record):
@@ -148,7 +150,13 @@ class MapPacks:
 
     def _root(self) -> Path:
         path = self.settings.packs_dir
-        if path is None or path.is_symlink() or not path.is_dir():
+        if path is None:
+            # A box without the Offline Maps volume is a state the owner can change (install and
+            # provision the app), not a server fault: a request to add or remove a pack conflicts with it.
+            raise ApiError(409, "conflict", "Offline Maps is not set up on this box: no map packs volume is configured",
+                           reason="map_storage_not_configured")
+        if path.is_symlink() or not path.is_dir():
+            # Configured but missing: the volume did not mount, which is a real fault on this box.
             raise ApiError(503, "unavailable", "The map packs volume is not mounted", reason="map_storage_unavailable")
         return path
 
@@ -190,6 +198,8 @@ class MapPacks:
         return None
 
     def list(self) -> Packs:
+        if self.settings.packs_dir is None:
+            return Packs(packs=[], free_bytes=None)
         root = self._root()
         self._catalog()
         try:

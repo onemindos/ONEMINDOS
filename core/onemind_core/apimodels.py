@@ -427,6 +427,17 @@ class NodePlacement(BaseModel):
     reasons: list[PlacementReason]
 
 
+class MachineFit(BaseModel):
+    node_id: str
+    verdict: Literal["yes", "yes-but-slow", "not-on-this-machine", "not-checked"]
+    reasons: list[str]
+
+
+class MachineFitReport(BaseModel):
+    nodes: list[MachineFit]
+    passing_nodes: list[str]
+
+
 class AppPlacement(BaseModel):
     """GET /v1/apps/{id}/placement (CORE-FABRIC-4): where the app would run, from its `spec.requires`."""
 
@@ -435,3 +446,4 @@ class AppPlacement(BaseModel):
     node_id: str | None = Field(description="the node it would be placed on; null for nowhere and unknown")
     message: str
     nodes: list[NodePlacement]
+    fit: MachineFitReport | None = None

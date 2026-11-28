@@ -42,3 +42,5 @@ DELETE /v1/agent-browser/sessions/{session_id}  # ending a session twice is the 
 DELETE /v1/agent-browser/sites/{site_id}  # removing an approved site twice leaves the same allowlist (the second answers 404)
 PATCH /v1/work/projects/{project_id}/tasks/{task_id}  # guarded by If-Match; replay cannot change a task at a newer revision
 DELETE /v1/work/projects/{project_id}/tasks/{task_id}  # the second removal sees no task
+POST /v1/custom-apps/plan  # asking again for the same commit refreshes that revision's scan and never adds a second revision; nothing is installed
+POST /v1/custom-apps/{app_id}/rollback  # a repeat picks the same earlier revision and points the catalog at it again; the update that applies it is its own approved action

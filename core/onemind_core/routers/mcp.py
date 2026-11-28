@@ -13,7 +13,6 @@ from ..context import Gateway
 from ..guard import reads_body
 from ..errors import error_responses
 from ..identity import ctx_of
-from ..identity.scopes import has_any
 from .. import __version__
 from ..auditread import AuditReader
 from ..mcp import Catalogue, Limits, McpEndpoint, McpSettings, Services
@@ -75,12 +74,16 @@ def register(app: FastAPI, gw: Gateway) -> None:
     async def mcp_post(request: Request, p: Principal = Depends(principal)):
         with work_reader_context(request, p):
             ctx = ctx_of(request)
-            if p.kind == "agent" and ctx is not None and has_any(ctx.scopes, ("work:read",)):
-                # An identity credential may not inherit the static-token v0 action bundle.
+            if p.kind == "agent" and ctx is not None:
+                # An identity credential never inherits the static-token v0 bundle (design PR 4, gap 4): its MCP
+                # scopes are rebuilt from the scopes it was minted with, every time. A broad scope covers its
+                # narrowed forms (actions:request covers actions:request:app.install); a narrowed scope covers
+                # only itself, so an actions:request:app.install token reaches /mcp for that one type.
                 from ..auth import ALWAYS_GRANTED, MCP_SCOPES
+                from ..identity.scopes import within
 
                 p = replace(p, scopes=ALWAYS_GRANTED | frozenset(
-                    scope for scope in MCP_SCOPES if has_any(ctx.scopes, (scope,))
+                    scope for scope in MCP_SCOPES if within(scope, ctx.scopes)
                 ))
             return await mcp.handle(request, p)
 

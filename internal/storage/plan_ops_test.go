@@ -250,7 +250,7 @@ func TestInitStepsKeepKeysOffDisk(t *testing.T) {
 		}
 	}
 	got := strings.Join(ids, ",")
-	if got != "luks-format,luks-setkey,luks-tpm2,token,luks-open,mkfs,top,mount,subvolume,subvolume,subvolume,keydir,keymove,keydrop,umount" {
+	if got != "luks-format,luks-setkey,luks-tpm2,token,luks-open,mkfs,top,mount,subvolume,subvolume,subvolume,snapshots-mode,storage-dir,default-subvolume,keydir,keymove,keydrop,umount" {
 		t.Error(got)
 	}
 	c := cmds(Plan{Steps: steps})
@@ -341,5 +341,37 @@ func TestWipeNeverTouchesTheSystemDisk(t *testing.T) {
 func TestSetKeyIsNotUnderTheStorageSubvolume(t *testing.T) {
 	if strings.HasPrefix(SetKeyPath, "onemind/storage/") || !strings.HasPrefix(SetKeyPath, "onemind/") {
 		t.Errorf("SetKeyPath %q", SetKeyPath)
+	}
+}
+
+// The layout the plans create is the one data_encrypt.py makes on first boot
+// (#975): @ is /data, @storage is /data/storage, snapper's snapshots live in
+// @storage/.snapshots, and there is no top-level @snapshots.
+func TestLayoutStepsMatchTheFirstBootLayout(t *testing.T) {
+	got := cmds(Plan{Steps: LayoutSteps("/top", PhaseCommit)})
+	want := []string{
+		"btrfs subvolume create /top/@",
+		"btrfs subvolume create /top/@storage",
+		"btrfs subvolume create /top/@storage/.snapshots",
+		"install -d -m 0750 /top/@storage/.snapshots",
+		"install -d -m 0755 /top/@/storage",
+		"btrfs subvolume set-default /top/@",
+	}
+	last := -1
+	for _, w := range want {
+		i := strings.Index(got, w)
+		if i < 0 || i < last {
+			t.Fatalf("missing or out of order %q in\n%s", w, got)
+		}
+		last = i
+	}
+	if strings.Contains(got, "@snapshots") {
+		t.Fatalf("a top-level @snapshots is a sibling snapper never looks in:\n%s", got)
+	}
+	init := cmds(Plan{Steps: InitSteps(InitOptions{Part: "/dev/vdb1", SetUUID: "5e7a0000-0000-4000-8000-000000000001"})})
+	for _, w := range []string{"btrfs subvolume create /run/onemind/storage/top/@storage/.snapshots", "btrfs subvolume set-default /run/onemind/storage/top/@"} {
+		if !strings.Contains(init, w) {
+			t.Errorf("init lacks %q", w)
+		}
 	}
 }

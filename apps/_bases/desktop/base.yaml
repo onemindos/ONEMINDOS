@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: Apache-2.0
+# The desktop base (issue #786): every desktop app on the box (Obsidian, browsers, office) is built FROM this image, so
+# they all share one Debian 13 userland, one non-root user and one streaming runtime. Checked by
+# `sdk/tools/app-factory base-check` and built by `sdk/tools/app-factory base-build desktop` (SBOM, Trivy scan,
+# licence notices). Neko's own base image is Debian 13: its first layer is `debian.sh ... 'trixie'` (read from
+# ghcr.io on 2026-11-21), its user neko is uid 1000. Digest read from ghcr.io on 2026-11-21 (amd64 and arm64).
+apiVersion: onemind.factory/v1alpha1
+kind: Base
+base: desktop
+from: ghcr.io/m1k1o/neko/base:3.2.0@sha256:587a3389b6b99c8999eb00a768c79205a74647c57cf5b9695a90234a0edaa446
+os: debian-13
+user: {uid: 1000, gid: 1000, name: neko}
+# The one runtime. The bake-off (test/gui/bakeoff.py) tries Neko first; Selkies (MPL-2.0) and then Xpra
+# (GPL-2.0-or-later) are tried only if Neko fails, and the loser is never shipped next to the winner.
+runtime: {name: neko, licence: Apache-2.0, version: 3.2.0, source: "https://github.com/m1k1o/neko"}
+archs: [amd64, arm64]
+target:
+  image: ghcr.io/onemindos/bases/desktop
+build:
+  sbom: true
+  scan: true
+  notices: NOTICES.md

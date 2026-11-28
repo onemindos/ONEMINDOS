@@ -22,9 +22,21 @@ export function statusRows(status: HomeStatus | null): HomeStatusRow[] {
 export function BoxHealth({ rows, links, details }: {
   rows: HomeStatusRow[]; links: Partial<Record<Source, string>>; details?: Partial<Record<Source, string>>;
 }) {
+  // No source has reported (the status read failed, or the box has not answered yet): one line, not seven "Unknown" pills.
+  if (rows.length > 0 && rows.every((row) => row.state === 'unknown')) {
+    return (
+      <section className="omh-section dash-health" aria-label="Box health">
+        <div className="omh-section-head"><h2>Box health</h2></div>
+        <ul><li><span className="dash-health-row">
+          <StatusPill tone="neutral" label={WORDS.unknown} />
+          <span>The box has not reported its status yet.</span>
+        </span></li></ul>
+      </section>
+    );
+  }
   return (
-    <section className="dash-health" aria-label="Box health">
-      <h2>Box health</h2>
+    <section className="omh-section dash-health" aria-label="Box health">
+      <div className="omh-section-head"><h2>Box health</h2></div>
       <ul>{rows.map((row) => {
         const detail = row.state !== 'unknown' && details?.[row.source];
         const body = (

@@ -24,6 +24,7 @@ import {
 import { isServerId, mergeNotifications, SERVER_PREFIX } from '../data/notificationFeed';
 import { useNotificationFeed } from '../data/useNotificationFeed';
 import { useDownloadToasts } from '../data/useDownloadToasts';
+import { useTipSearch } from '../data/useTipSearch';
 import { activityFrom, notificationsFrom, toActionSummary, toPaletteApp } from '../data/adapters';
 import { ActionJobs, jobsStackStyle } from './ActionJobs';
 import { useHub } from '../data/hub';
@@ -42,6 +43,7 @@ import { href, navId, toRoute } from './routes';
 import { meRetryDelay, roleOf, showsNav, viewFor, type View } from './roles';
 import { usePoll } from '../lib/hooks';
 import { useDisplayName } from '../data/homeMe';
+import { useIdleLock, useIdleLockPreference } from './lock/state';
 
 interface ShellApi {
   openPalette: () => void;
@@ -66,11 +68,15 @@ const CONTRACT_TYPES = new Set(['app.install', 'app.remove', 'app.start', 'app.s
 
 export function Shell({ children }: { children: ReactNode }) {
   const hub = useHub();
-  const { principal, person, signOut, mock, api: client } = useSignedIn();
+  const { principal, account: signedInAccount, person, signOut, lock, mock, api: client } = useSignedIn();
   const navigate = useNavigate();
   const location = useLocation();
   const { requestApp, reviewDialog } = useAppRequest();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [tipQuery, setTipQuery] = useState('');
+  const tipResults: PaletteCommand[] = useTipSearch(paletteOpen ? tipQuery : '').map(tip => ({
+    ...tip, id: `tip:${tip.id}`, group: 'Tips', icon: 'info',
+  }));
   const [jobsShown, setJobsShown] = useState(false);
   const readStore = useMemo(() => personList(person, 'notifications.read'), [person]);
   const recentStore = useMemo(() => personList(person, 'palette.recent', 8), [person]);
@@ -190,6 +196,11 @@ export function Shell({ children }: { children: ReactNode }) {
     );
 
   const boxName = hub.instance.data?.name ?? brand.shortName;
+  const knownPerson = signedInAccount ?? me.data?.principal ?? principal;
+  const canLock = knownPerson?.kind !== 'agent';
+  const lockNow = () => lock({ boxName, waiting });
+  const idle = useIdleLockPreference(knownPerson?.kind === 'person' ? knownPerson.id : undefined, role === 'owner');
+  useIdleLock(canLock && knownPerson ? idle : 0, lockNow);
   const bell = (
     <>
     <QuickSettings role={role} view={view} viewChoice={viewChoice} onViewChoice={setViewChoice} />
@@ -225,6 +236,7 @@ export function Shell({ children }: { children: ReactNode }) {
       <Button size="sm" variant="ghost" onClick={() => setLayout('desktop')} title="Switch to the desktop layout">
         Desktop view
       </Button>
+      {canLock && <Button size="sm" variant="ghost" onClick={lockNow}>Lock now</Button>}
       <Button size="sm" variant="ghost" onClick={signOut}>
         Sign out
       </Button>
@@ -260,6 +272,7 @@ export function Shell({ children }: { children: ReactNode }) {
             onSearch={() => setPaletteOpen(true)}
             onConsoleView={() => setLayout('console')}
             onSignOut={signOut}
+            onLock={canLock ? lockNow : undefined}
           >
             {children}
           </DesktopShell>
@@ -272,6 +285,9 @@ export function Shell({ children }: { children: ReactNode }) {
           open={paletteOpen}
           onClose={() => setPaletteOpen(false)}
           commands={commands}
+          onSearch={setTipQuery}
+          tipResults={tipResults}
+          tipQuery={tipQuery}
           onRun={runCommand}
           recent={recent}
           state={hub.freshness === 'stale' || hub.freshness === 'offline' ? hub.freshness : hub.freshness === 'unknown' ? 'loading' : 'ready'}

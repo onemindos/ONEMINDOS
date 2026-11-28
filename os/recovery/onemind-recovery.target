@@ -9,5 +9,7 @@ Requires=basic.target
 # ONEMIND-RECOVERY lines), and this target never reaches multi-user.target, which is what normally ends it.
 Wants=systemd-networkd.service systemd-resolved.service avahi-daemon.service getty.target plymouth-quit.service onemind-recovery.service onemind-recovery-web.service
 After=basic.target
-Conflicts=rescue.service rescue.target emergency.service emergency.target
+# NetworkManager (hardware boards) is stopped here: recovery keeps the simple networkd DHCP file (50-onemind-dhcp.network),
+# which needs no state from the data partition that is the reason we are here.
+Conflicts=rescue.service rescue.target emergency.service emergency.target NetworkManager.service NetworkManager-wait-online.service
 AllowIsolate=yes

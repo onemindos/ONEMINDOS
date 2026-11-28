@@ -1186,6 +1186,16 @@
             "title": "App Id",
             "type": "string"
           },
+          "fit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MachineFitReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "message": {
             "title": "Message",
             "type": "string"
@@ -2333,6 +2343,17 @@
             ],
             "title": "Category"
           },
+          "custom_source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CustomSource"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "PLG-GIT-01: the Git repository, ref, commit and revision of a custom app; null otherwise"
+          },
           "data_kept": {
             "default": false,
             "description": "True when the app was removed but its data volumes were kept (reinstall picks them up; app.delete_data erases them)",
@@ -2395,6 +2416,10 @@
           "links": {
             "$ref": "#/components/schemas/AppLinks"
           },
+          "machine_needs": {
+            "$ref": "#/components/schemas/MachineNeeds",
+            "description": "#724: requires / recommends / supports normalised to one shape (arch, memoryMb, storageFreeGb, accelerator, devices, radios, models), whichever spelling the manifest uses; a fact it does not state is left out"
+          },
           "name": {
             "anyOf": [
               {
@@ -2408,6 +2433,7 @@
           },
           "requires": {
             "additionalProperties": true,
+            "description": "spec.requires exactly as the manifest writes it, in either spelling; read machine_needs for one shape",
             "title": "Requires",
             "type": "object"
           },
@@ -3389,6 +3415,481 @@
           "scopes"
         ],
         "title": "CreateBody",
+        "type": "object"
+      },
+      "CustomAppRow": {
+        "description": "A linked repository with its revisions, newest first.",
+        "properties": {
+          "added_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added At"
+          },
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "current_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Revision"
+          },
+          "deployed_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployed Revision"
+          },
+          "ref": {
+            "title": "Ref",
+            "type": "string"
+          },
+          "revisions": {
+            "items": {
+              "$ref": "#/components/schemas/CustomRevisionOut"
+            },
+            "title": "Revisions",
+            "type": "array"
+          },
+          "rollback_to": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rollback To"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id",
+          "url",
+          "ref",
+          "status",
+          "revisions"
+        ],
+        "title": "CustomAppRow",
+        "type": "object"
+      },
+      "CustomPlanBody": {
+        "additionalProperties": false,
+        "properties": {
+          "ref": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Ref",
+            "type": "string"
+          },
+          "url": {
+            "maxLength": 500,
+            "minLength": 9,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "ref"
+        ],
+        "title": "CustomPlanBody",
+        "type": "object"
+      },
+      "CustomPlanResult": {
+        "description": "POST /v1/custom-apps/plan: what was fetched and checked. Nothing is installed.",
+        "properties": {
+          "action_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "app.install",
+                  "app.update"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Type"
+          },
+          "app_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Id"
+          },
+          "commit": {
+            "title": "Commit",
+            "type": "string"
+          },
+          "images": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Images",
+            "type": "array"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "next": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "problems": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Problems",
+            "type": "array"
+          },
+          "ref": {
+            "title": "Ref",
+            "type": "string"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision"
+          },
+          "scan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScanChecks"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "signature": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CustomSignature"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "ready",
+              "blocked"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "url",
+          "ref",
+          "commit",
+          "verdict",
+          "problems",
+          "notes"
+        ],
+        "title": "CustomPlanResult",
+        "type": "object"
+      },
+      "CustomRevisionOut": {
+        "description": "One recorded revision of a custom app (appstore/custom.py revision_json).",
+        "properties": {
+          "action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Id"
+          },
+          "commit": {
+            "title": "Commit",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "created_by": {
+            "title": "Created By",
+            "type": "string"
+          },
+          "current": {
+            "title": "Current",
+            "type": "boolean"
+          },
+          "deployed": {
+            "title": "Deployed",
+            "type": "boolean"
+          },
+          "deployed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployed At"
+          },
+          "ref": {
+            "title": "Ref",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "scan": {
+            "$ref": "#/components/schemas/ScanChecks"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "revision",
+          "commit",
+          "ref",
+          "scan",
+          "created_by",
+          "current",
+          "deployed"
+        ],
+        "title": "CustomRevisionOut",
+        "type": "object"
+      },
+      "CustomRollbackBody": {
+        "additionalProperties": false,
+        "properties": {
+          "revision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision"
+          }
+        },
+        "title": "CustomRollbackBody",
+        "type": "object"
+      },
+      "CustomRollbackResult": {
+        "properties": {
+          "action_type": {
+            "const": "app.update",
+            "title": "Action Type",
+            "type": "string"
+          },
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "commit": {
+            "title": "Commit",
+            "type": "string"
+          },
+          "from_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Revision"
+          },
+          "next": {
+            "title": "Next",
+            "type": "string"
+          },
+          "scan": {
+            "$ref": "#/components/schemas/ScanChecks"
+          },
+          "to_revision": {
+            "title": "To Revision",
+            "type": "integer"
+          },
+          "verdict": {
+            "const": "ready",
+            "title": "Verdict",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "app_id",
+          "to_revision",
+          "commit",
+          "verdict",
+          "action_type",
+          "scan",
+          "next"
+        ],
+        "title": "CustomRollbackResult",
+        "type": "object"
+      },
+      "CustomSignature": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "policy": {
+            "title": "Policy",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "policy",
+          "status",
+          "detail"
+        ],
+        "title": "CustomSignature",
+        "type": "object"
+      },
+      "CustomSource": {
+        "description": "PLG-GIT-01: the Git repository a custom app was linked from, at the revision the catalog serves.",
+        "properties": {
+          "commit": {
+            "title": "Commit",
+            "type": "string"
+          },
+          "ref": {
+            "title": "Ref",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "ref",
+          "commit",
+          "revision"
+        ],
+        "title": "CustomSource",
         "type": "object"
       },
       "CutoverBody": {
@@ -4635,6 +5136,7 @@
               "map.pack.add",
               "map.pack.remove",
               "node.wake",
+              "os.rollback",
               "os.rollout.resume",
               "os.rollout.start",
               "os.update.install",
@@ -6527,6 +7029,87 @@
           "devices"
         ],
         "title": "MachineDevices",
+        "type": "object"
+      },
+      "MachineFit": {
+        "properties": {
+          "node_id": {
+            "title": "Node Id",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "verdict": {
+            "enum": [
+              "yes",
+              "yes-but-slow",
+              "not-on-this-machine",
+              "not-checked"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "node_id",
+          "verdict",
+          "reasons"
+        ],
+        "title": "MachineFit",
+        "type": "object"
+      },
+      "MachineFitReport": {
+        "properties": {
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/MachineFit"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "passing_nodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Passing Nodes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "nodes",
+          "passing_nodes"
+        ],
+        "title": "MachineFitReport",
+        "type": "object"
+      },
+      "MachineNeeds": {
+        "description": "What an app needs from a machine at each strength, in the sdk/schema $defs/machineNeeds shape (#724).",
+        "properties": {
+          "recommends": {
+            "additionalProperties": true,
+            "description": "Not required: the app runs without these and better with them",
+            "title": "Recommends",
+            "type": "object"
+          },
+          "requires": {
+            "additionalProperties": true,
+            "description": "The machine must have these, or the app is not placed there",
+            "title": "Requires",
+            "type": "object"
+          },
+          "supports": {
+            "additionalProperties": true,
+            "description": "The app can use these when the machine has them",
+            "title": "Supports",
+            "type": "object"
+          }
+        },
+        "title": "MachineNeeds",
         "type": "object"
       },
       "MachineUploadResult": {
@@ -8694,7 +9277,7 @@
           },
           "expires_s": {
             "default": 86400,
-            "maximum": 604800.0,
+            "maximum": 259200.0,
             "minimum": 60.0,
             "title": "Expires S",
             "type": "integer"
@@ -8741,9 +9324,16 @@
         "additionalProperties": false,
         "properties": {
           "free_bytes": {
-            "minimum": 0.0,
-            "title": "Free Bytes",
-            "type": "integer"
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Free Bytes"
           },
           "packs": {
             "items": {
@@ -9467,6 +10057,51 @@
         "title": "PushIn",
         "type": "object"
       },
+      "PushRegistration": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "platform",
+          "label",
+          "state",
+          "created_at",
+          "last_seen_at"
+        ],
+        "title": "PushRegistration",
+        "type": "object"
+      },
       "QualityEvidence": {
         "description": "The yes/no checks behind a quality tier (#174), per level. A tier needs every check of its level and of the levels below.",
         "properties": {
@@ -9498,6 +10133,35 @@
           "gold"
         ],
         "title": "QualityEvidence",
+        "type": "object"
+      },
+      "QuickAddBody": {
+        "additionalProperties": false,
+        "description": "One line such as `Pay rent tomorrow at 5pm #Home @bills p1`; see work/parse.py.",
+        "properties": {
+          "text": {
+            "maxLength": 400,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "tz": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tz"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "QuickAddBody",
         "type": "object"
       },
       "QuotaBody": {
@@ -10564,6 +11228,42 @@
           }
         },
         "title": "RunBody",
+        "type": "object"
+      },
+      "ScanChecks": {
+        "properties": {
+          "checks": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checks"
+          },
+          "result": {
+            "title": "Result",
+            "type": "string"
+          },
+          "scanned_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scanned At"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "ScanChecks",
         "type": "object"
       },
       "ScanSummary": {
@@ -11647,6 +12347,39 @@
           "types"
         ],
         "title": "ShareTypesOut",
+        "type": "object"
+      },
+      "SignInMethods": {
+        "description": "How the signed-in person can sign in (Settings > Account and security). Facts only, no secret.",
+        "properties": {
+          "passkeys": {
+            "description": "Passkeys this person has registered.",
+            "title": "Passkeys",
+            "type": "integer"
+          },
+          "passkeys_active": {
+            "description": "An owner on this box has a passkey, so owner actions need a fresh passkey sign-in.",
+            "title": "Passkeys Active",
+            "type": "boolean"
+          },
+          "password": {
+            "description": "This person has a password (password sign-in works).",
+            "title": "Password",
+            "type": "boolean"
+          },
+          "totp": {
+            "description": "An authenticator code is asked after the password. A fallback: passkeys come first (D-030).",
+            "title": "Totp",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "password",
+          "totp",
+          "passkeys",
+          "passkeys_active"
+        ],
+        "title": "SignInMethods",
         "type": "object"
       },
       "SigningKey": {
@@ -14380,6 +15113,38 @@
           }
         },
         "title": "ToolCall",
+        "type": "object"
+      },
+      "TotpSecret": {
+        "properties": {
+          "otpauth_uri": {
+            "description": "The same secret as an otpauth:// link (what a QR code holds).",
+            "title": "Otpauth Uri",
+            "type": "string"
+          },
+          "secret": {
+            "description": "Base32 secret for an authenticator app; shown once.",
+            "title": "Secret",
+            "type": "string"
+          }
+        },
+        "required": [
+          "secret",
+          "otpauth_uri"
+        ],
+        "title": "TotpSecret",
+        "type": "object"
+      },
+      "TotpSetup": {
+        "properties": {
+          "one_time": {
+            "$ref": "#/components/schemas/TotpSecret"
+          }
+        },
+        "required": [
+          "one_time"
+        ],
+        "title": "TotpSetup",
         "type": "object"
       },
       "TrashEmptyBody": {
@@ -17640,6 +18405,16 @@
               }
             },
             "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
           }
         },
         "summary": "List Policies",
@@ -19856,6 +20631,55 @@
         ]
       }
     },
+    "/v1/auth/methods": {
+      "get": {
+        "description": "Your own sign-in methods: password, authenticator code, passkeys. A household person only.",
+        "operationId": "auth.methods.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInMethods"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Sign In Methods",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/v1/auth/passkeys": {
       "get": {
         "operationId": "auth.passkeys.list",
@@ -20570,7 +21394,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TotpSetup"
+                }
               }
             },
             "description": "Successful Response"
@@ -23628,6 +24454,317 @@
         "summary": "Get Checkup",
         "tags": [
           "care"
+        ]
+      }
+    },
+    "/v1/custom-apps": {
+      "get": {
+        "description": "Apps linked from a Git repository, each with its revisions and what a rollback would go back to.",
+        "operationId": "customapps.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CustomAppRow"
+                  },
+                  "title": "Response Customapps.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "actions:approve"
+            ]
+          }
+        ],
+        "summary": "List Custom Apps",
+        "tags": [
+          "custom-apps"
+        ]
+      }
+    },
+    "/v1/custom-apps/plan": {
+      "post": {
+        "description": "Fetch a repository at a ref in a sandbox, check it like a Market app and record a revision.\nInstalls nothing: the install or update that follows is an ordinary action an owner approves.",
+        "operationId": "customapps.plan",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomPlanBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomPlanResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "actions:approve"
+            ]
+          }
+        ],
+        "summary": "Plan Custom App",
+        "tags": [
+          "custom-apps"
+        ]
+      }
+    },
+    "/v1/custom-apps/{app_id}": {
+      "get": {
+        "operationId": "customapps.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomAppRow"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "actions:approve"
+            ]
+          }
+        ],
+        "summary": "Get Custom App",
+        "tags": [
+          "custom-apps"
+        ]
+      }
+    },
+    "/v1/custom-apps/{app_id}/rollback": {
+      "post": {
+        "description": "Point the catalog at the previously deployed revision. The app.update that applies it waits for an owner.",
+        "operationId": "customapps.rollback",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomRollbackBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomRollbackResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "actions:approve"
+            ]
+          }
+        ],
+        "summary": "Rollback Custom App",
+        "tags": [
+          "custom-apps"
         ]
       }
     },
@@ -32168,7 +33305,64 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "properties": {
+                    "mutes": {
+                      "description": "Suppress delivery to a channel, device, in_app or all (*) while keeping the inbox item.",
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "channel": {
+                            "type": "string"
+                          },
+                          "topic": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "topic",
+                          "channel"
+                        ],
+                        "type": "object"
+                      },
+                      "maxItems": 50,
+                      "type": "array"
+                    },
+                    "retention_days": {
+                      "description": "Days to keep the person's inbox, defaulting to 90.",
+                      "maximum": 90,
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "silence": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "reason": {
+                              "maxLength": 200,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "until": {
+                              "format": "date-time",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "until",
+                            "reason"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -32223,6 +33417,61 @@
           "content": {
             "application/json": {
               "schema": {
+                "properties": {
+                  "mutes": {
+                    "description": "Suppress delivery to a channel, device, in_app or all (*) while keeping the inbox item.",
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "channel": {
+                          "type": "string"
+                        },
+                        "topic": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "topic",
+                        "channel"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 50,
+                    "type": "array"
+                  },
+                  "retention_days": {
+                    "description": "Days to keep the person's inbox, defaulting to 90.",
+                    "maximum": 90,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "silence": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "reason": {
+                            "maxLength": 200,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "until": {
+                            "format": "date-time",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "until",
+                          "reason"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
                 "type": "object"
               }
             }
@@ -35312,7 +36561,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PushRegistration"
+                  },
+                  "title": "Response Push.Registrations.List",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -40945,6 +42200,127 @@
           }
         },
         "summary": "Change Task",
+        "tags": [
+          "work"
+        ]
+      }
+    },
+    "/v1/work/quick-add": {
+      "post": {
+        "operationId": "work.quick_add",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuickAddBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            },
+            "description": "Idempotent quick-add replay"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "work:write"
+            ]
+          }
+        ],
+        "summary": "Quick Add",
         "tags": [
           "work"
         ]

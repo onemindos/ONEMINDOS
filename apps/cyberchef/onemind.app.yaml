@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: Apache-2.0
+# CyberChef: issue #129 (NMD-04, Supply Depot), written by hand from primary sources: the GitHub API
+# (repos/gchq/CyberChef, releases/latest) and the image's own OCI labels (licence Apache-2.0, revision
+# 8cd426dd4f40, the v11.5.0 release commit). Image digest and archs read from the ghcr.io registry API
+# (v2 manifest endpoint, anonymous token) on 2026-11-19. The research licence matrix has a v11.5.0 row.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: cyberchef
+  name: "CyberChef"
+  version: "11.5.0"
+  description: "The Cyber Swiss Army Knife: encode, decode, encrypt, compress and analyse data in the browser."
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tag (tools) is listed in README.md until
+  # the schema has metadata.tags.
+  category: developer
+  age_rating: 7   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Simple encode, decode and data tools where the content is only what the person types in."
+  icon: icon.svg
+  license: "Apache-2.0"
+  licenceClass: L1
+  source: https://github.com/gchq/CyberChef
+  links:
+    docs: "https://github.com/gchq/CyberChef/wiki"
+    github: "https://github.com/gchq/CyberChef"
+    website: "https://gchq.github.io/CyberChef"
+    support: "https://github.com/gchq/CyberChef/issues"
+  upstream: {release: "v11.5.0", released_at: "2026-09-18T11:54:19Z", archived: false}
+  tier: blocked   # starting value written by hand, never above the gate verdict; CI (app-gate --tier write) owns it from here
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 32}   # sum of the memory requests in manifests/
+  web: {port: 8080}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

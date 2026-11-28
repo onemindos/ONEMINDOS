@@ -587,7 +587,9 @@ def boot_main(R, base, tests, extra):
                  "disk=$(basename $(readlink -f /sys/class/block/$p/..)); "
                  "echo DISK=$(cat /sys/class/block/$disk/size) START=$(cat /sys/class/block/$p/start) "
                  "PSIZE=$(cat /sys/class/block/$p/size); "
-                 "sudo dumpe2fs -h $d 2>/dev/null | grep -E '^(Block count|Block size):'")
+                 # ext4 (a cloud image from before #152) reports its blocks with dumpe2fs; btrfs (D-020) with stat -f
+                 "if [ \"$(findmnt -n -o FSTYPE /data)\" = ext4 ]; then sudo dumpe2fs -h $d 2>/dev/null | grep -E '^(Block count|Block size):'; "
+                 "else echo \"Block count: $(stat -f -c %b /data)\"; echo \"Block size: $(stat -f -c %S /data)\"; fi")
     v = dict(re.findall(r"(DISK|START|PSIZE)=(\d+)", g))
     bc = re.search(r"Block count:\s+(\d+)", g); bs = re.search(r"Block size:\s+(\d+)", g)
     grown = False

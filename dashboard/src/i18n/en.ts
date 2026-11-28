@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // English strings for the wiring-pass screens. Keys are dotted: screen.thing.
 export const en = {
+  'lock.unlockTitle': 'Unlock {name}',
+  'lock.switchPerson': 'Switch person',
+  'lock.return': 'Back to lock screen',
+  'lock.passwordFallback': 'This browser cannot use passkeys here. Use your account instead.',
   'signin.title': 'Welcome to {name}',
   'signin.lede': 'Use your passkey, or pick another way to sign in.',
   'signin.more': 'Other ways to sign in',

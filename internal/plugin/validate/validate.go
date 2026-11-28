@@ -82,6 +82,9 @@ func Manifest(data []byte) error {
 	if err := validateCredentials(value); err != nil {
 		return err
 	}
+	if err := validateMachineNames(value); err != nil {
+		return err
+	}
 	doc, err := jsonschema.UnmarshalJSON(strings.NewReader(string(encoded)))
 	if err != nil {
 		return err
@@ -116,6 +119,9 @@ func Manifest(data []byte) error {
 		return err
 	}
 	if err := validateBlocks(spec); err != nil {
+		return err
+	}
+	if err := validateMachine(spec); err != nil {
 		return err
 	}
 	seen := map[string]bool{}

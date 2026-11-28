@@ -6,13 +6,37 @@
 #   rauc-build  OneMind's RAUC v1.15.2 from the pinned commit (B4.1)
 #   rootfs      the OS tree for one board; exported as a tar and assembled by os/assemble/
 #   tools       the assembler's own toolbox (sgdisk, mkfs, mtools, RAUC 1.15.2, QEMU + firmware)
-# Build args (os/rootfs/debian.args or ubuntu.args): BASE (image@digest), LEG, SNAPSHOT; BOARD.
+# Build args (os/rootfs/debian.args or ubuntu.args): BASE (image@digest; on the Debian leg it only hosts mmdebstrap), LEG, SNAPSHOT; BOARD.
 #   docker buildx build -f os/rootfs/Containerfile --target rootfs --build-arg BOARD=x86_64-efi \
 #     $(sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/debian.args) --output type=tar,dest=rootfs.tar .
 ARG BASE=docker.io/library/debian:trixie@sha256:9c6e381421d0f48d1b8133e573f33c185ee16cbf505eda9c4a8a4791b25ea8a6
+ARG LEG=debian
 
 # ---------------------------------------------------------------- base: pinned archive
-FROM ${BASE} AS base
+# Debian leg (the shipping base, D-007): the tree is made by mmdebstrap straight from the pinned snapshot
+# (os/rootfs/sources/mkbase.sh), so none of the Docker Hub image's container leftovers (policy-rc.d, docker-* apt and
+# dpkg files) are in it. BASE then only hosts mmdebstrap. Ubuntu leg (CI hedge): BASE is the base itself, as before.
+# Two copies of each stage: one for the target platform and one for the build machine (the toolchain stages below).
+FROM ${BASE} AS bootstrap
+ARG SNAPSHOT=20261111T000000Z
+ARG SOURCE_DATE_EPOCH
+COPY os/rootfs/sources/ /tmp/sources/
+RUN sh /tmp/sources/mkbase.sh "$SNAPSHOT" /newroot
+FROM scratch AS base-debian
+COPY --from=bootstrap /newroot/ /
+
+FROM --platform=$BUILDPLATFORM ${BASE} AS bootstrap-build
+ARG SNAPSHOT=20261111T000000Z
+ARG SOURCE_DATE_EPOCH
+COPY os/rootfs/sources/ /tmp/sources/
+RUN sh /tmp/sources/mkbase.sh "$SNAPSHOT" /newroot
+FROM --platform=$BUILDPLATFORM scratch AS base-debian-build
+COPY --from=bootstrap-build /newroot/ /
+
+FROM ${BASE} AS base-ubuntu
+FROM --platform=$BUILDPLATFORM ${BASE} AS base-ubuntu-build
+
+FROM base-${LEG} AS base
 ARG LEG=debian
 ARG SNAPSHOT=20261111T000000Z
 # FIRMWARE=yes (default) enables Debian's non-free-firmware component; FIRMWARE=no is the fully open
@@ -21,6 +45,10 @@ ARG FIRMWARE=yes
 ENV DEBIAN_FRONTEND=noninteractive LC_ALL=C.UTF-8
 COPY os/rootfs/sources/configure-apt.sh /usr/local/sbin/onemind-configure-apt
 RUN onemind-configure-apt "$LEG" "$SNAPSHOT" "$FIRMWARE"
+# Build-time only, removed again at the end of the rootfs stage: a container has no init, so packages must not start
+# their services (policy-rc.d exit 101), and dpkg need not fsync a build that restarts clean anyway.
+RUN printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d && chmod 755 /usr/sbin/policy-rc.d \
+ && printf 'force-unsafe-io\n' > /etc/dpkg/dpkg.cfg.d/onemind-build-speedup
 
 # ---------------------------------------------------------------- RAUC from source (B4.1)
 FROM base AS rauc-build
@@ -37,7 +65,7 @@ RUN build-rauc.sh /opt/rauc-dest
 # wheels: uv runs on the build machine only (fetch the target's Python, export core/uv.lock with
 # hashes, build the project wheel), then the target's own Python and pip make the venv with
 # --require-hashes (uv itself crashes under qemu-user emulation; docs/leap/core/IMAGES.md §2).
-FROM --platform=$BUILDPLATFORM ${BASE} AS onemind-buildbase
+FROM --platform=$BUILDPLATFORM base-${LEG}-build AS onemind-buildbase
 ARG LEG=debian
 ARG SNAPSHOT=20261111T000000Z
 ENV DEBIAN_FRONTEND=noninteractive LC_ALL=C.UTF-8
@@ -82,6 +110,22 @@ RUN for b in onemindd onemind; do \
         -ldflags "-s -w -buildid= -X github.com/onemindos/onemindos/internal/version.Version=$ONEMIND_VERSION" \
         -o "/out/$b" "./cmd/$b" || exit 1; \
     done; ls -la /out
+# Shell completions and man pages for `onemind`, made from the same Cobra command tree as the binary so they
+# cannot drift from it. They are text, so they are generated with a build-machine-arch copy of the CLI (the
+# target-arch binary may not run here). SOURCE_DATE_EPOCH keeps the pages reproducible.
+RUN set -eu; \
+    GOOS=linux GOARCH="$BUILDARCH" go build -trimpath -buildvcs=false -o /tmp/gen/onemind ./cmd/onemind; \
+    GOOS=linux GOARCH="$BUILDARCH" go build -trimpath -buildvcs=false -o /tmp/gen/onemind-mangen ./cmd/onemind-mangen; \
+    mkdir -p /out/completions /out/man1; \
+    /tmp/gen/onemind completion bash > /out/completions/onemind.bash; \
+    /tmp/gen/onemind completion zsh > /out/completions/_onemind; \
+    /tmp/gen/onemind completion fish > /out/completions/onemind.fish; \
+    test -s /out/completions/onemind.bash
+# The man pages carry a date: the commit time (make passes it as MAN_DATE_EPOCH), 0 only when built outside git.
+# Not called SOURCE_DATE_EPOCH as a build-arg: BuildKit would then rewrite every file time in the image.
+ARG MAN_DATE_EPOCH=0
+RUN set -eu; SOURCE_DATE_EPOCH="$MAN_DATE_EPOCH" /tmp/gen/onemind-mangen /out/man1 "$ONEMIND_VERSION"; \
+    gzip -9n /out/man1/*.1; ls /out/man1 | head -3
 
 FROM onemind-buildbase AS onemind-dashboard
 ARG BUILDARCH
@@ -118,6 +162,8 @@ RUN set -eu; case "$TARGETARCH" in amd64) T=x86_64 ;; arm64) T=aarch64 ;; esac; 
     rm -rf /tmp/uv-cache /tmp/uv-python /tmp/uv-bin; ls /out/dist
 
 FROM base AS onemind-gateway
+# Reproducible build (Step 2 PR 8): see the end of this stage.
+ARG SOURCE_DATE_EPOCH
 COPY --from=onemind-pyprep /usr/lib/onemind/gateway/python/ /usr/lib/onemind/gateway/python/
 COPY --from=onemind-pyprep /out/ /tmp/py/
 RUN set -eu; \
@@ -129,10 +175,21 @@ RUN set -eu; \
     "$V" -m pip install --no-cache-dir --disable-pip-version-check --no-deps --no-index /tmp/py/dist/*.whl; \
     "$V" -m pip check; \
     rm -rf /tmp/py; \
-    "$V" -I -c "import onemind_core, yaml, sys; print('gateway venv ok', sys.version.split()[0])"
+    "$V" -I -c "import onemind_core, yaml, sys; print('gateway venv ok', sys.version.split()[0])"; \
+    # Python stamps each .pyc with its source file's mtime, which is the build time here, so two builds differ in \
+    # thousands of .pyc files. Rebuild them all keyed to a hash of the source instead (PEP 552 checked-hash): same \
+    # bytes every build, and still rejected if a source file changes. Test and demo folders stay uncompiled. \
+    find /usr/lib/onemind/gateway -name __pycache__ -type d -prune -exec rm -rf {} +; \
+    "$py" -m compileall -q -f --invalidation-mode checked-hash \
+      -x '/(test|tests|idlelib|lib2to3|turtledemo|site-packages/pip/_vendor/.*/tests)/' \
+      "$(dirname "$(dirname "$py")")/lib" /usr/lib/onemind/gateway/venv/lib
 
 # ---------------------------------------------------------------- the OS tree
 FROM base AS rootfs
+# SOURCE_DATE_EPOCH (reproducible-builds.org): the snapshot's own timestamp, passed by `make rootfs` and
+# os/rootfs/repro-check.sh. As an ARG it is visible to every RUN below, so update-initramfs and friends clamp file
+# times to it; the tar export clamps the rest (rewrite-timestamp=true).
+ARG SOURCE_DATE_EPOCH
 ARG LEG=debian
 ARG BOARD=x86_64-efi
 ARG TARGETARCH
@@ -140,6 +197,8 @@ ARG FIRMWARE=yes
 COPY os/rootfs/packages/ /tmp/onemind/packages/
 COPY os/rootfs/firmware/ /tmp/onemind/firmware/
 COPY os/boards/${BOARD}/ /tmp/onemind/board/
+# NetworkManager boards (board.yaml `network: networkmanager`): the layer is applied in the RUN below, only for them.
+COPY os/rootfs/layers/networkmanager/ /tmp/onemind/networkmanager/
 # Watchdog drivers must be listed before the kernel's initramfs is generated.
 COPY os/rootfs/layers/base/usr/share/initramfs-tools/ /usr/share/initramfs-tools/
 # Brand boot splash (brand/generated/os/plymouth; logo = ONEMIND_BRAND_BOOT_LOGO in brand.env). It must be in
@@ -148,7 +207,8 @@ COPY brand/generated/os/plymouth/onemind/ /usr/share/plymouth/themes/onemind/
 COPY brand/logo/png/white/onemind-mark-white-256.png /usr/share/plymouth/themes/onemind/logo.png
 RUN set -eu; \
     cat /tmp/onemind/packages/${LEG}-common.txt /tmp/onemind/packages/${LEG}-${TARGETARCH}.txt \
-        $(ls /tmp/onemind/board/packages-${LEG}.txt 2>/dev/null) | sed 's/#.*//' | tr -s ' \n' '\n' | sed '/^$/d' > /tmp/onemind/pkgs; \
+        $(ls /tmp/onemind/board/packages-${LEG}.txt 2>/dev/null) \
+        $(grep -Eq '^network:[[:space:]]*networkmanager([[:space:]]|$)' /tmp/onemind/board/board.yaml && echo /tmp/onemind/packages/networkmanager.txt) | sed 's/#.*//' | tr -s ' \n' '\n' | sed '/^$/d' > /tmp/onemind/pkgs; \
     apt-get update; \
     apt-get -y upgrade; \
     apt-get install -y $(cat /tmp/onemind/pkgs); \
@@ -195,6 +255,10 @@ COPY os/rootfs/layers/base/ /
 # OneMind layer (docs/leap/core/IMAGES.md): agent + CLI, NATS, gateway venv, dashboard, catalog,
 # first boot. Every role unit ships disabled; onemind-firstboot starts them once the box has a role.
 COPY --from=onemind-go /out/onemindd /out/onemind /usr/bin/
+COPY --from=onemind-go /out/completions/onemind.bash /usr/share/bash-completion/completions/onemind
+COPY --from=onemind-go /out/completions/_onemind /usr/share/zsh/vendor-completions/_onemind
+COPY --from=onemind-go /out/completions/onemind.fish /usr/share/fish/vendor_completions.d/onemind.fish
+COPY --from=onemind-go /out/man1/ /usr/share/man/man1/
 COPY --from=onemind-fetch /opt/nats/nats-server /usr/bin/nats-server
 COPY --from=onemind-fetch /opt/tailscale/tailscale /usr/bin/tailscale
 COPY --from=onemind-fetch /opt/tailscale/tailscaled /usr/sbin/tailscaled
@@ -224,25 +288,58 @@ RUN set -eu; \
     useradd --system --uid 963 --gid onemind-headscale --no-create-home --home-dir /nonexistent \
       --shell /usr/sbin/nologin onemind-headscale; \
     groupadd --system --gid 964 onemind-radio; \
+    if grep -Eq '^network:[[:space:]]*networkmanager([[:space:]]|$)' /tmp/onemind/board/board.yaml; then \
+      cp -a /tmp/onemind/networkmanager/. /; \
+      cat /usr/lib/onemind/fstab.networkmanager >> /etc/fstab; \
+      mkdir -p /etc/NetworkManager/system-connections /var/lib/NetworkManager; \
+      echo networkmanager > /usr/lib/onemind/network-stack; \
+    else echo networkd > /usr/lib/onemind/network-stack; fi; \
+    groupadd --system --gid 965 onemind-kiosk; \
+    useradd --system --uid 965 --gid onemind-kiosk --no-create-home --home-dir /nonexistent \
+      --shell /usr/sbin/nologin --comment "OneMind kiosk" onemind-kiosk; \
     systemctl enable onemind-firstboot.service onemind-firewall.service avahi-daemon.service >/dev/null; \
     systemctl mask smbd.service nmbd.service winbind.service samba-ad-dc.service >/dev/null; \
     systemctl enable onemind-smb.service >/dev/null; \
     systemctl mask nut-server.service nut-monitor.service nut-client.service ups-monitor.service \
       nut-driver-enumerator.service nut-driver-enumerator.path nut-driver@.service >/dev/null; \
     systemctl enable onemind-ups.service onemind-ups-monitor.service >/dev/null; \
+    systemctl mask smartmontools.service >/dev/null; \
     systemctl disable rpcbind.service rpcbind.socket nfs-client.target nfs-blkmap.service >/dev/null 2>&1; \
+    if [ "${LEG}" = debian ]; then \
+      systemctl enable snapper-timeline.timer snapper-cleanup.timer btrfs-scrub.timer >/dev/null; \
+      systemctl disable snapperd.service >/dev/null 2>&1 || true; \
+      systemctl mask snapper-boot.timer snapper-boot.service btrfs-balance.timer btrfs-defrag.timer btrfs-trim.timer \
+        btrfsmaintenance-refresh.path btrfsmaintenance-refresh.service >/dev/null; \
+    fi; \
     for db in passwd group shadow; do \
       grep -Eq "^$db:.*extrausers" /etc/nsswitch.conf || sed -i -E "s/^($db:.*)$/\\1 extrausers/" /etc/nsswitch.conf; \
     done; \
+    rm -rf /var/lib/extrausers; ln -s /data/onemind/samba/extrausers /var/lib/extrausers; \
     /usr/bin/nats-server --version; \
     /usr/sbin/tailscaled --version | head -1; /usr/bin/tailscale --version | head -1; /usr/bin/headscale version; \
     /usr/lib/onemind/restic version | grep -q 'restic 0.19.1'; command -v sqlite3 >/dev/null; \
+    for t in smartctl sgdisk btrfs jq htop rsync nano less ethtool dmidecode lspci lsusb ping; do command -v $t >/dev/null || { echo "missing $t"; exit 1; }; done; \
     /usr/lib/onemind/gateway/venv/bin/python3 -I -c "import onemind_core" ; \
     if [ -x /tmp/onemind/board/post-install.sh ]; then /tmp/onemind/board/post-install.sh; fi; \
-    systemctl enable systemd-networkd.service systemd-resolved.service onemind-data-layout.service \
+    if [ "$(cat /usr/lib/onemind/network-stack)" = networkmanager ]; then \
+      systemctl enable NetworkManager.service NetworkManager-wait-online.service systemd-resolved.service >/dev/null; \
+      if systemctl is-enabled systemd-networkd.service systemd-networkd-wait-online.service 2>/dev/null | grep -qx enabled; then \
+        echo "ERROR: systemd-networkd is enabled on a NetworkManager board" >&2; exit 1; fi; \
+    else systemctl enable systemd-networkd.service systemd-resolved.service >/dev/null; fi; \
+    rm -f /etc/ssh/ssh_host_*; systemctl mask ssh.socket >/dev/null 2>&1 || true; \
+    if getent passwd admin >/dev/null; then \
+      rm -f /usr/lib/systemd/system/ssh.service.d/20-onemind-owner-key.conf; \
+    else \
+      useradd --uid 1000 --user-group --no-create-home --home-dir /home/admin --shell /bin/bash --comment "OneMind admin" admin; \
+      sed -i '/^admin:/d' /etc/shadow; chmod 0440 /etc/sudoers.d/admin; \
+      systemctl enable ssh.service onemind-ssh-owner-key.path getty@tty2.service >/dev/null; \
+    fi; \
+    systemctl enable onemind-data-layout.service \
       k3s.service onemind-offline-maps-rebind.timer onemind-local-api.service onemind-health-gate.service onemind-data-check.service \
       onemind-factory-reset.service systemd-sysext.service systemd-confext.service >/dev/null; \
     systemctl mask systemd-firstboot.service >/dev/null 2>&1 || true; \
+    mandb -q; \
+    systemctl mask man-db.timer man-db.service >/dev/null; \
     passwd -l root >/dev/null; \
     if command -v plymouth-set-default-theme >/dev/null; then plymouth-set-default-theme onemind; \
     else update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth \
@@ -252,12 +349,19 @@ RUN set -eu; \
     ln -sf "vmlinuz-$kver" /boot/vmlinuz; ln -sf "initrd.img-$kver" /boot/initrd.img; \
     update-initramfs -u -k "$kver"; \
     mkdir -p /data /boot/efi /etc/rancher/node /var/lib/rancher /var/lib/kubelet /var/lib/cni \
-      /var/lib/tailscale /var/lib/onemind-headscale /var/lib/onemind-nats-leaf /var/lib/onemind-nats; \
+      /var/lib/tailscale /var/lib/onemind-headscale /var/lib/onemind-nats-leaf /var/lib/onemind-nats /var/lib/btrfs; \
     grep -q '^SYSEXT_LEVEL=' /usr/lib/os-release || grep -E '^[A-Z_]+=' /usr/lib/onemind/os-release.sysext >> /usr/lib/os-release; \
     test -L /var/lib/extensions && test -L /var/lib/confexts; \
     dpkg-query -W -f='${Package} ${Version} ${Architecture} ${Installed-Size}\n' | sort > /usr/lib/onemind/packages.txt; \
     printf 'leg=%s board=%s arch=%s kernel=%s firmware=%s\n' "${LEG}" "${BOARD}" "${TARGETARCH}" "$kver" "${FIRMWARE}" > /usr/lib/onemind/build-info.txt; \
     rm -rf /tmp/onemind /var/cache/apt/*.bin /var/log/apt /var/log/dpkg.log; \
+    # Build-run leftovers that differ between two builds of one commit and that nothing reads: a random machine id \
+    # (os/assemble/assemble.py reset_machine_id empties it again per image), ldconfig's cache of directory mtimes \
+    # (rebuilt by ldconfig on demand) and update-alternatives' timestamped log. \
+    rm -f /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /var/log/alternatives.log; : > /etc/machine-id; \
+    # The build-time policy-rc.d and dpkg speedup (stage base), and any container-image leftovers a stock Ubuntu base \
+    # brings: none may ship (a policy-rc.d would stop every service start on the box). \
+    rm -f /usr/sbin/policy-rc.d /etc/dpkg/dpkg.cfg.d/onemind-build-speedup /etc/apt/apt.conf.d/docker-* /etc/dpkg/dpkg.cfg.d/docker-*; \
     cat /usr/lib/onemind/build-info.txt
 
 # ---------------------------------------------------------------- assembler / test toolbox

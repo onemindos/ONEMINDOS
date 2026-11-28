@@ -1,0 +1,356 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OneMind declarative screen",
+  "description": "Screen nodes reference read tools and action types declared by the app. The host resolves them against its signed descriptor. Screen data has no executable or navigation fields.",
+  "type": "object",
+  "required": [
+    "schema",
+    "id",
+    "title",
+    "nodes"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "onemind.screen/v1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.-]{0,63}$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/node"
+      },
+      "minItems": 1,
+      "maxItems": 16
+    }
+  },
+  "$defs": {
+    "data": {
+      "type": "object",
+      "required": [
+        "tool"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "tool": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{0,63}$"
+        }
+      }
+    },
+    "field": {
+      "type": "object",
+      "required": [
+        "key",
+        "label"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{0,63}$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        }
+      }
+    },
+    "input": {
+      "type": "object",
+      "required": [
+        "key",
+        "label",
+        "format"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{0,63}$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "format": {
+          "enum": [
+            "text",
+            "number",
+            "boolean",
+            "date"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "list": {
+      "type": "object",
+      "required": [
+        "type",
+        "title",
+        "data",
+        "columns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "list"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "data": {
+          "$ref": "#/$defs/data"
+        },
+        "columns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/field"
+          },
+          "minItems": 1,
+          "maxItems": 24
+        }
+      }
+    },
+    "detail": {
+      "type": "object",
+      "required": [
+        "type",
+        "title",
+        "data",
+        "fields"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "detail"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "data": {
+          "$ref": "#/$defs/data"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/field"
+          },
+          "minItems": 1,
+          "maxItems": 24
+        }
+      }
+    },
+    "form": {
+      "type": "object",
+      "required": [
+        "type",
+        "title",
+        "action",
+        "fields"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "form"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "action": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{0,63}$"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/input"
+          },
+          "minItems": 1,
+          "maxItems": 24
+        }
+      }
+    },
+    "stat": {
+      "type": "object",
+      "required": [
+        "type",
+        "title",
+        "data",
+        "value"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "stat"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "data": {
+          "$ref": "#/$defs/data"
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{0,63}$"
+        }
+      }
+    },
+    "timeline": {
+      "type": "object",
+      "required": [
+        "type",
+        "title",
+        "data",
+        "when",
+        "label"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "timeline"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "data": {
+          "$ref": "#/$defs/data"
+        },
+        "when": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{0,63}$"
+        },
+        "label": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{0,63}$"
+        }
+      }
+    },
+    "empty": {
+      "type": "object",
+      "required": [
+        "type",
+        "title",
+        "message"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "empty"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        }
+      }
+    },
+    "error": {
+      "type": "object",
+      "required": [
+        "type",
+        "title",
+        "message"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "error"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        }
+      }
+    },
+    "map-layer": {
+      "type": "object",
+      "required": [
+        "type",
+        "title",
+        "data",
+        "geometry"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "map-layer"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "data": {
+          "$ref": "#/$defs/data"
+        },
+        "geometry": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{0,63}$"
+        }
+      }
+    },
+    "node": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/list"
+        },
+        {
+          "$ref": "#/$defs/detail"
+        },
+        {
+          "$ref": "#/$defs/form"
+        },
+        {
+          "$ref": "#/$defs/stat"
+        },
+        {
+          "$ref": "#/$defs/timeline"
+        },
+        {
+          "$ref": "#/$defs/empty"
+        },
+        {
+          "$ref": "#/$defs/error"
+        },
+        {
+          "$ref": "#/$defs/map-layer"
+        }
+      ]
+    }
+  }
+}

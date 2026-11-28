@@ -13,6 +13,8 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator
 
+from . import machine_needs
+
 BLOCKS = ("bridge", "connector", "videoSource")
 # A field with a credential name may hold this word only (spec.credentials.password: generated).
 GENERATED = "generated"
@@ -48,6 +50,8 @@ class ManifestRules:
         spec = doc.get("spec")
         if isinstance(spec, dict):
             errs.extend(self.hide(e) for e in block_errors(spec))
+            # #724: requires / recommends / supports (vendor-neutral names, one spelling per fact).
+            errs.extend(self.hide(e) for e in machine_needs.errors(spec))
         return errs
 
     def hide(self, message: str) -> str:

@@ -1,12 +1,18 @@
 # SPDX-License-Identifier: Apache-2.0
-# First boot: make /data LUKS2 (blank partition only). Every boot: unlock it. Runs before any mount of the
+# First boot (blank partition only): make /data btrfs, inside LUKS2 when the box has a TPM or the owner asked for a
+# passphrase (founder rule 2026-11-22, #152). Every boot: unlock it. Runs before any mount of the
 # data partition (local-fs-pre.target); data_encrypt.py says what it will never do. udev rule
 # 70-onemind-data-crypt.rules makes the unlocked device answer to PARTLABEL=onemind-data, so /etc/fstab is unchanged.
+# tpm2.target: systemd-tpm2-generator (systemd 256+, Debian 13 has 257) makes it wait for /dev/tpmrm0 when the firmware
+# announces a TPM, so a slow TPM driver cannot turn a TPM box into a "no TPM" box. If the TPM still never comes,
+# data_encrypt.py fails closed (LUKS2 with the recovery key, never plain).
 [Unit]
-Description=OneMind: encrypt (first boot) and unlock the data partition
+Description=OneMind: make (first boot) and unlock the data partition
 DefaultDependencies=no
 After=systemd-udevd.service systemd-udev-trigger.service
 Wants=systemd-udev-trigger.service
+After=tpm2.target
+Wants=tpm2.target
 Before=local-fs-pre.target
 Wants=local-fs-pre.target
 Before=shutdown.target
@@ -15,7 +21,7 @@ Conflicts=shutdown.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-# Waiting for a person to type the recovery key must not time out; the prompt gives up after three tries.
+# Waiting for a person to type the recovery key or choose a passphrase must not time out; both give up after three tries.
 TimeoutStartSec=infinity
 # The leading '-' : a locked disk is not a failed unit; the data check turns it into recovery mode.
 ExecStart=-/usr/lib/onemind/data-encrypt

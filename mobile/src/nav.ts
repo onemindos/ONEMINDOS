@@ -1,18 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { NavigatorScreenParams } from '@react-navigation/native';
 
-/** Phone navigation per docs/design/IA.md §1 and §3: four primary tabs plus More. */
+/** Atlas phone tabs. The Map tab lands separately (#656). */
 export type TabParams = {
   Home: undefined;
+  Approvals: { id: string } | undefined;
   Apps: undefined;
-  Approvals: undefined;
-  Activity: undefined;
-  More: undefined;
+  Me: undefined;
 };
 
 export type RootParams = {
   Tabs: NavigatorScreenParams<TabParams> | undefined;
+  Activity: undefined;
   AppDetail: { id: string };
+  Tips: { id?: string } | undefined;
   Settings: undefined;
   PhotoBackup: undefined;
   PhotoAlbums: undefined;

@@ -80,11 +80,14 @@ jobs:
             ids=$(tr ' ' '\n' <<<"$ids" | sed '/^$/d' | sort -u)
           fi
           [ -n "$ids" ] || { echo "::error::no apps found"; exit 1; }
-          # shellcheck disable=SC2086 # one argument per id
-          echo "apps=$(jq -cn '$ARGS.positional' --args $ids)" >> "$GITHUB_OUTPUT"
-          echo "ids=$(echo $ids)" >> "$GITHUB_OUTPUT"
-          echo "full=$full" >> "$GITHUB_OUTPUT"
-          echo "apps to gate (full run: $full):" $ids
+          apps=$(jq -cn --arg ids "$ids" '$ids | split("\n") | map(select(length > 0))')
+          ids=$(jq -r 'join(" ")' <<< "$apps")
+          {
+            echo "apps=$apps"
+            echo "ids=$ids"
+            echo "full=$full"
+          } >> "$GITHUB_OUTPUT"
+          echo "apps to gate (full run: $full): $ids"
 
   signatures:
     if: ${{ !github.event.pull_request.draft }}
@@ -195,9 +198,13 @@ jobs:
         run: |
           set -uo pipefail
           out="$RUNNER_TEMP/out"
+          rc=0
           python3 -I sdk/tools/app-gate "$APP" --smoke --tier check --no-write --clamav-db "$RUNNER_TEMP/clamav" \
-            --workdir "$RUNNER_TEMP" --logs-dir "$RUNNER_TEMP/logs" --report "$out/report.json" 2>&1 | tee "$out/gate.log"
-          rc=${PIPESTATUS[0]}
+            --workdir "$RUNNER_TEMP" --logs-dir "$RUNNER_TEMP/logs" --report "$out/report.json" 2>&1 | tee "$out/gate.log" || {
+              statuses=("${PIPESTATUS[@]}")
+              rc=${statuses[0]}
+              if [ "${statuses[1]}" -ne 0 ]; then rc=2; fi
+            }
           RC=$rc python3 -c 'import json, os; print(json.dumps({"app": os.environ["APP"], "arch": os.environ["ARCH"], "runner": os.environ["RUNNER_LABEL"], "rc": int(os.environ["RC"])}))' > "$out/status.json"
           echo "app-gate exit code $rc (0 pass, 1 fail, 2 tool or input error)"
           exit "$rc"

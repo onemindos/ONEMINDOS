@@ -24,6 +24,9 @@ Checks, per app directory (directories whose name starts with "_", such as apps/
  10. no two apps declare the same spec.hostPorts port/protocol, and none declares a port OneMind
      itself uses (sdk/policy/host-ports.yaml; contract §12.22). Always checked across every app.
  11. plugin extensions pass the same built onemind plugin validate used on the box
+ 12. an app that streams a desktop (Neko, Selkies or Xpra) runs non-root and unprivileged, uses one runtime only,
+     and switches the runtime's own login off only when the NetworkPolicies the gateway writes for it admit the
+     gateway alone (no app shipping its own, no dependents, no host ports; sdk/tools/factorylib/desktop.py, #786)
 
 Run with: python3 -I sdk/tools/validate-apps [--apps-dir DIR] [APP_ID ...]
 Exit codes: 0 all apps pass, 1 at least one check failed, 2 usage or environment error.
@@ -53,6 +56,8 @@ try:
     import yaml
     from jsonschema import Draft202012Validator
     from onemind_core.catalog import Catalog
+    from onemind_core.machine_needs import overlays
+    from onemind_core.policy import load_rules
 except ImportError as exc:  # pragma: no cover - environment problem
     sys.stderr.write(f"error: missing dependency ({exc.name}); install sdk/tools/requirements.txt\n")
     sys.exit(2)
@@ -60,8 +65,10 @@ except ImportError as exc:  # pragma: no cover - environment problem
 # Resolve the local library explicitly, including under Python's isolated (-I) mode.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from applib.licence import GREEN, classify  # noqa: E402
+from factorylib import desktop  # noqa: E402
 
 SCHEMA_PATH = REPO_ROOT / "sdk" / "schema" / "onemind.app.schema.json"
+POLICY_RULES_PATH = REPO_ROOT / "sdk" / "policy" / "app-objects.yaml"
 RENOVATE_PATH = REPO_ROOT / "renovate.json"
 HOST_PORTS_PATH = REPO_ROOT / "sdk" / "policy" / "host-ports.yaml"
 SYSTEM_LIST_PATH = REPO_ROOT / "os" / "rootfs" / "layers" / "onemind" / "usr" / "lib" / "onemind" / "system-apps.json"
@@ -188,6 +195,10 @@ class AppChecker:
         self.kustomize = kustomize
         self.kubeconform = kubeconform
         self.plugin_validator = plugin_validator
+        # Check 12: the gateway's own sandbox rules (the NetworkPolicies it writes) and, per app id, the apps that
+        # declare a dependency on it (the gateway opens a path from each of them).
+        self.rules = load_rules(POLICY_RULES_PATH)
+        self.dependents: dict[str, set[str]] = {}
         self.declared_class: object = None  # metadata.licenceClass of the manifest last checked
 
     def schema_errors(self, doc: object) -> list[str]:
@@ -264,6 +275,8 @@ class AppChecker:
             return app_id, errors
         self.workload_checks(objects, errors)
         self.isolation_checks(objects, errors)
+        errors.extend(f"desktop: {e}" for e in desktop.stream_problems(
+            objects, app_id, doc, self.rules, self.dependents.get(app_id, set())))
         if "web" in spec:
             self.service_port_check(objects, spec["web"]["port"], errors)
         self.overlay_checks(app_dir, spec, errors)
@@ -287,14 +300,16 @@ class AppChecker:
             errors.append(f"plugin: shared validator failed ({proc.returncode}): {output}")
 
     def overlay_checks(self, app_dir: Path, spec: dict, errors: list[str]) -> None:
-        """S-5: the accelerator overlay (a directory in the app directory, built on spec.manifests) must render and pass the same
-        checks as the plain manifests, so a GPU box never gets a manifest nobody has validated."""
-        name = dig(spec, ("requires", "accelerator", "overlay"))
-        if not isinstance(name, str):
-            return
+        """S-5: every accelerator overlay (a directory in the app directory, built on spec.manifests) must render and pass the
+        same checks as the plain manifests, so a GPU box never gets a manifest nobody has validated. #724: an overlay may sit
+        under requires, recommends or supports (or the older requires.accelerator with optional: true)."""
+        for name in overlays(spec):
+            self.overlay_check(app_dir, spec, name, errors)
+
+    def overlay_check(self, app_dir: Path, spec: dict, name: str, errors: list[str]) -> None:
         overlay = app_dir / name
         if not inside(overlay, app_dir) or not overlay.is_dir():
-            errors.append(f"spec.requires.accelerator.overlay directory '{name}' does not exist in the app directory")
+            errors.append(f"accelerator overlay directory '{name}' does not exist in the app directory")
             return
         sub: list[str] = []
         rendered = self.render(overlay, sub)
@@ -484,6 +499,28 @@ def renovate_check(renovate_path: Path, apps_dir: Path, app_dirs: list[Path]) ->
     return errors
 
 
+def all_app_dirs(apps_dir: Path) -> list[Path]:
+    return sorted(d for d in apps_dir.iterdir() if d.is_dir() and not d.name.startswith(("_", ".")))
+
+
+def dependents_map(app_dirs: list[Path]) -> dict[str, set[str]]:
+    """Provider id -> ids of the apps that list it (or name it as an alternative) in spec.dependencies."""
+    out: dict[str, set[str]] = {}
+    for d in app_dirs:
+        try:
+            doc = yaml.safe_load((d / MANIFEST_NAME).read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, yaml.YAMLError):
+            continue  # reported by that app's own check
+        deps = dig(doc, ("spec", "dependencies")) if isinstance(doc, dict) else None
+        for dep in deps if isinstance(deps, list) else []:
+            if not isinstance(dep, dict):
+                continue
+            for provider in [dep.get("id"), *(dep.get("alternatives") or [])]:
+                if isinstance(provider, str):
+                    out.setdefault(provider, set()).add(d.name)
+    return out
+
+
 def host_ports_check(app_dirs: list[Path], reserved_path: Path) -> list[str]:
     """Contract §12.22: a declared host port is held by one app at most, and never by OneMind."""
     try:
@@ -574,6 +611,7 @@ def main(argv: list[str]) -> int:
 
     checker = AppChecker(Catalog(apps_dir, SCHEMA_PATH), tools["kustomize"], tools["kubeconform"],
                          args.plugin_validator, system_list)
+    checker.dependents = dependents_map(all_app_dirs(apps_dir))
     print("licence inventory: computed/SPDX-derived from metadata.license; "
           "not declared metadata.licenceClass (that is on the licence-class rows); "
           "not primary-source verification, scan pass, or preinstall permission")

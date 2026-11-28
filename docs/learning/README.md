@@ -48,6 +48,13 @@ Short answers to founder questions, saved so they are not lost in chat. Folder: 
 | 06 | [The test lab, machine by machine: R530 + Proxmox, which box tests what, what to sell](founder/06-test-lab-hardware.md) |
 | 07 | [Kanidm and single sign-on: what it is, is it the right pick, and F-34](founder/07-kanidm-and-single-sign-on.md) |
 | 08 | [How the OneMind image works, and how open it should be](founder/08-how-the-onemind-image-works.html) (web page with diagrams: the disk, boot, read-only root, A/B updates, what ships, firmware and openness; facts checked 2026-11-21; open it in a browser) |
+| 09 | [Why our own OS: distro vs image, bootc, Buildroot, Rugix vs RAUC, k3s, phones, desktop, the gateway](founder/09-why-our-own-os.md) |
+| 10 | [Real paths for C2 and physical AI: go-box, site ops, fabric, greenhouse, vision AI, drones, robots](founder/10-c2-and-physical-ai-paths.md) |
+| 11 | [JADC2 and OneMind: sense, make sense, act; the data fabric; what to adopt and where we differ](founder/11-jadc2-and-onemind.md) |
+| 12 | [Clock, Secure Boot, disk and admin tools, and the `onemind` CLI](founder/12-clock-secure-boot-tools-and-the-cli.md) (Step 2 of the stable-and-live sprint, 2026-11-25) |
+| 13 | [The key ceremony, explained for a first-time OS builder](founder/13-the-key-ceremony-explained.md) (what the root keys do, why the owner holds them, YubiKeys vs USB sticks, is it required; 2026-11-25) |
+
+Also from founder questions: [First Android build: the app live on a real phone, why the nightly APK crashed and how to build, install and connect it](android-first-build.md) (2026-11-26).
 
 Also from founder questions: [umbrelOS screens and OneMind: what we have, what is built, what is missing](umbrelos-screen-gaps.md) (2026-11-20).
 

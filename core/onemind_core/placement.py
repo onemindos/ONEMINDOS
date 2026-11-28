@@ -34,6 +34,7 @@ from __future__ import annotations
 import copy
 
 from . import cpufit, gpufit
+from .machine_needs import legacy_requires
 from .policy import _pod_spec  # the one place that knows where each workload kind keeps its pods
 
 PREFIX = "onemind.io/"
@@ -84,7 +85,7 @@ def assess(manifest: dict, node: dict) -> dict:
     name = _app_name(manifest)
     node_id = node.get("node_id") or "?"
     spec = manifest.get("spec") or {}
-    requires = spec.get("requires") if isinstance(spec.get("requires"), dict) else {}
+    requires = legacy_requires(spec)  # #724: either spelling of spec.requires
     reasons: list[dict] = []
 
     def add(code: str, message: str, blocking: bool) -> None:
@@ -140,7 +141,7 @@ def assess(manifest: dict, node: dict) -> dict:
 def gpu_request(manifest: dict) -> dict | None:
     """What the app asks of GPUs: {count, min_vram_mb}, or None when it needs none."""
     spec = manifest.get("spec") or {}
-    requires = spec.get("requires") if isinstance(spec.get("requires"), dict) else {}
+    requires = legacy_requires(spec)  # #724: either spelling of spec.requires
     if requires.get("gpu") is not True:
         return None
     count, vram = requires.get("gpuCount"), requires.get("minVramMb")

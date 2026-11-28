@@ -495,10 +495,11 @@ func TestRebootInhibitDefers(t *testing.T) {
 
 func TestVerdictAfterBoot(t *testing.T) {
 	for _, tc := range []struct {
-		name, booted, bad, want, result string
+		name, booted, bad, want, result, previous string
 	}{
-		{"committed", "0.1.1", "", heartbeat.UpdateCommitted, "committed 0.1.1"},
-		{"rolled back", "0.1.0", "2026-11-12T03:05:00Z version=0.1.1 verdict=image-bad\n", heartbeat.UpdateRolledBack, "gate verdict image-bad"},
+		// P-16: a committed update notes the version it replaced (still in the other slot: "go back" boots it).
+		{"committed", "0.1.1", "", heartbeat.UpdateCommitted, "committed 0.1.1", "0.1.0"},
+		{"rolled back", "0.1.0", "2026-11-12T03:05:00Z version=0.1.1 verdict=image-bad\n", heartbeat.UpdateRolledBack, "gate verdict image-bad", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newFixture(t, "security", "window = any\n")
@@ -519,6 +520,9 @@ func TestVerdictAfterBoot(t *testing.T) {
 			st := f.status()
 			if st.State != tc.want || !strings.Contains(st.LastResult, tc.result) || len(st.History) != 1 {
 				t.Fatalf("status %+v", st)
+			}
+			if st.PreviousVersion != tc.previous {
+				t.Fatalf("previous version %q, want %q", st.PreviousVersion, tc.previous)
 			}
 			// A rolled-back image-bad release is never offered again.
 			if tc.want == heartbeat.UpdateRolledBack && (res.Decision != DecideNothing || len(f.calls.log) != 0) {
@@ -776,5 +780,46 @@ func TestPlantedRootInStateIsNotAnAnchor(t *testing.T) {
 	res, err := f.run(ModeCheck)
 	if err != nil || res.Candidate == nil || res.Candidate.Meta.Version != "0.1.1" {
 		t.Fatalf("err = %v candidate = %+v, want the genuine 0.1.1 from the image root", err, res.Candidate)
+	}
+}
+
+// P-16: after the owner goes back, the status says so (it used to keep "committed 0.1.1" and a
+// previous_version equal to the running one) and the history gets a went-back entry.
+func TestOwnerGoBackIsRecorded(t *testing.T) {
+	f := newFixture(t, "security", "window = any\n")
+	f.add("vm", "0.1.1", true)
+	f.publish(0)
+	if _, err := f.run(ModeScheduled); err != nil {
+		t.Fatal(err)
+	}
+	os.Remove(filepath.Join(f.dir, "gate", "pending"))
+	f.write("os-release", "ONEMIND_VERSION=\"0.1.1\"\nONEMIND_BOARD=\"vm\"\n")
+	if _, err := f.run(ModeScheduled); err != nil { // committed 0.1.1
+		t.Fatal(err)
+	}
+	// The host went back: the other slot (0.1.0) booted, and 0.1.1 is on the list with the owner's verdict.
+	f.write("os-release", "ONEMIND_VERSION=\"0.1.0\"\nONEMIND_BOARD=\"vm\"\n")
+	f.write("gate/bad-releases", "2026-11-12T03:05:00Z version=0.1.1 verdict=owner-rollback\n")
+	f.calls.log = nil
+	res, err := f.run(ModeScheduled)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := f.status()
+	if st.State != heartbeat.UpdateRolledBack || !strings.Contains(st.LastResult, "went back from 0.1.1 to 0.1.0 (owner request)") || st.PreviousVersion != "" {
+		t.Fatalf("status %+v", st)
+	}
+	if len(st.History) != 2 || st.History[0].Detail != "owner rollback" || st.History[0].From != "0.1.1" || st.History[0].To != "0.1.0" {
+		t.Fatalf("history %+v", st.History)
+	}
+	if res.Decision != DecideNothing || len(f.calls.log) != 0 {
+		t.Fatalf("0.1.1 was offered again: %s %v", res.Decision, f.calls.log)
+	}
+	// A later run does not record it twice.
+	if _, err := f.run(ModeScheduled); err != nil {
+		t.Fatal(err)
+	}
+	if st := f.status(); len(st.History) != 2 {
+		t.Fatalf("history %+v", st.History)
 	}
 }
