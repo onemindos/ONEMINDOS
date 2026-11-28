@@ -41,13 +41,13 @@ def physical_step_up(gw: Gateway):
         if not gw.actions.is_physical(str(action.get("type"))):
             return
         identity_present = any(getattr(g, "__name__", "") == "approval_guard" for g in gw.approval_guards)
-        if body.get("webauthn") is None or not identity_present:
+        if not (body.get("webauthn") or body.get("password_totp")) or not identity_present:
             gw.events.publish_event(
                 "auth", "step_up.required",
                 {"attempted": "approve", "action_id": action_id, "type": action.get("type"),
                  "reason": "physical_needs_passkey"},
                 principal=p.as_dict(), severity="warning", action_id=action_id)
-            raise ApiError(401, "unauthenticated", "this action moves something physical: approve it with your passkey",
+            raise ApiError(401, "unauthenticated", "this action moves something physical: it needs L2 verification",
                            reason="step_up_required")
 
     return guard

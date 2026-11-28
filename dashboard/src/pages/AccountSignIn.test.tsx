@@ -34,7 +34,7 @@ it('puts passkeys first: a passkey user is not asked to add an authenticator cod
   gateway({ password: true, totp: false, passkeys: 1, passkeys_active: true });
   render(<AccountSignIn />);
   const card = (await screen.findByRole('heading', { name: 'Authenticator code' })).closest('section')!;
-  expect(within(card).getByText(/New people should use a passkey only/)).toBeInTheDocument();
+  expect(within(card).getByText(/Passkeys are recommended/)).toBeInTheDocument();
   expect(within(card).getByText('Off')).toBeInTheDocument();
   // The set-up button sits inside a closed disclosure, never as the card's call to action.
   expect(within(card).getByText(/you do not need this/).closest('details')).not.toHaveAttribute('open');

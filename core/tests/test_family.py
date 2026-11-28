@@ -8,8 +8,10 @@ from fastapi.testclient import TestClient
 from conftest import AGENT, OWNER
 from onemind_core.app import create_app
 from onemind_core.identity.scopes import _ROUTES
-from onemind_core.proxy import AppProxy, AppRoute, sharing_check
-from test_identity import audit_events, csrf, enrol, id_settings, idc, setup_owner, PASSWORD  # noqa: F401
+from onemind_core.proxy import SESSION_COOKIE, AppProxy, AppRoute, gateway_session_resolver, sharing_check
+from test_identity import (  # noqa: F401
+    PASSWORD, SoftAuthenticator, audit_events, csrf, enrol, id_settings, idc, register_passkey, setup_owner, stepped,
+)
 
 
 @pytest.fixture
@@ -17,7 +19,7 @@ def family(idc):
     setup_owner(idc)
     child = enrol(idc, "child", "kid")
     uid = child.get("/v1/me").json()["principal"]["id"]
-    r = idc.put("/v1/apps/whoami/access", headers=csrf(idc), json={"people": [uid]})
+    r = stepped(idc, "PUT", "/v1/apps/whoami/access", json={"people": [uid]})
     assert r.status_code == 200
     assert put(idc, uid).status_code == 200  # clear the default age rating: these tests start unrestricted
     return idc, child, uid
@@ -27,10 +29,25 @@ def put(owner, uid, **policy):
     return owner.put(f"/v1/family/profiles/{uid}", headers=csrf(owner), json=policy)
 
 
+def fresh_passkey(owner):
+    options = owner.post("/v1/auth/login/options")
+    assert options.status_code == 200, options.text
+    assertion = owner.passkey.assert_(options.json()["publicKey"]["challenge"])
+    signed_in = owner.post("/v1/auth/login", json={"passkey": assertion})
+    assert signed_in.status_code == 200, signed_in.text
+
+
 def apps(client):
     response = client.get("/v1/apps")
     assert response.status_code == 200, response.text
     return [a["id"] for a in response.json()]
+
+
+def app_session(client, username):
+    # The app-host cookie carries a bearer session, unlike the dashboard's HttpOnly cookie.
+    signed_in = client.post("/v1/auth/login", json={"username": username, "password": PASSWORD, "client": "app"})
+    assert signed_in.status_code == 200, signed_in.text
+    return {"cookie": f"{SESSION_COOKIE}={signed_in.json()['access_token']}"}
 
 
 def test_roles_allowlist_and_proxy(family):
@@ -46,20 +63,24 @@ def test_roles_allowlist_and_proxy(family):
     principal = svc.principal_for(svc.user(uid))
     gateway = owner.app.state.gateway
     shared = sharing_check(gateway.authenticators, gateway.app_filters)
-    headers = {"cookie": f"{svc.cookie}={child.cookies.get(svc.cookie)}"}
-    proxy = AppProxy(gateway.catalog, lambda _: "installed", lambda *_: principal,
-                     lambda *_: "upstream", box_domains=("onemind.local",), shared=shared)
+    headers = app_session(child, "kid")
+    resolve = gateway_session_resolver(gateway.tokens, gateway.authenticators)
+    proxy = AppProxy(gateway.catalog, lambda _: "installed", resolve,
+                     lambda *_: "upstream", box_domains=("onemind.local",), shared=shared,
+                     path_aware_sessions=True)
     proxy.route_for = lambda _: AppRoute(app_id="whoami", host="upstream", port=80, access="signed_in", name="Whoami")
-    assert proxy.decide(headers, "whoami")[0] == 404
-    assert not shared(principal, "whoami", headers)
+    assert proxy.decide(headers, "whoami", "lan")[0] == 404
+    assert not shared(principal, "whoami", headers, "lan")
     assert put(owner, uid).status_code == 200
-    assert shared(principal, "whoami", headers)
-    assert proxy.decide(headers, "whoami")[0] == 204
+    assert shared(principal, "whoami", headers, "lan")
+    assert proxy.decide(headers, "whoami", "lan")[0] == 204
+    assert not shared(principal, "whoami", headers, "mesh")  # a password-only session is LAN-only
+    assert proxy.decide(headers, "whoami", "mesh")[0] == 401
     for access in ("adults", "owner"):
         proxy.route_for = lambda _, access=access: AppRoute(app_id="whoami", host="upstream", port=80, access=access, name="Whoami")
-        assert proxy.decide(headers, "whoami")[0] == 403
+        assert proxy.decide(headers, "whoami", "lan")[0] == 403
     assert child.get("/v1/me").json()["principal"]["role"] == "child"
-    assert owner.post("/v1/users", headers=csrf(owner), json={"display_name": "Nobody", "role": "toddler"}).status_code == 422
+    assert stepped(owner, "POST", "/v1/users", json={"display_name": "Nobody", "role": "toddler"}).status_code == 422
 
 
 def test_ratings_tags_and_live_changes(family):
@@ -100,6 +121,7 @@ def test_timezone_and_week_wrap(family, clock):
     assert apps(child) == ["whoami"]
     clock.advance(1800)
     assert apps(child) == []
+    fresh_passkey(owner)
     assert put(owner, uid, windows=[]).status_code == 200
     assert apps(child) == []
     assert put(owner, uid, windows=None).status_code == 200
@@ -179,11 +201,8 @@ def test_scoped_owner_token_cannot_manage_profiles(family):
 
 
 def test_writes_require_passkey_step_up(family, clock):
-    from test_identity import SoftAuthenticator, register_passkey
-
     owner, child, uid = family
-    register_passkey(owner, SoftAuthenticator())
-    # Registration proves presence; administration needs a fresh proof after its TTL.
+    # The fixture has confirmed sharing. Administration needs a fresh proof after its TTL.
     clock.advance(owner.app.state.identity.cfg.step_up_s + 1)
     assert put(owner, uid, allowed_apps=[]).status_code == 401
     assert owner.put("/v1/family/apps/whoami", headers=csrf(owner), json={"min_age": 0}).status_code == 401
@@ -213,14 +232,15 @@ def teen_family(idc):
     setup_owner(idc)
     teen = enrol(idc, "teen", "tess")
     uid = teen.get("/v1/me").json()["principal"]["id"]
-    assert idc.put("/v1/apps/whoami/access", headers=csrf(idc), json={"people": [uid]}).status_code == 200
+    assert stepped(idc, "PUT", "/v1/apps/whoami/access", json={"people": [uid]}).status_code == 200
     assert put(idc, uid).status_code == 200  # clear the default age rating: these tests start unrestricted
     return idc, teen, uid
 
 
 def test_teen_creation_is_owner_only(idc):
     setup_owner(idc)
-    r = idc.post("/v1/users", headers=csrf(idc), json={"display_name": "Tess", "role": "teen"})
+    register_passkey(idc, SoftAuthenticator())
+    r = stepped(idc, "POST", "/v1/users", json={"display_name": "Tess", "role": "teen"})
     assert r.status_code == 201 and r.json()["role"] == "teen"
     adult, guest = enrol(idc, "adult", "ana"), enrol(idc, "guest", "gus")
     for c in (adult, guest):
@@ -230,8 +250,8 @@ def test_teen_creation_is_owner_only(idc):
     assert teen.patch(f"/v1/users/{r.json()['id']}", headers=csrf(teen), json={"role": "owner"}).status_code == 403
     assert teen.get("/v1/me").json()["principal"]["role"] == "teen"
     # The owner can move a person between roles, and unknown roles stay refused.
-    assert idc.patch(f"/v1/users/{r.json()['id']}", headers=csrf(idc), json={"role": "child"}).json()["role"] == "child"
-    assert idc.patch(f"/v1/users/{r.json()['id']}", headers=csrf(idc), json={"role": "adult"}).json()["role"] == "adult"
+    assert stepped(idc, "PATCH", f"/v1/users/{r.json()['id']}", json={"role": "child"}).json()["role"] == "child"
+    assert stepped(idc, "PATCH", f"/v1/users/{r.json()['id']}", json={"role": "adult"}).json()["role"] == "adult"
 
 
 def test_teen_has_child_scopes_and_no_owner_or_pro_routes(teen_family):
@@ -275,7 +295,7 @@ def test_teen_is_filtered_by_family_limits_and_sharing(teen_family):
     assert owner.put(path, headers=csrf(owner), json={"min_age": 0, "tags": []}).status_code == 200
     assert put(owner, uid).status_code == 200
     assert apps(teen) == []
-    assert owner.put("/v1/apps/whoami/access", headers=csrf(owner), json={"roles": ["teen"]}).status_code == 200
+    assert stepped(owner, "PUT", "/v1/apps/whoami/access", json={"roles": ["teen"]}).status_code == 200
     assert apps(teen) == ["whoami"]
 
 
@@ -286,12 +306,14 @@ def test_teen_proxy_and_birth_date(teen_family):
     assert principal.role == "teen"
     gateway = owner.app.state.gateway
     shared = sharing_check(gateway.authenticators, gateway.app_filters)
-    headers = {"cookie": f"{svc.cookie}={teen.cookies.get(svc.cookie)}"}
-    proxy = AppProxy(gateway.catalog, lambda _: "installed", lambda *_: principal,
-                     lambda *_: "upstream", box_domains=("onemind.local",), shared=shared)
+    headers = app_session(teen, "tess")
+    resolve = gateway_session_resolver(gateway.tokens, gateway.authenticators)
+    proxy = AppProxy(gateway.catalog, lambda _: "installed", resolve,
+                     lambda *_: "upstream", box_domains=("onemind.local",), shared=shared,
+                     path_aware_sessions=True)
     for access, status in (("signed_in", 204), ("adults", 403), ("owner", 403)):
         proxy.route_for = lambda _, access=access: AppRoute(app_id="whoami", host="upstream", port=80, access=access, name="Whoami")
-        assert proxy.decide(headers, "whoami")[0] == status, access
+        assert proxy.decide(headers, "whoami", "lan")[0] == status, access
     # Age assurance: a teen carries a private birth date like a child; adults and guests do not.
     assert put(owner, uid, birth_date="2011-05-06").status_code == 200
     assert owner.get(f"/v1/family/profiles/{uid}").json()["birth_date"] == "2011-05-06"
@@ -320,7 +342,9 @@ def rating(owner, uid):
 
 
 def new_person(owner, role, name="Pat"):
-    r = owner.post("/v1/users", headers=csrf(owner), json={"display_name": name, "role": role})
+    if getattr(owner, "passkey", None) is None:
+        register_passkey(owner, SoftAuthenticator())
+    r = stepped(owner, "POST", "/v1/users", json={"display_name": name, "role": role})
     assert r.status_code == 201, r.text
     return r.json()["id"]
 
@@ -356,24 +380,24 @@ def test_role_change_applies_the_preset_only_when_no_profile_exists(idc):
     setup_owner(idc)
     adult = new_person(idc, "adult")
     assert rating(idc, adult) is None
-    assert idc.patch(f"/v1/users/{adult}", headers=csrf(idc), json={"role": "teen"}).status_code == 200
+    assert stepped(idc, "PATCH", f"/v1/users/{adult}", json={"role": "teen"}).status_code == 200
     assert rating(idc, adult) == 16
     # Teen to child keeps the existing profile, even though the child preset is stricter.
-    assert idc.patch(f"/v1/users/{adult}", headers=csrf(idc), json={"role": "child"}).status_code == 200
+    assert stepped(idc, "PATCH", f"/v1/users/{adult}", json={"role": "child"}).status_code == 200
     assert rating(idc, adult) == 16
     # A profile the owner cleared is a profile: a later role change does not bring the preset back.
     assert put(idc, adult).status_code == 200
-    assert idc.patch(f"/v1/users/{adult}", headers=csrf(idc), json={"role": "teen"}).status_code == 200
+    assert stepped(idc, "PATCH", f"/v1/users/{adult}", json={"role": "teen"}).status_code == 200
     assert rating(idc, adult) is None
     # Becoming an adult adds nothing, and renaming alone adds nothing.
     other = new_person(idc, "adult")
-    assert idc.patch(f"/v1/users/{other}", headers=csrf(idc), json={"display_name": "Sam"}).status_code == 200
-    assert idc.patch(f"/v1/users/{other}", headers=csrf(idc), json={"role": "guest"}).status_code == 200
+    assert stepped(idc, "PATCH", f"/v1/users/{other}", json={"display_name": "Sam"}).status_code == 200
+    assert stepped(idc, "PATCH", f"/v1/users/{other}", json={"role": "guest"}).status_code == 200
     assert rating(idc, other) is None
     # A person who gets a profile before a role change keeps it.
     third = new_person(idc, "guest")
     assert put(idc, third, max_age_rating=10).status_code == 200
-    assert idc.patch(f"/v1/users/{third}", headers=csrf(idc), json={"role": "teen"}).status_code == 200
+    assert stepped(idc, "PATCH", f"/v1/users/{third}", json={"role": "teen"}).status_code == 200
     assert rating(idc, third) == 10
 
 
@@ -396,7 +420,7 @@ def preset_kids(idc):
         client = enrol(idc, role, role)
         ids.append(client.get("/v1/me").json()["principal"]["id"])
         clients.append(client)
-    assert idc.put("/v1/apps/whoami/access", headers=csrf(idc), json={"people": ids}).status_code == 200
+    assert stepped(idc, "PUT", "/v1/apps/whoami/access", json={"people": ids}).status_code == 200
     return idc, clients[0], clients[1]
 
 

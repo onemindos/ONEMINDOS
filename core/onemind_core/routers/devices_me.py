@@ -89,7 +89,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.delete("/v1/me/devices/{device_id}", operation_id="me.devices.remove", tags=["auth"],
                 response_model=MyDeviceRemoved, responses=error_responses(401, 403, 409))
     def remove_my_device(device_id: str, request: Request, p: Principal = Depends(principal)):
-        """Lost this device: revoke everything it holds in one step. Needs a fresh passkey once passkeys
-        are on; refused for the device you are using and for an owner's last device. Calling it again
-        is safe: `removed` is false and nothing is revoked."""
+        """Revoke a lost device from a signed-in session. Refuses the current device or the last sign-in
+        method and requires stronger proof to remove the last proven keys. If the device is already
+        gone, `removed` is false."""
         return svc.remove(ctx_of(request), p, device_id)

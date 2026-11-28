@@ -98,6 +98,29 @@ describe("step-up in place", () => {
     expect(bodies[2]).toEqual({ op: "auth.passkeys.delete", target: "k1", body: {} });
   });
 
+  it("uses an authenticator and the box for the exact owner change", async () => {
+    const calls: { path: string; body: unknown; retry: false }[] = [];
+    const t: StepUpTransport = {
+      call: async <T>(r: { path: string; body: unknown; retry: false }) => {
+        calls.push(r);
+        return (r.path.endsWith("options")
+          ? { publicKey: {}, challenge: "abc", box_code_required: true }
+          : { step_up: "g" }) as T;
+      },
+    };
+    const result = await completeStepUp(t, { ...STEP, box: "alt" }, undefined, {
+      verification: async () => ({ method: "password+totp", password: "a fixture password", totp: "824963", atBox: true }),
+      boxCode: async () => "504 001",
+    });
+    expect(result).toBe("g");
+    expect(calls).toEqual([
+      { method: "POST", path: "/v1/auth/step-up/options", retry: false,
+        body: { op: STEP.op, target: STEP.target, body: STEP.body, method: "password+totp", at_box: true } },
+      { method: "POST", path: "/v1/auth/step-up", retry: false,
+        body: { password_totp: { challenge: "abc", password: "a fixture password", totp: "824963" }, box_code: "504001" } },
+    ]);
+  });
+
   it("no way to ask for the box's code: fails before the hub shows one", async () => {
     let asked = false;
     const t: StepUpTransport = { call: async <T>() => { asked = true; return {} as T; } };

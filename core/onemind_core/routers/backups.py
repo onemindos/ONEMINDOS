@@ -14,12 +14,13 @@ from __future__ import annotations
 import re
 import secrets
 from datetime import datetime, timedelta
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import Depends, FastAPI, Header, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
 
+from ..apimodels import Action
 from ..auth import Principal
 from ..backups.jobs import AgentError
 from ..backups.service import BackupService, Unavailable
@@ -28,6 +29,7 @@ from ..catalog import APP_ID_RE
 from ..context import Gateway
 from ..errors import ApiError, error_responses as _error_responses
 from ..identity.scopes import register_route_scope
+from ..identity.service import ctx_of
 from ..jsonbody import JsonBody
 from ..ledger import utc
 
@@ -35,6 +37,7 @@ from ..ledger import utc
 # switching the tier is owner-only, and `backups:admin` is a scope only the owner role holds.
 register_route_scope("GET,HEAD", r"/v1/backups/content", ("backups:read",))
 register_route_scope("POST", r"/v1/backups/content", ("backups:admin",))
+register_route_scope("POST", r"/v1/backups/kit/(request|[^/]+/claim)", ("backups:admin",))
 
 
 def error_responses(*statuses: int) -> dict[int, dict]:
@@ -109,6 +112,17 @@ class DestinationBody(_Request):
     credentials: dict[str, str] | None = None
 
 
+class BackupDestination(BaseModel):
+    id: str
+    kind: str
+    label: str
+    primary: bool
+    append_only: bool
+    config: dict[str, Any]
+    action_id: str | None
+    created_at: str | None
+
+
 class ContentBody(_Request):
     """Switch an app's content tier (BAK-03). Switching it on needs the size the owner was shown."""
     app_id: str = Field(min_length=1, max_length=59, pattern=APP_ID_RE.pattern)
@@ -119,6 +133,28 @@ class ContentBody(_Request):
 class KitConfirmBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     answers: dict[str, str] = Field(max_length=4)
+
+
+class BackupKitState(BaseModel):
+    state: Literal["missing", "issued", "confirmed"]
+    issued_at: str | None
+    confirmed_at: str | None
+    fingerprint: str | None
+    positions: list[int]
+
+
+class BackupKitKey(BaseModel):
+    owner_key: str
+    groups: list[str]
+    check: str
+    qr_payload: str
+    text: str
+
+
+class BackupKitIssue(BaseModel):
+    action: Action
+    kit: BackupKitState
+    one_time: BackupKitKey
 
 
 def _check_destination(b: DestinationBody) -> dict:
@@ -159,6 +195,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
     gw.on_startup(svc.startup)
     gw.on_shutdown(svc.shutdown)
     principal = gw.principal
+
+    def observe_kit_approval(request: Request, p: Principal, action: dict) -> None:
+        if p.is_owner and action["type"] == "backup.kit.issue" and action["state"] == "succeeded":
+            ctx = ctx_of(request)
+            if ctx and ctx.session:
+                svc.bind_kit_approval(action["id"], ctx.session.id)
+
+    gw.approval_observers.append(observe_kit_approval)
 
     @app.exception_handler(Unavailable)
     async def _unavailable(_: Request, exc: Unavailable):
@@ -227,7 +271,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def status(_: Principal = Depends(reader)):
         return svc.status()
 
-    @app.get("/v1/backups/destinations", operation_id="backups.destinations.list", tags=tags, responses=error_responses(401, 403))
+    @app.get("/v1/backups/destinations", operation_id="backups.destinations.list", tags=tags,
+             response_model=list[BackupDestination], responses=error_responses(401, 403))
     def destinations(p: Principal = Depends(principal)):
         if not (p.is_owner or p.role == "adult"):
             raise deny(p, "list backup destinations")
@@ -352,21 +397,61 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def kit(_: Principal = Depends(owner)):
         return svc.kit_state()
 
-    @app.post("/v1/backups/kit", operation_id="backups.kit.issue", tags=tags, status_code=201, responses=error_responses(401, 403, 409))
-    def issue_kit(request: Request, p: Principal = Depends(owner), idem: IdemHeader = None):
-        """Owner shortcut: files backup.kit.issue and approves it; the key is in this response only."""
+    def file_kit(p: Principal, idem: str | None):
         if not svc.enabled:
             raise Unavailable("backups are not switched on (ONEMIND_BACKUPS_ENABLED=1)", "backups_disabled")
-        action, created = gw.actions.request_feature(p, "backup.kit.issue", {}, idempotency_key=key(idem),
-                                                     expires_at=gw.clock() + timedelta(minutes=10))
+        return gw.actions.request_feature(p, "backup.kit.issue", {}, idempotency_key=key(idem),
+                                          expires_at=gw.clock() + timedelta(minutes=10))
+
+    def deliver_kit(action: dict, session_id: str | None, status_code: int) -> JSONResponse:
+        issued = svc.take_one_time(action["id"], session_id)
+        if issued is None:
+            raise ApiError(409, "stale_precondition", "this kit key is no longer available; request a new kit",
+                           reason="kit_unavailable")
+        kit, one_time = issued
+        return JSONResponse(status_code=status_code, headers={"Cache-Control": "no-store"},
+                            content={"action": action, "kit": kit, "one_time": one_time})
+
+    @app.post("/v1/backups/kit", operation_id="backups.kit.issue", tags=tags, status_code=201,
+              response_model=BackupKitIssue, responses=error_responses(401, 403, 409))
+    def issue_kit(request: Request, p: Principal = Depends(owner), idem: IdemHeader = None):
+        """Owner shortcut: files backup.kit.issue and approves it; the key is in this response only."""
+        action, created = file_kit(p, idem)
         if not created:
             raise ApiError(409, "conflict", "this kit was already issued; it is never shown twice")
         action = approve_as_owner(p, action["id"], request)
-        one_time = svc.take_one_time(action["id"])
-        if action["state"] != "succeeded" or one_time is None:
+        if action["state"] != "succeeded":
             raise ApiError(409, "stale_precondition", (action.get("result") or {}).get("message") or "the kit was not issued")
-        return JSONResponse(status_code=201, headers={"Cache-Control": "no-store"},
-                            content={"action": action, "kit": svc.kit_state(), "one_time": one_time})
+        return deliver_kit(action, None, 201)
+
+    @app.post("/v1/backups/kit/request", operation_id="backups.kit.request", tags=tags, status_code=202,
+              response_model=Action, responses=error_responses(401, 403, 409),
+              openapi_extra={"security": [{"bearer": ["backups:admin"]}]})
+    def request_kit(request: Request, p: Principal = Depends(owner), idem: IdemHeader = None):
+        """File the kit issue for normal approval, or resume a kit already approved by this session."""
+        ctx = ctx_of(request)
+        if idem is None and ctx and ctx.session and (action_id := svc.claimable_kit(ctx.session.id)):
+            action = gw.actions.get(action_id)
+            if action["state"] == "succeeded" and action["decided_by"]["id"] == p.id:
+                return filed(p, _Request(), action, False, request)
+        action, created = file_kit(p, idem)
+        return filed(p, _Request(), action, created, request)
+
+    @app.post("/v1/backups/kit/{action_id}/claim", operation_id="backups.kit.claim", tags=tags,
+              response_model=BackupKitIssue, responses=error_responses(401, 403, 404, 409),
+              openapi_extra={"security": [{"bearer": ["backups:admin"]}]})
+    def claim_kit(action_id: str, request: Request, p: Principal = Depends(owner)):
+        """Show the key once, to the signed-in owner session that approved the exact action."""
+        action = gw.actions.get(action_id)
+        if action["type"] != "backup.kit.issue":
+            raise ApiError(404, "not_found", "no such backup kit issuance")
+        if action["state"] != "succeeded":
+            raise ApiError(409, "stale_precondition", (action.get("result") or {}).get("message") or
+                           "approve the backup kit request before claiming the key")
+        ctx = ctx_of(request)
+        if action["decided_by"]["id"] != p.id or ctx is None or ctx.session is None:
+            raise deny(p, "claim this backup kit")
+        return deliver_kit(action, ctx.session.id, 200)
 
     @app.post("/v1/backups/kit/confirm", operation_id="backups.kit.confirm", tags=tags, responses=error_responses(401, 403, 404, 409))
     def confirm_kit(body: KitConfirmBody, p: Principal = Depends(owner)):

@@ -47,6 +47,8 @@ export interface OnboardingProps {
   hub?: { freeMemoryMb: number; usbDisk?: string };
   /** WebAuthn registration (SEC-P1). Resolves true when the passkey is saved. */
   onCreatePasskey?: () => Promise<boolean>;
+  /** The connected gateway has already completed the owner account and recovery kit setup. */
+  ownerConfigured?: boolean;
   onDownloadKit?: () => void;
   onThemeChange?: (t: ThemeChoice) => void;
   onRestore?: () => void;
@@ -56,6 +58,7 @@ export interface OnboardingProps {
   backupDestinations?: Array<{ id: string; kind: string; label: string }>;
   /** Connected recovery-kit step: the gateway issues the key once and confirms two typed-back groups. */
   kit?: OnboardingKit;
+  backupRecoveryAction?: ReactNode;
   /** Read-only plan summary for a starter app, shown before Finish files its install request. */
   previewPlan?: (appId: string) => Promise<string>;
   onFinish: (draft: OnboardingDraft, requests: ReturnType<typeof finishRequests>) => void | Promise<void>;
@@ -165,6 +168,7 @@ export function Onboarding({
   timeZones,
   hub,
   onCreatePasskey,
+  ownerConfigured,
   onDownloadKit,
   onThemeChange = applyTheme,
   onRestore,
@@ -172,6 +176,7 @@ export function Onboarding({
   backupDestinations = [],
   localAddress,
   kit,
+  backupRecoveryAction,
   previewPlan,
   onFinish,
 }: OnboardingProps) {
@@ -194,12 +199,13 @@ export function Onboarding({
   const tzList = useMemo(() => timeZones ?? zones(), [timeZones]);
   const offer = useMemo(() => offerable(apps), [apps]);
 
-  const s = ONBOARDING_STEPS[step]!;
+  const steps = ownerConfigured ? ONBOARDING_STEPS.filter(({ id }) => id !== 'owner') : ONBOARDING_STEPS;
+  const s = steps[step]!;
   // The connected settings flow cannot issue a kit; it never fabricates kitSaved.
   const issues = onSaveSettings && s.id === 'backups'
     ? (kit && !kitConfirmed && !kitSkipped ? ['Create and confirm your emergency kit first. Without it nobody can recover this box.'] : [])
     : stepIssues(s.id, d);
-  const reach = onSaveSettings ? Math.min(step, 4) : furthestReachable(d);
+  const reach = onSaveSettings ? Math.min(step, steps.length - 2) : furthestReachable(d);
   const set = (patch: Partial<OnboardingDraft>) => setD((x) => ({ ...x, ...patch }));
 
   useEffect(() => {
@@ -258,7 +264,7 @@ export function Onboarding({
     try {
       if (s.id === 'backups') await onSaveSettings?.(d);
       if (s.id === 'done') await onFinish(d, finishRequests(d));
-      else await moveTo(Math.min(step + 1, ONBOARDING_STEPS.length - 1));
+      else await moveTo(Math.min(step + 1, steps.length - 1));
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Settings were not saved. Try again.');
     } finally {
@@ -267,7 +273,7 @@ export function Onboarding({
     }
   };
 
-  const pct = Math.round((step / (ONBOARDING_STEPS.length - 1)) * 100);
+  const pct = Math.round((step / (steps.length - 1)) * 100);
   const nameErr = d.boxName || tried ? validateBoxName(d.boxName) : null;
 
   const body = (() => {
@@ -550,6 +556,7 @@ export function Onboarding({
               </p>
             )}
             {onSaveSettings && kit && <RecoveryKit kit={kit} onConfirmed={() => setKitConfirmed(true)} onSkip={() => setKitSkipped(true)} />}
+            {backupRecoveryAction}
             {!onSaveSettings && <section className="oms-kit" aria-labelledby={`${ids.kit}-t`}>
               <div className="oms-kit-art" aria-hidden="true">
                 <ShellIcon name="key" size={30} />
@@ -612,12 +619,12 @@ export function Onboarding({
                   </span>
                 </dd>
               </div>
-              <div>
+              {(!ownerConfigured || d.ownerName.trim()) && <div>
                 <dt>Owner</dt>
                 <dd>
-                  {d.ownerName.trim()} · <StatusPill tone="ok" label="Passkey saved" />
+                  {d.ownerName.trim()}{!ownerConfigured && <> · <StatusPill tone="ok" label="Passkey saved" /></>}
                 </dd>
-              </div>
+              </div>}
               <div>
                 <dt>Look</dt>
                 <dd>
@@ -638,13 +645,13 @@ export function Onboarding({
                 </dd>
               </div>
             </dl>
-            <details className="oms-twin">
+            {!ownerConfigured && <details className="oms-twin">
               <summary>Set up the next box from a terminal</summary>
               <p className="om-hint">The same steps, headless (planned verb; the passkey step stays interactive):</p>
               <pre className="om-code">
                 <code>{initCommand(d)}</code>
               </pre>
-            </details>
+            </details>}
           </>
         );
       }
@@ -672,9 +679,9 @@ export function Onboarding({
           </span>
         </div>
         <ol className="oms-steps">
-          {ONBOARDING_STEPS.map((x, i) => {
+          {steps.map((x, i) => {
             const done = i < step && (onSaveSettings && x.id === 'backups' || stepIssues(x.id, d).length === 0);
-            const can = !saving && i <= Math.max(reach, step) && i !== step && !(onSaveSettings && i === 5);
+            const can = !saving && i <= Math.max(reach, step) && i !== step && !(onSaveSettings && x.id === 'done');
             return (
               <li key={x.id} className={cx('oms-step', i === step && 'oms-step-on', done && 'oms-step-done')}>
                 <button type="button" className="oms-step-btn" aria-current={i === step ? 'step' : undefined} disabled={!can} onClick={() => void moveTo(i)}>
@@ -691,15 +698,15 @@ export function Onboarding({
           })}
         </ol>
         <SetupMap boxName={d.boxName} timeZone={d.timeZone} ready={s.id === 'done'} />
-        <p className="oms-onb-side-foot">Everything here can also be done with <code>onemind init</code>.</p>
+        {!ownerConfigured && <p className="oms-onb-side-foot">Everything here can also be done with <code>onemind init</code>.</p>}
       </aside>
       <div className="oms-onb-main">
         <div className="oms-onb-top">
           <span className="oms-onb-count">
-            Step {step + 1} of {ONBOARDING_STEPS.length}
+            Step {step + 1} of {steps.length}
           </span>
           <div className="oms-progress" role="progressbar" aria-label="Setup progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
-            {ONBOARDING_STEPS.map(({ id }, index) => <span key={id} data-reached={index <= step} />)}
+            {steps.map(({ id }, index) => <span key={id} data-reached={index <= step} />)}
           </div>
         </div>
         <form ref={form} className="oms-onb-form" onSubmit={next} noValidate key={s.id}>

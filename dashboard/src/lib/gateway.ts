@@ -6,10 +6,11 @@ import { OneMind, OneMindError } from '@onemind/sdk';
 import { ApiError } from '../api/types';
 import { getPasskey } from './webauthn';
 import { askBoxCode } from './boxcode';
+import { askVerification } from './verification';
 
-/** stepUp: a change the hub wants confirmed with a passkey (D-028) is confirmed in place and sent once more. */
+/** Confirm a change in place with the proof required by the hub (D-034). */
 export function useGateway(token: string): OneMind {
-  return useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1, stepUp: getPasskey, boxCode: askBoxCode }), [token]);
+  return useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1, stepUp: getPasskey, stepUpVerification: askVerification, boxCode: askBoxCode }), [token]);
 }
 
 /** The dashboard code for an SDK error: no answer at all (status 0) is 'network', as api/client.ts says it. */

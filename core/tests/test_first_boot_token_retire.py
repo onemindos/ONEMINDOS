@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 
 from onemind_core.app import create_app
 from onemind_core.auth import TokenStore
-from test_identity import PASSWORD, id_settings
+from test_identity import LOCAL_PEER, PASSWORD, confirm_setup_kit, csrf, id_settings, new_session_client
 
 FIRST = "first-boot-token-0123456789abcdef"
 OTHER = "install-owner-token-0123456789ab"
@@ -66,12 +66,14 @@ def test_unflagged_token_is_never_retired(tmp_path):
 
 
 def test_first_boot_token_returns_401_after_setup(settings, clock, executor, tmp_path):
-    cfg = replace(id_settings(settings), tokens_file=_file(tmp_path))
+    cfg = replace(id_settings(settings, box_code_file=None), tokens_file=_file(tmp_path))
     first = {"Authorization": f"Bearer {FIRST}"}
-    with TestClient(create_app(cfg, clock=clock, executor=executor)) as c:
+    with TestClient(create_app(cfg, clock=clock, executor=executor), client=LOCAL_PEER) as c:
         assert c.get("/v1/me", headers=first).status_code == 200
         r = c.post("/v1/auth/setup", headers=first, json={"username": "zeus", "password": PASSWORD})
         assert r.status_code == 201, r.text
+        assert new_session_client(c).get("/v1/me", headers=first).status_code == 401
+        confirm_setup_kit(c, csrf(c))
         c.cookies.clear()  # setup signs the new owner in; the cookie is not what is under test
         assert c.get("/v1/me", headers=first).status_code == 401
         assert c.get("/v1/tokens", headers={"Authorization": f"Bearer {OTHER}"}).status_code == 200

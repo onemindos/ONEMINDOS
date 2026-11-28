@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from conftest import OWNER
 from onemind_core.app import create_app
 from onemind_core.openapi import document
-from test_identity import enrol, id_settings, setup_owner
+from test_identity import LOCAL_PEER, enrol, id_settings, setup_owner
 from test_nodes_catalog import heartbeat
 
 # The documents the Go probe produces from its fixtures (internal/detect/testdata/profile): the
@@ -106,7 +106,7 @@ def test_a_good_profile_after_a_bad_one_is_served(client):
 
 
 def test_a_child_cannot_read_the_profile(settings, clock, executor):
-    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor)) as hc:
+    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor), client=LOCAL_PEER) as hc:
         setup_owner(hc)
         hc.app.state.registry.ingest(SUBJECT, heartbeat(capabilities=profile("minipc")))
         assert hc.get("/v1/nodes/3f9c2a1b7d4e").json()["capabilities"]["usb"][1]["id"] == "1cf1:0030"

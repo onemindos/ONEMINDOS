@@ -24,6 +24,7 @@ import secrets
 import threading
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -116,6 +117,14 @@ def _ts(value: object) -> datetime | None:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
+@dataclass
+class _KitReveal:
+    action_id: str
+    expires_at: datetime
+    one_time: dict
+    session_id: str | None = None
+
+
 class BackupService:
     def __init__(self, gw: Gateway, settings: BackupsSettings, *, pg=None, kube: Kube | None = None,
                  agent: AgentClient | None = None, inline: bool = False):
@@ -133,7 +142,8 @@ class BackupService:
         self.worker = Worker(inline)
         self.builtins = None  # the built-in registry (builtins.py); the router sets it (#616)
         self._pending_secrets: dict[str, dict] = {}  # action id -> destination credentials (memory only)
-        self._one_time: dict[str, dict] = {}
+        self._kit_lock = threading.Lock()
+        self._one_time: _KitReveal | None = None  # only the current kit can be delivered and confirmed
         # action id -> (owner recovery key, expiry): a first-run restore from another box's backup. Memory only, never in
         # the action's params, the audit log or the database; dropped when used, expired or the gateway restarts.
         self._pending_keys: dict[str, tuple[str, datetime]] = {}
@@ -1058,32 +1068,62 @@ class BackupService:
             return
         now = self.gw.clock()
         ch = challenge(key)
-        self.repo.put_kit(KitRow(id="kit", state="issued", fingerprint=key.fingerprint, challenge=ch, issued_at=utc(now),
-                                 confirmed_at=None, attempts=0))
-        self._one_time[a.id] = {
+        one_time = {
             "owner_key": key.password, "groups": list(key.groups), "check": key.check,
             "qr_payload": f"onemind-kit:v1?key={key.password}&box={self.gw.settings.node_id or ''}",
             "text": kit_text(box_name=self.gw.settings.instance_name, instance_id=self.gw.settings.node_id or "",
                              key=key, destinations=dests, issued_at=now),
         }
+        with self._kit_lock:
+            self.repo.put_kit(KitRow(id="kit", state="issued", fingerprint=key.fingerprint, challenge=ch,
+                                     issued_at=utc(now), confirmed_at=None, attempts=0))
+            self._one_time = _KitReveal(a.id, now + timedelta(minutes=10), one_time)
         self._event("kit.issued", {"fingerprint": key.fingerprint, "destinations": len(dests)}, action_id=a.id)
         finish(ExecResult("succeeded", "emergency kit issued; it is shown once",
                           [{"fingerprint": key.fingerprint, "destinations": res}]))
 
-    def take_one_time(self, action_id: str) -> dict | None:
-        return self._one_time.pop(action_id, None)
+    def bind_kit_approval(self, action_id: str, session_id: str) -> None:
+        with self._kit_lock:
+            if self._one_time is not None and self._one_time.action_id == action_id:
+                self._one_time.session_id = session_id
+
+    def _unclaimed_kit(self, session_id: str | None) -> _KitReveal | None:
+        """Called under _kit_lock. None identifies the legacy in-response shortcut only."""
+        reveal = self._one_time
+        if reveal is None:
+            return None
+        if reveal.expires_at <= self.gw.clock():
+            self._one_time = None
+            return None
+        return reveal if reveal.session_id == session_id else None
+
+    def claimable_kit(self, session_id: str) -> str | None:
+        with self._kit_lock:
+            reveal = self._unclaimed_kit(session_id)
+            return reveal.action_id if reveal else None
+
+    def take_one_time(self, action_id: str, session_id: str | None) -> tuple[dict, dict] | None:
+        with self._kit_lock:
+            reveal = self._unclaimed_kit(session_id)
+            if reveal is None or reveal.action_id != action_id:
+                return None
+            kit = self.kit_state()
+            self._one_time = None
+            return kit, reveal.one_time
 
     def confirm_kit(self, principal, answers: dict[str, str]) -> dict:
-        k = self.repo.kit()
-        if k is None:
-            raise ApiError(404, "not_found", "no emergency kit has been issued")
-        if k.state == "confirmed":
-            return self.kit_state()
-        if not answer_ok(k.challenge, answers):
-            self.repo.update_kit(attempts=k.attempts + 1)
-            self.gw.audit.append("backup.kit.confirm_failed", principal.as_dict(), None, {"attempts": k.attempts + 1})
-            raise ApiError(409, "conflict", "those groups do not match your kit; look at the printed key again")
-        now = self.gw.clock()
-        self.repo.update_kit(state="confirmed", confirmed_at=utc(now))
+        with self._kit_lock:
+            k = self.repo.kit()
+            if k is None:
+                raise ApiError(404, "not_found", "no emergency kit has been issued")
+            if k.state == "confirmed":
+                return self.kit_state()
+            if not answer_ok(k.challenge, answers):
+                self.repo.update_kit(attempts=k.attempts + 1)
+                self.gw.audit.append("backup.kit.confirm_failed", principal.as_dict(), None, {"attempts": k.attempts + 1})
+                raise ApiError(409, "conflict", "those groups do not match your kit; look at the printed key again")
+            self.repo.update_kit(state="confirmed", confirmed_at=utc(self.gw.clock()))
+            self._one_time = None
+            state = self.kit_state()
         self._event("kit.confirmed", {"fingerprint": k.fingerprint}, principal=principal.as_dict())
-        return self.kit_state()
+        return state

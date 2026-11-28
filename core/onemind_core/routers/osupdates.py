@@ -43,12 +43,13 @@ def rollback_step_up(gw: Gateway):
         if action.get("type") != ROLLBACK:
             return
         identity_present = any(getattr(g, "__name__", "") == "approval_guard" for g in gw.approval_guards)
-        if body.get("webauthn") is None or not identity_present:
+        if not (body.get("webauthn") or body.get("password_totp")) or not identity_present:
             gw.events.publish_event(
                 "auth", "step_up.required",
                 {"attempted": "approve", "action_id": action_id, "type": ROLLBACK, "reason": "os_rollback_needs_passkey"},
                 principal=p.as_dict(), severity="warning", action_id=action_id)
-            raise ApiError(401, "unauthenticated", "going back to the previous OS version needs your passkey: register one, then approve with it",
+            raise ApiError(401, "unauthenticated", "rolling back the OS needs a proven passkey or a sign-in check "
+                           "with the code from the box's screen",
                            reason="step_up_required")
 
     return guard

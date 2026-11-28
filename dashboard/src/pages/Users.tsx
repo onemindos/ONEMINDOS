@@ -1,16 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
-// Settings > People (owner only): GET/POST /v1/users, PATCH /v1/users/{id}, POST …/disable. These
-// are the owner's own acts in their own session; the gateway enforces owner-only, step-up and the
-// "last owner" guard. An invite code is shown once in a dialog and never stored.
+// Settings > People: signed-in owners verify new invitations in place. Replacing
+// an existing invitation clears the account's credentials and goes to Approvals.
 import { useEffect, useState, type FormEvent } from 'react';
+import { useNavigate } from 'react-router';
 import { Button, Card, Dialog, PageHeader, StatusPill, Table } from '@onemind/ui';
-import { AGE_PRESETS, type PersonRole, type UserInfo } from '../api/wiring';
+import { AGE_PRESETS, type PersonRole, type UserCreated, type UserInfo } from '../api/wiring';
 import { useHub } from '../data/hub';
 import { t } from '../i18n';
 import { usePoll } from '../lib/hooks';
 import { formatAgo, secondsSince } from '../lib/time';
 import { useSignedIn } from '../session';
-import { Load, OneTimeDialog, TextField, useRun } from './parts';
+import { href } from '../shell/routes';
+import { InviteDialog } from './InviteDialog';
+import { Load, TextField, useBusy, useRun } from './parts';
 
 const ROLES: PersonRole[] = ['adult', 'teen', 'child', 'guest', 'owner'];
 
@@ -34,24 +36,27 @@ function AgeRating({ user }: { user: UserInfo }) {
 export function Users() {
   const { api } = useSignedIn();
   const hub = useHub();
+  const navigate = useNavigate();
   const run = useRun();
+  const [busy, whileBusy] = useBusy();
   const users = usePoll(() => api.users(), 0);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
   const [role, setRole] = useState<PersonRole>('adult');
-  const [code, setCode] = useState<{ secret: string; name: string }>();
+  const [invite, setInvite] = useState<UserCreated>();
   const [confirm, setConfirm] = useState<UserInfo>();
+  const [replace, setReplace] = useState<UserInfo>();
 
   const create = (e: FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
-    void run(async () => {
-      const u = await api.createUser({ display_name: name.trim(), role });
+    if (!name.trim() || busy) return;
+    void whileBusy(() => run(async () => {
+      const result = await api.createUser({ display_name: name.trim(), role });
       setAdding(false);
       setName('');
-      setCode({ secret: u.one_time.enrolment_code, name: u.display_name });
+      setInvite(result);
       await users.reload();
-    }, t('users.add'));
+    }, t('users.add')));
   };
 
   return (
@@ -88,26 +93,39 @@ export function Users() {
                 {
                   key: 'x',
                   header: 'Actions',
-                  render: (r) => (r.disabled ? null : <Button size="sm" variant="danger" aria-label={t('users.disable', { name: r.display_name })} onClick={() => setConfirm(r)}>Disable</Button>),
+                  render: (r) => r.disabled ? null : <div className="dash-identity-actions">
+                    {api.reissueInvite && r.role !== 'owner' && <Button size="sm" aria-label={t('users.invite.reset', { name: r.display_name })} onClick={() => setReplace(r)}>{t('users.invite.replace')}</Button>}
+                    <Button size="sm" variant="danger" aria-label={t('users.disable', { name: r.display_name })} onClick={() => setConfirm(r)}>Disable</Button>
+                  </div>,
                 },
               ]}
             />
           )}
         </Load>
       </Card>
-      <Dialog open={adding} onClose={() => setAdding(false)} title={t('users.invite.title')} actions={<><Button variant="ghost" onClick={() => setAdding(false)}>{t('common.cancel')}</Button><Button variant="primary" onClick={create}>{t('users.invite.submit')}</Button></>}>
+      <Dialog open={adding} onClose={() => setAdding(false)} title={t('users.invite.title')} actions={<><Button variant="ghost" onClick={() => setAdding(false)}>{t('common.cancel')}</Button><Button variant="primary" busy={busy} onClick={create}>{t('users.invite.submit')}</Button></>}>
         <form className="dash-form" onSubmit={create}>
           <TextField id="invite-name" label={t('users.name')} value={name} onChange={setName} />
           <label htmlFor="invite-role">{t('users.role')}</label>
           <select id="invite-role" value={role} onChange={(e) => setRole(e.target.value as PersonRole)}>
-            {ROLES.map((x) => (
+            {ROLES.filter((x) => x !== 'owner').map((x) => (
               <option key={x} value={x}>{x}</option>
             ))}
           </select>
         </form>
       </Dialog>
       <Dialog open={!!confirm} role="alertdialog" onClose={() => setConfirm(undefined)} title={t('users.disable', { name: confirm?.display_name ?? '' })} description={t('users.disable.confirm', { name: confirm?.display_name ?? '' })} actions={<><Button variant="ghost" onClick={() => setConfirm(undefined)}>{t('common.cancel')}</Button><Button variant="danger" onClick={() => { const u = confirm; setConfirm(undefined); if (u) void run(async () => { await api.disableUser(u.id); await users.reload(); }, t('users.disable', { name: u.display_name })); }}>Disable</Button></>} />
-      <OneTimeDialog title={t('users.add')} note={t('users.invite.done', { name: code?.name ?? '' })} secret={code?.secret} onClose={() => setCode(undefined)} />
+      <Dialog open={!!replace} role="alertdialog" onClose={() => setReplace(undefined)} title={t('users.invite.reset', { name: replace?.display_name ?? '' })} description={t('users.invite.replaceWarning')}
+        actions={<><Button variant="ghost" onClick={() => setReplace(undefined)}>{t('common.cancel')}</Button><Button variant="danger" busy={busy} onClick={() => {
+          const request = api.reissueInvite;
+          if (replace && request) void whileBusy(() => run(async () => {
+            const result = await request.call(api, replace.id);
+            setReplace(undefined);
+            void hub.actions.reload();
+            navigate(href.approval(result.id));
+          }, t('users.invite.replace')));
+        }}>{t('users.invite.replace')}</Button></>} />
+      <InviteDialog invite={invite} onClose={() => setInvite(undefined)} />
     </div>
   );
 }

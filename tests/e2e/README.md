@@ -19,10 +19,10 @@ unscanned runs"), and the §12 routes as they ship. Epic **E2E-GOLDEN** in
 | Step | How | Proves |
 |---|---|---|
 | 1. A real hub | [`harness/run.sh`](harness/run.sh): fresh Debian 13 VM, `deploy/install.sh --role hub` | the installer works from scratch (k3s, NATS, onemindd, gateway, dashboard) |
-| 2. Owner flow | [`specs/01-owner-golden-path.spec.ts`](specs/01-owner-golden-path.spec.ts), Chromium | sign in (and a wrong token refused), hub node **Online**, Market trust facts, an unscanned app's Install disabled with the reason, Install → Approvals → Approve → **succeeded** → Installed, Remove → Approve → **succeeded** |
-| 3. Agent flow | [`specs/02-agent-mcp.spec.ts`](specs/02-agent-mcp.spec.ts), official MCP TypeScript client (`@modelcontextprotocol/sdk`, MIT) over Streamable HTTP | the agent lists tools (no approve/deny tool), reads nodes and apps, `request_action` → `awaiting_approval`; its own approve is `403`; a person token on `/mcp` is `403`; the owner sees "AI agent e2e-agent" on the card and approves; the agent's removal is approved the same way |
-| 4. Audit | [`specs/03-audit.spec.ts`](specs/03-audit.spec.ts) + [`lib/audit.ts`](lib/audit.ts) | the hub's whole `audit.jsonl` re-hashes (a second, TypeScript implementation of `core/onemind_core/audit.py`); every action of this run names the right requester, an owner approver and `action.succeeded`; the agent's refused approve is audited |
-| 5. Contract check | `deploy/verify/verify.sh` on the hub, after the suite | the scripted §3/§11 checks (45 items) and the full audit file again |
+| 2. Contract check | `deploy/verify/verify.sh` on the unclaimed hub | the scripted §3/§11 checks (45 items), using the install token, and the full audit file |
+| 3. Owner flow | [`specs/01-owner-golden-path.spec.ts`](specs/01-owner-golden-path.spec.ts), Chromium | sign in (and a wrong token refused), hub node **Online**, Market trust facts, an unscanned app's Install disabled with the reason, Install → Approvals → Approve → **succeeded** → Installed, Remove → Approve → **succeeded** |
+| 4. Agent flow | [`specs/02-agent-mcp.spec.ts`](specs/02-agent-mcp.spec.ts), official MCP TypeScript client (`@modelcontextprotocol/sdk`, MIT) over Streamable HTTP | the agent lists tools (no approve/deny tool), reads nodes and apps, `request_action` → `awaiting_approval`; its own approve is `403`; a person token on `/mcp` is `403`; the owner sees "AI agent e2e-agent" on the card and approves; the agent's removal is approved the same way |
+| 5. Audit | [`specs/03-audit.spec.ts`](specs/03-audit.spec.ts) + [`lib/audit.ts`](lib/audit.ts) | the hub's whole `audit.jsonl` re-hashes (a second, TypeScript implementation of `core/onemind_core/audit.py`); every action of this run names the right requester, an owner approver and `action.succeeded`; the agent's refused approve is audited |
 | 6. Not merged yet | [`specs/04-landing-streams.spec.ts`](specs/04-landing-streams.spec.ts) | skipped with the reason; see below |
 
 Unit tests for the audit verifier (no hub, no browser) are the `unit` project:
@@ -38,7 +38,7 @@ owning stream then deepens the step.
 |---|---|---|
 | Open the installed app through the box app proxy | CORE-NET-P1 (networking stream: mesh proxy) | `features` has `app-proxy` |
 | `GET /v1/me` names owner and agent | DEV-API-5, CORE-SEC-2 (identity) | `/v1/me` |
-| Passkey registration options | CORE-SEC-2 (passkeys, F-2), CORE-SEC-10 (household accounts) | `/v1/auth/passkeys/register/options` |
+| First-owner setup, recovery-kit confirmation and passkey registration options | CORE-SEC-2 (passkeys, F-2), CORE-SEC-10 (household accounts), D-034 | `/v1/auth/setup`, `/v1/auth/passkeys/register/options` |
 | Box CA published for pairing | CORE-SEC-1 (HTTPS, F-1) | `/v1/tls` |
 | Events stream (SSE) | DEV-API-8 | `/v1/events` |
 | Alerts | CORE-NOTIFY-1 | `/v1/alerts` |
@@ -68,7 +68,8 @@ sha512 in [`os/versions.lock.yaml`](../../os/versions.lock.yaml) `e2e_vm`, a clo
 fresh ssh key, user-mode network with `127.0.0.1` port forwards, KVM when `/dev/kvm` is usable). Copy
 the working tree in. Run `install.sh --role hub`. Keep the owner token it prints once. Add an agent
 principal `e2e-agent` the way an owner adds one by hand (a `sha256:` line in `/etc/onemind/tokens.yaml`).
-Give the test app a scan record (below). Run Playwright from the host, then `verify.sh` on the hub.
+Give the test app a scan record (below). Run `verify.sh` on the unclaimed hub, then Playwright from the host.
+First-owner setup changes the gateway's approval requirements, so run the full golden path on a fresh hub.
 Save the evidence and delete the VM.
 
 **The scan record is a stand-in.** The hub refuses to install an app without a passing scan from

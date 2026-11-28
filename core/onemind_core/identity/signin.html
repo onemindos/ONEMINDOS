@@ -26,20 +26,34 @@
   <section id="who" hidden><h2>Signed in</h2><p id="whoami"></p>
     <label for="pklabel">Passkey name</label><input id="pklabel" value="this device">
     <button id="addpk">Add a passkey</button> <button id="logout">Sign out</button></section>
+  <section id="kit" hidden><h2>Save your recovery kit</h2>
+    <div id="new-kit" hidden>
+      <p>Download or print the kit and keep it somewhere safe. You need it to reset your password at the box.</p>
+      <pre id="kit-text"></pre>
+      <button id="download">Download kit</button> <button id="print">Print kit</button>
+    </div>
+    <div id="saved-kit" hidden>
+      <label for="saved-code">Account recovery code</label><input id="saved-code" type="password" autocomplete="off" maxlength="128">
+      <label for="saved-disk">Disk recovery key</label><input id="saved-disk" type="password" autocomplete="off" maxlength="128">
+      <label for="saved-method">How you saved it</label><select id="saved-method"><option value="download">Downloaded</option><option value="print">Printed</option></select>
+    </div>
+    <label><input type="checkbox" id="saved"> I saved my recovery kit.</label>
+    <button id="finish">Finish setup</button></section>
   <section id="enrol" hidden><h2>Finish your account</h2>
     <label for="eu">Username</label><input id="eu" autocomplete="username">
-    <label for="ep">Password (at least 10 characters)</label><input id="ep" type="password" autocomplete="new-password">
+    <label for="ep">Password (at least 12 characters)</label><input id="ep" type="password" autocomplete="new-password">
     <button id="enrolbtn">Create account</button></section>
   <section id="login"><h2>Sign in</h2>
-    <button id="pklogin">Sign in with a passkey</button>
     <label for="u">Username</label><input id="u" autocomplete="username">
     <label for="p">Password</label><input id="p" type="password" autocomplete="current-password">
     <label for="t">Authenticator code (if set up)</label><input id="t" inputmode="numeric" autocomplete="one-time-code">
-    <button id="pwlogin">Sign in with password</button></section>
+    <button id="pwlogin">Sign in with password</button>
+    <button id="pklogin">Sign in with a passkey</button></section>
   <section id="setup"><h2>First owner (new box)</h2>
-    <label for="st">Install owner token</label><input id="st" type="password" autocomplete="off">
+    <button id="show-code">Show a setup code on the box</button>
+    <label for="st">Box code or install owner token</label><input id="st" type="password" autocomplete="off">
     <label for="su">Username</label><input id="su" autocomplete="username">
-    <label for="sp">Password (at least 10 characters)</label><input id="sp" type="password" autocomplete="new-password">
+    <label for="sp">Password (at least 12 characters)</label><input id="sp" type="password" autocomplete="new-password">
     <button id="setupbtn">Create the owner account</button></section>
 </main>
 <script>
@@ -49,12 +63,13 @@ const say = (t) => { $("msg").textContent = t; };
 const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), (c) => c.charCodeAt(0));
 const csrf = () => (document.cookie.split("; ").find((c) => /onemind_csrf=/.test(c)) || "").split("=")[1] || "";
+let setupChallenge, kitCode, savedMethod;
 async function api(path, body, extra) {
   const r = await fetch(path, { method: "POST", credentials: "same-origin",
     headers: Object.assign({ "Content-Type": "application/json", "OneMind-CSRF": csrf() }, extra || {}),
     body: JSON.stringify(body || {}) });
   const data = r.status === 204 ? {} : await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.message || r.statusText);
+  if (!r.ok) throw Object.assign(new Error(data.message || r.statusText), { reason: data.reason });
   return data;
 }
 function credJSON(c) {
@@ -68,14 +83,67 @@ async function refresh() {
   const r = await fetch("/v1/me", { credentials: "same-origin" });
   const signedIn = r.ok;
   $("who").hidden = !signedIn; $("login").hidden = signedIn; $("setup").hidden = signedIn;
-  if (signedIn) { const me = await r.json(); $("whoami").textContent = `${me.principal.display_name || me.principal.id} (${me.principal.role}), ${me.passkeys} passkey(s)`; }
+  if (signedIn) {
+    const me = await r.json();
+    $("whoami").textContent = `${me.principal.display_name || me.principal.id} (${me.principal.role}), ${me.passkeys} passkey(s)`;
+    $("kit").hidden = !me.setup_pending;
+    if (me.setup_pending && !kitCode) {
+      try {
+        const kit = await api("/v1/auth/setup/kit");
+        kitCode = kit.recovery_code;
+        $("kit-text").textContent = "OneMind recovery kit\n\nAccount recovery code:\n" + kitCode +
+          (kit.disk_recovery_key ? "\n\nDisk recovery key:\n" + kit.disk_recovery_key : "");
+        $("new-kit").hidden = false; $("saved-kit").hidden = true;
+      } catch (e) {
+        $("saved-kit").hidden = e.reason !== "disk_recovery_key_missing";
+        $("new-kit").hidden = true;
+        say(e.message);
+      }
+    }
+  }
 }
 $("pwlogin").onclick = () => api("/v1/auth/login", { username: $("u").value, password: $("p").value, totp: $("t").value || null })
   .then(() => { say("Signed in."); refresh(); }, (e) => say(e.message));
-$("setupbtn").onclick = () => api("/v1/auth/setup", { username: $("su").value, password: $("sp").value }, { Authorization: "Bearer " + $("st").value })
-  .then(() => { $("st").value = ""; say("Owner account created. Add a passkey now."); refresh(); }, (e) => say(e.message));
+$("show-code").onclick = () => api("/v1/auth/setup/options")
+  .then((r) => { setupChallenge = r.challenge_id; say("Enter the six-digit code on the box."); }, (e) => say(e.message));
+$("setupbtn").onclick = async () => {
+  const body = { username: $("su").value, password: $("sp").value };
+  const headers = setupChallenge ? {} : { Authorization: "Bearer " + $("st").value };
+  if (setupChallenge) Object.assign(body, { challenge_id: setupChallenge, box_code: $("st").value });
+  try {
+    await api("/v1/auth/setup", body, headers);
+    $("st").value = ""; $("sp").value = "";
+    await refresh();
+  } catch (e) { say(e.message); }
+};
+$("download").onclick = () => {
+  const url = URL.createObjectURL(new Blob([$("kit-text").textContent], { type: "text/plain" }));
+  const link = document.createElement("a"); link.href = url; link.download = "onemind-recovery-kit.txt";
+  link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); savedMethod = "download";
+};
+$("print").onclick = () => { window.print(); savedMethod = "print"; };
+function clearKit() {
+  kitCode = undefined; savedMethod = undefined;
+  $("kit-text").textContent = ""; $("saved-code").value = ""; $("saved-disk").value = "";
+  $("saved").checked = false;
+}
+$("finish").onclick = async () => {
+  const fromSavedKit = !$("saved-kit").hidden;
+  const method = fromSavedKit ? $("saved-method").value : savedMethod;
+  if (!method || !$("saved").checked) return say("Download or print your kit and confirm you saved it.");
+  const body = { saved: true, method, recovery_code: fromSavedKit ? $("saved-code").value.trim() : kitCode };
+  if (fromSavedKit) {
+    body.disk_recovery_key = $("saved-disk").value.trim();
+    if (!body.recovery_code || !body.disk_recovery_key) return say("Enter both codes from the saved kit.");
+  }
+  try {
+    await api("/v1/auth/setup/finish", body);
+    clearKit();
+    say("Setup finished."); await refresh();
+  } catch (e) { say(e.message); }
+};
 $("enrolbtn").onclick = () => api("/v1/auth/enrol", { code: location.hash.split("enrol=")[1] || "", username: $("eu").value, password: $("ep").value })
-  .then(() => { history.replaceState(null, "", location.pathname); $("enrol").hidden = true; say("Account ready. Add a passkey now."); refresh(); }, (e) => say(e.message));
+  .then(() => { history.replaceState(null, "", location.pathname); $("enrol").hidden = true; say("Account ready. You can add a passkey here."); refresh(); }, (e) => say(e.message));
 $("addpk").onclick = async () => {
   try {
     const o = await api("/v1/auth/passkeys/register/options"); const pk = o.publicKey;
@@ -93,8 +161,11 @@ $("pklogin").onclick = async () => {
     await api("/v1/auth/login", { passkey: credJSON(c) }); say("Signed in."); refresh();
   } catch (e) { say(e.message); }
 };
-$("logout").onclick = () => api("/v1/auth/logout").then(() => { say("Signed out."); refresh(); }, (e) => say(e.message));
-if (location.hash.includes("enrol=")) { $("enrol").hidden = false; $("login").hidden = true; $("setup").hidden = true; } else { refresh(); }
+$("logout").onclick = () => api("/v1/auth/logout").then(() => {
+  clearKit(); $("kit").hidden = true;
+  say("Signed out."); refresh();
+}, (e) => say(e.message));
+if (location.hash.includes("enrol=")) { $("enrol").hidden = false; $("login").hidden = true; $("setup").hidden = true; } else { refresh().catch((e) => say(e.message)); }
 </script>
 </body>
 </html>

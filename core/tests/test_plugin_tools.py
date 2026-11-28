@@ -17,7 +17,7 @@ from onemind_core.plugins import dispatch
 from onemind_core.plugins.models import PluginInstallRow
 from test_plugin_credentials import approve, request
 from test_plugin_workload import plugin_settings  # noqa: F401
-from test_identity import SoftAuthenticator, at_box, csrf, id_settings, register_passkey, setup_owner
+from test_identity import LOCAL_PEER, SoftAuthenticator, at_box, csrf, id_settings, register_passkey, setup_owner
 
 PATH = "/v1/plugins/uptime-kuma/tools"
 CLOSED = {"type": "object", "additionalProperties": False}
@@ -34,7 +34,7 @@ def tools(plugin_settings, clock, monkeypatch):
     ]
     path.write_text(yaml.safe_dump(doc))
     settings = id_settings(plugin_settings, require_passkey_approval=False)
-    with make_client(settings, clock) as client:
+    with make_client(settings, clock, peer=LOCAL_PEER) as client:
         approve(client, request(client, clock, "app.install"))
         calls = []
         def backend(req):

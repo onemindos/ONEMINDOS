@@ -4,7 +4,7 @@
 
 import type { components } from "./gen/schema.js";
 import { AmbiguousResultError, errorFor, NetworkError, OneMindError, UnexpectedResponseError } from "./errors.js";
-import { type BoxCodeAsker, completeStepUp, type PasskeySigner, STEP_UP_HEADER, stepUpOf } from "./stepup.js";
+import { type BoxCodeAsker, completeStepUp, type PasskeySigner, STEP_UP_HEADER, stepUpOf, type StepUpVerification } from "./stepup.js";
 import { EventsApi } from "./events.js";
 import { caFetch } from "./nodeca.js";
 import { PROTOCOL_HEADER, PROTOCOL_VERSION } from "./protocol.js";
@@ -93,6 +93,8 @@ export interface ClientOptions {
    *  answers with a named step-up (401 step_up_required + details.step_up) is confirmed in place and
    *  sent once more with the grant (stepup.ts). Unset: the 401 reaches the caller as before. */
   stepUp?: PasskeySigner;
+  /** Selects passkey or password and authenticator when the gateway asks to confirm a change. */
+  stepUpVerification?: StepUpVerification;
   /** Asks the person for the code the box's own screen shows (N-1 b: an L2 change before the first proven
    *  key). Unset: such a change fails with reason box_code_required instead of showing a code nobody types. */
   boxCode?: BoxCodeAsker;
@@ -144,6 +146,7 @@ export class OneMind {
   private readonly onWarning: (m: string) => void;
   private readonly onTrace?: ClientOptions["onTrace"];
   private readonly signer?: PasskeySigner;
+  private readonly verification?: StepUpVerification;
   private readonly boxCode?: BoxCodeAsker;
   private warned = false;
   private offsetMs = 0;
@@ -162,6 +165,7 @@ export class OneMind {
     this.onWarning = opts.onWarning ?? ((m) => console.warn(`onemind: warning: ${m}`));
     this.onTrace = opts.onTrace;
     this.signer = opts.stepUp;
+    this.verification = opts.stepUpVerification;
     this.boxCode = opts.boxCode;
     this.sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
     this.events = new EventsApi(this, typeof opts.token === "string" && opts.token.length > 0);
@@ -371,9 +375,9 @@ export class OneMind {
     try {
       return (await this.raw<T>(req)).body;
     } catch (e) {
-      const s = this.signer && !req.headers?.[STEP_UP_HEADER] ? stepUpOf(e) : undefined;
-      if (!s || !this.signer) throw e;
-      const grant = await completeStepUp(this, s, this.signer, { boxCode: this.boxCode });
+      const s = (this.signer || this.verification) && !req.headers?.[STEP_UP_HEADER] ? stepUpOf(e) : undefined;
+      if (!s) throw e;
+      const grant = await completeStepUp(this, s, this.signer, { boxCode: this.boxCode, verification: this.verification });
       return (await this.raw<T>({ ...req, retry: false, headers: { ...req.headers, [STEP_UP_HEADER]: grant } })).body;
     }
   }

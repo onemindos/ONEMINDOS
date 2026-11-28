@@ -18,19 +18,25 @@ export interface StepUpRequest {
   op: string;
   target: string;
   body: Record<string, unknown>;
-  /** "L1" (a fresh passkey) or "L2"/"L3" (a proven key; a synced phone passkey can't answer). */
+  /** "L1" (fresh password and authenticator or passkey), "L2" (proven), or "L3" (biometric-only). */
   required_level: string;
-  /** "required": a passkey plus the code on the box's screen; "alt": that, instead of the level, on request. */
+  /** "required": L1 plus the code on the box's screen; "alt": that, instead of the proven key, on request. */
   box?: "required" | "alt" | null;
 }
 
 /** Asks the person for the code the box's own screen shows now; `what` says what it confirms. */
 export type BoxCodeAsker = (what: string) => Promise<string>;
 
+export type StepUpVerification = (request: StepUpRequest) => Promise<
+  | { method: "passkey"; atBox?: boolean }
+  | { method: "password+totp"; password: string; totp: string; atBox?: boolean }
+>;
+
 export interface StepUpOptions {
   boxCode?: BoxCodeAsker;
   /** For `box: "alt"` (e.g. revoking a lost last proven key): confirm at the box instead of with that key. */
   atBox?: boolean;
+  verification?: StepUpVerification;
 }
 
 /** Asks the person's authenticator to answer a WebAuthn request (the hub's `publicKey` JSON). */
@@ -53,25 +59,35 @@ export interface StepUpTransport {
 }
 
 /** options -> (the box's code) -> the authenticator -> verify: returns the grant to send once as OneMind-Step-Up. */
-export async function completeStepUp(client: StepUpTransport, s: StepUpRequest, sign: PasskeySigner, o: StepUpOptions = {}): Promise<string> {
-  const atBox = s.box === "alt" && !!o.atBox;
+export async function completeStepUp(client: StepUpTransport, s: StepUpRequest, sign?: PasskeySigner, o: StepUpOptions = {}): Promise<string> {
+  const verify = await o.verification?.(s);
+  const atBox = s.box === "alt" && (verify?.atBox ?? o.atBox ?? false);
+  const method = verify?.method ?? "passkey";
   // Fail before the hub shows a code nobody can type here (a CLI, an app without the prompt).
   if ((s.box === "required" || atBox) && !o.boxCode) throw boxCodeUnavailable();
-  const opts = await client.call<{ publicKey: Record<string, unknown>; box_code_required?: boolean }>({
-    method: "POST", path: "/v1/auth/step-up/options", body: { op: s.op, target: s.target, body: s.body, ...(atBox ? { at_box: true } : {}) }, retry: false,
+  const opts = await client.call<{ publicKey: Record<string, unknown>; challenge: string; box_code_required?: boolean }>({
+    method: "POST", path: "/v1/auth/step-up/options", body: {
+      op: s.op, target: s.target, body: s.body,
+      ...(atBox ? { at_box: true } : {}),
+      ...(method === "password+totp" ? { method } : {}),
+    }, retry: false,
   });
   let box_code: string | undefined;
   if (opts.box_code_required) {
     if (!o.boxCode) throw boxCodeUnavailable();
     box_code = (await o.boxCode(s.op)).replace(/\s+/g, "");
   }
-  const credential = await sign(opts.publicKey);
-  // A consumed authenticator assertion must never be resent automatically: retry stays off.
-  const g = await client.call<{ step_up: string }>({ method: "POST", path: "/v1/auth/step-up", body: { credential, ...(box_code ? { box_code } : {}) }, retry: false });
+  if (verify?.method !== "password+totp" && !sign)
+    throw new OneMindError(409, "conflict", "A passkey is required for this change.");
+  const proof = verify?.method === "password+totp"
+    ? { password_totp: { challenge: opts.challenge, password: verify.password, totp: verify.totp } }
+    : { credential: await sign!(opts.publicKey) };
+  // A consumed proof must never be resent automatically: retry stays off.
+  const g = await client.call<{ step_up: string }>({ method: "POST", path: "/v1/auth/step-up", body: { ...proof, ...(box_code ? { box_code } : {}) }, retry: false });
   if (!g || typeof g.step_up !== "string" || !g.step_up) throw new OneMindError(200, "unexpected_response", "the hub answered the step-up without a grant");
   return g.step_up;
 }
 
 function boxCodeUnavailable(): OneMindError {
-  return new OneMindError(409, "conflict", "this needs your passkey and the code on the box's own screen; do it in the dashboard, at the box", { reason: "box_code_required" });
+  return new OneMindError(409, "conflict", "this needs a fresh sign-in check and the code on the box's own screen; do it in the dashboard, at the box", { reason: "box_code_required" });
 }

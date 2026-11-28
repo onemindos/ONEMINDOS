@@ -37,6 +37,15 @@ it('offers only actual matching destinations and clears the binding when the cho
   expect(save).toHaveBeenCalledWith(expect.objectContaining({ backup: { destination: 'later', destinationId: undefined, kitSaved: false } }));
 });
 
+it('places the backup recovery action inside the full-screen backup step', async () => {
+  const recover = vi.fn();
+  render(<Onboarding apps={[]} initialStep={4}
+    backupRecoveryAction={<button type="button" onClick={recover}>Open recovery</button>}
+    onSaveSettings={async () => {}} onFinish={() => {}} />);
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Open recovery' }));
+  expect(recover).toHaveBeenCalledOnce();
+});
+
 it('a wizard opened with an issued, unconfirmed kit can still skip it and finish, or re-issue', async () => {
   const user = userEvent.setup();
   const save = vi.fn().mockResolvedValue(undefined);
@@ -55,4 +64,12 @@ it('a wizard opened with an issued, unconfirmed kit can still skip it and finish
   expect(screen.getByText(/skipped for now/)).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: /Go to Home/ }));
   expect(finish).toHaveBeenCalledTimes(1);
+});
+it('continues from box name without creating another owner or requiring a passkey', async () => {
+  render(<Onboarding apps={[]} ownerConfigured initial={{ boxName: 'home-hub', timeZone: 'UTC', ownerName: 'Dana' }} onSaveSettings={async () => {}} onFinish={() => {}} />);
+  expect(screen.getByRole('heading', { name: 'Name your box' })).toBeVisible();
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Continue' }));
+  expect(await screen.findByRole('heading', { name: 'Make it yours' })).toBeVisible();
+  expect(screen.queryByRole('button', { name: 'Create the owner' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Create passkey' })).toBeNull();
 });

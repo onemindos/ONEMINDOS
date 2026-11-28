@@ -216,7 +216,7 @@ func requestCommand(a *App, typ, use, short string) *cobra.Command {
 			if !ok {
 				return exitWith(ExitPending, "pending", fmt.Sprintf("left waiting for approval: onemind actions approve %s", act.Id))
 			}
-			if _, err := a.approveOrConfirmLicence(c, act, acceptLicence, yes); err != nil {
+			if _, err := a.approveOrConfirmLicence(c, act, acceptLicence, yes, nil); err != nil {
 				if errors.Is(err, onemind.ErrPermissionDenied) {
 					return exitWith(ExitPermissionDenied, "permission_denied",
 						fmt.Sprintf("requested %s, but this principal may not approve; an owner runs: onemind actions approve %s", act.Id, act.Id))

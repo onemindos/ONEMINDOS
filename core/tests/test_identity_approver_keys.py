@@ -20,6 +20,7 @@ from onemind_core.auth import Principal
 from onemind_core.executors import ExecResult
 from onemind_core.identity.crypto import b64url
 from test_identity import (
+    LOCAL_PEER,
     PASSWORD,
     SoftAuthenticator,
     audit_events,
@@ -54,7 +55,8 @@ class PhoneKey:
 
 @pytest.fixture
 def idc(settings, clock, executor):
-    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor)) as c:
+    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor),
+                    client=LOCAL_PEER) as c:
         yield c
 
 
@@ -174,7 +176,7 @@ def test_destructive_stays_passkey_only_until_f2(idc, clock, settings):
 
 def test_f2_setting_on_lets_a_device_key_approve_destructive(settings, clock, executor):
     s = id_settings(settings, approver_key_high_risk=True)
-    with TestClient(create_app(s, clock=clock, executor=executor)) as c:
+    with TestClient(create_app(s, clock=clock, executor=executor), client=LOCAL_PEER) as c:
         ready(c)
         # T3 is an L2 row; during the grace that is a passkey plus the box's code, which a phone key can't
         # send. The owner lowered T3 to L1 (N-3 a, an audited L2 change), so the F2 setting decides.

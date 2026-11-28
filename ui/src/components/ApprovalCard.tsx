@@ -68,6 +68,8 @@ const VERB: Record<string, string> = {
   'node.drain': 'Drain',
   'repair.apply': 'Fix',
   'exposure.enable': 'Expose to the internet',
+  'users.invite': 'Invite',
+  'users.reinvite': 'Replace invite for',
 };
 
 export function actionTitle(a: Pick<ActionSummary, 'type' | 'params'> & { target_name?: string }): string {

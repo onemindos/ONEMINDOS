@@ -113,6 +113,9 @@ WS_HANDSHAKE = frozenset({
 
 SessionResolver = Callable[[dict[str, str], dict[str, str]], Principal | None]
 """(lower-cased request headers, cookies) -> the signed-in principal, or None."""
+PathSessionResolver = Callable[[dict[str, str], dict[str, str], NetPath], Principal | None]
+SharingCheck = Callable[[Principal, str, dict[str, str]], bool]
+PathSharingCheck = Callable[[Principal, str, dict[str, str], NetPath], bool]
 
 ServiceResolver = Callable[[str, int], str | None]
 """(namespace, port) -> the address of the Service in that namespace exposing that port."""
@@ -138,17 +141,19 @@ def token_session_resolver(tokens: TokenStore, cookie: str = SESSION_COOKIE) -> 
     return resolve
 
 
-def _probe(token: str, authenticators: list) -> tuple[Request, Principal | None]:
+def _probe(token: str, authenticators: list, path: NetPath) -> tuple[Request, Principal | None]:
     """The gateway's own authenticators asked about a household session token (`om_ses_`, §12.6).
 
     Only sessions open apps. An API token is scoped to routes (`instance:read`, `apps:read`...),
     while an app host is whole-app interactive access, so a scoped token must not open one; it is
-    simply "not signed in" here. The authenticators take a Request, so one is made for GET /v1/me;
-    a refusal (ApiError: disabled account) is also "not signed in". The returned request carries
-    `state.identity` for the sharing filters.
+    simply "not signed in" here. Probe the app-session route so the same authentication checks
+    apply to creating an app cookie and using an existing one. A refusal is also "not signed in".
+    The returned request carries `state.identity` for the sharing filters.
     """
-    request = Request({"type": "http", "method": "GET", "path": "/v1/me", "raw_path": b"/v1/me",
+    request = Request({"type": "http", "method": "POST", "path": "/v1/auth/app-session",
+                       "raw_path": b"/v1/auth/app-session",
                        "query_string": b"", "scheme": "https", "client": None, "server": None,
+                       SCOPE_PATH_KEY: path,
                        "headers": [(b"authorization", f"Bearer {token}".encode("latin-1"))]})
     if not token.startswith("om_ses_"):
         return request, None
@@ -162,28 +167,30 @@ def _probe(token: str, authenticators: list) -> tuple[Request, Principal | None]
     return request, None
 
 
-def gateway_session_resolver(tokens: TokenStore, authenticators: list, cookie: str = SESSION_COOKIE) -> SessionResolver:
+def gateway_session_resolver(tokens: TokenStore, authenticators: list, cookie: str = SESSION_COOKIE) -> PathSessionResolver:
     """token_session_resolver plus the gateway's authenticators, so a household member's session
     token (the one the dashboard sends to POST /v1/auth/app-session) opens apps too."""
 
-    def resolve(headers: dict[str, str], cookies: dict[str, str]) -> Principal | None:
+    def resolve(headers: dict[str, str], cookies: dict[str, str], path: NetPath = "unknown") -> Principal | None:
         token = _bearer_or_cookie(headers, cookies, cookie)
         if not token:
             return None
-        return tokens.lookup(token) or _probe(token, authenticators)[1]
+        return tokens.lookup(token) or _probe(token, authenticators, path)[1]
 
     return resolve
 
 
-def sharing_check(authenticators: list, filters: list, cookie: str = SESSION_COOKIE) -> Callable[[Principal, str, dict[str, str]], bool]:
+def sharing_check(authenticators: list, filters: list, cookie: str = SESSION_COOKIE) -> PathSharingCheck:
     """AppProxy(shared=...): the gateway's `app_filters` (per-app sharing, §12.6) for this request.
 
     Both lists are the gateway's live ones, so a feature that registers later still counts.
     """
 
-    def shared(principal: Principal, app_id: str, headers: dict[str, str]) -> bool:
+    def shared(principal: Principal, app_id: str, headers: dict[str, str], path: NetPath = "unknown") -> bool:
         token = _bearer_or_cookie(headers, parse_cookies(headers.get("cookie", "")), cookie)
-        request, _ = _probe(token, authenticators)
+        request, resolved = _probe(token, authenticators, path)
+        if token.startswith("om_ses_") and (resolved is None or resolved.id != principal.id):
+            return False
         return all(f(request, principal, app_id) for f in list(filters))
 
     return shared
@@ -301,7 +308,7 @@ class AppProxy:
         self,
         catalog: Catalog,
         app_status: Callable[[str], str | None],
-        resolve_session: SessionResolver,
+        resolve_session: SessionResolver | PathSessionResolver,
         resolve_service: ServiceResolver,
         *,
         box_domains: tuple[str, ...],
@@ -313,8 +320,9 @@ class AppProxy:
         path_routes: bool = False,
         exposure: Callable[[str], str] | None = None,
         mesh_domains: tuple[str, ...] = ("apps.onemind.internal",),
-        shared: Callable[[Principal, str, dict[str, str]], bool] | None = None,
+        shared: SharingCheck | PathSharingCheck | None = None,
         classify: PathClassifier | None = None,
+        path_aware_sessions: bool = False,
         browsers: BrowserProfiles | None = None,
     ):
         """app_status(app_id) returns the ledger status ("installed", ...) or None.
@@ -330,6 +338,7 @@ class AppProxy:
         classify: the network path a request really came from (netpath.py). When set, the tier is
         also enforced by path, not only by Host: a private app answers only to the LAN, a mesh app
         to LAN and mesh, and a path that cannot be told is refused (fails closed). None: host only.
+        path_aware_sessions: pass this same trusted path to the gateway session and sharing resolvers.
         browsers: the per-person browser Services (browsers.py). None: browser hosts answer 404.
         """
         self.catalog = catalog
@@ -347,6 +356,7 @@ class AppProxy:
         self.mesh_domains = tuple(d.lower().strip(".") for d in mesh_domains)
         self.shared = shared
         self.classify = classify
+        self.path_aware_sessions = path_aware_sessions
         self.browsers = browsers
         self._routes: dict[str, tuple[float, AppRoute | None]] = {}
         self._lock = threading.Lock()
@@ -426,7 +436,7 @@ class AppProxy:
         maps them one to one.
         """
         if not APP_ID_RE.match(app_id) or not self._exposed(host, app_id, path) \
-                or not self._shared_with(principal, app_id, headers or {}):
+                or not self._shared_with(principal, app_id, headers or {}, path):
             return None
         status = self.app_status(app_id)
         if status not in NOT_RUNNING:
@@ -436,7 +446,12 @@ class AppProxy:
             return None
         return web[2], status
 
-    def session(self, headers: dict[str, str]) -> Session:
+    def _resolve_session(self, headers: dict[str, str], cookies: dict[str, str], path: NetPath) -> Principal | None:
+        if self.path_aware_sessions:
+            return self.resolve_session(headers, cookies, path)
+        return self.resolve_session(headers, cookies)
+
+    def session(self, headers: dict[str, str], path: NetPath = "unknown") -> Session:
         """The OneMind session of an app request: the session cookie first, a OneMind bearer second (#824).
 
         Behind a valid cookie the Authorization header is the app's own: it is never asked to sign
@@ -447,19 +462,19 @@ class AppProxy:
         cookies = parse_cookies(headers.get("cookie", ""))
         given = headers.get("authorization")
         if given is None:
-            return Session(self.resolve_session(headers, cookies), headers)
+            return Session(self._resolve_session(headers, cookies, path), headers)
         bare = {k: v for k, v in headers.items() if k != "authorization"}
-        principal = self.resolve_session(bare, cookies) if cookies else None
+        principal = self._resolve_session(bare, cookies, path) if cookies else None
         if principal is not None:
             return Session(principal, bare, None if self.onemind_credential(given) else given)
-        return Session(self.resolve_session(headers, cookies), headers)
+        return Session(self._resolve_session(headers, cookies, path), headers)
 
     def onemind_credential(self, authorization: str) -> bool:
         """True for an Authorization value that carries a OneMind token, valid or not: never forwarded."""
         scheme, _, token = authorization.strip().partition(" ")
         if scheme.startswith(ONEMIND_TOKEN_PREFIX) or token.strip().startswith(ONEMIND_TOKEN_PREFIX):
             return True
-        return self.resolve_session({"authorization": authorization}, {}) is not None
+        return self._resolve_session({"authorization": authorization}, {}, "unknown") is not None
 
     def decide(self, headers: dict[str, str], app_id: str,
                path: NetPath = "unknown") -> tuple[int, Principal | None, AppRoute | None]:
@@ -474,7 +489,7 @@ class AppProxy:
     def decide_session(self, headers: dict[str, str], app_id: str,
                        path: NetPath = "unknown") -> tuple[int, Session, AppRoute | None]:
         """decide(), returning the whole Session (the proxy needs the app's own Authorization)."""
-        session = self.session(headers)
+        session = self.session(headers, path)
         status, route = self._decide(session, headers.get("host", ""), app_id, path)
         return status, session, route
 
@@ -489,7 +504,7 @@ class AppProxy:
             app_id, key = split  # <app>--<key>: a person's browser host (#692)
         route = self.route_for(app_id)
         if route is None or not self._exposed(host_header, app_id, path) \
-                or not self._shared_with(principal, app_id, headers):
+                or not self._shared_with(principal, app_id, headers, path):
             return Decision.NOT_FOUND, None
         if not allowed(principal, route.access):
             return Decision.FORBIDDEN, route
@@ -509,9 +524,13 @@ class AppProxy:
         entry = self.catalog.get(app_id)
         return browser_spec(entry.manifest) if entry is not None else None
 
-    def _shared_with(self, principal: Principal, app_id: str, headers: dict[str, str]) -> bool:
+    def _shared_with(self, principal: Principal, app_id: str, headers: dict[str, str], path: NetPath) -> bool:
         """False for an app the owner has not shared with this person (§12.6)."""
-        return self.shared is None or self.shared(principal, app_id, headers)
+        if self.shared is None:
+            return True
+        if self.path_aware_sessions:
+            return self.shared(principal, app_id, headers, path)
+        return self.shared(principal, app_id, headers)
 
     def _exposed(self, host: str, app_id: str, path: NetPath = "unknown") -> bool:
         """False when the tier (§12.22) does not admit this request: by the name used, and by the path.

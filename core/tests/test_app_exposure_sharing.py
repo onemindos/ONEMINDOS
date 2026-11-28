@@ -31,7 +31,7 @@ from onemind_core.netconf import NetSettings
 from onemind_core.netpath import path_of_peer
 from onemind_core.serve import pinned_path_app
 from conftest import OWNER
-from test_identity import PASSWORD, csrf, enrol, id_settings, setup_owner
+from test_identity import PASSWORD, SoftAuthenticator, csrf, enrol, id_settings, register_passkey, setup_owner, stepped
 
 APP = "whoami"
 LAN, MESH = f"{APP}.onemind.local", f"{APP}.apps.onemind.internal"
@@ -81,7 +81,20 @@ def open_app(box: TestClient, token: str, host: str):
 
 
 def session_token(box: TestClient, username: str) -> str:
-    r = TestClient(box.app).post("/v1/auth/login", json={"username": username, "password": PASSWORD, "client": "cli"})
+    c = TestClient(box.app, client=(LAN_PEER, 50000))
+    if username == "zeus":
+        if not getattr(box, "passkey", None):
+            register_passkey(box, SoftAuthenticator())
+        key = box.passkey
+    else:
+        # These tests exercise exposure tiers after an authenticated remote sign-in.
+        r = c.post("/v1/auth/login", json={"username": username, "password": PASSWORD})
+        assert r.status_code == 200, r.text
+        key = SoftAuthenticator()
+        register_passkey(c, key)
+    opts = c.post("/v1/auth/login/options")
+    assert opts.status_code == 200, opts.text
+    r = c.post("/v1/auth/login", json={"passkey": key.assert_(opts.json()["publicKey"]["challenge"]), "client": "cli"})
     assert r.status_code == 200, r.text
     return r.json()["access_token"]
 
@@ -130,13 +143,13 @@ def test_sharing_opens_the_app_and_removing_it_closes_it_at_once(box):
     enrol(box, "guest", "gia")
     gus, gia = session_token(box, "gus"), session_token(box, "gia")
     gid = gus_client.get("/v1/me").json()["principal"]["id"]
-    r = box.put(f"/v1/apps/{APP}/access", json={"roles": [], "people": [gid]}, headers=csrf(box))
+    r = stepped(box, "PUT", f"/v1/apps/{APP}/access", json={"roles": [], "people": [gid]})
     assert r.status_code == 200, r.text
     assert open_app(box, gus, LAN).status_code == 200
     assert open_app(box, gia, LAN).status_code == 404  # shared with Gus, not with Gia
-    box.put(f"/v1/apps/{APP}/access", json={"roles": ["guest"], "people": []}, headers=csrf(box))
+    assert stepped(box, "PUT", f"/v1/apps/{APP}/access", json={"roles": ["guest"], "people": []}).status_code == 200
     assert open_app(box, gus, LAN).status_code == 200 and open_app(box, gia, LAN).status_code == 200
-    box.put(f"/v1/apps/{APP}/access", json={"roles": [], "people": []}, headers=csrf(box))
+    assert stepped(box, "PUT", f"/v1/apps/{APP}/access", json={"roles": [], "people": []}).status_code == 200
     assert open_app(box, gus, LAN).status_code == 404 and open_app(box, gia, LAN).status_code == 404
 
 
@@ -177,7 +190,7 @@ def test_forward_auth_agrees_with_the_proxy(box, clock, monkeypatch):
 
     assert ask(LAN).status_code == 404  # not shared
     gid = guest.get("/v1/me").json()["principal"]["id"]
-    box.put(f"/v1/apps/{APP}/access", json={"roles": [], "people": [gid]}, headers=csrf(box))
+    assert stepped(box, "PUT", f"/v1/apps/{APP}/access", json={"roles": [], "people": [gid]}).status_code == 200
     ok = ask(LAN)
     assert ok.status_code == 204 and ok.headers["x-onemind-role"] == "guest"
     assert ask(MESH).status_code == 404  # shared, but the app is private: no mesh name

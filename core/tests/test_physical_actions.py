@@ -7,6 +7,7 @@ import json
 from datetime import timedelta
 
 import pytest
+from fastapi.testclient import TestClient
 
 from onemind_core.actions import HOLD_MIN_MS, ApprovalInput, FeatureAction, approval_card, hold_required
 from onemind_core.auth import Principal
@@ -15,6 +16,7 @@ from onemind_core.errors import ApiError
 from onemind_core.executors import ExecResult
 
 from conftest import AGENT, OWNER
+from test_identity import LOCAL_PEER, setup_bearer_owner
 
 OWNER_P = Principal(id="person:owner", kind="person", role="owner")
 AGENT_P = Principal(id="agent:hermes", kind="agent", role="agent")
@@ -187,14 +189,16 @@ def test_motion_lockout_refuses_every_physical_request(client, clock, pump, sett
     assert _approve(client, pending)["state"] == "succeeded"
 
 
-def test_lifting_the_lockout_needs_a_fresh_passkey_once_passkeys_are_active(client, settings, monkeypatch):
-    monkeypatch.setattr(client.app.state.identity, "passkeys_active", lambda: True)  # an owner has a passkey
+def test_lifting_the_lockout_requires_l2_after_the_box_has_an_owner(client, settings):
+    home = TestClient(client.app, client=LOCAL_PEER)
+    signed_in = setup_bearer_owner(home)
     # turning motion off stays one step: no passkey needed to make the box safer
-    r = client.put("/v1/physical/lockout", headers=OWNER, json={"locked": True})
+    r = home.put("/v1/physical/lockout", headers=signed_in, json={"locked": True})
     assert r.status_code == 200 and r.json()["locked"] is True, r.text
     # lifting it with a bare token is refused, and the lockout holds
-    r = client.put("/v1/physical/lockout", headers=OWNER, json={"locked": False})
-    assert r.status_code == 401 and r.json()["reason"] == "step_up_required", r.text
+    for headers in (signed_in, OWNER):
+        r = home.put("/v1/physical/lockout", headers=headers, json={"locked": False})
+        assert r.status_code == 401 and r.json()["reason"] == "step_up_required", r.text
     assert client.get("/v1/physical/lockout", headers=OWNER).json()["locked"] is True
     assert "physical.lockout.off" not in [e["event"] for e in _audit(settings)]
 

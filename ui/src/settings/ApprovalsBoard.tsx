@@ -106,7 +106,7 @@ export interface ApprovalsBoardProps {
    * has no plan route; §12.4 adds `GET /v1/actions/{id}/preview`). Without it a missing plan shows
    * as loading.
    */
-  planNote?: string;
+  planNote?: string | ((action: ActionSummary) => string);
   /** The line under the card; defaults to the passkey wording. Plain words only. */
   approveHint?: string;
   /** Spec ids and section numbers for developers; shown only inside the card's collapsed Technical details. */
@@ -139,6 +139,7 @@ export function ApprovalsBoard({ actions, plans, decided = [], now, canDecide, o
           list.forEach((a) => counts[fromOf(a)]++);
           const shown = list.filter((a) => from === 'all' || fromOf(a) === from);
           const current = shown.find((a) => a.id === sel) ?? shown[0];
+          const note = typeof planNote === 'function' ? current && planNote(current) : planNote;
           return (
             <>
               <h2 className="om-set-board-title">Waiting ({list.length})</h2>
@@ -194,7 +195,7 @@ export function ApprovalsBoard({ actions, plans, decided = [], now, canDecide, o
                         technical={technicalNote}
                         extra={
                           <>
-                            {!plans[current.id] && planNote ? <p className="om-note om-tone-info">{planNote}</p> : <EffectsCard plan={plans[current.id] ?? { status: 'loading' }} now={now} />}
+                            {!plans[current.id] && note ? <p className="om-note om-tone-info">{note}</p> : <EffectsCard plan={plans[current.id] ?? { status: 'loading' }} now={now} />}
                             <p className="om-hint">{approveHint ?? 'Approving asks for your passkey and signs exactly this plan. If the plan changes, the request has to be approved again.'}</p>
                           </>
                         }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Polish: sign-in with one primary passkey button, family copy on About, a device card, and the
+// Polish: sign-in with one primary button, family copy on About, a device card, and the
 // plain-language request history line.
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -8,32 +8,54 @@ import { DeviceCard } from './DeviceCard';
 import { ActionStatus } from '../shell/ActionJobs';
 import { renderApp, seriousViolations } from '../test/helpers';
 
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
-
 describe('sign-in polish', () => {
-  it('with passkeys available: passkey is the primary button, other ways sit behind one link, the demo note can be dismissed', async () => {
+  const credentialsDescriptor = Object.getOwnPropertyDescriptor(navigator, 'credentials');
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    if (credentialsDescriptor) Object.defineProperty(navigator, 'credentials', credentialsDescriptor);
+    else Reflect.deleteProperty(navigator, 'credentials');
+  });
+
+  it('shows password sign-in and a passkey choice, folds away token sign-in and lets the demo note be dismissed', async () => {
     vi.stubGlobal('PublicKeyCredential', class {});
     Object.defineProperty(navigator, 'credentials', { value: {}, configurable: true });
     const u = userEvent.setup();
     const { container } = renderApp();
-    expect(screen.getByRole('button', { name: 'Use my passkey' })).toHaveClass('om-btn-primary');
-    const more = screen.getByText('Other ways to sign in').closest('details')!;
+    expect(screen.getByLabelText('Username')).toBeVisible();
+    expect(screen.getByLabelText('Password')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Log in' })).toHaveClass('om-btn-primary');
+    expect(screen.getByRole('button', { name: 'Use my passkey' })).toHaveClass('om-btn-secondary');
+    expect(screen.getByText(/^We recommend using a passkey/)).toBeVisible();
+    const moreLink = screen.getByText('Other ways to sign in');
+    const more = moreLink.closest('details')!;
     expect(more).not.toHaveAttribute('open');
-    await u.click(screen.getByText('Other ways to sign in'));
+    expect(within(more).getByRole('button', { name: 'Sign in', hidden: true })).not.toBeVisible();
+    await u.click(moreLink);
     expect(more).toHaveAttribute('open');
+    expect(within(more).getByRole('button', { name: 'Sign in' })).toHaveClass('om-btn-secondary');
     const chip = screen.getByText(/^Demo mode\./).closest('p')!;
     await u.click(within(chip).getByRole('button', { name: 'Dismiss the demo note' }));
     expect(screen.queryByText(/^Demo mode\./)).not.toBeInTheDocument();
     expect(await seriousViolations(container)).toEqual([]);
   });
 
-  it('without passkeys: the other ways are open, so nobody is locked out', () => {
+  it('signs in with a password in a browser without passkeys and leaves the token form open', async () => {
     vi.stubGlobal('PublicKeyCredential', undefined);
     renderApp();
+    const u = userEvent.setup();
     expect(screen.getByText('Other ways to sign in').closest('details')).toHaveAttribute('open');
-    expect(screen.getByLabelText('Username')).toBeVisible();
+    expect(screen.getByLabelText('Access token')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Use my passkey' })).not.toBeInTheDocument();
+    const username = screen.getByLabelText('Username');
+    const password = screen.getByLabelText('Password');
+    const submit = screen.getByRole('button', { name: 'Log in' });
+    expect(username).toBeVisible();
+    expect(password).toBeVisible();
+    expect(submit).toHaveClass('om-btn-primary');
+    await u.type(username, 'owner');
+    await u.type(password, 'demo-password');
+    await u.click(submit);
+    expect(await screen.findByRole('navigation', { name: 'Main' })).toBeVisible();
   });
 });
 

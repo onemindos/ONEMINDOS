@@ -4,6 +4,7 @@
 // `components` types. Responses are checked at the edge: the spec leaves most of them as `unknown`.
 import { OneMind, OneMindError, PROTOCOL_HEADER, PROTOCOL_VERSION, type components, type paths } from '@onemind/sdk';
 import { ApiError } from '../api/types';
+import { approveWithStepUp } from '../lib/approve';
 
 const P = {
   roots: '/v1/files/roots',
@@ -17,6 +18,7 @@ const P = {
   grant: '/v1/files/grants/{grant_id}',
   requests: '/v1/files/requests',
   approve: '/v1/files/requests/{request_id}/approve',
+  approveOptions: '/v1/actions/{action_id}/approve-options',
   deny: '/v1/files/requests/{request_id}/deny',
   cancel: '/v1/files/requests/{request_id}/cancel',
   uploads: '/v1/files/uploads',
@@ -50,7 +52,7 @@ const str = (v: unknown) => typeof v === 'string';
 const fill = (path: string, key: string, id: string) => path.replace(`{${key}}`, encodeURIComponent(id));
 
 export function toApiError(e: unknown): unknown {
-  if (e instanceof OneMindError) return new ApiError(e.status, e.status === 401 ? 'unauthenticated' : e.status === 403 ? 'permission_denied' : e.status === 409 ? 'stale_precondition' : 'unknown', e.message, e.reason);
+  if (e instanceof OneMindError) return new ApiError(e.status, e.status === 401 ? 'unauthenticated' : e.status === 403 ? 'permission_denied' : e.status === 409 ? 'stale_precondition' : 'unknown', e.message, e.reason, e.details);
   return e;
 }
 async function failure(res: Response): Promise<ApiError> {
@@ -80,8 +82,8 @@ export class FilesApi {
     this.sdk = new OneMind({ baseUrl: window.location.origin, token, retries: 1, fetch: (...a) => this.fetchImpl(...a) });
   }
   private async get(path: string) { try { return await this.sdk.call<unknown>({ method: 'GET', path }); } catch (e) { throw toApiError(e); } }
-  private async post(path: string, body: unknown, key?: string) {
-    try { return await this.sdk.call<unknown>({ method: 'POST', path, body, retry: key !== undefined, headers: key ? { 'Idempotency-Key': key } : undefined }); } catch (e) { throw toApiError(e); }
+  private async post<T = unknown>(path: string, body: unknown, key?: string) {
+    try { return await this.sdk.call<T>({ method: 'POST', path, body, retry: key !== undefined, headers: key ? { 'Idempotency-Key': key } : undefined }); } catch (e) { throw toApiError(e); }
   }
   private auth = (extra: Record<string, string> = {}) => ({ Authorization: `Bearer ${this.token}`, [PROTOCOL_HEADER]: String(PROTOCOL_VERSION), ...extra });
 
@@ -103,8 +105,19 @@ export class FilesApi {
   /** Files an approval request (approve stays false: a person decides it in the list). One key per logical request. */
   async requestGrant(body: Omit<GrantBody, 'approve'>, key: string) { return this.post(P.grants, { ...body, approve: false }, key); }
   async requestTrashEmpty(which: 'home' | 'shared', key: string) { return this.post(P.trashEmpty, { trash: which, approve: false }, key); }
-  /** Approve exactly the plan that was shown (409 plan_changed when it moved). */
-  async approve(r: FileRequest) { return this.post(fill(P.approve, 'request_id', r.id), { plan_sha256: r.plan_sha256 }); }
+  /** Approve the reviewed plan, confirming the sign-in when the request needs it. */
+  async approve(r: FileRequest) {
+    const path = fill(P.approve, 'request_id', r.id);
+    try {
+      return await this.post(path, { plan_sha256: r.plan_sha256 });
+    } catch (e) {
+      if (!(e instanceof ApiError) || e.reason !== 'step_up_required') throw e;
+      return approveWithStepUp({
+        approve: (_id, body) => this.post(path, body),
+        approveOptions: (id, body) => this.post<components['schemas']['ApprovalChallenge']>(fill(P.approveOptions, 'action_id', id), body),
+      }, r, { forceProof: true });
+    }
+  }
   async deny(id: string) { return this.post(fill(P.deny, 'request_id', id), {}); }
   async cancel(id: string) { return this.post(fill(P.cancel, 'request_id', id), undefined); }
   async revoke(id: string) {

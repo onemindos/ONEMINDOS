@@ -244,6 +244,35 @@ func TestApproveNeverBlindRetryAndReadBack(t *testing.T) {
 	}
 }
 
+func TestApproveWithAuthenticatorBindsProofAndDoesNotRetry(t *testing.T) {
+	var posts atomic.Int32
+	c := newTest(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			posts.Add(1)
+			var body struct {
+				Plan  string            `json:"plan_sha256"`
+				Box   string            `json:"box_code"`
+				Proof map[string]string `json:"password_totp"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Errorf("decode approval: %v", err)
+			}
+			if r.URL.Path != "/v1/actions/a1/approve" || body.Plan != "reviewed-plan" || body.Box != "665544" ||
+				body.Proof["challenge"] != "challenge" || body.Proof["password"] != "sample password" || body.Proof["totp"] != "112233" {
+				t.Errorf("incorrectly bound action approval: %+v", body)
+			}
+			w.WriteHeader(502) // the response was lost after the gateway applied the action
+			return
+		}
+		fmt.Fprint(w, actionJSON("succeeded", "owner"))
+	}, WithPrincipal("owner"))
+	proof := ApprovalAuthenticator{Challenge: "challenge", Password: "sample password", TOTP: "112233", BoxCode: "665544"}
+	action, err := c.Actions.ApproveWithAuthenticator(context.Background(), "a1", "reviewed-plan", "", proof)
+	if err != nil || posts.Load() != 1 || action.State != "succeeded" {
+		t.Fatalf("read-back: %+v %v, sends %d", action, err, posts.Load())
+	}
+}
+
 func TestWait(t *testing.T) {
 	var n atomic.Int32
 	c := newTest(t, func(w http.ResponseWriter, r *http.Request) {

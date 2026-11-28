@@ -1,12 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Confirming at the box (D-028; design 3.11, open question N-1 = b, founder 2026-11-25).
+"""Codes shown on the box for setup, recovery and local L2 verification (D-034).
 
-Before the household holds its first proven key (L2), an L2 approval or change is accepted with an
-L1 passkey **plus** a short code that only the box's own screen shows (onemind-screen on tty1). A
-person who can read the box's screen is standing at the box, so a remote attacker holding a synced
-phone passkey still can't do an L2 action. The same at-the-box confirmation is the interim recovery
-path once the last proven key is gone (design 3.13 brings the full one): it lets an owner enrol a new
-key or revoke a lost proven key, and approves nothing else.
+On the home network an L2 approval or change can use an L1 sign-in proof and a short code shown
+only on the box's screen (onemind-screen on tty1). The code belongs to that particular challenge.
 
 How it works:
 - A challenge that needs the box makes a 6-digit code, keeps only its SHA-256 in the challenge row and
@@ -27,6 +23,7 @@ import hmac
 import json
 import os
 import secrets
+import tempfile
 import threading
 from collections import deque
 from datetime import datetime, timedelta
@@ -50,6 +47,7 @@ class BoxPresence:
         self.emit = emit  # (name, payload, severity) -> None, audited under "auth"
         self._failures: deque[datetime] = deque()
         self._lock = threading.Lock()
+        self._screen_lock = threading.Lock()
 
     @property
     def available(self) -> bool:
@@ -73,16 +71,25 @@ class BoxPresence:
                            reason="box_code_locked")
         code = f"{secrets.randbelow(10 ** CODE_DIGITS):0{CODE_DIGITS}d}"
         doc = {"code": code, "what": what[:120], "expires_at": int(expires_at.timestamp())}
-        tmp = self.path.with_name(self.path.name + ".tmp")
+        tmp = None
         try:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o640)
-            with os.fdopen(fd, "w") as f:
-                json.dump(doc, f)
-            os.replace(tmp, self.path)  # the screen never reads half a file
+            with self._screen_lock:
+                self.path.parent.mkdir(parents=True, exist_ok=True)
+                with tempfile.NamedTemporaryFile(mode="w", dir=self.path.parent, delete=False) as f:
+                    tmp = f.name
+                    os.fchmod(f.fileno(), 0o640)
+                    json.dump(doc, f)
+                os.replace(tmp, self.path)  # the screen never reads half a file
+                tmp = None
         except OSError as e:
             raise ApiError(503, "unavailable", f"the box's screen can't be given a code: {e.strerror}",
                            reason="box_presence_unavailable") from e
+        finally:
+            if tmp is not None:
+                try:
+                    Path(tmp).unlink(missing_ok=True)
+                except OSError:
+                    pass
         self.emit("box_code.issued", {"attempted": what[:120]}, "info")
         return code_sha256(code)
 
@@ -94,7 +101,7 @@ class BoxPresence:
         ok = bool(code) and not self._locked_out(now) and \
             hmac.compare_digest(code_sha256(str(code).strip().replace(" ", "")), want_sha)
         if ok:
-            self.clear()
+            self.clear(want_sha)
             return
         with self._lock:
             self._failures.append(now)
@@ -103,9 +110,12 @@ class BoxPresence:
                        "try)" if not code else "that is not the code on the box's screen; ask again for a new one",
                        reason="box_code_required")
 
-    def clear(self) -> None:
+    def clear(self, displayed_sha: str) -> None:
         if self.path is not None:
             try:
-                self.path.unlink(missing_ok=True)
-            except OSError:
+                with self._screen_lock:
+                    screen = json.loads(self.path.read_text())
+                    if hmac.compare_digest(code_sha256(screen["code"]), displayed_sha):
+                        self.path.unlink(missing_ok=True)
+            except (OSError, ValueError, KeyError, TypeError):
                 pass

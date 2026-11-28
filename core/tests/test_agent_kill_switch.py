@@ -18,7 +18,7 @@ from conftest import ADULT, AGENT, GUEST, OWNER, action_body, make_client
 from files_support import fc, files_root, files_settings, mkdir  # noqa: F401 (pytest fixtures)
 from onemind_core.app import create_app
 from onemind_core.audit import verify
-from test_identity import csrf, id_settings, setup_owner
+from test_identity import LOCAL_PEER, csrf, id_settings, setup_owner
 
 PATH = "/v1/agents/kill-switch"
 
@@ -133,7 +133,7 @@ def test_refusals_are_audited_at_most_once_a_minute(client, clock, settings):
 
 
 def test_identity_issued_agent_token_is_refused(settings, clock, executor):
-    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor)) as idc:
+    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor), client=LOCAL_PEER) as idc:
         setup_owner(idc)
         r = idc.post("/v1/tokens", json={"name": "hermes", "principal": {"kind": "agent", "id": "agent:hermes"}},
                      headers=csrf(idc))

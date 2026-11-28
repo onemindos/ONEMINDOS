@@ -14,7 +14,7 @@ import { Button, Card } from '@onemind/ui';
 import { usePoll } from '../lib/hooks';
 import { sessionLapsed, useGateway, viaSdk } from '../lib/gateway';
 import { useSignedIn } from '../session';
-import { keyErrorText } from './SignInKeys';
+import { keyErrorText } from '../lib/keyErrors';
 import { Load } from './parts';
 
 type Access = components['schemas']['AppAccess'];
