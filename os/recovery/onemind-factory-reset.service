@@ -6,6 +6,10 @@
 # Nothing to do (the condition fails) on every normal boot. If the wipe fails or the marker is stale
 # (expired, or another disk set), onemindd exits 1 after writing /run/onemind-recovery/status, and
 # OnFailure= isolates recovery mode instead of mounting the old data. The next boot tries again.
+# After a successful wipe the unit RESTARTS the box: onemind-data-encrypt.service (which makes the new, blank data
+# disk) runs before this unit, so only the next boot formats it. That unit also finds the armed marker on the ESP and
+# leaves the data disk locked, so no TPM or passphrase unlock ever opens the data the owner asked to erase; if the
+# disk is open anyway, the wipe closes it first and refuses when it is mounted.
 [Unit]
 Description=OneMind: run an armed factory reset (before the data disks are opened)
 DefaultDependencies=no

@@ -63,13 +63,14 @@
     "android": {
       "package": "com.onemindos.mobile",
       "permissions": [
-        "android.permission.POST_NOTIFICATIONS"
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.CAMERA",
+        "android.permission.USE_BIOMETRIC"
       ],
       "predictiveBackGestureEnabled": false,
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT",
         "com.google.android.c2dm.permission.RECEIVE",
         "com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE"
@@ -82,6 +83,42 @@
     },
     "plugins": [
       "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "OneMind uses the camera only to scan the join code your OneMind box shows.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
+      ],
+      [
+        "expo-sharing",
+        {
+          "android": {
+            "enabled": true,
+            "singleShareMimeTypes": [
+              "image/*",
+              "application/*",
+              "audio/*",
+              "video/*"
+            ],
+            "multipleShareMimeTypes": [
+              "*/*"
+            ]
+          },
+          "ios": {
+            "enabled": true,
+            "appGroupId": "group.com.onemindos.mobile",
+            "activationRule": {
+              "supportsImageWithMaxCount": 32,
+              "supportsFileWithMaxCount": 32,
+              "supportsAttachmentsWithMaxCount": 32,
+              "supportsMovieWithMaxCount": 32
+            }
+          }
+        }
+      ],
       [
         "expo-media-library",
         {
@@ -104,11 +141,26 @@
         "expo-build-properties",
         {
           "android": {
-            "usesCleartextTraffic": true
+            "usesCleartextTraffic": true,
+            "extraProguardRules": "-keep class * extends androidx.room.RoomDatabase { <init>(); }\n-keep class androidx.work.impl.WorkDatabase_Impl { *; }"
           }
         }
       ],
       "expo-background-task",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "OneMind uses the camera to scan the join code your OneMind box shows.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "OneMind asks for Face ID before you approve a request on your OneMind box."
+        }
+      ],
       "./plugins/withoutPlayServicesCredentials",
       "./plugins/withReleaseSigning"
     ]

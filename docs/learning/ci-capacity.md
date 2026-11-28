@@ -37,7 +37,7 @@ In the merge queue (`merge_group`), no job is a draft, so every job runs and the
 - Open PRs as **draft** while you work; push as often as you like. Mark **ready** when the work is done.
 - Do not open a PR ready and then keep pushing: each push restarts the full set (the older run is cancelled, but the new one costs the same).
 - Writing a new PR workflow? Copy the pattern from `ci-sdk.yml`: `types` with `ready_for_review`, a `concurrency` block, and `if: ${{ !github.event.pull_request.draft }}` on every job that is not a cheap check. The policy test tells you if you missed one.
-- `ci-core.yml` follows the same pattern in a follow-up commit once [#264](https://github.com/onemindos/ONEMINDOS/pull/264), which changes that file, has merged.
+- `ci-core.yml` defers the image build and shard planning on draft PRs. Marking the PR ready starts the image build and existing PR shard matrix for matching paths.
 
 ## Informational workflows: measured savings (CI-11)
 Which workflows never block a merge is the `INFORMATIONAL` set in [`scripts/ci-gate.py`](../../scripts/ci-gate.py): `perf-smoke`, `api-fuzz`, `go-fuzz`, `security-nightly`, `net-2vm`, `apps-gate-all`. They are signals, so they do not need to run on every PR; the schedule and `main` catch a regression a day later at worst.

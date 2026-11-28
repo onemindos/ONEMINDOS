@@ -198,6 +198,85 @@ def test_ntfy_channel_title_level_and_secret_never_returned(nclient, http):
     assert "Click" not in req["headers"]
 
 
+def test_node_outage_groups_eight_app_warnings_for_each_recipient(nclient, clock, monkeypatch):
+    import socket
+
+    from onemind_core.notify import channels
+
+    requests = []
+    monkeypatch.setattr(channels.socket, "getaddrinfo", lambda *args, **kwargs: [
+        (socket.AF_INET6, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("2606:4700::1", 0, 0, 0)),
+    ])
+
+    def record_push(url, body, headers, timeout, lan_ok):
+        requests.append((url, headers["Title"]))
+        return 200
+
+    monkeypatch.setattr(channels, "http_post", record_push)
+    for path, headers in (("owner", OWNER), ("adult", ADULT)):
+        add_channel(nclient, {"kind": "ntfy", "label": path, "config": {"url": f"https://ntfy.sh/{path}"}}, headers)
+
+    def unhealthy(app_id, node_id):
+        nclient.app.state.events.publish_event(
+            "app", "unhealthy", {"app_id": app_id, "node_id": node_id, "reason": "readiness lost"},
+            severity="warning", source_id="gateway:monitoring",
+        )
+
+    for index in range(8):
+        unhealthy(f"app-{index}", "n1")
+    clock.advance(15)
+    assert svc(nclient).pump() == 0
+    assert requests == []
+    publish(nclient, "node", "offline", {"node_id": "n1", "hostname": "hub", "age_s": 300}, "warning")
+    assert svc(nclient).pump() == 1
+    clock.advance(15)
+    assert svc(nclient).pump() == 1
+    owner_push, adult_push = requests
+    assert owner_push == ("https://ntfy.sh/owner", "[warning] hub is offline")
+    assert adult_push[0] == "https://ntfy.sh/adult"
+    assert adult_push[1] in {f"[warning] app-{n} is not working" for n in range(8)}
+    owner_items = inbox(nclient, OWNER)
+    adult_items = inbox(nclient, ADULT)
+    assert len(owner_items) == 9 and len(adult_items) == 8
+    assert {item["group_key"] for item in owner_items + adult_items} == {"node:n1:offline"}
+    assert len(open_alerts(nclient, OWNER)) == 9 and len(open_alerts(nclient, ADULT)) == 8
+
+    unhealthy("unrelated", "n2")
+    clock.advance(30)
+    assert svc(nclient).pump() == 2
+    assert all("unrelated is not working" in title for _, title in requests[2:])
+    clock.advance(180)
+    unhealthy("late-app", "n1")
+    clock.advance(30)
+    assert svc(nclient).pump() == 1
+    assert requests[-1] == ("https://ntfy.sh/adult", "[warning] late-app is not working")
+
+
+def test_quiet_hours_app_warnings_fold_when_the_outage_was_delivered(nclient, http, clock):
+    ch = add_channel(nclient, {"kind": "ntfy", "label": "push", "config": {"url": http.url}})
+    prefs = {
+        "quiet_hours": {"tz": "UTC", "from": "21:30", "to": "07:00", "except_topics": ["nodes"]},
+        "routes": [{"match": {}, "channels": [ch["id"]]}],
+    }
+    assert nclient.put("/v1/notifications/preferences", headers=OWNER, json=prefs).status_code == 200
+    publish(nclient, "node", "offline", {"node_id": "n1", "hostname": "hub", "age_s": 300}, "warning")
+    assert svc(nclient).pump() == 1
+    for app_id in ("app-1", "app-2"):
+        nclient.app.state.events.publish_event(
+            "app", "unhealthy", {"app_id": app_id, "node_id": "n1", "reason": "readiness lost"},
+            severity="warning", source_id="gateway:monitoring",
+        )
+    children = [item for item in inbox(nclient, OWNER) if item["title"].endswith("is not working")]
+    assert len(children) == 2
+    for item in children:
+        [delivery] = svc(nclient).repo.deliveries_for(item["id"])
+        assert (delivery.state, delivery.held_reason) == ("held", "quiet")
+    clock.advance(9 * 3600)
+    assert svc(nclient).pump() == 0
+    assert len(http.requests) == 1
+    assert len(open_alerts(nclient, OWNER)) == 3
+
+
 def test_info_items_stay_in_app_by_default(nclient, http):
     add_channel(nclient, {"kind": "webhook", "label": "hook", "config": {"url": http.url}})
     publish(nclient, "update", "applied", {"node_id": "n1", "hostname": "pi", "version": "1.2"})
@@ -340,6 +419,76 @@ def test_preferences_validation_and_etag(nclient):
     stale = nclient.put("/v1/notifications/preferences", headers={**OWNER, "If-Match": tag}, json={"routes": []})
     assert stale.status_code == 409
     assert nclient.get("/v1/notifications/preferences", headers=AGENT).status_code == 403
+
+
+def test_topic_mute_filters_queued_delivery_but_keeps_inbox_and_audit(nclient, http, settings):
+    muted_channel = add_channel(nclient, {"kind": "webhook", "label": "muted", "config": {"url": http.url}})
+    add_channel(nclient, {"kind": "webhook", "label": "still sends", "config": {"url": http.url}})
+    publish(nclient, "node", "offline", {"node_id": "first", "hostname": "first", "age_s": 1}, "warning")
+    first = inbox(nclient, OWNER)[0]
+    path = "/v1/notifications/preferences"
+    prefs = nclient.get(path, headers=OWNER).json()
+    prefs["mutes"] = [{"topic": "nodes.*", "channel": muted_channel["id"]}, {"topic": "nodes", "channel": "in_app"}]
+    assert nclient.put(path, headers=ADULT, json=prefs).status_code == 422
+    assert nclient.put(path, headers=OWNER, json=prefs).status_code == 200
+    assert svc(nclient).pump() == 1
+    assert len(http.requests) == 1
+    assert svc(nclient).muted("owner", first["topic"])
+    assert first["id"] in settings.audit_path.read_text()
+    publish(nclient, "node", "offline", {"node_id": "second", "hostname": "second", "age_s": 1}, "warning")
+    assert svc(nclient).pump() == 1
+    assert len(inbox(nclient, OWNER)) == 2
+
+
+def test_retention_prunes_only_the_persons_inbox(nclient, clock, settings):
+    service = svc(nclient)
+    delivered = service._fanout(["owner", "adult"], severity="info", topic="nodes", title="Ready", body="",
+                                link=None, source="test", action_id=None, alert_id=None, inapp_only=True)
+    path = "/v1/notifications/preferences"
+    prefs = nclient.get(path, headers=OWNER).json()
+    assert nclient.put(path, headers=OWNER, json={**prefs, "retention_days": True}).status_code == 422
+    assert nclient.put(path, headers=OWNER, json={**prefs, "retention_days": 7}).status_code == 200
+    clock.advance(8 * 86400)
+    service.repo.prune(clock.now)
+    assert inbox(nclient, OWNER) == []
+    assert [item["id"] for item in inbox(nclient, ADULT)] == delivered[1:]
+    assert delivered[0] in settings.audit_path.read_text()
+
+
+def test_quiet_hours_save_holds_phone_delivery_until_morning(nclient, clock, http):
+    registered = nclient.post("/v1/push/registrations", headers=OWNER,
+                              json={"platform": "unifiedpush", "endpoint": http.url + "/push/phone", "label": "Phone"})
+    assert registered.status_code == 201
+    path = "/v1/notifications/preferences"
+    prefs = nclient.get(path, headers=OWNER)
+    body = {**prefs.json(), "quiet_hours": {"tz": "UTC", "from": "21:30", "to": "07:00"}}
+    assert nclient.put(path, headers={**OWNER, "If-Match": prefs.headers["ETag"]}, json=body).status_code == 200
+    publish(nclient, "node", "offline", {"node_id": "node", "hostname": "node", "age_s": 1}, "warning")
+    assert svc(nclient).pump() == 0
+    assert http.requests == []
+    clock.advance(9 * 3600)
+    assert svc(nclient).pump() == 1
+    assert len(http.requests) == 1
+
+
+def test_silence_stops_delivery_until_expiry(nclient, clock, http):
+    from datetime import timedelta
+
+    registered = nclient.post("/v1/push/registrations", headers=OWNER,
+                              json={"platform": "unifiedpush", "endpoint": http.url + "/push/phone", "label": "Phone"})
+    assert registered.status_code == 201
+    path = "/v1/notifications/preferences"
+    prefs = nclient.get(path, headers=OWNER).json()
+    prefs["silence"] = {"reason": "Focus", "until": (clock.now + timedelta(hours=2)).isoformat()}
+    assert nclient.put(path, headers=OWNER, json=prefs).status_code == 200
+    svc(nclient).pump()
+    publish(nclient, "node", "offline", {"node_id": "first", "hostname": "first", "age_s": 1}, "warning")
+    assert svc(nclient).pump() == 0 and not http.requests
+    assert len(inbox(nclient, OWNER)) == 1 and svc(nclient).muted("owner", "nodes")
+    clock.advance(2 * 3600)
+    publish(nclient, "node", "offline", {"node_id": "second", "hostname": "second", "age_s": 1}, "warning")
+    assert svc(nclient).pump() == 1 and len(http.requests) == 1
+    assert json.loads(http.requests[0]["body"])["notification_id"] == inbox(nclient, OWNER)[0]["id"]
 
 
 # ---- inbox ------------------------------------------------------------------------------------

@@ -32,11 +32,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def visible_fn(request: Request, p: Principal, links: frozenset[str] = frozenset()):
         apps = gw.catalog.load()
         nodes = {n["node_id"] for n in gw.registry.list()}
+        off = gw.disabled_apps()  # a switched-off app has no dock tile
 
         def visible(item: str) -> bool:
             kind, _, ident = item.partition(":")
             if kind == "app":
-                return ident in apps and all(f(request, p, ident) for f in gw.app_filters)
+                return ident in apps and ident not in off and all(f(request, p, ident) for f in gw.app_filters)
             if kind == "node":
                 return ident in nodes
             if kind == "link":
@@ -45,11 +46,29 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
         return visible
 
+    def available_defaults(choices: dict[str, str], visible) -> dict[str, str]:
+        if not choices:
+            return {}
+        apps = gw.catalog.load()
+        states = gw.repo.list_app_states()
+        allowed = {}
+        for purpose, app_id in choices.items():
+            state = states.get(app_id)
+            entry = apps.get(app_id)
+            if entry is None or not state or state.status != "installed" or not visible(f"app:{app_id}"):
+                continue
+            app = entry.summary()
+            if app["web_port"] and purpose == ("browser" if app["browser"] else app["category"]):
+                allowed[purpose] = app_id
+        return allowed
+
     def resolved(request: Request, p: Principal) -> dict:
         doc = svc.stored(p.id) or HomeBody().model_dump()
         doc = normalise(doc, owner=p.is_owner)
         doc.setdefault("links", [])
-        return drop_invisible(doc, visible_fn(request, p, frozenset(link_ids(doc))))
+        visible = visible_fn(request, p, frozenset(link_ids(doc)))
+        doc["default_apps"] = available_defaults(doc.get("default_apps", {}), visible)
+        return drop_invisible(doc, visible)
 
     def send(response: Response, doc: dict) -> dict:
         response.headers["ETag"] = etag_of(doc)
@@ -76,11 +95,20 @@ def register(app: FastAPI, gw: Gateway) -> None:
             raise ApiError(412, "stale_precondition", "Home changed elsewhere; read it again", reason="etag_mismatch")
         doc = normalise(body.model_dump(exclude={"updated_at"}), owner=p.is_owner)
         visible = visible_fn(request, p, frozenset(link_ids(doc)))
+        if "recent" not in body.model_fields_set:
+            # Older clients replace the document without knowing its history field.
+            doc["recent"] = [item for item in current["recent"] if visible(item)]
         # A stored id must never reveal an app this person may not see: refuse it, as if it did not exist.
         bad = [i for i in item_ids(doc) if not visible(i)]
         if bad:
             raise ApiError(422, "conflict", "unknown or hidden item: " + ", ".join(sorted(set(bad))), reason="unknown_item")
+        if "default_apps" not in body.model_fields_set:
+            doc["default_apps"] = current["default_apps"]  # older clients do not send this field
+        elif available_defaults(doc["default_apps"], visible) != doc["default_apps"]:
+            raise ApiError(422, "conflict", "app unavailable for this purpose", reason="unknown_item")
         changed = sorted(k for k in doc if k != "updated_at" and doc[k] != current.get(k))
-        stored = svc.save(p.id, doc, gw.clock())
+        stored = svc.save(p.id, doc, gw.clock(), current.get("updated_at"))
+        if stored is None:
+            raise ApiError(412, "stale_precondition", "Home changed elsewhere; read it again", reason="etag_mismatch")
         gw.audit.append("home.updated", p.as_dict(), None, {"changed": changed})
         return send(response, stored)

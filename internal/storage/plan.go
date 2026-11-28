@@ -283,9 +283,7 @@ func PlanCreate(disks []Disk, devices []string, o PlanOptions) Plan {
 	if len(members) > 0 {
 		p.Steps = append(p.Steps, Step{ID: "mount", Phase: PhaseCommit, Cmd: []string{"mount", "-o", MountOptions, members[0], o.Mount}, Why: "mount the set (any member mounts all of them)"})
 	}
-	for _, sv := range []string{"@", "@storage", "@snapshots"} {
-		p.Steps = append(p.Steps, Step{ID: "subvolume", Phase: PhaseCommit, Cmd: []string{"btrfs", "subvolume", "create", o.Mount + "/" + sv}, Why: "subvolume layout (storage.md §4.2)"})
-	}
+	p.Steps = append(p.Steps, LayoutSteps(o.Mount, PhaseCommit)...)
 	p.Steps = append(p.Steps, verifyStep(o.Mount))
 	return finish(p)
 }
@@ -489,4 +487,36 @@ func finish(p Plan) Plan {
 func WithChecks(p Plan, cs ...Check) Plan {
 	p.Checks = append(p.Checks, cs...)
 	return finish(p)
+}
+
+// Subvolumes of the data filesystem, the same layout data_encrypt.py makes on
+// a box's first boot (#152, #975):
+//
+//	@                 the default subvolume, which /etc/fstab mounts at /data
+//	                  (k3s, databases, gateway state; never snapshotted)
+//	@storage          the owner's files, mounted at /data/storage by
+//	                  data-storage.mount
+//	@storage/.snapshots  nested inside @storage, where snapper keeps its
+//	                  snapshots (so a snapshot never contains snapshots)
+const (
+	SubvolRoot      = "@"
+	SubvolStorage   = "@storage"
+	SubvolSnapshots = "@storage/.snapshots"
+	// StorageDir is the empty mount point of @storage inside @.
+	StorageDir = "@/storage"
+)
+
+// LayoutSteps create that layout under top, the top level of a freshly made
+// btrfs (mounted with subvolid=5), and make @ the default subvolume.
+func LayoutSteps(top, phase string) []Step {
+	var st []Step
+	for _, sv := range []string{SubvolRoot, SubvolStorage, SubvolSnapshots} {
+		st = append(st, Step{ID: "subvolume", Phase: phase, Cmd: []string{"btrfs", "subvolume", "create", top + "/" + sv},
+			Why: "subvolume layout: @ is /data, @storage the owner's files, @storage/.snapshots snapper's snapshots"})
+	}
+	return append(st,
+		Step{ID: "snapshots-mode", Phase: phase, Cmd: []string{"install", "-d", "-m", "0750", top + "/" + SubvolSnapshots}, Why: "snapper wants its snapshot directory root-only"},
+		Step{ID: "storage-dir", Phase: phase, Cmd: []string{"install", "-d", "-m", "0755", top + "/" + StorageDir}, Why: "the mount point of @storage inside @ (data-storage.mount runs only when it exists)"},
+		Step{ID: "default-subvolume", Phase: phase, Cmd: []string{"btrfs", "subvolume", "set-default", top + "/" + SubvolRoot}, Why: "the image's fstab mounts /data with no subvol= option, so @ must be the default"},
+	)
 }

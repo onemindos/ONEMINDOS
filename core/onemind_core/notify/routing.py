@@ -24,15 +24,18 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from datetime import datetime, time, timedelta
+from datetime import UTC, datetime, time, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .catalogue import RANK, SEVERITIES, TOPICS
 
 HHMM = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
-TOPIC_RE = re.compile(r"^(?:(?:%s)(?:\.\*)?|plugin(?:\.[a-z0-9][a-z0-9-]{0,58})?(?:\.\*)?)$" % "|".join(TOPICS))
+TOPIC_RE = re.compile(r"^(?:(?:%s)(?:\.\*)?|plugin(?:\.[a-z0-9][a-z0-9-]{0,58})?(?:\.\*)?"
+                      r"|app(?:\.[a-z][a-z0-9-]{0,58}(?:\.[a-z][a-z0-9_.-]{0,62})?)?(?:\.\*)?)$" % "|".join(TOPICS))
 TARGET_RE = re.compile(r"^(\*|(chn|dev)_[0-9A-Z]{26})$")
 MAX_ROUTES = 50
+MAX_INBOX_DAYS = 90
+IN_APP = "in_app"
 
 DEFAULT: dict = {
     "quiet_hours": None,
@@ -75,7 +78,7 @@ def validate(doc: object) -> dict:
     """The normalised document, or ValueError naming the bad field."""
     if not isinstance(doc, dict):
         raise ValueError("preferences must be a JSON object")
-    unknown = set(doc) - {"quiet_hours", "routes", "digest"}
+    unknown = set(doc) - {"quiet_hours", "routes", "digest", "mutes", "retention_days", "silence"}
     if unknown:
         raise ValueError(f"unknown preference fields: {sorted(unknown)}")
     out: dict = {"quiet_hours": None, "routes": [], "digest": {"enabled": False, "at": "08:00"}}
@@ -117,12 +120,46 @@ def validate(doc: object) -> dict:
         if not isinstance(dg, dict) or not isinstance(dg.get("enabled", False), bool):
             raise ValueError("digest must be {enabled: bool, at: HH:MM}")
         out["digest"] = {"enabled": dg.get("enabled", False), "at": _hhmm(dg.get("at", "08:00"), "digest.at")}
+    if "retention_days" in doc:
+        days = doc["retention_days"]
+        if type(days) is not int or not 1 <= days <= MAX_INBOX_DAYS:
+            raise ValueError(f"retention_days must be between 1 and {MAX_INBOX_DAYS}")
+        out["retention_days"] = days
+    if "mutes" in doc:
+        mutes = doc["mutes"]
+        if not isinstance(mutes, list) or len(mutes) > MAX_ROUTES:
+            raise ValueError(f"mutes must be a list of at most {MAX_ROUTES}")
+        out["mutes"] = []
+        for i, mute in enumerate(mutes):
+            if not isinstance(mute, dict) or set(mute) != {"topic", "channel"}:
+                raise ValueError(f"mutes[{i}] must be {{topic, channel}}")
+            topic = _topics([mute["topic"]], f"mutes[{i}].topic")[0]
+            channel = mute["channel"]
+            if not isinstance(channel, str) or (channel != IN_APP and not TARGET_RE.fullmatch(channel)):
+                raise ValueError(f"mutes[{i}].channel must be a channel or device id, in_app or *")
+            entry = {"topic": topic, "channel": channel}
+            if entry not in out["mutes"]:
+                out["mutes"].append(entry)
+    if "silence" in doc:
+        silence = doc["silence"]
+        if silence is None:
+            out["silence"] = None
+        else:
+            if not isinstance(silence, dict) or set(silence) != {"until", "reason"}:
+                raise ValueError("silence must be {until, reason} or null")
+            until, reason = silence["until"], silence["reason"]
+            if not isinstance(until, str) or not isinstance(reason, str) or not 1 <= len(reason.strip()) <= 200:
+                raise ValueError("silence needs an expiry and a reason up to 200 characters")
+            stamp = datetime.fromisoformat(until)
+            if stamp.tzinfo is None:
+                raise ValueError("silence.until must specify a time zone")
+            out["silence"] = {"until": stamp.astimezone(UTC).isoformat(), "reason": reason.strip()}
     return out
 
 
 def _topics(values, where: str) -> list[str]:
     if not isinstance(values, list) or not all(isinstance(t, str) and TOPIC_RE.match(t) for t in values):
-        raise ValueError(f"{where}: topics are {', '.join(TOPICS)} or plugin.<app-id>, optionally ending in .*")
+        raise ValueError(f"{where}: topics are {', '.join(TOPICS)}, plugin.<app-id> or app.<app-id>.<topic>, optionally ending in .*")
     return list(values)
 
 
@@ -149,7 +186,17 @@ def targets(doc: dict, topic: str, severity: str, available: list[str]) -> list[
     for r in doc.get("routes", []):
         if route_matches(r["match"], topic, severity):
             chosen.update(available if "*" in r["channels"] else r["channels"])
-    return [t for t in available if t in chosen]
+    return [t for t in available if t in chosen and not muted(doc, topic, t)]
+
+
+def muted(doc: dict, topic: str, channel: str) -> bool:
+    return any(rule["channel"] in (channel, "*") and topic_matches(rule["topic"], topic)
+               for rule in doc.get("mutes", []))
+
+
+def silenced(doc: dict, now: datetime) -> bool:
+    silence = doc.get("silence")
+    return bool(silence and datetime.fromisoformat(silence["until"]) > now)
 
 
 def _zone(doc: dict) -> ZoneInfo:

@@ -3,7 +3,7 @@
 // request → approval → live progress → installed loop, roles, honest stale and "coming" states.
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { renderApp, seriousViolations } from './test/helpers';
 
 const T = { timeout: 4000 };
@@ -28,6 +28,44 @@ describe('Home', () => {
     expect((await screen.findAllByText(/install ollama/i, {}, T)).length).toBeGreaterThan(0);
     expect(await screen.findByRole('link', { name: /Uptime Kuma/ }, T)).toBeInTheDocument();
     expect(await seriousViolations(container)).toEqual([]);
+  });
+
+  it('records an explicit keyboard launch across clients and keeps a directly loaded screen read-only', async () => {
+    let recent: string[] = [];
+    const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
+      const path = new URL(String(input)).pathname;
+      if (path === '/v1/status') {
+        return Response.json({ backups: { state: 'critical', observed_at: '2026-11-21T01:00:00Z', summary: 'Last backup failed' } });
+      }
+      if (path === '/v1/me/home') {
+        if (init?.method === 'PUT') recent = JSON.parse(String(init.body)).recent;
+        return Response.json({ version: 3, layout: 'desktop', recent }, { headers: { etag: '"v1"' } });
+      }
+      return Response.json({ error: 'not_found', message: 'Unavailable' }, { status: 404 });
+    });
+    vi.stubGlobal('fetch', fetch);
+    try {
+      const firstClient = renderApp({ token: 'owner-demo', route: '/installed', mock: false });
+      const dock = within(await screen.findByRole('navigation', { name: 'Main' }, T));
+      const market = dock.getByRole('link', { name: 'Market' });
+      expect(fetch.mock.calls.some(([url]) => new URL(String(url)).pathname === '/v1/me/home')).toBe(false);
+      market.focus();
+      await userEvent.setup().keyboard('{Enter}');
+      await waitFor(() => expect(recent).toEqual(['sys:market']), T);
+      firstClient.unmount();
+      // The second browser shares the hub history and starts with its own empty window store.
+      window.localStorage.clear();
+      renderApp({ token: 'owner-demo', mock: false });
+      const health = await screen.findByRole('region', { name: 'Box health' }, T);
+      expect(await within(health).findByText('Last backup failed')).toBeInTheDocument();
+      const history = within(await screen.findByRole('region', { name: 'Recent' }));
+      expect(await history.findByRole('link', { name: 'Market' })).toHaveAttribute('href', '/market');
+      // "Needs you" repeats the failing source as a styled row: the source as a pill, then the box's summary.
+      const needs = within(await screen.findByRole('list', { name: 'Box status requiring attention' }, T));
+      expect(needs.getByText('Last backup failed').closest('li')).toHaveTextContent('Backups');
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('greets the person by the display name /v1/me gives, and by no name when there is none', async () => {
@@ -58,6 +96,21 @@ describe('Market and the install loop', () => {
     expect(await screen.findByRole('heading', { name: 'Start here' }, T)).toBeInTheDocument();
     // home-automation (legacy slug on main) lands in Home & IoT.
     expect(screen.getByRole('button', { name: /^Home & IoT/ })).toBeInTheDocument();
+  });
+
+  it('Browsers row lists Firefox, and installing one is a request that waits for the owner', async () => {
+    const u = userEvent.setup();
+    renderApp({ token: 'owner-demo', route: '/market' });
+    const row = (await screen.findByRole('heading', { name: 'Browsers' }, T)).closest('section')!;
+    expect(within(row).getByRole('link', { name: 'Firefox' })).toBeInTheDocument();
+    // apps/chromium declares licenceClass: unknown, so the default green-licence filter (#867) leaves it out.
+    expect(within(row).queryByRole('link', { name: 'Chromium' })).toBeNull();
+    expect(within(row).queryByText(/Chrome$|Edge/)).toBeNull();
+    await u.click(within(row).getByRole('link', { name: 'Firefox' }));
+    await u.click(await screen.findByRole('button', { name: /Request install/ }, T));
+    await u.click(within(await screen.findByRole('dialog', { name: 'Review app request' })).getByRole('button', { name: 'Send request' }));
+    const card = await screen.findByRole('article', { name: /Install firefox|Install Firefox/ }, T);
+    expect(card).toHaveTextContent(/awaiting approval/i);
   });
 
   it('app page shows the trust facts and greys out Install for a stale scan', async () => {
@@ -213,12 +266,23 @@ describe('one notification centre', () => {
     await waitFor(async () => expect((await api.notifications({ unread: true })).length).toBe(0), T);
   });
 
-  it('Home shows the health card, and says "Not reported" where the hub gives no answer', async () => {
+  it('Home says once that the box status is unknown when it is unavailable, after the greeting', async () => {
     renderApp({ token: 'owner-demo' });
     const card = await screen.findByRole('region', { name: 'Box health' }, T);
-    // The demo gateway has no backup or update service: those rows say so; alerts are real.
-    expect(within(card).getAllByText('Not reported').length).toBe(2);
-    expect(within(card).getByText(/critical alert|No critical alerts/)).toBeInTheDocument();
+    // Other services can answer while the aggregate status source is unavailable: one Unknown line, never green.
+    expect(within(card).getAllByText('Unknown')).toHaveLength(1);
+    expect(within(card).getByText('The box has not reported its status yet.')).toBeInTheDocument();
+    expect(card.querySelector('.om-tone-ok')).toBeNull();
+    // IA §2.1: the greeting comes first, then Box health; Recent is at the end, after the apps.
+    const greeting = screen.getByRole('heading', { level: 1, name: /Good/ });
+    expect(greeting.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const recent = screen.getByRole('region', { name: 'Recent' });
+    const apps = screen.getByRole('heading', { name: 'Your apps' });
+    expect(apps.compareDocumentPosition(recent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // "Needs you" lists no Unknown bullets; the waiting request is in the card.
+    const needs = within(screen.getByRole('region', { name: /Needs you/ }));
+    expect(needs.queryAllByText('Unknown')).toHaveLength(0);
+    expect(needs.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
   });
 });
 

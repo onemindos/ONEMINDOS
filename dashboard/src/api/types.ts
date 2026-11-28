@@ -71,9 +71,17 @@ export interface AppLinks {
 export type AppTier = 'verified' | 'community' | 'blocked';
 
 /** §11.1 scan record as summarised in the catalog (§11.4). */
-export interface ScanSummary {
-  scanned_at: string;
-  result: 'pass' | 'fail';
+export type ScanSummary = components['schemas']['ScanSummary'];
+
+/** #724: one strength of what an app needs from a machine (sdk/schema $defs/machineNeeds). A fact the manifest does not state is absent. */
+export interface MachineNeedsBlock {
+  arch?: string[];
+  memoryMb?: number;
+  storageFreeGb?: number;
+  accelerator?: { capability?: string; minMemoryMb?: number; rtCores?: boolean; count?: number; overlay?: string };
+  devices?: string[];
+  radios?: string[];
+  models?: { quantisations?: string[] };
 }
 
 /** §3 `GET /v1/apps` item, built from §4 `onemind.app.yaml`, plus the §11.4 fields. */
@@ -86,10 +94,17 @@ export interface CatalogApp {
   category: string | null;
   icon: string | null;
   license: string | null;
+  /** #173 metadata.licenceClass: L1 and L2 are green; blocked and unknown are not. Absent on an older gateway. */
+  licence_class?: components['schemas']['CatalogApp']['licence_class'];
   source: string | null;
   archs: string[];
+  /** spec.requires exactly as written, in either spelling; read machine_needs for one shape. */
   requires: { gpu?: boolean; minMemoryMb?: number };
+  /** #724: requires / recommends / supports in one shape, whichever spelling the manifest uses. */
+  machine_needs?: { requires: MachineNeedsBlock; recommends: MachineNeedsBlock; supports: MachineNeedsBlock };
   web_port: number | null;
+  /** #692: a browser app, opened in a dashboard window with the person's own profile (/browser/<id>). */
+  browser?: boolean;
   installed: boolean;
   status: string;
   links: AppLinks;
@@ -137,6 +152,12 @@ export interface CommunitySource {
   errors: string[];
 }
 
+/** PLG-GIT-01: the custom-app shapes come from the generated client, not hand-written types. */
+export type CustomPlan = components['schemas']['CustomPlanResult'];
+export type CustomRevision = components['schemas']['CustomRevisionOut'];
+export type CustomApp = components['schemas']['CustomAppRow'];
+export type CustomRollbackPlan = components['schemas']['CustomRollbackResult'];
+
 /** POST /v1/deploy/compose (PD-13): a conversion only; it writes nothing on the box. */
 export interface ComposeResult {
   ok: boolean;
@@ -169,15 +190,26 @@ export interface Principal {
 }
 
 /** MACH-01 (#281): machine requests. They carry a machine `name`, never an `app_id`. */
-export type MachineActionType = Extract<components['schemas']['FeatureActionRequest']['type'], `machine.${string}`>;
+export type MachineActionType = Extract<components['schemas']['FeatureActionRequest']['type'], `machine.${string}`> | 'machines.enable' | 'machines.disable';
+export type MachineMedia = Pick<components['schemas']['UploadedMedia'], 'size_bytes' | 'sha256'> & { upload_id: string };
+export type MachineSource = ({ kind: 'catalogue' } & Pick<components['schemas']['CatalogueImage'], 'url' | 'sha256'>)
+  | ({ kind: 'iso' | 'disk' } & MachineMedia);
 export interface MachineParams {
-  name: string;
+  /** Absent on machines.enable and machines.disable, which are about the whole extension. */
+  name?: string;
   ram_mb?: number;
   cpus?: number;
   disk_gb?: number;
   image_url?: string;
   /** Delete only: the machine's name typed again by the owner. */
   confirm?: string;
+  /** Snapshot only: the snapshot's name. Clone only: `source` is the machine to copy and `name` the new one. */
+  snapshot?: string;
+  source?: string | MachineSource;
+  firmware?: 'bios' | 'uefi';
+  tpm?: boolean;
+  virtio_drivers?: MachineMedia;
+  network?: 'isolated' | 'machine_peers';
   app_id?: undefined;
   settings?: undefined;
 }
@@ -193,8 +225,17 @@ export interface MachineRecord {
   created_at: string;
   updated_at: string;
 }
+/** GET /v1/machines/{name}/snapshots rows. `consistency` says how safe the copy is; `note` says it in words. */
+export interface MachineSnapshot {
+  machine: string;
+  name: string;
+  consistency: 'offline' | 'quiesced' | 'best_effort' | 'quiesce_failed' | string;
+  note: string;
+  created_at: string;
+}
 /** GET /v1/machines/capabilities, the parts the screen shows. */
 export interface MachineCapabilities {
+  image_catalogue?: components['schemas']['MachineCapabilities']['image_catalogue'];
   enabled: boolean;
   extension: { state: string; message: string };
   requirements: { min_memory_mb: number; arch: string; kvm: boolean };
@@ -229,6 +270,7 @@ export interface ActionResult {
  * to "unknown" instead of crashing if the gateway names them differently.
  */
 export interface Action extends ActionRequest {
+  approval?: components['schemas']['Action']['approval'];
   plan?: PlanPreview['plan'] | null;
   progress?: { step: string; pct: number } | null;
   id: string;
@@ -252,7 +294,9 @@ export type ApiErrorCode =
   | 'unauthenticated'
   | 'rate_limited'
   | 'payload_too_large'
-  | 'policy_refused';
+  | 'policy_refused'
+  /** The hub no longer serves this dashboard's protocol generation (sdk/contracts/protocol-versions.md). */
+  | 'upgrade_required';
 
 export interface ApiErrorBody {
   error: ApiErrorCode;

@@ -78,9 +78,12 @@ type Client struct {
 	Nodes    *NodesService
 	Apps     *AppsService
 	Actions  *ActionsService
+	Work     *WorkService
 	Audit    *AuditService
 	Events   *EventsService
 	Status   *StatusService
+	Services *ServicesService
+	Domains  *DomainsService
 }
 
 // Option configures a Client.
@@ -166,9 +169,12 @@ func New(baseURL string, opts ...Option) (*Client, error) {
 	c.Nodes = &NodesService{c}
 	c.Apps = &AppsService{c}
 	c.Actions = &ActionsService{c}
+	c.Work = &WorkService{c}
 	c.Audit = &AuditService{c}
 	c.Events = &EventsService{c}
 	c.Status = &StatusService{c}
+	c.Services = &ServicesService{c}
+	c.Domains = &DomainsService{c}
 	return c, nil
 }
 
@@ -238,6 +244,23 @@ type request struct {
 func (c *Client) Do(ctx context.Context, method, path string, body, out any) error {
 	_, err := c.do(ctx, request{method: method, path: path, body: body, retry: method == http.MethodGet}, out)
 	return err
+}
+
+// DoIdempotent is Do for a write that carries an Idempotency-Key header. The gateway answers a repeat of
+// the same key and request with the original result, so a retry is safe and is made like a GET's.
+func (c *Client) DoIdempotent(ctx context.Context, method, path, key string, body, out any) error {
+	_, err := c.do(ctx, request{method: method, path: path, body: body, retry: true,
+		headers: map[string]string{"Idempotency-Key": key}}, out)
+	return err
+}
+
+// DoWithHeaders is Do that also sends extra request headers (If-Match, Idempotency-Key, ...) and returns
+// the response headers (ETag, Link, ...), so a caller can do a read-change-write with If-Match or follow
+// a Link rel="next" page. A GET is retried like Do's; a write is retried only when headers carries an
+// Idempotency-Key. On an error the headers are those of the last answer (nil if none came).
+func (c *Client) DoWithHeaders(ctx context.Context, method, path string, headers map[string]string, body, out any) (http.Header, error) {
+	_, keyed := headers["Idempotency-Key"]
+	return c.do(ctx, request{method: method, path: path, body: body, retry: method == http.MethodGet || keyed, headers: headers}, out)
 }
 
 func (c *Client) do(ctx context.Context, r request, out any) (http.Header, error) {
@@ -434,6 +457,16 @@ func (s *StatusService) Get(ctx context.Context) (*StatusView, error) {
 	return &v, s.c.Do(ctx, http.MethodGet, "/v1/status", nil, &v)
 }
 
+// ServicesService is GET /v1/system/services (#623): the service cards, owner only.
+type ServicesService struct{ c *Client }
+
+// List is operation system.services.list: every systemd unit the OS ships with its plain name, risk and
+// systemd state. A unit the image's registry does not list has Known false. Read only.
+func (s *ServicesService) List(ctx context.Context) (*ServicesView, error) {
+	var v ServicesView
+	return &v, s.c.Do(ctx, http.MethodGet, "/v1/system/services", nil, &v)
+}
+
 // NodesService is /v1/nodes.
 type NodesService struct{ c *Client }
 
@@ -465,6 +498,13 @@ func (s *AppsService) List(ctx context.Context) ([]CatalogApp, error) {
 }
 
 // Get returns one catalog entry (from apps.list until GET /v1/apps/{id} exists).
+// System is operation apps.system: the Built in area, every system app with its on/off switch, version,
+// licence and update channel. A switched-off app is listed only here, not by List.
+func (s *AppsService) System(ctx context.Context) ([]SystemApp, error) {
+	var v []SystemApp
+	return v, s.c.Do(ctx, http.MethodGet, "/v1/system-apps", nil, &v)
+}
+
 func (s *AppsService) Get(ctx context.Context, id string) (*CatalogApp, error) {
 	apps, err := s.List(ctx)
 	if err != nil {

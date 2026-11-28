@@ -3,4 +3,6 @@
 export * from "./client.js";
 export * from "./errors.js";
 export * from "./events.js";
+export * from "./protocol.js";
+export * from "./joinqr.js";
 export type { components, paths, operations } from "./gen/schema.js";

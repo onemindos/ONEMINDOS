@@ -34,13 +34,25 @@ The initramfs stays as it is. Only if a later design puts the root itself on LUK
 
 ```diff
 -PARTLABEL=onemind-data  /data      ext4  defaults                            0 2
-+# /data (subvolume @) is unlocked and mounted by onemind-data-assemble.service (normal, degraded,
-+# or a tmpfs in storage recovery mode); the other subvolumes follow it.
-+LABEL=onemind-data  /data/onemind/storage  btrfs  subvol=@storage,noatime,compress=zstd:1,space_cache=v2,discard=async,nofail,x-systemd.requires=onemind-data-assemble.service  0 0
-+LABEL=onemind-data  /data/.snapshots       btrfs  subvol=@snapshots,noatime,compress=zstd:1,space_cache=v2,discard=async,nofail,x-systemd.requires=onemind-data-assemble.service  0 0
++# /data (subvolume @, the btrfs default subvolume, so no subvol= option) is unlocked and mounted by
++# onemind-data-assemble.service (normal, degraded, or a tmpfs in storage recovery mode).
++# @storage is mounted at /data/storage by the unit data-storage.mount (not a line here, so an ext4 box does
++# not try a subvol= it would refuse). @storage/.snapshots is a subvolume nested inside @storage, not a mount.
 ```
 
-`LABEL=onemind-data` is the btrfs label; udev points it at any member, and any member mounts the whole set after the assembly's `btrfs device scan`. Both lines use `nofail`, so storage recovery mode (a tmpfs on `/data`) still boots. Mount options are `MountOptions` in `internal/storage/plan.go`. Whether `discard=async` should stay on encrypted disks is open (lab finding 5 of LAB-storage-mirror). dm-crypt passes discards down only with `--allow-discards`, which reveals which blocks are free.
+**Layout (as built by `data_encrypt.py` on first boot, #152 / #975, and by `storage.LayoutSteps` for `init` and `create`):**
+
+| Subvolume | Mounted at | Holds | Snapshotted by snapper |
+|---|---|---|---|
+| `@` (the default) | `/data` | k3s, databases, gateway state, the set key (`onemind/secrets/storage-set.key`), the journal `onemind/storage/ops` | never (a database snapshot taken mid-write is not a backup) |
+| `@storage` | `/data/storage` | the owner's files | yes |
+| `@storage/.snapshots` | nested in `@storage`, no mount | snapper's snapshots (root-only, 0750) | no |
+
+There is no top-level `@snapshots` (an earlier draft of this patch had one, mounted at `/data/.snapshots`): snapper looks for `SUBVOLUME/.snapshots`, and a sibling subvolume would also let a snapshot of `@storage` contain its own snapshots. `/data/storage` is an empty directory inside `@` that exists only on a box `data_encrypt.py` made, which is what `data-storage.mount`'s `ConditionPathExists` checks. Paths under `/data/onemind/storage/` (the ops journal, the `needs-scrub` marker) are plain directories in `@`, not the `@storage` mount.
+
+**OneMind token and the factory reset.** On a LUKS2 box `data_encrypt.py` writes the OneMind token (id 30, type `onemind-storage`, generation 1; `set_uuid` is the btrfs UUID, `partuuid` the partition's own GPT id) right after `luksFormat`, which is what `ops.Candidates` and the factory reset (`internal/host/reset.go`) look for. A box without a TPM keeps plain btrfs (no LUKS header to carry a token); the reset recognises it by the system disk, the GPT name `onemind-data` and the btrfs label `onemind-data`, and its plan says the data is not encrypted. A foreign disk, even one labelled `onemind-data`, is never listed.
+
+`LABEL=onemind-data` is the btrfs label; udev points it at any member, and any member mounts the whole set after the assembly's `btrfs device scan`. `data-storage.mount` is wanted, not required, so storage recovery mode (a tmpfs on `/data`) still boots. Mount options are `MountOptions` in `internal/storage/plan.go`. Whether `discard=async` should stay on encrypted disks is open (lab finding 5 of LAB-storage-mirror). dm-crypt passes discards down only with `--allow-discards`, which reveals which blocks are free.
 
 ## 3. Units
 

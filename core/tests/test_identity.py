@@ -159,6 +159,36 @@ def test_totp_second_factor(idc, clock):
     assert r.status_code == 200 and other.get("/v1/me").json()["session"]["auth_method"] == "password+totp"
 
 
+def test_sign_in_methods_follow_password_totp_and_passkeys(idc, clock):
+    """GET /v1/auth/methods (Settings > Account and security, the CLI's `account show`): the person's own facts."""
+    setup_owner(idc)
+    assert idc.get("/v1/auth/methods").json() == {"password": True, "totp": False, "passkeys": 0, "passkeys_active": False}
+    setup = idc.post("/v1/auth/totp/setup", headers=csrf(idc))
+    assert setup.status_code == 200 and set(setup.json()["one_time"]) == {"secret", "otpauth_uri"}
+    secret = setup.json()["one_time"]["secret"]
+    assert setup.json()["one_time"]["otpauth_uri"].startswith("otpauth://totp/")
+    assert idc.get("/v1/auth/methods").json()["totp"] is False  # pending until a code confirms it
+    code = totp_code(secret, int(clock.now.timestamp() // 30))
+    assert idc.post("/v1/auth/totp/confirm", json={"code": code}, headers=csrf(idc)).status_code == 204
+    assert idc.get("/v1/auth/methods").json()["totp"] is True
+    assert idc.post("/v1/auth/totp/disable", json={"password": PASSWORD}, headers=csrf(idc)).status_code == 204
+    assert idc.get("/v1/auth/methods").json()["totp"] is False
+    # A person's API token may read its own methods (it still cannot change them, test below).
+    reader = idc.post("/v1/tokens", json={"name": "r", "scopes": ["reader"]}, headers=csrf(idc)).json()["one_time"]["token"]
+    assert idc.get("/v1/auth/methods", headers={"Authorization": f"Bearer {reader}"}).json()["password"] is True
+    # A static-file token is no household person.
+    assert idc.get("/v1/auth/methods", headers=OWNER).status_code == 403
+
+
+def test_sign_in_methods_count_passkeys(idc):
+    setup_owner(idc)
+    key = SoftAuthenticator()
+    opts = idc.post("/v1/auth/passkeys/register/options", headers=csrf(idc)).json()
+    r = idc.post("/v1/auth/passkeys/register", json={"credential": key.register(opts), "label": "laptop"}, headers=csrf(idc))
+    assert r.status_code == 201, r.text
+    assert idc.get("/v1/auth/methods").json() == {"password": True, "totp": False, "passkeys": 1, "passkeys_active": True}
+
+
 def test_bearer_session_for_cli_with_refresh(idc, clock):
     setup_owner(idc)
     cli = new_session_client(idc)
@@ -496,6 +526,8 @@ def test_api_tokens_cannot_change_sign_in_credentials(idc):
                        ("/v1/auth/totp/disable", {"password": PASSWORD})):
         r = idc.post(path, json=body, headers=h)
         assert r.status_code == 403, (path, r.text)
+        # The reason reaches the caller, so the CLI and the dashboard can say "sign in, a token cannot do this".
+        assert r.json()["error"] == "permission_denied" and r.json()["reason"] == "session_required", (path, r.text)
     assert idc.get("/v1/auth/passkeys", headers=h).status_code == 200  # reading own list is fine
     # A narrowed owner PAT sees and revokes only its own person's sessions, not everyone's.
     adult = enrol(idc, "adult", "ana")
@@ -638,3 +670,51 @@ def test_static_adult_cannot_mint_an_unowned_agent_token(idc):
     assert r.status_code == 403 and r.json()["error"] == "permission_denied"
     assert idc.post("/v1/tokens", json={"name": "x", "principal": "self"}, headers=ADULT).status_code == 403
     assert not [t for t in idc.get("/v1/tokens").json() if t["source"] == "api"]
+
+
+# ---- optional display name on /v1/me (so Home can greet a person by name) -------------------------
+def test_display_name_is_null_until_set_then_reads_back(idc):
+    setup_owner(idc)
+    assert idc.get("/v1/me").json()["display_name"] is None
+    r = idc.patch("/v1/me", json={"display_name": "  Zeus D  "}, headers=csrf(idc))
+    assert r.status_code == 200 and r.json() == {"display_name": "Zeus D"}
+    me = idc.get("/v1/me").json()
+    assert me["display_name"] == "Zeus D" and me["principal"]["role"] == "owner"
+    assert idc.patch("/v1/me", json={"display_name": None}, headers=csrf(idc)).status_code == 200
+    assert idc.get("/v1/me").json()["display_name"] is None
+
+
+@pytest.mark.parametrize("bad", ["", "   ", "x" * 61, "a\x00b", "a\nb", "a‮b", "<b>hi</b>", "x​z"])
+def test_display_name_refuses_bad_text(idc, bad):
+    setup_owner(idc)
+    r = idc.patch("/v1/me", json={"display_name": bad}, headers=csrf(idc))
+    assert r.status_code == 422, bad
+    assert idc.get("/v1/me").json()["display_name"] is None
+    assert idc.patch("/v1/me", json={"display_name": "x" * 60}, headers=csrf(idc)).status_code == 200
+
+
+def test_a_person_sets_only_their_own_display_name(idc):
+    setup_owner(idc)
+    child, adult = enrol(idc, "child", "kid"), enrol(idc, "adult", "ana")
+    owner_id = idc.get("/v1/me").json()["principal"]["id"]
+    assert child.patch("/v1/me", json={"display_name": "Kiddo"}, headers=csrf(child)).status_code == 200
+    # A child has no way to name someone else: the people-management path is owner only.
+    r = child.patch(f"/v1/users/{owner_id}", json={"display_name": "Hacked"}, headers=csrf(child))
+    assert r.status_code == 403
+    assert idc.get("/v1/me").json()["display_name"] is None
+    assert adult.get("/v1/me").json()["display_name"] is None
+    assert child.get("/v1/me").json()["display_name"] == "Kiddo"
+    # An API-less agent or static token is not a person and has no name to set.
+    assert idc.patch("/v1/me", json={"display_name": "Bot"}, headers=AGENT).status_code == 403
+
+
+def test_display_name_never_changes_the_stable_identity_and_the_change_is_audited(idc, settings):
+    setup_owner(idc)
+    before = idc.get("/v1/me").json()["principal"]
+    idc.patch("/v1/me", json={"display_name": "Totally Not Admin"}, headers=csrf(idc))
+    after = idc.get("/v1/me").json()["principal"]
+    assert (after["id"], after["role"]) == (before["id"], before["role"])
+    records = [e for e in audit_events(settings) if e["event"] == "user.profile_name.changed"]
+    assert len(records) == 1
+    assert records[0]["principal"]["id"] == before["id"] and records[0]["principal"]["role"] == "owner"
+    assert "Totally Not Admin" not in Path(settings.audit_path).read_text()

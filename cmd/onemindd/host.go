@@ -8,7 +8,10 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
+	"os/exec"
 	"os/signal"
 	"os/user"
 	"strconv"
@@ -16,9 +19,12 @@ import (
 	"time"
 
 	"github.com/onemindos/onemindos/internal/host"
+	"github.com/onemindos/onemindos/internal/netview"
 	"github.com/onemindos/onemindos/internal/smb"
 	"github.com/onemindos/onemindos/internal/storage/ops"
+	"github.com/onemindos/onemindos/internal/svcregistry"
 	"github.com/onemindos/onemindos/internal/update"
+	"github.com/onemindos/onemindos/internal/version"
 )
 
 const hostUsage = `usage:
@@ -55,9 +61,12 @@ func runHost(args []string) int {
 	log := newLogger()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	units := &svcregistry.Reader{Version: version.Version} // service cards, logs and approved restarts (#623, #636)
 	svc := &host.Service{Power: host.Systemd{}, OS: &host.UpdateEngine{ConfigPath: *conf, Log: log},
+		Roll:   &host.SlotRollback{ConfigPath: *conf},
 		BootID: host.BootID(), Delay: *delay, Log: log,
 		Reset: &host.FactoryReset{},
+		Units: units,
 		SMB:   &smb.Manager{P: smb.DefaultPaths(), Run: smb.ExecRunner{}}}
 	if st, err := host.OpenStore(*journal); err != nil {
 		log.Error("host journal unavailable: status only, every action refused", "dir", *journal, "err", err)
@@ -86,7 +95,8 @@ func runHost(args []string) int {
 		return 1
 	}
 	log.Info("host service listening", "socket", *sock, "journal", svc.Store != nil, "boot_id", svc.BootID, "gateway_uid", uid)
-	err = (&host.Server{S: svc, AllowUID: uid, AllowGID: -1, Ctx: ctx}).Serve(ctx, l)
+	err = (&host.Server{S: svc, AllowUID: uid, AllowGID: -1, Ctx: ctx, Network: networkView,
+		Services: serviceCards, ServiceLogs: units.Logs}).Serve(ctx, l)
 	stop()
 	svc.Wait()
 	if err != nil {
@@ -110,10 +120,30 @@ func runFactoryReset(args []string) int {
 		return 2
 	}
 	log := newLogger()
-	err := host.Wipe(context.Background(), ops.ExecRunner{}, *esp, time.Now())
+	return resetOutcome(host.Wipe(context.Background(), ops.ExecRunner{}, *esp, time.Now()), log, rebootNow)
+}
+
+// rebootNow restarts the box at once. --force skips the unit shutdown, which
+// is right this early: nothing of the new boot is running, and the marker, the
+// wipe and the head zeroing are all fsync'd already.
+func rebootNow() error {
+	return exec.Command("systemctl", "reboot", "--force").Run()
+}
+
+// resetOutcome maps Wipe's result onto the boot. After a successful wipe the
+// box reboots: the partitions are blank now, and making the new data disk is
+// the job of onemind-data-encrypt.service, which runs BEFORE this unit, so
+// without a restart nothing would format them, data.mount would fail and the
+// box would land in recovery mode. The next boot has no marker (it is now
+// .done) and sets the box up from scratch.
+func resetOutcome(err error, log *slog.Logger, reboot func() error) int {
 	switch {
 	case err == nil:
-		log.Info("factory reset done: the box is set up again on this boot")
+		log.Info("factory reset done: restarting so the box sets itself up again")
+		if rerr := reboot(); rerr != nil {
+			err = fmt.Errorf("the wipe finished but the restart failed: %w", rerr)
+			break
+		}
 		return 0
 	case errors.Is(err, host.ErrNoMarker):
 		return 0
@@ -127,4 +157,26 @@ func runFactoryReset(args []string) int {
 	_ = os.WriteFile("/run/onemind-recovery/status",
 		[]byte(fmt.Sprintf("REASON=%s\nDETAIL=%q\nSINCE=%s\n", reason, err.Error(), time.Now().UTC().Format(time.RFC3339))), 0o644)
 	return 1
+}
+
+// networkView is GET /v1/network: the box's interfaces, gateways, DNS and listening ports, read from
+// /sys and /proc (internal/netview). Files are capped so an odd host cannot make one answer huge.
+func networkView() (any, error) {
+	read := func(p string) ([]byte, error) {
+		f, err := os.Open(p)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+		return io.ReadAll(io.LimitReader(f, 1<<20))
+	}
+	exists := func(p string) bool { _, err := os.Stat(p); return err == nil }
+	return netview.System(read, exists).Collect()
+}
+
+// serviceCards is GET /v1/services (#623): every unit in the image's services registry
+// (/usr/lib/onemind/services.yaml) with systemd's state and memory, plus OneMind units the registry
+// does not list (known=false). Read-only: systemctl show and list-unit-files only.
+func serviceCards(ctx context.Context) (any, error) {
+	return (&svcregistry.Reader{Version: version.Version}).Collect(ctx)
 }

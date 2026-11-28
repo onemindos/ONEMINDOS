@@ -13,7 +13,7 @@ plain HTTP :8080 to loopback (H-05, core/onemind_core/serve.py). Tools container
   python3 -I cloudboot.py --cloud aws --image-dir /out/image-cloud-aws --work DIR --log serial.log \
       [--tests C0,C1,C2,C3,C4,C5,C6] [--results r.json]
 """
-import argparse, hashlib, importlib.util, json, os, platform, re, secrets, shlex, shutil, socket, subprocess, sys
+import argparse, base64, hashlib, importlib.util, json, os, platform, re, secrets, shlex, shutil, socket, subprocess, sys
 import ssl, tarfile, time, urllib.error, urllib.request, uuid
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -44,6 +44,56 @@ PROFILES = {
 REQUIRED = {"C0", "C1", "C2", "C3", "C4"}            # §5: plus C5 on hetzner, C6 on aws
 EXTRA = {"hetzner": {"C5"}, "aws": {"C6"}}
 HETZNER_V6 = "2001:db8::1/64"                       # RFC 3849 documentation prefix
+
+# Early-boot evidence (issue #391). When a boot has not printed its first-boot line DIAG_AFTER seconds in, a
+# test-only unit prints the state of the units that matter (and of the data disk) on the serial console.
+# It reaches the guest as systemd credentials in SMBIOS (QEMU -smbios type=11), so it needs nothing from the
+# image, no login and no password, and it runs even when the boot is stuck before any login (the failure
+# this is for: rauc.service failed and cloud-init never ran). Only the test machine carries it: the image
+# is booted unmodified. It stays silent when first boot has already finished.
+DIAG_AFTER = 300
+DIAG_BEGIN, DIAG_END = "ONEMIND-TEST-DIAG BEGIN", "ONEMIND-TEST-DIAG END"
+DIAG_SH = r"""
+sleep %(after)d
+[ -s /data/onemind/firstboot/state.json ] && exit 0
+exec >/dev/console 2>&1
+echo '%(begin)s'
+for c in 'cat /proc/uptime' 'systemctl list-jobs --no-pager' 'systemctl --failed --no-pager --no-legend' \
+  'systemctl status --no-pager -l rauc.service cloud-init-local.service cloud-init-main.service onemind-firstboot.service onemind-data-layout.service onemind-data-check.service var-lib-cloud.mount data.mount boot-efi.mount' \
+  'journalctl -b -p warning --no-pager -n 80' 'journalctl -b --no-pager -u rauc.service -u cloud-init-local.service -n 60' \
+  'lsblk -o NAME,PARTUUID,PARTLABEL,LABEL,FSTYPE,MOUNTPOINT' 'ls -l /dev/disk/by-partlabel' \
+  'journalctl -b --no-pager -u onemind-data-extend.service -u data.mount -u cloud-init-main.service -u cloud-init-network.service -u systemd-udevd.service -n 80' \
+  'journalctl -b --no-pager -n 600 | grep -aE data.mount\|nmount\|growpart\|partx\|resize2fs | tail -60' \
+  'cat /etc/rauc/system.conf' 'findmnt --real' 'dmesg --level=err,warn | tail -40'; do
+  echo "--- $c"; sh -c "$c" 2>&1 | tail -90
+done
+echo '%(end)s'
+""" % {"after": DIAG_AFTER, "begin": DIAG_BEGIN, "end": DIAG_END}
+
+
+def diag_summary(console):
+    """What the test-only diagnostic unit printed (DIAG_SH): a one-line summary of the failed units, or
+    None when it printed nothing (first boot finished before DIAG_AFTER, or the guest is not up that far)."""
+    m = re.search(re.escape(DIAG_BEGIN) + r"(.*?)(?:" + re.escape(DIAG_END) + r"|\Z)", console, re.S)
+    if not m:
+        return None
+    sec = re.search(r"--- systemctl --failed[^\n]*\n(.*?)(?:\n--- |\Z)", m.group(1), re.S)
+    failed = re.findall(r"^\W*(\S+\.(?:service|mount|socket|target|timer))\b", sec.group(1) if sec else "", re.M)
+    return "diag unit ran; failed units: " + (", ".join(failed[:8]) or "none listed")
+
+
+def diag_credentials():
+    """QEMU arguments that hand the diagnostic unit to systemd as SMBIOS credentials (base64: no commas)."""
+    script = base64.b64encode(DIAG_SH.encode()).decode()
+    unit = ("[Unit]\nDescription=OneMind test only: early-boot evidence\nDefaultDependencies=no\n"
+            f"[Service]\nType=simple\nExecStart=/bin/sh -c 'echo {script} | base64 -d | sh'\n")
+    dropin = "[Unit]\nWants=onemind-test-diag.service\n"
+    b = lambda t: base64.b64encode(t.encode()).decode()
+    out = []
+    for name, text in (("systemd.extra-unit.onemind-test-diag.service", unit),
+                       ("systemd.unit-dropin.multi-user.target", dropin)):
+        out += ["-smbios", f"type=11,value=io.systemd.credential.binary:{name}={b(text)}"]
+    return out
 
 
 def expect_from(vm, pattern, start, timeout):
@@ -108,7 +158,7 @@ def qemu_cmd(cloud, disk, seed, extra_disks, ports, accel, cpu):
         qemu += ["-device", "virtio-scsi-pci,id=scsi0", "-device", "scsi-hd,drive=root,bus=scsi0.0,bootindex=0"]
     for i, d in enumerate([seed] + list(extra_disks)):
         qemu += ["-drive", f"if=none,id=x{i},format=raw,readonly=on,file={d}", "-device", f"virtio-blk-pci,drive=x{i}"]
-    return qemu + ["-serial", "stdio", "-monitor", "none"]
+    return qemu + diag_credentials() + ["-serial", "stdio", "-monitor", "none"]
 
 
 def artifact(image_dir, cloud):
@@ -329,7 +379,29 @@ class Run:
             alive, out = False, ""
             v.mark(f"HANG REPORT: SSH failed: {e}")
         v.mark(f"HANG REPORT: guest_ssh={'alive' if alive else 'no answer'}")
+        with v.lock:
+            dsum = diag_summary(v.buf if isinstance(v.buf, str) else bytes(v.buf).decode("utf-8", "replace"))
+        v.mark(f"HANG REPORT: {dsum or 'the diagnostic unit printed nothing (no ' + DIAG_BEGIN + ' on the console)'}")
+        if dsum:
+            return dsum + ("; guest answers SSH" if alive else "; guest silent and no SSH (early-boot hang)")
         return "guest answers SSH (console stalled or a unit is stuck)" if alive else "guest silent and no SSH (early-boot hang)"
+
+    def fatal_report(self):
+        """The console showed a fatal sign (a unit failed to start): while the guest still runs, print the failed
+        units and the journal of this boot (a unit's own error is not on the console). Best effort, never raises."""
+        v = self.vm
+        v.mark("FATAL REPORT: probing the guest over SSH")
+        try:
+            _, out = self.ssh("sudo -n sh -c " + shlex.quote(
+                "systemctl --failed --no-legend --no-pager 2>&1 | head -20; "
+                "for u in $(systemctl --failed --no-legend --plain | cut -d' ' -f1 | head -5); do "
+                "echo \"--- $u\"; systemctl status --no-pager -l $u 2>&1 | tail -25; "
+                "journalctl -b -u $u -n 60 --no-pager 2>&1 | tail -60; done; "
+                "echo '--- warnings this boot'; journalctl -b -p warning -n 80 --no-pager 2>&1 | tail -80"), 90)
+            self.logf.write(out + "\n"); self.logf.flush()
+            print(out[-6000:], flush=True)
+        except (subprocess.SubprocessError, OSError) as e:
+            v.mark(f"FATAL REPORT: SSH failed: {e}")
 
     def healthz(self, why="healthz"):
         code, body = wait_http(self.ports["https"], "/healthz", guard=self.guard, tls=True)
@@ -435,6 +507,8 @@ def main():
     except (TimeoutError, RuntimeError, subprocess.SubprocessError) as e:
         record("HARNESS", False, f"aborted: {e}")
         if R.vm and R.vm.proc and R.vm.proc.poll() is None:
+            R.fatal_report()
+        if R.vm and R.vm.proc and R.vm.proc.poll() is None:
             R.vm.kill()
     total = (time.time() - t0) / 60
     print("\nSUMMARY (total %.0f min, accel=%s)" % (total, env["accel"]))
@@ -513,7 +587,9 @@ def boot_main(R, base, tests, extra):
                  "disk=$(basename $(readlink -f /sys/class/block/$p/..)); "
                  "echo DISK=$(cat /sys/class/block/$disk/size) START=$(cat /sys/class/block/$p/start) "
                  "PSIZE=$(cat /sys/class/block/$p/size); "
-                 "sudo dumpe2fs -h $d 2>/dev/null | grep -E '^(Block count|Block size):'")
+                 # ext4 (a cloud image from before #152) reports its blocks with dumpe2fs; btrfs (D-020) with stat -f
+                 "if [ \"$(findmnt -n -o FSTYPE /data)\" = ext4 ]; then sudo dumpe2fs -h $d 2>/dev/null | grep -E '^(Block count|Block size):'; "
+                 "else echo \"Block count: $(stat -f -c %b /data)\"; echo \"Block size: $(stat -f -c %S /data)\"; fi")
     v = dict(re.findall(r"(DISK|START|PSIZE)=(\d+)", g))
     bc = re.search(r"Block count:\s+(\d+)", g); bs = re.search(r"Block size:\s+(\d+)", g)
     grown = False

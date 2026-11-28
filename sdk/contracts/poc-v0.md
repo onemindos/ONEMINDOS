@@ -80,6 +80,8 @@ metadata:
   version: "2.0.2"
   description: Self-hosted uptime monitoring
   category: monitoring
+  age_rating: 16   # proposed minimum age: 0, 7, 12, 16 or 18 (required; rubric in apps/README.md)
+  age_reason: "Probes any host or port the user enters and sends alerts; behaves like a scanner."
   icon: icon.svg
   license: MIT
   source: https://github.com/louislam/uptime-kuma
@@ -89,6 +91,9 @@ spec:
   web: {port: 3001}
   manifests: manifests/   # kustomization.yaml + Deployment/Service, images pinned by digest where possible
 ```
+`metadata.age_rating` (required, one of 0, 7, 12, 16, 18) and `metadata.age_reason` (optional one line) are the catalog's proposed minimum age (FAM-01, #204). The gateway uses the rating as the default classification for family filtering when the owner has not set a `min_age` for the app; an owner's `PUT /v1/family/apps/{id}` always wins; an app with neither is hidden from a person who has a rating limit. `GET /v1/apps` returns both fields.
+
+**What a machine needs (#724).** `spec.requires` (must have), `spec.recommends` (runs better with) and `spec.supports` (can use) share one shape, the schema's `$defs/machineNeeds`: `arch` (amd64, arm64, or x86-64-v1 to v4 for amd64 at that CPU level), `memoryMb`, `storageFreeGb`, `accelerator` {vendor-neutral `capability`, `minMemoryMb`, `rtCores`, `count`, `overlay`}, `devices` (vendor-neutral device classes, reserved for bridges), `radios` and `models.quantisations`. The older `requires` keys above stay valid; `core/onemind_core/machine_needs.py` maps them (`minMemoryMb` to `memoryMb`, `gpu`/`gpuCount`/`minVramMb` to `accelerator`, `cpuLevel` to an x86-64 level in `arch`, `accelerator.optional` to `recommends.accelerator`). A manifest says each fact in one spelling only, names no vendor resource (`nvidia.com/gpu`) or host path, and its `requires.arch` names the same architectures as `spec.archs`.
 
 ## 5. Dashboard (`dashboard/`, React + TypeScript + Vite)
 - **Screens:** Home (instance, node count by status, installed apps), Nodes (cards per node with board, arch, OS, k3s and slot, status and `last_seen`; values are never shown as live when stale), Market (catalog, install button → creates an action), Approvals (pending actions with exact params and requester kind person/agent; approve/deny for the owner).
@@ -421,6 +426,8 @@ Agents never request `node.join`, grant or role changes, token creation, policy 
 | `notifications:send` | `POST /v1/notifications/send` | plugin, agent, automation |
 | `alerts:read` | `/v1/alerts`, filtered by audience | all |
 | `monitoring:read` | §12.15 metrics and health | all |
+| `assets:read` | asset values (`asset.*`) on `/v1/events`, each also checked by the asset filters (#606) | person owner/adult by default; agent only when its token lists it |
+| `data:read` / `:write` | the ceiling on a data grant (#615): beyond `public`, data-commons reads need `data:read` and writes `data:write` on top of an owner-approved grant; neither opens any data alone | every person role by default; agent only when its token lists it; plugin install tokens are capped by their app grant |
 | `logs:read` | §12.15 app logs | person owner/adult; agent and plugin only with the `:<app-id>` suffix |
 | `automation:read` / `:request` / `:write` | §12.17 | read all; request agent, plugin; write owner |
 | `audit:read` / `:admin` | §12.16 | read owner, adult; admin owner |
@@ -466,12 +473,15 @@ data: {"schema":"onemind.event/v1","id":"18342","type":"action.state_changed","t
 ```
 - **Envelope `onemind.event/v1`:** `schema`, `id`, `type`, `ts` (when it happened), `subject` (the ids it concerns: `action_id`, `node_id`, `app_id`, `alert_id`, `rule_id`, `job_id`, as applicable), `data` (small facts and ids only, never secrets or file contents), and optional `severity` (`info|warning|critical`), `source_id`, `actor_id`, `correlation_id`, `causation_id`, `dedupe_key`, `observed_at`. The same envelope is used on NATS (§12.9).
 - `id` is monotonic; audit-derived events use the audit `seq`. Resume with `Last-Event-ID` or `since_id` (explicit `since_id` takes precedence); the current gateway replays the latest 10,000 audit records, not a guaranteed 24-hour window. Beyond that window it sends `stream.reset` first (the client re-reads state over REST). `: keepalive` every 15 s.
-- Events are filtered per principal before sending (a guest never sees `audit.*`; a plugin sees its own app plus `node.status`). In the current gateway, alert transitions use the same **current audience** as `GET /v1/alerts/{id}` (including owner-addressed read-only alerts for agents); `notification.created` is **own inbox only**, even for owners/adults with full audit access; app events require current app visibility. Any domain envelope carrying `action_id` additionally requires action-read scope and action visibility (agents: only their own requests; restricted/unsupported principal kinds do not inherit action visibility from app access). The same combined authorization applies before any generic audit fallback. Identity credentials additionally need `alerts:read`, `notifications:read`, or `apps:read` respectively, besides the stream's `events:read`. Missing/pruned objects fail closed. Filters apply identically to replay and live delivery. Envelopes contain ids/state only, never notification text, destinations, channel ids, credentials or alert audiences.
-- **Implemented delivery (DR2-04).** Automatic and human alert transitions are durable: `alert.opened`, `alert.updated` (including acknowledgement), `alert.resolved`, subject `{alert_id}`, data `{state}`. `notification.created` is recorded only after an inbox row is committed, subject `{notification_id}`, data `{}`. `app.status` follows a recorded executor result, subject `{app_id, action_id}`, data `{status}` (`removed` is shown as `not_installed` with `data_kept: true`); `app.restarted` is recorded only after a **successful** `app.restart`, not when requested, refused or failed. `app.health` translates the monitoring service's existing `app.healthy`/`app.unhealthy` facts into data `{state: healthy|unhealthy}`; it does not claim every status change is a successful health probe. These events use audit sequence ids and the same ordered replay/Last-Event-ID rules as action events. Each audit record sends at most one matching authorized envelope: its domain event is preferred, otherwise `audit.appended` if requested and permitted. Domain records hidden by resource authorization do not produce generic audit envelopes. This avoids same-cursor siblings being lost on reconnect. `action.progress` bridges the existing lifecycle producer, subject `{action_id, app_id}`, data `{step, pct}`. Node status stays transient and carries no SSE id. The remaining v1 types below are planned until their producing modules ship.
-- **v1 types** (additive; clients ignore unknown types): `action.requested`, `action.state_changed`, `action.progress`; `node.status` (status changes only), `node.join_requested`, `node.joined`, `node.removed`, `node.degraded`; `app.status`, `app.health`, `app.restarted`; `backup.run.finished`, `backup.verify.finished`, `backup.health`; `restore.state_changed`; `os.update.state`; `storage.state`; `mesh.state`; `alert.opened`, `alert.updated`, `alert.resolved`; `notification.created` (own inbox); `automation.fired`; `audit.appended` (`audit:read` only), `audit.checkpoint`; `stream.reset`.
+- Events are filtered per principal before sending (a guest never sees `audit.*`; a plugin sees its own app plus `node.status`). In the current gateway, alert transitions use the same **current audience** as `GET /v1/alerts/{id}` (including owner-addressed read-only alerts for agents); `notification.created`, `notification.read` and `notification.read_all` are **own inbox only**, even for owners/adults with full audit access; app events require current app visibility. Any domain envelope carrying `action_id` additionally requires action-read scope and action visibility (agents: only their own requests; restricted/unsupported principal kinds do not inherit action visibility from app access). The same combined authorization applies before any generic audit fallback. Identity credentials additionally need `alerts:read`, `notifications:read`, or `apps:read` respectively, besides the stream's `events:read`. Missing/pruned objects fail closed. Filters apply identically to replay and live delivery. Envelopes contain ids/state only, never notification text, destinations, channel ids, credentials or alert audiences.
+- **Implemented delivery (DR2-04).** Automatic and human alert transitions are durable: `alert.opened`, `alert.updated` (including acknowledgement), `alert.resolved`, subject `{alert_id}`, data `{state}`. `notification.created` is recorded only after an inbox row is committed, subject `{notification_id}`, data `{}`. `notification.read` is recorded when a person's read actually changes an item (a repeat read records nothing), subject `{notification_id}`, data `{}`; `notification.read_all` when a read-all marks at least one item, subject `{person_id}`, data `{}` (#682). Both reach only that person's own streams, live and on replay, so each of the person's clients reads `GET /v1/notifications/summary` again within seconds. `app.status` follows a recorded executor result, subject `{app_id, action_id}`, data `{status}` (`removed` is shown as `not_installed` with `data_kept: true`); `app.restarted` is recorded only after a **successful** `app.restart`, not when requested, refused or failed. `app.health` translates the monitoring service's existing `app.healthy`/`app.unhealthy` facts into data `{state: healthy|unhealthy}`; it does not claim every status change is a successful health probe. These events use audit sequence ids and the same ordered replay/Last-Event-ID rules as action events. Each audit record sends at most one matching authorized envelope: its domain event is preferred, otherwise `audit.appended` if requested and permitted. Domain records hidden by resource authorization do not produce generic audit envelopes. This avoids same-cursor siblings being lost on reconnect. `action.progress` bridges the existing lifecycle producer, subject `{action_id, app_id}`, data `{step, pct}`. Node status stays transient and carries no SSE id. The remaining v1 types below are planned until their producing modules ship.
+- **Fan-out and asset values (#606).** The gateway keeps one ordered reader per source and fans out in process: the audit log is read once for all streams, right after each append (an idle stream reads nothing), and the hub's `asset-state` KV bucket (§12.9, key = the asset subject without `onemind.asset.`) is read by one JetStream ordered consumer that holds the latest value of every key. Asset events are opt-in: only a stream whose `types` names them (`asset.*`) gets them. On connect it first gets `asset.value` for every asset the caller may see (subject `{asset_id, asset_class, field}`, data `{revision, snapshot: true, datapoint}` with the stored `onemind.datapoint/v1`), then `stream.snapshot` `{count, state: off|pending|ready|error}`, then changes (`asset.value` with `snapshot: false`, `asset.removed` `{revision}`), merged latest-wins per key while the client is behind. Asset events carry no SSE id (the envelope `id` is `asset:<revision>`, the KV revision, unique in the bucket); a reconnect gets a fresh snapshot. `?kind=camera,sensor` keeps only those asset classes; `?bbox=min_lon,min_lat,max_lon,max_lat` (WGS-84, min_lon > max_lon crosses 180) keeps assets whose last known position is inside, and sends one more event when an asset leaves. A bad `kind` or `bbox` is `422`. Each asset needs `assets:read` and every gateway asset filter, which is handed the value itself (asset class, id, field and datapoint, so data classes and grants can judge per field); a caller without the grant never gets that asset, in the snapshot or live. Facts always go before values; a stream that falls 1,024 facts or 10,000 asset keys behind gets `stream.reset` `{reason: slow_client}` and ends, and resumes with Last-Event-ID. No route hands NATS credentials to a browser or phone.
+- **v1 types** (additive; clients ignore unknown types): `action.requested`, `action.state_changed`, `action.progress`; `node.status` (status changes only), `node.join_requested`, `node.joined`, `node.removed`, `node.degraded`; `app.status`, `app.health`, `app.restarted`; `backup.run.finished`, `backup.verify.finished`, `backup.health`; `restore.state_changed`; `os.update.state`; `storage.state`; `mesh.state`; `alert.opened`, `alert.updated`, `alert.resolved`; `notification.created`, `notification.read`, `notification.read_all` (own inbox); `automation.fired`; `audit.appended` (`audit:read` only), `audit.checkpoint`; `stream.reset`.
 
 ### 12.9 NATS
-The OS owns `onemind.>`. Apps and plugins never publish there (brief 30 E7); app subjects stay in the app grammar (`evt.`, `cmd.`, `tel.`, `svc.` …) and are out of scope here.
+**One subject tree (#600).** Every subject is `onemind.<kind>.<scope>.<id>.<field>`; the first token after `onemind` is the **kind** and decides who may publish, the stream, the retention and the envelope. The registry is code: [`sdk/schema/onemind.subjects.json`](../schema/onemind.subjects.json), read by the gateway (`core/onemind_core/subjects.py`, `GET /v1/subjects`, `GET /v1/subjects/check`), by Go (`sdk/schema/embed.go`) and by `make lint` (`sdk/tools/subject-lint`, which fails on any subject in code that is not registered). Kinds: `node`, `audit`, `event`, `alert`, `asset`, `intel`, `metric`, `plugin`, `layer`, `notification`, `request`. Reserved and refused: `app` (the first `spec.streams` prefix, now `onemind.plugin.<app_id>.`), `cmd` (commands are requests plus a person's approval), `device`, `robot` (both are assets) and `state` (the asset kind). The first rows of the table below are the subjects the code uses today; the new kinds follow them.
+
+**Who may publish.** The gateway is the only writer of core kinds (audit, event, alert, asset, intel, metric, layer, notification and node jobs). A node publishes only subjects carrying its own node id. An app, plugin or bridge publishes only `onemind.plugin.<own app_id>.>` and `onemind.request.app.<own app_id>.<type>`; its own words land inside its prefix, so no grammar lets a plugin name a core subject. An agent publishes only `onemind.request.agent.<own agent name>.<type>`, which the server stamps; nothing on the bus acts until a person approves. **Ids in subjects.** An agent principal `agent:<name>` (§12.1) appears without the `agent:` prefix, each dot-separated part of the name as one token, and `<type>` is always exactly one last token: `agent:hermes.v2` asks on `onemind.request.agent.hermes.v2.<type>`, and its NATS permission is publish `onemind.request.agent.hermes.v2.*` only; a name with an empty part has no subject. Record ids (`job_id`, `person_id`, `asset_id`) ride the tree exactly as §12.1 issues them, case kept (`onemind.node.<node_id>.jobresult.job_01HX…`, `onemind.notification.person.usr_01HX….created`); they are never lowercased or re-encoded. Job kinds keep their dots: `onemind.node.<node_id>.job.backup.run`, `onemind.node.<node_id>.job.system.restart_unit` (one to five tokens). The datapoint field holding the NATS subject is `nats_subject`; `subject` stays the §12.8 object of ids. Envelopes: `onemind.datapoint/v1` ([schema](../schema/onemind.datapoint.schema.json): nats_subject, value, unit, time, quality `live|stale|unknown|simulated`, source, licence, seq, WGS-84 position with 0,0 refused, framed pose; 16 KiB) for asset, intel, metric and layer; `onemind.event/v1` ([schema](../schema/onemind.event.schema.json), §12.8) for event, plugin, notification and request.
 
 | Subject | Publisher | Payload | Stream |
 |---|---|---|---|
@@ -482,7 +492,15 @@ The OS owns `onemind.>`. Apps and plugins never publish there (brief 30 E7); app
 | `onemind.audit` | gateway | §3 audit line | `ONEMIND_AUDIT` (file, 1 year or 2 GiB, deny delete and purge) |
 | `onemind.event.<type>` (dots of `type` kept, e.g. `onemind.event.node.status`) | gateway | event envelope | `ONEMIND_EVENTS` (file, 7 days or 1 GiB) |
 | `onemind.alert.<source>.<kind>` | gateway, nodes (through their outbox) | alert record `onemind.alert/v1` (§12.14) | `ONEMIND_EVENTS` |
-| `onemind.plugin.<app-id>.<event>` | gateway only, relaying a plugin's event (F-24) | event envelope | `ONEMIND_EVENTS` |
+| `onemind.plugin.<app_id>.<path>` | gateway relaying a plugin's event (F-24), or the app itself under its own id | event envelope | none; durable only through the app's own `spec.streams` (JetStream refuses two streams on overlapping subjects) |
+| `onemind.asset.<asset_class>.<asset_id>.<field>`, `onemind.asset.robot.<asset_id>.<channel>` | gateway (asset service) | datapoint | `ONEMIND_ASSET_STATE` (latest per subject) |
+| `onemind.intel.<domain>.<source>.<field>` | gateway | datapoint | `ONEMIND_INTEL` (30 days or 1 GiB) |
+| `onemind.metric.node.<node_id>.<field>`, `onemind.metric.<scope>.<id>.<field>` | gateway; a node for its own id | datapoint | none (series store) |
+| `onemind.layer.<owner>.<layer_id>.<field>` | gateway | datapoint | `ONEMIND_LAYER_META` (latest per subject) |
+| `onemind.notification.person.<person_id>.<field>` | gateway | event envelope, ids only | none (the inbox is in the gateway database) |
+| `onemind.request.agent.<agent_name>.<type>`, `onemind.request.app.<app_id>.<type>` | that agent or app, own id only; gateway | event envelope | `ONEMIND_REQUESTS` (work queue, 1 day) |
+
+**Mapping from the other grammars** (rows in the registry's `mappings`, also at `GET /v1/subjects`): plugin SDK `evt.app.<app_id>.<event>` → `onemind.plugin.<app_id>.<event>`; `spec.streams` `onemind.app.<app_id>.…` → `onemind.plugin.<app_id>.…`; cluster `evt.<domain>.…` → `onemind.event.<domain>.…`, `ent.<type>.<id>.state` → `onemind.asset.<type>.<id>.state`, `tel.<node>.<class>.<metric>` → `onemind.metric.node.<node_id>.<metric>`, `intel.<domain>.<source>.<type>` → `onemind.plugin.<bridge_id>.in.…` then `onemind.intel.…`, `tak.cot.out|inject` → `onemind.plugin.tak.out|in.cot`, `cmd.*` → none (requests plus approval), `agents.*` unchanged in the AGENTS account. The cluster keeps its own names; a projection bridge maps them.
 
 **Auth (H-06).** NATS requires TLS with the box CA and nkey users: `gateway` (subscribes `onemind.node.*.status`, `onemind.node.*.event.>`, `onemind.node.*.jobresult.>`; publishes `onemind.audit`, `onemind.event.>`, `onemind.alert.>`, `onemind.plugin.>`, `onemind.node.*.job.>`); one user per node, issued at approved join, that may publish only its own `onemind.node.<node_id>.{status,event.>,jobresult.>}` and pull its own `ONEMIND_JOBS` consumer; everything else denied, never `>`. Seeds are files with mode `0600`. Clients (dashboard, phone, SDKs) never connect to NATS; they use `/v1/events`.
 
@@ -508,6 +526,7 @@ All optional. **Absent means "this agent does not report it", never "false" or "
 - `fabric.role` is `hub|worker|leaf` (the top-level §2 `role` stays `hub|node`); `leaf_link` is `up|down|none`.
 - `metrics` (added 2026-11-12, CORE-NOTIFY monitoring): `cpu_pct` is busy time since the previous heartbeat, `load1` the 1-minute load average, `temp_c` the hottest thermal zone; each may be null.
 - `images` (added 2026-11-19, NMD-08 #133): the hub's image cleaner (`onemindd images`, `internal/imagegc`). `last_result` is `succeeded|partial|skipped|failed|none`; `last_cleanup_at` may be null; `disk_used_pct` is 0 when the disk could not be read. The gateway opens `disk.budget_near` (topic `storage`) when `disk_used_pct` reaches `warn_pct` and resolves it (`disk.budget_ok`) 2 points below.
+- `capabilities` (added 2026-11-21, #618): the hardware profile, schema `onemind.node.capabilities/v1`, with `data_disk`, `memory`, `accelerators`, `usb`, `tty_ports`, `radios`, `cameras`, `power` and `thermal` (Go `internal/heartbeat/capabilities.go`, OpenAPI `NodeCapabilities`; example documents in `internal/detect/testdata/profile/`). Every field may be null for "could not be read"; a list is null when there was nowhere to read it and `[]` when it was read and is empty. USB devices are named by `vvvv:pppp` and port, never by serial string. Naming rule: `device` is always a full `/dev` path (`/dev/hailo0`, `/dev/accel/accel0`, `/dev/video0`), `id` and `*_id` (`pci_id`, `usb_id`) are always `vvvv:pppp`, and an accelerator's `pci_slot` is its PCI address (`0000:01:00.0`, what a VFIO grant binds). The gateway serves the profile only if it validates as `NodeCapabilities` exactly (no extra fields, pinned formats); otherwise it drops the profile and keeps the heartbeat. Served only under `nodes:read`.
 - The gateway adds `received_at` and `clock_skew_s` when it serves nodes; they are not in the published heartbeat.
 
 ### 12.11 Fabric: join ticket → node request → owner approval
@@ -521,8 +540,9 @@ All optional. **Absent means "this agent does not report it", never "false" or "
 | `POST /v1/fabric/nodes/{node_id}/renew` | that node, mutual TLS | `{csr_pem}` → `{node_cert}`; `403` if removed |
 | `GET /v1/fabric` | `fabric:read` | `{hub_node_id, counts: {hub, worker, leaf}, nodes: [{node_id, role, state, leaf_link, mesh, outbox_pending, cert_expires_at}]}` |
 | `POST /v1/nodes/{node_id}/drain`, `/remove`, `/labels` | `fabric:request` | `202` with `node.drain`, `node.remove`, `node.label` |
-| `GET /v1/apps/{id}/placement` | any principal | `[{node_id, verdict: fits\|fits_with_warning\|no, reasons}]` |
+| `GET /v1/apps/{id}/placement` | `nodes:read` (it names the machines; a child has none) | `{app_id, verdict: here\|elsewhere\|nowhere\|unknown, node_id, message, nodes: [{node_id, role, verdict: fits\|fits_with_warning\|no, labels, reasons: [{code, message, blocking}]}]}` (CORE-FABRIC-4) |
 
+- Placement (CORE-FABRIC-4): each node's capability `labels` come from its heartbeat (`onemind.io/arch`, `/board`, `/role`, `/cpu-level`, `/gpu` = `nvidia|none`, `/kvm`, `/memory-mb`); a fact the node does not report gives no label. A node is checked against the app's `spec.archs` and `spec.requires` (`gpu`, `minMemoryMb`, `cpuLevel`); a node without a reported GPU never runs an app that needs one. The best node is a clean fit before a warning, then the hub, then the most free memory: `here` is the hub, `elsewhere` another machine. `app.install` and `app.update` are refused (`409 stale_precondition`, reason `no_node_fits`) when the verdict is `nowhere`; `unknown` (no node reported) refuses nothing. `spec.requires.gpuCount` (default 1) and `minVramMb` are checked against the heartbeat's optional `gpu.count` and `gpu.vram_mb` (the smallest card); a number the node did not report is refused, not assumed. An app needing at least a quarter of the hub's memory is heavy there: the hub gets a warning (`hub_heavy`), so a worker that fits cleanly wins, but the hub still takes it when no other machine can. `app.install` and `app.update` write the winner into the pod templates before the sandbox check (`nodeSelector kubernetes.io/hostname` when it is not the hub; `runtimeClassName: nvidia` and an `nvidia.com/gpu` limit on the first container for a GPU app) and into the plan (`plan.nodes`, hashed), so an approval covers that machine.
 - The approval card shows board, arch, OS, hostname and the ticket's labels; never serials, MAC or IP addresses. The node becomes principal `node:<node_id>` with `nodes:report` only after approval. `node.join` succeeds on the first authenticated heartbeat (and, for a worker, k3s `Ready`).
 - `GET /v1/nodes` and `/v1/nodes/{id}` gain `role`, `state` (`joining|online|degraded|stale|offline|draining|drained|removed`), `degraded_reasons`, `received_at`, `clock_skew_s`, `apps` and filters `?status&role&limit&cursor`. §3's `status` keeps `online|stale|offline`.
 - **Job** (`onemind.job/v1`): `{schema, job_id, action_id, kind, params, params_sha256, issued_at, expires_at, sig}` signed Ed25519 with the gateway's job key. Kinds: `backup.run`, `backup.restore`, `backup.verify`, `backup.prune`, `backup.snapshot.delete`, `update.check`, `update.apply`, `update.postpone`, `update.settings`, `os.rollback`, `node.leave`, `node.renew`, `host.check`, `system.restart_unit`. A node refuses (and reports `failed` with `reason`) a bad signature, an expired job, a `job_id` it has seen, or an unknown kind.
@@ -540,6 +560,8 @@ All optional. **Absent means "this agent does not report it", never "false" or "
 | `DELETE /v1/backups/snapshots/{id}` | owner | `202` with `backup.snapshot.delete` |
 | `POST /v1/backups/verify` | `backups:request` | `202` with `backup.verify` |
 | `GET /v1/backups/verifications` | `backups:read` | `[{id, snapshot_id, unit, mode, result: pass\|fail, probes, started_at, finished_at}]` |
+| `GET /v1/backups/content` | `backups:read` | apps with `spec.backup.content` (BAK-03): `[{app_id, name, patterns, enabled, size_bytes, files, missing_volumes, measured_at, enabled_at, enabled_size_bytes}]`; the size is measured now by the agent (`backup.content.size` job) |
+| `POST /v1/backups/content` | owner (`backups:admin`) | `{app_id, enabled, seen_size_bytes?}` → `202` with `backup.content.set`; switching on needs `seen_size_bytes` (else `422 size_not_seen`) no more than 10 % or 1 GiB below today's size (else `409 size_changed`). App snapshots carry the tag `content=included\|excluded`, and a restore plan says `content` |
 | `POST /v1/restores` | `backups:request` (agents only with the explicit grant) | `202` with `backup.restore` (always `destructive`) |
 | `GET /v1/restores`, `/restores/{id}` | `backups:read` | `{id, state, action_id, snapshot_id, scope, mode, target, started_at, finished_at, health_gate: {verdict, probes}}`; a restore whose fresh-signal gate fails ends `failed`, never `succeeded` |
 | `POST /v1/onboarding/restore/candidates` | **setup mode only** (no owner yet), from the LAN | `{destination: {kind, config, sealed}, sealed_owner_key}` → `[{instance_id, box_name, generation, restore_points: [{run_id, taken_at, units, arch, k3s_version}]}]`; a box restore chosen here is recorded as the first audit entries of the restored box (`owner_initiated: true`, `phase: onboarding`) |
@@ -642,7 +664,7 @@ Triggers: exactly one of `{"schedule": {"cron", "tz"}}` (5 fields, at most once 
 ### 12.18 Deployments and manifest additions
 - `GET /v1/apps/{id}/revisions` (owner, adult, agent) → `[{n, created_at, source, images, plan_sha256, action_id, committed}]`; `GET /v1/apps/{id}/revisions/{n}` (owner) → the rendered objects.
 - `POST /v1/deploy/bundles` (owner, or a token with `deploy:write`) takes `application/x-tar` ≤ 64 MiB → `201 {sha256, app_id, manifest, images_lock, findings}`; it refuses unpinned images. Installing a bundle is `app.install` with `bundle_sha256`, never policy-approved, and needs a passing on-box scan (§11.1, F-7).
-- **Manifest** (`sdk/schema/onemind.app.schema.json` follows): `spec.health: {http: {port, path, expect}, deadline_s ≤ 1800}`; `spec.migrations: reversible|irreversible`; `spec.backup: {mode: hot|cold, pre, post, sqlite, exclude, restore: {post}, verify: {http}}`; `spec.settings: [{name, type, default, description, env}]`; `spec.secrets: [{name, description?, keys: [{key, kind?: api-key|password|token|url, description, required?, generate?}]}]` (values are never in the manifest; the sealed-input construction and the store are in `docs/leap/core/SECRETS.md`); `spec.components: [{name, workload, health}]`; `spec.agent` and `spec.plugin` (§12.6). `metadata.origin: market|private` is set by the gateway, never by hand. Every `exec.command` is an argv list run in the named container through the Kubernetes API; no host shell is involved.
+- **Manifest** (`sdk/schema/onemind.app.schema.json` follows): `spec.health: {http: {port, path, expect}, deadline_s ≤ 1800}`; `spec.migrations: reversible|irreversible`; `spec.backup: {mode: hot|cold, pre, post, sqlite, exclude, content, restore: {post}, verify: {http}}` (`content`: re-downloadable content patterns, the optional content tier of §12.12, BAK-03); `spec.settings: [{name, type, default, description, env}]`; `spec.secrets: [{name, description?, keys: [{key, kind?: api-key|password|token|url, description, required?, generate?}]}]` (values are never in the manifest; the sealed-input construction and the store are in `docs/leap/core/SECRETS.md`); `spec.components: [{name, workload, health}]`; `spec.agent` and `spec.plugin` (§12.6). `metadata.origin: market|private` is set by the gateway, never by hand. Every `exec.command` is an argv list run in the named container through the Kubernetes API; no host shell is involved.
 
 ### 12.19 MCP additions (extends §11.3)
 Still `kind: agent` only and still **no approve, deny, policy, grant or token tool**. Tools are generated from operations tagged `x-onemind-mcp`; CI fails if an operation with `actions:approve` or any `:admin` scope is tagged. New tools: `get_action` (`GET /v1/actions/{id}`), `list_alerts` (`GET /v1/alerts?state=open`), `backup_status` (`GET /v1/backups/status`), `app_status` (`GET /v1/apps/{id}` without settings values), `app_logs` (`GET /v1/apps/{id}/logs?tail=200`, only with `logs:read:<app-id>`), `list_automations` (`GET /v1/automation/rules`), `preview_action` (`POST /v1/plans`), `withdraw_action` (`POST /v1/actions/{id}/cancel`, own requests), `propose_automation` (files `automation.rule.create`). `request_action` accepts every type §12.5 lets the agent's grant request, with `params` in place of only `app_id`. `tools/list` shows only the tools the grant allows.
@@ -757,3 +779,126 @@ approval; §12.40 lifecycle and §12.12 approval/security controls are unchanged
 - **Credentials (PD-07).** A manifest may declare `spec.credentials: {username?, password: generated, showBeforeOpen?}`. The gateway generates the password at the first install, stores it sealed (AES-256-GCM, key file beside the audit log) and hands it to the executor for Secret `<id>-credentials`. `GET /v1/apps/{id}/credentials` returns `{username, password}` to the owner only (`403` and `authz.denied` for anyone else, never an agent; `Cache-Control: no-store`; audited as `app.credentials.revealed` without the value). It survives `app.remove` and is erased by `app.delete_data`.
 - **Request limits by kind.** An agent may request `app.start|stop|restart|update|configure|remove` (no `sealed`), never `app.delete_data`; approval is owner-only as in §3.
 
+
+### Plugin registry read API (DEV-PLG-3, #178, first slice)
+
+`GET /v1/plugins` and `GET /v1/plugins/{plugin_id}` require `apps:read` and apply
+the Market sharing filters. They return installed/stopped tool-backed plugin
+summaries: `id`, `name`, `installed_version`, `status`. The version comes from
+the persisted runtime receipt; null means no receipt exists. Missing, uninstalled,
+non-plugin and unshared IDs are 404. No credential or execution authority is
+created; principal issuance and approved tool dispatch are later slices.
+
+### Plugin tool manifest foundation (DEV-PLG-1, #177)
+
+An App may add `spec.extensions.tools`, `spec.plugin`, `spec.permissions` and
+`spec.compat`, as specified in `docs/leap/dev/PLUGIN-SDK.md` §4–5. The phase-1
+validator accepts tool-backed plugins with optional UI and event declarations.
+Backend-free declarative-only plugins await an App-contract-compatible slice. Tools require a backend, a plugin principal and a
+valid compatibility range. Tool inputs and outputs are closed JSON Schemas;
+remote schema references are forbidden. Permissions are read grants or requests
+for specific action types, never approval or administration grants. Write and
+destructive tools declare effects; execution still requires owner approval.
+
+`onemind plugin validate [dir]` uses `internal/plugin/validate`, the offline Go
+package shared by box tooling and CI. It checks the existing app schema plus
+plugin tool declarations. A passing manifest check is not artifact verification
+or install authorization. Widening comparisons and supply-chain verification remain separate
+validation slices before #177 is done.
+
+The CLI validates the unpacked directory with `validate.Directory`: the manifest
+and icon must be regular files, the declared manifests path must be a directory,
+and no declared path component or workload-tree entry may be a symlink or special
+file. All declared paths stay below the bundle root. This check assumes immutable
+contents during validation/install; it does not extract archives, inspect workload
+permissions or verify signatures.
+
+Box callers can use `ManifestForAPI` or `DirectoryForAPI` to check the plugin's
+`compat.onemind` range against their actual plugin API level. The CLI exposes
+this offline check with `onemind plugin validate --api-level <level> [dir]`.
+Without that flag the CLI checks range syntax only; it does not imply the
+manifest is compatible with a particular box. Explicit empty levels are errors.
+
+The event declaration slice adds optional `spec.extensions.events.publish` and
+`subscribe` arrays alongside the required tools. Published names are local
+`[a-z0-9_-]{1,40}` names only; the gateway supplies the app subject prefix.
+Subscriptions require a covering `events:subscribe:<pattern>` permission. Only
+whole-token `*` and terminal `>` wildcards are accepted; `>` matches one or more
+tokens, and bare `>` is forbidden in both subscriptions and grants. A requested
+pattern must fit inside a single grant; narrower grants are never combined to
+justify a broader subscription. These checks implement P4/P5 only: they do not
+connect plugins to NATS or replace runtime scope enforcement by the gateway.
+
+The egress declaration slice adds optional `spec.egress`, empty/absent meaning
+no internet egress grant. Entries are qualified ASCII hostnames (IDNs must use
+valid punycode), optionally prefixed with `*.`. IP literals, URL components,
+malformed labels, case-equivalent duplicates, special-use/local domains and
+unknown top-level suffixes are rejected. Wildcards must sit below a registrable
+domain according to the embedded Public Suffix List, including its private
+suffixes: `*.example.com` is permitted, `*.com` and `*.github.io` are not.
+Validation is offline and performs no DNS lookups. Runtime enforcement must
+separately reject private or rebound destination addresses; declaring egress
+never authorizes a plugin to act without owner approval.
+
+The UI declaration slice adds optional `spec.extensions.widgets`, `settings`,
+`alerts.actions` and `tiles` alongside the required tools. Template widgets name
+a declared read tool; alert actions name a declared tool and never approve it.
+Iframe widgets target the dashboard only and declare a relative entry under
+`ui/`. Settings schemas and optional tile icons use relative bundle paths, with
+no traversal, absolute paths, unsafe characters or empty path components. UI IDs
+are unique within each surface. These declarations do not execute UI code; the sandboxed widget host is #179.
+
+The directory validator checks actual iframe entry, settings-schema and tile-icon
+files with the same safe bundle-path checks. Referenced SVG/markup icons are
+scanned even outside `ui/`. Every entry under `ui/` must be a
+regular file or directory, including unreferenced entries. Settings schemas are
+JSON Schema documents compiled offline; remote/file references cannot load.
+Markup checks cover all HTML/HTM/SVG/XHTML files and every iframe entry regardless
+of suffix, require UTF-8 without NUL bytes, and reject inline `on*` handlers,
+inline scripts, remote script sources, `base` elements and embedded `srcdoc`.
+Scripts must use an HTML `src` with no inline content; SVG/href and namespaced
+script elements are refused. Sources name existing relative files inside `ui/`; URL
+components, encoded traversal and parent traversal are refused. The tokenizer
+uses browser HTML attribute semantics, including first-duplicate-wins. This is
+not a JavaScript/dependency scan and does not replace CSP or sandboxing.
+
+UI validation is bounded to 4 MiB per file, 32 MiB total and 4096 entries
+(including referenced files outside `ui/`);
+settings schemas are limited to the 256 KiB manifest limit. The unpacked tree
+must remain unchanged during validation/install; archive extraction, signatures,
+workload policy and installation approval remain separate checks.
+
+`onemind plugin validate --previous <dir>` validates both manifests and reports
+P11's informational `widens_grants` flag with sorted reasons. Comparison requires
+the same plugin ID. Added permission and egress strings, new secret name/key grants,
+changed key semantics, and new or stronger write/destructive tools widen grants.
+Display descriptions and grant removals do not. Newly added strings conservatively
+require reapproval even when an older grant might subsume them. Secret fields use
+the existing App `secrets[].keys[]` format, never secret values. A false result does
+not authorize installation or waive signatures, runtime checks or owner approval.
+
+When `--previous` compares an update, removed tools or changed effects require
+a higher plugin major version (PLUGIN-SDK.md §13). Any changed input schema is
+conservatively treated as breaking: this validator does not attempt to prove
+inclusion between arbitrary JSON Schemas. New tools and display-only changes do
+not require a major bump. This version check is separate from grant widening;
+a major bump never removes reapproval or artifact verification requirements.
+
+The standalone `sdk/schema/widget-templates.schema.json` publishes the typed
+widget result contract (PLUGIN-SDK.md §6.2); `validate.WidgetData` checks that
+same embedded schema offline. Every result is a closed object with an RFC 3339
+`observed_at`. Stat values are text or numbers; `trend`, when present, is only
+null until a numeric trend contract is specified. Lists carry title/subtitle and
+a status from `ok`, `warn`, `error`, `unknown`; progress is a number in [0, 1];
+status cards carry that state vocabulary and text. There are no host-fetchable
+URL/image fields. The future #179 host renders strings as text and marks stale
+timestamps; this schema publication adds no runtime UI route or renderer.
+
+Declarative plugin manifests may omit `spec.plugin` and `spec.manifests` when
+no tools, iframe widgets or event subscriptions require a backend (PLUGIN-SDK
+P6). Ordinary apps still require manifests; existing App metadata, updates and
+secret entry requirements remain unchanged. Backend-bearing extensions require
+both manifests and `plugin.backend`; declaring both `spec.agent` and
+`spec.plugin` is refused to prevent acquiring an additional agent credential.
+`metadata.publisher` is an optional closed `{id, name}` declaration: its DNS
+label id is not a verified identity or an artifact-signing authorization.

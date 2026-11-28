@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../App';
 import { DEMO_TOKENS } from '../api/fixtures';
 import { MockApi } from '../api/mock';
+import type { CatalogApp } from '../api/types';
 import { SessionProvider } from '../session';
 import { seriousViolations } from '../test/helpers';
 
@@ -18,7 +19,7 @@ const appView = (over: Record<string, unknown> = {}) => ({
   access: { roles: ['owner', 'adult'], shared_with_me: true }, ...over,
 });
 
-function mount(route: (path: string) => Response, token = 'owner-demo') {
+function mount(route: (path: string) => Response, token = 'owner-demo', over: Partial<MockApi> = {}) {
   const paths: string[] = [];
   vi.stubGlobal('fetch', vi.fn(async (url: string | URL | Request) => {
     const u = new URL(String(url));
@@ -35,7 +36,7 @@ function mount(route: (path: string) => Response, token = 'owner-demo') {
       { id: 'n1', severity: 'info', topic: 'apps', title: 'Kuma restarted', body: 'Component web restarted.', link: '/apps/uptime-kuma', source: 'gateway', action_id: null, alert_id: null, created_at: '2026-11-20T10:00:00Z', read_at: null },
       { id: 'n2', severity: 'info', topic: 'apps', title: 'Vaultwarden restarted', body: 'x', link: '/apps/vaultwarden', source: 'gateway', action_id: null, alert_id: null, created_at: '2026-11-20T10:00:00Z', read_at: null },
     ],
-  });
+  }, over);
   window.sessionStorage.setItem('onemind.token', token);
   const utils = render(<MemoryRouter initialEntries={['/apps/uptime-kuma']}><SessionProvider deps={{ mock: false, makeApi: () => api, knownPrincipal: (t) => DEMO_TOKENS[t] }}><App mock={false} /></SessionProvider></MemoryRouter>);
   return { paths, ...utils };
@@ -56,6 +57,8 @@ describe('one app page', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Uptime Kuma' })).toBeInTheDocument();
     expect(await screen.findByText('Healthy')).toBeInTheDocument();
     expect(screen.getByText('Licence')).toBeInTheDocument();
+    // the licence's source duty: the upstream source is a real link on the app page
+    expect(screen.getByRole('link', { name: 'https://github.com/louislam/uptime-kuma' })).toHaveAttribute('href', 'https://github.com/louislam/uptime-kuma');
     expect(await seriousViolations(container)).toEqual([]);
   });
 
@@ -120,6 +123,20 @@ describe('one app page', () => {
     expect(await screen.findByText('Last security scan')).toBeInTheDocument();
     await u.click(screen.getByRole('tab', { name: 'Help' }));
     expect(await screen.findByRole('link', { name: 'Documentation' })).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  it('the Needs line reads machine_needs, so a new-spelling app that needs a GPU and 32 GB says so (#724)', async () => {
+    const base = new MockApi('owner-demo');
+    const apps = async () => (await base.apps()).map((a) => a.id !== 'uptime-kuma' ? a : {
+      ...a,
+      requires: { memoryMb: 32768, accelerator: { capability: 'gpu-compute' } } as CatalogApp['requires'],
+      machine_needs: { requires: { arch: ['amd64'], memoryMb: 32768, accelerator: { capability: 'gpu-compute' } }, recommends: {}, supports: {} },
+    });
+    mount(hub, 'owner-demo', { apps });
+    await userEvent.setup().click(await screen.findByRole('tab', { name: 'Trust' }));
+    const row = (await screen.findByText('Needs')).parentElement as HTMLElement;
+    expect(within(row).getByText('a GPU, 32768 MB of memory')).toBeInTheDocument();
+    expect(within(row).queryByText('Nothing special')).toBeNull();
   });
 
   it('Workloads tab is for owners and adults and has no button that changes anything', async () => {

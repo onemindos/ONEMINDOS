@@ -5,6 +5,8 @@ import { DEMO_TOKENS } from './api/fixtures';
 import { MockApi } from './api/mock';
 import type { Principal } from './api/types';
 import { personKey } from './data/prefs';
+import type { PrincipalInfo } from './api/wiring';
+import { readLock, saveLock, type LockSummary } from './shell/lock/state';
 
 /**
  * Can the signed-in principal approve or deny?
@@ -32,6 +34,7 @@ export interface Session {
   principal: Principal | undefined;
   /** Whose preferences this browser shows: the principal id, or a token fingerprint (prefs.ts). */
   person: string;
+  account?: PrincipalInfo;
   canDecide: DecideAbility;
   canRequest: DecideAbility;
   /** True once GET /v1/me has set the two abilities from the token's scopes (or the role was known). */
@@ -41,6 +44,8 @@ export interface Session {
 
 interface SessionCtx {
   session: Session | null;
+  locked: LockSummary | null;
+  lock(summary: LockSummary): void;
   signIn(token: string): Promise<void>;
   /** A client with no credentials, for the routes that sign a person in (login, setup, enrol). */
   anon: OneMindApi;
@@ -87,12 +92,14 @@ function build(token: string, deps: SessionDeps): Session {
 }
 
 export function SessionProvider({ deps, children }: { deps: SessionDeps; children: ReactNode }) {
+  const [locked, setLocked] = useState(readLock);
   const [session, setSession] = useState<Session | null>(() => {
-    const t = readStored();
+    const t = locked ? null : readStored();
     return t ? build(t, deps) : null;
   });
 
   const sessionRef = useRef(session);
+  const authEpoch = useRef(0);
   sessionRef.current = session;
 
   // A real gateway session does not carry the role: ask GET /v1/me once and take canDecide and
@@ -108,7 +115,7 @@ export function SessionProvider({ deps, children }: { deps: SessionDeps; childre
         (me) => {
           if (!live) return;
           const a = abilitiesFromMe(me);
-          setSession((s) => (s && s.token === meToken ? { ...s, canDecide: s.canDecide === 'no' ? 'no' : a.canDecide, canRequest: a.canRequest, scoped: true } : s));
+          setSession((s) => (s && s.token === meToken ? { ...s, canDecide: s.canDecide === 'no' ? 'no' : a.canDecide, canRequest: a.canRequest, account: me.principal, scoped: true } : s));
         },
         () => {
           if (live && attempt < 3) timer = window.setTimeout(() => ask(attempt + 1), 1000 * 2 ** attempt);
@@ -125,28 +132,40 @@ export function SessionProvider({ deps, children }: { deps: SessionDeps; childre
 
   const signIn = useCallback(
     async (token: string) => {
+      const epoch = authEpoch.current;
       const s = build(token.trim(), deps);
       await s.api.instance(); // throws ApiError(401) on a bad token
+      if (epoch !== authEpoch.current) return;
+      saveLock(null);
       writeStored(s.token);
+      sessionRef.current = s;
+      setLocked(null);
       setSession(s);
     },
     [deps],
   );
 
-  const signOut = useCallback(() => {
-    // Best effort: end the session on the hub too, so a copied access token stops working.
-    // A static token is not a session (the hub answers 409); that is fine.
-    sessionRef.current?.api.logout().catch(() => undefined);
+  const endSession = useCallback((summary: LockSummary | null) => {
+    ++authEpoch.current;
+    // An authenticated logout is best effort. Forget the credential immediately.
+    const current = sessionRef.current;
+    sessionRef.current = null;
     writeStored(null);
+    saveLock(summary);
+    setLocked(summary);
     setSession(null);
+    void current?.api.logout().catch(() => undefined);
   }, []);
+
+  const signOut = useCallback(() => endSession(null), [endSession]);
+  const lock = useCallback((summary: LockSummary) => endSession(summary), [endSession]);
 
   const markForbidden = useCallback(() => {
     setSession((s) => (s ? { ...s, canDecide: 'no' } : s));
   }, []);
 
   const anon = useMemo(() => (deps.makeApi ? deps.makeApi('') : deps.mock ? new MockApi('') : new HttpApi({ token: '' })), [deps]);
-  const value = useMemo(() => ({ session, signIn, anon, signOut, markForbidden }), [session, signIn, anon, signOut, markForbidden]);
+  const value = useMemo(() => ({ session, locked, lock, signIn, anon, signOut, markForbidden }), [session, locked, lock, signIn, anon, signOut, markForbidden]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
@@ -160,5 +179,5 @@ export function useSession(): SessionCtx {
 export function useSignedIn(): Session & Omit<SessionCtx, 'session'> {
   const c = useSession();
   if (!c.session) throw new Error('not signed in');
-  return { ...c.session, signIn: c.signIn, anon: c.anon, signOut: c.signOut, markForbidden: c.markForbidden };
+  return { ...c.session, locked: c.locked, lock: c.lock, signIn: c.signIn, anon: c.anon, signOut: c.signOut, markForbidden: c.markForbidden };
 }

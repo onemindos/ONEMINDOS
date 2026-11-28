@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: Apache-2.0
+# chromium: Browsers row (founder ask 2026-11-21). Neko 3.2.0 (github.com/m1k1o/neko, Apache-2.0, release v3.2.0 of 2026-10-15)
+# runs Chromium (BSD-3-Clause and bundled components) in a container and streams it to the viewer over WebRTC. Image digest read from ghcr.io on 2026-11-21.
+# Run unmodified, one pod per browser. Chrome and Edge are not offered (their licences do not allow it).
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: chromium
+  name: "Chromium"
+  version: "3.2.0"
+  description: "Chromium in a window you open from the dashboard, streamed from your box with Neko. Each person gets their own profile, kept on the box."
+  # docs/design/TAXONOMY.md §1 has no browsers category and the sixteen slugs are locked, so this is Developer / vm-desktop
+  # (the slot that candidates.csv gives Firefox); the Market's Browsers row is an editorial rail (Market.tsx COLLECTIONS).
+  category: developer
+  age_rating: 18   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Unfiltered web browser: opens any site, adult and social ones included, and keeps saved logins."
+  icon: icon.svg
+  license: "Apache-2.0"
+  licenceClass: unknown
+  source: https://github.com/m1k1o/neko
+  links:
+    docs: "https://neko.m1k1o.net/"
+    github: "https://github.com/m1k1o/neko"
+    website: "https://www.chromium.org/"
+    support: "https://github.com/m1k1o/neko/issues"
+  upstream: {release: "v3.2.0", released_at: "2026-10-15T22:08:07Z", archived: false}
+  tier: blocked   # CI found fixable CRITICAL vulnerabilities in the pinned image
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 1024}   # sum of the memory requests in manifests/
+  web: {port: 8080}
+  desktop: {runtime: neko}   # streams a desktop with Neko (checked by validate-apps check 12, #786)
+  # #692: one profile per person. manifests/deployment.yaml is the template (replicas 0); the gateway makes
+  # profile-<key>, browser-<key> per signed-in person and serves each person only their own (core/onemind_core/browsers.py).
+  browser: {profileVolume: profile}
+  manifests: manifests/
+  updates: {channel: stable, automerge: none}
+  # A login the box generates at install; the owner sees it once on the app page (PD-07).
+  credentials: {username: browser, password: generated, showBeforeOpen: true}

@@ -1,4 +1,6 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
+
+> **Historical (marked 2026-11-26).** This page is the 2026-11-12 state; the waves it describes have since merged or been replaced. Do not follow it. Current pointers: [STATUS.md](STATUS.md), [AGENT-QUEUE.md](AGENT-QUEUE.md), [BUILDER-BRIEFING.md](BUILDER-BRIEFING.md), [ALPHA-CHECKLIST.md](ALPHA-CHECKLIST.md).
 # Continue here: finishing the started waves
 
 **Written:** 2026-11-12, at a hand-off between sessions. **Plan:** [NEXT-WAVE.md](NEXT-WAVE.md) (merge ownership + Wave G) · **Board:** [STATUS.md](STATUS.md) · **Record:** [CHANGELOG.md](../../CHANGELOG.md)

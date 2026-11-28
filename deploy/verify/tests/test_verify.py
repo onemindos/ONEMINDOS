@@ -31,7 +31,7 @@ NATSCHECK = os.path.join(VERIFY_DIR, "natscheck.py")
 MOCK = os.path.join(HERE, "mock_gateway.py")
 OWNER = "owner-test-" + os.urandom(8).hex()   # made at test time, never real
 AGENT = "agent-test-" + os.urandom(8).hex()
-NATS_IMAGE = "docker.io/library/nats:2.15.2-alpine@sha256:afae2fdbe2e326c65e1246cb83b9d05d319188734f3bd577ac8072daae78a10f"
+NATS_IMAGE = "docker.io/library/nats:2.15.3-alpine@sha256:558394a23dd3c36f2d3a64b51865fd09908010e80a542cea5e75c2af543ed62a"
 
 # bug -> the verify.sh line that must FAIL (regex)
 EXPECT = {
@@ -271,7 +271,7 @@ def wait_port(port, timeout=30):
 
 @unittest.skipUnless(docker_ok() and shutil.which("openssl"), "needs Docker and openssl")
 class NatscheckAgainstRealNats(unittest.TestCase):
-    """nats-server 2.15.2 (the pinned compose image) with a token and TLS from a throwaway CA."""
+    """nats-server 2.15.3 (the pinned compose image) with a token and TLS from a throwaway CA."""
 
     @classmethod
     def setUpClass(cls):
@@ -409,6 +409,125 @@ class NatscheckNkeyAgainstRealNats(unittest.TestCase):
         self.assertIn("Authorization", out)
         with open(self.seed) as f:
             self.assertNotIn(f.read().strip(), out)
+
+
+class InstallAptTimerOrder(unittest.TestCase):
+    """#275: the apt timers must start after k3s is set up, or unattended-upgrades can replace
+    systemd/D-Bus while install.sh waits on systemctl ('D-Bus connection terminated')."""
+
+    @classmethod
+    def setUpClass(cls):
+        with open(os.path.join(os.path.dirname(VERIFY_DIR), "install.sh")) as f:
+            cls.src = f.read()
+        cls.main = cls.src[cls.src.index("\nK3S_CHANGED=0\n"):]
+
+    def test_apt_setup_does_not_start_the_timers(self):
+        body = re.search(r"\napt_setup\(\) \{\n(.*?)\n\}\n", self.src, re.S).group(1)
+        code = "\n".join(l for l in body.splitlines() if not l.lstrip().startswith(("plan ", "#")))
+        self.assertNotRegex(code, r"systemctl\s+(enable|start)[^\n]*apt-daily")
+
+    def test_only_apt_timers_start_enables_them(self):
+        hits = [m.start() for m in re.finditer(r"^\s*systemctl\s+enable[^\n]*apt-daily", self.src, re.M)]
+        fn = self.src.index("\napt_timers_start() {")
+        end = self.src.index("\n}\n", fn)
+        self.assertEqual(len(hits), 1, hits)
+        self.assertTrue(fn < hits[0] < end, "the timers are enabled outside apt_timers_start")
+
+    def test_timers_start_after_k3s_in_both_roles(self):
+        m = self.main
+        cut = m.index("\nelse\n  if [ \"$NODE_ROLE\" = worker ]; then k3s_binary")
+        hub, node = m[:cut], m[cut:]
+        self.assertNotIn("apt_timers_start", m[:m.index("\nif [ \"$ROLE\" = hub ]; then")])
+        self.assertIn("apt_timers_start", hub)
+        self.assertGreater(hub.index("\n  apt_timers_start"), hub.index("\n  k3s_server\n"))
+        self.assertGreater(hub.index("\n  apt_timers_start"), hub.rindex("\n  backup_setup"))
+        self.assertIn("apt_timers_start", node)
+        self.assertGreater(node.rindex("\n  apt_timers_start"), node.rindex("k3s_agent"))
+
+
+class CheckPinsNatsVersion(unittest.TestCase):
+    """deploy/check-pins.py fails when the dev compose stack runs another nats-server than the image."""
+
+    ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
+    FILES = ("os/versions.lock.yaml", "deploy/pins.env", "deploy/check-pins.py", "go.mod",
+             "deploy/compose/compose.yaml", "deploy/compose/onemindd.Dockerfile",
+             "deploy/verify/tests/test_verify.py", "internal/backup/pins.go")
+
+    def run_pins(self, compose_edit=None):
+        with tempfile.TemporaryDirectory() as tmp:
+            for f in self.FILES:
+                os.makedirs(os.path.join(tmp, os.path.dirname(f)), exist_ok=True)
+                shutil.copy(os.path.join(self.ROOT, f), os.path.join(tmp, f))
+            if compose_edit:
+                p = os.path.join(tmp, "deploy/compose/compose.yaml")
+                text = open(p, encoding="utf-8").read()
+                new = compose_edit(text)
+                self.assertNotEqual(text, new)
+                open(p, "w", encoding="utf-8").write(new)
+            return subprocess.run([sys.executable, "-I", os.path.join(tmp, "deploy/check-pins.py")],
+                                  capture_output=True, text=True)
+
+    def test_matching_compose_passes(self):
+        r = self.run_pins()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_old_nats_in_compose_fails(self):
+        r = self.run_pins(lambda t: re.sub(r"library/nats:[0-9.]+-alpine", "library/nats:2.15.2-alpine", t))
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("deploy/compose/compose.yaml runs nats 2.15.2", r.stdout)
+
+
+class ComposeNatsClientsSignIn(unittest.TestCase):
+    """Every compose service that talks to NATS gets its own key, and the hub config has no open door.
+    (Run against a real nats-server 2.15.3: a keyless client got 'Authorization Violation', the gateway's
+    key connected. See the PR.)"""
+
+    ROOT = CheckPinsNatsVersion.ROOT
+
+    def test_each_nats_client_names_its_seed_and_the_keys_service_makes_it(self):
+        text = open(os.path.join(self.ROOT, "deploy/compose/compose.yaml"), encoding="utf-8").read()
+        services = re.split(r"\n(?=  [a-z][a-z0-9-]*:\n)", text.split("\nservices:\n", 1)[1].split("\nvolumes:\n", 1)[0])
+        clients = {}
+        for block in services:
+            if "ONEMIND_NATS_URL: nats://nats:4222" in block:
+                name = block.strip().split(":", 1)[0]
+                seed = re.search(r"ONEMIND_(?:FABRIC_)?NATS_(?:NKEY_SEED): /nats/keys/([a-z0-9-]+)\.nk", block)
+                clients[name] = seed.group(1) if seed else None
+        self.assertEqual(sorted(clients), ["gateway", "node-sim", "sim-jetson", "sim-rpi5"])
+        keyed = re.search(r"for s in ([a-z0-9 -]+); do python -m onemind_core\.natsconf service-key", text).group(1).split()
+        for name, seed in clients.items():
+            self.assertIsNotNone(seed, f"{name} has no NATS seed")
+            self.assertIn(seed, keyed, f"nats-keys does not make {name}'s key")
+        self.assertEqual(len(set(clients.values())), 4, "two clients share a key")
+
+    def test_no_client_can_read_another_clients_seed(self):
+        """Each seed is owned by its client's own uid, and no two clients run as the same uid."""
+        text = open(os.path.join(self.ROOT, "deploy/compose/compose.yaml"), encoding="utf-8").read()
+        owners = {}
+        for m in re.finditer(r"chown (\d+):\d+((?: \$\$d/[a-z0-9-]+\.nk)+)", text):
+            for seed in re.findall(r"\$\$d/([a-z0-9-]+)\.nk", m.group(2)):
+                owners[seed] = m.group(1)
+        self.assertEqual(owners, {"gateway": "10001", "observer": "10001", "node-sim": "10002",
+                                  "sim-rpi5": "10003", "sim-jetson": "10004"})
+        services = re.split(r"\n(?=  [a-z][a-z0-9-]*:\n)", text.split("\nservices:\n", 1)[1].split("\nvolumes:\n", 1)[0])
+        for block in services:
+            name = block.strip().split(":", 1)[0]
+            if name in ("node-sim", "sim-rpi5", "sim-jetson"):
+                uid = re.search(r'user: "(\d+):\d+"', block)
+                self.assertIsNotNone(uid, f"{name} runs as the image's shared uid")
+                self.assertEqual(uid.group(1), owners[name], f"{name} cannot read its own seed")
+
+    def test_the_gateway_can_find_the_observer_key(self):
+        text = open(os.path.join(self.ROOT, "deploy/compose/compose.yaml"), encoding="utf-8").read()
+        gw = text.split("\n  gateway:\n", 1)[1].split("\n  node-sim:\n", 1)[0]
+        self.assertIn("ONEMIND_FABRIC_NATS_SERVICE_KEYS: /nats/keys", gw)
+        self.assertIn("for s in gateway observer ", text)
+
+    def test_hub_conf_has_no_open_user(self):
+        conf = open(os.path.join(self.ROOT, "deploy/compose/nats.conf"), encoding="utf-8").read()
+        for bad in ("no_auth_user", "authorization", "token", "password"):
+            self.assertNotIn(bad, conf)
+        self.assertIn('include "accounts.conf"', conf)
 
 
 if __name__ == "__main__":

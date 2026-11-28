@@ -12,8 +12,11 @@
 # socket's folder is 0711, and connecting to a socket works under ProtectSystem=strict. Never PrivateNetwork.
 [Unit]
 Description=OneMind Core gateway (HTTPS :443/:8443, local HTTP :8080)
-After=network-online.target onemind-firstboot.service onemind-nats.service onemind-host.socket
-Wants=network-online.target onemind-nats.service
+# No network-online.target and no After=nats: the gateway binds 0.0.0.0, reaches NATS on loopback and keeps
+# retrying it in the background (bus.py), so waiting for DHCP or for NATS only delayed the dashboard.
+# After=onemind-starting.service: the starting page holds :443/:8443 until this gateway takes them over.
+After=onemind-firstboot.service onemind-starting.service onemind-host.socket
+Wants=onemind-nats.service onemind-starting.service
 RequiresMountsFor=/data
 ConditionPathExists=/data/onemind/etc/gateway.env
 
@@ -22,11 +25,14 @@ Type=simple
 User=onemind
 Group=onemind
 EnvironmentFile=/data/onemind/etc/gateway.env
-Environment=HOME=/data/onemind/gateway PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+# MALLOC_ARENA_MAX=2: at most two glibc malloc arenas (private heaps) instead of one per allocating thread;
+# keeps the idle gateway under its 100 MiB budget (test/perf/budget.json, issue #849). Same in deploy/systemd.
+Environment=HOME=/data/onemind/gateway PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 MALLOC_ARENA_MAX=2
 WorkingDirectory=/data/onemind/gateway
 # The files root (ONEMIND_FILES_ROOT) must exist before this unit starts: systemd sets up the namespace for
 # ReadWritePaths= below before any ExecStartPre= (even "+"), and a missing path fails it with 226/NAMESPACE.
 # onemind-firstboot (ensure_files_root) makes it on every hub boot before it starts this unit.
+ExecStartPre=+/usr/bin/install -d -o onemind -g onemind -m 0755 /data/onemind/kiosk
 ExecStart=/usr/lib/onemind/gateway/venv/bin/python3 -m onemind_core
 Restart=always
 RestartSec=3s
@@ -35,7 +41,8 @@ NoNewPrivileges=yes
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 ProtectSystem=strict
-ReadWritePaths=/data/onemind/gateway /data/onemind/files
+# /data/onemind/kiosk holds only the kiosk flag file the owner switches over the API (UX-07, #242).
+ReadWritePaths=/data/onemind/gateway /data/onemind/files -/data/onemind/kiosk
 ProtectHome=yes
 PrivateTmp=yes
 PrivateDevices=yes

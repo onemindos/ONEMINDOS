@@ -10,11 +10,15 @@ import (
 	"github.com/onemindos/onemindos/internal/heartbeat"
 	"github.com/onemindos/onemindos/internal/leaf"
 	"github.com/onemindos/onemindos/internal/mesh"
+	"github.com/onemindos/onemindos/internal/relay"
 )
 
 // runMesh is `onemindd mesh enroll|wait-ip|status` (NETWORKING.md §5.2: the
 // k3s and NATS units wait for the mesh address with `onemindd mesh wait-ip`).
 func runMesh(args []string) int { return mesh.RunCLI(args, os.Stdout, os.Stderr) }
+
+// runRelay is `onemindd relay init|serve|status`: the owner's own relay (NETWORKING.md §4.4).
+func runRelay(args []string) int { return relay.RunCLI(args, os.Stdout, os.Stderr) }
 
 // leafSupervisor supervises the local NATS leaf of a joined node (CORE-NET-12, slop CS2-06): it
 // loads the persisted leaf.Config, watches the loopback monitor (the heartbeat's

@@ -25,6 +25,8 @@ export class ExpiredError extends OneMindError {}
 export class ConflictError extends OneMindError {}
 export class OutcomeUnknownError extends OneMindError {}
 export class RateLimitedError extends OneMindError {}
+/** The hub no longer serves this client's protocol generation: show "Update needed", stop calling. */
+export class UpgradeRequiredError extends OneMindError {}
 export class NetworkError extends OneMindError {
   readonly timedOut: boolean;
   constructor(message: string, timedOut = false) {
@@ -51,6 +53,7 @@ const BY_CODE: Record<string, typeof OneMindError> = {
   conflict: ConflictError,
   outcome_unknown: OutcomeUnknownError,
   rate_limited: RateLimitedError,
+  upgrade_required: UpgradeRequiredError,
   unexpected_response: UnexpectedResponseError,
 };
 

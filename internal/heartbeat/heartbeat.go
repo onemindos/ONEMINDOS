@@ -19,6 +19,22 @@ const Schema = "onemind.node.status/v1"
 // Subject returns the NATS subject a node publishes its heartbeat on.
 func Subject(nodeID string) string { return fmt.Sprintf("onemind.node.%s.status", nodeID) }
 
+// DepartureSchema is the schema of the departure a node publishes once, on
+// Subject, when it stops cleanly (#608). It rides the node's own status
+// subject on purpose: on a strict hub only that node's NATS account may
+// publish there (core/onemind_core/natsconf.py), so no new export or
+// permission is needed and no other machine can announce it.
+const DepartureSchema = "onemind.node.departure/v1"
+
+// Departure says "this node is going away on purpose": the gateway shows it
+// offline at once instead of waiting for heartbeats to stop. A later
+// heartbeat brings the node back. It carries nothing else.
+type Departure struct {
+	Schema string `json:"schema"`
+	NodeID string `json:"node_id"`
+	Reason string `json:"reason"` // "shutdown"
+}
+
 // nodeIDRe is the node id charset the gateway accepts on ingest: one NATS
 // subject token, no '.', '*', '>' or whitespace.
 var nodeIDRe = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
@@ -107,6 +123,9 @@ type Status struct {
 	// Metrics are the node's live load figures (contract 12.10 "metrics"),
 	// read at each heartbeat. Optional: omitted when none can be read.
 	Metrics *Metrics `json:"metrics,omitempty"`
+	// Capabilities is the hardware profile (NodeCapabilities, #618; capabilities.go). onemindd
+	// always sends it; it is a pointer so heartbeats from older agents stay valid without it.
+	Capabilities *Capabilities `json:"capabilities,omitempty"`
 }
 
 // Fabric is the heartbeat's fabric object (contract §12.10).
@@ -170,6 +189,10 @@ type Update struct {
 	State            string  `json:"state"`
 	LastCheck        *string `json:"last_check"`
 	LastResult       string  `json:"last_result"`
+	// PreviousVersion is the version the box ran before the update it now runs, set when the health
+	// gate committed that update: the version the other A/B slot still holds and can boot ("go back",
+	// P-16). Empty when unknown, and cleared when a new install starts or the gate rolled one back.
+	PreviousVersion string `json:"previous_version,omitempty"`
 }
 
 // OS is parsed from /etc/os-release.
@@ -206,8 +229,13 @@ type Slot struct {
 	BundleVersion string `json:"bundle_version,omitempty"`
 }
 
-// GPU reports an NVIDIA GPU. Model is null when there is none.
+// GPU reports an NVIDIA GPU. Model is null when there is none. Count and VRAMMB
+// are additive (omitted when nvidia-smi is not there to read them, and always on
+// a Jetson, whose GPU shares system memory): Count is the number of cards and
+// VRAMMB the memory of the smallest one, which is what a placement must trust.
 type GPU struct {
 	NVIDIA bool    `json:"nvidia"`
 	Model  *string `json:"model"`
+	Count  *int    `json:"count,omitempty"`
+	VRAMMB *int    `json:"vram_mb,omitempty"`
 }

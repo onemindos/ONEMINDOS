@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+# NVIDIA Container Toolkit 1.19.1-1, amd64. Debian 13 does not package it, so post-install.sh downloads exactly
+# these files and refuses any whose sha256 differs. Hashes are the SHA256 fields of
+# https://nvidia.github.io/libnvidia-container/stable/deb/amd64/Packages, and each file was re-hashed after download
+# (2026-11-21). Same values in os/versions.lock.yaml (gpu.toolkit); test/unit/test_gpu_variant.py compares them.
+# Columns: file | sha256
+libnvidia-container1_1.19.1-1_amd64.deb|d73bb582af893135198ef81cb22135c790a75d2ad72910446477c6c4430f3e6b
+libnvidia-container-tools_1.19.1-1_amd64.deb|5642763d51961a2295dff09990048a5dcee81edbea2a8c5084e47b09ccf17268
+nvidia-container-toolkit-base_1.19.1-1_amd64.deb|b6c5b4e77a28cde0197cc0e64edf75538604775d9f8aea502cef667e7e5b2132
+nvidia-container-toolkit_1.19.1-1_amd64.deb|e66acb5b33420a8417429cd217abc8400b4a409a2ae17a3852cf6feb34b5c8e6

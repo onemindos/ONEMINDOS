@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """DEV-SEE-01 (#234): the arm64 qcow2, the nightly dev-build pre-release, and the "see OneMind" guides."""
-import os, re, shutil, subprocess, sys, tempfile, unittest
+import base64, os, re, shutil, subprocess, sys, tempfile, unittest
 import yaml
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -17,16 +17,21 @@ class Downloads(unittest.TestCase):
         self.t = tempfile.TemporaryDirectory()
         self.addCleanup(self.t.cleanup)
         self.dl, self.out = os.path.join(self.t.name, "dl"), os.path.join(self.t.name, "rel")
+        pem = lambda b: "-----BEGIN CERTIFICATE-----\n" + base64.b64encode(b).decode() + "\n-----END CERTIFICATE-----\n"
         for d, name in (("image-debian-arm64-efi", "onemind-arm64-efi-0.1.0-dev.7.qcow2"),
                         ("image-debian-vm-do", "onemind-vm-do-0.1.0-dev.7.qcow2"),
                         ("installer-debian-x86_64", "onemind-installer-amd64-0.1.0-dev.7.img.xz")):
             os.makedirs(os.path.join(self.dl, d))
             with open(os.path.join(self.dl, d, name), "wb") as f:
                 f.write(name.encode())
-            if d == "image-debian-vm-do":
-                for extra in ("onemind-vm-do-0.1.0-dev.7.raucb", "onemind-vm-do-0.1.0-dev.7-next.raucb", "dev-ca.cert.pem"):
+            for board, folder in (("vm-do", "image-debian-vm-do"), ("x86_64-efi", "installer-debian-x86_64")):
+                if d != folder:
+                    continue
+                for extra in (f"onemind-{board}-0.1.0-dev.7.raucb", f"onemind-{board}-0.1.0-dev.7-next.raucb"):
                     with open(os.path.join(self.dl, d, extra), "wb") as f:
                         f.write(extra.encode())
+                with open(os.path.join(self.dl, d, "dev-ca.cert.pem"), "w") as f:
+                    f.write(pem(board.encode()))
             if d == "image-debian-arm64-efi":   # dev-image.sh copies the CA into every board's folder
                 with open(os.path.join(self.dl, d, "dev-ca.cert.pem"), "wb") as f:
                     f.write(b"arm64 copy")
@@ -41,11 +46,13 @@ class Downloads(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout.strip().splitlines()[-1], "dev-20261115-abcdef1")
         self.assertEqual(sorted(os.listdir(self.out)), [
-            "NOTES.md", "SHA256SUMS", "dev-ca.cert.pem", "onemind-arm64-efi-0.1.0-dev.7.qcow2",
-            "onemind-installer-amd64-0.1.0-dev.7.img.xz", "onemind-vm-do-0.1.0-dev.7-next.raucb",
-            "onemind-vm-do-0.1.0-dev.7.qcow2", "onemind-vm-do-0.1.0-dev.7.raucb"])
+            "NOTES.md", "SHA256SUMS", "dev-ca-x86_64-efi.cert.pem", "dev-ca.cert.pem", "onemind-arm64-efi-0.1.0-dev.7.qcow2",
+            "onemind-installer-amd64-0.1.0-dev.7.img.xz",
+            "onemind-vm-do-0.1.0-dev.7-next.raucb", "onemind-vm-do-0.1.0-dev.7.qcow2", "onemind-vm-do-0.1.0-dev.7.raucb",
+            "onemind-x86_64-efi-0.1.0-dev.7-next.raucb", "onemind-x86_64-efi-0.1.0-dev.7.raucb",
+            "update-compat-vm-do.json", "update-compat-x86_64-efi.json"])
         sums = read_out(self.out, "SHA256SUMS")
-        self.assertEqual(len(sums.strip().splitlines()), 6)
+        self.assertEqual(len(sums.strip().splitlines()), 11)
         self.assertNotIn("ignored", sums)
 
     def test_notes_start_with_the_warning(self):
@@ -128,8 +135,12 @@ class Workflow(unittest.TestCase):
     def test_downloads_what_the_picker_wants(self):
         image = read(".github", "workflows", "image.yml")
         self.assertIn("name: image-debian-${{ matrix.board }}", image)
+        # image.yml's matrix.include is a fromJSON(...) expression (tier 1 + 2 always, tier 3 on a full dispatch):
+        # read the board names from the JSON it really holds, not from a YAML spelling.
+        expr = yaml.safe_load(image)["jobs"]["image"]["strategy"]["matrix"]["include"]
+        boards = set(re.findall(r'"board":"([^"]+)"', expr))
         for board in ("arm64-efi", "vm-do"):
-            self.assertRegex(image, r"board: %s," % board)
+            self.assertIn(board, boards)
             self.assertIn("image-debian-" + board, self.text)
         self.assertIn("name: installer-debian-x86_64", image)
         self.assertIn("installer-debian-x86_64", self.text)

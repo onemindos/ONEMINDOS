@@ -7,6 +7,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import shutil
 import subprocess
 import tarfile
 import tempfile
@@ -45,9 +46,14 @@ class CollectTests(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         root = Path(tmp.name)
+        tools = root / "sdk/tools"
+        shutil.copytree(ROOT / "sdk/tools/applib", tools / "applib", ignore=shutil.ignore_patterns("__pycache__"))
+        shutil.copyfile(ROOT / "sdk/tools/app-select", tools / "app-select")
         for id_, spec in apps.items():
-            (root / "apps" / id_).mkdir(parents=True)
-            (root / "apps" / id_ / "onemind.app.yaml").write_text(MANIFEST.format(id=id_, tier=spec["tier_before"]))
+            app_id = id_.removeprefix("system.")
+            path = root / ("apps/_system" if id_.startswith("system.") else "apps") / app_id
+            path.mkdir(parents=True)
+            (path / "onemind.app.yaml").write_text(MANIFEST.format(id=app_id, tier=spec["tier_before"]))
             d = root / "tmp" / "results" / f"apps-rescan-{id_}"
             d.mkdir(parents=True)
             if spec.get("status") is not None:
@@ -71,9 +77,10 @@ class CollectTests(unittest.TestCase):
         outputs = dict(ln.split("=", 1) for ln in out.read_text().splitlines()) if out.exists() else {}
         return outputs, proc.returncode, proc.stderr, root
 
-    def files_for(self, id_: str, tier: str) -> dict:
-        return {f"apps/{id_}/scan.json": b"{}\n", f"apps/{id_}/README.md": b"r\n",
-                f"apps/{id_}/onemind.app.yaml": MANIFEST.format(id=id_, tier=tier).encode()}
+    def files_for(self, directory: str, tier: str) -> dict:
+        prefix = f"apps/{directory}"
+        return {f"{prefix}/scan.json": b"{}\n", f"{prefix}/README.md": b"r\n",
+                f"{prefix}/onemind.app.yaml": MANIFEST.format(id=Path(directory).name, tier=tier).encode()}
 
     def test_blocked_app_does_not_stop_the_others(self):
         out, rc, err, root = self.collect({
@@ -90,6 +97,18 @@ class CollectTests(unittest.TestCase):
         out, rc, _, _ = self.collect({"aaa": {"status": 1, "tier_before": "blocked",
                                               "files": self.files_for("aaa", "blocked")}})
         self.assertEqual((rc, out["newly_blocked"]), (0, ""))
+
+    def test_collects_builtin_results_and_reports_their_status(self):
+        out, rc, err, root = self.collect({
+            "system.aaa": {"status": 1, "tier_before": "verified", "files": self.files_for("_system/aaa", "blocked")},
+            "system.bbb": {"status": 2, "tier_before": "verified"},
+            "aaa": {"status": 0, "tier_before": "verified"},
+        })
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(out["newly_blocked"], "system.aaa")
+        self.assertEqual(out["errors"], "system.bbb")
+        self.assertTrue((root / "apps/_system/aaa/scan.json").is_file())
+        self.assertFalse((root / "apps/aaa/scan.json").exists())
 
     def test_tool_errors_and_missing_results_are_reported(self):
         out, rc, _, _ = self.collect({

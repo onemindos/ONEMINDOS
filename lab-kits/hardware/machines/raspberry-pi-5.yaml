@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: Apache-2.0
+id: raspberry-pi-5
+name: Raspberry Pi 5 (4 GB and 16 GB)
+class: sbc
+board: rpi5
+status: unproven
+cpu: Broadcom BCM2712, 4 cores arm64
+ram: 4 GB or 16 GB
+disk: NVMe or USB 3 SSD, 32 GB or more
+network: wired Ethernet
+tpm: none
+firmware_needed:
+  - Raspberry Pi firmware with tryboot (A/B switch); EEPROM boot order must include NVMe (6) or USB (4)
+what_works: []
+what_does_not:
+  - never booted by this image on a real Pi 5 (only desk checks in a VM)
+kit: LT-PI5-01
+result: null
+proven_on: null
+image_version: null

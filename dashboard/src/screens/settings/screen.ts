@@ -12,6 +12,7 @@ const screen: ScreenDef = {
   hue: ['#8f99a6', '#3e4652'],
   load: () => import('../../pages/Settings').then((m) => ({ default: m.Settings })),
   extra: [
+    { path: '/settings/plugin-keys', load: () => import('../../pages/PluginKeys').then((m) => ({ default: m.PluginKeys })) },
     { path: '/settings/:section' },
   ],
 };

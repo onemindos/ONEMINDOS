@@ -355,7 +355,7 @@ exit 0
 
     def run_cycle(self, gate_runners, vms, round_script="exec sleep 60\n", until=None, files=(), timeout=1.5,
                   env_extra=None):
-        """Start `cycle` with stub gh and limactl, wait until `until(sets)` is true (or `timeout` seconds),
+        """Start `cycle` with stub gh and limactl, wait for `until(sets, output)` (or `timeout` seconds),
         stop it, and return the switch changes it made, in order, and its output."""
         with tempfile.TemporaryDirectory() as tmp:
             d = Path(tmp)
@@ -379,7 +379,7 @@ exit 0
                 return [line.split()[2:5:2] for line in lines if line.startswith("variable set")]
             try:
                 end = time.monotonic() + (20 if until else timeout)
-                while time.monotonic() < end and not (until and until(sets())):
+                while time.monotonic() < end and not (until and until(sets(), out.read_text())):
                     time.sleep(0.1)
                 os.killpg(p.pid, signal.SIGTERM)
                 p.wait(timeout=20)
@@ -413,7 +413,8 @@ exit 0
 
     def test_local_gate_goes_on_once_the_gate_runner_is_online(self):
         online = f'echo {self.GATE_RUNNER} > "$2/online"; exec sleep 60\n'
-        sets, _ = self.run_cycle("1", ["onemind-ci", "onemind-ci-gate"], online, until=lambda s: ["LOCAL_GATE", "on"] in s)
+        sets, _ = self.run_cycle("1", ["onemind-ci", "onemind-ci-gate"], online,
+                                 until=lambda s, _: ["LOCAL_GATE", "on"] in s)
         self.assertEqual(self.gate_sets(sets), ["off", "on", "off"])          # start, runner online, exit
         self.assertEqual(sets[-2:], [["LOCAL_GATE", "off"], ["LOCAL_RUNNER", "off"]])
 
@@ -422,8 +423,10 @@ exit 0
         sets, _ = self.run_cycle("1", ["onemind-ci", "onemind-ci-gate"], other, timeout=2)
         self.assertNotIn("on", self.gate_sets(sets))
 
-    def strikes_off(self, sets):
-        return self.gate_sets(sets).count("off") >= 2    # the start sets off once; the third failure again
+    def strikes_off(self, sets, output):
+        # The stub records the call before it completes. Wait for cycle to confirm the switch before stopping it.
+        return (self.gate_sets(sets).count("off") >= 2
+                and "LOCAL_GATE=off ([gate-1] 3 gate failures in a row:" in output)
 
     def test_three_failed_runner_rounds_switch_local_gate_off(self):
         # clone and start work; config.sh (or the runner) fails in every round
@@ -449,7 +452,7 @@ exit 0
     def test_after_switch_off_a_probe_whose_runner_is_online_switches_it_back_on(self):
         recover = f'[ "$1" -le 3 ] && exit 1\necho {self.GATE_RUNNER} > "$2/online"; exec sleep 60\n'
         sets, out = self.run_cycle("1", ["onemind-ci", "onemind-ci-gate"], recover,
-                                   until=lambda s: self.gate_sets(s)[-1:] == ["on"])
+                                   until=lambda s, _: self.gate_sets(s)[-1:] == ["on"])
         self.assertEqual(self.gate_sets(sets), ["off", "off", "on", "off"])   # start, 3 strikes, probe, exit
         self.assertIn("3 gate failures in a row: runner round failed", out)
 
@@ -530,6 +533,53 @@ class JobStartedHook(unittest.TestCase):
         self.assertIn("ACTIONS_RUNNER_HOOK_JOB_STARTED=/usr/local/bin/onemind-ci-job-started.sh", text)
         self.assertIn('"$R/.env', text)
         self.assertIn("job-started.sh", (KIT / "up").read_text())
+
+
+class AppsNode(unittest.TestCase):
+    """#299 (CI-10 leftover): ci-apps `validate` runs JS regression tests in Node 22 on both pools.
+
+    The job sets Node up itself with the same pinned setup-node as ci-sdk (the Debian arm64 VM is a supported
+    setup-node platform, unlike setup-python), and the worker VM also carries a pinned Node 22 of its own.
+    """
+
+    SETUP_NODE = re.compile(r"^actions/setup-node@[0-9a-f]{40}$")
+
+    def setup_node_steps(self, wf, job):
+        steps = yaml.safe_load((WF / wf).read_text())["jobs"][job]["steps"]
+        return steps, [i for i, s in enumerate(steps) if str(s.get("uses", "")).startswith("actions/setup-node@")]
+
+    def test_validate_sets_up_node_22_with_the_ci_sdk_pin(self):
+        sdk = yaml.safe_load((WF / "ci-sdk.yml").read_text())
+        pins = {s["uses"] for job in sdk["jobs"].values() for s in job.get("steps", [])
+                if str(s.get("uses", "")).startswith("actions/setup-node@")}
+        self.assertEqual(len(pins), 1, pins)
+        steps, idx = self.setup_node_steps("ci-apps.yml", "validate")
+        self.assertEqual(len(idx), 1, "ci-apps validate needs exactly one setup-node step")
+        step = steps[idx[0]]
+        self.assertRegex(step["uses"], self.SETUP_NODE)
+        self.assertEqual({step["uses"]}, pins, "same setup-node pin as ci-sdk")
+        self.assertEqual(str(step["with"]["node-version"]), "22")
+        self.assertNotIn("if", step, "Node 22 on the hosted and the local runner alike")
+
+    def test_node_is_ready_before_the_unit_tests_and_checked(self):
+        steps, idx = self.setup_node_steps("ci-apps.yml", "validate")
+        names = [s.get("name", "") for s in steps]
+        unit = names.index("Unit tests (sdk/tools)")
+        self.assertLess(idx[0], unit)
+        check = [i for i, s in enumerate(steps) if "node --version" in str(s.get("run", ""))]
+        self.assertTrue(check and idx[0] < check[0] < unit, "validate prints and checks the Node major")
+        self.assertIn("grep -q '^v22\\.'", steps[check[0]]["run"])
+
+    def test_worker_vm_gets_a_pinned_node_22(self):
+        pin = dict(line.split("=", 1) for line in (KIT / "runner.pin").read_text().splitlines()
+                   if line and not line.startswith("#"))
+        self.assertRegex(pin.get("NODE_VERSION", ""), r"^22\.\d+\.\d+$")
+        self.assertRegex(pin.get("NODE_SHA256", ""), r"^[0-9a-f]{64}$")
+        text = (KIT / "provision.sh").read_text()
+        self.assertIn("https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-arm64.tar.xz", text)
+        self.assertIn('echo "${NODE_SHA256}  /tmp/node.txz" | sha256sum -c -', text)
+        # Only the worker VM runs ci-apps; the gate VM stays minimal.
+        self.assertRegex(text, r'if \[ "\$ROLE" = worker \] && ! node --version 2>/dev/null \| grep -q "\^v\$\{NODE_VERSION\}\$"')
 
 
 if __name__ == "__main__":

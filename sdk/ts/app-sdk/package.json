@@ -1,0 +1,10 @@
+{
+  "name": "@onemind/app-sdk",
+  "version": "0.1.0",
+  "description": "App-scoped helpers over the OneMind SDK",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist"],
+  "peerDependencies": { "@onemind/sdk": "^0.1.0" }
+}

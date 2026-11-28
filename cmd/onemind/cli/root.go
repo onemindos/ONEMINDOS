@@ -6,6 +6,7 @@
 package cli
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -18,6 +19,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/onemindos/onemindos/internal/update"
+	onemind "github.com/onemindos/onemindos/sdk/go"
 )
 
 // Env is what a command gets besides its arguments.
@@ -48,6 +50,10 @@ type Global struct {
 type App struct {
 	Env
 	G Global
+	// in is one buffered reader over Stdin, so two questions in a row do not lose the second answer.
+	in *bufio.Reader
+	// gw is the client the gateway-call commands share, so --token-stdin is read once per run.
+	gw *onemind.Client
 }
 
 // groups is the registry, in help order. One line per command group.
@@ -55,18 +61,43 @@ var groups = []func(a *App) []*cobra.Command{
 	loginCommands,
 	statusCommands,
 	nodeCommands,
+	seriesCommands,
 	fabricCommands,
+	deviceCommands,
 	appsCommands,
+	fitCommands,
 	actionsCommands,
 	auditCommands,
 	agentsCommands,
 	updateCommands,
+	windowsCommands, // next to updates, which wait for them; kept apart from the list's end, where other PRs add groups
+	catalogCommands,
 	aboutCommands,
 	meshCommands,
+	natsCommands,
 	storageCommands,
+	servicesCommands,
+	domainCommands,
+	bridgeCommands,
+	notifyCommands,
+	workCommands,
 	machinesCommands,
+	syncCommands,
 	mcpCommands,
 	migrateCommands,
+	kioskCommands,
+	myDevicesCommands,
+	appCommands,
+	gatewayAdminCommands,
+	usersCommands,
+	accountCommands,
+	backupCommands,
+	careCommands,
+	grantsCommands,
+	extCommands,
+	tipsCommands,
+	searchCommands,
+	radiosCommands,
 	versionCommands,
 }
 

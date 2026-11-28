@@ -2,6 +2,7 @@
 """IMG-02 (#149): the data partition grows to the disk the image was written to, and never does anything else
 to it. plan() is the whole decision; the sfdisk test applies it to a real GPT in a sparse file (Linux)."""
 import copy, importlib.util, json, os, shutil, subprocess, tempfile, unittest
+from unittest import mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 BASE = os.path.join(ROOT, "os", "rootfs", "layers", "base", "usr", "lib")
@@ -116,6 +117,100 @@ class RealTable(unittest.TestCase):
             self.assertIsNone(de.plan(after, 8 * 1024**3 // 512)[0])  # and the next boot has nothing to do
 
 
+class GrowWhatIsOnThePartition(unittest.TestCase):
+    """Plan PR 5: /data is btrfs, inside LUKS2 when the box has a TPM. The partition grows as before; then the LUKS2
+    volume and the filesystem are made to fill it, with no passphrase (the key is in the kernel keyring)."""
+
+    def fake_run(self, answers):
+        calls = []
+
+        def run(cmd, **kw):
+            calls.append(cmd)
+            return answers.get(cmd[0] if cmd[0] != "blkid" else "blkid", "")
+        return calls, run
+
+    def test_luks_then_btrfs_in_that_order_and_never_mkfs(self):
+        calls, run = self.fake_run({})
+        with mock.patch.object(de, "run", run):
+            de.grow_fs("/dev/dm-0", "btrfs", crypt="onemind-data")
+        self.assertEqual(calls, [["cryptsetup", "resize", "onemind-data"], ["btrfs", "filesystem", "resize", "max", "/data"]])
+
+    def test_plain_btrfs_and_plain_ext4(self):
+        calls, run = self.fake_run({})
+        with mock.patch.object(de, "run", run):
+            de.grow_fs("/dev/vda7", "btrfs")
+            de.grow_fs("/dev/vda7", "ext4")
+        self.assertEqual(calls, [["btrfs", "filesystem", "resize", "max", "/data"], ["resize2fs", "/dev/vda7"]])
+
+    def test_crypt_parent_reads_the_luks2_name_and_the_one_partition_under_it(self):
+        with tempfile.TemporaryDirectory() as t:
+            blk = os.path.join(t, "dm-0")
+            os.makedirs(os.path.join(blk, "dm"))
+            os.makedirs(os.path.join(blk, "slaves", "vda7"))
+            open(os.path.join(blk, "dm", "name"), "w").write("onemind-data\n")
+            open(os.path.join(blk, "dm", "uuid"), "w").write("CRYPT-LUKS2-0123456789abcdef-onemind-data\n")
+            real_sysfs, real_listdir = de.sysfs, os.listdir
+            fix = lambda path: path.replace("/sys/class/block", t)
+            with mock.patch.object(de, "sysfs", lambda p: real_sysfs(fix(p))), \
+                    mock.patch.object(de.os, "listdir", lambda p: real_listdir(fix(p))):
+                self.assertEqual(de.crypt_parent("/dev/dm-0"), ("onemind-data", "/dev/vda7"))
+                open(os.path.join(blk, "dm", "uuid"), "w").write("LVM-xyz\n")           # not ours: LVM
+                self.assertEqual(de.crypt_parent("/dev/dm-0"), (None, None))
+                open(os.path.join(blk, "dm", "uuid"), "w").write("CRYPT-LUKS2-0123-x\n")
+                os.makedirs(os.path.join(blk, "slaves", "vdb1"))                         # two devices under it
+                self.assertEqual(de.crypt_parent("/dev/dm-0"), (None, None))
+
+    def scenario(self, node, fstype, argv=(), todo=True, crypt=("onemind-data", "/dev/vda7")):
+        """main() with every command faked. Returns the commands it ran."""
+        calls = []
+        part = crypt[1] if crypt[0] else node
+        plan_result = ({"node": part, "number": 7, "script": "x", "free_mib": 100}, "growing") if todo else (None, "fills")
+        def run(cmd, **kw):
+            calls.append(cmd)
+            if cmd[0] == "blkid":
+                return fstype + "\n"
+            if cmd[0] == "blockdev":
+                return "1000\n"
+            if cmd[0] == "sfdisk":
+                return "{}"
+            if cmd[0] == "df":
+                return "Size\n9G\n"
+            return ""
+        with mock.patch.object(de, "run", run), mock.patch.object(de, "say", lambda m: None), \
+                mock.patch.object(de.os.path, "realpath", lambda p: node), mock.patch.object(de.os.path, "exists", lambda p: True), \
+                mock.patch.object(de, "crypt_parent", lambda n: crypt), mock.patch.object(de, "disk_of", lambda n: "/dev/vda"), \
+                mock.patch.object(de, "plan", lambda *a: plan_result), \
+                mock.patch.object(de, "rewrite_entry", lambda *a: calls.append(["REWRITE"] + [str(x) for x in a[:1]])):
+            self.assertEqual(de.main(argv), 0)
+        return [c[0] if c[0] not in ("cryptsetup", "btrfs") else " ".join(c[:3]) for c in calls]
+
+    def test_an_encrypted_btrfs_data_grows_partition_then_luks_then_filesystem(self):
+        self.assertEqual(self.scenario("/dev/dm-0", "btrfs"),
+                         ["blkid", "blockdev", "sfdisk", "REWRITE", "cryptsetup resize onemind-data", "btrfs filesystem resize", "df"])
+
+    def test_plain_btrfs_is_grown_even_when_something_else_enlarged_the_partition(self):
+        self.assertEqual(self.scenario("/dev/vda7", "btrfs", todo=False, crypt=(None, None)),
+                         ["blkid", "blockdev", "sfdisk", "btrfs filesystem resize", "df"])
+
+    def test_ext4_with_nothing_to_grow_is_left_alone_unless_asked_with_fs(self):
+        self.assertEqual(self.scenario("/dev/vda7", "ext4", todo=False, crypt=(None, None)), ["blkid", "blockdev", "sfdisk"])
+        self.assertEqual(self.scenario("/dev/vda7", "ext4", argv=("--fs",), todo=False, crypt=(None, None)),
+                         ["blkid", "blockdev", "sfdisk", "resize2fs", "df"])
+
+    def test_anything_else_on_the_partition_is_never_touched(self):
+        self.assertEqual(self.scenario("/dev/vda7", "xfs", crypt=(None, None)), ["blkid"])
+
+    def test_the_cloud_grow_service_runs_the_same_program_and_cannot_fail_the_unit(self):
+        src = open(os.path.join(ROOT, "os/boards/cloud/rootfs/usr/lib/systemd/system/onemind-data-grow.service")).read()
+        self.assertIn("ExecStart=-/usr/lib/onemind/data-extend --fs", src)
+        self.assertNotIn("resize2fs", src.replace("# ", "").split("[Service]")[1])      # no ext4-only command left
+
+    def test_fstab_asks_systemd_to_grow_data_after_mounting_it(self):
+        line = next(l for l in open(os.path.join(ROOT, "os/rootfs/layers/base/etc/fstab")).read().splitlines()
+                    if l.startswith("PARTLABEL=onemind-data"))
+        self.assertIn("x-systemd.growfs", line.split()[3].split(","))
+
+
 class NeverFailsTheBoot(unittest.TestCase):
     """Growing is a convenience: every way it can go wrong ends in exit 0 and a log line (CI run 43801035540:
     a failed unit is fatal to the health gate)."""
@@ -124,7 +219,7 @@ class NeverFailsTheBoot(unittest.TestCase):
         saved = (de.main, de.say)
         lines = []
         de.say = lines.append
-        def main():
+        def main(argv=()):
             raise boom
         de.main = main
         try:
@@ -148,11 +243,57 @@ class NeverFailsTheBoot(unittest.TestCase):
         self.assertRegex(unit, r"(?m)^ExecStart=-/usr/lib/onemind/data-extend$")
 
 
+class PausesUdevWhileTheTableChanges(unittest.TestCase):
+    """Issue 391: udev must not read the table while it is rewritten. Without the pause, systemd saw the
+    data partition's device names vanish and unmounted /data on about one cloud first boot in fifty."""
+
+    def run_rewrite(self, fail_at=None, udevadm_ok=True):
+        calls = []
+
+        def fake_run(cmd, **kw):
+            calls.append(cmd[0])
+            if cmd[0] == fail_at:
+                raise subprocess.CalledProcessError(1, cmd, "", "boom")
+            return ""
+
+        def fake_subprocess_run(cmd, **kw):
+            calls.append(" ".join(cmd[:3]))
+            return subprocess.CompletedProcess(cmd, 0 if udevadm_ok or cmd[2] != "--stop-exec-queue" else 1)
+
+        old_run, old_sub = de.run, de.subprocess.run
+        de.run, de.subprocess.run = fake_run, fake_subprocess_run
+        try:
+            try:
+                de.rewrite_entry(7, "/dev/vda", "script")
+            except subprocess.CalledProcessError:
+                pass
+        finally:
+            de.run, de.subprocess.run = old_run, old_sub
+        return calls
+
+    def test_queue_is_paused_around_both_table_steps_and_settled_after(self):
+        calls = self.run_rewrite()
+        self.assertEqual(calls, ["udevadm control --stop-exec-queue", "sfdisk", "partx",
+                                 "udevadm control --start-exec-queue", "udevadm settle --timeout=30"])
+
+    def test_queue_is_started_again_when_a_step_fails(self):
+        for failing in ("sfdisk", "partx"):
+            calls = self.run_rewrite(fail_at=failing)
+            self.assertIn("udevadm control --start-exec-queue", calls, failing)
+
+    def test_no_start_when_the_pause_did_not_happen(self):
+        calls = self.run_rewrite(udevadm_ok=False)
+        self.assertNotIn("udevadm control --start-exec-queue", calls)
+        self.assertIn("partx", calls)
+
+
 class ToolsAreInTheImage(unittest.TestCase):
     """The first CI boot failed because sfdisk was not installed: Debian 13 ships it in `fdisk`, not util-linux.
     Every tool data_extend.py runs must come from a package the image lists."""
     PACKAGE = {"lsblk": "util-linux", "blkid": "util-linux", "blockdev": "util-linux", "partx": "util-linux",
-               "sfdisk": "fdisk", "resize2fs": "e2fsprogs", "df": None}     # None: coreutils, always there
+               "sfdisk": "fdisk", "resize2fs": "e2fsprogs", "udevadm": "udev", "df": None,     # None: coreutils, always there
+               "cryptsetup": "cryptsetup-bin", "btrfs": "btrfs-progs"}
+    DEBIAN_ONLY = ("cryptsetup", "btrfs")        # /data encryption and btrfs ship on the Debian leg; Ubuntu is a CI hedge only
 
     def test_every_tool_it_runs_is_mapped_to_a_package(self):
         with open(os.path.join(BASE, "onemind", "data_extend.py")) as f:
@@ -167,7 +308,7 @@ class ToolsAreInTheImage(unittest.TestCase):
             with open(os.path.join(ROOT, "os", "rootfs", "packages", f"{leg}-common.txt")) as f:
                 words = {w for line in f for w in line.split("#")[0].split()}
             for tool, pkg in self.PACKAGE.items():
-                if pkg:
+                if pkg and not (leg == "ubuntu" and tool in self.DEBIAN_ONLY):
                     self.assertIn(pkg, words, f"{tool} needs package {pkg} in {leg}-common.txt")
 
 
@@ -205,7 +346,7 @@ class Wiring(unittest.TestCase):
         for board in ("x86_64-efi", "arm64-efi", "vm"):
             parts = yaml.safe_load(self.read("os", "boards", board, "layout.yaml"))["partitions"]
             self.assertEqual(parts[-1]["label"], "onemind-data", board)
-            self.assertEqual(parts[-1]["fs"], "ext4", board)
+            self.assertEqual(parts[-1]["fs"], "luks2" if board == "x86_64-efi" else "ext4", board)   # luks2 = shipped blank (D-020)
 
 
 if __name__ == "__main__":

@@ -44,7 +44,7 @@ d('the app on a real hub', () => {
     expect(await screen.findByTestId('approvals')).toBeTruthy();
     await waitFor(() => expect(screen.queryByText(/Could not read/)).toBeNull());
 
-    await fireEvent.press(screen.getByText('More'));
+    await fireEvent.press(screen.getByTestId('tab-me'));
     await fireEvent.press(await screen.findByTestId('more-Settings'));
     expect(await screen.findByTestId('settings')).toBeTruthy();
   });

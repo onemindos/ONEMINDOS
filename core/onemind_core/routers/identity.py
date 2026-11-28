@@ -7,17 +7,35 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, Request, Security
 from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.security import HTTPBearer
 from pydantic import BaseModel, Field
 
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import error_responses
 from ..identity import IdentityService, ctx_of
+from ..identity.approver_keys import KeyKind
 from ..jsonbody import JsonBody
 
 SIGNIN_HTML = Path(__file__).resolve().parent.parent / "identity" / "signin.html"
+
+
+class ApprovalChallenge(BaseModel):
+    challenge: str
+    action_sha256: str
+    plan_sha256: str | None
+    expires_at: str
+    # #702: what a phone's approver key signs (UTF-8, ECDSA P-256 SHA-256) instead of a passkey assertion.
+    device_payload: str
+    publicKey: dict[str, Any]
+
+
+# The random id an app install keeps for itself (#715): My devices groups a phone's sign-ins, passkeys
+# and push registrations by it, so a renamed phone stays one device and two phones with the same
+# default name stay two.
+INSTALL_ID = r"^[A-Za-z0-9_-]{16,64}$"
 
 
 class LoginBody(BaseModel):
@@ -28,6 +46,7 @@ class LoginBody(BaseModel):
     # browser → HttpOnly cookie + CSRF token; cli/app → bearer access + refresh token
     client: Literal["browser", "cli", "app"] = "browser"
     client_name: str | None = Field(default=None, max_length=200)
+    install_id: str | None = Field(default=None, pattern=INSTALL_ID)
 
 
 class SetupBody(BaseModel):
@@ -51,6 +70,23 @@ class RefreshBody(BaseModel):
 class PasskeyRegisterBody(BaseModel):
     credential: dict[str, Any]
     label: str | None = Field(default=None, max_length=100)
+    install_id: str | None = Field(default=None, pattern=INSTALL_ID)
+
+
+class ApproverKeyBody(BaseModel):
+    public_key: str = Field(max_length=400, description="P-256 SubjectPublicKeyInfo, DER, base64url.")
+    label: str = Field(max_length=100, description="The phone this key lives on, e.g. 'Pixel 9'.")
+    key_kind: KeyKind
+
+
+class ApproverKey(BaseModel):
+    key_id: str
+    label: str
+    key_kind: str
+    fingerprint: str
+    created_at: str
+    last_used_at: str | None
+    revoked_at: str | None
 
 
 class RescueVerifyBody(BaseModel):
@@ -68,6 +104,29 @@ class CodeBody(BaseModel):
 
 class PasswordOnlyBody(BaseModel):
     password: str = Field(max_length=1024)
+
+
+class SignInMethods(BaseModel):
+    """How the signed-in person can sign in (Settings > Account and security). Facts only, no secret."""
+
+    password: bool = Field(description="This person has a password (password sign-in works).")
+    totp: bool = Field(description="An authenticator code is asked after the password. A fallback: passkeys come first (D-030).")
+    passkeys: int = Field(description="Passkeys this person has registered.")
+    passkeys_active: bool = Field(description="An owner on this box has a passkey, so owner actions need a fresh passkey sign-in.")
+
+
+class TotpSecret(BaseModel):
+    secret: str = Field(description="Base32 secret for an authenticator app; shown once.")
+    otpauth_uri: str = Field(description="The same secret as an otpauth:// link (what a QR code holds).")
+
+
+class TotpSetup(BaseModel):
+    one_time: TotpSecret
+
+
+class MePatchBody(BaseModel):
+    # Not length-limited tightly here: the service answers 422 with a reason, like the other identity routes.
+    display_name: str | None = Field(default=None, max_length=1000)
 
 
 class UserCreateBody(BaseModel):
@@ -103,6 +162,10 @@ class AccessBody(BaseModel):
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
 ORDER = 260
+# Names the bearer scheme in /openapi.json for routes added after the contract lint (#874). It never refuses by
+# itself: gw.principal and the handler decide, and a session cookie works as on every other route.
+_BEARER = HTTPBearer(scheme_name="bearer", auto_error=False, description="A gateway token or a signed-in session (contract §3)")
+SIGNED_IN = [Security(_BEARER, scopes=["*"])]
 
 
 def register(app: FastAPI, gw: Gateway) -> None:
@@ -125,8 +188,10 @@ def register(app: FastAPI, gw: Gateway) -> None:
             resp.set_cookie(svc.csrf_cookie, cookies["csrf"], httponly=False, **common)
         return resp
 
-    def start(request: Request, user, method: str, client: str, name: str | None, passkey: bool, status=200):
-        body = svc.start_session(request, user, method, name, bearer=client != "browser", passkey=passkey)
+    def start(request: Request, user, method: str, client: str, name: str | None, passkey: bool, status=200,
+              install_id: str | None = None):
+        body = svc.start_session(request, user, method, name, bearer=client != "browser", passkey=passkey,
+                                 install_id=install_id)
         return session_response(body, status)
 
     R = error_responses
@@ -146,10 +211,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def login(body: LoginBody, request: Request):
         if body.passkey is not None:
             user = svc.login_passkey(request, body.passkey)
-            return start(request, user, "passkey", body.client, body.client_name, passkey=True)
+            return start(request, user, "passkey", body.client, body.client_name, passkey=True,
+                         install_id=body.install_id)
         user = svc.login_password(request, body.username or "", body.password or "", body.totp)
         method = "password+totp" if user.totp_secret else "password"
-        return start(request, user, method, body.client, body.client_name, passkey=False)
+        return start(request, user, method, body.client, body.client_name, passkey=False,
+                     install_id=body.install_id)
 
     @app.post("/v1/auth/enrol", operation_id="auth.enrol", tags=["auth"], status_code=201, responses=R(401, 409, 422, 429))
     def enrol(body: EnrolBody, request: Request):
@@ -184,7 +251,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.post("/v1/auth/passkeys/register", operation_id="auth.passkeys.register", tags=["auth"], status_code=201, responses=R(401, 403, 409, 422))
     def passkey_register(body: PasskeyRegisterBody, request: Request, _: Principal = Depends(principal)):
-        return svc.passkey_register(request, ctx_of(request), body.credential, body.label)
+        return svc.passkey_register(request, ctx_of(request), body.credential, body.label, body.install_id)
 
     @app.get("/v1/auth/passkeys", operation_id="auth.passkeys.list", tags=["auth"], responses=R(401, 403))
     def passkeys(request: Request, _: Principal = Depends(principal)):
@@ -195,12 +262,34 @@ def register(app: FastAPI, gw: Gateway) -> None:
         svc.delete_passkey(ctx_of(request), credential_id)
         return Response(status_code=204)
 
+    # ---- device-bound approver keys (#702): the phone's biometric-gated signing key -------------------
+    @app.post("/v1/auth/approver-keys", operation_id="auth.approver_keys.register", tags=["auth"], status_code=201, response_model=ApproverKey, responses=R(401, 403, 409, 422))
+    def approver_key_register(body: ApproverKeyBody, request: Request, _: Principal = Depends(principal)):
+        """An owner adds a phone's P-256 approver key; needs a passkey sign-in on this session in the last minutes."""
+        return svc.register_approver_key(ctx_of(request), body.public_key, body.label, body.key_kind)
+
+    @app.get("/v1/auth/approver-keys", operation_id="auth.approver_keys.list", tags=["auth"], response_model=list[ApproverKey], responses=R(401, 403))
+    def approver_keys(request: Request, _: Principal = Depends(principal)):
+        return svc.list_approver_keys(ctx_of(request))
+
+    @app.delete("/v1/auth/approver-keys/{key_id}", operation_id="auth.approver_keys.revoke", tags=["auth"], status_code=204, responses=R(401, 403, 404))
+    def approver_key_revoke(key_id: str, request: Request, _: Principal = Depends(principal)):
+        svc.revoke_approver_key(ctx_of(request), key_id)
+        return Response(status_code=204)
+
     @app.post("/v1/auth/password", operation_id="auth.password.change", tags=["auth"], status_code=204, responses=R(401, 403, 422, 429))
     def password(body: PasswordBody, request: Request, _: Principal = Depends(principal)):
         svc.change_password(request, ctx_of(request), body.current_password, body.new_password)
         return Response(status_code=204)
 
-    @app.post("/v1/auth/totp/setup", operation_id="auth.totp.setup", tags=["auth"], responses=R(401, 403, 409))
+    @app.get("/v1/auth/methods", operation_id="auth.methods.get", tags=["auth"], response_model=SignInMethods,
+             dependencies=SIGNED_IN, responses=R(401, 403))
+    def sign_in_methods(request: Request, _: Principal = Depends(principal)):
+        """Your own sign-in methods: password, authenticator code, passkeys. A household person only."""
+        return svc.sign_in_methods(ctx_of(request))
+
+    @app.post("/v1/auth/totp/setup", operation_id="auth.totp.setup", tags=["auth"], response_model=TotpSetup,
+              responses=R(401, 403, 409))
     def totp_setup(request: Request, _: Principal = Depends(principal)):
         return svc.totp_setup(ctx_of(request))
 
@@ -217,6 +306,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.get("/v1/me", operation_id="me.get", tags=["auth"], responses=R(401, 403))
     def me(request: Request, p: Principal = Depends(principal)):
         return svc.me(request, p)
+
+    @app.patch("/v1/me", operation_id="me.update", tags=["auth"], responses=R(401, 403, 422))
+    def update_me(body: MePatchBody, request: Request, p: Principal = Depends(principal)):
+        """Set (or clear, with null) your own display name. Display text only; it grants nothing."""
+        return svc.set_profile_name(request, p, body.display_name)
 
     # ---- users (owner) -------------------------------------------------------------------------------
     @app.get("/v1/users", operation_id="users.list", tags=["users"], responses=R(401, 403))
@@ -263,7 +357,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return svc.put_access(ctx_of(request), p, app_id, body.roles, body.people, body.auth)
 
     # ---- approval step-up challenge (§12.4) ----------------------------------------------------------
-    @app.post("/v1/actions/{action_id}/approve-options", operation_id="actions.approve_options", tags=["actions"], responses=R(401, 403, 404, 409))
+    @app.post("/v1/actions/{action_id}/approve-options", operation_id="actions.approve_options", tags=["actions"], response_model=ApprovalChallenge, responses=R(401, 403, 404, 409))
     def approve_options(action_id: str, request: Request, p: Principal = Depends(principal)):
         return svc.approve_options(request, p, action_id)
 

@@ -8,6 +8,9 @@ Who may do what (the handlers; household accounts and identity tokens also need 
 - inbox, channels, preferences, push devices: people only, each their own (owners also list all
   channels). These are personal settings: direct writes, audited, never actions.
 - send: agents only, under their own `plugin.<id>` topic, rate-limited; recipients are the owners.
+  Built-in apps post in-process through their app principal (notify/topics.py), not over HTTP.
+- sources: people read the notification sources; owners mute and unmute them (a direct write,
+  audited); a flooding source is muted by the gateway with one note to the owners.
 """
 
 from __future__ import annotations
@@ -25,8 +28,10 @@ from fastapi.responses import JSONResponse
 from pydantic import AwareDatetime, BaseModel, BeforeValidator, ConfigDict, Field, ValidationError
 
 from ..actions import ActionRequest
+from ..agent_stop import is_agent
 from ..auth import Principal
 from ..context import Gateway
+from ..guard import reads_body
 from ..errors import ApiError, error_responses
 from ..ledger import TERMINAL, utc
 from ..notify import NotifyService, RateLimited
@@ -36,12 +41,14 @@ from ..notify.channels import (
     validate_config, validate_device,
 )
 from ..notify.ids import new_id
+from ..notify.topics import SOURCE_ID_RE, TopicRegistry
 from ..notify.store import (
     ChannelRow, DeviceRow, alert_json, channel_json, decode_cursor, device_json, encode_cursor,
     notification_json,
 )
 from ..identity.scopes import ALL, has_any, register_route_scope
 from ..jsonbody import JsonBody
+from ..taint import agent_answer, answer_source
 
 def _rfc3339_text(v):
     # pydantic reads "0.5" or 17 as a Unix time; the published schema says an RFC 3339 date-time string.
@@ -67,6 +74,7 @@ for _methods, _path, _scopes in (
     ("POST", r"/v1/notifications/[^/]+/read", ("notifications:read", "notifications:write")),
     ("POST,PATCH,DELETE", r"/v1/notifications/channels(/.*)?", ("notifications:write",)),
     ("PUT", r"/v1/notifications/preferences", ("notifications:write",)),
+    ("PUT", r"/v1/notifications/sources/[^/]+", (ALL,)),  # owner only (handler)
     ("POST", r"/v1/notifications/send", ("notifications:send",)),
     ("GET,HEAD", r"/v1/push/vapid-public-key", None),  # any principal: a public key
     ("GET,HEAD", r"/v1/push/registrations", ("notifications:read",)),
@@ -94,6 +102,17 @@ class ChannelPatch(BaseModel):
     secret: str | None = Field(default=None, max_length=4096)
 
 
+class NotificationActionIn(BaseModel):
+    """A button on the notification (notify/topics.py check_actions): open an in-app link, or let the
+    person who taps it file a normal request that still needs an approval. There is no approve kind."""
+    model_config = ConfigDict(extra="forbid")
+    id: str = Field(pattern=r"^[a-z][a-z0-9_-]{0,31}$")
+    label: str = Field(min_length=1, max_length=40)
+    kind: Literal["open", "request"]
+    link: str | None = Field(default=None, max_length=300)
+    request: dict | None = None
+
+
 class SendIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     severity: Literal["info", "warning", "critical"]
@@ -101,6 +120,34 @@ class SendIn(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     body: str = Field(default="", max_length=4096)
     dedupe_key: str | None = Field(default=None, max_length=200)
+    asset_id: str | None = Field(default=None, max_length=128, description="the map asset this is about")
+    group_key: str | None = Field(default=None, max_length=200, description="items with one key belong together")
+    actions: list[NotificationActionIn] = Field(default_factory=list, max_length=3)
+
+
+class NotificationSourceTopic(BaseModel):
+    id: str
+    topic: str            # app.<app_id>.<id> or plugin.<id>
+    title: str | None = None
+
+
+class NotificationSource(BaseModel):
+    """One notification source (notify/topics.py): a built-in app (app:<id>) or a plugin or agent (plugin:<id>)."""
+    id: str
+    kind: Literal["app", "plugin"]
+    app_id: str | None = None
+    name: str
+    topics: list[NotificationSourceTopic]
+    muted: bool
+    muted_reason: Literal["owner", "flood"] | None = None
+    muted_by: str | None = None
+    muted_at: str | None = None
+    posts_last_hour: int  # rate meter: posts tried in the last hour (since the gateway started)
+
+
+class NotificationSourceIn(JsonBody):
+    model_config = ConfigDict(extra="forbid")
+    muted: bool
 
 
 class PushIn(BaseModel):
@@ -110,6 +157,32 @@ class PushIn(BaseModel):
     token: str | None = Field(default=None, max_length=2000)
     keys: dict | None = None
     label: str = Field(default="device", min_length=1, max_length=120)
+    install_id: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{16,64}$")  # My devices (#715)
+
+
+class PushRegistration(BaseModel):
+    id: str
+    platform: str
+    label: str
+    state: str
+    created_at: str
+    last_seen_at: str | None
+
+
+class NotificationSeverityCounts(BaseModel):
+    info: int
+    warning: int
+    critical: int
+
+
+class NotificationSummary(BaseModel):
+    """GET /v1/notifications/summary: the caller's unread state, kept on the hub (#682)."""
+    unread: int = Field(description="unread items in the caller's inbox")
+    by_severity: NotificationSeverityCounts
+    latest_created_at: str | None = Field(json_schema_extra={"format": "date-time"},
+                                          description="newest item; moves when one arrives")
+    last_read_at: str | None = Field(json_schema_extra={"format": "date-time"},
+                                     description="latest read on any device; moves when one is read")
 
 
 class FixIn(JsonBody):
@@ -152,10 +225,23 @@ def _list_params(limit: int | None) -> int:
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
 ORDER = 240
+PREFERENCES_SCHEMA = {"type": "object", "properties": {
+    "mutes": {"type": "array", "maxItems": routing.MAX_ROUTES, "items": {"type": "object",
+              "required": ["topic", "channel"], "properties": {"topic": {"type": "string"}, "channel": {"type": "string"}},
+              "additionalProperties": False},
+              "description": "Suppress delivery to a channel, device, in_app or all (*) while keeping the inbox item."},
+    "retention_days": {"type": "integer", "minimum": 1, "maximum": routing.MAX_INBOX_DAYS,
+                       "description": "Days to keep the person's inbox, defaulting to 90."},
+    "silence": {"anyOf": [{"type": "object", "required": ["until", "reason"], "additionalProperties": False,
+                           "properties": {"until": {"type": "string", "format": "date-time"},
+                                          "reason": {"type": "string", "minLength": 1, "maxLength": 200}}},
+                          {"type": "null"}]},
+}}
 
 
 def register(app: FastAPI, gw: Gateway) -> None:
     svc = NotifyService(gw)
+    svc.topics = TopicRegistry(getattr(app.state, "builtins", None))  # routers/builtins.py, ORDER 135
     svc.attach()
     app.state.notify = svc
     principal = gw.principal
@@ -223,6 +309,15 @@ def register(app: FastAPI, gw: Gateway) -> None:
             row = svc._resolve(row, by=p.id)
         return alert_json(row)
 
+    def answer(request: Request, p: Principal, action: dict) -> dict:
+        """AIG-04: an agent's fix is answered without plan or result text, as POST /v1/actions is (taint.py)."""
+        if not is_agent(p):
+            return action
+        action = agent_answer(action)
+        if source := answer_source(request.scope, action):
+            gw.actions.taint.mark(p.id, source)
+        return action
+
     @app.post("/v1/alerts/{alert_id}/fix", operation_id="alerts.fix", tags=["alerts"], status_code=202,
               responses=error_responses(401, 403, 404, 409, 422))
     def fix_alert(alert_id: str, request: Request, body: FixIn | None = None, p: Principal = Depends(principal)):
@@ -251,7 +346,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             if existing is None:
                 break
             if existing.state not in TERMINAL:
-                return JSONResponse(status_code=202, content=gw.actions.get(existing.id),
+                return JSONResponse(status_code=202, content=answer(request, p, gw.actions.get(existing.id)),
                                     headers={"Location": f"/v1/actions/{existing.id}"})
         else:
             raise ApiError(409, "conflict", "this alert's fix was already tried too many times")
@@ -268,7 +363,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             for guard in gw.approval_guards:
                 guard(p, action["id"], {}, request)
             action = gw.actions.approve(p, action["id"])
-        return JSONResponse(status_code=202, content=action, headers={"Location": f"/v1/actions/{action['id']}"})
+        return JSONResponse(status_code=202, content=answer(request, p, action), headers={"Location": f"/v1/actions/{action['id']}"})
 
     # ---- channels (before /v1/notifications/{id}) ----------------------------------------
     @app.get("/v1/notifications/channels", operation_id="notifications.channels.list", tags=[TAG], responses=error_responses(401, 403))
@@ -374,14 +469,16 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return svc.test_target(ch.id, p.id)
 
     # ---- preferences --------------------------------------------------------------------
-    @app.get("/v1/notifications/preferences", operation_id="notifications.preferences.get", tags=[TAG], responses=error_responses(401, 403))
+    @app.get("/v1/notifications/preferences", operation_id="notifications.preferences.get", tags=[TAG],
+             responses={200: {"content": {"application/json": {"schema": PREFERENCES_SCHEMA}}}, **error_responses(401, 403)})
     def get_preferences(p: Principal = Depends(principal)):
         _person(p)
         doc, tag = svc.preferences(p.id)
         return JSONResponse(content=doc, headers={"ETag": tag})
 
     @app.put("/v1/notifications/preferences", operation_id="notifications.preferences.set", tags=[TAG], responses=error_responses(401, 403, 409, 422),
-             openapi_extra={"requestBody": {"required": True, "content": {"application/json": {"schema": {"type": "object"}}}}})
+             openapi_extra={"requestBody": {"required": True, "content": {"application/json": {"schema": PREFERENCES_SCHEMA}}}})
+    @reads_body
     async def put_preferences(request: Request, if_match: str | None = Header(default=None),
                               p: Principal = Depends(principal)):
         _person(p)
@@ -390,7 +487,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
         except (ValueError, json.JSONDecodeError) as exc:
             raise ApiError(422, "conflict", f"preferences: {exc}") from None
         mine = set(svc._targets_of(p.id))
-        unknown = sorted({c for r in doc["routes"] for c in r["channels"] if c != "*"} - mine)
+        referenced = {c for r in doc["routes"] for c in r["channels"] if c != "*"}
+        referenced.update(m["channel"] for m in doc.get("mutes", []) if m["channel"] not in ("*", routing.IN_APP))
+        unknown = sorted(referenced - mine)
         if unknown:
             raise ApiError(422, "conflict", f"preferences: not your channels or devices: {unknown}")
         _, current = svc.preferences(p.id)
@@ -401,12 +500,32 @@ def register(app: FastAPI, gw: Gateway) -> None:
         audit(p, "preferences.updated", {"person_id": p.id, "etag": tag})
         return JSONResponse(content=doc, headers={"ETag": tag})
 
+    # ---- sources (per-app controls) -------------------------------------------------------
+    @app.get("/v1/notifications/sources", operation_id="notifications.sources.list", tags=[TAG],
+             response_model=list[NotificationSource], responses=error_responses(401, 403))
+    def list_sources(p: Principal = Depends(principal)):
+        _person(p)
+        return svc.sources()
+
+    @app.put("/v1/notifications/sources/{source_id}", operation_id="notifications.sources.set", tags=[TAG],
+             response_model=NotificationSource, responses=error_responses(401, 403, 422))
+    def set_source(source_id: str, body: NotificationSourceIn, p: Principal = Depends(principal)):
+        if not p.is_owner:
+            raise _denied(gw, p, "mute a notification source", "only owners mute or unmute notification sources")
+        if not SOURCE_ID_RE.match(source_id):
+            raise ApiError(422, "conflict", "source id is app:<app-id> or plugin:<id>")
+        svc.set_muted(source_id, body.muted, by=p.id, reason="owner")
+        audit(p, "source.muted" if body.muted else "source.unmuted", {"source_id": source_id})
+        return next(s for s in svc.sources() if s["id"] == source_id)
+
     # ---- send (agents) ------------------------------------------------------------------
     @app.post("/v1/notifications/send", operation_id="notifications.send", tags=[TAG], status_code=202,
               responses={429: {"description": "rate_limited (Retry-After)"}, **error_responses(401, 403, 422)})
     def send(body: SendIn, p: Principal = Depends(principal)):
         try:
-            out = svc.send_from(p, body.severity, body.topic, body.title, body.body, body.dedupe_key)
+            out = svc.post(p, topic=body.topic, severity=body.severity, title=body.title, body=body.body,
+                           asset_id=body.asset_id, group_key=body.group_key, dedupe_key=body.dedupe_key,
+                           actions=[a.model_dump(exclude_none=True) for a in body.actions])
         except PermissionError as exc:
             raise _denied(gw, p, "send a notification", str(exc)) from None
         except ValueError as exc:
@@ -447,10 +566,23 @@ def register(app: FastAPI, gw: Gateway) -> None:
             response.headers["Link"] = f'</v1/notifications?limit={n}&cursor={nxt}>; rel="next"'
         return [notification_json(r) for r in rows]
 
+    @app.get("/v1/notifications/summary", operation_id="notifications.summary", tags=[TAG],
+             response_model=NotificationSummary, responses=error_responses(401, 403))
+    def summary(p: Principal = Depends(principal)):
+        """One call for a badge: every client reads it again on a notification.* stream event."""
+        _person(p)
+        return repo.unread_summary(p.id)
+
+    # A read is private: these events reach only the reader's own streams (routers/events.py), so
+    # the person's other devices refresh their bell without waiting for a poll.
     @app.post("/v1/notifications/read-all", operation_id="notifications.read_all", tags=[TAG], responses=error_responses(401, 403))
     def read_all(p: Principal = Depends(principal)):
         _person(p)
-        return {"marked": repo.mark_read(p.id, None, gw.clock())}
+        marked = repo.mark_read(p.id, None, gw.clock())
+        if marked:
+            gw.events.publish_event("notification", "read_all", {"person_id": p.id, "marked": marked},
+                                    principal=p.as_dict(), resource={"kind": "person", "id": p.id})
+        return {"marked": marked}
 
     @app.get("/v1/notifications/{notification_id}", operation_id="notifications.get", tags=[TAG], responses=error_responses(401, 403, 404))
     def get_notification(notification_id: str, p: Principal = Depends(principal)):
@@ -466,7 +598,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
         row = repo.get_notification(notification_id)
         if row is None or row.person_id != p.id:
             raise ApiError(404, "not_found", "no such notification")
-        repo.mark_read(p.id, row.id, gw.clock())
+        if repo.mark_read(p.id, row.id, gw.clock()):
+            gw.events.publish_event("notification", "read", {"notification_id": row.id},
+                                    principal=p.as_dict(), resource={"kind": "notification", "id": row.id})
         return notification_json(repo.get_notification(row.id))
 
     # ---- push registrations -------------------------------------------------------------
@@ -487,13 +621,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
         row = DeviceRow(
             id=did, person_id=p.id, platform=body.platform, endpoint_enc=svc.box.seal(endpoint, did),
             keys_enc=svc.box.seal(json.dumps({"keys": keys, "lan": p.is_owner}), did),
-            label=body.label, state="ok", created_at=now, last_seen_at=now,
+            label=body.label, state="ok", created_at=now, last_seen_at=now, install_id=body.install_id,
         )
         repo.add_device(row)
         audit(p, "device.added", {"device_id": did, "platform": body.platform})
         return device_json(row)
 
-    @app.get("/v1/push/registrations", operation_id="push.registrations.list", tags=["push"], responses=error_responses(401, 403))
+    @app.get("/v1/push/registrations", operation_id="push.registrations.list", tags=["push"],
+             response_model=list[PushRegistration], responses=error_responses(401, 403))
     def list_devices(p: Principal = Depends(principal)):
         _person(p)
         return [device_json(d) for d in repo.list_devices(p.id)]

@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# The GPU variant of x86_64-efi (S-5): the same image plus the NVIDIA driver and container stack, built only
+# when this board is selected (`make image BOARD=x86_64-efi-nvidia`). The default image never contains any of
+# it. Why a board and not a flag: a board is the one switch the build, the RAUC compatible string and the update
+# channel already follow, so a GPU box can only ever be updated with GPU images (README.md here).
+name: x86_64-efi-nvidia
+arch: amd64
+compatible: onemind-x86_64-efi-nvidia
+route: grub-efi
+rauc_bootloader: grub
+grub_target: x86_64-efi
+efi_binary: BOOTX64.EFI
+console: "console=tty0 console=ttyS0,115200"
+layout: layout.yaml
+outputs: [raw]
+network: networkmanager          # NetworkManager + Wi-Fi tools, profiles on /data (os/rootfs/layers/networkmanager); cloud boards keep networkd

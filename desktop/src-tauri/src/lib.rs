@@ -10,7 +10,10 @@ mod api;
 mod approvals;
 mod discovery;
 mod events;
+mod files;
 mod inbox;
+mod join;
+mod joinlink;
 mod manage;
 mod store;
 mod updates;
@@ -35,6 +38,8 @@ const WAKE_GAP: Duration = Duration::from_secs(1);
 /// The tray menu's first line ("Needs you: 3"). Linux trays show no title or tooltip text and send
 /// no click events, so the menu is where the count lives there.
 struct NeedsItem(MenuItem<Wry>);
+/// The tray line with the first box's connection state ("Home box: online"), files.rs.
+struct StateItem(MenuItem<Wry>);
 
 struct App {
     store: store::Store,
@@ -67,6 +72,17 @@ fn box_and_token(app: &App, id: &str) -> Result<(store::SavedBox, String), Strin
     let b = app.store.get(id).ok_or("unknown_box")?;
     let t = store::token(&b.id).ok_or("token_missing")?;
     Ok((b, t))
+}
+
+/// The client for one box: a box joined by its link or code trusts only its pinned CA (join.rs);
+/// a box paired with a pasted token keeps the shared client. A pin that no longer loads fails
+/// closed: the box is then unreachable, never reached without the pin.
+fn http_for(app: &App, b: &store::SavedBox, stream: bool) -> Result<reqwest::Client, String> {
+    match &b.ca_der {
+        Some(hex) => join::pinned_client(&join::from_hex(hex).ok_or("ca_invalid")?, stream),
+        None if stream => Ok(api::stream_client()),
+        None => Ok(app.http.clone()),
+    }
 }
 
 fn me_of(app: &App, id: &str) -> Option<approvals::Me> {
@@ -131,7 +147,36 @@ async fn pair(app_handle: AppHandle, app: State<'_, App>, url: String, token: St
         .unwrap_or_else(|| base.clone());
     let name = inst.get("name").and_then(|v| v.as_str()).unwrap_or("OneMind").to_string();
     store::save_token(&id, &token)?;
-    let saved = store::SavedBox { id, name, url: base, insecure };
+    let saved = store::SavedBox { id, name, url: base, insecure, ca_der: None };
+    app.store.upsert(saved.clone())?;
+    refresh_one(&app_handle, &saved).await;
+    ensure_followers(&app_handle);
+    Ok(saved)
+}
+
+/// Join a box by its link or a typed code (issue #717): pin its CA, sign in over the pinned
+/// connection, keep both tokens in the keychain. Nothing is sent before the CA matches the pin.
+#[tauri::command]
+async fn join_box(app_handle: AppHandle, app: State<'_, App>, input: join::JoinInput, sign_in: join::SignIn) -> Result<store::SavedBox, String> {
+    let target = join::target(&input)?;
+    let (base, der) = join::pin(&join::probe_client(), &target).await?;
+    let pinned = join::pinned_client(&der, false)?;
+    let tokens = join::sign_in(&pinned, &base, &sign_in).await?;
+    let inst = api::get(&pinned, &base, Some(&tokens.access_token), "/v1/instance")
+        .await
+        .map_err(|e| e.code())?
+        .ok_or_else(|| "not_a_onemind_box".to_string())?;
+    let id = inst
+        .get("hub_node_id")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| base.clone());
+    let name = inst.get("name").and_then(|v| v.as_str()).unwrap_or("OneMind").to_string();
+    store::save_token(&id, &tokens.access_token)?;
+    store::save_refresh(&id, &tokens.refresh_token)?;
+    let ca_der = Some(der.iter().map(|x| format!("{x:02x}")).collect());
+    let saved = store::SavedBox { id, name, url: base, insecure: false, ca_der };
     app.store.upsert(saved.clone())?;
     refresh_one(&app_handle, &saved).await;
     ensure_followers(&app_handle);
@@ -186,7 +231,7 @@ async fn approval(app: State<'_, App>, id: String, action_id: String) -> Result<
     }
     let (b, t) = box_and_token(&app, &id)?;
     let me = me_of(&app, &id);
-    approvals::detail(&app.http, &b.url, &t, &b.id, &action_id, me.as_ref()).await.map_err(|e| e.code())
+    approvals::detail(&http_for(&app, &b, false)?, &b.url, &t, &b.id, &action_id, me.as_ref()).await.map_err(|e| e.code())
 }
 
 /// Approve or deny. `plan_sha256` is the hash the card showed; approvals.rs checks it again.
@@ -206,7 +251,7 @@ async fn decide(
     }
     let (b, t) = box_and_token(&app, &id)?;
     let me = me_of(&app, &id);
-    let out = approvals::decide(&app.http, &b.url, &t, &action_id, &decision, plan_sha256.as_deref(), reason.as_deref(), me.as_ref())
+    let out = approvals::decide(&http_for(&app, &b, false)?, &b.url, &t, &action_id, &decision, plan_sha256.as_deref(), reason.as_deref(), me.as_ref())
         .await
         .map_err(|e| e.code())?;
     refresh_one(&app_handle, &b).await;
@@ -218,7 +263,7 @@ async fn decide(
 #[tauri::command]
 async fn inbox(app: State<'_, App>, id: String) -> Result<Option<Vec<inbox::Item>>, String> {
     let (b, t) = box_and_token(&app, &id)?;
-    match api::get(&app.http, &b.url, Some(&t), inbox::LIST_PATH).await {
+    match api::get(&http_for(&app, &b, false)?, &b.url, Some(&t), inbox::LIST_PATH).await {
         Ok(Some(v)) => Ok(Some(inbox::parse(&v))),
         Ok(None) | Err(api::ApiError::Unauthorized) => Ok(None),
         Err(e) => Err(e.code()),
@@ -234,30 +279,23 @@ async fn inbox_read(app_handle: AppHandle, app: State<'_, App>, id: String, item
         Some(_) => return Err("invalid_id".into()),
         None => "/v1/notifications/read-all".into(),
     };
-    api::post(&app.http, &b.url, &t, &path, &json!({})).await.map_err(|e| e.code())?;
+    api::post(&http_for(&app, &b, false)?, &b.url, &t, &path, &json!({})).await.map_err(|e| e.code())?;
     refresh_one(&app_handle, &b).await;
     Ok(())
 }
 
-/// Opens the box's file share in Finder / File Explorer. Shares (Samba app, per-device SMB
-/// users) and a real mount are CLIENT-9 and UMB-FILES-5; docs/FILES.md has the WebDAV plan.
+/// Open in Finder / Explorer / Files (files.rs, #722): Finder mounts the box's WebDAV door, a Linux
+/// file manager opens davs://, Windows opens the SMB share. The person signs in with an app password.
 #[tauri::command]
 fn open_files(app_handle: AppHandle, app: State<'_, App>, id: String) -> Result<(), String> {
     let b = app.store.get(&id).ok_or("unknown_box")?;
-    let host = address::host_of(&b.url).ok_or("invalid_address")?;
-    #[cfg(target_os = "windows")]
-    {
-        app_handle
-            .opener()
-            .open_path(format!(r"\\{host}\"), None::<&str>)
-            .map_err(|_| "open_failed".to_string())
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        app_handle
-            .opener()
-            .open_url(format!("smb://{host}/"), None::<&str>)
-            .map_err(|_| "open_failed".to_string())
+    match files::target(std::env::consts::OS, &b.url).ok_or("invalid_address")? {
+        files::Target::Mount(url) => {
+            let script = files::mount_script(&url).ok_or("invalid_address")?;
+            std::process::Command::new("/usr/bin/osascript").args(["-e", &script]).spawn().map(|_| ()).map_err(|_| "open_failed".to_string())
+        }
+        files::Target::Url(url) => app_handle.opener().open_url(url, None::<&str>).map_err(|_| "open_failed".to_string()),
+        files::Target::Path(path) => app_handle.opener().open_path(path, None::<&str>).map_err(|_| "open_failed".to_string()),
     }
 }
 
@@ -275,7 +313,7 @@ fn manage_err(e: api::ApiError) -> String {
 #[tauri::command]
 async fn manage_apps(app: State<'_, App>, id: String) -> Result<Vec<manage::AppRow>, String> {
     let (b, t) = box_and_token(&app, &id)?;
-    match api::get(&app.http, &b.url, Some(&t), "/v1/apps").await {
+    match api::get(&http_for(&app, &b, false)?, &b.url, Some(&t), "/v1/apps").await {
         Ok(Some(v)) => Ok(manage::parse_apps(&v)),
         Ok(None) => Ok(Vec::new()),
         Err(e) => Err(manage_err(e)),
@@ -286,14 +324,14 @@ async fn manage_apps(app: State<'_, App>, id: String) -> Result<Vec<manage::AppR
 #[tauri::command]
 async fn manage_plan(app: State<'_, App>, id: String, app_id: String, kind: String) -> Result<manage::PlanView, String> {
     let (b, t) = box_and_token(&app, &id)?;
-    manage::preview(&app.http, &b.url, &t, &app_id, &kind).await.map_err(manage_err)
+    manage::preview(&http_for(&app, &b, false)?, &b.url, &t, &app_id, &kind).await.map_err(manage_err)
 }
 
 /// File the request, bound to the plan hash the card showed. It then waits for an owner.
 #[tauri::command]
 async fn manage_request(app_handle: AppHandle, app: State<'_, App>, id: String, app_id: String, kind: String, plan_sha256: String) -> Result<manage::Filed, String> {
     let (b, t) = box_and_token(&app, &id)?;
-    let out = manage::request_lifecycle(&app.http, &b.url, &t, &app_id, &kind, &plan_sha256).await.map_err(manage_err)?;
+    let out = manage::request_lifecycle(&http_for(&app, &b, false)?, &b.url, &t, &app_id, &kind, &plan_sha256).await.map_err(manage_err)?;
     refresh_one(&app_handle, &b).await;
     Ok(out)
 }
@@ -302,14 +340,14 @@ async fn manage_request(app_handle: AppHandle, app: State<'_, App>, id: String, 
 #[tauri::command]
 async fn manage_backups(app: State<'_, App>, id: String) -> Result<Option<manage::BackupView>, String> {
     let (b, t) = box_and_token(&app, &id)?;
-    manage::backups(&app.http, &b.url, &t).await.map_err(manage_err)
+    manage::backups(&http_for(&app, &b, false)?, &b.url, &t).await.map_err(manage_err)
 }
 
 /// File a backup run or a backup check (`run` or `verify`). Restore is not offered here.
 #[tauri::command]
 async fn manage_backup_request(app_handle: AppHandle, app: State<'_, App>, id: String, kind: String) -> Result<manage::Filed, String> {
     let (b, t) = box_and_token(&app, &id)?;
-    let out = manage::request_backup(&app.http, &b.url, &t, &kind).await.map_err(manage_err)?;
+    let out = manage::request_backup(&http_for(&app, &b, false)?, &b.url, &t, &kind).await.map_err(manage_err)?;
     refresh_one(&app_handle, &b).await;
     Ok(out)
 }
@@ -318,13 +356,13 @@ async fn manage_backup_request(app_handle: AppHandle, app: State<'_, App>, id: S
 #[tauri::command]
 async fn manage_settings(app: State<'_, App>, id: String) -> Result<Option<manage::Settings>, String> {
     let (b, t) = box_and_token(&app, &id)?;
-    manage::settings(&app.http, &b.url, &t).await.map_err(manage_err)
+    manage::settings(&http_for(&app, &b, false)?, &b.url, &t).await.map_err(manage_err)
 }
 
 #[tauri::command]
 async fn manage_settings_save(app_handle: AppHandle, app: State<'_, App>, id: String, body: manage::SettingsBody) -> Result<manage::Settings, String> {
     let (b, t) = box_and_token(&app, &id)?;
-    let out = manage::save_settings(&app.http, &b.url, &t, &body).await.map_err(manage_err)?;
+    let out = manage::save_settings(&http_for(&app, &b, false)?, &b.url, &t, &body).await.map_err(manage_err)?;
     refresh_one(&app_handle, &b).await;
     Ok(out)
 }
@@ -360,18 +398,39 @@ async fn refresh_one(app_handle: &AppHandle, b: &store::SavedBox) {
     let app = app_handle.state::<App>();
     let gate = app.refreshing.lock().unwrap().entry(b.id.clone()).or_default().clone();
     let _turn = gate.lock().await;
-    let st = match store::token(&b.id) {
-        Some(t) => api::status(&app.http, &b.id, &b.url, &t).await,
-        None => {
-            let mut s = api::status(&app.http, &b.id, &b.url, "").await;
-            s.error = Some("token_missing".into());
-            s
-        }
+    let st = match http_for(&app, b, false) {
+        Err(e) => api::Status { error: Some(e), ..api::Status::unasked(&b.id) },
+        Ok(http) => match store::token(&b.id) {
+            Some(t) => {
+                let st = api::status(&http, &b.id, &b.url, &t).await;
+                match renew(b, &http, &st).await {
+                    Some(fresh) => api::status(&http, &b.id, &b.url, &fresh).await,
+                    None => st,
+                }
+            }
+            None => {
+                let mut s = api::status(&http, &b.id, &b.url, "").await;
+                s.error = Some("token_missing".into());
+                s
+            }
+        },
     };
     notify_new(app_handle, b, &st);
     app.last.lock().unwrap().insert(b.id.clone(), st.clone());
     let _ = app_handle.emit("status", &st);
     update_tray(app_handle);
+}
+
+/// A joined box's access token lives minutes; when the box refuses it, trade the refresh token
+/// for a new pair (once) and keep both in the keychain. Returns the new access token.
+async fn renew(b: &store::SavedBox, http: &reqwest::Client, st: &api::Status) -> Option<String> {
+    if st.error.as_deref() != Some("unauthorized") || b.ca_der.is_none() {
+        return None;
+    }
+    let t = join::refresh(http, &b.url, &store::refresh_token(&b.id)?).await.ok()?;
+    store::save_token(&b.id, &t.access_token).ok()?;
+    store::save_refresh(&b.id, &t.refresh_token).ok()?;
+    Some(t.access_token)
 }
 
 fn notify_new(app_handle: &AppHandle, b: &store::SavedBox, st: &api::Status) {
@@ -412,6 +471,12 @@ fn update_tray(app_handle: &AppHandle) {
     if let Some(item) = app_handle.try_state::<NeedsItem>() {
         let _ = item.0.set_text(if needs == 0 { "Nothing needs you".to_string() } else { format!("Needs you: {needs}") });
     }
+    if let Some(item) = app_handle.try_state::<StateItem>() {
+        let first = app.store.list().into_iter().next();
+        let st = first.as_ref().and_then(|b| last.get(&b.id));
+        let name = first.as_ref().map(|b| st.and_then(|s| s.name.clone()).unwrap_or_else(|| b.name.clone()));
+        let _ = item.0.set_text(files::state_line(name.as_deref(), st.map(|s| s.reachable)));
+    }
     if let Some(tray) = app_handle.tray_by_id("main") {
         let mut parts = Vec::new();
         if pending > 0 {
@@ -447,14 +512,15 @@ fn set_live(app_handle: &AppHandle, box_id: &str, on: bool) {
 /// Follow one box's event stream for as long as the box is saved. Events only wake a REST
 /// refresh (events.rs); the stream reconnects with `Last-Event-ID` and backs off on errors.
 async fn follow(app_handle: AppHandle, box_id: String) {
-    let client = api::stream_client();
     let mut last_id: Option<String> = None;
     let mut backoff = events::MIN_WAIT;
     loop {
         let Some(b) = app_handle.state::<App>().store.get(&box_id) else { return };
-        let status = match store::token(&b.id) {
-            None => Some(401),
-            Some(token) => {
+        let client = http_for(&app_handle.state::<App>(), &b, true);
+        let status = match (store::token(&b.id), client) {
+            (_, Err(_)) => None,
+            (None, _) => Some(401),
+            (Some(token), Ok(client)) => {
                 let mut req = client
                     .get(format!("{}{}", b.url, events::PATH))
                     .bearer_auth(&token)
@@ -592,10 +658,13 @@ pub fn run() {
             app.manage(NeedsItem(needs.clone()));
             let show = MenuItem::with_id(app, "show", "Show OneMind", true, None::<&str>)?;
             let dash = MenuItem::with_id(app, "dashboard", "Open dashboard", true, None::<&str>)?;
-            let files = MenuItem::with_id(app, "files", "Files", true, None::<&str>)?;
+            let first_name = app.state::<App>().store.list().into_iter().next().map(|b| b.name);
+            let state = MenuItem::with_id(app, "state", files::state_line(first_name.as_deref(), None), false, None::<&str>)?;
+            app.manage(StateItem(state.clone()));
+            let files = MenuItem::with_id(app, "files", files::label(std::env::consts::OS), true, None::<&str>)?;
             let sep = PredefinedMenuItem::separator(app)?;
             let quit = MenuItem::with_id(app, "quit", "Quit OneMind", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&needs, &show, &dash, &files, &sep, &quit])?;
+            let menu = Menu::with_items(app, &[&needs, &state, &show, &dash, &files, &sep, &quit])?;
 
             let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray/44x44.png"))?;
             TrayIconBuilder::with_id("main")
@@ -658,6 +727,7 @@ pub fn run() {
             list_boxes,
             discover,
             pair,
+            join_box,
             remove_box,
             refresh,
             open_dashboard,

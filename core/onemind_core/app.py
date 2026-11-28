@@ -26,7 +26,7 @@ from .events import EventHub
 from .lifecycle import CredentialStore
 from .executors import Executor, NoopExecutor, make_executor, mesh_static_hosts
 from .ledger import ActionRepository, SqlActionRepository
-from .netconf import FabricSettings
+from .netconf import FabricSettings, NetSettings
 from .nodes import NodeRegistry
 from .netconf import MeshSettings
 from .policy import SandboxSettings
@@ -63,7 +63,7 @@ def create_app(
         settings.audit_path, clock, publish=bus.publish_threadsafe,
         max_bytes=settings.audit_max_bytes or None, keep_segments=settings.audit_keep_segments,
     )
-    catalog = Catalog(settings.apps_dir, settings.app_schema_path)
+    catalog = Catalog(settings.apps_dir, settings.app_schema_path, settings.catalog_dir)
     owns_repo = repo is None
     repo = repo or SqlActionRepository.from_url(settings.db_url)
     # Feature tables share the ledger's engine; a repo without one (a test double) gets its own.
@@ -74,7 +74,8 @@ def create_app(
     mesh = settings.section(MeshSettings)
     executor = executor or make_executor(
         settings.executor, settings.kubectl, settings.executor_timeout_s, settings.section(SandboxSettings),
-        static_hosts=mesh_static_hosts(mesh),
+        static_hosts=mesh_static_hosts(mesh), dashboard_url=settings.agent_gateway_url(),
+        tor_port=settings.section(NetSettings).tor_port,
     )
     # §11.1: the scan check is skipped only on explicit request, and only when nothing real runs.
     skip_scan = settings.allow_unscanned and settings.executor == "noop" and isinstance(executor, NoopExecutor)
@@ -96,6 +97,10 @@ def create_app(
         events=EventHub(audit, clock, publish=bus.publish_threadsafe, instance_id=settings.node_id),
         catalog=catalog, repo=repo, db=db, executor=executor, actions=actions, skip_scan=skip_scan,
     )
+    from .appstore.imagescan import make_image_scanner
+    from .appstore.service import AppStoreSettings
+
+    gw.image_scanner = make_image_scanner(settings.section(AppStoreSettings).scanner, executor.name, settings.kubectl)
     gw.principal = principal_dependency(gw)
     # PD-03: what an executor reports while it works becomes an event (and is stored on the action).
     actions.progress_listeners.append(lambda action_id, p: gw.events.publish_event(

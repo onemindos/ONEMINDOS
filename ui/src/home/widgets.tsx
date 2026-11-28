@@ -247,15 +247,21 @@ function ApprovalsWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) 
   const l = ctx.data.approvals;
   const list = l.state === 'ready' ? l.data.filter((a) => a.state === 'awaiting_approval') : [];
   const max = w.size === 'S' ? 1 : w.size === 'M' ? 2 : 4;
-  const common = { title: 'Needs you', icon: 'approvals' as const, size: w.size, href: ctx.links.approvals, hrefLabel: 'All', source: 'GET /v1/actions?state=awaiting_approval', showSource: ctx.showSource, onRetry: ctx.onRetry };
-  if (l.state !== 'ready') return <WidgetFrame {...common} state={bodyState(l)} />;
-  if (!list.length)
+  const source = ctx.data.boxStatus ? 'GET /v1/status, GET /v1/actions?state=awaiting_approval' : 'GET /v1/actions?state=awaiting_approval';
+  const common = { title: 'Needs you', icon: 'approvals' as const, size: w.size, href: ctx.links.approvals, hrefLabel: 'All', source, showSource: ctx.showSource, onRetry: ctx.onRetry };
+  const attention = ctx.data.boxStatus?.filter((row) => row.state !== 'ok' && !(row.source === 'approvals' && list.length));
+  if (l.state !== 'ready' && !attention?.length) return <WidgetFrame {...common} state={bodyState(l)} />;
+  if (!list.length && !attention?.length)
     return (
       <WidgetFrame {...common} stale={hubStale(ctx)} state={{ kind: 'empty', title: 'Nothing needs you', body: 'Requests from people, agents and the system wait here until you decide.' }} />
     );
   const more = list.length - max;
+  // Approvals come first: a status row never pushes a decision out of the card.
+  const flagged = attention?.filter((row) => row.state !== 'unknown') ?? [];
+  const unknown = attention?.filter((row) => row.state === 'unknown') ?? [];
   return (
-    <WidgetFrame {...common} stale={hubStale(ctx)} aside={<StatusPill tone="warn" label={`${list.length} waiting`} />}>
+    <WidgetFrame {...common} stale={hubStale(ctx)} aside={list.length ? <StatusPill tone="warn" label={`${list.length} waiting`} /> : undefined}>
+      {l.state === 'error' && <p role="status">Approval requests are unavailable.</p>}
       <ul className="omh-approvals">
         {list.slice(0, max).map((a) => (
           <ApprovalRow key={a.id} a={a} ctx={ctx} compact={w.size === 'S'} />
@@ -265,6 +271,23 @@ function ApprovalsWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) 
         <a className="omh-more" href={ctx.links.approvals}>
           {more} more waiting
         </a>
+      )}
+      {(flagged.length > 0 || unknown.length > 0) && (
+        <ul className="omh-rows" aria-label="Box status requiring attention">
+          {flagged.map((row) => (
+            <li key={row.source}>
+              <StatusPill tone={row.state === 'critical' ? 'bad' : 'warn'} label={row.label} />
+              <span className="omh-row-main">{row.summary || (row.state === 'critical' ? 'Critical' : 'Needs attention')}</span>
+            </li>
+          ))}
+          {unknown.length > 0 && (
+            // Sources the box has not reported stay visible, as one line: never a bullet per source.
+            <li key="unknown">
+              <StatusPill tone="neutral" label="Not reported" />
+              <span className="omh-row-main">{ctx.data.boxStatus?.every((row) => row.state === 'unknown') ? 'Box status' : unknown.map((row) => row.label).join(', ')}</span>
+            </li>
+          )}
+        </ul>
       )}
     </WidgetFrame>
   );

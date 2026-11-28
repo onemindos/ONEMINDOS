@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0
+# Bluetooth pairings (keys, device names, adapter settings) live on the data partition: /var/lib/bluetooth is a bind
+# mount of /data/state/var-lib-bluetooth. The source directory is made by tmpfiles (onemind-bluetooth.conf).
+# It is not in fstab on purpose: boards without bluez do not have the mount point, and this unit then does nothing.
+# Not part of local-fs.target, so a dead data disk cannot hold the boot; bluetooth.service pulls it in with Requires=.
+[Unit]
+Description=OneMind: Bluetooth pairings on the data partition
+ConditionPathExists=/usr/libexec/bluetooth/bluetoothd
+DefaultDependencies=no
+RequiresMountsFor=/data
+After=systemd-tmpfiles-setup.service
+Before=bluetooth.service umount.target
+Conflicts=umount.target
+
+[Mount]
+What=/data/state/var-lib-bluetooth
+Where=/var/lib/bluetooth
+Type=none
+Options=bind

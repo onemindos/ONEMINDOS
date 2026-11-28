@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# The owner switches kiosk mode over the API (PUT /v1/instance/kiosk) or `onemind kiosk`; both only create
+# or remove the flag file. This watches its directory and restarts the two screen units, so the change
+# shows on the monitor within seconds without the gateway holding any privilege (UX-07, #242).
+[Unit]
+Description=OneMind: watch the kiosk switch
+
+[Path]
+PathChanged=/data/onemind/kiosk
+Unit=onemind-kiosk-apply.service
+
+[Install]
+WantedBy=multi-user.target

@@ -7,6 +7,7 @@
 // The stream only tells the app *that* something changed. Screens still read state over REST,
 // so a missed event costs a refresh, never a wrong screen.
 import type { HubEvent } from '../api/types';
+import { PROTOCOL_HEADER, PROTOCOL_VERSION } from './protocol';
 
 export interface SseMessage {
   id: string | undefined;
@@ -185,6 +186,7 @@ export class EventStream {
     x.setRequestHeader('Accept', 'text/event-stream');
     x.setRequestHeader('Cache-Control', 'no-cache');
     x.setRequestHeader('OneMind-API-Version', '1');
+    x.setRequestHeader(PROTOCOL_HEADER, String(PROTOCOL_VERSION));
     const bearer = this.o.bearer();
     if (bearer) x.setRequestHeader('Authorization', `Bearer ${bearer}`);
     if (this.lastId) x.setRequestHeader('Last-Event-ID', this.lastId);

@@ -3,6 +3,9 @@
 // dashboard speak the same contract types. Keep the two in sync; mobile changes noted inline.
 // Types for the proof-of-concept v0 contract (sdk/contracts/poc-v0.md).
 // Section numbers below refer to that file.
+import type { components } from '@onemind/sdk';
+
+import type { StatusView as SdkStatusView } from '@onemind/sdk';
 
 /** §2 `board` values. */
 export type Board =
@@ -203,7 +206,11 @@ export interface Action extends ActionRequest {
   /** `person:<id>` or `policy:<id>@<rev>` (§12.1). */
   approved_by?: string | null;
   approved_via?: 'dashboard' | 'phone' | 'cli' | 'policy' | 'console' | null;
-  approval?: 'passkey' | 'token' | 'policy' | 'console' | null;
+  /**
+   * How the yes was given ('passkey' | 'token' | ...) from a §12.4 hub; the current gateway sends the
+   * approval card object here instead (#723, found by contract.ts). Read the string form with a typeof check.
+   */
+  approval?: 'passkey' | 'token' | 'policy' | 'console' | ApprovalCard | null;
   hold?: { window_id: string; until: string } | null;
 }
 
@@ -227,6 +234,8 @@ export interface ApproveOptions {
   /** null when the action has no plan (the hub's identity module sends null, not ""). */
   plan_sha256: string | null;
   expires_at: string;
+  /** #702: what an approval key signs (UTF-8). Absent on hubs without approver keys. */
+  device_payload?: string;
   /** The hub's challenge record (login and passkey-register options carry it too). */
   challenge_id?: string;
   rpId?: string;
@@ -281,6 +290,28 @@ export interface WebAuthnCreationOptions {
 export interface ApproveBody {
   plan_sha256?: string;
   webauthn?: WebAuthnAssertion;
+  /** #173: the app id, typed by the owner, to accept a blocked or unknown licence class. */
+  accept_licence?: string;
+  /** #702: or this phone's approval key's signature over approve-options' `device_payload`. */
+  device_signature?: DeviceSignature;
+}
+
+/** #702: an approval key's ECDSA P-256 SHA-256 signature (DER, base64url) over `device_payload`. */
+export interface DeviceSignature {
+  key_id: string;
+  challenge: string;
+  signature: string;
+}
+
+/** #702 `POST/GET /v1/auth/approver-keys`: a phone's approval key as the hub keeps it (public key only). */
+export interface ApproverKey {
+  key_id: string;
+  label: string;
+  key_kind: string;
+  fingerprint: string;
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
 }
 
 /** §12.6 `GET /v1/me`. */
@@ -356,6 +387,8 @@ export interface PushRegistrationRequest {
   token?: string;
   keys?: { p256dh: string; auth: string };
   label: string;
+  /** This app install (#715, lib/install.ts); only hubs with My devices accept it. */
+  install_id?: string;
   environment?: 'sandbox' | 'production';
   bundle_id?: string;
 }
@@ -368,6 +401,37 @@ export interface PushRegistration {
   state?: string;
   created_at?: string;
   last_seen_at?: string | null;
+}
+
+/** #715 My devices (`GET /v1/me/devices`): a person's own phones, browsers and apps, each the credentials
+ * that carry its name. Mirrors the gateway's OpenAPI schemas MyDevices / MyDevice / MyDeviceRemoved. */
+export type MyDeviceSource = 'sessions' | 'passkeys' | 'approver_keys' | 'push';
+export interface MyDeviceCredential {
+  source: MyDeviceSource;
+  id: string;
+  label: string;
+  detail: string;
+  created_at: string | null;
+  last_seen_at: string | null;
+}
+export interface MyDevice {
+  id: string;
+  label: string;
+  kind: 'phone' | 'browser' | 'app' | 'unknown';
+  current: boolean;
+  last_seen_at: string | null;
+  first_seen_at: string | null;
+  credentials: MyDeviceCredential[];
+}
+export interface MyDevices {
+  devices: MyDevice[];
+  sources: Record<MyDeviceSource | 'mesh' | 'nats', boolean>;
+}
+/** `DELETE /v1/me/devices/{id}` (Lost this device): `removed` is false when there was nothing left to revoke. */
+export interface MyDeviceRemoved {
+  id: string;
+  removed: boolean;
+  revoked: Record<MyDeviceSource, number>;
 }
 
 /**
@@ -426,7 +490,9 @@ export type ApiErrorCode =
   | 'rate_limited'
   | 'unavailable'
   | 'payload_too_large'
-  | 'policy_refused';
+  | 'policy_refused'
+  /** The hub no longer serves this app's protocol generation (sdk/contracts/protocol-versions.md). */
+  | 'upgrade_required';
 
 /** §3 envelope with the optional §12.2 fields. Clients branch on `error` (and `reason`) only. */
 export interface ApiErrorBody {
@@ -582,6 +648,9 @@ export interface MigratePlan {
   updated_at?: string | null;
 }
 
+/** #723: the approval card the gateway puts on every action (hold-to-approve, physical limits, preview). */
+export type ApprovalCard = components['schemas']['ApprovalCard'];
+
 /** UMB-P07 `/v1/me/home`: the person's Home document, generated from the gateway's OpenAPI (`@onemind/sdk`). */
 export type { HomeBody, HomeView } from '@onemind/sdk';
 
@@ -715,3 +784,8 @@ export interface SystemPlanPreview {
   plan: Plan;
   plan_sha256: string;
 }
+
+/** `GET /v1/status`: one state per source; a source that cannot be read is `unknown`, never `ok`. */
+export type { StatusView } from '@onemind/sdk';
+export type SourceStatus = SdkStatusView['alerts'];
+export type HealthState = SdkStatusView['state'];

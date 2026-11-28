@@ -1,8 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # OneMind OS: the slot root is mounted read-only (no "rw" on the kernel command line).
 # Labels are the contract (01 §4.3); see os/boards/<board>/layout.yaml.
+# /data is "auto": ext4 on boxes installed before #152, btrfs on new ones (data_encrypt.py makes @ its default
+# subvolume, so no subvol= option, which ext4 would refuse). The owner's files, the @storage subvolume, are mounted at
+# /data/storage by data-storage.mount (a unit, not a line here, so an ext4 box does not try a subvol= it would refuse).
+# x-systemd.growfs: after mounting, systemd-growfs makes the filesystem (and a LUKS2 volume under it) as big as the
+# device under it, which is how /data fills a partition that cloud-init's growpart or data_extend.py just enlarged.
 PARTLABEL=onemind-esp   /boot/efi  vfat  umask=0077                          0 1
-PARTLABEL=onemind-data  /data      ext4  defaults,nofail,x-systemd.device-timeout=30s  0 2
+PARTLABEL=onemind-data  /data      auto  defaults,noatime,nofail,x-systemd.growfs,x-systemd.device-timeout=30s  0 2
 # Writable state lives on onemind-data and is bind-mounted over the read-only root.
 # "nofail" on /data and every bind from it: a dead data disk must not fail local-fs.target (that
 # means emergency mode: no network, no page). onemind-data-check.service restores the ordering and
@@ -22,4 +27,9 @@ PARTLABEL=onemind-data  /data      ext4  defaults,nofail,x-systemd.device-timeou
 /data/state/var-lib-tailscale         /var/lib/tailscale            none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
 /data/state/var-lib-onemind-headscale /var/lib/onemind-headscale    none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
 /data/state/var-lib-onemind-nats-leaf /var/lib/onemind-nats-leaf    none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+# The hub's JetStream store (app event streams), on the data disk so it survives A/B updates.
+/data/state/var-lib-onemind-nats      /var/lib/onemind-nats         none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
 /data/state/etc-hosts                 /etc/hosts                    none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+# btrfs-progs keeps the result of the last scrub here (`btrfs scrub status /data`); the root is read-only, so without
+# this the monthly scrub would run but leave no status behind (snapper/btrfsmaintenance, plan PR 6).
+/data/state/var-lib-btrfs             /var/lib/btrfs                none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0

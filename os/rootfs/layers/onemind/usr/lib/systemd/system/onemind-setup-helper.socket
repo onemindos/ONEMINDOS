@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: Apache-2.0
+# The setup wizard's door to its root helper (#578). Pulled in by onemind-setup.service (Requires=) and
+# stopped with it (PartOf=): it exists only while the wizard runs, never enabled on its own.
+# Mode 0666 because the wizard's uid is allocated when it starts (DynamicUser), so no fixed owner or group
+# fits. The helper serves only a non-root process in the wizard's own cgroup (SO_PEERCRED and
+# /proc/<pid>/cgroup, onemind_setup_helper.py) and refuses every change once the box has an owner.
+[Unit]
+Description=OneMind setup wizard root helper socket
+PartOf=onemind-setup.service
+ConditionPathExists=!/data/onemind/firstboot/state.json
+
+[Socket]
+ListenStream=/run/onemind-setup-helper.sock
+SocketUser=root
+SocketGroup=root
+SocketMode=0666
+Accept=yes
+MaxConnections=8
+# Flood limits, set on purpose (systemd.socket(5)). The trigger limit is fatal: past it the socket fails and
+# nobody can set the box up until a restart. The poll limit only pauses accepting until its window passes.
+# The web part asks at most once per 5 s (onemind_setup.py STATUS_TTL_S), so 20 polls per 2 s never slows it,
+# and since every connection needs a poll event, at most 40 activations fit in any 2 s: far under the
+# trigger limit, which therefore cannot be reached, even by a local process flooding this socket.
+PollLimitIntervalSec=2s
+PollLimitBurst=20
+TriggerLimitIntervalSec=2s
+TriggerLimitBurst=200

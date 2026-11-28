@@ -430,6 +430,18 @@ def p_passkey_register(w: World) -> Req:
     return Req("/v1/auth/passkeys/register", json={"credential": {"id": "probe", "type": "public-key"}})
 
 
+def p_approver_key(w: World) -> Req:
+    """#702: a well-formed P-256 public key, so the probe reaches the authorization checks."""
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    from onemind_core.identity.crypto import b64url
+
+    spki = ec.generate_private_key(ec.SECP256R1()).public_key().public_bytes(
+        serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
+    return Req("/v1/auth/approver-keys", json={"public_key": b64url(spki), "label": "probe", "key_kind": "software"})
+
+
 def p_password(w: World) -> Req:
     return Req("/v1/auth/password", json={"current_password": ID_PASSWORD, "new_password": "a brand new long passphrase"})
 
@@ -538,7 +550,7 @@ KUBECONFIG = "apiVersion: v1\nkind: Config\n"
 MISSING = {"policy": "pol_0123456789abcdef", "rule": "rul_0123456789abcdef", "dest": "dst_0123456789abcdef",
            "run": "run_0123456789abcdef", "snap": "abcdef0123456789", "restore": "rst_0123456789abcdef",
            "plan": "mig_0123456789abcdef", "request": "frq_0123456789abcdef", "grant": "fgr_0123456789abcdef",
-           "upload": "upl_0123456789abcdef", "source": "src_0123456789ABCDEFGHJKMNPQRS", "asset": "ast_0123456789ABCDEFGHJKMNPQRS"}
+           "upload": "upl_0123456789abcdef", "download": "dl_0123456789abcdef01234567", "source": "src_0123456789ABCDEFGHJKMNPQRS", "asset": "ast_0123456789ABCDEFGHJKMNPQRS"}
 TUS = {"Tus-Resumable": "1.0.0"}
 UPLOAD_META = "filename cHJvYmUudHh0,root c2hhcmVk,path Lw=="  # filename=probe.txt root=shared path=/
 
@@ -549,7 +561,7 @@ def _in_a_day(w: World) -> str:
 
 def p_policy_create(w: World) -> Req:
     return Req("/v1/approval-policies", json={
-        "allow": {"types": ["app.remove"], "requested_by": ["automation:*"]}, "limits": {"per_day": 1},
+        "allow": {"types": ["app.restart"], "requested_by": ["automation:*"]}, "limits": {"per_day": 1},
         "expires_at": _in_a_day(w)})
 
 
@@ -563,10 +575,25 @@ def p_window_put(w: World) -> Req:
     return Req("/v1/windows/win_probe", json={"name": "probe", "tz": "UTC", "ranges": [{"start": "21:00", "end": "23:00"}]})
 
 
+def p_kiosk_put(w: World) -> Req:
+    return Req("/v1/instance/kiosk", json={"enabled": False})
+
+
 def p_missing(path: str, *, json: Any = None, content: bytes | None = None, headers: dict | None = None):
     """A probe for `path` with {policy}-style placeholders filled from MISSING (an object that is not there)."""
     concrete = path.format(**MISSING)
     return lambda w: Req(concrete, json=json, content=content, headers=dict(headers or {}))
+
+
+# ---- share links (FILES-02, #237) ----------------------------------------------------------------------------
+SHARE_ID = "shl_0123456789ABCDEFGHJKMNPQRS"   # a share link that does not exist
+SHARE_TOKEN = "oms_" + "A" * 43               # a link secret the box never issued
+
+
+def p_share_create(w: World) -> Req:
+    """A well-formed link to a file that is not there: the people allowed to share reach the 404."""
+    return Req("/v1/files/shares", json={"items": [{"root": "shared", "path": "/no-such-file"}],
+                                         "expires_at": _in_a_day(w)})
 
 
 # ---- networking (feat/net-part2: join tickets, join requests, mesh, box CA, app sessions) --------------------

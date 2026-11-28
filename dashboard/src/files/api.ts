@@ -2,7 +2,7 @@
 // The Files window's client for /v1/files/*. Paths are typed against the generated OpenAPI `paths`
 // (a route renamed in core/ stops compiling here after `make -C sdk gen`); bodies use the generated
 // `components` types. Responses are checked at the edge: the spec leaves most of them as `unknown`.
-import { OneMind, OneMindError, type components, type paths } from '@onemind/sdk';
+import { OneMind, OneMindError, PROTOCOL_HEADER, PROTOCOL_VERSION, type components, type paths } from '@onemind/sdk';
 import { ApiError } from '../api/types';
 
 const P = {
@@ -20,6 +20,8 @@ const P = {
   deny: '/v1/files/requests/{request_id}/deny',
   cancel: '/v1/files/requests/{request_id}/cancel',
   uploads: '/v1/files/uploads',
+  quotas: '/v1/files/quotas',
+  quota: '/v1/files/quotas/{person_id}',
 } as const satisfies Record<string, keyof paths>;
 
 type Json = Record<string, unknown>;
@@ -30,6 +32,10 @@ export interface Entry { name: string; path: string; type: 'file' | 'dir' | stri
 export interface TrashItem { id: string; trash: 'home' | 'shared'; root: string; path: string; name: string; type: string; size: number; trashed_at: string; purge_at: string }
 export interface Grant { id: string; subject: { kind: string; id: string }; slot: string | null; root: string; path: string; access: string; revoked_at: string | null }
 export interface FileRequest { id: string; type: string; plan: { summary?: string }; risk: string; state: string; reason: string | null; requested_by: { id: string; kind: string }; expires_at: string; plan_sha256: string; deny_reason: string | null }
+/** One space's limit: a person's home, or the shared space (person_id null). limit_bytes null means no limit.
+ *  Hand-written because GET/PUT /v1/files/quotas declare no response_model, so the spec has no schema to
+ *  generate from (the rows are checked at the edge below). Core follow-up: #1278. */
+export interface Quota { person_id: string | null; root: string; limit_bytes: number | null; used_bytes: number }
 export interface Preview { mime: string; kind: string; size: number; inline_safe: boolean; image?: { width: number; height: number } | null; text?: { excerpt: string; truncated: boolean } }
 
 function obj(v: unknown, what: string): Json {
@@ -59,7 +65,14 @@ const q = (params: Record<string, string | undefined>) => {
 };
 /** tus Upload-Metadata value: base64 of the UTF-8 bytes. */
 const b64 = (s: string) => { let bin = ''; for (const b of new TextEncoder().encode(s)) bin += String.fromCharCode(b); return btoa(bin); };
-const CHUNK = 8 * 1024 * 1024;
+const CHUNK = 256 * 1024; // the gateway's default maximum HTTP request body
+function uploadOffset(header: string | null, min: number, max: number): number {
+  const value = header !== null && /^\d+$/.test(header) ? Number(header) : NaN;
+  if (!Number.isSafeInteger(value) || value < min || value > max) {
+    throw new ApiError(409, 'stale_precondition', 'The hub returned an invalid upload offset.');
+  }
+  return value;
+}
 
 export class FilesApi {
   private readonly sdk: OneMind;
@@ -70,11 +83,17 @@ export class FilesApi {
   private async post(path: string, body: unknown, key?: string) {
     try { return await this.sdk.call<unknown>({ method: 'POST', path, body, retry: key !== undefined, headers: key ? { 'Idempotency-Key': key } : undefined }); } catch (e) { throw toApiError(e); }
   }
-  private auth = (extra: Record<string, string> = {}) => ({ Authorization: `Bearer ${this.token}`, ...extra });
+  private auth = (extra: Record<string, string> = {}) => ({ Authorization: `Bearer ${this.token}`, [PROTOCOL_HEADER]: String(PROTOCOL_VERSION), ...extra });
 
   async roots() { return list<FileRoot>(await this.get(P.roots), 'space', (j) => str(j.root) && str(j.name)); }
   async list(root: string, path: string) { return list<Entry>(await this.get(P.list + q({ root, path, limit: '500' })), 'entry', (j) => str(j.name) && str(j.path) && str(j.type)); }
   async preview(root: string, path: string) { return obj(await this.get(P.preview + q({ root, path })), 'preview') as unknown as Preview; }
+  /** Owner only: every space's limit and use. */
+  async quotas() { return list<Quota>(await this.get(P.quotas), 'quota', (j) => str(j.root) && typeof j.used_bytes === 'number'); }
+  /** Owner only: set a person's limit in bytes, or null for no limit. */
+  async setQuota(personId: string, limitBytes: number | null) {
+    try { return obj(await this.sdk.call<unknown>({ method: 'PUT', path: fill(P.quota, 'person_id', personId), body: { limit_bytes: limitBytes } }), 'quota') as unknown as Quota; } catch (e) { throw toApiError(e); }
+  }
   async mkdir(root: string, path: string) { await this.post(P.ops, { op: 'mkdir', root, path }); }
   async trash(root: string, path: string) { await this.post(P.ops, { op: 'trash', root, path }); }
   async restore(trashId: string) { await this.post(P.ops, { op: 'restore_trash', trash_id: trashId }); }
@@ -101,28 +120,46 @@ export class FilesApi {
   }
 
   /** Resumable upload (tus 1.0.0): create, then PATCH in chunks; a dropped chunk asks the hub for its offset and goes on. */
-  async upload(file: File, root: string, dir: string, onProgress: (done: number) => void, overwrite = false): Promise<void> {
+  async upload(file: File, root: string, dir: string, onProgress: (done: number) => void, overwrite = false): Promise<string> {
     const tus = { 'Tus-Resumable': '1.0.0' };
     const meta = [`filename ${b64(file.name)}`, `root ${b64(root)}`, `path ${b64(dir)}`, ...(overwrite ? [`overwrite ${b64('1')}`] : [])].join(',');
     const made = await this.fetchImpl(P.uploads, { method: 'POST', headers: this.auth({ ...tus, 'Upload-Length': String(file.size), 'Upload-Metadata': meta }) });
     if (!made.ok) throw await failure(made);
-    const where = made.headers.get('Location');
-    if (!where) throw new Error('The hub did not say where to send the file.');
-    let offset = Number(made.headers.get('Upload-Offset') ?? 0);
+    const location = new URL(made.headers.get('Location') ?? '', window.location.origin);
+    if (location.origin !== window.location.origin || !/^\/v1\/files\/uploads\/upl_[0-9A-Z]+$/.test(location.pathname)) throw new Error('The hub returned an invalid upload location.');
+    const where = location.pathname;
+    let offset = uploadOffset(made.headers.get('Upload-Offset') ?? '0', 0, file.size);
     let failures = 0;
     while (offset < file.size) {
+      const end = Math.min(offset + CHUNK, file.size);
       try {
-        const res = await this.fetchImpl(where, { method: 'PATCH', headers: this.auth({ ...tus, 'Upload-Offset': String(offset), 'Content-Type': 'application/offset+octet-stream' }), body: file.slice(offset, offset + CHUNK) });
+        const res = await this.fetchImpl(where, { method: 'PATCH', headers: this.auth({ ...tus, 'Upload-Offset': String(offset), 'Content-Type': 'application/offset+octet-stream' }), body: file.slice(offset, end) });
+        if (res.status === 429 && failures++ < 3) {
+          const seconds = Math.max(1, Math.min(60, Number(res.headers.get('Retry-After')) || 1));
+          await new Promise((resolve) => setTimeout(resolve, seconds * 1000));
+          continue;
+        }
         if (!res.ok) throw await failure(res);
-        offset = Number(res.headers.get('Upload-Offset') ?? offset + Math.min(CHUNK, file.size - offset));
+        offset = uploadOffset(res.headers.get('Upload-Offset'), offset + 1, end);
         failures = 0;
         onProgress(offset);
       } catch (e) {
         if (e instanceof ApiError || ++failures > 3) throw e;
         const head = await this.fetchImpl(where, { method: 'HEAD', headers: this.auth(tus) });
-        if (head.ok) offset = Number(head.headers.get('Upload-Offset') ?? offset);
+        if (head.ok) offset = uploadOffset(head.headers.get('Upload-Offset'), offset, end);
       }
     }
+    return where;
+  }
+
+  async completedUpload(location: string) {
+    if (!/^\/v1\/files\/uploads\/upl_[0-9A-Z]+$/.test(location)) throw new Error('Invalid upload location.');
+    const row = obj(await this.get(location), 'upload');
+    if (row.state !== 'done' || typeof row.id !== 'string' || location !== `/v1/files/uploads/${row.id}`
+      || typeof row.length !== 'number' || !Number.isSafeInteger(row.length) || row.length < 1 || typeof row.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(row.sha256)) {
+      throw new Error('The hub has not verified the whole file.');
+    }
+    return { upload_id: row.id, sha256: row.sha256, size_bytes: row.length };
   }
 }
 

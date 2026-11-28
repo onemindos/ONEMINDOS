@@ -1,0 +1,60 @@
+# 2026-11-25T12:02:36Z PK-7: restore on a fresh Debian 13 install
++ grep -E '^PRETTY_NAME=' /etc/os-release; uptime -s; cut -c1-8 /etc/machine-id; dpkg -l | grep -c kanidm || true
+PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
+2026-11-25 11:12:50
+065d71ab
+0
+  (exit 0)
++ bash /root/aklab/setup2.sh deb /root/aklab/debs
+2f64115bc56b751de7e69efd2417e95046766d7d7d9017053d8d42ba79c2c57f  kanidmd_1.12.0-202611010319+a52b723_amd64.deb
+a6334593732750c63010b8321eb7dd6d37de5b5b5ead86f5559006b7ef038eb0  kanidm_1.12.0-202611010319+a52b723_amd64.deb
+Only then: systemctl enable kanidmd.service
+Full examples are in /usr/share/kanidmd/
+kanidmd.service is a disabled or a static unit, not starting it.
+total 32
+-rw------- 1 root root     241 Nov 25 12:02 ca.key
+-rw-r--r-- 1 root root     627 Nov 25 12:02 ca.pem
+-rw-r--r-- 1 root root      41 Nov 25 12:02 ca.srl
+-rw-r----- 1 root kanidmd 1384 Nov 25 12:02 chain.pem
+-rw-r----- 1 root kanidmd  241 Nov 25 12:02 key.pem
+-rw-r--r-- 1 root root     258 Nov 25 12:02 san.ext
+-rw-r----- 1 root kanidmd  461 Nov 25 12:02 server.toml
+-rw-r--r-- 1 root root     363 Nov 25 12:02 srv.csr
+  (exit 0)
++ bash /root/aklab/netns.sh >/dev/null; grep -E '^(domain|origin)' /etc/kanidmd/server.toml
+domain = "idm.onemind.test"
+origin = "https://idm.onemind.test:8443"
+  (exit 0)
++ sha256sum /root/aklab/restore-input.json.gz
+cf371acd5aa22a99fd7ae4dc50a0c93ed37b4caa787a2df358eee455b8970372  /root/aklab/restore-input.json.gz
+  (exit 0)
++ install -d -m 0750 /var/lib/private/kanidmd; maxrss kanidmd database restore -c /etc/kanidmd/server.toml /root/aklab/restore-input.json.gz 2>&1 | tail -4
+3f8733c5-abd0-465f-ad21-31c8be3b4a1c INFO     ┕━ ｉ [info]: System reindex: complete 🎉
+00000000-0000-0000-0000-000000000000 INFO     ｉ [info]: Index Phase 2 Success!
+00000000-0000-0000-0000-000000000000 INFO     ｉ [info]: ✅ Restore Success!
+exit 0 elapsed_s 0.85 max_rss_kB 36796
+  (exit 0)
++ systemctl enable --now kanidmd; for i in $(seq 1 30); do systemctl is-active -q kanidmd && break; sleep 1; done; systemctl is-active kanidmd
+Created symlink '/etc/systemd/system/multi-user.target.wants/kanidmd.service' → '/usr/lib/systemd/system/kanidmd.service'.
+active
+  (exit 0)
++ sleep 3; curl -sS --cacert /etc/kanidm/ca.pem https://idm.onemind.test:8443/status; echo
+true
+  (exit 0)
++ python3 -I -c "import json,hashlib,base64; c=json.load(open('/root/aklab/secrets/owner.cred'))[0]; print('owner passkey fingerprint', hashlib.sha256(base64.urlsafe_b64decode(c['id']+'==')).hexdigest()[:16])"
+owner passkey fingerprint 91bb8de03044ddc5
+  (exit 0)
+# 2026-11-25T12:03:00Z restored box, LAN path
++ W nsl signin https://idm.onemind.test:8443 owner owner.cred ok
+{"origin": "https://idm.onemind.test:8443", "page": "Kanidm idm.onemind.test | Username | Remember My Username | Begin | Powered by Kanidm", "step": "login_page"}
+{"browser_console": [], "credential_fp": "91bb8de03044ddc5", "ok": true, "origin": "https://idm.onemind.test:8443", "page": "Kanidm idm.onemind.test | Applications | Profile | Sign out | Applications | OneMind test app |  | Powered by Kanidm", "profile": "Kanidm idm.onemind.test | Applications | Profile | Sign out | Profile | Credentials | Enrol Device | RADIUS | Profile | Name | Display Name | Email addresses | ", "result": "signed-in", "sign_count_after": [17], "sign_count_before": [15], "step": "signin", "url": "https://idm.onemind.test:8443/ui/apps"}
+  (exit 0)
+# 2026-11-25T12:03:07Z restored box, mesh path
++ W nsm signin https://idm.onemind.test:8443 owner owner.cred ok
+{"origin": "https://idm.onemind.test:8443", "page": "Kanidm idm.onemind.test | Username | Remember My Username | Begin | Powered by Kanidm", "step": "login_page"}
+{"browser_console": [], "credential_fp": "91bb8de03044ddc5", "ok": true, "origin": "https://idm.onemind.test:8443", "page": "Kanidm idm.onemind.test | Applications | Profile | Sign out | Applications | OneMind test app |  | Powered by Kanidm", "profile": "Kanidm idm.onemind.test | Applications | Profile | Sign out | Profile | Credentials | Enrol Device | RADIUS | Profile | Name | Display Name | Email addresses | ", "result": "signed-in", "sign_count_after": [19], "sign_count_before": [17], "step": "signin", "url": "https://idm.onemind.test:8443/ui/apps"}
+  (exit 0)
+# 2026-11-25T12:03:13Z restored box: people and groups came back
++ python3 -I /root/aklab/aklab.py signin adult1 passkey || true
+{"detail": "success (mech passkey)", "mech": "passkey", "ok": true, "step": "signin", "user": "adult1", "whoami": "adult1@idm.onemind.test"}
+  (exit 0)

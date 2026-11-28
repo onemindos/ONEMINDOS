@@ -29,6 +29,7 @@ ERROR_CODES = {
     "payload_too_large",
     "policy_refused",
     "unavailable",
+    "upgrade_required",  # 400: the client's X-OneMind-Protocol is below the hub's minimum (protocol.py)
 }
 
 
@@ -39,6 +40,7 @@ class ErrorBody(BaseModel):
         "permission_denied", "stale_precondition", "expired", "conflict",
         "outcome_unknown", "not_found", "unauthenticated",
         "rate_limited", "payload_too_large", "policy_refused", "unavailable",
+        "upgrade_required",
     ]
     message: str
     # §12.2 optional fields; present only when they carry something.
@@ -48,6 +50,7 @@ class ErrorBody(BaseModel):
 
 
 _DESCRIPTIONS = {
+    400: "The app's protocol generation is below the hub's minimum (upgrade_required); see sdk/contracts/protocol-versions.md",
     401: "Missing or unknown bearer token (unauthenticated)",
     403: "The principal may not do this (permission_denied)",
     404: "No such resource (not_found)",

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Fail if deploy/ uses a k3s or Debian pin that differs from os/versions.lock.yaml (brief 30 §2 rule 2).
+"""Fail if deploy/ uses a k3s, Debian or nats-server pin that differs from os/versions.lock.yaml (brief 30 §2 rule 2).
 
 Stdlib only (runs as `python3 -I deploy/check-pins.py` from the repo root, no PyYAML needed).
 """
@@ -48,6 +48,29 @@ for path in ("deploy/compose/compose.yaml", "deploy/compose/onemindd.Dockerfile"
         m = re.search(r"(?:image:|FROM)\s+(\S+)", line)
         if m and "/" in m.group(1) and "@sha256:" not in m.group(1) and ":compose-dev" not in m.group(1):
             errors.append(f"{path}: image not pinned by digest: {m.group(1)}")
+
+# nats-server: the image, the deploy bundle and the Go module (in-process test server, leaf code) run one version.
+nats = lock.split("\n  nats_server:", 1)[1].split("\n  tailscale:", 1)[0]
+nats_version = re.search(r"^\s+version:\s*(\S+)", nats, re.M).group(1)
+want = {"NATS_VERSION": nats_version}
+for arch in ("amd64", "arm64"):
+    want[f"NATS_SHA256_{arch}"] = re.search(rf"^\s+{arch}:\s*{{tarball:\s*([0-9a-f]{{64}})", nats, re.M).group(1)
+for key, value in want.items():
+    got = re.search(rf'^{key}="([^"]*)"', pins, re.M)
+    if not got or got.group(1) != value:
+        errors.append(f"deploy/pins.env {key}={got.group(1) if got else None!r}, lock says {value!r}")
+gomod = re.search(r"^\s*github\.com/nats-io/nats-server/v2\s+(\S+)", read("go.mod"), re.M)
+if not gomod or gomod.group(1) != nats_version:
+    errors.append(f"go.mod nats-server/v2 {gomod.group(1) if gomod else None!r}, lock says {nats_version!r}")
+
+# The dev compose stack and the verify tests run the same nats-server as the image (the lock's version).
+for path in ("deploy/compose/compose.yaml", "deploy/verify/tests/test_verify.py"):
+    tags = re.findall(r"library/nats:([0-9][0-9.]*)-alpine@sha256:[0-9a-f]{64}", read(path))
+    if not tags:
+        errors.append(f"{path} has no digest-pinned nats image")
+    for t in tags:
+        if t != nats_version.lstrip("v"):
+            errors.append(f"{path} runs nats {t}, lock says {nats_version}")
 
 # restic: deploy/pins.env must name exactly what the backup agent accepts (internal/backup/pins.go).
 gopins = read("internal/backup/pins.go")

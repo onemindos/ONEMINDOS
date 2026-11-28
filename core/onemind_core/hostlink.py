@@ -3,10 +3,14 @@
 
 `onemindd host serve` runs as root on the box and listens on /run/onemind/host.sock (mode 0660,
 root:onemind). It does what an owner already approved, from the id of the approved action, and
-nothing else: restart, shut down, factory reset, install an OS update. This module is the gateway's
+nothing else: restart, shut down, factory reset, install an OS update, restart one service (#636). This module is the gateway's
 half of that contract:
 
 - `HostLink.problem(type)`: can this box do it now? (`GET /v1/status`)
+- `HostLink.probe()`: is the host helper there and answering, and what is the box called? The gateway's
+  `GET /v1/status` reports it as `host helper: reachable|missing` (#875). The gateway is a systemd unit
+  (onemind-gateway.service, user onemind), not a k3s pod: it opens the socket directly, and the host
+  admits root and the gateway's uid only (SO_PEERCRED), so no pod or host path is involved.
 - `HostLink.run(action, finish)`: after the owner's approval, `POST /v1/operations` with the action
   id (and the approved version for an install). The host writes its journal before it acts, so a retry
   never runs twice. Argv never leaves the gateway: the host knows four kinds and nothing else.
@@ -46,8 +50,14 @@ KINDS = {
     "system.shutdown": "shutdown",
     "system.factory_reset": "factory-reset",
     "os.update.install": "os-install",
+    "os.rollback": "os-rollback",  # P-16: back to the previous A/B slot
+    "service.restart": "service-restart",  # #636: one registry unit; the host checks it is restartable
 }
 ACTION_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
+# RFC 1123 labels: what the host helper may call the box (H-06: the answer is checked, not trusted).
+HOSTNAME = re.compile(r"(?=.{1,253}\Z)[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*")
+PROBE_TIMEOUT_S = 2.0  # GET /v1/status reads the helper on every call: a silent socket must not hold it up
+UNIT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.@-]{0,90}\.(service|socket|timer|path)$")
 UNREACHABLE = "engine_unreachable"  # the reason when nothing answers on the socket
 NO_HOST = ("The gateway cannot reach the host service on this box (onemind-host.socket), so the action did not run. "
            "Your approval is recorded; use the rescue console or the box itself.")
@@ -75,11 +85,20 @@ def _text(v: Any, n: int = 300) -> str | None:
     return v[:n] if isinstance(v, str) and v else None
 
 
+@dataclass(frozen=True)
+class HelperState:
+    """What `HostLink.probe` found: the helper answered its status request, and the box's name if it sent one."""
+
+    reachable: bool
+    hostname: str | None = None
+
+
 class HostLink:
     def __init__(self, gw: Gateway, client: StorageClient | None = None):
         self.gw = gw
         self.cfg: HostLinkSettings = gw.settings.section(HostLinkSettings)
         self.client = client or StorageClient(self.cfg.socket, self.cfg.timeout_s)
+        self._probe = StorageClient(self.cfg.socket, min(PROBE_TIMEOUT_S, self.cfg.timeout_s))
         self._lock = threading.Lock()
         self._finishers: dict[str, Callable[[ExecResult], None]] = {}
         self._tracked: set[str] = set()  # action ids to read from the journal: started here or left by a restart
@@ -94,6 +113,23 @@ class HostLink:
             return True
         except OSError:
             return False
+
+    def probe(self) -> HelperState:
+        """Reachable only when the helper answers `GET /v1/status` with 200 and a JSON object. Why not is
+        logged, never returned: it can hold the socket path."""
+        if not self.present():
+            log.info("host helper missing: no socket at the configured path")
+            return HelperState(False)
+        try:
+            status, st = self._probe.call("GET", "/v1/status")
+        except (StorageUnavailable, StorageTimeout) as exc:
+            log.warning("host helper did not answer: %s", exc)
+            return HelperState(False)
+        if status != 200 or not isinstance(st, dict):
+            log.warning("host helper answered %s to its status request", status)
+            return HelperState(False)
+        name = st.get("hostname")
+        return HelperState(True, name if isinstance(name, str) and HOSTNAME.fullmatch(name) else None)
 
     def problem(self, action_type: str) -> tuple[str, str] | None:
         """(reason, message) why this box cannot perform the action now, or None when it can."""
@@ -134,11 +170,16 @@ class HostLink:
         if kind is None or not ACTION_ID.match(a.id):
             return ExecResult("failed", f"{a.type} cannot be sent to the host service", steps=[{"step": "host", "result": "bad_request"}])
         body: dict[str, str] = {"action_id": a.id, "kind": kind}
-        if kind == "os-install":
+        if kind in ("os-install", "os-rollback"):
             version = (a.params or {}).get("version")
             if not isinstance(version, str) or not version:
-                return ExecResult("failed", "the install has no approved version", steps=[{"step": "host", "result": "bad_request"}])
+                return ExecResult("failed", "the action has no approved version", steps=[{"step": "host", "result": "bad_request"}])
             body["version"] = version
+        if kind == "service-restart":
+            unit = (a.params or {}).get("unit")
+            if not isinstance(unit, str) or not UNIT.fullmatch(unit):
+                return ExecResult("failed", "the restart has no approved unit", steps=[{"step": "host", "result": "bad_request"}])
+            body["unit"] = unit
         with self._lock:
             self._inflight.add(a.id)
         try:
