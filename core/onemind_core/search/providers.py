@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""The first two search providers: Files and Settings (#611).
+"""Search providers for Files, Settings and the bundled Tips pack.
 
 files     every file and folder in the Files sync index (files/index.py), followed by its per-root
           revision so a refresh reads only what changed. A hit is shown to a person by role (their own
@@ -7,6 +7,8 @@ files     every file and folder in the Files sync index (files/index.py), follow
           exactly who may list that folder through GET /v1/files/list.
 settings  every Settings page a built-in declares (descriptor spec.settingsPages). A page is shown to
           a person whose scopes allow the route the page reads; agents and apps do not browse Settings.
+tips      the signed image pack, snapshotted when the provider is built. Only people see hits,
+          filtered by role and OS version through TipsService.visible.
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ from ..files.access import is_person, parse_root, person_access
 from ..files.errors import FilesError
 from ..files.index import IndexRootRow, IndexRow
 from ..identity import scopes as sc
+from ..tips import TipsService
 from .index import Item, Writer
 from .service import Asker, Provider, register_provider
 
@@ -133,6 +136,35 @@ class SettingsProvider(Provider):
         return lambda item: who.may_call(item.key)
 
 
+class TipsProvider(Provider):
+    def __init__(self, descriptor: Descriptor, tips: TipsService):
+        super().__init__(descriptor)
+        self.tips = tips
+        # The image pack stays fixed for the life of this provider. When #790 adds a signed /data
+        # pack that can change at runtime, refresh() must rebuild from self.tips.loaded.
+        pack = tips.loaded.pack
+        self.items = [
+            Item(id=tip.id, type="tip", app_id=self.app_id, scope=self.app_id, key=tip.id,
+                 title=tip.title, subtitle="Tips", body=tip.body, link=f"onemind://app/tips/{tip.id}")
+            for tip in pack.tips if tip.shows_on(tips.version)
+        ] if pack is not None else []
+        self.digest = hashlib.sha256(json.dumps([item.__dict__ for item in self.items], sort_keys=True).encode()).hexdigest()
+
+    def refresh(self, w: Writer) -> None:
+        if w.cursor("items") == self.digest:
+            return
+        w.clear()
+        for item in self.items:
+            w.put(item)
+        w.set_cursor("items", self.digest)
+
+    def visible(self, asker: Asker) -> Callable[[Item], bool]:
+        if not is_person(asker.principal):
+            return lambda item: False
+        allowed = {tip.id for tip in self.tips.visible(asker.principal)}
+        return lambda item: item.id in allowed
+
+
 def _files(descriptor: Descriptor, app) -> Provider | None:
     svc = getattr(app.state, "files_service", None)
     return FilesProvider(descriptor, svc) if svc is not None else None
@@ -143,5 +175,11 @@ def _settings(descriptor: Descriptor, app) -> Provider | None:
     return SettingsProvider(descriptor, reg) if reg is not None else None
 
 
+def _tips(descriptor: Descriptor, app) -> Provider | None:
+    svc = getattr(app.state, "tips", None)
+    return TipsProvider(descriptor, svc) if svc is not None and svc.loaded.pack is not None else None
+
+
 register_provider("files", _files)
 register_provider("settings", _settings)
+register_provider("tips", _tips)
