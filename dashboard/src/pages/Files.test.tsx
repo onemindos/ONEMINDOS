@@ -51,7 +51,7 @@ it('browses real folders from the routes, previews a text file and passes axe', 
   expect(await screen.findByText('This folder is empty.')).toBeInTheDocument();
   expect(calls.find((c) => c.path === '/v1/files/list' && c.search.get('path') === '/Docs')?.search.get('root')).toBe('home:owner');
   // Atlas 07: the sidebar and Copies column also read the backup status and (owners) disk health; nothing else, and only reads.
-  expect(calls.every((c) => c.path.startsWith('/v1/files/') || (c.method === 'GET' && ['/v1/backups/status', '/v1/storage/devices'].includes(c.path)))).toBe(true);
+  expect(calls.every((c) => c.path.startsWith('/v1/files/') || (c.method === 'GET' && ['/v1/backups/status', '/v1/backups/runs', '/v1/storage/devices'].includes(c.path)))).toBe(true);
   expect(await seriousViolations(screen.getByRole('main'))).toEqual([]);
 });
 

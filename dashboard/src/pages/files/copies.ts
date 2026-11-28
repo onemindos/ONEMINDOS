@@ -1,61 +1,76 @@
 // SPDX-License-Identifier: Apache-2.0
-// Atlas Files (prototype 07): how many copies of a file exist, read from GET /v1/backups/status.
-// The status schema is unconstrained, so every field is checked here and nothing is invented.
+// Atlas Files (prototype 07): how many copies of a file exist, read from GET /v1/backups/status
+// (destinations, which one is primary, whether the Files built-in's folders are carried) and
+// GET /v1/backups/runs (each run's destination, its `system` unit state and the built-ins export hook).
+// Both schemas are unconstrained, so every field is checked here and nothing is invented.
 //
-// The rule, in plain words: a file is on the box (one copy). It is also in every backup destination
-// when the Files built-in is carried by the last successful snapshot (`builtin_units[builtin:files]
-// .in_snapshot`, set by the gateway only after the agent reports it), backups are healthy, and the file
-// last changed before that snapshot. Otherwise it waits for the next run. Folders get no count: a
-// folder's own time says nothing about the files inside it.
+// The rule, in plain words (gate decision on #1350, option b): a file is on the box (one copy). It is
+// also on the PRIMARY destination when a run to the primary, whose `system` unit succeeded and whose
+// built-ins export hook succeeded (that is what carries Files), started after the file last changed.
+// That makes two copies. Other destinations get a run once a day (internal/backup/schedule.go) and the
+// status does not say per destination whether that run worked, so they are named, never counted.
+// A destination with no such run yet (just added) is never counted. Folders get no count: a folder's
+// own time says nothing about the files inside it.
 
-export interface BackupDestination { id: string; label: string; kind: string }
+/** The built-ins export the gateway writes before a `system` snapshot (core backups/units.py EXPORT_FILE). */
+export const EXPORT_FILE = 'builtin-units.tar';
+
+export interface BackupDestination { id: string; label: string; kind: string; primary: boolean }
 export interface BackupState {
-  health: string;
-  /** Number of backup destinations (the gateway's `copies`). */
-  destinations: BackupDestination[];
-  /** When the snapshot that carries the Files built-in last succeeded (the system unit), or null. */
-  lastCopyAt: string | null;
+  primary: BackupDestination | undefined;
+  others: BackupDestination[];
+  /** Start of the newest run to the primary that carried Files, or null. */
+  lastPrimaryCopyAt: string | null;
   nextRunAt: string | null;
-  /** The Files built-in is in the last successful snapshot. */
-  filesCarried: boolean;
 }
 
 export type Copies =
-  | { kind: 'copied'; count: number; at: string }
+  | { kind: 'copied'; count: 2; at: string; primary: string }
   | { kind: 'waiting'; next: string | null }
   | { kind: 'none' }
   | { kind: 'folder' };
 
 const iso = (v: unknown): string | null => (typeof v === 'string' && v && !Number.isNaN(Date.parse(v)) ? v : null);
 const rec = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
+const arr = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? v.map(rec) : []);
 
-export function toBackupState(raw: unknown): BackupState {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('The hub returned an invalid backup status.');
-  const s = raw as Record<string, unknown>;
-  const destinations = (Array.isArray(s.destinations) ? s.destinations : []).map(rec).filter((d) => typeof d.id === 'string').map((d) => ({
+/** A run that put Files on its destination: the `system` unit succeeded and the built-ins export before it did too. */
+export function carriedFiles(run: Record<string, unknown>): boolean {
+  return arr(run.units).some((u) => u.unit === 'system' && u.state === 'succeeded')
+    && arr(run.hooks).some((h) => h.unit === 'builtins' && h.command === EXPORT_FILE && h.ok === true);
+}
+
+export function toBackupState(rawStatus: unknown, rawRuns: unknown): BackupState {
+  if (!rawStatus || typeof rawStatus !== 'object' || Array.isArray(rawStatus)) throw new Error('The hub returned an invalid backup status.');
+  if (!Array.isArray(rawRuns)) throw new Error('The hub returned an invalid list of backup runs.');
+  const s = rawStatus as Record<string, unknown>;
+  const dests = arr(s.destinations).filter((d) => typeof d.id === 'string').map((d) => ({
     id: d.id as string,
     label: typeof d.label === 'string' && d.label ? d.label : typeof d.kind === 'string' ? d.kind : 'Destination',
     kind: typeof d.kind === 'string' ? d.kind : 'unknown',
+    primary: d.primary === true,
   }));
-  const units = Array.isArray(s.builtin_units) ? s.builtin_units.map(rec) : [];
-  const files = units.find((u) => u.unit === 'builtin:files');
-  const system = rec(rec(s.badges).system);
-  return {
-    health: typeof s.health === 'string' ? s.health : 'unknown',
-    destinations,
-    lastCopyAt: iso(system.last_success_at) ?? null,
-    nextRunAt: iso(s.next_run_at),
-    filesCarried: files?.in_snapshot === true,
-  };
+  const primary = dests.find((d) => d.primary);
+  // The Files folders must be set up to travel with the system unit; otherwise no run carries them.
+  const files = arr(s.builtin_units).find((u) => u.unit === 'builtin:files');
+  const foldersCarried = !!files && arr(files.dirs).every((d) => d.configured !== true || d.carried === true);
+  let last: number | null = null;
+  if (primary && foldersCarried) {
+    for (const r of rawRuns.map(rec)) {
+      const at = iso(r.started_at);
+      if (r.destination_id === primary.id && at && carriedFiles(r) && (last === null || Date.parse(at) > last)) last = Date.parse(at);
+    }
+  }
+  return { primary, others: dests.filter((d) => d !== primary), lastPrimaryCopyAt: last === null ? null : new Date(last).toISOString(), nextRunAt: iso(s.next_run_at) };
 }
 
 export function copiesOf(entry: { type: string; mtime: string }, s: BackupState | undefined): Copies | undefined {
   if (!s) return undefined;
   if (entry.type === 'dir') return { kind: 'folder' };
-  if (s.destinations.length === 0) return { kind: 'none' };
+  if (!s.primary) return { kind: 'none' };
   const changed = Date.parse(entry.mtime);
-  if (s.health === 'ok' && s.filesCarried && s.lastCopyAt && !Number.isNaN(changed) && changed <= Date.parse(s.lastCopyAt))
-    return { kind: 'copied', count: 1 + s.destinations.length, at: s.lastCopyAt };
+  if (s.lastPrimaryCopyAt && !Number.isNaN(changed) && changed < Date.parse(s.lastPrimaryCopyAt))
+    return { kind: 'copied', count: 2, at: s.lastPrimaryCopyAt, primary: s.primary.label };
   return { kind: 'waiting', next: s.nextRunAt };
 }
 
@@ -76,8 +91,8 @@ export function copiesLabel(c: Copies, now = Date.now()): string {
   }
 }
 
-/** The footer line: how many files have every copy and how many wait. */
-export function copiesSummary(entries: Array<{ type: string; mtime: string }>, s: BackupState | undefined): { copied: number; count: number; waiting: number; next: string | null } | undefined {
+/** The footer line: how many files are on the box and the primary, and how many wait. */
+export function copiesSummary(entries: Array<{ type: string; mtime: string }>, s: BackupState | undefined): { copied: number; waiting: number; next: string | null } | undefined {
   if (!s) return undefined;
   let copied = 0, waiting = 0;
   for (const e of entries) {
@@ -85,5 +100,5 @@ export function copiesSummary(entries: Array<{ type: string; mtime: string }>, s
     if (c?.kind === 'copied') copied++;
     else if (c?.kind === 'waiting' || c?.kind === 'none') waiting++;
   }
-  return { copied, count: 1 + s.destinations.length, waiting, next: s.nextRunAt };
+  return { copied, waiting, next: s.nextRunAt };
 }

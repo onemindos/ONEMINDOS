@@ -10,7 +10,7 @@ import { DEMO_TOKENS } from '../../api/fixtures';
 import { MockApi } from '../../api/mock';
 import { SessionProvider } from '../../session';
 import { seriousViolations } from '../../test/helpers';
-import { copiesLabel, copiesOf, copiesSummary, toBackupState } from './copies';
+import { copiesLabel, copiesOf, copiesSummary, toBackupState, EXPORT_FILE } from './copies';
 
 const LAST = '2026-11-21T02:10:00Z';
 const NEXT = '2026-11-22T02:10:00Z';
@@ -25,15 +25,21 @@ const entries = [
 ];
 const status = (over: Record<string, unknown> = {}) => ({
   health: 'ok', next_run_at: NEXT, copies: 2,
-  destinations: [{ id: 'd1', kind: 'usb', label: 'black-usb' }, { id: 'd2', kind: 'peer', label: 'rosa-box' }],
+  destinations: [{ id: 'd1', kind: 'usb', label: 'black-usb', primary: true }, { id: 'd2', kind: 'peer', label: 'rosa-box', primary: false }],
   badges: { box: { state: 'ok' }, system: { state: 'ok', last_success_at: LAST }, apps: {} },
-  builtin_units: [{ unit: 'gateway', in_snapshot: true }, { unit: 'builtin:files', in_snapshot: true, dirs: [] }],
+  builtin_units: [{ unit: 'gateway', in_snapshot: true }, { unit: 'builtin:files', in_snapshot: true, dirs: [{ name: 'ONEMIND_FILES_ROOT', configured: true, carried: true }] }],
   ...over,
 });
+/** One run as GET /v1/backups/runs returns it (core backups/store.py run_json). */
+const run = (dest: string, startedAt: string, opts: { system?: string; exportOk?: boolean; state?: string } = {}) => ({
+  id: `run-${dest}-${startedAt}`, destination_id: dest, state: opts.state ?? 'succeeded', started_at: startedAt, finished_at: startedAt,
+  units: [{ unit: 'system', state: opts.system ?? 'succeeded' }], hooks: [{ unit: 'builtins', phase: 'pre', command: EXPORT_FILE, ok: opts.exportOk ?? true }],
+});
+const RUNS = [run('d1', LAST)];
 type Call = { method: string; path: string; search: URLSearchParams };
 const json = (v: unknown, code = 200, headers: Record<string, string> = {}) => new Response(JSON.stringify(v), { status: code, headers: { 'content-type': 'application/json', ...headers } });
 
-function mount(opts: { backups?: unknown; backupsStatus?: number; token?: keyof typeof DEMO_TOKENS } = {}) {
+function mount(opts: { backups?: unknown; runs?: unknown; backupsStatus?: number; token?: keyof typeof DEMO_TOKENS; noPrincipal?: boolean } = {}) {
   const calls: Call[] = [];
   const token = opts.token ?? 'owner-demo';
   vi.stubGlobal('fetch', vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
@@ -42,6 +48,7 @@ function mount(opts: { backups?: unknown; backupsStatus?: number; token?: keyof 
     calls.push(c);
     if (c.path === '/v1/files/roots') return json(roots);
     if (c.path === '/v1/files/list') return json(entries);
+    if (c.path === '/v1/backups/runs') return json(opts.runs ?? RUNS);
     if (c.path === '/v1/backups/status') return opts.backupsStatus ? json({ error: 'permission_denied', message: 'no' }, opts.backupsStatus) : json(opts.backups ?? status());
     if (c.path === '/v1/storage/devices') return json([{ path: '/dev/nvme0n1', model: 'hub NVMe', role: 'data', size_bytes: 2_000_000_000_000, health: { verdict: 'ok', temperature_c: 41 } }]);
     if (c.path === '/v1/files/uploads' && c.method === 'POST') return new Response('{}', { status: 201, headers: { Location: '/v1/files/uploads/upl_1', 'Upload-Offset': '0' } });
@@ -49,24 +56,39 @@ function mount(opts: { backups?: unknown; backupsStatus?: number; token?: keyof 
     return json([]);
   }));
   window.sessionStorage.setItem('onemind.token', token);
-  render(<MemoryRouter initialEntries={['/files']}><SessionProvider deps={{ mock: false, makeApi: () => new MockApi(token), knownPrincipal: () => DEMO_TOKENS[token] }}><App mock={false} /></SessionProvider></MemoryRouter>);
+  const api = Object.assign(new MockApi(token), {
+    me: async () => ({ principal: DEMO_TOKENS[token], token: null, session: null, passkeys: 0, scopes: DEMO_TOKENS[token]?.role === 'owner' ? ['*'] : [], capabilities: [], step_up: { passkeys_active: false, require_passkey_approval: false } }),
+  });
+  render(<MemoryRouter initialEntries={['/files']}><SessionProvider deps={{ mock: false, makeApi: () => api, knownPrincipal: () => (opts.noPrincipal ? undefined : DEMO_TOKENS[token]) }}><App mock={false} /></SessionProvider></MemoryRouter>);
   return calls;
 }
 afterEach(() => vi.unstubAllGlobals());
 
 describe('copies rule', () => {
-  const s = toBackupState(status());
-  it('counts the box plus every destination only for a file changed before the last snapshot that carried Files', () => {
-    expect(copiesOf(entries[1]!, s)).toEqual({ kind: 'copied', count: 3, at: LAST });
-    expect(copiesOf(entries[2]!, s)).toEqual({ kind: 'waiting', next: NEXT });
+  const s = toBackupState(status(), RUNS);
+  it('counts the box plus the primary only for a file changed before a run to the primary that carried Files', () => {
+    expect(copiesOf(entries[1]!, s)).toMatchObject({ kind: 'copied', count: 2, primary: 'black-usb' });
     expect(copiesOf(entries[0]!, s)).toEqual({ kind: 'folder' });
-    expect(copiesSummary(entries, s)).toMatchObject({ copied: 1, count: 3, waiting: 1 });
+    expect(copiesSummary(entries, s)).toMatchObject({ copied: 1, waiting: 1 });
+    expect(s.others.map((d) => d.label)).toEqual(['rosa-box']);
   });
-  it('never says copied when Files is not in the snapshot, backups are failing, or there is no destination', () => {
-    expect(copiesOf(entries[1]!, toBackupState(status({ builtin_units: [{ unit: 'builtin:files', in_snapshot: false }] })))?.kind).toBe('waiting');
-    expect(copiesOf(entries[1]!, toBackupState(status({ health: 'failing' })))?.kind).toBe('waiting');
-    expect(copiesLabel(copiesOf(entries[1]!, toBackupState(status({ destinations: [] })))!)).toBe('1 copy · no backup');
-    expect(() => toBackupState([])).toThrow();
+  it('a file newer than the last primary run has 1 copy', () => {
+    expect(copiesOf(entries[2]!, s)).toEqual({ kind: 'waiting', next: NEXT });
+  });
+  it('a failed primary run (system unit or Files export) is not a copy', () => {
+    for (const r of [run('d1', LAST, { system: 'failed', state: 'failed' }), run('d1', LAST, { exportOk: false, state: 'partial' })])
+      expect(copiesOf(entries[1]!, toBackupState(status(), [r]))?.kind).toBe('waiting');
+  });
+  it('off-site down while the primary is healthy still claims only the box and the primary', () => {
+    const st = toBackupState(status({ health: 'failing' }), [run('d1', LAST), run('d2', '2026-11-20T02:10:00Z', { system: 'failed', state: 'failed' })]);
+    expect(copiesOf(entries[1]!, st)).toMatchObject({ kind: 'copied', count: 2 });
+  });
+  it('never counts a destination with no run (just added), a run to another destination, or folders that do not travel', () => {
+    expect(copiesOf(entries[1]!, toBackupState(status(), []))?.kind).toBe('waiting');
+    expect(copiesOf(entries[1]!, toBackupState(status(), [run('d2', LAST)]))?.kind).toBe('waiting');
+    expect(copiesOf(entries[1]!, toBackupState(status({ builtin_units: [{ unit: 'builtin:files', dirs: [{ configured: true, carried: false }] }] }), RUNS))?.kind).toBe('waiting');
+    expect(copiesLabel(copiesOf(entries[1]!, toBackupState(status({ destinations: [] }), RUNS))!)).toBe('1 copy · no backup');
+    expect(() => toBackupState([], [])).toThrow();
   });
 });
 
@@ -81,10 +103,18 @@ describe('Atlas Files', () => {
     expect(await within(nav).findByText('rosa-box')).toBeInTheDocument();
     expect(await screen.findByRole('columnheader', { name: 'Copies' })).toBeInTheDocument();
     const row = (await screen.findByRole('button', { name: 'Preview plan.pdf' })).closest('tr')!;
-    expect(row).toHaveTextContent('3 copies');
+    expect(row).toHaveTextContent('2 copies');
     expect(screen.getByRole('button', { name: 'Preview vent-rules.yaml' }).closest('tr')!).toHaveTextContent(/1 copy · next/);
-    expect(await screen.findByText(/1 has 3 copies/)).toBeInTheDocument();
+    expect(await screen.findByText(/1 has 2 copies/)).toBeInTheDocument();
+    expect(screen.getByText('Also copied to: rosa-box (daily)')).toBeInTheDocument();
+    expect(within(nav).getByText(/daily · not counted/)).toBeInTheDocument();
     expect(await seriousViolations(screen.getByRole('main'))).toEqual([]);
+  });
+
+  it('shows owner disks on a real box, where the role comes from GET /v1/me and no principal is injected', async () => {
+    mount({ noPrincipal: true });
+    const nav = await screen.findByRole('navigation', { name: 'Places' });
+    expect(await within(nav).findByText('hub NVMe', {}, { timeout: 4000 })).toBeInTheDocument();
   });
 
   it('picking a space in the sidebar lists that space', async () => {

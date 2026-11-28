@@ -26,6 +26,7 @@ export const href = {
   alerts: '/alerts',
   storage: '/storage',
   backups: '/backups',
+  photos: '/photos',
   troubleshoot: '/troubleshoot',
   automation: '/automation',
   updates: '/updates',
