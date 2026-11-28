@@ -49,13 +49,14 @@ def test_capture_replays_and_partial_update_uses_task_revision(client):
 def test_task_saved_before_the_stricter_title_rules_still_loads_and_can_be_repaired(client):
     # The version before NONBLANK stripped with pydantic's strip_whitespace, which keeps U+001C..U+001F,
     # so it saved a title like "\x1c". After the upgrade GET, the list and PATCH answered 500 on that row.
-    created = client.post("/v1/work/capture", json={"title": "Old task", "labels": ["home"]}, headers=OWNER)
+    created = client.post("/v1/work/capture", json={"title": "Old task", "labels": ["home"]},
+                          headers={**OWNER, "Idempotency-Key": "legacy-title"})
     assert created.status_code == 201, created.text
     task = created.json()
     path = f"/v1/work/projects/{task['project_id']}/tasks/{task['id']}"
     work = client.app.state.work
     with work.db.session.begin() as session:
-        row = session.get(TaskRow, task["id"])
+        row = session.get(TaskRow, (task["project_id"], task["id"]))
         row.title, row.labels = "\x1c", ["\x1f"]
         session.get(ProjectRow, task["project_id"]).name = "\x1d"
     read = client.get(path, headers=OWNER)

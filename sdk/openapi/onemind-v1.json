@@ -9842,7 +9842,6 @@
           "name": {
             "maxLength": 160,
             "minLength": 1,
-            "pattern": "[^\t\n\u000b\f\r\u001c\u001d\u001e\u001f                  　]",
             "title": "Name",
             "type": "string"
           }
@@ -14599,7 +14598,6 @@
             "items": {
               "maxLength": 64,
               "minLength": 1,
-              "pattern": "[^\t\n\u000b\f\r\u001c\u001d\u001e\u001f                  　]",
               "type": "string"
             },
             "maxItems": 32,
@@ -14634,7 +14632,6 @@
           "title": {
             "maxLength": 160,
             "minLength": 1,
-            "pattern": "[^\t\n\u000b\f\r\u001c\u001d\u001e\u001f                  　]",
             "title": "Title",
             "type": "string"
           },
