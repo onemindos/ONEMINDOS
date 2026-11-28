@@ -169,14 +169,19 @@ class MapPacks:
                            reason="map_storage_unavailable") from None
 
     def _catalog(self) -> dict[str, Region]:
-        path = self.settings.region_catalog
+        path, key = self.settings.region_catalog, self.settings.region_key_file
+        if path is None or not os.path.lexists(path) or not os.path.lexists(key):
+            # A fresh box ships no signed region catalogue or key until the owner provisions them:
+            # not set up is a state the owner can change, so adding a pack is a 409 with a reason.
+            # Installed packs stay listable and removable, which never needs the catalogue.
+            raise ApiError(409, "conflict", "Offline map regions are not set up on this box: "
+                           "no signed region catalogue and key are installed", reason="map_catalog_not_configured")
         try:
-            if path is None:
-                raise ValueError("no region catalog configured")
-            return _load_catalog(path, self.settings.region_key_file)
+            return _load_catalog(path, key)
         except (OSError, ValueError, InvalidSignature, UnsupportedAlgorithm, RecursionError):
             raise ApiError(503, "unavailable", "No verified map region catalog is available",
                            reason="map_catalog_unavailable") from None
+
     def _region(self, region_id: str) -> Region:
         region = self._catalog().get(region_id)
         if region is None:
@@ -201,7 +206,6 @@ class MapPacks:
         if self.settings.packs_dir is None:
             return Packs(packs=[], free_bytes=None)
         root = self._root()
-        self._catalog()
         try:
             packs = [pack for folder in sorted(root.iterdir()) if not folder.name.startswith(".")
                      if (pack := self._installed(folder)) is not None]
@@ -225,7 +229,6 @@ class MapPacks:
 
     def _remove_plan(self, pack_id: str) -> tuple[Path, InstalledPack]:
         root = self._root()
-        self._catalog()
         # Action params are checked against the strict identifier model before reaching here.
         installed = self._installed(root / pack_id)
         if installed is None:
