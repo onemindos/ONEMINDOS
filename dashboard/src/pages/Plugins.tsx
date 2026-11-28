@@ -2,7 +2,7 @@
 // Atlas Plugins (design screen 10, #654). Real data from GET /v1/plugins: each installed plugin, which of the five defined
 // places it uses (Home tile, Map layer, Settings panel, Commands, Dock item) and whether a person must approve its commands.
 // Restart, Disable, Enable and Update go through the same reviewed request path as every app change (preview, then a request
-// that waits in Approvals, D-027); this page never changes anything itself. A plugin that stopped is shown paused on its own
+// that waits in Approvals, D-027); this page never changes anything itself. A plugin that stopped or failed is marked on its own
 // row; nothing else on the page depends on it.
 import { useState } from 'react';
 import { Link } from 'react-router';
@@ -37,7 +37,7 @@ function Connected({ api }: { api: Required<Pick<OneMindApi, 'plugins'>> }) {
   void hub.now; // re-render on the hub clock so the age keeps counting
   const age = res.fetchedAt === undefined ? undefined : formatAgo(Math.max(0, Math.round((Date.now() - res.fetchedAt) / 1000)));
   return <div className="dash-stack dash-plugins">
-    <PageHeader title="Plugins" lede="Plugins add things in defined places. Each one runs on its own, so one that misbehaves is paused on its own row and nothing else changes." />
+    <PageHeader title="Plugins" lede="Plugins add things in defined places. Each one runs on its own, so one that misbehaves is marked Paused or Failed on its own row and nothing else changes." />
     {age && <p className="om-hint" role="status">Read from the gateway {age}.</p>}
     <Load res={res} what="Loading plugins">{(list) => list.length === 0
       ? <EmptyState icon="apps" title="No plugins installed" command="onemind plugins list">
@@ -49,21 +49,26 @@ function Connected({ api }: { api: Required<Pick<OneMindApi, 'plugins'>> }) {
 
 function Master({ list }: { list: PluginInfo[] }) {
   const shell = useShell();
+  const hub = useHub();
   const [pick, setPick] = useState<string>();
   const sel = list.find((p) => p.id === pick) ?? list[0]!;
   const stopped = list.filter((p) => p.status === 'stopped').length;
+  const failedN = list.filter((p) => p.status === 'failed').length;
   const ask = (type: 'app.restart' | 'app.stop' | 'app.start' | 'app.update') => void shell.requestApp(type, sel.id);
   const paused = sel.status === 'stopped';
+  const failed = sel.status === 'failed';
+  const offered = hub.apps.data?.find((a) => a.id === sel.id)?.version ?? null;
+  const canUpdate = !!offered && !!sel.installed_version && offered !== sel.installed_version;
   return <div className="dash-plugins-grid">
     <nav aria-label="Installed plugins" className="dash-plugins-list">
-      <h2>Installed · {list.length}{stopped > 0 ? ` · ${stopped} paused` : ''}</h2>
+      <h2>Installed · {list.length}{stopped > 0 ? ` · ${stopped} paused` : ''}{failedN > 0 ? ` · ${failedN} failed` : ''}</h2>
       {list.map((p) => <button key={p.id} type="button" className="dash-plugins-item" aria-current={p.id === sel.id ? 'true' : undefined} onClick={() => setPick(p.id)}>
         <span><b>{p.name}</b><small>{p.installed_version ? `v${p.installed_version}` : 'version unknown'}</small></span>
-        {p.status === 'stopped' ? <StatusPill tone="warn" label="Paused" glyph="warn" /> : <StatusPill tone="ok" label="Running" glyph="ok" />}
+        <State status={p.status} />
       </button>)}
     </nav>
     <section aria-label={`${sel.name} places`} className="dash-plugins-detail">
-      <h2>{sel.name} {paused ? <StatusPill tone="warn" label="Paused" glyph="warn" /> : <StatusPill tone="ok" label="Running" glyph="ok" />}</h2>
+      <h2>{sel.name} <State status={sel.status} /></h2>
       <p>Here is every place this plugin can show up, and when a person has to say yes.</p>
       <table className="dash-plugins-table">
         <caption className="om-visually-hidden">Places used by {sel.name}</caption>
@@ -82,13 +87,15 @@ function Master({ list }: { list: PluginInfo[] }) {
     </section>
     <aside aria-label="When a plugin misbehaves" className="dash-plugins-side">
       <Card title="When a plugin misbehaves" variant="sunken">
-        {paused
+        {failed
+          ? <p><b>{sel.name} failed.</b> Its tile shows a notice. The rest of OneMind keeps working. Restart it, or disable it until you have looked.</p>
+          : paused
           ? <p><b>{sel.name} is paused.</b> Its tile shows a notice. The rest of OneMind keeps working.</p>
           : <p>If {sel.name} stops responding, only its own tile pauses. Restart it, or disable it until you have looked.</p>}
         <div className="dash-plugins-actions">
           <Button disabled={paused} onClick={() => ask('app.restart')}>Restart</Button>
           {paused ? <Button variant="primary" onClick={() => ask('app.start')}>Enable</Button> : <Button variant="primary" onClick={() => ask('app.stop')}>Disable</Button>}
-          <Button onClick={() => ask('app.update')}>Review update</Button>
+          <Button disabled={!canUpdate} onClick={() => ask('app.update')}>{canUpdate ? `Review update to ${offered}` : 'Up to date'}</Button>
         </div>
         <p className="om-hint">Each button files a request that waits for an owner in <Link to="/approvals">Approvals</Link>. Nothing runs until it is approved.</p>
         <code className="dash-plugins-cmd">$ onemind plugins {paused ? 'enable' : 'disable'} {sel.id}</code>
@@ -101,4 +108,10 @@ function Master({ list }: { list: PluginInfo[] }) {
       </Card>
     </aside>
   </div>;
+}
+
+function State({ status }: { status: PluginInfo['status'] }) {
+  if (status === 'failed') return <StatusPill tone="bad" label="Failed" glyph="bad" />;
+  if (status === 'stopped') return <StatusPill tone="warn" label="Paused" glyph="warn" />;
+  return <StatusPill tone="ok" label="Running" glyph="ok" />;
 }

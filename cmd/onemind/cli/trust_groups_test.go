@@ -16,7 +16,7 @@ func TestPluginsAndHostGrants(t *testing.T) {
 			map[string]any{"slot": "commands", "declared": true, "names": []any{"send"}, "approval": "each_time"}}}}),
 		"GET /v1/instance": ok(map[string]any{"name": "box"}),
 		"POST /v1/actions": waitingAction,
-		"GET /v1/plugins/meshcore": ok(map[string]any{"id": "meshcore", "name": "MeshCore", "installed_version": nil, "status": "stopped", "slots": []any{
+		"GET /v1/plugins/meshcore": ok(map[string]any{"id": "meshcore", "name": "MeshCore", "installed_version": nil, "status": "failed", "slots": []any{
 			map[string]any{"slot": "home_tile", "declared": false, "names": []any{}, "approval": "none"}}}),
 		"GET /v1/plugins/meshcore/tools":     ok([]any{map[string]any{"name": "send", "title": "Send a message", "effect": "write"}}),
 		"GET /v1/plugins/meshcore/settings":  ok(map[string]any{"bundle_sha256": "sha256:" + strings.Repeat("a", 64), "settings": map[string]any{"channel": "1"}, "schema": map[string]any{}}),
@@ -32,7 +32,7 @@ func TestPluginsAndHostGrants(t *testing.T) {
 	})
 	outHas(t, run(t, "", false, "plugins", "list").out, "meshcore", "1.2.0", "installed")
 	outHas(t, run(t, "", false, "plugins", "list").out, "PLACES", "commands")
-	outHas(t, run(t, "", false, "plugins", "show", "meshcore").out, "stopped")
+	outHas(t, run(t, "", false, "plugins", "show", "meshcore").out, "failed")
 	outHas(t, run(t, "", false, "plugins", "show", "meshcore").out, "place home_tile", "not declared")
 	for verb, typ := range map[string]string{"restart": "app.restart", "disable": "app.stop", "enable": "app.start", "update": "app.update"} {
 		outHas(t, run(t, "", false, "plugins", verb, "meshcore").out, "plugin meshcore requested", "act_7")

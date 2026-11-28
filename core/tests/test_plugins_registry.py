@@ -43,7 +43,10 @@ def test_installed_registry_tracks_real_state(client, settings, clock):
     assert client.get("/v1/plugins/uptime-kuma", headers=OWNER).json()["installed_version"] is None
     repo.set_app_state("uptime-kuma", "stopped", clock.now)
     assert client.get("/v1/plugins/uptime-kuma", headers=OWNER).json()["status"] == "stopped"
-    for status in ("removed", "installing", "failed", "unknown", None):
+    repo.set_app_state("uptime-kuma", "failed", clock.now)
+    assert client.get("/v1/plugins/uptime-kuma", headers=OWNER).json()["status"] == "failed"
+    assert [r["status"] for r in client.get("/v1/plugins", headers=OWNER).json()] == ["failed"]
+    for status in ("removed", "installing", "unknown", None):
         repo.set_app_state("uptime-kuma", status, clock.now)
         assert client.get("/v1/plugins", headers=OWNER).json() == []
         assert client.get("/v1/plugins/uptime-kuma", headers=OWNER).status_code == 404

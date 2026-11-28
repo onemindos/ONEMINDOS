@@ -15,6 +15,8 @@ const IRRIGATION = { id: 'irrigation', name: 'Irrigation', installed_version: '1
 const SOLAR = { id: 'solar-monitor', name: 'Solar Monitor', installed_version: null, status: 'stopped', slots: [
   slot('home_tile', true, ['today']), slot('map_layer', false), slot('settings_panel', false), slot('commands', false), slot('dock_item', false)] };
 
+const BROKEN = { id: 'zigbee', name: 'Zigbee Devices', installed_version: '1.2.0', status: 'failed', slots: SOLAR.slots };
+
 function setup(plugins: unknown[]) {
   const writes: Array<Record<string, unknown>> = [];
   const previews: Array<Record<string, unknown>> = [];
@@ -60,6 +62,20 @@ describe('Plugins screen', () => {
     expect(screen.getByRole('button', { name: 'Restart' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Enable' })).toBeEnabled();
     expect(screen.getByText('$ onemind plugins enable solar-monitor')).toBeInTheDocument();
+  });
+
+  it('lists a failed plugin as Failed, keeps Restart and Disable available, and offers no update when none is offered', async () => {
+    const { user, previews } = setup([IRRIGATION, BROKEN]);
+    const list = await screen.findByRole('navigation', { name: 'Installed plugins' });
+    expect(within(list).getByText('Installed · 2 · 1 failed')).toBeInTheDocument();
+    await user.click(within(list).getByRole('button', { name: /Zigbee Devices/ }));
+    expect(await screen.findByText('Zigbee Devices failed.')).toBeInTheDocument();
+    expect(screen.getAllByText('Failed').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Disable' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Up to date' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Restart' }));
+    await screen.findByRole('dialog', { name: 'Review app request' });
+    expect(previews[0]).toMatchObject({ type: 'app.restart', params: { app_id: 'zigbee' } });
   });
 
   it('Disable previews the plan, then files a request that waits for approval and does not run anything', async () => {

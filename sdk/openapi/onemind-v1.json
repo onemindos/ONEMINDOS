@@ -9809,7 +9809,8 @@
           "status": {
             "enum": [
               "installed",
-              "stopped"
+              "stopped",
+              "failed"
             ],
             "title": "Status",
             "type": "string"

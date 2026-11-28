@@ -31,7 +31,7 @@ class PluginSummary(BaseModel):
     id: str
     name: str
     installed_version: str | None = Field(description="Persisted installed version; null when no runtime receipt exists.")
-    status: Literal["installed", "stopped"]
+    status: Literal["installed", "stopped", "failed"]
     slots: list[PluginSlot] = Field(default_factory=list, description="The five defined places, in a fixed order.")
 
 
@@ -68,7 +68,7 @@ def installed_plugins(gw: Gateway, request: Request, principal: Principal) -> li
         schemas = {row.app_id: row.settings_schema for row in installs}
     for app_id in sorted(catalog.keys() | receipts.keys()):
         state = states.get(app_id)
-        if state is None or state.status not in {"installed", "stopped"}:
+        if state is None or state.status not in {"installed", "stopped", "failed"}:
             continue
         manifest = receipts.get(app_id) or catalog[app_id].manifest
         spec = manifest.get("spec") or {}
