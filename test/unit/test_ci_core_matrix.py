@@ -20,8 +20,8 @@ def backends(include):
 
 
 class Shards(unittest.TestCase):
-    def test_pr_runs_only_the_three_sqlite_shards(self):
-        self.assertEqual(backends(cm.shards("pull_request")), (["sqlite"], 3))
+    def test_pr_runs_only_the_six_sqlite_shards(self):
+        self.assertEqual(backends(cm.shards("pull_request")), (["sqlite"], 6))
 
     def test_merge_queue_runs_the_four_postgres_shards_for_a_core_change(self):
         self.assertEqual(backends(cm.shards("merge_group", ["core/onemind_core/app.py"])), (["postgresql"], 4))
@@ -38,11 +38,11 @@ class Shards(unittest.TestCase):
 
     def test_main_and_manual_runs_run_all_seven(self):
         for ev in ("push", "workflow_dispatch"):
-            self.assertEqual(backends(cm.shards(ev)), (["postgresql", "sqlite"], 7))
+            self.assertEqual(backends(cm.shards(ev)), (["postgresql", "sqlite"], 10))
 
     def test_shards_cover_what_the_suite_splits_into(self):
         # conftest.py splits by ONEMIND_TEST_SHARD=k/n; every k from 1..n must be present once.
-        for backend, n in (("sqlite", 3), ("postgresql", 4)):
+        for backend, n in (("sqlite", 6), ("postgresql", 4)):
             got = sorted(j["shard"] for j in cm.shards("push") if j["backend"] == backend)
             self.assertEqual(got, [f"{k}/{n}" for k in range(1, n + 1)])
 
@@ -63,11 +63,11 @@ class Main(unittest.TestCase):
     def test_writes_matrix_and_run_flag(self):
         out = self.run_main({"EVENT": "pull_request"})
         self.assertEqual(out["run"], "true")
-        self.assertEqual(len(json.loads(out["matrix"])["include"]), 3)
+        self.assertEqual(len(json.loads(out["matrix"])["include"]), 6)
 
     def test_writes_one_matrix_per_backend(self):
         """CI-13: the SQLite job (may run on the Mac) and the PostgreSQL job (hosted) each get their own."""
-        for event, want in (("pull_request", (3, 0)), ("push", (3, 4))):
+        for event, want in (("pull_request", (6, 0)), ("push", (6, 4))):
             out = self.run_main({"EVENT": event})
             sq, pg = json.loads(out["sqlite"])["include"], json.loads(out["postgresql"])["include"]
             self.assertEqual((len(sq), len(pg)), want, event)

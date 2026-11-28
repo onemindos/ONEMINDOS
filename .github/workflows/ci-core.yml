@@ -20,7 +20,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Which shards run (scripts/ci-core-matrix.py): a PR push runs the 3 SQLite shards; the merge
+  # Which shards run (scripts/ci-core-matrix.py): a PR push runs the 6 SQLite shards; the merge
   # queue runs the 4 PostgreSQL shards once per merge (founder, 2026-11-15: the org's 20 shared
   # runners were the bottleneck); pushes to main and manual runs run all 7.
   plan:
@@ -52,7 +52,7 @@ jobs:
         run: python3 scripts/ci-core-matrix.py
 
   # CI-03 (#228): the suite used to run twice in one job, SQLite (~33 min) then PostgreSQL + NATS
-  # (~106 min). Now each backend is split into shards (3 SQLite, 4 PostgreSQL; one SQLite job on
+  # (~106 min). Now each backend is split into shards (6 SQLite since 2026-11-28, 4 PostgreSQL; one SQLite job on
   # 4 cores still took over 30 min in CI)
   # (ONEMIND_TEST_SHARD, tests/conftest.py), and every job runs pytest-xdist on all runner cores.
   # Each xdist worker gets its own PostgreSQL database; real-NATS tests share one worker.
