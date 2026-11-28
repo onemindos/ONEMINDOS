@@ -16,6 +16,8 @@ export type { AppShellProps, NavItem } from './components/AppShell';
 export { ApprovalCard, ACTION_STATE, actionTitle, equivalentCall, requesterPill } from './components/ApprovalCard';
 export type { ActionSummary, ActionState, ApprovalCardProps } from './components/ApprovalCard';
 export { HoldToApprove } from './components/HoldToApprove';
+export { VerificationBadge, LEVEL_NAME, LEVEL_MEANING, levelRank } from './components/VerificationBadge';
+export type { VerificationLevel, VerificationBadgeProps } from './components/VerificationBadge';
 export { AppIcon, TILE_HUES, TILE_TEXT, monogram as appMonogram, tileHue as appTileHue } from './components/AppIcon';
 export type { AppIconProps } from './components/AppIcon';
 export { BrandMark, BRAND } from './components/BrandMark';

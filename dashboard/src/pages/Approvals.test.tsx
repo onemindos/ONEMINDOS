@@ -23,7 +23,7 @@ const PLAN = { summary: 'Install Ollama.', objects: [], images: [], volumes: [{ 
 const SHA = 'sha256:plan-one';
 const future = () => new Date(Date.now() + 3600_000).toISOString();
 
-function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string; hold?: { plan: boolean; stepUp?: boolean } } = {}) {
+function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string; hold?: { plan: boolean; stepUp?: boolean }; level?: Action['required_level'] } = {}) {
   const calls: Array<{ id: string; body?: ApproveBody }> = [];
   const options: string[] = [];
   const api = new MockApi('owner-demo');
@@ -32,6 +32,7 @@ function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string;
     action.approval = { hold: true, hold_ms: 2000, physical: false } as Action['approval'];
     if (!opts.hold.plan) { action.plan = null; action.plan_sha256 = undefined; action.params = {}; action.type = 'machine.delete'; }
   }
+  if (opts.level) action.required_level = opts.level;
   Object.assign(api, {
     actions: async () => [action],
     action: async () => action,
@@ -53,6 +54,11 @@ function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string;
 }
 
 describe('Approvals page', () => {
+  it('a card shows the key level the request needs before the owner tries (required_level, D-028)', async () => {
+    setup({ hold: { plan: true }, level: 'L2' });
+    expect(await screen.findByText('Needs L2 · Proven key', undefined, T)).toBeVisible();
+  });
+
   it('a hold card replaces Approve with Hold to approve, and a plain click approves nothing', async () => {
     const { calls, user } = setup({ hold: { plan: true } });
     const hold = await screen.findByRole('button', { name: /^Hold to approve/ }, T);
