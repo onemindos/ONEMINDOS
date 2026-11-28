@@ -64,6 +64,7 @@ export const DASH_SCREENS: Screen[] = [
   { name: 'dash-market', target: 'dashboard', route: 'market', signedIn: true },
   { name: 'dash-market-uptime-kuma', target: 'dashboard', route: 'market/uptime-kuma', signedIn: true },
   { name: 'dash-approvals', target: 'dashboard', route: 'approvals', signedIn: true },
+  { name: 'dash-map', target: 'dashboard', route: 'map', signedIn: true },
 ];
 
 export function urlFor(s: Screen, theme: Theme): string {
