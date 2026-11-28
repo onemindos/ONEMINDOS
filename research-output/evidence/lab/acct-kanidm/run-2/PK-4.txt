@@ -1,0 +1,5 @@
+# 2026-11-25T11:58:33Z PK-4: sign in over the LAN path, canonical name, the same passkey
++ W nsl signin https://idm.onemind.test:8443 owner owner.cred ok
+{"origin": "https://idm.onemind.test:8443", "page": "Kanidm idm.onemind.test | Username | Remember My Username | Begin | Powered by Kanidm", "step": "login_page"}
+{"browser_console": [], "credential_fp": "91bb8de03044ddc5", "ok": true, "origin": "https://idm.onemind.test:8443", "page": "Kanidm idm.onemind.test | Applications | Profile | Sign out | Applications | OneMind test app |  | Powered by Kanidm", "profile": "Kanidm idm.onemind.test | Applications | Profile | Sign out | Profile | Credentials | Enrol Device | RADIUS | Profile | Name | Display Name | Email addresses | ", "result": "signed-in", "sign_count_after": [13], "sign_count_before": [11], "step": "signin", "url": "https://idm.onemind.test:8443/ui/apps"}
+  (exit 0)
