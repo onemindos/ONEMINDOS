@@ -65,6 +65,22 @@ def string_list(value):
     return isinstance(value, list) and all(nonempty(item) for item in value)
 
 
+def has_version_selector(source, selector):
+    content = source.read_text(encoding="utf-8")
+    if source.suffix != ".env":
+        return selector in content
+
+    # Read literal pin assignments without sourcing the shell file. If a
+    # variable is assigned twice, the last assignment supplies the value.
+    values = re.findall(
+        rf"^[ \t]*(?:export[ \t]+)?{re.escape(selector)}="
+        r"""("[^"\n]*"|'[^'\n]*'|[\w./:@%+,-]*)(?:[ \t]+(?:#[^\n]*)?)?$""",
+        content,
+        re.MULTILINE,
+    )
+    return bool(values and values[-1].strip("\"'").strip())
+
+
 def validate(root, register):
     if not isinstance(register, dict) or not isinstance(register.get("engines"), list):
         return ["expected an engines list"]
@@ -93,7 +109,7 @@ def validate(root, register):
             errors.append(f"{engine_id}: modified must be true or false")
         used_by = entry.get("used_by")
         if not string_list(used_by) or not used_by:
-            errors.append(f"{engine_id}: used_by must list app ids")
+            errors.append(f"{engine_id}: used_by must list app ids or platform consumers")
         planned = entry.get("planned", False)
         pin = entry.get("pinned")
         repositories = entry.get("images", [])
@@ -109,7 +125,7 @@ def validate(root, register):
             source = (root / pin["source"]).resolve()
             if not source.is_relative_to(root.resolve()) or not source.is_file():
                 errors.append(f"{engine_id}: pinned source does not exist in the repository")
-            elif pin["selector"] not in source.read_text(encoding="utf-8"):
+            elif not has_version_selector(source, pin["selector"]):
                 errors.append(f"{engine_id}: version selector is missing from {pin['source']}")
         spdx = entry.get("spdx")
         if not nonempty(spdx):

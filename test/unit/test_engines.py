@@ -60,6 +60,24 @@ class EngineRegister(unittest.TestCase):
             pinned={"source": "deploy/compose.yaml", "selector": "deleted-pin"},
         ))
 
+    def test_requires_active_nonempty_env_pin(self):
+        pins = self.root / "deploy/pins.env"
+        pinned = {"source": "deploy/pins.env", "selector": "RESTIC_VERSION"}
+        for assignment in (
+            '# RESTIC_VERSION="0.19.1"',
+            'OTHER_RESTIC_VERSION="0.19.1"',
+            'RESTIC_VERSION= # no version',
+            'RESTIC_VERSION=""',
+            "RESTIC_VERSION='  '",
+            'RESTIC_VERSION="0.19.1"\nRESTIC_VERSION=""',
+        ):
+            with self.subTest(assignment=assignment):
+                pins.write_text(assignment + "\n", encoding="utf-8")
+                self.assertIn("version selector is missing", self.errors(pinned=pinned))
+
+        pins.write_text('# RESTIC_VERSION=""\nexport RESTIC_VERSION="0.19.1" # live pin\n', encoding="utf-8")
+        self.assertFalse(self.errors(pinned=pinned))
+
     def test_rejects_gpl_agpl_and_other_non_allowlisted_app_binary_licences(self):
         for spdx in ("GPL-3.0-only", "AGPL-3.0-or-later", "Proprietary", "UNVERIFIED"):
             with self.subTest(spdx=spdx):
@@ -70,7 +88,7 @@ class EngineRegister(unittest.TestCase):
             with self.subTest(spdx=spdx):
                 self.assertFalse(self.errors(spdx=spdx, also_runs_as=["library-in-app"]))
 
-    def test_gpl_engine_must_be_unmodified_and_isolated_behind_a_protocol(self):
+    def test_gpl_engine_must_be_isolated_behind_a_protocol(self):
         self.assertFalse(self.errors(spdx="AGPL-3.0-only", protocol="CalDAV"))
         self.assertIn("standard protocol", self.errors(spdx="AGPL-3.0-only"))
         self.assertIn("own container", self.errors(spdx="GPL-3.0-only", runs_as="debian-package", protocol="CalDAV"))

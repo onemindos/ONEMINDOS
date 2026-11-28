@@ -1,5 +1,6 @@
 {
   "format": "onemind.engines/v1",
+  "used_by_note": "Use app IDs for apps and component or function names for platform consumers (for example, onemindd, gateway, or nodes).",
   "runtime_notes": {
     "debian-package": "OS-layer package or pinned upstream executable shipped in the Debian image or installer. See pinned.source for its provenance.",
     "container": "Separate image, including build-only images pinned by the deploy bundle.",
@@ -68,7 +69,8 @@
       "modified": false,
       "used_by": ["offline-maps"],
       "adapter": "Offline Maps tile API",
-      "swap_plan": "Keep PMTiles archives and point the viewer at another local Z/X/Y vector tile server."
+      "swap_plan": "Keep PMTiles archives and point the viewer at another local Z/X/Y vector tile server.",
+      "images": ["docker.io/protomaps/go-pmtiles"]
     },
     {
       "id": "headscale",
@@ -115,6 +117,7 @@
       "spdx": "BSD-3-Clause",
       "licence_url": "https://github.com/maplibre/maplibre-gl-js/blob/HEAD/LICENSE.txt",
       "pinned": {"source": "apps/offline-maps/manifests/map_viewer.py", "selector": "maplibre-gl-5.24.1.tgz"},
+      "note": "The selector includes the tarball version so lint flags a changed artifact for licence review.",
       "runs_as": "library-in-app",
       "modified": false,
       "used_by": ["offline-maps", "map"],
@@ -154,6 +157,7 @@
       "spdx": "BSD-3-Clause",
       "licence_url": "https://github.com/protomaps/PMTiles/blob/HEAD/LICENSE",
       "pinned": {"source": "apps/offline-maps/manifests/map_viewer.py", "selector": "pmtiles-4.5.0.tgz"},
+      "note": "The selector includes the tarball version so lint flags a changed artifact for licence review.",
       "runs_as": "library-in-app",
       "modified": false,
       "used_by": ["offline-maps", "map"],
@@ -190,8 +194,9 @@
     {
       "id": "rauc",
       "upstream": "https://github.com/rauc/rauc",
-      "spdx": "LGPL-2.1-only",
-      "licence_url": "https://github.com/rauc/rauc/blob/HEAD/COPYING",
+      "spdx": "LGPL-2.1-or-later",
+      "licence_url": "https://github.com/rauc/rauc/blob/v1.15.2/README.rst#license",
+      "note": "The project licence applies to the engine. The D-Bus interface XML separately declares CC0-1.0.",
       "pinned": {"source": "os/versions.lock.yaml", "selector": "rauc:"},
       "runs_as": "debian-package",
       "modified": false,
