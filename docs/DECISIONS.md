@@ -84,6 +84,8 @@ Founder decisions. Each entry is final until Zeus changes it. Reference these ID
 
 ## D-010 · Z-04 / F-27: the signing-key ceremony runs now, on key files, then rotates onto hardware keys
 **Date:** 2026-11-14 · **Decided by:** Zeus
+
+D-031 supersedes the key-file and holder setup for the first ceremony. The offline 2-of-3 threshold and the GitHub Environment for the online TUF keys still apply.
 - **Z-04 = (a′):** the offline TUF root has three keys, each on its own encrypted USB stick, with a **2-of-3** threshold. The keys are made offline with `scripts/tuf-bootstrap-root.sh`: rehearse first, then `create`.
 - The sticks are kept in three places: home, off-site, and a trusted person. The succession note stays in a sealed envelope, never in the repo.
 - `root.json` (public) is committed. Only the three online role keys become GitHub environment secrets; the root never touches CI.
@@ -281,5 +283,5 @@ Founder decisions. Each entry is final until Zeus changes it. Reference these ID
 - **This changes D-010 in one point:** the first ceremony creates the three root keys **inside the founder's three YubiKeys** (any two sign), not on encrypted USB key files. The secret keys never leave the devices. Three keys, any two sign, kept in three places: unchanged.
 - **D-010's later rotation onto hardware keys is no longer needed,** because the keys start there. What replaces that rotation as the drill Z-04 asks for is not decided here; it stays open for the founder.
 - **The ceremony is part of Step 5** (the install on the daily hub), so the first real signed update can be installed on that box and then rolled back. That a tampered, wrong-key or older update is refused is proven before that, with throwaway keys on a virtual machine (#1188).
-- **The key holders run it with their own hands.** No AI agent ever holds, sees or types a real root key or PIN. Agents prepare and rehearse the script with throwaway keys only (YubiKey path: #1172; signed-update test: #1188; runbook: #1178).
+- **Zeus is the sole key holder.** He operates all three YubiKeys himself and keeps them in three different places under his control. No AI agent ever holds, sees or types a real root key or PIN. Agents prepare and rehearse the script with throwaway keys only (YubiKey path: #1172; signed-update test: #1188; runbook: #1178).
 - **Before the real run:** one rehearsal on a spare YubiKey, because the YubiKey steps are still marked UNVERIFIED until then.

@@ -1,6 +1,10 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Root key ceremony: checklist (print this)
 
+**First ceremony (D-031):** print the [Rehearsal checklist](CEREMONY.md#rehearsal-checklist). Zeus rehearses on one real spare first and is the sole holder of the three production YubiKeys, stored in three different places.
+
+## D-010 file-key procedure (historical)
+
 Full explanation: [CEREMONY.md](CEREMONY.md). Decision: D-010 (3 root keys, 2-of-3, encrypted sticks, offline).
 **No real key is ever typed, shown or held by an agent. Root keys never touch CI.**
 

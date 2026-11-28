@@ -1,11 +1,97 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
-# The root key ceremony (REL-01, #153, decision D-010)
+# The root key ceremony (REL-01, #153, D-010 and D-031)
 
 **What this is.** The one-time, offline event that makes the **root of trust** for OneMind's signed updates. Every OneMind box ships a file, `root.json`, and trusts only updates that chain back to it. This runbook makes that file and the keys behind it.
 
 **Who does what.**
-- **You (Zeus) and two other key holders** run the real ceremony, on a machine with no network, with your own hands. **No agent ever holds, sees or types a real root key**, and the root keys never touch CI.
+- **You (Zeus) are the sole key holder.** You run the first ceremony offline with three YubiKeys. Any two sign. Afterward, keep them in three different places under your sole control. Rehearse on one real spare YubiKey before preparing the three production keys. Root private keys stay inside the devices and never touch CI.
 - An agent built the script, rehearsed it end to end on throwaway keys, and wrote this runbook. The rehearsal result is in [Rehearsal record](#rehearsal-record). The printable one-page version is [CEREMONY-CHECKLIST.md](CEREMONY-CHECKLIST.md).
+
+## Rehearsal checklist
+
+**2026-11-27** · Step 5, M-LIVE (#234) · [D-031 and D-010](../../docs/DECISIONS.md)
+
+Use this section for the first ceremony. The file-key steps and printable file-key sheet below describe the older D-010 procedure. The file-key defaults in `scripts/ceremony-guide.py` also describe that procedure.
+
+### Before the day
+
+- [ ] Set aside one offline Debian laptop (a live USB works), three YubiKey 5 PIV devices for production, one spare with no credentials you need, and two USB ports or a hub so two keys can sign in the same command. Bring an encrypted transfer drive, the paper checklist, and a separate online computer with authenticated `gh` and repository settings access. For Step 5, bring a separate installer USB, the x86_64 Dell with console access, and a backup of anything on its install disk.
+- [ ] Record the reviewed commit. The release-key installer is on `release/next` via [#1320](https://github.com/onemindos/ONEMINDOS/pull/1320). The first-ceremony commands `yubikey-key`, `rehearse-tokens` and `hsm:2?yubikey=<serial>` come from [#1172](https://github.com/onemindos/ONEMINDOS/pull/1172). Use a reviewed commit containing that tooling. Check `git rev-parse HEAD`, `git status --short` (empty), and the usage printed by `scripts/tuf-bootstrap-root.sh` (exit 2 with no arguments). If the commands are absent, stop before touching the production keys. The single-device rehearsal and simultaneous signing are UNVERIFIED on real hardware.
+- [ ] While the laptop is online, install `ykman`, Yubico's PKCS#11 module (`libykcs11.so`), PC/SC support, SoftHSM, and the pinned Python dependencies. Use a venv outside the checkout to keep the source tree clean. Obtain the Yubico PIV attestation CA for your firmware, record its SHA-256 before transfer, and compare it on the ceremony machine. Use the actual absolute paths for the venv, module and CA. [Yubico PIV attestation documentation](https://developers.yubico.com/PIV/Introduction/PIV_attestation.html)
+
+  ```sh
+  python3 -m venv "$HOME/onemind-tuf-venv"
+  "$HOME/onemind-tuf-venv/bin/pip" install --require-hashes --only-binary :all: -r os/update/requirements-tuf.txt
+  export PYTHON="$HOME/onemind-tuf-venv/bin/python"
+  export PYKCS11LIB=/path/to/libykcs11.so
+  export YUBICO_PIV_CA=/path/to/yubico-piv-ca.pem
+  sha256sum "$YUBICO_PIV_CA"
+  ```
+
+  Pip must exit zero and the hash must match the recorded value. If either fails, resolve it while online. Turn off Wi-Fi and Bluetooth and unplug Ethernet before creating any keys. If the script prints a default-route warning, stop and isolate the laptop. Use fresh work directories on the live system or encrypted storage. Run `umask 077` and `unset ONEMIND_TUF_PIN ONEMIND_TUF_PASSPHRASE ONEMIND_ATTEST_WITHOUT_CA` in the ceremony shell so it uses the interactive prompts and requires attestation.
+
+### Offline rehearsal and root creation
+
+1. **Software rehearsal.** Run `scripts/tuf-bootstrap-root.sh rehearse-tokens /tmp/onemind-token-rehearsal` using the prepared `PYTHON`. Expect `REHEARSAL PASSED` for the 2-of-3 root, a verified test release, and a renewal using a different pair that refuses a lone signer. On failure, fix the logged dependency or signer error and use a fresh directory. Discard the rehearsal outputs.
+2. **One real spare.** With only the spare inserted, `ykman list --serials` must show its serial. Set `SER` to that serial. On a fresh device, use the commands below to set the PIN, PUK (PIN-unblock code), and PIN-protected management key. The first three commands prompt for credentials. `piv info` must show no certificate in slot 9c. If the spare has an occupied slot, stop and choose a clean spare. Export `PYKCS11LIB` to the installed Yubico module and keep `YUBICO_PIV_CA` set. Enter secrets at prompts and touch the key when it blinks.
+
+   ```sh
+   ykman --device "$SER" piv access change-pin
+   ykman --device "$SER" piv access change-puk
+   ykman --device "$SER" piv access change-management-key --generate --protect
+   ykman --device "$SER" piv info
+   R=$(mktemp -d)
+   scripts/tuf-bootstrap-root.sh yubikey-key "$R" spare "$SER"
+   scripts/tuf-bootstrap-root.sh root-key "$R/b" root
+   scripts/tuf-bootstrap-root.sh root-key "$R/c" root
+   scripts/tuf-bootstrap-root.sh online-keys "$R/online"
+   scripts/tuf-bootstrap-root.sh create "$R/out" security 2 \
+     "hsm:2?yubikey=$SER" "$R/b/root.key" "$R/c/root.pub" -- \
+     "$R/online/targets.pub" "$R/online/snapshot.pub" "$R/online/timestamp.pub"
+   scripts/tuf-bootstrap-root.sh check "$R/out" 2 3
+   ```
+
+   Run each command only after the previous one succeeds. `yubikey-key` must print the expected serial, `attestation OK`, PIN policy `always` and touch policy `always`, and write `spare.pub`. The two `root-key` calls write throwaway `root.key` and `root.pub` pairs. `online-keys` prints that it wrote three online key pairs. `create` must prompt for the spare's PIN and a touch to sign, then report root v1 and write `1.root.json` and `root.json`. The two temporary file keys exercise 2-of-3 with the spare without using the production devices. `check` must exit zero and show **2 of 3**, two valid trusted signatures, three distinct root key IDs including the spare's, one key per online role and about 365 days left. Record the result and discard the entire rehearsal directory. If the PIN, touch, attestation, or check fails, stop and diagnose the specific error. Check PC/SC, the module, the CA and the serial before retrying. Repeated PIN guesses can lock the device.
+3. **Production devices.** After the spare passes, repeat the four `ykman` preparation commands on each fresh production YubiKey, one plugged in at a time. Use a fresh work directory (`W=$(mktemp -d)`). Set `A`, `B` and `C` to the respective serials as you identify the devices. Run each of the first three commands below with only its named device inserted. Record the serial and the printed public key ID for each. After three successful attestations, generate the online keys once. Plug A and B in together and leave C unplugged. Use the PIN for each named device and touch it when prompted.
+
+   ```sh
+   scripts/tuf-bootstrap-root.sh yubikey-key "$W/pubs" a "$A"
+   scripts/tuf-bootstrap-root.sh yubikey-key "$W/pubs" b "$B"
+   scripts/tuf-bootstrap-root.sh yubikey-key "$W/pubs" c "$C"
+   scripts/tuf-bootstrap-root.sh online-keys "$W/online"
+   scripts/tuf-bootstrap-root.sh create "$W/out" security 2 \
+     "hsm:2?yubikey=$A" "hsm:2?yubikey=$B" "$W/pubs/c.pub" -- \
+     "$W/online/targets.pub" "$W/online/snapshot.pub" "$W/online/timestamp.pub"
+   scripts/tuf-bootstrap-root.sh check "$W/out" 2 3
+   ```
+
+   Verify the same v1, threshold, online-role, signature and expiry checks as for the spare. Match all three printed root key ID prefixes with the IDs recorded during generation and record the public `sha256` line on paper. If attestation fails or a slot is occupied, stop and retain the public diagnostics for review. For a signing or verification failure after successful attestation, fix the cause and retry with the same keys in a fresh output directory. Keep production devices intact. Store the three devices separately under your control and calendar renewal 90 days before expiry.
+
+### Online handoff and installer rehearsal
+
+1. **Verify the public root.** On the online computer, `sha256sum root.json` (or `shasum -a 256 root.json` on macOS) must match the paper record. Submit only the public root for review at `os/rootfs/layers/base/usr/lib/onemind/tuf/security/root.json`. Wait for that root and #1320's installer workflow to reach `main` before the publishing run. On a hash mismatch, stop and repeat the transfer from the verified offline copy.
+2. **Load the three online TUF keys.** In GitHub Settings → Environments, select `tuf-signing`, allow deployment from `main` only, and leave required reviewers off so nightly signing and timestamp refresh can run. Transfer the three online role keys on the encrypted transfer drive. From the directory containing the transferred `online/` folder, run:
+
+   ```sh
+   gh secret set ONEMIND_TUF_TARGETS_KEY --env tuf-signing < online/targets.key
+   gh secret set ONEMIND_TUF_SNAPSHOT_KEY --env tuf-signing < online/snapshot.key
+   gh secret set ONEMIND_TUF_TIMESTAMP_KEY --env tuf-signing < online/timestamp.key
+   gh secret list --env tuf-signing
+   ```
+
+   Each upload must exit zero. The list shows names and timestamps. If an upload fails, verify the repository and environment, retry the failed upload from the encrypted drive, and confirm all three names before cleaning up the transfer drive and temporary private files.
+3. **Rehearse the installer in CI before enabling publication.** From the online checkout, run:
+
+   ```sh
+   gh workflow run security-nightly.yml --ref main -f force_rebuild=true -f dry_run=true
+   gh run list --workflow security-nightly.yml --branch main --event workflow_dispatch --limit 5
+   gh run watch "$RUN_ID" --exit-status
+   ```
+
+   Set `RUN_ID` to the new dispatch in the list. The summary must show `publish=false` and `dry_run=true`. The installer job selects `mode=dev`, rehearses the release image with a throwaway public CA, and logs `ok: ... image trusts the bundle's CA, RAUC accepts the bundle with it, same packages as the signed build`. Verify I1–I5 passed and that the artifact is `installer-security-x86_64-dev`. If a job fails or is skipped, inspect it with `gh run view "$RUN_ID" --log-failed` and resolve the cause before publishing.
+4. **Check the publishing prerequisites.** RAUC is the separate bundle signer. Have the release signing key, signer certificate, and trusted CA certificate ready. The current `build` job reads repository-accessible `ONEMIND_RAUC_SIGNING_KEY`, `ONEMIND_RAUC_SIGNING_CERT` and optional `ONEMIND_RAUC_KEYRING_CERT` (required when the signer certificate alone is insufficient as the trust anchor). The `decide` job checks the first two for presence. Keep the three TUF secrets scoped to `tuf-signing`. Record the SHA-256 fingerprint of the expected public RAUC CA with `openssl x509 -in "$RAUC_CA" -noout -fingerprint -sha256`. See [installer workflow and RAUC follow-up](../boards/installer-x86_64/UPDATES.md).
+5. **Build the production stick.** Once ready to publish, set repository variable `ONEMIND_SECURITY_PUBLISH=true`. Repeat the workflow commands above with `-f dry_run=false` and the new run ID. Expect `publish=true (keys=true committed_root=true switch=true dry_run=false)`, a build log that reports `dry_run=false`, TUF client verification, installer mode `release`, the same keyring/package check, and I1–I5 passing. If any check fails, stop before flashing. Use the workflow logs to resolve the failed gate and check for an already published release before retrying.
+6. **Verify the artifact and installed trust.** Verify `gh release view "os-security-$VERSION"` succeeds for the version printed by the run. Download its same-run installer with `gh run download "$RUN_ID" -n installer-security-x86_64-release -D installer-release`. In the artifact's installer directory, read `README.txt` (must say `RELEASE-keyed` for that version), decompress the `.img.xz` with `xz -dk`, and run `sha256sum -c SHA256SUMS` on Linux. Expect `OK` for the image. Compare `openssl x509 -in release-ca.cert.pem -noout -fingerprint -sha256` with the recorded CA. On any mismatch, stop and recheck the run, release tag and artifact. Use the [installer instructions](../boards/installer-x86_64/README.md) on the intended Dell disk. After install, compare `sha256sum /usr/lib/onemind/tuf/security/root.json` and `openssl x509 -in /etc/rauc/keyring.pem -noout -fingerprint -sha256` with the paper record before applying a later update.
 
 ## Words you need
 
