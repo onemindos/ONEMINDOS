@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Step 2 PR 8 (reproducible build): the root filesystem's identity comes from the commit, not from the build run."""
 import os, subprocess, sys, tempfile, unittest
+from pathlib import Path
+from unittest.mock import patch
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "os", "assemble"))
@@ -70,20 +72,29 @@ class RootFsIdentity(unittest.TestCase):
                          "needs Linux mke2fs and GNU du: it runs on the build workers, in the tools image, and in make repro-check")
     def test_two_runs_same_bytes(self):
         import hashlib
-        with tempfile.TemporaryDirectory() as d:
-            tree = os.path.join(d, "tree"); os.makedirs(os.path.join(tree, "usr/lib")); os.makedirs(os.path.join(tree, "etc"))
-            open(os.path.join(tree, "usr/lib/os-release"), "w").write('ONEMIND_VERSION="t"\nONEMIND_BOARD="b"\n')
+        import time
+
+        epoch = 1794355200
+        with tempfile.TemporaryDirectory() as d, patch.dict(os.environ, {"SOURCE_DATE_EPOCH": str(epoch)}):
+            tree = Path(d) / "tree"
+            (tree / "usr/lib").mkdir(parents=True)
+            (tree / "etc").mkdir()
+            (tree / "usr/lib/os-release").write_text('ONEMIND_VERSION="t"\nONEMIND_BOARD="b"\n')
             for i in range(50):
-                open(os.path.join(tree, "etc", f"f{i}"), "w").write("x" * i)
+                (tree / "etc" / f"f{i}").write_text("x" * i)
+            source = tree / "etc/f1"
+            mtime_ns = source.stat().st_mtime_ns
             hashes = []
             for n in (1, 2):
-                os.environ["SOURCE_DATE_EPOCH"] = "1794355200"
-                out = os.path.join(d, f"r{n}.ext4")
+                # A host read can advance an input inode's atime between builds. Set two distinct
+                # atimes after the epoch so this always exercises the assembler tool's clamping.
+                os.utime(source, ns=((epoch + n) * 10**9, mtime_ns))
+                out = Path(d) / f"r{n}.ext4"
                 assemble.cmd_ext4(type("A", (), {"work": d, "out": out, "size_mib": 16})())
-                hashes.append(hashlib.sha256(open(out, "rb").read()).hexdigest())
-                import time; time.sleep(1.1)      # the second run starts at a different second
-            del os.environ["SOURCE_DATE_EPOCH"]
-            self.assertEqual(hashes[0], hashes[1])
+                hashes.append(hashlib.sha256(out.read_bytes()).hexdigest())
+                time.sleep(1.1)  # the second run starts at a different second
+            version = subprocess.run(["mke2fs", "-V"], check=True, capture_output=True, text=True).stderr.splitlines()[0]
+            self.assertEqual(hashes[0], hashes[1], version)
 
 
 if __name__ == "__main__":
