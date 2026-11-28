@@ -2,8 +2,9 @@
 /* Atlas Home inside the desktop frame: the tile column hugs the left edge of the wallpaper, like the
    final design (screen 01), instead of a centred 1120 px page. Windows open over the rest. */
 .dsk-desktop:has(.omd-home) { padding: var(--om-space-5) var(--om-space-6) var(--om-space-6) clamp(var(--om-space-4), 2.8vw, var(--om-space-10)); }
-/* Editing Home and dock (08b) is about the desktop: open windows step aside until Done. */
-.dash-desktop:has(.omd-editing) .wm-stage { visibility: hidden; }
+/* Editing Home and dock (08b) is about the desktop: open windows step aside until Done, but only while the
+   desktop has focus, so a window opened during edit mode is never invisible. */
+.dash-desktop:has(> .dsk-at-home .omd-editing) .wm-stage { visibility: hidden; }
 @media (max-width: 720px) {
   .dsk-desktop:has(.omd-home) { padding: var(--om-space-4) var(--om-space-3) var(--om-space-5); }
 }

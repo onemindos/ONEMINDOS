@@ -414,7 +414,7 @@ export function DesktopShell(props: DesktopShellProps) {
         </div>
       ) : <main id="om-main" tabIndex={-1} className="dsk-desktop">{children}</main>}
       <div id={managed ? 'om-main' : undefined} role={managed ? 'main' : undefined} tabIndex={-1} className="dsk-stage wm-stage" hidden={!atHome && !managed}
-        onPointerDown={(e) => { if (managed && e.target === e.currentTarget) navigate('/'); }}>
+        onClick={(e) => { if (managed && e.target === e.currentTarget) navigate('/'); }}>
         {[...wm.windows].reverse().map((item, index) => <WindowFrame z={wm.windows.length - index} key={item.id} item={item} active={wm.active === item.id} narrow={wm.narrow} here={item.ws === wm.workspace} tile={wm.tiles[item.id]}
           onSend={n => wm.sendWindow(item.id, n)}
           onPosition={rect => wm.update(position(wm.windows, item.id, rect))}

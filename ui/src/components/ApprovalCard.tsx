@@ -40,6 +40,8 @@ export interface ActionSummary {
   /** What the target is called in the catalog ("Ollama", not its id "ollama"); the id is shown when absent. */
   target_name?: string;
   hold?: { duration: number; plan?: string };
+  /** The hold is for something physical (the gateway's approval.physical); without it a hold means it cannot be undone. */
+  physical?: boolean;
 }
 
 export const ACTION_STATE: Record<ActionState, { tone: Tone; label: string }> = {

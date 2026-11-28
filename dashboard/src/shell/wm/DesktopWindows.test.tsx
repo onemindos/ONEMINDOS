@@ -43,6 +43,8 @@ it('keeps both routes mounted, restores their geometry, and closes only the focu
   first.unmount();
   renderApp({ token: 'owner-demo' });
   const again = await screen.findByRole('region', { name: 'Market' });
+  // At "/" the windows stay painted over the desktop; wait until the restored top window has focus again.
+  await waitFor(() => expect(document.querySelector('.dsk-in-window')).not.toBeNull());
   expect(again.style.left).toBe(left);
   expect(screen.getByRole('region', { name: 'Approvals' })).toBeInTheDocument();
   await user.keyboard('{Escape}');
@@ -171,7 +173,10 @@ it('opens a window over the desktop: Home stays painted behind it, inert, and th
   expect(desktop.textContent).toMatch(/Good (morning|afternoon|evening|night)/);
   expect(screen.queryByRole('heading', { level: 1, name: /^Good/ })).toBeNull();
   // A click on the bare wallpaper focuses the desktop; the window stays where it was, no longer active.
+  // A click, not a pointer-down: the rest of a touch must never land on Home's live buttons.
   fireEvent.pointerDown(container.querySelector('.wm-stage')!);
+  expect(desktop).toHaveAttribute('inert');
+  fireEvent.click(container.querySelector('.wm-stage')!);
   expect(await screen.findByRole('heading', { level: 1, name: /^Good/ })).toBe(desktop.querySelector('h1'));
   expect(desktop).not.toHaveAttribute('inert');
   expect(frame('market').hidden).toBe(false);

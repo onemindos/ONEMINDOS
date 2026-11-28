@@ -59,13 +59,23 @@ describe('DesktopHome', () => {
   });
 
   it('sends a hold action to Approvals with Review, never a one-tap Approve', () => {
-    const hold = { ...pending[0]!, id: 'a-hold', hold: { duration: 2000 } };
+    const hold = { ...pending[0]!, id: 'a-hold', hold: { duration: 2000 }, physical: true };
     const data: HomeData = { ...homeData, approvals: { state: 'ready', data: [hold] } };
     render(<Harness data={data} links={{ approval: (id) => `/approvals?highlight=${id}` }} />);
     const needs = within(screen.getByRole('region', { name: /Needs you/ }));
     expect(needs.queryByRole('button', { name: 'Approve' })).toBeNull();
     expect(needs.getByText('Moves a device')).toBeInTheDocument();
     expect(needs.getByRole('link', { name: /^Review/ })).toHaveAttribute('href', '/approvals?highlight=a-hold');
+    expect(needs.getByRole('button', { name: 'Deny' })).toBeInTheDocument();
+  });
+
+  it('says Cannot be undone for a hold that moves nothing (risk destructive), also with Review only', () => {
+    const hold = { ...pending[0]!, id: 'a-del', hold: { duration: 2000 } };
+    render(<Harness data={{ ...homeData, approvals: { state: 'ready', data: [hold] } }} />);
+    const needs = within(screen.getByRole('region', { name: /Needs you/ }));
+    expect(needs.getByText('Cannot be undone')).toBeInTheDocument();
+    expect(needs.queryByText('Moves a device')).toBeNull();
+    expect(needs.queryByRole('button', { name: 'Approve' })).toBeNull();
   });
 
   it('never looks live while connecting or when the hub stopped answering', () => {

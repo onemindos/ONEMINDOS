@@ -51,8 +51,8 @@ describe('Home', () => {
       const firstClient = renderApp({ token: 'owner-demo', route: '/installed', mock: false });
       const dock = within(await screen.findByRole('navigation', { name: 'Main' }, T));
       const market = dock.getByRole('link', { name: 'Market' });
-      // Home stays painted under the window and reads its recent list, but a direct load writes nothing.
-      expect(fetch.mock.calls.some(([url, init]) => new URL(String(url)).pathname === '/v1/me/home' && init?.method === 'PUT')).toBe(false);
+      // A directly loaded window stays read-only, and Home is not loaded behind it before a desktop visit.
+      expect(fetch.mock.calls.some(([url]) => new URL(String(url)).pathname === '/v1/me/home')).toBe(false);
       market.focus();
       await userEvent.setup().keyboard('{Enter}');
       await waitFor(() => expect(recent).toEqual(['sys:market']), T);

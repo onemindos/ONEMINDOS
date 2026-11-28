@@ -208,6 +208,7 @@ export function toActionSummary(a: Action, appName?: (id: string) => string): Ac
     state: a.state,
     expires_at: a.expires_at,
     hold: a.approval?.hold ? { duration: Math.max(2000, a.approval.hold_ms ?? 2000), plan: a.plan_sha256 } : undefined,
+    physical: a.approval?.physical || undefined,
     created_at: a.created_at,
     requested_by: rb ? { id: rb.id, kind: requesterKind(rb.kind), role: rb.role } : undefined,
     decided_by: db ? { id: db.id, kind: db.kind } : undefined,

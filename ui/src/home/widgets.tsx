@@ -228,18 +228,20 @@ function ApprovalRow({ a, ctx, compact }: { a: ActionSummary; ctx: WidgetContext
         <span className={expires === 'expired' ? 'omh-expiry omh-expired' : 'omh-expiry'}>{expires === 'expired' ? 'Expired' : `Expires ${expires}`}</span>
       </div>
       {!compact && a.reason && <p className="omh-approval-reason">“{a.reason}”</p>}
-      {a.hold ? (
-        // A hold action moves something physical (D-028): it is approved only in Approvals, by holding, never with one tap here.
-        <div className="omh-approval-actions">
-          <span className="omh-approval-tag">Moves a device</span>
-          <a className="om-btn om-btn-secondary om-btn-sm" href={ctx.links.approval(a.id)}>
-            Review<span className="om-visually-hidden"> {actionTitle(a)}</span>
-          </a>
-        </div>
-      ) : <div className="omh-approval-actions">
-        <Button size="sm" variant="primary" icon="check" busy={busy} disabled={!!blocked || expires === 'expired'} aria-describedby={blocked ? reasonId : undefined} onClick={() => ctx.onApprove?.(a)} title={equivalentCall(a, 'approve')}>
-          Approve
-        </Button>
+      <div className="omh-approval-actions">
+        {a.hold ? (
+          // Hold actions (moves a device, or cannot be undone: D-028) are approved only in Approvals, by holding, never with one tap here.
+          <>
+            <span className="omh-approval-tag">{a.physical ? 'Moves a device' : 'Cannot be undone'}</span>
+            <a className="om-btn om-btn-secondary om-btn-sm" href={ctx.links.approval(a.id)}>
+              Review<span className="om-visually-hidden"> {actionTitle(a)}</span>
+            </a>
+          </>
+        ) : (
+          <Button size="sm" variant="primary" icon="check" busy={busy} disabled={!!blocked || expires === 'expired'} aria-describedby={blocked ? reasonId : undefined} onClick={() => ctx.onApprove?.(a)} title={equivalentCall(a, 'approve')}>
+            Approve
+          </Button>
+        )}
         <Button size="sm" variant="ghost" disabled={!!blocked || busy || expires === 'expired'} aria-describedby={blocked ? reasonId : undefined} onClick={() => ctx.onDeny?.(a)} title={equivalentCall(a, 'deny')}>
           Deny
         </Button>
@@ -248,7 +250,7 @@ function ApprovalRow({ a, ctx, compact }: { a: ActionSummary; ctx: WidgetContext
             {blocked}
           </span>
         )}
-      </div>}
+      </div>
     </li>
   );
 }

@@ -119,6 +119,13 @@ describe('actions → approvals, progress, notifications, activity', () => {
     expect(toActionSummary({ ...actions[0]!, params: { app_id: 'ollama' } }).target_name).toBeUndefined();
   });
 
+  it('keeps why a request needs a hold: physical, or (without physical) cannot be undone', () => {
+    const card = (physical: boolean) => ({ ...actions[0]!, approval: { hold: true, hold_ms: 2000, physical } }) as unknown as Action;
+    expect(toActionSummary(card(true))).toMatchObject({ hold: { duration: 2000 }, physical: true });
+    expect(toActionSummary(card(false)).physical).toBeUndefined();
+    expect(toActionSummary(card(false)).hold).toBeDefined();
+  });
+
   it('maps action states onto the install progress track', () => {
     expect(jobState('awaiting_approval')).toBe('awaiting_approval');
     expect(jobState('accepted')).toBe('pulling');

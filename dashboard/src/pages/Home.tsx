@@ -4,6 +4,7 @@
 // On the desktop layout Home is the Atlas desktop itself (DesktopHome: a column of tiles on the
 // wallpaper, windows over the rest); the Console layout keeps the launcher page (HomeScreen).
 import { useMemo, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router';
 import { DesktopHome, HomeScreen, StateView, useOptionalCustomize, useToast, type ActionSummary, type BackupStatus, type StorageStatus, type HomeData, type HomeLayout, type HomeLoadable } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import { useHomeExtras } from '../data/homeExtras';
@@ -84,7 +85,8 @@ export function Home() {
 
 function ProHome({ commandBar }: { commandBar: ReactNode }) {
   const hub = useHub();
-  const { person } = useSignedIn();
+  const { person, api } = useSignedIn();
+  const navigate = useNavigate();
   const personName = useDisplayName();
   const shell = useShell();
   const toast = useToast();
@@ -100,8 +102,23 @@ function ProHome({ commandBar }: { commandBar: ReactNode }) {
   const boxStatus = useBoxStatus();
   const data = homeData(hub, homeActivity(entries), extras, backups.value, storage.value);
 
-  const decide = (a: ActionSummary, how: 'approve' | 'deny') =>
-    hub.decide(a.id, how).then(
+  // An install that needs values the owner types (install secrets) is approved in Approvals, where the form is.
+  const needsSecrets = async (a: ActionSummary) => {
+    const appId = a.type === 'app.install' ? (a.params.app_id as string | undefined) : undefined;
+    if (!appId || !api.appSecrets) return false;
+    try {
+      return (await api.appSecrets(appId)).secrets.some((s) => s.keys.some((k) => k.source === 'owner'));
+    } catch {
+      return false;
+    }
+  };
+  const decide = async (a: ActionSummary, how: 'approve' | 'deny') => {
+    if (how === 'approve' && (await needsSecrets(a))) {
+      toast.show({ tone: 'neutral', title: 'Review it in Approvals', body: 'This app needs values from you before it installs.' });
+      navigate(href.approval(a.id));
+      return;
+    }
+    return hub.decide(a.id, how).then(
       () => toast.show({ tone: how === 'approve' ? 'ok' : 'neutral', title: how === 'approve' ? 'Approved' : 'Denied', body: how === 'approve' ? 'The hub is applying it.' : 'Nothing changes.' }),
       (e: unknown) => {
         const { code, message } = errorText(e);
@@ -109,6 +126,7 @@ function ProHome({ commandBar }: { commandBar: ReactNode }) {
         toast.show({ tone: 'bad', title: `Could not ${how}`, body: licence ? 'This app needs its licence accepted. Open Approvals to read it and confirm.' : `${message} (${code})` });
       },
     );
+  };
 
   const canDecide = hub.canDecide === 'no' ? { allowed: false as const, reason: 'Only the owner can approve or deny.' } : { allowed: true as const };
   const onRetry = () => {
