@@ -6,7 +6,13 @@
 // silently: if signing is cancelled the approval does not happen.
 import type { OneMindApi } from '../api/client';
 import { ApiError, type Action, type ApproveBody } from '../api/types';
-import { getPasskey } from './webauthn';
+import { getPasskey, webauthnSupported } from './webauthn';
+
+/** ApiError.reason when the gateway asked for a passkey and the browser did not produce one (none, cancelled, or no tap). */
+export const PASSKEY_NOT_USED = 'passkey_not_used';
+
+/** ApiError.reason when the gateway needs a passkey and this browser has no WebAuthn (an insecure page such as plain http, or an old browser). */
+export const PASSKEY_UNAVAILABLE = 'passkey_unavailable';
 
 export interface ApproveOpts {
   /** The owner has a passkey (GET /v1/me step_up.passkeys_active): sign every approval (F-2). */
@@ -37,7 +43,21 @@ export async function approveWithStepUp(api: OneMindApi, action: Pick<Action, 'i
     throw new ApiError(409, 'stale_precondition', 'The plan changed since you opened this request. Review it again before approving.', 'plan_changed');
   const body: ApproveBody = { ...extra };
   if (challenge.plan_sha256) body.plan_sha256 = challenge.plan_sha256;
-  const signed = async () => ({ ...body, webauthn: await sign(challenge.publicKey) });
+  const signed = async (): Promise<ApproveBody> => {
+    try { return { ...body, webauthn: await sign(challenge.publicKey) }; }
+    catch (e) {
+      // Only a cancel, a timeout or no tap (the browser's NotAllowedError) is "not used": the owner can try again.
+      // Anything else (wrong host for the RP ID, bad options, no WebAuthn) passes through with its own message.
+      // Duck-typed: a DOMException is not always an `instanceof Error` across realms.
+      // With no WebAuthn (plain http, old browser) there is no navigator.credentials and signing dies with a TypeError:
+      // say that in words instead of showing the raw error.
+      if (!opts.sign && !webauthnSupported())
+        throw new ApiError(401, 'unauthenticated', 'This browser cannot use a passkey.', PASSKEY_UNAVAILABLE);
+      const err = e as { name?: unknown; message?: unknown } | null;
+      if (err && err.name === 'NotAllowedError') throw new ApiError(401, 'unauthenticated', typeof err.message === 'string' && err.message ? err.message : 'Your passkey was not used.', PASSKEY_NOT_USED);
+      throw e;
+    }
+  };
   // A hold does not force a passkey: only physical actions need one, and the gateway answers those with
   // step_up_required (retried signed below). A destructive action on a box with no passkey goes unsigned.
   if (opts.passkey) return api.approve(action.id, await signed());
@@ -45,7 +65,9 @@ export async function approveWithStepUp(api: OneMindApi, action: Pick<Action, 'i
     return await api.approve(action.id, body);
   } catch (e) {
     // The gateway wants a passkey that the page did not expect to need (a destructive request).
-    if (e instanceof ApiError && e.code === 'unauthenticated' && e.reason === 'step_up_required') return api.approve(action.id, await signed());
+    if (e instanceof ApiError && e.code === 'unauthenticated' && e.reason === 'step_up_required') {
+      return api.approve(action.id, await signed());
+    }
     throw e;
   }
 }
