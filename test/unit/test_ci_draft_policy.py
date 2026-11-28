@@ -4,6 +4,7 @@
 Reads every .github/workflows/*.yml and checks the rules that keep CI capacity free, so a new workflow
 that forgets them fails here instead of silently queueing jobs nobody needs.
 """
+import re
 import unittest
 from pathlib import Path
 
@@ -43,7 +44,12 @@ class DraftPolicy(unittest.TestCase):
                 # A job that only `needs` a guarded job is skipped with it, unless its own condition
                 # (always(), !cancelled()) would run it anyway.
                 inherits = spec.get("needs") and not any(k in cond for k in ("always()", "cancelled()"))
-                never_on_pr = "github.event.schedule ==" in cond or "event_name != 'pull_request'" in cond
+                never_on_pr = ("github.event.schedule ==" in cond or "event_name != 'pull_request'" in cond
+                               # a merge-queue-only job (api-fuzz.yml:changes), exactly this condition
+                               or re.fullmatch(r"\$\{\{\s*github\.event_name == 'merge_group'\s*\}\}", cond.strip())
+                               # a last conjunct that admits only the nightly and manual runs (api-fuzz.yml:report)
+                               or re.search(r"&& \(github\.event_name == 'schedule' \|\| "
+                                            r"github\.event_name == 'workflow_dispatch'\) \}\}$", cond.strip()))
                 self.assertTrue("pull_request.draft" in cond or inherits or never_on_pr,
                                 f"{name}:{job} runs on drafts")
 
@@ -86,7 +92,8 @@ INFORMATIONAL_PR_PATHS = {
     "perf-smoke.yml": {"test/perf/**", ".github/workflows/perf-smoke.yml"},
     "net-2vm.yml": {"test/net/**", ".github/workflows/net-2vm.yml"},
     "restore-drill.yml": {"test/restore-drill/**", ".github/workflows/restore-drill.yml"},
-    "security-nightly.yml": {"os/update/**", ".github/workflows/security-nightly.yml"},
+    "security-nightly.yml": {"os/update/**", "scripts/tuf-bootstrap-root.sh", "scripts/ceremony-guide.py",
+                             ".github/workflows/security-nightly.yml"},
     "apps-gate-all.yml": {"sdk/tools/ci/**", ".github/workflows/apps-gate-all.yml"},
 }
 

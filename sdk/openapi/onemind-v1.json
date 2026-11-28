@@ -13128,6 +13128,39 @@
         "title": "ShareTypesOut",
         "type": "object"
       },
+      "SignInMethods": {
+        "description": "How the signed-in person can sign in (Settings > Account and security). Facts only, no secret.",
+        "properties": {
+          "passkeys": {
+            "description": "Passkeys this person has registered.",
+            "title": "Passkeys",
+            "type": "integer"
+          },
+          "passkeys_active": {
+            "description": "An owner on this box has a passkey, so owner actions need a fresh passkey sign-in.",
+            "title": "Passkeys Active",
+            "type": "boolean"
+          },
+          "password": {
+            "description": "This person has a password (password sign-in works).",
+            "title": "Password",
+            "type": "boolean"
+          },
+          "totp": {
+            "description": "An authenticator code is asked after the password. A fallback: passkeys come first (D-030).",
+            "title": "Totp",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "password",
+          "totp",
+          "passkeys",
+          "passkeys_active"
+        ],
+        "title": "SignInMethods",
+        "type": "object"
+      },
       "SigningKey": {
         "properties": {
           "active": {
@@ -16020,6 +16053,38 @@
           }
         },
         "title": "ToolCall",
+        "type": "object"
+      },
+      "TotpSecret": {
+        "properties": {
+          "otpauth_uri": {
+            "description": "The same secret as an otpauth:// link (what a QR code holds).",
+            "title": "Otpauth Uri",
+            "type": "string"
+          },
+          "secret": {
+            "description": "Base32 secret for an authenticator app; shown once.",
+            "title": "Secret",
+            "type": "string"
+          }
+        },
+        "required": [
+          "secret",
+          "otpauth_uri"
+        ],
+        "title": "TotpSecret",
+        "type": "object"
+      },
+      "TotpSetup": {
+        "properties": {
+          "one_time": {
+            "$ref": "#/components/schemas/TotpSecret"
+          }
+        },
+        "required": [
+          "one_time"
+        ],
+        "title": "TotpSetup",
         "type": "object"
       },
       "TrashEmptyBody": {
@@ -22203,6 +22268,55 @@
         ]
       }
     },
+    "/v1/auth/methods": {
+      "get": {
+        "description": "Your own sign-in methods: password, authenticator code, passkeys. A household person only.",
+        "operationId": "auth.methods.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInMethods"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Sign In Methods",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/v1/auth/passkeys": {
       "get": {
         "operationId": "auth.passkeys.list",
@@ -23092,7 +23206,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TotpSetup"
+                }
               }
             },
             "description": "Successful Response"

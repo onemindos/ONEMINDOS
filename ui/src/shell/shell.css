@@ -100,6 +100,7 @@
 .oms-option-title { font-size: var(--om-font-size-sm); font-weight: var(--om-font-weight-medium); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .oms-option-sub { font-size: var(--om-font-size-xs); color: var(--om-color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .oms-mark { background: transparent; color: var(--om-color-accent); font-weight: var(--om-font-weight-bold); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.oms-open-tag { flex: none; font-size: var(--om-font-size-xs); font-weight: var(--om-font-weight-semibold); color: var(--om-color-text-muted); }
 .oms-req-tag { flex: none; font-size: var(--om-font-size-xs); font-weight: var(--om-font-weight-semibold); color: var(--om-color-warn-fg); border: 1px dashed var(--om-color-warn-border); border-radius: var(--om-radius-pill); padding: 1px var(--om-space-2); }
 .oms-option-pill { flex: none; }
 .oms-option-enter { flex: none; display: grid; place-items: center; width: 24px; height: 24px; color: var(--om-color-accent); opacity: 0; transition: opacity var(--om-motion-duration-fast) var(--om-motion-ease-standard); }
