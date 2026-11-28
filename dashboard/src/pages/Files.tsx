@@ -10,6 +10,7 @@ import { FilesApi, human, type Entry, type FileRequest, type FileRoot, type Prev
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { FilesQuotas } from './FilesQuotas';
+import { CopiesCell, CopiesFooter, CopiesHeader, FilesDropZone, FilesLayout } from './files/FilesAtlas';
 import { Load, TextField, useRun } from './parts';
 
 type Tab = 'files' | 'trash' | 'sharing' | 'quotas';
@@ -35,12 +36,9 @@ function LiveFiles({ token, person, owner }: { token: string; person: string; ow
       {(owner ? ['files', 'trash', 'sharing', 'quotas'] as const : ['files', 'trash', 'sharing'] as const).map((t) => <Button key={t} variant={tab === t ? 'primary' : 'secondary'} aria-pressed={tab === t} onClick={() => setTab(t)}>{t === 'files' ? 'Files' : t === 'trash' ? 'Trash' : t === 'sharing' ? 'Sharing' : 'Storage limits'}</Button>)}
     </div>
     <Load res={roots} what="Loading your spaces">{(rs) => rs.length === 0 ? <p>No space is available to this account.</p> : <>
-      {tab === 'files' && <>
-        <div role="group" aria-label="Spaces">
-          {rs.map((r) => <Button key={r.root} variant={r.root === current?.root ? 'primary' : 'secondary'} aria-pressed={r.root === current?.root} onClick={() => setRoot(r)}>{r.name}</Button>)}
-        </div>
+      {tab === 'files' && <FilesLayout roots={rs} current={current} onPick={setRoot}>
         {current && <Browser key={current.root} api={api} space={current} run={run} onChanged={() => void roots.reload()} />}
-      </>}
+      </FilesLayout>}
       {tab === 'trash' && <TrashTab api={api} run={run} />}
       {tab === 'quotas' && owner && <FilesQuotas api={api} run={run} />}
       {tab === 'sharing' && <Sharing api={api} run={run} person={person} roots={rs} />}
@@ -113,14 +111,16 @@ function Browser({ api, space, run, onChanged }: { api: FilesApi; space: FileRoo
     {uploadError && <p role="alert">{uploadError}</p>}
     {entries.error && entries.data !== undefined && <p role="status">Could not refresh. Showing the folder as last fetched.</p>}
     <Load res={entries} what="Loading folder">{() => files.length === 0 ? <p>This folder is empty.</p> : <table className="om-table">
-      <thead><tr><th scope="col">Name</th><th scope="col">Size</th><th scope="col">Modified</th><th scope="col">Actions</th></tr></thead>
+      <thead><tr><th scope="col">Name</th><th scope="col">Size</th><th scope="col">Modified</th><CopiesHeader /><th scope="col">Actions</th></tr></thead>
       <tbody>{files.map((e) => <tr key={e.path}>
         <td><Button size="sm" variant="ghost" aria-label={`${e.type === 'dir' ? 'Open folder' : 'Preview'} ${e.name}`} onClick={() => open(e)}>{e.type === 'dir' ? '📁 ' : ''}{e.name}</Button></td>
-        <td>{e.type === 'dir' ? '' : human(e.size)}</td><td>{when(e.mtime)}</td>
+        <td>{e.type === 'dir' ? '' : human(e.size)}</td><td>{when(e.mtime)}</td><CopiesCell entry={e} />
         <td>{e.type !== 'dir' && <Button size="sm" variant="secondary" aria-label={`Download ${e.name}`} onClick={() => download(e)}>Download</Button>}{' '}
           {space.writable && <Button size="sm" variant="secondary" aria-label={`Move ${e.name} to trash`} onClick={() => setDoomed(e)}>Move to trash</Button>}</td>
       </tr>)}</tbody>
     </table>}</Load>
+    {files.length > 0 && <CopiesFooter entries={files} />}
+    {space.writable && <FilesDropZone busy={!!progress} onFiles={(f) => void upload(f)} />}
     {seen && <Card as="article" title={`Preview: ${seen.entry.name}`} variant="sunken" aside={<Button size="sm" variant="ghost" onClick={() => setSeen(undefined)}>Close preview</Button>}>
       {seen.error ? <p role="alert">{seen.error}</p> : !seen.preview ? <p role="status">Loading preview…</p> : <>
         <dl className="om-facts"><div><dt>Type</dt><dd>{seen.preview.mime}</dd></div><div><dt>Size</dt><dd>{human(seen.preview.size)}</dd></div>
