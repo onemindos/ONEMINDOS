@@ -35,7 +35,7 @@ RUN ./gradlew --no-daemon clean bootWar bootJar shadowJar \
  && unzip -q takserver-package/build/distributions/takserver-docker-*.zip -d /unpacked \
  && mv /unpacked/takserver-docker-*/tak /opt/tak
 
-# Runtime: the Java 17 JRE (it includes keytool, which the certificate scripts call) plus openssl.
+# Runtime: Java 17 JRE with keytool, openssl for certificates and Python for the XML guard.
 FROM docker.io/library/eclipse-temurin:17.0.21.1_2-jre-noble@sha256:a9fc3bded7efe95fe0c06f3f5d7e5beea947925f729b71b61e39e0b9ddd4d7e3
 ARG TAK_TAG
 ARG TAK_COMMIT
@@ -46,7 +46,7 @@ LABEL org.opencontainers.image.title="TAK Server (OneMind build)" \
       org.opencontainers.image.licenses="GPL-3.0 AND Apache-2.0" \
       org.opencontainers.image.description="TAK Server built from source; the complete corresponding source is in /usr/share/doc/tak-server/"
 RUN apt-get update \
- && apt-get install -y --no-install-recommends openssl \
+ && apt-get install -y --no-install-recommends openssl python3 \
  && rm -rf /var/lib/apt/lists/* \
  && (userdel -r ubuntu 2>/dev/null || true) \
  && groupadd -g 1000 tak && useradd -u 1000 -g 1000 -M -d /opt/tak -s /usr/sbin/nologin tak

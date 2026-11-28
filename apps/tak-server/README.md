@@ -64,7 +64,7 @@ On OneMind it is an **optional Market app, never part of the base image** (found
 
 So the `takserver` container names `ghcr.io/onemindos/tak-server:5.7-RELEASE-14-om1` with an **all-zero placeholder digest**. It cannot be pulled: the app gate fails the pinning check, the tier stays `blocked`, and the gateway refuses to install the app (no passing `scan.json`). Nothing in the gate was weakened.
 
-`build/` is the recipe for OneMind's own image, read from the upstream build files at the pinned commit `5187abd46d82`: `build/Dockerfile` clones exactly tag `5.7-RELEASE-14` (and refuses another commit), runs the README's `./gradlew clean bootWar bootJar shadowJar` and the `:takserver-package:buildDocker` task, and copies the resulting `tak/` folder onto the Java 17 JRE with openssl. `build/onemind-tak-start.sh` replaces upstream's `configureInDocker.sh`. The recipe has **not been run yet**: the next PR builds it on a Linux builder, publishes the image (with its source) and pins the digest here, then the gate decides the tier.
+`build/` is the recipe for OneMind's own image, read from the upstream build files at the pinned commit `5187abd46d82`: `build/Dockerfile` clones exactly tag `5.7-RELEASE-14` (and refuses another commit), runs the README's `./gradlew clean bootWar bootJar shadowJar` and the `:takserver-package:buildDocker` task, and copies the resulting `tak/` folder onto the Java 17 JRE with openssl and Python 3. `build/onemind-tak-start.sh` replaces upstream's `configureInDocker.sh` and runs the Python XML guard before starting TAK. The recipe has **not been run yet**: the next PR builds it on a Linux builder, publishes the image (with its source) and pins the digest here, then the gate decides the tier.
 
 ## How it runs here
 
@@ -101,7 +101,7 @@ TAK clients prove who they are with client certificates signed by the server's o
 - **The CoT bridge link:** TAK Server ↔ the OneMind CoT bridge on NATS (`tak.cot.inject`) belongs to the CoT bridge plan, not to this app.
 - No web UI through the gateway: TAK's UI needs a client certificate (8443) or HTTPS with a password (8446), which the gateway's app proxy does not front yet. `spec.web` is not set, so the gate's HTTP smoke check is skipped.
 - Plugin manager, federation, LDAP and arm64 are not packaged. `readOnlyRootFilesystem` is not set (the server writes under `/opt/tak`).
-- The database image has one fixable CRITICAL finding in a local Trivy scan (CVE-2025-68121 in `gosu`'s Go standard library, the same as other apps' PostgreSQL images); the CI gate decides, and the app is blocked by the placeholder image anyway. This will also block the app after the real TAK image is pinned: the gate's vulnerability check fails on `postgis/postgis:15-3.7` (the `gosu` CVE has a fix; a CRITICAL in libxml2 has none yet). 15-3.7 is the newest `15-3.x` tag and its digest was unchanged when checked, so the build PR has to rebuild or repin the database image (or pick another PostGIS-capable image) before the gate can pass.
+- The fixable CRITICAL finding in `gosu` (CVE-2025-68121) blocks `postgis/postgis:15-3.7` at the app gate. The image-build PR must rebuild or repin the database image with the fix, or use another PostGIS-capable image that passes the gate. The same scan found a CRITICAL libxml2 issue without a fix available at the time.
 <!-- onemind:notes:end -->
 
 ## Latest security scan
