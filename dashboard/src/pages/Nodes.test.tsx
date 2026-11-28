@@ -59,8 +59,8 @@ it('confirms a known-node request without approving or claiming awake', async ()
   expect(screen.getByRole('article', { name: 'GPU box' })).toHaveTextContent('Offline');
   expect(screen.queryByText('Awake')).not.toBeInTheDocument();
   await user.click(screen.getByRole('link', { name: 'Review wake request' }));
-  expect(await screen.findByRole('button', { name: 'Approve node.wake gpu' })).toBeEnabled();
-  expect(screen.getAllByText('node.wake gpu').length).toBeGreaterThan(0);
+  expect(await screen.findByRole('button', { name: 'Approve Wake up gpu' })).toBeEnabled();
+  expect(screen.getAllByText('Wake up gpu').length).toBeGreaterThan(0);
   expect(posts()).toHaveLength(1); // Navigating to approval never approves automatically.
 });
 

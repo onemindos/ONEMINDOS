@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { makeActions, makeApps, makeNodes } from '../api/fixtures';
 import type { Action } from '../api/types';
 import { toRoute } from '../shell/routes';
-import { activityFrom, categorySlug, deployClass, NO_APP_NAME_NOTE, iconOf, jobState, notificationsFrom, openUrl, runState, toActionPlan, toActionSummary, toInstalled, toJob, toStoreApp } from './adapters';
+import { activityFrom, categorySlug, deployClass, NO_APP_NAME_NOTE, iconOf, jobState, notificationsFrom, openUrl, runState, toActionPlan, toActionSummary, principalNamer, toInstalled, toJob, toStoreApp } from './adapters';
 import { personKey, personStorage } from './prefs';
 
 const NOW = Date.parse('2026-11-12T12:00:00Z');
@@ -230,5 +230,23 @@ describe('tainted agent request (AIG-04, #168)', () => {
   it('adds nothing when the requester read nothing from outside', () => {
     const p = toActionPlan({ ...base, plan: { summary: 'Remove whoami.', warnings: [] } } as unknown as Action)!;
     expect(p.effects.map((e) => e.label)).toEqual(['Remove whoami.']);
+  });
+});
+
+describe('names on approvals', () => {
+  const nameOf = principalNamer([{ id: 'usr_1', display_name: 'Alex' }], [{ id: 'ops-agent' }]);
+  it('uses the display name of a person and the name of an agent, and nothing for the unknown', () => {
+    expect(nameOf({ id: 'usr_1', kind: 'person' })).toBe('Alex');
+    expect(nameOf({ id: 'usr_2', kind: 'person' })).toBeUndefined();
+    expect(nameOf({ id: 'agent:ops-agent', kind: 'agent' })).toBe('ops-agent');
+    expect(nameOf({ id: 'ops-agent', kind: 'agent' })).toBe('ops-agent');
+    expect(nameOf({ id: 'plugin:x', kind: 'plugin' })).toBeUndefined();
+  });
+  it('puts the names on the summary and leaves the ids intact', () => {
+    const a: Action = { id: 'a1', type: 'app.restart', params: {}, idempotency_key: 'k', expires_at: '2026-11-12T13:00:00Z', state: 'succeeded', requested_by: { id: 'usr_1', kind: 'person', role: 'owner' }, decided_by: { id: 'usr_1', kind: 'person', role: 'owner' } } as Action;
+    const s = toActionSummary(a, undefined, nameOf);
+    expect(s.requested_by).toMatchObject({ id: 'usr_1', name: 'Alex' });
+    expect(s.decided_by).toMatchObject({ id: 'usr_1', name: 'Alex' });
+    expect(toActionSummary(a).requested_by?.name).toBeUndefined();
   });
 });
