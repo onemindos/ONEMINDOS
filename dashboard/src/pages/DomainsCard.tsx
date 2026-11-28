@@ -2,7 +2,7 @@
 // Network > Your own domains (NET-DOM-01, #238): register a domain you own, add the TXT proof record at your DNS
 // provider, ask the box to check it, and see the names asked for under it. GET, POST, DELETE /v1/domains* through
 // @onemind/sdk, owner only. Off by default on the box; approving a name records a decision only, so nothing is served
-// from your domain yet and the card says so. The CLI twin is `onemind domain list` and `onemind domain add`.
+// from your domain yet and the card says so. The CLI twin is `onemind domain list`, `add` and `host request|approve|remove`.
 import { useState, type FormEvent } from 'react';
 import type { DomainView } from '@onemind/sdk';
 import { Button, Card, Dialog, StatusPill } from '@onemind/ui';
@@ -18,6 +18,9 @@ export function DomainsCard({ token }: { token: string }) {
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState<string>();
   const [note, setNote] = useState<string>();
+  const [approving, setApproving] = useState<string>();
+  const [typed, setTyped] = useState('');
+  const [removingHost, setRemovingHost] = useState<string>();
 
   async function act(job: () => Promise<unknown>, title: string) {
     setBusy(true);
@@ -73,11 +76,61 @@ export function DomainsCard({ token }: { token: string }) {
             {d.domains.length === 0 ? (
               <p className="om-hint">No domains yet.</p>
             ) : (
-              d.domains.map((v) => <DomainRow key={v.domain} v={v} busy={busy} enabled={d.enabled} onCheck={() => void check(v.domain)} onRemove={() => setRemoving(v.domain)} />)
+              d.domains.map((v) => <DomainRow key={v.domain} v={v} busy={busy} enabled={d.enabled} onCheck={() => void check(v.domain)} onRemove={() => setRemoving(v.domain)} onAsk={(app) => void act(() => viaSdk(() => client.domains.requestHost(v.domain, app)), 'Could not ask for the name')} onApprove={(h) => { setTyped(''); setApproving(h); }} onRemoveHost={(h) => setRemovingHost(h)} />)
             )}
           </>
         )}
       </Load>
+      <Dialog
+        open={approving !== undefined}
+        onClose={() => setApproving(undefined)}
+        title={`Approve ${approving ?? ''}?`}
+        description="This records your decision only: nothing is served from the name yet and no certificate is issued. Type the full name to confirm."
+        actions={
+          <>
+            <Button variant="ghost" onClick={() => setApproving(undefined)}>
+              Cancel
+            </Button>
+            <Button
+              // The same test the gateway makes (domains.approve_host: confirm.strip().lower() == hostname).
+              disabled={typed.trim().toLowerCase() !== (approving ?? '').toLowerCase()}
+              onClick={() => {
+                const h = approving;
+                setApproving(undefined);
+                if (h) void act(() => viaSdk(() => client.domains.approveHost(h, typed.trim())), 'Could not approve the name');
+              }}
+            >
+              Approve name
+            </Button>
+          </>
+        }
+      >
+        <label htmlFor="host-confirm">Type {approving} to confirm</label>
+        <input id="host-confirm" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />
+      </Dialog>
+      <Dialog
+        open={removingHost !== undefined}
+        onClose={() => setRemovingHost(undefined)}
+        role="alertdialog"
+        title={`Remove the name ${removingHost ?? ''}?`}
+        description="The box forgets this name and its approval. The app keeps running; ask for the name again to get it back. Your DNS provider is not touched."
+        actions={
+          <>
+            <Button variant="ghost" onClick={() => setRemovingHost(undefined)}>
+              Keep it
+            </Button>
+            <Button
+              onClick={() => {
+                const h = removingHost;
+                setRemovingHost(undefined);
+                if (h) void act(() => viaSdk(() => client.domains.removeHost(h)), 'Could not remove the name');
+              }}
+            >
+              Remove name
+            </Button>
+          </>
+        }
+      />
       <Dialog
         open={removing !== undefined}
         onClose={() => setRemoving(undefined)}
@@ -105,7 +158,8 @@ export function DomainsCard({ token }: { token: string }) {
   );
 }
 
-function DomainRow({ v, busy, enabled, onCheck, onRemove }: { v: DomainView; busy: boolean; enabled: boolean; onCheck: () => void; onRemove: () => void }) {
+function DomainRow({ v, busy, enabled, onCheck, onRemove, onAsk, onApprove, onRemoveHost }: { v: DomainView; busy: boolean; enabled: boolean; onCheck: () => void; onRemove: () => void; onAsk: (app: string) => void; onApprove: (hostname: string) => void; onRemoveHost: (hostname: string) => void }) {
+  const [app, setApp] = useState('');
   return (
     <section aria-label={v.domain} className="dash-stack">
       <h3>
@@ -125,10 +179,36 @@ function DomainRow({ v, busy, enabled, onCheck, onRemove }: { v: DomainView; bus
         <ul aria-label={`Names under ${v.domain}`}>
           {v.hosts.map((h) => (
             <li key={h.hostname}>
-              <code>{h.hostname}</code> for {h.app_id}: {h.state === 'approved' ? 'approved (not served yet)' : 'waiting for your approval'}
+              <code>{h.hostname}</code> for {h.app_id}: {h.state === 'approved' ? 'approved (not served yet)' : 'waiting for your approval'}{' '}
+              {h.state !== 'approved' && (
+                <Button size="sm" disabled={!enabled || busy} onClick={() => onApprove(h.hostname)} aria-label={`Approve ${h.hostname}`}>
+                  Approve
+                </Button>
+              )}{' '}
+              <Button size="sm" variant="ghost" disabled={!enabled || busy} onClick={() => onRemoveHost(h.hostname)} aria-label={`Remove the name ${h.hostname}`}>
+                Remove name
+              </Button>
             </li>
           ))}
         </ul>
+      )}
+      {v.verified && (
+        <form
+          aria-label={`Ask for a name under ${v.domain}`}
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (app.trim()) {
+              onAsk(app.trim());
+              setApp('');
+            }
+          }}
+        >
+          <label htmlFor={`ask-${v.domain}`}>App to give a name under {v.domain}</label>
+          <input id={`ask-${v.domain}`} value={app} placeholder="ntfy" disabled={!enabled || busy} onChange={(e) => setApp(e.target.value)} autoComplete="off" />
+          <Button type="submit" size="sm" disabled={!enabled || busy || !app.trim()}>
+            Ask for this name
+          </Button>
+        </form>
       )}
       <Button size="sm" disabled={!enabled || busy} onClick={onCheck}>
         Check {v.domain}

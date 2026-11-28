@@ -3,7 +3,7 @@
 
 The log stays the append-only, hash-chained JSONL file of audit.py; nothing here writes to it.
 Who sees what (§12.6 role defaults, F-19):
-- person owner or adult (`audit:read`): every record;
+- person owner or adult (`audit:read`): all records visible to their role;
 - agent (`audit:read:own`): records it wrote, plus records about actions it requested;
 - anyone else (guest, child): 403.
 """
@@ -19,6 +19,7 @@ from pathlib import Path
 
 from .audit import GENESIS, PRUNED_EVENT, chain_anchored, chain_hash, iter_lines, segments
 from .auth import Principal
+from .boxbundle import CONFIG_APPLY
 from .filesig import cache_signature
 
 FULL_READERS = {("person", "owner"), ("person", "adult")}
@@ -102,6 +103,15 @@ def glob_any(patterns: str | None, value: str | None) -> bool:
     return any(fnmatch.fnmatchcase(value, p.strip()) for p in patterns.split(",") if p.strip())
 
 
+def _has_private_config_patch(rec: dict) -> bool:
+    data = rec.get("data") or {}
+    params = data.get("params")
+    # Older denial records omitted the action type. Recognize the config.apply parameter shape.
+    return isinstance(params, dict) and "patch" in params and (
+        data.get("type") == CONFIG_APPLY or {"revision", "base_revision", "source_sha256"} <= params.keys()
+    )
+
+
 class AuditReader:
     def __init__(self, path: Path, clock: Callable[[], datetime], owned_action_ids: Callable[[str], set[str]]):
         self.path = path
@@ -110,13 +120,17 @@ class AuditReader:
         self._verify_cache: tuple[tuple, dict] | None = None
 
     def visible(self, p: Principal) -> Callable[[dict], bool]:
-        if can_read_all(p):
+        if p.is_owner:
             return lambda rec: True
+        if can_read_all(p):
+            return lambda rec: not _has_private_config_patch(rec)
         own = self.owned_action_ids(p.id)
 
         def check(rec: dict) -> bool:
             who = rec.get("principal") or {}
-            return who.get("id") == p.id and who.get("kind") == p.kind or rec.get("action_id") in own
+            return not _has_private_config_patch(rec) and (
+                who.get("id") == p.id and who.get("kind") == p.kind or rec.get("action_id") in own
+            )
 
         return check
 

@@ -24,14 +24,19 @@ from __future__ import annotations
 import copy
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from contextlib import nullcontext
+from datetime import datetime, tzinfo
 from functools import lru_cache
 from zoneinfo import available_timezones
 
 from pydantic import ValidationError
+from sqlalchemy.orm import Session
 
-from ..automation.cron import parse_ranges
-from ..automation.updatepolicy import UpdatePolicyBody, UpdatePolicyRepository
+from ..automation.cron import WEEKDAYS, resolve_tz
+from ..automation.updatepolicy import (
+    UpdatePolicyBody,
+    UpdatePolicyRepository,
+)
 from ..backups.store import BackupsRepository
 from ..onboarding import OnboardingService
 from ..store import Database
@@ -43,7 +48,18 @@ LAYER_SCHEMA = "onemind.io/box-bundle/box-config/v1"
 # destination's config is left out and named: an allow-list, so a credential under a new name cannot slip through.
 LOCATION_KEYS = {"usb": frozenset({"usb_uuid"}), "box": frozenset({"url", "user", "append_only"}),
                  "rest": frozenset({"url", "user", "append_only"}), "s3": frozenset({"endpoint", "bucket", "prefix", "region"})}
+ADDRESS_FIELDS = frozenset({"url", "endpoint"})
 SAFE_SECTIONS = frozenset({"box", "updates"})
+
+
+def normalize_off_hours_days(updates: object) -> None:
+    """Write the scheduler's implicit every-day default as explicit weekdays."""
+    schedule = updates.get("ai_schedule") if isinstance(updates, dict) else None
+    ranges = schedule.get("off") if isinstance(schedule, dict) else None
+    if isinstance(ranges, list):
+        for entry in ranges:
+            if isinstance(entry, dict) and not entry.get("days"):
+                entry["days"] = list(WEEKDAYS)
 
 
 def collect(db: Database) -> tuple[dict, list[dict]]:
@@ -51,13 +67,16 @@ def collect(db: Database) -> tuple[dict, list[dict]]:
     onboarding = OnboardingService(db).read()
     policy = UpdatePolicyRepository(db).get()
     backups = BackupsRepository(db)
+    addresses = {"url": validator("peerLocation"), "endpoint": validator("s3Location")}
     excluded: list[dict] = []
     destinations = []
     for row in sorted(backups.destinations(), key=lambda r: r.id):
         config = {}
         allowed = LOCATION_KEYS.get(row.kind, frozenset())
         for key, value in sorted((row.config or {}).items()):
-            if key not in allowed or not isinstance(value, (str, bool)) or (isinstance(value, str) and _has_userinfo(value)):
+            if (key not in allowed or not isinstance(value, (str, bool))
+                    or (key in addresses and not addresses[key].is_valid({key: value}))
+                    or (isinstance(value, str) and _has_userinfo(value))):
                 excluded.append({"what": f"backup destination {row.id}: {key}",
                                  "reason": "not a plain location setting (it may be a credential); it is typed again on the new box"})
                 continue
@@ -67,7 +86,8 @@ def collect(db: Database) -> tuple[dict, list[dict]]:
     doc = {
         "schema": LAYER_SCHEMA,
         "box": {"box_name": onboarding["box_name"], "time_zone": onboarding["time_zone"]},
-        "updates": UpdatePolicyBody.model_validate(policy["doc"]).model_dump() if policy else None,
+        "updates": (UpdatePolicyBody.model_validate(policy["doc"]).model_dump()
+                    if policy and policy["doc"] is not None else None),
         "backups": {
             "choice": onboarding["backup_choice"],
             "primary_destination_id": next((d["id"] for d in destinations if d["is_primary"]), None),
@@ -75,7 +95,8 @@ def collect(db: Database) -> tuple[dict, list[dict]]:
             "content_tier_apps": sorted(backups.content_tier()),
         },
     }
-    problems = problems_of(validator("boxConfig"), doc)
+    normalize_off_hours_days(doc["updates"])
+    problems = problems_of(validator("boxConfig"), doc, redact_fields=ADDRESS_FIELDS)
     if problems:  # the box holds something the schema does not allow: never write a bundle that cannot be read back
         raise BundleRefused(problems)
     return doc, excluded
@@ -99,14 +120,26 @@ def layer(db: Database) -> tuple[Layer, list[dict]]:
     return make_layer(LAYER_ID, LAYER_SCHEMA, doc, items=items, sensitive=False), excluded
 
 
+def _branch_properties(node: dict, rules: dict) -> dict:
+    """Property rules from the `allOf` if/then branches that match this object (the `kind` -> config allow-list)."""
+    out: dict = {}
+    for branch in rules.get("allOf", []):
+        cond = branch.get("if", {}).get("properties", {})
+        if cond and all(k in node and ("const" in c and node[k] == c["const"] or "enum" in c and node[k] in c["enum"])
+                        for k, c in cond.items()):
+            out.update(branch.get("then", {}).get("properties", {}))
+    return out
+
+
 def _set_aside(node: object, rules: dict, defs: dict, path: str, skipped: list[str]) -> object:
     """Drop object keys the schema does not define (where it forbids extra keys), recording each path."""
-    # Walks `properties`, `items` and `$ref` only: that is all boxConfig uses. A future layer schema that adds
-    # oneOf/allOf branches with objects inside must extend this walk (the test for unknown fields would show it).
+    # Walks `properties`, `items`, `$ref` and the `allOf` if/then branches whose `if` is a const/enum on a sibling
+    # property (the per-kind destination config). A future layer schema that adds other branch shapes with objects
+    # inside (oneOf, anyOf) must extend this walk (the test for unknown fields would show it).
     if "$ref" in rules:
         rules = defs[rules["$ref"].rsplit("/", 1)[-1]]
     if isinstance(node, dict) and "properties" in rules:
-        props = rules["properties"]
+        props = {**rules["properties"], **_branch_properties(node, rules)}
         out = {}
         for key, value in node.items():
             here = f"{path}/{key}" if path else key
@@ -129,14 +162,20 @@ class Checked:
     skipped: list[str]  # fields a newer OneMind wrote that this box does not understand; never applied
 
 
-def check(doc: object) -> Checked:
-    """Accept or refuse a box-config layer read from a bundle."""
+def check(doc: object, *, newer_minor: bool = False) -> Checked:
+    """Accept or refuse a box-config layer read from a bundle.
+
+    `newer_minor` is `ManifestCheck.newer_minor`. Only a bundle from a newer OneMind may carry fields this box
+    does not know: those are set aside and named. At this version or older an unknown field is refused."""
     if not isinstance(doc, dict) or doc.get("schema") != LAYER_SCHEMA:
         raise BundleRefused([f"not a {LAYER_SCHEMA} layer"])
     defs = schema()["$defs"]
     skipped: list[str] = []
     clean = _set_aside(copy.deepcopy(doc), defs["boxConfig"], defs, "", skipped)
-    problems = problems_of(validator("boxConfig"), clean)
+    if skipped and not newer_minor:
+        raise BundleRefused([f"{path}: not a field of this layer version" for path in skipped])
+    normalize_off_hours_days(clean.get("updates"))
+    problems = problems_of(validator("boxConfig"), clean, redact_fields=ADDRESS_FIELDS)
     if problems:
         raise BundleRefused(problems)
     zone = clean["box"]["time_zone"]
@@ -161,13 +200,19 @@ def plan(current: dict, incoming: Checked) -> list[dict]:
     cur_up, inc_up = current["updates"], new["updates"]
     out.append({"section": "updates", "field": "policy", "current": cur_up, "incoming": inc_up,
                 "action": "keep" if inc_up is None else ("same" if cur_up == inc_up else "change")})
-    have = {d["id"]: d for d in current["backups"]["destinations"]}
-    for dest in new["backups"]["destinations"]:
+    cur_backups, inc_backups = current["backups"], new["backups"]
+    for field in ("choice", "primary_destination_id"):
+        cur = cur_backups.get(field)
+        inc = inc_backups.get(field, cur)
+        out.append({"section": "backups", "field": field, "current": cur, "incoming": inc,
+                    "action": "same" if cur == inc else "needs_owner"})
+    have = {d["id"]: d for d in cur_backups["destinations"]}
+    for dest in inc_backups["destinations"]:
         mine = have.get(dest["id"])
         same = mine == dest
         out.append({"section": "backups", "field": f"destination {dest['id']}", "current": mine, "incoming": dest,
                     "action": "same" if same else "needs_owner"})
-    cur_tier, inc_tier = sorted(current["backups"]["content_tier_apps"]), sorted(new["backups"]["content_tier_apps"])
+    cur_tier, inc_tier = sorted(cur_backups["content_tier_apps"]), sorted(inc_backups["content_tier_apps"])
     out.append({"section": "backups", "field": "content_tier_apps", "current": cur_tier, "incoming": inc_tier,
                 "action": "same" if cur_tier == inc_tier else "needs_owner"})
     out += [{"section": "unknown", "field": path, "current": None, "incoming": None, "action": "skipped"}
@@ -176,44 +221,56 @@ def plan(current: dict, incoming: Checked) -> list[dict]:
 
 
 def apply(db: Database, incoming: Checked, *, now: datetime, by: dict, window_exists: Callable[[str], bool],
-          sections: frozenset[str] = SAFE_SECTIONS) -> list[str]:
+          sections: frozenset[str] = SAFE_SECTIONS, session: Session | None = None,
+          resolve_zone: Callable[[str], tzinfo] = resolve_tz) -> list[str]:
     """Write the safe sections of the layer to this box; returns the fields written.
 
-    Only `box` and `updates` can be written here. Everything is checked before the first write, with the same
-    checks `UpdatePolicyService.put` makes (the update window exists on this box, the AI schedule parses), so a
-    refusal leaves the box as it was. The caller is an approved owner action (phase 4), never a route directly."""
+    Only `box` and `updates` can be written here. Everything is checked before the first write, with the same checks
+    `UpdatePolicyService.put` makes for the maintenance window and AI schedule. Both writes share one transaction.
+    The approved owner action in phase 4 can supply its import session and automation time zone resolver.
+    Stage the selected policy layer's windows first and have `window_exists` read through that same session,
+    so the box policy can refer to a just-imported window and both layers roll back together on failure.
+    """
     if not sections <= SAFE_SECTIONS:
         raise ValueError(f"only {sorted(SAFE_SECTIONS)} can be written without the owner: {sorted(sections - SAFE_SECTIONS)}")
     new = incoming.doc
     svc = OnboardingService(db)
-    cur = svc.read()
-    values = {"box_name": cur["box_name"], "time_zone": cur["time_zone"],
-              "backup_choice": cur["backup_choice"], "backup_destination_id": cur["backup_destination_id"]}
-    written: list[str] = []
+    changes = {}
+    box = {}
     if "box" in sections:
-        for field in ("box_name", "time_zone"):
-            if new["box"][field] is not None and new["box"][field] != cur[field]:
-                values[field] = new["box"][field]
-                written.append(f"box.{field}")
-        if written and (values["box_name"] is None or values["time_zone"] is None):
+        cur = svc.read(session=session)
+        box = {field: cur[field] for field in ("box_name", "time_zone")}
+        for field in box:
+            value = new["box"][field]
+            if value is not None and value != cur[field]:
+                changes[field] = value
+        box.update(changes)
+        if changes and any(value is None for value in box.values()):
             raise BundleRefused(["box: a box name and a time zone are both needed before either is saved"])
+    written = [f"box.{field}" for field in ("box_name", "time_zone") if field in changes]
+    repo = UpdatePolicyRepository(db)
     policy = None
     if "updates" in sections and new["updates"] is not None:
         try:
             body = UpdatePolicyBody.model_validate(new["updates"])
-            parse_ranges(body.ai_schedule.off)
+            body.ai_schedule.validate_timing(resolve_zone)
         except (ValidationError, ValueError) as exc:
             raise BundleRefused([f"updates: {exc}"]) from None
         if not window_exists(body.window_id):
             raise BundleRefused([f"updates: this box has no update window {body.window_id!r}; create it first"])
-        repo = UpdatePolicyRepository(db)
-        current = repo.get()
-        if current is None or current["doc"] != body.model_dump():
-            policy = body.model_dump()
-    # Every check passed: write.
-    if written:
-        svc.save(values)
+        current = repo.get(session=session)
+        current_policy = copy.deepcopy(current["doc"]) if current else None
+        normalize_off_hours_days(current_policy)
+        proposed_policy = body.model_dump()
+        if current_policy != proposed_policy:
+            policy = proposed_policy
+    # Every check passed: write, both in one transaction, so a database error cannot leave half of it.
+    if changes or policy is not None:
+        with (db.session.begin() if session is None else nullcontext(session)) as s:
+            if changes:
+                svc.import_box_settings(s, box=box, changes=changes)
+            if policy is not None:
+                repo.put(now=now, session=s, doc=policy, updated_by=by)
     if policy is not None:
-        UpdatePolicyRepository(db).put(now=now, doc=policy, updated_by=by)
         written.append("updates.policy")
     return written

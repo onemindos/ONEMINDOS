@@ -222,6 +222,8 @@
 .om-set-effects-row li { padding-left: var(--om-space-3); border-left: 3px solid var(--om-color-ok-border); }
 .om-set-effects-row li[data-risk='medium'] { border-left-color: var(--om-color-warn-fg); }
 .om-set-effects-row li[data-risk='high'] { border-left-color: var(--om-color-bad-fg); font-weight: var(--om-font-weight-semibold); }
+.om-set-effect-change { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); gap: var(--om-space-2); margin: var(--om-space-2) 0; }
+.om-set-effect-change pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .om-set-effects-undo { display: flex; gap: var(--om-space-2); align-items: center; font-size: var(--om-font-size-sm); }
 
 /* ---------- tablet and phone ---------- */

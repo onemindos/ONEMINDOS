@@ -87,6 +87,7 @@ export const EFFECT_GROUPS: Array<{ title: string; kinds: EffectKind[] }> = [
   { title: 'Stores', kinds: ['volume', 'secret'] },
   { title: 'Downloads', kinds: ['image'] },
   { title: 'Interrupts', kinds: ['restart'] },
+  { title: 'Changes settings', kinds: ['configuration'] },
   { title: 'Good to know', kinds: ['note'] },
 ];
 const RISK_RANK = { low: 0, medium: 1, high: 2 } as const;
@@ -113,6 +114,7 @@ export function planRisk(p: Pick<ActionPlan, 'effects' | 'undo' | 'placement'>):
 
 export const UNDO_TEXT: Record<ActionPlan['undo'], string> = {
   reversible: 'Can be undone with one request.',
+  reapply: 'To restore saved settings, compare your earlier YAML with this box, request an apply, and approve the new plan in Approvals.',
   snapshot: 'A snapshot is taken first; it is reverted automatically if health checks fail.',
   'one-way': 'Cannot be undone.',
 };

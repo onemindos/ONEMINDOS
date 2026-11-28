@@ -17,3 +17,5 @@ Modules:
 from .envelope import OpenedBundle, certify_export_key, kit_recipient_public_key, open_bundle, seal_bundle
 
 __all__ = ["OpenedBundle", "certify_export_key", "kit_recipient_public_key", "open_bundle", "seal_bundle"]
+
+CONFIG_APPLY = "config.apply"

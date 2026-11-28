@@ -63,7 +63,7 @@ export function HoldButton({ label, onComplete, disabled, testID }: {
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityHint="Press and hold for two seconds, then sign the approval."
+      accessibilityHint="Hold for two seconds, then sign the approval. With a screen reader, double-tap and hold."
       accessibilityState={{ disabled }}
       disabled={disabled}
       delayLongPress={HOLD_MS}

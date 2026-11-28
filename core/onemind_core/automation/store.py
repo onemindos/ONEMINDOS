@@ -10,11 +10,12 @@ from __future__ import annotations
 
 import os
 import time
+from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from sqlalchemy import JSON, Boolean, DateTime, Integer, String, UniqueConstraint, delete, func, select, update
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from ..ledger import Base, utc
 from ..store import FeatureSchema, SqlRepository
@@ -332,8 +333,8 @@ class AutomationRepository(SqlRepository):
                                   .where(PolicyUseRow.action_id.in_(action_ids))).all())
 
     # ---- windows -------------------------------------------------------------------------------
-    def get_window(self, window_id: str) -> dict | None:
-        with self.db.session() as s:
+    def get_window(self, window_id: str, *, session: Session | None = None) -> dict | None:
+        with (self.db.session() if session is None else nullcontext(session)) as s:
             r = s.get(WindowRow, window_id)
             return _plain(r) if r else None
 
@@ -341,9 +342,10 @@ class AutomationRepository(SqlRepository):
         with self.db.session() as s:
             return [_plain(r) for r in s.scalars(select(WindowRow).order_by(WindowRow.id))]
 
-    def put_window(self, window_id: str, name: str, tz: str, ranges: list, now: datetime) -> None:
+    def put_window(self, window_id: str, name: str, tz: str, ranges: list, now: datetime,
+                   *, session: Session | None = None) -> None:
         values = {"name": name, "tz": tz, "ranges": ranges, "updated_at": now}
-        with self.db.session.begin() as s:
+        with (self.db.session.begin() if session is None else nullcontext(session)) as s:
             s.execute(self.db.insert()(WindowRow).values(id=window_id, **values)
                       .on_conflict_do_update(index_elements=[WindowRow.id], set_=values))
 

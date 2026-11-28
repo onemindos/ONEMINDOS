@@ -10,6 +10,8 @@ from .manifest import BundleRefused, schema
 
 SETTINGS_SCHEMA = "onemind.io/config-as-code/settings/v1"
 
+def render(doc: dict) -> str:
+    return yaml.safe_dump(doc, sort_keys=True, allow_unicode=True)
 
 def _exportable(rules: dict) -> bool:
     # This projector reads direct properties and items. A composed or referenced schema
@@ -33,10 +35,37 @@ def _project(value: Any, rules: dict) -> Any:
     return value
 
 
-def export_settings(db: Database) -> str:
+def settings_document(db: Database) -> dict:
     layer, _ = collect(db)
     rules = schema()["$defs"]["boxConfig"]
     if not _exportable(rules):
         raise BundleRefused(["box config is unavailable for cleartext export"])
-    settings = _project(layer, rules)
-    return yaml.safe_dump({"schema": SETTINGS_SCHEMA, **settings}, sort_keys=True, allow_unicode=True)
+    return {"schema": SETTINGS_SCHEMA, **_project(layer, rules)}
+
+
+def export_settings(db: Database) -> str:
+    return render(settings_document(db))
+
+
+def settings_rules() -> dict:
+    """The same allowlist also defines the accepted cleartext input shape."""
+    def restrict(rules: dict) -> dict:
+        out = {key: rules[key] for key in (
+            "type", "enum", "pattern", "minLength", "maxLength", "minimum", "maximum", "maxItems",
+        ) if key in rules}
+        if "properties" in rules or "object" in rules.get("type", ()):
+            properties = {key: restrict(field) for key, field in rules.get("properties", {}).items()
+                          if _exportable(field)}
+            out.update(properties=properties, additionalProperties=False,
+                       required=[key for key in rules.get("required", ()) if key in properties])
+        if isinstance(items := rules.get("items"), dict) and _exportable(items):
+            out["items"] = restrict(items)
+        return out
+
+    rules = schema()["$defs"]["boxConfig"]
+    if not _exportable(rules):
+        raise BundleRefused(["box config is unavailable for cleartext export"])
+    out = restrict(rules)
+    out["properties"]["schema"] = {"const": SETTINGS_SCHEMA}
+    out["required"].append("schema")
+    return out

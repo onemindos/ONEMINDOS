@@ -14,6 +14,7 @@ from ..ai_policy import actions_for_agent
 from ..apimodels import Action
 from ..appsecrets.api import SealedInput
 from ..auth import Principal
+from ..boxbundle import CONFIG_APPLY
 from ..context import Gateway
 from ..errors import error_responses
 from ..identity.approver_keys import DeviceSignature
@@ -75,8 +76,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
     gw.principal_guards.append(taint_rest_reads)
 
     def seen_by(p: Principal, rows: list[dict]) -> list[dict]:
+        if not p.is_owner:
+            # Keep the decision status visible without exposing either copy of the configuration.
+            rows = [
+                {**a, "params": {}, "plan": None, "plan_sha256": None} if a["type"] == CONFIG_APPLY else a
+                for a in rows
+            ]
         # aiPolicy (#165): an app's tool output reaches an agent only when the app allows app data
-        # to go to an AI, the same rule as the MCP tools. People and plugins see the action as stored.
+        # to go to an AI, the same rule as the MCP tools.
         return actions_for_agent(rows, lambda: app_rows(gw)) if is_agent(p) else rows
 
     def postable_feature_types() -> list[str]:

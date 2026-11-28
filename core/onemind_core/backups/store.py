@@ -10,14 +10,41 @@ exists only in the one response that shows it.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
-from sqlalchemy import JSON, BigInteger, Boolean, DateTime, String, Text, delete, select, update
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, String, Text, delete, inspect, select, text, update
+from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..ledger import Base, iso, utc
 from ..store import FeatureSchema, SqlRepository
 
-SCHEMA = FeatureSchema("backups")  # version 1 = the shape below
+SCHEMA = FeatureSchema("backups")
+
+
+@SCHEMA.step(2, "widen backup byte counters to BIGINT on PostgreSQL")
+def _backups_v2(conn: Connection) -> None:
+    if conn.dialect.name != "postgresql":  # SQLite INTEGER already stores 64-bit values.
+        return
+
+    inspector = inspect(conn)
+    # create_all has already created any missing tables with BIGINT columns.
+    for table, name in (("backups_runs", "bytes_added"), ("backups_content_tier", "size_bytes")):
+        columns = {column["name"]: column["type"] for column in inspector.get_columns(table)}
+        if not isinstance(columns[name], BigInteger):
+            conn.execute(text(f"ALTER TABLE {table} ALTER COLUMN {name} TYPE BIGINT"))
+
+CopyCadence = Literal["every_backup", "hourly", "daily", "weekly", "manual"]
+DEFAULT_COPY_CADENCE: CopyCadence = "manual"
+
+
+@SCHEMA.step(3, "store the owner's sovereign copy cadence per destination")
+def _backups_v3(conn) -> None:
+    from sqlalchemy import inspect, text
+
+    if "copy_cadence" not in {c["name"] for c in inspect(conn).get_columns("backups_destinations")}:
+        conn.execute(text("ALTER TABLE backups_destinations ADD COLUMN copy_cadence VARCHAR(16) "
+                          "NOT NULL DEFAULT 'manual'"))
 
 
 class DestinationRow(Base):
@@ -28,6 +55,7 @@ class DestinationRow(Base):
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False)
     append_only: Mapped[bool] = mapped_column(Boolean, default=False)
     config: Mapped[dict] = mapped_column(JSON)  # never credentials
+    copy_cadence: Mapped[CopyCadence] = mapped_column(String(16), server_default=DEFAULT_COPY_CADENCE)
     action_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 

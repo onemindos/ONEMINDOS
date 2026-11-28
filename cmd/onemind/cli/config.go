@@ -133,21 +133,31 @@ func (c *Config) saveCreds(cr *Credentials) error {
 
 // writeFile0600 writes atomically with mode 0600 (also tightening an existing file).
 func writeFile0600(path string, data []byte) error {
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".tmp-*")
+	tmp, err := stageFile0600(path, data)
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tmp.Name())
-	if err := tmp.Chmod(0o600); err != nil {
-		tmp.Close()
-		return err
+	defer os.Remove(tmp)
+	return os.Rename(tmp, path)
+}
+
+// stageFile0600 writes a private sibling temp file and leaves its publication to the caller.
+func stageFile0600(path string, data []byte) (_ string, err error) {
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".tmp-*")
+	if err != nil {
+		return "", err
 	}
-	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
-		return err
+	defer func() {
+		if err != nil {
+			tmp.Close()
+			os.Remove(tmp.Name())
+		}
+	}()
+	if err = tmp.Chmod(0o600); err != nil {
+		return "", err
 	}
-	if err := tmp.Close(); err != nil {
-		return err
+	if _, err = tmp.Write(data); err != nil {
+		return "", err
 	}
-	return os.Rename(tmp.Name(), path)
+	return tmp.Name(), tmp.Close()
 }
