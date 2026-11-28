@@ -17,7 +17,12 @@ from urllib.parse import quote
 # of apps, so we take 2^15 and rate-limit logins instead). Parameters are stored with each hash.
 SCRYPT_N, SCRYPT_R, SCRYPT_P = 2**15, 8, 1
 _MAXMEM = 128 * 1024 * 1024
-PASSWORD_MIN, PASSWORD_MAX = 10, 1024
+PASSWORD_MIN, PASSWORD_MAX = 12, 1024
+COMMON_PASSWORDS = frozenset({
+    "123456789012", "1234567890123", "1234567890123456", "111111111111", "qwertyuiop[]",
+    "qwerty123456", "password1234", "password12345", "passwordpassword", "password123!",
+    "adminpassword", "letmeinletmein", "changeme12345", "correct horse battery staple",
+})
 
 
 def sha256_hex(value: str) -> str:

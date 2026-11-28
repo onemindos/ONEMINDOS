@@ -51,7 +51,10 @@ function mount(handler: (c: Call) => Response | Promise<Response> | undefined = 
   render(<MemoryRouter initialEntries={['/files']}><SessionProvider deps={{ mock: false, makeApi: () => api }}><App mock={false} /></SessionProvider></MemoryRouter>);
   return calls;
 }
-afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 it('browses real folders from the routes, previews a text file and passes axe', async () => {
   const calls = mount();
@@ -119,6 +122,28 @@ it('approves exactly the plan it showed and shows a refusal when the plan moved'
   await waitFor(() => expect(calls.find((c) => c.path === '/v1/files/requests/frq_1/approve')).toBeDefined());
   expect(JSON.parse(calls.find((c) => c.path.endsWith('/approve'))!.body)).toEqual({ plan_sha256: 'sha256:abc' });
   expect(await screen.findByText(/differs from the one you were shown/)).toBeInTheDocument();
+});
+
+it('confirms a file approval with the request-specific sign-in proof', async () => {
+  const sign = vi.spyOn(webauthn, 'getPasskey').mockResolvedValue({ id: 'test-credential' });
+  const calls = mount((c) => {
+    if (c.path === '/v1/actions/frq_1/approve-options') {
+      return json({ challenge: 'request-challenge', plan_sha256: request.plan_sha256,
+        publicKey: { challenge: 'request-challenge' }, required_level: 'L1' });
+    }
+    if (c.path === '/v1/files/requests/frq_1/approve') {
+      return JSON.parse(c.body).webauthn ? json({ ...request, state: 'succeeded' }) :
+        json({ error: 'unauthenticated', reason: 'step_up_required', message: 'Confirm this approval' }, 401);
+    }
+  });
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Sharing' }));
+  await u.click(await screen.findByRole('button', { name: 'Review request frq_1' }));
+  await u.click(screen.getByRole('button', { name: 'Approve this plan' }));
+  await waitFor(() => expect(calls.filter((c) => c.path.endsWith('/approve'))).toHaveLength(2));
+  expect(sign).toHaveBeenCalledWith({ challenge: 'request-challenge' });
+  const final = calls.filter((c) => c.path.endsWith('/approve'))[1]!;
+  expect(JSON.parse(final.body)).toEqual({ plan_sha256: request.plan_sha256, webauthn: { id: 'test-credential' } });
 });
 
 it('files a grant request with approve=false', async () => {

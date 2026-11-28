@@ -13,12 +13,14 @@ from fastapi.testclient import TestClient
 
 from onemind_core.app import create_app
 from onemind_core.identity.scopes import ROLE_SCOPES, allowed_for_kind, has_any, required_scopes
-from onemind_core.identity.settings import IdentitySettings
 from onemind_core.photos import PhotosSettings
 
-from conftest import AGENT, OWNER
+from conftest import AGENT
 from files_support import audit_events, files_root, files_settings, ok, upload  # noqa: F401
 from test_photos import Phone, blob
+from onemind_core.identity.crypto import totp_code
+from test_identity import PASSWORD as OWNER_PASSWORD
+from test_identity import LOCAL_PEER, bearer_step_up, box_code, enable_bearer_totp, id_settings, setup_bearer_owner
 
 PASSWORD = "correct horse battery staple 1"
 ROLES = ("owner", "adult", "teen", "child", "guest")
@@ -32,20 +34,24 @@ def bearer(token: str) -> dict:
 @pytest.fixture
 def box(settings, clock, executor, files_settings, tmp_path):
     s = replace(settings, sections={**settings.sections, "files": files_settings,
-                                    "photos": PhotosSettings(enabled=True, dir=tmp_path / "photos"),
-                                    "identity": IdentitySettings(cookie_secure=False)})
-    with TestClient(create_app(s, clock=clock, executor=executor)) as c:
+                                    "photos": PhotosSettings(enabled=True, dir=tmp_path / "photos")})
+    s = id_settings(s)  # D-034: the box screen shows the setup and confirmation codes
+    with TestClient(create_app(s, clock=clock, executor=executor), client=LOCAL_PEER) as c:
         yield c
 
 
 @pytest.fixture
-def people(box) -> dict:
+def people(box, clock) -> dict:
     """One signed-in person per role: {role: {id, headers}}."""
-    r = box.post("/v1/auth/setup", headers=OWNER, json={"username": "zeus", "password": PASSWORD, "client": "cli"})
-    assert r.status_code == 201, r.text
-    out = {"owner": {"id": r.json()["principal"]["id"], "headers": bearer(r.json()["access_token"])}}
+    headers = setup_bearer_owner(box)  # D-034: the screen code, then the saved recovery kit
+    out = {"owner": {"id": box.get("/v1/me", headers=headers).json()["principal"]["id"], "headers": headers}}
+    secret = out["owner"]["totp"] = enable_bearer_totp(box, headers, clock)
     for role in ROLES[1:]:
-        c = box.post("/v1/users", headers=out["owner"]["headers"], json={"display_name": role.title(), "role": role})
+        body = {"display_name": role.title(), "role": role}
+        asked = box.post("/v1/users", headers=headers, json=body)  # the hub names the exact step-up it needs
+        step = next(d["step_up"] for d in asked.json()["details"] if "step_up" in d)
+        grant = bearer_step_up(box, headers, clock, secret, step["op"], step["body"], step["target"])
+        c = box.post("/v1/users", headers={**headers, "OneMind-Step-Up": grant}, json=body)
         assert c.status_code == 201, c.text
         e = box.post("/v1/auth/enrol", json={"code": c.json()["one_time"]["enrolment_code"], "username": role,
                                               "password": PASSWORD, "client": "cli"})
@@ -183,7 +189,7 @@ def test_sync_openapi_bearer_scopes_match_runtime(box):
             assert operation["security"] == [{"bearer": list(scopes)}], (method, path)
 
 
-def test_family_home_trash_stays_restorable_without_a_permanent_delete_request(box, people):
+def test_family_home_trash_stays_restorable_without_a_permanent_delete_request(box, people, clock):
     teen = people["teen"]
     hdr, root = teen["headers"], "home:" + teen["id"]
     data = b"keep this"
@@ -210,6 +216,12 @@ def test_family_home_trash_stays_restorable_without_a_permanent_delete_request(b
     assert box.post(approve_path, headers=hdr, json=decision).status_code == 403
     trash_path = "/v1/files/trash?trash=shared"
     assert [entry["id"] for entry in ok(box.get(trash_path, headers=owner))] == [shared_item["id"]]
+    # D-034: emptying the shared trash is destructive, so the owner proves L2 at the box (password, code, screen)
+    opts = ok(box.post(f"/v1/actions/{request['id']}/approve-options", headers=owner,
+                       json={"method": "password+totp", "at_box": True}))
+    proof = {"challenge": opts["challenge"], "password": OWNER_PASSWORD,
+             "totp": totp_code(people["owner"]["totp"], int(clock.now.timestamp()) // 30)}
+    decision = {**decision, "password_totp": proof, **({"box_code": box_code(box)} if opts.get("box_code_required") else {})}
     done = ok(box.post(approve_path, headers=owner, json=decision))
     assert done["state"] == "succeeded" and done["approved_by"] == people["owner"]["id"]
     assert ok(box.get(trash_path, headers=owner)) == []

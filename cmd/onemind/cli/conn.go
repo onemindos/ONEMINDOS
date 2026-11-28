@@ -22,17 +22,25 @@ type target struct {
 	token     string
 	principal string
 	ctx       *Context
+	account   bool // prevents redirects while using a renewable account credential
 }
 
 // resolve applies the precedence flag > environment > context > default (CLI.md §3.1).
 func (a *App) resolve() (*target, error) {
+	return a.resolveTarget(true)
+}
+
+func (a *App) resolveTarget(authenticate bool) (*target, error) {
 	cfg, err := loadConfig(a.G.ConfigFile)
 	if err != nil {
 		return nil, err
 	}
 	t := &target{name: a.G.Context}
-	if t.name == "" && a.G.Hub == "" {
-		t.name = cfg.CurrentContext
+	if t.name == "" {
+		c := cfg.Contexts[cfg.CurrentContext]
+		if a.G.Hub == "" || (c != nil && strings.TrimRight(a.G.Hub, "/") == strings.TrimRight(c.Hub, "/")) {
+			t.name = cfg.CurrentContext
+		}
 	}
 	if t.name != "" {
 		c, ok := cfg.Contexts[t.name]
@@ -40,8 +48,10 @@ func (a *App) resolve() (*target, error) {
 			return nil, exitWith(ExitNotFound, "not_found", fmt.Sprintf("no context %q (see `onemind context list`)", t.name))
 		}
 		t.ctx, t.hub, t.principal = c, c.Hub, c.Principal
-		if cr, err := cfg.loadCreds(); err == nil {
-			t.token = cr.Tokens[t.name]
+		if authenticate {
+			if cr, err := cfg.loadCreds(); err == nil {
+				t.token = cr.Tokens[t.name]
+			}
 		}
 	}
 	if a.G.Hub != "" {
@@ -52,6 +62,12 @@ func (a *App) resolve() (*target, error) {
 		}
 		t.hub = a.G.Hub
 	}
+	if t.hub == "" {
+		return nil, exitWith(ExitUsage, "usage", "no box selected: run `onemind login --hub URL`, or pass --hub (or set ONEMIND_HUB)")
+	}
+	if !authenticate {
+		return t, nil
+	}
 	if env := os.Getenv("ONEMIND_TOKEN"); env != "" {
 		t.token = env
 	}
@@ -60,14 +76,21 @@ func (a *App) resolve() (*target, error) {
 		t.token = a.G.Token
 	}
 	if a.G.TokenStdin {
-		tok, err := readSecretLine(a.Stdin)
+		line, err := a.readLine()
+		if err != nil && err != io.EOF {
+			return nil, err
+		}
+		t.token = strings.TrimSpace(line)
+		if t.token == "" {
+			return nil, exitWith(ExitUsage, "usage", "--token-stdin: nothing on stdin")
+		}
+	}
+	if t.token == "" && t.ctx != nil && strings.TrimRight(t.hub, "/") == strings.TrimRight(t.ctx.Hub, "/") {
+		t.token, err = a.accountAccess(cfg, t)
 		if err != nil {
 			return nil, err
 		}
-		t.token = tok
-	}
-	if t.hub == "" {
-		return nil, exitWith(ExitUsage, "usage", "no box selected: run `onemind login --hub URL`, or pass --hub (or set ONEMIND_HUB)")
+		t.account = t.token != ""
 	}
 	return t, nil
 }
@@ -99,7 +122,21 @@ func (a *App) clientFor(t *target, extra ...onemind.Option) (*onemind.Client, er
 			fmt.Fprintf(a.Stderr, "%s %s %d %s (Authorization redacted)\n", method, path, status, d.Round(time.Millisecond))
 		}))
 	}
-	c, err := onemind.New(t.hub, append(opts, extra...)...)
+	if ca := strings.TrimSpace(os.Getenv("ONEMIND_GATEWAY_CA")); ca != "" {
+		o, err := onemind.WithGatewayCA([]byte(ca))
+		if err != nil {
+			return nil, err
+		}
+		opts = append(opts, o)
+	}
+	if t.account {
+		if _, err := secureAccountHub(t.hub); err != nil {
+			return nil, err
+		}
+		opts = append(opts, onemind.WithNoRedirects())
+	}
+	opts = append(opts, extra...)
+	c, err := onemind.New(t.hub, opts...)
 	if err != nil {
 		return nil, exitWith(ExitUsage, "usage", err.Error())
 	}

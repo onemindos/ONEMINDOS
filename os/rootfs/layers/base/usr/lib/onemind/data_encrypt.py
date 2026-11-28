@@ -43,7 +43,7 @@ PCR 7 alone is a weak binding on a box without Secure Boot (anyone who boots ano
 firmware measures the same PCR 7). The recovery key is the strong fallback; adding the signed PCR 11 policy
 waits for UKIs (docs/leap/core/SECURITY.md).
 """
-import contextlib, json, os, re, signal, subprocess, sys, time, uuid
+import contextlib, getpass, json, os, re, signal, subprocess, sys, tempfile, time, uuid
 
 LABEL = "onemind-data"
 NAME = "onemind-data"                      # /dev/mapper/onemind-data
@@ -267,12 +267,61 @@ def write_state(**kw):
 
 
 def keep_recovery_key(key):
-    """RAM only (/run is a tmpfs), root only. The recovery-kit step reads and deletes it."""
+    """RAM only (/run is a tmpfs), root only. The gateway receives an open descriptor."""
     os.makedirs(RUN, mode=0o755, exist_ok=True)
-    os.chmod(RUN, 0o755)
-    fd = os.open(RECOVERY_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w") as f:
-        f.write(key + "\n")
+    fd, path = tempfile.mkstemp(dir=RUN, prefix=".data-recovery-key-")
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(key + "\n")
+        os.replace(path, RECOVERY_FILE)
+    finally:
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink(path)
+
+
+def recover_kit(runner=run, prompt=getpass.getpass):
+    """Recover the lost RAM handoff at an administrator console without changing existing unlock methods."""
+    if os.geteuid() != 0 or not sys.stdin.isatty():
+        print("run recover-kit as root from an administrator console", file=sys.stderr)
+        return 1
+    # The by-partlabel symlink points at the decrypted volume after boot. Find its actual LUKS2 backing device.
+    mapper = os.path.basename(os.path.realpath("/dev/mapper/" + NAME))
+    sysfs = f"/sys/class/block/{mapper}"
+    if (not (read_sysfs(sysfs + "/dm/uuid") or "").startswith("CRYPT-LUKS2-")
+            or read_sysfs(sysfs + "/dm/name") != NAME):
+        print("the encrypted OneMind data disk is not open", file=sys.stderr)
+        return 1
+    members = os.listdir(sysfs + "/slaves")
+    if len(members) != 1:
+        print("could not identify the encrypted OneMind data partition", file=sys.stderr)
+        return 1
+    node = "/dev/" + members[0]
+    key = None
+    if os.path.exists(TPM_DEV):
+        result = runner(["systemd-cryptenroll", "--unlock-tpm2-device=auto", "--recovery-key", node], check=False)
+        key = parse_recovery_key(result.stdout) if result.returncode == 0 else None
+    if key is None:
+        password = prompt("Enter the data disk's passphrase or recovery key: ")
+        if not password:
+            return 1
+        if RECOVERY_RX.fullmatch(password):
+            verified = runner(["cryptsetup", "open", "--test-passphrase", "--key-file", "-", node],
+                              input=password, check=False)
+            if verified.returncode == 0:
+                key = password
+        if key is None:
+            result = runner(["systemd-cryptenroll", "--unlock-key-file=/dev/stdin", "--recovery-key", node],
+                            input=password, check=False)
+            key = parse_recovery_key(result.stdout) if result.returncode == 0 else None
+    if key is None:
+        print("could not recover a key using the existing disk unlock methods", file=sys.stderr)
+        return 1
+    keep_recovery_key(key)
+    if runner(["systemctl", "restart", "onemind-gateway.service"], check=False).returncode:
+        print("the disk key is ready, but the gateway needs to be restarted", file=sys.stderr)
+        return 1
+    print("reopen the recovery kit in the dashboard")
+    return 0
 
 
 def plan(has_tpm, opted_in, firmware_tpm=False):
@@ -577,4 +626,11 @@ def safe_main():
 
 
 if __name__ == "__main__":
+    if sys.argv[1:] == ["recover-kit"]:
+        try:
+            sys.exit(recover_kit())
+        except (OSError, EOFError, KeyboardInterrupt):
+            sys.exit("could not recover the disk key")
+    if sys.argv[1:]:
+        sys.exit("usage: data-encrypt [recover-kit]")
     sys.exit(safe_main())

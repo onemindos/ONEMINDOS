@@ -121,6 +121,7 @@ class ApprovalInput:
     # #173: the app id the owner typed to accept a licence class that is not green.
     accept_licence: str | None = None
     webauthn: bool = False
+    verified_presence: bool = False  # proof validated by the gateway for this action and plan (D-034)
     # How long the owner held the approve control, in ms (hold-to-approve). A physical action needs
     # at least HOLD_MIN_MS; the passkey assertion, not this number, is the proof of presence.
     hold_ms: int | None = None
@@ -583,8 +584,8 @@ class ActionService:
         if standing is not None or not principal.is_owner:
             raise self._deny(principal, f"approve physical action {a.type} (only a person, never a standing approval)", a.id)
         self._refuse_if_locked()
-        if not extra.webauthn:
-            raise ApiError(401, "unauthenticated", f"{a.type} moves something physical: approve it with your passkey",
+        if not (extra.webauthn or extra.verified_presence):
+            raise ApiError(401, "unauthenticated", f"{a.type} moves something physical: it needs L2 verification",
                            reason="step_up_required")
         if extra.hold_ms is None or extra.hold_ms < HOLD_MIN_MS:
             raise ApiError(409, "conflict", f"{a.type} moves something physical: hold to approve ({HOLD_MIN_MS} ms)",

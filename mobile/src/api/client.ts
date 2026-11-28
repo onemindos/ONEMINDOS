@@ -5,7 +5,8 @@
 // its own error mapping (ApiError), session renewal and response-shape checks on top. Binary transfers
 // (tus uploads, downloads) stay on fetch: the JSON client cannot carry them.
 // contract.ts checks the hand-written types in types.ts against the generated schema at compile time.
-import { OneMind, NetworkError } from '@onemind/sdk';
+import { completeStepUp, OneMind, OneMindError, NetworkError, STEP_UP_HEADER, stepUpOf, type StepUpRequest } from '@onemind/sdk';
+import { PasskeyError, type Passkeys } from '../lib/webauthn';
 import { noteProtocol, PROTOCOL_HEADER, PROTOCOL_VERSION } from '../lib/protocol';
 import {
   ApiError,
@@ -377,6 +378,13 @@ export function errorFrom(status: number, data: unknown, retryAfterHeader?: stri
   });
 }
 
+/** The step-up a refusal names (the SDK's own reading of details.step_up), or undefined. */
+function stepUpIn(status: number, data: unknown): StepUpRequest | undefined {
+  if (!isErrorBody(data)) return undefined;
+  const details = (data as { details?: unknown }).details;
+  return stepUpOf(new OneMindError(status, data.error, data.message, { reason: data.reason ?? undefined, details: Array.isArray(details) ? details : undefined }));
+}
+
 /**
  * Mobile addition: trim, drop trailing slashes, and require an absolute http(s) URL.
  * Throws a plain Error with a user-facing message otherwise.
@@ -434,8 +442,12 @@ export class HttpApi implements OneMindApi {
   // Mobile change: the hub URL is required (a phone has no same-origin hub), and
   // every request has a timeout, because a phone off the home network otherwise
   // waits for the OS TCP timeout (a minute or more) on an unreachable LAN address.
-  constructor(opts: { token?: string; tokens?: TokenSource; baseUrl: string; fetchFn?: FetchLike; timeoutMs?: number }) {
+  /** The phone's passkeys: a change the hub wants confirmed in place (D-028) is confirmed with them. */
+  private readonly passkeys: Passkeys | undefined;
+
+  constructor(opts: { token?: string; tokens?: TokenSource; baseUrl: string; fetchFn?: FetchLike; timeoutMs?: number; passkeys?: Passkeys }) {
     this.base = normalizeHubUrl(opts.baseUrl);
+    this.passkeys = opts.passkeys;
     const fixed = opts.token;
     this.tokens = opts.tokens ?? { current: () => fixed };
     this.fetchFn = opts.fetchFn ?? ((input, init) => fetch(input, init));
@@ -510,7 +522,7 @@ export class HttpApi implements OneMindApi {
     path: string,
     body?: unknown,
     shape: Shape = 'object',
-    opts: { auth?: boolean; headers?: Record<string, string>; retried?: boolean; onHeaders?: (h: Headers) => void } = {},
+    opts: { auth?: boolean; headers?: Record<string, string>; retried?: boolean; steppedUp?: boolean; onHeaders?: (h: Headers) => void } = {},
   ): Promise<T> {
     const bearer = opts.auth === false ? undefined : this.tokens.current();
     const id = String(++this.seq);
@@ -541,6 +553,14 @@ export class HttpApi implements OneMindApi {
         const fresh = await this.renew();
         if (fresh) return this.req<T>(method, path, body, shape, { ...opts, retried: true });
       }
+      // D-028: the hub names a step-up for this exact change. Confirm it with the phone's passkey and send
+      // the change once more with the grant. A synced phone passkey is L1, so an L2 change is refused at
+      // the options step with verification_level_unmet, which the screens put in plain words.
+      const step = err.reason === 'step_up_required' && !opts.steppedUp && bearer && this.passkeys?.supported() ? stepUpIn(res.status, data) : undefined;
+      if (step) {
+        const grant = await this.stepUp(step);
+        return this.req<T>(method, path, body, shape, { ...opts, steppedUp: true, headers: { ...opts.headers, [STEP_UP_HEADER]: grant } });
+      }
       throw err;
     }
     if (res.status === 204 || shape === 'any') return data as T;
@@ -548,6 +568,21 @@ export class HttpApi implements OneMindApi {
       shape === 'array' ? Array.isArray(data) : typeof data === 'object' && data !== null && !Array.isArray(data);
     if (!valid) throw new ApiError(res.status, 'unknown', 'Unexpected response from the hub');
     return data as T;
+  }
+
+  /** options -> the phone's passkey -> verify, through the SDK's shared helper; failures read as ApiError. */
+  private async stepUp(step: StepUpRequest): Promise<string> {
+    const keys = this.passkeys as Passkeys;
+    try {
+      return await completeStepUp(this.sdk, step, async (pk) => (await keys.get(pk as unknown as WebAuthnRequestOptions)) as unknown as Record<string, unknown>);
+    } catch (e) {
+      if (e instanceof OneMindError) {
+        const code = KNOWN_CODES.has(e.code) ? (e.code as ApiError['code']) : codeForStatus(e.status);
+        throw new ApiError(e.status, code, e.message, { reason: e.reason, retryAfterS: e.retryAfterS });
+      }
+      if (e instanceof PasskeyError) throw new ApiError(401, 'unauthenticated', e.message, { reason: e.kind === 'cancelled' ? 'step_up_cancelled' : 'step_up_failed' });
+      throw e;
+    }
   }
 
   hubOffsetMs() {

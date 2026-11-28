@@ -322,7 +322,9 @@
   :focus-visible { outline: 3px solid Highlight; box-shadow: none; }
 }
 
-.om-hold { display: flex; flex-wrap: wrap; gap: var(--om-space-2); }
+.om-hold { display: flex; flex-wrap: wrap; align-items: center; gap: var(--om-space-2); }
+/* Verification level (D-028): dots count the level, so it never rests on colour alone. */
+.om-verify-mark { letter-spacing: -1px; font-size: 8px; line-height: 1; }
 .om-hold-button { position: relative; overflow: hidden; touch-action: none; }
 .om-hold-label { position: relative; }
 .om-hold-fill {

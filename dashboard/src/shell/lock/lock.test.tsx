@@ -158,7 +158,7 @@ it('sign-in offers the password and authenticator code beside the passkey, not h
   expect(screen.getByRole('button', { name: 'Use my passkey' })).toBeVisible();
   const username = screen.getByLabelText('Username');
   expect(username.closest('details')).toBeNull();                 // a first choice, not "other ways"
-  expect(screen.getByLabelText('Authenticator code (only if you set one up)')).toHaveAttribute('inputmode', 'numeric');
+  expect(screen.getByLabelText('Authenticator code (if configured)')).toHaveAttribute('inputmode', 'numeric');
   expect(screen.getByLabelText('Access token').closest('details')).not.toBeNull();
   vi.unstubAllGlobals();
 });

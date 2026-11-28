@@ -28,7 +28,7 @@ from onemind_core.photos import PhotosSettings
 from files_support import (  # noqa: F401
     ADULT, AGENT, GUEST, OWNER, approve_request, audit_events, fc, files_root, files_settings, mkdir, ok, rename, upload,
 )
-from test_identity import SoftAuthenticator, id_settings, register_passkey, setup_owner
+from test_identity import LOCAL_PEER, SoftAuthenticator, id_settings, register_passkey, setup_owner
 from test_photos import Phone, blob, sha
 
 PASSWORD = "a long share password"
@@ -76,7 +76,7 @@ def share_rows(settings) -> list[ShareRow]:
 @pytest.mark.parametrize("operation", ["rename", "rename-as-move", "create", "revoke"])
 def test_person_file_writes_wait_for_owner_approval(operation, settings, clock, executor, files_settings):
     s = id_settings(replace(settings, sections={**settings.sections, "files": files_settings}))
-    with TestClient(create_app(s, clock=clock, executor=executor)) as c:
+    with TestClient(create_app(s, clock=clock, executor=executor), client=LOCAL_PEER) as c:
         item = put(c, OWNER, "shared", "/", "original.txt", b"file")
         if operation == "revoke":
             link = make_share(c, OWNER, clock, [item])

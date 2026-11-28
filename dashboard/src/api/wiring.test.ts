@@ -61,7 +61,7 @@ describe('approve', () => {
 });
 
 it.each(['issued', 'delivery unavailable', 'assertion unavailable'])(
-  'uses the SDK for recovery approval and one-time delivery (%s)', async (outcome) => {
+  'requests, approves and claims the recovery kit from this session only (%s)', async (outcome) => {
   const path = '/v1/backups/kit';
   const assertion = { id: 'passkey' };
   vi.mocked(getPasskey).mockResolvedValue(assertion);
@@ -71,6 +71,8 @@ it.each(['issued', 'delivery unavailable', 'assertion unavailable'])(
   const fetchFn = vi.fn(async (url: string, init?: RequestInit) => {
     expect(init?.method).toBe('POST');
     const pathname = new URL(url).pathname; // the SDK resolves the absolute base URL
+    // Option A (founder, 2026-11-28): no private delivery token is ever sent.
+    expect(String(init?.body ?? '')).not.toContain('delivery_token');
     if (pathname === '/v1/actions/a1/approve-options') return Response.json({ publicKey: {}, plan_sha256: 'sha256:abc' });
     if (pathname === '/v1/actions/a1/approve') {
       const body = JSON.parse(String(init?.body));
@@ -78,14 +80,13 @@ it.each(['issued', 'delivery unavailable', 'assertion unavailable'])(
       expect(body).toEqual({ webauthn: assertion, plan_sha256: 'sha256:abc' });
       if (outcome === 'assertion unavailable') return Response.json({ error: 'unavailable', message: 'Try again' }, { status: 503 });
       approved = true;
-      return Response.json({ id: 'a1', state: 'succeeded' });
+      return Response.json({ id: 'a1', type: 'backup.kit.issue', state: 'succeeded' });
     }
-    const key = new Headers(init?.headers).get('Idempotency-Key');
-    const action = { id: 'a1', type: 'backup.kit.issue', state: 'awaiting_approval', idempotency_key: key };
-    if (url.endsWith('/confirm')) return Response.json({ ...kit, state: 'confirmed' });
-    expect(pathname).toBe(path);
-    if (!approved) return Response.json(action, { status: 202 });
-    return outcome === 'issued' ? Response.json({ action, kit, one_time }, { status: 201 }) :
+    if (pathname === `${path}/confirm`) return Response.json({ ...kit, state: 'confirmed' });
+    if (pathname === `${path}/request`) return Response.json({ id: 'a1', type: 'backup.kit.issue', state: 'awaiting_approval' }, { status: 202 });
+    expect(pathname).toBe(`${path}/a1/claim`);
+    expect(approved).toBe(true);
+    return outcome === 'issued' ? Response.json({ action: { id: 'a1', state: 'succeeded' }, kit, one_time }) :
       Response.json({ error: 'unavailable', message: 'The reply was interrupted' }, { status: 503 });
   });
   const api = new HttpApi({ token: 'owner', fetchFn });
@@ -100,14 +101,8 @@ it.each(['issued', 'delivery unavailable', 'assertion unavailable'])(
   }
   expect(fetchFn.mock.calls.filter(([url]) => url.endsWith('/approve-options'))).toHaveLength(1);
   expect(fetchFn.mock.calls.filter(([url]) => url.endsWith('/approve'))).toHaveLength(2);
-  const kitCalls = fetchFn.mock.calls.filter(([url]) => url.endsWith(path));
-  if (outcome === 'assertion unavailable') {
-    expect(kitCalls).toHaveLength(1);
-    return;
-  }
-  expect(kitCalls).toHaveLength(2);
-  const [requested, delivered] = kitCalls;
-  expect(delivered?.[1]?.body).toBe(requested?.[1]?.body);
-  expect(JSON.parse(String(requested?.[1]?.body))).toMatchObject({ approve: false, delivery_token: expect.stringMatching(/^[0-9a-f]{64}$/) });
-  expect(new Headers(delivered?.[1]?.headers).get('Idempotency-Key')).toBe(new Headers(requested?.[1]?.headers).get('Idempotency-Key'));
+  expect(fetchFn.mock.calls.filter(([url]) => new URL(url).pathname === path)).toHaveLength(0);
+  const claims = fetchFn.mock.calls.filter(([url]) => url.endsWith('/claim'));
+  // A lost reply is never retried: the page is shown once.
+  expect(claims).toHaveLength(outcome === 'assertion unavailable' ? 0 : 1);
 });

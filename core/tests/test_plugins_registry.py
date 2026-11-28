@@ -96,9 +96,9 @@ def test_registry_never_exposes_raw_manifest(client, settings, clock):
 def test_identity_tokens_need_apps_read(settings, clock, executor):
     from fastapi.testclient import TestClient
     from onemind_core.app import create_app
-    from test_identity import csrf, id_settings, setup_owner
+    from test_identity import LOCAL_PEER, csrf, id_settings, setup_owner
 
-    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor)) as client:
+    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor), client=LOCAL_PEER) as client:
         setup_owner(client)
         declare_plugin(client, settings, clock)
         for scopes, expected in ((["apps:read"], 200), (["instance:read"], 403)):

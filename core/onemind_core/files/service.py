@@ -709,6 +709,10 @@ class FilesService:
                              reason="too_many_pending", headers={"Retry-After": "60"})
         request_id = new_id("frq")
         if approve:  # the owner shortcut needs the same step-up as an approval; a refusal files nothing
+            ident = getattr(http_request.app.state, "identity", None) if http_request is not None else None
+            if ident is not None and ident.account_setup_exists():
+                raise FilesError(401, "unauthenticated", "file the request, then approve it with a fresh sign-in check",
+                                 reason="step_up_required")
             self._run_guards(p, request_id, {}, http_request)
         row = RequestRow(
             id=request_id, type=type_, params=params, plan=plan, risk=risk, state="awaiting_approval",

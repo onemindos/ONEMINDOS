@@ -41,13 +41,13 @@ def physical_step_up(gw: Gateway):
         if not gw.actions.is_physical(str(action.get("type"))):
             return
         identity_present = any(getattr(g, "__name__", "") == "approval_guard" for g in gw.approval_guards)
-        if body.get("webauthn") is None or not identity_present:
+        if not (body.get("webauthn") or body.get("password_totp")) or not identity_present:
             gw.events.publish_event(
                 "auth", "step_up.required",
                 {"attempted": "approve", "action_id": action_id, "type": action.get("type"),
                  "reason": "physical_needs_passkey"},
                 principal=p.as_dict(), severity="warning", action_id=action_id)
-            raise ApiError(401, "unauthenticated", "this action moves something physical: approve it with your passkey",
+            raise ApiError(401, "unauthenticated", "this action moves something physical: it needs L2 verification",
                            reason="step_up_required")
 
     return guard
@@ -76,5 +76,6 @@ def register(app: FastAPI, gw: Gateway) -> None:
         via = "token"
         ident = getattr(app.state, "identity", None)
         if not body.locked and ident is not None:
-            via = ident.require_step_up(ctx_of(request), p, "turn off the motion lockout")
+            via = ident.require_step_up(ctx_of(request), p, "turn off the motion lockout", op="physical.lockout.set",
+                                        body=body.model_dump(mode="json"))
         return lockout.set(p, body.locked, body.reason, via)

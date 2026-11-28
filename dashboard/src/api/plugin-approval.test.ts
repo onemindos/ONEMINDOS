@@ -3,7 +3,7 @@ import { expect, it, vi } from 'vitest';
 import { HttpApi } from './client';
 
 const h = vi.hoisted(() => ({ sign: vi.fn() }));
-vi.mock('../lib/webauthn', () => ({ getPasskey: h.sign }));
+vi.mock('../lib/webauthn', () => ({ getPasskey: h.sign, webauthnSupported: () => true }));
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { 'content-type': 'application/json' },
 });

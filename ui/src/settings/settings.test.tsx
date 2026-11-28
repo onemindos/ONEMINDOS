@@ -284,7 +284,7 @@ describe('SettingsLayout', () => {
     expect(within(nav).getByRole('link', { name: /Backups/ })).toHaveTextContent('Verify soon');
     expect(screen.getByRole('link', { name: 'All settings' })).toHaveAttribute('href', '#/s');
     await userEvent.type(screen.getByRole('searchbox', { name: 'Search settings' }), 'passkey');
-    expect(within(nav).getAllByRole('link').map((link) => link.getAttribute('href'))).toEqual(['#/s/account', '#/s/security']);
+    expect(within(nav).getAllByRole('link').map((link) => link.getAttribute('href'))).toEqual(['#/s/account', '#/s/security', '#/s/sign-in-keys']);
     await userEvent.clear(screen.getByRole('searchbox', { name: 'Search settings' }));
     await userEvent.type(screen.getByRole('searchbox', { name: 'Search settings' }), 'zzz');
     expect(screen.getByText(/No setting matches/)).toBeInTheDocument();

@@ -5,7 +5,7 @@ from datetime import timedelta
 from typing import Annotated, Literal
 from zoneinfo import available_timezones
 
-from fastapi import Depends, FastAPI, Header, Response
+from fastapi import Depends, FastAPI, Header, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -158,13 +158,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.post("/v1/onboarding/restore/apps", operation_id="onboarding.restore.app", tags=["onboarding"], status_code=202,
               responses=error_responses(401, 403, 404, 409, 422, 503))
-    def restore_app(body: RestoreAppBody, p: Principal = Depends(owner),
+    def restore_app(body: RestoreAppBody, request: Request, p: Principal = Depends(owner),
                     idem: Annotated[str | None, Header(alias="Idempotency-Key", min_length=1, max_length=200)] = None):
         """Restore one installed app's data from another box's backup point (new hardware, UMB-P08).
 
         Files the ordinary `backup.restore` action (undo snapshot, stop, swap, start, health gate, roll back), with the
         owner recovery key held in memory for that one action only: never in the action, the audit log or a response.
-        Send `approve: true` to approve it in the same call; otherwise approve it at POST /v1/actions/{id}/approve."""
+        An unclaimed installation can approve in the same call. A household owner approves the filed action
+        at POST /v1/actions/{id}/approve with the verification it asks for."""
         backups = app.state.backups
         if not backups.enabled:
             raise Unavailable("backups are not switched on (ONEMIND_BACKUPS_ENABLED=1)", "backups_disabled")
@@ -172,7 +173,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
             p, body.model_dump(), idempotency_key=idem or "auto:" + secrets.token_hex(16),
             expires_at=utc(gw.clock() + timedelta(hours=24)), reason=body.reason)
         if body.approve and created:
-            action = gw.actions.approve(p, action["id"])
+            identity = getattr(app.state, "identity", None)
+            if identity is None or not identity.account_setup_exists():
+                for guard in gw.approval_guards:
+                    guard(p, action["id"], {}, request)
+                action = gw.actions.approve(p, action["id"])
         restore = next((r for r in backups.restores() if r["action_id"] == action["id"]), None)
         headers = {"Location": f"/v1/actions/{action['id']}", "Cache-Control": "no-store"}
         if not created:

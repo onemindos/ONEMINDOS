@@ -40,7 +40,11 @@ PUBLIC = {
     ("GET", "/v1/instance/name"),              # the box name alone, so the sign-in page can show it
     ("GET", "/v1/protocol"),                   # the protocol generations served (#697); an app too old to sign in must read it
     ("GET", "/openapi.json"),                  # the contract; reveals the version only
-    ("POST", "/v1/auth/setup"),                # first owner; needs the install token in the body
+    ("POST", "/v1/auth/setup"),                # first owner; screen code or headless install token
+    ("GET", "/v1/auth/setup/status"),          # no account fields, just whether the box is ready
+    ("POST", "/v1/auth/setup/options"),        # code stays on the screen
+    ("POST", "/v1/auth/recovery/options"),     # no user data, screen is on the home network
+    ("POST", "/v1/auth/recovery/reset"),       # requires both the screen code and the private kit code
     ("POST", "/v1/auth/login/options"),        # WebAuthn challenge; bounded (MAX_OPEN_LOGIN_CHALLENGES)
     ("POST", "/v1/auth/login"),                # the sign-in itself; rate limited per source
     ("POST", "/v1/auth/enrol"),                # one-time enrolment code in the body; rate limited

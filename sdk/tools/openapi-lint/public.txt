@@ -7,6 +7,10 @@ GET /healthz  # contract §3: the open health check
 GET /v1/instance/name  # only the box name, so the sign-in page can show it
 GET /v1/protocol  # protocol generations (#697), so an app too old to sign in can say Update needed
 POST /v1/auth/login/options  # contract §12.6: anyone may start a sign-in ceremony
+GET /v1/auth/setup/status  # D-034: sign-in needs to know whether first-run setup is available
+POST /v1/auth/setup/options  # D-034: home network only, displays a code on the box; never returns it
+POST /v1/auth/recovery/options  # D-034: home network only, displays a code on the box; gives no account data
+POST /v1/auth/recovery/reset  # D-034: home network only, needs screen plus private recovery kit code
 POST /v1/auth/login  # contract §12.6: anyone may sign in by password; the body is the credential
 POST /v1/auth/enrol  # contract §12.6: anyone holding an enrolment code; the code is the credential
 POST /v1/auth/refresh  # contract §12.6: anyone holding a refresh token; the token is the credential

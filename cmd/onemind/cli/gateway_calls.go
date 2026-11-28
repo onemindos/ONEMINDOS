@@ -21,8 +21,7 @@ import (
 	onemind "github.com/onemindos/onemindos/sdk/go"
 )
 
-// gwDo calls one gateway route and returns its JSON as is. A sign-in step the gateway wants a
-// passkey for is explained, because a token on a command line cannot do that step.
+// gwDo calls one gateway route and returns its JSON as is.
 func (a *App) gwDo(method, path string, body any) (any, error) {
 	if a.gw == nil {
 		c, _, err := a.client()
@@ -55,15 +54,14 @@ func (a *App) gwDoKeyed(method, path, key string, body any) (any, error) {
 	return raw, nil
 }
 
-// explainGateway adds plain words to the two gateway answers a person cannot decode alone: the
-// passkey step-up, and a 409 saying the idempotency key was already used for a different request.
+// explainGateway adds guidance for owner step-up and a reused idempotency key.
 func explainGateway(err error) error {
 	var e *onemind.Error
 	if !errors.As(err, &e) {
 		return err
 	}
 	if e.Reason == "step_up_required" {
-		return fmt.Errorf("%w\nThis step needs a passkey sign-in, which the CLI cannot do. Do it in the dashboard, or approve the request there", err)
+		return fmt.Errorf("%w\nConfirm this change in the dashboard with your passkey or password and authenticator code. The dashboard will ask for the code on the box's screen if required", err)
 	}
 	if e.Status == http.StatusConflict && strings.Contains(e.Message, "idempotency_key") {
 		return fmt.Errorf("%w\nThis exact request was already filed today by someone else, or with different details, so the box will not file it twice. See what is waiting with `onemind actions list`", err)

@@ -3,6 +3,7 @@
 // their schedules and what they did last. Creating, enabling and pausing are approvals-bound or
 // owner actions and come in a follow-up; this page cannot change a rule. (#141, UMB-P04.)
 import { useMemo } from 'react';
+import { Link } from 'react-router';
 import { OneMind, OneMindError } from '@onemind/sdk';
 import { Button, Card, PageHeader, StatusPill } from '@onemind/ui';
 import { ApiError } from '../api/types';
@@ -60,7 +61,7 @@ function LiveAutomation({ token }: { token: string }) {
     <Load res={state} what="Loading automation state">{(s) => <Card as="article" title="Kill switch" aside={<StatusPill tone={s.paused === true ? 'warn' : 'ok'} label={s.paused === true ? 'Paused' : 'Running'} />}>
       {s.paused === true
         ? <p>All automation is paused. Rules do not fire until the owner resumes them.{typeof s.reason === 'string' && s.reason ? ` Reason: ${s.reason}` : ''}</p>
-        : <p>Automation is running. Anything a rule files still needs approval unless you set a standing approval.</p>}
+        : <p>Automation is running. Anything a rule files still needs approval unless you set a <Link to="/settings/standing-approvals">standing approval</Link>.</p>}
     </Card>}</Load>
     <Load res={rules} what="Loading automation rules">{(items) => <Card title="Rules">
       {items.length === 0 ? <p>No automation rules yet.</p> : <ul>{items.map((r, i) => <li key={typeof r.id === 'string' ? r.id : i}>
