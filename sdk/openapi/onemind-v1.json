@@ -3452,6 +3452,19 @@
             "description": "a new passkey from complete/options",
             "title": "Credential"
           },
+          "current_password": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "required on the contact path",
+            "title": "Current Password"
+          },
           "label": {
             "anyOf": [
               {
@@ -3833,6 +3846,128 @@
         "title": "ContactAdded",
         "type": "object"
       },
+      "ContactRecoveryView": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "end_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Reason"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "liveness_raised": {
+            "description": "the wait rose to 72 hours because a strong key was used in the last 7 days",
+            "title": "Liveness Raised",
+            "type": "boolean"
+          },
+          "not_before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "when the person who started it may finish",
+            "title": "Not Before"
+          },
+          "path": {
+            "description": "contact (a recovery contact confirms) or remote (no contact, a longer wait)",
+            "title": "Path",
+            "type": "string"
+          },
+          "state": {
+            "description": "awaiting_contact, waiting, completed, cancelled, expired or failed",
+            "title": "State",
+            "type": "string"
+          },
+          "vouch_expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vouch Expires At"
+          },
+          "vouch_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "online (picked the matching number) or code (the 8-digit code)",
+            "title": "Vouch Method"
+          },
+          "vouched_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vouched At"
+          },
+          "wait_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wait Hours"
+          }
+        },
+        "required": [
+          "id",
+          "path",
+          "state",
+          "created_at",
+          "vouch_expires_at",
+          "vouched_at",
+          "vouch_method",
+          "wait_hours",
+          "liveness_raised",
+          "not_before",
+          "ended_at",
+          "end_reason"
+        ],
+        "title": "ContactRecoveryView",
+        "type": "object"
+      },
       "ContactRequest": {
         "properties": {
           "challenge": {
@@ -3901,17 +4036,6 @@
               }
             ],
             "title": "Owner Display Name"
-          },
-          "source": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Source"
           },
           "state": {
             "title": "State",
@@ -17940,7 +18064,7 @@
         "additionalProperties": false,
         "properties": {
           "code": {
-            "description": "the 8 digits your contact's app shows",
+            "description": "the 8 ASCII digits your contact's app shows",
             "maxLength": 16,
             "title": "Code",
             "type": "string"
@@ -23007,7 +23131,7 @@
     },
     "/v1/auth/recovery": {
       "get": {
-        "description": "Every running recovery on the box, for an owner (\"Is this you?\"). Codes are never shown here.",
+        "description": "Every running recovery on the box, for a full owner credential. Codes are never shown here.",
         "operationId": "recovery.list",
         "responses": {
           "200": {
@@ -23473,7 +23597,7 @@
     },
     "/v1/auth/recovery/requests/{request_id}/cancel": {
       "post": {
-        "description": "Stop a recovery: the person who started it (request token) or any owner session (L0).",
+        "description": "Stop a recovery with its request token or a full owner credential (L0).",
         "operationId": "recovery.cancel",
         "parameters": [
           {
@@ -23643,7 +23767,7 @@
     },
     "/v1/auth/recovery/requests/{request_id}/complete": {
       "post": {
-        "description": "After the wait: enrol the new passkey (and, on the contact path, set a new password); you get a\nnormal session. Nothing is approved, deleted or unlocked.",
+        "description": "After the wait, enrol a new passkey. With a recovery contact, prove the current password\nand enrol a passkey or set a new password. Completion returns a normal session.",
         "operationId": "recovery.complete",
         "parameters": [
           {
@@ -23714,6 +23838,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
           }
         },
         "security": [
@@ -40184,7 +40318,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RecoveryView"
+                  "$ref": "#/components/schemas/ContactRecoveryView"
                 }
               }
             },
@@ -40274,7 +40408,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RecoveryView"
+                  "$ref": "#/components/schemas/ContactRecoveryView"
                 }
               }
             },

@@ -9,7 +9,7 @@ Three audiences, three route groups:
   invite is accepted from that adult's own session);
 - the contact principal (`omc_` token): /v1/recovery/contact... and /v1/recovery/requests... (25e:
   see a recovery of their owner, confirm it by picking the matching number, or cancel it), nothing else;
-- the locked-out owner at the sign-in page (25e): POST /v1/auth/recovery starts a recovery and answers
+- the locked-out owner (25e): POST /v1/auth/recovery starts a recovery and answers
   once with a request token (`omr_`); that token, as the bearer, reaches only that request's routes
   under /v1/auth/recovery/requests/{id} (status, the contact's 8-digit code, cancel, finish).
 
@@ -152,7 +152,7 @@ class RecoveryStartBody(JsonBody):
     passkey: dict[str, Any] | None = Field(default=None, description="remote path: an assertion from a passkey you still have")
 
 
-class RecoveryView(BaseModel):
+class ContactRecoveryView(BaseModel):
     id: str
     path: str = Field(description="contact (a recovery contact confirms) or remote (no contact, a longer wait)")
     state: str = Field(description="awaiting_contact, waiting, completed, cancelled, expired or failed")
@@ -165,6 +165,9 @@ class RecoveryView(BaseModel):
     not_before: str | None = Field(description="when the person who started it may finish")
     ended_at: str | None
     end_reason: str | None
+
+
+class RecoveryView(ContactRecoveryView):
     source: str
 
 
@@ -183,7 +186,7 @@ class Started(StarterView):
 
 class CodeBody(JsonBody):
     model_config = ConfigDict(extra="forbid")
-    code: str = Field(max_length=16, description="the 8 digits your contact's app shows")
+    code: str = Field(max_length=16, description="the 8 ASCII digits your contact's app shows")
 
 
 class VouchBody(JsonBody):
@@ -198,7 +201,6 @@ class ContactRequest(BaseModel):
     state: str
     owner_display_name: str | None
     created_at: str
-    source: str | None = None
     expires_at: str | None = None
     not_before: str | None = None
     choices: list[str] | None = Field(default=None, description="three numbers; pick the one on the owner's screen")
@@ -210,6 +212,7 @@ class CompleteBody(JsonBody):
     credential: dict[str, Any] | None = Field(default=None, description="a new passkey from complete/options")
     label: str | None = Field(default=None, max_length=100)
     new_password: str | None = Field(default=None, max_length=1024, description="contact path only")
+    current_password: str | None = Field(default=None, max_length=1024, description="required on the contact path")
     client: Literal["browser", "cli", "app"] = "browser"
 
 
@@ -297,7 +300,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         """Stop being a contact. The owner is told; the token and secret stop working at once."""
         return svc.resign(svc.contact_row(request, p), p)
 
-    # ---- 25e: the locked-out owner at the sign-in page -------------------------------------------------
+    # ---- 25e: the locked-out owner -------------------------------------------------------------------
     def starter(request_id: str, request: Request) -> None:
         """The request token first: a caller without it gets 401 before its body is even read."""
         rec.status(request, request_id)
@@ -312,7 +315,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.get("/v1/auth/recovery", operation_id="recovery.list", tags=TAGS, response_model=list[RecoveryView],
              responses=R(401, 403), openapi_extra=OWNER_SECURITY)
     def list_recoveries(request: Request, p: Principal = Depends(principal)):
-        """Every running recovery on the box, for an owner ("Is this you?"). Codes are never shown here."""
+        """Every running recovery on the box, for a full owner credential. Codes are never shown here."""
         return rec.for_owner(p, ctx_of(request))
 
     @app.get("/v1/auth/recovery/requests/{request_id}", operation_id="recovery.status", tags=TAGS,
@@ -329,11 +332,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.post("/v1/auth/recovery/requests/{request_id}/cancel", operation_id="recovery.cancel", tags=TAGS,
               response_model=RecoveryView, responses=R(401, 403, 404), openapi_extra=STARTER_SECURITY)
     def recovery_cancel(request_id: str, request: Request):
-        """Stop a recovery: the person who started it (request token) or any owner session (L0)."""
+        """Stop a recovery with its request token or a full owner credential (L0)."""
         scheme, _, token = request.headers.get("authorization", "").partition(" ")
         if scheme.lower() == "bearer" and token.strip().startswith(REQUEST_TOKEN_PREFIX):
             return rec.cancel_by_starter(request, request_id)
-        return rec.cancel_by_owner(gw.principal(request), request_id)
+        p = gw.principal(request)
+        return rec.cancel_by_owner(p, ctx_of(request), request_id)
 
     @app.post("/v1/auth/recovery/requests/{request_id}/complete/options", operation_id="recovery.complete_options",
               tags=TAGS, responses=R(401, 409), openapi_extra=STARTER_SECURITY)
@@ -342,11 +346,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return rec.complete_options(request, request_id)
 
     @app.post("/v1/auth/recovery/requests/{request_id}/complete", operation_id="recovery.complete", tags=TAGS,
-              responses=R(401, 409, 422), openapi_extra=STARTER_SECURITY)
+              responses=R(401, 409, 422, 429), openapi_extra=STARTER_SECURITY)
     def recovery_complete(request_id: str, body: CompleteBody, request: Request, _: None = Depends(starter)):
-        """After the wait: enrol the new passkey (and, on the contact path, set a new password); you get a
-        normal session. Nothing is approved, deleted or unlocked."""
-        _, user = rec.complete(request, request_id, body.credential, body.label, body.new_password)
+        """After the wait, enrol a new passkey. With a recovery contact, prove the current password
+        and enrol a passkey or set a new password. Completion returns a normal session."""
+        _, user = rec.complete(request, request_id, body.credential, body.label, body.new_password,
+                               body.current_password)
         out = ident.start_session(request, user, "recovery", None, bearer=body.client != "browser", passkey=False)
         cookies = out.pop("_cookies", None)
         resp = JSONResponse(status_code=200, content=out)
@@ -364,13 +369,13 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return rec.pending_for(svc.contact_row(request, p))
 
     @app.post("/v1/recovery/requests/{request_id}/vouch", operation_id="recovery.requests.vouch", tags=TAGS,
-              response_model=RecoveryView, responses=R(401, 403, 404, 409, 422), openapi_extra=CONTACT_SECURITY)
+              response_model=ContactRecoveryView, responses=R(401, 403, 404, 409, 422), openapi_extra=CONTACT_SECURITY)
     def contact_vouch(request_id: str, body: VouchBody, request: Request, p: Principal = Depends(principal)):
         """Confirm it is really your owner: the number you picked, signed with your contact key."""
         return rec.vouch_online(svc.contact_row(request, p), p, request_id, body.picked, body.signature)
 
     @app.post("/v1/recovery/requests/{request_id}/cancel", operation_id="recovery.requests.cancel", tags=TAGS,
-              response_model=RecoveryView, responses=R(401, 403, 404), openapi_extra=CONTACT_SECURITY)
+              response_model=ContactRecoveryView, responses=R(401, 403, 404), openapi_extra=CONTACT_SECURITY)
     def contact_cancel(request_id: str, request: Request, p: Principal = Depends(principal)):
         """Stop a recovery of your owner that you do not trust (any contact, L0)."""
         return rec.cancel_by_contact(svc.contact_row(request, p), p, request_id)
