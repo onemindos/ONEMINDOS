@@ -141,7 +141,6 @@ cli instance.kiosk.set s8-cli-groups
 cli machines.disable s8-cli-groups
 cli machines.enable s8-cli-groups
 cli machines.upload s8-cli-groups
-cli me.update s8-cli-groups
 cli migrate.copy s8-cli-groups
 cli migrate.cutover s8-cli-groups
 cli migrate.import s8-cli-groups
@@ -215,7 +214,6 @@ dashboard machines.devices found-owner-screens
 dashboard machines.disable found-owner-screens
 dashboard machines.enable found-owner-screens
 dashboard machines.get found-owner-screens
-dashboard me.update found-owner-screens
 dashboard mesh.settings_update found-owner-screens
 dashboard nodes.metrics found-owner-screens
 dashboard physical.lockout.set found-owner-screens
@@ -308,14 +306,10 @@ cli actions.approve_options cli-browser-ceremony
 cli auth.app_session_clear cli-browser-ceremony
 cli auth.app_session_set cli-browser-ceremony
 cli auth.approver_keys.register cli-browser-ceremony
-cli auth.enrol cli-browser-ceremony
-cli auth.login cli-browser-ceremony
 cli auth.login_options cli-browser-ceremony
 cli auth.logout cli-browser-ceremony
 cli auth.passkeys.register cli-browser-ceremony
 cli auth.passkeys.register_options cli-browser-ceremony
-cli auth.refresh cli-browser-ceremony
-cli auth.setup cli-browser-ceremony
 group cli-visual-layout issue=#1232 A layout a person arranges on screen (Home, the dashboard card); a terminal has nothing to arrange. Founder to confirm.
 cli me.dashboard_card.save cli-visual-layout
 cli me.home.save cli-visual-layout
@@ -358,8 +352,21 @@ dashboard legacy.invitations.list legacy-household-screens
 group sdk-step-up issue=#1214 The step-up ceremony (D-028) runs inside the SDK (sdk/ts/src/stepup.ts) when any owner change answers 401 step_up_required, so no screen names its two routes; the CLI cannot answer a passkey challenge (it tells the owner to sign in with the passkey in the dashboard).
 dashboard auth.step_up.options sdk-step-up
 dashboard auth.step_up.verify sdk-step-up
-cli auth.step_up.options cli-browser-ceremony
-cli auth.step_up.verify cli-browser-ceremony
+
+group kit-issue-shortcut issue=#1325 Founder decision 2026-11-28 (option A): screens and the CLI hand the emergency kit over only through request, approval and a claim by the approving session (backups.kit.request, backups.kit.claim). The one-call shortcut that files, approves and returns the page stays for a box without step-up (scripts and first setup by the install owner token); no screen or command uses it on purpose.
+dashboard backups.kit.issue kit-issue-shortcut
+cli backups.kit.issue kit-issue-shortcut
+group family-invite-filed issue=#1325 The filed invitation request (POST /v1/users/invites, approved separately) has no screen or command yet: people are invited with POST /v1/users (step-up in place) and re-invited with POST /v1/users/{id}/invite; the CLI tells the owner to collect a link in the dashboard's Approvals, which claims it.
+dashboard users.invite family-invite-filed
+cli users.invite family-invite-filed
+cli users.invites.claim family-invite-filed
+indirect dashboard auth.recovery.remote.status SignInKeys.tsx RecoverRemoteApprovals sends GET through its call(client, method, path) helper (usePoll)
+indirect dashboard auth.recovery.remote.start SignInKeys.tsx RecoverRemoteApprovals sends POST through its call(client, 'POST', path, body) helper
+indirect dashboard auth.recovery.remote.cancel SignInKeys.tsx RecoverRemoteApprovals sends DELETE through its call(client, 'DELETE', path) helper
+indirect cli auth.recovery.remote.start account_security.go remote-recovery start sends c.Do(http.MethodPost, path) with const path
+indirect cli auth.recovery.remote.cancel account_security.go remote-recovery cancel sends c.Do(http.MethodDelete, path) with const path
+indirect cli users.create users.go createUserInvite sends c.Do(http.MethodPost, path) with const path "/v1/users"
+indirect cli users.reinvite users.go reinvite sends POST through requestFamilyInvite(path, body) (c.Do(http.MethodPost, path))
 
 # ---- the phone's 1.0 scope: what the phone leaves to the dashboard (FOUNDER TO CONFIRM) --------------
 group mobile-files-browse-only issue=#1232 Mobile 1.0 scope (founder to confirm): the phone browses, downloads and uploads files and handles Send to; file requests, sharing, trash, quotas, app passwords, the office editor, and polling or cancelling an unfinished upload are dashboard-only.
