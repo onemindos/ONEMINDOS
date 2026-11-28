@@ -26,7 +26,6 @@ Read in order: each builds on the one before.
 | 12 | [Backups and restore](12-backups-and-restore.md) | backup agent runs in `onemindd` when its settings file exists; nothing installs one yet |
 | 13 | [Identity and passkeys](13-identity-and-passkeys.md) | contract and code on `main` (PR #41); browser sign-in needs HTTPS or localhost |
 | 14 | [Notifications and alerts](14-notifications.md) | event plumbing, contract and notifier on `main` (PR #44) |
-| 15 | [One app on every device, own vs borrow, and the 3D map](founder/15-one-app-own-vs-borrow-and-3d-maps.md) (issues #1234, #1235; three shells + server-driven screens #641/#642 instead of an app per feature; own the experience, borrow the engine; MapLibre 2D, Cesium outdoor 3D, three.js indoor; 2026-11-26) |
 | 15 | [The design system and the dashboard](15-design-system-and-dashboard.md) | yes |
 | 16 | [How we test](16-testing-strategy.md) | unit to system tests yes; fuzz, property and browser e2e not yet |
 
@@ -55,6 +54,7 @@ Short answers to founder questions, saved so they are not lost in chat. Folder: 
 | 12 | [Clock, Secure Boot, disk and admin tools, and the `onemind` CLI](founder/12-clock-secure-boot-tools-and-the-cli.md) (Step 2 of the stable-and-live sprint, 2026-11-25) |
 | 13 | [The key ceremony, explained for a first-time OS builder](founder/13-the-key-ceremony-explained.md) (what the root keys do, why the owner holds them, YubiKeys vs USB sticks, is it required; 2026-11-25) |
 | 14 | [OneMind's own apps](founder/14-onemind-internal-apps.html) (web page: every built-in, built and planned app by state; built-in vs Market vs custom apps; how AI agents reach them; what to build next; 2026-11-26; open it in a browser) |
+| 15 | [One app on every device, own vs borrow, and the 3D map](founder/15-one-app-own-vs-borrow-and-3d-maps.md) (issues #1234, #1235; three shells + server-driven screens #641/#642 instead of an app per feature; own the experience, borrow the engine; MapLibre 2D, Cesium outdoor 3D, three.js indoor; 2026-11-26) |
 
 Also from founder questions: [First Android build: the app live on a real phone, why the nightly APK crashed and how to build, install and connect it](android-first-build.md) (2026-11-26).
 
