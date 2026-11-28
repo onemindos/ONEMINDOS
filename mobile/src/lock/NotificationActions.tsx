@@ -44,9 +44,9 @@ export function NotificationActions({ open }: { open: (data: Record<string, unkn
       if (previous && (!warm || (intent.kind === 'deny' && previous === 'handled'))) return;
       handledResponses.set(key, 'handled');
       if (intent.kind === 'deny') {
-        // A cancelled unlock must not block a later Deny on the same notification.
+        // Keep the cached response consumed, but let a fresh tap retry a failed attempt.
         void deny(intent.target).then((outcome) => {
-          if (outcome === 'cancelled') handledResponses.set(key, 'retry');
+          if (outcome === 'cancelled' || outcome === 'failed') handledResponses.set(key, 'retry');
         });
       } else {
         ref.current.open(intent.data);

@@ -107,7 +107,7 @@ The generic text is what an iPhone shows if nothing replaces it. The key, the te
 | App in the background, JavaScript alive | module event → fetch `GET /v1/notifications/{id}` → local notification with the text | iOS shows the generic alert (until §6) |
 | App closed | service shows the generic notification and records the ping time (Settings shows it); tap opens the Inbox | iOS shows the generic alert (until §6); tap opens the Inbox |
 
-On Android the closed-app notification has Review and Deny buttons on every ping, because a ping carries no type. Deny fetches the notification first; when it is not about a waiting request the phone says so and denies nothing.
+On Android 12 and later, a closed-app ping with a valid notification ID offers Review and Deny. A ping carries no topic, so Deny fetches the notification before confirming a pending request. On earlier Android versions, tap the notification to open OneMind.
 
 A notification never approves anything. One about a pending request opens the Approvals tab, where approval needs the owner and, when required, a passkey (NOTIFY-7).
 

@@ -11,7 +11,7 @@ import {
   enableAppSwitcherProtectionAsync,
   preventScreenCaptureAsync,
 } from 'expo-screen-capture';
-import { loadSecret, saveSecret } from '../storage';
+import { readSecret, saveSecret } from '../storage';
 import { Button } from '../ui/bits';
 import { font, space, useTheme } from '../ui/theme';
 import { authenticate, lockAvailable } from './auth';
@@ -46,6 +46,8 @@ export function useIsLocked(): boolean {
 
 export function LockProvider({ children, relockMs = RELOCK_MS, now = Date.now }: { children: ReactNode; relockMs?: number; now?: () => number }) {
   const [ready, setReady] = useState(false);
+  const [readFailed, setReadFailed] = useState(false);
+  const [readAttempt, setReadAttempt] = useState(0);
   const [available, setAvailable] = useState<boolean>();
   const [enabled, setEnabledState] = useState(false);
   const [locked, setLocked] = useState(false);
@@ -56,19 +58,21 @@ export function LockProvider({ children, relockMs = RELOCK_MS, now = Date.now }:
 
   useEffect(() => {
     let live = true;
-    void Promise.all([loadSecret(LOCK_KEY), lockAvailable()]).then(([pref, can]) => {
+    void Promise.all([readSecret(LOCK_KEY), lockAvailable()]).then(([pref, can]) => {
       if (!live) return;
-      const on = pref === 'on' && can;
+      const on = pref === 'on';
       enabledRef.current = on;
       setAvailable(can);
       setEnabledState(on);
       setLocked(on); // a cold start with the lock on opens locked
       setReady(true);
+    }).catch(() => {
+      if (live) setReadFailed(true);
     });
     return () => {
       live = false;
     };
-  }, []);
+  }, [readAttempt]);
 
   useEffect(() => {
     // Only 'background' counts: the unlock prompt itself makes iOS report 'inactive'.
@@ -109,8 +113,17 @@ export function LockProvider({ children, relockMs = RELOCK_MS, now = Date.now }:
 
   // Prompt as soon as the app shows locked (start or resume); the button asks again after a cancel.
   useEffect(() => {
-    if (ready && locked) void unlock();
-  }, [ready, locked, prompt, unlock]);
+    if (ready && locked && available) void unlock();
+  }, [ready, locked, available, prompt, unlock]);
+
+  const retry = () => {
+    if (readFailed) {
+      setReadFailed(false);
+      setReadAttempt((attempt) => attempt + 1);
+    } else {
+      void lockAvailable().then(setAvailable);
+    }
+  };
 
   const confirm = useCallback(async (reason: string, requestId: string) => {
     const details = `Request ${requestId}`;
@@ -139,6 +152,11 @@ export function LockProvider({ children, relockMs = RELOCK_MS, now = Date.now }:
     () => ({ available, enabled, locked: covered, setEnabled, confirm }),
     [available, enabled, covered, setEnabled, confirm],
   );
+  const recovery = readFailed
+    ? 'Could not read the Lock OneMind setting.'
+    : ready && available === false
+      ? 'Phone unlock is unavailable. Check your screen lock in phone settings and try again.'
+      : undefined;
   return (
     <Ctx.Provider value={value}>
       {/* Hidden from TalkBack and VoiceOver while the lock covers the screen, so they cannot read or act on what is behind it. */}
@@ -150,20 +168,22 @@ export function LockProvider({ children, relockMs = RELOCK_MS, now = Date.now }:
       >
         {children}
       </View>
-      {covered && <LockScreen checking={!ready || away} onUnlock={() => void unlock()} />}
+      {covered && <LockScreen checking={away || (!ready && !readFailed)} recovery={recovery} onUnlock={() => void unlock()} onRetry={retry} />}
     </Ctx.Provider>
   );
 }
 
-function LockScreen({ checking, onUnlock }: { checking: boolean; onUnlock: () => void }) {
+function LockScreen({ checking, recovery, onUnlock, onRetry }: { checking: boolean; recovery?: string; onUnlock: () => void; onRetry: () => void }) {
   const t = useTheme();
   return (
     <View testID={checking ? 'app-lock-checking' : 'app-lock'} accessibilityViewIsModal style={[StyleSheet.absoluteFill, { backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center', gap: space.lg, padding: space.xl }]}>
       {!checking && (
         <>
           <Text style={{ color: t.text, fontSize: font.lg, fontWeight: font.bold }}>OneMind is locked</Text>
-          <Text style={{ color: t.muted, textAlign: 'center' }}>Unlock with your face, fingerprint or phone PIN.</Text>
-          <Button testID="unlock" label="Unlock" onPress={onUnlock} />
+          <Text style={{ color: t.muted, textAlign: 'center' }}>{recovery ?? 'Unlock with your face, fingerprint or phone PIN.'}</Text>
+          {recovery
+            ? <Button label="Retry" onPress={onRetry} />
+            : <Button testID="unlock" label="Unlock" onPress={onUnlock} />}
         </>
       )}
     </View>

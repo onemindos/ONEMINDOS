@@ -36,8 +36,9 @@ export async function setupNotifications(): Promise<boolean> {
         name: 'Hub activity',
         importance: Notifications.AndroidImportance.HIGH,
       });
+    } else if (Platform.OS === 'ios') {
+      await Notifications.setNotificationCategoryAsync(APPROVAL_CATEGORY, APPROVAL_ACTIONS).catch(() => null);
     }
-    await Notifications.setNotificationCategoryAsync(APPROVAL_CATEGORY, APPROVAL_ACTIONS).catch(() => null);
   }
   const current = await Notifications.getPermissionsAsync();
   if (current.granted) return true;
@@ -57,7 +58,7 @@ export async function showAlert(a: Alert): Promise<void> {
       title: a.title,
       body: a.body,
       data: actionId ? { route: a.route, action_id: actionId } : { route: a.route },
-      ...(actionId ? { categoryIdentifier: APPROVAL_CATEGORY } : {}),
+      ...(actionId && Platform.OS === 'ios' ? { categoryIdentifier: APPROVAL_CATEGORY } : {}),
     },
     trigger: Platform.OS === 'android' ? { channelId: 'hub' } : null,
   });

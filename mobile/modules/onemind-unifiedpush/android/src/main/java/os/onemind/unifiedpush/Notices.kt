@@ -10,6 +10,7 @@ import android.content.Intent
 import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Build
+import androidx.annotation.RequiresApi
 
 /**
  * Notifications this module shows itself (issue #704). Approval notifications carry two buttons,
@@ -39,10 +40,11 @@ internal object Notices {
   }
 
   /** A button that opens `uri` only after the person unlocks the phone. */
+  @RequiresApi(Build.VERSION_CODES.S)
   private fun lockedAction(context: Context, title: String, uri: String): Notification.Action {
-    val b = Notification.Action.Builder(Icon.createWithResource(context, context.applicationInfo.icon), title, link(context, uri))
-    if (Build.VERSION.SDK_INT >= 31) b.setAuthenticationRequired(true)
-    return b.build()
+    return Notification.Action.Builder(Icon.createWithResource(context, R.drawable.onemind_notification), title, link(context, uri))
+      .setAuthenticationRequired(true)
+      .build()
   }
 
   @Suppress("DEPRECATION")
@@ -51,18 +53,18 @@ internal object Notices {
 
   /** Text the box wrote stays off the lock screen; the lock screen shows only that a request waits. */
   private fun publicVersion(context: Context, text: String): Notification =
-    builder(context).setSmallIcon(context.applicationInfo.icon).setContentTitle("OneMind").setContentText(text).build()
+    builder(context).setSmallIcon(R.drawable.onemind_notification).setContentTitle("OneMind").setContentText(text).build()
 
   /** App closed: say only that something is new, with Review and Deny (the app checks it is a request). */
   fun showOpaque(context: Context, id: String?) {
     val nm = manager(context) ?: return
     val open = if (id != null) "onemind://inbox?id=$id" else "onemind://inbox"
-    val b = builder(context).setSmallIcon(context.applicationInfo.icon)
+    val b = builder(context).setSmallIcon(R.drawable.onemind_notification)
       .setContentTitle("OneMind")
       .setContentText("Something new on your box. Open the app to see it.")
       .setContentIntent(link(context, open))
       .setAutoCancel(true)
-    if (id != null) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && id != null) {
       b.addAction(lockedAction(context, "Review", "onemind://approvals?review_notification=$id"))
       b.addAction(lockedAction(context, "Deny", "onemind://approvals?deny_notification=$id"))
     }
@@ -74,16 +76,17 @@ internal object Notices {
     val action = validId(actionId) ?: return
     val nm = manager(context) ?: return
     val review = "onemind://approvals?review=$action"
-    val n = builder(context).setSmallIcon(context.applicationInfo.icon)
+    val b = builder(context).setSmallIcon(R.drawable.onemind_notification)
       .setContentTitle(title)
       .setContentText(body)
       .setContentIntent(link(context, review))
       .setVisibility(Notification.VISIBILITY_PRIVATE)
       .setPublicVersion(publicVersion(context, "Approval needed. Unlock to review."))
-      .addAction(lockedAction(context, "Review", review))
-      .addAction(lockedAction(context, "Deny", "onemind://approvals?deny=$action"))
       .setAutoCancel(true)
-      .build()
-    nm.notify(tag, 1, n)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      b.addAction(lockedAction(context, "Review", review))
+      b.addAction(lockedAction(context, "Deny", "onemind://approvals?deny=$action"))
+    }
+    nm.notify(tag, 1, b.build())
   }
 }

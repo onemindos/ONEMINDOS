@@ -105,6 +105,14 @@ describe('notification buttons', () => {
     expect(readFileSync(`${dir}/OneMindPushService.kt`, 'utf8')).toMatch(/Notices\.showOpaque/);
   });
 
+  it('guards both Android action pairs at Android 12 and leaves the ordinary tap on older versions', () => {
+    const kt = readFileSync(`${__dirname}/../../modules/onemind-unifiedpush/android/src/main/java/os/onemind/unifiedpush/Notices.kt`, 'utf8');
+    const guardedActions = kt.matchAll(/if \(Build\.VERSION\.SDK_INT >= Build\.VERSION_CODES\.S(?: && id != null)?\) \{([^}]+)\}/g);
+    expect([...guardedActions].map(([, body]) => body?.match(/addAction\(lockedAction/g)?.length)).toEqual([2, 2]);
+    expect(kt).toContain('.setContentIntent(link(context, open))');
+    expect(kt).toContain('.setContentIntent(link(context, review))');
+  });
+
   // Jest mocks expo-local-authentication, so only the config can catch this: if app.json blocks
   // USE_BIOMETRIC, the manifest merger strips it, BiometricPrompt fails on Android, the Lock OneMind
   // switch stays off and every lock-screen Deny ends as cancelled.
@@ -322,6 +330,30 @@ describe('NotificationActions', () => {
     }
   });
 
+  it.each(['lookup', 'decision'] as const)('retries a transient %s failure only on a fresh Deny tap', async (failure) => {
+    const action = jest.fn(async () => pendingAction);
+    const deny = jest.fn(async () => pendingAction);
+    const failingCall = failure === 'lookup' ? action : deny;
+    failingCall.mockRejectedValueOnce(new Error('Hub unavailable'));
+    const tap = response(ACTION_DENY, { action_id: 'act-offline' }, `ntf-offline-${failure}`);
+    const read = jest.mocked(Notifications.getLastNotificationResponseAsync);
+    read.mockResolvedValue(tap as Awaited<ReturnType<typeof Notifications.getLastNotificationResponseAsync>>);
+    try {
+      const { remount } = await mountActions({ action, deny });
+      await waitFor(() => expect(failingCall).toHaveBeenCalledTimes(1));
+      await remount();
+      expect(action).toHaveBeenCalledTimes(1);
+
+      const listener = jest.mocked(Notifications.addNotificationResponseReceivedListener).mock.calls.at(-1)![0];
+      await act(async () => listener(tap as Parameters<typeof listener>[0]));
+      expect(action).toHaveBeenCalledTimes(2);
+      expect(deny).toHaveBeenCalledTimes(failure === 'lookup' ? 1 : 2);
+      expect(deny).toHaveBeenLastCalledWith('act-offline');
+    } finally {
+      read.mockResolvedValue(null);
+    }
+  });
+
   it('a tap or Review never approves or denies; it only opens the approval card', async () => {
     const deny = jest.fn();
     const approve = jest.fn();
@@ -360,6 +392,41 @@ describe('Lock OneMind', () => {
     expect(auth).toHaveBeenCalledTimes(2);
     // The lock never moves a token behind requireAuthentication: background photo backup keeps working.
     for (const call of (SecureStore.setItemAsync as jest.Mock).mock.calls) expect(call[2]?.requireAuthentication).toBeFalsy();
+  });
+
+  it('keeps an enabled lock covered when enrollment cannot be read and unlocks after a successful retry', async () => {
+    await SecureStore.setItemAsync(LOCK_KEY, 'on');
+    jest.mocked(LocalAuthentication.getEnrolledLevelAsync).mockRejectedValueOnce(new Error('Unavailable'));
+    await mountLock();
+    expect(screen.getByTestId('app-lock')).toBeTruthy();
+    expect(screen.queryByText('home')).toBeNull();
+    expect(auth).not.toHaveBeenCalled();
+    expect(await SecureStore.getItemAsync(LOCK_KEY)).toBe('on');
+
+    auth.mockResolvedValueOnce({ success: false, error: 'user_cancel' });
+    await fireEvent.press(screen.getByText('Retry'));
+    expect(await screen.findByTestId('unlock')).toBeTruthy();
+    expect(screen.queryByText('home')).toBeNull();
+    await fireEvent.press(screen.getByTestId('unlock'));
+    expect(await screen.findByText('home')).toBeTruthy();
+    expect(auth).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps a failed preference read covered, then honors the stored preference on retry', async () => {
+    await SecureStore.setItemAsync(LOCK_KEY, 'on');
+    jest.mocked(SecureStore.getItemAsync).mockRejectedValueOnce(new Error('Keychain unavailable'));
+    auth.mockResolvedValueOnce({ success: false, error: 'user_cancel' });
+    await render(<LockProvider><Text>home</Text></LockProvider>);
+    const retry = await screen.findByText('Retry');
+    expect(screen.queryByText('home')).toBeNull();
+    expect(auth).not.toHaveBeenCalled();
+
+    await fireEvent.press(retry);
+    expect(await screen.findByTestId('unlock')).toBeTruthy();
+    expect(screen.queryByText('home')).toBeNull();
+    await fireEvent.press(screen.getByTestId('unlock'));
+    expect(await screen.findByText('home')).toBeTruthy();
+    expect(auth).toHaveBeenCalledTimes(2);
   });
 
   it('with the lock on, opening the app shows the prompt, and coming back after a while prompts again', async () => {
@@ -499,7 +566,10 @@ describe('Android approval notification', () => {
     mockUp.value = {};
     await showAlert(approval);
     expect(schedule).toHaveBeenCalledTimes(1);
-    expect(schedule.mock.calls[0][0].content).toEqual(expect.objectContaining({ categoryIdentifier: APPROVAL_CATEGORY, data: { route: 'approvals', action_id: 'act-9' } }));
+    const { content } = schedule.mock.calls[0][0];
+    expect(content).toEqual(expect.objectContaining({ data: { route: 'approvals', action_id: 'act-9' } }));
+    expect(content).not.toHaveProperty('categoryIdentifier');
+    expect(responseIntent(response(DEFAULT_TAP, content.data))).toEqual({ kind: 'open', data: content.data });
   });
 });
 
