@@ -49,6 +49,7 @@ The file holds public keys only; no secret is written.
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import os
 import re
@@ -316,10 +317,18 @@ class CalloutAccount:
 CALLOUT_ACCOUNT = "AUTH"
 
 
+AGENT_KEYS_METADATA = "onemind_agent_keys"
+
+
+def agent_keys_digest(agents: Iterable[AgentUser]) -> str:
+    keys = sorted((agent.token, agent.nkey) for agent in agents)
+    return hashlib.sha256(json.dumps(keys).encode()).hexdigest()
+
+
 def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey] = (),
                     jetstream_max_bytes: int = 0, agents: Iterable[AgentUser] = (),
                     callout: CalloutAccount | None = None, agents_stopped: bool = False, *,
-                    stopped_at: str | None = None) -> str:
+                    stopped_at: str | None = None, report_agent_keys: bool = False) -> str:
     """The accounts include file. Deterministic: same nodes, services and agents, same bytes (no reload churn).
 
     jetstream_max_bytes > 0 turns JetStream on for the hub account with that file-storage cap. Node
@@ -418,6 +427,8 @@ def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey]
     if agents_stopped and stopped_at is not None:
         # The hub reports this exact Stop in /varz once it applies this accounts file.
         out.append(f"server_metadata: {{{AGENT_STOP_METADATA}: {json.dumps(stopped_at)}}}")
+    elif report_agent_keys and agents and not agents_stopped and callout is None:
+        out.append(f"server_metadata: {{{AGENT_KEYS_METADATA}: {json.dumps(agent_keys_digest(agents))}}}")
     out.append("")
     return "\n".join(out)
 
@@ -494,10 +505,10 @@ def make_service_key(directory: Path, name: str) -> str:
 def write_accounts(path: Path, nodes: Iterable[NodeAccount], services: Iterable[ServiceKey] = (),
                    jetstream_max_bytes: int = 0, agents: Iterable[AgentUser] = (),
                    callout: CalloutAccount | None = None, agents_stopped: bool = False, *,
-                   stopped_at: str | None = None) -> bool:
+                   stopped_at: str | None = None, report_agent_keys: bool = False) -> bool:
     """Write the include file atomically (0644: public keys only). True if the content changed."""
     body = render_accounts(nodes, services, jetstream_max_bytes, agents, callout, agents_stopped,
-                           stopped_at=stopped_at).encode()
+                           stopped_at=stopped_at, report_agent_keys=report_agent_keys).encode()
     try:
         if path.read_bytes() == body:
             return False

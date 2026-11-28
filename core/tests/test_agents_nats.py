@@ -9,23 +9,33 @@ its next connect once its user line is gone. These tests pin the file it loads a
 from __future__ import annotations
 
 import re
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Event
 
 import pytest
 
-from conftest import ADULT, AGENT, OWNER, apply_settings_change
+from conftest import ADULT, AGENT, OWNER, apply_settings_change, approve_settings_change, enroll_agent
 from onemind_core import subjects
-from onemind_core.agents_nats import agent_token
+from onemind_core.agent_principals import DEFAULT_BUDGET_PER_DAY, AgentPrincipals
+from onemind_core.agents_nats import AgentNatsKeys, agent_token, agent_users
 from onemind_core.mcp.tools import TOOL_NAMES
 from onemind_core.natsconf import AGENTS_LIMITS, AgentUser, NodeAccount, render_accounts
 from onemind_core.netconf import FabricSettings
-from test_net import fabric_of, hs, kube, nc, net_settings  # noqa: F401 (pytest fixtures)
+from test_net import fabric_of, hs, kube, net_settings  # noqa: F401 (pytest fixtures)
+from test_net import nc as net_client  # noqa: F401
 
 GOLDEN = Path(__file__).resolve().parents[2] / "internal" / "leaf" / "testdata" / "hub-accounts-agents.golden.conf"
 PUB_A = "UBBUEVU3RVFLTSYWTDDLUC2TLY3YDZKKYWVTUOW4UFVUY6BICGH55O2Y"
 PUB_B = "UC3WGTQV7ERIG2GOPKU7CXZ6B6DPY4S2DC4ZIUZ4XVZENDHGM3RRMZF3"
 AGENTS = [AgentUser("bbb", PUB_B), AgentUser("aaa", PUB_A)]
 KEY_PATH = "/v1/agents/agent:aaa/nats-key"
+
+
+@pytest.fixture
+def nc(net_client):
+    enroll_agent(net_client, "agent:aaa")
+    return net_client
 
 
 def agents_block(text: str) -> str:
@@ -179,6 +189,102 @@ def fail_next_write(monkeypatch):
         return real(*args, **kwargs)
 
     monkeypatch.setattr(fabric_mod, "write_accounts", flaky)
+
+
+def test_key_rewrite_failure_reports_the_committed_key_and_restart_reconciles(nc, monkeypatch):
+    apply_settings_change(nc, nc.put(KEY_PATH, json={"nkey": PUB_A}, headers=OWNER))
+    fail_next_write(monkeypatch)
+    reply = nc.put(KEY_PATH, json={"nkey": PUB_B}, headers={**OWNER, "Idempotency-Key": "rotate-key"})
+    done = approve_settings_change(nc, reply)
+    assert done["state"] == "outcome_unknown"
+    assert done["result"]["steps"] == [{"committed": True, "accounts_written": False, "broker_enforced": None}]
+    assert PUB_A in accounts(nc) and PUB_B not in accounts(nc)
+    assert nc.get(KEY_PATH, headers=OWNER).json()["nkey"] == PUB_B
+    assert agent_users(nc.app.state.gateway.db) == [AgentUser("aaa", PUB_B)]  # what callout reads
+    replay = nc.put(KEY_PATH, json={"nkey": PUB_B}, headers={**OWNER, "Idempotency-Key": "rotate-key"})
+    assert replay.status_code == 202 and replay.json()["id"] == done["id"]
+    assert replay.json()["result"] == done["result"]
+    fabric_of(nc).reconcile()
+    assert PUB_A not in accounts(nc) and PUB_B in accounts(nc)
+
+
+@pytest.mark.parametrize("kind", ["budget", "nats-key"])
+def test_replacement_cannot_inherit_an_approval_that_is_applying(net_client, monkeypatch, kind):
+    name = "agent:aaa"
+    first = enroll_agent(net_client, name)
+    base = f"/v1/agents/{name}"
+    registry = net_client.app.state.actions.principals
+    uid = registry.live(name)["uid"]
+    cls, method, body = ((AgentPrincipals, "set_budget", {"budget_per_day": DEFAULT_BUDGET_PER_DAY + 1})
+                         if kind == "budget" else (AgentNatsKeys, "set", {"nkey": PUB_A}))
+    queued, stale = [net_client.put(f"{base}/{kind}", headers=OWNER, json=body) for _ in range(2)]
+    assert queued.json()["params"]["before"]["principal_uid"] == uid
+    writer_entered, replacement_checked = Event(), Event()
+    write = getattr(cls, method)
+
+    def wait_at_write(*args, **kwargs):
+        writer_entered.set()
+        assert replacement_checked.wait(5)
+        result = write(*args, **kwargs)
+        if kind == "budget":
+            assert result["budget_per_day"] == body["budget_per_day"]
+        else:
+            assert agent_users(net_client.app.state.gateway.db) == [AgentUser("aaa", PUB_A)]
+        return result
+
+    def replace_agent():
+        assert writer_entered.wait(5)
+        entered_early = registry.lifecycle.acquire(blocking=False)
+        if entered_early:
+            registry.lifecycle.release()
+        replacement_checked.set()
+        assert not entered_early, "credential replacement can enter between recheck and write"
+        assert net_client.delete(f"/v1/tokens/{first['id']}", headers=OWNER).status_code == 204
+        enroll_agent(net_client, name)
+
+    monkeypatch.setattr(cls, method, wait_at_write)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        replacement = pool.submit(replace_agent)
+        apply_settings_change(net_client, queued)
+        replacement.result(timeout=10)
+
+    assert registry.live(name)["uid"] != uid
+    assert approve_settings_change(net_client, stale)["state"] == "failed"
+    assert net_client.get(base, headers=OWNER).json()["budget_per_day"] == DEFAULT_BUDGET_PER_DAY
+    assert net_client.get(KEY_PATH, headers=OWNER).json()["nkey"] is None
+    assert agent_users(net_client.app.state.gateway.db) == [] and PUB_A not in accounts(net_client)
+    fabric_of(net_client).reconcile()
+    assert PUB_A not in accounts(net_client)
+
+
+def test_unenrolled_name_cannot_receive_an_approved_key_or_budget(net_client):
+    for kind, body in (("nats-key", {"nkey": PUB_A}), ("budget", {"budget_per_day": DEFAULT_BUDGET_PER_DAY + 1})):
+        r = net_client.put(f"/v1/agents/agent:aaa/{kind}", headers=OWNER, json=body)
+        assert r.status_code == 409 and r.json()["reason"] == "unknown_principal"
+    assert net_client.get("/v1/actions", headers=OWNER).json() == []
+
+
+def test_upgrade_cannot_assign_legacy_grants_to_a_live_identity(nc, net_settings, clock):
+    from sqlalchemy import text
+
+    from conftest import make_client
+
+    db = nc.app.state.gateway.db
+    with db.engine.begin() as conn:
+        conn.execute(text("UPDATE schema_versions SET version = 2 WHERE feature = 'agents'"))
+        for column in ("budget_uid", "budget_ceiling", "resumed_uid"):
+            conn.execute(text(f"ALTER TABLE agents_principals DROP COLUMN {column}"))
+        conn.execute(text("ALTER TABLE agents_nats_keys DROP COLUMN principal_uid"))
+        conn.execute(text("INSERT INTO agents_principals (principal_id, budget_per_day, updated_at) VALUES "
+                          "('agent:aaa', :high, :now), ('hermes', 0, :now)"),
+                     {"high": DEFAULT_BUDGET_PER_DAY + 1, "now": clock()})
+        conn.execute(text("INSERT INTO agents_nats_keys (principal_id, nkey, added_by, added_at) "
+                          "VALUES ('agent:aaa', :key, 'owner', :now)"), {"key": PUB_A, "now": clock()})
+    with make_client(net_settings, clock) as reopened:
+        assert reopened.get("/v1/agents/agent:aaa", headers=OWNER).json()["budget_per_day"] == DEFAULT_BUDGET_PER_DAY
+        assert reopened.get("/v1/agents/hermes", headers=OWNER).json()["budget_per_day"] == 0
+        assert reopened.get(KEY_PATH, headers=OWNER).json()["nkey"] is None
+        assert agent_users(reopened.app.state.gateway.db) == [] and PUB_A not in accounts(reopened)
 
 
 def test_a_retried_delete_after_a_failed_write_still_revokes(nc, monkeypatch):  # noqa: F811

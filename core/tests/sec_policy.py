@@ -24,12 +24,19 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 import sec_world as w
+from conftest import enroll_agent
 from onemind_core.natsconf import new_user_key
 from sec_world import IDENTITY_STREAM, KINDS
 
 DECIDE = "decide"
 DENIED = frozenset({401, 403})
 NOT_2XX = frozenset({401, 403, 404, 405})
+
+
+def agent_key_change(world):
+    name = "agent:probe"
+    enroll_agent(world.client, name, world.static("owner"))
+    return w.Req(f"/v1/agents/{name}/nats-key", json={"nkey": new_user_key()[1]})
 
 
 @dataclass(frozen=True)
@@ -489,7 +496,7 @@ POLICY |= {
     ("GET", "/v1/agents/{name}/nats-key"): Row(ONLY_OWNER, w.p_static("/v1/agents/agent:probe/nats-key"),
                                                "#627: only the owner reads an agent's NATS key"),
     ("PUT", "/v1/agents/{name}/nats-key"): Row(grid(202, 403, 403, 403, 403),
-                                              w.p_missing("/v1/agents/agent:probe/nats-key", json={"nkey": new_user_key()[1]}),
+                                              agent_key_change,
                                               "#627, D-028: only the owner queues a NATS key for L2 approval"),
     ("DELETE", "/v1/agents/{name}/nats-key"): Row(ONLY_OWNER, w.p_missing("/v1/agents/agent:probe/nats-key"),
                                                   "#627: only the owner removes an agent's NATS key"),

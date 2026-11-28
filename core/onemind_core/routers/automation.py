@@ -175,10 +175,17 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return svc.set_paused(p, False, (body or PauseBody()).reason)
 
     # ---- standing approvals --------------------------------------------------------------------
+    def reviewed_window(params: dict):
+        if "window" not in params and params["rule"].get("window_id") is not None:
+            raise ApiError(409, "stale_precondition", "the request lacks a reviewed maintenance window; file it again")
+        return params.get("window")
+
     register_change(app, gw, "policy.rule.create", lambda p, params: policies.create(
-        p, PolicyBody.model_validate(params["rule"]), "L2", expected_bindings=params["principals"]))
+        p, PolicyBody.model_validate(params["rule"]), "L2", expected_bindings=params["principals"],
+        expected_window=reviewed_window(params)))
     register_change(app, gw, "policy.rule.widen", lambda p, params: policies.revise(
-        p, params["id"], PolicyPatch.model_validate(params["patch"]), "L2", expected_bindings=params["principals"]))
+        p, params["id"], PolicyPatch.model_validate(params["patch"]), "L2", expected_bindings=params["principals"],
+        expected_window=reviewed_window(params)))
     register_change(app, gw, "policy.rule.confirm", lambda p, params: policies.confirm(
         p, params["id"], revision=params["revision"]))
     register_change(app, gw, "policy.rule.reconfirm", lambda p, params: policies.reconfirm(
@@ -201,7 +208,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def create_policy(body: PolicyBody, p: Principal = Depends(principal)):
         preview = policies.prepare_create(p, body)
         return request_change(app, gw, p, "policy.rule.create",
-                              {"rule": body.model_dump(mode="json"), "principals": preview["principals"]})
+                              {"rule": body.model_dump(mode="json"), "principals": preview["principals"],
+                               "window": policies.window_snapshot(body.window_id)})
 
     @app.post("/v1/approval-policies/{policy_id}/confirm", operation_id="approvals.policies.confirm", tags=tags,
               responses={**QUEUED, **error_responses(401, 403, 404, 409, 429)}, status_code=202,
@@ -233,7 +241,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
             policies._require_proven("making a rule Forever")
         return request_change(app, gw, p, "policy.rule.widen",
                               {"id": policy_id, "rule": rule, "patch": patch.model_dump(mode="json", exclude_unset=True),
-                               "principals": policies._bindings(updated.allow.requested_by)})
+                               "principals": policies._bindings(updated.allow.requested_by),
+                               "window": policies.window_snapshot(updated.window_id)})
 
     @app.post("/v1/approval-policies/{policy_id}/revoke", operation_id="approvals.policies.revoke", tags=tags,
               responses={**ONE, **error_responses(401, 403, 404)}, openapi_extra={"security": [{"bearer": ["tokens:self"]}]})

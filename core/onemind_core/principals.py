@@ -75,7 +75,7 @@ class PrincipalRegistry:
                  file_ids: Callable[[], set[str]] = set):
         self.db, self.audit, self.clock = db, audit, clock
         self.file_ids = file_ids
-        self._lock = threading.RLock()  # one gateway process per ledger database (as agent_stop.py)
+        self.lifecycle = threading.RLock()  # one gateway process per ledger database (as agent_stop.py)
         # PR 9: fn(display id, reason) when an identity or its credential changes; standing approvals that
         # name it are suspended until an approver re-confirms them (design §3.6.2 item 7).
         self.listeners: list[Callable[[str, str], None]] = []
@@ -106,7 +106,7 @@ class PrincipalRegistry:
         from .automation.store import new_id  # the same prefixed ULIDs as the rule ids
         from .errors import ApiError
 
-        with self._lock, self.db.session.begin() as s:
+        with self.lifecycle, self.db.session.begin() as s:
             if persist is not None:
                 persist(s)
             found = self._live_row(s, name)
@@ -125,7 +125,7 @@ class PrincipalRegistry:
 
     def retire(self, name: str, reason: str, *, persist: Callable[[Session], None] | None = None) -> str | None:
         """End the live identity of `name`, optionally revoking its credential in the same write."""
-        with self._lock, self.db.session.begin() as s:
+        with self.lifecycle, self.db.session.begin() as s:
             if persist is not None:
                 persist(s)
             found = self._live_row(s, name)
@@ -177,7 +177,7 @@ class PrincipalRegistry:
 
     def resolve(self, name: str, *, adopt: bool = True) -> dict | None:
         """Resolve a unique holder, adopting older credentials that predate the registry."""
-        with self._lock:
+        with self.lifecycle:
             holders = self._holders(name)
             if len(holders) != 1:
                 return None

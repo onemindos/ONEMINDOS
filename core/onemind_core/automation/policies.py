@@ -392,6 +392,25 @@ class PolicyService:
         return False
 
     # ---- windows -------------------------------------------------------------------------------
+    def window_snapshot(self, window_id: str | None) -> dict | None:
+        if window_id is None:
+            return None
+        w = self.repo.get_window(window_id)
+        if w is None:
+            raise ApiError(404, "not_found", f"no window {window_id!r}")
+        return {"id": window_id, "updated_at": iso(w["updated_at"]), "tz": w["tz"], "ranges": w["ranges"],
+                "resolved_tz": str(resolve_tz(w["tz"], self.box_tz))}
+
+    def _check_window_snapshot(self, window_id: str | None, expected) -> None:
+        if expected is ...:
+            return
+        try:
+            actual = self.window_snapshot(window_id)
+        except ApiError:
+            actual = ...
+        if actual != expected:
+            raise ApiError(409, "stale_precondition", "the maintenance window changed; request the rule again")
+
     def window_is_open(self, window_id: str | None, at: datetime) -> bool:
         if window_id is None:
             return True
@@ -528,9 +547,11 @@ class PolicyService:
                 "created_from": created_from, **self._columns(body)}
 
     def create(self, principal: Principal, body: PolicyBody, approval: str = "token", *,
-               created_from: str | None = None, expected_bindings: dict | None = None) -> dict:
+               created_from: str | None = None, expected_bindings: dict | None = None, expected_window=...) -> dict:
         values = self.prepare_create(principal, body, created_from=created_from, expected_bindings=expected_bindings)
-        p = self.repo.add_policy(**values)
+        with self.repo.policy_windows:
+            self._check_window_snapshot(body.window_id, expected_window)
+            p = self.repo.add_policy(**values)
         return self.record_creation(principal, p, approval)
 
     def record_creation(self, principal: Principal, p: dict, approval: str) -> dict:
@@ -636,7 +657,7 @@ class PolicyService:
         return direction, new.model_dump(mode="json"), patch.model_copy(update={"revision": p["revision"]})
 
     def revise(self, principal: Principal, policy_id: str, patch: PolicyPatch, approval: str | None,
-               *, expected_bindings: dict | None = None) -> dict:
+               *, expected_bindings: dict | None = None, expected_window=...) -> dict:
         """PATCH: a new revision. The route has asked for a passkey when this widens."""
         self._owner_only(principal, "edit standing approvals")
         p = self._get(policy_id)
@@ -659,8 +680,10 @@ class PolicyService:
             reviewed = self._bindings(new.allow.requested_by, expected=expected_bindings)
             bindings.update({k: v for k, v in reviewed.items() if k not in old.allow.requested_by})
         cols["principals"] = bindings
-        if not self.repo.set_policy(policy_id, expect_revision=p["revision"], **cols):
-            raise ApiError(409, "conflict", "the rule changed meanwhile; read it again")
+        with self.repo.policy_windows:
+            self._check_window_snapshot(new.window_id, expected_window)
+            if not self.repo.set_policy(policy_id, expect_revision=p["revision"], **cols):
+                raise ApiError(409, "conflict", "the rule changed meanwhile; read it again")
         out = self.to_json(self.repo.get_policy(policy_id))  # type: ignore[arg-type]
         self.audit.append("approval.policy.revised", principal.as_dict(), None,
                           {"policy_id": policy_id, "revision": out["revision"], "direction": direction,

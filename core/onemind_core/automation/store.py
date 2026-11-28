@@ -478,7 +478,7 @@ class AutomationRepository(SqlRepository):
 
     def put_window(self, window_id: str, name: str, tz: str, ranges: list, now: datetime) -> list[str]:
         values = {"name": name, "tz": tz, "ranges": ranges, "updated_at": now}
-        with self.db.session.begin() as s:
+        with self.policy_windows, self.db.session.begin() as s:
             s.execute(self.db.insert()(WindowRow).values(id=window_id, **values)
                       .on_conflict_do_update(index_elements=[WindowRow.id], set_=values))
             return list(s.scalars(update(PolicyRow).where(

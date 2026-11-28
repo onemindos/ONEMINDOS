@@ -40,6 +40,7 @@ import json
 import logging
 import threading
 from collections.abc import Callable
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal, Protocol
@@ -1439,13 +1440,14 @@ class ActionService:
             # Secret would go stale. An update still needs the gateway address for its egress rule.
             return AgentSecret(spec.secret, spec.principal_id, gateway_url=self.gateway_url) if a.type == "app.update" else None
         token = new_agent_token()
-        if self.principals is not None:
-            # Every install is a new identity: rules bound to an earlier install, or to whoever held the
-            # id before, never cover this one (gateway permissions PR 7).
-            self.repo.revoke_agent_token(spec.principal_id, self.clock())
-            self.principals.retire(spec.principal_id, "app.install")
-            self.principals.register(spec.principal_id, source="app")
-        self.repo.issue_agent_token(spec.principal_id, app.id, token_hash(token), self.clock())
+        registry = self.principals
+        with registry.lifecycle if registry is not None else nullcontext():
+            if registry is not None:
+                # Every install is a new identity. Keep per-agent approvals out of the transition.
+                self.repo.revoke_agent_token(spec.principal_id, self.clock())
+                registry.retire(spec.principal_id, "app.install")
+                registry.register(spec.principal_id, source="app")
+            self.repo.issue_agent_token(spec.principal_id, app.id, token_hash(token), self.clock())
         self.audit.append(
             "agent.principal.issued", None, a.id,
             {"principal": {"id": spec.principal_id, "kind": "agent", "role": "agent"},
@@ -1456,14 +1458,16 @@ class ActionService:
 
     def _revoke_agent(self, a: Action, reason: str) -> None:
         principal_id = f"agent:{a.params['app_id']}"
-        revoked = self.repo.revoke_agent_token(principal_id, self.clock())
+        registry = self.principals
+        with registry.lifecycle if registry is not None else nullcontext():
+            revoked = self.repo.revoke_agent_token(principal_id, self.clock())
+            if registry is not None:
+                registry.retire(principal_id, reason)
         if self.agent_forgotten is not None:
             try:
                 self.agent_forgotten(principal_id)
             except Exception:  # best effort: the token is revoked either way
                 log.exception("forgetting the declared inputs of %s failed", principal_id)
-        if self.principals is not None:
-            self.principals.retire(principal_id, reason)
         if revoked:
             self.audit.append(
                 "agent.principal.revoked", None, a.id, {"principal_id": principal_id, "reason": reason}

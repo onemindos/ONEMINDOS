@@ -668,7 +668,8 @@ class FabricService:
             callout = self.d.callout() if self.d.callout is not None else None
             stopped, stopped_at = self.d.agent_stop_state() if self.d.agent_stop_state is not None else (False, None)
             changed = write_accounts(path, accounts, load_service_keys(self.d.fabric.nats_service_keys),
-                                     self.d.fabric.jetstream_max_bytes, agents, callout, stopped, stopped_at=stopped_at)
+                                     self.d.fabric.jetstream_max_bytes, agents, callout, stopped, stopped_at=stopped_at,
+                                     report_agent_keys=True)
         if changed:
             log.info("NATS accounts updated (%d nodes, %d agents%s)", len(accounts), len(agents),
                      ", agents stopped: AGENTS left out" if stopped else "")

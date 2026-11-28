@@ -18,6 +18,7 @@ import secrets
 import threading
 from collections import deque
 from collections.abc import Callable
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
@@ -936,15 +937,18 @@ class IdentityService:
             raise ApiError(404, "not_found", "no such user")
         self._last_owner_guard(u, True)
         now = self.now()  # removing power is a direct write: no step-up (§12.1)
-        self.repo.update(UserRow, [UserRow.id == u.id], {"disabled": True, "updated_at": now})
-        sessions = self.repo.update(SessionRow, [SessionRow.user_id == u.id, SessionRow.revoked_at.is_(None)],
-                                    {"revoked_at": now})
-        tokens = self.repo.update(TokenRow, [or_(TokenRow.owner_user_id == u.id, TokenRow.principal_id == u.id),
-                                             TokenRow.revoked_at.is_(None)], {"revoked_at": now})
-        for name in {display_key({"id": t.principal_id, "kind": t.kind})
-                     for t in self.repo.all(select(TokenRow).where(TokenRow.id.in_(tokens)))
-                     if t.kind in ("agent", "plugin")}:
-            self._retire(name, "owner_disabled")
+        reg = self._registry()
+        with reg.lifecycle if reg is not None else nullcontext():
+            self.repo.update(UserRow, [UserRow.id == u.id], {"disabled": True, "updated_at": now})
+            sessions = self.repo.update(SessionRow, [SessionRow.user_id == u.id, SessionRow.revoked_at.is_(None)],
+                                        {"revoked_at": now})
+            tokens = self.repo.update(TokenRow, [or_(TokenRow.owner_user_id == u.id, TokenRow.principal_id == u.id),
+                                                 TokenRow.revoked_at.is_(None)], {"revoked_at": now})
+            if reg is not None:
+                for name in {display_key({"id": t.principal_id, "kind": t.kind})
+                             for t in self.repo.all(select(TokenRow).where(TokenRow.id.in_(tokens)))
+                             if t.kind in ("agent", "plugin")}:
+                    reg.retire(name, "owner_disabled")
         self.emit("user", "disabled", {"user_id": u.id, "sessions_revoked": len(sessions),
                                        "tokens_revoked": len(tokens)}, p, severity="warning")
         return self.user_json(self.user(u.id))
@@ -1140,11 +1144,6 @@ class IdentityService:
 
     def _registry(self):
         return getattr(self.gw.actions, "principals", None)
-
-    def _retire(self, name: str, reason: str) -> None:
-        reg = self._registry()
-        if reg is not None:
-            reg.retire(name, reason)
 
     # ---- per-app sharing ---------------------------------------------------------------------------
     DEFAULT_ROLES = ("owner", "adult")

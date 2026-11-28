@@ -3,7 +3,7 @@
 
 import pytest
 
-from conftest import AGENT, OWNER, action_body
+from conftest import AGENT, OWNER, action_body, enroll_agent
 from onemind_core.natsconf import new_user_key
 from test_approve_remember import box  # noqa: F401 (pytest fixture)
 from test_identity import csrf
@@ -78,6 +78,7 @@ def test_agent_permission_increase_needs_action_bound_l2(box, clock, monkeypatch
         field, before, after = "budget_per_day", 0, 1
         action_type = "policy.agent.budget.raise"
     else:
+        enroll_agent(client, "agent:aaa", headers)
         path = "/v1/agents/agent:aaa/nats-key"
         _, public_key = new_user_key()
         method, url, body = "PUT", path, {"nkey": public_key}

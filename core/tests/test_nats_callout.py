@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from conftest import apply_settings_change
+from conftest import apply_settings_change, enroll_agent
 from onemind_core import callout, natsjwt
 from onemind_core.natsconf import AgentUser, CalloutAccount, NodeAccount, ServiceKey, render_accounts
 from test_net import hs, kube, net_settings  # noqa: F401 (pytest fixtures)
@@ -320,6 +320,7 @@ def test_callout_switch_writes_the_block_and_keeps_agents_out_of_the_file(net_se
     client = TestClient(create_app(settings, clock=clock, executor=ScriptedExecutor()))
     from onemind_core.natsconf import new_user_key
 
+    enroll_agent(client, "agent:aaa")
     _, pub = new_user_key()
     apply_settings_change(client, client.put("/v1/agents/agent:aaa/nats-key", json={"nkey": pub}, headers=OWNER))
     text = fab.nats_accounts_file.read_text()
@@ -357,6 +358,7 @@ def test_kill_switch_rewrites_the_accounts_file(net_settings, clock, tmp_path, m
     fab = replace(net_settings.section(FabricSettings), nats_service_keys=keys_dir, nats_callout=True)
     settings = replace(net_settings, sections={**net_settings.sections, "fabric": fab})
     client = TestClient(create_app(settings, clock=clock, executor=ScriptedExecutor()))
+    enroll_agent(client, "agent:aaa")
     _, pub = new_user_key()
     apply_settings_change(client, client.put("/v1/agents/agent:aaa/nats-key", json={"nkey": pub}, headers=OWNER))
     assert "  AGENTS: {" in fab.nats_accounts_file.read_text()
@@ -419,6 +421,7 @@ def test_kill_switch_http_waits_for_connected_agent_cutoff(net_settings, clock, 
 
     app = create_app(net_settings, clock=clock, executor=ScriptedExecutor())
     client = TestClient(app)
+    enroll_agent(client, "agent:aaa")
     stop_path = "/v1/agents/kill-switch"
     seed, pub = new_user_key()
     seed_file = tmp_path / "agent.nk"
@@ -496,3 +499,63 @@ def test_callout_with_no_registered_agent_still_wires_the_agents_account():
     hub = text.split("  ONEMIND: {", 1)[1].split("\n  }", 1)[0]
     assert '{service: "onemind.request.agent.>", accounts: ["AGENTS"]}' in hub
     assert '{service: {account: "AGENTS", subject: "agents.prompt.>"}}' in hub
+
+
+@pytest.mark.skipif(NATS_SERVER is None, reason="nats-server is not installed")
+def test_key_approval_reports_live_broker_reload(net_settings, clock, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+
+    from fastapi.testclient import TestClient
+
+    from conftest import OWNER, ScriptedExecutor
+    from onemind_core.app import create_app
+    from onemind_core.engine import monitor
+    from onemind_core.natsconf import AGENT_KEYS_METADATA, new_user_key
+    from onemind_core.netconf import FabricSettings
+
+    app = create_app(net_settings, clock=clock, executor=ScriptedExecutor())
+    client = TestClient(app)
+    enroll_agent(client, "agent:aaa")
+    path = "/v1/agents/agent:aaa/nats-key"
+    accounts = net_settings.section(FabricSettings).nats_accounts_file
+    app.state.actions.handlers["node.join"].write_accounts()
+    port, monitor_port = _port(), _port()
+    conf = accounts.with_name("hub.conf")
+    conf.write_text(f'listen: "127.0.0.1:{port}"\nhttp: "127.0.0.1:{monitor_port}"\ninclude "{accounts.name}"\n')
+    reader = monitor.MonitorReader(f"http://127.0.0.1:{monitor_port}")
+    app.state.engine.reader = reader
+    proc = subprocess.Popen([NATS_SERVER, "-c", str(conf)], stdout=subprocess.DEVNULL)
+    try:
+        for _ in range(100):
+            try:
+                if reader._get("/varz")[0] == 200:
+                    break
+            except monitor.httpx.HTTPError:
+                time.sleep(0.02)
+        else:
+            pytest.fail("NATS monitoring did not start")
+        _, first_key = new_user_key()
+        with monkeypatch.context() as mp:
+            mp.setattr(monitor, "AGENT_CUTOFF_TIMEOUT_S", 0.25)
+            pending = apply_settings_change(client, client.put(path, json={"nkey": first_key}, headers=OWNER))
+        assert pending["result"]["steps"] == [{"committed": True, "broker_enforced": None}]
+        assert AGENT_KEYS_METADATA not in (reader._get("/varz")[1].get("metadata") or {})
+
+        _, second_key = new_user_key()
+        queued = client.put(path, json={"nkey": second_key}, headers=OWNER)
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            done = pool.submit(apply_settings_change, client, queued)
+            for _ in range(100):
+                if second_key in accounts.read_text():
+                    break
+                time.sleep(0.02)
+            else:
+                pytest.fail("approval did not write the new broker configuration")
+            assert not done.done()
+            proc.send_signal(signal.SIGHUP)
+            result = done.result(timeout=6)
+        assert result["result"]["steps"] == [{"committed": True, "broker_enforced": True}]
+    finally:
+        reader.close()
+        proc.terminate()
+        proc.wait(5)

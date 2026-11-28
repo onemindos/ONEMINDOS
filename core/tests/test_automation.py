@@ -24,7 +24,7 @@ from onemind_core.audit import verify
 from onemind_core.auth import Principal
 from onemind_core.automation import AutomationSettings
 
-from conftest import AGENT, GUEST, OWNER, action_body, apply_queued_policy, apply_settings_change
+from conftest import AGENT, GUEST, OWNER, action_body, apply_queued_policy, apply_settings_change, approve_settings_change
 
 
 def iso(dt: datetime) -> str:
@@ -413,6 +413,44 @@ def test_narrowing_a_referenced_window_is_immediate_and_invalidates_pending_wide
     assert result["state"] == "failed" and "window or its rules changed" in result["result"]["message"]
     assert svc(client).repo.get_policy(pol["id"])["revision"] == 2
     assert svc(client).repo.get_window("win_nightly")["ranges"] == narrowed.json()["ranges"]
+
+
+@pytest.mark.parametrize("widen_existing", [False, True], ids=["create", "widen-to-different-window"])
+def test_rule_approval_cannot_apply_after_the_target_window_changes(client, clock, widen_existing):
+    window_id = "win_reviewed"
+    window_path = f"/v1/windows/{window_id}"
+    ranges = [{"start": "02:00", "end": "05:00"}]
+    window = {"name": "Reviewed", "tz": "UTC", "ranges": ranges}
+    original = client.put(window_path, json=window, headers=OWNER)
+    assert original.status_code == 200, original.text
+    pol = policy(client, clock, window_id="win_nightly").json() if widen_existing else None
+
+    def request_rule():
+        if pol is not None:
+            return client.patch(f"/v1/approval-policies/{pol['id']}", headers=OWNER,
+                                json={"window_id": window_id, "revision": pol["revision"]})
+        return client.post("/v1/approval-policies", headers=OWNER, json={
+            "allow": {"types": ["app.restart"], "requested_by": ["automation:update-policy"]},
+            "limits": {"per_day": 3}, "expires_at": iso(clock.now + timedelta(days=30)), "window_id": window_id,
+        })
+
+    queued = request_rule()
+    assert queued.status_code == 202, queued.text
+    reviewed = queued.json()["plan"]["params"]["window"]
+    assert reviewed == {"id": window_id, "updated_at": original.json()["updated_at"],
+                        "tz": "UTC", "resolved_tz": "UTC", "ranges": ranges}
+    moved = client.put(window_path, headers=OWNER, json={**window, "ranges": [{"start": "21:00", "end": "23:00"}]})
+    assert moved.status_code == 200 and moved.json()["open_now"]
+    failed = approve_settings_change(client, queued)
+    assert failed["state"] == "failed" and "maintenance window changed" in failed["result"]["message"]
+    stored = svc(client).repo.list_policies()
+    assert len(stored) == int(widen_existing)
+    if pol is not None:
+        assert stored[0]["window_id"] == "win_nightly" and stored[0]["revision"] == pol["revision"]
+
+    apply_settings_change(client, request_rule())
+    (active,) = svc(client).repo.list_policies()
+    assert active["window_id"] == window_id
 
 
 def test_f6_patch_updates_of_verified_apps_inside_the_window(client, clock, auto_settings):

@@ -268,7 +268,7 @@ def rules_may_fire(request, monkeypatch):
     monkeypatch.setattr(changes, "owner_has_passkey", lambda app: True)
 
 
-def apply_settings_change(client, response):
+def approve_settings_change(client, response):
     """Provision approved test state, using the real ledger with an already verified L2 proof.
 
     Tests of authorization itself drive the WebAuthn entry point.
@@ -280,10 +280,21 @@ def apply_settings_change(client, response):
     action = response.json()
     assert action["state"] == "awaiting_approval"
     actions = client.app.state.gateway.actions
-    done = actions.approve(Principal("owner", "person", "owner"), action["id"], action["plan_sha256"],
+    return actions.approve(Principal("owner", "person", "owner"), action["id"], action["plan_sha256"],
                            extra=ApprovalInput(verification_level=2))
+
+
+def apply_settings_change(client, response):
+    done = approve_settings_change(client, response)
     assert done["state"] == "succeeded", done
     return done
+
+
+def enroll_agent(client, name, headers=OWNER):
+    response = client.post("/v1/tokens", headers=headers,
+                           json={"name": name, "principal": {"kind": "agent", "id": name}})
+    assert response.status_code == 201, response.text
+    return response.json()
 
 
 class QueuedPolicy:

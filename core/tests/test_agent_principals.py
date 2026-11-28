@@ -10,12 +10,16 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from conftest import conform_to_schema, AGENT, OWNER, FakeKubectl, ScriptedExecutor, action_body, make_client
+from conftest import (
+    AGENT, OWNER, FakeKubectl, ScriptedExecutor, action_body, apply_settings_change, conform_to_schema, make_client,
+)
+from onemind_core.agent_principals import DEFAULT_BUDGET_PER_DAY
 from onemind_core.app import create_app
 from onemind_core.audit import verify
 from onemind_core.catalog import Catalog, agent_spec_errors
 from onemind_core.config import Settings
 from onemind_core.executors import AgentSecret, KubernetesExecutor
+from onemind_core.natsconf import new_user_key
 from onemind_core.netconf import NetSettings
 
 SCHEMA = Path(__file__).resolve().parents[2] / "sdk" / "schema" / "onemind.app.schema.json"
@@ -107,6 +111,24 @@ def test_reinstall_rotates_the_token(client, clock, executor):
     assert client.get("/v1/apps", headers=bearer(first)).status_code == 401
     assert client.get("/v1/apps", headers=bearer(second)).status_code == 200
     assert len(stored_rows(client)) == 1
+
+
+def test_reinstall_does_not_inherit_an_approved_budget_or_nats_key(client, clock):
+    assert run_action(client, clock)["state"] == "succeeded"
+    path = f"/v1/agents/agent:{APP}"
+    _, nkey = new_user_key()
+    budget = DEFAULT_BUDGET_PER_DAY + 10
+    apply_settings_change(client, client.put(f"{path}/budget", headers=OWNER, json={"budget_per_day": budget}))
+    apply_settings_change(client, client.put(f"{path}/nats-key", headers=OWNER, json={"nkey": nkey}))
+    old = client.get(path, headers=OWNER).json()
+    assert old["budget_per_day"] == budget and client.get(f"{path}/nats-key", headers=OWNER).json()["nkey"] == nkey
+
+    assert run_action(client, clock, type_="app.remove", key="remove")["state"] == "succeeded"
+    assert run_action(client, clock, key="reinstall")["state"] == "succeeded"
+    new = client.get(path, headers=OWNER).json()
+    assert new["principal_uid"] not in (None, old["principal_uid"])
+    assert new["budget_per_day"] == DEFAULT_BUDGET_PER_DAY
+    assert client.get(f"{path}/nats-key", headers=OWNER).json()["nkey"] is None
 
 
 @pytest.mark.parametrize("outcome", ["failed", "outcome_unknown"])

@@ -33,7 +33,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from ..natsconf import AGENTS_ACCOUNT, AGENT_STOP_METADATA, HUB_ACCOUNT
+from ..natsconf import AGENTS_ACCOUNT, AGENT_KEYS_METADATA, AGENT_STOP_METADATA, HUB_ACCOUNT
 
 DEFAULT_URL = "http://127.0.0.1:8222"   # onemind-firstboot and deploy/install.sh: `http: 127.0.0.1:8222`
 CACHE_S = 2.0
@@ -247,6 +247,20 @@ class MonitorReader:
                             return True
             except (httpx.HTTPError, ValueError):
                 pass  # the monitor may be briefly unavailable while the broker reloads
+            time.sleep(0.05)
+        return False
+
+    def wait_for_agent_keys(self, digest: str) -> bool:
+        """Confirm the live broker loaded the exact static agent key set."""
+        deadline = time.monotonic() + AGENT_CUTOFF_TIMEOUT_S
+        while time.monotonic() < deadline:
+            try:
+                status, varz = self._get("/varz")
+            except (httpx.HTTPError, ValueError):
+                return False
+            metadata = varz.get("metadata")
+            if status == 200 and isinstance(metadata, dict) and metadata.get(AGENT_KEYS_METADATA) == digest:
+                return True
             time.sleep(0.05)
         return False
 

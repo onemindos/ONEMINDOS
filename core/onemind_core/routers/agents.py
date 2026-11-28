@@ -11,14 +11,13 @@ owner changes it. While it is on, every agent principal is refused at the door, 
 from __future__ import annotations
 
 from collections.abc import Callable
-from threading import Lock
 from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, Header
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ..agent_principals import MAX_BUDGET_PER_DAY, AgentPrincipals
-from ..agents_nats import AgentNatsKeys
+from ..agents_nats import AgentNatsKeys, agent_users
 from ..agent_stop import AgentStop
 from ..apimodels import Action, PrincipalRef
 from ..auth import Principal
@@ -26,8 +25,9 @@ from ..context import Gateway
 from ..errors import ApiError, error_responses
 from ..identity.scopes import register_route_scope
 from ..jsonbody import JsonBody
+from ..natsconf import agent_keys_digest
 from ..netconf import FabricSettings
-from ..permissions.changes import QUEUED, register_change, request_change
+from ..permissions.changes import QUEUED, register_change, request_change, require_owner_passkey
 from ..principals import PrincipalRegistry, display_key
 from ..taint_store import INPUT_KINDS, MAX_ACCEPT, AgentInputs, TaintStore
 
@@ -180,7 +180,20 @@ def register(app: FastAPI, gw: Gateway) -> None:
     # AIG-03 routes come after the kill switch so /v1/agents/kill-switch is not read as an agent name.
     svc = AgentPrincipals(gw.db, gw.actions, gw.audit, gw.clock)
 
-    keys = AgentNatsKeys(gw.db, gw.audit, gw.clock, rewrite_accounts)
+    def broker_status() -> bool | None:
+        config = gw.settings.section(FabricSettings)
+        if config.nats_accounts_file is None:
+            return None
+        reader = app.state.engine.reader
+        if stop.on:
+            marker = stop.state()["changed_at"]
+            return False if marker is not None and reader.wait_for_agent_cutoff(marker) else None
+        if config.nats_callout:
+            return None
+        digest = agent_keys_digest(agent_users(gw.db))
+        return True if reader.wait_for_agent_keys(digest) else None
+
+    keys = AgentNatsKeys(gw.db, gw.audit, gw.clock, rewrite_accounts, broker_status)
 
     @app.get("/v1/agents", operation_id="agents.list", tags=TAGS,
              responses={200: {"model": list[AgentView]}, **error_responses(401, 403)})
@@ -197,6 +210,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     registry = PrincipalRegistry(gw.db, gw.audit, gw.clock,
                                  lambda: {fp.id for _, fp in gw.tokens.entries() if fp.kind == "agent"})
     gw.actions.principals = registry
+    registry.listeners.append(keys.principal_retired)
 
     def no_agent_id_collision(action_type: str, app_id: str) -> None:
         if action_type != "app.install":
@@ -253,28 +267,35 @@ def register(app: FastAPI, gw: Gateway) -> None:
                           request_loosen=lambda params: request_change(app, gw, p, "policy.agent_inputs.change", params),
                           on_exposure=lambda: gained_exposure(pid))
 
-    # Like the global Stop switch, recheck the reviewed state and serialize the approved write
-    # with immediate settings changes in this gateway process.
-    controls = Lock()
+    # Identity retirement and credential replacement take this same lock.
+    controls = registry.lifecycle
 
     def nats_state(pid: str) -> dict:
         key = keys.view(pid)
         return {**svc.control_state(pid), "nkey": key["nkey"], "added_at": key["added_at"]}
 
     def register_agent_change(kind: str, state: Callable[[str], dict],
-                              apply: Callable[[Principal, dict], object]) -> None:
-        def checked(p: Principal, params: dict) -> None:
+                              apply: Callable[[Principal, dict, str], object]) -> None:
+        def checked(p: Principal, params: dict) -> object:
             with controls:
-                if state(params["agent"]) != params["before"]:
+                uid = params["before"].get("principal_uid")
+                if uid is None or state(params["agent"]) != params["before"]:
                     raise ApiError(409, "conflict", "agent settings changed since the request; file a new one")
-                apply(p, params)
+                return apply(p, params, uid)
 
         register_change(app, gw, kind, checked)
 
-    register_agent_change(RESUME, svc.control_state, lambda p, params: svc.resume(p, params["agent"]))
+    def require_live_agent(before: dict) -> None:
+        if before["principal_uid"] is None:
+            require_owner_passkey(app)
+            raise ApiError(409, "conflict", "the agent needs a live principal before increasing its permissions",
+                           reason="unknown_principal")
+
+    register_agent_change(RESUME, svc.control_state, lambda p, params, uid: svc.resume(p, params["agent"], uid=uid))
     register_agent_change(RAISE_BUDGET, svc.control_state,
-                          lambda p, params: svc.set_budget(p, params["agent"], params["budget_per_day"]))
-    register_agent_change(SET_NATS_KEY, nats_state, lambda p, params: keys.set(p, params["agent"], params["nkey"]))
+                          lambda p, params, uid: svc.set_budget(p, params["agent"], params["budget_per_day"], uid=uid))
+    register_agent_change(SET_NATS_KEY, nats_state,
+                          lambda p, params, uid: keys.set(p, params["agent"], params["nkey"], uid=uid))
 
     @app.put("/v1/agents/{name}/budget", operation_id="agents.budget.set", tags=TAGS,
              responses={200: {"model": AgentView}, **QUEUED, **error_responses(401, 403, 409, 422, 429)})
@@ -284,7 +305,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
         with controls:
             before = svc.control_state(pid)
             if body.budget_per_day <= before["budget_per_day"]:
-                return svc.set_budget(p, pid, body.budget_per_day)
+                return svc.set_budget(p, pid, body.budget_per_day, uid=before["principal_uid"], tighten=True)
+            require_live_agent(before)
         return request_change(app, gw, p, RAISE_BUDGET,
                               {"agent": pid, "budget_per_day": body.budget_per_day, "before": before})
 
@@ -293,12 +315,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def cancel_agent(name: str, p: Principal = Depends(principal)):
         with controls:
             out = svc.cancel(p, name)
-            if name.startswith("agent:"):
-                try:
-                    keys.remove(None, name, why="agent_cancelled")
-                except ApiError as exc:  # the cancel stands; a dotted name never had a NATS user
-                    if exc.status != 422:
-                        raise
+            try:
+                keys.remove(None, display_key({"id": name, "kind": "agent"}), why="agent_cancelled")
+            except ApiError as exc:  # the cancel stands; a dotted name never had a NATS user
+                if exc.status != 422:
+                    raise
         return out
 
     @app.post("/v1/agents/{name}/resume", operation_id="agents.resume", tags=TAGS,
@@ -310,6 +331,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             before = svc.control_state(pid)
             if before["cancelled_at"] is None:
                 return svc.view(pid)
+            require_live_agent(before)
         return request_change(app, gw, p, RESUME, {"agent": pid, "before": before})
 
     @app.get("/v1/agents/{name}/nats-key", operation_id="agents.nats_key.get", tags=TAGS,
@@ -326,6 +348,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
             previous = gw.actions.repo.get_by_idempotency_key(idem) if idem else None
             # Replay the original reviewed snapshot even if the first request was already approved.
             before = previous.params["before"] if previous and previous.type == SET_NATS_KEY else nats_state(pid)
+            if previous is None or previous.type != SET_NATS_KEY:
+                require_live_agent(before)
             return request_change(app, gw, p, SET_NATS_KEY, {"agent": pid, "nkey": body.nkey, "before": before},
                                   idempotency_key=idem)
 

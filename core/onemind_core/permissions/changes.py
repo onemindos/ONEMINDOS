@@ -46,6 +46,9 @@ def register_change(app: FastAPI, gw: Gateway, kind: str, apply: Callable[[Princ
         except ApiError as exc:
             finish(ExecResult("failed", exc.message))
             return
+        if isinstance(result, ExecResult):
+            finish(result)
+            return
         steps = [{"policy_id": result["id"]}] if kind == "policy.rule.create" else []
         finish(ExecResult("succeeded", "Permission change applied", steps=steps))
 
