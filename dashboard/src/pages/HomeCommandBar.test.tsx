@@ -37,6 +37,14 @@ it('restores the run bar from the signed-in person’s appearance choice: in the
   fireEvent.change(input, { target: { value: 'nodes' } });
   fireEvent.submit(bar);
   expect(await screen.findByRole('region', { name: 'Nodes' })).toBeInTheDocument();
+  // The Console view (sidebar) has no dock: there the bar stays on Home and opens the palette.
+  fireEvent.click(screen.getByRole('button', { name: /Account/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Console view' }));
+  fireEvent.click((await screen.findAllByRole('link', { name: /^Home$/ }))[0]!);
+  expect(await screen.findByRole('group', { name: 'Home commands' })).toBeVisible();
+  expect(screen.queryByRole('search', { name: 'Run bar' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Run a command' }));
+  expect(await screen.findByRole('combobox')).toBeVisible();
 });
 
 it('keeps the Search button on Pro Home while the command bar is off', async () => {

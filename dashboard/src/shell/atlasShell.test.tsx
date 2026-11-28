@@ -163,4 +163,39 @@ describe('the desktop shell, wired to the hub', () => {
     const best = lp.getByRole('region', { name: 'Best match' });
     expect(within(best).getAllByText('asks a person').length).toBeGreaterThan(0);
   });
+
+  it('a launcher request opens the review first and posts nothing to /v1/actions before Send request (D-027)', async () => {
+    const u = userEvent.setup();
+    const { getApi } = renderApp({ token: 'owner-demo' });
+    const create = vi.spyOn(getApi(), 'createAction');
+    await u.click(await screen.findByRole('button', { name: /OneMind launcher/ }, T));
+    const lp = within(await screen.findByRole('dialog', { name: 'Launcher' }));
+    await u.type(lp.getByRole('searchbox'), 'install');
+    await u.click(lp.getAllByRole('button', { name: /^Request install of/ })[0]!);
+    const review = await screen.findByRole('dialog', { name: 'Review app request' }, T);
+    expect(create).not.toHaveBeenCalled();
+    await u.click(within(review).getByRole('button', { name: 'Send request' }));
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1), T);
+    expect(create.mock.calls[0]![0]).toMatchObject({ type: 'app.install' });
+  });
+
+  it('copying a command line is announced, then the announcement clears', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const u = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      // user-event installs its own clipboard on setup: watch that one.
+      const writeText = vi.spyOn(navigator.clipboard, 'writeText');
+      renderApp({ token: 'owner-demo' });
+      await u.click(await screen.findByRole('button', { name: /OneMind launcher/ }, T));
+      const lp = within(await screen.findByRole('dialog', { name: 'Launcher' }));
+      await u.click(lp.getAllByRole('button', { name: /^Copy command/ })[0]!);
+      expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/^onemind /));
+      const status = lp.getByRole('status');
+      await waitFor(() => expect(status).toHaveTextContent(/^Copied: onemind /));
+      await vi.advanceTimersByTimeAsync(2500);
+      expect(status).toHaveTextContent('');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

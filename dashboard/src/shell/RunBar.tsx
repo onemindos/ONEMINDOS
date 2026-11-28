@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // The run bar (final design 09, the Console graft the founder asked for): "run a command or ask an agent", in the
-// dock, Alt Space. Off by default (Settings > Appearance). Typed text resolves to the best palette command: a screen
+// dock, Alt R (the design's Alt Space is the window menu on Windows and Linux: keys/keymap.ts). Off by default
+// (Settings > Appearance). Typed text resolves to the best palette command: a screen
 // opens; a change (restart nextcloud) goes through the same reviewed request as the palette (the plan preview, then
 // one POST /v1/actions) and never acts. When the same request already waits in Approvals, the bar opens that one
 // instead of filing a second. A free-text question would go to an agent, but no Ask route exists yet: it says so.
@@ -86,10 +87,10 @@ export const RunBar = forwardRef<HTMLInputElement, RunBarProps>(function RunBar(
           setNote('');
         }}
         aria-describedby={note ? 'dsk-runbar-note' : undefined}
-        aria-keyshortcuts="Alt+Space"
+        aria-keyshortcuts="Alt+R"
       />
       <span className="dsk-runbar-keys" aria-hidden="true">
-        <kbd>Alt</kbd> <kbd>Space</kbd>
+        <kbd>Alt</kbd> <kbd>R</kbd>
       </span>
       <p id="dsk-runbar-note" className="dsk-runbar-note" role="status">
         {note}

@@ -7,6 +7,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import type { NavItem } from '@onemind/ui';
 import { avatarInitial, dockSplit, parentPath } from './shell/DesktopShell';
+import { dockOrder } from './shell/dock';
 import { layoutModeStore, parseLayoutMode } from './shell/layoutMode';
 import { openScreen, renderApp, screensNav, seriousViolations } from './test/helpers';
 
@@ -36,10 +37,16 @@ describe('layout mode', () => {
 
   it('splits the nav: the Atlas places in the dock (Map second, at /map), the rest in the launcher', () => {
     const item = (id: string, extra: Partial<NavItem> = {}): NavItem => ({ id, label: id, href: `/${id}`, icon: 'home', ...extra });
-    const { dock, more } = dockSplit([item('nodes', { group: 'Your box' }), item('settings'), item('files'), item('home', { primary: true }), item('market', { primary: true })]);
-    expect(dock.map((n) => n.id)).toEqual(['home', 'map', 'files', 'market']);
-    expect(dock[1]?.href).toBe('/map');
-    expect(more.map((n) => n.id)).toEqual(['nodes', 'settings']);
+    const nav = [item('nodes', { group: 'Your box' }), item('settings'), item('files'), item('home', { primary: true }), item('market', { primary: true })];
+    const atlas = ['home', 'approvals', 'files', 'market', 'backups', 'machines'];
+    // Explicit order and map flag, so this holds both before and after the Map screen (#1340) registers itself.
+    const before = dockSplit(nav, dockOrder(atlas, false), false);
+    expect(before.dock.map((n) => n.id)).toEqual(['home', 'map', 'files', 'market']);
+    expect(before.dock[1]?.href).toBe('/map');
+    expect(before.more.map((n) => n.id)).toEqual(['nodes', 'settings']);
+    const after = dockSplit([...nav, item('map')], dockOrder(['home', 'map', ...atlas.slice(1)], true), true);
+    expect(after.dock.map((n) => n.id)).toEqual(['home', 'map', 'files', 'market']);
+    expect(after.more.map((n) => n.id)).toEqual(['nodes', 'settings']);
   });
 
   it('knows the way back up inside a screen', () => {

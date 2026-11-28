@@ -74,8 +74,21 @@ export function Launchpad({ nav, apps, machines = [], commands = [], onRun, onCl
     onClose();
     onRun?.(c);
   };
+  // "Copied" is said once through a polite live region, then cleared, so the next copy is announced again.
+  const [announce, setAnnounce] = useState('');
+  useEffect(() => {
+    if (!copied) return;
+    const t = window.setTimeout(() => {
+      setCopied(null);
+      setAnnounce('');
+    }, 2000);
+    return () => window.clearTimeout(t);
+  }, [copied, announce]);
   const copy = (text: string, key: string) => {
-    void navigator.clipboard?.writeText(text).then(() => setCopied(key), () => undefined);
+    void navigator.clipboard?.writeText(text).then(() => {
+      setCopied(key);
+      setAnnounce(`Copied: ${text}`);
+    }, () => setAnnounce('Could not copy: the browser refused the clipboard.'));
   };
   const openBest = () => ref.current?.querySelector<HTMLElement>('[data-best="0"]')?.click();
   const nothing = best.length === 0 && Object.values(groups).every((g) => g.length === 0);
@@ -107,8 +120,8 @@ export function Launchpad({ nav, apps, machines = [], commands = [], onRun, onCl
           <span className="dsk-cmd-line">
             <code>{line.text}</code>
             <button type="button" className="dsk-cmd-copy" onClick={() => copy(line.cli ? line.text.slice(2) : line.text, i.key)}>
-              {copied === i.key ? 'Copied' : 'Copy'}
-              <span className="om-visually-hidden"> {line.cli ? 'command' : 'API call'}: {line.text}</span>
+              <span aria-hidden="true">{copied === i.key ? 'Copied' : 'Copy'}</span>
+              <span className="om-visually-hidden">Copy {line.cli ? 'command' : 'API call'}: {line.text}</span>
             </button>
           </span>
         )}
@@ -166,6 +179,9 @@ export function Launchpad({ nav, apps, machines = [], commands = [], onRun, onCl
             <ul className="dsk-cmds">{rest('commands').slice(0, q.trim() ? 8 : 6).map((i) => commandRow(i))}</ul>
           </section>
         )}
+        <p className="om-visually-hidden" role="status" aria-live="polite">
+          {announce}
+        </p>
         <button type="button" className="dsk-launchpad-keys" onClick={onShortcuts}>
           <Icon name="settings" size={16} /> Keyboard shortcuts
         </button>

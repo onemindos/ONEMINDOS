@@ -26,18 +26,12 @@ func TestPaletteCLILinesResolve(t *testing.T) {
 	}
 	for _, m := range lines {
 		words := strings.Fields(m[1])[1:]
-		var path, flags []string
-		pathDone := false
+		var path []string
 		for _, w := range words {
-			switch {
-			case strings.HasPrefix(w, "--"):
-				flags = append(flags, strings.SplitN(strings.TrimPrefix(w, "--"), "=", 2)[0])
-				pathDone = true
-			case strings.Contains(w, "${") || pathDone:
-				pathDone = true // an argument (or a flag's value): the command path has ended
-			default:
-				path = append(path, w)
+			if strings.HasPrefix(w, "-") || strings.Contains(w, "${") {
+				break // the command path ends at the first flag or argument
 			}
+			path = append(path, w)
 		}
 		root, _ := NewRoot(Env{Stdout: io.Discard, Stderr: io.Discard})
 		cmd, rest, err := root.Find(path)
@@ -48,10 +42,31 @@ func TestPaletteCLILinesResolve(t *testing.T) {
 		if cmd.RunE == nil && cmd.Run == nil {
 			t.Errorf("%q: %q is a group, not a runnable command", m[1], cmd.CommandPath())
 		}
-		for _, f := range flags {
-			if cmd.Flags().Lookup(f) == nil && cmd.InheritedFlags().Lookup(f) == nil {
-				t.Errorf("%q: %q has no --%s flag", m[1], cmd.CommandPath(), f)
+		// The rest: flags (each must exist; a non-bool flag without "=" takes the next word) and positional arguments,
+		// which must satisfy the command's Args rule (an ID-taking command shown without its ID would fail at once).
+		var args []string
+		tail := words[len(path):]
+		for k := 0; k < len(tail); k++ {
+			w := tail[k]
+			if !strings.HasPrefix(w, "--") {
+				args = append(args, w)
+				continue
 			}
+			name, _, hasValue := strings.Cut(strings.TrimPrefix(w, "--"), "=")
+			f := cmd.Flags().Lookup(name)
+			if f == nil {
+				f = cmd.InheritedFlags().Lookup(name)
+			}
+			if f == nil {
+				t.Errorf("%q: %q has no --%s flag", m[1], cmd.CommandPath(), name)
+				continue
+			}
+			if !hasValue && f.Value.Type() != "bool" {
+				k++ // the flag's value
+			}
+		}
+		if err := cmd.ValidateArgs(args); err != nil {
+			t.Errorf("%q: arguments %v rejected by %q: %v", m[1], args, cmd.CommandPath(), err)
 		}
 	}
 }
