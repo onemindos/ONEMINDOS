@@ -85,6 +85,7 @@ class FilesService:
         self.repo = repo or FilesRepository(gw.db)
         self.clock: Callable[[], datetime] = gw.clock
         self._lock = threading.RLock()
+        self._restore_reserved_bytes = 0
         self.index = FileIndex(self.repo.db, self.clock)
         self.versions = Versions(self)
 
@@ -259,8 +260,20 @@ class FilesService:
                                  reason="quota_exceeded")
         free = self.free_bytes()
         # A completed restore stage already occupies its disk blocks, but still counts against the space quota.
-        if free is not None and free - (0 if staged else add) < self.settings.min_free_bytes:
+        if free is not None and free - self._restore_reserved_bytes - (0 if staged else add) < self.settings.min_free_bytes:
             raise FilesError(413, "payload_too_large", "not enough free space on the disk", reason="insufficient_space")
+
+    @contextmanager
+    def _reserve_restore_space(self, root: Root, size: int) -> Iterator[None]:
+        """Account for in-flight restores while their staged blocks may be absent from free_bytes()."""
+        with self._lock:
+            self.check_space(root, size)
+            self._restore_reserved_bytes += size
+        try:
+            yield
+        finally:
+            with self._lock:
+                self._restore_reserved_bytes -= size
 
     # ---- browse -------------------------------------------------------------------------
     @staticmethod

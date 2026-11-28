@@ -29,6 +29,7 @@ ID_TIME = "%Y%m%dT%H%M%SZ"
 COPY_CHUNK = 1024 * 1024
 COMPARE_LIMIT = COPY_CHUNK  # keep larger copies visible without reading gigabytes to list history
 RESTORE_DIR = "restore"
+RESTORE_STAGE_RE = re.compile(r"rst_[0-9A-HJKMNP-TV-Z]{26}")
 
 
 class Versions:
@@ -157,10 +158,32 @@ class Versions:
                 "versions": versions}
 
     # ---- restore ------------------------------------------------------------------------
+    def recover_stages(self) -> None:
+        # Startup runs before the single gateway process begins serving. A stage linked
+        # into a space before interruption keeps its live name when this link is removed.
+        try:
+            with self.svc._system(RESTORE_DIR) as work, os.scandir(work) as entries:
+                for entry in entries:
+                    if RESTORE_STAGE_RE.fullmatch(entry.name) and entry.is_file(follow_symlinks=False):
+                        os.unlink(entry.name, dir_fd=work)
+        except OSError as exc:
+            raise paths.os_error(exc) from None
+
     @staticmethod
     def default_name(name: str, taken: datetime) -> str:
         stem, ext = os.path.splitext(name)
-        return f"{stem} (version {taken:%Y-%m-%d %H.%M} UTC){ext}"
+        suffix = f" (version {taken:%Y-%m-%d %H.%M} UTC)"
+        raw = name.encode()
+        if len(raw) + len(suffix) <= paths.MAX_COMPONENT_BYTES:
+            return f"{stem}{suffix}{ext}"
+        # Keep distinct long names from collapsing to the same truncated prefix.
+        suffix = f" [{hashlib.sha256(raw).hexdigest()[:8]}]{suffix}"
+        budget = paths.MAX_COMPONENT_BYTES - len(suffix)
+        if len(ext.encode()) >= budget:
+            stem, ext = name, ""
+        # The original is valid UTF-8. Only a trailing, sliced code point can be incomplete.
+        shortened = stem.encode()[:budget - len(ext.encode())].decode("utf-8", errors="ignore")
+        return f"{shortened}{suffix}{ext}"
 
     def restore(self, p: Principal, root: str | None, path: str | None, version: str, to_path: str | None = None) -> dict:
         self._person(p, "files versions restore")
@@ -197,9 +220,9 @@ class Versions:
                 fd, st = paths.open_file_at(sd, src.parts[-1])
         try:
             with self.svc._system(RESTORE_DIR) as work:
-                self.svc.check_space(dst.root, st.st_size)
                 try:
-                    self._copy(fd, work, tmp)
+                    with self.svc._reserve_restore_space(dst.root, st.st_size):
+                        self._copy(fd, work, tmp)
                 except OSError as exc:
                     raise paths.os_error(exc) from None
                 try:

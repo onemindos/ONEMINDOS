@@ -19,6 +19,7 @@ from xml.etree import ElementTree
 import pytest
 
 from onemind_core.files.settings import FilesSettings
+from onemind_core.files.store import new_id
 
 from files_support import ADULT, AGENT, GUEST, OWNER, audit_events, fc, mkdir, ok, upload  # noqa: F401
 
@@ -112,6 +113,23 @@ def test_member_restores_yesterdays_version_as_a_new_file(fc, files_root, snapsh
 
     events = [e for e in audit_events(settings) if e["event"] == "files.version.restored"]
     assert len(events) == 2 and events[0]["principal"]["id"] == "adult"
+
+
+@pytest.mark.parametrize("name", ["界" * 83 + "é.txt", "a." + "é" * 126 + "x"])
+def test_restore_generates_a_valid_copy_name_for_long_utf8_files(fc, files_root, snapshots, name):
+    assert len(name.encode()) == 255
+    ok(upload(fc, ADULT, "shared", "/", name, b"yesterday"), 204)
+    snapshot(files_root, snapshots, YESTERDAY)
+    ok(upload(fc, ADULT, "shared", "/", name, b"today", overwrite=True), 204)
+
+    # The dashboard sends the source and version without a destination.
+    entry = ok(restore(fc, ADULT, "shared", f"/{name}", YESTERDAY))
+    assert len(entry["name"].encode()) <= 255
+    assert entry["name"].startswith(name[0]) and " (version 2026-11-21 03.00 UTC)" in entry["name"]
+    if name.endswith(".txt"):
+        assert entry["name"].endswith(".txt")
+    assert read(fc, ADULT, "shared", entry["path"]) == b"yesterday"
+    assert read(fc, ADULT, "shared", f"/{name}") == b"today"
 
 
 def test_only_people_with_access_see_or_restore_versions(fc, files_root, snapshots):
@@ -272,3 +290,52 @@ def test_restore_rechecks_after_unlocked_copy(fc, files_root, snapshots, monkeyp
     assert result.status_code == (409 if race == "name" else 413)
     assert result.json()["reason"] == expected
     assert list((files_root / ".system" / "restore").iterdir()) == []
+
+
+def test_concurrent_restores_reserve_space_before_copying(fc, files_root, snapshots, monkeypatch):
+    svc = fc.app.state.files_service
+    ok(upload(fc, ADULT, "shared", "/", "notes.txt", b"old"), 204)
+    snapshot(files_root, snapshots, YESTERDAY)
+    # Both 3-byte copies fit individually, but together would eat into the disk reserve.
+    monkeypatch.setattr(svc, "free_bytes", lambda: svc.settings.min_free_bytes + 5)
+    started, release = Event(), Event()
+    copy = svc.versions._copy
+
+    def pause_first_copy(*args):
+        if not started.is_set():
+            started.set()
+            assert release.wait(10)
+        copy(*args)
+
+    monkeypatch.setattr(svc.versions, "_copy", pause_first_copy)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(restore, fc, ADULT, "shared", "/notes.txt", YESTERDAY, to_path="/first.txt")
+        try:
+            assert started.wait(5)
+            second = pool.submit(restore, fc, ADULT, "shared", "/notes.txt", YESTERDAY, to_path="/second.txt")
+            rejected = second.result(timeout=5)
+            assert rejected.status_code == 413 and rejected.json()["reason"] == "insufficient_space"
+            assert not (files_root / "shared" / "second.txt").exists()
+        finally:
+            release.set()
+        ok(first.result(timeout=5))
+    # There is room for another copy once the reservation is released.
+    ok(restore(fc, ADULT, "shared", "/notes.txt", YESTERDAY, to_path="/second.txt"))
+
+
+@pytest.fixture
+def abandoned_restores(files_root):
+    work = files_root / ".system" / "restore"
+    work.mkdir(parents=True)
+    (work / new_id("rst")).write_bytes(b"interrupted copy")
+    live = files_root / "shared" / "published.txt"
+    live.parent.mkdir()
+    live.write_bytes(b"published copy")
+    os.link(live, work / new_id("rst"))
+    (work / "unrelated").write_bytes(b"keep")
+    return work
+
+
+def test_gateway_recovers_abandoned_restore_stages_at_startup(abandoned_restores, fc):
+    assert sorted(p.name for p in abandoned_restores.iterdir()) == ["unrelated"]
+    assert read(fc, ADULT, "shared", "/published.txt") == b"published copy"

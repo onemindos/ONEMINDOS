@@ -351,6 +351,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     def housekeeping() -> None:
         try:
+            svc.versions.recover_stages()
             svc.purge_expired()
             uploads.expire_due()
         except FilesError as exc:  # storage not mounted yet: the routes answer 503 until it is
