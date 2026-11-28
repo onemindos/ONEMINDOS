@@ -76,12 +76,14 @@ describe('desktop frame', () => {
     await waitFor(() => expect(screen.queryByRole('region', { name: 'Activity' })).toBeNull());
   });
 
-  it('says the screen name once: the heading, not a second title bar', async () => {
+  it('says the screen name once to assistive tech, while the Atlas title bar shows it to the eye', async () => {
     const { container } = renderApp({ token: 'owner-demo', route: '/market' });
     const win = await screen.findByRole('region', { name: 'Market' }, T);
-    // The window's own name is for assistive tech only (visually hidden); no visible title text, no title bar.
-    expect(container.querySelector('.dsk-window-title')).toBeNull();
+    // The region is named once, by its visually hidden label; the title bar's name is hidden from assistive tech.
     expect(container.querySelector('.dsk-window > .om-visually-hidden')?.textContent).toBe('Market');
+    const bar = win.querySelector('.wm-title');
+    expect(bar?.textContent).toBe('Market');
+    expect(bar).toHaveAttribute('aria-hidden', 'true');
     expect(within(win).getByRole('button', { name: 'Close Market' })).toBeInTheDocument();
   });
 
