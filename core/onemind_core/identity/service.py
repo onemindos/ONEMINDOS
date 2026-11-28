@@ -931,6 +931,9 @@ class IdentityService:
                                     {"revoked_at": now})
         tokens = self.repo.update(TokenRow, [or_(TokenRow.owner_user_id == u.id, TokenRow.principal_id == u.id),
                                              TokenRow.revoked_at.is_(None)], {"revoked_at": now})
+        for name in {t.principal_id for t in self.repo.all(select(TokenRow).where(TokenRow.id.in_(tokens)))
+                     if t.kind in ("agent", "plugin")}:
+            self._retire(name, "owner_disabled")
         self.emit("user", "disabled", {"user_id": u.id, "sessions_revoked": len(sessions),
                                        "tokens_revoked": len(tokens)}, p, severity="warning")
         return self.user_json(self.user(u.id))
@@ -1010,6 +1013,8 @@ class IdentityService:
                      owner_user_id=user.id if user else None, scopes=wanted, source="api", created_by=p.id,
                      created_at=now, expires_at=expires_at)
         self.repo.add(t)
+        if kind == "agent" and self._registry() is not None:  # PR 7: the agent's permanent id (kept on re-mint)
+            self._registry().register(principal_id, source="identity", owner_user_id=t.owner_user_id)
         self.emit("auth", "token.created", {"token_id": t.id, "kind": kind, "principal_id": principal_id,
                                             "scopes": wanted, "expires_at": iso(t.expires_at)}, p)
         return {**self.token_json(t), "one_time": {"token": secret}}
@@ -1017,7 +1022,8 @@ class IdentityService:
     def _check_agent_id(self, principal_id: str, user: UserRow | None, p: Principal) -> None:
         """A personal agent id must not reuse an app's agent principal (agent:<app-id>, §11.2), a
         static-file principal, or another person's agent: its requests would be shown and audited
-        as that principal's."""
+        as that principal's. Revoked tokens count too: approval rules bound to an agent's uid
+        (AutomationPolicyService._bound_ok) rely on a uid never passing to another owner."""
         app_id = principal_id.partition(":")[2]
         taken = app_id in self.gw.catalog.load() or any(fp.id == principal_id for _, fp in self.gw.tokens.entries())
         if not taken:
@@ -1065,6 +1071,18 @@ class IdentityService:
         t = self._token_for_write(ctx, p, token_id, "revoke tokens")
         self.repo.update(TokenRow, [TokenRow.id == t.id], {"revoked_at": self.now(), "prev_hash": None})
         self.emit("auth", "token.revoked", {"token_id": t.id, "principal_id": t.principal_id}, p)
+        if t.kind in ("agent", "plugin"):
+            # PR 7: revoking a token ends the identity it carried, so the standing approvals bound to
+            # it stop; a token minted later under the same name is a new principal id.
+            self._retire(t.principal_id, "token_revoked")
+
+    def _registry(self):
+        return getattr(self.gw.actions, "principals", None)
+
+    def _retire(self, name: str, reason: str) -> None:
+        reg = self._registry()
+        if reg is not None:
+            reg.retire(name, reason)
 
     # ---- per-app sharing ---------------------------------------------------------------------------
     DEFAULT_ROLES = ("owner", "adult")

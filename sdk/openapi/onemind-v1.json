@@ -819,6 +819,18 @@
             "title": "Pending Approvals",
             "type": "integer"
           },
+          "principal_uid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the agent's permanent principal id (prn_...); a new one after a token is revoked or its app reinstalled, and standing approvals bind to it",
+            "title": "Principal Uid"
+          },
           "requests_cancelled": {
             "title": "Requests Cancelled",
             "type": "integer"
@@ -1059,6 +1071,18 @@
           "pending_approvals": {
             "title": "Pending Approvals",
             "type": "integer"
+          },
+          "principal_uid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the agent's permanent principal id (prn_...); a new one after a token is revoked or its app reinstalled, and standing approvals bind to it",
+            "title": "Principal Uid"
           },
           "used_24h": {
             "title": "Used 24H",

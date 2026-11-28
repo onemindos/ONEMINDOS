@@ -18,6 +18,7 @@ from ..context import Gateway
 from ..errors import ApiError, error_responses
 from ..identity import ctx_of
 from ..ledger import iso
+from ..principals import BOUND_KINDS
 
 WINDOW_ID_RE = re.compile(r"^win_[a-z0-9_]{1,36}$")
 
@@ -39,6 +40,10 @@ def register(app: FastAPI, gw: Gateway) -> None:
     principal = gw.principal
     gw.actions.standing_approvals.append(lambda a: policies.decide(a, svc.paused()))
     policies.can_file = gw.actions.can_file
+    # Gateway permissions PR 7: rules bind agents and plugins to their permanent principal id.
+    policies.principals = gw.actions.principals
+    policies.file_ids = lambda: {fp.id for _, fp in gw.tokens.entries() if fp.kind in BOUND_KINDS}
+    gw.on_startup(policies.adopt_unbound)
     gw.events.subscribe(">", svc.on_event)
     gw.on_startup(svc.start)
     gw.on_shutdown(svc.stop)
