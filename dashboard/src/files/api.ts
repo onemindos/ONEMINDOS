@@ -57,7 +57,7 @@ export interface Quota { person_id: string | null; root: string; limit_bytes: nu
  *  generate from (the rows are checked at the edge below). Core follow-up: #1278. */
 export interface ShareLink { id: string; name: string; created_by: string; state: 'active' | 'expired' | 'revoked' | string; items: { kind: string; root?: string; path?: string; hidden?: boolean }[]; password: boolean; created_at: string; expires_at: string; opened_count: number }
 export interface CreatedShare { id: string; state: 'awaiting_approval'; one_time: { token: string; path: string; url: string } }
-type ShareBody = Omit<components['schemas']['ShareBody'], 'items'> & { items: components['schemas']['ShareFileItem'][] };
+type ShareLinkBody = Omit<components['schemas']['ShareBody'], 'items'> & { items: components['schemas']['ShareFileItem'][] };
 export interface Preview { mime: string; kind: string; size: number; inline_safe: boolean; image?: { width: number; height: number } | null; text?: { excerpt: string; truncated: boolean } }
 
 function obj(v: unknown, what: string): Json {
@@ -121,7 +121,7 @@ export class FilesApi {
   }
   async shares() { return list<ShareLink>(await this.get(P.shares), 'share link', (j) => str(j.id) && str(j.state) && str(j.expires_at)); }
   /** The URL comes back once when the request is filed. A retry could file a second request. */
-  async createShare(body: ShareBody) {
+  async createShare(body: ShareLinkBody) {
     const out = this.pendingRequest(await this.post(P.shares, body));
     const one = obj(out.one_time, 'share link secret');
     if (!str(one.url)) throw new Error('The hub returned an invalid share link.');
