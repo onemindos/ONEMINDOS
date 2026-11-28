@@ -41,7 +41,12 @@ export type PluginKeyRevokeInput = components["schemas"]["RevokeRequest"];
 /** GET /v1/notifications/summary (#682): the caller's unread state, kept on the hub. */
 export type NotificationSummary = components["schemas"]["NotificationSummary"];
 
+/** `GET /v1/plugins`: installed plugins and the five defined places each one uses. */
+export type PluginInfo = components["schemas"]["PluginSummary"];
+
 export interface OneMindApi extends WiringApi {
+  /** Installed plugins. Absent on the mock gateway and test doubles. */
+  plugins?(): Promise<PluginInfo[]>;
   /** One call for the bell's unread state. Absent on the mock gateway and test doubles. */
   notificationSummary?(): Promise<NotificationSummary>;
   pluginSigningKeys?(): Promise<components["schemas"]["SigningKeys"]>;
@@ -345,6 +350,7 @@ export class HttpApi implements OneMindApi {
   osUpdates() { return this.sdkCall<Record<string, unknown>>('GET', '/v1/os/updates'); }
   about() { return this.req<AboutBox>('GET', '/v1/os/about'); }
   ups() { return this.sdkCall<UpsStatus>('GET', '/v1/system/ups'); }
+  plugins() { return this.sdkCall<PluginInfo[]>('GET', '/v1/plugins', undefined, true); }
   pluginSigningKeys() { return this.sdkCall<components["schemas"]["SigningKeys"]>('GET', '/v1/plugin-trust/keys'); }
   requestPluginSigningKey(body: PluginKeyInput) { return this.sdkCall<components["schemas"]["Action"]>('POST', '/v1/plugin-trust/keys/requests', body); }
   revokePluginSigningKey(keyId: string, body: PluginKeyRevokeInput) { return this.sdkCall<components["schemas"]["Action"]>('POST', `/v1/plugin-trust/keys/${encodeURIComponent(keyId)}/revoke`, body); }

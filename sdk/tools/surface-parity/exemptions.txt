@@ -226,7 +226,6 @@ dashboard mesh.settings_update found-owner-screens
 dashboard nodes.metrics found-owner-screens
 dashboard physical.lockout.set found-owner-screens
 dashboard plugins.get found-owner-screens
-dashboard plugins.list found-owner-screens
 dashboard plugins.settings.get found-owner-screens
 dashboard plugins.settings.request found-owner-screens
 dashboard plugins.tools found-owner-screens
