@@ -23,13 +23,7 @@ import (
 func recoveryCommands(a *App) []*cobra.Command {
 	root := &cobra.Command{Use: "recovery", Short: "Recovery contacts and waits: who can help you get back into your account"}
 	contacts := &cobra.Command{Use: "contacts", Short: "Your recovery contacts (owner only)"}
-	stepUp := func(err error, what string) error {
-		var ge *onemind.Error
-		if errors.As(err, &ge) && ge.Reason == "step_up_required" {
-			return exitWith(ExitUsage, "usage", what+" needs a fresh passkey sign-in: sign in with your passkey in the dashboard, then run this again")
-		}
-		return err
-	}
+	stepUp := recoveryStepUp
 	call := func(method, path string, body any, out any) error {
 		c, _, err := a.client()
 		if err != nil {
@@ -156,4 +150,13 @@ func recoveryCommands(a *App) []*cobra.Command {
 	root.AddCommand(contacts, settings, invitations)
 	root.AddCommand(recoveryFlowCommands(a)...)
 	return []*cobra.Command{root}
+}
+
+// recoveryStepUp turns the gateway's step_up_required into what to do next.
+func recoveryStepUp(err error, what string) error {
+	var ge *onemind.Error
+	if errors.As(err, &ge) && ge.Reason == "step_up_required" {
+		return exitWith(ExitUsage, "usage", what+" needs a fresh passkey sign-in: sign in with your passkey in the dashboard, then run this again")
+	}
+	return err
 }

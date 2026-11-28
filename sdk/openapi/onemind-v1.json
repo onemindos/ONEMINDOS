@@ -2381,6 +2381,19 @@
         "title": "BuiltinsOut",
         "type": "object"
       },
+      "CancelClaimBody": {
+        "additionalProperties": false,
+        "properties": {
+          "block": {
+            "default": false,
+            "description": "also remove this legacy contact",
+            "title": "Block",
+            "type": "boolean"
+          }
+        },
+        "title": "CancelClaimBody",
+        "type": "object"
+      },
       "CaptureBody": {
         "additionalProperties": false,
         "properties": {
@@ -3239,6 +3252,172 @@
           "stored"
         ],
         "title": "ChunkStored",
+        "type": "object"
+      },
+      "ClaimBody": {
+        "additionalProperties": false,
+        "properties": {
+          "access_key": {
+            "maxLength": 200,
+            "title": "Access Key",
+            "type": "string"
+          },
+          "certificate": {
+            "description": "the death certificate, base64 (at most 180 KiB: a downsized photo or a small PDF)",
+            "maxLength": 250000,
+            "title": "Certificate",
+            "type": "string"
+          },
+          "certificate_type": {
+            "enum": [
+              "application/pdf",
+              "image/jpeg",
+              "image/png"
+            ],
+            "title": "Certificate Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_key",
+          "certificate_type",
+          "certificate"
+        ],
+        "title": "ClaimBody",
+        "type": "object"
+      },
+      "ClaimView": {
+        "properties": {
+          "access_until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "end of the 12-month read-only export window",
+            "title": "Access Until"
+          },
+          "certificate_type": {
+            "title": "Certificate Type",
+            "type": "string"
+          },
+          "claimant_accepted_signed_in": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "household view: false when the claimant accepted the invite on a signed-out device, so the box cannot tell whether a confirming adult is the claimant",
+            "title": "Claimant Accepted Signed In"
+          },
+          "confirmed_by_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "household view: who confirmed as the second person, shown next to the claimant",
+            "title": "Confirmed By Display Name"
+          },
+          "contact_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Display Name"
+          },
+          "contact_id": {
+            "title": "Contact Id",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "end_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Reason"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "ends_at": {
+            "title": "Ends At",
+            "type": "string"
+          },
+          "granted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Granted At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "needs_second": {
+            "description": "another legacy contact or a household adult must confirm",
+            "title": "Needs Second",
+            "type": "boolean"
+          },
+          "second_confirmed": {
+            "title": "Second Confirmed",
+            "type": "boolean"
+          },
+          "state": {
+            "description": "waiting, awaiting_second, granted or cancelled",
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "contact_id",
+          "state",
+          "created_at",
+          "ends_at",
+          "needs_second",
+          "second_confirmed",
+          "granted_at",
+          "access_until",
+          "ended_at",
+          "end_reason",
+          "certificate_type"
+        ],
+        "title": "ClaimView",
         "type": "object"
       },
       "ClassOut": {
@@ -6037,6 +6216,67 @@
         "title": "ErrorBody",
         "type": "object"
       },
+      "ExportFile": {
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "path",
+          "size"
+        ],
+        "title": "ExportFile",
+        "type": "object"
+      },
+      "ExportManifest": {
+        "properties": {
+          "access_until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Access Until"
+          },
+          "claim_id": {
+            "title": "Claim Id",
+            "type": "string"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/ExportFile"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "read_only": {
+            "title": "Read Only",
+            "type": "boolean"
+          },
+          "total_bytes": {
+            "title": "Total Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "claim_id",
+          "access_until",
+          "files",
+          "total_bytes",
+          "read_only"
+        ],
+        "title": "ExportManifest",
+        "type": "object"
+      },
       "FamilyProfile": {
         "additionalProperties": false,
         "properties": {
@@ -7614,6 +7854,554 @@
           "datapoint"
         ],
         "title": "LatestValue",
+        "type": "object"
+      },
+      "LegacyAcceptOneTime": {
+        "properties": {
+          "access_key": {
+            "description": "the legacy access key, shown once: keep it in the phone and print it",
+            "title": "Access Key",
+            "type": "string"
+          },
+          "contact_secret": {
+            "description": "32 bytes, base64url, shown once: keep it in the phone's secure hardware",
+            "title": "Contact Secret",
+            "type": "string"
+          },
+          "contact_token": {
+            "description": "the contact's bearer token (omc_...), shown once; reaches only the contact routes",
+            "title": "Contact Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contact_token",
+          "contact_secret",
+          "access_key"
+        ],
+        "title": "LegacyAcceptOneTime",
+        "type": "object"
+      },
+      "LegacyAccepted": {
+        "properties": {
+          "box_key_fingerprint": {
+            "title": "Box Key Fingerprint",
+            "type": "string"
+          },
+          "contact_id": {
+            "title": "Contact Id",
+            "type": "string"
+          },
+          "one_time": {
+            "$ref": "#/components/schemas/LegacyAcceptOneTime"
+          },
+          "owner_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Display Name"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "usable_at": {
+            "title": "Usable At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contact_id",
+          "role",
+          "owner_display_name",
+          "usable_at",
+          "box_key_fingerprint",
+          "one_time"
+        ],
+        "title": "LegacyAccepted",
+        "type": "object"
+      },
+      "LegacyAddBody": {
+        "additionalProperties": false,
+        "properties": {
+          "cooling_off_days": {
+            "anyOf": [
+              {
+                "enum": [
+                  3,
+                  7,
+                  14
+                ],
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "days before the contact counts; default from settings (7)",
+            "title": "Cooling Off Days"
+          },
+          "display_name": {
+            "default": "",
+            "description": "the contact's name (outside contacts)",
+            "maxLength": 200,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "household_user_id": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Household User Id"
+          },
+          "kind": {
+            "enum": [
+              "household",
+              "outside"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "wait_days": {
+            "anyOf": [
+              {
+                "enum": [
+                  14,
+                  30,
+                  60,
+                  90
+                ],
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the claim's wait; 30 by default",
+            "title": "Wait Days"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "LegacyAddBody",
+        "type": "object"
+      },
+      "LegacyAdded": {
+        "properties": {
+          "accepted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted At"
+          },
+          "box_key_fingerprint": {
+            "title": "Box Key Fingerprint",
+            "type": "string"
+          },
+          "cooling_off_days": {
+            "title": "Cooling Off Days",
+            "type": "integer"
+          },
+          "device_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Label"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "household_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Household User Id"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "invite": {
+            "title": "Invite",
+            "type": "string"
+          },
+          "invite_expires_at": {
+            "title": "Invite Expires At",
+            "type": "string"
+          },
+          "invited_at": {
+            "title": "Invited At",
+            "type": "string"
+          },
+          "key_fingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Fingerprint"
+          },
+          "key_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Kind"
+          },
+          "kind": {
+            "description": "household (an adult with an account here) or outside (through the OneMind phone app)",
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "state": {
+            "description": "invited, expired, cooling_off (accepted, not usable yet), active, removed or resigned",
+            "title": "State",
+            "type": "string"
+          },
+          "usable_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "when this contact can first confirm a recovery",
+            "title": "Usable At"
+          },
+          "wait_days": {
+            "title": "Wait Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "kind",
+          "display_name",
+          "household_user_id",
+          "state",
+          "invited_at",
+          "invite_expires_at",
+          "cooling_off_days",
+          "accepted_at",
+          "usable_at",
+          "ended_at",
+          "device_label",
+          "key_kind",
+          "key_fingerprint",
+          "last_seen_at",
+          "wait_days",
+          "invite",
+          "box_key_fingerprint"
+        ],
+        "title": "LegacyAdded",
+        "type": "object"
+      },
+      "LegacyInviteRequest": {
+        "properties": {
+          "action_id": {
+            "title": "Action Id",
+            "type": "string"
+          },
+          "contact_id": {
+            "title": "Contact Id",
+            "type": "string"
+          },
+          "wait_days": {
+            "title": "Wait Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "action_id",
+          "contact_id",
+          "wait_days"
+        ],
+        "title": "LegacyInviteRequest",
+        "type": "object"
+      },
+      "LegacySelf": {
+        "properties": {
+          "accepted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted At"
+          },
+          "box_key_fingerprint": {
+            "title": "Box Key Fingerprint",
+            "type": "string"
+          },
+          "contact_id": {
+            "title": "Contact Id",
+            "type": "string"
+          },
+          "owner_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Display Name"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "usable_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usable At"
+          },
+          "wait_days": {
+            "title": "Wait Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "contact_id",
+          "role",
+          "state",
+          "owner_display_name",
+          "accepted_at",
+          "usable_at",
+          "box_key_fingerprint",
+          "wait_days"
+        ],
+        "title": "LegacySelf",
+        "type": "object"
+      },
+      "LegacyView": {
+        "properties": {
+          "accepted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted At"
+          },
+          "cooling_off_days": {
+            "title": "Cooling Off Days",
+            "type": "integer"
+          },
+          "device_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Label"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "household_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Household User Id"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "invite_expires_at": {
+            "title": "Invite Expires At",
+            "type": "string"
+          },
+          "invited_at": {
+            "title": "Invited At",
+            "type": "string"
+          },
+          "key_fingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Fingerprint"
+          },
+          "key_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Kind"
+          },
+          "kind": {
+            "description": "household (an adult with an account here) or outside (through the OneMind phone app)",
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "state": {
+            "description": "invited, expired, cooling_off (accepted, not usable yet), active, removed or resigned",
+            "title": "State",
+            "type": "string"
+          },
+          "usable_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "when this contact can first confirm a recovery",
+            "title": "Usable At"
+          },
+          "wait_days": {
+            "title": "Wait Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "kind",
+          "display_name",
+          "household_user_id",
+          "state",
+          "invited_at",
+          "invite_expires_at",
+          "cooling_off_days",
+          "accepted_at",
+          "usable_at",
+          "ended_at",
+          "device_label",
+          "key_kind",
+          "key_fingerprint",
+          "last_seen_at",
+          "wait_days"
+        ],
+        "title": "LegacyView",
         "type": "object"
       },
       "LibraryItem": {
@@ -22753,6 +23541,718 @@
         ]
       }
     },
+    "/v1/auth/legacy/claims": {
+      "get": {
+        "description": "Every legacy claim on the box, for the owners and adults who are told about them.",
+        "operationId": "legacy.claims.household",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ClaimView"
+                  },
+                  "title": "Response Legacy.Claims.Household",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "users:read"
+            ]
+          }
+        ],
+        "summary": "Household Claims",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/auth/legacy/claims/{claim_id}/cancel": {
+      "post": {
+        "description": "Stop a claim immediately from an owner session (L0); with block, also remove that contact.",
+        "operationId": "legacy.claims.cancel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "claim_id",
+            "required": true,
+            "schema": {
+              "title": "Claim Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/CancelClaimBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Household Cancel",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/auth/legacy/claims/{claim_id}/certificate": {
+      "get": {
+        "description": "The certificate the claimant sent. OneMind cannot check it; it is evidence for you, not a key.",
+        "operationId": "legacy.claims.certificate",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "claim_id",
+            "required": true,
+            "schema": {
+              "title": "Claim Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "application/pdf": {},
+              "image/jpeg": {},
+              "image/png": {}
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "users:read"
+            ]
+          }
+        ],
+        "summary": "Household Certificate",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/auth/legacy/claims/{claim_id}/confirm": {
+      "post": {
+        "description": "A signed-in household adult can be the second person who confirms a claim (D-028).",
+        "operationId": "legacy.claims.confirm_adult",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "claim_id",
+            "required": true,
+            "schema": {
+              "title": "Claim Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "users:read"
+            ]
+          }
+        ],
+        "summary": "Household Confirm",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/auth/legacy/contacts": {
+      "get": {
+        "operationId": "legacy.contacts.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LegacyView"
+                  },
+                  "title": "Response Legacy.Contacts.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Legacy List",
+        "tags": [
+          "recovery"
+        ]
+      },
+      "post": {
+        "description": "Queue an invite for the requesting owner's approval. Unavailable until D-028 enrollment checks are supported.",
+        "operationId": "legacy.contacts.add",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LegacyAddBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegacyInviteRequest"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Legacy Add",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/auth/legacy/contacts/{contact_id}": {
+      "delete": {
+        "description": "Revoke a legacy contact immediately from an owner session (L0).",
+        "operationId": "legacy.contacts.remove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contact_id",
+            "required": true,
+            "schema": {
+              "title": "Contact Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegacyView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Legacy Remove",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/auth/legacy/contacts/{contact_id}/invite": {
+      "get": {
+        "description": "Read your approved, unaccepted legacy invite from an owner session.",
+        "operationId": "legacy.contacts.invite",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contact_id",
+            "required": true,
+            "schema": {
+              "title": "Contact Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegacyAdded"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Legacy Invite",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/auth/legacy/invitations": {
+      "get": {
+        "operationId": "legacy.invitations.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Invitation"
+                  },
+                  "title": "Response Legacy.Invitations.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "instance:read"
+            ]
+          }
+        ],
+        "summary": "Legacy Invitations",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
     "/v1/auth/login": {
       "post": {
         "operationId": "auth.login",
@@ -33560,6 +35060,644 @@
         "summary": "Instance Name",
         "tags": [
           "instance"
+        ]
+      }
+    },
+    "/v1/legacy/claims": {
+      "get": {
+        "operationId": "legacy.claims.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ClaimView"
+                  },
+                  "title": "Response Legacy.Claims.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "recovery:legacy"
+            ]
+          }
+        ],
+        "summary": "Legacy Claims",
+        "tags": [
+          "recovery"
+        ]
+      },
+      "post": {
+        "description": "Request legacy access: your access key and the death certificate. A 30-day wait (the owner's\nchoice) with notices follows; any sign-in by the owner cancels it.",
+        "operationId": "legacy.claims.start",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "recovery:legacy"
+            ]
+          }
+        ],
+        "summary": "Legacy Claim",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/legacy/claims/{claim_id}/confirm": {
+      "post": {
+        "description": "Another legacy contact of the same owner confirms a claim as the second person.",
+        "operationId": "legacy.claims.confirm",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "claim_id",
+            "required": true,
+            "schema": {
+              "title": "Claim Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "recovery:legacy"
+            ]
+          }
+        ],
+        "summary": "Legacy Confirm",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/legacy/contact": {
+      "get": {
+        "operationId": "legacy.contact.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegacySelf"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "recovery:legacy"
+            ]
+          }
+        ],
+        "summary": "Legacy Self",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/legacy/contact/notices": {
+      "get": {
+        "description": "Recovery and claim notices for your owner since you accepted your legacy invite.",
+        "operationId": "legacy.contact.notices",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Notice"
+                  },
+                  "title": "Response Legacy.Contact.Notices",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "recovery:legacy"
+            ]
+          }
+        ],
+        "summary": "Legacy Notices",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/legacy/contact/resign": {
+      "post": {
+        "operationId": "legacy.contact.resign",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegacySelf"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "recovery:legacy"
+            ]
+          }
+        ],
+        "summary": "Legacy Resign",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/legacy/export": {
+      "get": {
+        "description": "After a granted claim: the owner's Files home, read only, for 12 months.",
+        "operationId": "legacy.export.manifest",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportManifest"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "recovery:legacy"
+            ]
+          }
+        ],
+        "summary": "Legacy Manifest",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/legacy/export/download": {
+      "get": {
+        "operationId": "legacy.export.download",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "application/x-tar": {}
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "recovery:legacy"
+            ]
+          }
+        ],
+        "summary": "Legacy Download",
+        "tags": [
+          "recovery"
+        ]
+      }
+    },
+    "/v1/legacy/invites/{invite_id}/accept": {
+      "post": {
+        "description": "Accept a legacy invite. The answer holds, once, the token, the secret and the legacy access key.",
+        "operationId": "legacy.invites.accept",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "invite_id",
+            "required": true,
+            "schema": {
+              "title": "Invite Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegacyAccepted"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "security": [],
+        "summary": "Legacy Accept",
+        "tags": [
+          "recovery"
         ]
       }
     },

@@ -222,6 +222,45 @@ POLICY |= {
         "/v1/recovery/requests/rr_none/vouch", json={"picked": "00", "signature": "AA"}), "25e the contact principal only", ID),
     ("POST", "/v1/recovery/requests/{request_id}/cancel"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing(
         "/v1/recovery/requests/rr_none/cancel"), "25e the contact principal only", ID),
+    # 25f legacy: owner-session routes as 25d; the household's claim views for owners and adults (static tokens too);
+    # the invite accept with no principal; the legacy principal alone on /v1/legacy/... (no column for it: all refused).
+    ("GET", "/v1/auth/legacy/contacts"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static("/v1/auth/legacy/contacts"),
+                                             "25f an owner session", ID),
+    ("POST", "/v1/auth/legacy/contacts"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing(
+        "/v1/auth/legacy/contacts", json={"kind": "outside", "display_name": "Probe"}), "25f an owner session files an approval", ID),
+    ("GET", "/v1/auth/legacy/contacts/{contact_id}/invite"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static(
+        "/v1/auth/legacy/contacts/rc_none/invite"), "25f an owner session reads its own approved invite", ID),
+    ("DELETE", "/v1/auth/legacy/contacts/{contact_id}"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static(
+        "/v1/auth/legacy/contacts/rc_none"), "25f an owner session (L0)", ID),
+    ("GET", "/v1/auth/legacy/invitations"): Row(own_credentials(200), w.p_static("/v1/auth/legacy/invitations"),
+                                                "25f a household person's own invitations", ID),
+    ("GET", "/v1/auth/legacy/claims"): Row(cells(403, **GONE, owner=200, adult=200, **PENDING_DENY),
+                                           w.p_static("/v1/auth/legacy/claims"), "25f every owner and adult is told", ID),
+    ("GET", "/v1/auth/legacy/claims/{claim_id}/certificate"): Row(cells(403, **GONE, owner=404, adult=404, **PENDING_DENY),
+                                                                  w.p_static("/v1/auth/legacy/claims/lcl_none/certificate"),
+                                                                  "25f owners and adults read the evidence", ID),
+    ("POST", "/v1/auth/legacy/claims/{claim_id}/cancel"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing(
+        "/v1/auth/legacy/claims/lcl_none/cancel"), "25f any owner session (L0)", ID),
+    ("POST", "/v1/auth/legacy/claims/{claim_id}/confirm"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing(
+        "/v1/auth/legacy/claims/lcl_none/confirm"), "25f a signed-in household adult is the second person", ID),
+    ("POST", "/v1/legacy/invites/{invite_id}/accept"): Row(cells(422), w.p_missing(
+        "/v1/legacy/invites/rc_none/accept", json={}), "25f no principal: the signed invite is the credential", ID),
+    ("GET", "/v1/legacy/contact"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static("/v1/legacy/contact"),
+                                       "25f the legacy principal only", ID),
+    ("GET", "/v1/legacy/contact/notices"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static("/v1/legacy/contact/notices"),
+                                               "25f the legacy principal only", ID),
+    ("POST", "/v1/legacy/contact/resign"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing("/v1/legacy/contact/resign"),
+                                               "25f the legacy principal only", ID),
+    ("GET", "/v1/legacy/claims"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static("/v1/legacy/claims"),
+                                      "25f the legacy principal only", ID),
+    ("POST", "/v1/legacy/claims"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing("/v1/legacy/claims", json={
+        "access_key": "x", "certificate_type": "image/png", "certificate": "AA=="}), "25f the legacy principal only", ID),
+    ("POST", "/v1/legacy/claims/{claim_id}/confirm"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing(
+        "/v1/legacy/claims/lcl_none/confirm"), "25f the legacy principal only", ID),
+    ("GET", "/v1/legacy/export"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static("/v1/legacy/export"),
+                                      "25f the legacy principal with a granted claim only", ID),
+    ("GET", "/v1/legacy/export/download"): Row(cells(403, **GONE, **PENDING_DENY), w.p_static("/v1/legacy/export/download"),
+                                               "25f the legacy principal with a granted claim only", ID),
     ("POST", "/v1/recovery/contact/resign"): Row(cells(403, **GONE, **PENDING_DENY), w.p_missing("/v1/recovery/contact/resign"),
                                                  "25d the contact principal only", ID),
 }

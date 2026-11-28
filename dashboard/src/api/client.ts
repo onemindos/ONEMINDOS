@@ -309,7 +309,12 @@ export class HttpApi implements OneMindApi {
     return this.fileAction(req, (action) => {
       if (action.params.app_id !== req.params.app_id) return false;
       if (req.params.app_id === undefined && action.params.name !== req.params.name) return false;
-      if (req.params.settings && (!action.params.settings || Object.keys(action.params.settings).length !== Object.keys(req.params.settings).length || Object.entries(req.params.settings).some(([k, v]) => action.params.settings?.[k] !== v))) return false;
+      const settings = action.params.settings;
+      if (req.params.settings && (
+        !settings || typeof settings !== 'object' || Array.isArray(settings)
+        || Object.keys(settings).length !== Object.keys(req.params.settings).length
+        || Object.entries(req.params.settings).some(([key, value]) => (settings as Record<string, unknown>)[key] !== value)
+      )) return false;
       return !req.plan_sha256 || action.plan_sha256 === req.plan_sha256;
     });
   }

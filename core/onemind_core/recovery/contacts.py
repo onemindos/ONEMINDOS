@@ -30,6 +30,7 @@ from datetime import datetime, timedelta
 
 from fastapi import Request
 from sqlalchemy import delete, select, update
+from sqlalchemy.orm import Session
 
 from ..auth import Principal
 from ..errors import ApiError
@@ -56,6 +57,8 @@ CONTACT_PATHS: list[re.Pattern[str]] = [
     re.compile(r"/v1/recovery/contact(/[a-z-]+)?"),
     re.compile(r"/v1/recovery/requests(/rr_[0-9A-Z]{26}/(vouch|cancel))?"),  # 25e: confirm or stop a recovery
 ]
+# Per contact role, the only routes its principal reaches (25f adds "legacy").
+ROLE_PATHS: dict[str, list[re.Pattern[str]]] = {"recovery": CONTACT_PATHS}
 CONTACT_KINDS = ("household", "outside")
 HOUSEHOLD_CONTACT_ROLES = ("adult",)  # never child, teen or guest (§3.13); another owner already has power
 LIVE_STATES = ("invited", "active")
@@ -96,6 +99,11 @@ class RecoveryContacts:
             raise self.ident.deny(ctx.principal, what, reason="owner_only")
         return ctx.user
 
+    @staticmethod
+    def _lock_owner(s: Session, owner_id: str) -> None:
+        # PostgreSQL locks this owner row. SQLite serializes writers.
+        s.execute(update(UserRow).where(UserRow.id == owner_id).values(last_seen_at=UserRow.last_seen_at))
+
     def _rows(self, owner_id: str, *, live_only: bool = False) -> list[ContactRow]:
         q = select(ContactRow).where(ContactRow.owner_user_id == owner_id, ContactRow.role == self.role)
         if live_only:
@@ -131,24 +139,37 @@ class RecoveryContacts:
         }
 
     def tell(self, owner_id: str, event: str, data: dict, p: Principal | None = None, severity: str = "info",
-             audit_only: dict | None = None, delivery_id: str | None = None) -> None:
+             audit_only: dict | None = None, record: Callable[[Session], None] | None = None,
+             commit: Callable[[Callable[[Session], None]], None] | None = None,
+             delivery_id: str | None = None) -> None:
         """Tell every owner (a notification) and every contact of this owner (their notices feed).
-        `audit_only` facts go into the event (and so the audit) but not into the contacts' feed."""
+        `audit_only` facts go into the event (and so the audit) but not into the contacts' feed.
+        `record` writes bookkeeping with the feed entry. `commit` can include required inbox writes
+        in the same transaction, before publishing the event. `delivery_id` deduplicates outbox retries."""
         domain, _, name = event.partition(".")
         if delivery_id is not None:
             with self.db.session() as s:
                 if s.get(NoticeRow, delivery_id) is not None:
                     return  # the last delivery finished, but its outbox acknowledgement did not
         delivery = {"dedupe_key": delivery_id, "require_subscribers": True} if delivery_id else {}
-        self.gw.events.publish_event(domain, name, {"owner_user_id": owner_id, **data, **(audit_only or {})},
-                                     principal=p.as_dict() if p else None, severity=severity, **delivery)
-        now = self.now()
-        with self.db.session.begin() as s:
-            s.add(NoticeRow(id=delivery_id or new_id("rn"), owner_user_id=owner_id, at=now, event=event, data=data))
-            old = list(s.scalars(select(NoticeRow.id).where(NoticeRow.owner_user_id == owner_id)
-                                 .order_by(NoticeRow.at.desc(), NoticeRow.id.desc()).offset(NOTICES_KEPT)))
+        notice_id = delivery_id or new_id("rn")
+
+        def store(s: Session) -> None:
+            s.add(NoticeRow(id=notice_id, owner_user_id=owner_id, at=self.now(), event=event, data=data))
+            old = list(s.scalars(select(NoticeRow.id).where(NoticeRow.owner_user_id == owner_id, NoticeRow.id != notice_id)
+                                 .order_by(NoticeRow.at.desc(), NoticeRow.id.desc()).offset(NOTICES_KEPT - 1)))
             if old:
                 s.execute(delete(NoticeRow).where(NoticeRow.id.in_(old)))
+            if record is not None:
+                record(s)
+
+        if commit is not None:
+            commit(store)
+        self.gw.events.publish_event(domain, name, {"owner_user_id": owner_id, **data, **(audit_only or {})},
+                                     principal=p.as_dict() if p else None, severity=severity, **delivery)
+        if commit is None:
+            with self.db.session.begin() as s:
+                store(s)
 
     # ---- settings (the owner's waits) ------------------------------------------------------------------
     def settings(self, owner_id: str) -> dict:
@@ -192,7 +213,7 @@ class RecoveryContacts:
         user = self._session_owner(ctx, f"list {self.noun}s")
         return [self.view(r) for r in self._rows(user.id)]
 
-    def _check_household(self, ctx: AuthContext, owner: UserRow, user_id: str | None) -> UserRow:
+    def _check_household(self, p: Principal, owner: UserRow, user_id: str | None) -> UserRow:
         target = self.ident.user(user_id) if user_id else None
         if target is None or target.disabled:
             raise ApiError(422, "conflict", "household_user_id: no such active household account", reason="no_such_person")
@@ -200,7 +221,7 @@ class RecoveryContacts:
             raise ApiError(422, "conflict", f"you cannot be your own {self.noun}", reason="self")
         if target.role not in HOUSEHOLD_CONTACT_ROLES:
             self.ident.emit("authz", "denied", {"attempted": f"add a {self.noun}", "reason": "role_not_allowed",
-                                                "target_role": target.role}, ctx.principal, severity="warning")
+                                                "target_role": target.role}, p, severity="warning")
             raise ApiError(422, "conflict", f"a {self.noun} in the household must be an adult (not a child, teen or guest)",
                            reason="role_not_allowed")
         return target
@@ -209,6 +230,11 @@ class RecoveryContacts:
             cooling_off_days: int | None, extra: dict | None = None) -> dict:
         owner = self._session_owner(ctx, f"add a {self.noun}")
         via = self.ident.require_step_up(ctx, ctx.principal, f"add a {self.noun}")
+        return self._issue_invite(owner, ctx.principal, kind, display_name, household_user_id, cooling_off_days,
+                                  via=via, extra=extra)
+
+    def _invite_details(self, owner: UserRow, p: Principal, kind: str, display_name: str,
+                        household_user_id: str | None, cooling_off_days: int | None) -> tuple[str | None, str, int]:
         if kind not in CONTACT_KINDS:
             raise ApiError(422, "conflict", "kind must be household or outside")
         days = cooling_off_days if cooling_off_days is not None else self.settings(owner.id)["values"]["cooling_off_days"]
@@ -217,30 +243,49 @@ class RecoveryContacts:
                            reason="not_an_option")
         target = None
         if kind == "household":
-            target = self._check_household(ctx, owner, household_user_id)
+            target = self._check_household(p, owner, household_user_id)
             name = target.display_name[:60]
         else:
             if household_user_id is not None:
                 raise ApiError(422, "conflict", "household_user_id is only for a household contact")
             name = clean_profile_name(display_name or "")
-        now = self.now()
-        live = [r for r in self._rows(owner.id, live_only=True) if self.counts_toward_limit(r, now)]
+        return target.id if target else None, name, days
+
+    def _check_invite_limit(self, s: Session, owner_id: str, target: str | None, name: str, now: datetime) -> None:
+        rows = s.scalars(select(ContactRow).where(ContactRow.owner_user_id == owner_id,
+                                                 ContactRow.role == self.role, ContactRow.state.in_(LIVE_STATES)))
+        live = [r for r in rows if self.counts_toward_limit(r, now)]
         if len(live) >= MAX_CONTACTS:
             raise ApiError(422, "conflict", f"at most {MAX_CONTACTS} {self.noun}s; remove one first", reason="too_many")
-        if target is not None and any(r.household_user_id == target.id for r in live):
-            raise ApiError(409, "conflict", f"{target.display_name} is already a {self.noun}", reason="already_a_contact")
-        cid, nonce = new_id("rc"), secrets.token_urlsafe(16)
+        if target is not None and any(r.household_user_id == target for r in live):
+            raise ApiError(409, "conflict", f"{name} is already a {self.noun}", reason="already_a_contact")
+
+    def _issue_invite(self, owner: UserRow, p: Principal, kind: str, display_name: str, household_user_id: str | None,
+                      cooling_off_days: int | None, *, via: str, extra: dict | None = None,
+                      contact_id: str | None = None, retain_invite: bool = False) -> dict:
+        target, name, days = self._invite_details(owner, p, kind, display_name, household_user_id, cooling_off_days)
+        now = self.now()
+        cid, nonce = contact_id or new_id("rc"), secrets.token_urlsafe(16)
         expires = now + INVITE_TTL
         row = ContactRow(id=cid, owner_user_id=owner.id, role=self.role, kind=kind,
-                         household_user_id=target.id if target else None, display_name=name, state="invited",
+                         household_user_id=target, display_name=name, state="invited",
                          invite_nonce_hash=nonce_hash(nonce), invited_at=now, invite_expires_at=expires,
                          cooling_off_days=days, extra=dict(extra or {}))
+        if retain_invite:
+            # The invited row holds the nonce sealed for the owner's invite pickup. Accept
+            # replaces it with the contact's sealed secret, and removal clears it.
+            row.sealed_secret = self.sealer.seal(nonce.encode(), f"invite:{cid}")
         with self.db.session.begin() as s:
+            self._lock_owner(s, owner.id)
+            self._check_invite_limit(s, owner.id, target, name, self.now())
             s.add(row)
-        invite = self.box.sign_invite(invite_id=cid, nonce=nonce, owner=owner.display_name[:100], role=self.role,
-                                      expires_at=expires)
-        self.tell(owner.id, f"{self.role}.contact.invited", {"contact_id": cid, "kind": kind}, ctx.principal,
+        self.tell(owner.id, f"{self.role}.contact.invited", {"contact_id": cid, "kind": kind}, p,
                   audit_only={"household_user_id": row.household_user_id, "cooling_off_days": days, "via": via})
+        return self._invite_view(owner, row, nonce)
+
+    def _invite_view(self, owner: UserRow, row: ContactRow, nonce: str) -> dict:
+        invite = self.box.sign_invite(invite_id=row.id, nonce=nonce, owner=owner.display_name[:100], role=self.role,
+                                      expires_at=utc(row.invite_expires_at))
         return {**self.view(row), "invite": invite, "box_key_fingerprint": self.box.fingerprint}
 
     def remove(self, ctx: AuthContext | None, contact_id: str) -> dict:
@@ -340,6 +385,7 @@ class RecoveryContacts:
                 token_hash=token_hash(token), last_seen_at=now)).rowcount
             if done != 1:
                 raise ApiError(409, "conflict", "this invite was already used or withdrawn", reason="invite_used")
+        one_time = {"contact_token": token, "contact_secret": b64(secret), **self.on_accept(row.id)}
         self.tell(row.owner_user_id, f"{self.role}.contact.accepted",
                   {"contact_id": row.id, "usable_at": iso(usable)}, Principal(f"{self.principal_kind}:{row.id}",
                                                                               self.principal_kind, self.principal_kind))
@@ -347,8 +393,12 @@ class RecoveryContacts:
         return {
             "contact_id": row.id, "role": self.role, "owner_display_name": owner.display_name if owner else None,
             "usable_at": iso(usable), "box_key_fingerprint": self.box.fingerprint,
-            "one_time": {"contact_token": token, "contact_secret": b64(secret)},
+            "one_time": one_time,
         }
+
+    def on_accept(self, contact_id: str) -> dict:
+        """Extra one-time values for the contact's phone at accept time (25f: the legacy access key)."""
+        return {}
 
     def allowed_path(self, path: str) -> bool:
         return any(rx.fullmatch(path) for rx in CONTACT_PATHS)
@@ -376,8 +426,8 @@ class RecoveryContacts:
         return p
 
     def path_allowed_for(self, row: ContactRow, path: str) -> bool:
-        """Overridden per role in a later PR (legacy contacts reach the legacy routes instead)."""
-        return row.role == "recovery" and self.allowed_path(path)
+        """A recovery contact reaches the recovery contact routes, a legacy contact the legacy ones."""
+        return any(rx.fullmatch(path) for rx in ROLE_PATHS.get(row.role, ()))
 
     def contact_row(self, request: Request, p: Principal) -> ContactRow:
         row = getattr(request.state, "recovery_contact", None)

@@ -370,6 +370,23 @@ dashboard recovery.status recovery-locked-out
 dashboard recovery.complete recovery-locked-out
 dashboard recovery.complete_options recovery-locked-out
 cli recovery.complete_options cli-browser-ceremony
+group legacy-contact-phone issue=#1208 The legacy contact's own side (a claim, the export and its download, accept and resign) is called by that person's phone with a legacy-contact token, not by the owner's dashboard session; the phone screens and the contact-side commands are not built in this PR.
+dashboard legacy.claims.list legacy-contact-phone
+dashboard legacy.claims.start legacy-contact-phone
+dashboard legacy.claims.confirm legacy-contact-phone
+dashboard legacy.contact.get legacy-contact-phone
+dashboard legacy.contact.notices legacy-contact-phone
+dashboard legacy.contact.resign legacy-contact-phone
+dashboard legacy.export.manifest legacy-contact-phone
+dashboard legacy.export.download legacy-contact-phone
+dashboard legacy.invites.accept legacy-contact-phone
+cli legacy.claims.start legacy-contact-phone
+cli legacy.claims.confirm legacy-contact-phone
+cli legacy.contact.resign legacy-contact-phone
+cli legacy.invites.accept legacy-contact-phone
+group legacy-household-screens issue=#1208 The owner's and adults' household views of a claim: the certificate and the invitations list have no dashboard screen yet (the invitations are accepted in the phone app).
+dashboard legacy.claims.certificate legacy-household-screens
+dashboard legacy.invitations.list legacy-household-screens
 
 # ---- the phone's 1.0 scope: what the phone leaves to the dashboard (FOUNDER TO CONFIRM) --------------
 group mobile-files-browse-only issue=#1232 Mobile 1.0 scope (founder to confirm): the phone browses, downloads and uploads files and handles Send to; file requests, sharing, trash, quotas, app passwords, the office editor, and polling or cancelling an unfinished upload are dashboard-only.
@@ -465,6 +482,8 @@ indirect dashboard photos.asset_content Photos.tsx fetches GET (fetch default) w
 indirect dashboard tls.ca TrustThisBox.tsx links CA_URL with a download anchor (GET)
 indirect dashboard tls.profile TrustThisBox.tsx links PROFILE_URL with a download anchor (GET)
 indirect dashboard system.journal.read LogViewer.tsx reads the journal with fetch() (GET, the SDK client speaks JSON only) on the URL query() builds
+indirect dashboard legacy.claims.cancel RecoveryContacts.tsx LegacyClaims sends POST through its act(path, body) helper (sdk.call method POST)
+indirect dashboard legacy.claims.confirm_adult RecoveryContacts.tsx LegacyClaims sends POST through its act(path, body) helper (sdk.call method POST)
 indirect mobile files.download FilesScreen.tsx downloads (GET) the url filesDownloadRequest returns
 # cmd/onemind/cli: the path is a constant or an argument of a helper that takes the method.
 indirect cli agents.kill_switch.set agents.go sends PUT through call(http.MethodPut, body) with const path

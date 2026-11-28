@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Recovery contacts (gateway permissions design PR 25d) and contact-assisted recovery (25e), §3.13, D-028.
+"""Recovery contacts (gateway permissions design PR 25d), contact-assisted recovery (25e) and legacy
+contacts (25f), §3.13, D-028.
 
 Three audiences, three route groups:
 - the owner, in a signed-in session: /v1/auth/recovery/contacts and /v1/auth/recovery/settings
@@ -13,16 +14,22 @@ Three audiences, three route groups:
   once with a request token (`omr_`); that token, as the bearer, reaches only that request's routes
   under /v1/auth/recovery/requests/{id} (status, the contact's 8-digit code, cancel, finish).
 
+25f adds the same three groups for legacy contacts (/v1/auth/legacy/..., /v1/legacy/invites/{id}/accept,
+the `legacy:` principal on /v1/legacy/...), plus the household's view of claims: every owner and adult
+sees them and the certificate, an adult may be the second person, an owner may cancel and block.
+
 No MCP tool touches any of it (surfaces/parity.py: CREDENTIAL). Logic in recovery/contacts.py.
 """
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from typing import Any, Literal
 
 from fastapi import Depends, FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
+from starlette.types import Receive, Scope, Send
 
 from ..auth import Principal
 from ..context import Gateway
@@ -31,8 +38,25 @@ from ..identity import ctx_of
 from ..identity.scopes import register_route_scope
 from ..jsonbody import JsonBody
 from ..recovery.contacts import RecoveryContacts
+from ..recovery.legacy import LegacyContacts
+from ..recovery.legacy import register_paths as register_legacy_paths
 from ..recovery.requests import REQUEST_TOKEN_PREFIX, Recoveries
 from ..recovery.ticker import Ticker
+
+
+class _LegacyExportResponse(StreamingResponse):
+    def __init__(self, archive: Generator[bytes, None, None]):
+        self.archive = archive
+        super().__init__(archive, media_type="application/x-tar",
+                         headers={"Content-Disposition": 'attachment; filename="onemind-legacy-export.tar"',
+                                  "Cache-Control": "no-store"})
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            self.archive.close()
+
 
 ORDER = 265  # after identity (260): it needs app.state.identity
 
@@ -45,6 +69,10 @@ register_route_scope("POST", r"/v1/recovery/invites/[^/]+/accept", None)  # no p
 register_route_scope("GET,HEAD,POST", r"/v1/recovery/contact(/[a-z-]+)?", None)  # the contact principal only
 register_route_scope("GET,HEAD,POST", r"/v1/recovery/requests(/[^/]+/(vouch|cancel))?", None)  # 25e, contact only
 STARTER_SECURITY = {"security": [{"bearer": ["recovery:request"]}]}  # the request token (omr_) from POST /v1/auth/recovery
+register_route_scope("POST", r"/v1/legacy/invites/[^/]+/accept", None)  # 25f: the invite is the credential
+register_route_scope("GET,HEAD,POST", r"/v1/legacy/(contact|claims|export)(/.*)?", None)  # 25f: legacy principal only
+LEGACY_SECURITY = {"security": [{"bearer": ["recovery:legacy"]}]}  # the legacy contact's token only
+HOUSEHOLD_SECURITY = {"security": [{"bearer": ["users:read"]}]}  # an owner or adult of the household
 
 
 class ContactView(BaseModel):
@@ -216,6 +244,83 @@ class CompleteBody(JsonBody):
     client: Literal["browser", "cli", "app"] = "browser"
 
 
+class LegacyAddBody(ContactAddBody):
+    wait_days: Literal[14, 30, 60, 90] | None = Field(default=None, description="the claim's wait; 30 by default")
+
+
+class LegacyView(ContactView):
+    wait_days: int
+
+
+class LegacyInviteRequest(BaseModel):
+    action_id: str
+    contact_id: str
+    wait_days: int
+
+
+class LegacyAdded(LegacyView):
+    invite: str
+    box_key_fingerprint: str
+
+
+class LegacyAcceptOneTime(AcceptOneTime):
+    access_key: str = Field(description="the legacy access key, shown once: keep it in the phone and print it")
+
+
+class LegacyAccepted(Accepted):
+    one_time: LegacyAcceptOneTime
+
+
+class LegacySelf(ContactSelf):
+    wait_days: int
+
+
+class ClaimBody(JsonBody):
+    model_config = ConfigDict(extra="forbid")
+    access_key: str = Field(max_length=200)
+    certificate_type: Literal["application/pdf", "image/jpeg", "image/png"]
+    certificate: str = Field(max_length=250_000, description="the death certificate, base64 (at most 180 KiB: a downsized photo or a small PDF)")
+
+
+class ClaimView(BaseModel):
+    id: str
+    contact_id: str
+    state: str = Field(description="waiting, awaiting_second, granted or cancelled")
+    created_at: str
+    ends_at: str
+    needs_second: bool = Field(description="another legacy contact or a household adult must confirm")
+    second_confirmed: bool
+    granted_at: str | None
+    access_until: str | None = Field(description="end of the 12-month read-only export window")
+    ended_at: str | None
+    end_reason: str | None
+    certificate_type: str
+    contact_display_name: str | None = None
+    confirmed_by_display_name: str | None = Field(
+        default=None, description="household view: who confirmed as the second person, shown next to the claimant")
+    claimant_accepted_signed_in: bool | None = Field(
+        default=None, description="household view: false when the claimant accepted the invite on a signed-out "
+                                  "device, so the box cannot tell whether a confirming adult is the claimant")
+
+
+class CancelClaimBody(JsonBody):
+    model_config = ConfigDict(extra="forbid")
+    block: bool = Field(default=False, description="also remove this legacy contact")
+
+
+class ExportFile(BaseModel):
+    path: str
+    size: int
+
+
+class ExportManifest(BaseModel):
+    claim_id: str
+    access_until: str | None
+    files: list[ExportFile]
+    total_bytes: int
+    read_only: bool
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     ident = getattr(app.state, "identity", None)
     if ident is None:  # identity is a core router; without it there are no owners to protect
@@ -225,7 +330,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
     gw.authenticators.append(svc.authenticate)
     rec = Recoveries(svc)
     app.state.recoveries = rec
-    ticker = Ticker([rec.tick])
+    legacy = LegacyContacts(gw, ident, app.state.notify)
+    register_legacy_paths()
+    legacy.register_actions()
+    legacy.files = lambda: getattr(app.state, "files_service", None)
+    app.state.legacy_contacts = legacy
+    ticker = Ticker([rec.tick, legacy.tick])
     gw.on_startup(ticker.start)
     gw.on_shutdown(ticker.stop)
     principal = gw.principal
@@ -379,3 +489,119 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def contact_cancel(request_id: str, request: Request, p: Principal = Depends(principal)):
         """Stop a recovery of your owner that you do not trust (any contact, L0)."""
         return rec.cancel_by_contact(svc.contact_row(request, p), p, request_id)
+
+    # ---- 25f: legacy contacts, the owner's side ----------------------------------------------------
+    @app.get("/v1/auth/legacy/contacts", operation_id="legacy.contacts.list", tags=TAGS,
+             response_model=list[LegacyView], responses=R(401, 403), openapi_extra=OWNER_SECURITY)
+    def legacy_list(request: Request, _: Principal = Depends(principal)):
+        return legacy.list(ctx_of(request))
+
+    @app.post("/v1/auth/legacy/contacts", operation_id="legacy.contacts.add", tags=TAGS, status_code=202,
+              response_model=LegacyInviteRequest, responses=R(401, 403, 409, 422, 429, 503), openapi_extra=OWNER_SECURITY)
+    def legacy_add(body: LegacyAddBody, request: Request, _: Principal = Depends(principal)):
+        """Queue an invite for the requesting owner's approval. Unavailable until D-028 enrollment checks are supported."""
+        return legacy.request_invite(ctx_of(request), body.kind, body.display_name, body.household_user_id,
+                                     body.cooling_off_days, body.wait_days)
+
+    @app.get("/v1/auth/legacy/contacts/{contact_id}/invite", operation_id="legacy.contacts.invite", tags=TAGS,
+             response_model=LegacyAdded, responses=R(401, 403, 404, 503), openapi_extra=OWNER_SECURITY)
+    def legacy_invite(contact_id: str, request: Request, response: Response, _: Principal = Depends(principal)):
+        """Read your approved, unaccepted legacy invite from an owner session."""
+        response.headers["Cache-Control"] = "no-store"
+        return legacy.invite(ctx_of(request), contact_id)
+
+    @app.delete("/v1/auth/legacy/contacts/{contact_id}", operation_id="legacy.contacts.remove", tags=TAGS,
+                response_model=LegacyView, responses=R(401, 403, 404), openapi_extra=OWNER_SECURITY)
+    def legacy_remove(contact_id: str, request: Request, _: Principal = Depends(principal)):
+        """Revoke a legacy contact immediately from an owner session (L0)."""
+        return legacy.remove(ctx_of(request), contact_id)
+
+    @app.get("/v1/auth/legacy/invitations", operation_id="legacy.invitations.list", tags=TAGS,
+             response_model=list[Invitation], responses=R(401, 403), openapi_extra=PERSON_SECURITY)
+    def legacy_invitations(request: Request, _: Principal = Depends(principal)):
+        return legacy.invitations(ctx_of(request))
+
+    # ---- 25f: the household's view of claims ---------------------------------------------------------
+    @app.get("/v1/auth/legacy/claims", operation_id="legacy.claims.household", tags=TAGS,
+             response_model=list[ClaimView], responses=R(401, 403), openapi_extra=HOUSEHOLD_SECURITY)
+    def household_claims(p: Principal = Depends(principal)):
+        """Every legacy claim on the box, for the owners and adults who are told about them."""
+        return legacy.claims_for_household(p)
+
+    @app.get("/v1/auth/legacy/claims/{claim_id}/certificate", operation_id="legacy.claims.certificate", tags=TAGS,
+             responses={200: {"content": {"application/pdf": {}, "image/jpeg": {}, "image/png": {}}}, **R(401, 403, 404)},
+             openapi_extra=HOUSEHOLD_SECURITY)
+    def household_certificate(claim_id: str, p: Principal = Depends(principal)):
+        """The certificate the claimant sent. OneMind cannot check it; it is evidence for you, not a key."""
+        data, ctype = legacy.household_reads_certificate(p, claim_id)
+        return Response(content=data, media_type=ctype, headers={"Content-Disposition": "attachment",
+                                                                  "Cache-Control": "no-store"})
+
+    @app.post("/v1/auth/legacy/claims/{claim_id}/cancel", operation_id="legacy.claims.cancel", tags=TAGS,
+              response_model=ClaimView, responses=R(401, 403, 404), openapi_extra=OWNER_SECURITY)
+    def household_cancel(claim_id: str, request: Request, body: CancelClaimBody | None = None,
+                         _: Principal = Depends(principal)):
+        """Stop a claim immediately from an owner session (L0); with block, also remove that contact."""
+        return legacy.cancel(ctx_of(request), claim_id, bool(body and body.block))
+
+    @app.post("/v1/auth/legacy/claims/{claim_id}/confirm", operation_id="legacy.claims.confirm_adult", tags=TAGS,
+              response_model=ClaimView, responses=R(401, 403, 404, 409), openapi_extra=HOUSEHOLD_SECURITY)
+    def household_confirm(claim_id: str, request: Request, p: Principal = Depends(principal)):
+        """A signed-in household adult can be the second person who confirms a claim (D-028)."""
+        return legacy.confirm(p, claim_id, None, ctx=ctx_of(request))
+
+    # ---- 25f: the legacy contact's phone and principal -----------------------------------------------
+    @app.post("/v1/legacy/invites/{invite_id}/accept", operation_id="legacy.invites.accept", tags=TAGS,
+              status_code=201, response_model=LegacyAccepted, responses=R(401, 403, 409, 422, 429, 503),
+              openapi_extra={"security": []})
+    def legacy_accept(invite_id: str, body: AcceptBody, request: Request):
+        """Accept a legacy invite. The answer holds, once, the token, the secret and the legacy access key."""
+        return legacy.accept(request, invite_id, body.invite, body.public_key, body.key_kind, body.device_label,
+                             body.proof)
+
+    @app.get("/v1/legacy/contact", operation_id="legacy.contact.get", tags=TAGS, response_model=LegacySelf,
+             responses=R(401, 403), openapi_extra=LEGACY_SECURITY)
+    def legacy_self(request: Request, p: Principal = Depends(principal)):
+        return legacy.contact_view(legacy.contact_row(request, p))
+
+    @app.get("/v1/legacy/contact/notices", operation_id="legacy.contact.notices", tags=TAGS,
+             response_model=list[Notice], responses=R(401, 403), openapi_extra=LEGACY_SECURITY)
+    def legacy_notices(request: Request, p: Principal = Depends(principal)):
+        """Recovery and claim notices for your owner since you accepted your legacy invite."""
+        return legacy.notices(legacy.contact_row(request, p))
+
+    @app.post("/v1/legacy/contact/resign", operation_id="legacy.contact.resign", tags=TAGS,
+              response_model=LegacySelf, responses=R(401, 403), openapi_extra=LEGACY_SECURITY)
+    def legacy_resign(request: Request, p: Principal = Depends(principal)):
+        return legacy.resign(legacy.contact_row(request, p), p)
+
+    @app.get("/v1/legacy/claims", operation_id="legacy.claims.list", tags=TAGS, response_model=list[ClaimView],
+             responses=R(401, 403), openapi_extra=LEGACY_SECURITY)
+    def legacy_claims(request: Request, p: Principal = Depends(principal)):
+        return legacy.claims_of(legacy.contact_row(request, p))
+
+    @app.post("/v1/legacy/claims", operation_id="legacy.claims.start", tags=TAGS, status_code=201,
+              response_model=ClaimView, responses=R(401, 403, 409, 422, 429), openapi_extra=LEGACY_SECURITY)
+    def legacy_claim(body: ClaimBody, request: Request, p: Principal = Depends(principal)):
+        """Request legacy access: your access key and the death certificate. A 30-day wait (the owner's
+        choice) with notices follows; any sign-in by the owner cancels it."""
+        return legacy.start_claim(legacy.contact_row(request, p), p, body.access_key, body.certificate_type,
+                                  body.certificate)
+
+    @app.post("/v1/legacy/claims/{claim_id}/confirm", operation_id="legacy.claims.confirm", tags=TAGS,
+              response_model=ClaimView, responses=R(401, 403, 404, 409), openapi_extra=LEGACY_SECURITY)
+    def legacy_confirm(claim_id: str, request: Request, p: Principal = Depends(principal)):
+        """Another legacy contact of the same owner confirms a claim as the second person."""
+        return legacy.confirm(p, claim_id, legacy.contact_row(request, p))
+
+    @app.get("/v1/legacy/export", operation_id="legacy.export.manifest", tags=TAGS, response_model=ExportManifest,
+             responses=R(401, 403, 503), openapi_extra=LEGACY_SECURITY)
+    def legacy_manifest(request: Request, p: Principal = Depends(principal)):
+        """After a granted claim: the owner's Files home, read only, for 12 months."""
+        return legacy.manifest(legacy.contact_row(request, p), p)
+
+    @app.get("/v1/legacy/export/download", operation_id="legacy.export.download", tags=TAGS,
+             responses={200: {"content": {"application/x-tar": {}}}, **R(401, 403, 409, 413, 503)},
+             openapi_extra=LEGACY_SECURITY)
+    def legacy_download(request: Request, p: Principal = Depends(principal)):
+        return _LegacyExportResponse(legacy.archive(legacy.contact_row(request, p), p))

@@ -66,3 +66,11 @@ POST /v1/auth/recovery/requests/{request_id}/complete/options  # returns a fresh
 POST /v1/auth/recovery/requests/{request_id}/complete  # answers with fresh session tokens, which a replay store must not keep; a retry finds the request completed (409)
 POST /v1/recovery/requests/{request_id}/vouch  # the first confirmation moves the request to waiting; a repeat answers 409 and changes nothing
 POST /v1/recovery/requests/{request_id}/cancel  # cancelling twice is the same as once
+POST /v1/auth/legacy/contacts  # files a short-lived request; a retry creates a separate pending request that requires its own owner passkey approval
+DELETE /v1/auth/legacy/contacts/{contact_id}  # removing twice is the same as once
+POST /v1/auth/legacy/claims/{claim_id}/cancel  # cancelling twice is the same as once: the repeat answers the cancelled claim
+POST /v1/auth/legacy/claims/{claim_id}/confirm  # the first confirmation is recorded; a repeat changes nothing
+POST /v1/legacy/invites/{invite_id}/accept  # answers with the token, secret and access key once, which a replay store must not keep; the single-use invite refuses a retry
+POST /v1/legacy/contact/resign  # resigning twice is the same as once: the token stops at the first
+POST /v1/legacy/claims  # one open claim per owner: a retry answers 409 already_open and stores no second certificate
+POST /v1/legacy/claims/{claim_id}/confirm  # the first confirmation is recorded; a repeat changes nothing

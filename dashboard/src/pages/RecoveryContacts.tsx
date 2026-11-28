@@ -6,19 +6,27 @@
 // key lives. Calls go through the generated client (@onemind/sdk).
 // 25e: every owner sees each running recovery of an account on the box ("Is this you?") and can stop
 // it at once (no step-up), and picks the waits: after a contact confirms, and with no contact.
+// 25f: legacy contacts (a read-only copy of your files after your death, after a wait you pick) and the
+// household's view of claims: owners cancel (and may block), an adult can be the second person.
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router';
 import { OneMind, OneMindError, type components } from '@onemind/sdk';
 import { Button, Card } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { useShell } from '../shell/Shell';
+import { href } from '../shell/routes';
 
 type Contact = components['schemas']['ContactView'];
 type Added = components['schemas']['ContactAdded'];
 type Waits = components['schemas']['RecoverySettings'];
 type Invitation = components['schemas']['Invitation'];
 type Recovery = components['schemas']['RecoveryView'];
+type Legacy = components['schemas']['LegacyView'];
+type LegacyAdded = components['schemas']['LegacyAdded'];
+type LegacyInviteRequest = components['schemas']['LegacyInviteRequest'];
+type Claim = components['schemas']['ClaimView'];
 const WAIT_LABEL: Record<string, string> = { contact_wait_hours: 'Wait after a contact confirms', remote_wait_hours: 'Wait with no contact' };
 
 const STATE: Record<string, string> = {
@@ -50,9 +58,11 @@ function useSdk() {
   return useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1 }), [token]);
 }
 
-export function RecoveryContacts() {
+// D-028 holds new invites and invite pickup until the shared enrollment checks are available.
+export function RecoveryContacts({ legacyEnrollmentAvailable = false }: { legacyEnrollmentAvailable?: boolean } = {}) {
   const { role } = useShell();
-  return role === 'owner' ? <><RunningRecoveries /><OwnerContacts /></> : <MyInvitations />;
+  if (role === 'owner') return <><RunningRecoveries /><LegacyClaims owner /><OwnerContacts /><LegacyContacts enrollmentAvailable={legacyEnrollmentAvailable} /></>;
+  return <><MyInvitations />{role === 'adult' && <LegacyClaims owner={false} />}</>;
 }
 
 function RunningRecoveries() {
@@ -179,6 +189,104 @@ function MyInvitations() {
           <li key={i.id}>{i.owner_display_name ?? 'An owner'} asked you to be a recovery contact. Accept in the OneMind phone app before {new Date(i.invite_expires_at).toLocaleDateString()}.</li>
         ))}
       </ul>
+    </Card>
+  );
+}
+
+function LegacyContacts({ enrollmentAvailable }: { enrollmentAvailable: boolean }) {
+  const sdk = useSdk();
+  const list = usePoll(() => checked(sdk.call<Legacy[]>({ method: 'GET', path: '/v1/auth/legacy/contacts' })), 0);
+  const [name, setName] = useState('');
+  const [wait, setWait] = useState(30);
+  const [invite, setInvite] = useState<LegacyAdded | null>(null);
+  const [approval, setApproval] = useState<string>();
+  const [error, setError] = useState('');
+  const act = async (job: () => Promise<unknown>) => {
+    setError('');
+    try {
+      await job();
+      await list.reload();
+    } catch (e) {
+      setError(why(e));
+    }
+  };
+  return (
+    <Card title="Legacy contacts" subtitle="People who may get a read-only copy of your files after your death. A claim waits, everyone in the household is told, and any sign-in by you cancels it.">
+      {!enrollmentAvailable && <p className="om-hint">Legacy contact enrollment is on hold until OneMind supports verification with a hardware key or first-key setup at the box.</p>}
+      {list.data && list.data.length > 0 && (
+        <ul aria-label="Legacy contacts">
+          {list.data.map((c) => (
+            <li key={c.id}>
+              <strong>{c.display_name}</strong> · {STATE[c.state] ?? c.state} · claim waits {c.wait_days} days
+              {enrollmentAvailable && c.state === 'invited' && (
+                <Button size="sm" variant="ghost" aria-label={`Show legacy invite for ${c.display_name}`} onClick={() => void act(async () => {
+                  setInvite(await sdk.call<LegacyAdded>({ method: 'GET', path: `/v1/auth/legacy/contacts/${encodeURIComponent(c.id)}/invite` }));
+                })}>Show invite</Button>
+              )}
+              {(c.state === 'invited' || c.state === 'cooling_off' || c.state === 'active') && (
+                <Button size="sm" variant="ghost" aria-label={`Remove legacy contact ${c.display_name}`} onClick={() => void act(() => sdk.call({ method: 'DELETE', path: `/v1/auth/legacy/contacts/${encodeURIComponent(c.id)}` }))}>Remove</Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {enrollmentAvailable && <form onSubmit={(e) => { e.preventDefault(); void act(async () => {
+        const queued = await sdk.call<LegacyInviteRequest>({ method: 'POST', path: '/v1/auth/legacy/contacts', body: { kind: 'outside', display_name: name.trim(), wait_days: wait } });
+        setApproval(queued.action_id);
+        setName('');
+      }); }}>
+        <label>Legacy contact name <input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} required /></label>
+        <label>Claim wait{' '}
+          <select aria-label="Claim wait" value={wait} onChange={(e) => setWait(Number(e.target.value))}>
+            {[14, 30, 60, 90].map((d) => <option key={d} value={d}>{d} days</option>)}
+          </select>
+        </label>
+        <Button type="submit" size="sm" icon="plus">Request legacy invite</Button>
+      </form>}
+      {approval && <p role="status"><Link to={href.approval(approval)}>Review legacy invite</Link> with your passkey. Then return here to copy it.</p>}
+      {invite && (
+        <div role="region" aria-label="Legacy invite to send">
+          <p>Send this invite to {invite.display_name}; they open it in the OneMind phone app, which keeps their access key.</p>
+          <textarea readOnly value={invite.invite} aria-label="Legacy invite text" rows={3} />
+          <Button size="sm" variant="ghost" onClick={() => setInvite(null)}>Done</Button>
+        </div>
+      )}
+      {error && <p role="alert">{error}</p>}
+    </Card>
+  );
+}
+
+function LegacyClaims({ owner }: { owner: boolean }) {
+  const sdk = useSdk();
+  const claims = usePoll(() => checked(sdk.call<Claim[]>({ method: 'GET', path: '/v1/auth/legacy/claims' })), 60_000);
+  const [error, setError] = useState('');
+  const open = claims.data?.filter((c) => c.state === 'waiting' || c.state === 'awaiting_second' || (owner && c.state === 'granted')) ?? [];
+  if (open.length === 0) return null;
+  const act = async (path: string, body?: unknown) => {
+    setError('');
+    try {
+      await sdk.call({ method: 'POST', path, body });
+      await claims.reload();
+    } catch (e) {
+      setError(why(e));
+    }
+  };
+  return (
+    <Card title="Legacy access requested" subtitle="Someone says an owner has died and asks for a copy of their files. OneMind cannot check the certificate.">
+      <ul aria-label="Legacy claims">
+        {open.map((c) => (
+          <li key={c.id}>
+            {c.contact_display_name ?? 'A legacy contact'} · {c.state === 'granted' ? `export open until ${new Date(c.access_until ?? c.ends_at).toLocaleDateString()}` : `can be granted after ${new Date(c.ends_at).toLocaleDateString()}`}
+            {c.needs_second && !c.second_confirmed ? ' · needs a second person' : ''}
+            {c.second_confirmed && c.confirmed_by_display_name ? ` · confirmed by ${c.confirmed_by_display_name}` : ''}
+            {c.claimant_accepted_signed_in === false ? ' · accepted on a signed-out phone: make sure the second person is someone else' : ''}
+            {owner && <Button size="sm" aria-label={`Cancel claim ${c.id}`} onClick={() => void act(`/v1/auth/legacy/claims/${encodeURIComponent(c.id)}/cancel`, { block: false })}>Cancel</Button>}
+            {owner && <Button size="sm" variant="ghost" aria-label={`Cancel and block ${c.id}`} onClick={() => void act(`/v1/auth/legacy/claims/${encodeURIComponent(c.id)}/cancel`, { block: true })}>Cancel and block</Button>}
+            {!owner && c.needs_second && !c.second_confirmed && <Button size="sm" variant="ghost" aria-label={`Confirm claim ${c.id}`} onClick={() => void act(`/v1/auth/legacy/claims/${encodeURIComponent(c.id)}/confirm`)}>Confirm as second person</Button>}
+          </li>
+        ))}
+      </ul>
+      {error && <p role="alert">{error}</p>}
     </Card>
   );
 }

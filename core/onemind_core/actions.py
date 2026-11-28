@@ -428,6 +428,8 @@ class FeatureAction:
     background: bool = False
     # A feature may derive risk from its immutable request; approval must match it.
     risk_for: Callable[[dict], str] | None = None
+    # A security-setting approval needs the requester's own session and a fresh, bound passkey.
+    owner_passkey: bool = False
     # #723: it moves or switches something physical. Fixed at registration, independent of risk:
     # passkey and hold-to-approve, plan-bound, never a standing approval or automation, lockout applies.
     physical: bool = False
@@ -1055,6 +1057,11 @@ class ActionService:
             raise ApiError(409, "conflict", f"action is {a.state}, not awaiting_approval")
         if a.type in self.feature_types:
             spec = self.feature_types[a.type]
+            if spec.owner_passkey:
+                if standing is not None or a.requested_by.get("id") != principal.id:
+                    raise self._deny(principal, "approve this owner's security setting", a.id)
+                if not extra.webauthn:
+                    raise ApiError(401, "unauthenticated", "approve with your passkey", reason="step_up_required")
             facts = None
             if spec.physical:
                 self._check_physical_approval(principal, a, spec, plan_sha256, extra, standing)

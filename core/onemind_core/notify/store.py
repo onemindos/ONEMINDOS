@@ -19,11 +19,12 @@ from __future__ import annotations
 
 import base64
 import json
+from collections.abc import Callable
 from datetime import datetime, timedelta
 
 from sqlalchemy import Boolean, DateTime, Index, Integer, String, Text, and_, delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from ..ledger import Base, iso, utc
 from ..store import Database, FeatureSchema, SqlRepository
@@ -309,6 +310,14 @@ class NotifyRepository(SqlRepository):
             s.add(row)
             s.add_all(deliveries)
         return True
+
+    def add_notifications(self, pending: list[tuple[NotificationRow, list[DeliveryRow]]],
+                          record: Callable[[Session], None]) -> None:
+        with self.db.session.begin() as s:
+            for row, deliveries in pending:
+                s.add(row)
+                s.add_all(deliveries)
+            record(s)
 
     def get_notification(self, nid: str) -> NotificationRow | None:
         with self.db.session() as s:
