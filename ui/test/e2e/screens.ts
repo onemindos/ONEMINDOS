@@ -38,7 +38,7 @@ export const UI_SCREENS: Screen[] = [
   // Primary IA screens (docs/design/IA.md; same list as ui/scripts/screenshots.mjs)
   ...['home', 'apps', 'app/home-assistant', 'app/immich', 'approvals', 'activity', 'nodes', 'backups', 'updates', 'notifications', 'settings', 'gallery'].map((r) => ui(r)),
   // Home launcher variants (ui/demo/src/home/HomeLauncher.tsx)
-  ...['edit', 'errors', 'fresh', 'loading', 'offline'].map((v) => ui(`home/${v}`)),
+  ...['edit', 'errors', 'fresh', 'loading', 'offline', 'desktop', 'desktop-edit'].map((v) => ui(`home/${v}`)),
   // Settings sections (ui/src/settings SETTINGS_SECTIONS) and the system activity and approvals pages
   ui('system'),
   ...['account', 'users', 'agents', 'devices', 'network', 'storage', 'backups', 'updates', 'notifications', 'automation', 'about', 'activity', 'approvals'].map((s) => ui(`system/${s}`)),

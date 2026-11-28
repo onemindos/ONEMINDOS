@@ -181,6 +181,8 @@ function SystemWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
                 <span>{n.hostname}</span>
                 {f !== 'live' && <span className="omh-row-note">{FRESHNESS_LABEL[f]} · {ago(n.last_seen, ctx.now)}</span>}
               </span>
+              {/* Atlas: every machine says how old its last heartbeat is, fresh ones too. */}
+              {f === 'live' && <span className="omh-time omh-node-age" title="Last heartbeat">{ago(n.last_seen, ctx.now)}</span>}
               {w.size !== 'S' && (
                 <span className="omh-node-nums">
                   <span>
@@ -226,7 +228,15 @@ function ApprovalRow({ a, ctx, compact }: { a: ActionSummary; ctx: WidgetContext
         <span className={expires === 'expired' ? 'omh-expiry omh-expired' : 'omh-expiry'}>{expires === 'expired' ? 'Expired' : `Expires ${expires}`}</span>
       </div>
       {!compact && a.reason && <p className="omh-approval-reason">“{a.reason}”</p>}
-      <div className="omh-approval-actions">
+      {a.hold ? (
+        // A hold action moves something physical (D-028): it is approved only in Approvals, by holding, never with one tap here.
+        <div className="omh-approval-actions">
+          <span className="omh-approval-tag">Moves a device</span>
+          <a className="om-btn om-btn-secondary om-btn-sm" href={ctx.links.approval(a.id)}>
+            Review<span className="om-visually-hidden"> {actionTitle(a)}</span>
+          </a>
+        </div>
+      ) : <div className="omh-approval-actions">
         <Button size="sm" variant="primary" icon="check" busy={busy} disabled={!!blocked || expires === 'expired'} aria-describedby={blocked ? reasonId : undefined} onClick={() => ctx.onApprove?.(a)} title={equivalentCall(a, 'approve')}>
           Approve
         </Button>
@@ -238,7 +248,7 @@ function ApprovalRow({ a, ctx, compact }: { a: ActionSummary; ctx: WidgetContext
             {blocked}
           </span>
         )}
-      </div>
+      </div>}
     </li>
   );
 }

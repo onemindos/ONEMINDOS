@@ -105,10 +105,8 @@ export function useWindows() {
       next = open(next, match.screen.id, path, wsRef.current);
     } else if (pathname === '/' && first && top(next, wsRef.current)) {
       navigate(top(next, wsRef.current)!.path, { replace: true });
-    } else if (pathname === '/') {
-      // Only this workspace goes to the desktop; the others keep their windows as they were.
-      next = next.map(w => w.ws === wsRef.current ? { ...w, minimised: true } : w);
     }
+    // At "/" the desktop has focus: the windows stay where they are over it (Atlas), none of them active.
     if (narrow) {
       const visible = top(next, wsRef.current);
       next = visible ? [{ ...visible, ws: wsRef.current }] : next.slice(-1);
