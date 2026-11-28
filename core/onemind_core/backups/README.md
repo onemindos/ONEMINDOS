@@ -32,7 +32,7 @@ owner / agent ──REST──▶ gateway ── kubectl exec (hooks, pg_dump, p
 | `GET /v1/backups/content` | read | apps whose manifest marks re-downloadable content (`spec.backup.content`: ZIMs, maps, models) with the content tier on or off and its size now, measured by the agent |
 | `POST /v1/backups/content` | owner | `{app_id, enabled, seen_size_bytes?}` → `202` `backup.content.set`; on needs the size the owner saw (BAK-03) |
 | `GET /v1/backups/verifications` | read | `{unit, snapshot_id, mode, result: pass\|fail\|error, probes}` |
-| `POST /v1/restores` | owner | `{snapshot_id, scope: {app_id} \| {app_id, path}}` → `202` `backup.restore` plus `restore.plan` |
+| `POST /v1/restores` | owner | `{snapshot_id, scope: {app_id} \| {app_id, path}}` → `202` `backup.restore` plus `restore.plan`. With `target: new_folder` (design 25b) → `backup.restore.copy` (risk `write`): a copy into a new folder `Restored from backup/<app>-<date>` of the requester's Files; nothing is overwritten, no app stops, and the app need not be installed any more |
 | `GET /v1/restores`, `/restores/{id}` | read | state, plan, steps, `pre_restore_snapshot_id`, `health_gate` |
 | `GET /v1/backups/kit` | owner | `{state: missing\|issued\|confirmed, positions, missing_on, disk_key}`: `missing_on` lists destinations added after the kit (their repository lacks the owner key); `disk_key` is `included\|earlier_kit\|not_encrypted\|not_available` |
 | `POST /v1/backups/kit` | owner | issues the emergency kit, with or without a destination; `201` with `one_time: {owner_key, groups, check, text, qr_payload, disk_key, disk_key_state}`, shown once. When `/data` is LUKS2 the kit takes the disk recovery key from onemindd once (D-020); it is never stored. A re-issue only adds a key |

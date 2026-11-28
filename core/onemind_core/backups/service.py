@@ -35,6 +35,7 @@ from ..catalog import AppEntry
 from ..context import Gateway
 from ..errors import ApiError
 from ..executors import ExecResult
+from ..files.errors import FilesError
 from ..ledger import Action, iso, utc
 from .jobs import AgentClient, AgentError, load_or_create_job_key
 from .kit import answer_ok, challenge, check_group_ok, kit_text, new_owner_key
@@ -56,6 +57,7 @@ from .store import (
 )
 
 log = logging.getLogger("onemind.backups")
+RESTORED_DIR = "Restored from backup"  # the folder in a person's Files Home that restore copies go into (25b)
 
 AGENT_KIND = {"usb": "usb", "box": "node", "rest": "node", "s3": "s3"}
 
@@ -133,6 +135,7 @@ class BackupService:
                                      settings.job_timeout_s)
         self.worker = Worker(inline)
         self.builtins = None  # the built-in registry (builtins.py); the router sets it (#616)
+        self.files = None  # the Files service (files/service.py); routers/files.py sets it (ORDER 300): restore copies
         self._pending_secrets: dict[str, dict] = {}  # action id -> destination credentials (memory only)
         self._one_time: dict[str, dict] = {}
         # action id -> (owner recovery key, expiry): a first-run restore from another box's backup. Memory only, never in
@@ -154,6 +157,10 @@ class BackupService:
         acts.register_type("backup.verify", FeatureAction("write", self._act_verify, frozenset({"person", "agent"})))
         # Agents may request a restore only with an explicit grant (§12.5); v0 has no grants.
         acts.register_type("backup.restore", FeatureAction("destructive", self._act_restore, check=self._check_restore))
+        # Design 25b: a copy into a NEW folder of the requester's Files is data access, never destructive (T1): nothing
+        # is overwritten and no app stops, so it never needs more than the everyday sign-in step (L1): data_access lets
+        # an owner who lost every passkey approve it after signing in with password and authenticator code.
+        acts.register_type("backup.restore.copy", FeatureAction("write", self._act_restore_copy, data_access=True))
         acts.register_type("backup.destination.add", FeatureAction("sensitive", self._act_dest_add))
         acts.register_type("backup.destination.remove", FeatureAction("destructive", self._act_dest_remove))
         acts.register_type("backup.kit.issue", FeatureAction("sensitive", self._act_kit_issue))
@@ -714,6 +721,86 @@ class BackupService:
                 mode="portable", target="in_place", state="awaiting_approval", plan=plan, steps=[],
                 created_at=utc(now)))
         return action, created
+
+    # ---- restore into a new folder (design 25b) -------------------------------------------------
+    def plan_copy(self, snapshot_id: str, scope: dict) -> tuple[dict, dict]:
+        """A copy needs no installed app (the data is reachable even after the app is gone) and changes nothing."""
+        snap = self.snapshot(snapshot_id)
+        app_id = scope.get("app_id")
+        if snap["unit"] != f"app:{app_id}":
+            raise ApiError(409, "stale_precondition", f"snapshot {snap['short_id']} is of {snap['unit']}, not app:{app_id}")
+        taken = snap.get("taken_at")
+        what = scope.get("path") or f"{app_id}'s saved folders"
+        if "path" in scope and not any(scope["path"] == p or scope["path"].startswith(p.rstrip("/") + "/")
+                                       for p in snap.get("paths") or []):
+            raise ApiError(409, "stale_precondition", "the path is not inside this snapshot")
+        plan = {"summary": f"Copy {what} as it was at {taken} into a new folder in your Files", "app_id": app_id,
+                "snapshot": {"id": snap["id"], "taken_at": taken, "reason": snap.get("reason")},
+                "steps": [f"make a new folder in your Files: {RESTORED_DIR}/{app_id}-<date>",
+                          f"copy {what} into it, as it was at {taken}",
+                          "nothing that exists is changed, and the app keeps running"],
+                "downtime": "none", "warnings": []}
+        return plan, snap
+
+    def request_restore_copy(self, principal, body: dict, *, idempotency_key: str, expires_at: datetime,
+                             reason: str | None):
+        if self.files is None:
+            raise ApiError(409, "stale_precondition", "Files is not running on this box, so there is no folder to copy into")
+        if principal.kind != "person":
+            raise ApiError(409, "stale_precondition", "a copy goes into your own Files: sign in as a person to ask for one")
+        plan, snap = self.plan_copy(body["snapshot_id"], body["scope"])
+        params = {"snapshot_id": snap["id"], "scope": body["scope"], "mode": "portable", "target": "new_folder",
+                  "person_id": principal.id}
+        action, created = self.gw.actions.request_feature(
+            principal, "backup.restore.copy", params, idempotency_key=idempotency_key, expires_at=expires_at, reason=reason)
+        if created:
+            self.repo.add_restore(RestoreRow(
+                id="rst_" + secrets.token_hex(10), action_id=action["id"], snapshot_id=snap["id"], scope=body["scope"],
+                mode="portable", target="new_folder", state="awaiting_approval", plan=plan, steps=[],
+                created_at=utc(self.gw.clock())))
+        return action, created
+
+    def _act_restore_copy(self, a: Action, finish: Callable[[ExecResult], None]) -> None:
+        self.worker.submit(lambda: self._do_restore_copy(a, finish))
+
+    def _do_restore_copy(self, a: Action, finish: Callable[[ExecResult], None]) -> None:
+        r = self.repo.restore_for_action(a.id)
+        scope = a.params.get("scope") or {}
+        now = self.gw.clock()
+
+        def end(outcome: str, message: str, out: list[dict]) -> None:
+            if r is not None:
+                self.repo.update_restore(r.id, state=outcome, finished_at=utc(self.gw.clock()),
+                                         error=None if outcome == "succeeded" else message, steps=out)
+            self._event("state_changed", {"restore_id": r.id if r else None, "action_id": a.id, "state": outcome},
+                        severity="info" if outcome == "succeeded" else "error", domain="restore", action_id=a.id)
+            finish(ExecResult(outcome, message, out))
+
+        if r is not None:
+            self.repo.update_restore(r.id, state="running", started_at=utc(now))
+        if (a.requested_by or {}).get("id") != a.params.get("person_id"):
+            end("failed", "a copy goes only into the Files of the person who asked for it", [])
+            return
+        if self.files is None:
+            end("failed", "Files is not running on this box", [])
+            return
+        try:
+            folder = self.files.new_restore_folder(a.params["person_id"], f"{scope.get('app_id')}-{now:%Y-%m-%d-%H%M}")
+        except (ApiError, FilesError, OSError) as e:
+            end("failed", f"the new folder could not be made: {getattr(e, 'message', None) or e}", [])
+            return
+        job = {"scope": "copy", "snapshot_id": a.params["snapshot_id"], "dest": folder["host_path"]}
+        if scope.get("path"):
+            job["path"] = scope["path"]
+        try:
+            res = self._job("backup.restore", job, a.id) or {}
+        except (AgentError, Unavailable) as e:
+            self.files.reindex_restore_folder(folder)
+            end("failed", f"the copy did not finish: {e}; what was copied is in {folder['path']}", [])
+            return
+        self.files.reindex_restore_folder(folder)
+        out = [{"root": folder["root"], "path": folder["path"], "files": res.get("files"), "skipped": res.get("skipped")}]
+        end("succeeded", f"copied into {folder['path']} in your Files", out)
 
     def restores(self) -> list[dict]:
         return [self._restore_view(r) for r in self.repo.restores()]

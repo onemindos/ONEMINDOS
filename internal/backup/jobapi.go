@@ -211,6 +211,8 @@ func (a *Agent) runJobKind(ctx context.Context, j Job) (any, error) {
 			BoxID      string `json:"box_id"`
 			// RecoveryKey: restore from another box's backup (new hardware); app scope only.
 			RecoveryKey string `json:"recovery_key"`
+			// Dest: scope copy only, the empty folder (under the Files root) the copy goes into.
+			Dest string `json:"dest"`
 		}
 		if err := decodeParams(j.Params, &p); err != nil {
 			return nil, err
@@ -224,11 +226,13 @@ func (a *Agent) runJobKind(ctx context.Context, j Job) (any, error) {
 		switch p.Scope {
 		case "path":
 			return a.RestorePath(ctx, RestoreRequest{TargetID: p.TargetID, SnapshotID: p.SnapshotID, Path: p.Path, ActionID: j.ActionID})
+		case "copy":
+			return a.RestoreCopy(ctx, CopyRequest{TargetID: p.TargetID, SnapshotID: p.SnapshotID, Path: p.Path, Dest: p.Dest})
 		case "app":
 			return a.RestoreApp(ctx, AppRestoreRequest{TargetID: p.TargetID, SnapshotID: p.SnapshotID, AppID: p.AppID, Stamp: p.Stamp, StrictFiles: p.Strict,
 				BoxID: p.BoxID, RecoveryKey: p.RecoveryKey})
 		}
-		return nil, badParams{fmt.Errorf("scope must be path or app")}
+		return nil, badParams{fmt.Errorf("scope must be path, app or copy")}
 
 	case KindRestoreFinish:
 		var p FinishRestoreRequest

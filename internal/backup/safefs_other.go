@@ -32,3 +32,6 @@ func mkdirAt(int, string) (int, error)                          { return -1, err
 func setDirMeta(int, int, string, os.FileMode, time.Time) error { return errUnsupported }
 func metaAt(int, string) (dirMeta, error)                       { return dirMeta{}, errUnsupported }
 func applyMetaFd(int, dirMeta) error                            { return errUnsupported }
+
+func openEmptyDir(string) (int, error)                         { return -1, errUnsupported }
+func copyOwnedAt(string, bool, int, string, *CopyResult) error { return errUnsupported }

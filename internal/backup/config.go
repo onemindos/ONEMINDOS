@@ -53,6 +53,9 @@ type Config struct {
 	// volumes (<root>/<pv>_<namespace>_<claim>). App volumes named by the
 	// gateway must resolve under one of them.
 	StorageRoots []string `json:"storage_roots"`
+	// CopyRoot is where a restore into a new folder may land: the Files root
+	// (ONEMIND_FILES_ROOT on the image). Default /data/onemind/files.
+	CopyRoot string `json:"copy_root,omitempty"`
 }
 
 // ResticConfig locates the pinned restic binary.

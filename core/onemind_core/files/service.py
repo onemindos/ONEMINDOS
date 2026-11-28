@@ -172,6 +172,38 @@ class FilesService:
         with self._system("timemachine", name):
             return f".system/timemachine/{name}"
 
+    def new_restore_folder(self, person_id: str, name: str) -> dict:
+        """Make (as the gateway's own user) a new, empty folder for a restore copy (design 25b) in the person's Home:
+        `Restored from backup/<name>`, with `-2`, `-3`... when the name is taken. Returns its root, its path in Files
+        and its host path for the backup agent, which fills it as this folder's owner."""
+        from ..backups.service import RESTORED_DIR
+
+        root = Root("home", person_id)
+        safe = "".join(c if c.isalnum() or c in "._-" else "-" for c in name)[:80] or "restore"
+        with self._lock, self._space(root) as space:
+            top = _ensure_dir(space, RESTORED_DIR)
+            try:
+                for i in range(1, 100):
+                    final = safe if i == 1 else f"{safe}-{i}"
+                    try:
+                        os.mkdir(final, 0o750, dir_fd=top)
+                        break
+                    except FileExistsError:
+                        continue
+                else:
+                    raise conflict("too many restore folders with that name", "exists")
+            finally:
+                os.close(top)
+        rel = (RESTORED_DIR, final)
+        host = self.settings.root / "home" / self.space_dir_name(person_id) / RESTORED_DIR / final
+        return {"root": root.id, "path": "/" + "/".join(rel), "parts": list(rel), "host_path": str(host), "person_id": person_id}
+
+    def reindex_restore_folder(self, folder: dict) -> None:
+        """Show what the agent copied in Files (search, sync) once it is done."""
+        root = Root("home", folder["person_id"])
+        self.reindex(root, tuple(folder["parts"]))
+        self.event("folder.created", None, {"root": root.id, "path": folder["path"]})
+
     @contextmanager
     def _system(self, *names: str) -> Iterator[int]:
         with self._base() as base:

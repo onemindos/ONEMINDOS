@@ -505,3 +505,15 @@ func TestBackupKitStatusAndAttach(t *testing.T) {
 		t.Fatalf("a short key is a usage error: %+v", r)
 	}
 }
+
+// design 25b: --new-folder files a copy into a new folder of the owner's Files.
+func TestBackupRestoreNewFolder(t *testing.T) {
+	g := asOwner(t)
+	if r := run(t, "", false, "backup", "restore", "abcd1234", "--app", "photos", "--new-folder", "--json"); r.code != 0 {
+		t.Fatalf("%+v", r)
+	}
+	q := g.requests("POST", "/v1/restores")
+	if len(q) != 1 || q[0].body["target"] != "new_folder" {
+		t.Fatalf("sent %+v", q)
+	}
+}

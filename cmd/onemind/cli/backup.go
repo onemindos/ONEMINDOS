@@ -103,9 +103,10 @@ func backupCommands(a *App) []*cobra.Command {
 	snaps.Flags().StringVar(&app, "app", "", "only this app's snapshots")
 
 	var rApp, rPath string
+	var rNew bool
 	restore := &cobra.Command{
-		Use:   "restore SNAPSHOT_ID --app APP [--path /file/or/folder]",
-		Short: "Request a restore in place of one app or one path (POST /v1/restores); a passkey approves it",
+		Use:   "restore SNAPSHOT_ID --app APP [--path /file/or/folder] [--new-folder]",
+		Short: "Request a restore of one app or one path, in place or (--new-folder) as a copy in your Files (POST /v1/restores)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if rApp == "" {
@@ -118,11 +119,16 @@ func backupCommands(a *App) []*cobra.Command {
 				}
 				scope["path"] = rPath
 			}
-			return a.backupRequest("restore of "+args[0], "/v1/restores", map[string]any{"snapshot_id": args[0], "scope": scope, "mode": "portable", "target": "in_place"}, reason, true)
+			target := "in_place"
+			if rNew { // design 25b: a copy into a new folder overwrites nothing and needs no strong key
+				target = "new_folder"
+			}
+			return a.backupRequest("restore of "+args[0], "/v1/restores", map[string]any{"snapshot_id": args[0], "scope": scope, "mode": "portable", "target": target}, reason, true)
 		},
 	}
 	restore.Flags().StringVar(&rApp, "app", "", "the app to restore")
 	restore.Flags().StringVar(&rPath, "path", "", "restore only this absolute path inside the app")
+	restore.Flags().BoolVar(&rNew, "new-folder", false, "copy into a new folder in your Files instead of overwriting the app's data")
 	restore.Flags().StringVar(&reason, "reason", "", "why, shown to the owner")
 
 	root.AddCommand(run, verify, snaps, restore, backupKitCommand(a))

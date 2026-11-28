@@ -292,6 +292,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
     # shared with search/providers.py (its index and grants) and routers/downloads.py
     # (one lock over every write into a space)
     app.state.files_service = svc
+    if (backups := getattr(app.state, "backups", None)) is not None:  # registered earlier (ORDER 200)
+        backups.files = svc  # design 25b: a restore copy goes into a new folder of the person's Home
     uploads = Uploads(svc)
     gw.requester_lookups.append(svc.requester)  # agent kill switch: an agent's frq_ cannot be approved
     principal = gw.principal
