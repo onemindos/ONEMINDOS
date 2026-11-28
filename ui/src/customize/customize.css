@@ -256,3 +256,24 @@
   outline-offset: 2px;
 }
 :root[data-om-underline-links] a { text-decoration-line: underline; }
+
+/* ---------- packs, look bar, switches ---------- */
+.om-cz-pack-group { margin-block-end: var(--om-space-3); }
+.om-cz-pack-head { margin: 0 0 var(--om-space-2); font-size: var(--om-font-size-sm); font-weight: var(--om-font-weight-semibold); color: var(--om-color-text-muted); border-top: 1px solid var(--om-color-border); padding-top: var(--om-space-1); }
+.om-cz-packs { display: grid; gap: var(--om-space-3); grid-template-columns: repeat(auto-fill, minmax(min(100%, 120px), 1fr)); }
+.om-cz-pack { display: flex; flex-direction: column; gap: var(--om-space-1); padding: 0; border: 0; background: none; color: var(--om-color-text); font: inherit; cursor: pointer; text-align: start; min-height: var(--om-layout-touch-target); }
+.om-cz-pack-mini { position: relative; display: block; aspect-ratio: 16 / 10; border-radius: var(--om-radius-md); border: 1px solid var(--om-color-border-strong); overflow: hidden; }
+.om-cz-pack-win { position: absolute; inset: 18% 14% 14% 14%; width: auto; height: auto; }
+.om-cz-pack-name { font-size: var(--om-font-size-sm); font-weight: var(--om-font-weight-semibold); }
+.om-cz-pack[aria-pressed='true'] .om-cz-pack-mini { outline: 2.5px solid var(--om-color-accent); outline-offset: 2px; }
+.om-cz-pack[aria-pressed='true'] .om-cz-pack-name { color: var(--om-color-accent); }
+.om-cz-pack:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; border-radius: var(--om-radius-md); }
+.om-cz-lookbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--om-space-3); }
+.om-cz-cmdline { font-family: var(--om-font-mono, monospace); font-size: var(--om-font-size-sm); padding: var(--om-space-1) var(--om-space-2); border-radius: var(--om-radius-sm); background: var(--om-color-surface-sunken); overflow-wrap: anywhere; }
+.om-cz-check { display: inline-flex; align-items: center; gap: var(--om-space-2); min-height: var(--om-layout-touch-target); }
+.om-cz-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--om-space-1); }
+.om-cz-list li { display: flex; align-items: center; gap: var(--om-space-2); min-height: var(--om-layout-touch-target); padding: 0 var(--om-space-2); border-radius: var(--om-radius-sm); border: 1px solid var(--om-color-border); background: var(--om-color-surface); }
+.om-cz-list li > span:first-child { flex: 1; min-width: 0; }
+
+/* Dock labels off (set by applyPreferences); the dock itself is the desktop shell's. */
+:root[data-om-dock-labels-off] .dsk-dock-label { display: none; }

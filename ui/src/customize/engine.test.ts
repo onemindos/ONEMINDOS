@@ -15,12 +15,13 @@ import {
   effectiveDim,
   msUntilNextSwitch,
   normalizePreferences,
+  resolveAccent,
   resolveThemeAttr,
   scheduledTheme,
 } from './preferences';
 import { ApiPreferencesStore, LocalPreferencesStore, LOCAL_SLOT, PreferencesError } from './store';
 import { checkUpload, sampleColors } from './upload';
-import { THEME_PACKS } from './packs';
+import { THEME_PACKS, packPatch } from './packs';
 import { CONSOLE_WALLPAPERS, UNKNOWN_IMAGE_MIN_DIM, WALLPAPERS, WALLPAPER_IDS, minDim, paintedColors } from './wallpapers';
 
 const THEMES = ['light', 'dark'] as const;
@@ -204,18 +205,22 @@ describe('preferences', () => {
     expect(accentSeed({ ...DEFAULT_PREFERENCES, accentSource: 'wallpaper', wallpaper: 'none' })).toEqual({ kind: 'preset', id: 'teal' });
     expect(accentSeed({ ...DEFAULT_PREFERENCES, accentSource: 'custom', accentCustom: '#123456' })).toEqual({ kind: 'custom', hex: '#123456' });
   });
-  it('loads pre-Atlas red preferences as personal artwork while keeping selection and actions fixed', () => {
+  it('keeps a red highlight only when the person picked the OneMind red preset; buttons and the logo stay fixed', () => {
     const old = normalizePreferences({ version: 1, accentPreset: 'onemind', accentSource: 'preset', wallpaper: 'onemind' });
     expect(old).toMatchObject({ accentPreset: 'onemind', wallpaper: 'onemind', commandBar: false });
     const css = customizeCss(old);
     expect(css).toContain(`--om-wallpaper-tint: ${ACCENTS.onemind.light};`);
-    expect(css).not.toMatch(/--om-color-(accent|action|focus|logo)/);
+    expect(css).toMatch(/--om-color-accent:/);
+    expect(css).not.toMatch(/--om-color-(action|logo)/);
   });
   it('writes CSS that mirrors the token theme selectors', () => {
     const css = customizeCss({ ...DEFAULT_PREFERENCES, accentSource: 'preset', accentPreset: 'rose', corners: 'round' });
     expect(css).toContain(`--om-wallpaper-tint: ${ACCENTS.rose.light};`);
     expect(css).toContain(`--om-wallpaper-tint: ${ACCENTS.rose.dark};`);
-    expect(css).not.toMatch(/--om-color-(accent|action|focus|logo)/);
+    expect(css).toContain(`--om-color-accent: ${ACCENTS.rose.light};`);
+    expect(css).not.toMatch(/--om-color-(action|logo)/);
+    expect(customizeCss(DEFAULT_PREFERENCES)).not.toMatch(/--om-color-(accent|action|focus|logo)/);
+    expect(customizeCss({ ...DEFAULT_PREFERENCES, buttonsRed: false })).toMatch(/--om-color-action:/);
     expect(css).toContain(":root:root[data-theme='dark']");
     expect(css).toContain('@media (prefers-color-scheme: dark)');
     expect(css).toContain('--om-radius-lg: 20px;');
@@ -350,7 +355,35 @@ it('applies and clears the accessibility overrides and reads them back from appe
   }
 });
 
-it('has no "full motion" choice: a stored full falls back to following the device, which is always respected', () => {
+it('motion is follow-the-device or always reduce; anything else, including a stored allow, follows the device', () => {
   expect(normalizePreferences({ motion: 'full' }).motion).toBe('system');
   expect(normalizePreferences({ motion: 'reduce' }).motion).toBe('reduce');
+  expect(normalizePreferences({ motion: 'allow' }).motion).toBe('system');
+});
+
+it('keeps dock order, dock labels and the red-buttons switch, dropping unsafe ids', () => {
+  const p = normalizePreferences({ dockOrder: ['market', 'home', 'market', '<x>', 7], dockLabels: false, buttonsRed: false });
+  expect(p).toMatchObject({ dockOrder: ['market', 'home'], dockLabels: false, buttonsRed: false });
+  expect(normalizePreferences({})).toMatchObject({ dockOrder: [], dockLabels: true, buttonsRed: true });
+});
+
+it('"From my photo" takes the most colourful sampled colour and darkens it until text passes AA', () => {
+  const p = normalizePreferences({ wallpaper: 'custom', accentSource: 'wallpaper', customWallpaperColors: ['#808080', '#e0b000', '#303030'] });
+  const a = resolveAccent(p);
+  expect(a.light.requested).toBe('#e0b000');
+  expect(a.light.ratio).toBeGreaterThanOrEqual(4.5);
+  expect(a.light.adjusted).toBe(true);
+});
+
+it('no theme pack and no wallpaper match gives a red highlight, so red only means act or needs you', () => {
+  const red = (hex: string) => { const o = hexToOklch(hex); return o.c > 0.08 && o.h >= 15 && o.h <= 40; };
+  for (const pack of THEME_PACKS) {
+    const p = { ...DEFAULT_PREFERENCES, ...packPatch(pack) };
+    for (const t of ['light', 'dark'] as const) expect(red(resolveAccent(p)[t].set.accent), `${pack.id} ${t}`).toBe(false);
+  }
+  for (const w of WALLPAPER_IDS) {
+    const p = { ...DEFAULT_PREFERENCES, accentSource: 'wallpaper' as const, wallpaper: w };
+    for (const t of ['light', 'dark'] as const) expect(red(resolveAccent(p)[t].set.accent), `${w} ${t}`).toBe(false);
+  }
+  expect(red(resolveAccent({ ...DEFAULT_PREFERENCES, accentSource: 'preset', accentPreset: 'onemind' }).light.set.accent)).toBe(true);
 });

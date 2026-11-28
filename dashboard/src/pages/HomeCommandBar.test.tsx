@@ -21,7 +21,7 @@ it('opens the command palette and only offers chat for an installed agent with a
 
 it('restores the run bar from the signed-in person’s appearance choice: in the dock on the desktop (final design 09)', async () => {
   const appearance = renderApp({ token: 'owner-demo', route: '/settings/appearance' });
-  const toggle = await screen.findByRole('checkbox', { name: 'Show the Home command bar' });
+  const toggle = await screen.findByRole('switch', { name: 'Show the run bar (Alt R)' });
   expect(toggle).not.toBeChecked();
   fireEvent.click(toggle);
   const { store } = preferenceStores('owner', { token: 'owner-demo' });

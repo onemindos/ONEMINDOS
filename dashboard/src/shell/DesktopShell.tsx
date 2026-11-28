@@ -20,10 +20,11 @@ import { useKeymap } from './keys/useKeymap';
 import { ShortcutSheet } from './keys/ShortcutSheet';
 import { routeFor } from './wm/ScreenRoutes';
 import './wm/wm.css';
-import { BrandMark, Icon, type NavItem, type PaletteCommand } from '@onemind/ui';
+import { BrandMark, Icon, useOptionalCustomize, type NavItem, type PaletteCommand } from '@onemind/ui';
 import { Launchpad } from './Launchpad';
 import type { LauncherMachine } from './launcher';
-import { dockSplit } from './dock';
+import { dockOrder, dockSplit } from './dock';
+import { orderDock } from './dockOrder';
 import { DockApps } from './DockApps';
 import { RunBar, type WaitingRequest } from './RunBar';
 import { FleetCountsView, NeedsYouChip, type FleetCounts } from './StatusStrip';
@@ -200,7 +201,8 @@ export function DesktopShell(props: DesktopShellProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLElement>(null);
   const [launchpad, setLaunchpad] = useState(false);
-  const { dock, more } = useMemo(() => dockSplit(nav), [nav]);
+  const dockPreference = useOptionalCustomize()?.prefs.dockOrder;
+  const { dock, more } = useMemo(() => dockSplit(nav, orderDock(dockOrder(), dockPreference)), [nav, dockPreference]);
   const openExtras = onWorkspace(wm.windows, wm.workspace).filter(w => !dock.some(item => item.id === w.id)).map(w => {
     const screen = routeFor(w.path)!.screen;
     return { id: w.id, label: screen.title, icon: screen.icon, href: w.path } as NavItem;
