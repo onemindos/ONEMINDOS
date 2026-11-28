@@ -1090,6 +1090,117 @@ def test_keyless_recovery_preserves_the_approval_level(keyless_recovery, clock):
     assert (action["state"], action["required_level"]) == ("awaiting_approval", "L2")
 
 
+@pytest.mark.parametrize("legacy", [False, True], ids=["current", "upgrade-from-v4"])
+def test_l1_only_household_stays_out_of_setup(lvc, root, clock, legacy):
+    from onemind_core.identity.models import HouseholdFlagRow, SCHEMA
+    from onemind_core.store import SchemaVersionRow, migrate
+    from test_identity import enrol
+
+    setup_owner(lvc)
+    bea = enrol(lvc, "owner", "bea")
+    me = lvc.get("/v1/me").json()["principal"]["id"]
+    bea_id = bea.get("/v1/me").json()["principal"]["id"]
+    assert add_key(lvc, SoftAuthenticator(), "first key")["level"] == "L1"
+    r = bea.post(f"/v1/users/{me}/disable", headers=csrf(bea))
+    assert r.status_code == 200 and r.json()["disabled"], r.text
+
+    identity = lvc.app.state.identity
+    if legacy:
+        repo = identity.repo
+        repo.delete(HouseholdFlagRow, HouseholdFlagRow.key == "owner_passkey_seen")
+        repo.update(SchemaVersionRow, [SchemaVersionRow.feature == "identity"], {"version": 4})
+        migrate(repo.db.engine, schemas=[SCHEMA])
+    assert not identity.passkeys_active() and not identity.levels.latched()
+
+    opts = bea.post("/v1/auth/passkeys/register/options", headers=csrf(bea))
+    assert opts.status_code == 200 and opts.json()["box_code_if_proven"] is True, opts.text
+    r = bea.patch(f"/v1/users/{bea_id}", json={"display_name": "Bea"}, headers=csrf(bea))
+    step = step_up_of(r)
+    assert (step["required_level"], step["box"]) == ("L1", "required")
+    aid = _wipe_by(bea, clock, "l1-key-lost")
+    r = bea.post(f"/v1/actions/{aid}/approve-options", headers=csrf(bea))
+    assert r.status_code == 409 and r.json()["reason"] == "verification_level_unmet", r.text
+    assert bea.get(f"/v1/actions/{aid}").json()["required_level"] == "L2"
+    assert bea.get("/v1/verification-requirements").json()["grace"] is True
+
+    body = {"credential": AttestedAuthenticator(root).register(opts.json()), "box_code": box_code(bea)}
+    r = bea.post("/v1/auth/passkeys/register", json=body, headers=csrf(bea))
+    assert r.status_code == 201 and r.json()["level"] == "L2", r.text
+    assert bea.get("/v1/verification-requirements").json()["grace"] is False
+
+
+@pytest.mark.parametrize("established_by", ["registration", "promotion"])
+def test_first_proven_owner_key_latches_before_it_can_be_lost(lvc, root, monkeypatch, established_by):
+    from test_identity import enrol
+
+    setup_owner(lvc)
+    bea = enrol(lvc, "owner" if established_by == "registration" else "adult", "bea")
+    bea_id = bea.get("/v1/me").json()["principal"]["id"]
+    identity = lvc.app.state.identity
+    emit = identity.emit
+    boundary = "passkey.registered" if established_by == "registration" else "updated"
+
+    def disable_at_first_post_commit_event(domain, name, payload, *args, **kwargs):
+        if name == boundary and payload.get("user_id") == bea_id:
+            r = lvc.post(f"/v1/users/{bea_id}/disable", headers=csrf(lvc))
+            assert r.status_code == 200 and r.json()["disabled"], r.text
+        emit(domain, name, payload, *args, **kwargs)
+
+    if established_by == "registration":
+        monkeypatch.setattr(identity, "emit", disable_at_first_post_commit_event)
+        assert add_key(bea, AttestedAuthenticator(root), "first proven key")["level"] == "L2"
+    else:
+        phone = SoftAuthenticator()
+        assert add_key(lvc, phone, "owner phone")["level"] == "L1"
+        assert add_key(bea, AttestedAuthenticator(root), "member key")["level"] == "L2"
+        assert not identity.levels.latched()
+        body = {"display_name": None, "role": "owner"}
+        g = grant(lvc, phone, "users.update", bea_id, body)
+        monkeypatch.setattr(identity, "emit", disable_at_first_post_commit_event)
+        r = lvc.patch(f"/v1/users/{bea_id}", json=body, headers={**csrf(lvc), "OneMind-Step-Up": g})
+        assert r.status_code == 200 and r.json()["role"] == "owner", r.text
+
+    assert bea.get("/v1/me").status_code == 401
+    table = lvc.get("/v1/verification-requirements").json()
+    assert (table["grace"], table["recovery_needed"]) == (False, True)
+
+
+@pytest.mark.parametrize("changed", ["session", "revoked-key", "untrusted-model"])
+def test_proven_key_vouch_must_still_be_valid_at_registration(lvc, root, clock, changed):
+    from test_identity import PASSWORD
+
+    phone, bio = _household_with_a_proven_key(lvc, root)
+    model = "a1b2c3d4-0000-4000-8000-0000000000a2"
+    params = {"aaguid": model, "name": "Test Model", "roots": [root.pem],
+              "user_verification": ["fingerprint_internal"]}
+    aid = file_action(lvc, clock, "authenticator.allowlist.add", params, "vouch-model")
+    assert approve(lvc, aid, bio).status_code == 200
+    key = AttestedAuthenticator(root, aaguid=model)
+    assert add_key(lvc, key, "vouching key", grant=grant(lvc, bio, "auth.passkeys.register"))["level"] == "L2"
+
+    g = grant(lvc, key, "auth.passkeys.register")
+    opts = lvc.post("/v1/auth/passkeys/register/options", headers={**csrf(lvc), "OneMind-Step-Up": g})
+    assert opts.status_code == 200 and opts.json()["box_code_if_proven"] is False, opts.text
+    client = lvc
+    if changed == "session":
+        client = new_session_client(lvc)
+        r = client.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD})
+        assert r.status_code == 200, r.text
+    elif changed == "revoked-key":
+        g = grant(lvc, phone, "auth.passkeys.delete", b64url(key.cred_id))
+        r = lvc.delete(f"/v1/auth/passkeys/{b64url(key.cred_id)}", headers={**csrf(lvc), "OneMind-Step-Up": g})
+        assert r.status_code == 204, r.text
+    else:
+        r = lvc.delete(f"/v1/auth/authenticator-allowlist/{model}", headers=csrf(lvc))
+        assert r.status_code == 204 and keys(lvc)["vouching key"]["level"] == "L1", r.text
+
+    replacement = AttestedAuthenticator(root)
+    r = client.post("/v1/auth/passkeys/register", json={"credential": replacement.register(opts.json())},
+                    headers=csrf(client))
+    assert r.status_code == 409 and r.json()["reason"] == "registration_options_stale", r.text
+    assert add_key(lvc, replacement, "fresh vouch", grant=grant(lvc, bio, "auth.passkeys.register"))["level"] == "L2"
+
+
 @pytest.mark.parametrize("keyless", [False, True], ids=["active-owner-keys", "keyless-recovery"])
 def test_promotion_rechecks_keys_after_step_up(lvc, root, clock, monkeypatch, keyless):
     from test_identity import enrol

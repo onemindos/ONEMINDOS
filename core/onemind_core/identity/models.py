@@ -15,6 +15,8 @@ from ..ledger import Base
 from ..store import FeatureSchema, SqlRepository
 
 SCHEMA = FeatureSchema("identity")  # v1 = the shape below
+OWNER_PASSKEY_SEEN = "owner_passkey_seen"
+PROVEN_SEEN = "proven_key_seen"
 
 
 @SCHEMA.step(2, "profile_name: the optional name a person chose, shown on Home")
@@ -50,6 +52,21 @@ def _identity_v4(conn) -> None:
             conn.execute(text(f"ALTER TABLE identity_passkeys ADD COLUMN {col} {typ}"))
     if "step_up_credential_id" not in {c["name"] for c in inspect(conn).get_columns("identity_sessions")}:
         conn.execute(text("ALTER TABLE identity_sessions ADD COLUMN step_up_credential_id VARCHAR(512)"))
+
+
+@SCHEMA.step(5, "remember completed owner passkey setup")
+def _identity_v5(conn) -> None:
+    # Disabled owners retain their keys. An existing grace latch also proves setup ended,
+    # even if all owners' credentials have been removed.
+    conn.execute(text("""
+        INSERT INTO identity_household_flags (key, set_at, detail)
+        SELECT :flag, CURRENT_TIMESTAMP, 'existing owner passkey history'
+        WHERE EXISTS (
+            SELECT 1 FROM identity_passkeys AS p JOIN identity_users AS u ON u.id = p.user_id
+            WHERE u.role = 'owner'
+        ) OR EXISTS (SELECT 1 FROM identity_household_flags WHERE key = :proven)
+        ON CONFLICT (key) DO NOTHING
+    """), {"flag": OWNER_PASSKEY_SEEN, "proven": PROVEN_SEEN})
 
 
 T = TypeVar("T", bound=Base)
@@ -140,8 +157,7 @@ class TrustedModelRow(Base):
 
 
 class HouseholdFlagRow(Base):
-    """A one-way household fact (design 3.11). `proven_key_seen`: an owner has held a proven (L2) key, so
-    the no-proven-key grace (N-1) never comes back by removing keys, models or owners."""
+    """One-way household facts (design 3.11): owner passkey setup ended, or an owner held a proven key."""
 
     __tablename__ = "identity_household_flags"
     key: Mapped[str] = mapped_column(String(40), primary_key=True)
@@ -230,15 +246,24 @@ class IdentityRepository(SqlRepository):
     """Small generic helpers; the rules live in service.py."""
 
     @contextmanager
-    def lock_user(self, user_id: str) -> Iterator[tuple[Session, UserRow | None]]:
-        """Serialise promotion and enrolment, including the household-wide first-owner-key check."""
+    def lock_household(self) -> Iterator[Session]:
+        """Serialise writes that establish an owner passkey or change model trust."""
         with self.db.session.begin() as s:
             if self.db.engine.dialect.name == "sqlite":
                 s.execute(text("BEGIN IMMEDIATE"))  # SQLite has no SELECT FOR UPDATE
             else:
                 # One identity household per database. Acquire its transaction lock before the user row.
                 s.execute(text("SELECT pg_advisory_xact_lock(:namespace, 1)"), {"namespace": 0x4F4D4944})  # OMID
+            yield s
+
+    @contextmanager
+    def lock_user(self, user_id: str) -> Iterator[tuple[Session, UserRow | None]]:
+        with self.lock_household() as s:
             yield s, s.get(UserRow, user_id, with_for_update=True)
+
+    def set_household_flag(self, session: Session, key: str, now: datetime, detail: str) -> bool:
+        stmt = self.db.insert()(HouseholdFlagRow).values(key=key, set_at=now, detail=detail[:200])
+        return session.scalar(stmt.on_conflict_do_nothing().returning(HouseholdFlagRow.key)) is not None
 
     def get(self, cls: type[T], key: Any) -> T | None:
         with self.db.session() as s:

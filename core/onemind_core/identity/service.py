@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from fastapi import Request
-from sqlalchemy import or_, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
 from ..auth import Principal
@@ -47,9 +47,11 @@ from .crypto import (
     verify_password,
 )
 from .models import (
+    OWNER_PASSKEY_SEEN,
     AppAccessRow,
     ApproverKeyRow,
     ChallengeRow,
+    HouseholdFlagRow,
     IdentityRepository,
     PasskeyRow,
     SessionRow,
@@ -93,6 +95,7 @@ class AuthContext:
     session: SessionRow | None = None
     token: TokenRow | None = None
     step_up_grant: str | None = None  # the OneMind-Step-Up header: a body-bound L2+ step-up (design 3.11)
+    redeemed_step_up: ChallengeRow | None = None
 
 
 PROFILE_NAME_MAX = 60
@@ -202,9 +205,10 @@ class IdentityService:
         return (session.scalar(owner_key) if session is not None else self.repo.one(owner_key)) is not None
 
     def _owner_verification_active(self, session: Session | None = None) -> bool:
-        """Once latched, owner verification survives the loss of every active owner's key."""
+        """Owner verification stays on once the household has completed passkey setup."""
         active = self.passkeys_active() if session is None else self.passkeys_active(session)
-        return active or self.levels.latched(session)
+        store = session if session is not None else self.repo
+        return active or store.get(HouseholdFlagRow, OWNER_PASSKEY_SEEN) is not None or self.levels.latched(session)
 
     def rp(self, request: Request) -> tuple[str, list[str]]:
         host = request.headers.get("host") or (request.url.hostname or "localhost")
@@ -832,6 +836,7 @@ class IdentityService:
             self.emit("auth", "step_up.failed", {"attempted": what, "reason": "grant_mismatch"}, p, severity="warning")
             raise ApiError(401, "unauthenticated", "this step-up was made for a different change",
                            reason="step_up_required", details=details)
+        ctx.redeemed_step_up = row
         return f"passkey:{d.get('level')}{'+box' if at_box else ''}"
 
     def _keys_meeting(self, user_ids: str | list[str], need: int) -> list[str]:
@@ -892,9 +897,12 @@ class IdentityService:
         # shows a code now; an L1 key (a phone or computer passkey) still enrols without it.
         # Only an owner's key counts for the household's level, so only an owner's enrolment needs this; a
         # member's proven key meets the same floor when they are made an owner (_op_rule, users.update).
-        # Before any owner has a passkey (the first one at setup) nothing can vouch and nothing needs to.
+        # Only the household's first owner passkey at setup is exempt.
         box = user.role == "owner" and not vouched and self._owner_verification_active()
         data, shown = {"role": user.role, "box_for_proven": box, "vouched": vouched or None}, False
+        if vouched and ctx.redeemed_step_up is not None:
+            proof = ctx.redeemed_step_up.data
+            data.update(vouch_session_id=proof["session_id"], vouch_credential_id=proof["credential_id"])
         if box and self.presence.available:
             try:
                 data["box_sha256"] = self.presence.issue("add a proven key", self.now() + CHALLENGE_TTL)
@@ -937,6 +945,8 @@ class IdentityService:
         level, why = lv.credential_level(fmt=v["fmt"], has_chain=v["has_chain"], backup_eligible=v["backup_eligible"],
                                          model=model, chain_ok=v["chain_ok"])
         proven = lv.rank(level) >= lv.PROVEN_KEY_VOUCH
+        why_grace_ended = f"passkey {v['id'][:32]}"
+        grace_ended = False
         needs_code, vouched = row.data.get("box_for_proven"), row.data.get("vouched")
         if proven and needs_code:
             if (refused := row.data.get("box_refused")) is not None:
@@ -950,6 +960,17 @@ class IdentityService:
         with self.repo.lock_user(user.id) as (s, current):
             if current is None or current.disabled:
                 raise ApiError(401, "unauthenticated", "account disabled", reason="bad_credentials")
+            if vouched:
+                session_id, credential_id = row.data.get("vouch_session_id"), row.data.get("vouch_credential_id")
+                session = (s.get(SessionRow, session_id, with_for_update=True)
+                           if session_id == ctx.session.id else None)
+                key = s.get(PasskeyRow, credential_id) if credential_id else None
+                need = lv.PROVEN_KEY_VOUCH if vouched == "proven_key" else 1
+                if (session is None or not self._session_live(session, self.now())
+                        or key is None or key.user_id != user.id
+                        or self.levels.cred_level(key, self.levels.models(s)) < need):
+                    raise ApiError(409, "conflict", "passkey confirmation is no longer valid for this session; "
+                                   "request new passkey registration options", reason="registration_options_stale")
             # A promotion may land while registration is pending. Only an owner who is still adding
             # the first owner passkey may finish a proven registration without a vouch or a code.
             if (proven and current.role == "owner" and not (needs_code or vouched)
@@ -962,6 +983,10 @@ class IdentityService:
                              att_chain_sha256=v["chain_sha256"], backup_eligible=v["backup_eligible"],
                              backed_up=v["backed_up"], level=level, level_reason=why,
                              model=model.name if model and level != "L1" else None))
+            if current.role == "owner":
+                self.repo.set_household_flag(s, OWNER_PASSKEY_SEEN, now, "owner passkey registered")
+                if proven:
+                    grace_ended = self.levels.record_proven(s, why_grace_ended)
             if ctx.session is not None:  # registering just proved presence on this device
                 s.execute(update(SessionRow).where(SessionRow.id == ctx.session.id)
                           .values(passkey_at=now, step_up_credential_id=v["id"]))
@@ -970,8 +995,8 @@ class IdentityService:
         self.emit("auth", "passkey.registered", {"user_id": user.id, "credential_id": v["id"], "label": label,
                                                  "level": level, "level_reason": why, "aaguid": v["aaguid"],
                                                  "attestation": v["fmt"], "confirmed": confirmed}, ctx.principal)
-        if proven:
-            self.levels.note_proven(f"passkey {v['id'][:32]}")  # the grace ends for good
+        if grace_ended:
+            self.levels.emit_grace_ended(why_grace_ended)
         return {"credential_id": v["id"], "label": label, "created_at": iso(now), "level": level,
                 "level_reason": why, "explanation": lv.REASON_TEXT[why]}
 
@@ -999,11 +1024,17 @@ class IdentityService:
         if row is None or row.user_id != user.id:
             raise ApiError(404, "not_found", "no such passkey")
         self.require_step_up(ctx, ctx.principal, "remove a passkey", op="auth.passkeys.delete", target=credential_id)
-        if user.role == "owner":
-            owners = self.active_owner_ids()
-            if self.repo.count(PasskeyRow, PasskeyRow.user_id.in_(owners)) <= 1:
-                raise ApiError(409, "conflict", "this is the last owner passkey on the box", reason="last_owner")
-        self.repo.delete(PasskeyRow, PasskeyRow.id == row.id)
+        with self.repo.lock_user(user.id) as (s, current):
+            if current is None or current.disabled:
+                raise ApiError(401, "unauthenticated", "account disabled", reason="bad_credentials")
+            if current.role == "owner":
+                count = s.scalar(select(func.count(PasskeyRow.id)).join(UserRow, UserRow.id == PasskeyRow.user_id)
+                                 .where(UserRow.role == "owner", UserRow.disabled.is_(False)))
+                if count <= 1:
+                    raise ApiError(409, "conflict", "this is the last owner passkey on the box", reason="last_owner")
+            fresh = s.get(PasskeyRow, row.id)
+            if fresh is not None:
+                s.delete(fresh)
         self.emit("auth", "passkey.removed", {"user_id": user.id, "credential_id": row.id}, ctx.principal)
 
     # ---- password and TOTP -------------------------------------------------------------------------
@@ -1184,19 +1215,27 @@ class IdentityService:
         if role is not None and role != u.role:
             self._last_owner_guard(u, self._role(role) != "owner")
             values["role"] = role
+        why_grace_ended = f"owner promotion {u.id}"
+        grace_ended = False
         if values.get("role") == "owner":
-            with self.repo.lock_user(u.id) as (s, _):
+            with self.repo.lock_user(u.id) as (s, current):
                 # A member may finish enrolling a proven key after the promotion's step-up was checked.
                 if (not self._vouch(via) and s.scalar(self._member_proven_key(u.id)) is not None
                         and self._owner_verification_active(s)):
                     raise ApiError(409, "conflict", "this person enrolled a proven key; retry the role change",
                                    reason="promotion_verification_changed")
                 s.execute(update(UserRow).where(UserRow.id == u.id).values(**values))
+                if current is not None and not current.disabled and s.scalar(
+                        select(PasskeyRow.id).where(PasskeyRow.user_id == u.id).limit(1)) is not None:
+                    self.repo.set_household_flag(s, OWNER_PASSKEY_SEEN, values["updated_at"], "owner promoted with passkey")
+                    grace_ended = self.levels.record_proven(s, why_grace_ended)
         else:
             self.repo.update(UserRow, [UserRow.id == u.id], values)
         changed = sorted(k for k in values if k != "updated_at")
         self.emit("user", "updated", {"user_id": u.id, "changed": changed, "role": values.get("role", u.role),
                                       "step_up": via}, p)
+        if grace_ended:
+            self.levels.emit_grace_ended(why_grace_ended)
         if "role" in values:
             for hook in self.role_hooks:
                 hook(u.id, values["role"], p)
