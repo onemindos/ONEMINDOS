@@ -5,7 +5,11 @@
 // (scripts/android-release-build.sh), so USE_BIOMETRIC must not be blocked any more.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { expo } = require('../../app.json') as {
-  expo: { android: { permissions: string[]; blockedPermissions: string[] }; plugins: Array<string | [string, Record<string, unknown>]> };
+  expo: {
+    android: { permissions: string[]; blockedPermissions: string[] };
+    ios: { infoPlist: Record<string, unknown> };
+    plugins: Array<string | [string, Record<string, unknown>]>;
+  };
 };
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const pkg = require('../../package.json') as { dependencies: Record<string, string> };
@@ -21,8 +25,15 @@ it('asks for the camera without the microphone', () => {
   expect(expo.android.permissions).toContain('android.permission.CAMERA');
   const cam = plugin('expo-camera') as [string, Record<string, unknown>];
   expect(typeof cam[1].cameraPermission).toBe('string');
-  expect(cam[1].microphonePermission).toBe(false);
   expect(cam[1].recordAudioAndroid).toBe(false);
+});
+
+it('declares microphone access for Recorder and explains location access on iOS', () => {
+  expect(expo.ios.infoPlist.NSMicrophoneUsageDescription).toContain('Recorder');
+  expect(expo.ios.infoPlist.NSLocationWhenInUseUsageDescription).toContain('when you ask');
+  const [, audio] = plugin('expo-audio') as [string, Record<string, unknown>];
+  expect(audio.enableBackgroundRecording).toBe(false);
+  expect(audio.enableBackgroundPlayback).toBe(false);
 });
 
 it('allows the biometric prompt (USE_BIOMETRIC) and explains Face ID', () => {

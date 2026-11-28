@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // The camera view that reads the box's join QR (issue 716). It only reads text: what the text means, and
 // whether it is safe, is decided by pair.ts (readJoin, trustBox). The first QR seen is handed over once.
-import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
+import { CameraView, useCameraPermissions, type BarcodeScanningResult } from '../device/camera';
 import { useRef } from 'react';
 import { View } from 'react-native';
 import { Button, Notice, P, s as base } from '../ui/bits';

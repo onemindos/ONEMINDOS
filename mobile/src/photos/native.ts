@@ -3,8 +3,7 @@
 // SHA-256 (expo-file-system, native), network and power state (expo-network, expo-battery), and the
 // app-sandbox files that hold settings and the ledger. All MIT, Expo SDK 58.
 import * as Battery from 'expo-battery';
-import { File, FileMode, Paths } from 'expo-file-system';
-import * as MediaLibrary from 'expo-media-library/legacy';
+import { File, FileMode, MediaLibrary, Paths } from '../device/files';
 import * as Network from 'expo-network';
 import { Platform as RNPlatform } from 'react-native';
 import type { Conditions } from './engine';

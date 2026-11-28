@@ -4,8 +4,7 @@
 // charging on Wi-Fi). Each run uploads chunks until the OS ends its time or the deadline passes,
 // and the next run continues from the box's offset. Must be imported from index.ts so the task is
 // defined before the OS can launch the app headless.
-import * as BackgroundTask from 'expo-background-task';
-import * as TaskManager from 'expo-task-manager';
+import { BackgroundTask, TaskManager } from '../device/background';
 import { HttpApi } from '../api/client';
 import { loadConnection } from '../storage';
 import { discoverPhotos } from './discovery';

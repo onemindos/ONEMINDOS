@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useEffect, useRef, useState } from 'react';
 import { AppState, Linking, Platform } from 'react-native';
-import * as Sharing from 'expo-sharing';
-import type { ResolvedSharePayload, SharePayload } from 'expo-sharing';
+import { Sharing, type ResolvedSharePayload, type SharePayload } from '../device/files';
 import { badFileName } from '../lib/filesTransfer';
 import type { SharedFile } from './shareQueue';
 
