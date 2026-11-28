@@ -7,6 +7,7 @@ import { ApiError } from '../api/types';
 import { useSignedIn } from '../session';
 import { useShell } from '../shell/Shell';
 import { useNow, usePoll } from '../lib/hooks';
+import { SettingsConfig } from './SettingsConfig';
 
 type Settings = components['schemas']['OnboardingSettingsView'];
 type SettingsBody = components['schemas']['OnboardingSettingsBody'];
@@ -105,6 +106,7 @@ export function SettingsRecoveryReset() {
       </dl>
       <div className="dash-actions"><Link to="/backups">Backups and Emergency Kit</Link><Link to="/settings/storage">Storage recovery key</Link></div>
     </Card>
+    <SettingsConfig />
     <Card title="Restart, shutdown and reset">
       <p>Factory reset needs an owner’s passkey. File and review system requests in Troubleshoot.</p>
       {controls.error ? <p>{failure(controls.error)}</p> : controls.data

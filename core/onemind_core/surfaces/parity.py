@@ -137,6 +137,7 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/auth/login": CREDENTIAL,
     "POST /v1/auth/login/options": CREDENTIAL,
     "POST /v1/auth/logout": CREDENTIAL,
+    "GET /v1/auth/methods": CREDENTIAL,
     "GET /v1/auth/passkeys": CREDENTIAL,
     "POST /v1/auth/passkeys/register": CREDENTIAL,
     "POST /v1/auth/passkeys/register/options": CREDENTIAL,
@@ -229,6 +230,8 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/machines/{name}/console": BYTES,
     "POST /v1/machines/{name}/upload": BYTES,
     "GET /v1/config/export": OVERSIGHT,  # owner-only export for private Git
+    "POST /v1/config/diff": OVERSIGHT,
+    "POST /v1/config/apply": OVERSIGHT,
     "GET /v1/metrics": BYTES,
     "POST /v1/migrate/repo/{plan_id}": BYTES,
     "POST /v1/migrate/repo/{plan_id}/": BYTES,

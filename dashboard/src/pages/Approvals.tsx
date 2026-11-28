@@ -56,8 +56,17 @@ export function Approvals() {
     const { code, message } = errorText(e);
     toast.show({ tone: 'bad', title: `Could not ${how}`, body: `${message} (${code})` });
   };
-  const decide = (a: ActionSummary, how: 'approve' | 'deny', sealed?: ApproveOpts['sealed'], acceptLicence?: string, hold?: ApproveOpts['hold']): Promise<boolean> =>
-    hub.decide(a.id, how, { passkey, sealed, acceptLicence, hold }).then(
+  const decide = (a: ActionSummary, how: 'approve' | 'deny', sealed?: ApproveOpts['sealed'], acceptLicence?: string, hold?: ApproveOpts['hold']): Promise<boolean> => {
+    const opts: ApproveOpts = { passkey, sealed, acceptLicence, hold };
+    if (how === 'approve' && a.type === 'config.apply') {
+      const plan = plans[a.id];
+      if (plan?.status !== 'ready' || !plan.data.effects.some((effect) => effect.kind === 'configuration')) {
+        fail(how, new ApiError(409, 'stale_precondition', 'Open a request with a configuration plan before approving.'));
+        return Promise.resolve(false);
+      }
+      opts.planSha256 = plan.data.plan_hash;
+    }
+    return hub.decide(a.id, how, opts).then(
       () => {
         setLicence(undefined);
         setLast({ id: a.id, title: actionTitle(a) });
@@ -74,6 +83,7 @@ export function Approvals() {
         return false;
       },
     );
+  };
 
   const approve = async (a: ActionSummary, elapsedMs?: number) => {
     if (a.hold) {

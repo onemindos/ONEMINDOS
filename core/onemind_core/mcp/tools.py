@@ -98,6 +98,11 @@ AUDIT_FIELDS = ["data.reason", "data.message"]
 ACTION_FIELDS = ["result.message"]
 
 
+def requested_by_agent(action: dict, agent_id: str) -> bool:
+    requester = action.get("requested_by") or {}
+    return requester.get("kind") == "agent" and requester.get("id") == agent_id
+
+
 def _under(prefix: str, fields: list[str]) -> list[str]:
     return [f"{prefix}.*.{f}" for f in fields] if prefix else list(fields)
 
@@ -293,7 +298,7 @@ class Catalogue:
             a = self.svc.get_action(action_id)
         except ApiError:
             return None
-        if (a.get("requested_by") or {}).get("id") != p.id:
+        if not requested_by_agent(a, p.id):
             return None
         return self._for_agent([a])[0]
 

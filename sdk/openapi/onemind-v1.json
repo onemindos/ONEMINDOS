@@ -3200,15 +3200,120 @@
         "title": "ComposeBody",
         "type": "object"
       },
+      "ConfigApplyBody": {
+        "additionalProperties": false,
+        "properties": {
+          "files": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 4,
+            "minProperties": 1,
+            "title": "Files",
+            "type": "object"
+          },
+          "revision": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "files",
+          "revision"
+        ],
+        "title": "ConfigApplyBody",
+        "type": "object"
+      },
+      "ConfigChange": {
+        "properties": {
+          "after": {
+            "title": "After",
+            "type": "string"
+          },
+          "before": {
+            "title": "Before",
+            "type": "string"
+          },
+          "file": {
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "before",
+          "after"
+        ],
+        "title": "ConfigChange",
+        "type": "object"
+      },
+      "ConfigDiffBody": {
+        "additionalProperties": false,
+        "properties": {
+          "files": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 4,
+            "minProperties": 1,
+            "title": "Files",
+            "type": "object"
+          }
+        },
+        "required": [
+          "files"
+        ],
+        "title": "ConfigDiffBody",
+        "type": "object"
+      },
+      "ConfigDiffView": {
+        "properties": {
+          "blockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision",
+          "changes",
+          "blockers"
+        ],
+        "title": "ConfigDiffView",
+        "type": "object"
+      },
       "ConfigExportView": {
         "properties": {
+          "files": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Files",
+            "type": "object"
+          },
           "yaml": {
+            "description": "Settings YAML, retained for clients of the single-file export.",
             "title": "Yaml",
             "type": "string"
           }
         },
         "required": [
-          "yaml"
+          "yaml",
+          "files"
         ],
         "title": "ConfigExportView",
         "type": "object"
@@ -12502,6 +12607,39 @@
         "title": "ShareTypesOut",
         "type": "object"
       },
+      "SignInMethods": {
+        "description": "How the signed-in person can sign in (Settings > Account and security). Facts only, no secret.",
+        "properties": {
+          "passkeys": {
+            "description": "Passkeys this person has registered.",
+            "title": "Passkeys",
+            "type": "integer"
+          },
+          "passkeys_active": {
+            "description": "An owner on this box has a passkey, so owner actions need a fresh passkey sign-in.",
+            "title": "Passkeys Active",
+            "type": "boolean"
+          },
+          "password": {
+            "description": "This person has a password (password sign-in works).",
+            "title": "Password",
+            "type": "boolean"
+          },
+          "totp": {
+            "description": "An authenticator code is asked after the password. A fallback: passkeys come first (D-030).",
+            "title": "Totp",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "password",
+          "totp",
+          "passkeys",
+          "passkeys_active"
+        ],
+        "title": "SignInMethods",
+        "type": "object"
+      },
       "SigningKey": {
         "properties": {
           "active": {
@@ -15267,6 +15405,38 @@
           }
         },
         "title": "ToolCall",
+        "type": "object"
+      },
+      "TotpSecret": {
+        "properties": {
+          "otpauth_uri": {
+            "description": "The same secret as an otpauth:// link (what a QR code holds).",
+            "title": "Otpauth Uri",
+            "type": "string"
+          },
+          "secret": {
+            "description": "Base32 secret for an authenticator app; shown once.",
+            "title": "Secret",
+            "type": "string"
+          }
+        },
+        "required": [
+          "secret",
+          "otpauth_uri"
+        ],
+        "title": "TotpSecret",
+        "type": "object"
+      },
+      "TotpSetup": {
+        "properties": {
+          "one_time": {
+            "$ref": "#/components/schemas/TotpSecret"
+          }
+        },
+        "required": [
+          "one_time"
+        ],
+        "title": "TotpSetup",
         "type": "object"
       },
       "TrashEmptyBody": {
@@ -20753,6 +20923,55 @@
         ]
       }
     },
+    "/v1/auth/methods": {
+      "get": {
+        "description": "Your own sign-in methods: password, authenticator code, passkeys. A household person only.",
+        "operationId": "auth.methods.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInMethods"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Sign In Methods",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/v1/auth/passkeys": {
       "get": {
         "operationId": "auth.passkeys.list",
@@ -21467,7 +21686,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TotpSetup"
+                }
               }
             },
             "description": "Successful Response"
@@ -24669,9 +24890,217 @@
         ]
       }
     },
+    "/v1/config/apply": {
+      "post": {
+        "description": "File an owner approval for a dry-run revision. Approval is a separate action.",
+        "operationId": "config.apply",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigApplyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Apply",
+        "tags": [
+          "config"
+        ]
+      }
+    },
+    "/v1/config/diff": {
+      "post": {
+        "description": "Compare validated YAML with the live configuration without writing settings or filing an action.",
+        "operationId": "config.diff",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigDiffBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigDiffView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Diff",
+        "tags": [
+          "config"
+        ]
+      }
+    },
     "/v1/config/export": {
       "get": {
-        "description": "Read the schema-approved cleartext settings as versioned YAML.",
+        "description": "Export the schema-approved configuration as versioned cleartext YAML.",
         "operationId": "config.export",
         "responses": {
           "200": {
@@ -24722,7 +25151,7 @@
             ]
           }
         ],
-        "summary": "Config Export",
+        "summary": "Export",
         "tags": [
           "config"
         ]

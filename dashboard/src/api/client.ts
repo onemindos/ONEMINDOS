@@ -3,7 +3,7 @@ import type { WiringApi } from './wiring';
 import { getPasskey } from '../lib/webauthn';
 import { withProtocol } from '../lib/protocol';
 import type * as W from './wiring';
-import { OneMind, OneMindError, type components, type operations } from '@onemind/sdk';
+import { OneMind, OneMindError, type Action as GatewayAction, type components, type operations } from '@onemind/sdk';
 import type { FabricSummary, JoinTicket, MeshView } from '@onemind/ui';
 import type { AppSecrets, SealedInput, SecretsPublicKey } from '@onemind/ui';
 
@@ -131,13 +131,8 @@ export interface OneMindApi extends WiringApi {
 export interface TlsInfo { ca_sha256: string; names: string[]; not_after: string | null; https: boolean }
 
 /** POST /v1/actions/{id}/approve-options: sign `publicKey` with a passkey, then approve with the result. */
-export interface ApproveOptions {
-  challenge: string;
-  action_sha256: string;
-  plan_sha256: string | null;
-  expires_at: string;
-  publicKey: Record<string, unknown>;
-}
+export type ApproveOptions = Pick<components['schemas']['ApprovalChallenge'],
+  'challenge' | 'action_sha256' | 'plan_sha256' | 'expires_at' | 'publicKey'>;
 export interface FirstRunSettingsBody {
   box_name: string;
   time_zone: string;
@@ -207,7 +202,14 @@ export class HttpApi implements OneMindApi {
     this.base = (opts.baseUrl ?? '').replace(/\/$/, '');
     this.token = opts.token;
     // Declares this build's protocol generation and watches the hub's range (lib/protocol.ts).
-    this.fetchFn = withProtocol(opts.fetchFn ?? ((input, init) => fetch(input, init)));
+    const transport = withProtocol(opts.fetchFn ?? ((input, init) => fetch(input, init)));
+    this.fetchFn = async (input, init) => {
+      const res = await transport(input, init);
+      // Age hub timestamps against the hub's clock, including responses through the SDK.
+      const hubDate = Date.parse(res.headers.get('Date') ?? '');
+      if (!Number.isNaN(hubDate)) this.offsetMs = hubDate - Date.now();
+      return res;
+    };
     this.sdk = new OneMind({ baseUrl: new URL(this.base || '/', globalThis.location?.origin ?? 'http://localhost').href, token: opts.token, fetch: (input, init) => this.fetchFn(String(input), init), retries: 1 });
   }
 
@@ -234,11 +236,6 @@ export class HttpApi implements OneMindApi {
     } catch (e) {
       throw new ApiError(0, 'network', e instanceof Error ? e.message : 'Network error');
     }
-    // The hub stamps last_seen with its own clock; the Date header lets the UI
-    // age it on that clock instead of the browser's (1 s resolution is enough
-    // for the 30 s / 120 s thresholds).
-    const hubDate = Date.parse(res.headers.get('Date') ?? '');
-    if (!Number.isNaN(hubDate)) this.offsetMs = hubDate - Date.now();
     const text = await res.text();
     let data: unknown = undefined;
     if (text) {
@@ -320,7 +317,11 @@ export class HttpApi implements OneMindApi {
       return value;
     }
     catch (e) {
-      if (e instanceof OneMindError) throw new ApiError(e.status, KNOWN_CODES.has(e.code) || e.code === 'network' ? e.code as ApiError['code'] : 'unknown', e.message, e.reason);
+      if (e instanceof OneMindError) {
+        const fallback = e.status === 401 ? 'unauthenticated' : 'unknown';
+        const code = KNOWN_CODES.has(e.code) || e.code === 'network' ? e.code as ApiError['code'] : fallback;
+        throw new ApiError(e.status, code, e.message, e.reason);
+      }
       throw e;
     }
   }
@@ -438,32 +439,37 @@ export class HttpApi implements OneMindApi {
     return action;
   }
   appLogs(id: string) { return this.req<string>('GET', `/v1/apps/${encodeURIComponent(id)}/logs?tail=200`, undefined, 'text'); }
-  actions() {
-    return this.req<Action[]>('GET', '/v1/actions', undefined, 'array');
+  async actions(): Promise<Action[]> {
+    return await this.sdkCall<GatewayAction[]>('GET', '/v1/actions', undefined, true) as Action[];
   }
-  action(id: string) {
-    return this.req<Action>('GET', `/v1/actions/${encodeURIComponent(id)}`);
+  async action(id: string): Promise<Action> {
+    return await this.sdkCall<GatewayAction>('GET', `/v1/actions/${encodeURIComponent(id)}`) as Action;
   }
   /** With a body (lib/approve.ts: plan hash, passkey, sealed secrets) it is sent as is. Without one,
    *  a step_up_required answer is completed here with the action-bound passkey challenge (#180). */
   async approve(id: string, body?: ApproveBody) {
     const path = `/v1/actions/${encodeURIComponent(id)}/approve`;
-    if (body !== undefined) return this.req<Action>('POST', path, body);
-    try { return await this.req<Action>('POST', path); }
+    // An authenticator assertion may already have been consumed when a reply is lost.
+    const submit = async (input?: ApproveBody) =>
+      await this.sdkCall<GatewayAction>('POST', path, input, false, undefined, false) as Action;
+    if (body !== undefined) return submit(body);
+    try { return await submit(); }
     catch (error) {
       if (!(error instanceof ApiError) || error.reason !== 'step_up_required') throw error;
-      const options = await this.sdkCall<components['schemas']['ApprovalChallenge']>('POST', path + '-options', {}, false, undefined, false);
+      const options = await this.approveOptions(id);
       const assertion = await getPasskey(options.publicKey);
-      return this.sdkCall<Action>('POST', path, {
+      return submit({
         webauthn: assertion, ...(options.plan_sha256 ? { plan_sha256: options.plan_sha256 } : {}),
-      }, false, undefined, false); // a consumed authenticator assertion must never be retried automatically
+      });
     }
   }
   approveOptions(id: string) {
-    return this.req<ApproveOptions>('POST', `/v1/actions/${encodeURIComponent(id)}/approve-options`, {});
+    return this.sdkCall<components['schemas']['ApprovalChallenge']>(
+      'POST', `/v1/actions/${encodeURIComponent(id)}/approve-options`, {}, false, undefined, false,
+    );
   }
-  deny(id: string) {
-    return this.req<Action>('POST', `/v1/actions/${encodeURIComponent(id)}/deny`);
+  async deny(id: string): Promise<Action> {
+    return await this.sdkCall<GatewayAction>('POST', `/v1/actions/${encodeURIComponent(id)}/deny`) as Action;
   }
 
   // ---- §12 routes (see wiring.ts). One method per route. -------------------------------------------

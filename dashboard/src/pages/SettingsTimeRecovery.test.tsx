@@ -7,7 +7,10 @@ import { SettingsDateTime, SettingsRecoveryReset } from './SettingsTimeRecovery'
 
 const state = vi.hoisted(() => ({ role: 'owner', signOut: vi.fn() }));
 vi.mock('../shell/Shell', () => ({ useShell: () => ({ role: state.role }) }));
-vi.mock('../session', () => ({ useSignedIn: () => ({ token: 'fixture' }), useSession: () => ({ signOut: state.signOut }) }));
+vi.mock('../session', () => ({
+  useSignedIn: () => ({ token: 'fixture', canDecide: state.role === 'owner' ? 'yes' : 'no' }),
+  useSession: () => ({ signOut: state.signOut }),
+}));
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -61,4 +64,14 @@ it('links to the existing passkey-gated request flow and never writes a reset', 
   expect(await screen.findByText('Factory reset · Available to request')).toBeVisible();
   expect(screen.getByRole('link', { name: 'Open system controls' })).toHaveAttribute('href', '/troubleshoot');
   expect(network.mock.calls.every((call) => call[1].method === 'GET')).toBe(true);
+});
+
+it('offers config export and comparison from Recovery and reset to the owner', async () => {
+  state.role = 'owner';
+  gateway(0);
+  render(<MemoryRouter><SettingsRecoveryReset /></MemoryRouter>);
+  expect(await screen.findByText('Factory reset · Available to request')).toBeVisible();
+  expect(screen.getByRole('region', { name: 'Configuration' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Export config' })).toBeVisible();
+  expect(screen.getByLabelText('Choose YAML files to compare')).toBeVisible();
 });

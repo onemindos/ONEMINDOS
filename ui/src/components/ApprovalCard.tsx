@@ -64,6 +64,7 @@ const VERB: Record<string, string> = {
   'node.join': 'Let join',
   'node.drain': 'Drain',
   'repair.apply': 'Fix',
+  'config.apply': 'Apply box configuration',
   'exposure.enable': 'Expose to the internet',
 };
 
