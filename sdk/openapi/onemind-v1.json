@@ -25621,6 +25621,7 @@
     },
     "/v1/backups/snapshots": {
       "get": {
+        "description": "An empty list when there is nothing to restore. With no backup destination yet the list is empty\nand `OneMind-Reason` says why; this is not an error.",
         "operationId": "backups.snapshots.list",
         "parameters": [
           {
@@ -25665,7 +25666,15 @@
                 "schema": {}
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "OneMind-Reason": {
+                "description": "Set to 'no backup destination yet' when the list is empty because no destination exists.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
             "content": {

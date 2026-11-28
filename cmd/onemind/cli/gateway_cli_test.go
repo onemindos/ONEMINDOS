@@ -115,6 +115,10 @@ func (g *recGW) serve(w http.ResponseWriter, r *http.Request) {
 	case p == "/v1/backups/status":
 		jsonOut(w, 200, map[string]any{"health": "ok", "last_success_at": "2026-11-25T02:00:00Z", "last_verified_restore_at": nil,
 			"next_run_at": "2026-11-26T02:00:00Z", "copies": 2, "agent": "ok", "reason": nil, "kit": map[string]any{"state": "confirmed"}})
+	case p == "/v1/backups/snapshots" && r.URL.Query().Get("app_id") == "nodest":
+		// a hub with no backup destination yet answers 200 with an empty list, not an error or a wait
+		w.Header().Set("OneMind-Reason", "no backup destination yet")
+		jsonOut(w, 200, []any{})
 	case p == "/v1/backups/snapshots":
 		jsonOut(w, 200, []any{map[string]any{"id": "abcd1234", "taken_at": "2026-11-25T02:00:00Z", "unit": "app:photos"}})
 	case p == "/v1/backups/runs", p == "/v1/backups/verify":
@@ -236,6 +240,9 @@ func TestBackupReadsAndRequestsWaitForAnOwner(t *testing.T) {
 	}
 	if q := g.requests("GET", "/v1/backups/snapshots"); len(q) != 1 || q[0].query != "app_id=photos" {
 		t.Fatalf("snapshots query %+v", q)
+	}
+	if r := run(t, "", false, "backup", "snapshots", "--app", "nodest"); r.code != 0 || !strings.Contains(r.out, "No snapshots yet") || strings.Contains(r.out, "SNAPSHOT") {
+		t.Fatalf("empty snapshots %+v", r)
 	}
 
 	if r := run(t, "", false, "backup", "run"); r.code != 0 || !strings.Contains(r.out, "onemind actions approve act_1") {

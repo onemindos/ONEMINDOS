@@ -534,21 +534,37 @@ class BackupService:
                         "finished_at": v.get("finished_at")})
         return out
 
+    NO_DESTINATION = "no backup destination yet"
+
     def snapshots(self, app_id: str | None = None, unit: str | None = None) -> list[dict]:
+        snaps, _ = self.snapshot_listing(app_id=app_id, unit=unit)
+        return snaps
+
+    def snapshot_listing(self, app_id: str | None = None, unit: str | None = None) -> tuple[list[dict], str | None]:
+        self._agent()  # backups switched off stays a 503 backups_disabled, before anything else
+        if not self.repo.destinations():
+            # The agent can have targets from its own config or from an add interrupted before the ledger write.
+            # Its status counts configured targets without opening a repository.
+            status = self._agent_status().get("status") or {}
+            if status.get("copies") == 0:
+                return [], self.NO_DESTINATION
         if app_id:
             unit = f"app:{app_id}"
         params = {"unit": unit} if unit else {}
         snaps = self._job("backup.snapshots", params) or []
+        if not snaps:
+            return [], None
         verified = {}
         try:
             for name, v in ((self._agent_status().get("status") or {}).get("last_verified") or {}).items():
                 verified[v.get("snapshot_id")] = v.get("finished_at")
         except (Unavailable, AgentError):
             pass
-        return [{"id": s["id"], "short_id": s.get("short_id"), "unit": s.get("unit"), "app_id": s.get("app_id") or None,
+        items = [{"id": s["id"], "short_id": s.get("short_id"), "unit": s.get("unit"), "app_id": s.get("app_id") or None,
                  "node_id": s.get("node_id"), "destination_id": None, "taken_at": s.get("taken_at"),
                  "size_bytes": None, "reason": s.get("reason"), "run_id": s.get("run_id"), "tags": s.get("tags") or [],
                  "paths": s.get("paths") or [], "verified_at": verified.get(s["id"])} for s in snaps]
+        return items, None
 
     def restore_candidates(self, destination_id: str, box_id: str | None = None,
                            recovery_key: str | None = None) -> list[dict]:

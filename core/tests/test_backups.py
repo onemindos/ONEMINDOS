@@ -53,6 +53,7 @@ class FakeAgent:
         self.clock = clock
         self.jobs: list[tuple[str, dict, str | None]] = []
         self.snaps: list[dict] = []
+        self.targets: list[dict] = []
         self.verified: dict[str, dict] = {}
         self.fail: dict[str, str] = {}
         self.run_state = "succeeded"
@@ -87,7 +88,8 @@ class FakeAgent:
                 units[u] = {"state": "verified", "last_success_at": v["finished_at"], "verified_at": v["finished_at"]}
             box = {"state": "verified" if units and all(b["state"] == "verified" for b in units.values()) else
                    ("unverified" if units else "none")}
-            return {"status": {"box": box, "units": units, "last_verified": self.verified, "fenced": False},
+            return {"status": {"box": box, "units": units, "last_verified": self.verified, "fenced": False,
+                               "copies": len(self.targets)},
                     "runs": [], "verifications": list(self.verified.values())}
         if kind == "backup.verify":
             out = []
@@ -103,7 +105,10 @@ class FakeAgent:
             return [{"id": a["id"], "bytes": self.content_bytes.get(a["id"], 0), "files": 1} for a in params["apps"]]
         if kind == "backup.tree":
             return [{"name": "notes.txt", "path": params["path"].rstrip("/") + "/notes.txt", "type": "file", "size": 2}]
-        if kind in ("backup.configure", "backup.restore.finish", "backup.key.add"):
+        if kind == "backup.configure":
+            self.targets = params["targets"]
+            return {"targets": [target["id"] for target in self.targets]}
+        if kind in ("backup.restore.finish", "backup.key.add"):
             return {"ok": True}
         raise AssertionError(kind)
 
@@ -436,6 +441,67 @@ def test_agent_refusal_is_unavailable_not_a_crash(client, bk):
     bk.agent.fail["backup.snapshots"] = "no destination is set up yet"
     r = client.get("/v1/backups/snapshots", headers=OWNER)
     assert r.status_code == 503 and r.json()["error"] == "unavailable" and r.json()["reason"] == "agent_failed"
+
+
+def test_snapshots_before_any_destination_is_an_empty_list_with_a_reason_not_a_wait(client, bk):
+    r = client.get("/v1/backups/snapshots", headers=OWNER)
+    assert r.status_code == 200 and r.json() == []
+    assert r.headers["OneMind-Reason"] == "no backup destination yet"
+    assert not any(j[0] == "backup.snapshots" for j in bk.agent.jobs)  # no repository lookup
+    add_usb(client, bk)
+    r = client.get("/v1/backups/snapshots", headers=OWNER)
+    assert r.status_code == 200 and r.json() == [] and "OneMind-Reason" not in r.headers
+    assert any(j[0] == "backup.snapshots" for j in bk.agent.jobs)  # with a destination the agent is asked
+
+
+def test_agent_only_destination_keeps_snapshots_discoverable_and_restorable(client, bk):
+    snap = restorable(client, bk)
+    destination, = bk.repo.destinations()
+    bk.repo.remove_destination(destination.id)  # simulate losing the row after the agent saved its config
+    assert not bk.repo.destinations()
+    assert [target["id"] for target in bk.agent.targets] == [destination.id]
+
+    listed = client.get("/v1/backups/snapshots", params={"app_id": "notes"}, headers=OWNER)
+    assert listed.status_code == 200 and listed.json() == [snap]
+    assert "OneMind-Reason" not in listed.headers
+    detail = client.get(f"/v1/backups/snapshots/{snap['id']}", headers=OWNER)
+    assert detail.status_code == 200 and detail.json() == snap
+    restore = client.post("/v1/restores", headers=OWNER, json={"snapshot_id": snap["id"], "scope": {"app_id": "notes"}})
+    assert restore.status_code == 202, restore.text
+    assert restore.json()["state"] == "awaiting_approval"
+    assert restore.json()["restore"]["plan"]["snapshot"]["id"] == snap["id"]
+    assert "backup.restore" not in bk.agent.kinds()
+
+
+def test_snapshot_list_without_destinations_preserves_agent_refusal(client, bk):
+    bk.agent.fail["backup.status"] = "could not read backup status"
+    r = client.get("/v1/backups/snapshots", headers=OWNER)
+    assert r.status_code == 503 and r.json()["reason"] == "agent_failed"
+    assert "OneMind-Reason" not in r.headers
+
+
+def test_snapshot_list_reason_matches_the_listing_when_a_destination_is_removed(client, bk, monkeypatch):
+    add_usb(client, bk)
+    destination, = bk.repo.destinations()
+    job = bk.agent.job
+
+    def remove_after_listing(kind, params, **kwargs):
+        out = job(kind, params, **kwargs)
+        if kind == "backup.snapshots":
+            job("backup.configure", {"targets": []})
+            bk.repo.remove_destination(destination.id)
+        return out
+
+    monkeypatch.setattr(bk.agent, "job", remove_after_listing)
+    r = client.get("/v1/backups/snapshots", headers=OWNER)
+    assert r.status_code == 200 and r.json() == []
+    assert "OneMind-Reason" not in r.headers
+    assert not bk.repo.destinations()
+
+
+def test_snapshots_with_backups_switched_off_stay_503_even_without_a_destination(client):
+    r = client.get("/v1/backups/snapshots", headers=OWNER)
+    assert r.status_code == 503 and r.json()["reason"] == "backups_disabled" and r.headers["retry-after"] == "30"
 
 
 def test_destination_request_replays_with_the_same_idempotency_key(client, bk):
