@@ -11,6 +11,7 @@ import { href } from '../shell/routes';
 import { Load } from './parts';
 import { StorageCare } from './StorageCare';
 import { StorageChanges } from './storage/Changes';
+import { OfflineMaps } from './OfflineMaps';
 
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('The hub returned an invalid storage record.');
@@ -81,5 +82,6 @@ function LiveStorage({ token }: { token: string }) {
     </Card>}</Load>
     <StorageCare client={client} />
     <StorageChanges summary={summary.data} disks={devices.data} />
+    <OfflineMaps token={token} />
   </div>;
 }

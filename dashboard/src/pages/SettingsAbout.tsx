@@ -13,6 +13,7 @@ import { PrivacyCard } from './PrivacyCard';
 import { RenameBoxCard } from './RenameBoxCard';
 import { SettingsBusEvents } from './SettingsBusEvents';
 import { SettingsEngine } from './SettingsEngine';
+import { SettingsSubjects } from './SettingsSubjects';
 import { UpsCard } from './UpsCard';
 
 export function SettingsAbout() {
@@ -54,6 +55,7 @@ export function SettingsAbout() {
       </details>
       <SettingsEngine />
       <SettingsBusEvents />
+      <SettingsSubjects />
       <SpatialStatus />
       <Card title="Plugin signing trust">
         <p>Owners can enroll public signing keys for private plugins. Changes wait for approval.</p>

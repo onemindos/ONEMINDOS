@@ -345,6 +345,27 @@ describe("agentBrowser", () => {
   });
 });
 
+describe("maps and subjects", () => {
+  it("reads packs, sites and subjects; a pack removal is a keyed action request, never an approval", async () => {
+    const { om, calls } = client((url, init) => {
+      if (url.endsWith("/v1/instance")) return json(200, { name: "b", version: "0.1.0", hub_node_id: "n" });
+      if (init.method === "POST") return json(201, action("awaiting_approval"));
+      return json(200, url.includes("/check") ? { ok: true, reason: "r" } : []);
+    });
+    await om.maps.packs();
+    await om.maps.sites();
+    await om.subjects.tree();
+    expect((await om.subjects.check("om.sensor.x", "app", "a1")).ok).toBe(true);
+    const a = await om.maps.requestPackRemoval("eu-west", "key-7");
+    expect(a.state).toBe("awaiting_approval");
+    const urls = calls.map((c) => c.url.replace("http://localhost:8080", ""));
+    expect(urls).toContain("/v1/subjects/check?subject=om.sensor.x&publisher=app&owner_id=a1");
+    const post = calls.find((c) => c.init.method === "POST")!;
+    expect(JSON.parse(String(post.init.body))).toMatchObject({ type: "map.pack.remove", params: { pack_id: "eu-west" }, idempotency_key: "key-7" });
+    expect(urls.some((u) => u.includes("/approve"))).toBe(false);
+  });
+});
+
 describe("domains hosts and tips.whatsNew", () => {
   it("sends the typed confirmation, escapes names, and refuses redirects for what's new", async () => {
     const { om, calls } = client((url, init) => {

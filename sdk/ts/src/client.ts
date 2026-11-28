@@ -243,6 +243,26 @@ export class OneMind {
   /** status.get (FD-01): what needs attention, per source. A source that cannot be read is "unknown", never "ok". */
   readonly status = { get: () => this.call<StatusView>({ method: "GET", path: "/v1/status" }) };
 
+  /** Offline maps: the installed basemap packs and the map sites. Removing a pack only FILES a request; the owner approves it. */
+  readonly maps = {
+    packs: () => this.call<components["schemas"]["Packs"]>({ method: "GET", path: "/v1/map/packs" }),
+    sites: () => this.call<components["schemas"]["GeoSite"][]>({ method: "GET", path: "/v1/sites" }),
+    requestPackRemoval: async (packId: string, idempotencyKey?: string): Promise<Action> => {
+      await this.instance.get(); // learn the hub clock first
+      const key = idempotencyKey ?? uuid4();
+      return this.call<Action>({ method: "POST", path: "/v1/actions", retry: true,
+        body: { type: "map.pack.remove", params: { pack_id: packId }, idempotency_key: key, expires_at: this.expiryFor(key, 24 * 3600_000) } });
+    },
+  };
+
+  /** The event subject tree: who may publish where, and how long each stream keeps messages. Read only. */
+  readonly subjects = {
+    tree: () => this.call<components["schemas"]["SubjectTree"]>({ method: "GET", path: "/v1/subjects" }),
+    check: (subject: string, publisher: "gateway" | "node" | "app" | "agent", ownerId?: string) =>
+      this.call<components["schemas"]["SubjectTreeCheck"]>({ method: "GET",
+        path: `/v1/subjects/check?${new URLSearchParams({ subject, publisher, ...(ownerId ? { owner_id: ownerId } : {}) })}` }),
+  };
+
   readonly nodes = {
     list: () => this.call<Node[]>({ method: "GET", path: "/v1/nodes" }),
     get: (id: string) => this.call<Node>({ method: "GET", path: `/v1/nodes/${encodeURIComponent(id)}` }),
