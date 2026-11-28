@@ -27,7 +27,7 @@ export function RestoreSection({ sdk, token }: { sdk: OneMind; token: string }) 
   const [pick, setPick] = useState<Snap>();
   return <>
     <Load res={snaps} what="Loading restore points">{(items) => <Card title="Restore points">
-      {items.length === 0 ? <p>No restore points yet. They appear after the first backup runs.</p> : <ul>{items.map((s) => <li key={s.id}>
+      {items.length === 0 ? <p>No restore points yet. They appear after the first backup run; add a backup destination first if you have none.</p> : <ul>{items.map((s) => <li key={s.id}>
         <strong>{s.appId ?? s.unit}</strong> · {s.takenAt}{s.reason ? ` · ${s.reason}` : ''} · {s.verifiedAt ? `verified ${s.verifiedAt}` : 'not verified'}{' '}
         {s.appId
           ? <Button size="sm" variant="secondary" onClick={() => setPick(s)} aria-label={`Restore ${s.appId} from ${s.takenAt}`}>Restore…</Button>

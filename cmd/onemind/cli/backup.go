@@ -9,6 +9,7 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -95,6 +96,10 @@ func backupCommands(a *App) []*cobra.Command {
 				for _, s := range list(v) {
 					m := obj(s)
 					rows = append(rows, []string{str(m["id"]), dash(str(m["taken_at"])), dash(str(m["unit"]))})
+				}
+				if len(rows) == 0 {
+					_, err := fmt.Fprintln(w, "No snapshots yet. They appear after the first backup run (onemind backup run); add a backup destination first if you have none.")
+					return err
 				}
 				return table(w, "SNAPSHOT\tTAKEN\tUNIT", rows)
 			})
