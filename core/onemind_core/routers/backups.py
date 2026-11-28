@@ -278,9 +278,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
                   unit: str | None = Query(default=None, max_length=128), _: Principal = Depends(reader)):
         """An empty list when there is nothing to restore. With no backup destination yet the list is empty
         and `OneMind-Reason` says why; this is not an error."""
-        out = svc.snapshots(app_id=app_id, unit=unit)
-        if not out and not svc.has_destination():
-            response.headers["OneMind-Reason"] = svc.NO_DESTINATION
+        out, reason = svc.snapshot_listing(app_id=app_id, unit=unit)
+        if reason is not None:
+            response.headers["OneMind-Reason"] = reason
         return out
 
     @app.get("/v1/backups/snapshots/{snapshot_id}", operation_id="backups.snapshots.get", tags=tags, responses=error_responses(401, 403, 404))
