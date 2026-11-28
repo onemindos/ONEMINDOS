@@ -15,8 +15,12 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/onemindos/onemindos/internal/mesh"
+	"github.com/onemindos/onemindos/internal/storage"
 )
 
 const ownerTok = "owner-token-0123456789abcdef"
@@ -476,5 +480,55 @@ func TestSavedTokenNeverSentToAnotherHub(t *testing.T) {
 	// The same hub spelled with a trailing slash keeps the token.
 	if r := run(t, "", false, "--context", "home", "--hub", g.srv.URL+"/", "nodes", "--json"); r.code != 0 {
 		t.Fatalf("same hub: %+v", r)
+	}
+}
+
+// Global flags typed before storage or mesh (which parse their own flags) must be accepted.
+func TestGlobalFlagsBeforeStorageAndMesh(t *testing.T) {
+	isolate(t)
+	oldS, oldM := newStorageCollector, newMeshClient
+	t.Cleanup(func() { newStorageCollector, newMeshClient = oldS, oldM })
+	newStorageCollector = func() *storage.Collector { return &storage.Collector{Run: replay{"unprotected"}} }
+	newMeshClient = func() *mesh.Client {
+		return &mesh.Client{Runner: fakeTS{`{"BackendState":"Running","Self":{"TailscaleIPs":["100.64.0.5"]},"Peer":{}}`}, Now: time.Now}
+	}
+	for _, args := range [][]string{
+		{"--hub", "https://hub.example.org", "storage", "disks"},
+		{"--hub=https://hub.example.org", "--no-color", "storage", "disks"},
+		{"storage", "--hub", "https://hub.example.org", "disks"},
+		{"-q", "storage", "disks", "--json"},
+	} {
+		r := run(t, "", false, args...)
+		if r.code != 0 || !strings.Contains(r.out, "/dev/vda") {
+			t.Errorf("%v: exit %d out %q err %q", args, r.code, r.out, r.errOut)
+		}
+	}
+	for _, args := range [][]string{
+		{"--hub", "https://hub.example.org", "mesh", "status", "--leaf-monitor", "127.0.0.1:1"},
+		{"mesh", "--hub=https://hub.example.org", "status", "--leaf-monitor", "127.0.0.1:1"},
+	} {
+		r := run(t, "", false, args...)
+		if r.code != 0 || !strings.Contains(r.out, "100.64.0.5") {
+			t.Errorf("%v: exit %d out %q err %q", args, r.code, r.out, r.errOut)
+		}
+	}
+	// The global --json must give machine output, not a table, wherever it is typed.
+	for _, args := range [][]string{
+		{"--json", "storage", "disks"}, {"storage", "--json", "disks"},
+		{"--json", "mesh", "status", "--leaf-monitor", "127.0.0.1:1"}, {"mesh", "--json", "status", "--leaf-monitor", "127.0.0.1:1"},
+		{"--json", "storage", "health", "/dev/vda"}, {"--json", "storage", "plan", "create", "--device", "/dev/vda"},
+	} {
+		r := run(t, "", false, args...)
+		var v any
+		if r.code != 0 || json.Unmarshal([]byte(r.out), &v) != nil {
+			t.Errorf("%v: want JSON, exit %d out %q err %q", args, r.code, r.out, r.errOut)
+		}
+	}
+	// A leading global flag with no value is rejected by takeLeadingGlobals itself.
+	if r := run(t, "", false, "storage", "--hub"); r.code != ExitUsage {
+		t.Errorf("missing flag value: exit %d out %q err %q", r.code, r.out, r.errOut)
+	}
+	if r := run(t, "", false, "--hub", "x", "storage", "--bogus"); r.code == 0 {
+		t.Errorf("unknown storage flag accepted")
 	}
 }

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest';
 import { makeActions, makeApps, makeNodes } from '../api/fixtures';
-import type { Action } from '../api/types';
+import type { Action, NodeRecord } from '../api/types';
 import { toRoute } from '../shell/routes';
-import { activityFrom, categorySlug, deployClass, NO_APP_NAME_NOTE, iconOf, jobState, notificationsFrom, openUrl, runState, toActionPlan, toActionSummary, toInstalled, toJob, toStoreApp } from './adapters';
+import { activityFrom, categorySlug, deployClass, NO_APP_NAME_NOTE, iconOf, jobState, notificationsFrom, openUrl, runState, toActionPlan, toActionSummary, toInstalled, toJob, toStoreApp, toHomeNode } from './adapters';
 import { personKey, personStorage } from './prefs';
 
 const NOW = Date.parse('2026-11-12T12:00:00Z');
@@ -230,5 +230,18 @@ describe('tainted agent request (AIG-04, #168)', () => {
   it('adds nothing when the requester read nothing from outside', () => {
     const p = toActionPlan({ ...base, plan: { summary: 'Remove whoami.', warnings: [] } } as unknown as Action)!;
     expect(p.effects.map((e) => e.label)).toEqual(['Remove whoami.']);
+  });
+});
+
+describe('node heartbeat → Home node (CPU and temperature)', () => {
+  const [base] = makeNodes(NOW) as [NodeRecord];
+  it('lifts the heartbeat metrics object into the flat fields Home reads', () => {
+    const n = toHomeNode({ ...base, metrics: { cpu_pct: 37.5, load1: 0.4, temp_c: 51 } });
+    expect(n.cpu_percent).toBe(37.5);
+    expect(n.temp_c).toBe(51);
+  });
+  it('keeps a figure the node did not report null, never 0', () => {
+    expect(toHomeNode({ ...base, metrics: { cpu_pct: null, temp_c: null } })).toMatchObject({ cpu_percent: null, temp_c: null });
+    expect(toHomeNode({ ...base, metrics: undefined })).toMatchObject({ cpu_percent: null, temp_c: null });
   });
 });

@@ -54,12 +54,13 @@ export async function readAppView(sdk: OneMind, appId: string): Promise<AppView>
   };
 }
 
-export interface Usage { components: Array<{ name: string; cpuMillicores: number | null; memMb: number | null }>; at: string | null }
+export interface Usage { components: Array<{ name: string; cpuMillicores: number | null; memMb: number | null }>; at: string | null; reason: string | null }
 /** GET /v1/apps/{app_id}/metrics: CPU and memory per component; null (never 0) when not reported. */
 export async function readUsage(sdk: OneMind, appId: string): Promise<Usage> {
   const b = rec(await get(sdk, route('/v1/apps/{app_id}/metrics', { app_id: appId })), 'usage record');
   return {
     at: str(b.at),
+    reason: str(b.reason),
     components: arr(b.components, 'usage list').map((c) => {
       const r = rec(c, 'usage row');
       if (typeof r.name !== 'string') throw bad('usage row');

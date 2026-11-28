@@ -168,6 +168,8 @@ export function toInstalled(a: CatalogApp, checkedAt: string, loc?: Pick<Locatio
   };
 }
 
+const finite = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+
 export function toHomeNode(n: NodeRecord, status: NodeStatus = n.status): HomeNode {
   return {
     node_id: n.node_id,
@@ -182,6 +184,9 @@ export function toHomeNode(n: NodeRecord, status: NodeStatus = n.status): HomeNo
     last_seen: n.last_seen,
     status,
     uptime_s: n.uptime_s,
+    // The heartbeat nests these under `metrics`; Home reads them flat. Missing stays null, never 0.
+    cpu_percent: finite(n.metrics?.cpu_pct),
+    temp_c: finite(n.metrics?.temp_c),
   };
 }
 

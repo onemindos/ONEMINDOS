@@ -186,23 +186,40 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.get("/v1/apps/{app_id}/metrics", operation_id="apps.metrics", tags=["apps"], responses=error_responses(401, 404))
     def app_metrics(app_id: str, request: Request, p: Principal = Depends(principal)):
         app_entry(app_id, request, p)
-        out = {"app_id": app_id, "at": iso(gw.clock()), "components": []}
+        # `reason` says why a figure is null (never a bare "not reported"); null when all were measured.
+        out: dict = {"app_id": app_id, "at": iso(gw.clock()), "components": [], "reason": None}
         if mon.kube is None:
+            out["reason"] = "This hub has no Kubernetes runtime connected, so there are no per-app figures."
             return out
         ns = f"app-{app_id}"
-        pods = mon.kube.pods(ns) or []
-        usage = mon.kube.pod_metrics(ns)
+        pods = mon.kube.pods(ns)
+        if pods is None:
+            out["reason"] = "The hub could not read this app's pods from Kubernetes."
+            pods = []
+        usage = mon.kube.pod_metrics(ns) if pods else None
         comps: dict[str, dict] = {}
+        partial = False
         for pod in pods:
             name = H.component_of(pod)
-            c = comps.setdefault(name, {"name": name, "cpu_millicores": None if usage is None else 0.0,
-                                        "mem_mb": None if usage is None else 0.0, "restarts": 0})
+            c = comps.setdefault(name, {"name": name, "cpu_millicores": None, "mem_mb": None, "restarts": 0})
             c["restarts"] += sum(x["restarts"] for x in H.containers(pod))
-            if usage is not None:
-                for cpu, mem in usage.get(pod["metadata"]["name"], {}).values():
-                    c["cpu_millicores"] = round(c["cpu_millicores"] + (cpu or 0), 1)
-                    c["mem_mb"] = round(c["mem_mb"] + (mem or 0), 1)
+            # A pod metrics-server has no reading for adds nothing: a part with no reading at all stays
+            # null, never 0 (0 would claim the part is idle).
+            if usage is not None and pod["metadata"]["name"] not in usage:
+                partial = True  # a pod with no reading (new replica): the sum is not the whole part
+            for cpu, mem in (usage or {}).get(pod["metadata"]["name"], {}).values():
+                if cpu is None or mem is None:
+                    partial = True  # a container without a full reading: the sum is not the whole part
+                if cpu is not None:
+                    c["cpu_millicores"] = round((c["cpu_millicores"] or 0) + cpu, 1)
+                if mem is not None:
+                    c["mem_mb"] = round((c["mem_mb"] or 0) + mem, 1)
         out["components"] = sorted(comps.values(), key=lambda c: c["name"])
+        if pods and out["reason"] is None:
+            if usage is None:
+                out["reason"] = "metrics-server did not answer, so the runtime has no CPU or memory figures (it may still be starting)."
+            elif partial or any(c["cpu_millicores"] is None or c["mem_mb"] is None for c in comps.values()):
+                out["reason"] = "metrics-server has no reading yet for some parts (a new or restarted part shows up after about a minute)."
         return out
 
     # ---- nodes --------------------------------------------------------------------------

@@ -106,7 +106,8 @@ function UsageTab({ appId, sdk }: { appId: string; sdk?: OneMind }) {
         <div><dt>Memory</dt><dd>{mem(sum('memMb'))}</dd></div>
         <div><dt>Sampled</dt><dd>{u.at ?? 'Not reported'}</dd></div>
       </dl>
-      {u.components.length === 0 && <p>The hub reports no running parts for this app, so there is nothing to measure.</p>}
+      {u.reason && <p role="status">Not all figures are available: {u.reason}</p>}
+      {u.components.length === 0 && !u.reason && <p>The hub reports no running parts for this app, so there is nothing to measure.</p>}
     </>;
   }}</Load>;
 }
@@ -214,5 +215,6 @@ function WorkloadsTab({ appId, sdk, view }: { appId: string; sdk?: OneMind; view
       <tbody>{comps.map((c) => <tr key={c.name}><th scope="row">{c.name}</th><td>{c.ready ? 'Yes' : 'No'}</td><td>{c.restarts}</td><td>{c.lastExit ?? 'None'}</td><td>{cpu(byName.get(c.name)?.cpuMillicores ?? null)}</td><td>{mem(byName.get(c.name)?.memMb ?? null)}</td></tr>)}</tbody>
     </table>
     {usage.error && <p role="status">CPU and memory could not be read right now.</p>}
+    {usage.data?.reason && <p role="status">Not all figures are available: {usage.data.reason}</p>}
   </>;
 }
