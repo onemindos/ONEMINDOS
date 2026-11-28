@@ -209,10 +209,19 @@ check "$APP becomes Available in k3s" \
   on "$HUB" k3s kubectl -n "app-$APP" wait --for=condition=Available "deploy/$APP" --timeout=300s
 
 echo "== dry run and uninstall"
-SUM_BEFORE=$(on "$HUB" sh -c 'find /etc/onemind /etc/systemd/system /opt/onemind -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum')
+# The hub itself rewrites one checked file on its own: onemind-gateway-token.timer renews
+# /etc/onemind/gateway.kubeconfig (a new 24-hour token) once 1-6 minutes after boot, then every 6 hours.
+# Every other OneMind service runs with ProtectSystem=strict and cannot write these folders. Hold the
+# timer (and wait out a renewal already running) while the dry run is measured, so a renewal that lands
+# in that window is not blamed on --dry-run; then start the timer again.
+HASHES='find /etc/onemind /etc/systemd/system /opt/onemind -type f -print0 | sort -z | xargs -0 sha256sum'
+on "$HUB" sh -c 'systemctl stop onemind-gateway-token.timer; while systemctl -q is-active onemind-gateway-token.service; do sleep 1; done'
+on "$HUB" sh -c "$HASHES" > "$WORK/dry.before"
 check "--dry-run on the installed hub exits 0" sh -c "docker exec $HUB $INSTALL --role hub --dry-run > '$WORK/dry.log' 2>&1"
-SUM_AFTER=$(on "$HUB" sh -c 'find /etc/onemind /etc/systemd/system /opt/onemind -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum')
-check "--dry-run changed no file" [ "$SUM_BEFORE" = "$SUM_AFTER" ]
+on "$HUB" sh -c "$HASHES" > "$WORK/dry.after"
+on "$HUB" systemctl start onemind-gateway-token.timer
+check "--dry-run changed no file" cmp -s "$WORK/dry.before" "$WORK/dry.after"
+cmp -s "$WORK/dry.before" "$WORK/dry.after" || diff "$WORK/dry.before" "$WORK/dry.after" | sed 's/^/  dry-run changed: /'
 check "node --uninstall --purge exits 0" sh -c "docker exec $NODE $INSTALL --uninstall --purge > '$WORK/uninstall.log' 2>&1"
 check "nothing of OneMind or k3s left on the node" \
   on "$NODE" sh -c '! systemctl list-unit-files --no-legend "k3s*" "onemind*" | grep -q . && [ ! -e /usr/local/bin/k3s ] && [ ! -e /etc/onemind ] && [ ! -e /var/lib/onemind ]'

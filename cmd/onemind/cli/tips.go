@@ -4,6 +4,8 @@ package cli
 
 import (
 	_ "embed"
+	"fmt"
+	"io"
 	"os/exec"
 
 	"github.com/spf13/cobra"
@@ -38,5 +40,30 @@ func tipsCommands(a *App) []*cobra.Command {
 			},
 		})
 	}
+	group.AddCommand(&cobra.Command{
+		Use:   "whats-new",
+		Short: "What changed in the running OneMind version (GET /v1/tips/whats-new)",
+		Args:  cobra.NoArgs,
+		RunE: func(*cobra.Command, []string) error {
+			return a.read("/v1/tips/whats-new", func(w io.Writer, v any) error {
+				m := obj(v)
+				if _, err := fmt.Fprintf(w, "OneMind %s\n", sanitize(str(m["os_version"]))); err != nil {
+					return err
+				}
+				entries := list(m["entries"])
+				if len(entries) == 0 {
+					_, err := fmt.Fprintln(w, "Nothing new is listed for this version.")
+					return err
+				}
+				for _, e := range entries {
+					em := obj(e)
+					if _, err := fmt.Fprintf(w, "\n%s  %s\n%s\n", sanitize(str(em["version"])), sanitize(str(em["title"])), sanitize(str(em["body"]))); err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+		},
+	})
 	return []*cobra.Command{group}
 }

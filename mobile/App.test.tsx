@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Smoke test of the whole shell: Connect → sign in with a token → tabs → More → Inbox. The gateway is the
+// Smoke test of the whole shell: Connect → sign in with a token → tabs → Me → Inbox. The gateway is the
 // in-memory fake (src/test/mockHub.ts) handed in for the test; the app itself has no demo to open.
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Linking } from 'react-native';
@@ -17,7 +17,7 @@ const deps = (save = jest.fn(async (_c: Connection) => undefined)) => ({ load: a
 describe('app shell', () => {
   afterEach(() => jest.restoreAllMocks());
 
-  it('starts at Connect with passkey sign-in first, signs in with a token, and reaches the Inbox through More', async () => {
+  it('starts at Connect with passkey sign-in first, signs in with a token, and reaches the Inbox through Me', async () => {
     await render(<AppRoot deps={deps()} />);
     expect(await screen.findByTestId('brand-mark')).toBeTruthy();
     expect(screen.getByTestId('passkey-sign-in')).toBeTruthy();
@@ -27,7 +27,12 @@ describe('app shell', () => {
     await fireEvent.changeText(screen.getByTestId('token'), 'owner-demo');
     await fireEvent.press(screen.getByTestId('connect'));
     expect(await screen.findByText('Home OneMind')).toBeTruthy();
-    await fireEvent.press(screen.getByText('More'));
+    await fireEvent.press(screen.getByTestId('review-first'));
+    expect(await screen.findByTestId('pending-act-0001')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('tab-me'));
+    for (const id of ['Settings', 'Activity', 'Inbox', 'Nodes', 'Tips', 'DeviceInfo', 'PhotoBackup']) {
+      expect(await screen.findByTestId(`more-${id}`)).toBeTruthy();
+    }
     await fireEvent.press(await screen.findByTestId('more-Inbox'));
     expect(await screen.findByTestId('ntf-ntf_demo_01')).toBeTruthy();
   });
