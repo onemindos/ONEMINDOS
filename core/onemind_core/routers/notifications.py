@@ -113,6 +113,40 @@ class NotificationActionIn(BaseModel):
     request: dict | None = None
 
 
+class NotificationAction(BaseModel):
+    """A button on a notification as the inbox returns it. `revoke` (gateway permissions PR 13) is set only
+    by the gateway on an approval.auto notice: it ends the rule `policy_id` names (POST
+    /v1/approval-policies/{id}/revoke). Apps can post only `open` and `request`; nothing posts an approve."""
+
+    id: str
+    label: str
+    kind: Literal["open", "request", "revoke"]
+    link: str | None = None
+    request: dict | None = None
+    policy_id: str | None = None
+
+
+class NotificationView(BaseModel):
+    """One inbox item (notify/store.py notification_json). Response documentation only."""
+
+    id: str
+    severity: str
+    topic: str
+    title: str
+    body: str
+    link: str | None = None
+    source: str | None = None
+    action_id: str | None = None
+    alert_id: str | None = None
+    source_kind: str
+    app_id: str | None = None
+    asset_id: str | None = None
+    group_key: str | None = None
+    actions: list[NotificationAction] = Field(default_factory=list)
+    created_at: str
+    read_at: str | None = None
+
+
 class SendIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     severity: Literal["info", "warning", "critical"]
@@ -537,7 +571,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return JSONResponse(status_code=202, content={"accepted": True, **out})
 
     # ---- inbox --------------------------------------------------------------------------
-    @app.get("/v1/notifications", operation_id="notifications.list", tags=[TAG], responses=error_responses(401, 403, 422))
+    @app.get("/v1/notifications", operation_id="notifications.list", tags=[TAG],
+             responses={200: {"model": list[NotificationView]}, **error_responses(401, 403, 422)})
     def inbox(
         response: Response,
         unread: bool | None = None,

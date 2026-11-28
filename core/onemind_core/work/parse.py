@@ -7,8 +7,8 @@ words stand for, in the style of Todoist's quick add (a pattern, not its code):
     #Name project   @label   p1..p4 priority (p1 most urgent)   +person-id assignee
     today, tomorrow, monday, next fri, in 3 days, 2026-12-01, "at 5pm", "17:30"
 
-Repeat rules ("every ...") and /sections need schema Work does not have yet, so they are left
-in the title rather than guessed at.
+Repeat rules ("every day", "every 2 weeks", "every weekday", "every month", "every year") come back as
+`repeat`. "every monday" and /sections are left in the title rather than guessed at.
 
 Dates are worked out in the caller's time zone (`tz`, an IANA name, default UTC) and returned in UTC.
 A date with no time is "all day": it is due at the end of that local day.
@@ -38,10 +38,14 @@ def _wd(word: str) -> int:
     return [d[:3] for d in WEEKDAYS].index(w)
 
 
-def add_months(d: date, n: int) -> date:
+def add_months(d: date, n: int, day: int | None = None) -> date:
+    """`n` months on, aiming for `day` (default: `d`'s own day) and clamping to the month's last day."""
     m = d.month - 1 + n
     y, m = d.year + m // 12, m % 12 + 1
-    return date(y, m, min(d.day, calendar.monthrange(y, m)[1]))
+    return date(y, m, min(day or d.day, calendar.monthrange(y, m)[1]))
+
+
+ANCHOR = "anchor_day"  # kept by the service inside a month or year rule; not part of the public Repeat shape
 
 
 # ---- quick add ---------------------------------------------------------------------------------
@@ -55,6 +59,7 @@ def _rx(p: str) -> re.Pattern:
 
 
 _IN = _rx(r"in\s+(?P<n>\d{1,3})\s+(?P<unit>day|week|month)s?")
+_EVERY = _rx(r"every\s+(?:(?P<n>\d{1,3})\s+)?(?P<unit>weekday|day|week|month|year)s?")
 _ISO = _rx(r"(?P<d>\d{4}-\d{2}-\d{2})")
 # A bare short word ("sat", "wed", "sun") is often a name or a verb, so it counts only after "next".
 _NEXT_WD = _rx(rf"(?:next\s+(?P<wd>{_WD})|(?P<full>{_FULL_WD}))")
@@ -66,12 +71,48 @@ _PRIO = re.compile(r"(?<![\w])p(?P<v>[1-4])(?![\w])", re.I)
 _WHO = re.compile(r"(?<![\w])\+(?P<v>[\w:.-]{1,64})")
 
 
+def next_due(due: datetime, repeat: dict, now: datetime) -> datetime:
+    """The first occurrence of `repeat` after both `due` and `now`, keeping the local time of day.
+
+    The days are counted in the rule's own zone (`repeat["tz"]`, an IANA name, default UTC), so "every
+    weekday" skips the local weekend and a task due at 23:59 local stays at 23:59 across a DST change.
+
+    A monthly or yearly rule aims for `repeat["anchor_day"]` (the day of the month it started on, when the
+    caller keeps it): a rule from the 31st lands on the last day of a short month and goes back to the 31st
+    as soon as a month has one, instead of drifting to the 28th for good. Without an anchor the due date's
+    own day is used.
+    """
+    every, step = repeat["every"], repeat.get("interval", 1)
+    anchor = repeat.get(ANCHOR)
+    z = zone(repeat.get("tz"))
+    wall = due.astimezone(z).replace(tzinfo=None)
+    for _ in range(5000):
+        d = wall.date()
+        if every == "day":
+            d += timedelta(days=step)
+        elif every == "week":
+            d += timedelta(weeks=step)
+        elif every == "month":
+            d = add_months(d, step, anchor)
+        elif every == "year":
+            d = add_months(d, 12 * step, anchor)
+        else:  # weekday: the next Monday-to-Friday
+            d += timedelta(days=1)
+            while d.weekday() > 4:
+                d += timedelta(days=1)
+        wall = datetime.combine(d, wall.time())
+        nxt = wall.replace(tzinfo=z).astimezone(UTC)
+        if nxt > due and nxt > now:
+            return nxt
+    raise ValueError("repeat rule did not reach the future")
+
+
 def parse_quick_add(text: str, now: datetime, tz: str | None = None) -> dict:
     """Task fields from one line of text. Raises ValueError when nothing is left for a title."""
     z = zone(tz)
     local_now = now.astimezone(z)
     rest = " " + text.strip() + " "
-    out: dict = {"project": None, "labels": [], "priority": None, "assignee": None, "due_at": None,
+    out: dict = {"repeat": None, "project": None, "labels": [], "priority": None, "assignee": None, "due_at": None,
                  "due_all_day": False}
     for key, rx in (("project", _PROJECT), ("assignee", _WHO)):
         m, rest = _take(rx, rest)
@@ -81,6 +122,11 @@ def parse_quick_add(text: str, now: datetime, tz: str | None = None) -> dict:
         if m["v"] not in out["labels"]:
             out["labels"].append(m["v"])
         rest = rest[:m.start()] + " " + rest[m.end():]
+    m, rest = _take(_EVERY, rest)
+    if m:
+        out["repeat"] = {"every": m["unit"].lower(), "interval": 1 if m["unit"].lower() == "weekday" else int(m["n"] or 1)}
+        if tz:
+            out["repeat"]["tz"] = z.key
     m, rest = _take(_PRIO, rest)
     if m:
         out["priority"] = int(m["v"])
@@ -119,6 +165,8 @@ def parse_quick_add(text: str, now: datetime, tz: str | None = None) -> dict:
             at = time(h % 12 + (12 if m["ap"].lower() == "pm" else 0), mi)
         else:
             at = time(int(m["h24"]), int(m["m24"]))
+    if out["repeat"] and day is None and at is None:
+        day = local_now.date()
     if at is not None and day is None:
         day = local_now.date() + timedelta(days=0 if at > local_now.time() else 1)
     if day is not None:

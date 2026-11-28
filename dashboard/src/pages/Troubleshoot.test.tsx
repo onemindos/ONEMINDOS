@@ -35,7 +35,7 @@ function mount(route: (method: string, path: string, body: unknown) => Response,
   render(<MemoryRouter initialEntries={['/troubleshoot']}><SessionProvider deps={{ mock: false, makeApi: () => new MockApi(token), knownPrincipal: () => DEMO_TOKENS[token] }}><App mock={false} /></SessionProvider></MemoryRouter>);
   return fetch;
 }
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); lastLogUrl = ''; });
 
 it('files a restart as a request and never shows a success', async () => {
   const posted: unknown[] = [];
@@ -111,4 +111,65 @@ it('shows the owner-only refusal to everyone else', async () => {
   mount(() => response({ error: 'permission_denied', message: 'only an owner may do this' }, 403));
   expect(await screen.findByText(/Your account is not allowed to see this/)).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Restart' })).not.toBeInTheDocument();
+});
+
+let lastLogUrl = '';
+function logRoute(body: (query: URLSearchParams) => Response) {
+  return (_method: string, path: string) => path === '/v1/system/journal' ? body(new URLSearchParams(logQuery())) : response(controls());
+}
+const logQuery = () => new URL(lastLogUrl).search;
+
+function mountLogs(token = 'owner-demo', body: (q: URLSearchParams) => Response = () => new Response('kernel: hello\nsshd: Accepted from [ip]\n', { status: 200, headers: { 'content-type': 'text/plain' } })) {
+  const f = mount(logRoute(body), token);
+  const inner = f.getMockImplementation()!;
+  f.mockImplementation(async (url, init) => { if (String(url).includes('/v1/system/journal')) lastLogUrl = String(url); return inner(url, init); });
+  return f;
+}
+
+it('reads the system journal with the chosen filters and shows the redacted lines as text', async () => {
+  const f = mountLogs();
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('tab', { name: 'Logs' }));
+  await user.type(screen.getByLabelText(/Service/), 'sshd.service');
+  await user.selectOptions(screen.getByLabelText('Level'), 'err');
+  await user.selectOptions(screen.getByLabelText('Start'), '-1');
+  await user.click(screen.getByRole('button', { name: 'Show logs' }));
+  expect(await screen.findByLabelText('System log')).toHaveTextContent('kernel: hello sshd: Accepted from [ip]');
+  const q = new URL(lastLogUrl).searchParams;
+  expect(Object.fromEntries(q)).toEqual({ tail: '200', boot: '-1', unit: 'sshd.service', priority: 'err' });
+  const call = f.mock.calls.find((c) => String(c[0]).includes('/v1/system/journal'))!;
+  expect((call[1]!.headers as Record<string, string>).Authorization).toBe('Bearer owner-demo');
+  expect(screen.getByRole('button', { name: 'Follow new lines' })).toBeDisabled(); // only this boot can be followed
+});
+
+it('does not send an invalid unit name and names every refusal in plain words', async () => {
+  mountLogs('owner-demo', () => response({ error: 'rate_limited', message: 'too many', reason: 'limit_reached' }, 429));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('tab', { name: 'Logs' }));
+  await user.type(screen.getByLabelText(/Service/), 'sshd; rm');
+  expect(screen.getByRole('button', { name: 'Show logs' })).toBeDisabled();
+  expect(lastLogUrl).toBe('');
+  await user.clear(screen.getByLabelText(/Service/));
+  await user.click(screen.getByRole('button', { name: 'Show logs' }));
+  expect(await screen.findByText(/Too many log reads/)).toBeInTheDocument();
+});
+
+it('strips terminal control characters from log lines and follows new lines until the stream ends', async () => {
+  const sse = 'data: one \u001b[31mred\n\ndata: two\n\nevent: end\ndata: stream closed\n\n';
+  mountLogs('owner-demo', (q) => q.has('follow') ? new Response(sse, { status: 200, headers: { 'content-type': 'text/event-stream' } })
+    : new Response('plain \u001b[2Jline\n', { status: 200 }));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('tab', { name: 'Logs' }));
+  await user.click(screen.getByRole('button', { name: 'Show logs' }));
+  expect((await screen.findByLabelText('System log')).textContent).toBe('plain [2Jline');
+  await user.click(screen.getByRole('button', { name: 'Follow new lines' }));
+  await waitFor(() => expect(screen.getByLabelText('System log').textContent).toBe('one [31mred\ntwo'));
+  expect(new URL(lastLogUrl).searchParams.get('follow')).toBe('true');
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Follow new lines' })).toBeEnabled());
+});
+
+it('offers no Logs tab to a person who is not the owner', async () => {
+  mountLogs('adult-demo');
+  expect(await screen.findByRole('heading', { level: 1, name: 'Troubleshoot' })).toBeInTheDocument();
+  expect(screen.queryByRole('tab', { name: 'Logs' })).not.toBeInTheDocument();
 });

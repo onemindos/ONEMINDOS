@@ -62,7 +62,7 @@ The policy engine sits in the **approval step** of the existing action service, 
 4. **Plan constraints** (for types with plans, DEPLOYMENTS.md §3): e.g. `app.update` only when `update.kind == patch`, the scan passed, and a pre-update snapshot will be taken.
 5. **Window:** if the policy names a window, the approval is given but dispatch is **held** until the window opens (§3.5).
 6. **Limits:** `max_per: {count: 3, period_s: 86400}` counted atomically per policy in the database. Over the limit, the request goes to a person with the reason "policy limit reached (3/24h)".
-7. **Expiry and revision:** a policy has `expires_at` (≤ 1 year) and a revision number. Any edit makes a new revision that needs approval again. Approvals record `policy:<id>@<rev>` and the counter value.
+7. **Expiry and revision:** a policy has `expires_at` (at most 180 days ahead) or is a forever rule (read and write types only), per [D-028](../DECISIONS.md), and a revision number. Any edit makes a new revision: narrowing applies at once (the owner making the edit is the approval), widening needs a fresh passkey. Approvals record `policy:<id>@<rev>` and the counter value.
 
 If several policies match, the **most specific** wins (fewest params left unconstrained). On a tie, the oldest wins, so behaviour does not change when a newer, broader policy is added.
 

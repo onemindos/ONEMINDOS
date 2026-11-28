@@ -98,6 +98,7 @@ tools:
     actions/setup-node: 49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
     actions/setup-python: 6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
     astral-sh/setup-uv: d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+    crazy-max/ghaction-github-runtime: 04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0 (MIT), tag read with the GitHub API 2026-11-25; exposes the cache token to `docker buildx` run steps
   app_gate:   # sdk/tools/ci/install-tools.sh (linux amd64 + arm64), sha256 from each release's checksums file, amd64 read 2026-11-12, arm64 read 2026-11-12
     trivy: {version: 0.76.2, file: trivy_0.76.2_Linux-64bit.tar.gz, sha256: bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf, arm64_file: trivy_0.76.2_Linux-ARM64.tar.gz, arm64_sha256: ab9d51f86e6a5fb936f605faff6b593ac51bc378fff4d3e8b9d58358b9c367c3}   # D-B1.5
     crane: {version: v0.22.1, file: go-containerregistry_Linux_x86_64.tar.gz, sha256: 0ab7a1d6932a213aed964ce97666c3077fe691c8606413674a8b3e0b9ec4cda0, arm64_file: go-containerregistry_Linux_arm64.tar.gz, arm64_sha256: 898c0cff975f898a33e8c4580bdafb0e7c02c7faa33374e946762f97c4ab7110}
@@ -243,3 +244,15 @@ machines_extension:   # optional machines layer (MACH-2, #281): os/rootfs/fetch-
   source: GitHub release assets, re-downloaded and hashed 2026-11-21; same hashes as the spike (research-output/evidence/lab/machines-spike/scripts/fetch.sh)
   images: tags only (quay.io/kubevirt/*:v1.9.1 and :v1.66.1), digests UNVERIFIED; offline use needs them preloaded (left for LT-MACH-2). Until the digests are recorded here, the gateway refuses Turn on unless ONEMIND_MACHINES_ALLOW_TAG_IMAGES=1 (lab only)
   licence_note: virt-launcher bundles QEMU (GPL-2.0) and libvirt (LGPL-2.1+); OneMind pulls the upstream image and does not rebuild or mirror it, so no source-offer duty arises. Mirroring it would create one.
+identity:             # BD-03 / D-015: Kanidm as a host service on the hub. Not built into the image yet (CORE-SEC-10);
+                      # os/identity/kanidm/provision.yaml names this version (test_kanidm_provision.py checks it).
+  kanidm:
+    version: 1.12.1                  # D-030 (3): 1.12.0 -> 1.12.1, upstream "Security: HIGH" (unauthenticated DoS in SCIM filter parsing)
+    repo: https://github.com/kanidm/kanidm.git
+    tag: v1.12.1                     # lightweight tag, points straight at the commit
+    commit: fb052e5357cf09dcdffd07fef4045e8066a68c0b
+    git_archive_sha256: 6df7c8b77f6b21e6a9db6a6abe376f1cf96c155429857459881227441270cb2c   # git archive --format=tar <commit> (git 2.54)
+    debian_packaging_commit: d5327e7eab843f5a08ad16e49800703522aa0dab   # submodule platform/debian/kanidm_ppa_automation at the tag
+    licence: MPL-2.0                 # LICENSE.md and Cargo.toml read at the tag, 2026-11-25
+    release_assets: none             # the GitHub release ships no binaries; the lab built the .deb files from the tag (UMB-ACCT-1)
+    source: GitHub tag ref and release v1.12.1 (published 2026-11-13), read 2026-11-25; archive hashed from a fresh clone of the tag

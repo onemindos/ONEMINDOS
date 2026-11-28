@@ -28,6 +28,10 @@ permissions:
 concurrency:
   group: battery-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}-${{ inputs.board }}-${{ inputs.leg }}-${{ inputs.upto }}-${{ inputs.snapshot != '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+# Build cache (os/rootfs/buildx-cache.sh): every image build reads the GitHub Actions cache; pushes, the nightly and
+# manual runs also write it. Pull requests write none, so they cannot push the base branch's layers out of the 10 GB.
+env:
+  BUILDX_CACHE_WRITE: ${{ contains(fromJSON('["push","schedule","workflow_dispatch"]'), github.event_name) }}
 jobs:
   battery:
     # CI-14: x86 + KVM on a Proxmox VE host when KVM_RUNNER=on and the event is trusted (allow-list); the release-signing
@@ -54,39 +58,50 @@ jobs:
           SNAPSHOT: ${{ inputs.snapshot }}
         run: python3 -I os/update/pick-snapshot.py apply --snapshot "$SNAPSHOT" && git diff --stat
       - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+      # Lets `docker buildx` in run steps reach the GitHub Actions cache (without it buildx skips type=gha silently).
+      - uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
       - name: Build rootfs (${{ inputs.leg }}, ${{ inputs.board }})
         run: |
           mkdir -p out
-          docker buildx build -f os/rootfs/Containerfile --target rootfs --progress plain \
+          sh os/rootfs/buildx-cache.sh rootfs-${{ inputs.leg }}-${{ inputs.board }} -- docker buildx build -f os/rootfs/Containerfile --target rootfs --progress plain \
             --build-arg BOARD=${{ inputs.board }} $(sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/${{ inputs.leg }}.args) \
-            --cache-from type=gha,scope=rootfs-${{ inputs.leg }}-${{ inputs.board }} \
-            --cache-to type=gha,mode=max,scope=rootfs-${{ inputs.leg }}-${{ inputs.board }} \
             --output type=tar,dest=out/rootfs-${{ inputs.leg }}-${{ inputs.board }}.tar .
       - name: Build tools image
         run: |
-          docker buildx build -f os/rootfs/Containerfile --target tools --progress plain \
+          sh os/rootfs/buildx-cache.sh tools-${{ inputs.runner }} -- docker buildx build -f os/rootfs/Containerfile --target tools --progress plain \
             $(sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/debian.args) \
-            --cache-from type=gha,scope=tools-${{ inputs.runner }} --cache-to type=gha,mode=max,scope=tools-${{ inputs.runner }} \
             --load -t onemind-tools:ci .
       - name: Fixtures (T0 build checks)
         run: make fixtures BOARD=${{ inputs.board }} LEG=${{ inputs.leg }} UPTO=${{ inputs.upto }} TOOLS=onemind-tools:ci
       - name: First boot into OneMind (F0-F4, test/qemu/CRITERIA-FIRSTBOOT.md)
         if: inputs.firstboot
         run: make firstboot BOARD=${{ inputs.board }} TOOLS=onemind-tools:ci
-      # S-13 (test/qemu/CRITERIA-SECUREBOOT.md): signed UKI under OVMF Secure Boot with throwaway keys. Non-blocking
-      # while CI capacity is tight; the verdicts are in results.json and the job summary. Needs the rootfs tar,
-      # so it runs before the battery step deletes it.
-      - name: Secure Boot and signed UKI (SB1-SB7)
-        if: inputs.secureboot
-        continue-on-error: true
-        run: make secureboot-test TOOLS=onemind-tools:ci
       - name: Host firewall scan from a second VM (FW1-FW4, test/qemu/CRITERIA-FIREWALL.md)
         if: inputs.firewall
         run: make firewall BOARD=${{ inputs.board }} TOOLS=onemind-tools:ci
       - name: Battery up to ${{ inputs.upto }}
+        env:
+          SECUREBOOT: ${{ inputs.secureboot }}
         run: |
+          # The Secure Boot step below needs the rootfs tar. Move it aside (no copy, no extra disk) before the
+          # clean-up; without Secure Boot it is deleted as before.
+          if [ "$SECUREBOOT" = true ]; then mkdir -p out/sb-keep && sudo mv out/rootfs-*.tar out/sb-keep/ 2>/dev/null || true; fi
           sudo rm -f out/rootfs-*.tar
           make battery BOARD=${{ inputs.board }} UPTO=${{ inputs.upto }} TOOLS=onemind-tools:ci
+      # S-13 (test/qemu/CRITERIA-SECUREBOOT.md): signed UKI under OVMF Secure Boot with throwaway keys. Non-blocking
+      # while CI capacity is tight; the verdicts are in results.json and the job summary. It runs after the required
+      # firewall and battery steps and has its own timeout, so a slow or hung SB boot (one ran about 50 minutes)
+      # can never hold up a required check: the required steps finish first, and a red one skips it (no wait for the
+      # red result). If the kept tar is missing, `make secureboot-image` rebuilds the rootfs itself.
+      - name: Secure Boot and signed UKI (SB1-SB7)
+        if: inputs.secureboot
+        continue-on-error: true
+        timeout-minutes: 20
+        run: |
+          if ls out/sb-keep/rootfs-*.tar >/dev/null 2>&1; then sudo mv out/sb-keep/rootfs-*.tar out/; fi
+          # SIGINT at 18 minutes, before the step limit: docker forwards it, secureboot.py writes the verdicts it
+          # has so far (its finally block) and stops QEMU, so no VM is left running on a self-hosted runner.
+          timeout --signal=INT --kill-after=90s 18m make secureboot-test TOOLS=onemind-tools:ci
       - name: Trim and mask the serial log
         if: always()
         run: |

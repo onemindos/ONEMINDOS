@@ -33,9 +33,12 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from ..natsconf import AGENTS_ACCOUNT, AGENT_KEYS_METADATA, AGENT_STOP_METADATA, HUB_ACCOUNT
+
 DEFAULT_URL = "http://127.0.0.1:8222"   # onemind-firstboot and deploy/install.sh: `http: 127.0.0.1:8222`
 CACHE_S = 2.0
 TIMEOUT_S = 1.5
+AGENT_CUTOFF_TIMEOUT_S = 5.0
 CONN_LIMIT = 4096                        # /connz pages; a hub with more clients reports `truncated`
 ENDPOINTS = ("varz", "connz", "jsz", "healthz", "leafz")
 _ACCOUNT_RE = re.compile(r"^[A-Za-z0-9_$.-]{1,64}$")
@@ -218,6 +221,48 @@ class MonitorReader:
             snap = self._fetch()
             self._cached = (self.monotonic(), snap)
             return snap
+
+    def wait_for_agent_cutoff(self, stopped_at: str) -> bool:
+        """Read the live broker rather than the cached Engine feed. D-029 Stop requires both
+        this Stop's config marker and removal of the AGENTS account and its connections."""
+        deadline = time.monotonic() + AGENT_CUTOFF_TIMEOUT_S
+        while time.monotonic() < deadline:
+            try:
+                status, varz = self._get("/varz")
+                server = varz.get("server_id")
+                metadata = varz.get("metadata")
+                if (status == 200 and isinstance(server, str) and server
+                        and isinstance(metadata, dict) and metadata.get(AGENT_STOP_METADATA) == stopped_at):
+                    status, accountz = self._get("/accountz")
+                    accounts = accountz.get("accounts")
+                    if (status == 200 and accountz.get("server_id") == server and isinstance(accounts, list)
+                            and HUB_ACCOUNT in accounts and AGENTS_ACCOUNT not in accounts):
+                        # NATS's account filter returns an empty result as soon as the account is
+                        # gone, even while reload is still closing the old connections.
+                        status, connz = self._get("/connz", {"auth": "true", "state": "open", "limit": str(CONN_LIMIT)})
+                        connections = connz.get("connections")
+                        if (status == 200 and connz.get("server_id") == server and isinstance(connections, list)
+                                and _int(connz.get("total")) == len(connections)
+                                and all(isinstance(c, dict) and c.get("account") != AGENTS_ACCOUNT for c in connections)):
+                            return True
+            except (httpx.HTTPError, ValueError):
+                pass  # the monitor may be briefly unavailable while the broker reloads
+            time.sleep(0.05)
+        return False
+
+    def wait_for_agent_keys(self, digest: str) -> bool:
+        """Confirm the live broker loaded the exact static agent key set."""
+        deadline = time.monotonic() + AGENT_CUTOFF_TIMEOUT_S
+        while time.monotonic() < deadline:
+            try:
+                status, varz = self._get("/varz")
+            except (httpx.HTTPError, ValueError):
+                return False
+            metadata = varz.get("metadata")
+            if status == 200 and isinstance(metadata, dict) and metadata.get(AGENT_KEYS_METADATA) == digest:
+                return True
+            time.sleep(0.05)
+        return False
 
     def _get(self, path: str, params: dict | None = None) -> tuple[int, dict]:
         r = self._client.get(path, params=params)

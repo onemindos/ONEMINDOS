@@ -98,6 +98,9 @@ export interface ApprovalsBoardProps {
   canDecide: ApprovalCardProps['canDecide'];
   onApprove?: ApprovalCardProps['onApprove'];
   onDeny?: (a: ActionSummary) => void;
+  /** Offer "Approve and remember…" on a card; return false for a request that cannot be remembered. */
+  onRemember?: (a: ActionSummary) => void;
+  canRemember?: (a: ActionSummary) => boolean;
   onRetry?: () => void;
   /** Open with this request selected (deep link from a notification). */
   initialId?: string;
@@ -115,7 +118,7 @@ export interface ApprovalsBoardProps {
   calls?: string[];
 }
 
-export function ApprovalsBoard({ actions, plans, decided = [], now, canDecide, onApprove, onDeny, onRetry, initialId, planNote, approveHint, technicalNote, calls }: ApprovalsBoardProps) {
+export function ApprovalsBoard({ actions, plans, decided = [], now, canDecide, onApprove, onDeny, onRemember, canRemember, onRetry, initialId, planNote, approveHint, technicalNote, calls }: ApprovalsBoardProps) {
   const [from, setFrom] = useState<From>('all');
   const [sel, setSel] = useState<string | undefined>(initialId);
   return (
@@ -191,6 +194,7 @@ export function ApprovalsBoard({ actions, plans, decided = [], now, canDecide, o
                         canDecide={!live ? { allowed: false, reason: 'The hub is not answering; decisions are paused.' } : canDecide}
                         onApprove={onApprove}
                         onDeny={onDeny}
+                        onRemember={onRemember && (canRemember?.(current) ?? true) ? onRemember : undefined}
                         technical={technicalNote}
                         extra={
                           <>

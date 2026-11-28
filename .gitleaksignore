@@ -22,6 +22,8 @@ os/versions.lock.yaml:generic-api-key:148
 os/versions.lock.yaml:generic-api-key:153
 # same public fingerprint, dir-scan form (line moved by the pin blocks combined on release/next); reviewed false positive, a public GPG fingerprint
 os/versions.lock.yaml:generic-api-key:165
+# same public fingerprint, dir-scan form (line moved by the ghaction-github-runtime pin, claude/ci-build-cache); reviewed false positive, a public GPG fingerprint
+os/versions.lock.yaml:generic-api-key:166
 # NATS user public nkeys in the strict-hub golden (CORE-SEC-4, #161); public by design, no seed is committed
 internal/leaf/testdata/hub-accounts-services.golden.conf:generic-api-key:6
 internal/leaf/testdata/hub-accounts-services.golden.conf:generic-api-key:7
@@ -39,3 +41,18 @@ aa2c44166979a708f9f96ee0dcb9ba29a5fce7dc:internal/leaf/testdata/hub-accounts-jet
 # UMB-ACCT-1 lab log (#403): "credential_fp" is a 16-hex public fingerprint of a lab passkey credential id (sha256 prefix), not a secret.
 research-output/evidence/lab/acct-kanidm/run-1/AK-3.txt:generic-api-key:68
 dd47c170b08577f4b352d8a3c1f4792cba9326f4:research-output/evidence/lab/acct-kanidm/run-1/AK-3.txt:generic-api-key:68
+# NATS user public nkey in the JetStream account golden, line moved by the per-node job-consumer imports (D-029 N2); public by design, no seed is committed
+internal/leaf/testdata/hub-accounts-jetstream.golden.conf:generic-api-key:37
+# D-029 auth callout test data: public nkeys in the callout accounts golden, and a fixed answer JWT signed by a test-only key (32 bytes of 0x01, expired 2026-11) in the jwt/v2 vector; no seed and no live credential is committed
+internal/leaf/testdata/hub-accounts-callout.golden.conf:generic-api-key:27
+internal/leaf/testdata/hub-accounts-callout.golden.conf:generic-api-key:56
+internal/leaf/testdata/callout-vector.json:generic-api-key:4
+internal/leaf/testdata/callout-vector.json:jwt:6
+# Public nkeys in the D-029 account goldens. The dispatch-policy imports shift the fixture lines. The keys are public.
+internal/leaf/testdata/hub-accounts-jetstream.golden.conf:generic-api-key:41
+internal/leaf/testdata/hub-accounts-na.golden.conf:generic-api-key:6
+internal/leaf/testdata/hub-accounts-na.golden.conf:generic-api-key:45
+internal/leaf/testdata/hub-accounts-na.golden.conf:generic-api-key:98
+779e69ac042466a927a24292c617d665c8a2b960:internal/leaf/testdata/hub-accounts-na.golden.conf:generic-api-key:6
+779e69ac042466a927a24292c617d665c8a2b960:internal/leaf/testdata/hub-accounts-na.golden.conf:generic-api-key:39
+779e69ac042466a927a24292c617d665c8a2b960:internal/leaf/testdata/hub-accounts-na.golden.conf:generic-api-key:90

@@ -1,0 +1,23 @@
+{
+  "$comment": "SPDX-License-Identifier: Apache-2.0. TEST-ONLY: signed with the job v2 vector's test key (seed bytes 1..32). core/tests/test_fabric_policy.py writes it; internal/jobs/policy_test.go verifies it.",
+  "node_id": "nodea",
+  "envelope": {
+    "schema": "onemind.policy/v1",
+    "aud": "node:nodea",
+    "kid": "job-65b60673d6ed884b",
+    "epoch": 3,
+    "issued_at": "2026-11-25T12:00:00Z",
+    "stop": {
+      "motion_lockout": true,
+      "agents": false
+    },
+    "revoked_kids": [
+      "job-00000000deadbeef"
+    ],
+    "allowed_kinds": [
+      "host.check",
+      "relay.set"
+    ],
+    "sig": "KoyJncRQChgPCjP8Vfu7SL3+Q4mPeFs02Lfew621kz2VZzGe08g4S8lL4FPiNeqHSrgThgyg90mlmHvEjsESCg=="
+  }
+}

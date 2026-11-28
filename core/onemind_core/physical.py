@@ -5,14 +5,18 @@ An action type registered with FeatureAction(physical=True) moves or switches so
 While the lockout is on, the action service files none of them and approves none of them (409
 conflict, reason motion_lockout). Only an owner reads or changes the switch: agents, automations,
 plugins and machines get 403, and the route scope `physical:admin` is minted to no one. Turning it
-on is one call; turning it off again needs a fresh passkey sign-in once passkeys are active. Every
+on is one call; turning it off needs action-bound L2 approval. Every
 change is an audit line. A lockout that cannot be read counts as on (actions.ActionService._locked).
+Every change confirms fabric enforcement before acknowledging it. A failed confirmation leaves the
+local switch in effect and sends an error to the caller.
 """
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timedelta
+from types import EllipsisType
 
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import JSON, Boolean, DateTime, String
@@ -74,6 +78,8 @@ class MotionLockout:
         self.repo = MotionLockoutRepository(db)
         self.audit = audit
         self.clock = clock
+        self._changes = threading.Lock()
+        self.confirm_fabric: Callable[[bool], None] | None = None
 
     def locked(self) -> bool:
         """For ActionService.motion_lockout. Raises when the store cannot be read (the service fails closed)."""
@@ -92,9 +98,20 @@ class MotionLockout:
             self.audit.append("authz.denied", p.as_dict(), None, {"attempted": what, "reason": "permission_denied"})
             raise ApiError(403, "permission_denied", "only an owner may read or change the motion lockout")
 
-    def set(self, p: Principal, locked: bool, reason: str | None, via: str = "token") -> dict:
+    def set(self, p: Principal, locked: bool, reason: str | None, via: str = "token", *,
+            expected_changed_at: str | None | EllipsisType = ...) -> dict:
         self.owner_only(p, "set the motion lockout")
-        self.repo.set(locked, p.as_dict(), self.clock(), reason)
-        self.audit.append("physical.lockout.on" if locked else "physical.lockout.off", p.as_dict(), None,
-                          {"reason": reason, "step_up": via})
-        return self.state()
+        with self._changes:
+            row = self.repo.get()
+            previous = utc(row.changed_at) if row is not None and row.changed_at else None
+            if expected_changed_at is not ... and iso(previous) != expected_changed_at:
+                raise ApiError(409, "stale_precondition", "the motion lockout changed; request the change again")
+            now = self.clock()
+            if previous is not None and now <= previous:
+                now = previous + timedelta(microseconds=1)
+            self.repo.set(locked, p.as_dict(), now, reason)
+            self.audit.append("physical.lockout.on" if locked else "physical.lockout.off", p.as_dict(), None,
+                              {"reason": reason, "step_up": via})
+            if self.confirm_fabric is not None:
+                self.confirm_fabric(locked)
+            return self.state()

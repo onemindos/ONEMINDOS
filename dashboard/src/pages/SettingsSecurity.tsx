@@ -70,7 +70,7 @@ export function SettingsSecurity() {
         return typeof value.not_after === 'string' && Number.isFinite(Date.parse(value.not_after))
           ? `Expires ${new Date(value.not_after).toLocaleDateString()}` : undefined;
       })],
-      ['Standing approvals', '/settings/automation', summarize(get(sdk, '/v1/approval-policies'), count('configured'))],
+      ['Standing approvals', '/settings/permissions/rules', summarize(get(sdk, '/v1/approval-policies'), count('configured'))],
       ['Physical lockout', '/settings/automation', summarize(get(sdk, '/v1/physical/lockout'), (data) => {
         const value = object(data).locked;
         return value === true ? 'Locked' : value === false ? 'Unlocked' : undefined;
@@ -162,11 +162,11 @@ function PermissionDetail({ sdk, by, id, role }: { sdk: OneMind; by: By; id: str
   </>;
 }
 
-export function SettingsPermissions() {
+/** Settings > Permissions > Who has access (the tab; pages/permissions/PermissionsPage.tsx holds the tabs). */
+export function WhoHasAccess() {
   const sdk = useSecuritySdk();
   const [by, select] = useState<By>('person');
   return <>
-    <PageHeader title="Permissions" />
     <Card title="Who has access">
       <div role="group" aria-label="View permissions">
         {(Object.keys(groups) as By[]).map((group) => <button type="button" key={group} aria-pressed={by === group} onClick={() => select(group)}>{groups[group]}</button>)}

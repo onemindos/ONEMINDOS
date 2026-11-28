@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Maintenance windows (GET /v1/windows, PUT /v1/windows/{id}): the weekly time ranges that standing
-// approvals and update policy wait for. Editing one adds power, so only an owner may, and once the box
-// has passkeys the gateway wants a fresh passkey sign-in first; this page says so in plain words and
-// keeps the edits. Editing a window gives every standing approval that uses it a new revision.
+// approvals and update policy wait for. Widening a referenced window goes to Approvals.
 import { useMemo, useState } from 'react';
-import { OneMind, OneMindError } from '@onemind/sdk';
+import { Link } from 'react-router';
+import { OneMind, OneMindError, type Action, type components } from '@onemind/sdk';
 import { Button, Card, StatusPill } from '@onemind/ui';
 import { usePoll } from '../../lib/hooks';
+import { isApprovalRequest } from '../../lib/permissions';
 import { useSignedIn } from '../../session';
+import { href } from '../../shell/routes';
 import { Load } from '../parts';
 import { getJson, records, str, strs } from '../records';
 
@@ -54,7 +55,7 @@ function LiveWindows({ token, owner }: { token: string; owner: boolean }) {
   const [draft, setDraft] = useState<Draft>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [saved, setSaved] = useState('');
+  const [notice, setNotice] = useState<{ text: string; pending?: string }>();
   const patch = (p: Partial<Draft>) => setDraft((d) => d && { ...d, ...p });
   const setRange = (i: number, p: Partial<Range>) => setDraft((d) => d && { ...d, ranges: d.ranges.map((r, j) => (j === i ? { ...r, ...p } : r)) });
   const save = async () => {
@@ -68,8 +69,11 @@ function LiveWindows({ token, owner }: { token: string; owner: boolean }) {
         bad = problem(draft, records(await getJson(sdk, '/v1/windows')).map((w) => str(w.id, '')));
         if (bad) { setError(bad); await list.reload(); return; }
       }
-      await sdk.call<unknown>({ method: 'PUT', path: `/v1/windows/${encodeURIComponent(draft.id)}`, body: { name: draft.name.trim(), tz: draft.tz.trim() || 'box', ranges: draft.ranges.map((r) => ({ days: r.days, start: r.start, end: r.end })) } });
-      setSaved(`Saved "${draft.name.trim()}". Standing approvals that use it were given a new revision.`); setDraft(undefined); await list.reload();
+      const result = await sdk.call<components['schemas']['WindowView'] | Action>({ method: 'PUT', path: `/v1/windows/${encodeURIComponent(draft.id)}`, body: { name: draft.name.trim(), tz: draft.tz.trim() || 'box', ranges: draft.ranges.map((r) => ({ days: r.days, start: r.start, end: r.end })) } });
+      setNotice(isApprovalRequest(result) ? { text: 'Window change requested.', pending: result.id }
+        : { text: `Saved "${draft.name.trim()}". Standing approvals that use it were given a new revision.` });
+      setDraft(undefined);
+      await list.reload();
     } catch (e) {
       if (e instanceof OneMindError && e.reason === 'step_up_required') setError('This change needs your passkey. Sign out, sign in again with your passkey, then save again. Your edits are kept here until you leave the page.');
       else if (e instanceof OneMindError && e.status === 403) setError('Only an owner can edit a maintenance window.');
@@ -77,7 +81,7 @@ function LiveWindows({ token, owner }: { token: string; owner: boolean }) {
     } finally { setBusy(false); }
   };
   return <section aria-label="Maintenance windows">
-    <Load res={list} what="Loading maintenance windows">{(items) => <Card title="Maintenance windows" aside={owner && !draft ? <Button size="sm" onClick={() => { setSaved(''); setError(''); setDraft({ id: 'win_', name: '', tz: 'box', ranges: [blank()], isNew: true }); }}>Add a window</Button> : undefined}>
+    <Load res={list} what="Loading maintenance windows">{(items) => <Card title="Maintenance windows" aside={owner && !draft ? <Button size="sm" onClick={() => { setNotice(undefined); setError(''); setDraft({ id: 'win_', name: '', tz: 'box', ranges: [blank()], isNew: true }); }}>Add a window</Button> : undefined}>
       <p className="om-note">A window is the weekly time when your box may do things on its own, such as installing updates. Standing approvals wait for their window to open.</p>
       {items.length === 0 ? <p>No windows yet.</p> : <ul>{items.map((w) => {
         const rs = ranges(w.ranges);
@@ -85,11 +89,11 @@ function LiveWindows({ token, owner }: { token: string; owner: boolean }) {
           <strong>{str(w.name, str(w.id))}</strong> <StatusPill tone={w.open_now === true ? 'ok' : 'neutral'} label={w.open_now === true ? 'Open now' : 'Closed now'} dot={false} />
           <ul aria-label={`Times for ${str(w.name, str(w.id))}`}>{rs.map((r, i) => <li key={i}>{describe(r)}</li>)}</ul>
           <p className="om-note">Times are in {str(w.tz, 'box') === 'box' ? "this box's own time zone" : str(w.tz)}.</p>
-          {owner && <Button size="sm" variant="secondary" onClick={() => { setSaved(''); setError(''); setDraft({ id: str(w.id), name: str(w.name, ''), tz: str(w.tz, 'box'), ranges: rs, isNew: false }); }}>Edit {str(w.name, str(w.id))}</Button>}
+          {owner && <Button size="sm" variant="secondary" onClick={() => { setNotice(undefined); setError(''); setDraft({ id: str(w.id), name: str(w.name, ''), tz: str(w.tz, 'box'), ranges: rs, isNew: false }); }}>Edit {str(w.name, str(w.id))}</Button>}
         </li>;
       })}</ul>}
       {!owner && <p className="om-note">Only an owner can change a window.</p>}
-      {saved && <p role="status">{saved}</p>}
+      {notice && <p role="status">{notice.text}{notice.pending && <> <Link to={href.approval(notice.pending)}>Review in Approvals</Link>.</>}</p>}
       {draft && <form aria-label={draft.isNew ? 'New window' : `Edit ${draft.name}`} onSubmit={(e) => { e.preventDefault(); void save(); }}>
         <p><label htmlFor="win-name">Name</label>{' '}
           <input id="win-name" className="om-input" value={draft.name} maxLength={80} onChange={(e) => patch(draft.isNew ? { name: e.target.value, id: slug(e.target.value) } : { name: e.target.value })} autoComplete="off" /></p>

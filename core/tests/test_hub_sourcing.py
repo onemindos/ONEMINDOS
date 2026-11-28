@@ -24,7 +24,9 @@ from fastapi.testclient import TestClient
 
 from onemind_core import jetstream, subjects
 from onemind_core.app import create_app
-from onemind_core.natsconf import NodeAccount, render_accounts, source_deliver_prefix, source_services
+from onemind_core.natsconf import (
+    NodeAccount, job_services, policy_check_subject, policy_service, render_accounts, source_deliver_prefix, source_services,
+)
 from onemind_core.netconf import FabricSettings
 from conftest import OWNER, ScriptedExecutor
 from test_jetstream_core import FakeBus, FakeJS
@@ -67,16 +69,26 @@ def test_each_node_exports_its_outbox_api_flow_control_and_delivery_to_the_hub_o
         assert f'{{stream: "{source_deliver_prefix(node)}.>", accounts: ["ONEMIND"]}}' in exports
         assert all('accounts: ["ONEMIND"]' in e for e in exports)          # never to another node
         assert not any(other in e for e in exports)
-        # what the node may import stays its own jobs: no JetStream API, no other node's anything
-        assert _section(body, "imports") == [f'{{stream: {{account: "ONEMIND", subject: "onemind.node.{node}.job.>"}}}}']
+        # what the node may import stays its own jobs: no other node's anything, and of the JetStream API
+        # only "next" and "ack" of its own job consumer (D-029 N2, test_jobs_stream.py)
+        nxt, ack = job_services(node)
+        assert _section(body, "imports") == [
+            f'{{stream: {{account: "ONEMIND", subject: "onemind.node.{node}.job.>"}}}}',
+            f'{{service: {{account: "ONEMIND", subject: "{nxt}"}}, to: "onemind.node.{node}.jobpull"}}',
+            f'{{service: {{account: "ONEMIND", subject: "{ack}"}}}}',
+            f'{{service: {{account: "ONEMIND", subject: "{policy_service(node)}"}}, to: "onemind.node.{node}.policyget"}}',
+            f'{{service: {{account: "ONEMIND", subject: "{policy_check_subject(node)}"}}}}']
     hub = _account(text, "ONEMIND")
     imports = _section(hub, "imports")
     for node in ("aaa111", "bbb222"):
         for subj in source_services(node):
             assert f'{{service: {{account: "NODE_{node}", subject: "{subj}"}}}}' in imports
         assert f'{{stream: {{account: "NODE_{node}", subject: "{source_deliver_prefix(node)}.>"}}}}' in imports
-    # the hub offers the nodes no service at all (no JetStream API, no request path into ONEMIND)
-    assert not any("service" in e for e in _section(hub, "exports"))
+    # The hub exposes each node's own consumer and policy services, scoped to that node only.
+    services = [e for e in _section(hub, "exports") if "service" in e]
+    assert services == [f'{{service: "{s}", accounts: ["NODE_{n}"]}}' for n in ("aaa111", "bbb222") for s in job_services(n)] + [
+        f'{{service: "{policy_service(n)}", accounts: ["NODE_{n}"]}}' for n in ("aaa111", "bbb222")] + [
+        f'{{service: "{policy_check_subject(n)}", accounts: ["NODE_{n}"]}}' for n in ("aaa111", "bbb222")]
 
 
 def test_sourcing_subjects_are_scoped_to_the_outbox_and_the_node():
@@ -141,7 +153,8 @@ def test_core_creates_wanted_sources_retries_errors_and_reensures_after_a_reconn
     bus = FakeBus()
     core = jetstream.JetStreamCore(8 * GIB)
     core.want_source("aaa111")
-    assert core.view()["sources"] == [{"node_id": "aaa111", "stream": "NODE_node_aaa111_OUTBOX", "state": "pending"}]
+    assert core.view()["sources"] == [{"node_id": "aaa111", "stream": "NODE_node_aaa111_OUTBOX", "state": "pending",
+                                       "job_consumer": "pending"}]
 
     async def scenario():
         task = asyncio.create_task(core.run(bus, interval_s=0.01))

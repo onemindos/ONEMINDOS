@@ -227,7 +227,7 @@ func automationCommands(a *App) []*cobra.Command {
 	var wFile string
 	wset := &cobra.Command{
 		Use:   "set WINDOW_ID --file window.json",
-		Short: "Create or replace a window (PUT /v1/windows/ID); ids look like win_<lower-case name>; owner only, with a passkey sign-in",
+		Short: "Create or replace a window (owner only); widening a referenced window requires approval",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			body, err := a.readJSONInput(cmd, wFile)
@@ -237,6 +237,9 @@ func automationCommands(a *App) []*cobra.Command {
 			v, err := a.gwDo(http.MethodPut, "/v1/windows/"+pathID(args[0]), body)
 			if err != nil {
 				return err
+			}
+			if !a.G.JSON && a.printPendingPermission(obj(v)) {
+				return nil
 			}
 			return a.printDone(v, "Saved window %s.", args[0])
 		},

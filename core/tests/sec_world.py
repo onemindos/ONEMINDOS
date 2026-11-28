@@ -561,8 +561,12 @@ def _in_a_day(w: World) -> str:
 
 def p_policy_create(w: World) -> Req:
     return Req("/v1/approval-policies", json={
-        "allow": {"types": ["app.restart"], "requested_by": ["automation:*"]}, "limits": {"per_day": 1},
+        "allow": {"types": ["app.restart"], "requested_by": ["automation:update-policy"]}, "limits": {"per_day": 1},
         "expires_at": _in_a_day(w)})
+
+
+def p_deny_create(w: World) -> Req:
+    return Req("/v1/approval-denies", json={"principal": "agent:hermes", "tier": "T3", "reason": "matrix"})
 
 
 def p_rule_create(w: World) -> Req:

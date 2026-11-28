@@ -431,6 +431,8 @@ EOF
 
 apt_setup() {
   local pkgs=$APT_PKGS
+  # Joined nodes sign NATS challenges in node-check with the distro Python.
+  if [ "$ROLE" = node ]; then pkgs="$pkgs python3-cryptography"; fi
   if [ "$DRY_RUN" = 1 ]; then
     step "OS packages and automatic security updates (contract §10.1)"
     plan "apt-get install --no-install-recommends $pkgs (only if one is missing)"
@@ -1065,11 +1067,25 @@ gateway_runtime_from_bundle() {
     printf '%s\n' "$sum" > "$stamp"
   fi
   "$PREFIX/venv/bin/python" -c 'import onemind_core' || die "the bundle's gateway runtime does not run here"
+  compile_gateway_stdlib "$PREFIX/venv/bin/python"   # bundle.sh already did; a bundle built before it did not
   install -d -m0755 "$PREFIX/sdk"
   copy_tree "$SRC/sdk/schema" "$PREFIX/sdk/schema"
   copy_tree "$SRC/sdk/policy" "$PREFIX/sdk/policy"   # the install sandbox rules (H-02), as in the build-on-box path
   copy_tree "$SRC/apps" "$PREFIX/apps"
   chmod -R a+rX "$PREFIX"
+}
+
+# uv's managed Python (python-build-standalone) ships its standard library as .py files with almost no
+# .pyc. UV_COMPILE_BYTECODE covers the venv's packages only. The gateway runs as `onemind` with
+# ProtectSystem=strict, so it cannot write __pycache__ under $PREFIX/python: every start compiled about
+# 200 stdlib modules from source, which cost cold-start time and left about 4 MiB of private memory
+# behind for good (perf-smoke idle_memory_mib.gateway). Compile them once here, as root, the way the
+# image does (os/rootfs/Containerfile, onemind-gateway stage). deploy/bundle.sh runs the same step.
+compile_gateway_stdlib() {
+  local py=$1 stdlib
+  stdlib=$("$py" -I -c 'import sysconfig; print(sysconfig.get_paths()["stdlib"])')
+  "$py" -I -m compileall -q -j 0 -x '/(test|tests|idlelib|lib2to3|turtledemo)/' "$stdlib" >/dev/null \
+    || die "could not compile the gateway Python's standard library ($stdlib)"
 }
 
 gateway_python() {
@@ -1079,6 +1095,7 @@ gateway_python() {
     uv_toolchain
     plan "copy core/ -> $PREFIX/core; uv sync --frozen --no-dev --no-editable --managed-python --python 3.12"
     plan "  (uv.lock hash-checks every wheel; uv downloads Python 3.12 into $PREFIX/python and checks its hash)"
+    plan "  python -m compileall on $PREFIX/python's standard library (it ships without bytecode)"
     plan "copy sdk/schema and sdk/policy -> $PREFIX/sdk and apps/ -> $PREFIX/apps"
     return 0
   fi
@@ -1088,6 +1105,7 @@ gateway_python() {
   (cd "$PREFIX/core" && env UV_CACHE_DIR="$CACHE/uv" UV_PYTHON_INSTALL_DIR="$PREFIX/python" \
      UV_PROJECT_ENVIRONMENT="$PREFIX/venv" UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy \
      "$UV" sync --frozen --no-dev --no-editable --managed-python --python 3.12 --quiet)
+  compile_gateway_stdlib "$PREFIX/venv/bin/python"
   install -d -m0755 "$PREFIX/sdk"
   copy_tree "$SRC/sdk/schema" "$PREFIX/sdk/schema"
   copy_tree "$SRC/sdk/policy" "$PREFIX/sdk/policy"

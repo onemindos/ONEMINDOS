@@ -18,13 +18,13 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 
-from onemind_core.actions import StandingGrant
+from onemind_core.actions import ApprovalInput, StandingGrant
 from onemind_core.app import create_app
 from onemind_core.audit import verify
 from onemind_core.auth import Principal
 from onemind_core.automation import AutomationSettings
 
-from conftest import AGENT, GUEST, OWNER, action_body
+from conftest import AGENT, GUEST, OWNER, action_body, apply_queued_policy, apply_settings_change, approve_settings_change
 
 
 def iso(dt: datetime) -> str:
@@ -79,13 +79,16 @@ def enable(client, rule_id):
     return r.json()
 
 
-def policy(client, clock, *, types=("app.restart",), requested_by=("automation:*",), params=None,
+def policy(client, clock, *, types=("app.restart",), requested_by=None, params=None,
            per_day=3, window_id=None, headers=OWNER):
+    if requested_by is None:  # wildcards are refused (PR 5): name every automation that exists now
+        rules = client.get("/v1/automation/rules", headers=OWNER).json()
+        requested_by = tuple(f"automation:{r['id']}" for r in rules) or ("automation:update-policy",)
     body = {"allow": {"types": list(types), "requested_by": list(requested_by), "params": params or {}},
             "limits": {"per_day": per_day}, "expires_at": iso(clock.now + timedelta(days=30))}
     if window_id:
         body["window_id"] = window_id
-    return client.post("/v1/approval-policies", json=body, headers=headers)
+    return apply_queued_policy(client, client.post("/v1/approval-policies", json=body, headers=headers))
 
 
 def unhealthy(client, app_id="whoami", **kw):
@@ -274,24 +277,25 @@ def test_bad_standing_approvals_are_refused(client, clock, kw, status, needle):
 
 
 def test_standing_approval_expiry_is_bounded(client, clock):
-    body = {"allow": {"types": ["app.restart"], "requested_by": ["automation:*"]}, "limits": {"per_day": 1},
-            "expires_at": iso(clock.now + timedelta(days=91))}
+    body = {"allow": {"types": ["app.restart"], "requested_by": ["automation:update-policy"]}, "limits": {"per_day": 1},
+            "expires_at": iso(clock.now + timedelta(days=181))}
     r = client.post("/v1/approval-policies", json=body, headers=OWNER)
-    assert r.status_code == 422 and "90 days" in r.json()["message"]
+    assert r.status_code == 422 and "180 days" in r.json()["message"]  # D-028: 30, 90, 180 days or forever
 
 
-def test_policy_limit_is_counted_in_the_database(client, clock, auto_settings, executor):
-    pol = policy(client, clock, requested_by=("agent:hermes",), params={"app_id": {"enum": ["whoami"]}}).json()
-    approver = f"policy:{pol['id']}@1"
-    for i in range(3):
+def test_policy_limit_is_counted_in_the_database(clock, auto_settings, executor):
+    with TestClient(create_app(auto_settings, clock=clock, executor=executor)) as client:
+        pol = policy(client, clock, requested_by=("agent:hermes",), params={"app_id": {"enum": ["whoami"]}}).json()
+        approver = f"policy:{pol['id']}@1"
+        for i in range(3):
+            install(client, clock)
+            r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key=f"rm{i}"), headers=AGENT)
+            assert r.status_code == 201
+            a = r.json()
+            assert a["state"] == "succeeded", a
+            assert a["decided_by"] == {"id": approver, "kind": "policy", "role": "policy"}
         install(client, clock)
-        r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key=f"rm{i}"), headers=AGENT)
-        assert r.status_code == 201
-        a = r.json()
-        assert a["state"] == "succeeded", a
-        assert a["decided_by"] == {"id": approver, "kind": "policy", "role": "policy"}
-    install(client, clock)
-    # A restarted gateway keeps the count (from here on only the new process writes).
+    # A restarted gateway keeps the count. Shut down the first gateway's writers before reopening its audit log.
     with TestClient(create_app(auto_settings, clock=clock, executor=executor)) as again:
         r = again.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key="rm3"), headers=AGENT)
         assert r.json()["state"] == "awaiting_approval"
@@ -312,7 +316,11 @@ def test_policy_limit_is_counted_in_the_database(client, clock, auto_settings, e
 
 def test_wildcards_never_cover_agents_and_params_must_match(client, clock):
     install(client, clock)
-    policy(client, clock, requested_by=("automation:*", "person:*"))
+    for n, who in enumerate(("automation:*", "person:*")):  # written before PR 5; refused as new rules now
+        client.app.state.automation.repo.add_policy(
+            id=f"pol_old{n}", name=None, per_day=5, window_id=None, expires_at=clock.now + timedelta(days=5),
+            allow={"types": ["app.restart"], "requested_by": [who], "params": {}},
+            created_by={"id": "owner"}, created_at=clock.now)
     r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key="a1"), headers=AGENT)
     assert r.json()["state"] == "awaiting_approval"
     client.post(f"/v1/actions/{r.json()['id']}/deny", headers=OWNER)
@@ -366,7 +374,7 @@ def test_a_failing_policy_approval_leaves_the_request_filed(client, clock, monke
     assert client.get("/v1/approval-policies", headers=OWNER).json()[0]["uses_24h"] == 0  # the use came back
 
 
-def test_window_bound_policy_and_revision_bump(client, clock):
+def test_widening_a_referenced_window_requires_approval_and_bumps_the_rule_revision(client, clock):
     install(client, clock)
     pol = policy(client, clock, requested_by=("agent:hermes",), window_id="win_nightly").json()
     r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key="w1"), headers=AGENT)
@@ -374,10 +382,75 @@ def test_window_bound_policy_and_revision_bump(client, clock):
     client.post(f"/v1/actions/{r.json()['id']}/deny", headers=OWNER)
     w = client.put("/v1/windows/win_nightly", headers=OWNER,
                    json={"name": "nightly", "tz": "UTC", "ranges": [{"start": "21:00", "end": "23:00"}]})
-    assert w.status_code == 200 and w.json()["open_now"] is True
+    assert w.status_code == 202 and w.json()["type"] == "policy.window.widen", w.text
+    aid = w.json()["id"]
+    denied = client.post(f"/v1/actions/{aid}/approve", headers=OWNER, json={"plan_sha256": w.json()["plan_sha256"]})
+    assert denied.status_code in (401, 409) and denied.json()["reason"] in ("needs_proven_key", "step_up_required")
+    assert not next(row for row in client.get("/v1/windows", headers=OWNER).json() if row["id"] == "win_nightly")["open_now"]
+    pending = client.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key="blocked"), headers=AGENT)
+    assert pending.json()["state"] == "awaiting_approval"
+    apply_settings_change(client, w)
+    assert next(row for row in client.get("/v1/windows", headers=OWNER).json() if row["id"] == "win_nightly")["open_now"]
     assert client.put("/v1/windows/win_nightly", headers=AGENT, json={"name": "x", "ranges": []}).status_code == 403
     r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key="w2"), headers=AGENT)
     assert r.json()["decided_by"]["id"] == f"policy:{pol['id']}@2"
+
+
+def test_narrowing_a_referenced_window_is_immediate_and_invalidates_pending_widening(client, clock):
+    path = "/v1/windows/win_nightly"
+    assert client.put(path, headers=OWNER, json={"name": "Nightly", "tz": "UTC", "ranges": [
+        {"days": ["sun"], "start": "21:00", "end": "03:00"}]}).status_code == 200
+    pol = policy(client, clock, requested_by=("agent:hermes",), window_id="win_nightly").json()
+    queued = client.put(path, headers=OWNER, json={"name": "Nightly", "tz": "UTC", "ranges": [
+        {"days": ["sun"], "start": "20:00", "end": "03:00"}]})
+    assert queued.status_code == 202
+    narrowed = client.put(path, headers=OWNER, json={"name": "Nightly", "tz": "UTC", "ranges": [
+        {"days": ["mon"], "start": "00:30", "end": "02:00"}]})
+    assert narrowed.status_code == 200, narrowed.text  # inside Sunday's overnight range
+    action = queued.json()
+    result = client.app.state.gateway.actions.approve(Principal("owner", "person", "owner"),
+        action["id"], action["plan_sha256"], extra=ApprovalInput(verification_level=2))
+    assert result["state"] == "failed" and "window or its rules changed" in result["result"]["message"]
+    assert svc(client).repo.get_policy(pol["id"])["revision"] == 2
+    assert svc(client).repo.get_window("win_nightly")["ranges"] == narrowed.json()["ranges"]
+
+
+@pytest.mark.parametrize("widen_existing", [False, True], ids=["create", "widen-to-different-window"])
+def test_rule_approval_cannot_apply_after_the_target_window_changes(client, clock, widen_existing):
+    window_id = "win_reviewed"
+    window_path = f"/v1/windows/{window_id}"
+    ranges = [{"start": "02:00", "end": "05:00"}]
+    window = {"name": "Reviewed", "tz": "UTC", "ranges": ranges}
+    original = client.put(window_path, json=window, headers=OWNER)
+    assert original.status_code == 200, original.text
+    pol = policy(client, clock, window_id="win_nightly").json() if widen_existing else None
+
+    def request_rule():
+        if pol is not None:
+            return client.patch(f"/v1/approval-policies/{pol['id']}", headers=OWNER,
+                                json={"window_id": window_id, "revision": pol["revision"]})
+        return client.post("/v1/approval-policies", headers=OWNER, json={
+            "allow": {"types": ["app.restart"], "requested_by": ["automation:update-policy"]},
+            "limits": {"per_day": 3}, "expires_at": iso(clock.now + timedelta(days=30)), "window_id": window_id,
+        })
+
+    queued = request_rule()
+    assert queued.status_code == 202, queued.text
+    reviewed = queued.json()["plan"]["params"]["window"]
+    assert reviewed == {"id": window_id, "updated_at": original.json()["updated_at"],
+                        "tz": "UTC", "resolved_tz": "UTC", "ranges": ranges}
+    moved = client.put(window_path, headers=OWNER, json={**window, "ranges": [{"start": "21:00", "end": "23:00"}]})
+    assert moved.status_code == 200 and moved.json()["open_now"]
+    failed = approve_settings_change(client, queued)
+    assert failed["state"] == "failed" and "maintenance window changed" in failed["result"]["message"]
+    stored = svc(client).repo.list_policies()
+    assert len(stored) == int(widen_existing)
+    if pol is not None:
+        assert stored[0]["window_id"] == "win_nightly" and stored[0]["revision"] == pol["revision"]
+
+    apply_settings_change(client, request_rule())
+    (active,) = svc(client).repo.list_policies()
+    assert active["window_id"] == window_id
 
 
 def test_f6_patch_updates_of_verified_apps_inside_the_window(client, clock, auto_settings):
@@ -390,9 +463,9 @@ def test_f6_patch_updates_of_verified_apps_inside_the_window(client, clock, auto
     path.write_text(yaml.safe_dump(doc))
     s = svc(client)
     s.policies.installed_version = lambda app_id: "1.10.1"
-    assert policy(client, clock, types=("app.update",), requested_by=("automation:*",),
-                  window_id="win_nightly").status_code == 201
-    who = {"id": "automation:rule_x", "kind": "automation"}
+    assert policy(client, clock, types=("app.update",), requested_by=("automation:update-policy",),
+                  window_id="win_nightly").status_code == 202
+    who = {"id": "automation:update-policy", "kind": "automation"}
     night = datetime(2026, 11, 12, 3, 0, tzinfo=UTC)
     ev = s.policies.evaluate
     assert ev("app.update", {"app_id": "whoami", "to_version": "1.10.2"}, who, night, paused=False).outcome == "auto_approved"
@@ -558,20 +631,27 @@ def test_background_worker_handles_events(auto_settings, clock, executor):
         assert runs[0]["outcome"] == "requested"
 
 
+@pytest.mark.real_mode_defaults
 def test_standing_approvals_and_windows_need_a_passkey_once_passkeys_are_active(client, clock):
     # F-2: with passkeys active, a password/token owner must not pre-approve agent actions.
     ident = client.app.state.identity
     ident.passkeys_active = lambda: True
-    r = policy(client, clock, requested_by=("agent:hermes",))
-    assert r.status_code == 401 and r.json()["reason"] == "step_up_required", r.text
+    r = client.post("/v1/approval-policies", headers=OWNER, json={
+        "allow": {"types": ["app.restart"], "requested_by": ["agent:hermes"]},
+        "limits": {"per_day": 1}, "expires_at": iso(clock.now + timedelta(days=30)),
+    })
+    assert r.status_code == 202 and r.json()["state"] == "awaiting_approval", r.text
+    denied = client.post(f"/v1/actions/{r.json()['id']}/approve", headers=OWNER)
+    assert denied.status_code in (401, 409) and denied.json()["reason"] in ("needs_proven_key", "step_up_required")
     assert client.get("/v1/approval-policies", headers=OWNER).json() == []
     w = client.put("/v1/windows/win_nightly", headers=OWNER,
                    json={"name": "nightly", "tz": "UTC", "ranges": [{"start": "00:00", "end": "23:59"}]})
     assert w.status_code == 401 and w.json()["reason"] == "step_up_required", w.text
     # An agent still gets 403, never a step-up prompt it could not answer.
     assert policy(client, clock, headers=AGENT).status_code == 403
-    # Without passkeys the owner token still works and the audit says how presence was proved.
+    # An owner token cannot grant a new standing approval before passkey enrollment.
     ident.passkeys_active = lambda: False
-    assert policy(client, clock).status_code == 201
+    blocked = policy(client, clock)
+    assert blocked.status_code == 409 and blocked.json()["reason"] == "no_owner_passkey"
     made = [e for e in audit_events(client) if e["event"] == "automation.policy.created"]
-    assert made and made[-1]["data"]["approval"] == "token"
+    assert made == []

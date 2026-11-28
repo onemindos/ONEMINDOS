@@ -2,7 +2,7 @@
 """Physical actions (#723): the owner's motion lockout and the passkey guard on physical approvals.
 
 GET /v1/physical/lockout   owner: {locked, changed_by, changed_at, reason}
-PUT /v1/physical/lockout   owner: {locked, reason?}; turning it off needs a fresh passkey once active
+PUT /v1/physical/lockout   owner: {locked, reason?}; turning it off needs action-bound L2 approval
 
 The rules themselves live in the action service (actions.py, FeatureAction.physical): passkey and
 hold-to-approve, plan-bound, never a standing approval or an automation, refused while locked.
@@ -15,8 +15,8 @@ from fastapi import Depends, FastAPI, Request
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError, error_responses
-from ..identity import ctx_of
 from ..identity.scopes import register_route_scope
+from ..permissions.changes import QUEUED, register_change, request_change
 from ..physical import MotionLockout, MotionLockoutChange, MotionLockoutState
 
 # After the action routes (150): it plugs the lockout into the action service they serve.
@@ -58,6 +58,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
     gw.actions.motion_lockout = lockout.locked
     gw.approval_guards.append(physical_step_up(gw))
     app.state.motion_lockout = lockout
+    register_change(app, gw, "policy.motion.unlock", lambda p, params: lockout.set(
+        p, False, params["reason"], "L2", expected_changed_at=params["changed_at"]))
     principal = gw.principal
     tags = ["physical"]
 
@@ -69,12 +71,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return lockout.state()
 
     @app.put("/v1/physical/lockout", tags=tags, operation_id="physical.lockout.set",
-             response_model=MotionLockoutState, responses=error_responses(401, 403, 422))
-    def set_lockout(body: MotionLockoutChange, request: Request, p: Principal = Depends(principal)):
-        """Turn the motion lockout on (at once) or off (with a fresh passkey once passkeys are active)."""
+             response_model=MotionLockoutState, responses={**QUEUED, **error_responses(401, 403, 409, 422, 429, 503)})
+    def set_lockout(body: MotionLockoutChange, p: Principal = Depends(principal)):
+        """Lock motion immediately or request approval to unlock it."""
         lockout.owner_only(p, "set the motion lockout")
-        via = "token"
-        ident = getattr(app.state, "identity", None)
-        if not body.locked and ident is not None:
-            via = ident.require_step_up(ctx_of(request), p, "turn off the motion lockout")
-        return lockout.set(p, body.locked, body.reason, via)
+        if body.locked:
+            return lockout.set(p, True, body.reason)
+        current = lockout.state()
+        if not current["locked"]:
+            return current
+        return request_change(app, gw, p, "policy.motion.unlock",
+                              {"reason": body.reason, "changed_at": current["changed_at"]})

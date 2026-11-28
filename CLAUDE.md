@@ -8,7 +8,7 @@
 - **Prefer the next shippable step over more analysis:** something that runs, a test that passes, or a kit Zeus can run on hardware.
 
 ## Locked founder decisions (read before building)
-- **D-001 to D-031** in [docs/DECISIONS.md](docs/DECISIONS.md) (there is no D-030). Read the newer ones before touching their area:
+- **D-001 to D-031** in [docs/DECISIONS.md](docs/DECISIONS.md). Read the newer ones before touching their area:
   - D-016 and D-018: the desktop (wallpaper, windows, dock) is the one front door. D-026 amends D-018: Backstage is kept and runs on OneMind after the OS is stable.
   - D-017: Samba file sharing is built in. D-015: Kanidm runs as a host service on the hub.
   - D-019 and D-020: Secure Boot (`efi` route, signed UKIs) and disk encryption (TPM by default, passphrase opt-in).

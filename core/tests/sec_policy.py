@@ -24,12 +24,19 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 import sec_world as w
+from conftest import enroll_agent
 from onemind_core.natsconf import new_user_key
 from sec_world import IDENTITY_STREAM, KINDS
 
 DECIDE = "decide"
 DENIED = frozenset({401, 403})
 NOT_2XX = frozenset({401, 403, 404, 405})
+
+
+def agent_key_change(world):
+    name = "agent:probe"
+    enroll_agent(world.client, name, world.static("owner"))
+    return w.Req(f"/v1/agents/{name}/nats-key", json={"nkey": new_user_key()[1]})
 
 
 @dataclass(frozen=True)
@@ -285,6 +292,53 @@ POLICY |= {
     ("DELETE", "/v1/work/projects/{project_id}/tasks/{task_id}"): Row(
         cells(403, **GONE, owner=422, adult=422, child=422),
         w.p_static("/v1/work/projects/missing/tasks/missing"), "Work revision deletion is people-only"),
+    ("GET", "/v1/work/projects"): Row(cells(403, **GONE, owner=200, adult=200, child=200),
+                                       w.p_static("/v1/work/projects"), "Work lists only the caller's projects"),
+    ("GET", "/v1/work/projects/{project_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing"), "Work hides missing and other people's projects"),
+    ("PATCH", "/v1/work/projects/{project_id}"): Row(
+        cells(403, **GONE, owner=422, adult=422, child=422),
+        w.p_static("/v1/work/projects/missing"), "Work project edits are people-only and creator-only"),
+    ("DELETE", "/v1/work/projects/{project_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing"), "Work project deletion is people-only and creator-only"),
+    ("GET", "/v1/work/projects/{project_id}/members"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/members"), "Work lists members of visible projects only"),
+    ("PUT", "/v1/work/projects/{project_id}/members/{person_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=403),
+        w.p_static("/v1/work/projects/missing/members/missing"), "Work member adds are for adults; a child or teen is refused by role first"),
+    ("DELETE", "/v1/work/projects/{project_id}/members/{person_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/members/missing"), "Work member changes are people-only"),
+    ("GET", "/v1/work/projects/{project_id}/tasks/{task_id}/activity"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/tasks/missing/activity"), "Work history follows task visibility"),
+    ("POST", "/v1/work/parse"): Row(cells(403, **GONE, owner=422, adult=422, child=422),
+                                     w.p_static("/v1/work/parse"), "Work parse preview is people-only"),
+    ("GET", "/v1/work/projects/{project_id}/tasks/{task_id}/comments"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/tasks/missing/comments"), "Work comments follow task visibility"),
+    ("POST", "/v1/work/projects/{project_id}/tasks/{task_id}/comments"): Row(
+        cells(403, **GONE, owner=422, adult=422, child=422),
+        w.p_static("/v1/work/projects/missing/tasks/missing/comments"), "Work comments are people-only"),
+    ("DELETE", "/v1/work/projects/{project_id}/tasks/{task_id}/comments/{comment_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/tasks/missing/comments/missing"), "Only a comment's author deletes it"),
+    ("GET", "/v1/work/projects/{project_id}/sections"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/sections"), "Work lists sections of visible projects only"),
+    ("POST", "/v1/work/projects/{project_id}/sections"): Row(
+        cells(403, **GONE, owner=422, adult=422),
+        w.p_static("/v1/work/projects/missing/sections"), "Work section changes are for adults; a child or teen is refused by role first (#1137)"),
+    ("PATCH", "/v1/work/projects/{project_id}/sections/{section_id}"): Row(
+        cells(403, **GONE, owner=422, adult=422),
+        w.p_static("/v1/work/projects/missing/sections/missing"), "Work section changes are for adults; a child or teen is refused by role first (#1137)"),
+    ("DELETE", "/v1/work/projects/{project_id}/sections/{section_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404),
+        w.p_static("/v1/work/projects/missing/sections/missing"),
+        "Work section changes are for adults; a child or teen is refused by role first (#1137)"),
     ("GET", "/v1/series"): Row(CHILD_CANNOT, w.p_static("/v1/series?node_id=node1&metric=cpu_pct"),
                                "Node metric history, with the same monitoring:read scope as live metrics"),
     ("GET", "/v1/monitoring/summary"): Row(CHILD_CANNOT, w.p_static("/v1/monitoring/summary"),
@@ -364,10 +418,43 @@ POLICY |= {
     # ---- automation, standing approvals and windows ------------------------------------------------------
     ("GET", "/v1/approval-policies"): Row(ONLY_OWNER, w.p_static("/v1/approval-policies"),
                                           f"{_AUTOMATION}: only the owner reads the rules (gateway permissions gap 3)"),
-    ("POST", "/v1/approval-policies"): Row(grid(201, 403, 403, 403, 403), w.p_policy_create,
+    ("POST", "/v1/approval-policies"): Row(grid(202, 403, 403, 403, 403), w.p_policy_create,
                                            f"{_AUTOMATION}: only the owner grants a standing approval"),
     ("DELETE", "/v1/approval-policies/{policy_id}"): Row(OWNER_ONLY_404, w.p_missing("/v1/approval-policies/{policy}"),
                                                          f"{_AUTOMATION}: only the owner revokes one"),
+    ("POST", "/v1/approval-policies/{policy_id}/confirm"): Row(OWNER_ONLY_404, w.p_missing("/v1/approval-policies/{policy}/confirm"),
+                                                              f"{_AUTOMATION}: only the owner confirms a paused one"),
+    # Gateway permissions PR 8: deny rules. Adding one only tightens (the owner, or the person who owns that agent);
+    # removing one loosens (owner only). Agents never see them.
+    # Gateway permissions PR 10: modes. Anyone signed in sees the household default (an agent only its own mode
+    # besides); only someone with a say changes one, and only the owner loosens.
+    ("GET", "/v1/permission-modes"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/permission-modes"),
+                                         f"{_AUTOMATION}: the household default, plus the modes the caller may read"),
+    ("GET", "/v1/permission-modes/{principal}"): Row(ONLY_OWNER, w.p_static("/v1/permission-modes/agent:probe"),
+                                                     f"{_AUTOMATION}: the owner, the agent's owning person, or the agent itself"),
+    ("PUT", "/v1/permission-modes"): Row(ONLY_OWNER, lambda _: w.Req("/v1/permission-modes", json={"mode": "ask"}),
+                                         f"{_AUTOMATION}: only the owner sets the household default"),
+    ("PUT", "/v1/permission-modes/{principal}"): Row(ONLY_OWNER, lambda _: w.Req("/v1/permission-modes/agent:hermes", json={"mode": "locked"}),
+                                                     f"{_AUTOMATION}: tightening by anyone with a say; loosening by the owner"),
+    ("GET", "/v1/approval-denies"): Row(grid(200, 200, 403, 403, 403), w.p_static("/v1/approval-denies"),
+                                        f"{_AUTOMATION}: the owner sees all, a person those on agents they own"),
+    ("POST", "/v1/approval-denies"): Row(grid(201, 403, 403, 403, 403), w.p_deny_create,
+                                         f"{_AUTOMATION}: the owner, or the person who owns that agent"),
+    ("DELETE", "/v1/approval-denies/{deny_id}"): Row(OWNER_ONLY_404, w.p_missing("/v1/approval-denies/{policy}"),
+                                                     f"{_AUTOMATION}: removing a deny loosens: owner only"),
+    # Gateway permissions PR 9: edit (owner; widening needs a passkey), one-tap revoke (owner, or a person for rules
+    # naming only agents they own), re-confirm a suspended rule and keep a forever rule (owner).
+    ("PATCH", "/v1/approval-policies/{policy_id}"): Row(OWNER_ONLY_404, w.p_missing("/v1/approval-policies/{policy}", json={"name": "x"}),
+                                                        f"{_AUTOMATION}: only the owner edits a rule"),
+    ("POST", "/v1/approval-policies/{policy_id}/revoke"): Row(grid(404, 404, 403, 403, 403), w.p_missing("/v1/approval-policies/{policy}/revoke"),
+                                                              f"{_AUTOMATION}: revoking narrows; a person may revoke rules for their own agents"),
+    ("POST", "/v1/approval-policies/revoke-all"): Row(grid(200, 200, 403, 403, 403),
+                                                      lambda _: w.Req("/v1/approval-policies/revoke-all", json={"principal": "agent:hermes"}),
+                                                      f"{_AUTOMATION}: revoking narrows"),
+    ("POST", "/v1/approval-policies/{policy_id}/reconfirm"): Row(OWNER_ONLY_404, w.p_missing("/v1/approval-policies/{policy}/reconfirm"),
+                                                                 f"{_AUTOMATION}: only the owner re-confirms a suspended rule"),
+    ("POST", "/v1/approval-policies/{policy_id}/keep"): Row(OWNER_ONLY_404, w.p_missing("/v1/approval-policies/{policy}/keep"),
+                                                            f"{_AUTOMATION}: only the owner keeps a forever rule"),
     ("GET", "/v1/automation/rules"): Row(READ_ANY, w.p_static("/v1/automation/rules"), f"{_AUTOMATION}: any reader"),
     ("POST", "/v1/automation/rules"): Row(grid(201, 403, 403, 403, 403), w.p_rule_create,
                                           f"{_AUTOMATION}: only the owner writes rules (an agent is refused)"),
@@ -393,17 +480,24 @@ POLICY |= {
     # ---- AI agent principals (AIG-03 #167): the owner's budget, cancel and resume controls -------------------------
     ("GET", "/v1/agents"): Row(ONLY_OWNER, w.p_static("/v1/agents"), "AIG-03: only the owner lists agents"),
     ("GET", "/v1/agents/{name}"): Row(ONLY_OWNER, w.p_static("/v1/agents/hermes"), "AIG-03: only the owner reads an agent"),
-    ("PUT", "/v1/agents/{name}/budget"): Row(ONLY_OWNER, w.p_missing("/v1/agents/hermes/budget", json={"budget_per_day": 50}),
-                                             "AIG-03: an agent never raises its own budget"),
+    ("PUT", "/v1/agents/{name}/budget"): Row(grid(202, 403, 403, 403, 403),
+                                            w.p_missing("/v1/agents/hermes/budget", json={"budget_per_day": 250}),
+                                            "AIG-03, D-028: only the owner queues a budget raise for L2 approval"),
     ("POST", "/v1/agents/{name}/cancel"): Row(ONLY_OWNER, w.p_missing("/v1/agents/hermes/cancel", json={}),
                                               "AIG-03: only the owner cancels an agent"),
     ("POST", "/v1/agents/{name}/resume"): Row(ONLY_OWNER, w.p_missing("/v1/agents/hermes/resume", json={}),
                                               "AIG-03: an agent never resumes itself"),
     # #627: an agent's NATS user (account AGENTS) is the owner's to add or remove; an agent never keys itself
+    ("GET", "/v1/agents/{name}/inputs"): Row(ONLY_OWNER, w.p_static("/v1/agents/agent:probe/inputs"),
+                                             "PR 6: only the owner reads what an agent can read outside"),
+    ("PUT", "/v1/agents/{name}/inputs"): Row(ONLY_OWNER, w.p_missing("/v1/agents/hermes/inputs",
+                                                                     json={"external_inputs": ["web"]}),
+                                             "PR 6: only the owner changes it (an agent never lowers its own taint)"),
     ("GET", "/v1/agents/{name}/nats-key"): Row(ONLY_OWNER, w.p_static("/v1/agents/agent:probe/nats-key"),
                                                "#627: only the owner reads an agent's NATS key"),
-    ("PUT", "/v1/agents/{name}/nats-key"): Row(ONLY_OWNER, w.p_missing("/v1/agents/agent:probe/nats-key", json={
-        "nkey": new_user_key()[1]}), "#627: an agent never registers its own NATS key"),
+    ("PUT", "/v1/agents/{name}/nats-key"): Row(grid(202, 403, 403, 403, 403),
+                                              agent_key_change,
+                                              "#627, D-028: only the owner queues a NATS key for L2 approval"),
     ("DELETE", "/v1/agents/{name}/nats-key"): Row(ONLY_OWNER, w.p_missing("/v1/agents/agent:probe/nats-key"),
                                                   "#627: only the owner removes an agent's NATS key"),
     ("GET", "/v1/windows"): Row(READ_ANY, w.p_static("/v1/windows"), f"{_AUTOMATION}: any reader"),
@@ -710,6 +804,8 @@ POLICY |= {
                                                           f"{_JOIN_CODE}; an unknown request id is 404 before any code is checked"),
     ("GET", "/v1/fabric"): Row(CHILD_CANNOT, w.p_static("/v1/fabric"),
                                f"{_NET}: the fabric summary (nodes, pending joins) like /v1/nodes: a child has no nodes:read (§12.6)"),
+    ("GET", "/v1/fabric/policy"): Row(CHILD_CANNOT, w.p_static("/v1/fabric/policy"),
+                                      f"{_NET}: D-029 N7, the stop and revoke snapshot every machine enforces; read-only, like /v1/fabric"),
     ("GET", "/v1/mesh"): Row(CHILD_CANNOT, w.p_static("/v1/mesh"),
                              f"{_NET}: the mesh view (nodes, devices, app URLs); a child has no nodes:read; mesh addresses are owner only (?addresses)"),
     ("PUT", "/v1/mesh/settings"): Row(ONLY_OWNER, w.p_missing("/v1/mesh/settings", json={}),
@@ -878,6 +974,11 @@ POLICY |= {
         cells(403, **GONE, owner=409, plugin=DENIED, automation=DENIED, node=DENIED),
         w.p_static("/v1/system/services/onemind-gateway.service/logs"),
         "core/onemind_core/routers/services.py: a unit's redacted journal; owner only, audited"),
+    # P-07: the whole-system journal is owner only and audited; with no host socket in this world the owner gets 409.
+    ("GET", "/v1/system/journal"): Row(
+        cells(403, **GONE, owner=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        w.p_static("/v1/system/journal"),
+        "core/onemind_core/routers/journal.py: the redacted system journal; owner only, read only, audited, rate and size limited"),
     # #636: the owner and agents pass authorization and get 409 (no host socket: nothing is filed); with a host
     # the request is filed and waits for the owner's passkey approval (tests/test_service_actions.py).
     ("POST", "/v1/system/services/{unit}/restart"): Row(

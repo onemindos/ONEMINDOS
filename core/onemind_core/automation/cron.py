@@ -185,3 +185,9 @@ def window_open(ranges: tuple[WindowRange, ...], tz: tzinfo, at: datetime) -> bo
         elif (wd in r.days and m >= r.start) or ((wd - 1) % 7 in r.days and m < r.end):
             return True
     return False
+
+
+def window_minutes(ranges: tuple[WindowRange, ...]) -> set[int]:
+    """The local minutes of a week covered by the schedule, including overnight ranges."""
+    return {minute % (7 * 1440) for r in ranges for day in r.days
+            for minute in range(day * 1440 + r.start, day * 1440 + r.end + (1440 if r.end < r.start else 0))}

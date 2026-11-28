@@ -40,9 +40,12 @@ import json
 import logging
 import threading
 from collections.abc import Callable
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal, Protocol
+
+from sqlalchemy.orm import Session
 
 from pydantic import (
     AwareDatetime, BaseModel, ConfigDict, Discriminator, Field, Tag, ValidationError, field_validator, model_validator,
@@ -60,6 +63,7 @@ from .scan import scan_problem
 from .approvalcard import APPROVAL_LIMIT_VALUE, HOLD_MIN_MS, approval_card, hold_required  # noqa: F401 (re-exported)
 from .ledger import Action, ActionRepository, iso, new_action_id, utc
 from .taint import PLAN_KEY, TaintLedger, plan_taint
+from .taint_store import NODE_JOIN_REQUESTER
 
 log = logging.getLogger("onemind.actions")
 
@@ -121,6 +125,8 @@ class ApprovalInput:
     # How long the owner held the approve control, in ms (hold-to-approve). A physical action needs
     # at least HOLD_MIN_MS; the passkey assertion, not this number, is the proof of presence.
     hold_ms: int | None = None
+    verification_level: int = 0  # set by the identity guard after checking the action-bound assertion
+    on_accept: Callable[[Session], None] | None = None
 
 
 def _fingerprinted(plan: dict) -> tuple[dict, str]:
@@ -425,6 +431,7 @@ class FeatureAction:
     claim: Callable[["Action"], str | None] | None = None
     release: Callable[["Action"], None] | None = None
     background: bool = False
+    approval_level: int = 0  # minimum verification for a sensitive settings change
     # A feature may derive risk from its immutable request; approval must match it.
     risk_for: Callable[[dict], str] | None = None
     # #723: it moves or switches something physical. Fixed at registration, independent of risk:
@@ -434,6 +441,11 @@ class FeatureAction:
     # derived from the request's params (part of plan_sha256).
     limits_for: Callable[[dict], list[dict]] | None = None
     preview_for: Callable[[dict], dict | None] | None = None
+    # Gateway permissions PR 9: what a request writes to, matched against a rule's `target`
+    # (("notes", "vault:<owner>/Agent Inbox/x.md")), and how much it writes ((bytes, items)) for a rule's
+    # size caps. A type without target_for can never match a rule that names a target.
+    target_for: Callable[[dict], tuple[str, str] | None] | None = None
+    size_for: Callable[[dict], tuple[int, int]] | None = None
 
 
 FEATURE_OUTCOMES = ("succeeded", "failed", "outcome_unknown")
@@ -498,6 +510,15 @@ class ActionService:
         self.requester_checks: list[Callable[[Principal], None]] = []
         # AIG-04: who read third-party text lately. Fed by the MCP layer; read when a request is filed.
         self.taint = TaintLedger(clock)
+        # fn(principal_id): an agent identity ended (app removed, failed install); what the owner
+        # declared about it (agents_inputs) must not carry over to a new agent with the same id.
+        self.agent_forgotten: Callable[[str], None] | None = None
+        # Gateway permissions PR 7: permanent ids of agent and plugin principals (principals.py), set by
+        # routers/agents.py. An app install gives its agent a new id; a removal retires it.
+        self.principals: Any = None
+        # Gateway permissions PR 8: decide() on every filing path (permissions/engine.py), set by
+        # routers/permissions.py. Without it the older checks below still hold on their own.
+        self.permissions: Any = None
         self.handlers: dict[str, ActionHandler] = {}
         # How a background feature action's run() is started after approval; tests make it synchronous.
         self.spawn: Callable[[Callable[[], None]], None] = _worker
@@ -611,12 +632,18 @@ class ActionService:
         risk = registry.risk_of(action_type, params) if registry.known(action_type) else None
         # A requester that read third-party text is tainted here as on every other path, and a request
         # a standing approval could cover carries a plan, so an approval is bound to these parameters.
-        taint = self.taint.get(str(requested_by.get("id") or ""))
+        # Only the fabric's node.join request skips a node's default exposure; any other request a
+        # node files counts as exposed, as on every other path (#1133 fails closed).
+        kind = requested_by.get("kind")
+        if kind == "node" and action_type == "node.join":
+            kind = NODE_JOIN_REQUESTER
+        taint = self.taint.get(str(requested_by.get("id") or ""), kind)
         plan, plan_sha = None, None
         if taint is not None or registry.policy_may_cover(action_type, params, risk) is None:
             plan, plan_sha = feature_plan(action_type, params)
             if taint is not None:
                 plan = {**plan, PLAN_KEY: taint.note()}
+        self._gate(requested_by, action_type, params, risk, plan=plan)
         action = Action(
             id=new_action_id(), type=action_type, params=params, state="requested",
             requested_by=requested_by, idempotency_key=idempotency_key,
@@ -871,9 +898,14 @@ class ActionService:
                 409, "stale_precondition", "the plan changed since you read it; read it again",
                 reason="plan_changed",
             )
-        taint = self.taint.get(principal.id)
+        taint = self.taint.get(principal.id, principal.kind)
         if taint is not None:
             self._tainted_target_check(principal, app)
+        from .automation import registry  # imported late: the registry imports ActionType from here
+
+        # the effective risk, with the parameter upgrades (app.remove with delete_data is destructive)
+        self._gate({"id": principal.id, "kind": principal.kind}, req.type, params,
+                   registry.effective_risk(req.type, params, lc.TYPES[req.type].risk), plan=rendered["plan"])
         action = Action(
             id=new_action_id(),
             type=req.type,
@@ -918,6 +950,17 @@ class ActionService:
         """
         if not self.standing_approvals or _never_by_policy(a):
             return None
+        if self.permissions is not None:
+            try:
+                decision = self.permissions.filed(a)
+            except Exception:  # a broken engine never approves
+                log.exception("permission decision failed")
+                return None
+            if decision.outcome != "approve":
+                return None
+            step = {"permission": {"step": decision.step, "reason": decision.reason}}
+        else:
+            step = {}
         if plan_taint(a.plan):  # AIG-04: a requester that read third-party text always waits for a person
             return None
         if (a.plan or {}).get("network_paths"):  # §12.22: opening a path between apps needs a person
@@ -933,7 +976,7 @@ class ActionService:
             try:
                 return self._audited(
                     grant.principal, "approve action", a.id, {},
-                    lambda: self._approve(grant.principal, a.id, standing=grant.audit),
+                    lambda: self._approve(grant.principal, a.id, standing={**grant.audit, **step}),
                 )
             except ApiError:  # e.g. a stale precondition: the action stays awaiting_approval
                 grant.release()
@@ -949,6 +992,15 @@ class ActionService:
                     return None
                 return now.to_json()
         return None
+
+    def _gate(self, requested_by: dict, action_type: str, params: dict, risk: str | None, *,
+              physical: bool = False, plan: dict | None = None) -> None:
+        """Gateway permissions PR 8: refuse before anything is filed when decide() says so (deny first).
+
+        scope_ok is left at its default (True): the route's scope check already ran before this
+        handler, so decide() step 4 cannot fire from here (see Facts.scope_ok)."""
+        if self.permissions is not None:
+            self.permissions.gate(requested_by, action_type, params, risk, physical=physical, plan=plan)
 
     @staticmethod
     def _check_tainted_approval(a: Action, plan_sha256: str | None, standing: dict | None,
@@ -1047,6 +1099,11 @@ class ActionService:
         if a.type in self.feature_types:
             spec = self.feature_types[a.type]
             facts = None
+            if spec.approval_level:
+                if standing is not None or extra.verification_level < spec.approval_level:
+                    raise ApiError(409, "conflict", "this change needs an action-bound approval with a proven key (L2)",
+                                   reason="needs_proven_key")
+                facts = {"approval": f"L{extra.verification_level}"}
             if spec.physical:
                 self._check_physical_approval(principal, a, spec, plan_sha256, extra, standing)
                 facts = {"physical": True, "hold_ms": extra.hold_ms, "approval": "passkey", "plan_sha256": a.plan_sha256}
@@ -1054,12 +1111,12 @@ class ActionService:
                 fresh = None if spec.physical else feature_plan(a.type, a.params)[1]
                 self._check_tainted_approval(a, plan_sha256, standing, fresh)
                 facts = {**(facts or {}), "tainted": True, "plan_sha256": a.plan_sha256}
-            return self._approve_feature(principal, a, spec, standing, facts)
+            return self._approve_feature(principal, a, spec, standing, facts, extra.on_accept)
         handler = self.handlers.get(a.type)
         if handler is not None:
             if plan_taint(a.plan):
                 self._check_tainted_approval(a, plan_sha256, standing, feature_plan(a.type, a.params)[1])
-            return self._approve_handled(principal, a, handler, standing)
+            return self._approve_handled(principal, a, handler, standing, extra.on_accept)
         if a.type not in APP_CLAIMS:
             raise ApiError(409, "conflict", f"no handler for action type {a.type!r} is running")
 
@@ -1124,7 +1181,7 @@ class ActionService:
         elif extra.sealed is not None:
             raise ApiError(422, "conflict", "this gateway has no secret store")
         outcome = "stale" if app is None else self.repo.accept_and_claim(
-            a.id, now, principal.as_dict(), app_id, claim, set(allowed), allow_absent
+            a.id, now, principal.as_dict(), app_id, claim, set(allowed), allow_absent, on_accept=extra.on_accept
         )
         if outcome == "conflict":  # someone else decided first (compare-and-swap lost)
             raise ApiError(409, "conflict", "action was decided concurrently")
@@ -1179,13 +1236,14 @@ class ActionService:
         self.audit.append("app.licence_accepted", principal.as_dict(), a.id, {"app_id": app.id, "licence_class": cls})
 
     def _approve_handled(self, principal: Principal, a: Action, handler: ActionHandler,
-                         standing: dict | None = None) -> dict:
+                         standing: dict | None = None, on_accept: Callable[[Session], None] | None = None) -> dict:
         problem = handler.recheck(a)
         if problem:
             raise ApiError(409, "stale_precondition", problem)
         now = self.clock()
         accepted = self.repo.transition(
-            a.id, {"awaiting_approval"}, "accepted", now, decided_by=principal.as_dict(), decided_at=now
+            a.id, {"awaiting_approval"}, "accepted", now, on_transition=on_accept,
+            decided_by=principal.as_dict(), decided_at=now
         )
         if accepted is None:
             raise ApiError(409, "conflict", "action was decided concurrently")
@@ -1382,7 +1440,14 @@ class ActionService:
             # Secret would go stale. An update still needs the gateway address for its egress rule.
             return AgentSecret(spec.secret, spec.principal_id, gateway_url=self.gateway_url) if a.type == "app.update" else None
         token = new_agent_token()
-        self.repo.issue_agent_token(spec.principal_id, app.id, token_hash(token), self.clock())
+        registry = self.principals
+        with registry.lifecycle if registry is not None else nullcontext():
+            if registry is not None:
+                # Every install is a new identity. Keep per-agent approvals out of the transition.
+                self.repo.revoke_agent_token(spec.principal_id, self.clock())
+                registry.retire(spec.principal_id, "app.install")
+                registry.register(spec.principal_id, source="app")
+            self.repo.issue_agent_token(spec.principal_id, app.id, token_hash(token), self.clock())
         self.audit.append(
             "agent.principal.issued", None, a.id,
             {"principal": {"id": spec.principal_id, "kind": "agent", "role": "agent"},
@@ -1393,7 +1458,17 @@ class ActionService:
 
     def _revoke_agent(self, a: Action, reason: str) -> None:
         principal_id = f"agent:{a.params['app_id']}"
-        if self.repo.revoke_agent_token(principal_id, self.clock()):
+        registry = self.principals
+        with registry.lifecycle if registry is not None else nullcontext():
+            revoked = self.repo.revoke_agent_token(principal_id, self.clock())
+            if registry is not None:
+                registry.retire(principal_id, reason)
+        if self.agent_forgotten is not None:
+            try:
+                self.agent_forgotten(principal_id)
+            except Exception:  # best effort: the token is revoked either way
+                log.exception("forgetting the declared inputs of %s failed", principal_id)
+        if revoked:
             self.audit.append(
                 "agent.principal.revoked", None, a.id, {"principal_id": principal_id, "reason": reason}
             )
@@ -1546,7 +1621,7 @@ class ActionService:
         if spec.physical:
             self._refuse_if_locked()
             plan, plan_sha = self._physical_plan(action_type, spec, params, risk)
-        taint = self.taint.get(principal.id)
+        taint = self.taint.get(principal.id, principal.kind)
         if taint is not None:
             # AIG-04: the same rules as an app action. The app it names must be visible to AI, the
             # card carries the note (beside the plan, outside the fingerprint), and the plan is
@@ -1557,8 +1632,10 @@ class ActionService:
             if plan is None:
                 plan, plan_sha = feature_plan(action_type, params)
             plan = {**plan, PLAN_KEY: taint.note()}
-        if plan is None and self._rule_could_cover(action_type, params, risk):
+        if plan is None and (spec.approval_level or self._rule_could_cover(action_type, params, risk)):
             plan, plan_sha = feature_plan(action_type, params)  # an approval by rule is bound to these params
+        self._gate({"id": principal.id, "kind": principal.kind}, action_type, params, risk,
+                   physical=spec.physical, plan=plan)
         action = Action(
             id=new_action_id(), type=action_type, params=params, state="requested",
             requested_by={"id": principal.id, "kind": principal.kind}, idempotency_key=idempotency_key,
@@ -1586,7 +1663,7 @@ class ActionService:
 
     def _approve_feature(
         self, principal: Principal, a: Action, spec: FeatureAction, standing: dict | None = None,
-        facts: dict | None = None,
+        facts: dict | None = None, on_accept: Callable[[Session], None] | None = None,
     ) -> dict:
         if spec.risk_for and a.risk != spec.risk_for(a.params):
             raise ApiError(409, "stale_precondition", "the action risk changed after the request")
@@ -1597,17 +1674,23 @@ class ActionService:
         if problem:  # the action stays awaiting_approval; the owner may deny it or let it expire
             raise ApiError(409, "stale_precondition", problem)
         now = self.clock()
-        accepted = self.repo.transition(
-            a.id, {"awaiting_approval"}, "accepted", now, decided_by=principal.as_dict(), decided_at=now,
-            approved_by=principal.id,
-        )
+        try:
+            accepted = self.repo.transition(
+                a.id, {"awaiting_approval"}, "accepted", now, on_transition=on_accept,
+                decided_by=principal.as_dict(), decided_at=now, approved_by=principal.id,
+            )
+        except Exception:
+            if spec.claim is not None:
+                self._release_feature(a)
+            raise
         if accepted is None:
             self._release_feature(a)
             raise ApiError(409, "conflict", "action was decided concurrently")
         ids = {"requested_by": a.requested_by.get("id"), "approved_by": principal.id, **(standing or {})}
         self.audit.append("action.approved", principal.as_dict(), a.id,
                           {"type": a.type, "params": a.params, "risk": a.risk or spec.risk, **ids, **(facts or {})})
-        if self.repo.transition(a.id, {"accepted"}, "dispatched", self.clock()) is None:
+        dispatched = self.repo.transition(a.id, {"accepted"}, "dispatched", self.clock())
+        if dispatched is None:
             self._mark_outcome_unknown(a, "accepted action could not move to dispatched")
             return self._get(a.id).to_json()
         self.audit.append("action.dispatched", None, a.id, {"executor": f"feature:{a.type}", **ids})
@@ -1626,7 +1709,7 @@ class ActionService:
 
         def start() -> None:
             try:
-                spec.run(a, finish)
+                spec.run(dispatched, finish)
             except Exception as exc:  # the feature could not even start: the effect is unknown
                 log.exception("feature action %s crashed", a.type)
                 finish(ExecResult("outcome_unknown", f"feature error: {exc.__class__.__name__}"))

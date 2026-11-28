@@ -126,6 +126,7 @@ export const en = {
   'common.save': 'Save',
   'inbox.markRead': 'Mark as read: {title}',
   'inbox.markRead.short': 'Mark as read',
+  'inbox.ruleRevoked': 'Rule revoked',
   'inbox.channels.testShort': 'Send test',
   'tokens.nameRule': 'Use lower-case letters, digits, dots, dashes or underscores.',
   'alerts.stat.nodes': 'Nodes online',

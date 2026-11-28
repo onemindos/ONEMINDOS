@@ -2,7 +2,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 import { renderApp } from '../test/helpers';
-import { preferenceStores } from '../data/prefs';
+import { personStorage, preferenceStores } from '../data/prefs';
 import { HomeCommandBar } from './HomeCommandBar';
 
 it('opens the command palette and only offers chat for an installed agent with a launch URL', () => {
@@ -26,6 +26,10 @@ it('restores the Home command bar from the signed-in person’s appearance choic
   fireEvent.click(toggle);
   const { store } = preferenceStores('owner', { token: 'owner-demo' });
   await waitFor(async () => expect((await store.load()).prefs.commandBar).toBe(true));
+  await waitFor(() => {
+    const saved: unknown = JSON.parse(personStorage('owner')?.getItem('shell.windows') ?? '[]');
+    expect(saved).toContainEqual(expect.objectContaining({ path: '/settings/appearance', minimised: false }));
+  });
   appearance.unmount();
   renderApp({ token: 'owner-demo', route: '/' });
   // The desktop restores the open Settings window across sessions. Close it to return Home.

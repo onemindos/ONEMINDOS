@@ -5,7 +5,9 @@ from datetime import timedelta
 
 from fastapi.testclient import TestClient
 
-from conftest import AGENT, OWNER, action_body, make_client
+import pytest
+
+from conftest import AGENT, OWNER, action_body, apply_settings_change, make_client
 from onemind_core.app import create_app
 from test_identity import csrf, idc, setup_owner  # noqa: F401  (idc is a fixture)
 
@@ -68,19 +70,36 @@ def test_cancel_stops_requests_and_withdraws_what_is_waiting(client, clock, sett
     assert refused.status_code == 403 and refused.json()["reason"] == "agent_cancelled"
     lines = settings.audit_path.read_text()
     assert "agent.cancelled" in lines and "agent_cancelled" in lines
-    assert client.post(f"/v1/agents/{HERMES}/resume", headers=OWNER).json()["cancelled"] is False
+    apply_settings_change(client, client.post(f"/v1/agents/{HERMES}/resume", headers=OWNER))
+    assert client.get(f"/v1/agents/{HERMES}", headers=OWNER).json()["cancelled"] is False
     assert client.post("/v1/actions", json=action_body(clock, key="again"), headers=AGENT).status_code == 201
+
+
+@pytest.mark.real_mode_defaults
+def test_agent_resume_and_budget_raise_refuse_before_passkey_enrollment(client, clock):
+    path = f"/v1/agents/{HERMES}"
+    assert client.put(f"{path}/budget", json={"budget_per_day": 0}, headers=OWNER).status_code == 200
+    assert client.post("/v1/actions", json=action_body(clock), headers=AGENT).status_code == 429
+    assert client.post(f"{path}/cancel", headers=OWNER).status_code == 200
+    for response in (client.post(f"{path}/resume", headers=OWNER),
+                     client.put(f"{path}/budget", json={"budget_per_day": 1}, headers=OWNER)):
+        assert response.status_code == 409 and response.json()["reason"] == "no_owner_passkey", response.text
+    agent = client.get(path, headers=OWNER).json()
+    assert agent["cancelled"] is True and agent["budget_per_day"] == 0
+    assert client.get("/v1/actions", headers=OWNER).json() == []
 
 
 def test_cancel_revokes_the_agents_identity_tokens(idc, clock):
     setup_owner(idc)
-    tok = idc.post("/v1/tokens", json={"name": "hermes", "principal": {"kind": "agent", "id": "agent:hermes"},
+    minted = idc.post("/v1/tokens", json={"name": "helper", "principal": {"kind": "agent", "id": "agent:helper"},
                                        "scopes": ["instance:read", "actions:request", "actions:read"]},
-                   headers=csrf(idc)).json()["one_time"]["token"]
+                      headers=csrf(idc))
+    assert minted.status_code == 201, minted.text
+    tok = minted.json()["one_time"]["token"]
     h = {"Authorization": f"Bearer {tok}"}
     assert idc.get("/v1/me", headers=h).status_code == 200
     assert idc.post("/v1/actions", json=action_body(clock), headers=h).status_code == 201
-    r = idc.post("/v1/agents/agent:hermes/cancel", headers=csrf(idc))
+    r = idc.post("/v1/agents/agent:helper/cancel", headers=csrf(idc))
     assert r.status_code == 200 and r.json()["tokens_revoked"] == 1 and r.json()["requests_cancelled"] == 1
     assert idc.get("/v1/me", headers=h).status_code == 401
 

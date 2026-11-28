@@ -30,7 +30,7 @@ FLEET = "fleet"
 CONSOLE = "console"
 
 REASONS: dict[str, str] = {
-    OVERSIGHT: "Approving, denying, approval policies, the motion lockout, confirming what a found radio is and "
+    OVERSIGHT: "Approving, denying, approval policies, fabric enforcement status, the motion lockout, confirming what a found radio is and "
                "the controls over agents are a person's alone; no agent tool exists for them.",
     CREDENTIAL: "Sign-in, sessions, tokens, passkeys, keys, secrets, join tickets and device trust never pass "
                 "through an agent.",
@@ -95,6 +95,22 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/work/quick-add": WRITE,
     "PATCH /v1/work/projects/{project_id}/tasks/{task_id}": WRITE,
     "DELETE /v1/work/projects/{project_id}/tasks/{task_id}": WRITE,
+    "POST /v1/work/parse": WRITE,
+    "PATCH /v1/work/projects/{project_id}": WRITE,
+    "DELETE /v1/work/projects/{project_id}": WRITE,
+    "PUT /v1/work/projects/{project_id}/members/{person_id}": WRITE,
+    "DELETE /v1/work/projects/{project_id}/members/{person_id}": WRITE,
+    "GET /v1/work/projects": PERSON,
+    "GET /v1/work/projects/{project_id}": PERSON,
+    "GET /v1/work/projects/{project_id}/members": PERSON,
+    "GET /v1/work/projects/{project_id}/tasks/{task_id}/activity": PERSON,
+    "GET /v1/work/projects/{project_id}/tasks/{task_id}/comments": PERSON,
+    "POST /v1/work/projects/{project_id}/tasks/{task_id}/comments": WRITE,
+    "DELETE /v1/work/projects/{project_id}/tasks/{task_id}/comments/{comment_id}": WRITE,
+    "GET /v1/work/projects/{project_id}/sections": PERSON,
+    "POST /v1/work/projects/{project_id}/sections": WRITE,
+    "PATCH /v1/work/projects/{project_id}/sections/{section_id}": WRITE,
+    "DELETE /v1/work/projects/{project_id}/sections/{section_id}": WRITE,
     # ---- oversight: deciding requests and controlling agents
     "POST /v1/actions/{action_id}/approve": OVERSIGHT,
     "POST /v1/actions/{action_id}/approve-options": OVERSIGHT,
@@ -102,6 +118,8 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/agents/kill-switch": OVERSIGHT,
     "PUT /v1/agents/kill-switch": OVERSIGHT,
     "PUT /v1/agents/{name}/budget": OVERSIGHT,
+    "GET /v1/agents/{name}/inputs": OVERSIGHT,
+    "PUT /v1/agents/{name}/inputs": OVERSIGHT,
     "POST /v1/agents/{name}/cancel": OVERSIGHT,
     "POST /v1/agents/{name}/resume": OVERSIGHT,
     # an agent never gets a tool that issues, reads or revokes its own NATS key
@@ -110,7 +128,20 @@ HUMAN_ONLY: dict[str, str] = {
     "DELETE /v1/agents/{name}/nats-key": CREDENTIAL,
     "GET /v1/approval-policies": OVERSIGHT,
     "POST /v1/approval-policies": OVERSIGHT,
+    "POST /v1/approval-policies/{policy_id}/confirm": OVERSIGHT,
+    "PATCH /v1/approval-policies/{policy_id}": OVERSIGHT,
+    "POST /v1/approval-policies/{policy_id}/revoke": OVERSIGHT,
+    "POST /v1/approval-policies/revoke-all": OVERSIGHT,
+    "POST /v1/approval-policies/{policy_id}/reconfirm": OVERSIGHT,
+    "POST /v1/approval-policies/{policy_id}/keep": OVERSIGHT,
     "DELETE /v1/approval-policies/{policy_id}": OVERSIGHT,
+    "GET /v1/approval-denies": OVERSIGHT,
+    "GET /v1/permission-modes": OVERSIGHT,
+    "GET /v1/permission-modes/{principal}": OVERSIGHT,
+    "PUT /v1/permission-modes": OVERSIGHT,
+    "PUT /v1/permission-modes/{principal}": OVERSIGHT,
+    "POST /v1/approval-denies": OVERSIGHT,
+    "DELETE /v1/approval-denies/{deny_id}": OVERSIGHT,
     # FD-08 is an owner-only report for assessing the box before deciding on maintenance.
     "GET /v1/care/checkup": OVERSIGHT,
     "POST /v1/domains/hosts/{hostname}/approve": OVERSIGHT,
@@ -156,6 +187,7 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/backups/kit": CREDENTIAL,
     "POST /v1/backups/kit/confirm": CREDENTIAL,
     "POST /v1/fabric/join-requests": CREDENTIAL,
+    "GET /v1/fabric/policy": OVERSIGHT,
     "GET /v1/fabric/join-requests/{request_id}": CREDENTIAL,
     "GET /v1/fabric/join-tickets": CREDENTIAL,
     "POST /v1/fabric/join-tickets": CREDENTIAL,
@@ -353,6 +385,7 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/bridges/{bridge_id}/latest": CONSOLE,
     "GET /v1/engine": CONSOLE,
     "GET /v1/system/services/{unit}/logs": CONSOLE,
+    "GET /v1/system/journal": CONSOLE,
     "GET /v1/system/ups": CONSOLE,
     "POST /v1/bridges/{bridge_id}/resume": WRITE,
     "POST /v1/system/services/{unit}/restart": WRITE,

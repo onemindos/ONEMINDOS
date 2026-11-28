@@ -10,10 +10,12 @@ import asyncio
 import base64
 import contextlib
 import logging
+from collections.abc import Awaitable, Callable
 
 from nats.aio.client import Client
+from nats.aio.msg import Msg
 
-from .natsconf import load_seed
+from .natsconf import load_seed, policy_check_subject
 from .nodes import NodeRegistry
 
 log = logging.getLogger("onemind.bus")
@@ -42,6 +44,7 @@ class NatsBus:
         self.nkey_seed = nkey_seed  # path of the gateway's NATS seed file, or None
         self.registry = registry
         self.nc = None
+        self.policy_check: Callable[[Msg], Awaitable[None]] | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
         self._task: asyncio.Task | None = None
         self._stop = asyncio.Event()
@@ -76,6 +79,8 @@ class NatsBus:
                     name="onemind-gateway",
                 )
                 await nc.subscribe(HEARTBEAT_SUBJECT, cb=self._on_msg)
+                if self.policy_check is not None:
+                    await nc.subscribe(policy_check_subject("*"), cb=self.policy_check)
                 self.nc = nc
                 log.info("connected to NATS")
                 await self._stop.wait()
@@ -98,8 +103,28 @@ class NatsBus:
                 await self.nc.drain()
             self.nc = None
 
-    def publish_threadsafe(self, subject: str, data: bytes) -> None:
-        """Fire-and-forget publish, callable from request worker threads."""
+    def run_threadsafe(self, make, timeout_s: float):
+        """Run the coroutine `make(nc)` on the bus loop from a request worker thread and wait for it, up
+        to `timeout_s` (raises TimeoutError, or RuntimeError when NATS is not connected or this is the
+        loop's own thread, where waiting would deadlock)."""
+        if not self.connected or self._loop is None:
+            raise RuntimeError("NATS is not connected")
+        try:
+            running = asyncio.get_running_loop()
+        except RuntimeError:
+            running = None
+        if running is self._loop:
+            raise RuntimeError("run_threadsafe called on the bus loop itself")
+        fut = asyncio.run_coroutine_threadsafe(make(self.nc), self._loop)
+        try:
+            return fut.result(timeout_s)
+        except BaseException:
+            fut.cancel()
+            raise
+
+    def publish_threadsafe(self, subject: str, data: bytes, headers: dict[str, str] | None = None) -> None:
+        """Fire-and-forget publish, callable from request worker threads. `headers` go with the message
+        (a job carries Nats-Msg-Id = its job id, so the hub's job stream keeps one copy of a retry)."""
         if not self.connected or self._loop is None:
             return
         nc = self.nc
@@ -107,7 +132,8 @@ class NatsBus:
             running = asyncio.get_running_loop()
         except RuntimeError:
             running = None
+        coro = nc.publish(subject, data, headers=headers) if headers else nc.publish(subject, data)
         if running is self._loop:
-            self._loop.create_task(nc.publish(subject, data))
+            self._loop.create_task(coro)
         else:
-            asyncio.run_coroutine_threadsafe(nc.publish(subject, data), self._loop)
+            asyncio.run_coroutine_threadsafe(coro, self._loop)

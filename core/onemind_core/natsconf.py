@@ -34,6 +34,14 @@ join and removal, and a systemd path unit reloads NATS):
   of its outbox in its own JetStream domain and the flow-control replies as service exports, and the
   delivery subject as a stream export. The delivery subject sits under the node's own prefix, so a
   node can feed only its own source stream, and ONEMIND exports nothing back for it.
+- durable jobs (D-029 plan N2), only with JetStream on: the hub keeps every job in ONEMIND_JOBS (a
+  work queue) and the gateway makes one durable pull consumer per node, `node-<node_id>`, filtered to
+  that node's own `onemind.node.<node_id>.job.>`. ONEMIND exports to NODE_<id> exactly two services:
+  "next message" of that one consumer, and the acknowledgements of that one consumer. The node imports
+  "next" under `onemind.node.<node_id>.jobpull`, because nats-server denies `$JS.API.>` across a leaf
+  link whose JetStream domain differs (server/leafnode.go, denyAllClientJs), and the leaf's own
+  JetStream would answer a local `$JS.API` request itself. A node can read and acknowledge only its
+  own jobs, can create, delete or reconfigure no consumer, and still can never publish a job.
 
 The file holds public keys only; no secret is written.
 """
@@ -41,6 +49,8 @@ The file holds public keys only; no secret is written.
 from __future__ import annotations
 
 import base64
+import hashlib
+import json
 import os
 import re
 from collections.abc import Iterable
@@ -63,6 +73,7 @@ NODE_IMPORTS = ("job.>",)
 # subject token (the `agent_name` part regex of sdk/schema/onemind.subjects.json): a dotted name
 # would let agent "a" own a prefix of agent "a.b"'s subjects.
 AGENTS_ACCOUNT = "AGENTS"
+AGENT_STOP_METADATA = "onemind_agent_stop"
 AGENT_TOKEN_RE = re.compile(r"^[a-z0-9_-]{1,63}$")
 AGENT_VERBS = ("prompt", "status", "hb")  # Synadia Agent Protocol 0.3.1: agents.<verb>.<agent>.<owner>.<name>
 # Account limits. Field names checked against nats-server v2.15.3 (server/opts.go parseAccountLimits:
@@ -73,6 +84,47 @@ AGENT_RESPONSES = (1000, "10m")
 # Hub sourcing of a leaf's outbox (#747). OUTBOX_STREAM is internal/leaf OutboxStream; a node's leaf
 # runs JetStream in the domain node-<node_id> (internal/leaf Config.Domain).
 OUTBOX_STREAM = "OUTBOX"
+# Durable jobs (D-029 N2): the hub's work-queue stream of jobs (sdk/schema/onemind.subjects.json).
+JOBS_STREAM = "ONEMIND_JOBS"
+
+
+def job_consumer(node_id: str) -> str:
+    """The durable pull consumer on ONEMIND_JOBS that holds one node's jobs."""
+    return f"node-{node_id}"
+
+
+def job_pull_subject(node_id: str) -> str:
+    """Where a node asks for its next job (imported from the hub's `$JS.API...MSG.NEXT` of its consumer).
+    internal/jobs PullSubject makes the same string."""
+    return f"onemind.node.{node_id}.jobpull"
+
+
+POLICY_STREAM = "ONEMIND_POLICY"  # fabric_policy.py: the newest stop and revoke snapshot per machine
+POLICY_CHECK_SUBJECT = "onemind.node.{node_id}.policycheck"
+
+
+def policy_get_subject(node_id: str) -> str:
+    """Where a node reads its newest policy snapshot (internal/jobs PolicyGetSubject)."""
+    return f"onemind.node.{node_id}.policyget"
+
+
+def policy_check_subject(node_id: str) -> str:
+    """Where a node asks the gateway for a live, signed policy just before dispatch."""
+    return POLICY_CHECK_SUBJECT.format(node_id=node_id)
+
+
+def policy_service(node_id: str) -> str:
+    """The one hub service that returns a node's own snapshot: JetStream direct get, last message of
+    its subject (allow_direct on ONEMIND_POLICY). Read-only; a node reads no other node's note."""
+    return f"$JS.API.DIRECT.GET.{POLICY_STREAM}.onemind.node.{node_id}.policy"
+
+
+def job_services(node_id: str) -> tuple[str, str]:
+    """The two hub services one node may call: next message, and acknowledge, of its own consumer only.
+    The ack subject is the catch-all form under the consumer (`$JS.ACK.<stream>.<consumer>.>`), which
+    covers the 2.16 format change too (the stream and consumer stay its first tokens)."""
+    c = job_consumer(node_id)
+    return (f"$JS.API.CONSUMER.MSG.NEXT.{JOBS_STREAM}.{c}", f"$JS.ACK.{JOBS_STREAM}.{c}.>")
 
 
 def node_domain(node_id: str) -> str:
@@ -187,23 +239,31 @@ class AgentUser:
         """The only request subject this agent may send on: the subject itself names the sender."""
         return f"onemind.request.agent.{self.token}.*"
 
-    def permissions(self) -> str:
+    def allow(self) -> tuple[list[str], list[str]]:
+        """(publish, subscribe) allow lists: the same in the static file and in a callout user JWT."""
         own = self.subjects()
-        pub = [*own, self.request_subject()]
         srv = ["$SRV.PING", "$SRV.INFO", "$SRV.STATS", f"$SRV.*.{self.token}", f"$SRV.*.{self.token}.*"]
+        return [*own, self.request_subject()], [*own, *srv]
+
+    def permissions(self) -> str:
+        pub, sub = self.allow()
         q = lambda xs: ", ".join(f'"{x}"' for x in xs)  # noqa: E731
         n, ttl = AGENT_RESPONSES
-        return (f"permissions: {{publish: {{allow: [{q(pub)}]}}, subscribe: {{allow: [{q([*own, *srv])}]}}, "
+        return (f"permissions: {{publish: {{allow: [{q(pub)}]}}, subscribe: {{allow: [{q(sub)}]}}, "
                 f'allow_responses: {{max: {n}, expires: "{ttl}"}}}}')
 
 
-def render_agents_account(agents: list[AgentUser]) -> list[str]:
-    """The AGENTS account block: one user per line, so removing a line removes exactly one agent."""
+def render_agents_account(agents: list[AgentUser], callout: bool = False) -> list[str]:
+    """The AGENTS account block: one user per line, so removing a line removes exactly one agent. With
+    the auth callout (D-029 hybrid) it has no static user: the gateway answers each agent's connect
+    with a short-lived user JWT placed in this account (callout.py)."""
+    users = [] if callout else [
+        f'      {{nkey: "{a.nkey}", allowed_connection_types: ["STANDARD"], {a.permissions()}}}  # {a.principal_id}'
+        for a in agents]
     return [
         f"  {AGENTS_ACCOUNT}: {{",
         "    users: [",
-        *[f'      {{nkey: "{a.nkey}", allowed_connection_types: ["STANDARD"], {a.permissions()}}}  # {a.principal_id}'
-          for a in agents],
+        *users,
         "    ]",
         "    limits: {" + ", ".join(f"{k}: {v}" for k, v in AGENTS_LIMITS) + "}",
         "    exports: [",
@@ -218,22 +278,74 @@ def render_agents_account(agents: list[AgentUser]) -> list[str]:
     ]
 
 
+def _job_imports(node_id: str) -> list[str]:
+    nxt, ack = job_services(node_id)
+    return [f'      {{service: {{account: "{HUB_ACCOUNT}", subject: "{nxt}"}}, to: "{job_pull_subject(node_id)}"}}',
+            f'      {{service: {{account: "{HUB_ACCOUNT}", subject: "{ack}"}}}}',
+            f'      {{service: {{account: "{HUB_ACCOUNT}", subject: "{policy_service(node_id)}"}}, to: "{policy_get_subject(node_id)}"}}',
+            f'      {{service: {{account: "{HUB_ACCOUNT}", subject: "{policy_check_subject(node_id)}"}}}}']
+
+
 # What the hub account may keep in JetStream: file storage only (no memory store: a restart must not
 # lose events silently), capped in total. App streams are carved out of this (streams.py).
 JETSTREAM_MAX_STREAMS = 32
 JETSTREAM_MAX_CONSUMERS = 128
 
 
+@dataclass(frozen=True)
+class CalloutAccount:
+    """The auth callout (D-029: "NATS asks the gateway who may connect", for agents; callout.py).
+
+    `issuer` is the public account nkey (A...) that signs the gateway's answers; `service` the user
+    nkey the gateway's responder signs in with, alone in account AUTH. Everything static (hub services,
+    machines, the responder) is on `auth_users`, the pinned list that never waits for the gateway, so
+    machines and hub services reconnect with the gateway down; everyone else is asked about."""
+    issuer: str
+    service: str
+
+    def __post_init__(self):
+        from .natsjwt import PREFIX_ACCOUNT, JwtError, decode_public
+
+        try:
+            decode_public(self.issuer, PREFIX_ACCOUNT)
+        except JwtError:
+            raise ValueError("callout issuer: not a NATS account public nkey") from None
+        if not is_user_public_nkey(self.service):
+            raise ValueError("callout service: not a NATS user public nkey")
+
+
+CALLOUT_ACCOUNT = "AUTH"
+
+
+AGENT_KEYS_METADATA = "onemind_agent_keys"
+
+
+def agent_keys_digest(agents: Iterable[AgentUser]) -> str:
+    keys = sorted((agent.token, agent.nkey) for agent in agents)
+    return hashlib.sha256(json.dumps(keys).encode()).hexdigest()
+
+
 def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey] = (),
-                    jetstream_max_bytes: int = 0, agents: Iterable[AgentUser] = ()) -> str:
+                    jetstream_max_bytes: int = 0, agents: Iterable[AgentUser] = (),
+                    callout: CalloutAccount | None = None, agents_stopped: bool = False, *,
+                    stopped_at: str | None = None, report_agent_keys: bool = False) -> str:
     """The accounts include file. Deterministic: same nodes, services and agents, same bytes (no reload churn).
 
     jetstream_max_bytes > 0 turns JetStream on for the hub account with that file-storage cap. Node
     and agent accounts never get JetStream: a leaf's events are kept by its own outbox and by the hub
-    account. With no agents the AGENTS account is left out and the file is byte for byte as before."""
+    account. With no agents the AGENTS account is left out and the file is byte for byte as before.
+
+    agents_stopped (the agent kill switch, D-029 "Stop everything also cuts AI agents off the bus"):
+    the AGENTS account and everything that names it are left out. The reload that follows makes
+    nats-server close every connection in AGENTS at once, static users and callout users alike (an
+    account that is gone takes its clients with it), instead of waiting for a callout JWT to expire.
+    The callout block stays, so a new agent connect is still asked about, and refused."""
     nodes = sorted({n.node_id: n for n in nodes}.values(), key=lambda n: n.node_id)
     agents = sorted({a.token: a for a in agents}.values(), key=lambda a: a.token)
     services = sorted({s.name: s for s in services}.values(), key=lambda s: s.name)
+    if not services:
+        callout = None  # a passwordless dev hub is never asked about: the callout needs strict sign-in
+    wire_agents = bool(agents or callout) and not agents_stopped
     if services:  # strict: every hub-local client signs with its own key
         hub_users = [f'      {{nkey: "{s.nkey}", allowed_connection_types: ["STANDARD"]}}  # {s.name}'
                      for s in services]
@@ -261,7 +373,12 @@ def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey]
         f'      {{stream: "onemind.node.{n.node_id}.{s}", accounts: ["{n.account}"]}}'
         for n in nodes for s in NODE_IMPORTS
     ]
-    if agents:  # the gateway prompts agents and hears their status and heartbeats; agents send requests
+    if jetstream_max_bytes > 0:  # D-029 N2: each node reads and acknowledges its own job consumer only
+        exports += [f'      {{service: "{s}", accounts: ["{n.account}"]}}' for n in nodes for s in job_services(n.node_id)]
+        # D-029 N7: and reads its own stop and revoke snapshot
+        exports += [f'      {{service: "{policy_service(n.node_id)}", accounts: ["{n.account}"]}}' for n in nodes]
+        exports += [f'      {{service: "{policy_check_subject(n.node_id)}", accounts: ["{n.account}"]}}' for n in nodes]
+    if wire_agents:  # the gateway prompts agents and hears them; agents send requests (static or callout)
         imports += [
             f'      {{service: {{account: "{AGENTS_ACCOUNT}", subject: "agents.prompt.>"}}}}',
             f'      {{stream: {{account: "{AGENTS_ACCOUNT}", subject: "agents.status.>"}}}}',
@@ -283,14 +400,35 @@ def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey]
             "    imports: [",
             *[f'      {{stream: {{account: "{HUB_ACCOUNT}", subject: "onemind.node.{n.node_id}.{s}"}}}}'
               for s in NODE_IMPORTS],
+            *(_job_imports(n.node_id) if jetstream_max_bytes > 0 else []),
             "    ]",
             "  }",
         ]
-    if agents:
-        out += render_agents_account(agents)
+    if wire_agents:
+        out += render_agents_account(agents, callout is not None)
+    if callout:
+        out += [f"  {CALLOUT_ACCOUNT}: {{",
+                f'    users: [{{nkey: "{callout.service}", allowed_connection_types: ["STANDARD"]}}]  # the gateway\'s callout responder',
+                "  }"]
     out.append("}")
+    if callout:
+        pinned = [callout.service, *[s.nkey for s in services], *[n.nkey for n in nodes]]
+        out += ["# D-029: NATS asks the gateway who may connect, except the pinned list below (hub services,",
+                "# machines, the responder), which never waits for the gateway. No answer: refused.",
+                "authorization {",
+                "  auth_callout {",
+                f'    issuer: "{callout.issuer}"',
+                f"    account: {CALLOUT_ACCOUNT}",
+                "    auth_users: [" + ", ".join(f'"{k}"' for k in pinned) + "]",
+                "  }",
+                "}"]
     if not services:
         out.append(f'no_auth_user: "{HUB_LOCAL_USER}"')
+    if agents_stopped and stopped_at is not None:
+        # The hub reports this exact Stop in /varz once it applies this accounts file.
+        out.append(f"server_metadata: {{{AGENT_STOP_METADATA}: {json.dumps(stopped_at)}}}")
+    elif report_agent_keys and agents and not agents_stopped and callout is None:
+        out.append(f"server_metadata: {{{AGENT_KEYS_METADATA}: {json.dumps(agent_keys_digest(agents))}}}")
     out.append("")
     return "\n".join(out)
 
@@ -365,9 +503,12 @@ def make_service_key(directory: Path, name: str) -> str:
 
 
 def write_accounts(path: Path, nodes: Iterable[NodeAccount], services: Iterable[ServiceKey] = (),
-                   jetstream_max_bytes: int = 0, agents: Iterable[AgentUser] = ()) -> bool:
+                   jetstream_max_bytes: int = 0, agents: Iterable[AgentUser] = (),
+                   callout: CalloutAccount | None = None, agents_stopped: bool = False, *,
+                   stopped_at: str | None = None, report_agent_keys: bool = False) -> bool:
     """Write the include file atomically (0644: public keys only). True if the content changed."""
-    body = render_accounts(nodes, services, jetstream_max_bytes, agents).encode()
+    body = render_accounts(nodes, services, jetstream_max_bytes, agents, callout, agents_stopped,
+                           stopped_at=stopped_at, report_agent_keys=report_agent_keys).encode()
     try:
         if path.read_bytes() == body:
             return False

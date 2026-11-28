@@ -72,6 +72,16 @@ def signing_payload(challenge: str, action_id: str, action_sha256: str, plan_sha
     return "\n".join((PAYLOAD_TAG, action_id, action_sha256, plan_sha256 or "-", challenge)).encode()
 
 
+PAYLOAD_TAG_V2 = "onemind-approve-v2"  # gateway permissions PR 12: adds the remembered rule's hash
+
+
+def signing_payload_v2(challenge: str, action_id: str, action_sha256: str, plan_sha256: str | None,
+                       rule_sha256: str) -> bytes:
+    """Approve and remember: the v1 lines plus the rule hash. Shown, never accepted, until the phone app
+    displays the rule summary before signing (design PR 18a); the gateway refuses the key for remember."""
+    return "\n".join((PAYLOAD_TAG_V2, action_id, action_sha256, plan_sha256 or "-", rule_sha256, challenge)).encode()
+
+
 def verify(public_key_der: bytes, payload: bytes, signature: str) -> None:
     """Raises ApproverKeyError unless `signature` is a valid ECDSA SHA-256 signature of payload."""
     sig = _unb64(signature)

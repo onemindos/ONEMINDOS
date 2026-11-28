@@ -91,3 +91,59 @@ func TestServicesRestartPrintsTheApprovalID(t *testing.T) {
 		}
 	}
 }
+
+// TestLogsReadsTheSystemJournal: `onemind logs` sends the filters to GET /v1/system/journal, prints the hub's
+// redacted lines without control characters, follows the SSE stream, and maps the hub's refusals to exit codes.
+func TestLogsReadsTheSystemJournal(t *testing.T) {
+	isolate(t)
+	var got []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = append(got, r.URL.RequestURI())
+		if r.Header.Get("Authorization") != "Bearer "+ownerTok {
+			jsonOut(w, 401, map[string]string{"error": "unauthenticated", "message": "no"})
+			return
+		}
+		switch {
+		case r.URL.Path != "/v1/system/journal":
+			jsonOut(w, 404, map[string]string{"error": "not_found", "message": "no"})
+		case r.URL.Query().Get("unit") == "nope.service":
+			jsonOut(w, 422, map[string]string{"error": "conflict", "reason": "invalid_query", "message": "the host refused that unit"})
+		case r.URL.Query().Get("follow") == "true":
+			w.Header().Set("Content-Type", "text/event-stream")
+			_, _ = io.WriteString(w, "data: kernel: up \x1b[31mred\n\ndata: sshd: [redacted]\n\nevent: end\ndata: stream closed\n\n")
+		default:
+			w.Header().Set("Content-Type", "text/plain")
+			_, _ = io.WriteString(w, "kernel: hello\nsshd: Accepted from [ip]\n")
+		}
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("ONEMIND_HUB", srv.URL)
+	t.Setenv("ONEMIND_TOKEN", ownerTok)
+
+	r := run(t, "", false, "logs", "--unit", "sshd.service", "--priority", "err", "--boot", "-1", "-n", "50")
+	if r.code != 0 || r.out != "kernel: hello\nsshd: Accepted from [ip]\n" {
+		t.Fatalf("logs %+v", r)
+	}
+	if got[0] != "/v1/system/journal?boot=-1&priority=err&tail=50&unit=sshd.service" {
+		t.Fatalf("asked %v", got)
+	}
+	r = run(t, "", false, "logs", "-f")
+	if r.code != 0 || r.out != "kernel: up red\nsshd: [redacted]\n" || strings.Contains(r.out, "\x1b") {
+		t.Fatalf("logs -f: %q", r.out)
+	}
+	if !strings.Contains(got[len(got)-1], "follow=true") || !strings.Contains(got[len(got)-1], "boot=0") {
+		t.Fatalf("follow asked %v", got)
+	}
+	if r := run(t, "", false, "logs", "--unit", "nope.service"); r.code == 0 || !strings.Contains(r.errOut, "logs: the host refused that unit") {
+		t.Fatalf("a refused unit: %+v", r)
+	}
+	n := len(got)
+	for _, args := range [][]string{{"logs", "-n", "0"}, {"logs", "-n", "2001"}, {"logs", "--boot", "1"}, {"logs", "--boot", "-51"}, {"logs", "-f", "--boot", "-1"}} {
+		if r := run(t, "", false, args...); r.code != ExitUsage {
+			t.Fatalf("%v: %+v", args, r)
+		}
+	}
+	if len(got) != n {
+		t.Fatalf("a usage error must not reach the hub: %v", got[n:])
+	}
+}

@@ -11,8 +11,8 @@
 #   sudo deploy/verify/node-check.sh --nats-url URL        # (a URL with credentials shows in ps)
 #
 # One PASS/FAIL/WARN/SKIP line per check, a table at the end. Exit 0 when nothing FAILed (WARN and
-# SKIP are allowed). Needs bash, curl, python3 (standard library), systemd. Run as root: k3s's
-# admin kubeconfig is root-only.
+# SKIP are allowed). Needs bash, curl, python3, systemd and cryptography for NATS nkeys.
+# Run as root: k3s's admin kubeconfig and the machine's NATS seed are restricted.
 set -uo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -52,9 +52,9 @@ active() { systemctl is-active --quiet "$1" 2>/dev/null; }
 unit_exists() { [ -n "$(systemctl list-unit-files --no-legend "$1.service" 2>/dev/null)" ]; }
 svc() { if active "$1"; then row PASS "$1.service active"; else row FAIL "$1.service active" "journalctl -u $1"; fi; }
 # natscheck reads the URL from the env file, so credentials never reach a command line.
-# On a hub onemindd.env also names onemindd's NATS seed (CORE-SEC-4, #161); signing it needs the
-# `cryptography` package, which the gateway's Python has.
-PY=python3; [ -x /opt/onemind/venv/bin/python ] && PY=/opt/onemind/venv/bin/python
+# Use the Python that has cryptography: the gateway venv on a hub, the distro Python on a node.
+PY=/usr/bin/python3
+if [ "$ROLE" = hub ] && [ -x /opt/onemind/venv/bin/python ]; then PY=/opt/onemind/venv/bin/python; fi
 nc() { local cmd=$1; shift
   if [ -n "$NATS_URL" ]; then "$PY" -I "$NATSCHECK" "$cmd" "$NATS_URL" "$@"
   else "$PY" -I "$NATSCHECK" "$cmd" --env-file "$ENV_FILE" "$@"; fi; }

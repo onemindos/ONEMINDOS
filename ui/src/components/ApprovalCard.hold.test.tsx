@@ -37,3 +37,15 @@ it('a viewer who may not decide gets no hold control, only a disabled Approve', 
   expect(screen.queryByRole('button', { name: /^Hold to approve/ })).toBeNull();
   expect(screen.getByRole('button', { name: /^Approve / })).toBeDisabled();
 });
+
+it('shows the exact permission change on a pending policy card before approval', () => {
+  render(<ApprovalCard action={{
+    ...action, hold: undefined, type: 'policy.mode.change',
+    params: { principal: 'agent:notes', mode: 'auto', before: { mode: 'ask' } },
+  }} now={now} canDecide={{ allowed: true }} onApprove={vi.fn()} />);
+  expect(screen.getByRole('heading', { name: 'Change permission mode for agent:notes' })).toBeVisible();
+  const details = screen.getByText('Requested permission change').closest('details');
+  expect(details).toHaveAttribute('open');
+  expect(details).toHaveTextContent('"mode": "auto"');
+  expect(details).toHaveTextContent('"mode": "ask"');
+});

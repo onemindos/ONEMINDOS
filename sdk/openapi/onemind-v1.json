@@ -523,6 +523,50 @@
         "title": "ActionTemplate",
         "type": "object"
       },
+      "Activity": {
+        "description": "What changed on a task and who changed it. Field names only, never the old or new values.",
+        "properties": {
+          "actor_id": {
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "created",
+              "updated",
+              "completed",
+              "reopened"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "actor_id",
+          "kind",
+          "fields",
+          "at"
+        ],
+        "title": "Activity",
+        "type": "object"
+      },
       "AgentBrowserApproval": {
         "properties": {
           "action": {
@@ -775,6 +819,18 @@
             "title": "Pending Approvals",
             "type": "integer"
           },
+          "principal_uid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the agent's permanent principal id (prn_...); a new one after a token is revoked or its app reinstalled, and standing approvals bind to it",
+            "title": "Principal Uid"
+          },
           "requests_cancelled": {
             "title": "Requests Cancelled",
             "type": "integer"
@@ -798,6 +854,118 @@
           "tokens_revoked"
         ],
         "title": "AgentCancelled",
+        "type": "object"
+      },
+      "AgentInputsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "accept_injection_risk": {
+            "description": "write action types the owner accepts the injection risk for",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Accept Injection Risk",
+            "type": "array"
+          },
+          "external_inputs": {
+            "description": "the outside text this agent can read; empty means none (owner only)",
+            "items": {
+              "enum": [
+                "web",
+                "email",
+                "files",
+                "chat"
+              ],
+              "type": "string"
+            },
+            "maxItems": 4,
+            "title": "External Inputs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "external_inputs"
+        ],
+        "title": "AgentInputsBody",
+        "type": "object"
+      },
+      "AgentInputsView": {
+        "description": "What an agent can read that the gateway cannot see, and the taint that follows from it.",
+        "properties": {
+          "accept_injection_risk": {
+            "description": "write types the owner accepted the risk for; recorded, not yet in effect",
+            "items": {
+              "type": "string"
+            },
+            "title": "Accept Injection Risk",
+            "type": "array"
+          },
+          "accept_injection_risk_effective": {
+            "description": "always false until the permission engine reads the flag",
+            "title": "Accept Injection Risk Effective",
+            "type": "boolean"
+          },
+          "declared": {
+            "description": "false: the list is the default for this kind of principal (every agent and plugin is exposed until the owner declares otherwise)",
+            "title": "Declared",
+            "type": "boolean"
+          },
+          "exposed": {
+            "description": "true when external_inputs is not empty",
+            "title": "Exposed",
+            "type": "boolean"
+          },
+          "external_inputs": {
+            "description": "web, email, files, chat (a host with many chats), app, plugin or agent",
+            "items": {
+              "type": "string"
+            },
+            "title": "External Inputs",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "permanently_tainted": {
+            "description": "an exposed agent is tainted all the time: no standing approval accepts its requests",
+            "title": "Permanently Tainted",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By"
+          }
+        },
+        "required": [
+          "id",
+          "external_inputs",
+          "declared",
+          "exposed",
+          "permanently_tainted",
+          "accept_injection_risk",
+          "accept_injection_risk_effective"
+        ],
+        "title": "AgentInputsView",
         "type": "object"
       },
       "AgentNatsKey": {
@@ -903,6 +1071,18 @@
           "pending_approvals": {
             "title": "Pending Approvals",
             "type": "integer"
+          },
+          "principal_uid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the agent's permanent principal id (prn_...); a new one after a token is revoked or its app reinstalled, and standing approvals bind to it",
+            "title": "Principal Uid"
           },
           "used_24h": {
             "title": "Used 24H",
@@ -1414,6 +1594,16 @@
             "additionalProperties": true,
             "title": "Publickey",
             "type": "object"
+          },
+          "remember": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RememberPreview"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -1425,6 +1615,132 @@
           "publicKey"
         ],
         "title": "ApprovalChallenge",
+        "type": "object"
+      },
+      "ApprovalDeny": {
+        "description": "A deny rule: `principal` may never have `action_type` (or any request of `tier`) approved.",
+        "properties": {
+          "action_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Type"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "additionalProperties": true,
+            "title": "Created By",
+            "type": "object"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "principal": {
+            "title": "Principal",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "T0 read, T1 write, T2 sensitive, T3 destructive, T4 actuate, P physical",
+            "title": "Tier"
+          }
+        },
+        "required": [
+          "id",
+          "principal",
+          "created_by",
+          "created_at"
+        ],
+        "title": "ApprovalDeny",
+        "type": "object"
+      },
+      "ApprovalDenyBody": {
+        "additionalProperties": false,
+        "properties": {
+          "action_type": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "one action type; or name a tier",
+            "title": "Action Type"
+          },
+          "principal": {
+            "description": "the principal it refuses, e.g. agent:notes-helper",
+            "maxLength": 100,
+            "title": "Principal",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "why, shown to the owner and in the audit",
+            "title": "Reason"
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "enum": [
+                  "T0",
+                  "T1",
+                  "T2",
+                  "T3",
+                  "T4",
+                  "P"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "every request of this tier",
+            "title": "Tier"
+          }
+        },
+        "required": [
+          "principal"
+        ],
+        "title": "ApprovalDenyBody",
         "type": "object"
       },
       "ApprovalLimit": {
@@ -1470,6 +1786,211 @@
         "title": "ApprovalLimit",
         "type": "object"
       },
+      "ApprovalPolicy": {
+        "description": "A standing approval as the routes return it (PolicyService.to_json): the Rules screen and\n`onemind permissions rules` read these fields. Response documentation only; to_json stays the source.",
+        "properties": {
+          "accept_injection_risk": {
+            "default": false,
+            "title": "Accept Injection Risk",
+            "type": "boolean"
+          },
+          "allow": {
+            "$ref": "#/components/schemas/Allow"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "additionalProperties": true,
+            "title": "Created By",
+            "type": "object"
+          },
+          "created_from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the action it was remembered from",
+            "title": "Created From"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when forever",
+            "title": "Expires At"
+          },
+          "forever": {
+            "title": "Forever",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "lapse_unused_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lapse Unused Days"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/PolicyLimitsView"
+          },
+          "modes": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "each named principal's permission mode now; on locked or ask a rule never fires",
+            "title": "Modes",
+            "type": "object"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "notify_after": {
+            "description": "each, digest or silent",
+            "title": "Notify After",
+            "type": "string"
+          },
+          "principals": {
+            "additionalProperties": true,
+            "description": "requested_by entry -> the permanent principal id it binds",
+            "title": "Principals",
+            "type": "object"
+          },
+          "review_due": {
+            "default": false,
+            "description": "a forever rule whose 90-day review is due (Keep or revoke)",
+            "title": "Review Due",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "every edit, revoke or re-confirm is a new revision",
+            "title": "Revision",
+            "type": "integer"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "revoked_by": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked By"
+          },
+          "state": {
+            "description": "active, suspended, paused, expired, revoked or deleted",
+            "title": "State",
+            "type": "string"
+          },
+          "suspended_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suspended Reason"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          },
+          "uses": {
+            "default": 0,
+            "title": "Uses",
+            "type": "integer"
+          },
+          "uses_24h": {
+            "default": 0,
+            "title": "Uses 24H",
+            "type": "integer"
+          },
+          "window_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window Id"
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "allow",
+          "limits",
+          "forever",
+          "notify_after",
+          "created_by",
+          "created_at",
+          "state"
+        ],
+        "title": "ApprovalPolicy",
+        "type": "object"
+      },
       "ApprovalPreview": {
         "description": "The approval card's preview slot (#723): what the action will do, drawn by the host.",
         "properties": {
@@ -1506,6 +2027,208 @@
           "kind"
         ],
         "title": "ApprovalPreview",
+        "type": "object"
+      },
+      "ApprovalResult": {
+        "additionalProperties": true,
+        "properties": {
+          "approval": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ApprovalCard"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "#723: the approval card; set on every action (hold for destructive or physical)"
+          },
+          "approved_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Approving person's id; null before approval or on denial. decided_by/decided_at are retained.",
+            "title": "Approved By"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "decided_by": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PrincipalRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": true,
+            "title": "Params",
+            "type": "object"
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "§12.4: what the action would do, rendered at request time",
+            "title": "Plan"
+          },
+          "plan_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "§12.4: fingerprint the approval is bound to",
+            "title": "Plan Sha256"
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "{step, pct} while an executor runs",
+            "title": "Progress"
+          },
+          "remembered_policy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "standing approval created with this approval",
+            "title": "Remembered Policy"
+          },
+          "requested_by": {
+            "$ref": "#/components/schemas/PrincipalRef"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          },
+          "risk": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "read | write | sensitive | destructive | actuate (§12.3)",
+            "title": "Risk"
+          },
+          "state": {
+            "description": "requested | awaiting_approval | accepted | dispatched | succeeded | failed | cancelled | expired | outcome_unknown",
+            "title": "State",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "type": {
+            "description": "app.install | app.remove | app.start | app.stop | app.restart | app.update | app.configure | app.delete_data (more in §12.5)",
+            "title": "Type",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "params",
+          "state",
+          "requested_by",
+          "idempotency_key",
+          "created_at",
+          "updated_at",
+          "expires_at",
+          "decided_by",
+          "decided_at",
+          "result",
+          "version"
+        ],
+        "title": "ApprovalResult",
+        "type": "object"
+      },
+      "ApproveOptionsBody": {
+        "additionalProperties": false,
+        "description": "Optional: ask for an \"Approve and remember\" challenge (gateway permissions PR 12).",
+        "properties": {
+          "remember": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RememberChoice"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "ApproveOptionsBody",
         "type": "object"
       },
       "ApproverKey": {
@@ -2178,6 +2901,29 @@
             ],
             "title": "Project Id"
           },
+          "repeat": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Repeat"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "section_id": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Id"
+          },
           "status": {
             "default": "todo",
             "enum": [
@@ -2655,6 +3401,29 @@
             ],
             "title": "Priority"
           },
+          "repeat": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Repeat"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "section_id": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Id"
+          },
           "status": {
             "anyOf": [
               {
@@ -2998,6 +3767,54 @@
           "code"
         ],
         "title": "CodeBody",
+        "type": "object"
+      },
+      "Comment": {
+        "additionalProperties": false,
+        "properties": {
+          "author_id": {
+            "title": "Author Id",
+            "type": "string"
+          },
+          "body": {
+            "maxLength": 5000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "body",
+          "id",
+          "author_id",
+          "created_at"
+        ],
+        "title": "Comment",
+        "type": "object"
+      },
+      "CommentFields": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "maxLength": 5000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "title": "CommentFields",
         "type": "object"
       },
       "CommitBody": {
@@ -4996,6 +5813,73 @@
         "title": "ErrorBody",
         "type": "object"
       },
+      "FabricPolicy": {
+        "additionalProperties": false,
+        "description": "What every joined machine enforces on its own, also while cut off from the hub.",
+        "properties": {
+          "allowed_kinds": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Kinds"
+          },
+          "epoch": {
+            "title": "Epoch",
+            "type": "integer"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "published": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Published",
+            "type": "object"
+          },
+          "revoked_kids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Revoked Kids",
+            "type": "array"
+          },
+          "schema": {
+            "title": "Schema",
+            "type": "string"
+          },
+          "stop": {
+            "$ref": "#/components/schemas/PolicyStop"
+          }
+        },
+        "required": [
+          "schema",
+          "epoch",
+          "stop",
+          "revoked_kids",
+          "allowed_kinds",
+          "published",
+          "error"
+        ],
+        "title": "FabricPolicy",
+        "type": "object"
+      },
       "FamilyProfile": {
         "additionalProperties": false,
         "properties": {
@@ -6606,6 +7490,48 @@
       "Limits": {
         "additionalProperties": false,
         "properties": {
+          "bytes_per_day": {
+            "anyOf": [
+              {
+                "maximum": 17179869184.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "bytes its uses may write in 24 hours",
+            "title": "Bytes Per Day"
+          },
+          "items_per_day": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "items its uses may write in 24 hours",
+            "title": "Items Per Day"
+          },
+          "max_uses": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "total uses, then the rule ends itself; 1 = once more",
+            "title": "Max Uses"
+          },
           "per_day": {
             "maximum": 1000.0,
             "minimum": 1.0,
@@ -6617,6 +7543,66 @@
           "per_day"
         ],
         "title": "Limits",
+        "type": "object"
+      },
+      "LimitsPatch": {
+        "additionalProperties": false,
+        "description": "Limits to change; the ones left out keep their value (null clears an optional one).",
+        "properties": {
+          "bytes_per_day": {
+            "anyOf": [
+              {
+                "maximum": 17179869184.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bytes Per Day"
+          },
+          "items_per_day": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Items Per Day"
+          },
+          "max_uses": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Uses"
+          },
+          "per_day": {
+            "anyOf": [
+              {
+                "maximum": 1000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per Day"
+          }
+        },
+        "title": "LimitsPatch",
         "type": "object"
       },
       "Link": {
@@ -8803,6 +9789,69 @@
         "title": "NodeUSBDevice",
         "type": "object"
       },
+      "NotificationAction": {
+        "description": "A button on a notification as the inbox returns it. `revoke` (gateway permissions PR 13) is set only\nby the gateway on an approval.auto notice: it ends the rule `policy_id` names (POST\n/v1/approval-policies/{id}/revoke). Apps can post only `open` and `request`; nothing posts an approve.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "open",
+              "request",
+              "revoke"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link"
+          },
+          "policy_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Id"
+          },
+          "request": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "kind"
+        ],
+        "title": "NotificationAction",
+        "type": "object"
+      },
       "NotificationActionIn": {
         "additionalProperties": false,
         "description": "A button on the notification (notify/topics.py check_actions): open an in-app link, or let the\nperson who taps it file a normal request that still needs an approval. There is no approve kind.",
@@ -9064,6 +10113,145 @@
           "last_read_at"
         ],
         "title": "NotificationSummary",
+        "type": "object"
+      },
+      "NotificationView": {
+        "description": "One inbox item (notify/store.py notification_json). Response documentation only.",
+        "properties": {
+          "action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Id"
+          },
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationAction"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "alert_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alert Id"
+          },
+          "app_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Id"
+          },
+          "asset_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Id"
+          },
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "group_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Key"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link"
+          },
+          "read_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read At"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "source_kind": {
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "topic": {
+            "title": "Topic",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "severity",
+          "topic",
+          "title",
+          "body",
+          "source_kind",
+          "created_at"
+        ],
+        "title": "NotificationView",
         "type": "object"
       },
       "OnboardingKit": {
@@ -9350,6 +10538,110 @@
         "title": "Packs",
         "type": "object"
       },
+      "ParsedLine": {
+        "description": "What quick-add would file for a line of text. Nothing is created.",
+        "properties": {
+          "assignee": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignee"
+          },
+          "due_all_day": {
+            "title": "Due All Day",
+            "type": "boolean"
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "labels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "array"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project"
+          },
+          "project_found": {
+            "title": "Project Found",
+            "type": "boolean"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "repeat": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Repeat"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "project",
+          "project_id",
+          "project_found",
+          "labels",
+          "repeat",
+          "priority",
+          "assignee",
+          "due_at",
+          "due_all_day"
+        ],
+        "title": "ParsedLine",
+        "type": "object"
+      },
       "PasskeyRegisterBody": {
         "properties": {
           "credential": {
@@ -9464,6 +10756,111 @@
           }
         },
         "title": "PauseBody",
+        "type": "object"
+      },
+      "PermissionMode": {
+        "description": "A principal's permission mode (design §3.5). `own: false` means it has no individual setting.",
+        "properties": {
+          "household_default": {
+            "title": "Household Default",
+            "type": "string"
+          },
+          "mode": {
+            "description": "locked, ask (Always ask), remember, auto (Auto within rules), headless or bypass",
+            "title": "Mode",
+            "type": "string"
+          },
+          "own": {
+            "title": "Own",
+            "type": "boolean"
+          },
+          "owner_passkey": {
+            "description": "false: nothing can be loosened yet and every mode behaves as Always ask (F-8)",
+            "title": "Owner Passkey",
+            "type": "boolean"
+          },
+          "principal": {
+            "title": "Principal",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "set_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Set At"
+          },
+          "set_by": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Set By"
+          }
+        },
+        "required": [
+          "principal",
+          "mode",
+          "own",
+          "household_default",
+          "owner_passkey"
+        ],
+        "title": "PermissionMode",
+        "type": "object"
+      },
+      "PermissionModeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "enum": [
+              "locked",
+              "ask",
+              "remember",
+              "auto",
+              "headless",
+              "bypass"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "why, for the audit record",
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "title": "PermissionModeBody",
         "type": "object"
       },
       "PersonAssignee": {
@@ -9775,13 +11172,48 @@
       "PolicyBody": {
         "additionalProperties": false,
         "properties": {
+          "accept_injection_risk": {
+            "default": false,
+            "description": "needs a proven key (L2, design PR 11): refused for now",
+            "title": "Accept Injection Risk",
+            "type": "boolean"
+          },
           "allow": {
             "$ref": "#/components/schemas/Allow"
           },
           "expires_at": {
-            "format": "date-time",
-            "title": "Expires At",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "required unless forever is true; at most 180 days ahead",
+            "title": "Expires At"
+          },
+          "forever": {
+            "default": false,
+            "description": "no end date (read and write types only; never a floor item); needs a proven key (L2, design PR 11): refused for now",
+            "title": "Forever",
+            "type": "boolean"
+          },
+          "lapse_unused_days": {
+            "anyOf": [
+              {
+                "maximum": 90.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 14,
+            "description": "end after this many days without a use; null keeps it",
+            "title": "Lapse Unused Days"
           },
           "limits": {
             "$ref": "#/components/schemas/Limits"
@@ -9798,6 +11230,26 @@
             ],
             "title": "Name"
           },
+          "notify_after": {
+            "default": "digest",
+            "enum": [
+              "each",
+              "digest",
+              "silent"
+            ],
+            "title": "Notify After",
+            "type": "string"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Target"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "window_id": {
             "anyOf": [
               {
@@ -9813,10 +11265,201 @@
         },
         "required": [
           "allow",
-          "limits",
-          "expires_at"
+          "limits"
         ],
         "title": "PolicyBody",
+        "type": "object"
+      },
+      "PolicyLimitsView": {
+        "properties": {
+          "bytes_per_day": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bytes Per Day"
+          },
+          "items_per_day": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Items Per Day"
+          },
+          "max_uses": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Uses"
+          },
+          "per_day": {
+            "title": "Per Day",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "per_day"
+        ],
+        "title": "PolicyLimitsView",
+        "type": "object"
+      },
+      "PolicyPatch": {
+        "additionalProperties": false,
+        "description": "A new revision. Fields left out keep their value. Narrowing applies at once; widening needs a\nfresh passkey (the route asks); either way the revision goes up.",
+        "properties": {
+          "allow": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Allow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "forever": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forever"
+          },
+          "lapse_unused_days": {
+            "anyOf": [
+              {
+                "maximum": 90.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lapse Unused Days"
+          },
+          "limits": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LimitsPatch"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "notify_after": {
+            "anyOf": [
+              {
+                "enum": [
+                  "each",
+                  "digest",
+                  "silent"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notify After"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the revision you read; a newer one answers 409",
+            "title": "Revision"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Target"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "window_id": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window Id"
+          }
+        },
+        "title": "PolicyPatch",
+        "type": "object"
+      },
+      "PolicyStop": {
+        "additionalProperties": false,
+        "properties": {
+          "agents": {
+            "title": "Agents",
+            "type": "boolean"
+          },
+          "motion_lockout": {
+            "title": "Motion Lockout",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "motion_lockout",
+          "agents"
+        ],
+        "title": "PolicyStop",
         "type": "object"
       },
       "PrincipalRef": {
@@ -9907,6 +11550,42 @@
           "name"
         ],
         "title": "ProjectBody",
+        "type": "object"
+      },
+      "ProjectChangeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "ai_access": {
+            "anyOf": [
+              {
+                "enum": [
+                  "none",
+                  "read",
+                  "work"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Access"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "title": "ProjectChangeBody",
         "type": "object"
       },
       "ProtocolInfo": {
@@ -10579,6 +12258,115 @@
         "title": "RefreshBody",
         "type": "object"
       },
+      "RememberApproval": {
+        "additionalProperties": false,
+        "properties": {
+          "rule": {
+            "additionalProperties": true,
+            "description": "the rule exactly as approve-options returned it under remember.rule",
+            "title": "Rule",
+            "type": "object"
+          }
+        },
+        "required": [
+          "rule"
+        ],
+        "title": "RememberApproval",
+        "type": "object"
+      },
+      "RememberChoice": {
+        "additionalProperties": false,
+        "description": "What the person chose on the \"Approve and remember\" sheet. Everything else is the narrowest rule.",
+        "properties": {
+          "lapse_unused": {
+            "default": true,
+            "description": "\"end if unused for 14 days\" (on by default)",
+            "title": "Lapse Unused",
+            "type": "boolean"
+          },
+          "lifetime": {
+            "default": "30d",
+            "enum": [
+              "30d",
+              "90d",
+              "180d",
+              "forever"
+            ],
+            "title": "Lifetime",
+            "type": "string"
+          },
+          "notify_after": {
+            "default": "digest",
+            "enum": [
+              "each",
+              "digest",
+              "silent"
+            ],
+            "title": "Notify After",
+            "type": "string"
+          },
+          "per_day": {
+            "default": 10,
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Per Day",
+            "type": "integer"
+          },
+          "unpin": {
+            "description": "parameter names to leave open; every other parameter stays this request's value",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Unpin",
+            "type": "array"
+          }
+        },
+        "title": "RememberChoice",
+        "type": "object"
+      },
+      "RememberPreview": {
+        "properties": {
+          "enforced_level": {
+            "enum": [
+              "L1",
+              "L2"
+            ],
+            "title": "Enforced Level",
+            "type": "string"
+          },
+          "required_level": {
+            "enum": [
+              "L1",
+              "L2"
+            ],
+            "title": "Required Level",
+            "type": "string"
+          },
+          "rule": {
+            "additionalProperties": true,
+            "title": "Rule",
+            "type": "object"
+          },
+          "rule_sha256": {
+            "title": "Rule Sha256",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule",
+          "rule_sha256",
+          "summary",
+          "required_level",
+          "enforced_level"
+        ],
+        "title": "RememberPreview",
+        "type": "object"
+      },
       "RenameOp": {
         "additionalProperties": false,
         "properties": {
@@ -10612,6 +12400,48 @@
           "name"
         ],
         "title": "RenameOp",
+        "type": "object"
+      },
+      "Repeat": {
+        "additionalProperties": false,
+        "description": "Finishing a repeating task moves its due date to the next occurrence and keeps it open.",
+        "properties": {
+          "every": {
+            "enum": [
+              "day",
+              "weekday",
+              "week",
+              "month",
+              "year"
+            ],
+            "title": "Every",
+            "type": "string"
+          },
+          "interval": {
+            "default": 1,
+            "maximum": 365.0,
+            "minimum": 1.0,
+            "title": "Interval",
+            "type": "integer"
+          },
+          "tz": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "IANA zone the repeat days are counted in (default UTC)",
+            "title": "Tz"
+          }
+        },
+        "required": [
+          "every"
+        ],
+        "title": "Repeat",
         "type": "object"
       },
       "RestoreAppBody": {
@@ -11000,6 +12830,43 @@
           }
         },
         "title": "RevertBody",
+        "type": "object"
+      },
+      "RevokeAllBody": {
+        "additionalProperties": false,
+        "properties": {
+          "principal": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "revoke every rule naming this principal; null (owner only) revokes every rule",
+            "title": "Principal"
+          }
+        },
+        "title": "RevokeAllBody",
+        "type": "object"
+      },
+      "RevokeAllResult": {
+        "properties": {
+          "revoked": {
+            "description": "the ids of the rules revoked",
+            "items": {
+              "type": "string"
+            },
+            "title": "Revoked",
+            "type": "array"
+          }
+        },
+        "required": [
+          "revoked"
+        ],
+        "title": "RevokeAllResult",
         "type": "object"
       },
       "RevokeRequest": {
@@ -11496,6 +13363,53 @@
           }
         },
         "title": "SecretsChange",
+        "type": "object"
+      },
+      "Section": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "id",
+          "project_id",
+          "position"
+        ],
+        "title": "Section",
+        "type": "object"
+      },
+      "SectionFields": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "SectionFields",
         "type": "object"
       },
       "Seen": {
@@ -14579,6 +16493,33 @@
         "title": "SystemControls",
         "type": "object"
       },
+      "Target": {
+        "additionalProperties": false,
+        "description": "RFC 9396-shaped resource pattern: what the request's target must be (e.g. a Notes folder).",
+        "properties": {
+          "locations": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Locations",
+            "type": "array"
+          },
+          "type": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "locations"
+        ],
+        "title": "Target",
+        "type": "object"
+      },
       "Task": {
         "additionalProperties": false,
         "properties": {
@@ -14643,9 +16584,32 @@
             "title": "Project Id",
             "type": "string"
           },
+          "repeat": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Repeat"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "revision": {
             "title": "Revision",
             "type": "integer"
+          },
+          "section_id": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Id"
           },
           "status": {
             "default": "todo",
@@ -15692,6 +17656,78 @@
         "title": "UserPatchBody",
         "type": "object"
       },
+      "UserView": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "disabled": {
+            "title": "Disabled",
+            "type": "boolean"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "enrolled": {
+            "title": "Enrolled",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "passkeys": {
+            "title": "Passkeys",
+            "type": "integer"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "totp": {
+            "title": "Totp",
+            "type": "boolean"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "display_name",
+          "role",
+          "created_at",
+          "last_seen_at",
+          "disabled",
+          "enrolled",
+          "passkeys",
+          "totp"
+        ],
+        "title": "UserView",
+        "type": "object"
+      },
       "VerifyBody": {
         "additionalProperties": false,
         "properties": {
@@ -15959,6 +17995,52 @@
         "title": "WindowBody",
         "type": "object"
       },
+      "WindowView": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "open_now": {
+            "title": "Open Now",
+            "type": "boolean"
+          },
+          "ranges": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Ranges",
+            "type": "array"
+          },
+          "tz": {
+            "default": "box",
+            "maxLength": 64,
+            "title": "Tz",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "ranges",
+          "id",
+          "updated_at",
+          "open_now"
+        ],
+        "title": "WindowView",
+        "type": "object"
+      },
       "WopiTokenBody": {
         "additionalProperties": false,
         "properties": {
@@ -16042,6 +18124,16 @@
               }
             ],
             "title": "Plan Sha256"
+          },
+          "remember": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RememberApproval"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "sealed": {
             "anyOf": [
@@ -16487,7 +18579,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Action"
+                  "$ref": "#/components/schemas/ApprovalResult"
                 }
               }
             },
@@ -16552,6 +18644,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "summary": "Approve Action",
@@ -16574,6 +18676,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ApproveOptionsBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -16624,6 +18743,16 @@
               }
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
             "content": {
@@ -17451,6 +19580,16 @@
             },
             "description": "Successful Response"
           },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Change awaiting the owner's action-bound approval"
+          },
           "401": {
             "content": {
               "application/json": {
@@ -17471,6 +19610,16 @@
             },
             "description": "The principal may not do this (permission_denied)"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
           "413": {
             "content": {
               "application/json": {
@@ -17490,6 +19639,26 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "summary": "Set Kill Switch",
@@ -17595,6 +19764,16 @@
             },
             "description": "Successful Response"
           },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Change awaiting the owner's action-bound approval"
+          },
           "401": {
             "content": {
               "application/json": {
@@ -17615,6 +19794,16 @@
             },
             "description": "The principal may not do this (permission_denied)"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
           "413": {
             "content": {
               "application/json": {
@@ -17634,6 +19823,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
           }
         },
         "summary": "Set Budget",
@@ -17709,6 +19908,192 @@
           }
         },
         "summary": "Cancel Agent",
+        "tags": [
+          "agents"
+        ]
+      }
+    },
+    "/v1/agents/{name}/inputs": {
+      "get": {
+        "operationId": "agents.inputs.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentInputsView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "users:admin"
+            ]
+          }
+        ],
+        "summary": "Get Inputs",
+        "tags": [
+          "agents"
+        ]
+      },
+      "put": {
+        "operationId": "agents.inputs.set",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentInputsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentInputsView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Change awaiting the owner's action-bound approval"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Set Inputs",
         "tags": [
           "agents"
         ]
@@ -17856,6 +20241,24 @@
               "title": "Name",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
           }
         ],
         "requestBody": {
@@ -17869,15 +20272,15 @@
           "required": true
         },
         "responses": {
-          "200": {
+          "202": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AgentNatsKey"
+                  "$ref": "#/components/schemas/Action"
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Change awaiting the owner's action-bound approval"
           },
           "401": {
             "content": {
@@ -17899,6 +20302,16 @@
             },
             "description": "The principal may not do this (permission_denied)"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
           "413": {
             "content": {
               "application/json": {
@@ -17919,7 +20332,7 @@
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
           },
-          "503": {
+          "429": {
             "content": {
               "application/json": {
                 "schema": {
@@ -17927,7 +20340,7 @@
                 }
               }
             },
-            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
           }
         },
         "summary": "Set Nats Key",
@@ -17961,6 +20374,16 @@
             },
             "description": "Successful Response"
           },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Change awaiting the owner's action-bound approval"
+          },
           "401": {
             "content": {
               "application/json": {
@@ -17981,6 +20404,16 @@
             },
             "description": "The principal may not do this (permission_denied)"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -17990,6 +20423,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
           }
         },
         "summary": "Resume Agent",
@@ -18384,6 +20827,243 @@
         ]
       }
     },
+    "/v1/approval-denies": {
+      "get": {
+        "operationId": "approvals.denies.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ApprovalDeny"
+                  },
+                  "title": "Response 200 Approvals.Denies.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "tokens:self"
+            ]
+          }
+        ],
+        "summary": "List Denies",
+        "tags": [
+          "permissions"
+        ]
+      },
+      "post": {
+        "operationId": "approvals.denies.create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApprovalDenyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalDeny"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "tokens:self"
+            ]
+          }
+        ],
+        "summary": "Create Deny",
+        "tags": [
+          "permissions"
+        ]
+      }
+    },
+    "/v1/approval-denies/{deny_id}": {
+      "delete": {
+        "operationId": "approvals.denies.delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "deny_id",
+            "required": true,
+            "schema": {
+              "title": "Deny Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Change awaiting the owner's action-bound approval"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Delete Deny",
+        "tags": [
+          "permissions"
+        ]
+      }
+    },
     "/v1/approval-policies": {
       "get": {
         "operationId": "approvals.policies.list",
@@ -18391,7 +21071,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ApprovalPolicy"
+                  },
+                  "title": "Response 200 Approvals.Policies.List",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -18435,13 +21121,15 @@
           "required": true
         },
         "responses": {
-          "201": {
+          "202": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Change awaiting the owner's action-bound approval"
           },
           "401": {
             "content": {
@@ -18473,6 +21161,97 @@
             },
             "description": "No such resource (not_found)"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "summary": "Create Policy",
+        "tags": [
+          "automation"
+        ]
+      }
+    },
+    "/v1/approval-policies/revoke-all": {
+      "post": {
+        "operationId": "approvals.policies.revoke_all",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevokeAllBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevokeAllResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
           "413": {
             "content": {
               "application/json": {
@@ -18494,7 +21273,14 @@
             "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
-        "summary": "Create Policy",
+        "security": [
+          {
+            "bearer": [
+              "tokens:self"
+            ]
+          }
+        ],
+        "summary": "Revoke All",
         "tags": [
           "automation"
         ]
@@ -18560,6 +21346,509 @@
           }
         },
         "summary": "Delete Policy",
+        "tags": [
+          "automation"
+        ]
+      },
+      "patch": {
+        "operationId": "approvals.policies.update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_id",
+            "required": true,
+            "schema": {
+              "title": "Policy Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalPolicy"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Change awaiting the owner's action-bound approval"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Update Policy",
+        "tags": [
+          "automation"
+        ]
+      }
+    },
+    "/v1/approval-policies/{policy_id}/confirm": {
+      "post": {
+        "operationId": "approvals.policies.confirm",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_id",
+            "required": true,
+            "schema": {
+              "title": "Policy Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Change awaiting the owner's action-bound approval"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Confirm Policy",
+        "tags": [
+          "automation"
+        ]
+      }
+    },
+    "/v1/approval-policies/{policy_id}/keep": {
+      "post": {
+        "operationId": "approvals.policies.keep",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_id",
+            "required": true,
+            "schema": {
+              "title": "Policy Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Change awaiting the owner's action-bound approval"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Keep Policy",
+        "tags": [
+          "automation"
+        ]
+      }
+    },
+    "/v1/approval-policies/{policy_id}/reconfirm": {
+      "post": {
+        "operationId": "approvals.policies.reconfirm",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_id",
+            "required": true,
+            "schema": {
+              "title": "Policy Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Change awaiting the owner's action-bound approval"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Reconfirm Policy",
+        "tags": [
+          "automation"
+        ]
+      }
+    },
+    "/v1/approval-policies/{policy_id}/revoke": {
+      "post": {
+        "operationId": "approvals.policies.revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_id",
+            "required": true,
+            "schema": {
+              "title": "Policy Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalPolicy"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "tokens:self"
+            ]
+          }
+        ],
+        "summary": "Revoke Policy",
         "tags": [
           "automation"
         ]
@@ -26841,6 +30130,55 @@
         ]
       }
     },
+    "/v1/fabric/policy": {
+      "get": {
+        "description": "The stop and revoke snapshot every machine keeps: the epoch, the stop switches, revoked job keys,\nand which machine has the newest one on the hub.",
+        "operationId": "fabric.policy",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FabricPolicy"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "nodes:read"
+            ]
+          }
+        ],
+        "summary": "Fabric Policy",
+        "tags": [
+          "fabric"
+        ]
+      }
+    },
     "/v1/family/apps/{app_id}": {
       "get": {
         "operationId": "family.apps.get",
@@ -32924,7 +36262,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NotificationView"
+                  },
+                  "title": "Response 200 Notifications.List",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -34662,6 +38006,351 @@
         ]
       }
     },
+    "/v1/permission-modes": {
+      "get": {
+        "description": "The household default first, then every principal with a mode of its own (owner: all; a person:\nthe agents they own; an agent: only its own).",
+        "operationId": "permissions.modes.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PermissionMode"
+                  },
+                  "title": "Response 200 Permissions.Modes.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "instance:read"
+            ]
+          }
+        ],
+        "summary": "List Modes",
+        "tags": [
+          "permissions"
+        ]
+      },
+      "put": {
+        "operationId": "permissions.modes.set_default",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PermissionModeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PermissionMode"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Change awaiting the owner's action-bound approval"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "tokens:self"
+            ]
+          }
+        ],
+        "summary": "Set Default Mode",
+        "tags": [
+          "permissions"
+        ]
+      }
+    },
+    "/v1/permission-modes/{principal}": {
+      "get": {
+        "operationId": "permissions.modes.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "principal",
+            "required": true,
+            "schema": {
+              "title": "Principal",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PermissionMode"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "instance:read"
+            ]
+          }
+        ],
+        "summary": "Get Mode",
+        "tags": [
+          "permissions"
+        ]
+      },
+      "put": {
+        "operationId": "permissions.modes.set",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "principal",
+            "required": true,
+            "schema": {
+              "title": "Principal",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PermissionModeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PermissionMode"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Change awaiting the owner's action-bound approval"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "tokens:self"
+            ]
+          }
+        ],
+        "summary": "Set Mode",
+        "tags": [
+          "permissions"
+        ]
+      }
+    },
     "/v1/photos/assets/{asset_id}/content": {
       "get": {
         "operationId": "photos.asset_content",
@@ -35621,7 +39310,7 @@
         ]
       },
       "put": {
-        "description": "Turn the motion lockout on (at once) or off (with a fresh passkey once passkeys are active).",
+        "description": "Lock motion immediately or request approval to unlock it.",
         "operationId": "physical.lockout.set",
         "requestBody": {
           "content": {
@@ -35644,6 +39333,16 @@
             },
             "description": "Successful Response"
           },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Change awaiting the owner's action-bound approval"
+          },
           "401": {
             "content": {
               "application/json": {
@@ -35664,6 +39363,16 @@
             },
             "description": "The principal may not do this (permission_denied)"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
           "413": {
             "content": {
               "application/json": {
@@ -35683,6 +39392,26 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "summary": "Set Lockout",
@@ -39973,6 +43702,162 @@
         ]
       }
     },
+    "/v1/system/journal": {
+      "get": {
+        "description": "The last `tail` journal lines of the whole box, every line redacted (tokens, passwords, keys,\ne-mail, IP and MAC addresses). `follow=true` streams new lines of this boot as server-sent events\nfor at most 15 minutes. Owner only; every read is audited.",
+        "operationId": "system.journal.read",
+        "parameters": [
+          {
+            "description": "a systemd unit such as sshd.service; all units when omitted",
+            "in": "query",
+            "name": "unit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "a systemd unit such as sshd.service; all units when omitted",
+              "title": "Unit"
+            }
+          },
+          {
+            "description": "0-7 or emerg..debug: that level and more severe",
+            "in": "query",
+            "name": "priority",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^(?:[0-7]|emerg|alert|crit|err|warning|notice|info|debug)$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "0-7 or emerg..debug: that level and more severe",
+              "title": "Priority"
+            }
+          },
+          {
+            "description": "0 is this boot, -1 the previous one",
+            "in": "query",
+            "name": "boot",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "0 is this boot, -1 the previous one",
+              "maximum": 0,
+              "minimum": -50,
+              "title": "Boot",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tail",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 2000,
+              "minimum": 1,
+              "title": "Tail",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "follow",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Follow",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {},
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "system:admin"
+            ]
+          }
+        ],
+        "summary": "System Journal",
+        "tags": [
+          "system"
+        ]
+      }
+    },
     "/v1/system/services": {
       "get": {
         "description": "Every systemd unit this OS ships, as a service card: plain name and description, docs page,\nrisk, restartable flag, dependencies, and systemd's state, memory and version (read only).\n\nA OneMind unit the image's registry does not list comes back with `known` false. `available` is\nfalse, with a reason, when the host service cannot be reached: the screen says so instead of\nshowing nothing.",
@@ -41305,7 +45190,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UserView"
+                  },
+                  "title": "Response Users.List",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -41601,7 +45492,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WindowView"
+                  },
+                  "title": "Response Windows.List",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -41651,10 +45548,22 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/WindowView"
+                }
               }
             },
             "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Change awaiting the owner's action-bound approval"
           },
           "401": {
             "content": {
@@ -41676,6 +45585,16 @@
             },
             "description": "The principal may not do this (permission_denied)"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
           "413": {
             "content": {
               "application/json": {
@@ -41695,6 +45614,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
           }
         },
         "summary": "Put Window",
@@ -41817,7 +45746,136 @@
         ]
       }
     },
+    "/v1/work/parse": {
+      "post": {
+        "description": "Preview quick-add: the fields a line would become, without filing a task.",
+        "operationId": "work.parse",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuickAddBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParsedLine"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "work:write"
+            ]
+          }
+        ],
+        "summary": "Parse",
+        "tags": [
+          "work"
+        ]
+      }
+    },
     "/v1/work/projects": {
+      "get": {
+        "operationId": "work.projects_list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Project"
+                  },
+                  "title": "Response Work.Projects List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "work:read"
+            ]
+          }
+        ],
+        "summary": "List Projects",
+        "tags": [
+          "work"
+        ]
+      },
       "post": {
         "operationId": "work.project_create",
         "parameters": [
@@ -41906,6 +45964,903 @@
           }
         },
         "summary": "Create Project",
+        "tags": [
+          "work"
+        ]
+      }
+    },
+    "/v1/work/projects/{project_id}": {
+      "delete": {
+        "operationId": "work.project_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "work:write"
+            ]
+          }
+        ],
+        "summary": "Delete Project",
+        "tags": [
+          "work"
+        ]
+      },
+      "get": {
+        "operationId": "work.project_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "work:read"
+            ]
+          }
+        ],
+        "summary": "Get Project",
+        "tags": [
+          "work"
+        ]
+      },
+      "patch": {
+        "operationId": "work.project_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectChangeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "work:write"
+            ]
+          }
+        ],
+        "summary": "Update Project",
+        "tags": [
+          "work"
+        ]
+      }
+    },
+    "/v1/work/projects/{project_id}/members": {
+      "get": {
+        "operationId": "work.members_list",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response Work.Members List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "work:read"
+            ]
+          }
+        ],
+        "summary": "List Members",
+        "tags": [
+          "work"
+        ]
+      }
+    },
+    "/v1/work/projects/{project_id}/members/{person_id}": {
+      "delete": {
+        "operationId": "work.member_remove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "person_id",
+            "required": true,
+            "schema": {
+              "title": "Person Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "work:write"
+            ]
+          }
+        ],
+        "summary": "Remove Member",
+        "tags": [
+          "work"
+        ]
+      },
+      "put": {
+        "operationId": "work.member_add",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "person_id",
+            "required": true,
+            "schema": {
+              "title": "Person Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "work:write"
+            ]
+          }
+        ],
+        "summary": "Add Member",
+        "tags": [
+          "work"
+        ]
+      }
+    },
+    "/v1/work/projects/{project_id}/sections": {
+      "get": {
+        "operationId": "work.sections_list",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Section"
+                  },
+                  "title": "Response Work.Sections List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "work:read"
+            ]
+          }
+        ],
+        "summary": "List Sections",
+        "tags": [
+          "work"
+        ]
+      },
+      "post": {
+        "operationId": "work.section_create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SectionFields"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Section"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "work:write"
+            ]
+          }
+        ],
+        "summary": "Create Section",
+        "tags": [
+          "work"
+        ]
+      }
+    },
+    "/v1/work/projects/{project_id}/sections/{section_id}": {
+      "delete": {
+        "operationId": "work.section_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "section_id",
+            "required": true,
+            "schema": {
+              "title": "Section Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "work:write"
+            ]
+          }
+        ],
+        "summary": "Delete Section",
+        "tags": [
+          "work"
+        ]
+      },
+      "patch": {
+        "operationId": "work.section_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "section_id",
+            "required": true,
+            "schema": {
+              "title": "Section Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SectionFields"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Section"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "work:write"
+            ]
+          }
+        ],
+        "summary": "Rename Section",
         "tags": [
           "work"
         ]
@@ -42205,6 +47160,399 @@
         ]
       }
     },
+    "/v1/work/projects/{project_id}/tasks/{task_id}/activity": {
+      "get": {
+        "description": "The newest 100 entries, newest first.",
+        "operationId": "work.task_activity",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Activity"
+                  },
+                  "title": "Response Work.Task Activity",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "work:read"
+            ]
+          }
+        ],
+        "summary": "Task Activity",
+        "tags": [
+          "work"
+        ]
+      }
+    },
+    "/v1/work/projects/{project_id}/tasks/{task_id}/comments": {
+      "get": {
+        "description": "Oldest first, up to 500.",
+        "operationId": "work.comments_list",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Comment"
+                  },
+                  "title": "Response Work.Comments List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "work:read"
+            ]
+          }
+        ],
+        "summary": "List Comments",
+        "tags": [
+          "work"
+        ]
+      },
+      "post": {
+        "operationId": "work.comment_add",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommentFields"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Comment"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "work:write"
+            ]
+          }
+        ],
+        "summary": "Add Comment",
+        "tags": [
+          "work"
+        ]
+      }
+    },
+    "/v1/work/projects/{project_id}/tasks/{task_id}/comments/{comment_id}": {
+      "delete": {
+        "operationId": "work.comment_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "comment_id",
+            "required": true,
+            "schema": {
+              "title": "Comment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "work:write"
+            ]
+          }
+        ],
+        "summary": "Delete Comment",
+        "tags": [
+          "work"
+        ]
+      }
+    },
     "/v1/work/quick-add": {
       "post": {
         "operationId": "work.quick_add",
@@ -42374,6 +47722,25 @@
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "description": "IANA zone where today ends (default UTC)",
+            "in": "query",
+            "name": "tz",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "IANA zone where today ends (default UTC)",
+              "title": "Tz"
             }
           },
           {

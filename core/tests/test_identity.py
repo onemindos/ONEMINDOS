@@ -333,14 +333,14 @@ def test_token_expiry(idc, clock):
 
 def test_personal_agent_tokens_default_reader_and_never_approve(idc, clock):
     setup_owner(idc)
-    r = idc.post("/v1/tokens", json={"name": "hermes", "principal": {"kind": "agent", "id": "agent:hermes"}},
+    r = idc.post("/v1/tokens", json={"name": "helper", "principal": {"kind": "agent", "id": "agent:helper"}},
                  headers=csrf(idc))
     assert r.status_code == 201
     body = r.json()
     assert body["one_time"]["token"].startswith("om_agt_") and "actions:read:own" in body["scopes"]
     assert body["expires_at"] == (clock.now + timedelta(days=90)).isoformat().replace("+00:00", "Z")  # F-15
     h = {"Authorization": "Bearer " + body["one_time"]["token"]}
-    assert idc.get("/v1/me", headers=h).json()["principal"] == {"id": "agent:hermes", "kind": "agent", "role": "agent"}
+    assert idc.get("/v1/me", headers=h).json()["principal"] == {"id": "agent:helper", "kind": "agent", "role": "agent"}
     assert idc.post("/v1/actions", json=action_body(clock), headers=h).status_code == 403  # reader cannot request
     for scope in ("actions:approve", "users:admin", "tokens:admin"):
         r = idc.post("/v1/tokens", json={"name": "x", "principal": {"kind": "agent", "id": "agent:x"},

@@ -91,7 +91,9 @@ def test_resources(client, clock):
     assert hidden["error"]["code"] == -32002
     assert rpc(client, "resources/read", {"uri": "https://example.com"}).json()["error"]["code"] == -32602
     recent = rpc(client, "resources/read", {"uri": "onemind://audit/recent"}).json()["result"]["contents"][0]
-    assert json.loads(recent["text"])["entries"] == []  # nothing this agent did yet
+    # nothing this agent did yet; only the taint its catalog read set (#1133 audits taint.set)
+    seen = json.loads(recent["text"])["entries"]
+    assert [(e["event"], e["data"]) for e in seen] == [("taint.set", {"source": "mcp:resource:catalog"})]
 
 
 # ---- MCP-T7 / T8: injection fixtures ---------------------------------------------------------

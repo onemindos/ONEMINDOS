@@ -33,6 +33,42 @@ const action = (state: string, decidedBy?: string) => ({
   decided_by: decidedBy ? { id: decidedBy, kind: "person", role: "owner" } : null, decided_at: null, result: null, version: 2,
 });
 
+describe("journal.read", () => {
+  it("reads the journal with the SDK hub URL, token, protocol and filters", async () => {
+    const { om, calls } = client(() => new Response("a log line\n"));
+    const response = await om.journal.read({ unit: "ssh@.service", priority: "warning", tail: 10, boot: -1 });
+
+    expect(await response.text()).toBe("a log line\n");
+    expect(calls).toEqual([{
+      url: "http://localhost:8080/v1/system/journal?unit=ssh%40.service&priority=warning&tail=10&boot=-1",
+      init: expect.objectContaining({
+        method: "GET",
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${TOKEN}`, Accept: "text/plain", [PROTOCOL_HEADER]: String(PROTOCOL_VERSION) },
+      }),
+    }]);
+  });
+
+  it("passes through an open SSE body and the caller's abort signal", async () => {
+    const abort = new AbortController();
+    const first = new TextEncoder().encode("data: live line\n\n");
+    const { om, calls } = client((_url, init) => new Response(new ReadableStream({
+      start(stream) {
+        stream.enqueue(first);
+        init.signal!.addEventListener("abort", () => stream.error(init.signal!.reason), { once: true });
+      },
+    })));
+
+    const response = await om.journal.read({ boot: 0, follow: true }, abort.signal);
+    const reader = response.body!.getReader();
+    expect(await reader.read()).toEqual({ done: false, value: first });
+    expect(calls[0]!.url).toBe("http://localhost:8080/v1/system/journal?boot=0&follow=true");
+    expect(new Headers(calls[0]!.init.headers).get("accept")).toBe("text/event-stream");
+    abort.abort();
+    await expect(reader.read()).rejects.toMatchObject({ name: "AbortError" });
+  });
+});
+
 describe("actions.request", () => {
   it("reuses expires_at for one idempotency key even when the hub clock moves on", async () => {
     let tick = 0;

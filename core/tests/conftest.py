@@ -231,6 +231,91 @@ def settings(tmp_path: Path, clock) -> Settings:
     )
 
 
+@pytest.fixture(autouse=True)
+def test_agent_reads_nothing(request):
+    """The scripted test agent ("hermes") is one whose owner declared it reads no outside text.
+
+    D-028: every agent is exposed (tainted all the time) until the owner declares otherwise, so a
+    standing approval never accepts its requests. Tests of standing approvals, rate limits and the
+    like need the declared-none case; tests of the default itself carry
+    `@pytest.mark.default_exposure` and see the real lookup.
+    """
+    if request.node.get_closest_marker("default_exposure"):
+        yield
+        return
+    from onemind_core.taint_store import AgentInputs
+
+    real = AgentInputs._default
+    # Its own MonkeyPatch: a test's `monkeypatch.undo()` must not undo this too.
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(AgentInputs, "_default",
+                   lambda self, pid, kind: () if pid == "hermes" else real(self, pid, kind))
+        yield
+
+
+@pytest.fixture(autouse=True)
+def rules_may_fire(request, monkeypatch):
+    """Gateway permissions PR 10: a new principal starts on Always ask (F-7) and nothing is loosened before
+    the owner has a passkey (F-8), so no standing approval would fire in a test gateway. Tests of rules,
+    limits and the like run as a box whose owner has a passkey and whose household default is Auto
+    within rules; tests of the real defaults carry `@pytest.mark.real_mode_defaults`."""
+    if request.node.get_closest_marker("real_mode_defaults"):
+        return
+    from onemind_core.permissions import changes, modes
+
+    # Share the test's undo stack so overrides of these same attributes unwind in reverse order.
+    monkeypatch.setattr(modes, "DEFAULT_MODE", "auto")
+    monkeypatch.setattr(changes, "owner_has_passkey", lambda app: True)
+
+
+def approve_settings_change(client, response):
+    """Provision approved test state, using the real ledger with an already verified L2 proof.
+
+    Tests of authorization itself drive the WebAuthn entry point.
+    """
+    from onemind_core.actions import ApprovalInput
+    from onemind_core.auth import Principal
+
+    assert response.status_code == 202, response.text
+    action = response.json()
+    assert action["state"] == "awaiting_approval"
+    actions = client.app.state.gateway.actions
+    return actions.approve(Principal("owner", "person", "owner"), action["id"], action["plan_sha256"],
+                           extra=ApprovalInput(verification_level=2))
+
+
+def apply_settings_change(client, response):
+    done = approve_settings_change(client, response)
+    assert done["state"] == "succeeded", done
+    return done
+
+
+def enroll_agent(client, name, headers=OWNER):
+    response = client.post("/v1/tokens", headers=headers,
+                           json={"name": name, "principal": {"kind": "agent", "id": name}})
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+class QueuedPolicy:
+    def __init__(self, response, rule):
+        self.status_code, self.text = response.status_code, response.text
+        self.rule = rule
+
+    def json(self):
+        return self.rule
+
+
+def apply_queued_policy(client, response, policy_id=None):
+    if response.status_code != 202:
+        return response
+    approved = apply_settings_change(client, response)
+    if policy_id is None:
+        policy_id = approved["result"]["steps"][0]["policy_id"]
+    svc = client.app.state.automation
+    return QueuedPolicy(response, svc.policies.to_json(svc.repo.get_policy(policy_id)))
+
+
 @pytest.fixture
 def executor() -> ScriptedExecutor:
     return ScriptedExecutor()

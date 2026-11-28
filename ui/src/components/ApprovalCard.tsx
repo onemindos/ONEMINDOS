@@ -67,7 +67,22 @@ const VERB: Record<string, string> = {
   'exposure.enable': 'Expose to the internet',
 };
 
+const PERMISSION_TITLE: Record<string, string> = {
+  'policy.mode.change': 'Change permission mode',
+  'policy.deny.remove': 'Remove a deny rule',
+  'policy.agent_inputs.change': 'Change agent inputs',
+  'policy.rule.create': 'Create a standing rule',
+  'policy.rule.widen': 'Widen a standing rule',
+  'policy.rule.confirm': 'Confirm a paused rule',
+  'policy.rule.reconfirm': 'Re-confirm a suspended rule',
+};
+
 export function actionTitle(a: Pick<ActionSummary, 'type' | 'params'> & { target_name?: string }): string {
+  const permission = PERMISSION_TITLE[a.type];
+  if (permission) {
+    const target = a.params.principal ?? a.params.id;
+    return typeof target === 'string' ? `${permission} for ${target === '*' ? 'the household' : target}` : permission;
+  }
   const target = a.target_name ?? ((a.params.app_id ?? a.params.node_id ?? a.params.target ?? '') as string);
   return `${VERB[a.type] ?? a.type} ${target}`.trim();
 }
@@ -96,6 +111,8 @@ export interface ApprovalCardProps {
   canDecide: { allowed: true } | { allowed: false; reason: string };
   onApprove?: (a: ActionSummary, elapsedMs?: number) => void;
   onDeny?: (a: ActionSummary) => void;
+  /** "Approve and remember…" (gateway permissions design 3.6.1): opens the sheet that makes a rule for requests like this. */
+  onRemember?: (a: ActionSummary) => void;
   busy?: boolean;
   /** Highlight a card the person just created or opened from a notification. */
   highlight?: boolean;
@@ -104,11 +121,12 @@ export interface ApprovalCardProps {
   technical?: ReactNode;
 }
 
-export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, busy, highlight, extra, technical }: ApprovalCardProps) {
+export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, onRemember, busy, highlight, extra, technical }: ApprovalCardProps) {
   const detailsId = useId();
   const title = actionTitle(action);
   const st = ACTION_STATE[action.state];
   const pending = action.state === 'awaiting_approval';
+  const permissionChange = !!PERMISSION_TITLE[action.type];
   const expired = Date.parse(action.expires_at) <= now;
   const who = action.requested_by;
   const blocked = !canDecide.allowed ? canDecide.reason : expired ? 'This request has expired and can no longer be approved.' : undefined;
@@ -129,6 +147,11 @@ export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, busy, 
             ) : <Button variant="primary" icon="check" disabled={!!blocked || !!action.hold} busy={busy} aria-label={`Approve ${title}`} onClick={() => onApprove?.(action)} aria-describedby={blocked ? detailsId : undefined}>
               Approve
             </Button>}
+            {onRemember && !action.hold && (
+              <Button variant="secondary" disabled={!!blocked || busy} aria-label={`Approve and remember ${title}`} onClick={() => onRemember(action)}>
+                Approve and remember…
+              </Button>
+            )}
             <Button variant="secondary" icon="x" disabled={!!blocked || busy} aria-label={`Deny ${title}`} onClick={() => onDeny?.(action)}>
               Deny
             </Button>
@@ -161,8 +184,8 @@ export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, busy, 
       {(action.state === 'failed' || action.state === 'outcome_unknown') && (
         <p className="om-note om-tone-bad">{action.message ? `What the hub reported: ${action.message}` : 'The hub gave no reason.'}</p>
       )}
-      <details className="om-details">
-        <summary>Technical details</summary>
+      <details className="om-details" open={pending && permissionChange ? true : undefined}>
+        <summary>{permissionChange ? 'Requested permission change' : 'Technical details'}</summary>
         {technical && <p className="om-hint">{technical}</p>}
         <p className="om-hint">The exact request, and the same decision as an API call.</p>
         <pre className="om-code">{JSON.stringify({ type: action.type, params: action.params }, null, 2)}</pre>

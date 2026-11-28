@@ -26,7 +26,10 @@
     "onemind.message.event/v1": {"file": "onemind.message.event.schema.json", "description": "the onemind.event/v1 envelope of the two message events: ids and metadata only, never the text (#855)"},
     "onemind.node.status/v1": {"contract": "sdk/contracts/poc-v0.md section 2 and 12.10", "description": "the node heartbeat"},
     "onemind.node.event/v1": {"contract": "internal/agent/events.go", "description": "a durable node event, re-published by the gateway as onemind.event.<type>"},
-    "onemind.job/v1": {"contract": "sdk/contracts/poc-v0.md section 12.11", "description": "a signed job for one node"},
+    "onemind.job/v1": {"contract": "sdk/contracts/poc-v0.md section 12.11", "description": "a signed job for the backup agent on the gateway's own box (loopback HTTP only, never on the bus)"},
+    "onemind.job/v2": {"contract": "sdk/contracts/poc-v0.md section 12.11", "description": "a signed job for one node: v1 plus aud (node:<node_id>), kid and policy_epoch, all signed (D-029)"},
+    "onemind.policy/v1": {"contract": "sdk/contracts/poc-v0.md section 12.11", "description": "a machine's signed stop and revoke snapshot: epoch, stop switches, revoked job keys, allowed kinds; only ever adds a no (D-029)"},
+    "dispatch-challenge": {"contract": "sdk/contracts/poc-v0.md section 12.11", "description": "32 lowercase hexadecimal characters from the node, bound into the gateway's signed live policy reply (D-029)"},
     "jobresult": {"contract": "sdk/contracts/poc-v0.md section 12.9", "description": "{job_id, state, progress, summary, reason, finished_at}"},
     "audit-line": {"contract": "sdk/contracts/poc-v0.md section 3", "description": "one hash-chained audit line"},
     "onemind.alert/v1": {"contract": "sdk/contracts/poc-v0.md section 12.14", "description": "an alert record"}
@@ -41,7 +44,9 @@
       "subjects": [
         {"pattern": "onemind.node.{node_id:node_id}.status", "publishers": ["node"], "owner": "node_id", "stream": null, "retention": {"policy": "none"}, "envelope": "onemind.node.status/v1"},
         {"pattern": "onemind.node.{node_id:node_id}.event.{type:type}", "publishers": ["node"], "owner": "node_id"},
-        {"pattern": "onemind.node.{node_id:node_id}.job.{job_kind:type}", "publishers": ["gateway"], "stream": "ONEMIND_JOBS", "retention": {"policy": "workqueue", "max_age_s": 86400, "max_bytes": 67108864}, "envelope": "onemind.job/v1"},
+        {"pattern": "onemind.node.{node_id:node_id}.job.{job_kind:type}", "publishers": ["gateway"], "stream": "ONEMIND_JOBS", "retention": {"policy": "workqueue", "max_age_s": 86400, "max_bytes": 67108864}, "envelope": "onemind.job/v2"},
+        {"pattern": "onemind.node.{node_id:node_id}.policy", "publishers": ["gateway"], "stream": "ONEMIND_POLICY", "retention": {"policy": "latest", "max_bytes": 1048576}, "envelope": "onemind.policy/v1"},
+        {"pattern": "onemind.node.{node_id:node_id}.policycheck", "publishers": ["node"], "owner": "node_id", "stream": null, "retention": {"policy": "none"}, "envelope": "dispatch-challenge"},
         {"pattern": "onemind.node.{node_id:node_id}.jobresult.{job_id:id}", "publishers": ["node"], "owner": "node_id", "stream": "ONEMIND_JOBRESULTS", "retention": {"policy": "limits", "max_age_s": 2592000, "max_bytes": 134217728}, "envelope": "jobresult"}
       ]
     },

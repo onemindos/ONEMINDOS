@@ -87,14 +87,9 @@ cli backups.destinations.remove s5-backups
 cli backups.kit.confirm s5-backups
 cli backups.kit.issue s5-backups
 group s6-work issue=#1232 S6: Work projects, quick-add and task edit and delete have no screen (PR #1166 covers part); some have no command.
-dashboard work.project_create s6-work
-dashboard work.quick_add s6-work
 dashboard work.task_delete s6-work
 dashboard work.task_get s6-work
-dashboard work.task_update s6-work
 cli work.capture s6-work
-cli work.project_create s6-work
-cli work.task_delete s6-work
 group s7-windows issue=#1232 S7: windows (/v1/windows) have no caller on any surface.
 dashboard windows.list s7-windows
 group s8-cli-groups issue=#1232 S8: these settings have a dashboard screen but no `onemind` command group yet (automation, alerts, family, onboarding, files, sharing, plugins and others).

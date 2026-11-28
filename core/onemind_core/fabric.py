@@ -44,19 +44,21 @@ from cryptography import x509
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import JSON, DateTime, String, Text, delete, func, select, update
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .agents_nats import agent_users
 from .auth import Principal
+from .backups.jobs import job_kid, public_pem
 from .ca import MESH_DOMAIN, BoxCA
 from .errors import ApiError
 from .executors import ExecResult
 from .jsonbody import JsonBody
 from .ledger import Action, Base, iso, utc
 from .mesh import ROLE_TAGS, MeshRefused, MeshService
-from .natsconf import NodeAccount, is_user_public_nkey, load_service_keys, write_accounts
+from .natsconf import CalloutAccount, NodeAccount, is_user_public_nkey, load_service_keys, write_accounts
 from .netconf import FabricSettings, MeshSettings, NetSettings
 from .store import Database, FeatureSchema, SqlRepository
 
@@ -613,6 +615,15 @@ class FabricDeps:
     mesh: MeshService | None = None
     k3s: K3sBootstrapTokens | None = None
     hub_node_id: str | None = None
+    # The gateway's job key (backups/jobs.py gateway_job_key_path), loaded on first use. Its public half
+    # goes into the join reply so the machine pins it and can check every job the gateway signs (D-029).
+    job_key: Callable[[], Ed25519PrivateKey] | None = None
+    # The auth callout's keys (callout.py), when ONEMIND_FABRIC_NATS_CALLOUT is on: the accounts file
+    # then gets account AUTH and the auth_callout block, and AGENTS keeps no static user.
+    callout: Callable[[], CalloutAccount] | None = None
+    # The agent kill switch (agent_stop.py): while it is on, the accounts file has no AGENTS account,
+    # so the NATS reload cuts every connected agent off the bus at once (natsconf.render_accounts).
+    agent_stop_state: Callable[[], tuple[bool, str | None]] | None = None
 
 
 class FabricService:
@@ -621,6 +632,7 @@ class FabricService:
         self.repo = FabricRepository(deps.db)
         self.limiter = SourceLimiter(deps.clock)
         self._tick_lock = threading.Lock()
+        self._accounts_lock = threading.Lock()
         # The client the owner last switched off (PUT /v1/mesh/settings): it still cleans up the joins
         # that were handed one of its keys, since d.mesh is None from then on.
         self._retired_mesh: MeshService | None = None
@@ -649,12 +661,18 @@ class FabricService:
         path = self.d.fabric.nats_accounts_file
         if path is None:
             return False
-        accounts = [NodeAccount(n["node_id"], n["nats_pubkey"]) for n in self.repo.nodes()]
-        agents = agent_users(self.d.db)  # the AGENTS account (#627): one user per registered agent key
-        changed = write_accounts(path, accounts, load_service_keys(self.d.fabric.nats_service_keys),
-                                 self.d.fabric.jetstream_max_bytes, agents)
+        # A join or key change cannot overwrite the Stop config with one prepared before the switch.
+        with self._accounts_lock:
+            accounts = [NodeAccount(n["node_id"], n["nats_pubkey"]) for n in self.repo.nodes()]
+            agents = agent_users(self.d.db)  # the AGENTS account (#627): one user per registered agent key
+            callout = self.d.callout() if self.d.callout is not None else None
+            stopped, stopped_at = self.d.agent_stop_state() if self.d.agent_stop_state is not None else (False, None)
+            changed = write_accounts(path, accounts, load_service_keys(self.d.fabric.nats_service_keys),
+                                     self.d.fabric.jetstream_max_bytes, agents, callout, stopped, stopped_at=stopped_at,
+                                     report_agent_keys=True)
         if changed:
-            log.info("NATS accounts updated (%d nodes, %d agents)", len(accounts), len(agents))
+            log.info("NATS accounts updated (%d nodes, %d agents%s)", len(accounts), len(agents),
+                     ", agents stopped: AGENTS left out" if stopped else "")
         return changed
 
     # -- tickets (owner)
@@ -811,6 +829,15 @@ class FabricService:
 
     def _deliver(self, req: dict) -> dict | None:
         """Mint the one-time secrets and hand them over exactly once."""
+        job_key = None
+        if self.d.job_key is not None:
+            # Read before the request moves on or any one-time secret is minted: a failure changes nothing.
+            try:
+                job_key = self.d.job_key()
+            except (OSError, ValueError) as exc:
+                log.warning("join %s: the gateway job key could not be read: %s", req["id"], exc.__class__.__name__)
+                raise ApiError(503, "unavailable", "the box could not read its job key right now; retrying is safe",
+                               reason="job_key_unavailable", retry_after_s=10) from None
         now = self.d.clock()
         if not self.repo.move(req["id"], ("approved",), "delivering", now):
             return None  # a concurrent poll is delivering
@@ -836,7 +863,11 @@ class FabricService:
             "node_cert": req["node_cert_pem"],
             "ca_cert": self.d.box_ca.ca_pem().decode(),
             "nats": {"url": self.nats_url(), "account": f"NODE_{req['node_id']}", "user_pubkey": req["nats_pubkey"]},
-            "job_pubkey": None,  # signed jobs (§12.11) are a later step
+            # The gateway's job public key (§12.11), sent over the box-CA-pinned channel the node already
+            # trusts: the node pins it and refuses any job not signed by it for its own node id. None only
+            # on a gateway built without one (tests); such a node refuses every machine job.
+            "job_pubkey": public_pem(job_key).decode() if job_key is not None else None,
+            "job_kid": job_kid(job_key.public_key()) if job_key is not None else None,
         }
         if mesh_key is not None and mesh_svc is not None:
             creds["mesh"] = {

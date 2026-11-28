@@ -14,7 +14,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from conftest import ADULT, AGENT, GUEST, OWNER, action_body, make_client
+from conftest import ADULT, AGENT, GUEST, OWNER, action_body, apply_settings_change, make_client
 from files_support import fc, files_root, files_settings, mkdir  # noqa: F401 (pytest fixtures)
 from onemind_core.app import create_app
 from onemind_core.audit import verify
@@ -64,8 +64,8 @@ def test_on_refuses_static_and_app_agents_everywhere_people_keep_working(client,
     for h in (OWNER, ADULT, GUEST):  # people are not agents
         assert client.get("/v1/apps", headers=h).status_code == 200
     assert client.post("/v1/actions", json=action_body(clock, app_id="whoami", key="o"), headers=OWNER).status_code == 201
-    r = stop(client, False, reason="fixed")
-    assert r.json()["on"] is False
+    apply_settings_change(client, stop(client, False, reason="fixed"))
+    assert client.get(PATH, headers=OWNER).json()["on"] is False
     assert client.get("/v1/apps", headers=AGENT).status_code == 200
     assert client.get("/v1/apps", headers=app_h).status_code == 200
     events = [e["event"] for e in audit(settings)]
@@ -92,7 +92,7 @@ def test_change_is_an_audited_event(client, settings):
     assert line["principal"]["id"] == "owner"
     assert line["data"]["payload"]["reason"] == "looking into it" and line["data"]["severity"] == "warning"
     assert line["data"]["resource"] == {"kind": "agents", "id": "all"}
-    stop(client, False, reason=None)
+    apply_settings_change(client, stop(client, False, reason=None))
     assert [e["event"] for e in audit(settings) if e["event"].startswith("agents.")][-1] == "agents.resumed"
 
 
@@ -105,7 +105,7 @@ def test_an_agents_earlier_request_cannot_be_approved_while_stopped(client, cloc
     assert refused(client.post(f"/v1/actions/{aid}/approve", headers=OWNER))
     assert client.get(f"/v1/actions/{aid}", headers=OWNER).json()["state"] == "awaiting_approval"
     assert client.post(f"/v1/actions/{mine}/approve", headers=OWNER).status_code == 200  # a person's request still works
-    stop(client, False)
+    apply_settings_change(client, stop(client, False))
     assert client.post(f"/v1/actions/{aid}/approve", headers=OWNER).json()["state"] == "succeeded"
 
 
@@ -115,7 +115,7 @@ def test_survives_a_gateway_restart(settings, clock, executor):
     with make_client(settings, clock) as c:
         assert c.get(PATH, headers=OWNER).json()["on"] is True
         assert refused(c.get("/v1/apps", headers=AGENT))
-        stop(c, False)
+        apply_settings_change(c, stop(c, False))
     with make_client(settings, clock) as c:
         assert c.get("/v1/apps", headers=AGENT).status_code == 200
 
@@ -135,8 +135,9 @@ def test_refusals_are_audited_at_most_once_a_minute(client, clock, settings):
 def test_identity_issued_agent_token_is_refused(settings, clock, executor):
     with TestClient(create_app(id_settings(settings), clock=clock, executor=executor)) as idc:
         setup_owner(idc)
-        r = idc.post("/v1/tokens", json={"name": "hermes", "principal": {"kind": "agent", "id": "agent:hermes"}},
+        r = idc.post("/v1/tokens", json={"name": "helper", "principal": {"kind": "agent", "id": "agent:helper"}},
                      headers=csrf(idc))
+        assert r.status_code == 201, r.text
         h = {"Authorization": "Bearer " + r.json()["one_time"]["token"]}
         assert idc.get("/v1/nodes", headers=h).status_code == 200
         r = idc.put(PATH, json={"on": True}, headers=csrf(idc))  # the owner's session
@@ -164,7 +165,7 @@ def test_an_agents_files_request_cannot_be_approved_while_stopped(fc, settings):
     assert line["data"]["action_id"] == frq and line["data"]["attempted"] == "approve an agent's request"
     # a person's own files request is not an agent's: it is still approved
     assert fc.post(f"/v1/files/requests/{mine.json()['id']}/approve", headers=OWNER).json()["state"] == "succeeded"
-    assert stop(fc, False).status_code == 200
+    apply_settings_change(fc, stop(fc, False))
     assert fc.post(f"/v1/files/requests/{frq}/approve", headers=OWNER).json()["state"] == "succeeded"
 
 

@@ -24,8 +24,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 from .audit import AuditLog
 from .auth import Principal
 from .errors import ApiError
+from .executors import ExecResult
 from .ledger import Base, iso
 from .natsconf import AGENT_TOKEN_RE, AGENTS_ACCOUNT, AgentUser, is_user_public_nkey
+from .principals import PrincipalRow
 from .store import Database
 
 __all__ = ["AgentNatsKeyRow", "AgentNatsKeys", "agent_token", "agent_users"]
@@ -35,6 +37,7 @@ class AgentNatsKeyRow(Base):
     """Feature "agents" (agent_principals.SCHEMA): a new table, so create_all adds it at this shape."""
     __tablename__ = "agents_nats_keys"
     principal_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    principal_uid: Mapped[str | None] = mapped_column(String(40), nullable=True)
     nkey: Mapped[str] = mapped_column(String(56))
     added_by: Mapped[str] = mapped_column(String(100))
     added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -57,16 +60,23 @@ def _token(principal_id: str) -> str:
 def agent_users(db: Database) -> list[AgentUser]:
     """Every registered agent key, for natsconf.write_accounts (FabricService.write_accounts)."""
     with db.session() as s:
-        rows = list(s.scalars(select(AgentNatsKeyRow).order_by(AgentNatsKeyRow.principal_id)))
+        rows = list(s.scalars(_live_keys().order_by(AgentNatsKeyRow.principal_id)))
     return [AgentUser(_token(r.principal_id), r.nkey) for r in rows]
+
+
+def _live_keys():
+    return select(AgentNatsKeyRow).join(PrincipalRow, (PrincipalRow.uid == AgentNatsKeyRow.principal_uid)
+                                      & (PrincipalRow.name == AgentNatsKeyRow.principal_id)
+                                      & PrincipalRow.retired_at.is_(None))
 
 
 class AgentNatsKeys:
     """The owner's register and remove operations. `apply` rewrites the accounts file (or is None
     when this box has no hub NATS); it raises OSError when the file cannot be written."""
 
-    def __init__(self, db: Database, audit: AuditLog, clock, apply=None):
+    def __init__(self, db: Database, audit: AuditLog, clock, apply, broker_status):
         self.db, self.audit, self.clock, self.apply = db, audit, clock, apply
+        self.broker_status = broker_status
 
     def _deny(self, p: Principal, what: str) -> ApiError:
         self.audit.append("authz.denied", p.as_dict(), None, {"attempted": what, "reason": "permission_denied"})
@@ -81,7 +91,19 @@ class AgentNatsKeys:
 
     def _row(self, pid: str) -> AgentNatsKeyRow | None:
         with self.db.session() as s:
-            return s.get(AgentNatsKeyRow, pid)
+            return s.scalar(_live_keys().where(AgentNatsKeyRow.principal_id == pid))
+
+    def principal_retired(self, name: str, reason: str) -> None:
+        if reason == "agent_cancelled":  # the cancel route rewrites and reports a failure to its caller
+            return
+        with self.db.session() as s:
+            row = s.get(AgentNatsKeyRow, name)
+            if row is None or row.principal_uid is None:
+                return
+            identity = s.get(PrincipalRow, row.principal_uid)
+            if identity is None or identity.retired_at is None:
+                return
+        self._rewrite()
 
     def view(self, pid: str) -> dict:
         row = self._row(pid)
@@ -113,18 +135,31 @@ class AgentNatsKeys:
         pid, _ = self._pid(name)
         return self.view(pid)
 
-    def set(self, p: Principal, name: str, nkey: str) -> dict:
+    def validate_set(self, p: Principal, name: str, nkey: str) -> str:
         if not p.is_owner:
             raise self._deny(p, "set an agent NATS key")
         pid, _ = self._pid(name)
         if not is_user_public_nkey(nkey):
             raise ApiError(422, "conflict", "nkey: a NATS user public key (U followed by 55 base32 characters)")
+        return pid
+
+    def set(self, p: Principal, name: str, nkey: str, *, uid: str) -> ExecResult:
+        pid = self.validate_set(p, name, nkey)
         now = self.clock()
         with self.db.session.begin() as s:
-            s.merge(AgentNatsKeyRow(principal_id=pid, nkey=nkey, added_by=p.id, added_at=now))
-        self._rewrite()
-        self.audit.append("agent.nats_key_set", p.as_dict(), None, {"agent": pid, "nkey": nkey})
-        return self.view(pid)
+            s.merge(AgentNatsKeyRow(principal_id=pid, principal_uid=uid, nkey=nkey, added_by=p.id, added_at=now))
+        self.audit.append("agent.nats_key_set", p.as_dict(), None, {"agent": pid, "principal_uid": uid, "nkey": nkey})
+        try:
+            self._rewrite()
+        except ApiError:
+            return ExecResult("outcome_unknown", "NATS key saved. The accounts rewrite failed and broker enforcement "
+                              "is unconfirmed. The gateway will retry the saved key at startup.",
+                              steps=[{"committed": True, "accounts_written": False, "broker_enforced": None}])
+        enforced = self.broker_status()
+        message = {True: "NATS key saved and loaded by the broker.",
+                   False: "NATS key saved. The broker confirmed the agent account is stopped.",
+                   None: "NATS key saved. Live broker enforcement is unconfirmed."}[enforced]
+        return ExecResult("succeeded", message, steps=[{"committed": True, "broker_enforced": enforced}])
 
     def remove(self, p: Principal | None, name: str, *, why: str = "removed") -> dict:
         """Drop the key and rewrite the file. `p` None is the gateway itself (an agent cancel)."""

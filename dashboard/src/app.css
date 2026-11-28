@@ -49,6 +49,9 @@
 .dash-search { display: flex; flex-wrap: wrap; gap: var(--om-space-2); align-items: center; }
 .dash-search input { flex: 1 1 14rem; min-width: 0; }
 .dash-actions { display: flex; flex-wrap: wrap; gap: var(--om-space-2); align-items: center; }
+/* Settings > Permissions tabs are links (each tab has an address); the current one looks like a pressed chip. */
+a.om-set-chip { text-decoration: none; }
+a.om-set-chip[aria-current='page'] { background: var(--om-color-accent-soft); color: var(--om-color-accent); border-color: var(--om-color-accent); font-weight: var(--om-font-weight-semibold); }
 .dash-stack { display: flex; flex-direction: column; gap: var(--om-space-4); }
 .dash-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--om-space-3); }
 .dash-secret { display: block; padding: var(--om-space-3); border-radius: var(--om-radius-md); background: var(--om-color-surface); border: 1px dashed var(--om-color-border-strong); word-break: break-all; user-select: all; }

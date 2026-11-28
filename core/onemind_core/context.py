@@ -85,6 +85,7 @@ class Gateway:
     image_scanner: Any = None
     # #601: the hub's core JetStream streams and buckets (jetstream.JetStreamCore), set by routers/jetstream.py.
     jetstream: Any = None
+    policy: Any = None  # fabric_policy.PolicyPublisher (routers/fabricpolicy.py): the epoch jobs carry
     authenticators: list[Authenticator] = field(default_factory=list)
     approval_guards: list[ApprovalGuard] = field(default_factory=list)
     requester_lookups: list[RequesterLookup] = field(default_factory=list)
@@ -97,6 +98,9 @@ class Gateway:
     disabled_apps: Callable[[], frozenset[str]] = lambda: frozenset()
     people_sources: list[PeopleSource] = field(default_factory=list)
     principal_guards: list[PrincipalGuard] = field(default_factory=list)
+    # Per event domain: adds display fields (a task title) to an ids-only event when the notifier renders it.
+    # Events and the audit log carry ids only, because every adult can read the audit log.
+    notify_enrichers: dict[str, Callable[[dict], dict]] = field(default_factory=dict)
     _startup: list[Hook] = field(default_factory=list)
     _shutdown: list[Hook] = field(default_factory=list)
 
@@ -172,9 +176,15 @@ def principal_dependency(gw: Gateway) -> Callable[[Request], Principal]:
             return p
         token = token.strip()
         p = gw.tokens.lookup(token)
+        source = "file"
         if p is None:  # §11.2: agent principals issued to apps, stored hashed in the database
             principal_id = gw.repo.agent_principal_for(token_hash(token))
             p = agent_principal(principal_id) if principal_id else None
+            source = "app"
+        registry = gw.actions.principals
+        if p is not None and p.kind == "agent" and registry is not None:
+            if not registry.credential_matches(p.kind, p.id, source):
+                raise reject_unauthenticated(request, "ambiguous agent credential")
         if p is None:
             p = from_features(request, token)
         if p is None:

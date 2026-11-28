@@ -17,6 +17,11 @@ Rules:
 - every change writes an `agents.stopped` / `agents.resumed` event (audit line plus NATS), and a
   refused change writes `authz.denied`;
 - the state lives in the database (table `agent_stop_state`), so it survives a gateway restart;
+- on a hub with NATS, the accounts file is rewritten without the AGENTS account. Stop waits for
+  the hub broker to confirm the reload and cutoff (D-029). A failure is audited and leaves local
+  Stop in effect;
+- captured work on the fabric is confirmed separately. Failed confirmation sends an error to the
+  caller while the gateway's switch stays in effect;
 - a refused agent request writes at most one `agents.refused` audit line a minute, with the count
   of refusals suppressed since the previous line, so a looping agent cannot flood the log;
 - enforcement state (the switch's in-memory copy and the refusal throttle) is per process: correct
@@ -25,8 +30,11 @@ Rules:
 
 from __future__ import annotations
 
+import logging
 import threading
-from datetime import datetime
+from collections.abc import Callable
+from datetime import datetime, timedelta
+from types import EllipsisType
 from typing import Any
 
 from sqlalchemy import JSON, Boolean, DateTime, String
@@ -36,6 +44,8 @@ from .auth import Principal
 from .errors import ApiError
 from .ledger import Base, iso, utc
 from .store import Database, FeatureSchema, SqlRepository
+
+log = logging.getLogger("onemind.agent_stop")
 
 SCHEMA = FeatureSchema("agent_stop")
 REASON = "agents_stopped"
@@ -82,8 +92,11 @@ class AgentStop:
         self.gw = gw
         self.repo = AgentStopRepository(db or gw.db)
         self._lock = threading.Lock()
+        self._changes = threading.Lock()
         self._on = bool(self.repo.state()["on"])  # read once at start: the switch survives a restart
         self._refused: dict[str, Any] = {"last": None, "suppressed": 0}
+        self.sync_broker: Callable[[bool, str], None] | None = None
+        self.confirm_fabric: Callable[[bool], None] | None = None
 
     # ---- state -----------------------------------------------------------------------------
     @property
@@ -95,22 +108,55 @@ class AgentStop:
         return {"on": s["on"], "changed_by": s["changed_by"],
                 "changed_at": iso(s["changed_at"]) if s["changed_at"] else None, "reason": s["reason"]}
 
-    def set(self, principal: Principal, on: bool, reason: str | None) -> dict:
+    def owner_only(self, principal: Principal, on: bool) -> None:
         if not principal.is_owner:  # an agent can never be the one that turns agents back on
             self.gw.audit.append("authz.denied", principal.as_dict(), None,
                                  {"attempted": "turn the agent kill switch " + ("on" if on else "off"),
                                   "reason": "permission_denied"})
             raise ApiError(403, "permission_denied",
                            f"{principal.kind}/{principal.role} may not change the agent kill switch; only the owner can")
-        with self._lock:
-            self.repo.set(on, principal.as_dict(), self.gw.clock(), reason)
-            self._on = on
-        self.gw.events.publish_event(
-            "agents", "stopped" if on else "resumed", {"reason": reason},
-            principal=principal.as_dict(), severity="warning" if on else "info",
-            resource={"kind": "agents", "id": "all"}, dedupe_key="agents:kill_switch",
-        )
-        return self.state()
+
+    def set(self, principal: Principal, on: bool, reason: str | None, *,
+            expected_changed_at: str | None | EllipsisType = ...) -> dict:
+        self.owner_only(principal, on)
+        with self._changes:
+            with self._lock:
+                previous = self.repo.state()["changed_at"]
+                if expected_changed_at is not ... and iso(previous) != expected_changed_at:
+                    raise ApiError(409, "conflict", "The agent switch changed after this request.",
+                                   reason="stale_precondition")
+                now = utc(self.gw.clock())
+                if previous is not None and now <= previous:
+                    now = previous + timedelta(microseconds=1)
+                self.repo.set(on, principal.as_dict(), now, reason)
+                self._on = on
+            self.gw.events.publish_event(
+                "agents", "stopped" if on else "resumed", {"reason": reason},
+                principal=principal.as_dict(), severity="warning" if on else "info",
+                resource={"kind": "agents", "id": "all"}, dedupe_key="agents:kill_switch",
+            )
+            broker_pending = False
+            if self.sync_broker is not None:
+                try:
+                    self.sync_broker(on, iso(now))
+                except Exception as exc:  # noqa: BLE001 - the switch itself already holds in the gateway
+                    broker_pending = True
+                    log.warning("agent kill switch broker update failed: %s", exc.__class__.__name__)
+                    self.gw.audit.append("agents.stop_listener_failed", principal.as_dict(), None,
+                                         {"on": on, "error": exc.__class__.__name__})
+            if self.confirm_fabric is not None:
+                try:
+                    self.confirm_fabric(on)
+                except ApiError:
+                    if not broker_pending:
+                        raise
+            if broker_pending:
+                if not on:
+                    raise ApiError(503, "unavailable", "Agents resumed locally. The NATS accounts could not be restored.",
+                                   reason="nats_accounts_unwritable")
+                raise ApiError(503, "unavailable", "The gateway stopped agents locally. NATS cutoff is still pending.",
+                               reason="agent_broker_cutoff_pending")
+            return self.state()
 
     # ---- enforcement -----------------------------------------------------------------------
     def _refuse(self, principal: Principal, what: dict, *, throttle: bool = True) -> ApiError:

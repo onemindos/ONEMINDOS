@@ -31,7 +31,9 @@ from fastapi.responses import JSONResponse
 from pydantic import ConfigDict, Field, field_validator
 
 from ..auth import Principal
+from ..backups.jobs import gateway_job_key_path, lazy_job_key
 from ..ca import BoxCA, box_name_from_hostname
+from ..callout import load_keys as load_callout_keys
 from ..context import Gateway
 from ..errors import ApiError, error_responses
 from ..fabric import FabricDeps, FabricService, JoinRequestBody, K3sBootstrapTokens, TicketRequest
@@ -176,6 +178,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return cfg, MeshService(HeadscaleClient.from_key_file(cfg.headscale_url, cfg.headscale_key_file, **extra),
                                 gw.audit, gw.clock)
 
+    def agent_stop_state() -> tuple[bool, str | None]:
+        """The agent kill switch (routers/agents.py, ORDER 155, registered before this router)."""
+        stop = getattr(app.state, "agent_stop", None)
+        if stop is None:
+            return False, None
+        state = stop.state()
+        return state["on"], state["changed_at"]
+
     mesh_cfg, mesh = build(mesh_state())
     app.state.mesh = mesh  # read by GET /v1/status (FD-01)
     fabric = FabricService(FabricDeps(
@@ -183,6 +193,10 @@ def register(app: FastAPI, gw: Gateway) -> None:
         box_ca=box_ca, net=net, mesh_settings=mesh_cfg, fabric=fab_cfg, mesh=mesh,
         k3s=K3sBootstrapTokens(settings.kubectl, fab_cfg.k3s_ca_hash) if fab_cfg.k3s else None,
         hub_node_id=settings.node_id,
+        job_key=lazy_job_key(gateway_job_key_path(settings)),
+        # D-029 hybrid: the callout's keys sit with the job key (one key per purpose, the custodian dir).
+        callout=(lambda: load_callout_keys(gateway_job_key_path(settings).parent).account) if fab_cfg.nats_callout else None,
+        agent_stop_state=agent_stop_state,
     ))
     gw.actions.register_handler("node.join", fabric)
 

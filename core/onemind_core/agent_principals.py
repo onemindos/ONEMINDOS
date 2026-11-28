@@ -20,7 +20,8 @@ from __future__ import annotations
 import re
 from datetime import datetime, timedelta
 
-from sqlalchemy import DateTime, Integer, String, select, update
+from sqlalchemy import DateTime, Integer, String, inspect, select, text, update
+from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .actions import ActionService
@@ -28,9 +29,31 @@ from .audit import AuditLog
 from .auth import Principal
 from .errors import ApiError
 from .ledger import Base, iso, utc
+from .principals import display_key
 from .store import Database, FeatureSchema
 
 SCHEMA = FeatureSchema("agents")
+
+
+@SCHEMA.step(2, "bind Inputs declarations to permanent identities")
+def _bind_inputs(conn: Connection) -> None:
+    if "identity_uid" not in {c["name"] for c in inspect(conn).get_columns("agents_inputs")}:
+        conn.execute(text("ALTER TABLE agents_inputs ADD COLUMN identity_uid VARCHAR(40)"))
+        if conn.dialect.name == "postgresql":
+            conn.execute(text("ALTER TABLE agents_inputs ALTER COLUMN principal_id TYPE VARCHAR(100)"))
+
+
+@SCHEMA.step(3, "bind per-agent grants to permanent identities")
+def _bind_controls(conn: Connection) -> None:
+    additions = {
+        "agents_principals": {"budget_uid": "VARCHAR(40)", "resumed_uid": "VARCHAR(40)", "budget_ceiling": "INTEGER"},
+        "agents_nats_keys": {"principal_uid": "VARCHAR(40)"},
+    }
+    for table, columns in additions.items():
+        existing = {c["name"] for c in inspect(conn).get_columns(table)}
+        for column, kind in columns.items():
+            if column not in existing:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {kind}"))
 
 DEFAULT_BUDGET_PER_DAY = 200
 MAX_BUDGET_PER_DAY = 10_000
@@ -44,8 +67,11 @@ class AgentRow(Base):
     __tablename__ = "agents_principals"
     principal_id: Mapped[str] = mapped_column(String(80), primary_key=True)
     budget_per_day: Mapped[int] = mapped_column(Integer, default=DEFAULT_BUDGET_PER_DAY)
+    budget_uid: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    budget_ceiling: Mapped[int | None] = mapped_column(Integer, nullable=True)
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     cancelled_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    resumed_uid: Mapped[str | None] = mapped_column(String(40), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
@@ -71,6 +97,7 @@ class AgentPrincipals:
             if row is None:
                 s.add(AgentRow(principal_id=pid, **{"budget_per_day": DEFAULT_BUDGET_PER_DAY, **fields}, updated_at=now))
             else:
+                now = max(utc(now), utc(row.updated_at) + timedelta(microseconds=1))
                 s.execute(update(AgentRow).where(AgentRow.principal_id == pid).values(updated_at=now, **fields))
 
     def _mine(self, pid: str, states: set[str] | None = None):
@@ -85,31 +112,63 @@ class AgentPrincipals:
         if p.kind != "agent":
             return
         row = self._row(p.id)
-        if row is not None and row.cancelled_at is not None:
+        uid = self.uid(p.id) if row and (row.budget_uid or row.resumed_uid) else None
+        budget, cancelled_at = self._limits(row, uid)
+        if cancelled_at is not None:
             self.audit.append("authz.denied", p.as_dict(), None, {"attempted": "request action", "reason": "agent_cancelled"})
             raise ApiError(403, "permission_denied", "this agent was cancelled by the owner", reason="agent_cancelled")
-        budget = row.budget_per_day if row is not None else DEFAULT_BUDGET_PER_DAY
         if self.used_24h(p.id) >= budget:
             raise ApiError(429, "rate_limited", f"daily budget of {budget} requests used up",
                            reason="agent_budget", retry_after_s=3600)
 
     # ---- owner operations -------------------------------------------------------------------
-    @staticmethod
-    def _owner(p: Principal, what: str, svc: ActionService) -> None:
+    def owner_only(self, p: Principal, what: str) -> None:
         if not p.is_owner:
-            raise svc._deny(p, what)
+            raise self.actions._deny(p, what)
+
+    @staticmethod
+    def _limits(row: AgentRow | None, uid: str | None) -> tuple[int, datetime | None]:
+        budget = DEFAULT_BUDGET_PER_DAY
+        cancelled_at = None
+        if row is not None:
+            if uid is not None and row.budget_uid == uid:
+                budget = row.budget_per_day
+            else:
+                # A name can carry a restriction forward. Only the reviewed identity gets a raise.
+                budget = row.budget_ceiling if row.budget_ceiling is not None else min(row.budget_per_day, budget)
+            if uid is None or row.resumed_uid != uid:
+                cancelled_at = row.cancelled_at
+        return budget, cancelled_at
+
+    def control_state(self, pid: str) -> dict:
+        """Snapshot the agent and its limits for a queued permission change."""
+        row = self._row(pid)
+        uid = self.uid(pid)
+        budget, cancelled_at = self._limits(row, uid)
+        return {
+            "budget_per_day": budget,
+            "cancelled_at": iso(cancelled_at),
+            "updated_at": iso(row.updated_at) if row else None,
+            "principal_uid": uid,
+        }
 
     def view(self, pid: str) -> dict:
-        row = self._row(pid)
+        state = self.control_state(pid)
         pending = self._mine(pid, {"awaiting_approval"})
         return {
             "id": pid,
-            "budget_per_day": row.budget_per_day if row else DEFAULT_BUDGET_PER_DAY,
+            "budget_per_day": state["budget_per_day"],
             "used_24h": self.used_24h(pid),
             "pending_approvals": len(pending),
-            "cancelled": bool(row and row.cancelled_at),
-            "cancelled_at": iso(row.cancelled_at) if row else None,
+            "cancelled": state["cancelled_at"] is not None,
+            "cancelled_at": state["cancelled_at"],
+            "principal_uid": state["principal_uid"],
         }
+
+    def uid(self, pid: str) -> str | None:
+        reg = self.actions.principals
+        live = reg.resolve(display_key({"id": pid, "kind": "agent"})) if reg is not None else None
+        return live["uid"] if live else None
 
     def known_ids(self) -> list[str]:
         ids = {a.requested_by["id"] for a in self.actions.repo.list() if a.requested_by.get("kind") == "agent"}
@@ -118,25 +177,28 @@ class AgentPrincipals:
         return sorted(ids)
 
     def list(self, p: Principal) -> list[dict]:
-        self._owner(p, "list agents", self.actions)
+        self.owner_only(p, "list agents")
         return [self.view(i) for i in self.known_ids()]
 
     def get(self, p: Principal, name: str) -> dict:
-        self._owner(p, "read an agent", self.actions)
+        self.owner_only(p, "read an agent")
         return self.view(self.principal_id(name))
 
-    def set_budget(self, p: Principal, name: str, budget: int) -> dict:
-        self._owner(p, "set an agent budget", self.actions)
+    def set_budget(self, p: Principal, name: str, budget: int, *, uid: str | None, tighten: bool = False) -> dict:
+        self.owner_only(p, "set an agent budget")
         pid = self.principal_id(name)
-        self._save(pid, budget_per_day=budget)
-        self.audit.append("agent.budget_set", p.as_dict(), None, {"agent": pid, "budget_per_day": budget})
+        ceiling, _ = self._limits(self._row(pid), None)
+        self._save(pid, budget_per_day=budget, budget_uid=uid,
+                   budget_ceiling=min(ceiling, budget) if tighten else ceiling)
+        self.audit.append("agent.budget_set", p.as_dict(), None,
+                          {"agent": pid, "principal_uid": uid, "budget_per_day": budget})
         return self.view(pid)
 
     def cancel(self, p: Principal, name: str) -> dict:
-        self._owner(p, "cancel an agent", self.actions)
+        self.owner_only(p, "cancel an agent")
         pid = self.principal_id(name)
         now = self.clock()
-        self._save(pid, cancelled_at=now, cancelled_by=p.id)
+        self._save(pid, cancelled_at=now, cancelled_by=p.id, resumed_uid=None)
         withdrawn = 0
         for a in self._mine(pid, {"awaiting_approval"}):
             moved = self.actions.repo.transition(a.id, {"awaiting_approval"}, "cancelled", now,
@@ -146,6 +208,8 @@ class AgentPrincipals:
                 self.actions._release_feature(a)
                 self.audit.append("action.denied", p.as_dict(), a.id, {"params": a.params, "reason": "agent_cancelled"})
         revoked = self.revoke_tokens(pid, now)
+        if self.actions.principals is not None:  # PR 7: its standing approvals stop with it
+            self.actions.principals.retire(display_key({"id": pid, "kind": "agent"}), "agent_cancelled")
         self.audit.append("agent.cancelled", p.as_dict(), None,
                           {"agent": pid, "requests_cancelled": withdrawn, "tokens_revoked": revoked})
         return {**self.view(pid), "requests_cancelled": withdrawn, "tokens_revoked": revoked}
@@ -159,9 +223,9 @@ class AgentPrincipals:
                             .values(revoked_at=now, prev_hash=None))
             return res.rowcount or 0
 
-    def resume(self, p: Principal, name: str) -> dict:
-        self._owner(p, "resume an agent", self.actions)
+    def resume(self, p: Principal, name: str, *, uid: str) -> dict:
+        self.owner_only(p, "resume an agent")
         pid = self.principal_id(name)
-        self._save(pid, cancelled_at=None, cancelled_by=None)
-        self.audit.append("agent.resumed", p.as_dict(), None, {"agent": pid})
+        self._save(pid, resumed_uid=uid)
+        self.audit.append("agent.resumed", p.as_dict(), None, {"agent": pid, "principal_uid": uid})
         return self.view(pid)

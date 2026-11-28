@@ -165,9 +165,9 @@ describe('quick settings panel (#841)', () => {
     await u.click(within(dlg).getByRole('button', { name: 'Stop agents' }));
     await waitFor(() => expect(puts(f, '/v1/agents/kill-switch')).toHaveLength(1));
     expect(JSON.parse(String(puts(f, '/v1/agents/kill-switch')[0]![1]!.body))).toEqual({ on: true });
-    expect(await screen.findByText(/All agents are stopped/)).toBeInTheDocument();
+    expect(await screen.findByText(/Agent requests are blocked at the hub/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /resume/i })).toBeNull(); // resuming lives in Agents
-    expect(screen.getByRole('link', { name: /Resume them in Agents/ })).toHaveAttribute('href', '/settings/agents');
+    expect(screen.getByRole('link', { name: /Open Agents/ })).toHaveAttribute('href', '/settings/agents');
   });
 
   it('hides Stop all agents and the box tiles from other roles', async () => {
