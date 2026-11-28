@@ -24,8 +24,15 @@ const P = {
   quota: '/v1/files/quotas/{person_id}',
 } as const satisfies Record<string, keyof paths>;
 
+const SHARE = { targets: '/v1/share/targets', send: '/v1/share' } as const satisfies Record<string, keyof paths>;
+
 type Json = Record<string, unknown>;
 export type GrantBody = components['schemas']['GrantBody'];
+/** An app that accepts a shared object of one type (GET /v1/share/targets). */
+export type ShareTarget = components['schemas']['ShareTarget'];
+export type ShareTargets = components['schemas']['ShareTargetsOut'];
+export type ShareBody = components['schemas']['ShareIn'];
+export type ShareResult = components['schemas']['ShareOut'];
 
 export interface FileRoot { root: string; kind: string; name: string; path: string; access: string; writable: boolean; used_bytes: number | null; quota_bytes: number | null; free_bytes: number | null }
 export interface Entry { name: string; path: string; type: 'file' | 'dir' | string; size: number | null; mtime: string; mime?: string }
@@ -97,6 +104,15 @@ export class FilesApi {
   async mkdir(root: string, path: string) { await this.post(P.ops, { op: 'mkdir', root, path }); }
   async trash(root: string, path: string) { await this.post(P.ops, { op: 'trash', root, path }); }
   async restore(trashId: string) { await this.post(P.ops, { op: 'restore_trash', trash_id: trashId }); }
+  /** The "Send to" list for one type: switched-on apps you can see that accept it and hold its data grant. */
+  async shareTargets(type: string) {
+    const v = obj(await this.get(SHARE.targets + q({ type })), 'share targets') as unknown as ShareTargets;
+    return list<ShareTarget>(v.targets, 'share target', (j) => str(j.app_id) && str(j.name) && Array.isArray(j.verbs));
+  }
+  /** Hand one object to one app: a reference, never the content. A repeated key replays the first share. */
+  async shareSend(body: ShareBody, key: string) {
+    return obj(await this.post(SHARE.send, body, key), 'share') as unknown as ShareResult;
+  }
   async trashList(which: 'home' | 'shared') { return list<TrashItem>(await this.get(P.trash + q({ trash: which, limit: '500' })), 'trash item', (j) => str(j.id) && str(j.name)); }
   async grants() { return list<Grant>(await this.get(P.grants), 'grant', (j) => str(j.id) && str(j.root)); }
   async requests() { return list<FileRequest>(await this.get(P.requests), 'request', (j) => str(j.id) && str(j.state) && str(j.plan_sha256)); }
