@@ -357,6 +357,8 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/bridges/{bridge_id}/resume": WRITE,
     "POST /v1/system/services/{unit}/restart": WRITE,
     "PUT /v1/mesh/settings": WRITE,
+    "PUT /v1/network/{iface}": WRITE,
+    "POST /v1/network/{iface}/confirm": WRITE,
     # ---- data commons (#615): the commons is itself the grant-checked door; grants are the owner's oversight
     "GET /v1/data/classes": DOOR,
     "GET /v1/data/classes/{data_class}": DOOR,

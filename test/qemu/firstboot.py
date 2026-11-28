@@ -19,6 +19,9 @@ _spec.loader.exec_module(battery)
 _spec = importlib.util.spec_from_file_location("netcheck", os.path.join(HERE, "netcheck.py"))
 netcheck = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(netcheck)       # NW1-NW4, CRITERIA-NETWORK.md
+_spec = importlib.util.spec_from_file_location("netset", os.path.join(HERE, "netset.py"))
+netset = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(netset)         # NS1-NS3, CRITERIA-NETWORK-SET.md
 
 PY = "/usr/lib/onemind/gateway/venv/bin/python3"
 GW = "http://127.0.0.1:8080"
@@ -844,6 +847,9 @@ def main():
         vm.mark("F15 the owner shell: key-only SSH, tty2 login, no baked password"); f15(vm)
         vm.mark("F16 audio and Bluetooth on the screen boards (Step 3)"); btmark = f16(vm, a.board)
         vm.mark("F14 onemind completion and man pages (#882)"); f14(vm)
+        vm.mark("NS1-NS3 a wired address change rolls back by itself, a confirmed one sticks (P-08)")
+        netset.ns3(vm, record); netset.ns1(vm, record)
+        ns2 = netset.ns2_before(vm, record)
 
         if a.upto in ("F3", "F4"):
             vm.mark("F3 reboot keeps state")
@@ -862,8 +868,10 @@ def main():
             netcheck.nw4_after(vm, record, nw4)
             if btmark:
                 f16_after(vm, "F16r", btmark)
+            netset.ns2_after(vm, record, ns2)
         else:
             netcheck.nw4_after(vm, record, nw4, rebooted=False)
+            netset.ns2_after(vm, record, ns2, rebooted=False)
 
         if a.upto == "F4":
             vm.mark("F4 A/B update keeps /data")
