@@ -84,6 +84,7 @@ APP_CLAIMS: dict[str, tuple[str, frozenset[str], bool]] = {
 SELF_RECONCILED_TYPES = frozenset({
     "node.join", "os.update.install", "os.rollback", "system.restart", "system.shutdown", "system.factory_reset",
     "service.restart",  # #636: restarting the gateway's own unit restarts the gateway mid-action
+    "os.update.settings",  # REL-02: the host's journal has the verdict; hostlink reads it after a restart
 })
 
 

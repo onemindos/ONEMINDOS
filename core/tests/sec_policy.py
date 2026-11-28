@@ -862,6 +862,9 @@ POLICY |= {
                                    f"{_OSUP}: versions and A/B slots, the facts /v1/nodes shows; a child has no nodes:read"),
     ("GET", "/v1/os/updates/history"): Row(CHILD_CANNOT, w.p_static("/v1/os/updates/history"),
                                            f"{_OSUP}: commits, rollbacks and install requests; same nodes:read gate"),
+    ("PUT", "/v1/os/settings"): Row(grid(409, 403, 403, 403, 403), w.p_missing(
+        "/v1/os/settings", json={"node_id": "ghost", "policy": "off", "window": "any"}),
+        f"{_OSUP}: REL-02, only the owner files os.update.settings (updates:admin); an unknown node is refused 409"),
     # About this box (UMB-P14, #432: core/onemind_core/routers/about.py)
     ("GET", "/v1/os/about"): Row(CHILD_CANNOT, w.p_static("/v1/os/about"),
                                  "core/onemind_core/routers/about.py: device facts the nodes report, as /v1/nodes shows; a child has no nodes:read"),

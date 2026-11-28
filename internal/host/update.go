@@ -206,3 +206,39 @@ func BootID() string {
 	}
 	return strings.TrimSpace(string(b))
 }
+
+// SettingsUnavailable implements OSSettings: a box without update.conf has no OS updates to set.
+func (u *UpdateEngine) SettingsUnavailable() string {
+	_, why := u.config()
+	return why
+}
+
+// SetSettings implements OSSettings (REL-02, #154): it stores the owner's approved policy and
+// window under the update state directory (/data); the read-only image file stays as shipped.
+// The update service and the heartbeat read it from their next cycle, without a restart.
+func (u *UpdateEngine) SetSettings(policy, window string) (string, error) {
+	c, why := u.config()
+	if why != "" {
+		return "", &Refusal{"unavailable", why}
+	}
+	p, err := update.ParsePolicy(policy)
+	if err != nil {
+		return "", &Refusal{"bad_request", err.Error()}
+	}
+	w, err := update.ParseWindow(window)
+	if err != nil {
+		return "", &Refusal{"bad_request", "window: " + err.Error()}
+	}
+	if err := update.WriteOwner(c, update.OwnerSettings{Policy: p, Window: w}); err != nil {
+		return "", err
+	}
+	if u.Log != nil {
+		u.Log.Info("owner update settings saved", "policy", p, "window", w.String())
+	}
+	what := map[update.Policy]string{
+		update.PolicyAuto:   "updates install by themselves inside the window",
+		update.PolicyNotify: "updates wait for your approval",
+		update.PolicyOff:    "automatic updates are off; you install them yourself",
+	}[p]
+	return fmt.Sprintf("update policy %s, window %s: %s (from the next check)", p, w, what), nil
+}

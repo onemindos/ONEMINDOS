@@ -108,3 +108,35 @@ it('lists go-back requests in the history', async () => {
   mount((_, path) => response(path === '/v1/os/updates' ? goBack : { ...history, requests: [{ type: 'os.rollback', version: '0.1.0', node_id: 'box0123456789', state: 'succeeded' }] }));
   expect(await screen.findByText(/Go back to 0.1.0 on box0123456789 · succeeded/)).toBeInTheDocument();
 });
+
+// REL-02 (#154): security updates install by themselves by default; the owner opts out or moves the window
+// by filing os.update.settings (PUT /v1/os/settings), never by changing it directly.
+const settingsNode = { ...node, policy: 'auto', window: '02:00-05:00', settings_source: 'image' };
+const settingsStatus = { ...status, nodes: [settingsNode], settings: { available: true, reason: null, message: null } };
+
+it('shows the default update policy and window and files a settings change for the owner', async () => {
+  const sent: unknown[] = [];
+  const fetch = mount((method, path, body) => {
+    if (method === 'PUT' && path === '/v1/os/settings') { sent.push(body); return response({ id: 'act-set', type: 'os.update.settings', state: 'awaiting_approval' }, 202); }
+    return response(path === '/v1/os/updates' ? settingsStatus : history);
+  });
+  expect(await screen.findByText('Install by themselves inside the window (recommended)', { selector: 'dd' })).toBeInTheDocument();
+  expect(screen.getByText('02:00-05:00')).toBeInTheDocument();
+  expect(screen.getByText('OneMind default')).toBeInTheDocument();
+  const user = userEvent.setup();
+  const request = screen.getByRole('button', { name: 'Request change' });
+  expect(request).toBeDisabled(); // nothing changed yet
+  await user.selectOptions(screen.getByLabelText('Security updates'), 'off');
+  expect(screen.getByText(/approve this change with your passkey/)).toBeInTheDocument();
+  await user.click(request);
+  expect(await screen.findByText(/Settings change act-set: awaiting_approval/)).toBeInTheDocument();
+  expect(sent).toEqual([{ node_id: 'box0123456789', policy: 'off', window: '02:00-05:00' }]);
+  const writes = fetch.mock.calls.filter(([, init]) => ['POST', 'PUT'].includes((init as RequestInit | undefined)?.method ?? 'GET'));
+  expect(writes.map(([url]) => new URL(String(url)).pathname)).toEqual(['/v1/os/settings']);
+});
+
+it('warns when automatic security updates are off on a machine', async () => {
+  mount((_, path) => response(path === '/v1/os/updates' ? { ...settingsStatus, nodes: [{ ...settingsNode, policy: 'off', settings_source: 'owner' }] } : history));
+  expect(await screen.findByText(/Security fixes do not install by themselves/)).toBeInTheDocument();
+  expect(screen.getByText('The owner')).toBeInTheDocument();
+});

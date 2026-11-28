@@ -580,12 +580,17 @@ func TestTrialStateWhileGateDecides(t *testing.T) {
 	b, _ := json.Marshal(r)
 	var m map[string]any
 	_ = json.Unmarshal(b, &m)
-	for _, k := range []string{"channel", "current_version", "available_version", "state", "last_check", "last_result"} {
+	// REL-02 (#154): plus the update policy and window in force and who set them.
+	for _, k := range []string{"channel", "current_version", "available_version", "state", "last_check", "last_result",
+		"policy", "window", "settings_source"} {
 		if _, ok := m[k]; !ok {
 			t.Fatalf("heartbeat update object lacks %q: %s", k, b)
 		}
 	}
-	if len(m) != 6 {
+	if m["policy"] != "auto" || m["window"] != "any" || m["settings_source"] != "image" {
+		t.Fatalf("heartbeat update settings: %s", b)
+	}
+	if len(m) != 9 {
 		t.Fatalf("heartbeat update object has extra keys: %s", b)
 	}
 }

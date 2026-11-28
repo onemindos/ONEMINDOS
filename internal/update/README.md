@@ -41,6 +41,7 @@ How the state is read back after a reboot (the gate's files, the same ones the g
 | `/data/onemind/update/status.json` | this package | state + history; onemindd's heartbeat reads it |
 | `/data/onemind/update/tuf/<channel>/` | go-tuf | last trusted metadata (gives rollback protection between checks) |
 | `/data/onemind/update/postpone-until` | owner | one RFC 3339 time; no auto-install before it |
+| `/data/onemind/update/owner.conf` | owner, via the host service | REL-02 (#154): `policy` and `window` (both required), over the image's `update.conf`; written only after the owner approved `os.update.settings` (`PUT /v1/os/settings`, `onemind update settings set`); read on every cycle and heartbeat; an invalid file is ignored, so the image default (security = auto) applies |
 | `/data/onemind/update/lock` | this package | flock: the daemon and `onemind update apply` never run together |
 | `/data/onemind/pending`, `/data/onemind/bad-releases` | RAUC handler, gate | read only here |
 | `/data/rauc/` | this package | verified bundles (deleted after a successful install) |

@@ -328,6 +328,7 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/storage/actions": WRITE,
     "POST /v1/storage/plans": WRITE,
     "POST /v1/system/actions": WRITE,
+    "PUT /v1/os/settings": WRITE,
     "PUT /v1/update-policy": WRITE,
     "POST /v1/update-policy/resume": WRITE,
     "POST /v1/users": WRITE,

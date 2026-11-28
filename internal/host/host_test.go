@@ -336,7 +336,8 @@ func TestSocketPeerCredentials(t *testing.T) {
 	var st Status
 	_ = json.NewDecoder(resp.Body).Decode(&st)
 	resp.Body.Close()
-	if st.Schema != Schema || len(st.Operations) != 6 || !st.Operations[0].Available || st.Operations[2].Available || st.Operations[4].Available || st.Operations[5].Available {
+	if st.Schema != Schema || len(st.Operations) != 7 || !st.Operations[0].Available || st.Operations[2].Available || st.Operations[4].Available || st.Operations[5].Available ||
+		st.Operations[6].Kind != KindOSSettings || st.Operations[6].Available {
 		t.Fatalf("status: %+v", st)
 	}
 }
