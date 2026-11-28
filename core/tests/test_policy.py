@@ -320,3 +320,14 @@ def test_local_flannel_addresses_reads_only_flannel_interfaces():
     assert local_flannel_addresses(names=boom)() == []
     assert local_flannel_addresses(names=lambda: ["eth0"], ipv4_of=lambda n: "192.0.2.10", inet6=boom)() == []
     assert local_flannel_addresses(names=lambda: ["flannel-wg"], ipv4_of=boom, inet6=boom)() == []
+
+
+def test_only_offline_maps_may_request_its_classless_platform_claim(rules):
+    assert "persistentvolumes" in policy.ROLE_FORBIDDEN_RESOURCES
+    claim = {"apiVersion": "v1", "kind": "PersistentVolumeClaim",
+             "metadata": {"name": "offline-maps-packs"},
+             "spec": {"storageClassName": "", "volumeName": "offline-maps-packs"}}
+    assert not policy.check_objects([claim], "offline-maps", {}, rules)
+    assert "P-01" in {error.rule for error in policy.check_objects([claim], "other-app", {}, rules)}
+    claim["spec"]["volumeName"] = "some-other-volume"
+    assert "P-01" in {error.rule for error in policy.check_objects([claim], "offline-maps", {}, rules)}

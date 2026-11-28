@@ -29,6 +29,7 @@ NoNewPrivileges=yes
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 ProtectSystem=strict
+ReadWritePaths=-/data/onemind/maps/packs
 ProtectHome=yes
 PrivateTmp=yes
 PrivateDevices=yes

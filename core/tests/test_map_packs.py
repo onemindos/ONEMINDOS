@@ -19,10 +19,7 @@ REGION_ID = "test-region"
 Disk = namedtuple("Disk", "total used free")
 
 
-@pytest.fixture
-def box(settings, clock, tmp_path, monkeypatch):
-    root = tmp_path / "packs"
-    root.mkdir()
+def signed_catalog(tmp_path):
     key = Ed25519PrivateKey.generate()
     public = tmp_path / "regions.pub"
     public.write_bytes(key.public_key().public_bytes(serialization.Encoding.PEM,
@@ -34,6 +31,14 @@ def box(settings, clock, tmp_path, monkeypatch):
     }]}).encode()
     catalog.write_bytes(body)
     catalog.with_suffix(".json.sig").write_bytes(base64.b64encode(key.sign(body)))
+    return catalog, public
+
+
+@pytest.fixture
+def box(settings, clock, tmp_path, monkeypatch):
+    root = tmp_path / "packs"
+    root.mkdir()
+    catalog, public = signed_catalog(tmp_path)
     monkeypatch.setattr(map_packs.MapPacks, "_usage", staticmethod(lambda _: Disk(1000, 0, 1000)))
     sections = {**settings.sections, "map": MapSettings(root, catalog, public)}
     with make_client(settings, clock, sections=sections) as client:
@@ -64,6 +69,8 @@ def test_agent_requests_but_owner_approves_verified_add_and_remove(box, clock, m
     done = client.post(action, headers=OWNER)
     assert done.json()["state"] == "succeeded", done.text
     assert (root / REGION_ID / "archive.pmtiles").read_bytes() == ARCHIVE
+    assert (root / REGION_ID).stat().st_mode & 0o777 == 0o755
+    assert all(entry.stat().st_mode & 0o777 == 0o644 for entry in (root / REGION_ID).iterdir())
     rows = client.get("/v1/map/packs", headers=OWNER).json()["packs"]
     assert [(r["id"], r["bytes"]) for r in rows] == [(REGION_ID, len(ARCHIVE))]
     response = request_pack(client, clock, "remove", {"pack_id": REGION_ID})
@@ -99,6 +106,59 @@ def test_full_disk_and_unsigned_catalog_never_download(box, clock, monkeypatch):
     catalog.write_bytes(catalog.read_bytes() + b" ")
     response = request_pack(client, clock, "add", {"region_id": REGION_ID})
     assert response.status_code == 503 and response.json()["reason"] == "map_catalog_unavailable", response.text
+    assert list(root.iterdir()) == []
+
+
+def _installed_pack(root, pack_id=REGION_ID):
+    folder = root / pack_id
+    folder.mkdir()
+    (folder / "archive.pmtiles").write_bytes(ARCHIVE)
+    (folder / "pack.json").write_text(json.dumps({
+        "id": pack_id, "region": "Test Region", "bytes": len(ARCHIVE),
+        "sha256": hashlib.sha256(ARCHIVE).hexdigest(), "installed_at": "2026-11-01T00:00:00Z",
+    }))
+
+
+@pytest.mark.parametrize("missing", ["key", "catalog", "unset"])
+def test_box_without_a_region_catalog_lists_and_removes_but_refuses_add(settings, clock, tmp_path, monkeypatch,
+                                                                       missing):
+    # A fresh hub ships neither the signed region catalogue nor its key (first boot only points at
+    # them). Not set up is a state the owner can change, never a 503: installed packs stay listed and
+    # removable, and adding one is a 409 that names why. No download is ever attempted.
+    root = tmp_path / "packs"
+    root.mkdir()
+    catalog, key = signed_catalog(tmp_path)
+    monkeypatch.setattr(map_packs.MapPacks, "_usage", staticmethod(lambda _: Disk(1000, 0, 1000)))
+    monkeypatch.setattr(map_packs, "_open_download", lambda _: pytest.fail("no catalogue, no download"))
+    if missing == "key":
+        key.unlink()
+    elif missing == "catalog":
+        catalog.unlink()
+    sections = {**settings.sections, "map": MapSettings(root, None if missing == "unset" else catalog, key)}
+    _installed_pack(root)
+    with make_client(settings, clock, sections=sections) as fresh:
+        fresh.app.state.actions.spawn = lambda fn: fn()
+        listed = fresh.get("/v1/map/packs", headers=OWNER)
+        assert listed.status_code == 200, listed.text
+        assert [p["id"] for p in listed.json()["packs"]] == [REGION_ID]
+        refused = request_pack(fresh, clock, "add", {"region_id": "other-region"})
+        assert refused.status_code == 409, refused.text
+        assert refused.json()["reason"] == "map_catalog_not_configured", refused.text
+        offered = request_pack(fresh, clock, "remove", {"pack_id": REGION_ID})
+        assert offered.status_code == 201, offered.text
+        done = fresh.post(f"/v1/actions/{offered.json()['id']}/approve", headers=OWNER)
+        assert done.json()["state"] == "succeeded", done.text
+        assert list(root.iterdir()) == []
+        assert fresh.get("/v1/map/packs", headers=OWNER).json()["packs"] == []
+
+
+def test_present_key_with_a_bad_signature_is_still_unavailable(box, clock):
+    # A catalogue and key that exist but do not verify are a real fault on the box: 503, no install.
+    client, root, catalog = box
+    catalog.with_suffix(".json.sig").write_bytes(b"AAAA")
+    response = request_pack(client, clock, "add", {"region_id": REGION_ID})
+    assert response.status_code == 503 and response.json()["reason"] == "map_catalog_unavailable", response.text
+    assert client.get("/v1/map/packs", headers=OWNER).status_code == 200
     assert list(root.iterdir()) == []
 
 

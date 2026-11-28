@@ -17,6 +17,12 @@ services:
      description: "Reports this machine's health to the hub every few seconds and answers the local API. Without it the hub shows the machine offline."}
   - {unit: k3s.service, name: Kubernetes (k3s), docs: docs/ARCHITECTURE.md, restartable: true, risk: high, depends_on: [],
      description: "Runs every app in its own sandbox. Stopping it stops all apps; their data stays on the data disk."}
+  - {unit: onemind-offline-maps-rebind.service, name: Offline Maps volume rebind, docs: docs/leap/core/APP-LIFECYCLE.md,
+     restartable: false, risk: low, depends_on: [k3s.service],
+     description: "Reserves the released Offline Maps volume for the same claim so reinstalling can reuse the retained packs."}
+  - {unit: onemind-offline-maps-rebind.timer, name: Offline Maps rebind schedule, docs: docs/leap/core/APP-LIFECYCLE.md,
+     restartable: false, risk: low, depends_on: [onemind-offline-maps-rebind.service],
+     description: "Checks for an Offline Maps volume released by an uninstall while Kubernetes is running."}
   - {unit: onemind-images.service, name: App image cleanup, docs: docs/leap/core/APP-LIFECYCLE.md, restartable: true, risk: low, depends_on: [k3s.service],
      description: "Removes app images that a newer version replaced, so the disk does not fill up. Images in use are never touched."}
   - {unit: onemind-catalog.service, name: Market catalog sync, docs: docs/learning/08-security-pipeline-and-tuf.md, restartable: false, risk: low,
