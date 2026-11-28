@@ -203,7 +203,8 @@ class IdentityService:
 
     def _owner_verification_active(self, session: Session | None = None) -> bool:
         """Once latched, owner verification survives the loss of every active owner's key."""
-        return self.passkeys_active(session) or self.levels.latched(session)
+        active = self.passkeys_active() if session is None else self.passkeys_active(session)
+        return active or self.levels.latched(session)
 
     def rp(self, request: Request) -> tuple[str, list[str]]:
         host = request.headers.get("host") or (request.url.hostname or "localhost")
