@@ -39,6 +39,7 @@ import { animate, useReducedMotion } from '../motion';
 import { SetupMap } from './onboarding/SetupMap';
 import { AddressStep, browserLocation } from './onboarding/AddressStep';
 import { DecideStep } from './onboarding/DecideStep';
+import { SetupDock } from './onboarding/SetupDock';
 import { formatLocation } from './onboarding/location';
 import './shell.css';
 
@@ -267,6 +268,20 @@ export function Onboarding({
     }
   };
 
+  // The hand-off (HANDBACK O6): the setup steps fade out and the map grows a little toward the desktop
+  // Map window that opens next. Finite and Escape-able; if finishing fails, the wizard comes back.
+  const root = useRef<HTMLDivElement>(null);
+  const handOff = async () => {
+    const wizard = root.current;
+    const mapFigure = wizard?.querySelector('.oms-setup-map');
+    const run = [
+      wizard && animate(wizard, [{ opacity: 1 }, { opacity: 0 }], { duration: 320, easing: 'linear', fill: 'forwards' }, reduced),
+      mapFigure && animate(mapFigure, [{ transform: 'none' }, { transform: 'scale(1.06)' }], { duration: 320, easing: 'cubic-bezier(.2,0,0,1)', fill: 'forwards' }, reduced),
+    ];
+    await Promise.all(run.map((a) => a?.finished.catch(() => undefined)));
+    return () => run.forEach((a) => a?.cancel());
+  };
+
   const next = async (e?: FormEvent, skip = false) => {
     e?.preventDefault();
     if (savingRef.current || changingStep.current) return;
@@ -280,7 +295,15 @@ export function Onboarding({
     try {
       if (s.id === 'backups') await onSaveSettings?.(d);
       if (s.id === 'address' && !skip && d.location && onSaveLocation && !site) setSite(await onSaveLocation(d));
-      if (s.id === 'done') await onFinish(d, finishRequests(d));
+      if (s.id === 'done') {
+        const restore = await handOff();
+        try {
+          await onFinish(d, finishRequests(d));
+        } catch (error) {
+          restore();
+          throw error;
+        }
+      }
       else {
         await moveTo(Math.min(step + 1, ONBOARDING_STEPS.length - 1));
         // Naming the place is what the map was waiting for: it draws itself as its own beat.
@@ -729,7 +752,7 @@ export function Onboarding({
   };
 
   return (
-    <div className="oms-onb" style={accentVars(d.accent)}>
+    <div ref={root} className="oms-onb" style={accentVars(d.accent)}>
       <h1 className="om-visually-hidden">Set up OneMind</h1>
       <aside className="oms-onb-side" aria-label="Setup progress">
         <div className="oms-onb-brand">
@@ -771,6 +794,9 @@ export function Onboarding({
           backup={step > at('backups') && d.backup.destination !== 'later'}
           ready={step > at('box')}
         />
+        {step >= at('apps') && (
+          <SetupDock apps={d.starterApps.map((id) => offer.find((a) => a.id === id)).filter((a): a is StarterApp => !!a).map(({ id, name, category }) => ({ id, name, category }))} />
+        )}
         <p className="om-visually-hidden" role="status">{mapPlay > 0 && s.id === 'address' ? 'Your map is drawing itself. Press Escape to skip the animation.' : ''}</p>
         <p className="oms-onb-side-foot">Everything here can also be done with <code>onemind init</code>.</p>
       </aside>
