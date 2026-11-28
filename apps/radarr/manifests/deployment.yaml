@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
-# Radarr 6.4.4.10685, LinuxServer image (the Docker image upstream's wiki lists: wiki.servarr.com/radarr/installation/docker).
+# Bumped from 6.4.4.10685 to 7.0.3.10918 on 2026-11-27; the upstream files cited here were read at 6.4.4.10685 and not re-read at 7.0.3.10918.
+# Radarr 7.0.3.10918, LinuxServer image (the Docker image upstream's wiki lists: wiki.servarr.com/radarr/installation/docker).
 # The image README (github.com/linuxserver/docker-radarr, "Non-Root Operation") supports starting as a
 # non-root user; PUID/PGID then have no effect and the init scripts take their LSIO_NON_ROOT_USER branch.
 # s6-overlay 3.2.1.0 needs a writable /run: an emptyDir, which Kubernetes creates root-owned and group-
@@ -36,7 +37,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: radarr
-        image: ghcr.io/linuxserver/radarr:6.4.4.10685-ls326@sha256:51a9ac2a9eb47afc833541e5fd6c11b86eb9f810694c22fa2429e3078e9194b2
+        image: ghcr.io/linuxserver/radarr:7.0.3.10918-ls328@sha256:044788f5508b7f67a3e0368cdd142c77c4d4cd5aec2efaba53e1a68b6b6231e7
         imagePullPolicy: IfNotPresent
         env:
         - name: TZ

@@ -7,7 +7,7 @@ A free, self-hostable news aggregator…
 
 | | |
 |---|---|
-| Version | 1.30.4 (upstream release `1.30.4`, published 2026-10-21) |
+| Version | 1.31.0 (upstream release `1.31.0`, published 2026-11-23) |
 | Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | news |
@@ -33,7 +33,7 @@ Storage: PVC `freshrss-data` 2Gi, PVC `freshrss-extensions` 1Gi.
 
 Images:
 
-- `docker.io/freshrss/freshrss:1.30.4@sha256:af44385229541bee24aa9148d0ff8f3b40e095373c63a2c0f74e09a27d3c59df`
+- `docker.io/freshrss/freshrss:1.31.0@sha256:31b0acfcb8e11600aa6ce697ff8d9d7ea620c85d766e5e764f487b433d20d066`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -46,7 +46,7 @@ Images:
 
 ## How it is packaged
 
-- **Image:** upstream `docker.io/freshrss/freshrss:1.30.4` (Debian, Apache, PHP).
+- **Image:** upstream `docker.io/freshrss/freshrss:1.31.0` (Debian, Apache, PHP).
 - **User:** the pod runs as `www-data` (UID/GID 33), the user Apache would switch to. The namespaced safe sysctl `net.ipv4.ip_unprivileged_port_start=0` lets it keep port 80 in this pod only. Apache's run and lock directories are small `emptyDir` volumes.
 - **Feed refresh:** upstream refreshes feeds from cron, which needs root. A `refresh` sidecar runs the same script (`app/actualize_script.php`) every 30 minutes as `www-data` instead, like the image's default schedule (`7,37 * * * *`).
 - **State:** PVCs `freshrss-data` (2 Gi, `data/`: configuration, users, SQLite databases) and `freshrss-extensions` (1 Gi, `extensions/`).
@@ -77,6 +77,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 
 **Hold (apps/market-unblock-2, 2026-11-13):** `libbrotli1` CVE-2026-111497 in the Debian image. `1.30.4` is the newest tag. Unblock: a rebuild on a newer Debian. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** FreshRSS 1.30.4 to 1.31.0. Breaking per its notes: PHP 8.2 or newer is required (the image ships it) and the bcrypt challenge login is replaced by a direct password comparison, so serve the UI over HTTPS. No data migration or new service. The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

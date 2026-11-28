@@ -50,7 +50,7 @@ spec:
         # that the app container mounts there, so the entrypoint can write the file. It runs on
         # every pod start, so a new image's settings are picked up.
         - name: php-conf
-          image: docker.io/library/nextcloud:33.0.10-apache@sha256:81cb09055a20142521a267cea2bc27e6a81a065871c70850d209f08803567dbc
+          image: docker.io/library/nextcloud:33.0.11-apache@sha256:73d52a6c57497a619120d1fca99d559f09dad52fb5e542051e31ebc66e05c7f3
           # Plain -R, not -a: the emptyDir's root is not owned by UID 33, so preserving its
           # timestamps fails.
           command: ["sh", "-c", "cp -R /usr/local/etc/php/conf.d/. /mnt/php-conf/"]
@@ -69,7 +69,7 @@ spec:
             - name: php-conf
               mountPath: /mnt/php-conf
         - name: postgres
-          image: docker.io/library/postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
+          image: docker.io/library/postgres:18.7-trixie@sha256:64c8b0d31e4ab6ea665e8426ea406a94bf52de3c05b3a4a8bf713704eefa9328
           restartPolicy: Always
           args: ["postgres", "-c", "listen_addresses=127.0.0.1"]
           env:
@@ -136,7 +136,7 @@ spec:
               mountPath: /data
       containers:
         - name: nextcloud
-          image: docker.io/library/nextcloud:33.0.10-apache@sha256:81cb09055a20142521a267cea2bc27e6a81a065871c70850d209f08803567dbc
+          image: docker.io/library/nextcloud:33.0.11-apache@sha256:73d52a6c57497a619120d1fca99d559f09dad52fb5e542051e31ebc66e05c7f3
           env:
             # With POSTGRES_* set, the installer page has the database filled in (README "Auto
             # configuration via environment variables"). The password is required by that check

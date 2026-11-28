@@ -9,7 +9,7 @@ kind: App
 metadata:
   id: qbittorrent
   name: "qBittorrent"
-  version: "5.3.0"
+  version: "5.3.1"
   description: "BitTorrent client with a web interface (qbittorrent-nox)."
   # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
   # the schema has metadata.tags).
@@ -28,7 +28,7 @@ metadata:
     github: "https://github.com/qbittorrent/qBittorrent"
     website: "https://www.qbittorrent.org"
     support: "https://github.com/qbittorrent/qBittorrent/issues"
-  upstream: {release: "release-5.3.0", released_at: "2026-10-20T12:57:33Z", archived: false}
+  upstream: {release: "release-5.3.1", released_at: "2026-11-24T08:51:57Z", archived: false}
   # blocked by the CI app gate: CRITICAL CVE-2026-111497 in brotli-libs, and the smoke test gets HTTP 401 (details in README.md)
   tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:

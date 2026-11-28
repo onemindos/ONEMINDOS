@@ -7,7 +7,7 @@ ESPHome is a system to control your ESP32, ESP8266, BK72xx, RP2040 by simple yet
 
 | | |
 |---|---|
-| Version | 2026.10.2 (upstream release `2026.10.2`, published 2026-11-02) |
+| Version | 2026.11.1 (upstream release `2026.11.1`, published 2026-11-25) |
 | Licence | `MIT AND GPL-3.0`, Market class **blocked** (licence gate, scan of 2026-11-21) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | home |
@@ -32,7 +32,7 @@ Storage: PVC `esphome-cache` 10Gi, PVC `esphome-config` 1Gi.
 
 Images:
 
-- `ghcr.io/esphome/esphome:2026.10.2@sha256:4a918585150e95e7675be84a347384ff308fde1bd32d0e4472666e1252cc0e8f`
+- `ghcr.io/esphome/esphome:2026.11.1@sha256:eb1a5383cb1ce62df8683d7d728deaa5d8d78f0de0c6dccc9e3215cda53a1c6f`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -45,7 +45,7 @@ Images:
 
 ## How it is packaged
 
-- **Image:** the official `ghcr.io/esphome/esphome:2026.10.2`, started as UID 1000.
+- **Image:** the official `ghcr.io/esphome/esphome:2026.11.1`, started as UID 1000.
 - **State:** PVCs `esphome-config` (1 Gi, `/config`: device YAML and builds) and `esphome-cache` (10 Gi, `/cache`). The entrypoint keeps PlatformIO packages, toolchains and compiler caches under `/cache` when it is mounted (`docker/docker_entrypoint.sh`); `HOME` points there too, so the compilers can write their state as a non-root user.
 - **Health:** probes on `GET /version`, the image's HEALTHCHECK path.
 - **Licence:** `MIT AND GPL-3.0` (Python code MIT, C/C++ runtime GPL-3.0), as the research licence matrix records from `LICENSE`.
@@ -89,6 +89,8 @@ There are 21 fixable package/identifier pairs (the Perl findings count once per 
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 
 **Hold (apps/market-unblock-2, 2026-11-13):** `libbrotli1`, `perl`, `linux-libc-dev`, `pillow` and `uv` findings. `2026.10.2` is the newest tag. Unblock: a release rebuilt on a newer Debian with updated Python packages. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** ESPHome 2026.10.2 to 2026.11.1 (via 2026.11.0). The upstream list of breaking changes is on esphome.io (changelog 2026.11.0); it could not be read from the build sandbox, so it is **not** checked here. It concerns device YAML components, not the dashboard container, but read it before compiling existing configs. The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

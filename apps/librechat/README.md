@@ -103,6 +103,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 
 **Hold (apps/market-unblock-2, 2026-11-13):** 5 npm CVEs in the app image, Go and Debian CVEs in `ferretdb` and `postgres-documentdb` (both at their newest tags), a test-fixture JWT, and no licence-matrix row. The LibreChat registry (`registry.librechat.ai`) is not reachable from the worker, so newer app tags could not be read. Unblock: fixed upstream images and a licence-matrix row (a research file, outside `apps/`).
+
+**Hold (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** not bumped in this change: its registry (registry.librechat.ai) is not reachable from the build sandbox, so newer tags could not be read. The CI gate decides the tier.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

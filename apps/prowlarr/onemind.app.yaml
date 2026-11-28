@@ -7,7 +7,7 @@ kind: App
 metadata:
   id: prowlarr
   name: "Prowlarr"
-  version: "2.7.0.5723"
+  version: "3.1.0.5799"
   description: "Prowlarr is an indexer manager/proxy built on the popular *arr .net/reactjs base stack to integrate with your various PVR apps, supporting management of both Torrent Trackers and Usenet Indexers."
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (indexers) are listed in README.md
   # until the schema has metadata.tags.
@@ -23,7 +23,7 @@ metadata:
     github: "https://github.com/Prowlarr/Prowlarr"
     website: "https://prowlarr.com"
     support: "https://github.com/Prowlarr/Prowlarr/issues"
-  upstream: {release: "v2.7.0.5723", released_at: "2026-10-27T18:19:55Z", archived: false}
+  upstream: {release: "v3.1.0.5799", released_at: "2026-11-23T20:17:35Z", archived: false}
   # blocked by the CI app gate: CRITICAL CVE-2026-70188 and CVE-2026-88092 in the .NET runtime, and the pod never becomes ready (details in README.md)
   tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:

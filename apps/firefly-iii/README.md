@@ -7,7 +7,7 @@ Personal finance manager: accounts, budgets, categories and reports.
 
 | | |
 |---|---|
-| Version | 6.7.9 (upstream release `v6.7.9`, published 2026-10-11) |
+| Version | 6.7.12 (upstream release `v6.7.12`, published 2026-11-27) |
 | Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | finance |
@@ -34,8 +34,8 @@ Storage: PVC `firefly-iii-data` 5Gi, PVC `firefly-iii-db` 5Gi.
 
 Images:
 
-- `docker.io/fireflyiii/core:version-6.7.9@sha256:d51ab6a3a7b91a5c892441578e0da7f2935f84f36bd1151fc3833acc6e060871`
-- `docker.io/library/postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42`
+- `docker.io/fireflyiii/core:version-6.7.12@sha256:99319a6ce1370eba9e85f78e4d506e76267af0e7acc40fb4189b34d5fe83c874`
+- `docker.io/library/postgres:18.7-trixie@sha256:64c8b0d31e4ab6ea665e8426ea406a94bf52de3c05b3a4a8bf713704eefa9328`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -93,6 +93,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 
 **Hold (apps/market-unblock-2, 2026-11-13):** `libbrotli1` and `linux-libc-dev` in the app image `version-6.7.9` (the newest tag). The bundled `postgres:18.6-trixie` would also move to `18.6-alpine` as `paperless-ngx` did, but that alone cannot unblock the app, so the sidecar stays as it is. Unblock: a Firefly III rebuild with fixed Debian packages, then the Alpine postgres.
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** Firefly III 6.7.9 to 6.7.12; the image now runs PHP 8.6.0 (6.7.12 notes). No data migration or renamed variable is listed. The PostgreSQL sidecar stays on the Debian flavour, major 18 (18.6 to 18.7). The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

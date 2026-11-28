@@ -1,0 +1,5 @@
+---
+pr: 1305
+branch: ma/market-bump-45-blocked-app-images
+---
+Moves 28 of the 45 Market apps that the app gate blocks onto the newest stable upstream image (version and index digest, both architectures checked with crane): the application image, and where it carries one, a database sidecar within the same major version. Upgrade notes were read for each (for example Radarr 7 and Prowlarr 3 move to .NET 10, FreshRSS 1.31 drops PHP 8.1, Karakeep 0.35 adds a privilege-drop step that does nothing for this non-root pod, Mealie 3.31 caps request bodies). Every app stays on tier blocked and no scan result, allow-list or CVE rule was changed: the vulnerability database could not be downloaded in the build sandbox, so the new pins are unscanned and the CI gate decides. Apps with no newer stable image (or where the newer one is known worse, or a committed test ties the pin to a scan) are marked with a Hold line in their README (home-assistant, paperless-ngx, privatebin, collabora-code, librechat) or already carried one. Refs #1232, Refs #234.

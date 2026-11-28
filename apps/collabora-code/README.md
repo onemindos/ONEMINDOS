@@ -72,6 +72,8 @@ Collabora is not used on its own: a file app (for example Nextcloud with its Off
 ## Why this app is blocked
 
 The licence gate (`sdk/tools/app-gate` check 2, contract §9.4) accepts a licence only when GitHub's licence API or a research licence-matrix row confirms it. For `CollaboraOnline/online`, GitHub reports `NOASSERTION` and the matrix has no row, so the gate classes the licence as blocked. The gate was not changed. To unblock: add a research licence-matrix row for Collabora Online with the `COPYING` permalink (and a check of the bundled components and the CODE usage terms), then rerun the gate.
+
+**Hold (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** not bumped in this change: the licence is not confirmed by the licence gate (GitHub reports NOASSERTION and there is no matrix row; see the licence notes). The CI gate decides the tier.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

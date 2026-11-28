@@ -40,7 +40,7 @@ spec:
         # Generates the encryption key once, on the database volume so it is backed up with the data
         # it protects, and creates the subPath directory as the app user (k3s local-path).
         - name: encryption-key
-          image: docker.io/metabase/metabase:v0.65.3@sha256:9930a9b0e6974926319f691d1e55f0f9f97996e9ab658cd0cc04d9f86b0f0c1c
+          image: docker.io/metabase/metabase:v0.65.7@sha256:f8dbde1aa67b525ed64637f1903a79c9320319360a9d7a3b995d68b8c0f3c2bb
           command:
             - sh
             - -c
@@ -67,7 +67,7 @@ spec:
             - name: db
               mountPath: /mnt
         - name: db
-          image: docker.io/library/postgres:18.6-alpine@sha256:9ba53c7d41ea093baf5c1ba635ba5434c4f979880527d49bb7d9237d3193085b
+          image: docker.io/library/postgres:18.7-alpine@sha256:0115267ab5a509022df9319c77be365cef335adb71556c75f60f5360ee247e71
           restartPolicy: Always
           args: ["postgres", "-c", "listen_addresses=127.0.0.1"]
           env:
@@ -110,7 +110,7 @@ spec:
               mountPath: /var/lib/postgresql
       containers:
         - name: metabase
-          image: docker.io/metabase/metabase:v0.65.3@sha256:9930a9b0e6974926319f691d1e55f0f9f97996e9ab658cd0cc04d9f86b0f0c1c
+          image: docker.io/metabase/metabase:v0.65.7@sha256:f8dbde1aa67b525ed64637f1903a79c9320319360a9d7a3b995d68b8c0f3c2bb
           command:
             - sh
             - -c

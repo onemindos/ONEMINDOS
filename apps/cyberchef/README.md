@@ -7,7 +7,7 @@ The Cyber Swiss Army Knife: encode, decode, encrypt, compress and analyse data i
 
 | | |
 |---|---|
-| Version | 11.5.0 (upstream release `v11.5.0`, published 2026-09-18) |
+| Version | 11.6.0 (upstream release `v11.6.0`, published 2026-11-20) |
 | Licence | `Apache-2.0`, Market class **L1** (licence gate, scan of 2026-11-25) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Quality | `none` (computed by the gate from its evidence, never set by hand) |
@@ -31,7 +31,7 @@ The Market lists `minMemoryMb: 32`, no GPU.
 
 Images:
 
-- `ghcr.io/gchq/cyberchef:11.5.0@sha256:f04a39926344faf8e4cbbc8c92fb125d2b466f9be62db09aff23c7c406101a51`
+- `ghcr.io/gchq/cyberchef:11.6.0@sha256:847b3a20804815014babe9cfa628a1fd1980d92f98240f48cfc6c8e2f5ff7a14`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -71,6 +71,8 @@ Source: [CyberChef README](https://github.com/gchq/CyberChef#readme).
 - No HTTPS or LAN hostname: OneMind v0 has no ingress or certificates for apps, so the app is reached through a port-forward until the app proxy exists.
 - Resource figures are OneMind choices; upstream publishes none. They are checked against real use when the CI smoke test (contract §9.4 check 9) runs.
 - `metadata.tier` is a claim the CI app gate checks; it moves to `verified` or `blocked` only through `sdk/tools/app-gate`. `spec.updates.automerge` is `none` until `renovate.json` lists the app.
+
+**Pin bump (ma/market-bump-45-blocked-app-images, 2026-11-27, Refs #1232, Refs #234):** CyberChef 11.5.0 to 11.6.0. No breaking change found in the release notes. The new pins were read from the registries with `crane`. They were **not** scanned: the Trivy vulnerability database could not be downloaded from the build sandbox, so this change claims no pass. The tier stays `blocked`; the CI gate decides.
 <!-- onemind:notes:end -->
 
 ## Latest security scan
