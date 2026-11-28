@@ -20,7 +20,8 @@ import {
 } from './preferences';
 import { ApiPreferencesStore, LocalPreferencesStore, LOCAL_SLOT, PreferencesError } from './store';
 import { checkUpload, sampleColors } from './upload';
-import { UNKNOWN_IMAGE_MIN_DIM, WALLPAPERS, WALLPAPER_IDS, minDim, paintedColors } from './wallpapers';
+import { THEME_PACKS } from './packs';
+import { CONSOLE_WALLPAPERS, UNKNOWN_IMAGE_MIN_DIM, WALLPAPERS, WALLPAPER_IDS, minDim, paintedColors } from './wallpapers';
 
 const THEMES = ['light', 'dark'] as const;
 
@@ -133,6 +134,37 @@ describe('wallpapers', () => {
     const p = normalizePreferences({ wallpaper: 'custom', wallpaperDim: 0.1 });
     expect(effectiveDim(p, 'light')).toEqual({ dim: UNKNOWN_IMAGE_MIN_DIM, min: UNKNOWN_IMAGE_MIN_DIM, raised: true });
     expect(effectiveDim(normalizePreferences({ wallpaper: 'none' }), 'dark').dim).toBe(0);
+  });
+  it("offers Console's set from the final design first, Contour by default, and keeps the earlier ones", () => {
+    expect([...CONSOLE_WALLPAPERS]).toEqual(['contour', 'ripple', 'signal', 'dawn', 'harvest', 'mycelium', 'lattice', 'ember']);
+    expect(WALLPAPER_IDS.slice(0, CONSOLE_WALLPAPERS.length)).toEqual([...CONSOLE_WALLPAPERS]);
+    expect(DEFAULT_PREFERENCES.wallpaper).toBe('contour');
+    for (const kept of ['onemind', 'aurora', 'tide', 'dunes', 'fjord', 'nebula', 'meadow', 'dusk', 'bloom', 'paper']) {
+      expect(normalizePreferences({ wallpaper: kept }).wallpaper, kept).toBe(kept);
+    }
+    for (const id of CONSOLE_WALLPAPERS) {
+      // A light and a dark side, each its own drawing.
+      expect(WALLPAPERS[id].render(WALLPAPERS[id].colors.light)).not.toBe(WALLPAPERS[id].render(WALLPAPERS[id].colors.dark));
+    }
+  });
+});
+
+describe('theme packs', () => {
+  it('ships five Atlas and five Console packs with the names of the final design', () => {
+    expect(THEME_PACKS.map((p) => p.name)).toEqual(['Atlas Night', 'Atlas Day', 'Night Watch', 'Greenhouse', 'Harbor', 'OneMind', 'OneMind Light', 'Field', 'Village', 'Mono']);
+    expect(THEME_PACKS.filter((p) => p.source === 'Atlas')).toHaveLength(5);
+    expect(THEME_PACKS.filter((p) => p.source === 'Console')).toHaveLength(5);
+    expect(new Set(THEME_PACKS.map((p) => p.id)).size).toBe(10);
+  });
+  it("opens each pack on the wallpaper the design names, from Console's set, and never on Ripple", () => {
+    const want = { 'atlas-night': 'contour', 'atlas-day': 'contour', 'night-watch': 'ember', greenhouse: 'mycelium', harbor: 'signal', onemind: 'dawn', 'onemind-light': 'dawn', field: 'ember', village: 'harvest', mono: 'lattice' };
+    expect(Object.fromEntries(THEME_PACKS.map((p) => [p.id, p.set.wallpaper]))).toEqual(want);
+    for (const p of THEME_PACKS) expect(CONSOLE_WALLPAPERS as readonly string[]).toContain(p.set.wallpaper);
+  });
+  it('keeps signal-red buttons and teal selection in every pack: a pack only sets mode, tint, wallpaper, corners and glass', () => {
+    for (const p of THEME_PACKS) expect(Object.keys(p.set).sort()).toEqual(['accentPreset', 'corners', 'theme', 'transparency', 'wallpaper']);
+    expect(light.action).toBe('#cc1f2b');
+    expect(dark.action).toBe('#cc1f2b');
   });
 });
 

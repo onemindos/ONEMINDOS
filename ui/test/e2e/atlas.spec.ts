@@ -5,16 +5,19 @@ import { UI_URL } from './screens';
 const packs = [
   ['Atlas Night', 'dark', 'contour'],
   ['Atlas Day', 'light', 'contour'],
-  ['Night Watch', 'dark', 'dusk'],
-  ['Greenhouse', 'light', 'meadow'],
-  ['Harbor', 'dark', 'tide'],
-  ['Console Default', 'dark', 'onemind'],
-  ['Console Light', 'light', 'aurora'],
-  ['Field', 'dark', 'signal'],
-  ['Village', 'light', 'dunes'],
-  ['Mono', 'dark', 'none'],
+  ['Night Watch', 'dark', 'ember'],
+  ['Greenhouse', 'light', 'mycelium'],
+  ['Harbor', 'dark', 'signal'],
+  ['OneMind', 'dark', 'dawn'],
+  ['OneMind Light', 'light', 'dawn'],
+  ['Field', 'dark', 'ember'],
+  ['Village', 'light', 'harvest'],
+  ['Mono', 'dark', 'lattice'],
 ] as const;
-const teal = { light: 'rgb(31, 106, 102)', dark: 'rgb(109, 184, 176)' } as const;
+// The final design's teal highlight (#1E6870 light, #5FC4CB dark).
+const teal = { light: 'rgb(30, 104, 112)', dark: 'rgb(95, 196, 203)' } as const;
+// Signal red #CC1F2B is the button colour in both modes and in every pack.
+const signal = 'rgb(204, 31, 43)';
 
 for (const theme of ['light', 'dark'] as const) {
   test.describe(`Atlas ${theme}`, () => {
@@ -40,7 +43,7 @@ for (const theme of ['light', 'dark'] as const) {
         await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
         const primary = page.locator('.om-cz-preview .om-btn-primary');
         // The button fades its background on theme change; wait for the final colour first.
-        await expect(primary).toHaveCSS('background-color', theme === 'light' ? 'rgb(209, 24, 38)' : 'rgb(251, 96, 90)');
+        await expect(primary).toHaveCSS('background-color', signal);
         await expect.poll(() => primary.evaluate((el) => el.getAnimations().length)).toBe(0);
         // Capture the viewport so taking the screenshot cannot scroll the button again.
         await primary.scrollIntoViewIfNeeded();
@@ -103,7 +106,7 @@ for (const theme of ['light', 'dark'] as const) {
           }
           return [...counts].sort((a, b) => b[1] - a[1])[0]![0].split(',').map(Number);
         }, { base64: png.toString('base64'), box });
-        expect(pixel).toEqual(theme === 'light' ? [209, 24, 38, 255] : [251, 96, 90, 255]);
+        expect(pixel).toEqual([204, 31, 43, 255]);
         await expect(page.locator('.om-cz-seg-item.om-cz-on').first()).toHaveCSS('color', teal[theme]);
       });
     }
@@ -116,7 +119,7 @@ for (const theme of ['light', 'dark'] as const) {
       await tint.press('Space');
       await expect(tint).toBeChecked();
       await expect(page.locator('.om-cz-seg-item.om-cz-on').first()).toHaveCSS('color', teal[theme]);
-      await expect(page.locator('.om-cz-preview .om-btn-primary')).toHaveCSS('background-color', theme === 'light' ? 'rgb(209, 24, 38)' : 'rgb(251, 96, 90)');
+      await expect(page.locator('.om-cz-preview .om-btn-primary')).toHaveCSS('background-color', signal);
       await info.attach(`Atlas-${theme}.png`, { body: await page.screenshot(), contentType: 'image/png' });
     });
   });

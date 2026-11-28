@@ -66,16 +66,17 @@ describe('AppearanceSettings', () => {
     await userEvent.click(bar);
     await userEvent.click(screen.getByRole('button', { name: 'Harbor pack' }));
     await waitFor(() => expect(store.saved.at(-1)).toMatchObject({
-      wallpaper: 'tide', accentPreset: 'copper', theme: 'dark', commandBar: true, fontScale: 1.25,
+      wallpaper: 'signal', accentPreset: 'copper', theme: 'dark', commandBar: true, fontScale: 1.25,
     }));
   });
 
   it('offers every Atlas and Console pack', async () => {
     mount(new MemoryStore('local', saved({})));
-    for (const n of ['Atlas Night', 'Atlas Day', 'Night Watch', 'Greenhouse', 'Harbor', 'Console Default', 'Console Light', 'Field', 'Village', 'Mono']) {
+    for (const n of ['Atlas Night', 'Atlas Day', 'Night Watch', 'Greenhouse', 'Harbor', 'OneMind', 'OneMind Light', 'Field', 'Village', 'Mono']) {
       expect(await screen.findByRole('button', { name: `${n} pack` })).toBeInTheDocument();
     }
     expect(screen.queryByRole('button', { name: 'Paper pack' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Console Default pack' })).toBeNull();
   });
 
   it('shows a labelled loading state', () => {
