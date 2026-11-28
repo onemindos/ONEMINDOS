@@ -65,8 +65,17 @@ describe('screen registry', () => {
     expect(navItems(2).map((n) => [n.id, n.href, n.group ?? 'primary'])).toEqual(expected);
     expect(navItems(2).find((n) => n.id === 'approvals')).toMatchObject({ badge: 2, badgeLabel: '2 waiting' });
     expect([...PRO_SCREEN_IDS].sort()).toEqual(['add-machine', 'agents', 'automation', 'backups', 'control-hub', 'dashboards', 'file-sharing', 'machines', 'migrate', 'network', 'nodes', 'photos', 'storage', 'troubleshoot', 'updates', 'usage', 'world']);
-    expect(DOCK_ORDER).toEqual(['home', 'market', 'installed', 'approvals', 'activity', 'settings']);
+    // The Atlas default dock (final design 01); Map takes slot 2 when its screen is registered.
+    expect(DOCK_ORDER.filter((id) => id !== 'map')).toEqual(['home', 'approvals', 'files', 'market', 'backups', 'machines']);
     expect(SCREENS.every((s) => s.title.length > 0)).toBe(true);
+  });
+
+  it('keeps dock slot 2 for Map: a registered map screen docks second, at /map', () => {
+    const map = SCREENS.find((s) => s.id === 'map');
+    if (map) {
+      expect(DOCK_ORDER[1]).toBe('map');
+      expect(map.path).toBe('/map');
+    } else expect(SCREENS.some((s) => s.dock === 2)).toBe(false);
   });
 
   it('maps detail pages and tabs to their screen', () => {

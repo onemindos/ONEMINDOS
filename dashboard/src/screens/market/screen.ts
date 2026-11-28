@@ -8,7 +8,7 @@ const screen: ScreenDef = {
   icon: 'apps',
   section: 'primary',
   order: 20,
-  dock: 2,
+  dock: 5,
   hue: ['#6d84ff', '#3340c4'],
   load: () => import('../../pages/Market').then((m) => ({ default: m.Market })),
   extra: [

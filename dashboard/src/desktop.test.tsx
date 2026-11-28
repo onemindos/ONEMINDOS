@@ -7,8 +7,9 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import type { NavItem } from '@onemind/ui';
 import { avatarInitial, dockSplit, parentPath } from './shell/DesktopShell';
+import { dockOrder } from './shell/dock';
 import { layoutModeStore, parseLayoutMode } from './shell/layoutMode';
-import { renderApp, screensNav, seriousViolations } from './test/helpers';
+import { openScreen, renderApp, screensNav, seriousViolations } from './test/helpers';
 
 const T = { timeout: 4000 };
 
@@ -34,11 +35,18 @@ describe('layout mode', () => {
     expect(layoutModeStore('owner', null).load()).toBe('desktop'); // no storage: the default
   });
 
-  it('splits the nav: everyday screens in the dock, the rest in Launchpad', () => {
+  it('splits the nav: the Atlas places in the dock (Map second, at /map), the rest in the launcher', () => {
     const item = (id: string, extra: Partial<NavItem> = {}): NavItem => ({ id, label: id, href: `/${id}`, icon: 'home', ...extra });
-    const { dock, more } = dockSplit([item('nodes', { group: 'Your box' }), item('settings'), item('home', { primary: true }), item('market', { primary: true })]);
-    expect(dock.map((n) => n.id)).toEqual(['home', 'market', 'settings']);
-    expect(more.map((n) => n.id)).toEqual(['nodes']);
+    const nav = [item('nodes', { group: 'Your box' }), item('settings'), item('files'), item('home', { primary: true }), item('market', { primary: true })];
+    const atlas = ['home', 'approvals', 'files', 'market', 'backups', 'machines'];
+    // Explicit order and map flag, so this holds both before and after the Map screen (#1340) registers itself.
+    const before = dockSplit(nav, dockOrder(atlas, false), false);
+    expect(before.dock.map((n) => n.id)).toEqual(['home', 'map', 'files', 'market']);
+    expect(before.dock[1]?.href).toBe('/map');
+    expect(before.more.map((n) => n.id)).toEqual(['nodes', 'settings']);
+    const after = dockSplit([...nav, item('map')], dockOrder(['home', 'map', ...atlas.slice(1)], true), true);
+    expect(after.dock.map((n) => n.id)).toEqual(['home', 'map', 'files', 'market']);
+    expect(after.more.map((n) => n.id)).toEqual(['nodes', 'settings']);
   });
 
   it('knows the way back up inside a screen', () => {
@@ -69,8 +77,7 @@ describe('desktop frame', () => {
     await u.click(within(win).getByRole('button', { name: 'Close Market' }));
     await waitFor(() => expect(container.querySelector('.dsk-at-home')).not.toBeNull());
 
-    const dock = within(screen.getByRole('navigation', { name: 'Main' }));
-    await u.click(dock.getByRole('link', { name: /Activity/ }));
+    await openScreen(u, /Activity/); // in the launcher: the Atlas dock has no Activity tile
     expect(await screen.findByRole('region', { name: 'Activity' }, T)).toBeInTheDocument();
     await u.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('region', { name: 'Activity' })).toBeNull());
@@ -102,14 +109,14 @@ describe('desktop frame', () => {
     expect(container.querySelector('.dsk-bar .dsk-demo')).toHaveTextContent('Demo data');
   });
 
-  it('Launchpad lists your apps first, larger, and the system screens after in a smaller row', async () => {
+  it('the launcher lists your apps first, larger, and the system screens after in a smaller row', async () => {
     const u = userEvent.setup();
     renderApp({ token: 'owner-demo' });
     await u.click(await screen.findByRole('button', { name: /screens and apps/ }, T));
-    const lp = await screen.findByRole('dialog', { name: 'Launchpad' });
+    const lp = await screen.findByRole('dialog', { name: 'Launcher' });
     const sections = [...lp.querySelectorAll('section')].map((s) => s.getAttribute('aria-label'));
     expect(sections[0]).toBe('Your apps');
-    expect(sections).toContain('Screens');
+    expect(sections).toContain('System');
     expect(lp.querySelector('.dsk-launchpad-big')).not.toBeNull();
     expect(lp.querySelector('.dsk-launchpad-small')).not.toBeNull();
   });
@@ -128,7 +135,7 @@ describe('desktop frame', () => {
     expect(again.container.querySelector('.om-shell')).not.toBeNull();
   });
 
-  it('keeps Pro screens out of the dock and Launchpad for a guest', async () => {
+  it('keeps Pro screens out of the dock and the launcher for a guest', async () => {
     renderApp({ token: 'guest-demo' });
     const dock = within(await screen.findByRole('navigation', { name: 'Main' }, T));
     expect(dock.getByRole('link', { name: /Home/ })).toBeInTheDocument();
@@ -137,16 +144,16 @@ describe('desktop frame', () => {
     expect(lp.queryByRole('link', { name: /Nodes/ })).toBeNull();
   });
 
-  it('Launchpad lists every screen, filters as you type, and closes with Esc', async () => {
+  it('the launcher lists every screen, filters as you type, and closes with Esc', async () => {
     const u = userEvent.setup();
     renderApp({ token: 'owner-demo' });
     const lp = await screensNav(u);
     expect(lp.getByRole('link', { name: /Control Hub/ })).toBeInTheDocument();
-    await u.type(lp.getByRole('searchbox', { name: 'Find a screen or app' }), 'back');
+    await u.type(lp.getByRole('searchbox', { name: 'Find an app, screen, machine or command' }), 'back');
     expect(lp.getByRole('link', { name: /Backups/ })).toBeInTheDocument();
     expect(lp.queryByRole('link', { name: /Control Hub/ })).toBeNull();
     await u.keyboard('{Escape}');
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Launchpad' })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Launcher' })).toBeNull());
   });
 
   it('Esc closes the bell popover or leaves a search field without closing the window', async () => {
@@ -161,13 +168,13 @@ describe('desktop frame', () => {
     expect(screen.getByRole('region', { name: 'Market' })).toBeInTheDocument();
   });
 
-  it('Launchpad hands focus back to the All button when it closes', async () => {
+  it('the launcher hands focus back to the logo tile when it closes', async () => {
     const u = userEvent.setup();
     renderApp({ token: 'owner-demo' });
     const nav = within(await screen.findByRole('navigation', { name: 'Main' }, T));
     const all = nav.getByRole('button', { name: /screens and apps/ });
     await u.click(all);
-    const lp = within(await screen.findByRole('dialog', { name: 'Launchpad' }));
+    const lp = within(await screen.findByRole('dialog', { name: 'Launcher' }));
     expect(lp.getByRole('searchbox')).toHaveFocus();
     await u.keyboard('{Escape}');
     await waitFor(() => expect(all).toHaveFocus());
