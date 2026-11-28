@@ -118,5 +118,57 @@ class AgentConf(unittest.TestCase):
         self.assertTrue(c["listen"].startswith("127.0.0.1:"))
 
 
+
+class StorageMount(unittest.TestCase):
+    """#1148: the owner's files on a btrfs box are the @storage subvolume at /data/storage. The backup must carry that
+    folder, from the one path firstboot knows, which must be where the mount unit, snapper and data_encrypt.py put it."""
+
+    def test_one_storage_path_for_the_mount_snapper_and_the_backup(self):
+        storage = fb.Paths("/").storage
+        mount = rd("os/rootfs/layers/base/usr/lib/systemd/system/data-storage.mount")
+        self.assertEqual(re.search(r"(?m)^Where=(\S+)$", mount).group(1), storage)
+        self.assertRegex(mount, r"(?m)^Options=subvol=@storage\b")
+        self.assertEqual(re.search(r'(?m)^SUBVOLUME="([^"]+)"$', rd("os/rootfs/layers/base/etc/snapper/configs/storage")).group(1),
+                         storage)
+        de = rd("os/rootfs/layers/base/usr/lib/onemind/data_encrypt.py")
+        self.assertIn('SUBVOLS = ("@", "@storage")', de)
+        self.assertIn("@storage the owner's files, mounted at " + storage, de)
+
+    def test_the_system_unit_carries_the_storage_mount_without_its_snapshots(self):
+        p = fb.Paths("/")
+        self.assertIn(p.storage, fb.backup_system_paths(p, has_storage=True))
+        self.assertEqual(fb.backup_system_excludes(p, has_storage=True), [p.storage + "/.snapshots"])
+        # an ext4 box installed before #152 has no /data/storage; a missing source fails the whole unit
+        self.assertNotIn(p.storage, fb.backup_system_paths(p, has_storage=False))
+        self.assertEqual(fb.backup_system_excludes(p, has_storage=False), [])
+
+    def test_a_hub_gets_the_storage_mount_in_its_agent_conf_new_or_upgraded(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as t:
+            p = fb.Paths(t)
+            os.makedirs(p.storage)
+            system = fb.backup_agent_conf(p, "0123456789ab")["units"]["system"]
+            self.assertIn(p.storage, system["paths"])
+            self.assertEqual(system["excludes"], [os.path.join(p.storage, ".snapshots")])
+            os.makedirs(os.path.dirname(p.backup_conf))
+            old = fb.backup_agent_conf(p, "0123456789ab")
+            old["units"]["system"]["paths"] = old["units"]["system"]["paths"][:-1]      # written before #1148
+            del old["units"]["system"]["excludes"]
+            with open(p.backup_conf, "w") as f:
+                json.dump(old, f)
+            fb.upgrade_agent_conf(p)
+            fb.upgrade_agent_conf(p)                                                  # idempotent
+            got = json.load(open(p.backup_conf))["units"]["system"]
+            self.assertEqual(got["paths"].count(p.storage), 1)
+            self.assertEqual(got["excludes"], [os.path.join(p.storage, ".snapshots")])
+
+    def test_a_restore_may_write_the_storage_mount_and_nothing_creates_it_on_ext4(self):
+        storage = fb.Paths("/").storage
+        d = rd("os/rootfs/layers/onemind/usr/lib/systemd/system/onemindd.service.d/backup.conf")
+        self.assertRegex(d, r"(?m)^ReadWritePaths=.*-%s(\s|$)" % re.escape(storage))
+        self.assertNotRegex(rd("os/rootfs/layers/onemind/usr/lib/tmpfiles.d/onemind-backup.conf"),
+                            r"(?m)\s%s(\s|$)" % re.escape(storage))
+
+
 if __name__ == "__main__":
     unittest.main()
