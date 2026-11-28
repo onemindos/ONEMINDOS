@@ -26,7 +26,7 @@ sync:
 	uv sync --python $(PY)
 
 test: sync
-	uv run pytest -q
+	uv run pytest -q $(PYTEST_ARGS)
 
 test-integration: sync
 	docker run -d --rm -p 14222:4222 --name onemind-core-it-nats nats:2.10-alpine

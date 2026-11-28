@@ -1,0 +1,22 @@
+# 2026-11-25T11:53:24Z AK-5: credential-reset link
++ admin_relogin
+idm_admin login ok
+  (exit 0)
++ reset_token child1 child1.reset2
+reset link issued for child1 (link and token kept in the secrets dir, not printed)
+This token will expire at: 2026-11-25T12:53:25Z
+  (exit 0)
+# child1 already has a passkey from AK-3; the new credential is a password + TOTP
++ $PY enrol child1 child1.reset2 password+totp
+{"ok": true, "status": {"can_commit": true, "mfaregstate": "None", "passkeys": ["lab-virtual-authenticator"], "primary": null, "warnings": []}, "step": "exchange_intent", "user": "child1"}
+{"ok": true, "status": {"can_commit": false, "mfaregstate": "None", "passkeys": ["lab-virtual-authenticator"], "primary": null, "warnings": ["MfaRequired"]}, "step": "set_password", "user": "child1"}
+{"algo": "sha256", "digits": 6, "ok": true, "status": {"can_commit": true, "mfaregstate": "None", "passkeys": ["lab-virtual-authenticator"], "primary": null, "warnings": []}, "step": "totp_enrol", "step_s": 30, "user": "child1"}
+{"http": 200, "ok": true, "step": "commit", "user": "child1"}
+  (exit 0)
++ $PY signin child1 passwordmfa
+{"detail": "success (mech passwordmfa)", "mech": "passwordmfa", "ok": true, "step": "signin", "user": "child1", "whoami": "child1@idm.onemind.test"}
+  (exit 0)
+# second use of the same link
++ $PY reuse-intent child1.reset2
+{"body": "\"sessionexpired\"", "http": 401, "ok": true, "refused": true, "step": "reuse_reset_token"}
+  (exit 0)
