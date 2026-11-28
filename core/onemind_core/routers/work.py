@@ -14,8 +14,8 @@ from ..identity.scopes import has_any, register_route_scope
 from ..jsonbody import JsonBody
 from ..work.access import WORK_ROLES, delegated_reader
 from ..work.parse import parse_quick_add
-from ..work.service import (CaptureFields, Label, Name, PersonAssignee, Project, ProjectFields, Task, TaskFields, TaskView,
-                            WorkService)
+from ..work.service import (CaptureFields, Label, Name, PersonAssignee, Project, ProjectFields, StoredTaskFields, Task,
+                            TaskFields, TaskView, WorkService)
 
 ORDER = 260
 BASE = "/v1/work"
@@ -180,7 +180,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
         fields = previous.model_dump(include=set(TaskFields.model_fields))
         changes = body.model_dump(exclude_unset=True, exclude={"dependencies"})
         try:
-            proposed = TaskFields.model_validate({**fields, **changes})
+            # The changes already passed ChangeBody's strict title and label rules; the fields kept from
+            # the saved task are checked as stored, so a row from before those rules can still be edited.
+            proposed = StoredTaskFields.model_validate({**fields, **changes})
         except ValidationError:
             raise ApiError(422, "conflict", "Invalid Work task fields", reason="bad_task") from None
         task = service.replace_task(p, project_id, task_id, expected_revision=_revision(revision),
