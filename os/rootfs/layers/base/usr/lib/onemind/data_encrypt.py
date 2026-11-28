@@ -14,7 +14,8 @@ What it does, by what it finds on the onemind-data partition:
   - blank (the first 1 MiB is all zero and blkid sees no signature): by the rule above, either
       LUKS2 with a random key that only ever exists in RAM, btrfs inside it, a recovery key, then a TPM2 key bound
       to PCR 7 (TPM) or the owner's passphrase (opt-in), and the random key's slot is wiped; the recovery key is
-      printed once on the console and left in /run/onemind/data-recovery-key (RAM only) for the recovery-kit step;
+      shown once on the screen (never on a serial console unless the owner asks, see key_terminals) and left in
+      /run/onemind/data-recovery-key (RAM only) for the recovery-kit step;
       the LUKS2 header also gets the OneMind token (id 30), which the factory reset needs to find the disk;
     or plain btrfs on the partition (no TPM, no opt-in).
     Fail closed: when the firmware announces a TPM 2.0 (the ACPI TPM2 table, or the TPM event log with a kernel-reported
@@ -34,7 +35,8 @@ A factory reset armed on the ESP (reset_armed) makes it do nothing at all this b
 partition and restarts the box, and THAT boot finds a blank partition and formats it as above.
 
 What it will never do: format a partition that holds anything, or write the recovery key or the passphrase to disk,
-the journal or a command line (secrets go on stdin or in a 0600 file in RAM).
+the journal, a serial console (unless the owner opted in, #1118) or a command line (secrets go on stdin or in a 0600
+file in RAM).
 Exit status is always 0: a locked disk is reported by the data check (recovery mode), not by a failed unit.
 
 PCR 7 alone is a weak binding on a box without Secure Boot (anyone who boots another OS on the same
@@ -105,14 +107,16 @@ def console_devices():
     return ["/dev/" + n for n in names]
 
 
-def to_consoles(line, devices=None):
-    """Write one line to every console terminal that takes it, or to /dev/console when none does. Returns how many did.
+def to_consoles(line, devices=None, fallback=True):
+    """Write one line to every console terminal that takes it, or to /dev/console when none does (unless `fallback`
+    is False: the recovery key never goes to /dev/console, which plymouth logs and which is often a serial port).
+    Returns how many did.
     Never raises, never blocks the boot (O_NONBLOCK: a serial port with nothing listening must not hang the first boot;
     O_NOCTTY: this service must not take a terminal for its own)."""
     n = 0
     for dev in (console_devices() if devices is None else devices) + [None]:
         if dev is None:
-            if n:
+            if n or not fallback:
                 break
             dev = "/dev/console"
         try:
@@ -131,6 +135,29 @@ def to_consoles(line, devices=None):
 
 AGENT = "/usr/bin/systemd-tty-ask-password-agent"
 SERIAL_RX = re.compile(r"^(ttyS|ttyAMA|ttyUSB|ttyGS)\d+$")
+SCREEN_RX = re.compile(r"^tty\d+$")              # the screen's virtual terminals (tty0 = the one in front)
+KEY_SERIAL_OPT_IN = "onemind.recovery_key=serial"
+
+
+def key_terminals(names=None, text=None):
+    """Where the recovery key may be shown (#1118): the screen's own terminals (tty0, tty1) only. A serial console is
+    often logged on another machine (a hypervisor serial log, a terminal server, QEMU `-serial file:`), so the key goes
+    to a serial port only when the owner booted the first time with `onemind.recovery_key=serial` (a headless box
+    whose serial line the owner trusts). Anything else (hvc0, a USB console, /dev/console) never gets it."""
+    if names is None:
+        names = [d[len("/dev/"):] for d in console_devices()]
+    serial_ok = KEY_SERIAL_OPT_IN in (cmdline() if text is None else text).split()
+    return ["/dev/" + n for n in names if SCREEN_RX.match(n) or (serial_ok and SERIAL_RX.match(n))]
+
+
+def show_recovery_key(key, devices=None):
+    """Show the key once on the terminals key_terminals allows, never the journal and never /dev/console. Returns
+    how many terminals took it (0 on a box with no screen and no opt-in: the key is then only in RECOVERY_FILE)."""
+    devs = key_terminals() if devices is None else devices
+    if not devs:
+        return 0
+    return to_consoles("ONEMIND-DATA-CRYPT: RECOVERY KEY (write it down now, it is shown once): " + key, devs,
+                       fallback=False)
 
 
 def serial_consoles(names=None):
@@ -172,8 +199,8 @@ def serial_prompt_agent(devices=None, popen=subprocess.Popen):
 
 
 def say(msg, journal=True):
-    """To the consoles (screen and serial, see console_devices) and (unless `journal` is False) the journal. The
-    recovery key goes to the consoles only."""
+    """To the consoles (screen and serial, see console_devices) and (unless `journal` is False) the journal. Never
+    for the recovery key: that goes through show_recovery_key (screen only by default, #1118)."""
     line = f"ONEMIND-DATA-CRYPT: {msg}"
     if journal:
         print(line, flush=True)
@@ -520,7 +547,9 @@ def main(runner=run):
         how = "tpm2" if res["tpm2"] else ("passphrase" if res["passphrase"] else "recovery-key")
         keep_recovery_key(res["recovery_key"])
         write_state(state="encrypted", fs="btrfs", unlock=how, tpm2=res["tpm2"])
-        say("RECOVERY KEY (write it down now, it is shown once): " + res["recovery_key"], journal=False)
+        shown = show_recovery_key(res["recovery_key"])
+        say(f"recovery key made: shown on {shown} terminal(s): the screen, and a serial console only with {KEY_SERIAL_OPT_IN}; "
+            "kept in RAM for the recovery kit until the next restart")
         runner(["udevadm", "settle", "--timeout=20"], check=False)
     elif kind == "luks":
         how = unlock(node, has_tpm, runner)
