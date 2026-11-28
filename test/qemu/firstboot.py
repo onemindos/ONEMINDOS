@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""OneMind QEMU battery, first boot (F0-F13, F14, F15, F16). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
+"""OneMind QEMU battery, first boot (F0-F17). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
 (pre-registered; never edited to make a result pass). Reuses run-tests.py's VM driver.
 
 Input: the battery's fixtures (`make fixtures`: disk.img = slot A v1 + test overlay, bundles.img with
@@ -781,6 +781,49 @@ def f14(vm):
          "man_renders": get("MAN_RC") == "0" and get("MAN_NAME") not in ("0", "?") and get("MAN_SYN") not in ("0", "?")}
     record("F14", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" manw={get('MANW1')!r}")
 
+def f17(vm):
+    """Exercise the installed gateway's crypto backend (CRITERIA-BOXBUNDLE.md)."""
+    probe = """\
+from datetime import UTC, datetime
+from hashlib import sha256
+
+import cryptography
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from onemind_core.backups.kit import new_owner_key
+from onemind_core.boxbundle.envelope import (
+    CHUNK_SIZE, certify_export_key, kit_recipient_public_key, open_bundle, seal_bundle,
+)
+from onemind_core.boxbundle.manifest import BundleRefused
+
+assert cryptography.__version__ == "50.0.2", cryptography.__version__
+root = Ed25519PrivateKey.generate()
+export = Ed25519PrivateKey.generate()
+pin = sha256(root.public_key().public_bytes_raw()).hexdigest()
+kit = new_owner_key()
+phrase = "ephemeral QEMU probe"
+payload = b"a" * CHUNK_SIZE + b"b"
+bundle = seal_bundle(
+    payload, kit_public_key=kit_recipient_public_key(kit),
+    export_key=export, certificate=certify_export_key(root, export.public_key(), source_instance_id="qemu"),
+    box_name="QEMU", created_at=datetime.now(UTC), passphrase=phrase,
+)
+assert open_bundle(bundle, root_fingerprint=pin, owner_key=kit).payload == payload
+assert open_bundle(bundle, root_fingerprint=pin, passphrase=phrase).payload == payload
+changed = bundle[:-1] + bytes([bundle[-1] ^ 1])
+try:
+    open_bundle(changed, root_fingerprint=pin, owner_key=kit)
+except BundleRefused:
+    print("F17_RECOVERY_CRYPTO_OK")
+else:
+    raise AssertionError("changed bundle accepted")
+"""
+    path = "/run/f17-recovery-crypto.py"
+    send_file(vm, path, probe)
+    rc, out = vm.run(f'{PY} -I {path}; code=$?; rm -f {path}; (exit "$code")')
+    ok = rc == 0 and bool(re.search(r"^F17_RECOVERY_CRYPTO_OK\s*$", out, re.M))
+    record("F17", ok, "kit and passphrase opened, changed ciphertext refused" if ok else out.strip())
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=sorted(battery.BOARDS))
@@ -829,6 +872,7 @@ def main():
         record("F2", body[1] == "200" and body[0] == fil and len(fil) == 64,
                f"code={body[1]} body_sha={body[0][:16]} index_sha={fil[:16]}")
 
+        vm.mark("F17 recovery bundle crypto in the installed gateway venv"); f17(vm)
         vm.mark("F5 PSA admission (H-01)"); f5(vm)
         vm.mark("F6 secrets encrypted at rest (H-12)"); f6(vm)
         vm.mark("F7 the hub on its own mesh, HTTPS with the box CA (IMG-MESH-01)"); ip = f7(vm)
