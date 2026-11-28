@@ -52,6 +52,21 @@ describe('HttpApi', () => {
     expect(calls[0]!.init!.method).toBe('POST');
   });
 
+  it('sends a sealed secrets form with the approval even with no plan hash (#528)', async () => {
+    const { fn, calls } = fakeFetch(200, { id: 'a', state: 'accepted' });
+    const sealed = { alg: 'X25519-AES256GCM' as const, epk: 'e', ct: 'c' };
+    await new HttpApi({ token: 't', baseUrl: 'http://h', fetchFn: fn }).approve('a', { sealed });
+    expect(JSON.parse(String(calls[0]!.init!.body))).toEqual({ sealed });
+  });
+
+  it('reads an app\'s declared secrets and the box sealing key (#528)', async () => {
+    const { fn, calls } = fakeFetch(200, { app_id: 'a b' });
+    const api = new HttpApi({ token: 't', baseUrl: 'http://h', fetchFn: fn });
+    await api.appSecrets('a b');
+    await api.secretsPublicKey();
+    expect(calls.map((c) => c.url)).toEqual(['http://h/v1/apps/a%20b/secrets', 'http://h/v1/secrets/public-key']);
+  });
+
   it('maps the §3 error body to its code', async () => {
     const { fn } = fakeFetch(403, { error: 'permission_denied', message: 'agents cannot approve' });
     const e = await caught(new HttpApi({ token: 't', baseUrl: 'http://h', fetchFn: fn }).approve('x'));

@@ -3,7 +3,7 @@
 // denies it. The gateway is the authority; these helpers only turn its answers
 // into what the screens say, and never decide anything on the phone.
 import { Features, OP, type OneMindApi } from '../api/client';
-import { ApiError, type Action, type ActionType, type ApproveBody, type PrincipalRef, type Risk } from '../api/types';
+import { ApiError, type Action, type ActionType, type ApproveBody, type PrincipalRef, type Risk, type SealedInput } from '../api/types';
 import { ApprovalKeyError, approvalKeyMessage, type ApprovalSigner } from '../approvalKey';
 import { uuidv4 } from './uuid';
 import { PasskeyError, passkeyMessage, requestOptionsFrom, rpIdFor, type Passkeys } from './webauthn';
@@ -100,6 +100,8 @@ export interface StepUp {
   approvalKey?: ApprovalSigner;
   /** Deny reason (optional, shown to the requester, §12.4). */
   reason?: string;
+  /** #528: the install's secrets form, already sealed on this phone. Sent with every approve attempt. */
+  sealed?: SealedInput;
 }
 
 const NO_STEP_UP: StepUp = { features: Features.none(), ownerHasPasskey: false };
@@ -124,7 +126,7 @@ async function approveBound(api: OneMindApi, a: Action, ctx: StepUp): Promise<{ 
     const opts = await api.approveOptions(a.id);
     if (a.plan_sha256 && opts.plan_sha256 !== a.plan_sha256)
       throw new ApiError(409, 'stale_precondition', 'the plan changed since this card was loaded', { reason: 'plan_changed' });
-    const body: ApproveBody = opts.plan_sha256 ? { plan_sha256: opts.plan_sha256 } : {};
+    const body: ApproveBody = { ...(opts.plan_sha256 ? { plan_sha256: opts.plan_sha256 } : {}), ...(ctx.sealed ? { sealed: ctx.sealed } : {}) };
     usedKey = (step === 'key-or-none' || step === 'key-or-passkey') && !!ctx.approvalKey && !!opts.device_payload;
     if (usedKey) body.device_signature = await ctx.approvalKey!.sign(a, opts, keyPrompt(a, opts));
     else if (step === 'key-or-passkey' || step === 'passkey') body.webauthn = await sign(a, ctx, opts);
@@ -152,13 +154,13 @@ function keyPrompt(a: Action, opts: { plan_sha256: string | null }): { title: st
 /** v0 approval (no approve-options). A §12 hub that wants the plan hash says `plan_unchecked`; then send it. */
 async function approvePlain(api: OneMindApi, a: Action, ctx: StepUp): Promise<Action> {
   try {
-    return await api.approve(a.id);
+    return await api.approve(a.id, ctx.sealed ? { sealed: ctx.sealed } : undefined);
   } catch (e) {
     if (e instanceof ApiError && e.reason === 'plan_unchecked' && ctx.features.has(OP.preview)) {
       const p = await api.preview(a.id);
       if (a.plan_sha256 && p.plan_sha256 !== a.plan_sha256)
         throw new ApiError(409, 'stale_precondition', 'the plan changed since this card was loaded', { reason: 'plan_changed' });
-      return api.approve(a.id, { plan_sha256: p.plan_sha256 });
+      return api.approve(a.id, { plan_sha256: p.plan_sha256, ...(ctx.sealed ? { sealed: ctx.sealed } : {}) });
     }
     throw e;
   }
