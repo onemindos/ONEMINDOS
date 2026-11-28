@@ -23,6 +23,7 @@ from datetime import datetime, timedelta
 
 from fastapi import Request
 from sqlalchemy import delete, or_, select, update
+from sqlalchemy.orm import Session
 
 from ..auth import Principal
 from ..context import Gateway
@@ -50,9 +51,11 @@ from .crypto import (
     verify_password,
 )
 from .models import (
+    OWNER_PASSKEY_SEEN,
     AppAccessRow,
     ApproverKeyRow,
     ChallengeRow,
+    HouseholdFlagRow,
     IdentityRepository,
     PasskeyRow,
     SessionRow,
@@ -98,6 +101,7 @@ class AuthContext:
     token: TokenRow | None = None
     step_up_grant: str | None = None  # the OneMind-Step-Up header: a body-bound L2+ step-up (design 3.11)
     home: bool = False
+    redeemed_step_up: ChallengeRow | None = None  # the grant require_step_up just used (proven-key vouch)
 
 
 PROFILE_NAME_MAX = 60
@@ -211,10 +215,17 @@ class IdentityService:
         """Every active household account (user id -> role), for features that address people."""
         return {u.id: u.role for u in self.repo.all(select(UserRow).where(UserRow.disabled.is_(False)))}
 
-    def passkeys_active(self) -> bool:
-        """F-2: once any active owner has a passkey, owner approvals and administration need one."""
-        owners = self.active_owner_ids()
-        return bool(owners) and self.repo.count(PasskeyRow, PasskeyRow.user_id.in_(owners)) > 0
+    def passkeys_active(self, session: Session | None = None) -> bool:
+        """Whether any active owner currently holds a passkey."""
+        owner_key = select(PasskeyRow.id).join(UserRow, UserRow.id == PasskeyRow.user_id).where(
+            UserRow.role == "owner", UserRow.disabled.is_(False)).limit(1)
+        return (session.scalar(owner_key) if session is not None else self.repo.one(owner_key)) is not None
+
+    def _owner_verification_active(self, session: Session | None = None) -> bool:
+        """Owner verification stays on once the household has completed passkey setup."""
+        active = self.passkeys_active() if session is None else self.passkeys_active(session)
+        store = session if session is not None else self.repo
+        return active or store.get(HouseholdFlagRow, OWNER_PASSKEY_SEEN) is not None or self.levels.latched(session)
 
     def rp(self, request: Request) -> tuple[str, list[str]]:
         host = request.headers.get("host") or (request.url.hostname or "localhost")
@@ -687,12 +698,19 @@ class IdentityService:
     # ---- step-up ---------------------------------------------------------------------------------
     def require_step_up(self, ctx: AuthContext | None, p: Principal, what: str, op: str | None = None,
                         target: str = "", body: dict | None = None) -> str:
-        """Require fresh L1 or an operation-bound grant at the level this change needs (D-034)."""
+        """Require fresh L1 or an operation-bound grant at the level this change needs (D-034).
+
+        op names the owner route (levels.STEP_UP_ROWS, levels.FRESH_OPS or a guarded removal). When its
+        rule asks for L2 or more, or for a confirmation at the box (_op_rule), the 5-minute window is not
+        enough: the request must carry a step-up made for this exact change (op, target and body) at that
+        level (design 3.11, gap 20). Below L2 a step-up grant also stands in for signing in again. Either way
+        the 401 names the step-up in `details`, so a client can make it in place and repeat the request with
+        the OneMind-Step-Up header (SDK `completeStepUp`). Returns how the caller proved presence."""
         if not self.account_setup_exists():
             return "token"  # installation and test fixtures before the household claims the box
         need, box, inplace = 1, "", op is not None and (p.is_owner or op in lv.FRESH_OPS)
         if inplace:
-            need, box = self._op_rule(op, target, home=bool(ctx and ctx.home))
+            need, box = self._op_rule(op, target, body, home=bool(ctx and ctx.home))
             if need >= 2 or box or (ctx is not None and ctx.step_up_grant):
                 return self._use_step_up_grant(ctx, p, what, op, target, body or {}, need, box)
         if fresh := self._fresh_l1(ctx):
@@ -723,7 +741,9 @@ class IdentityService:
     #   box ""         a key at `need`;
     #   box "required" an L1 key plus the code on the box's own screen (the grace, or the interim recovery);
     #   box "alt"      a key at `need`, or an L1 key plus the box code when that key is lost.
-    def _op_rule(self, op: str, target: str = "", *, home: bool = False) -> tuple[int, str]:
+    #   Away from the box (not home) there is no box code: "alt" and "required" are never offered (D-034).
+    def _op_rule(self, op: str, target: str = "", body: dict | None = None, *,
+                 home: bool = False) -> tuple[int, str]:
         if op == "auth.passkeys.delete":
             # Revoking the household's last proven key would leave L2 actions without a key: it takes that
             # key, or an owner at the box (a lost or stolen key must always be stoppable, design 3.11).
@@ -736,15 +756,17 @@ class IdentityService:
             return 1, ""
         row = lv.STEP_UP_ROWS[op]
         if op == "auth.passkeys.register":
-            # Design 3.11: adding a key needs L1 until a proven key exists (a proven key enrolled then needs
-            # the box code, passkey_register), and an existing L2 key afterwards, so a new device can't vouch
-            # for itself. With none left, an owner at the box enrols one (the interim recovery path).
+            # Design 3.11: adding a second key needs L1 until a proven key exists, and the admin.high_risk row
+            # afterwards (L2 unless the owner lowered it), or an owner at the box: with no proven key left that
+            # is the only way (the interim recovery path), and an owner whose keys are all L1 can add one there
+            # too. Whether the new key may be a *proven* one is a separate rule with its own floor
+            # (lv.PROVEN_KEY_VOUCH, passkey_register_options): this row never lowers it.
             if not self.levels.note_proven("household_level"):
                 return 1, ""
             need = self.levels.row_level(row)
             if home and need == 2 and self.levels.recovery_needed():
                 return 1, "required"
-            return need, ""
+            return need, "alt" if home and need >= 2 else ""
         if op == "users.create":
             # Direct and queued invitations follow the same policy, including owner overrides.
             need, strict, _ = self.levels.for_action({"type": "users.invite", "risk": lv.FAMILY_INVITE_RISK})
@@ -752,7 +774,39 @@ class IdentityService:
             need, strict = self.levels.for_row(row)
         if home and self.levels.grace(need, strict):
             return 1, "required"
+        if (op == "users.update" and (body or {}).get("role") == "owner" and need < lv.PROVEN_KEY_VOUCH
+                and self.repo.one(self._member_proven_key(target)) is not None):
+            # Making this person an owner would turn their proven key (a member enrols one without the box)
+            # into an owner's, which nobody vouched for: the same floor as adding an owner's proven key, so a
+            # lowered admin.high_risk row can't hand an L1 key that power by a promotion. Before the first
+            # proven key it is the box (it would end the grace); after it, a proven key or an owner at the box.
+            # Away from the box only a proven key does (D-034: remote L2 needs a proven key).
+            if self.levels.note_proven("household_level"):
+                return lv.PROVEN_KEY_VOUCH, "alt" if home else ""
+            return (1, "required") if home else (lv.PROVEN_KEY_VOUCH, "")
         return need, "alt" if home and need == 2 and not strict else ""
+
+    @staticmethod
+    def _member_proven_key(user_id: str):
+        """Find a member's key that enrolled as proven, even if its model is currently untrusted."""
+        return select(PasskeyRow.id).join(UserRow, UserRow.id == PasskeyRow.user_id).where(
+            UserRow.id == user_id, UserRow.role != "owner",
+            PasskeyRow.level.in_(lv.LEVELS[lv.PROVEN_KEY_VOUCH:])).limit(1)
+
+    @staticmethod
+    def _vouch(via: str) -> str:
+        """How a step-up (require_step_up's answer, "<method>:<level>[+box]") vouches for an owner's new proven
+        key or a promotion: "proven_key" when it was made with a passkey at lv.PROVEN_KEY_VOUCH or more, "box"
+        when the box's code was typed with it at home (an L1 passkey, or a password and authenticator code:
+        D-034's local L2), else "" (a fresh sign-in or a plain L1 grant: a phone can add a key, never vouch for
+        a proven one)."""
+        method, _, proof = via.partition(":")
+        level, _, extra = proof.partition("+")
+        if level not in lv.LEVELS:
+            return ""
+        if method == "passkey" and lv.rank(level) >= lv.PROVEN_KEY_VOUCH:
+            return "proven_key"
+        return "box" if extra == "box" and lv.rank(level) >= 1 else ""
 
     def _last_proven(self, credential_id: str) -> bool:
         return self.removes_last_proven({credential_id})
@@ -795,7 +849,7 @@ class IdentityService:
         ops = set(lv.STEP_UP_ROWS) | lv.FRESH_OPS | {"auth.trusted_models.remove"}
         if op not in ops:
             raise ApiError(422, "conflict", f"op must be one of {', '.join(sorted(ops))}", reason="invalid_op")
-        need, box = self._op_rule(op, target, home=ctx.home)
+        need, box = self._op_rule(op, target, body, home=ctx.home)
         use_box = box == "required" or (box == "alt" and at_box)
         factor_need = 1 if use_box else max(need, 1)
         allow = self._keys_meeting(user.id, factor_need) if method == "passkey" else []
@@ -914,6 +968,7 @@ class IdentityService:
             self.emit("auth", "step_up.failed", {"attempted": what, "reason": "grant_mismatch"}, p, severity="warning")
             raise ApiError(401, "unauthenticated", "this step-up was made for a different change",
                            reason="step_up_required", details=details)
+        ctx.redeemed_step_up = row
         return f"{d.get('method', 'passkey')}:{d.get('level')}{'+box' if at_box else ''}"
 
     def _keys_meeting(self, user_ids: str | list[str], need: int) -> list[str]:
@@ -961,14 +1016,31 @@ class IdentityService:
         self._refuse_onion_enrolment(request, ctx)
         existing = list(self.repo.all(select(PasskeyRow.id).where(PasskeyRow.user_id == user.id)))
         recovery_id = remote_recovery.registration_id(self, ctx) if recovering else None
+        vouched = ""
         if existing and not recovery_id:  # adding a second key is adding power: prove you hold the first
-            self.require_step_up(ctx, ctx.principal, "register a passkey", op="auth.passkeys.register")
+            via = self.require_step_up(ctx, ctx.principal, "register a passkey", op="auth.passkeys.register")
+            vouched = self._vouch(via)
+        proof = ctx.redeemed_step_up.data if vouched and ctx.redeemed_step_up is not None else {}
+        if not proof.get("credential_id"):
+            vouched = ""  # a password and authenticator grant: the registration asks for the box code itself
         rp_id, _ = self.rp(request)
-        # Only an owner's key counts for approvals. A first or replacement proven owner key
-        # needs the screen (N-1 = b) or a completed remote recovery (D-034).
-        box = user.role == "owner" and not self._keys_meeting(user.id, 2)
+        # An owner's key that would enrol at L2 or more (a proven key) needs one of three things, before and after
+        # the grace and whatever keys the owner already has (N-1 = b; final review of #1184; D-034):
+        #   - a step-up grant for this registration made with the owner's own proven key (lv.PROVEN_KEY_VOUCH),
+        #     which the admin.high_risk row can't lower, or with an L1 passkey plus the box's code at home;
+        #   - the code on the box's own screen, typed at home with the registration; or
+        #   - a completed remote recovery (D-034: fresh L1, the recovery-kit code and a 72-hour wait).
+        # Otherwise an L1 key (a synced phone passkey somewhere else) or a password could enrol a key of its own
+        # that is L2, for instance after deleting its owner's only key, or with admin.high_risk lowered to L1.
+        # An L1 key (a phone or computer passkey) still enrols without any of them. Only an owner's key counts
+        # for approvals, so only an owner's enrolment needs this; a member's proven key meets the same floor when
+        # they are made an owner (_op_rule, users.update). There is no first-key exemption: the household's
+        # first proven owner key is also added at the box (D-034 first run) or through remote recovery.
+        box = user.role == "owner" and not vouched
         data = {"session_id": ctx.session.id, "credential_revision": user.credential_revision,
-                "box_for_proven": box}
+                "role": user.role, "box_for_proven": box, "vouched": vouched or None}
+        if vouched:
+            data.update(vouch_session_id=proof["session_id"], vouch_credential_id=proof["credential_id"])
         shown = False
         if recovery_id:
             data["remote_recovery_id"] = recovery_id
@@ -1015,11 +1087,16 @@ class IdentityService:
         model = self.levels.models().get(v["aaguid"])
         level, why = lv.credential_level(fmt=v["fmt"], has_chain=v["has_chain"], backup_eligible=v["backup_eligible"],
                                          model=model, chain_ok=v["chain_ok"])
+        proven = lv.rank(level) >= lv.PROVEN_KEY_VOUCH
+        why_grace_ended = f"passkey {v['id'][:32]}"
+        grace_ended = False
         recovery_id = row.data.get("remote_recovery_id")
-        if recovery_id and lv.rank(level) < 2:
+        vouched = row.data.get("vouched")
+        needs_code = bool(row.data.get("box_for_proven")) and not recovery_id
+        if recovery_id and not proven:
             raise ApiError(409, "conflict", "remote approval recovery needs a proven key on this session",
                            reason="remote_recovery_proven_key_required")
-        if lv.rank(level) >= 2 and row.data.get("box_for_proven") and not recovery_id:
+        if proven and needs_code:
             if not ctx.home:
                 raise ApiError(409, "conflict", "use remote approval recovery to add a proven key away from the box",
                                reason="remote_recovery_required")
@@ -1027,24 +1104,39 @@ class IdentityService:
                 raise ApiError(refused["status"], "rate_limited" if refused["status"] == 429 else "unavailable",
                                refused["message"], reason=refused["reason"])
             if not row.data.get("box_sha256"):
-                raise ApiError(409, "conflict", "this is a proven key, and the first one is added at the box, which "
-                               "this install has no screen for; nothing was saved", reason="box_presence_unavailable")
+                raise ApiError(409, "conflict", "this is a proven key: add it with your proven key's confirmation, "
+                               "or at the box, which this install has no screen for; nothing was saved",
+                               reason="box_presence_unavailable")
             self._check_local_box(request, row.data["box_sha256"], box_code, "add a proven key")
-        passkey_row = PasskeyRow(id=v["id"], user_id=user.id, label=label, public_key=v["public_key"],
-                                 sign_count=v["sign_count"], transports=v["transports"], created_at=now,
-                                 install_id=install_id, aaguid=v["aaguid"], att_fmt=v["fmt"][:24],
-                                 att_chain_sha256=v["chain_sha256"], backup_eligible=v["backup_eligible"],
-                                 backed_up=v["backed_up"], level=level, level_reason=why,
-                                 model=model.name if model and level != "L1" else None)
-        with self.repo.db.session.begin() as db:
+        with self.repo.lock_user(user.id) as (db, current):
+            if current is None or current.disabled:
+                raise ApiError(401, "unauthenticated", "account disabled", reason="bad_credentials")
             # Serialize on the same user row that password resets and replacement invites update.
-            current = db.execute(update(UserRow).where(
+            unchanged = db.execute(update(UserRow).where(
                 UserRow.id == user.id, UserRow.role == user.role, UserRow.disabled.is_(False),
                 UserRow.credential_revision == user.credential_revision,
-            ).values(credential_revision=UserRow.credential_revision).returning(UserRow.id)).scalar_one_or_none()
-            if current is None:
+            ).values(credential_revision=UserRow.credential_revision).returning(UserRow.id),
+                execution_options={"synchronize_session": False}).scalar_one_or_none()
+            if unchanged is None:
                 raise ApiError(409, "conflict", "the account credentials changed; sign in and try again",
                                reason="credentials_changed")
+            if vouched:
+                session_id, credential_id = row.data.get("vouch_session_id"), row.data.get("vouch_credential_id")
+                vouch_session = (db.get(SessionRow, session_id, with_for_update=True)
+                                 if session_id == ctx.session.id else None)
+                key = db.get(PasskeyRow, credential_id) if credential_id else None
+                need = lv.PROVEN_KEY_VOUCH if vouched == "proven_key" else 1
+                if (vouch_session is None or not self._session_live(vouch_session, self.now())
+                        or key is None or key.user_id != user.id
+                        or self.levels.cred_level(key, self.levels.models(db)) < need):
+                    raise ApiError(409, "conflict", "passkey confirmation is no longer valid for this session; "
+                                   "request new passkey registration options", reason="registration_options_stale")
+            # A promotion may land while registration is pending: options made for a member never let the new
+            # owner finish a proven registration without a vouch, the box code or a remote recovery.
+            if (proven and current.role == "owner" and not (needs_code or vouched or recovery_id)
+                    and (row.data.get("role") != "owner" or self._owner_verification_active(db))):
+                raise ApiError(409, "conflict", "verification requirements changed; request new passkey "
+                               "registration options", reason="registration_options_stale")
             session = ctx.session
             now = self.now()
             transport_live = (SessionRow.last_seen_at > now - timedelta(hours=self.cfg.session_idle_hours)
@@ -1053,19 +1145,33 @@ class IdentityService:
                 SessionRow.id == session.id, SessionRow.user_id == user.id,
                 SessionRow.credential_revision == user.credential_revision, SessionRow.revoked_at.is_(None),
                 SessionRow.expires_at > now, transport_live,
-            ).values(passkey_at=now, step_up_credential_id=v["id"]).returning(SessionRow.id)).scalar_one_or_none()
+            ).values(passkey_at=now, step_up_credential_id=v["id"]).returning(SessionRow.id),
+                # the vouch check may have loaded this row: SQLite's naive times can't be compared in Python
+                execution_options={"synchronize_session": False}).scalar_one_or_none()
             if updated is None:
                 raise ApiError(401, "unauthenticated", "the session ended; sign in and try again", reason="session_required")
             if recovery_id:
                 remote_recovery.consume(self, db, ctx, recovery_id)
-            db.add(passkey_row)
+            db.add(PasskeyRow(id=v["id"], user_id=user.id, label=label, public_key=v["public_key"],
+                              sign_count=v["sign_count"], transports=v["transports"], created_at=now,
+                              install_id=install_id, aaguid=v["aaguid"], att_fmt=v["fmt"][:24],
+                              att_chain_sha256=v["chain_sha256"], backup_eligible=v["backup_eligible"],
+                              backed_up=v["backed_up"], level=level, level_reason=why,
+                              model=model.name if model and level != "L1" else None))
+            if current.role == "owner":
+                db.flush()  # record_proven counts this key
+                self.repo.set_household_flag(db, OWNER_PASSKEY_SEEN, now, "owner passkey registered")
+                if proven:
+                    grace_ended = self.levels.record_proven(db, why_grace_ended)
         if recovery_id:
             self.emit("auth", "remote_recovery.completed", {"user_id": user.id}, ctx.principal, severity="warning")
+        # How a proven key was vouched for: "proven_key", "box", "remote_recovery", or None (an L1 or member key).
+        confirmed = (vouched or ("remote_recovery" if recovery_id else "box" if needs_code else None)) if proven else None
         self.emit("auth", "passkey.registered", {"user_id": user.id, "credential_id": v["id"], "label": label,
                                                  "level": level, "level_reason": why, "aaguid": v["aaguid"],
-                                                 "attestation": v["fmt"]}, ctx.principal)
-        if lv.rank(level) >= 2:
-            self.levels.note_proven(f"passkey {v['id'][:32]}")  # the grace ends for good
+                                                 "attestation": v["fmt"], "confirmed": confirmed}, ctx.principal)
+        if grace_ended:
+            self.levels.emit_grace_ended(why_grace_ended)
         return {"credential_id": v["id"], "label": label, "created_at": iso(now), "level": level,
                 "level_reason": why, "explanation": lv.REASON_TEXT[why]}
 
@@ -1334,10 +1440,28 @@ class IdentityService:
             values["display_name"] = display_name.strip()[:100] or u.display_name
         if role is not None and role != u.role:
             values["role"] = role
-        self.repo.update(UserRow, [UserRow.id == u.id], values)
+        why_grace_ended = f"owner promotion {u.id}"
+        grace_ended = False
+        if values.get("role") == "owner":
+            with self.repo.lock_user(u.id) as (s, current):
+                # A member may finish enrolling a proven key after the promotion's step-up was checked. With
+                # sign-in verification always on once a household account exists (D-034), there is no
+                # pre-passkey exemption here either.
+                if not self._vouch(via) and s.scalar(self._member_proven_key(u.id)) is not None:
+                    raise ApiError(409, "conflict", "this person enrolled a proven key; retry the role change",
+                                   reason="promotion_verification_changed")
+                s.execute(update(UserRow).where(UserRow.id == u.id).values(**values))
+                if current is not None and not current.disabled and s.scalar(
+                        select(PasskeyRow.id).where(PasskeyRow.user_id == u.id).limit(1)) is not None:
+                    self.repo.set_household_flag(s, OWNER_PASSKEY_SEEN, values["updated_at"], "owner promoted with passkey")
+                    grace_ended = self.levels.record_proven(s, why_grace_ended)
+        else:
+            self.repo.update(UserRow, [UserRow.id == u.id], values)
         changed = sorted(k for k in values if k != "updated_at")
         self.emit("user", "updated", {"user_id": u.id, "changed": changed, "role": values.get("role", u.role),
                                       "step_up": via}, p)
+        if grace_ended:
+            self.levels.emit_grace_ended(why_grace_ended)
         if "role" in values:
             for hook in self.role_hooks:
                 hook(u.id, values["role"], p)

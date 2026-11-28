@@ -65,7 +65,8 @@ ROWS: dict[str, Row] = {
     "tier.P": Row("Approve a physical action (it moves or switches something)", "L2", "L2", strict=True),
     "physical.lockout_off": Row("Turn the motion lockout off", "L2", "L2", strict=True),
     "admin.high_risk": Row("Add a sign-in key, an approver or a contact; change a person's role; declare what "
-                           "an agent reads; export recovery or backup keys", "L2", "L1"),
+                           "an agent reads; export recovery or backup keys. Lowering this never lowers what adding "
+                           "a proven key takes: your proven key or the box's code", "L2", "L1"),
     "security.settings": Row("Security settings: sharing, certificates, update channel, trusted key models, "
                              "permission rules", "L2", "L2"),
     "verification.table": Row("Change this table", "L2", "L2"),
@@ -102,6 +103,14 @@ STEP_UP_ROWS = {
     "approvals.policies.confirm": "security.settings",
     "physical.lockout.set": "physical.lockout_off",
 }
+
+# Adding an owner's proven key (L2 or more) has its own floor, outside the editable table: the person's own
+# proven key vouches for it (a step-up grant at this level), or the code on the box's own screen does at home,
+# or a completed remote recovery does (D-034). It holds before and after the grace and whatever keys the person
+# already has, so lowering admin.high_risk (the phone-only household's escape hatch) lets a phone add a key,
+# never mint a proven one (review of #1184). Making someone who holds a proven key an owner meets the same
+# floor (service._op_rule, users.update).
+PROVEN_KEY_VOUCH = 2
 
 # Routes with a fixed step-up rule when a proof is needed.
 FRESH_OPS = frozenset({"auth.passkeys.delete", "me.devices.remove"})
