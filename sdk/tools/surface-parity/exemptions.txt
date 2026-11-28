@@ -36,47 +36,19 @@ mobile-scope push
 
 
 # ---- must-have gaps: the #1232 checklist -------------------------------------------------------------
-group m1-password-totp issue=#1232 M1: password change and authenticator (TOTP) setup, confirm, disable have no screen or command.
-dashboard auth.password.change m1-password-totp
-dashboard auth.totp.confirm m1-password-totp
-dashboard auth.totp.disable m1-password-totp
-dashboard auth.totp.setup m1-password-totp
-cli auth.password.change m1-password-totp
-cli auth.totp.confirm m1-password-totp
-cli auth.totp.disable m1-password-totp
-cli auth.totp.setup m1-password-totp
 group m2-radio-confirm issue=#1232 M2: confirming what a found radio is (human-only) has no screen or command; the list has no screen.
-dashboard radios.confirm m2-radio-confirm
 dashboard radios.list m2-radio-confirm
-cli radios.confirm m2-radio-confirm
-group m3-grants issue=#1232 M3: data-commons grants and plugin host-grants cannot be seen or revoked by a person.
-dashboard data.grants.list m3-grants
-dashboard data.grants.revoke m3-grants
-dashboard plugins.host_grants.list m3-grants
-dashboard plugins.host_grants.revoke m3-grants
-cli data.grants.revoke m3-grants
-cli plugins.host_grants.revoke m3-grants
-group m4-my-devices issue=#1232 M4: a person's own devices (list, sign out one) have no dashboard screen or command; the phone has MyDevices.
-dashboard me.devices.list m4-my-devices
-dashboard me.devices.remove m4-my-devices
-cli me.devices.remove m4-my-devices
 group m5-step-up-owner-screens issue=#1214 M5: app sharing and standing approvals are written through the body-bound step-up, which no dashboard screen or command does yet.
 dashboard approvals.policies.create m5-step-up-owner-screens
 dashboard approvals.policies.delete m5-step-up-owner-screens
 dashboard apps.access.set m5-step-up-owner-screens
 cli approvals.policies.create m5-step-up-owner-screens
-cli approvals.policies.delete m5-step-up-owner-screens
 cli apps.access.set m5-step-up-owner-screens
 group m7-approver-keys issue=#1213 M7: proven approver keys: the Sign-in keys screen is in PR #1186 and the `keys` command in PR #1184, not merged.
 dashboard auth.approver_keys.list m7-approver-keys
 dashboard auth.approver_keys.register m7-approver-keys
 dashboard auth.approver_keys.revoke m7-approver-keys
 cli auth.approver_keys.revoke m7-approver-keys
-group m8-cli-tokens-secrets issue=#1232 M8: access tokens and app secrets can be changed on the dashboard but have no `onemind` command.
-cli apps.secrets.change m8-cli-tokens-secrets
-cli tokens.create m8-cli-tokens-secrets
-cli tokens.revoke m8-cli-tokens-secrets
-cli tokens.rotate m8-cli-tokens-secrets
 
 # ---- should-have gaps named in the report (#1232 S-rows) ---------------------------------------------
 group s3-notifications issue=#1232 S3: notification sources, send and channel edits have no screen; preferences, sources, inbox and channel edits have no command.
@@ -87,36 +59,26 @@ dashboard notifications.sources.list s3-notifications
 dashboard notifications.sources.set s3-notifications
 cli notifications.channels.delete s3-notifications
 cli notifications.channels.update s3-notifications
-cli notifications.preferences.set s3-notifications
 cli notifications.read s3-notifications
 cli notifications.read_all s3-notifications
 cli notifications.send s3-notifications
-cli notifications.sources.set s3-notifications
 group s4-storage-domains issue=#1232 S4: storage plans, actions and the recovery key, and domain names (ask, approve, remove a host) have no screen; StorageCare is in PR #1190.
-dashboard domains.host_approve s4-storage-domains
-dashboard domains.host_remove s4-storage-domains
-dashboard domains.host_request s4-storage-domains
 dashboard storage.actions.create s4-storage-domains
 dashboard storage.operations.get s4-storage-domains
 dashboard storage.plans.create s4-storage-domains
 dashboard storage.recovery_key.take s4-storage-domains
 cli domains.check s4-storage-domains
-cli domains.host_approve s4-storage-domains
-cli domains.host_remove s4-storage-domains
-cli domains.host_request s4-storage-domains
 cli domains.remove s4-storage-domains
 cli storage.actions.create s4-storage-domains
 cli storage.plans.create s4-storage-domains
 cli storage.recovery_key.take s4-storage-domains
 group s5-backups issue=#1232 S5: backup content selection, verification history, run and snapshot detail and destination removal have no screen; several backup writes have no command.
-dashboard backups.content.list s5-backups
 dashboard backups.content.set s5-backups
 dashboard backups.destinations.remove s5-backups
 dashboard backups.runs.get s5-backups
 dashboard backups.snapshots.file s5-backups
 dashboard backups.snapshots.get s5-backups
 dashboard backups.snapshots.tree s5-backups
-dashboard backups.verifications.list s5-backups
 dashboard backups.verify s5-backups
 dashboard restores.get s5-backups
 cli backups.content.set s5-backups
@@ -135,33 +97,23 @@ cli work.project_create s6-work
 cli work.task_delete s6-work
 group s7-windows issue=#1232 S7: windows (/v1/windows) have no caller on any surface.
 dashboard windows.list s7-windows
-dashboard windows.put s7-windows
-cli windows.put s7-windows
 group s8-cli-groups issue=#1232 S8: these settings have a dashboard screen but no `onemind` command group yet (automation, alerts, family, onboarding, files, sharing, plugins and others).
 cli alerts.ack s8-cli-groups
-cli alerts.fix s8-cli-groups
 cli alerts.resolve s8-cli-groups
 cli auth.passkeys.delete s8-cli-groups
 cli automation.pause s8-cli-groups
 cli automation.resume s8-cli-groups
-cli automation.rules.create s8-cli-groups
-cli automation.rules.delete s8-cli-groups
 cli automation.rules.disable s8-cli-groups
-cli automation.rules.dry_run s8-cli-groups
 cli automation.rules.enable s8-cli-groups
 cli automation.rules.update s8-cli-groups
 cli deploy.compose s8-cli-groups
 cli fabric.ticket_revoke s8-cli-groups
-cli family.apps.set s8-cli-groups
-cli family.profiles.set s8-cli-groups
 cli files.app_passwords.create s8-cli-groups
 cli files.app_passwords.revoke s8-cli-groups
 cli files.downloads.discard s8-cli-groups
 cli files.downloads.release s8-cli-groups
 cli files.grants.request s8-cli-groups
-cli files.grants.revoke s8-cli-groups
 cli files.ops s8-cli-groups
-cli files.quotas.set s8-cli-groups
 cli files.requests.approve s8-cli-groups
 cli files.requests.cancel s8-cli-groups
 cli files.requests.deny s8-cli-groups
@@ -179,12 +131,8 @@ cli migrate.copy s8-cli-groups
 cli migrate.cutover s8-cli-groups
 cli migrate.import s8-cli-groups
 cli migrate.revert s8-cli-groups
-cli onboarding.settings.save s8-cli-groups
 cli physical.lockout.set s8-cli-groups
 cli plans.create s8-cli-groups
-cli plugins.keys.enroll s8-cli-groups
-cli plugins.keys.revoke s8-cli-groups
-cli plugins.settings.request s8-cli-groups
 cli shares.smb.password s8-cli-groups
 cli system.actions.create s8-cli-groups
 cli tips.set_state s8-cli-groups
@@ -225,19 +173,15 @@ dashboard files.shares.revoke later-file-transfer
 dashboard files.stat later-file-transfer
 group later-os-fleet issue=#1232 Later: the OS fleet and staged rollouts console has no screen or command.
 dashboard os.fleet later-os-fleet
-dashboard os.rollouts.cancel later-os-fleet
 dashboard os.rollouts.get later-os-fleet
 dashboard os.rollouts.list later-os-fleet
-cli os.rollouts.cancel later-os-fleet
 group later-search-share-restore-tips issue=#1232 Later: search, the Send to menu (share targets and types), onboarding restore and tips state and what's new have no dashboard screen.
 dashboard onboarding.restore.app later-search-share-restore-tips
 dashboard onboarding.restore.candidates later-search-share-restore-tips
-dashboard search.query later-search-share-restore-tips
 dashboard share.send later-search-share-restore-tips
 dashboard share.targets later-search-share-restore-tips
 dashboard share.types later-search-share-restore-tips
 dashboard tips.set_state later-search-share-restore-tips
-dashboard tips.whats_new later-search-share-restore-tips
 cli onboarding.restore.app later-search-share-restore-tips
 cli onboarding.restore.candidates later-search-share-restore-tips
 cli share.send later-search-share-restore-tips
@@ -323,7 +267,6 @@ dashboard plugins.host_grants.request app-and-agent-door
 cli bridges.events.post app-and-agent-door
 cli data.records.create app-and-agent-door
 cli plugins.call app-and-agent-door
-cli plugins.host_grants.request app-and-agent-door
 group client-protocol issue=#1232 A client protocol another program speaks: the desktop sync client (sync), the office editor (WOPI), the phone's photo backup and the device's own push registration. The program, not a screen, is the caller.
 dashboard files.wopi.check_file_info client-protocol
 dashboard files.wopi.get_file client-protocol
@@ -377,9 +320,6 @@ cli auth.passkeys.register cli-browser-ceremony
 cli auth.passkeys.register_options cli-browser-ceremony
 cli auth.refresh cli-browser-ceremony
 cli auth.setup cli-browser-ceremony
-cli browsers.profile_reset cli-browser-ceremony
-cli browsers.session_close cli-browser-ceremony
-cli browsers.session_open cli-browser-ceremony
 group cli-visual-layout issue=#1232 A layout a person arranges on screen (Home, the dashboard card); a terminal has nothing to arrange. Founder to confirm.
 cli me.dashboard_card.save cli-visual-layout
 cli me.home.save cli-visual-layout

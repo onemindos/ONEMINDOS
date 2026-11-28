@@ -92,7 +92,8 @@ INFORMATIONAL_PR_PATHS = {
     "perf-smoke.yml": {"test/perf/**", ".github/workflows/perf-smoke.yml"},
     "net-2vm.yml": {"test/net/**", ".github/workflows/net-2vm.yml"},
     "restore-drill.yml": {"test/restore-drill/**", ".github/workflows/restore-drill.yml"},
-    "security-nightly.yml": {"os/update/**", ".github/workflows/security-nightly.yml"},
+    "security-nightly.yml": {"os/update/**", "scripts/tuf-bootstrap-root.sh", "scripts/ceremony-guide.py",
+                             ".github/workflows/security-nightly.yml"},
     "apps-gate-all.yml": {"sdk/tools/ci/**", ".github/workflows/apps-gate-all.yml"},
 }
 

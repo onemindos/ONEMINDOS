@@ -1,0 +1,35 @@
+# 2026-11-25T11:29:32Z idle RSS after first start (30 s settle)
++ rss
+VmHWM:	 45584 kB VmRSS:	 45584 kB 
+  (exit 0)
+# 2026-11-25T11:57:02Z RSS after AK-3 to AK-6
++ rss
+VmHWM:	 69164 kB VmRSS:	 69164 kB 
+  (exit 0)
+# 2026-11-25T11:57:05Z AK-9 disk footprint on the source box
++ dpkg-query -W -f='${Package} ${Version} Installed-Size=${Installed-Size}KiB\n' kanidmd kanidm
+kanidm 1.12.0-202611010319+a52b723 Installed-Size=114078KiB
+kanidmd 1.12.0-202611010319+a52b723 Installed-Size=246640KiB
+  (exit 0)
++ du -sh /usr/bin/kanidmd /usr/bin/kanidm /usr/share/kanidmd
+240M	/usr/bin/kanidmd
+72M	/usr/bin/kanidm
+1.9M	/usr/share/kanidmd
+  (exit 0)
++ du -sh /var/lib/private/kanidmd; ls -l /var/lib/private/kanidmd; du -sh /var/lib/private/kanidmd/backups
+5.6M	/var/lib/private/kanidmd
+total 5640
+drwxr-x--- 2 nobody nogroup    4096 Nov 25 11:57 backups
+-rw-r----- 1 nobody nogroup 1585152 Nov 25 11:53 kanidm.db
+-rw-r----- 1 nobody nogroup   32768 Nov 25 11:57 kanidm.db-shm
+-rw-r----- 1 nobody nogroup 4148872 Nov 25 11:57 kanidm.db-wal
+-rw-r--r-- 1 nobody nogroup       0 Nov 25 11:51 kanidm.klock
+88K	/var/lib/private/kanidmd/backups
+  (exit 0)
++ rss
+VmHWM:	 70664 kB VmRSS:	 70664 kB 
+  (exit 0)
+# peak kanidmd RSS while the online backup ran (0.2 s samples): 71964 kB
++ rss
+VmHWM:	 71964 kB VmRSS:	 71964 kB 
+  (exit 0)
