@@ -44,6 +44,8 @@ export interface ActionSummary {
   hold?: { duration: number; plan?: string };
   /** The key level approving needs (approve-options' required_level, D-028). */
   required_level?: VerificationLevel;
+  /** The hold is for something physical (the gateway's approval.physical); without it a hold means it cannot be undone. */
+  physical?: boolean;
 }
 
 export const ACTION_STATE: Record<ActionState, { tone: Tone; label: string }> = {

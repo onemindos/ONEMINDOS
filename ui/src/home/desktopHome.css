@@ -1,0 +1,66 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Atlas Home on the desktop (DesktopHome.tsx): a column of tiles on the wallpaper, an edit bar and a
+   tray in edit mode. Only --om-* design tokens and the Home glass tokens from home.css. */
+.omd-home {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 460px) minmax(0, 1fr);
+  grid-template-areas: 'bar bar' 'col tray';
+  align-items: start;
+  gap: var(--om-space-4) var(--om-space-6);
+}
+.omd-editing { grid-template-columns: minmax(0, 460px) minmax(0, 1fr) minmax(260px, 300px); grid-template-areas: 'bar bar bar' 'col . tray'; }
+.omd-column { grid-area: col; display: flex; flex-direction: column; gap: var(--om-space-4); min-width: 0; }
+
+/* Greeting: large and tight, left-aligned, straight on the wallpaper. */
+.omd-hero { display: flex; flex-direction: column; gap: var(--om-space-2); padding-top: var(--om-space-2); }
+.omd-greeting { margin: 0; font-size: clamp(2rem, 1.4rem + 1.8vw, 2.5rem); font-weight: var(--om-font-weight-bold); letter-spacing: -0.035em; line-height: 1.05; overflow-wrap: anywhere;
+  text-shadow: 0 1px 18px color-mix(in srgb, var(--om-color-bg) 60%, transparent); }
+.omd-summary { margin: 0; font-size: var(--om-font-size-md); line-height: 1.45; color: var(--om-color-text-muted); max-width: 46ch; }
+.omd-summary strong { color: var(--om-color-text); font-weight: var(--om-font-weight-semibold); }
+.omd-hubage { display: inline-flex; align-items: center; gap: var(--om-space-2); margin: 0; font-size: var(--om-font-size-sm); color: var(--om-color-warn-fg); }
+
+/* Tiles: two columns inside the Home column (S is half, M and L are full width). */
+.omd-tiles .omh-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--om-space-3); }
+.omd-tiles .omh-cell-M, .omd-tiles .omh-cell-L { grid-column: 1 / -1; }
+.omd-tiles .omh-cell-L { grid-row: auto; }
+.omd-home .omh-widget, .omd-column > .dash-health { border-radius: var(--om-radius-lg); background: var(--omh-glass); border: 1px solid var(--omh-glass-border);
+  backdrop-filter: saturate(150%) blur(var(--omh-blur)); -webkit-backdrop-filter: saturate(150%) blur(var(--omh-blur)); box-shadow: var(--om-shadow-1); }
+.omd-home .omh-widget-icon { color: var(--om-color-text-muted); }
+/* Box health reads as the first tile: a compact status card, not a page section. */
+.omd-column > .dash-health { gap: var(--om-space-2); padding: var(--om-space-3) var(--om-space-4); }
+.omd-column > .dash-health .omh-section-head h2 { font-size: var(--om-font-size-sm); text-transform: none; letter-spacing: 0; color: var(--om-color-text); }
+.omd-home .omh-node-age { margin-left: auto; }
+.omh-approval-tag { font-size: var(--om-font-size-xs); color: var(--om-color-text-muted); }
+
+.omd-edit { all: unset; box-sizing: border-box; align-self: flex-start; margin-top: var(--om-space-1); display: inline-flex; align-items: center; gap: var(--om-space-2); min-height: 32px; padding: 0 var(--om-space-3);
+  border-radius: var(--om-radius-pill); font-size: var(--om-font-size-sm); color: var(--om-color-text-muted); background: var(--omh-glass); border: 1px solid var(--omh-glass-border); cursor: pointer; }
+.omd-edit:hover { color: var(--om-color-text); }
+.omd-edit:focus-visible, .omd-tray-add:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
+
+/* Edit mode (08b): an edit bar across the top, dashed tiles, the tray on the right. */
+.omd-editbar { grid-area: bar; justify-self: center; position: sticky; top: 0; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; gap: var(--om-space-3); max-width: 760px; padding: var(--om-space-3) var(--om-space-4);
+  border-radius: var(--om-radius-lg); background: color-mix(in srgb, var(--om-color-surface) 92%, transparent); border: 1px solid var(--om-color-border); box-shadow: var(--om-shadow-2); }
+.omd-editbar p { flex: 1 1 280px; margin: 0; font-size: var(--om-font-size-sm); }
+.omd-editing .omh-grid-editing .omh-cell { outline: 2px dashed var(--om-color-accent); outline-offset: 3px; }
+.omd-tray { grid-area: tray; position: sticky; top: 80px; max-height: calc(100vh - 240px); overflow-y: auto; display: flex; flex-direction: column; gap: var(--om-space-3); padding: var(--om-space-4);
+  border-radius: var(--om-radius-lg); background: color-mix(in srgb, var(--om-color-surface) 94%, transparent); border: 1px solid var(--om-color-border); box-shadow: var(--om-shadow-2); }
+.omd-tray h2 { margin: 0; font-size: var(--om-font-size-md); }
+.omd-tray-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--om-space-2); }
+.omd-tray-list > li { display: flex; align-items: center; gap: var(--om-space-3); padding: var(--om-space-2) var(--om-space-3); border-radius: var(--om-radius-md); border: 1px solid var(--om-color-border); background: var(--om-color-surface); }
+.omd-tray-glyph { display: inline-grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: var(--om-radius-sm); background: var(--om-color-surface-sunken); color: var(--om-color-text-muted); }
+.omd-tray-text { display: flex; flex-direction: column; flex: 1; min-width: 0; font-size: var(--om-font-size-sm); }
+.omd-tray-text .om-hint { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.omd-tray-title { font-weight: var(--om-font-weight-semibold); }
+.omd-tray-add { all: unset; box-sizing: border-box; display: inline-grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: var(--om-radius-sm); border: 1px solid var(--om-color-border-strong); cursor: pointer; color: var(--om-color-text); }
+.omd-tray-add[aria-pressed='true'] { background: var(--om-color-accent-soft); border-color: var(--om-color-accent); color: var(--om-color-accent); }
+.omd-tray-add:disabled { opacity: 0.5; cursor: default; }
+.omd-tray-foot { margin-top: auto; }
+
+@media (max-width: 1100px) {
+  .omd-editing { grid-template-columns: minmax(0, 1fr) minmax(240px, 280px); grid-template-areas: 'bar bar' 'col tray'; }
+}
+@media (max-width: 720px) {
+  .omd-home, .omd-editing { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'bar' 'col' 'tray'; }
+  .omd-tray, .omd-editbar { position: static; max-height: none; }
+}

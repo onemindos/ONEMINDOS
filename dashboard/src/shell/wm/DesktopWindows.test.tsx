@@ -9,6 +9,7 @@ import { MockApi } from '../../api/mock';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { openScreen, renderApp } from '../../test/helpers';
 import { personStorage } from '../../data/prefs';
+import { HOME_COLUMN } from './store';
 
 beforeEach(() => {
   if (!window.localStorage) {
@@ -42,6 +43,8 @@ it('keeps both routes mounted, restores their geometry, and closes only the focu
   first.unmount();
   renderApp({ token: 'owner-demo' });
   const again = await screen.findByRole('region', { name: 'Market' });
+  // At "/" the windows stay painted over the desktop; wait until the restored top window has focus again.
+  await waitFor(() => expect(document.querySelector('.dsk-in-window')).not.toBeNull());
   expect(again.style.left).toBe(left);
   expect(screen.getByRole('region', { name: 'Approvals' })).toBeInTheDocument();
   await user.keyboard('{Escape}');
@@ -154,4 +157,31 @@ it('visiting an empty workspace and back keeps both windows of workspace 1 open'
   await user.click(within(spaces).getByRole('button', { name: /^Workspace 1/ }));
   await waitFor(() => expect(frame('market').hidden).toBe(false));
   expect(frame('approvals').hidden).toBe(false);
+});
+
+it('opens a window over the desktop: Home stays painted behind it, inert, and the bare stage brings the desktop back with the window still open', async () => {
+  const user = userEvent.setup();
+  const { container } = renderApp({ token: 'owner-demo' });
+  await screen.findByRole('heading', { level: 1, name: /^Good/ });
+  await openScreen(user, /Market/);
+  const market = await screen.findByRole('region', { name: 'Market' });
+  // Right of Home's tile column (Atlas 01), not over it.
+  expect(Number.parseFloat(market.style.left)).toBeGreaterThanOrEqual(HOME_COLUMN);
+  const desktop = container.querySelector<HTMLElement>('.dsk-desktop')!;
+  expect(desktop).toHaveAttribute('inert');
+  expect(desktop).toHaveAttribute('aria-hidden', 'true');
+  expect(desktop.textContent).toMatch(/Good (morning|afternoon|evening|night)/);
+  expect(screen.queryByRole('heading', { level: 1, name: /^Good/ })).toBeNull();
+  // A click on the bare wallpaper focuses the desktop; the window stays where it was, no longer active.
+  // A click, not a pointer-down: the rest of a touch must never land on Home's live buttons.
+  fireEvent.pointerDown(container.querySelector('.wm-stage')!);
+  expect(desktop).toHaveAttribute('inert');
+  fireEvent.click(container.querySelector('.wm-stage')!);
+  expect(await screen.findByRole('heading', { level: 1, name: /^Good/ })).toBe(desktop.querySelector('h1'));
+  expect(desktop).not.toHaveAttribute('inert');
+  expect(frame('market').hidden).toBe(false);
+  expect(within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: /Home/ })).toHaveAttribute('aria-current', 'page');
+  // Clicking the window gives it focus again.
+  fireEvent.pointerDown(frame('market'));
+  await waitFor(() => expect(desktop).toHaveAttribute('inert'));
 });
