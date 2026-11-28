@@ -31,9 +31,13 @@ from zoneinfo import available_timezones
 from pydantic import ValidationError
 
 from ..automation.cron import WEEKDAYS, parse_ranges
-from ..automation.updatepolicy import UpdatePolicyBody, UpdatePolicyRepository
+from ..automation.updatepolicy import (
+    UpdatePolicyBody,
+    UpdatePolicyRepository,
+    UpdatePolicyRow,
+)
 from ..backups.store import BackupsRepository
-from ..onboarding import OnboardingService
+from ..onboarding import OnboardingService, SettingsRow
 from ..store import Database
 from .manifest import BundleRefused, Layer, make_layer, problems_of, schema, validator
 
@@ -111,14 +115,26 @@ def layer(db: Database) -> tuple[Layer, list[dict]]:
     return make_layer(LAYER_ID, LAYER_SCHEMA, doc, items=items, sensitive=False), excluded
 
 
+def _branch_properties(node: dict, rules: dict) -> dict:
+    """Property rules from the `allOf` if/then branches that match this object (the `kind` -> config allow-list)."""
+    out: dict = {}
+    for branch in rules.get("allOf", []):
+        cond = branch.get("if", {}).get("properties", {})
+        if cond and all(k in node and ("const" in c and node[k] == c["const"] or "enum" in c and node[k] in c["enum"])
+                        for k, c in cond.items()):
+            out.update(branch.get("then", {}).get("properties", {}))
+    return out
+
+
 def _set_aside(node: object, rules: dict, defs: dict, path: str, skipped: list[str]) -> object:
     """Drop object keys the schema does not define (where it forbids extra keys), recording each path."""
-    # Walks `properties`, `items` and `$ref` only: that is all boxConfig uses. A future layer schema that adds
-    # oneOf/allOf branches with objects inside must extend this walk (the test for unknown fields would show it).
+    # Walks `properties`, `items`, `$ref` and the `allOf` if/then branches whose `if` is a const/enum on a sibling
+    # property (the per-kind destination config). A future layer schema that adds other branch shapes with objects
+    # inside (oneOf, anyOf) must extend this walk (the test for unknown fields would show it).
     if "$ref" in rules:
         rules = defs[rules["$ref"].rsplit("/", 1)[-1]]
     if isinstance(node, dict) and "properties" in rules:
-        props = rules["properties"]
+        props = {**rules["properties"], **_branch_properties(node, rules)}
         out = {}
         for key, value in node.items():
             here = f"{path}/{key}" if path else key
@@ -141,13 +157,18 @@ class Checked:
     skipped: list[str]  # fields a newer OneMind wrote that this box does not understand; never applied
 
 
-def check(doc: object) -> Checked:
-    """Accept or refuse a box-config layer read from a bundle."""
+def check(doc: object, *, newer_minor: bool = False) -> Checked:
+    """Accept or refuse a box-config layer read from a bundle.
+
+    `newer_minor` is `ManifestCheck.newer_minor`. Only a bundle from a newer OneMind may carry fields this box
+    does not know: those are set aside and named. At this version or older an unknown field is refused."""
     if not isinstance(doc, dict) or doc.get("schema") != LAYER_SCHEMA:
         raise BundleRefused([f"not a {LAYER_SCHEMA} layer"])
     defs = schema()["$defs"]
     skipped: list[str] = []
     clean = _set_aside(copy.deepcopy(doc), defs["boxConfig"], defs, "", skipped)
+    if skipped and not newer_minor:
+        raise BundleRefused([f"{path}: not a field of this layer version" for path in skipped])
     normalize_off_hours_days(clean.get("updates"))
     problems = problems_of(validator("boxConfig"), clean)
     if problems:
@@ -192,9 +213,9 @@ def apply(db: Database, incoming: Checked, *, now: datetime, by: dict, window_ex
           sections: frozenset[str] = SAFE_SECTIONS) -> list[str]:
     """Write the safe sections of the layer to this box; returns the fields written.
 
-    Only `box` and `updates` can be written here. Everything is checked before the first write, with the same
-    checks `UpdatePolicyService.put` makes (the update window exists on this box, the AI schedule parses), so a
-    refusal leaves the box as it was. The caller is an approved owner action (phase 4), never a route directly."""
+    Only `box` and `updates` can be written here. Everything is checked before the first write, with the same checks
+    `UpdatePolicyService.put` makes (the update window exists on this box, the AI schedule parses), and the writes
+    share one transaction, so a refusal or a database error leaves the box as it was. The caller is an approved owner action (phase 4), never a route directly."""
     if not sections <= SAFE_SECTIONS:
         raise ValueError(f"only {sorted(SAFE_SECTIONS)} can be written without the owner: {sorted(sections - SAFE_SECTIONS)}")
     new = incoming.doc
@@ -226,10 +247,16 @@ def apply(db: Database, incoming: Checked, *, now: datetime, by: dict, window_ex
         proposed_policy = body.model_dump()
         if current_policy != proposed_policy:
             policy = proposed_policy
-    # Every check passed: write.
-    if written:
-        svc.save(values)
+    # Every check passed: write, both in one transaction, so a database error cannot leave half of it.
+    if written or policy is not None:
+        with db.session.begin() as session:
+            if written:
+                session.execute(db.insert()(SettingsRow).values(id="box", **values).on_conflict_do_update(
+                    index_elements=[SettingsRow.id], set_=values))
+            if policy is not None:
+                session.execute(db.insert()(UpdatePolicyRow).values(id="global", resumed={}, updated_at=now, doc=policy, updated_by=by)
+                                .on_conflict_do_update(index_elements=[UpdatePolicyRow.id],
+                                                       set_={"updated_at": now, "doc": policy, "updated_by": by}))
     if policy is not None:
-        UpdatePolicyRepository(db).put(now=now, doc=policy, updated_by=by)
         written.append("updates.policy")
     return written

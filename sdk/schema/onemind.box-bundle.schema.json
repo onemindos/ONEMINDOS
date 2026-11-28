@@ -69,6 +69,27 @@
         "sensitive": {"type": "boolean", "description": "true when the layer holds secrets (still inside the encrypted envelope)."}
       }
     },
+    "usbLocation": {
+      "type": "object", "additionalProperties": false,
+      "properties": {"usb_uuid": {"type": "string", "maxLength": 200}}
+    },
+    "peerLocation": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "url": {"type": "string", "maxLength": 500, "pattern": "^(?![^/]*//[^/]*@)"},
+        "user": {"type": "string", "maxLength": 200},
+        "append_only": {"type": "boolean"}
+      }
+    },
+    "s3Location": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "endpoint": {"type": "string", "maxLength": 500, "pattern": "^(?![^/]*//[^/]*@)"},
+        "bucket": {"type": "string", "maxLength": 200},
+        "prefix": {"type": "string", "maxLength": 500},
+        "region": {"type": "string", "maxLength": 100}
+      }
+    },
     "boxConfig": {
       "x-config-export": true,
       "title": "Layer a: box config (onemind.io/box-bundle/box-config/v1)",
@@ -148,13 +169,18 @@
                 "type": "object",
                 "additionalProperties": false,
                 "required": ["id", "kind", "label", "is_primary", "append_only", "config"],
+                "allOf": [
+                  {"if": {"properties": {"kind": {"const": "usb"}}}, "then": {"properties": {"config": {"$ref": "#/$defs/usbLocation"}}}},
+                  {"if": {"properties": {"kind": {"enum": ["box", "rest"]}}}, "then": {"properties": {"config": {"$ref": "#/$defs/peerLocation"}}}},
+                  {"if": {"properties": {"kind": {"const": "s3"}}}, "then": {"properties": {"config": {"$ref": "#/$defs/s3Location"}}}}
+                ],
                 "properties": {
                   "id": {"type": "string", "minLength": 1, "maxLength": 40},
                   "kind": {"enum": ["usb", "box", "rest", "s3"]},
                   "label": {"type": "string", "maxLength": 80},
                   "is_primary": {"type": "boolean"},
                   "append_only": {"type": "boolean"},
-                  "config": {"x-secret": true, "type": "object", "description": "Location only (path, node, endpoint, bucket). Never credentials: the gateway does not store them (backups/store.py)."}
+                  "config": {"x-secret": true, "type": "object", "description": "Location only, and only the keys the backup agent reads for this kind (see usbLocation, peerLocation, s3Location). Any other key, a credential under a new name included, is refused. The gateway does not store credentials (backups/store.py)."}
                 }
               }
             },
