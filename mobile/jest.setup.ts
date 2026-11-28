@@ -20,6 +20,14 @@ jest.mock('expo-notifications', () => ({
   unregisterForNotificationsAsync: jest.fn(async () => undefined),
   AndroidImportance: { HIGH: 4 },
 }));
+jest.mock('expo-audio', () => ({
+  getRecordingPermissionsAsync: jest.fn(async () => ({ granted: false, canAskAgain: true, status: 'undetermined' })),
+  requestRecordingPermissionsAsync: jest.fn(async () => ({ granted: false, canAskAgain: true, status: 'denied' })),
+  setAudioModeAsync: jest.fn(async () => undefined),
+  useAudioRecorder: jest.fn(),
+  useAudioPlayer: jest.fn(),
+  RecordingPresets: { HIGH_QUALITY: {} },
+}));
 
 // Native passkeys and the CSPRNG: no authenticator in tests; randomness from Node's WebCrypto.
 jest.mock('react-native-passkey', () => ({

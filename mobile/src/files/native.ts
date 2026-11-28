@@ -2,9 +2,7 @@
 // The phone side of Files: the system document picker (expo-document-picker), streaming a download to disk
 // (expo-file-system) and the OS share sheet (expo-sharing). All MIT, Expo SDK 58. iOS needs no extra
 // permission for any of these; Android uses the system picker and a FileProvider the module registers itself.
-import * as DocumentPicker from 'expo-document-picker';
-import { Directory, File, FileMode, Paths } from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
+import { Directory, DocumentPicker, File, FileMode, Paths, Sharing } from '../device/files';
 import type { FilesDevice, LocalFile } from '../lib/filesTransfer';
 
 const safe = (name: string) => name.replace(/[\\/:*?"<>|]/g, '_');
