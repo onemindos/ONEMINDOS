@@ -13,7 +13,7 @@ import pytest
 from onemind_core.auth import Principal
 from onemind_core.files.access import READ, READ_WRITE, NONE, Root, person_access
 
-from files_support import ADULT, AGENT, GUEST, OWNER, audit_events, fc, files_root, files_settings, mkdir, ok, upload  # noqa: F401
+from files_support import ADULT, AGENT, GUEST, OWNER, audit_events, fc, files_root, files_settings, mkdir, ok, rename, upload  # noqa: F401
 
 
 def test_roles_map_to_space_access():
@@ -116,8 +116,7 @@ def test_move_rename_and_conflicts(fc):
     moved = ok(fc.post("/v1/files/ops", headers=OWNER, json={
         "op": "move", "root": "home:owner", "path": "/a/f.txt", "to_path": "/b/f.txt"}))
     assert moved["path"] == "/b/f.txt"
-    renamed = ok(fc.post("/v1/files/ops", headers=OWNER, json={
-        "op": "rename", "root": "home:owner", "path": "/b/f.txt", "name": "g.txt"}))
+    renamed = rename(fc, OWNER, "home:owner", "/b/f.txt", "g.txt")
     assert renamed["path"] == "/b/g.txt"
     r = fc.post("/v1/files/ops", headers=OWNER, json={"op": "move", "root": "home:owner", "path": "/a", "to_path": "/a/inner"})
     assert r.status_code == 409 and r.json()["reason"] == "into_itself"
@@ -215,7 +214,7 @@ def test_pagination_link_header(fc):
 def test_every_write_is_audited(fc, settings):
     mkdir(fc, OWNER, "home:owner", "/a")
     ok(upload(fc, OWNER, "home:owner", "/a", "f", b"1"), 204)
-    ok(fc.post("/v1/files/ops", headers=OWNER, json={"op": "rename", "root": "home:owner", "path": "/a/f", "name": "g"}))
+    rename(fc, OWNER, "home:owner", "/a/f", "g")
     ok(fc.post("/v1/files/ops", headers=OWNER, json={"op": "trash", "root": "home:owner", "path": "/a/g"}))
     fc.get("/v1/files/list", params={"root": "home:adult"}, headers=OWNER)
     events = [e["event"] for e in audit_events(settings)]

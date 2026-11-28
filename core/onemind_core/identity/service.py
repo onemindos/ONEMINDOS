@@ -1159,7 +1159,7 @@ class IdentityService:
     def approve_options(self, request: Request, p: Principal, action_id: str) -> dict:
         if not p.is_owner:
             raise self.deny(p, "approve actions", action_id=action_id)
-        action = self.gw.actions.get(action_id)  # 404 when unknown
+        action = self._approval_action(p, action_id)  # 404 when unknown
         if action.get("state") != "awaiting_approval":
             raise ApiError(409, "conflict", f"action is {action.get('state')}, not awaiting_approval")
         ctx = ctx_of(request)
@@ -1177,6 +1177,12 @@ class IdentityService:
                 "expires_at": iso(row.expires_at),
                 "device_payload": ak.signing_payload(row.challenge, action_id, a_sha, p_sha or None).decode(),
                 "publicKey": pk.authentication_options(rp_id=rp_id, challenge=raw, allow=allow)}
+
+    def _approval_action(self, p: Principal, action_id: str) -> dict:
+        for lookup in self.gw.approval_lookups:
+            if (action := lookup(p, action_id)) is not None:
+                return action
+        return self.gw.actions.get(action_id)
 
     def approval_guard(self, p: Principal, action_id: str, body: dict, request: Request) -> None:
         if not p.is_owner:
@@ -1196,7 +1202,10 @@ class IdentityService:
                 raise ApiError(422, "conflict", "send a passkey assertion or a device signature, not both")
             return self._approve_with_device_key(p, ctx, action_id, body)
         if assertion is None:
-            if self.cfg.require_passkey_approval and self.passkeys_active():
+            # D-028 keeps tightening at L0, including ending a public bearer link.
+            tightening = (body.get("plan_sha256") and action_id.startswith("frq_")
+                          and self._approval_action(p, action_id)["type"] == "files.shares.revoke")
+            if not tightening and self.cfg.require_passkey_approval and self.passkeys_active():
                 self.emit("auth", "step_up.required", {"attempted": "approve", "action_id": action_id}, p,
                           severity="warning")
                 raise ApiError(401, "unauthenticated", "approvals need a passkey on this box", reason="step_up_required")
@@ -1230,7 +1239,7 @@ class IdentityService:
         """The claimed challenge was made for this action, and neither the action nor its plan changed."""
         if row.action_id != action_id:
             raise self._step_up_failed(p, action_id, "challenge was issued for another action")
-        current = self.gw.actions.get(action_id)
+        current = self._approval_action(p, action_id)
         if row.data.get("action_sha256") != self.action_sha256(current) or \
                 (row.data.get("plan_sha256") or None) != (current.get("plan_sha256") or None):
             raise self._step_up_failed(p, action_id, "the action changed since the challenge", reason="plan_changed")

@@ -6,6 +6,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { App } from '../App';
 import { DEMO_TOKENS } from '../api/fixtures';
 import { MockApi } from '../api/mock';
+import * as webauthn from '../lib/webauthn';
 import { SessionProvider } from '../session';
 import { seriousViolations } from '../test/helpers';
 
@@ -17,8 +18,12 @@ const entries = [
 const request = { id: 'frq_1', type: 'files.grant.create', plan: { summary: 'app photos gets read-only access to shared:/' }, risk: 'write', state: 'awaiting_approval', reason: null, requested_by: { id: 'agent-1', kind: 'agent' }, expires_at: '2026-11-22T10:00:00Z', plan_sha256: 'sha256:abc', deny_reason: null };
 type Call = { method: string; path: string; search: URLSearchParams; headers: Headers; body: string };
 const json = (v: unknown, status = 200, headers: Record<string, string> = {}) => new Response(JSON.stringify(v), { status, headers: { 'content-type': 'application/json', ...headers } });
+const createdShare = {
+  ...request, id: 'frq_share', type: 'files.shares.create',
+  one_time: { token: 'oms_x', path: '/v1/share/oms_x', url: 'https://hub.test/v1/share/oms_x' },
+};
 
-function mount(handler: (c: Call) => Response | undefined = () => undefined, token = 'owner-demo') {
+function mount(handler: (c: Call) => Response | Promise<Response> | undefined = () => undefined, who = 'owner-demo') {
   const calls: Call[] = [];
   const fetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
     const u = new URL(String(url), 'http://hub.test');
@@ -35,11 +40,11 @@ function mount(handler: (c: Call) => Response | undefined = () => undefined, tok
     return json({ error: 'not_found', message: 'no' }, 404);
   });
   vi.stubGlobal('fetch', fetch);
-  window.sessionStorage.setItem('onemind.token', token);
-  render(<MemoryRouter initialEntries={['/files']}><SessionProvider deps={{ mock: false, makeApi: () => new MockApi(token), knownPrincipal: () => DEMO_TOKENS[token] }}><App mock={false} /></SessionProvider></MemoryRouter>);
+  window.sessionStorage.setItem('onemind.token', who);
+  render(<MemoryRouter initialEntries={['/files']}><SessionProvider deps={{ mock: false, makeApi: () => new MockApi(who), knownPrincipal: () => DEMO_TOKENS[who] }}><App mock={false} /></SessionProvider></MemoryRouter>);
   return calls;
 }
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 it('browses real folders from the routes, previews a text file and passes axe', async () => {
   const calls = mount();
@@ -221,6 +226,33 @@ it('offers Send to as an adult', async () => {
   expect(await screen.findByRole('button', { name: 'Send notes.txt to an app' })).toBeInTheDocument();
 });
 
+it('uses the reviewed Files plan for passkey approval', async () => {
+  const pending = { ...createdShare, one_time: undefined };
+  const publicKey = { challenge: 'file-challenge' };
+  const assertion = { id: 'credential' };
+  const sign = vi.spyOn(webauthn, 'getPasskey').mockResolvedValue(assertion);
+  const calls = mount((c) => {
+    if (c.path === '/v1/files/requests') return json([pending]);
+    if (c.path === '/v1/actions/frq_share/approve-options') return json({ plan_sha256: pending.plan_sha256, publicKey });
+    if (c.path.endsWith('/approve')) {
+      return JSON.parse(c.body).webauthn
+        ? json({ ...pending, state: 'succeeded' })
+        : json({ error: 'unauthenticated', reason: 'step_up_required', message: 'Use a passkey' }, 401);
+    }
+  });
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Sharing' }));
+  await u.click(await screen.findByRole('button', { name: 'Review request frq_share' }));
+  await u.click(screen.getByRole('button', { name: 'Approve this plan' }));
+  const approvals = () => calls.filter((c) => c.path === '/v1/files/requests/frq_share/approve');
+  await waitFor(() => expect(approvals()).toHaveLength(2));
+  expect(sign).toHaveBeenCalledOnce();
+  expect(sign).toHaveBeenCalledWith(publicKey);
+  expect(approvals().map((c) => JSON.parse(c.body))).toEqual([
+    { plan_sha256: pending.plan_sha256 }, { plan_sha256: pending.plan_sha256, webauthn: assertion },
+  ]);
+});
+
 it('lets an owner see storage per person and save one limit, in bytes, with no limit as null', async () => {
   let rows = [
     { person_id: 'owner', root: 'home:owner', limit_bytes: null, used_bytes: 2000 },
@@ -294,4 +326,162 @@ it('explains an empty list instead of showing nothing', async () => {
   const u = userEvent.setup();
   await u.click(await screen.findByRole('button', { name: 'Storage limits' }));
   expect(await screen.findByText(/No person has a home space yet/)).toBeInTheDocument();
+});
+
+it('requests a rename with the new name only, then reloads the folder', async () => {
+  const calls = mount((c) => c.path === '/v1/files/ops' ? json({ ...request, id: 'frq_rename', type: 'files.rename' }, 202) : undefined);
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Rename notes.txt' }));
+  const dlg = screen.getByRole('dialog');
+  const field = within(dlg).getByLabelText('New name');
+  expect(field).toHaveValue('notes.txt');
+  expect(within(dlg).getByRole('button', { name: 'Request rename' })).toBeDisabled();
+  await u.clear(field); await u.type(field, 'a/b');
+  expect(within(dlg).getByRole('button', { name: 'Request rename' })).toBeDisabled();
+  await u.clear(field); await u.type(field, 'plan.txt');
+  const lists = () => calls.filter((c) => c.method === 'GET' && c.path === '/v1/files/list').length;
+  const listsBefore = lists();
+  await u.click(within(dlg).getByRole('button', { name: 'Request rename' }));
+  await waitFor(() => expect(calls.some((c) => c.path === '/v1/files/ops')).toBe(true));
+  const op = calls.find((c) => c.path === '/v1/files/ops')!;
+  expect(op.method).toBe('POST');
+  expect(JSON.parse(op.body)).toEqual({ op: 'rename', root: 'home:owner', path: '/notes.txt', name: 'plan.txt' });
+  expect(await screen.findByText(/Rename request frq_rename is waiting for owner approval/)).toBeInTheDocument();
+  expect(calls.some((c) => c.path.endsWith('/approve'))).toBe(false);
+  await waitFor(() => expect(lists()).toBeGreaterThan(listsBefore));
+});
+
+it('requests a share link and shows the secret once, with recipient instructions', async () => {
+  const calls = mount((c) => c.path === '/v1/files/shares' && c.method === 'POST'
+    ? json(createdShare, 202) : undefined);
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Share link for notes.txt' }));
+  expect(screen.queryByRole('button', { name: 'Share link for Docs' })).toBeNull();
+  const dlg = screen.getByRole('dialog');
+  await u.selectOptions(within(dlg).getByLabelText('Expires after'), '1 day');
+  await u.click(within(dlg).getByRole('button', { name: 'Request link' }));
+  const url = await within(screen.getByRole('dialog')).findByDisplayValue('https://hub.test/v1/share/oms_x');
+  expect(url).toHaveAttribute('readonly');
+  expect(screen.getByText(/Request frq_share is waiting for owner approval/)).toBeInTheDocument();
+  expect(screen.getByText(/Recipients use an API client.*OneMind-Share-Password/)).toBeInTheDocument();
+  expect(calls.some((c) => c.path.endsWith('/approve'))).toBe(false);
+  await u.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Copy link' }));
+  expect(await navigator.clipboard.readText()).toBe('https://hub.test/v1/share/oms_x');
+  const post = calls.find((c) => c.path === '/v1/files/shares' && c.method === 'POST')!;
+  const body = JSON.parse(post.body);
+  expect(body.items).toEqual([{ root: 'home:owner', path: '/notes.txt' }]);
+  expect(body.name).toBe('notes.txt');
+  expect(body.password).toBeUndefined();
+  const ms = Date.parse(body.expires_at) - Date.now();
+  expect(ms).toBeGreaterThan(23 * 3_600_000); expect(ms).toBeLessThan(25 * 3_600_000);
+  // the gateway does not replay share creates by key, so none is sent (a retry could make a second link)
+  expect(post.headers.get('Idempotency-Key')).toBeNull();
+});
+
+it('shares a file whose name exceeds the gateway label limit', async () => {
+  const name = 'a'.repeat(121);
+  const path = `/${name}`;
+  const calls = mount((c) => {
+    if (c.path === '/v1/files/list') return json([{ ...entries[1], name, path }]);
+    if (c.path === '/v1/files/shares' && c.method === 'POST') {
+      const label = (JSON.parse(c.body) as { name?: string }).name;
+      if (label !== undefined && [...label].length > 120) return json({ error: 'conflict', message: 'Label too long' }, 422);
+      return json(createdShare, 202);
+    }
+  });
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: `Share link for ${name}` }));
+  await u.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Request link' }));
+  const post = calls.find((c) => c.path === '/v1/files/shares' && c.method === 'POST')!;
+  const body = JSON.parse(post.body);
+  expect(body.items).toEqual([{ root: 'home:owner', path }]);
+  expect(body.name).toBeUndefined();
+  expect(await screen.findByDisplayValue('https://hub.test/v1/share/oms_x')).toBeInTheDocument();
+});
+
+it.each(['Escape', 'Close', 'backdrop'])('keeps the pending share open on %s until the URL is shown', async (dismiss) => {
+  let release!: (r: Response) => void;
+  const slow = new Promise<Response>((res) => { release = res; });
+  mount((c) => c.path === '/v1/files/shares' && c.method === 'POST' ? slow : undefined);
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Share link for notes.txt' }));
+  const dlg = screen.getByRole('dialog');
+  await u.click(within(dlg).getByRole('button', { name: 'Request link' }));
+  if (dismiss === 'Escape') await u.keyboard('{Escape}');
+  else if (dismiss === 'Close') await u.click(within(dlg).getByRole('button', { name: 'Close' }));
+  else await u.click(dlg.parentElement!);
+  expect(dlg).toBeInTheDocument();
+  release(json(createdShare, 202));
+  expect(await within(dlg).findByDisplayValue('https://hub.test/v1/share/oms_x')).toBeInTheDocument();
+  await u.click(within(dlg).getByRole('button', { name: 'Done' }));
+  expect(dlg).not.toBeInTheDocument();
+});
+
+it('sends one POST when Request link is clicked twice while the first is in flight', async () => {
+  let release!: (r: Response) => void;
+  const slow = new Promise<Response>((res) => { release = res; });
+  const calls = mount((c) => c.path === '/v1/files/shares' && c.method === 'POST' ? slow : undefined);
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Share link for notes.txt' }));
+  const btn = within(screen.getByRole('dialog')).getByRole('button', { name: 'Request link' });
+  await u.click(btn);
+  await u.click(btn);
+  expect(calls.filter((c) => c.path === '/v1/files/shares' && c.method === 'POST')).toHaveLength(1);
+  expect(btn).toBeDisabled();
+  release(json({ ...createdShare, one_time: { url: 'https://hub.test/v1/share/oms_y' } }, 202));
+  await within(screen.getByRole('dialog')).findByDisplayValue('https://hub.test/v1/share/oms_y');
+  expect(calls.filter((c) => c.path === '/v1/files/shares' && c.method === 'POST')).toHaveLength(1);
+});
+
+it('counts password characters, not UTF-16 units: 4 emoji are too short', async () => {
+  mount();
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Share link for notes.txt' }));
+  const dlg = within(screen.getByRole('dialog'));
+  await u.type(dlg.getByLabelText(/Password/), '😀😀😀😀');
+  expect(dlg.getByRole('button', { name: 'Request link' })).toBeDisabled();
+});
+
+it('does not retry a share link create that failed with a server error', async () => {
+  const calls = mount((c) => c.path === '/v1/files/shares' && c.method === 'POST' ? json({ error: 'unavailable', message: 'busy' }, 502) : undefined);
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Share link for notes.txt' }));
+  await u.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Request link' }));
+  await screen.findByRole('alert');
+  expect(calls.filter((c) => c.path === '/v1/files/shares' && c.method === 'POST')).toHaveLength(1);
+});
+
+it('offers share links only to an owner or an adult', async () => {
+  mount(undefined, 'teen-demo');
+  await screen.findByRole('button', { name: 'Preview notes.txt' });
+  expect(screen.queryByRole('button', { name: /Share link for/ })).toBeNull();
+  const u = userEvent.setup();
+  await u.click(screen.getByRole('button', { name: 'Sharing' }));
+  await screen.findByRole('heading', { name: 'Requests' });
+  expect(screen.queryByRole('heading', { name: 'Share links' })).toBeNull();
+});
+
+it('lists share links without secrets and requests to end one after a confirmation', async () => {
+  const link = { id: 'shl_1', name: 'trip photos', created_by: 'owner', state: 'active', items: [{ kind: 'file' }], password: true, created_at: '2026-11-27T10:00:00Z', expires_at: '2026-12-04T10:00:00Z', opened_count: 3 };
+  const calls = mount((c) => c.path === '/v1/files/shares' ? json([link]) : c.path === '/v1/files/shares/shl_1' && c.method === 'DELETE' ? json({ ...request, id: 'frq_end', type: 'files.shares.revoke' }, 202) : undefined);
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Sharing' }));
+  expect(await screen.findByText('trip photos')).toBeInTheDocument();
+  await u.click(screen.getByRole('button', { name: 'End share link trip photos' }));
+  expect(calls.some((c) => c.method === 'DELETE')).toBe(false);
+  await u.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Request to end link' }));
+  await waitFor(() => expect(calls.some((c) => c.method === 'DELETE' && c.path === '/v1/files/shares/shl_1')).toBe(true));
+  const gets = () => calls.filter((c) => c.method === 'GET' && c.path === '/v1/files/shares').length;
+  await waitFor(() => expect(gets()).toBeGreaterThan(1));
+  expect(await screen.findByText(/Request frq_end filed/)).toBeInTheDocument();
+  expect(screen.getByText('active')).toBeInTheDocument();
+  expect(calls.some((c) => c.path.endsWith('/approve'))).toBe(false);
+});
+
+it('offers a share link for regular files but not symlinks', async () => {
+  mount((c) => c.path === '/v1/files/list'
+    ? json([...entries, { ...entries[1], name: 'shortcut', path: '/shortcut', type: 'symlink' }]) : undefined);
+  expect(await screen.findByRole('button', { name: 'Preview shortcut' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Share link for notes.txt' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Share link for shortcut' })).toBeNull();
 });

@@ -22,7 +22,7 @@ from ..auth import Principal
 from ..context import Gateway
 from ..errors import error_responses
 from ..guard import reads_body
-from ..files import errors as ferrors
+from ..files import errors as ferrors, paths
 from ..files.errors import FilesError
 from ..files.preview import INLINE_SAFE, guess_mime
 from ..files.service import FilesService
@@ -330,6 +330,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     app.state.files_service = svc
     uploads = Uploads(svc)
     gw.requester_lookups.append(svc.requester)  # agent kill switch: an agent's frq_ cannot be approved
+    gw.approval_lookups.append(svc.approval_request)
     principal = gw.principal
     app.add_exception_handler(FilesError, ferrors.handle)
 
@@ -402,15 +403,23 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return svc.versions.list(p, root, path)
 
     # -- data-plane writes --
-    @app.post("/v1/files/ops", operation_id="files.ops", tags=TAG, responses=errs(401, 403, 404, 409, 413, 422, 503),
+    @app.post("/v1/files/ops", operation_id="files.ops", tags=TAG,
+              responses={202: {"description": "Person's rename awaiting owner approval"},
+                         **errs(401, 403, 404, 409, 413, 422, 429, 503)},
               openapi_extra=WRITE_SECURITY)
     def ops(body: OpBody, p: Principal = Depends(principal)):
         if isinstance(body, MkdirOp):
             return svc.mkdir(p, body.root, body.path)
         if isinstance(body, MoveOp):
+            if p.kind == "person" and (body.to_root or body.root) == body.root:
+                source, destination = paths.split_path(body.path), paths.split_path(body.to_path)
+                if source and destination and source[:-1] == destination[:-1] and source != destination:
+                    return filed(svc.request_rename(p, body.root, body.path, destination[-1]))
             return svc.move(p, body.root, body.path, body.to_root, body.to_path)
         if isinstance(body, RenameOp):
-            return svc.rename(p, body.root, body.path, body.name)
+            if p.kind == "agent":
+                return svc.rename(p, body.root, body.path, body.name)
+            return filed(svc.request_rename(p, body.root, body.path, body.name))
         if isinstance(body, TrashOp):
             return svc.trash(p, body.root, body.path)
         if isinstance(body, RestoreVersionOp):

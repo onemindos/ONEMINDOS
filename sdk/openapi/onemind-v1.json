@@ -30771,6 +30771,9 @@
             },
             "description": "Successful Response"
           },
+          "202": {
+            "description": "Person's rename awaiting owner approval"
+          },
           "401": {
             "description": "Missing or unknown bearer token (unauthenticated)"
           },
@@ -30788,6 +30791,9 @@
           },
           "422": {
             "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
+          },
+          "429": {
+            "description": "rate_limited: too many requests awaiting approval"
           },
           "503": {
             "description": "unavailable: the files storage is not usable"
@@ -31322,7 +31328,7 @@
         ]
       },
       "post": {
-        "description": "Share files or photos outside the household until `expires_at`. The secret comes back once.",
+        "description": "Request a public link. The secret is returned once and works only after owner approval.",
         "operationId": "files.shares.create",
         "requestBody": {
           "content": {
@@ -31335,7 +31341,7 @@
           "required": true
         },
         "responses": {
-          "201": {
+          "202": {
             "content": {
               "application/json": {
                 "schema": {}
@@ -31411,7 +31417,7 @@
                 }
               }
             },
-            "description": "Too many live links for this person (rate_limited)"
+            "description": "Too many pending requests or live links for this person (rate_limited)"
           },
           "503": {
             "content": {
@@ -31432,7 +31438,7 @@
     },
     "/v1/files/shares/{share_id}": {
       "delete": {
-        "description": "End a link now: the creator or an owner.",
+        "description": "Request to end a link. The creator or an owner can ask, and only an owner can approve.",
         "operationId": "files.shares.revoke",
         "parameters": [
           {
@@ -31448,7 +31454,7 @@
           }
         ],
         "responses": {
-          "200": {
+          "202": {
             "content": {
               "application/json": {
                 "schema": {}
@@ -31485,6 +31491,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many pending requests or live links for this person (rate_limited)"
           }
         },
         "summary": "Revoke Share",

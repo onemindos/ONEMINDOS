@@ -135,11 +135,9 @@ cli files.app_passwords.revoke s8-cli-groups
 cli files.downloads.discard s8-cli-groups
 cli files.downloads.release s8-cli-groups
 cli files.grants.request s8-cli-groups
-cli files.ops s8-cli-groups
 cli files.requests.approve s8-cli-groups
 cli files.requests.cancel s8-cli-groups
 cli files.requests.deny s8-cli-groups
-cli files.shares.create s8-cli-groups
 cli files.trash.empty s8-cli-groups
 cli files.uploads.create s8-cli-groups
 cli files.uploads.delete s8-cli-groups
@@ -176,9 +174,6 @@ dashboard files.downloads.release later-file-transfer
 dashboard files.quotas.list later-file-transfer
 dashboard files.quotas.set later-file-transfer
 dashboard files.requests.get later-file-transfer
-dashboard files.shares.create later-file-transfer
-dashboard files.shares.list later-file-transfer
-dashboard files.shares.revoke later-file-transfer
 dashboard files.stat later-file-transfer
 group later-os-fleet issue=#1232 Later: the OS fleet and staged rollouts console has no screen or command.
 dashboard os.fleet later-os-fleet
@@ -430,7 +425,10 @@ indirect dashboard files.list FilesApi.list sends GET through get(P.list)
 indirect dashboard files.preview FilesApi.preview sends GET through get(P.preview)
 indirect dashboard files.versions.list FilesApi.versions sends GET through get(P.versions)
 indirect dashboard files.download FilesApi.fetchBlob sends GET (fetch default) to P.download
-indirect dashboard files.ops FilesApi.mkdir, trash and restore send POST through post(P.ops)
+indirect dashboard files.ops FilesApi.mkdir, rename, trash and restore send POST through post(P.ops)
+indirect dashboard files.shares.create FilesApi.createShare sends POST through post(P.shares)
+indirect dashboard files.shares.list FilesApi.shares sends GET through get(P.shares)
+indirect dashboard files.shares.revoke FilesApi.revokeShare sends DELETE to P.share through sdk.call
 indirect dashboard files.trash.list FilesApi.trashList sends GET through get(P.trash)
 indirect dashboard files.trash.empty FilesApi.requestTrashEmpty sends POST through post(P.trashEmpty)
 indirect dashboard files.grants.request FilesApi.requestGrant sends POST through post(P.grants)
