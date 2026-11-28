@@ -340,7 +340,7 @@ READ_ANY_404 = grid(404, 404, 404, 403, 404)     # §5.5 "any": a missing object
 READ_ANY = grid(200, 200, 200, 403, 200)
 HOUSEHOLD = grid(200, 200, 403, 403, 200)        # backups/migrate reads: owner, adult, agent; not guests or children
 HOUSEHOLD_404 = grid(404, 404, 403, 403, 404)
-OWNER_ADULT = grid(200, 200, 403, 403, 403)      # databases, trash: owner and adult only
+OWNER_ADULT = grid(200, 200, 403, 403, 403)      # owner and adult only
 ONLY_OWNER = grid(200, 403, 403, 403, 403)
 # A backup, restore or migration is a request: allowed callers file an action, the owner approves it. The matrix
 # gateway runs with BACKUPS switched off, so a caller that reaches the service is told 503 "unavailable"
@@ -538,14 +538,14 @@ POLICY |= {
                                      f"{_FILES}: the change feed (#698) follows read access to the whole root"),
     ("POST", "/v1/sync/chunks/missing"): Row(grid(200, 200, 403, 403, 403), w.p_missing(
         "/v1/sync/chunks/missing", json={"root": "shared", "hashes": ["0" * 64]}),
-        f"{_FILES}: sending a file (#699) needs write access to the root; guests read Shared only"),
+        f"{_FILES}: chunk leases are owner-scoped for sessions and need root write access"),
     ("PUT", "/v1/sync/chunks/{chunk_hash}"): Row(grid(200, 200, 403, 403, 403), w.p_missing(
         "/v1/sync/chunks/2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881?root=shared", content=b"x"),
-        f"{_FILES}: a chunk (#699) needs write access to the root"),
+        f"{_FILES}: staging chunks is owner-scoped for sessions and needs root write access"),
     ("POST", "/v1/sync/commit"): Row(grid(404, 404, 403, 403, 403), w.p_missing("/v1/sync/commit", json={
         "root": "shared", "path": "/no-such-folder/probe", "size": 0,
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "chunks": []}),
-        f"{_FILES}: a commit (#699) needs write access to the entry; the probe's folder is missing (404)"),
+        f"{_FILES}: chunked commits are owner-scoped for sessions and need write access; the probe folder is missing"),
     ("POST", "/v1/sync/locks"): Row(grid(404, 404, 403, 403, 403), w.p_missing("/v1/sync/locks", json={"root": "shared", "path": "/no-such-file"}),
                                    f"{_FILES}: an advisory lock (#699) is a write intent; the probe's file is missing (404)"),
     ("GET", "/v1/sync/locks"): Row(grid(200, 200, 200, 200, 403), w.p_static("/v1/sync/locks?root=shared"),
@@ -562,15 +562,15 @@ POLICY |= {
                                        f"{_FILES}: people browse; an agent needs a grant"),
     ("POST", "/v1/files/ops"): Row(grid(200, 200, 403, 403, 403), w.p_missing("/v1/files/ops", json={"op": "mkdir", "root": "shared", "path": "/probe"}),
                                    f"{_FILES}: owner and adult write; guests read only; an agent needs a grant"),
-    ("GET", "/v1/files/trash"): Row(grid(200, 200, 403, 200, 403), w.p_static("/v1/files/trash"), f"{_FILES}: owner and adult"),
+    ("GET", "/v1/files/trash"): Row(grid(200, 200, 403, 200, 403), w.p_static("/v1/files/trash"), f"{_FILES}: each person with a Home can read their trash"),
     ("GET", "/v1/files/quotas"): Row(ONLY_OWNER, w.p_static("/v1/files/quotas"), f"{_FILES}: owner only"),
     ("PUT", "/v1/files/quotas/{person_id}"): Row(ONLY_OWNER, w.p_missing("/v1/files/quotas/owner", json={"limit_bytes": 1}),
                                                  f"{_FILES}: owner only"),
     ("POST", "/v1/files/grants"): Row(grid(202, 403, 403, 403, 403), w.p_missing(
         "/v1/files/grants", json={"subject": {"kind": "app", "id": "whoami"}, "root": "shared", "path": "/", "access": "r"}),
         f"{_FILES}: only the owner asks to open files to an app or agent, and it waits for approval"),
-    ("POST", "/v1/files/trash/empty"): Row(grid(202, 202, 403, 202, 403), w.p_missing("/v1/files/trash/empty", json={}),
-                                           f"{_FILES}: owner and adult request; destroying needs approval"),
+    ("POST", "/v1/files/trash/empty"): Row(grid(202, 202, 403, 403, 403), w.p_missing("/v1/files/trash/empty", json={}),
+                                           f"{_FILES}: signed-in owners file; the legacy adult token still needs owner approval"),
     ("GET", "/v1/files/requests"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/files/requests"), f"{_FILES}: each sees their own"),
     ("GET", "/v1/files/requests/{request_id}"): Row(grid(404, 404, 404, 404, 404), w.p_missing("/v1/files/requests/{request}"), f"{_FILES}: each sees their own"),
     ("POST", "/v1/files/requests/{request_id}/approve"): Row(OWNER_ONLY_404, w.p_missing("/v1/files/requests/{request}/approve"),
@@ -598,10 +598,8 @@ POLICY |= {
         "/v1/files/uploads/{upload}", content=b"x",
         headers={**w.TUS, "Content-Type": "application/offset+octet-stream", "Upload-Offset": "0"}), f"{_FILES}: your own upload"),
     ("DELETE", "/v1/files/uploads/{upload_id}"): Row(grid(404, 404, 404, 404, 404), w.p_missing("/v1/files/uploads/{upload}", headers=w.TUS), f"{_FILES}: your own upload"),
-    # ---- WOPI host (#675): like every /v1/files/* route the token route needs the "*" scope, so the child (a household
-    # session) is refused by scope; only a signed-in person's session mints a file token, so the static tokens file,
-    # API tokens and agents are 403 too. The WOPI operations take only that file token (access_token), never a bearer
-    # token, so every column is 401.
+    # ---- WOPI host (#675): minting still needs a signed-in owner session, so none of these callers can
+    # mint a file token. WOPI operations use that file token (access_token) and return 401 without it.
     ("POST", "/v1/files/wopi/tokens"): Row(grid(403, 403, 403, 403, 403), w.p_missing(
         "/v1/files/wopi/tokens", json={"root": "shared", "path": "/probe.docx"}), f"{_WOPI}: the owner's own signed-in editor only"),
     ("GET", "/v1/files/wopi/files/{file_id}"): Row(cells(401), w.p_static(_WOPI_FILE), f"{_WOPI}: CheckFileInfo takes the file token"),
@@ -614,7 +612,7 @@ POLICY |= {
     # The service's own gate (PhotosService.person) runs before any lookup: only a person with role owner, adult, teen or child has a
     # photo library (#1232), so guests and agents are 403 and the library owners reach the (missing) object: 404.
     ("POST", "/v1/photos/sources"): Row(grid(201, 201, 403, 201, 403), w.p_missing(
-        "/v1/photos/sources", json={"client_id": "probe-phone", "name": "Probe", "platform": "other"}), f"{_PHOTOS}: owner and adult register a phone"),
+        "/v1/photos/sources", json={"client_id": "probe-phone", "name": "Probe", "platform": "other"}), f"{_PHOTOS}: anyone with their own library can register a phone"),
     ("POST", "/v1/photos/sources/{source_id}/check"): Row(PHOTOS_404, w.p_missing(
         "/v1/photos/sources/{source}/check", json={"items": []}), f"{_PHOTOS}: your own phone only"),
     ("GET", "/v1/photos/sources/{source_id}/coverage"): Row(PHOTOS_404, w.p_missing("/v1/photos/sources/{source}/coverage"), f"{_PHOTOS}: your own phone only"),

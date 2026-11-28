@@ -232,3 +232,26 @@ it('shows a guest only the shared folder, read-only, with no trash of their own'
   expect(screen.queryByRole('button', { name: 'Trash' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Storage limits' })).not.toBeInTheDocument();
 });
+
+
+it.each(['adult-demo', 'teen-demo', 'child-demo', 'guest-demo'])('shows only the Files controls allowed for %s', async (who) => {
+  mount(undefined, who);
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Sharing' }));
+  expect(await screen.findByText(/app photos gets read-only access/)).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Request folder access' })).not.toBeInTheDocument();
+  if (who === 'guest-demo') {
+    expect(screen.queryByRole('button', { name: 'Trash' })).not.toBeInTheDocument();
+    return;
+  }
+  await u.click(screen.getByRole('button', { name: 'Trash' }));
+  expect(screen.getByRole('button', { name: 'My trash' })).toBeInTheDocument();
+  expect(await screen.findByRole('button', { name: 'Restore old.txt' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Ask to empty this trash' })).not.toBeInTheDocument();
+  const shared = screen.queryByRole('button', { name: 'Shared trash' });
+  if (who === 'adult-demo') {
+    expect(shared).toBeInTheDocument();
+  } else {
+    expect(shared).not.toBeInTheDocument();
+  }
+});

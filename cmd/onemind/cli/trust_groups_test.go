@@ -89,14 +89,28 @@ func TestDataGrantsAndRadios(t *testing.T) {
 		t.Fatalf("revoke %+v", r)
 	}
 	out := run(t, "", false, "radios", "list").out
-	outHas(t, out, "n1.lora0", "needs confirming", "n1.zigbee0")
-	if r := run(t, "", false, "radios", "confirm", "n1.lora0"); r.code != ExitUsage {
-		t.Fatalf("needs profile %+v", r)
+	outHas(t, out, "n1.lora0", "not confirmed", "n1.zigbee0")
+	// Without --profile, confirm uses the profile the radio's own card asks for (radios.go).
+	if r := run(t, "", false, "radios", "confirm", "n1.lora0"); r.code != 0 || !strings.Contains(r.out, "Nothing was opened") {
+		t.Fatalf("confirm from card %+v", r)
 	}
-	if r := run(t, "", false, "radios", "confirm", "n1.lora0", "--profile", "meshcore-companion-usb"); r.code != 0 || !strings.Contains(r.out, "Nothing was opened") {
+	if r := run(t, "", false, "radios", "confirm", "n1.zigbee0"); r.code != ExitNotFound || !strings.Contains(r.out+r.errOut, "no radio n1.zigbee0 asks to be confirmed") {
+		t.Fatalf("a radio with no confirm card %+v", r)
+	}
+	if n := len(g.sent("POST", "/v1/radios/n1.zigbee0/confirm")); n != 0 {
+		t.Fatalf("a radio with no confirm card must send nothing, sent %d", n)
+	}
+	// An explicit --profile must win over the card's profile.
+	if r := run(t, "", false, "radios", "confirm", "n1.lora0", "--profile", "meshcore-repeater-usb"); r.code != 0 || !strings.Contains(r.out, "Nothing was opened") {
 		t.Fatalf("confirm %+v", r)
 	}
-	if g.sent("POST", "/v1/radios/n1.lora0/confirm")[0].body["profile"] != "meshcore-companion-usb" {
-		t.Fatal("profile not sent")
+	posts := g.sent("POST", "/v1/radios/n1.lora0/confirm")
+	if len(posts) != 2 || posts[0].body["profile"] != "meshcore-companion-usb" || posts[1].body["profile"] != "meshcore-repeater-usb" {
+		t.Fatalf("profile not sent: %+v", posts)
 	}
+}
+
+func TestRadiosListSaysSoWhenThereAreNone(t *testing.T) {
+	newRouteGW(t, map[string]func(map[string]any) (int, any){"GET /v1/radios": ok([]any{})})
+	outHas(t, run(t, "", false, "radios", "list").out, "No radios found.")
 }

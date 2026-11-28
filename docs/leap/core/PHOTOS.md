@@ -32,7 +32,7 @@ The photos study ([`docs/umbrel2/photos.md`](../../umbrel2/photos.md) §4.1) cho
 
 ## 2. API (interim contract §12-p)
 
-Every route needs a bearer token of a **person** with role `owner`, `adult`, `teen` or `child` (each backs up and sees only their own library). Guests and agents get 403 (guests have no library, study §4.6; agents never upload, and their read tools are UMB-PHOTO-9). With Photos off (the default) every route answers 404. Errors use the §3 envelope.
+Every route needs a bearer token of a **person** with role `owner` or `adult`. Guests and agents get 403 (guests have no library, study §4.6; agents never upload, and their read tools are UMB-PHOTO-9). With Photos off (the default) every route answers 404. Errors use the §3 envelope.
 
 | Method and path | Request | Answer |
 |---|---|---|

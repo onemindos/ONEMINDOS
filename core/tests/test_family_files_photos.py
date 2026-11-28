@@ -6,6 +6,7 @@ test tokens that skip them. A guest has no Home and no photo library; nobody rea
 """
 
 from dataclasses import replace
+from hashlib import sha256
 
 import pytest
 from fastapi.testclient import TestClient
@@ -16,7 +17,7 @@ from onemind_core.identity.settings import IdentitySettings
 from onemind_core.photos import PhotosSettings
 
 from conftest import AGENT, OWNER
-from files_support import files_root, files_settings, ok, upload  # noqa: F401
+from files_support import audit_events, files_root, files_settings, ok, upload  # noqa: F401
 from test_photos import Phone, blob
 
 PASSWORD = "correct horse battery staple 1"
@@ -82,6 +83,7 @@ def test_files_and_photos_routes_ask_for_the_use_scope(method, path, need):
 
 @pytest.mark.parametrize(("method", "path"), [
     ("PUT", "/v1/files/quotas/someone"), ("POST", "/v1/files/requests/frq_1/approve"),
+    ("POST", "/v1/files/trash/empty"),
     ("POST", "/v1/files/requests/frq_1/deny"), ("POST", "/v1/files/downloads/dl_1/release"),
 ])
 def test_owner_decisions_still_ask_for_every_scope(method, path):
@@ -147,6 +149,70 @@ def test_the_owner_only_files_routes_stay_owner_only(box, people):
         assert box.put(f"/v1/files/quotas/{people[role]['id']}", headers=h, json={"limit_bytes": 1}).status_code == 403
         assert box.post("/v1/files/requests/frq_1/approve", headers=h).status_code == 403
     assert box.get("/v1/files/quotas", headers=people["owner"]["headers"]).status_code == 200
+
+
+@pytest.mark.parametrize("role", ("adult", "teen", "child"))
+def test_family_sessions_cannot_use_chunked_sync_uploads(box, people, settings, role):
+    me = people[role]
+    root = "home:" + me["id"]
+    data = b"uncommitted chunk"
+    digest = sha256(data).hexdigest()
+    ok(box.put(f"/v1/files/quotas/{me['id']}", headers=people["owner"]["headers"], json={"limit_bytes": 1}))
+    ok(box.get("/v1/sync/changes", headers=me["headers"], params={"root": root}))
+    hdr = me["headers"]
+    for response in (
+        box.post("/v1/sync/chunks/missing", headers=hdr, json={"root": root, "hashes": [digest]}),
+        box.put(f"/v1/sync/chunks/{digest}", headers=hdr, params={"root": root}, content=data),
+        box.post("/v1/sync/commit", headers=hdr, json={"root": root, "path": "/staged.bin", "size": len(data),
+                                                     "sha256": digest, "chunks": [{"hash": digest, "size": len(data)}]}),
+    ):
+        assert response.status_code == 403 and response.json()["error"] == "permission_denied", response.text
+
+    denials = [e["data"]["payload"] for e in audit_events(settings) if e["event"] == "authz.denied"]
+    assert [e["reason"] for e in denials] == ["scope"] * 3
+
+
+def test_sync_openapi_bearer_scopes_match_runtime(box):
+    paths = ok(box.get("/openapi.json"))["paths"]
+    for path, operations in paths.items():
+        if not path.startswith("/v1/sync/"):
+            continue
+        for method, operation in operations.items():
+            probe = path.replace("{chunk_hash}", "0" * 64).replace("{lock_id}", "lck_1")
+            scopes = required_scopes(method.upper(), probe)
+            assert operation["security"] == [{"bearer": list(scopes)}], (method, path)
+
+
+def test_family_home_trash_stays_restorable_without_a_permanent_delete_request(box, people):
+    teen = people["teen"]
+    hdr, root = teen["headers"], "home:" + teen["id"]
+    data = b"keep this"
+    ok(upload(box, hdr, root, "/", "old.txt", data), 204)
+    item = ok(box.post("/v1/files/ops", headers=hdr, json={"op": "trash", "root": root, "path": "/old.txt"}))
+
+    for approve in (False, True):
+        response = box.post("/v1/files/trash/empty", headers=hdr, json={"trash": "home", "approve": approve})
+        assert response.status_code == 403 and response.json()["error"] == "permission_denied", response.text
+        assert [entry["id"] for entry in ok(box.get("/v1/files/trash", headers=hdr))] == [item["id"]]
+    assert ok(box.get("/v1/files/requests", headers=hdr)) == []
+    ok(box.post("/v1/files/ops", headers=hdr, json={"op": "restore_trash", "trash_id": item["id"]}))
+    restored = box.get("/v1/files/download", headers=hdr, params={"root": root, "path": "/old.txt"})
+    assert restored.status_code == 200 and restored.content == data
+
+    owner = people["owner"]["headers"]
+    ok(upload(box, owner, "shared", "/", "old.txt", data), 204)
+    shared_item = ok(box.post("/v1/files/ops", headers=owner,
+                              json={"op": "trash", "root": "shared", "path": "/old.txt"}))
+    request = ok(box.post("/v1/files/trash/empty", headers=owner, json={"trash": "shared"}), 202)
+    assert request["state"] == "awaiting_approval"
+    approve_path = f"/v1/files/requests/{request['id']}/approve"
+    decision = {"plan_sha256": request["plan_sha256"]}
+    assert box.post(approve_path, headers=hdr, json=decision).status_code == 403
+    trash_path = "/v1/files/trash?trash=shared"
+    assert [entry["id"] for entry in ok(box.get(trash_path, headers=owner))] == [shared_item["id"]]
+    done = ok(box.post(approve_path, headers=owner, json=decision))
+    assert done["state"] == "succeeded" and done["approved_by"] == people["owner"]["id"]
+    assert ok(box.get(trash_path, headers=owner)) == []
 
 
 @pytest.mark.parametrize("role", WITH_HOME)

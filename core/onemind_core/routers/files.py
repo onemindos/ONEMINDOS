@@ -21,7 +21,7 @@ from starlette.requests import ClientDisconnect
 from ..auth import Principal
 from ..context import Gateway
 from ..guard import reads_body
-from ..identity.scopes import register_route_scope
+from ..identity.scopes import ALL, register_route_scope
 from ..files import errors as ferrors
 from ..files.errors import FilesError
 from ..files.preview import INLINE_SAFE, guess_mime
@@ -290,7 +290,9 @@ def http_date(dt: datetime | None) -> str:
 # Owner-only routes (quota set, approve, deny) stay unregistered, so they ask for every scope.
 register_route_scope("GET,HEAD", r"/v1/files/(roots|list|stat|preview|download|trash|requests|grants)", ("files:use",))
 register_route_scope("GET,HEAD", r"/v1/files/requests/[^/]+", ("files:use",))
-register_route_scope("POST", r"/v1/files/(ops|grants|trash/empty|requests/[^/]+/cancel)", ("files:use",))
+register_route_scope("POST", r"/v1/files/(ops|grants|requests/[^/]+/cancel)", ("files:use",))
+# Keep filing owner-scoped until owner passkey approval works for Files requests.
+register_route_scope("POST", r"/v1/files/trash/empty", (ALL,))
 register_route_scope("DELETE", r"/v1/files/grants/[^/]+", ("files:use",))
 register_route_scope("OPTIONS,POST", r"/v1/files/uploads", ("files:use",))
 register_route_scope("GET,HEAD,PATCH,DELETE", r"/v1/files/uploads/[^/]+", ("files:use",))

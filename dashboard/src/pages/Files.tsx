@@ -26,6 +26,7 @@ export function Files() {
 // only an owner stores limits or decides a request; the hub enforces all of it, this only decides what is offered.
 function LiveFiles({ token, person, role }: { token: string; person: string; role?: string }) {
   const owner = role === 'owner';
+  const canUseSharedTrash = owner || role === 'adult';
   const api = useMemo(() => new FilesApi(token), [token]);
   const run = useRun();
   const roots = usePoll(() => api.roots(), 60_000);
@@ -33,7 +34,7 @@ function LiveFiles({ token, person, role }: { token: string; person: string; rol
   const [root, setRoot] = useState<FileRoot>();
   const current = root ?? roots.data?.[0];
   return <div className="dash-stack">
-    <PageHeader title="Files" lede="Your files on your box. Sharing access with an app or agent, and emptying the trash for good, are requests a person approves." />
+    <PageHeader title="Files" lede="Your files on your box." />
     <div role="group" aria-label="Files sections">
       {(['files', ...(role === 'guest' ? [] : ['trash']), 'sharing', ...(owner ? ['quotas'] : [])] as Tab[]).map((t) => <Button key={t} variant={tab === t ? 'primary' : 'secondary'} aria-pressed={tab === t} onClick={() => setTab(t)}>{t === 'files' ? 'Files' : t === 'trash' ? 'Trash' : t === 'sharing' ? 'Sharing' : 'Storage limits'}</Button>)}
     </div>
@@ -44,7 +45,7 @@ function LiveFiles({ token, person, role }: { token: string; person: string; rol
         </div>
         {current && <Browser key={current.root} api={api} space={current} run={run} onChanged={() => void roots.reload()} />}
       </>}
-      {tab === 'trash' && <TrashTab api={api} run={run} />}
+      {tab === 'trash' && <TrashTab api={api} run={run} canUseSharedTrash={canUseSharedTrash} owner={owner} />}
       {tab === 'quotas' && owner && <FilesQuotas api={api} run={run} />}
       {tab === 'sharing' && <Sharing api={api} run={run} person={person} roots={rs} owner={owner} />}
     </>}</Load>
@@ -144,8 +145,9 @@ function Browser({ api, space, run, onChanged }: { api: FilesApi; space: FileRoo
   </Card>;
 }
 
-function TrashTab({ api, run }: { api: FilesApi; run: Run }) {
-  const [which, setWhich] = useState<'home' | 'shared'>('home');
+function TrashTab({ api, run, canUseSharedTrash, owner }: { api: FilesApi; run: Run; canUseSharedTrash: boolean; owner: boolean }) {
+  const [selected, setWhich] = useState<'home' | 'shared'>('home');
+  const which = canUseSharedTrash ? selected : 'home';
   const items = usePoll(() => api.trashList(which), 30_000);
   const key = useRef<{ which: string; key: string } | undefined>(undefined);
   const [filed, setFiled] = useState('');
@@ -158,15 +160,15 @@ function TrashTab({ api, run }: { api: FilesApi; run: Run }) {
   }, 'Could not file the request');
   return <Card title="Trash">
     <div role="group" aria-label="Which trash">
-      {(['home', 'shared'] as const).map((w) => <Button key={w} size="sm" variant={which === w ? 'primary' : 'secondary'} aria-pressed={which === w} onClick={() => setWhich(w)}>{w === 'home' ? 'My trash' : 'Shared trash'}</Button>)}
-      <Button size="sm" variant="secondary" onClick={() => setConfirm(true)}>Ask to empty this trash</Button>
+      {(canUseSharedTrash ? (['home', 'shared'] as const) : (['home'] as const)).map((w) => <Button key={w} size="sm" variant={which === w ? 'primary' : 'secondary'} aria-pressed={which === w} onClick={() => setWhich(w)}>{w === 'home' ? 'My trash' : 'Shared trash'}</Button>)}
+      {owner && <Button size="sm" variant="secondary" onClick={() => setConfirm(true)}>Ask to empty this trash</Button>}
     </div>
     {filed && <p role="status">Request {filed} filed. Nothing is deleted until a person approves it in the Sharing tab.</p>}
     <Load res={items} what="Loading the trash">{(rows: TrashItem[]) => rows.length === 0 ? <p>The trash is empty.</p> : <ul>
       {rows.map((t) => <li key={t.id}><strong>{t.name}</strong> from {t.path} · {human(t.size)} · trashed {when(t.trashed_at)} · deleted for good {when(t.purge_at)}{' '}
         <Button size="sm" variant="secondary" aria-label={`Restore ${t.name}`} onClick={() => void run(async () => { await api.restore(t.id); await items.reload(); }, `Could not restore ${t.name}`)}>Restore</Button></li>)}
     </ul>}</Load>
-    <Dialog role="alertdialog" open={confirm} onClose={() => setConfirm(false)} title="Ask to empty the trash for good" description="This files a request. Nothing is deleted until it is approved, and what it deletes is shown to the approver first."
+    <Dialog role="alertdialog" open={owner && confirm} onClose={() => setConfirm(false)} title="Ask to empty the trash for good" description="This files a request. Nothing is deleted until it is approved, and what it deletes is shown to the approver first."
       actions={<Button onClick={ask}>File the request</Button>}><p>Trash: {which === 'home' ? 'mine' : 'shared'}.</p></Dialog>
   </Card>;
 }
@@ -194,7 +196,7 @@ function Sharing({ api, run, person, roots, owner }: { api: FilesApi; run: Run; 
     setDeciding(undefined); reload();
   }, `Could not ${how} the request`);
   return <>
-    <Card title="Who can reach these files" aside={<Button size="sm" onClick={() => { pending.current = undefined; setForm(true); }}>Request folder access</Button>}>
+    <Card title="Who can reach these files" aside={owner && <Button size="sm" onClick={() => { pending.current = undefined; setForm(true); }}>Request folder access</Button>}>
       <Load res={grants} what="Loading grants">{(rows) => rows.length === 0 ? <p>No app or agent has folder access.</p> : <ul>
         {rows.map((g) => <li key={g.id}><strong>{g.subject.kind} {g.subject.id}</strong> · {g.access === 'rw' ? 'read and write' : 'read only'} · {g.root}:{g.path}{' '}
           <Button size="sm" variant="secondary" aria-label={`Revoke access for ${g.subject.id}`} onClick={() => void run(async () => { await api.revoke(g.id); reload(); }, 'Could not revoke')}>Revoke</Button></li>)}
@@ -209,7 +211,7 @@ function Sharing({ api, run, person, roots, owner }: { api: FilesApi; run: Run; 
             {r.requested_by.id === person && <Button size="sm" variant="secondary" aria-label={`Cancel request ${r.id}`} onClick={() => decide(r, 'cancel')}>Cancel request</Button>}</>}</li>)}
       </ul>}</Load>
     </Card>
-    <Dialog open={form} onClose={() => setForm(false)} title="Request folder access" description="This files a request. The app or agent gets nothing until a person approves it."
+    <Dialog open={owner && form} onClose={() => setForm(false)} title="Request folder access" description="This files a request. The app or agent gets nothing until a person approves it."
       actions={<Button disabled={!subjectId.trim()} onClick={send}>File the request</Button>}>
       <label htmlFor="grant-kind">Gives access to</label>
       <select id="grant-kind" value={subject} onChange={(e) => setSubject(e.target.value as 'app' | 'agent')}><option value="app">An app</option><option value="agent">An agent</option></select>
