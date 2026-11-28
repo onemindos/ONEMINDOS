@@ -1,6 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 // English strings for the wiring-pass screens. Keys are dotted: screen.thing.
 export const en = {
+  'config.title': 'Configuration',
+  'config.privateGit': 'Keep these YAML files in a private Git repository. They can identify people and devices.',
+  'config.export': 'Export config',
+  'config.download': 'Download {name}',
+  'config.files': 'Choose YAML files to compare',
+  'config.compare': 'Compare with this box',
+  'config.changed': 'Review the proposed changes.',
+  'config.unchanged': 'The selected files match this box.',
+  'config.blockers': 'Resolve before requesting approval',
+  'config.live': 'On this box',
+  'config.proposed': 'From your files',
+  'config.ownerOnly': 'Only the owner can access this configuration.',
+  'config.exportFailed': 'Could not export the configuration.',
+  'config.compareFailed': 'Could not compare these files.',
   'lock.unlockTitle': 'Unlock {name}',
   'lock.switchPerson': 'Switch person',
   'lock.return': 'Back to lock screen',

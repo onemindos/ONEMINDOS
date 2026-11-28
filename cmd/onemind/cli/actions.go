@@ -4,6 +4,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -182,6 +183,11 @@ func (a *App) showAction(c *onemind.Client, x *onemind.Action) {
 		}
 	}
 	_ = kv(a.Stdout, pairs)
+	if x.Type == "config.apply" {
+		if patch, err := json.MarshalIndent(x.Params["patch"], "", "  "); err == nil {
+			fmt.Fprintf(a.Stdout, "Configuration changes\n%s\n", sanitize(string(patch)))
+		}
+	}
 	if recs, _, err := c.Audit.List(bg(), onemind.AuditQuery{ActionID: x.Id, Event: "action.requested", Limit: 1}); err == nil && len(recs) == 1 {
 		if reason, ok := recs[0].Data["reason"].(string); ok && reason != "" {
 			untrustedBlock(a.Stdout, "Requester's note", reason)
