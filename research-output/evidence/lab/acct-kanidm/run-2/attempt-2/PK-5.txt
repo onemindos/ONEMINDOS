@@ -1,0 +1,17 @@
+# 2026-11-25T11:38:49Z PK-5: a second host name OUTSIDE the canonical domain (https://idm.mesh.test:8443), same server, valid TLS
++ ip netns exec nsm curl -sS --cacert /etc/kanidm/ca.pem -o /dev/null -w 'TLS ok, http=%{http_code}\n' https://idm.mesh.test:8443/status
+TLS ok, http=200
+  (exit 0)
++ W nsm signin https://idm.mesh.test:8443 owner owner.cred refused
+{"origin": "https://idm.mesh.test:8443", "page": "Kanidm idm.onemind.test | Username | Remember My Username | Begin | Powered by Kanidm", "step": "login_page"}
+{"browser_console": ["https://idm.mesh.test:8443/ui/login/begin 0:0 Uncaught DOMException: The relying party ID is not a registrable domain s\u2026wn/webauthn resource of the claimed RP ID failed.", "https://idm.mesh.test:8443/pkg/pkhtml.js?v=gzQ3W+fo 40:20 \"Failed to complete passkey authentication: SecurityError: The relying party ID is not a registrable domain suffix of, nor equal to the current domain. Subsequently, an attempt to fetch the .well-known/", "https://idm.mesh.test:8443/ui/login/begin 0:0 Uncaught DOMException: The relying party ID is not a registrable domain s\u2026wn/webauthn resource of the claimed RP ID failed."], "credential_fp": "91bb8de03044ddc5", "ok": false, "origin": "https://idm.mesh.test:8443", "page": "Kanidm idm.onemind.test | Use Passkey | Powered by Kanidm", "profile": null, "result": "refused-by-browser", "sign_count_after": [7], "sign_count_before": [7], "step": "signin", "url": "https://idm.mesh.test:8443/ui/login/begin"}
+  (exit 0)
+# and enrolling a passkey from that name
++ reset_token owner owner.reset
+reset link issued for owner (link and token kept in the secrets dir, not printed)
+This token will expire at: 2026-11-25T12:39:19Z
+  (exit 0)
++ W nsm enrol https://idm.mesh.test:8443 owner owner2.cred refused
+{"ok": true, "origin": "https://idm.mesh.test:8443", "page": "Updating Credentials | User: Home Owner (owner) | Kanidm domain: Kanidm idm.onemind.test | Passkeys | Easy to use digita", "step": "open_reset"}
+{"browser_console": ["https://idm.mesh.test:8443/ui/reset/add_passkey - Failed to load resource: the server responded with a status of 403 (Forbidden)", "https://idm.mesh.test:8443/pkg/external/htmx.min.1.9.12.js?v=gzQ3W+fo 0:26875 \"Response Status Error Code 403 from /ui/reset/add_passkey\""], "credentials_in_authenticator": 0, "ok": false, "origin": "https://idm.mesh.test:8443", "page": "Updating Credentials | User: Home Owner (owner) | Kanidm domain: Kanidm idm.onemind.test | Passkeys | Easy to use digital credentials with self-contained multi-factor authentication designed to replace passwords. | Windows, MacOS, Android, ", "step": "passkey_created", "why": "no label dialog: timeout waiting for passkey label input (None)"}
+  (exit 0)

@@ -1,0 +1,117 @@
+# 2026-11-25T11:53:19Z AK-4: OIDC client
++ admin_relogin
+idm_admin login ok
+  (exit 0)
++ k system oauth2 create onemind_testapp 'OneMind test app' https://app.onemind.test
+[2m2026-11-25T11:53:20.044616Z[0m [31mERROR[0m [2mkanidm_cli[0m[2m:[0m OperationId: "e9e521e4-6f84-47dd-a2bb-ae09c9ebdbae"
+[2m2026-11-25T11:53:20.044653Z[0m [31mERROR[0m [2mkanidm_cli[0m[2m:[0m HTTP Error: 409 Conflict
+  (exit 1)
++ k system oauth2 add-redirect-url onemind_testapp https://app.onemind.test/oauth2/callback
+Success
+  (exit 0)
++ k system oauth2 update-scope-map onemind_testapp onemind_owners openid profile email groups
+Success
+  (exit 0)
++ k system oauth2 update-scope-map onemind_testapp onemind_adults openid profile groups
+Success
+  (exit 0)
++ k system oauth2 update-scope-map onemind_testapp onemind_children openid groups
+Success
+  (exit 0)
++ k system oauth2 update-claim-map onemind_testapp onemind_role onemind_owners owner
+Success
+  (exit 0)
++ k system oauth2 update-claim-map onemind_testapp onemind_role onemind_adults adult
+Success
+  (exit 0)
++ k system oauth2 update-claim-map onemind_testapp onemind_role onemind_children child
+Success
+  (exit 0)
++ kanidm system oauth2 show-basic-secret onemind_testapp -D idm_admin 2>/dev/null | tail -1 > /root/aklab/secrets/onemind_testapp.client_secret; chmod 600 /root/aklab/secrets/onemind_testapp.client_secret; test -s /root/aklab/secrets/onemind_testapp.client_secret && echo 'client secret kept in the secrets dir'
+client secret kept in the secrets dir
+  (exit 0)
++ k system oauth2 get onemind_testapp | grep -vE 'secret|key' 
+---
+class: account
+class: memberof
+class: oauth2_resource_server
+class: oauth2_resource_server_basic
+class: object
+displayname: OneMind test app
+name: onemind_testapp
+oauth2_rs_claim_map: onemind_role:onemind_adults@idm.onemind.test:;:"adult"
+oauth2_rs_claim_map: onemind_role:onemind_owners@idm.onemind.test:;:"owner"
+oauth2_rs_claim_map: onemind_role:onemind_children@idm.onemind.test:;:"child"
+oauth2_rs_origin: https://app.onemind.test/oauth2/callback
+oauth2_rs_origin_landing: https://app.onemind.test/
+oauth2_rs_scope_map: onemind_adults@idm.onemind.test: {"groups", "openid", "profile"}
+oauth2_rs_scope_map: onemind_owners@idm.onemind.test: {"email", "groups", "openid", "profile"}
+oauth2_rs_scope_map: onemind_children@idm.onemind.test: {"groups", "openid"}
+oauth2_strict_redirect_uri: true
+spn: onemind_testapp@idm.onemind.test
+uuid: 02ca62be-9e36-4b7a-bd8d-5254ee496e9c
+
+  (exit 0)
+# the owner passkey is the browser-enrolled one from PK-2: hand its key to the API client, then carry the counter back
++ env HOME=/root python3 -I /root/aklab/wa.py tosoft owner owner.cred
+{"credential_fp": "91bb8de03044ddc5", "ok": true, "sign_count": 8, "step": "tosoft"}
+  (exit 0)
++ $PY oidc owner onemind_testapp https://app.onemind.test/oauth2/callback passkey 'openid groups profile email'
+Traceback (most recent call last):
+  File "/root/aklab/aklab.py", line 475, in <module>
+    sys.exit(main(sys.argv[1:]))
+             ~~~~^^^^^^^^^^^^^^
+  File "/root/aklab/aklab.py", line 436, in main
+    r = oidc(argv[1], argv[2], argv[3], argv[4] if len(argv) > 4 else "password",
+             argv[5] if len(argv) > 5 else "openid groups")
+  File "/root/aklab/aklab.py", line 342, in oidc
+    ok, detail, tok = signin(username, mech)
+                      ~~~~~~^^^^^^^^^^^^^^^^
+  File "/root/aklab/aklab.py", line 233, in signin
+    cred = {"passkey": SoftPasskey(username).get(a["passkey"], origin())}
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/aklab/aklab.py", line 163, in get
+    raise RuntimeError("server did not offer this passkey's credential id")
+RuntimeError: server did not offer this passkey's credential id
+  (exit 1)
++ env HOME=/root python3 -I /root/aklab/wa.py fromsoft owner owner.cred
+{"ok": true, "sign_count": 8, "step": "fromsoft"}
+  (exit 0)
++ $PY oidc adult1 onemind_testapp https://app.onemind.test/oauth2/callback passkey 'openid groups profile'
+{"http": 200, "requested_scope": "openid groups profile", "step": "oidc_authorise", "user": "adult1"}
+{"scopes": ["groups", "openid", "profile"], "step": "oidc_consent_requested", "user": "adult1"}
+{"http": 200, "step": "oidc_permit", "user": "adult1"}
+{"http": 200, "step": "oidc_token", "user": "adult1"}
+{"result": {"id_token_claims": {"alg": "ES256", "aud": "onemind_testapp", "groups_onemind": ["onemind_adults@idm.onemind.test"], "iss": "https://idm.onemind.test:8443/oauth2/openid/onemind_testapp", "name": "Adult One", "nonce_matches": true, "onemind_role": ["adult"], "preferred_username": "adult1@idm.onemind.test", "scope": "groups openid profile", "signature_verified": true}}, "step": "oidc_result", "user": "adult1"}
+  (exit 0)
++ $PY oidc child1 onemind_testapp https://app.onemind.test/oauth2/callback passkey 'openid groups'
+{"http": 200, "requested_scope": "openid groups", "step": "oidc_authorise", "user": "child1"}
+{"scopes": ["groups", "openid"], "step": "oidc_consent_requested", "user": "child1"}
+{"http": 200, "step": "oidc_permit", "user": "child1"}
+{"http": 200, "step": "oidc_token", "user": "child1"}
+{"result": {"id_token_claims": {"alg": "ES256", "aud": "onemind_testapp", "groups_onemind": ["onemind_children@idm.onemind.test"], "iss": "https://idm.onemind.test:8443/oauth2/openid/onemind_testapp", "name": "Child One", "nonce_matches": true, "onemind_role": ["child"], "preferred_username": "child1@idm.onemind.test", "scope": "groups openid", "signature_verified": true}}, "step": "oidc_result", "user": "child1"}
+  (exit 0)
+# the scope map is enforced: a child asking for 'profile' (only owners and adults have it) is refused
++ $PY oidc child1 onemind_testapp https://app.onemind.test/oauth2/callback passkey 'openid groups profile'
+{"http": 403, "requested_scope": "openid groups profile", "step": "oidc_authorise", "user": "child1"}
+{"result": {"http": 403, "refused_at": "authorise"}, "step": "oidc_result", "user": "child1"}
+  (exit 0)
+# guest1 is only in onemind_guests, which has no scope map: must be refused
++ $PY oidc guest1 onemind_testapp https://app.onemind.test/oauth2/callback passkey
+{"http": 403, "requested_scope": "openid groups", "step": "oidc_authorise", "user": "guest1"}
+{"result": {"http": 403, "refused_at": "authorise"}, "step": "oidc_result", "user": "guest1"}
+  (exit 0)
+# 2026-11-25T11:57:50Z AK-4b: retry owner OIDC after the lab-client fix
++ env HOME=/root python3 -I /root/aklab/wa.py tosoft owner owner.cred
+{"credential_fp": "91bb8de03044ddc5", "ok": true, "sign_count": 8, "step": "tosoft"}
+  (exit 0)
++ $PY oidc owner onemind_testapp https://app.onemind.test/oauth2/callback passkey 'openid groups profile email'
+{"http": 200, "requested_scope": "openid groups profile email", "step": "oidc_authorise", "user": "owner"}
+{"scopes": ["email", "groups", "openid", "profile"], "step": "oidc_consent_requested", "user": "owner"}
+{"http": 200, "step": "oidc_permit", "user": "owner"}
+{"http": 200, "step": "oidc_token", "user": "owner"}
+{"result": {"id_token_claims": {"alg": "ES256", "aud": "onemind_testapp", "groups_onemind": ["onemind_owners@idm.onemind.test"], "iss": "https://idm.onemind.test:8443/oauth2/openid/onemind_testapp", "name": "Home Owner", "nonce_matches": true, "onemind_role": ["owner"], "preferred_username": "owner@idm.onemind.test", "scope": "email groups openid profile", "signature_verified": true}}, "step": "oidc_result", "user": "owner"}
+  (exit 0)
++ env HOME=/root python3 -I /root/aklab/wa.py fromsoft owner owner.cred
+{"ok": true, "sign_count": 9, "step": "fromsoft"}
+  (exit 0)

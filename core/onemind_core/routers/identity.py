@@ -7,8 +7,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, Request, Security
 from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.security import HTTPBearer
 from pydantic import BaseModel, Field
 
 from ..auth import Principal
@@ -212,6 +213,24 @@ class PasswordOnlyBody(BaseModel):
     password: str = Field(max_length=1024)
 
 
+class SignInMethods(BaseModel):
+    """How the signed-in person can sign in (Settings > Account and security). Facts only, no secret."""
+
+    password: bool = Field(description="This person has a password (password sign-in works).")
+    totp: bool = Field(description="An authenticator code is asked after the password. A fallback: passkeys come first (D-030).")
+    passkeys: int = Field(description="Passkeys this person has registered.")
+    passkeys_active: bool = Field(description="An owner on this box has a passkey, so owner actions need a fresh passkey sign-in.")
+
+
+class TotpSecret(BaseModel):
+    secret: str = Field(description="Base32 secret for an authenticator app; shown once.")
+    otpauth_uri: str = Field(description="The same secret as an otpauth:// link (what a QR code holds).")
+
+
+class TotpSetup(BaseModel):
+    one_time: TotpSecret
+
+
 class MePatchBody(BaseModel):
     # Not length-limited tightly here: the service answers 422 with a reason, like the other identity routes.
     display_name: str | None = Field(default=None, max_length=1000)
@@ -250,6 +269,10 @@ class AccessBody(BaseModel):
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
 ORDER = 260
+# Names the bearer scheme in /openapi.json for routes added after the contract lint (#874). It never refuses by
+# itself: gw.principal and the handler decide, and a session cookie works as on every other route.
+_BEARER = HTTPBearer(scheme_name="bearer", auto_error=False, description="A gateway token or a signed-in session (contract §3)")
+SIGNED_IN = [Security(_BEARER, scopes=["*"])]
 
 
 def register(app: FastAPI, gw: Gateway) -> None:
@@ -399,7 +422,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
         svc.change_password(request, ctx_of(request), body.current_password, body.new_password)
         return Response(status_code=204)
 
-    @app.post("/v1/auth/totp/setup", operation_id="auth.totp.setup", tags=["auth"], responses=R(401, 403, 409))
+    @app.get("/v1/auth/methods", operation_id="auth.methods.get", tags=["auth"], response_model=SignInMethods,
+             dependencies=SIGNED_IN, responses=R(401, 403))
+    def sign_in_methods(request: Request, _: Principal = Depends(principal)):
+        """Your own sign-in methods: password, authenticator code, passkeys. A household person only."""
+        return svc.sign_in_methods(ctx_of(request))
+
+    @app.post("/v1/auth/totp/setup", operation_id="auth.totp.setup", tags=["auth"], response_model=TotpSetup,
+              responses=R(401, 403, 409))
     def totp_setup(request: Request, _: Principal = Depends(principal)):
         return svc.totp_setup(ctx_of(request))
 

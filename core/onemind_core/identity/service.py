@@ -180,9 +180,11 @@ class IdentityService:
     def emit(self, domain: str, name: str, payload: dict, p: Principal | None = None, severity: str = "info") -> None:
         self.gw.events.publish_event(domain, name, payload, principal=p.as_dict() if p else None, severity=severity)
 
-    def deny(self, p: Principal | None, what: str, **extra) -> ApiError:
+    def deny(self, p: Principal | None, what: str, *, tell: bool = False, **extra) -> ApiError:
+        """Audit a refusal and build its 403. `reason` always goes to the audit event; with tell=True it is also
+        sent to the caller, for refusals the person can fix themselves (session_required: sign in, not a token)."""
         self.emit("authz", "denied", {"attempted": what, **extra}, p, severity="warning")
-        return ApiError(403, "permission_denied", f"not allowed to {what}")
+        return ApiError(403, "permission_denied", f"not allowed to {what}", reason=extra.get("reason") if tell else None)
 
     @staticmethod
     def principal_for(user: UserRow) -> Principal:
@@ -862,7 +864,7 @@ class IdentityService:
         a narrowly scoped PAT must not be able to add a passkey or TOTP, or change the password."""
         user = self._person(ctx)
         if ctx.session is None:
-            raise self.deny(ctx.principal, what, reason="session_required")
+            raise self.deny(ctx.principal, what, reason="session_required", tell=True)
         return user
 
     def _refuse_onion_enrolment(self, request: Request, ctx: AuthContext | None) -> None:
@@ -1123,6 +1125,15 @@ class IdentityService:
         self.repo.update(SessionRow, [SessionRow.user_id == user.id, SessionRow.id != keep,
                                       SessionRow.revoked_at.is_(None)], {"revoked_at": now})
         self.emit("auth", "password.changed", {"user_id": user.id, "other_sessions_revoked": True}, ctx.principal)
+
+    def sign_in_methods(self, ctx: AuthContext | None) -> dict:
+        """GET /v1/auth/methods: what the person's own sign-in looks like. Reading needs no session (a
+        person's token may read it); changing any of it does (_account)."""
+        person = self._person(ctx)
+        user = self.user(person.id) or person  # re-read: a change in this request's session is seen at once
+        return {"password": user.password_hash is not None, "totp": user.totp_secret is not None,
+                "passkeys": self.repo.count(PasskeyRow, PasskeyRow.user_id == user.id),
+                "passkeys_active": self.passkeys_active()}
 
     def totp_setup(self, ctx: AuthContext | None) -> dict:
         user = self._account(ctx, "set up an authenticator")

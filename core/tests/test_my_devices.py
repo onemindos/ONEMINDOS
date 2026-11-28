@@ -199,8 +199,9 @@ def test_refuses_the_current_device_tokens_and_agents(hc):
     pixel = by_label(devices(hc), "Pixel 9")
     pat = hc.post("/v1/tokens", json={"name": "script"}, headers=csrf(hc)).json()["one_time"]["token"]
     for headers in (AGENT, OWNER, {"Authorization": f"Bearer {pat}"}):  # an agent, a static token, an API token
-        assert hc.get("/v1/me/devices", headers=headers).status_code == 403
-        assert hc.delete(f"/v1/me/devices/{pixel['id']}", headers=headers).status_code == 403
+        for r in (hc.get("/v1/me/devices", headers=headers), hc.delete(f"/v1/me/devices/{pixel['id']}", headers=headers)):
+            # The reason reaches the caller, so the CLI and the dashboard can say "sign in, a token cannot do this".
+            assert r.status_code == 403 and r.json()["reason"] == "session_required", r.text
     assert hc.get("/v1/me", headers=bearer(body)).status_code == 200  # nothing was revoked
 
 
