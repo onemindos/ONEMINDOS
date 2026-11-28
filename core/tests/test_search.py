@@ -11,7 +11,7 @@ from dataclasses import replace
 from onemind_core.search import Asker
 from onemind_core.search.index import match_expression
 
-from files_support import ADULT, AGENT, GUEST, OWNER, audit_events, fc, files_root, files_settings, mkdir, ok, upload  # noqa: F401
+from files_support import ADULT, AGENT, GUEST, OWNER, audit_events, fc, files_root, files_settings, mkdir, ok, rename, upload  # noqa: F401
 
 
 def search(c, headers, q, **params):
@@ -61,8 +61,7 @@ def test_files_and_settings_providers_return_hits_with_deep_links(fc):
 def test_index_follows_renames_and_trash(fc):
     seed(fc)
     assert titles(fc, OWNER, "quarterly") == {"quarterly-report.txt"}
-    ok(fc.post("/v1/files/ops", headers=OWNER, json={"op": "rename", "root": "home:owner", "path": "/Docs/quarterly-report.txt",
-                                                      "name": "annual-report.txt"}))
+    rename(fc, OWNER, "home:owner", "/Docs/quarterly-report.txt", "annual-report.txt")
     assert titles(fc, OWNER, "quarterly") == set()
     assert titles(fc, OWNER, "annual") == {"annual-report.txt"}
     ok(fc.post("/v1/files/ops", headers=OWNER, json={"op": "trash", "root": "home:owner", "path": "/Docs/annual-report.txt"}))

@@ -3,6 +3,7 @@
 download a few of their files or photos until a set time.
 
 What keeps a link safe:
+- Only an approved request activates the link.
 - The link secret is 256 random bits, shown once at creation. The box keeps only its SHA-256, so
   a copy of the database cannot be turned back into working links. An optional password is kept
   as a scrypt hash (identity.crypto); ten wrong passwords end the link.
@@ -12,7 +13,8 @@ What keeps a link safe:
   active owner or adult, and still able to read each item, through the same FILES confinement
   (no symlinks, no `..`, only their own Home or Shared) or their own photo library. A person who
   is demoted, disabled or loses access to a folder takes their links' reach down with them.
-- A link serves only the items picked at creation: single regular files and photos, by index.
+- A link serves only the items picked at request time: single regular files and photos, by index.
+  If a file's identity changes, its old path cannot redirect a link to a replacement.
   The anonymous routes (/v1/share/...) reach nothing else, so a relay can forward that one
   prefix without exposing the rest of the box.
 - Every creation, revoke, open, download and refusal is an audit record (files.share.*), with
@@ -32,7 +34,7 @@ import secrets
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..auth import Principal
 from ..identity.crypto import hash_password, verify_password
@@ -42,8 +44,10 @@ from ..photos.files import LibraryEscape, PhotoFiles
 from . import paths
 from .access import is_person
 from .errors import FilesError, denied, not_found
-from .service import FilesService
 from .store import ShareRow, aware, new_id
+
+if TYPE_CHECKING:
+    from .service import FilesService
 
 CREATOR_ROLES = frozenset({"owner", "adult"})
 MAX_TTL = timedelta(days=30)
@@ -59,6 +63,11 @@ PHOTO_RE = re.compile(r"^sha256:([0-9a-f]{64})$")
 
 def token_hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+def file_identity(st: os.stat_result) -> list[int]:
+    # ctime also makes a reused inode or an in-place replacement fail closed.
+    return [st.st_dev, st.st_ino, st.st_ctime_ns]
 
 
 class ShareService:
@@ -107,10 +116,9 @@ class ShareService:
                 self._photo_path(p.id, h)  # 404 unless it is this person's own photo
                 out.append({"kind": "photo", "hash": h})
             else:
-                with self.files.open_file(p, item["root"], item["path"], "share") as (_fd, _st, _name):
-                    pass
                 t = self.files.target(p, item["root"], item["path"], "read")
-                out.append({"kind": "file", "root": t.root.id, "path": t.path})
+                with self.files.open_file(p, t.root.id, t.path, "share") as (_fd, st, _name):
+                    out.append({"kind": "file", "root": t.root.id, "path": t.path, "identity": file_identity(st)})
         return out
 
     @staticmethod
@@ -133,6 +141,8 @@ class ShareService:
         """(fd, stat, name) of one shared item, read with the creator's rights as they are now."""
         if item["kind"] == "file":
             with self.files.open_file(creator, item["root"], item["path"], "share") as opened:
+                if item.get("identity") != file_identity(opened[1]):
+                    raise not_found("this item is no longer shared")
                 yield opened
             return
         library_path = self._photo_path(creator.id, item["hash"])
@@ -158,7 +168,7 @@ class ShareService:
         anyone else (an owner) sees Shared items in full and private items only by kind."""
         now = self.now()
         state = "revoked" if row.revoked_at else ("expired" if aware(row.expires_at) <= now else "active")
-        items = [dict(i) for i in row.items]
+        items = [{k: v for k, v in i.items() if k != "identity"} for i in row.items]
         name = row.name
         hidden = 0
         if viewer is not None and viewer.id != row.created_by:
@@ -182,44 +192,70 @@ class ShareService:
             "last_opened_at": iso(aware(row.last_opened_at)) if row.last_opened_at else None,
         }
 
-    def create(self, p: Principal, name: str | None, items: list[dict], expires_at: datetime,
-               password: str | None) -> dict:
+    def prepare(self, p: Principal, name: str | None, items: list[dict], expires_at: datetime,
+               password: str | None) -> tuple[dict, dict]:
+        """Prepare a link for approval. Only the requester receives its secret."""
         self._creator(p)
         now = self.now()
         if not MIN_TTL <= expires_at - now <= MAX_TTL:
             raise FilesError(422, "conflict", "expires_at must be between 5 minutes and 30 days from now",
                              reason="invalid_expiry")
-        live = [r for r in self.repo.shares(p.id) if r.revoked_at is None and aware(r.expires_at) > now]
-        if len(live) >= MAX_ACTIVE:
-            raise FilesError(429, "rate_limited", f"at most {MAX_ACTIVE} live share links per person; revoke some",
-                             reason="too_many_shares")
+        self._check_limit(p.id, now)
         checked = self._check_items(p, items)
         token = TOKEN_PREFIX + secrets.token_urlsafe(32)
         label = "".join(c for c in (name or "") if c.isprintable()).strip()[:120]
-        row = ShareRow(id=new_id("shl"), token_hash=token_hash(token), created_by=p.id,
-                       name=label or f"{len(checked)} shared item{'s' if len(checked) != 1 else ''}",
-                       items=checked, password_hash=hash_password(password) if password else None,
-                       created_at=now, expires_at=expires_at, failed_attempts=0, opened_count=0)
-        self.repo.add_share(row)
-        self.event("created", p, row.id, {"items": len(checked), "password": password is not None,
+        params = {
+            "share_id": new_id("shl"), "token_hash": token_hash(token),
+            "name": label or f"{len(checked)} shared item{'s' if len(checked) != 1 else ''}",
+            "items": checked, "password_hash": hash_password(password) if password else None,
+            "expires_at": iso(expires_at),
+        }
+        return params, {"token": token, "path": f"/v1/share/{token}"}
+
+    def _check_limit(self, person_id: str, now: datetime) -> None:
+        live = [r for r in self.repo.shares(person_id) if r.revoked_at is None and aware(r.expires_at) > now]
+        if len(live) >= MAX_ACTIVE:
+            raise FilesError(429, "rate_limited", f"at most {MAX_ACTIVE} live share links per person; revoke some",
+                             reason="too_many_shares")
+
+    def activate(self, p: Principal, params: dict) -> dict:
+        self._creator(p)
+        expires_at = datetime.fromisoformat(params["expires_at"])
+        now = self.now()
+        if expires_at <= now:
+            raise FilesError(409, "expired", "the requested share link already expired")
+        with self.files._lock:
+            self._check_limit(p.id, now)
+            for item in params["items"]:
+                with self.open_item(p, item):
+                    pass
+            row = ShareRow(id=params["share_id"], token_hash=params["token_hash"], created_by=p.id,
+                           name=params["name"], items=params["items"], password_hash=params["password_hash"],
+                           created_at=now, expires_at=expires_at, failed_attempts=0, opened_count=0)
+            self.repo.add_share(row)
+        self.event("created", p, row.id, {"items": len(row.items), "password": row.password_hash is not None,
                                           "expires_at": iso(expires_at)})
-        return {**self.json(row), "one_time": {"token": token, "path": f"/v1/share/{token}"}}
+        return {"share_id": row.id}
 
     def _visible(self, p: Principal, row: ShareRow | None) -> bool:
-        return row is not None and (row.created_by == p.id or p.is_owner)
+        return is_person(p) and row is not None and (row.created_by == p.id or p.is_owner)
 
     def list(self, p: Principal) -> list[dict]:
         if not is_person(p):
             return []
         return [self.json(r, p) for r in self.repo.shares(None if p.is_owner else p.id)]
 
-    def revoke(self, p: Principal, share_id: str) -> dict:
+    def require_visible(self, p: Principal, share_id: str) -> ShareRow:
         row = self.repo.share(share_id) if SHARE_ID_RE.match(share_id) else None
         if not self._visible(p, row):
             raise not_found("no such share link")
+        return row
+
+    def revoke(self, p: Principal, share_id: str) -> dict:
+        row = self.require_visible(p, share_id)
         if self.repo.revoke_share(share_id, p.id, self.now()):
             self.event("revoked", p, share_id, {"created_by": row.created_by})
-        return self.json(self.repo.share(share_id), p)
+        return {"share_id": row.id, "state": "revoked"}
 
     # ---- the outside user's side -----------------------------------------------------------
     def resolve(self, token: str, password: str | None) -> tuple[ShareRow, Principal]:

@@ -284,22 +284,14 @@ func sharesCmd(a *App) *cobra.Command {
 	})
 	links.AddCommand(&cobra.Command{
 		Use:   "revoke LINK_ID",
-		Short: "End a link now (its creator or an owner)",
+		Short: "Request to end a link; an owner approves",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			c, _, err := a.client()
+			out, err := a.gwDo(http.MethodDelete, "/v1/files/shares/"+url.PathEscape(args[0]), nil)
 			if err != nil {
 				return err
 			}
-			var out any
-			if err := c.Do(bg(), http.MethodDelete, "/v1/files/shares/"+url.PathEscape(args[0]), nil, &out); err != nil {
-				return err
-			}
-			if a.G.JSON {
-				return printJSON(a.Stdout, map[string]any{"schema": "onemind.cli.shares/v1", "revoked": args[0], "result": out})
-			}
-			fmt.Fprintf(a.Stdout, "link %s ended\n", sanitize(args[0]))
-			return nil
+			return a.printFileRequest("end share link "+sanitize(args[0]), out)
 		},
 	})
 	g.AddCommand(links)

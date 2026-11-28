@@ -35,7 +35,7 @@ func TestFilesBrowseQuotasAndTrash(t *testing.T) {
 		t.Fatal("trash query")
 	}
 	r := run(t, "", false, "files", "trash", "empty", "--reason", "spring clean")
-	outHas(t, r.out, "Requested", "req_9", "Files, Requests")
+	outHas(t, r.out, "Requested", "req_9", "Files → Sharing → Requests")
 	if strings.Contains(r.out, "onemind actions approve") {
 		t.Fatalf("a files request is not an action: %s", r.out)
 	}

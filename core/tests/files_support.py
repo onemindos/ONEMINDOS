@@ -47,6 +47,19 @@ def mkdir(c, headers, root, path):
     return ok(c.post("/v1/files/ops", headers=headers, json={"op": "mkdir", "root": root, "path": path}))
 
 
+def approve_request(c, pending):
+    assert pending["state"] == "awaiting_approval"
+    decided = ok(c.post(f"/v1/files/requests/{pending['id']}/approve", headers=OWNER,
+                        json={"plan_sha256": pending["plan_sha256"]}))
+    assert decided["state"] == "succeeded", decided
+    return decided["result"]
+
+
+def rename(c, headers, root, path, name):
+    return approve_request(c, ok(c.post("/v1/files/ops", headers=headers,
+                                       json={"op": "rename", "root": root, "path": path, "name": name}), 202))
+
+
 def meta(**kv: str) -> str:
     return ",".join(f"{k} {base64.b64encode(v.encode()).decode()}" for k, v in kv.items())
 

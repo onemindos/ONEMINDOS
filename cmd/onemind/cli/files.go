@@ -4,11 +4,9 @@ package cli
 
 // onemind files: your files and who else may reach them (GET /v1/files/*, PUT /v1/files/quotas/{id},
 // POST /v1/files/grants, POST /v1/files/trash/empty, DELETE /v1/files/grants/{id}). Browsing is
-// read-only. Giving an app or an agent a folder, and emptying a trash, only FILE a request an owner
-// approves in `onemind actions` or the dashboard; the CLI never sends the owner shortcut
-// ("approve": true). Taking a folder back and setting a space limit are owner calls the gateway
-// already restricts and audits. Moving, renaming and uploading stay in the Files screen and in the
-// desktop and phone apps.
+// read-only. Folder grants, permanent trash deletion, person-initiated renames and share-link
+// changes file requests for an owner to approve in the Files dashboard. Agents can rename inside
+// an owner-approved read-write folder grant.
 
 import (
 	"encoding/json"
@@ -16,6 +14,9 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 )
@@ -146,8 +147,130 @@ func filesCommands(a *App) []*cobra.Command {
 	qset.Flags().BoolVar(&unlimited, "unlimited", false, "remove the limit")
 	quotas.AddCommand(qset)
 
-	root.AddCommand(ls, stat, trash, quotas, filesGrantsCmd(a), filesRequestsCmd(a))
+	var rnRoot string
+	rename := &cobra.Command{
+		Use:   "rename PATH NEW_NAME --root ROOT",
+		Short: "Request a new name for a file or folder (POST /v1/files/ops)",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if rnRoot == "" {
+				return usageErr(cmd, "--root is required: see `onemind files roots`")
+			}
+			if strings.TrimSpace(args[1]) == "" {
+				return usageErr(cmd, "NEW_NAME must not be empty")
+			}
+			if strings.Contains(args[1], "/") {
+				return usageErr(cmd, "NEW_NAME is a name, not a path: use no \"/\"")
+			}
+			v, err := a.gwDo(http.MethodPost, "/v1/files/ops", map[string]any{"op": "rename", "root": rnRoot, "path": args[0], "name": args[1]})
+			if err != nil {
+				return err
+			}
+			if str(obj(v)["state"]) == "awaiting_approval" {
+				return a.printFileRequest("rename "+args[0], v)
+			}
+			return a.printDone(v, "Renamed %s to %s.", args[0], args[1])
+		},
+	}
+	rename.Flags().StringVar(&rnRoot, "root", "", "the space the path is in")
+
+	root.AddCommand(ls, stat, rename, trash, quotas, filesGrantsCmd(a), filesRequestsCmd(a), filesShareCmd(a))
 	return []*cobra.Command{root}
+}
+
+// The gateway accepts a share expiry 5m to 720h ahead of its own clock; the CLI keeps one minute off
+// each end so latency and a skewed clock never turn a valid choice into a 422.
+const (
+	shareMinTTL = 6 * time.Minute
+	shareMaxTTL = 719 * time.Hour
+)
+
+func filesShareCmd(a *App) *cobra.Command {
+	g := &cobra.Command{Use: "share", Short: "Links that let someone without an account download your files"}
+	g.AddCommand(&cobra.Command{
+		Use:   "list",
+		Short: "Your share links, without their secrets (GET /v1/files/shares); an owner sees everyone's",
+		Args:  cobra.NoArgs,
+		RunE: func(*cobra.Command, []string) error {
+			return a.getTable("/v1/files/shares", "ID\tNAME\tSTATE\tITEMS\tOPENED\tEXPIRES", func(m map[string]any) []string {
+				return []string{str(m["id"]), str(m["name"]), str(m["state"]), strconv.Itoa(len(list(m["items"]))), fmt.Sprint(m["opened_count"]), str(m["expires_at"])}
+			})
+		},
+	})
+	var root, name string
+	var fromStdin bool
+	var expires time.Duration
+	create := &cobra.Command{
+		Use:   "create PATH... --root ROOT [--expires-in 168h] [--name NAME] [--password-stdin]",
+		Short: "Request a link to files (POST /v1/files/shares); the secret link is shown once",
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if root == "" {
+				return usageErr(cmd, "--root is required: see `onemind files roots`")
+			}
+			// The gateway wants 5m to 720h counted from ITS clock when the call arrives, so keep a margin
+			// at both ends for latency and clock skew.
+			if expires < shareMinTTL || expires > shareMaxTTL {
+				return usageErr(cmd, "--expires-in must be between 6m and 719h")
+			}
+			items := make([]any, 0, len(args))
+			for _, p := range args {
+				items = append(items, map[string]any{"root": root, "path": p})
+			}
+			body := map[string]any{"items": items, "expires_at": time.Now().UTC().Add(expires).Format(time.RFC3339)}
+			if name != "" {
+				body["name"] = name
+			}
+			if fromStdin {
+				got, err := a.secrets(true, "Link password")
+				if err != nil {
+					return err
+				}
+				if n := utf8.RuneCountInString(got[0]); n < 8 || n > 200 { // characters, as the gateway counts them
+					return usageErr(cmd, "the link password needs 8 to 200 characters")
+				}
+				body["password"] = got[0]
+			}
+			// No Idempotency-Key and no retry: a retry could file a second request.
+			v, err := a.gwDo(http.MethodPost, "/v1/files/shares", body)
+			if err != nil {
+				return err
+			}
+			if a.G.JSON {
+				return printJSON(a.Stdout, v)
+			}
+			url := str(obj(obj(v)["one_time"])["url"])
+			if a.G.Quiet {
+				fmt.Fprintln(a.Stdout, url)
+				return nil
+			}
+			fmt.Fprintf(a.Stdout, "Request %s is waiting for owner approval in the Files dashboard (Sharing).\nLink (shown only now): %s\nRecipients use an API client. Protected links require the OneMind-Share-Password header.\n", str(obj(v)["id"]), url)
+			return nil
+		},
+	}
+	create.Flags().StringVar(&root, "root", "", "the space the paths are in")
+	create.Flags().DurationVar(&expires, "expires-in", 7*24*time.Hour, "how long the link works (6m to 719h)")
+	create.Flags().StringVar(&name, "name", "", "a label for the link")
+	create.Flags().BoolVar(&fromStdin, "password-stdin", false, "ask for a password on the link, read from the first line of stdin (at least 8 characters)")
+	var yes bool
+	rev := &cobra.Command{
+		Use:   "revoke SHARE_ID --yes",
+		Short: "Request to end a link (DELETE /v1/files/shares/ID)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireYes(cmd, yes, "the link stops working for everyone after the owner approves"); err != nil {
+				return err
+			}
+			v, err := a.gwDo(http.MethodDelete, "/v1/files/shares/"+pathID(args[0]), nil)
+			if err != nil {
+				return err
+			}
+			return a.printFileRequest("end share link "+args[0], v)
+		},
+	}
+	rev.Flags().BoolVar(&yes, "yes", false, "confirm")
+	g.AddCommand(create, rev)
+	return g
 }
 
 func filesGrantsCmd(a *App) *cobra.Command {
@@ -264,6 +387,10 @@ func (a *App) requestFiles(what, path string, body map[string]any) error {
 	if err != nil {
 		return err
 	}
+	return a.printFileRequest(what, v)
+}
+
+func (a *App) printFileRequest(what string, v any) error {
 	id := str(obj(v)["id"])
 	state := str(obj(v)["state"])
 	if a.G.JSON {
@@ -273,15 +400,14 @@ func (a *App) requestFiles(what, path string, body map[string]any) error {
 	} else if a.G.Quiet {
 		fmt.Fprintln(a.Stdout, id)
 	}
-	// The key is the same all day, so after a deny, cancel or expiry the gateway replays that old
-	// request instead of filing a new one. Say nothing new was filed, as printRequested does.
+	// A keyed request can replay an earlier decision, without filing a new request.
 	if state != "" && state != "awaiting_approval" {
 		return exitWith(ExitConflict, "conflict", fmt.Sprintf("%s: already %s today, nothing new filed (%s). Ask again tomorrow, or see `onemind files requests show %s`", what, state, id, id))
 	}
 	if a.G.JSON || a.G.Quiet {
 		return nil
 	}
-	fmt.Fprintf(a.Stdout, "Requested %s (%s, %s). An owner decides it in the dashboard (Files, Requests); see it with: onemind files requests show %s\n",
+	fmt.Fprintf(a.Stdout, "Requested %s (%s, %s). An owner decides it in the dashboard (Files → Sharing → Requests); see it with: onemind files requests show %s\n",
 		what, id, dash(state), id)
 	return nil
 }

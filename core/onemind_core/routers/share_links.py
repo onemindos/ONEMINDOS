@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """Share links (FILES-02, #237): /v1/files/shares for the household, /v1/share/... for outsiders.
 
-An owner or adult picks files or photos and an expiry (optional password); the answer carries the
-link secret once. Someone outside the household opens `/v1/share/<secret>` without an account:
+An owner or adult requests a link for files or photos with an expiry and optional password.
+The answer carries the secret once. After owner approval, someone outside the household opens
+`/v1/share/<secret>` without an account:
 the item list, then each item by index. The rules are in files/shares.py.
 """
 
@@ -19,8 +20,8 @@ from ..context import Gateway
 from ..errors import ErrorBody
 from ..files import errors as ferrors
 from ..files.errors import FilesError
-from ..files.service import FilesService
-from ..files.shares import MAX_ITEMS, ShareService
+from ..files.service import REQUEST_TTL
+from ..files.shares import MAX_ITEMS
 from ..identity.scopes import register_route_scope
 from .files import Root, file_response
 
@@ -46,7 +47,7 @@ _ERR = {
     409: {"description": "Not a regular file (conflict)"},
     410: {"description": "The link expired, was revoked, or its creator can no longer share (expired)"},
     422: {"description": "Invalid body, expiry or photo hash (conflict)"},
-    429: {"description": "Too many live links for this person (rate_limited)"},
+    429: {"description": "Too many pending requests or live links for this person (rate_limited)"},
     503: {"description": "The files storage is not usable (unavailable)"},
 }
 
@@ -85,19 +86,27 @@ NO_STORE = {"Cache-Control": "no-store", "Referrer-Policy": "no-referrer", "X-Ro
 
 
 def register(app: FastAPI, gw: Gateway) -> None:
-    shares = ShareService(FilesService(gw), gw)
+    svc = app.state.files_service
+    shares = svc.shares
     principal = gw.principal
     app.add_exception_handler(FilesError, ferrors.handle)
 
-    @app.post("/v1/files/shares", operation_id="files.shares.create", tags=TAG, status_code=201,
+    @app.post("/v1/files/shares", operation_id="files.shares.create", tags=TAG, status_code=202,
               responses=errs(401, 403, 404, 409, 422, 429, 503))
     def create_share(request: Request, body: ShareBody, p: Principal = Depends(principal)):
-        """Share files or photos outside the household until `expires_at`. The secret comes back once."""
+        """Request a public link. The secret is returned once and works only after owner approval."""
         items = [i.model_dump() for i in body.items]
-        out = shares.create(p, body.name, items, body.expires_at, body.password)
+        params, secret = shares.prepare(p, body.name, items, body.expires_at, body.password)
+        plan = {"summary": f"Publish {len(items)} item(s) outside the household until {params['expires_at']}",
+                "items": [{"path": i["path"]} if i.get("root") == "shared" else {"kind": i["kind"], "hidden": True}
+                          for i in params["items"]],
+                "password": params["password_hash"] is not None}
+        out, _ = svc.create_request(p, "files.shares.create", params,
+                                    expires_at=min(body.expires_at, svc.clock() + REQUEST_TTL),
+                                    plan_and_risk=(plan, "sensitive"))
         base = (gw.settings.public_url or str(request.base_url)).rstrip("/")
-        out["one_time"]["url"] = base + out["one_time"]["path"]
-        return JSONResponse(out, status_code=201, headers={"Location": f"/v1/files/shares/{out['id']}", **NO_STORE})
+        out["one_time"] = {**secret, "url": base + secret["path"]}
+        return JSONResponse(out, status_code=202, headers={"Location": f"/v1/files/requests/{out['id']}", **NO_STORE})
 
     @app.get("/v1/files/shares", operation_id="files.shares.list", tags=TAG, responses=errs(401))
     def list_shares(p: Principal = Depends(principal)):
@@ -105,11 +114,15 @@ def register(app: FastAPI, gw: Gateway) -> None:
         photos or names behind items from that person's Home or photo library."""
         return shares.list(p)
 
-    @app.delete("/v1/files/shares/{share_id}", operation_id="files.shares.revoke", tags=TAG, responses=errs(401, 404))
+    @app.delete("/v1/files/shares/{share_id}", operation_id="files.shares.revoke", tags=TAG, status_code=202,
+                responses=errs(401, 404, 429))
     def revoke_share(share_id: Annotated[str, Path(max_length=40, json_schema_extra={"pattern": SHARE_ID})],
                      p: Principal = Depends(principal)):
-        """End a link now: the creator or an owner."""
-        return shares.revoke(p, share_id)
+        """Request to end a link. The creator or an owner can ask, and only an owner can approve."""
+        shares.require_visible(p, share_id)
+        out, _ = svc.create_request(p, "files.shares.revoke", {"share_id": share_id},
+                                    plan_and_risk=({"summary": f"End public share link {share_id}"}, "write"))
+        return JSONResponse(out, status_code=202, headers={"Location": f"/v1/files/requests/{out['id']}"})
 
     @app.get("/v1/share/{token}", operation_id="share.open", tags=["share"], responses=errs(401, 404, 410))
     def open_share(token: TokenPath, password: SharePassword = None):
