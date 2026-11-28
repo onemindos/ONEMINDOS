@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+# tak-server-data: /data in the takserver container: the certificate authority, server and client
+# certificates (/data/certs), CoreConfig.xml and UserAuthenticationFile.xml (/data/config) and logs.
+# tak-server-db: the PostgreSQL + PostGIS data directory (CoT history, missions, data packages).
+# Guide §3.2 asks for 40 GB of disk in all; 5Gi + 35Gi is a OneMind split. No storageClassName: the
+# cluster default class is used (k3s local-path, which keeps volumes on the box's /data partition).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tak-server-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tak-server-db
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 35Gi
