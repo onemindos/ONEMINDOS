@@ -137,28 +137,13 @@ export interface TlsInfo { ca_sha256: string; names: string[]; not_after: string
 type ApprovalChallenge = components['schemas']['ApprovalChallenge'];
 export type ApproveOptions = Pick<ApprovalChallenge, 'challenge' | 'action_sha256' | 'plan_sha256' | 'expires_at' | 'publicKey'>
   & Partial<Pick<ApprovalChallenge, 'required_level' | 'box_code_required' | 'box_available' | 'password_totp_available'>>;
-export interface FirstRunSettingsBody {
-  box_name: string;
-  time_zone: string;
-  backup_choice: 'usb' | 'peer' | 's3' | 'later';
-  backup_destination_id: string | null;
-}
-export interface FirstRunSettings extends Omit<FirstRunSettingsBody, 'box_name' | 'time_zone'> {
-  box_name: string | null;
-  time_zone: string | null;
-  saved: boolean;
-}
+export type FirstRunSettingsBody = components['schemas']['OnboardingSettingsBody'];
+export type FirstRunSettings = components['schemas']['OnboardingSettingsView'];
 export interface SecretsChangeBody { sealed?: SealedInput; generate: string[]; clear: string[]; reason?: string }
-export interface FirstRunState {
-  complete: boolean;
-  settings_saved: boolean;
-  backups_enabled: boolean;
-  destinations: number;
-  kit: { state: 'missing' | 'issued' | 'confirmed'; confirmed_at: string | null; fingerprint: string | null; positions: number[] };
-}
+export type FirstRunState = components['schemas']['OnboardingStateView'];
 export type IssuedKitResponse = components['schemas']['BackupKitIssue'];
 export interface SourceAddParams { name: string; url: string; commit: string }
-export interface BackupDestinationRecord { id: string; kind: string; label: string }
+export type BackupDestinationRecord = Pick<components['schemas']['BackupDestination'], 'id' | 'kind' | 'label'>;
 
 const KNOWN_CODES = new Set([
   'permission_denied',
@@ -196,9 +181,9 @@ export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>
 /** Real client: talks to the gateway over HTTP with a bearer token. */
 export class HttpApi implements OneMindApi {
   private readonly sdk: OneMind;
-  onboardingSettings = () => this.req<FirstRunSettings>('GET', '/v1/onboarding/settings');
-  saveOnboardingSettings = (body: FirstRunSettingsBody) => this.req<FirstRunSettings>('PUT', '/v1/onboarding/settings', body);
-  onboardingState = () => this.req<FirstRunState>('GET', '/v1/onboarding/state');
+  onboardingSettings = () => this.sdkCall<FirstRunSettings>('GET', '/v1/onboarding/settings');
+  saveOnboardingSettings = (body: FirstRunSettingsBody) => this.sdkCall<FirstRunSettings>('PUT', '/v1/onboarding/settings', body);
+  onboardingState = () => this.sdkCall<FirstRunState>('GET', '/v1/onboarding/state');
   async issueKit(): Promise<IssuedKitResponse> {
     const action = await this.sdkCall<components['schemas']['Action']>('POST', '/v1/backups/kit/request');
     if (action.type !== 'backup.kit.issue' || !action.id) throw new ApiError(200, 'unknown', 'Invalid backup kit request');
@@ -213,7 +198,7 @@ export class HttpApi implements OneMindApi {
   confirmKit = async (answers: Record<string, string>) => {
     await this.sdkCall<unknown>('POST', '/v1/backups/kit/confirm', { answers } satisfies components['schemas']['KitConfirmBody']);
   };
-  backupDestinations = () => this.req<BackupDestinationRecord[]>('GET', '/v1/backups/destinations', undefined, 'array');
+  backupDestinations = () => this.sdkCall<components['schemas']['BackupDestination'][]>('GET', '/v1/backups/destinations', undefined, true);
   private readonly base: string;
   private readonly token: string;
   private readonly fetchFn: FetchLike;
@@ -346,7 +331,7 @@ export class HttpApi implements OneMindApi {
       return !req.plan_sha256 || action.plan_sha256 === req.plan_sha256;
     });
   }
-  private async sdkCall<T>(method: 'GET' | 'POST' | 'PATCH', path: string, body?: unknown, shape: boolean | 'empty' = false, headers?: Record<string, string>, retry?: boolean): Promise<T> {
+  private async sdkCall<T>(method: 'GET' | 'POST' | 'PUT' | 'PATCH', path: string, body?: unknown, shape: boolean | 'empty' = false, headers?: Record<string, string>, retry?: boolean): Promise<T> {
     try {
       const value = await this.sdk.call<T>({ method, path, body, ...(headers ? { headers } : {}), ...(retry !== undefined ? { retry } : {}) });
       const valid = shape === 'empty' ? value === undefined : !!value && typeof value === 'object' && Array.isArray(value) === shape;
@@ -519,7 +504,7 @@ export class HttpApi implements OneMindApi {
     return this.sdkCall<W.LoginResult>('POST', '/v1/auth/enrol', { ...b, client: 'app' } satisfies components['schemas']['EnrolBody']);
   }
   me() {
-    return this.req<W.Me>('GET', '/v1/me');
+    return this.sdkCall<W.Me>('GET', '/v1/me');
   }
   updateIdentityEmail = async (email: string | null) => { await this.sdkCall<unknown>('PATCH', '/v1/me', { email } satisfies components['schemas']['MePatchBody']); };
   emailOptions = () => this.sdkCall<components['schemas']['BoxChallenge']>('POST', '/v1/auth/email/options', {});
@@ -552,11 +537,10 @@ export class HttpApi implements OneMindApi {
   users() {
     return this.req<W.UserInfo[]>('GET', '/v1/users', undefined, 'array');
   }
-  createUser(b: { display_name: string; role: W.PersonRole; username?: string }) {
-    return this.req<W.UserCreated>('POST', '/v1/users', b);
+  createUser(body: components['schemas']['UserCreateBody'] & { role: W.PersonRole }) {
+    return this.sdkCall<W.UserCreated>('POST', '/v1/users', body);
   }
-  createInvite = (body: components['schemas']['UserCreateBody']) => this.sdkCall<W.InviteRequestResult>('POST', '/v1/users/invites', body);
-  reissueInvite = (userId: string) => this.sdkCall<W.InviteRequestResult>('POST', `/v1/users/${encodeURIComponent(userId)}/invite`);
+  reissueInvite = (userId: string) => this.sdkCall<components['schemas']['Action']>('POST', `/v1/users/${encodeURIComponent(userId)}/invite`);
   claimInvite = (actionId: string) => this.sdkCall<W.UserCreated>('POST', `/v1/users/invites/${encodeURIComponent(actionId)}/claim`, undefined, false, undefined, false);
   updateUser(id: string, b: { display_name?: string; role?: W.PersonRole }) {
     return this.req<W.UserInfo>('PATCH', `/v1/users/${encodeURIComponent(id)}`, b);

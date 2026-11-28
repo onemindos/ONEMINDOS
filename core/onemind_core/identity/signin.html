@@ -27,9 +27,16 @@
     <label for="pklabel">Passkey name</label><input id="pklabel" value="this device">
     <button id="addpk">Add a passkey</button> <button id="logout">Sign out</button></section>
   <section id="kit" hidden><h2>Save your recovery kit</h2>
-    <p>Download or print the kit and keep it somewhere safe. You need it to reset your password at the box.</p>
-    <pre id="kit-text"></pre>
-    <button id="download">Download kit</button> <button id="print">Print kit</button>
+    <div id="new-kit" hidden>
+      <p>Download or print the kit and keep it somewhere safe. You need it to reset your password at the box.</p>
+      <pre id="kit-text"></pre>
+      <button id="download">Download kit</button> <button id="print">Print kit</button>
+    </div>
+    <div id="saved-kit" hidden>
+      <label for="saved-code">Account recovery code</label><input id="saved-code" type="password" autocomplete="off" maxlength="128">
+      <label for="saved-disk">Disk recovery key</label><input id="saved-disk" type="password" autocomplete="off" maxlength="128">
+      <label for="saved-method">How you saved it</label><select id="saved-method"><option value="download">Downloaded</option><option value="print">Printed</option></select>
+    </div>
     <label><input type="checkbox" id="saved"> I saved my recovery kit.</label>
     <button id="finish">Finish setup</button></section>
   <section id="enrol" hidden><h2>Finish your account</h2>
@@ -62,7 +69,7 @@ async function api(path, body, extra) {
     headers: Object.assign({ "Content-Type": "application/json", "OneMind-CSRF": csrf() }, extra || {}),
     body: JSON.stringify(body || {}) });
   const data = r.status === 204 ? {} : await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.message || r.statusText);
+  if (!r.ok) throw Object.assign(new Error(data.message || r.statusText), { reason: data.reason });
   return data;
 }
 function credJSON(c) {
@@ -81,10 +88,17 @@ async function refresh() {
     $("whoami").textContent = `${me.principal.display_name || me.principal.id} (${me.principal.role}), ${me.passkeys} passkey(s)`;
     $("kit").hidden = !me.setup_pending;
     if (me.setup_pending && !kitCode) {
-      const kit = await api("/v1/auth/setup/kit");
-      kitCode = kit.recovery_code;
-      $("kit-text").textContent = "OneMind recovery kit\n\nAccount recovery code:\n" + kitCode +
-        (kit.disk_recovery_key ? "\n\nDisk recovery key:\n" + kit.disk_recovery_key : "");
+      try {
+        const kit = await api("/v1/auth/setup/kit");
+        kitCode = kit.recovery_code;
+        $("kit-text").textContent = "OneMind recovery kit\n\nAccount recovery code:\n" + kitCode +
+          (kit.disk_recovery_key ? "\n\nDisk recovery key:\n" + kit.disk_recovery_key : "");
+        $("new-kit").hidden = false; $("saved-kit").hidden = true;
+      } catch (e) {
+        $("saved-kit").hidden = e.reason !== "disk_recovery_key_missing";
+        $("new-kit").hidden = true;
+        say(e.message);
+      }
     }
   }
 }
@@ -108,11 +122,23 @@ $("download").onclick = () => {
   link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); savedMethod = "download";
 };
 $("print").onclick = () => { window.print(); savedMethod = "print"; };
+function clearKit() {
+  kitCode = undefined; savedMethod = undefined;
+  $("kit-text").textContent = ""; $("saved-code").value = ""; $("saved-disk").value = "";
+  $("saved").checked = false;
+}
 $("finish").onclick = async () => {
-  if (!savedMethod || !$("saved").checked) return say("Download or print your kit and confirm you saved it.");
+  const fromSavedKit = !$("saved-kit").hidden;
+  const method = fromSavedKit ? $("saved-method").value : savedMethod;
+  if (!method || !$("saved").checked) return say("Download or print your kit and confirm you saved it.");
+  const body = { saved: true, method, recovery_code: fromSavedKit ? $("saved-code").value.trim() : kitCode };
+  if (fromSavedKit) {
+    body.disk_recovery_key = $("saved-disk").value.trim();
+    if (!body.recovery_code || !body.disk_recovery_key) return say("Enter both codes from the saved kit.");
+  }
   try {
-    await api("/v1/auth/setup/finish", { saved: true, method: savedMethod, recovery_code: kitCode });
-    kitCode = undefined; savedMethod = undefined; $("kit-text").textContent = "";
+    await api("/v1/auth/setup/finish", body);
+    clearKit();
     say("Setup finished."); await refresh();
   } catch (e) { say(e.message); }
 };
@@ -136,7 +162,7 @@ $("pklogin").onclick = async () => {
   } catch (e) { say(e.message); }
 };
 $("logout").onclick = () => api("/v1/auth/logout").then(() => {
-  kitCode = undefined; savedMethod = undefined; $("kit-text").textContent = ""; $("kit").hidden = true;
+  clearKit(); $("kit").hidden = true;
   say("Signed out."); refresh();
 }, (e) => say(e.message));
 if (location.hash.includes("enrol=")) { $("enrol").hidden = false; $("login").hidden = true; $("setup").hidden = true; } else { refresh().catch((e) => say(e.message)); }

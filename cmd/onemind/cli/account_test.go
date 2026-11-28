@@ -42,13 +42,24 @@ func TestAccountSetupRequiresSavingAndConfirmingKit(t *testing.T) {
 			}
 			jsonOut(w, 200, map[string]string{"recovery_code": "kit-code", "disk_recovery_key": "disk-key"})
 		case "POST /v1/auth/setup/finish":
-			finishes.Add(1)
+			attempt := finishes.Add(1)
 			if r.Header.Get("Authorization") != "Bearer setup-session" || body["saved"] != true ||
 				body["method"] != "download" || body["recovery_code"] != "kit-code" {
 				t.Errorf("finish arguments: %+v", body)
 			}
 			if raw, err := os.ReadFile(filepath.Join(dir, "unconfirmed.json")); err != nil || !strings.Contains(string(raw), "disk-key") {
 				t.Errorf("finish ran before kit was saved: %s %v", raw, err)
+			}
+			if attempt == 1 {
+				if body["disk_recovery_key"] != nil {
+					t.Error("sent disk recovery key before it was needed")
+				}
+				jsonOut(w, 503, map[string]string{"error": "unavailable", "reason": "disk_recovery_key_missing",
+					"message": "The encrypted disk handoff was lost after reboot."})
+				return
+			}
+			if body["disk_recovery_key"] != "disk-key" {
+				t.Error("did not confirm using the saved disk key")
 			}
 			w.WriteHeader(204)
 		default:
@@ -75,7 +86,7 @@ func TestAccountSetupRequiresSavingAndConfirmingKit(t *testing.T) {
 		t.Fatalf("must not overwrite kit %+v", r)
 	}
 	r = run(t, "", false, "account", "setup-finish", "--kit", path, "--yes", "--json")
-	if r.code != 0 || finishes.Load() != 1 || kits.Load() != 1 || !strings.Contains(r.out, "setup_finished") ||
+	if r.code != 0 || finishes.Load() != 2 || kits.Load() != 1 || !strings.Contains(r.out, "setup_finished") ||
 		strings.Contains(r.out+r.errOut, "kit-code") || strings.Contains(r.out+r.errOut, "disk-key") {
 		t.Fatalf("confirm setup %+v", r)
 	}
@@ -152,9 +163,9 @@ func TestAccountLoginPromptsForTOTPAndRenewsTheSavedSessionOnce(t *testing.T) {
 	}
 }
 
-func TestFamilyInviteRequestsWaitForDashboardApprovalWithoutStepUpOrRetries(t *testing.T) {
+func TestFamilyInvitationUsesTheSignedInSessionAndBoundStepUp(t *testing.T) {
 	isolate(t)
-	var invites, replacements atomic.Int32
+	var invites, options, verification, replacements atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&body)
@@ -162,23 +173,46 @@ func TestFamilyInviteRequestsWaitForDashboardApprovalWithoutStepUpOrRetries(t *t
 			jsonOut(w, 200, accountTestSession("owner-access", "owner-refresh"))
 			return
 		}
-		if r.Header.Get("Authorization") != "Bearer owner-access" || r.Header.Get("OneMind-Step-Up") != "" {
-			t.Error("a family invitation request must use the owner's session without submitting proof")
+		if r.Header.Get("Authorization") != "Bearer owner-access" {
+			t.Error("a family invitation must use the signed-in owner's session")
 		}
 		switch r.Method + " " + r.URL.Path {
-		case "POST /v1/users/invites":
+		case "POST /v1/users":
 			if len(body) != 3 || body["role"] != "child" || body["display_name"] != "Sam" || body["username"] != "sam" {
 				t.Errorf("incorrect invite request: %+v", body)
 			}
-			if invites.Add(1) != 1 {
+			if invites.Add(1) > 3 {
 				jsonOut(w, 503, map[string]string{"error": "unavailable", "message": "gateway unavailable"})
 				return
 			}
-			jsonOut(w, 202, map[string]any{"id": "act_invite", "type": "users.invite", "state": "awaiting_approval", "params": body})
+			if r.Header.Get("OneMind-Step-Up") == "" {
+				jsonOut(w, 401, map[string]string{"error": "unauthenticated", "reason": "step_up_required"})
+				return
+			}
+			if r.Header.Get("OneMind-Step-Up") != "invitation-proof" || verification.Load() != 1 {
+				t.Error("invitation did not carry the verified single-use grant")
+			}
+			jsonOut(w, 201, map[string]any{"id": "usr_sam", "display_name": "Sam", "role": "child", "one_time": map[string]string{"enrolment_url": "https://box.example/signin#enrol=CODE"}})
+		case "POST /v1/auth/step-up/options":
+			options.Add(1)
+			bound := obj(body["body"])
+			if body["op"] != "users.create" || body["method"] != "password+totp" || body["at_box"] != true ||
+				len(bound) != 3 || bound["role"] != "child" || bound["display_name"] != "Sam" || bound["username"] != "sam" {
+				t.Errorf("step-up options did not bind the invitation: %+v", body)
+			}
+			jsonOut(w, 200, map[string]any{"challenge": "invite-challenge", "box_code_required": true})
+		case "POST /v1/auth/step-up":
+			verification.Add(1)
+			proof := obj(body["password_totp"])
+			if proof["challenge"] != "invite-challenge" || proof["password"] != "test passphrase" ||
+				proof["totp"] != "112233" || body["box_code"] != "445566" {
+				t.Error("step-up did not use the challenge and the operator's verification")
+			}
+			jsonOut(w, 200, map[string]string{"step_up": "invitation-proof"})
 		case "POST /v1/users/usr_sam/invite":
 			replacements.Add(1)
-			if body != nil {
-				t.Errorf("replacement must name its target in the URL alone: %+v", body)
+			if body != nil || r.Header.Get("OneMind-Step-Up") != "" {
+				t.Error("replacement must name its target in the URL and wait for an approval")
 			}
 			jsonOut(w, 202, map[string]any{"id": "act_replace", "type": "users.reinvite", "state": "awaiting_approval",
 				"params": map[string]string{"user_id": "usr_sam"}})
@@ -193,14 +227,19 @@ func TestFamilyInviteRequestsWaitForDashboardApprovalWithoutStepUpOrRetries(t *t
 		t.Fatalf("owner CLI sign-in %+v", r)
 	}
 	invite := []string{"users", "invite", "Sam", "--role", "child", "--username", "sam"}
-	r = run(t, "test passphrase\n112233\n", true, invite...)
-	if r.code != 0 || invites.Load() != 1 || !strings.Contains(r.out, "act_invite") ||
-		!strings.Contains(r.out, "Approvals in the dashboard") || strings.Contains(r.out+r.errOut, "112233") ||
-		strings.Contains(r.out+r.errOut, "test passphrase") || strings.Contains(r.out, "#enrol=") {
-		t.Fatalf("queued invite %+v", r)
+	r = run(t, "", false, invite...)
+	if r.code != ExitUnauthenticated || invites.Load() != 1 || options.Load() != 0 || verification.Load() != 0 {
+		t.Fatalf("unattended invite attempted verification: %+v", r)
+	}
+	r = run(t, "test passphrase\n112233\n445566\n", false, append(invite, "--secrets-stdin")...)
+	if r.code != 0 || invites.Load() != 3 || options.Load() != 1 || verification.Load() != 1 ||
+		!strings.Contains(r.out, "Invited Sam") || !strings.Contains(r.out, "#enrol=CODE") ||
+		strings.Contains(r.out+r.errOut, "112233") || strings.Contains(r.out+r.errOut, "445566") ||
+		strings.Contains(r.out+r.errOut, "test passphrase") {
+		t.Fatalf("verified direct invite %+v", r)
 	}
 	r = run(t, "", true, invite...)
-	if r.code == 0 || invites.Load() != 2 {
+	if r.code == 0 || invites.Load() != 4 {
 		t.Fatalf("failed invite request was retried or reported success: %+v (%d POSTs)", r, invites.Load())
 	}
 	if r := run(t, "", false, "users", "reinvite", "usr_sam"); r.code != ExitUsage || replacements.Load() != 0 ||

@@ -73,6 +73,7 @@ ROWS: dict[str, Row] = {
 
 RISK_TIER = {"read": "tier.T0", "write": "tier.T1", "sensitive": "tier.T2", "destructive": "tier.T3",
              "actuate": "tier.T4"}
+FAMILY_INVITE_RISK = "sensitive"
 FAMILY_INVITE_ACTIONS = frozenset({"users.invite", "users.reinvite"})
 
 # Action types that are themselves a security-related setting or a high-risk administration step:
@@ -83,6 +84,7 @@ TYPE_ROWS = {
     "tls.acme.set": "security.settings",
     "os.update.settings": "security.settings",
     "backup.kit.issue": "admin.high_risk",
+    "users.invite": "admin.high_risk",
     "users.reinvite": "admin.high_risk",
     "plugin.key.enroll": "security.settings",
     "plugin.key.revoke": "security.settings",
@@ -102,7 +104,7 @@ STEP_UP_ROWS = {
 }
 
 # Routes with a fixed step-up rule when a proof is needed.
-FRESH_OPS = frozenset({"auth.passkeys.delete"})
+FRESH_OPS = frozenset({"auth.passkeys.delete", "me.devices.remove"})
 
 TYPE_KEY_PREFIX = "type:"
 

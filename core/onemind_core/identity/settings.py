@@ -40,6 +40,8 @@ class IdentitySettings:
     box_code_file: Path | None = None
     # Optional RAM-only disk unlock key delivered to the setup owner with the sign-in recovery kit.
     recovery_key_file: Path | None = None
+    # Appliance boot's authoritative encrypted/plain status. Missing status or key blocks encrypted setup.
+    recovery_disk_state_file: Path | None = None
     # The authenticator allow-list; empty = the file shipped with the gateway (identity/levels.py).
     allowlist_file: Path | None = None
     # How recently the person must have proved L1.

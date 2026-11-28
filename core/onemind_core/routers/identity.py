@@ -9,7 +9,7 @@ from typing import Annotated, Any, Literal
 
 from fastapi import Depends, FastAPI, Header, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
 
 from ..apimodels import Action
 from ..auth import Principal
@@ -194,6 +194,11 @@ class BoxChallenge(BaseModel):
     expires_at: str | None
 
 
+class PasskeyRegisterOptions(BoxChallenge):
+    publicKey: dict[str, Any]
+    box_code_if_proven: bool
+
+
 class SetupKit(BaseModel):
     recovery_code: str
     disk_recovery_key: str | None
@@ -203,6 +208,10 @@ class SetupFinishBody(JsonBody):
     saved: bool
     method: Literal["download", "print"]
     recovery_code: str = Field(max_length=128)
+    disk_recovery_key: SecretStr | None = Field(
+        default=None, min_length=1, max_length=128,
+        description="The disk key from the saved kit, used if a reboot cleared the encrypted disk's RAM handoff",
+    )
 
 
 class RecoveryOptionsBody(BaseModel):
@@ -228,6 +237,7 @@ class RemoteRecoveryStatus(BaseModel):
     state: Literal["none", "waiting", "ready"]
     available_at: str | None
     expires_at: str | None
+    upgrade_kit_available: bool
 
 
 class TotpSecret(BaseModel):
@@ -440,7 +450,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.post("/v1/auth/setup", operation_id="auth.setup", tags=["auth"], status_code=201, responses=R(401, 403, 409, 422, 429))
     def setup(body: SetupBody, request: Request):
-        """Claim an unclaimed box with its screen code or install credential. Finish by saving the recovery kit."""
+        """Claim an unclaimed box with its screen code. A headless install uses its install credential."""
         token = request.headers.get("authorization", "").partition(" ")[2].strip()
         user = svc.onboarding.setup(request, token, body.challenge_id, body.box_code, body.username,
                                     body.display_name or body.username, body.password, body.email)
@@ -448,14 +458,17 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.post("/v1/auth/setup/kit", operation_id="auth.setup.kit", tags=["auth"], response_model=SetupKit,
              responses=R(401, 403, 409, 503), openapi_extra={"security": [{"bearer": ["*"]}]})
-    def setup_kit(response: Response, ctx=Depends(human_session)):
+    def setup_kit(response: Response, legacy_upgrade: bool = False, ctx=Depends(human_session)):
         response.headers["Cache-Control"] = "no-store"
+        if legacy_upgrade:
+            return remote_recovery.upgrade_kit(svc, ctx)
         return svc.onboarding.kit(ctx)
 
     @app.post("/v1/auth/setup/finish", operation_id="auth.setup.finish", tags=["auth"], status_code=204,
-              responses=R(401, 403, 409, 422), openapi_extra={"security": [{"bearer": ["*"]}]})
+              responses=R(401, 403, 409, 422, 503), openapi_extra={"security": [{"bearer": ["*"]}]})
     def setup_finish(body: SetupFinishBody, request: Request, p: Principal = Depends(principal)):
-        svc.onboarding.finish(human_session(request, p), body.saved, body.method, body.recovery_code)
+        saved_disk_key = body.disk_recovery_key.get_secret_value() if body.disk_recovery_key else None
+        svc.onboarding.finish(human_session(request, p), body.saved, body.method, body.recovery_code, saved_disk_key)
         return Response(status_code=204)
 
     @app.post("/v1/auth/recovery/options", operation_id="auth.recovery.options", tags=["auth"], response_model=BoxChallenge,
@@ -539,7 +552,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
         svc.revoke_session(ctx_of(request), p, session_id)
         return Response(status_code=204)
 
-    @app.post("/v1/auth/passkeys/register/options", operation_id="auth.passkeys.register_options", tags=["auth"], responses=R(401, 403, 409))
+    @app.post("/v1/auth/passkeys/register/options", operation_id="auth.passkeys.register_options", tags=["auth"],
+              response_model=PasskeyRegisterOptions, responses=R(401, 403, 409))
     def passkey_options(request: Request, remote_recovery: bool = False, _: Principal = Depends(principal)):
         return svc.passkey_register_options(request, ctx_of(request), remote_recovery)
 
@@ -638,8 +652,10 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def users(p: Principal = Depends(principal)):
         return svc.list_users(p)
 
-    @app.post("/v1/users", operation_id="users.create", tags=["users"], status_code=201, responses=R(401, 403, 409, 422))
-    def create_user(body: UserCreateBody, request: Request, p: Principal = Depends(principal)):
+    @app.post("/v1/users", operation_id="users.create", tags=["users"], status_code=201,
+              response_model=UserInvite, responses=R(401, 403, 409, 422))
+    def create_user(body: UserCreateBody, request: Request, response: Response, p: Principal = Depends(principal)):
+        response.headers["Cache-Control"] = "no-store"
         return svc.create_user(request, ctx_of(request), p, body.display_name, body.role, body.username)
 
     @app.post("/v1/users/invites", operation_id="users.invite", tags=["users"], status_code=202, response_model=Action,

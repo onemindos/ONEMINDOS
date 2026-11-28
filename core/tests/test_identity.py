@@ -96,8 +96,17 @@ def csrf(c: TestClient) -> dict:
     return {"OneMind-CSRF": c.cookies.get("onemind_csrf")}
 
 
+def claim_owner(c: TestClient, *, install=OWNER, **account):
+    if c.get("/v1/auth/setup/status").json()["screen"]:
+        options = c.post("/v1/auth/setup/options")
+        assert options.status_code == 200, options.text
+        proof = {"challenge_id": options.json()["challenge_id"], "box_code": box_code(c)}
+        return c.post("/v1/auth/setup", json={**account, **proof})
+    return c.post("/v1/auth/setup", headers=install, json=account)
+
+
 def setup_owner(c: TestClient, username="zeus") -> dict:
-    r = c.post("/v1/auth/setup", headers=OWNER, json={"username": username, "display_name": "Zeus", "password": PASSWORD})
+    r = claim_owner(c, username=username, display_name="Zeus", password=PASSWORD)
     assert r.status_code == 201, r.text
     confirm_setup_kit(c, csrf(c))
     return r.json()
@@ -113,8 +122,7 @@ def confirm_setup_kit(c: TestClient, headers: dict) -> dict:
 
 
 def setup_bearer_owner(c: TestClient) -> dict:
-    account = c.post("/v1/auth/setup", headers=OWNER,
-                     json={"username": "zeus", "password": PASSWORD, "client": "cli"})
+    account = claim_owner(c, username="zeus", password=PASSWORD, client="cli")
     assert account.status_code == 201, account.text
     headers = {"Authorization": f"Bearer {account.json()['access_token']}"}
     confirm_setup_kit(c, headers)
@@ -131,19 +139,22 @@ def new_session_client(c: TestClient) -> TestClient:
 
 
 # ---- bootstrap and sign-in ------------------------------------------------------------------------
-def test_setup_needs_install_owner_token_and_runs_once(idc, settings):
-    bad = idc.post("/v1/auth/setup", headers=GUEST, json={"username": "zeus", "password": PASSWORD})
-    assert bad.status_code == 401
-    body = setup_owner(idc)
-    assert body["principal"]["role"] == "owner" and body["session"]["id"].startswith("ses_")
-    assert "onemind_session" in idc.cookies and body["csrf_token"] == idc.cookies.get("onemind_csrf")
-    me = idc.get("/v1/me").json()
-    assert me["principal"]["username"] == "zeus" and me["session"]["auth_method"] == "setup"
-    assert "can_approve" in me["capabilities"] and me["scopes"] == ["*"]
-    again = idc.post("/v1/auth/setup", headers=OWNER, json={"username": "other", "password": PASSWORD})
-    assert again.status_code == 409 and again.json()["reason"] == "already_set_up"
-    events = [e["event"] for e in audit_events(settings)]
-    assert "auth.setup.rejected" in events and "auth.setup.completed" in events and "auth.login.succeeded" in events
+def test_headless_setup_needs_install_owner_token_and_runs_once(settings, clock, executor):
+    cfg = id_settings(settings, box_code_file=None)
+    with TestClient(create_app(cfg, clock=clock, executor=executor), client=LOCAL_PEER) as c:
+        assert c.get("/v1/auth/setup/status").json()["screen"] is False
+        bad = c.post("/v1/auth/setup", headers=GUEST, json={"username": "zeus", "password": PASSWORD})
+        assert bad.status_code == 401
+        body = setup_owner(c)
+        assert body["principal"]["role"] == "owner" and body["session"]["id"].startswith("ses_")
+        assert "onemind_session" in c.cookies and body["csrf_token"] == c.cookies.get("onemind_csrf")
+        me = c.get("/v1/me").json()
+        assert me["principal"]["username"] == "zeus" and me["session"]["auth_method"] == "setup"
+        assert "can_approve" in me["capabilities"] and me["scopes"] == ["*"]
+        again = c.post("/v1/auth/setup", headers=OWNER, json={"username": "other", "password": PASSWORD})
+        assert again.status_code == 409 and again.json()["reason"] == "already_set_up"
+        events = [e["event"] for e in audit_events(settings)]
+        assert "auth.setup.rejected" in events and "auth.setup.completed" in events and "auth.login.succeeded" in events
 
 
 def test_setup_accepts_first_boot_token_file(settings, clock, executor, tmp_path):

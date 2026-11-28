@@ -339,7 +339,7 @@ class _Records(logging.Handler):
 def test_wopi_calls_leave_no_access_token_in_the_uvicorn_access_log(settings, clock, executor, files_settings):
     """The token rides in ?access_token=; a real uvicorn listener with the gateway's log config must not log it."""
     s = id_settings(replace(settings, sections={**settings.sections, "files": files_settings,
-                                                "net": NetSettings(trusted_proxies="127.0.0.1/32")}))
+                                                "net": NetSettings(trusted_proxies="127.0.0.1/32")}), box_code_file=None)
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]

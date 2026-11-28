@@ -19,6 +19,7 @@ from sec_world import ip
 from test_identity import (
     LOCAL_PEER, PASSWORD, SoftAuthenticator, audit_events, csrf, enrol, id_settings, new_session_client, setup_owner,
 )
+from test_identity_levels import AttestedAuthenticator, add_key, grant, lvc, root  # noqa: F401 - pytest fixtures
 
 
 @pytest.fixture
@@ -95,7 +96,6 @@ def test_list_joins_each_devices_credentials_by_its_name(hc):
 
 def test_lost_device_revokes_refresh_token_and_push_and_is_idempotent(hc, settings):
     setup_owner(hc)
-    prove_this_device(hc)
     phone, body = phone_login(hc)
     push_id = add_push(phone, bearer(body))
     pixel = by_label(devices(hc), "Pixel 9")
@@ -117,7 +117,7 @@ def test_lost_device_revokes_refresh_token_and_push_and_is_idempotent(hc, settin
     assert len(removed) == 1 and removed[0]["data"]["payload"]["device_id"] == pixel["id"]
 
 
-def test_passkey_on_the_lost_device_needs_a_fresh_passkey_and_never_the_last_owner_one(hc, clock):
+def test_lost_device_can_remove_a_sole_l1_passkey_from_a_password_session(hc):
     setup_owner(hc)
     phone, body = phone_login(hc)
     key = SoftAuthenticator()
@@ -127,24 +127,51 @@ def test_passkey_on_the_lost_device_needs_a_fresh_passkey_and_never_the_last_own
     assert r.status_code == 201, r.text
     pixel = by_label(devices(hc), "Pixel 9")
     assert {c["source"] for c in pixel["credentials"]} == {"sessions", "passkeys"}
-    # The owner's password browser needs fresh L1 before removing a device.
+    assert hc.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD}).status_code == 200
     r = hc.delete(f"/v1/me/devices/{pixel['id']}", headers=csrf(hc))
-    assert r.status_code == 401 and r.json()["reason"] == "step_up_required"
-    laptop = new_session_client(hc)
-    login = laptop.post("/v1/auth/login/options").json()
-    assert laptop.post("/v1/auth/login", json={"passkey": key.assert_(login["publicKey"]["challenge"])},
-                       headers={"User-Agent": "laptop"}).status_code == 200
-    r = laptop.delete(f"/v1/me/devices/{pixel['id']}", headers={**csrf(laptop), "User-Agent": "laptop"})
-    assert r.status_code == 409 and r.json()["reason"] == "last_owner"  # the box's only owner passkey
-    second = SoftAuthenticator()
-    opts = laptop.post("/v1/auth/passkeys/register/options", headers=csrf(laptop)).json()
-    assert laptop.post("/v1/auth/passkeys/register", headers=csrf(laptop),
-                       json={"credential": second.register(opts), "label": "laptop"}).status_code == 201
-    r = laptop.delete(f"/v1/me/devices/{pixel['id']}", headers=csrf(laptop))
     assert r.status_code == 200 and r.json()["revoked"]["passkeys"] == 1 and r.json()["revoked"]["sessions"] == 1
+    assert phone.get("/v1/me", headers=bearer(body)).status_code == 401
+    assert hc.get("/v1/me").status_code == 200
     login = new_session_client(hc).post("/v1/auth/login/options").json()
     assert new_session_client(hc).post(
         "/v1/auth/login", json={"passkey": key.assert_(login["publicKey"]["challenge"])}).status_code == 401
+
+
+def test_lost_device_requires_l2_to_remove_all_proven_keys(lvc, root):
+    setup_owner(lvc)
+    first = AttestedAuthenticator(root)
+    ids = [add_key(lvc, first, "Security keys")["credential_id"]]
+    second = AttestedAuthenticator(root)
+    ids.append(add_key(lvc, second, "Security keys",
+                       grant(lvc, first, "auth.passkeys.register"))["credential_id"])
+    device = by_label(devices(lvc), "Security keys")
+    path = f"/v1/me/devices/{device['id']}"
+    assert lvc.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD}).status_code == 200
+    refused = lvc.delete(path, headers=csrf(lvc))
+    assert refused.status_code == 401 and refused.json()["reason"] == "step_up_required", refused.text
+    (details,) = refused.json()["details"]
+    assert details["step_up"]["required_level"] == "L2"
+    assert len(lvc.get("/v1/auth/passkeys").json()) == 2
+    proof = grant(lvc, first, "me.devices.remove", device["id"], {"passkeys": sorted(ids)})
+    removed = lvc.delete(path, headers={**csrf(lvc), "OneMind-Step-Up": proof})
+    assert removed.status_code == 200 and removed.json()["revoked"]["passkeys"] == 2, removed.text
+    assert lvc.get("/v1/auth/passkeys").json() == []
+
+
+def test_lost_device_cannot_remove_a_passwordless_accounts_last_sign_in_method(hc):
+    setup_owner(hc)
+    member = enrol(hc, "adult", "alex")
+    key = SoftAuthenticator()
+    opts = member.post("/v1/auth/passkeys/register/options", headers=csrf(member)).json()
+    assert member.post("/v1/auth/passkeys/register", headers=csrf(member),
+                       json={"credential": key.register(opts), "label": "Security key"}).status_code == 201
+    svc = hc.app.state.identity
+    uid = member.get("/v1/me").json()["principal"]["id"]
+    svc.repo.update(idm.UserRow, [idm.UserRow.id == uid], {"password_hash": None})
+    device = by_label(devices(member), "Security key")
+    r = member.delete(f"/v1/me/devices/{device['id']}", headers=csrf(member))
+    assert r.status_code == 409 and r.json()["reason"] == "last_sign_in_method", r.text
+    assert len(member.get("/v1/auth/passkeys").json()) == 1
 
 
 def test_an_old_and_a_new_phone_with_the_default_name_stay_two_devices(hc):

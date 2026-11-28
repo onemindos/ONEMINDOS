@@ -97,6 +97,33 @@ it('uses the screen during first run and waits for a file download and explicit 
   expect(JSON.stringify({ ...window.sessionStorage, ...window.localStorage })).not.toContain('test-kit-code');
 });
 
+it('confirms a saved encrypted recovery kit after a reboot clears the handoff', async () => {
+  let pending = true;
+  const call = vi.fn<Route>((method, path, body) => {
+    if (path === '/v1/auth/setup/status') return json({ state: 'pending', screen: true });
+    if (path === '/v1/auth/setup/kit') return json({
+      error: 'unavailable', reason: 'disk_recovery_key_missing', message: 'The disk key handoff was lost.',
+    }, 503);
+    if (method === 'POST' && path === '/v1/auth/setup/finish') {
+      expect(body).toEqual({ saved: true, method: 'print', recovery_code: 'saved-account-code', disk_recovery_key: 'saved-disk-key' });
+      pending = false;
+      return new Response(null, { status: 204 });
+    }
+  });
+  window.sessionStorage.setItem('onemind.token', 'owner-demo');
+  mount(call, () => pending);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Continue to recovery kit' }));
+  const confirm = await screen.findByRole('button', { name: 'Confirm saved kit' });
+  expect(confirm).toBeDisabled();
+  await user.type(screen.getByLabelText('Recovery code'), 'saved-account-code');
+  await user.type(screen.getByLabelText('Disk recovery key'), 'saved-disk-key');
+  await user.selectOptions(screen.getByLabelText('How did you save the kit?'), 'print');
+  await user.click(confirm);
+  await waitFor(() => expect(pending).toBe(false));
+  expect(JSON.stringify({ ...window.sessionStorage, ...window.localStorage })).not.toContain('saved-disk-key');
+});
+
 it('puts the password form first and explains the outside-network factor requirement', async () => {
   const submit = vi.fn<Route>((_method, path) => {
     if (path === '/v1/auth/setup/status') return json({ state: 'ready', screen: true });

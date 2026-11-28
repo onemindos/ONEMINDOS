@@ -8,9 +8,10 @@ from threading import Event
 import pytest
 from fastapi.testclient import TestClient
 
+from conftest import OWNER
 from onemind_core.app import create_app
 from onemind_core.ca import MESH_NETS
-from onemind_core.identity.crypto import totp_code
+from onemind_core.identity.crypto import totp_code, unb64url
 from onemind_core.proxy import AppProxyMiddleware
 from test_identity import (
     LOCAL_PEER, PASSWORD, SoftAuthenticator, audit_events, box_code, confirm_setup_kit,
@@ -66,6 +67,9 @@ def test_first_owner_needs_screen_proof_and_explicitly_saved_recovery_kit(box, s
     client, disk_key = box
     assert client.get("/v1/auth/setup/status").json() == {"state": "unclaimed", "screen": True}
     assert client.post("/v1/auth/setup", json=SETUP).status_code == 401
+    token_only = client.post("/v1/auth/setup", headers=OWNER, json=SETUP)
+    assert token_only.status_code == 401 and token_only.json()["reason"] == "box_code_required", token_only.text
+    assert client.get("/v1/auth/setup/status").json()["state"] == "unclaimed"
 
     options = client.post("/v1/auth/setup/options").json()
     correct = box_code(client)
@@ -282,6 +286,74 @@ def test_concurrent_family_replacement_rejects_in_flight_passkey_registration(bo
     assert code not in result.text and code not in str(audit_events(settings))
     assert member.post("/v1/auth/login", json=credentials).status_code == 401
     assert member.post("/v1/auth/enrol", json={**credentials, "code": code}).status_code == 201
+
+
+@pytest.mark.parametrize("flow", ["passkey", "enrol"])
+def test_family_replacement_rejects_in_flight_session_issuance(box, monkeypatch, flow):
+    from onemind_core.identity import passkeys
+    from onemind_core.identity.models import SessionRow, UserRow
+
+    owner, _ = box
+    completed_setup(owner)
+    owner_key = SoftAuthenticator()
+    register_passkey(owner, owner_key)
+    invite = owner.post("/v1/users/invites", headers=csrf(owner), json={"display_name": "Family", "role": "adult"})
+    assert invite.status_code == 202, invite.text
+    _approve_family(owner, invite.json(), owner_key)
+    member_data = _claim_invite(owner, invite.json()).json()
+    member = new_session_client(owner)
+    creds = {"username": "family", "password": PASSWORD, "code": member_data["one_time"]["enrolment_code"]}
+    replacement = owner.post(f"/v1/users/{member_data['id']}/invite", headers=csrf(owner))
+    assert replacement.status_code == 202, replacement.text
+
+    svc = owner.app.state.identity
+    ready, resume = Event(), Event()
+
+    def pause():
+        ready.set()
+        assert resume.wait(timeout=10), "replacement did not finish"
+
+    if flow == "passkey":
+        assert member.post("/v1/auth/enrol", json=creds).status_code == 201
+        key = SoftAuthenticator()
+        register_passkey(member, key)
+        challenge = member.post("/v1/auth/login/options").json()["publicKey"]["challenge"]
+        path, payload = "/v1/auth/login", {"passkey": key.assert_(challenge)}
+        verify = passkeys.verify_assertion
+
+        # Scope the pause to its challenge so the owner's approval can use its own key.
+        member_challenge = unb64url(challenge)
+
+        def pause_member_assertion(**kwargs):
+            result = verify(**kwargs)
+            if kwargs["challenge"] == member_challenge:
+                pause()
+            return result
+
+        monkeypatch.setattr(passkeys, "verify_assertion", pause_member_assertion)
+    else:
+        path, payload = "/v1/auth/enrol", creds
+        update = svc.repo.update
+
+        def pause_enrolment(model, where, values, *args, **kw):
+            result = update(model, where, values, *args, **kw)
+            if model is UserRow and "enrol_hash" in values and values["enrol_hash"] is None:
+                pause()
+            return result
+
+        monkeypatch.setattr(svc.repo, "update", pause_enrolment)
+
+    sessions = svc.repo.count(SessionRow, SessionRow.user_id == member_data["id"])
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pending = pool.submit(new_session_client(member).post, path, json=payload)
+        try:
+            assert ready.wait(timeout=10), "credential verification did not finish"
+            _approve_family(owner, replacement.json(), owner_key)
+        finally:
+            resume.set()
+        refused = pending.result(timeout=10)
+    assert refused.status_code == 401 and refused.json()["reason"] == "credentials_changed", refused.text
+    assert svc.repo.count(SessionRow, SessionRow.user_id == member_data["id"]) == sessions
 
 
 def test_forgot_password_needs_screen_and_kit_updates_only_the_account(box, tmp_path, clock):

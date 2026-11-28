@@ -436,8 +436,15 @@ class IdentityService:
             row = SessionRow(transport="cookie", secret_hash=sha256_hex(cookie), csrf_hash=sha256_hex(csrf),
                              expires_at=exp, **common)
             out.update(csrf_token=csrf, _cookies={"session": cookie, "csrf": csrf, "max_age": int((exp - now).total_seconds())})
-        self.repo.add(row)
-        self.repo.update(UserRow, [UserRow.id == user.id], {"last_seen_at": now})
+        with self.repo.db.session.begin() as db:
+            current = db.execute(update(UserRow).where(
+                UserRow.id == user.id, UserRow.credential_revision == user.credential_revision,
+                UserRow.disabled.is_(False),
+            ).values(last_seen_at=now).returning(UserRow.id)).scalar_one_or_none()
+            if current is None:
+                raise ApiError(401, "unauthenticated", "credentials changed; sign in again",
+                               reason="credentials_changed")
+            db.add(row)
         p = self.principal_for(user)
         self.emit("auth", "login.succeeded", {"user_id": user.id, "method": method, "session_id": sid,
                                               "transport": row.transport, "source": source_of(request)}, p)
@@ -611,10 +618,12 @@ class IdentityService:
         try:
             credential = pk.normalize(credential)
             row = self._consume_challenge(credential, "login")
-            cred = self._assert(request, credential, row)
-            u = self._live_user(cred.user_id)
+            # Capture the owner's revision while the credential is still registered.
+            u = self.repo.one(select(UserRow).join(PasskeyRow, PasskeyRow.user_id == UserRow.id).where(
+                PasskeyRow.id == credential["id"], UserRow.disabled.is_(False)))
             if u is None:
-                raise ApiError(401, "unauthenticated", "account disabled", reason="bad_credentials")
+                raise ApiError(401, "unauthenticated", "unknown passkey or disabled account", reason="assertion_invalid")
+            cred = self._assert(request, credential, row)
             request.state.onemind_passkey_id = cred.id  # start_session records which key signed in
         except (ApiError, pk.PasskeyError) as exc:
             self.limiter.fail(src, now)
@@ -661,13 +670,17 @@ class IdentityService:
             raise ApiError(401, "unauthenticated", "unknown or expired enrolment code", reason="code_unknown")
         self._check_password(password)
         name = u.username or self._new_username(username)
-        claimed = self.repo.update(UserRow, [UserRow.id == u.id, UserRow.enrol_hash == u.enrol_hash], {
-            "username": name, "password_hash": hash_password(password), "enrol_hash": None,
+        digest = hash_password(password)
+        claimed = self.repo.update(UserRow, [UserRow.id == u.id, UserRow.enrol_hash == u.enrol_hash,
+                                            UserRow.credential_revision == u.credential_revision,
+                                            UserRow.disabled.is_(False)], {
+            "username": name, "password_hash": digest, "enrol_hash": None,
             "enrol_expires_at": None, "updated_at": now})
         if not claimed:
             raise ApiError(401, "unauthenticated", "enrolment code already used", reason="code_used")
         self.emit("auth", "enrol.completed", {"user_id": u.id, "username": name}, self.principal_for(u))
-        return self.user(u.id)
+        u.username, u.password_hash = name, digest
+        return u
 
     # ---- step-up ---------------------------------------------------------------------------------
     def require_step_up(self, ctx: AuthContext | None, p: Principal, what: str, op: str | None = None,
@@ -715,6 +728,8 @@ class IdentityService:
             return (2, "alt" if home else "") if self._last_proven(target) else (1, "")
         if op == "auth.trusted_models.remove":  # only asked for when it holds the last proven key
             return 2, "alt" if home else ""
+        if op == "me.devices.remove":  # only asked for when the group contains the last proven key(s)
+            return 2, "alt" if home else ""
         if op in lv.FRESH_OPS:
             return 1, ""
         row = lv.STEP_UP_ROWS[op]
@@ -728,22 +743,25 @@ class IdentityService:
             if home and need == 2 and self.levels.recovery_needed():
                 return 1, "required"
             return need, ""
-        need, strict = self.levels.for_row(row)
+        if op == "users.create":
+            # Direct and queued invitations follow the same policy, including owner overrides.
+            need, strict, _ = self.levels.for_action({"type": "users.invite", "risk": lv.FAMILY_INVITE_RISK})
+        else:
+            need, strict = self.levels.for_row(row)
         if home and self.levels.grace(need, strict):
             return 1, "required"
         return need, "alt" if home and need == 2 and not strict else ""
 
     def _last_proven(self, credential_id: str) -> bool:
-        """This credential is the only proven key any active owner holds."""
-        row = self.repo.get(PasskeyRow, credential_id)
+        return self.removes_last_proven({credential_id})
+
+    def removes_last_proven(self, credential_ids: set[str]) -> bool:
+        """Removing the selected credentials leaves no proven key held by an active owner."""
         owners = self.active_owner_ids()
-        if row is None or row.user_id not in owners:
-            return False
         models = self.levels.models()
-        if self.levels.cred_level(row, models) < 2:
-            return False
-        others = self.repo.all(select(PasskeyRow).where(PasskeyRow.user_id.in_(owners), PasskeyRow.id != row.id))
-        return not any(self.levels.cred_level(r, models) >= 2 for r in others)
+        proven = {r.id for r in self.repo.all(select(PasskeyRow).where(PasskeyRow.user_id.in_(owners)))
+                  if self.levels.cred_level(r, models) >= 2}
+        return bool(proven) and proven <= credential_ids
 
     @staticmethod
     def _canon(v):
@@ -1075,11 +1093,17 @@ class IdentityService:
         if self._last_proven(credential_id):
             self.require_step_up(ctx, ctx.principal, "remove the last proven key", op="auth.passkeys.delete",
                                  target=credential_id)
-        if not user.password_hash and self.repo.count(PasskeyRow, PasskeyRow.user_id == user.id) == 1:
+        self.remove_passkeys(ctx, {row.id})
+        self.emit("auth", "passkey.removed", {"user_id": user.id, "credential_id": row.id}, ctx.principal)
+
+    def remove_passkeys(self, ctx: AuthContext, credential_ids: set[str]) -> set[str]:
+        user = ctx.user
+        if not user.password_hash and not self.repo.count(PasskeyRow, PasskeyRow.user_id == user.id,
+                                                          PasskeyRow.id.not_in(credential_ids)):
             raise ApiError(409, "conflict", "this is your only way to sign in", reason="last_sign_in_method")
         auth_method = "password" if ctx.session.auth_method == "passkey" else None
-        self._change_credentials(ctx, {}, user.credential_revision, auth_method=auth_method, remove_passkey_id=row.id)
-        self.emit("auth", "passkey.removed", {"user_id": user.id, "credential_id": row.id}, ctx.principal)
+        return self._change_credentials(ctx, {}, user.credential_revision, auth_method=auth_method,
+                                        remove_passkey_ids=credential_ids)
 
     # ---- password and TOTP -------------------------------------------------------------------------
     # ---- device-bound approver keys (#702) ------------------------------------------------------
@@ -1152,12 +1176,13 @@ class IdentityService:
         self.emit("auth", "password.changed", {"user_id": user.id, "other_sessions_revoked": True}, ctx.principal)
 
     @staticmethod
-    def revoke_sessions(db, user_id: str, now: datetime, keep: str = "") -> None:
-        db.execute(update(SessionRow).where(SessionRow.user_id == user_id, SessionRow.id != keep,
-                                            SessionRow.revoked_at.is_(None)).values(revoked_at=now))
+    def revoke_sessions(db, user_id: str, now: datetime, keep: str = ""):
+        return db.execute(update(SessionRow).where(SessionRow.user_id == user_id, SessionRow.id != keep,
+                                                    SessionRow.revoked_at.is_(None)).values(revoked_at=now)
+                          .returning(SessionRow.id)).scalars()
 
     def _change_credentials(self, ctx: AuthContext, changes: dict, revision: int | None, *conditions,
-                            auth_method: str | None = None, remove_passkey_id: str | None = None) -> None:
+                            auth_method: str | None = None, remove_passkey_ids: set[str] | None = None) -> set[str]:
         now, user_id, session_id = self.now(), ctx.user.id, ctx.session.id
         revised = (revision or 0) + 1
         with self.repo.db.session.begin() as db:
@@ -1167,12 +1192,12 @@ class IdentityService:
             if changed is None:
                 raise ApiError(409, "conflict", "the account credentials changed; sign in and try again",
                                reason="credentials_changed")
-            if remove_passkey_id is not None:
-                db.execute(delete(PasskeyRow).where(PasskeyRow.id == remove_passkey_id, PasskeyRow.user_id == user_id))
+            if remove_passkey_ids:
+                db.execute(delete(PasskeyRow).where(PasskeyRow.id.in_(remove_passkey_ids), PasskeyRow.user_id == user_id))
             db.execute(update(SessionRow).where(SessionRow.id == session_id).values(
                 credential_revision=revised, passkey_at=None, step_up_credential_id=None, totp_at=None,
                 auth_method=auth_method or ctx.session.auth_method))
-            self.revoke_sessions(db, user_id, now, keep=session_id)
+            return set(self.revoke_sessions(db, user_id, now, keep=session_id))
 
     def totp_setup(self, ctx: AuthContext | None) -> dict:
         user = self._account(ctx, "set up an authenticator")
@@ -1233,6 +1258,8 @@ class IdentityService:
     def create_user(self, request: Request, ctx: AuthContext | None, p: Principal, display_name: str, role: str,
                     username: str | None) -> dict:
         self._owner_only(p, "create users")
+        if ctx is None or ctx.session is None or ctx.user is None:
+            raise self.deny(p, "create users without a signed-in household session", reason="session_required")
         via = self.require_step_up(ctx, p, "create users", op="users.create",
                                    body={"display_name": display_name, "role": role, "username": username})
         u, code = self._create_invited_user(p, display_name, role, username, via)

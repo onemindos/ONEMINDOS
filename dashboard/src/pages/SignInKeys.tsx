@@ -29,12 +29,12 @@ import { askVerification } from '../lib/verification';
 import { formatAgo, secondsSince } from '../lib/time';
 import { useSignedIn } from '../session';
 import { Load, TextField, useBusy } from './parts';
+import { RecoveryKit } from './RecoveryKit';
 
 type Key = components['schemas']['Passkey'];
 type Registered = components['schemas']['PasskeyRegistered'];
 type Model = components['schemas']['TrustedModel'];
 type Table_ = components['schemas']['VerificationTable'];
-type Json = Record<string, unknown>;
 
 const UV_METHODS = [
   ['fingerprint_internal', 'Fingerprint reader on the key'],
@@ -144,10 +144,11 @@ function LiveSignInKeys({ token, owner }: { token: string; owner: boolean }) {
   </div>;
 }
 
-function RecoverRemoteApprovals({ client, onRegistered }: { client: OneMind; onRegistered: () => Promise<void> }) {
+export function RecoverRemoteApprovals({ client, onRegistered }: { client: OneMind; onRegistered: () => Promise<void> }) {
   const path = '/v1/auth/recovery/remote';
   const status = usePoll(() => call<components['schemas']['RemoteRecoveryStatus']>(client, 'GET', path), 30_000);
   const [kitCode, setKitCode] = useState('');
+  const [upgradeKit, setUpgradeKit] = useState<components['schemas']['SetupKit']>();
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
   const [busy, run] = useBusy();
@@ -160,7 +161,15 @@ function RecoverRemoteApprovals({ client, onRegistered }: { client: OneMind; onR
   if (!status.data) return null;
   return <Card title="Recover remote approvals">
     <p className="om-hint">If you lose a proven key, start recovery with your kit code and a fresh sign-in using an authenticator or passkey. After 72 hours, you can register a replacement proven key.</p>
-    {status.data.state === 'none' ? <form className="dash-form" onSubmit={(e) => {
+    {upgradeKit ? <RecoveryKit kit={upgradeKit} busy={busy} onSaved={() => {
+      setKitCode(upgradeKit.recovery_code);
+      setUpgradeKit(undefined);
+    }} /> : status.data.upgrade_kit_available ? <>
+      <p className="om-hint">This account was created before recovery kits. Sign in with an authenticator or passkey on your home network to get its recovery code.</p>
+      <Button disabled={busy} onClick={() => attempt(async () => {
+        setUpgradeKit(await call<components['schemas']['SetupKit']>(client, 'POST', '/v1/auth/setup/kit?legacy_upgrade=true'));
+      })}>Get the account recovery kit</Button>
+    </> : status.data.state === 'none' ? <form className="dash-form" onSubmit={(e) => {
       e.preventDefault();
       if (busy || !kitCode.trim()) return;
       attempt(async () => {
@@ -175,9 +184,10 @@ function RecoverRemoteApprovals({ client, onRegistered }: { client: OneMind; onR
       <p role="status">{status.data.state === 'waiting'
         ? `You can register a replacement key after ${status.data.available_at ? new Date(status.data.available_at).toLocaleString() : 'the waiting period'}.`
         : `Your recovery request is ready${status.data.expires_at ? ` until ${new Date(status.data.expires_at).toLocaleString()}` : ''}.`}</p>
+      {status.data.state === 'ready' && <p className="om-hint">Use a device-bound security key from a model trusted by this box.</p>}
       <div className="dash-identity-actions">
         {status.data.state === 'ready' && webauthnSupported() && <Button variant="primary" disabled={busy} onClick={() => attempt(async () => {
-          const options = await call<{ publicKey: Json }>(client, 'POST', '/v1/auth/passkeys/register/options?remote_recovery=true', {});
+          const options = await call<PasskeyRegisterOptions>(client, 'POST', '/v1/auth/passkeys/register/options?remote_recovery=true', {});
           const key = await call<Registered>(client, 'POST', '/v1/auth/passkeys/register', { credential: await createPasskey(options.publicKey), label: 'Recovery key' });
           await onRegistered();
           setNotice(`${key.label} added at ${key.level}.`);

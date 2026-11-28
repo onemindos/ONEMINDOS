@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""D-034 family invitations are issued after a verified owner decision in the queue."""
+"""D-034 queued family invitations require a verified owner decision."""
 
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ class FamilyInvites:
         # action ID -> (expires, user ID, code, approving session ID)
         self._pending: dict[str, tuple[datetime, str, str, str | None]] = {}
         for name in (INVITE, REINVITE):
-            self.actions.register_type(name, FeatureAction("sensitive", self._issue, frozenset(),
+            self.actions.register_type(name, FeatureAction(lv.FAMILY_INVITE_RISK, self._issue, frozenset(),
                                                            check=self._recheck))
         svc.gw.approval_observers.append(self._bind_claim)
 

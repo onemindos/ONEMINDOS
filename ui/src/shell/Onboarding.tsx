@@ -58,6 +58,7 @@ export interface OnboardingProps {
   backupDestinations?: Array<{ id: string; kind: string; label: string }>;
   /** Connected recovery-kit step: the gateway issues the key once and confirms two typed-back groups. */
   kit?: OnboardingKit;
+  backupRecoveryAction?: ReactNode;
   /** Read-only plan summary for a starter app, shown before Finish files its install request. */
   previewPlan?: (appId: string) => Promise<string>;
   onFinish: (draft: OnboardingDraft, requests: ReturnType<typeof finishRequests>) => void | Promise<void>;
@@ -175,6 +176,7 @@ export function Onboarding({
   backupDestinations = [],
   localAddress,
   kit,
+  backupRecoveryAction,
   previewPlan,
   onFinish,
 }: OnboardingProps) {
@@ -554,6 +556,7 @@ export function Onboarding({
               </p>
             )}
             {onSaveSettings && kit && <RecoveryKit kit={kit} onConfirmed={() => setKitConfirmed(true)} onSkip={() => setKitSkipped(true)} />}
+            {backupRecoveryAction}
             {!onSaveSettings && <section className="oms-kit" aria-labelledby={`${ids.kit}-t`}>
               <div className="oms-kit-art" aria-hidden="true">
                 <ShellIcon name="key" size={30} />

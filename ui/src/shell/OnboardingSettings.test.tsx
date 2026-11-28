@@ -37,6 +37,15 @@ it('offers only actual matching destinations and clears the binding when the cho
   expect(save).toHaveBeenCalledWith(expect.objectContaining({ backup: { destination: 'later', destinationId: undefined, kitSaved: false } }));
 });
 
+it('places the backup recovery action inside the full-screen backup step', async () => {
+  const recover = vi.fn();
+  render(<Onboarding apps={[]} initialStep={4}
+    backupRecoveryAction={<button type="button" onClick={recover}>Open recovery</button>}
+    onSaveSettings={async () => {}} onFinish={() => {}} />);
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Open recovery' }));
+  expect(recover).toHaveBeenCalledOnce();
+});
+
 it('a wizard opened with an issued, unconfirmed kit can still skip it and finish, or re-issue', async () => {
   const user = userEvent.setup();
   const save = vi.fn().mockResolvedValue(undefined);

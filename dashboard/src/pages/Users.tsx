@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-// Settings > People (owner only): invitations are filed for review in Approvals. Older hubs
-// and the demo can still return an invite directly.
+// Settings > People: signed-in owners verify new invitations in place. Replacing
+// an existing invitation clears the account's credentials and goes to Approvals.
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { Button, Card, Dialog, PageHeader, StatusPill, Table } from '@onemind/ui';
-import { AGE_PRESETS, type InviteRequestResult, type PersonRole, type UserCreated, type UserInfo } from '../api/wiring';
+import { AGE_PRESETS, type PersonRole, type UserCreated, type UserInfo } from '../api/wiring';
 import { useHub } from '../data/hub';
 import { t } from '../i18n';
 import { usePoll } from '../lib/hooks';
@@ -47,25 +47,15 @@ export function Users() {
   const [confirm, setConfirm] = useState<UserInfo>();
   const [replace, setReplace] = useState<UserInfo>();
 
-  const showInviteResult = async (result: InviteRequestResult) => {
-    if ('state' in result) {
-      void hub.actions.reload();
-      navigate(href.approval(result.id));
-    } else {
-      setInvite(result);
-      await users.reload();
-    }
-  };
-
   const create = (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim() || busy) return;
     void whileBusy(() => run(async () => {
-      const input = { display_name: name.trim(), role };
-      const result = api.createInvite ? await api.createInvite(input) : await api.createUser(input);
+      const result = await api.createUser({ display_name: name.trim(), role });
       setAdding(false);
       setName('');
-      await showInviteResult(result);
+      setInvite(result);
+      await users.reload();
     }, t('users.add')));
   };
 
@@ -118,7 +108,7 @@ export function Users() {
           <TextField id="invite-name" label={t('users.name')} value={name} onChange={setName} />
           <label htmlFor="invite-role">{t('users.role')}</label>
           <select id="invite-role" value={role} onChange={(e) => setRole(e.target.value as PersonRole)}>
-            {ROLES.filter((x) => !api.createInvite || x !== 'owner').map((x) => (
+            {ROLES.filter((x) => x !== 'owner').map((x) => (
               <option key={x} value={x}>{x}</option>
             ))}
           </select>
@@ -131,7 +121,8 @@ export function Users() {
           if (replace && request) void whileBusy(() => run(async () => {
             const result = await request.call(api, replace.id);
             setReplace(undefined);
-            await showInviteResult(result);
+            void hub.actions.reload();
+            navigate(href.approval(result.id));
           }, t('users.invite.replace')));
         }}>{t('users.invite.replace')}</Button></>} />
       <InviteDialog invite={invite} onClose={() => setInvite(undefined)} />

@@ -4,6 +4,9 @@
 from __future__ import annotations
 
 import hmac
+import json
+import os
+import stat
 from typing import TYPE_CHECKING
 
 from sqlalchemy import select, update
@@ -14,6 +17,8 @@ from .crypto import hash_password, new_id, new_secret, sha256_hex
 from .models import ChallengeRow, HouseholdFlagRow, UserRow, iso
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from fastapi import Request
 
     from .service import AuthContext, IdentityService
@@ -37,10 +42,28 @@ ALREADY_SET_UP = "this box already has accounts; sign in instead"
 MAX_PENDING_SCREEN_CODES = 30
 
 
+def _disk_key_descriptor(path: Path | None) -> int | None:
+    """Accept only the disk key descriptor systemd passed to this gateway process."""
+    if path is None or os.environ.get("LISTEN_PID") != str(os.getpid()):
+        return None
+    names = os.environ.get("LISTEN_FDNAMES", "").split(":")
+    if os.environ.get("LISTEN_FDS") != str(len(names)) or "data-recovery-key" not in names:
+        return None
+    fd = 3 + names.index("data-recovery-key")
+    os.set_inheritable(fd, False)
+    info = os.fstat(fd)
+    source = path.lstat()
+    if (not stat.S_ISREG(source.st_mode) or not os.path.samestat(info, source) or info.st_uid != 0
+            or stat.S_IMODE(info.st_mode) != 0o600 or info.st_nlink != 1):
+        raise RuntimeError("expected a root-only disk recovery key in RAM")
+    return fd
+
+
 class AccountSetup:
     def __init__(self, service: IdentityService):
         self.svc = service
         self.repo = service.repo
+        self.disk_key_fd = _disk_key_descriptor(service.cfg.recovery_key_file)
 
     def status(self) -> dict:
         pending = self.repo.count(UserRow, UserRow.setup_pending.is_(True)) > 0
@@ -93,15 +116,17 @@ class AccountSetup:
         self.svc.limiter.check(source, now)
         if token or challenge_id is not None:
             self._require_home(request)
+        if self.svc.presence.available and challenge_id is None:
+            raise ApiError(401, "unauthenticated", "type the code on the box", reason="box_code_required")
         if challenge_id is not None:
             if not box_code:
                 raise ApiError(401, "unauthenticated", "type the code on the box", reason="box_code_required")
-        # The separate install credential stays available for scripted/headless installs. The same
+        # The separate install credential stays available for headless installs. The same
         # pending account and kit requirement apply whichever proof was used.
         elif not self.svc._setup_token_ok(token):
             self.svc.limiter.fail(source, now)
             self.svc.emit("auth", "setup.rejected", {"source": source, "reason": "bad_setup_token"}, severity="warning")
-            raise ApiError(401, "unauthenticated", "setup needs the box code or the install owner token")
+            raise ApiError(401, "unauthenticated", "setup needs the install owner token")
         if self.repo.count(UserRow):
             raise ApiError(409, "conflict", ALREADY_SET_UP, reason="already_set_up")
         self.svc._check_password(password)
@@ -130,41 +155,78 @@ class AccountSetup:
             raise ApiError(409, "conflict", "this account has no unfinished setup", reason="setup_not_pending")
         return user
 
+    def _disk_key(self, saved_disk_key: str | None = None) -> str | None:
+        path = self.svc.cfg.recovery_key_file
+        state_file = self.svc.cfg.recovery_disk_state_file
+        if state_file is not None:
+            try:
+                state = json.loads(state_file.read_text())
+            except (OSError, ValueError):
+                state = None
+            if not isinstance(state, dict) or state.get("state") not in ("encrypted", "plain"):
+                raise ApiError(503, "unavailable", "could not determine whether the data disk is encrypted",
+                               reason="disk_recovery_key_unavailable")
+            if state["state"] == "plain":
+                return None
+        key = None
+        try:
+            if self.disk_key_fd is not None:
+                key = os.pread(self.disk_key_fd, 256, 0).decode().strip()
+            elif path is not None:
+                key = path.read_text().strip()
+        except FileNotFoundError:
+            pass
+        except (OSError, UnicodeError) as exc:
+            raise ApiError(503, "unavailable", "could not read the disk recovery key",
+                           reason="disk_recovery_key_unavailable") from exc
+        if state_file is not None and not key:
+            entered = (saved_disk_key or "").strip()
+            if entered:
+                return entered  # finish still needs this key to match the issued kit's hash
+            raise ApiError(503, "unavailable",
+                           "the encrypted disk key is missing after restart. Enter both codes from the saved kit. "
+                           "If an administrator console is available, sudo /usr/lib/onemind/data-encrypt recover-kit "
+                           "can restore the disk handoff",
+                           reason="disk_recovery_key_missing")
+        return key or None
+
+    @staticmethod
+    def _kit_hash(code: str, disk_key: str | None) -> str:
+        # Confirm the kit with the exact disk key it contained. A replacement handoff requires a fresh kit.
+        return sha256_hex(f"{code}\0{disk_key}" if disk_key else code)
+
     def kit(self, ctx: AuthContext | None) -> dict:
         user = self._pending_owner(ctx)
-        disk_key = None
-        path = self.svc.cfg.recovery_key_file
-        if path is not None:
-            try:
-                disk_key = path.read_text().strip() or None
-            except FileNotFoundError:
-                pass  # plain or already provisioned disk
-            except OSError as exc:
-                raise ApiError(503, "unavailable", "could not read the disk recovery key",
-                               reason="disk_recovery_key_unavailable") from exc
+        disk_key = self._disk_key()
         code = new_secret("recover")
         if not self.repo.update(UserRow, [UserRow.id == user.id, UserRow.setup_pending.is_(True)],
-                                {"recovery_hash": sha256_hex(code)}):
+                                {"recovery_hash": self._kit_hash(code, disk_key)}):
             raise ApiError(409, "conflict", "setup already finished", reason="setup_not_pending")
         return {"recovery_code": code, "disk_recovery_key": disk_key}
 
-    def finish(self, ctx: AuthContext | None, saved: bool, method: str, recovery_code: str) -> None:
+    def finish(self, ctx: AuthContext | None, saved: bool, method: str, recovery_code: str,
+               saved_disk_key: str | None = None) -> None:
         user = self._pending_owner(ctx)
-        if not saved or not user.recovery_hash or not hmac.compare_digest(user.recovery_hash, sha256_hex(recovery_code)):
+        if not saved or not user.recovery_hash or not hmac.compare_digest(
+            user.recovery_hash, self._kit_hash(recovery_code, self._disk_key(saved_disk_key))
+        ):
             raise ApiError(422, "conflict", "download or print the recovery kit and confirm you saved it",
                            reason="recovery_kit_required")
         if not self.repo.update(UserRow, [UserRow.id == user.id, UserRow.setup_pending.is_(True),
-                                          UserRow.recovery_hash == user.recovery_hash], {"setup_pending": False}):
+                                          UserRow.recovery_hash == user.recovery_hash],
+                                {"setup_pending": False, "recovery_hash": sha256_hex(recovery_code)}):
             raise ApiError(409, "conflict", "open and save the latest recovery kit", reason="setup_kit_changed")
         path = self.svc.cfg.recovery_key_file
-        if path is not None:
-            try:
+        try:
+            if self.disk_key_fd is not None:
+                os.ftruncate(self.disk_key_fd, 0)
+            elif path is not None:
                 with path.open("r+") as key_file:
                     key_file.truncate(0)
-            except FileNotFoundError:
-                pass
-            except OSError:
-                self.svc.emit("auth", "setup.disk_key_cleanup_failed", {"user_id": user.id}, severity="warning")
+        except FileNotFoundError:
+            pass
+        except OSError:
+            self.svc.emit("auth", "setup.disk_key_cleanup_failed", {"user_id": user.id}, severity="warning")
         self.svc.emit("auth", "setup.completed", {"user_id": user.id, "kit_saved_by": method}, ctx.principal)
 
     def recovery_options(self, request: Request, username: str) -> dict:

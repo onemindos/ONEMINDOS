@@ -2135,6 +2135,69 @@
         "title": "AuditVerify",
         "type": "object"
       },
+      "BackupDestination": {
+        "properties": {
+          "action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Id"
+          },
+          "append_only": {
+            "title": "Append Only",
+            "type": "boolean"
+          },
+          "config": {
+            "additionalProperties": true,
+            "title": "Config",
+            "type": "object"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "primary": {
+            "title": "Primary",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "label",
+          "primary",
+          "append_only",
+          "config",
+          "action_id",
+          "created_at"
+        ],
+        "title": "BackupDestination",
+        "type": "object"
+      },
       "BackupKitIssue": {
         "properties": {
           "action": {
@@ -10425,6 +10488,42 @@
         "title": "PasskeyRegisterBody",
         "type": "object"
       },
+      "PasskeyRegisterOptions": {
+        "properties": {
+          "box_code_if_proven": {
+            "title": "Box Code If Proven",
+            "type": "boolean"
+          },
+          "challenge_id": {
+            "title": "Challenge Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "publicKey": {
+            "additionalProperties": true,
+            "title": "Publickey",
+            "type": "object"
+          }
+        },
+        "required": [
+          "challenge_id",
+          "expires_at",
+          "publicKey",
+          "box_code_if_proven"
+        ],
+        "title": "PasskeyRegisterOptions",
+        "type": "object"
+      },
       "PasskeyRegistered": {
         "properties": {
           "created_at": {
@@ -11827,12 +11926,17 @@
             ],
             "title": "State",
             "type": "string"
+          },
+          "upgrade_kit_available": {
+            "title": "Upgrade Kit Available",
+            "type": "boolean"
           }
         },
         "required": [
           "state",
           "available_at",
-          "expires_at"
+          "expires_at",
+          "upgrade_kit_available"
         ],
         "title": "RemoteRecoveryStatus",
         "type": "object"
@@ -13399,6 +13503,22 @@
       },
       "SetupFinishBody": {
         "properties": {
+          "disk_recovery_key": {
+            "anyOf": [
+              {
+                "format": "password",
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The disk key from the saved kit, used if a reboot cleared the encrypted disk's RAM handoff",
+            "title": "Disk Recovery Key"
+          },
           "method": {
             "enum": [
               "download",
@@ -23415,7 +23535,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyRegisterOptions"
+                }
               }
             },
             "description": "Successful Response"
@@ -24136,7 +24258,7 @@
     },
     "/v1/auth/setup": {
       "post": {
-        "description": "Claim an unclaimed box with its screen code or install credential. Finish by saving the recovery kit.",
+        "description": "Claim an unclaimed box with its screen code. A headless install uses its install credential.",
         "operationId": "auth.setup",
         "requestBody": {
           "content": {
@@ -24290,6 +24412,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "security": [
@@ -24308,6 +24440,18 @@
     "/v1/auth/setup/kit": {
       "post": {
         "operationId": "auth.setup.kit",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "legacy_upgrade",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Legacy Upgrade",
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -24348,6 +24492,16 @@
               }
             },
             "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
           },
           "503": {
             "content": {
@@ -25838,7 +25992,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BackupDestination"
+                  },
+                  "title": "Response Backups.Destinations.List",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -34956,7 +35116,7 @@
     },
     "/v1/me/devices/{device_id}": {
       "delete": {
-        "description": "Lost this device: revoke everything it holds in one step. Needs a fresh passkey once passkeys\nare on; refused for the device you are using and for an owner's last device. Calling it again\nis safe: `removed` is false and nothing is revoked.",
+        "description": "Revoke a lost device from a signed-in session. Refuses the current device or the last sign-in\nmethod and requires stronger proof to remove the last proven keys. If the device is already\ngone, `removed` is false.",
         "operationId": "me.devices.remove",
         "parameters": [
           {
@@ -45100,7 +45260,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/UserInvite"
+                }
               }
             },
             "description": "Successful Response"

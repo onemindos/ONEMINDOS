@@ -66,7 +66,7 @@ def test_unflagged_token_is_never_retired(tmp_path):
 
 
 def test_first_boot_token_returns_401_after_setup(settings, clock, executor, tmp_path):
-    cfg = replace(id_settings(settings), tokens_file=_file(tmp_path))
+    cfg = replace(id_settings(settings, box_code_file=None), tokens_file=_file(tmp_path))
     first = {"Authorization": f"Bearer {FIRST}"}
     with TestClient(create_app(cfg, clock=clock, executor=executor), client=LOCAL_PEER) as c:
         assert c.get("/v1/me", headers=first).status_code == 200

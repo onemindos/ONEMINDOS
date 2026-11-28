@@ -3,14 +3,16 @@
 package cli
 
 // onemind users: the people on this box. The gateway authorizes the owner.
-// The CLI submits family invitation requests for approval and delivery in the dashboard.
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
+	onemind "github.com/onemindos/onemindos/sdk/go"
 	"github.com/spf13/cobra"
 )
 
@@ -41,19 +43,17 @@ func usersCommands(a *App) []*cobra.Command {
 	})
 
 	var role, username string
+	var secretsStdin bool
 	invite := &cobra.Command{
 		Use:   "invite NAME",
-		Short: "Request a family invitation or invite another owner",
+		Short: "Create a one-time invitation from your signed-in owner account",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			body := map[string]any{"display_name": args[0], "role": role, "username": nil}
 			if username != "" {
 				body["username"] = username
 			}
-			if role != "owner" {
-				return a.requestFamilyInvite("/v1/users/invites", body)
-			}
-			v, err := a.gwDo(http.MethodPost, "/v1/users", body)
+			v, err := a.createUserInvite(body, secretsStdin)
 			if err != nil {
 				return err
 			}
@@ -72,6 +72,7 @@ func usersCommands(a *App) []*cobra.Command {
 	}
 	invite.Flags().StringVar(&role, "role", "adult", "owner, adult, teen, child or guest")
 	invite.Flags().StringVar(&username, "username", "", "sign-in name (optional)")
+	invite.Flags().BoolVar(&secretsStdin, "secrets-stdin", false, "read password, fresh authenticator code and any required screen code from stdin")
 
 	var reinviteYes bool
 	reinvite := &cobra.Command{Use: "reinvite USER_ID", Short: "Request a replacement invitation for a family member",
@@ -130,4 +131,63 @@ func (a *App) requestFamilyInvite(path string, body any) error {
 	}
 	_, err = fmt.Fprintf(a.Stdout, "Invitation requested (%s). Open Approvals in the dashboard to verify the request and collect the link.\n", sanitize(id))
 	return err
+}
+
+func (a *App) createUserInvite(body map[string]any, secretsStdin bool) (any, error) {
+	c, err := a.selectedAccountClient(false)
+	if err != nil {
+		return nil, err
+	}
+	const path = "/v1/users"
+	var invite any
+	err = c.Do(bg(), http.MethodPost, path, body, &invite)
+	if err == nil {
+		return invite, nil
+	}
+	var gatewayErr *onemind.Error
+	if !errors.As(err, &gatewayErr) || gatewayErr.Reason != "step_up_required" || !(secretsStdin || a.Interactive()) {
+		return nil, explainGateway(err)
+	}
+	var options struct {
+		Challenge   string `json:"challenge"`
+		BoxRequired bool   `json:"box_code_required"`
+	}
+	if err := c.Do(bg(), http.MethodPost, "/v1/auth/step-up/options", map[string]any{
+		"op": "users.create", "body": body, "method": "password+totp", "at_box": true,
+	}, &options); err != nil {
+		return nil, explainGateway(err)
+	}
+	if options.Challenge == "" {
+		return nil, fmt.Errorf("the box did not return an invitation verification challenge")
+	}
+	proof := map[string]string{"challenge": options.Challenge}
+	for _, field := range [][2]string{{"password", "Password"}, {"totp", "Fresh authenticator code"}} {
+		value, err := a.accountSecret(field[1], secretsStdin)
+		if err != nil {
+			return nil, err
+		}
+		proof[field[0]] = value
+	}
+	proof["totp"] = strings.TrimSpace(proof["totp"])
+	verification := map[string]any{"password_totp": proof}
+	if options.BoxRequired {
+		code, err := a.accountSecret("Code on the box's screen", secretsStdin)
+		if err != nil {
+			return nil, err
+		}
+		verification["box_code"] = strings.TrimSpace(code)
+	}
+	var grant struct {
+		StepUp string `json:"step_up"`
+	}
+	if err := c.Do(bg(), http.MethodPost, "/v1/auth/step-up", verification, &grant); err != nil {
+		return nil, explainGateway(err)
+	}
+	if grant.StepUp == "" {
+		return nil, fmt.Errorf("the box did not return an invitation verification grant")
+	}
+	if err := c.DoWithStepUp(bg(), http.MethodPost, path, grant.StepUp, body, &invite); err != nil {
+		return nil, explainGateway(err)
+	}
+	return invite, nil
 }

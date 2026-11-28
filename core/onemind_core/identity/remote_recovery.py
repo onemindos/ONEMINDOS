@@ -11,7 +11,7 @@ from sqlalchemy import delete, exists, or_, select
 from sqlalchemy.exc import IntegrityError
 
 from ..errors import ApiError
-from .crypto import new_id, sha256_hex
+from .crypto import new_id, new_secret, sha256_hex
 from .models import RemoteRecoveryRow, UserRow, iso, utc
 
 if TYPE_CHECKING:
@@ -40,11 +40,31 @@ def _live(svc: IdentityService, user) -> RemoteRecoveryRow | None:
 
 
 def status(svc: IdentityService, ctx: AuthContext | None) -> dict:
-    row = _live(svc, _owner(svc, ctx))
+    user = _owner(svc, ctx)
+    row = _live(svc, user)
+    upgrade_kit_available = ctx.home and not svc.presence.available and not user.setup_pending and not user.recovery_hash
     if row is None:
-        return {"state": "none", "available_at": None, "expires_at": None}
+        return {"state": "none", "available_at": None, "expires_at": None,
+                "upgrade_kit_available": upgrade_kit_available}
     return {"state": "ready" if svc.now() >= utc(row.available_at) else "waiting",
-            "available_at": iso(row.available_at), "expires_at": iso(row.expires_at)}
+            "available_at": iso(row.available_at), "expires_at": iso(row.expires_at),
+            "upgrade_kit_available": False}
+
+
+def upgrade_kit(svc: IdentityService, ctx: AuthContext) -> dict:
+    """An existing headless owner may initialise the code that gates delayed recovery."""
+    user = _owner(svc, ctx, fresh=True)
+    if not ctx.home:
+        raise svc.deny(ctx.principal, "issue an upgrade recovery kit", reason="home_network_required")
+    code = new_secret("recover")
+    if svc.presence.available or user.setup_pending or not svc.repo.update(UserRow, [
+        UserRow.id == user.id, UserRow.role == "owner", UserRow.disabled.is_(False),
+        UserRow.setup_pending.is_not(True), UserRow.credential_revision == user.credential_revision,
+        UserRow.recovery_hash.is_(None),
+    ], {"recovery_hash": sha256_hex(code)}):
+        raise ApiError(409, "conflict", "this account cannot issue an upgrade kit", reason="upgrade_kit_unavailable")
+    svc.emit("auth", "remote_recovery.upgrade_kit_issued", {"user_id": user.id}, ctx.principal, severity="warning")
+    return {"recovery_code": code, "disk_recovery_key": None}
 
 
 def start(svc: IdentityService, request: Request, ctx: AuthContext | None, kit_code: str) -> dict:

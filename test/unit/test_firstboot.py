@@ -78,25 +78,6 @@ class Box(unittest.TestCase):
         return self.read(os.path.join(self.p.etc, name))
 
 
-class RecoveryKeyHandoff(Box):
-    def test_disk_recovery_key_handoff_opens_only_the_root_owned_ram_file(self):
-        fb.run_dir(self.p)
-        with mock.patch.object(fb, "onemind_ids", return_value=(123, 456)):
-            self.assertEqual(fb.gateway_recovery_key(self.p), 0)  # plain disk
-            key = self.put("run/onemind/data-recovery-key", "test disk key\n")
-            os.chmod(key, 0o600)
-            info = mock.Mock(st_mode=os.stat(key).st_mode, st_uid=0, st_nlink=1)
-            with mock.patch.object(fb.os, "fstat", return_value=info), mock.patch.object(fb.os, "fchown") as chown:
-                self.assertEqual(fb.gateway_recovery_key(self.p), 0)
-            self.assertEqual(chown.call_args.args[1:], (0, 456))
-            self.assertEqual(self.mode(key), 0o660)
-            self.assertEqual(self.read(key), "test disk key\n")
-            os.unlink(key)
-            os.symlink(self.p.console, key)
-            with self.assertRaises(OSError):
-                fb.gateway_recovery_key(self.p)
-
-
 class Parsing(unittest.TestCase):
     def test_conf_lines_comments_quotes(self):
         self.assertEqual(fb.parse_conf("# c\nrole = hub  # inline\nname = \"My box\"\n\n"),

@@ -321,10 +321,9 @@ class World:
     def _identity_owner(self) -> dict[str, str]:
         """A household owner account with a bearer session, created through first-boot setup."""
         if "owner" not in self._identity:
-            from test_identity import SoftAuthenticator, confirm_setup_kit
+            from test_identity import SoftAuthenticator, claim_owner, confirm_setup_kit
 
-            r = self.client.post("/v1/auth/setup", headers=self.static("owner"), json={
-                "username": ID_OWNER, "password": ID_PASSWORD, "client": "cli"})
+            r = claim_owner(self.client, username=ID_OWNER, password=ID_PASSWORD, client="cli")
             assert r.status_code == 201, r.text
             self._identity["session"] = r.json()
             owner = self._identity["owner"] = bearer(r.json()["access_token"])

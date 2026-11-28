@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 
 	onemind "github.com/onemindos/onemindos/sdk/go"
@@ -149,6 +150,30 @@ func (a *App) accountSecurityCommands(stdin *bool) []*cobra.Command {
 func (a *App) remoteAccountRecovery(stdin *bool) *cobra.Command {
 	const path = "/v1/auth/recovery/remote"
 	root := &cobra.Command{Use: "remote-recovery", Short: "Manage delayed recovery of remote approval access"}
+	var kitPath string
+	kit := &cobra.Command{Use: "upgrade-kit", Short: "Save a recovery code for an existing headless owner account",
+		Args: cobra.NoArgs, RunE: func(*cobra.Command, []string) error {
+			c, err := a.selectedAccountClient(false)
+			if err != nil {
+				return err
+			}
+			file, err := newAccountKitFile(kitPath)
+			if err != nil {
+				return err
+			}
+			defer file.Close()
+			var kit accountRecoveryKit
+			if err := c.Do(bg(), http.MethodPost, "/v1/auth/setup/kit?legacy_upgrade=true", nil, &kit); err != nil {
+				os.Remove(kitPath)
+				return err
+			}
+			if err := writeAccountKit(file, kit); err != nil {
+				return err
+			}
+			return a.accountResult("Recovery code saved. Use it to start the 72-hour wait.", map[string]string{"kit": kitPath})
+		}}
+	kit.Flags().StringVar(&kitPath, "kit", "", "new file for the account recovery code")
+	root.AddCommand(kit)
 	root.AddCommand(&cobra.Command{Use: "status", Short: "Check the recovery waiting period",
 		Args: cobra.NoArgs, RunE: func(*cobra.Command, []string) error {
 			c, err := a.selectedAccountClient(false)

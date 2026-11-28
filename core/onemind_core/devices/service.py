@@ -20,9 +20,8 @@ the label of its newest credential. The device id is a hash of (person, key): st
 credentials exist, opaque, and the same id on every call, which makes Lost this device idempotent:
 a second call finds nothing and says so.
 
-Lost this device is one person-approved step: a signed-in household session (never an API token,
-so never an agent), a fresh passkey once passkeys are on (biometrics on the phone), and never the
-device the request comes from or the last owner device or passkey on the box.
+Lost this device requires the person's household session. The current device stays signed in.
+Removing grouped passkeys follows the same safeguards as removing an individual passkey.
 """
 
 from __future__ import annotations
@@ -165,7 +164,6 @@ class MyDevicesService:
     def remove(self, ctx: AuthContext | None, p: Principal, dev_id: str) -> dict:
         """Lost this device: revoke every credential the device holds. Idempotent."""
         user = self._session_person(ctx, p, "remove a device")
-        how = self.identity.require_step_up(ctx, p, "remove a device")
         found = {d.id: d for d in self.devices(user.id, ctx.session.id)}
         dev = found.get(dev_id)
         revoked = dict.fromkeys(("sessions", "passkeys", "approver_keys", "push"), 0)
@@ -174,15 +172,21 @@ class MyDevicesService:
         if dev.current:
             raise ApiError(409, "conflict", "this is the device you are using; sign out here instead",
                            reason="current_device")
-        self._last_owner_guard(user, dev)
+        keys = {c.id for c in dev.credentials if c.source == "passkeys"}
+        how = "session"
+        if keys and self.identity.removes_last_proven(keys):
+            how = self.identity.require_step_up(ctx, p, "remove the last proven key",
+                                                op="me.devices.remove", target=dev_id,
+                                                body={"passkeys": sorted(keys)})
+        revoked_sessions = self.identity.remove_passkeys(ctx, keys) if keys else set()
+        revoked["passkeys"] = len(keys)
         now = self.identity.now()
         for c in dev.credentials:
             if c.source == "sessions":
-                done = self.repo.update(SessionRow, [SessionRow.id == c.id, SessionRow.revoked_at.is_(None)],
-                                        {"revoked_at": now})
+                done = [c.id] if c.id in revoked_sessions else self.repo.update(
+                    SessionRow, [SessionRow.id == c.id, SessionRow.revoked_at.is_(None)], {"revoked_at": now})
             elif c.source == "passkeys":
-                self.repo.delete(PasskeyRow, PasskeyRow.id == c.id, PasskeyRow.user_id == user.id)
-                done = [c.id]
+                continue
             elif c.source == "approver_keys":
                 row = self.approver_rows
                 done = self.repo.update(row, [row.id == c.id, row.revoked_at.is_(None)], {"revoked_at": now})
@@ -193,16 +197,3 @@ class MyDevicesService:
         self.identity.emit("auth", "device.removed", {"user_id": user.id, "device_id": dev.id, "kind": dev.kind,
                                                       "revoked": revoked, "proof": how}, p, severity="warning")
         return {"id": dev.id, "removed": True, "revoked": revoked}
-
-    def _last_owner_guard(self, user, dev: Device) -> None:
-        # The owner's last device is always the one they are using, which is refused above; what is
-        # left to guard is the box's last owner passkey, which may sit on another device.
-        if user.role != "owner":
-            return
-        mine = {c.id for c in dev.credentials if c.source == "passkeys"}
-        if mine:
-            owners = self.identity.active_owner_ids()
-            left = self.repo.count(PasskeyRow, PasskeyRow.user_id.in_(owners), PasskeyRow.id.not_in(mine))
-            if left == 0:
-                raise ApiError(409, "conflict", "this device holds the last owner passkey on the box",
-                               reason="last_owner")

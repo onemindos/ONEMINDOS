@@ -124,7 +124,7 @@ def others_objects(owner: int, child: int = 404) -> dict:
 
 
 POLICY |= {
-    ("POST", "/v1/auth/setup"): Row(cells(401, owner=201), w.p_setup, "§12.6 first owner needs the install owner token", ID),
+    ("POST", "/v1/auth/setup"): Row(cells(401), w.p_setup, "D-034: screen-equipped setup requires the on-box code", ID),
     ("GET", "/v1/auth/setup/status"): Row(OPEN, w.p_static("/v1/auth/setup/status"), "D-034 public first-run state", ID),
     ("POST", "/v1/auth/setup/options"): Row(cells(200, child=409, expired=409), w.p_static("/v1/auth/setup/options"),
                                              "D-034 public LAN proof; 409 once there is an owner", ID),
@@ -190,7 +190,8 @@ POLICY |= {
     ("POST", "/v1/auth/totp/disable"): Row(own_credentials(204), w.p_totp_disable, "§12.6 own credentials", ID, UNAUDITED),
     ("GET", "/v1/me"): Row(SIGNED_IN, w.p_static("/v1/me"), "§12.6 any principal", ID),
     ("GET", "/v1/users"): Row(ACCOUNT_ADMIN, w.p_static("/v1/users"), "§12.6 users:read is owner only", ID),
-    ("POST", "/v1/users"): Row(cells(403, **GONE, owner=201, **PENDING_DENY), w.p_user_create, "§12.6 owner", ID),
+    ("POST", "/v1/users"): Row(cells(403, **GONE, **PENDING_DENY), w.p_user_create,
+                              "D-034 direct invitations require a verified owner session", ID),
     ("POST", "/v1/users/invites"): Row(cells(403, **GONE, **PENDING_DENY), lambda world: w.Req("/v1/users/invites", json={
         "display_name": "Family", "role": "adult"}), "D-034 owner session files family invitation for approval", ID),
     ("POST", "/v1/users/{user_id}/invite"): Row(cells(403, **GONE, **PENDING_DENY), w.p_reinvite,

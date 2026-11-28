@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 import secrets
 from datetime import datetime, timedelta
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import Depends, FastAPI, Header, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -110,6 +110,17 @@ class DestinationBody(_Request):
     # Write-only: kept in memory until the owner approves, then written to the agent's 0600 files.
     # `sealed` (encrypted to GET /v1/secrets/public-key) replaces this once the secrets store lands.
     credentials: dict[str, str] | None = None
+
+
+class BackupDestination(BaseModel):
+    id: str
+    kind: str
+    label: str
+    primary: bool
+    append_only: bool
+    config: dict[str, Any]
+    action_id: str | None
+    created_at: str | None
 
 
 class ContentBody(_Request):
@@ -260,7 +271,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def status(_: Principal = Depends(reader)):
         return svc.status()
 
-    @app.get("/v1/backups/destinations", operation_id="backups.destinations.list", tags=tags, responses=error_responses(401, 403))
+    @app.get("/v1/backups/destinations", operation_id="backups.destinations.list", tags=tags,
+             response_model=list[BackupDestination], responses=error_responses(401, 403))
     def destinations(p: Principal = Depends(principal)):
         if not (p.is_owner or p.role == "adult"):
             raise deny(p, "list backup destinations")

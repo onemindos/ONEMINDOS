@@ -110,11 +110,6 @@ func (g *recGW) serve(w http.ResponseWriter, r *http.Request) {
 		}
 		jsonOut(w, 201, map[string]any{"id": "usr_9", "display_name": body["display_name"], "role": body["role"],
 			"one_time": map[string]any{"enrolment_code": "CODE", "enrolment_url": "https://box.example/signin#enrol=CODE", "expires_at": "2026-11-26T00:00:00Z"}})
-	case p == "/v1/users/invites" && r.Method == http.MethodPost:
-		if denyAgent() {
-			return
-		}
-		jsonOut(w, 202, waiting("users.invite", body))
 	case p == "/v1/users/usr_2/invite" && r.Method == http.MethodPost:
 		if denyAgent() {
 			return
@@ -198,11 +193,10 @@ func TestUsersListInviteDisable(t *testing.T) {
 		t.Fatalf("list json %+v", r)
 	}
 	r = run(t, "", false, "users", "invite", "Sam", "--role", "child", "--username", "sam")
-	if r.code != 0 || !strings.Contains(r.out, "act_1") || !strings.Contains(r.out, "Approvals in the dashboard") ||
-		strings.Contains(r.out, "#enrol=") {
+	if r.code != 0 || !strings.Contains(r.out, "Invited Sam") || !strings.Contains(r.out, "#enrol=CODE") {
 		t.Fatalf("invite %+v", r)
 	}
-	post := g.requests("POST", "/v1/users/invites")
+	post := g.requests("POST", "/v1/users")
 	if len(post) != 1 || post[0].body["display_name"] != "Sam" || post[0].body["role"] != "child" || post[0].body["username"] != "sam" {
 		t.Fatalf("invite body %+v", post)
 	}
@@ -210,11 +204,11 @@ func TestUsersListInviteDisable(t *testing.T) {
 	if r.code != 0 {
 		t.Fatalf("invite json %+v", r)
 	}
-	action := obj(mustJSON2(t, r.out))
-	if action["id"] != "act_1" || action["type"] != "users.invite" || action["state"] != "awaiting_approval" || action["one_time"] != nil {
-		t.Fatalf("unexpected invite action: %+v", action)
+	invite := obj(mustJSON2(t, r.out))
+	if invite["id"] != "usr_9" || invite["role"] != "adult" || obj(invite["one_time"])["enrolment_code"] != "CODE" {
+		t.Fatalf("unexpected invitation: %+v", invite)
 	}
-	if r := run(t, "", false, "users", "invite", "Sam", "--quiet"); r.code != 0 || r.out != "act_1\n" {
+	if r := run(t, "", false, "users", "invite", "Sam", "--quiet"); r.code != 0 || r.out != "https://box.example/signin#enrol=CODE\n" {
 		t.Fatalf("invite quiet %+v", r)
 	}
 	if r := run(t, "", false, "users", "invite", "Alex", "--role", "owner", "--quiet"); r.code != 0 ||

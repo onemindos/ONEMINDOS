@@ -147,12 +147,13 @@ describe('Approvals page', () => {
 
 describe('family invitations through Approvals', () => {
   it.each([
-    { replacement: false, name: 'Sam', title: 'Invite Sam', route: '/v1/users/invites' },
-    { replacement: true, name: 'Alex', title: 'Replace invite for Alex', route: '/v1/users/alex/invite' },
-  ])('shows the one-time link after the owner approves $title', async ({ replacement, name, title, route }) => {
+    { replacement: false, name: 'Sam', title: 'Invite Sam' },
+    { replacement: true, name: 'Alex', title: 'Replace invite for Alex' },
+  ])('shows the one-time link after the owner approves $title', async ({ replacement, name, title }) => {
     const api = new MockApi('owner-demo');
     const row = (await api.users()).find((p) => p.id === 'alex')!;
     const invitePath = '/v1/users/invites/act-invite/claim';
+    const replacePath = '/v1/users/alex/invite';
     const optsPath = '/v1/actions/act-invite/approve-options';
     const approvePath = '/v1/actions/act-invite/approve';
     const code = 'family-invite-fixture';
@@ -162,14 +163,16 @@ describe('family invitations through Approvals', () => {
       params: replacement ? { user_id: 'alex', display_name: name, credential_revision: 2 } : { display_name: name, role: 'teen', username: null },
       expires_at: future(), created_at: '2026-11-27T10:00:00Z', updated_at: '2026-11-27T10:00:00Z' };
     const other = { ...pending, id: 'act-other', type: 'app.install', params: { app_id: 'ollama' }, created_at: '2026-11-27T10:01:00Z' };
-    let action: typeof pending | undefined;
+    // A queued creation from another client is already in Approvals. Replacements
+    // still originate in People because they revoke the old credentials.
+    let action = replacement ? undefined : pending;
     const http = new HttpApi({ token: 'owner-demo', fetchFn: async (url, req) => {
       const path = new URL(url, window.location.origin).pathname;
       if (req?.method === 'GET' && path === '/v1/actions') return Response.json(action ? [other, action] : [other]);
       if (req?.method === 'POST') {
         const body = req.body ? JSON.parse(String(req.body)) : undefined;
         writes.push([path, body]);
-        if (path === route) {
+        if (replacement && path === replacePath) {
           action = pending;
           return Response.json(pending, { status: 202 });
         }
@@ -186,39 +189,71 @@ describe('family invitations through Approvals', () => {
       return Response.json({ error: 'not_found', message: 'Not found.' }, { status: 404 });
     } });
     Object.assign(api, {
-      actions: http.actions.bind(http), createInvite: http.createInvite, reissueInvite: http.reissueInvite,
+      actions: http.actions.bind(http), reissueInvite: http.reissueInvite,
       claimInvite: http.claimInvite, approveOptions: http.approveOptions.bind(http), approve: http.approve.bind(http),
     });
     window.sessionStorage.setItem('onemind.token', 'owner-demo');
-    render(<MemoryRouter initialEntries={['/settings/users']}><SessionProvider deps={{ mock: false, makeApi: () => api, knownPrincipal: () => ({ id: 'owner', kind: 'person', role: 'owner' }) }}><App mock={false} /></SessionProvider></MemoryRouter>);
+    render(<MemoryRouter initialEntries={[replacement ? '/settings/users' : '/approvals?highlight=act-invite']}><SessionProvider deps={{ mock: false, makeApi: () => api, knownPrincipal: () => ({ id: 'owner', kind: 'person', role: 'owner' }) }}><App mock={false} /></SessionProvider></MemoryRouter>);
     const user = userEvent.setup();
     if (replacement) {
       await user.click(await screen.findByRole('button', { name: `Send a new invite to ${name}` }, T));
       await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'New invite' }));
-    } else {
-      await user.click(await screen.findByRole('button', { name: 'Invite a person' }, T));
-      const form = within(screen.getByRole('dialog', { name: 'Invite a person' }));
-      await user.type(form.getByLabelText('Name'), name);
-      await user.selectOptions(form.getByLabelText('Role'), 'teen');
-      await user.click(form.getByRole('button', { name: 'Create invite' }));
     }
     const approve = await screen.findByRole('button', { name: `Approve ${title}` }, T);
     expect(screen.getByText(replacement ? /signs this person out and clears their existing sign-in credentials/ : /Create a teen account with a one-time invitation/)).toBeVisible();
     expect(screen.queryByText(code)).not.toBeInTheDocument();
-    const request = [route, replacement ? undefined : { display_name: name, role: 'teen' }];
-    expect(writes).toEqual([request]);
+    const requests = replacement ? [[replacePath, undefined]] : [];
+    expect(writes).toEqual(requests);
 
     await user.click(approve);
     const dialog = within(await screen.findByRole('dialog', { name: 'Invite a person' }, T));
     expect(dialog.getByLabelText('Invite link')).toHaveValue(link);
     expect(dialog.getByText(code)).toBeVisible();
     expect(dialog.getByRole('img', { name: 'Invite QR code' })).toBeVisible();
-    expect(writes).toEqual([request, [optsPath, {}], [approvePath, {}],
+    expect(writes).toEqual([...requests, [optsPath, {}], [approvePath, {}],
       [approvePath, { webauthn: { id: 'cred-1', type: 'public-key' } }], [invitePath, undefined]]);
     expect(JSON.stringify({ ...window.sessionStorage, ...window.localStorage })).not.toContain(code);
     await user.click(dialog.getAllByRole('button', { name: 'Close' }).at(-1)!);
     expect(screen.queryByText(code)).not.toBeInTheDocument();
   });
+});
+
+it('issues an invitation directly from People after verifying the exact change', async () => {
+  const api = new MockApi('owner-demo');
+  const input = { display_name: 'Sam', role: 'teen' };
+  const operation = { op: 'users.create', target: '', body: { ...input, username: null } };
+  const code = 'one-use-invite';
+  const link = `https://box.example/signin#enrol=${code}`;
+  const writes: Array<[string, unknown, string | null]> = [];
+  const http = new HttpApi({ token: 'owner-demo', fetchFn: async (url, req) => {
+    const path = new URL(url, window.location.origin).pathname;
+    const proof = new Headers(req?.headers).get('OneMind-Step-Up');
+    writes.push([path, req?.body ? JSON.parse(String(req.body)) : undefined, proof]);
+    if (path === '/v1/auth/step-up/options') return Response.json({ challenge: 'c', publicKey: { challenge: 'c' } });
+    if (path === '/v1/auth/step-up') return Response.json({ step_up: 'verified-invite' });
+    if (path === '/v1/users' && proof === 'verified-invite') {
+      return Response.json({ id: 'sam', ...input, one_time: { enrolment_url: link, enrolment_code: code, expires_at: future() } }, { status: 201 });
+    }
+    return Response.json({ error: 'unauthenticated', reason: 'step_up_required', message: 'Confirm the invitation',
+      details: [{ step_up: { ...operation, required_level: 'L2' } }] }, { status: 401 });
+  } });
+  Object.assign(api, { createUser: http.createUser.bind(http) });
+  window.sessionStorage.setItem('onemind.token', 'owner-demo');
+  render(<MemoryRouter initialEntries={['/settings/users']}><SessionProvider deps={{ mock: false, makeApi: () => api, knownPrincipal: () => ({ id: 'owner', kind: 'person', role: 'owner' }) }}><App mock={false} /></SessionProvider></MemoryRouter>);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Invite a person' }, T));
+  const form = within(screen.getByRole('dialog', { name: 'Invite a person' }));
+  await user.type(form.getByLabelText('Name'), 'Sam');
+  await user.selectOptions(form.getByLabelText('Role'), 'teen');
+  await user.click(form.getByRole('button', { name: 'Create invite' }));
+  expect(await screen.findByLabelText('Invite link', {}, T)).toHaveValue(link);
+  expect(writes).toEqual([
+    ['/v1/users', input, null],
+    ['/v1/auth/step-up/options', operation, null],
+    ['/v1/auth/step-up', { credential: { id: 'cred-1', type: 'public-key' } }, null],
+    ['/v1/users', input, 'verified-invite'],
+  ]);
+  expect(JSON.stringify({ ...window.sessionStorage, ...window.localStorage })).not.toContain(code);
 });
 
 describe('approveWithStepUp', () => {

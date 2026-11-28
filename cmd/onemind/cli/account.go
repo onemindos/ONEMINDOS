@@ -104,7 +104,13 @@ func (a *App) finishAccountSetup(c *onemind.Client, path string, yes bool) error
 		}
 	}
 	body := map[string]any{"saved": true, "method": "download", "recovery_code": kit.Code}
-	if err := c.Do(bg(), http.MethodPost, "/v1/auth/setup/finish", body, nil); err != nil {
+	err = c.Do(bg(), http.MethodPost, "/v1/auth/setup/finish", body, nil)
+	var gatewayErr *onemind.Error
+	if kit.DiskKey != "" && errors.As(err, &gatewayErr) && gatewayErr.Reason == "disk_recovery_key_missing" {
+		body["disk_recovery_key"] = kit.DiskKey
+		err = c.Do(bg(), http.MethodPost, "/v1/auth/setup/finish", body, nil)
+	}
+	if err != nil {
 		return err
 	}
 	return a.accountResult("Setup finished.", map[string]any{"setup_finished": true, "kit": path})
