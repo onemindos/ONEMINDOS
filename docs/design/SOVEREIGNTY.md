@@ -11,7 +11,7 @@
 | # | Question | Pass when |
 |---|---|---|
 | 1 | Does it work offline on the box? | It does everything it can without the internet, and says plainly what needs the internet |
-| 2 | Is the licence open? | D-033 rules: only MIT/BSD/Apache-2.0/MPL-2.0/public-domain in app binaries; GPL/AGPL only unmodified, in its own container, behind a standard protocol |
+| 2 | Is the licence open? | D-035 rules: only MIT/BSD/Apache-2.0/MPL-2.0/public-domain in app binaries; GPL/AGPL only unmodified, in its own container, behind a standard protocol |
 | 3 | Does it need an outside account or cloud service? | No, or it is optional and off by default |
 | 4 | Is the data in open, exportable formats? | Yes, and restic backs it up |
 | 5 | Does it call home? | Never. No telemetry, and no hidden network calls |

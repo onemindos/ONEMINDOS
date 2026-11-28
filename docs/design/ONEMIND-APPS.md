@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # OneMind's own apps: architecture, engines and licences
 
-**For:** Zeus and every builder · **Date:** 2026-11-26 · **Status:** founder-requested design review, **accepted as D-033 on 2026-11-26** ("lets do it"). §8 lists what is still open. Nothing here reopens D-003 (one app with modules), D-021 (Android first), D-023 (OneMind copies of upstream projects) or D-026 (custom apps are first-class).
+**For:** Zeus and every builder · **Date:** 2026-11-26 · **Status:** founder-requested design review, **accepted as D-035 on 2026-11-26** ("lets do it"). §8 lists what is still open. Nothing here reopens D-003 (one app with modules), D-021 (Android first), D-023 (OneMind copies of upstream projects) or D-026 (custom apps are first-class).
 **Feeds:** D-003, #641, #642, #1234 (own vs borrow), the "OneMind Everyday" app wave, founder notes [14](../learning/founder/14-onemind-internal-apps.html) and [15](../learning/founder/15-one-app-own-vs-borrow-and-3d-maps.md).
 
 Founder brief, 2026-11-26:
@@ -175,7 +175,7 @@ Debian 13 (trixie) packages checked 2026-11-26 on packages.debian.org:
 - **Left before F1 ships:**
   - run it on the S24 and iOS with expo-sqlite (#1290);
   - check that Metro accepts the kit's `.ts` imports;
-  - Reminders API, CLI and MCP tools, and screens (D-033).
+  - Reminders API, CLI and MCP tools, and screens (D-035).
 
 **Spend on all three spikes:** $9.13 (the ledger total is $11.34 of $200, including earlier runs).
 
@@ -268,7 +268,7 @@ Founder idea: one family name, as in **One Weather, One Doc, One Health, One Sca
   - Outside, the family name **"OneMind ___"** (OneMind Notes, OneMind Maps). It carries the brand without clashing.
   - If the "One ___" style is kept, swap the clashes, for example One Notes → **One Pages** or **One Journal**, and One Finder → **One Find**, and check every name first.
 
-## 9. Still open (D-033 records the rest)
+## 9. Still open (D-035 records the rest)
 
 1. **Weather source:** MET Norway (after checking its commercial terms), a paid source, or self-hosted Open-Meteo. The Open-Meteo free API is out (non-commercial only).
 2. **Passwords:** keep Vaultwarden behind a door (AGPL plus trademark care), or build our own vault.
