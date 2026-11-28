@@ -6,7 +6,7 @@
 // *.css as side-effectful, so a CSS import in a re-export-only module is tree-shaken away.
 import './customize.css';
 import { ACCENTS, DEFAULT_ACCENT, customAccent, isAccentId, presetAccent, type AccentId, type DerivedAccent, type ThemeName } from './accents';
-import { mix, normalizeHex } from './color';
+import { hexToOklch, mix, normalizeHex } from './color';
 import { dark, light } from '../tokens/tokens';
 import { WALLPAPERS, isWallpaperChoice, minDim, type WallpaperChoice } from './wallpapers';
 
@@ -14,7 +14,8 @@ export type ThemeMode = 'system' | 'light' | 'dark' | 'schedule';
 export type AccentSource = 'wallpaper' | 'preset' | 'custom';
 export type Density = 'comfortable' | 'compact';
 export type Corners = 'sharp' | 'standard' | 'round';
-export type MotionPref = 'system' | 'reduce';
+/** `allow` plays motion even when the device asks for reduced motion (founder, #1015). */
+export type MotionPref = 'system' | 'reduce' | 'allow';
 export type TransparencyPref = 'system' | 'on' | 'off';
 
 export const FONT_SCALES = [0.9, 1, 1.125, 1.25] as const;
@@ -25,7 +26,14 @@ export const MAX_BLUR = 40;
 /** Version 1 of the appearance document. Field names are the proposed API shape (§12). */
 export interface AppearancePreferences {
   version: 1;
+  /** The run bar ("Run a command or ask an agent", Alt R), off by default. */
   commandBar: boolean;
+  /** Buttons keep the signal red (default). Off: buttons use the highlight colour. */
+  buttonsRed: boolean;
+  /** Screen ids in the person's dock order; empty = the shipped order. The dock reads this. */
+  dockOrder: string[];
+  /** Labels under dock tiles. */
+  dockLabels: boolean;
   theme: ThemeMode;
   /** Local times "HH:MM" for theme = schedule; dark from `darkFrom` until `lightFrom`. */
   schedule: { darkFrom: string; lightFrom: string };
@@ -53,6 +61,9 @@ export interface AppearancePreferences {
 export const DEFAULT_PREFERENCES: AppearancePreferences = {
   version: 1,
   commandBar: false,
+  buttonsRed: true,
+  dockOrder: [],
+  dockLabels: true,
   theme: 'system',
   schedule: { darkFrom: '19:00', lightFrom: '07:00' },
   // Atlas starts with teal highlights; personal accents can override that choice.
@@ -73,6 +84,7 @@ export const DEFAULT_PREFERENCES: AppearancePreferences = {
   transparency: 'system',
 };
 
+const SAFE_ID = /^[a-z0-9][a-z0-9._-]{0,40}$/i;
 const TIME = /^([01]\d|2[0-3]):([0-5]\d)$/;
 const pick = <T extends string>(v: unknown, allowed: readonly T[], d: T): T => (allowed.includes(v as T) ? (v as T) : d);
 const num = (v: unknown, lo: number, hi: number, d: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
@@ -91,6 +103,11 @@ export function normalizePreferences(input: unknown): AppearancePreferences {
   return {
     version: 1,
     commandBar: o.commandBar === true,
+    buttonsRed: o.buttonsRed !== false,
+    dockOrder: Array.isArray(o.dockOrder)
+      ? Array.from(new Set(o.dockOrder.filter((x): x is string => typeof x === 'string' && SAFE_ID.test(x)))).slice(0, 24)
+      : [],
+    dockLabels: o.dockLabels !== false,
     theme: pick(o.theme, ['system', 'light', 'dark', 'schedule'], d.theme),
     schedule: {
       darkFrom: typeof s.darkFrom === 'string' && TIME.test(s.darkFrom) ? s.darkFrom : d.schedule.darkFrom,
@@ -106,7 +123,7 @@ export function normalizePreferences(input: unknown): AppearancePreferences {
     density: pick(o.density, ['comfortable', 'compact'], d.density),
     fontScale: (FONT_SCALES as readonly number[]).includes(o.fontScale as number) ? (o.fontScale as FontScale) : d.fontScale,
     corners: pick(o.corners, ['sharp', 'standard', 'round'], d.corners),
-    motion: pick(o.motion, ['system', 'reduce'], d.motion),
+    motion: pick(o.motion, ['system', 'reduce', 'allow'], d.motion),
     higherContrast: o.higherContrast === true,
     focusAlways: o.focusAlways === true,
     underlineLinks: o.underlineLinks === true,
@@ -144,9 +161,15 @@ export function resolveThemeAttr(p: AppearancePreferences, at: Date): ThemeName 
   return null;
 }
 
+/** The most colourful sampled colour of the person's photo; deriveAccent() darkens it until text passes AA. */
+export function photoColour(colors: string[]): string {
+  return colors.reduce((best, c) => (hexToOklch(c).c > hexToOklch(best).c ? c : best), colors[0]!);
+}
+
 /** Which accent preset (or custom colour) the preferences resolve to. */
 export function accentSeed(p: AppearancePreferences): { kind: 'preset'; id: AccentId } | { kind: 'custom'; hex: string } {
   if (p.accentSource === 'custom') return { kind: 'custom', hex: p.accentCustom };
+  if (p.accentSource === 'wallpaper' && p.wallpaper === 'custom' && p.customWallpaperColors.length) return { kind: 'custom', hex: photoColour(p.customWallpaperColors) };
   if (p.accentSource === 'wallpaper' && p.wallpaper !== 'none' && p.wallpaper !== 'custom') return { kind: 'preset', id: WALLPAPERS[p.wallpaper].accent };
   return { kind: 'preset', id: p.accentSource === 'wallpaper' ? DEFAULT_ACCENT : p.accentPreset };
 }
@@ -175,12 +198,28 @@ const RADII: Record<Corners, Record<string, string> | null> = {
 // A personal accent tints the artwork. Selection, action and logo roles are fixed.
 const WALLPAPER_TINT = 0.08;
 
-function accentVars(a: DerivedAccent, dim: number, indent: string): string {
-  return [
+/** The highlight (selection, focus, map selection) is the accent; buttons keep `--om-color-action`
+ * (signal red) unless the person turned "Buttons stay signal red" off. The default teal is left
+ * to the shipped tokens, so a box that never changed it carries no override. */
+function accentVars(a: DerivedAccent, dim: number, indent: string, p: AppearancePreferences): string {
+  const lines = [
     `--om-wallpaper-tint: ${a.set.accent};`,
     `--om-wallpaper-tint-opacity: ${WALLPAPER_TINT};`,
     `--om-wallpaper-dim: ${dim};`,
-  ].map((line) => indent + line).join('\n');
+  ];
+  if (!(p.accentSource === 'preset' && p.accentPreset === DEFAULT_ACCENT)) {
+    lines.push(
+      `--om-color-accent: ${a.set.accent};`,
+      `--om-color-accent-hover: ${a.set.hover};`,
+      `--om-color-accent-text: ${a.set.text};`,
+      `--om-color-accent-soft: ${a.set.soft};`,
+      `--om-color-focus: ${a.set.accent};`,
+    );
+  }
+  if (!p.buttonsRed) {
+    lines.push(`--om-color-action: ${a.set.accent};`, `--om-color-action-hover: ${a.set.hover};`, `--om-color-action-text: ${a.set.text};`);
+  }
+  return lines.map((line) => indent + line).join('\n');
 }
 
 /**
@@ -196,9 +235,9 @@ export function customizeCss(p: AppearancePreferences): string {
   const radiusVars = radius ? Object.entries(radius).map(([k, v]) => `  --om-radius-${k}: ${v};`).join('\n') + '\n' : '';
   return (
     '/* Generated by @onemind/ui customize: per-person appearance. */\n' +
-    `:root:root {\n${accentVars(acc.light, lightDim, '  ')}\n  --om-wallpaper-blur: ${p.wallpaperBlur}px;\n${radiusVars}}\n` +
-    `@media (prefers-color-scheme: dark) {\n  :root:root:not([data-theme='light']) {\n${accentVars(acc.dark, darkDim, '    ')}\n  }\n}\n` +
-    `:root:root[data-theme='dark'] {\n${accentVars(acc.dark, darkDim, '  ')}\n}\n`
+    `:root:root {\n${accentVars(acc.light, lightDim, '  ', p)}\n  --om-wallpaper-blur: ${p.wallpaperBlur}px;\n${radiusVars}}\n` +
+    `@media (prefers-color-scheme: dark) {\n  :root:root:not([data-theme='light']) {\n${accentVars(acc.dark, darkDim, '    ', p)}\n  }\n}\n` +
+    `:root:root[data-theme='dark'] {\n${accentVars(acc.dark, darkDim, '  ', p)}\n}\n`
   );
 }
 
@@ -219,6 +258,7 @@ export function applyPreferences(p: AppearancePreferences, env: ApplyEnv = {}): 
   if (theme) root.setAttribute('data-theme', theme);
   else root.removeAttribute('data-theme');
   root.setAttribute('data-om-density', p.density);
+  root.toggleAttribute('data-om-dock-labels-off', !p.dockLabels);
   root.setAttribute('data-om-corners', p.corners);
   root.setAttribute('data-om-motion', p.motion);
   root.toggleAttribute('data-om-high-contrast', p.higherContrast);
@@ -240,7 +280,7 @@ export function applyPreferences(p: AppearancePreferences, env: ApplyEnv = {}): 
 
 /** Remove everything applyPreferences() wrote. */
 export function clearPreferences(root: HTMLElement = document.documentElement): void {
-  for (const a of ['data-om-density', 'data-om-corners', 'data-om-motion', 'data-om-wallpaper', 'data-om-glass', 'data-om-high-contrast', 'data-om-focus-always', 'data-om-underline-links']) root.removeAttribute(a);
+  for (const a of ['data-om-density', 'data-om-corners', 'data-om-motion', 'data-om-wallpaper', 'data-om-glass', 'data-om-high-contrast', 'data-om-focus-always', 'data-om-underline-links', 'data-om-dock-labels-off']) root.removeAttribute(a);
   root.style.removeProperty('font-size');
   root.ownerDocument.getElementById(STYLE_ID)?.remove();
 }

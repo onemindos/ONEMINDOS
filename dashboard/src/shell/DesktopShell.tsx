@@ -19,7 +19,8 @@ import { useKeymap } from './keys/useKeymap';
 import { ShortcutSheet } from './keys/ShortcutSheet';
 import { routeFor } from './wm/ScreenRoutes';
 import './wm/wm.css';
-import { AppIcon, BrandMark, Icon, type NavItem } from '@onemind/ui';
+import { AppIcon, BrandMark, Icon, useOptionalCustomize, type NavItem } from '@onemind/ui';
+import { orderDock } from './dockOrder';
 import { DOCK_ORDER, HUES } from '../screens/registry';
 import { formatDate } from '../i18n';
 import './desktop.css';
@@ -80,8 +81,8 @@ export function tileStyle(id: string): CSSProperties {
 }
 
 /** Split the nav into dock items (fixed order) and Launchpad-only items (nav order). */
-export function dockSplit(nav: NavItem[]): { dock: NavItem[]; more: NavItem[] } {
-  const dock = DOCK_IDS.flatMap((id) => nav.filter((n) => n.id === id));
+export function dockSplit(nav: NavItem[], preferred?: readonly string[]): { dock: NavItem[]; more: NavItem[] } {
+  const dock = orderDock(DOCK_IDS, preferred).flatMap((id) => nav.filter((n) => n.id === id));
   const more = nav.filter((n) => !DOCK_IDS.includes(n.id));
   return { dock, more };
 }
@@ -320,7 +321,8 @@ export function DesktopShell(props: DesktopShellProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLElement>(null);
   const [launchpad, setLaunchpad] = useState(false);
-  const { dock, more } = useMemo(() => dockSplit(nav), [nav]);
+  const dockPreference = useOptionalCustomize()?.prefs.dockOrder;
+  const { dock, more } = useMemo(() => dockSplit(nav, dockPreference), [nav, dockPreference]);
   const openExtras = onWorkspace(wm.windows, wm.workspace).filter(w => !dock.some(item => item.id === w.id)).map(w => {
     const screen = routeFor(w.path)!.screen;
     return { id: w.id, label: screen.title, icon: screen.icon, href: w.path } as NavItem;

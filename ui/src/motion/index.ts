@@ -4,7 +4,8 @@ import { useSyncExternalStore } from 'react';
 const query = '(prefers-reduced-motion: reduce)';
 
 function prefersReducedMotion() {
-  return document.documentElement.dataset.omMotion === 'reduce' || (window.matchMedia?.(query).matches ?? false);
+  const pref = document.documentElement.dataset.omMotion;
+  return pref === 'reduce' || (pref !== 'allow' && (window.matchMedia?.(query).matches ?? false));
 }
 
 function subscribe(onChange: () => void) {
