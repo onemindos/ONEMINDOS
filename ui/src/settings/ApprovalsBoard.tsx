@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { formatAgo, formatIn, secondsSince } from '../lib/time';
 import { PageHeader } from '../components/AppShell';
-import { ACTION_STATE, ApprovalCard, actionTitle, requesterPill, type ActionSummary, type ApprovalCardProps } from '../components/ApprovalCard';
+import { ACTION_STATE, ApprovalCard, actionTitle, principalName, requesterPill, type ActionSummary, type ApprovalCardProps } from '../components/ApprovalCard';
 import { StatusPill } from '../components/StatusPill';
 import { RISK, UNDO_TEXT, groupEffects, planRisk } from './logic';
 import { Async, CallHint, Empty, Skeleton, SetIcon } from './primitives';
@@ -175,7 +175,7 @@ export function ApprovalsBoard({ actions, plans, decided = [], now, canDecide, o
                             </span>
                             <span className="om-set-qitem-title">{actionTitle(a)}</span>
                             <span className="om-set-meta">
-                              {a.requested_by?.id ?? 'unknown'} · {expired ? 'expired' : `expires ${formatIn(a.expires_at, now)}`}
+                              {a.requested_by ? principalName(a.requested_by) : 'unknown'} · {expired ? 'expired' : `expires ${formatIn(a.expires_at, now)}`}
                             </span>
                           </button>
                         </li>
@@ -223,7 +223,7 @@ export function ApprovalsBoard({ actions, plans, decided = [], now, canDecide, o
                   <div className="om-set-row-main">
                     <div className="om-set-row-title">{actionTitle(a)}</div>
                     <div className="om-set-meta">
-                      Asked by {a.requested_by?.id ?? 'unknown'} · decided by {a.decided_by?.id ?? '—'} · {formatAgo(secondsSince(a.created_at ?? '', now))}
+                      Asked by {a.requested_by ? principalName(a.requested_by) : 'unknown'} · decided by {a.decided_by ? principalName(a.decided_by) : '—'} · {formatAgo(secondsSince(a.created_at ?? '', now))}
                       {a.message && ` · ${a.message}`}
                     </div>
                   </div>

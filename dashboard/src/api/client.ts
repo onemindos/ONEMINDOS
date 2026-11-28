@@ -530,6 +530,9 @@ export class HttpApi implements OneMindApi {
   async deletePasskey(id: string) {
     await this.req<void>('DELETE', `/v1/auth/passkeys/${encodeURIComponent(id)}`);
   }
+  agents() {
+    return this.req<W.AgentInfo[]>('GET', '/v1/agents', undefined, 'array');
+  }
   users() {
     return this.req<W.UserInfo[]>('GET', '/v1/users', undefined, 'array');
   }

@@ -196,7 +196,24 @@ export function requesterKind(kind: string | undefined): 'person' | 'agent' {
   return kind === 'person' ? 'person' : 'agent';
 }
 
-export function toActionSummary(a: Action, appName?: (id: string) => string): ActionSummary {
+/** The display name of a principal, when known (people from /v1/users, agents from /v1/agents). */
+export type PrincipalName = (who: { id: string; kind: string }) => string | undefined;
+
+/**
+ * Names for the principals on an approval: a person's display name from the users list, an agent's
+ * name from the agents list or its 'agent:<name>' id. Unknown ids stay as they are (no guessing).
+ */
+export function principalNamer(users: ReadonlyArray<{ id: string; display_name: string }>, agents: ReadonlyArray<{ id: string }>): PrincipalName {
+  const people = new Map(users.map((u) => [u.id, u.display_name]));
+  const bots = new Set(agents.map((g) => g.id));
+  return (who) => {
+    if (who.kind === 'person') return people.get(who.id) || undefined;
+    const bare = who.id.startsWith('agent:') ? who.id.slice('agent:'.length) : who.id;
+    return bots.has(bare) || who.id.startsWith('agent:') ? bare : undefined;
+  };
+}
+
+export function toActionSummary(a: Action, appName?: (id: string) => string, nameOf?: PrincipalName): ActionSummary {
   const rb = a.requested_by;
   const db = a.decided_by;
   const params = a.params;
@@ -214,8 +231,8 @@ export function toActionSummary(a: Action, appName?: (id: string) => string): Ac
     expires_at: a.expires_at,
     hold: a.approval?.hold ? { duration: Math.max(2000, a.approval.hold_ms ?? 2000), plan: a.plan_sha256 } : undefined,
     created_at: a.created_at,
-    requested_by: rb ? { id: rb.id, kind: requesterKind(rb.kind), role: rb.role } : undefined,
-    decided_by: db ? { id: db.id, kind: db.kind } : undefined,
+    requested_by: rb ? { id: rb.id, kind: requesterKind(rb.kind), role: rb.role, name: nameOf?.(rb) } : undefined,
+    decided_by: db ? { id: db.id, kind: db.kind, name: nameOf?.(db) } : undefined,
     message: RESULT_MESSAGE.has(a.state) ? (a.result?.message ?? undefined) : undefined,
   };
 }

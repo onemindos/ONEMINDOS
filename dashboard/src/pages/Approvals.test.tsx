@@ -24,7 +24,7 @@ const PLAN = { summary: 'Install Ollama.', objects: [], images: [], volumes: [{ 
 const SHA = 'sha256:plan-one';
 const future = () => new Date(Date.now() + 3600_000).toISOString();
 
-function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string; hold?: { plan: boolean; stepUp?: boolean }; legacy?: boolean; wantsPasskey?: boolean; otherOwnerPasskey?: boolean; refuseSigned?: boolean; licenceOnSigned?: boolean } = {}) {
+function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string; hold?: { plan: boolean; stepUp?: boolean }; legacy?: boolean; wantsPasskey?: boolean; otherOwnerPasskey?: boolean; refuseSigned?: boolean; licenceOnSigned?: boolean; who?: { action: Partial<Action>; users?: unknown[]; agents?: unknown[] } } = {}) {
   const calls: Array<{ id: string; body?: ApproveBody }> = [];
   const options: string[] = [];
   const api = new MockApi('owner-demo');
@@ -40,7 +40,9 @@ function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string;
     action.plan_sha256 = undefined;
     action.requested_by = { id: 'owner', kind: 'person', role: 'owner' };
   }
+  if (opts.who) Object.assign(action, opts.who.action);
   Object.assign(api, {
+    ...(opts.who ? { users: async () => opts.who!.users ?? [], agents: async () => opts.who!.agents ?? [] } : {}),
     actions: async () => [action],
     action: async () => action,
     me: async () => ({ principal: { id: 'owner', kind: 'person', role: 'owner' }, token: null, session: null, passkeys: opts.passkey && !opts.otherOwnerPasskey ? 1 : 0, scopes: [], capabilities: [], step_up: { passkeys_active: !!opts.passkey, require_passkey_approval: false } }),
@@ -79,6 +81,35 @@ describe('Approvals page', () => {
     expect(impact).toHaveTextContent('read-only export of your personal files');
     expect(screen.queryByText(/The hub has not described what this request will change/)).toBeNull();
     expect(screen.getByText('Technical details').closest('details')).not.toHaveAttribute('open');
+  });
+
+  it('shows the person display name and plain words, not usr_ ids or dotted request names', async () => {
+    setup({ who: { action: { type: 'backup.destination.add' as Action['type'], params: {}, requested_by: { id: 'usr_8f2c', kind: 'person', role: 'adult' } }, users: [{ id: 'usr_8f2c', display_name: 'Alex' }] } });
+    expect(await screen.findByRole('button', { name: 'Approve Add a backup destination' }, T)).toBeInTheDocument();
+    expect((await screen.findAllByText('Alex', { exact: false }, T)).length).toBeGreaterThan(0);
+    await waitFor(() => expect(document.body.textContent).not.toContain('usr_8f2c'), T);
+    // The raw name stays in the technical details only.
+    expect(within(document.querySelector('details.om-details') as HTMLElement).getByText(/backup\.destination\.add/)).toBeInTheDocument();
+  });
+
+  it('shows an agent by its name, without the agent: prefix', async () => {
+    setup({ who: { action: { type: 'node.frobnicate' as Action['type'], params: {}, requested_by: { id: 'agent:ops-agent', kind: 'agent', role: 'agent' } } } });
+    expect(await screen.findByRole('button', { name: 'Approve Node frobnicate' }, T)).toBeInTheDocument();
+    expect((await screen.findAllByText('ops-agent', { exact: false }, T)).length).toBeGreaterThan(0);
+    expect(document.body.textContent).not.toContain('agent:ops-agent');
+  });
+
+  it('a person the hub does not list still shows by id', async () => {
+    setup({ who: { action: { type: 'node.frobnicate' as Action['type'], params: {}, requested_by: { id: 'usr_x', kind: 'person', role: 'adult' } }, users: [{ id: 'usr_other', display_name: 'Sam' }] } });
+    expect(await screen.findByRole('button', { name: 'Approve Node frobnicate' }, T)).toBeInTheDocument();
+    expect((await screen.findAllByText('usr_x', { exact: false }, T)).length).toBeGreaterThan(0);
+  });
+
+  it('Recent decisions shows the decider by display name, never the usr_ id', async () => {
+    setup({ who: { action: { state: 'succeeded' as Action['state'], type: 'backup.destination.add' as Action['type'], params: {}, requested_by: { id: 'usr_a1', kind: 'person', role: 'adult' }, decided_by: { id: 'usr_o9', kind: 'person', role: 'owner' } }, users: [{ id: 'usr_a1', display_name: 'Alex' }, { id: 'usr_o9', display_name: 'Zeus' }] } });
+    const list = await screen.findByRole('list', { name: 'Recent decisions' }, T);
+    await waitFor(() => expect(list).toHaveTextContent('Asked by Alex · decided by Zeus'), T);
+    expect(document.body.textContent).not.toMatch(/usr_/);
   });
 
   it('a hold card replaces Approve with Hold to approve, and a plain click approves nothing', async () => {
