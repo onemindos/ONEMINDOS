@@ -3,15 +3,21 @@
    window buttons at its right, and the snap layouts flyout under the maximise button. Tokens only. */
 .wm-frame .wm-titlebar {
   position: relative; inset: auto; z-index: 2; flex: none; justify-content: flex-start; gap: var(--om-space-1);
-  min-height: 42px; padding: 0 var(--om-space-2) 0 var(--om-space-3); pointer-events: auto;
+  padding: 0 var(--om-space-2) 0 var(--om-space-3); pointer-events: auto;
   border-bottom: 1px solid var(--dsk-hairline, var(--om-color-border));
   background: color-mix(in srgb, var(--om-color-surface) 70%, transparent);
 }
-.wm-frame .wm-titlebar .dsk-wbtn { width: 28px; height: 28px; border: 0; background: transparent; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; color: var(--om-color-text-muted); }
+.wm-frame .wm-titlebar .dsk-wbtn { border: 0; background: transparent; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; color: var(--om-color-text-muted); }
 .wm-frame .wm-titlebar .dsk-wbtn:hover { color: var(--om-color-text); background: color-mix(in srgb, var(--om-color-text) 8%, transparent); }
 .wm-frame .wm-titlebar .dsk-close:hover { background: var(--om-color-action, var(--om-color-accent)); color: var(--om-color-action-text, var(--om-color-accent-text)); }
 .wm-title { display: inline-flex; align-items: center; gap: var(--om-space-2); min-width: 0; color: var(--om-color-text-muted); font-size: var(--om-font-size-sm); }
 .wm-title-text { color: var(--om-color-text); font-weight: var(--om-font-weight-semibold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The compact 42 px bar and 28 px buttons are for pointer screens; phones keep 44 px buttons and a 56 px bar. */
+@media (min-width: 721px) {
+  .wm-frame .wm-titlebar { min-height: 42px; }
+  .wm-frame .wm-titlebar .dsk-wbtn { width: 28px; height: 28px; }
+}
+@media (max-width: 720px) { .wm-frame .wm-titlebar { min-height: 56px; } }
 /* The bar is in the flow now, so the body no longer leaves room for floating buttons. */
 .wm-frame .dsk-window-body { padding-top: var(--om-space-6); }
 

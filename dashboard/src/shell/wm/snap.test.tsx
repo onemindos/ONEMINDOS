@@ -63,6 +63,20 @@ it('opens from the keyboard with the down arrow, focuses the first zone, and Esc
   expect(screen.getByRole('region', { name: 'Market' })).toBeInTheDocument();
 });
 
+it('Esc closes a hover-opened flyout and leaves the window open', async () => {
+  const user = userEvent.setup();
+  renderApp({ token: 'owner-demo', route: '/market' });
+  const win = await screen.findByRole('region', { name: 'Market' });
+  await user.hover(within(win).getByRole('button', { name: 'Maximise Market' }));
+  await screen.findByRole('group', { name: 'Snap Market' });
+  fireEvent.keyDown(window, { key: 'Escape' });
+  await waitFor(() => expect(screen.queryByRole('group', { name: 'Snap Market' })).toBeNull());
+  expect(screen.getByRole('region', { name: 'Market' })).toBeInTheDocument();
+  // With the flyout closed, Esc closes the window as before.
+  fireEvent.keyDown(window, { key: 'Escape' });
+  await waitFor(() => expect(screen.queryByRole('region', { name: 'Market' })).toBeNull());
+});
+
 it('Alt Shift ← and → snap the focused window to a half, also out of maximised', async () => {
   const user = userEvent.setup();
   renderApp({ token: 'owner-demo', route: '/market' });

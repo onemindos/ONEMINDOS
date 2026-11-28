@@ -61,10 +61,19 @@ export function WindowFrame({ item, z, active, narrow, here, tile, onSend, onPos
     setSnap(null);
     onPosition(r);
   }
-  function closeSnap(refocus: boolean) {
-    setSnap(null);
-    if (refocus) maxButton.current?.focus();
-  }
+  // Esc closes an open flyout (hover- or keyboard-opened), never the window: taken first, in the capture phase.
+  useEffect(() => {
+    if (!snap) return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopPropagation();
+      setSnap(null);
+      if (snap.keyboard || maxButton.current?.parentElement?.contains(document.activeElement)) maxButton.current?.focus();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [snap]);
   useKeymap({
     'snap-left': () => (active && here && canSnap ? snapTo(HALVES[0]!.rect) : false),
     'snap-right': () => (active && here && canSnap ? snapTo(HALVES[1]!.rect) : false),
@@ -123,7 +132,7 @@ export function WindowFrame({ item, z, active, narrow, here, tile, onSend, onPos
             title={canSnap ? 'Maximise. Hover or press the down arrow for snap layouts.' : undefined}
             aria-expanded={canSnap ? !!snap : undefined} aria-controls={canSnap && snap ? snapId : undefined}
             onKeyDown={(e) => { if (OPENS_SNAP.has(e.key) && canSnap) { e.preventDefault(); setSnap({ keyboard: true }); } }}>□</button>
-          {canSnap && snap && <SnapFlyout id={snapId} title={title} focusFirst={snap.keyboard} onSnap={snapTo} onClose={closeSnap} />}
+          {canSnap && snap && <SnapFlyout id={snapId} title={title} focusFirst={snap.keyboard} onSnap={snapTo} />}
         </span>
       )}
       <button className="dsk-wbtn dsk-close" aria-label={`Close ${title}`} onClick={onClose}><Icon name="x" size={18} /></button>
