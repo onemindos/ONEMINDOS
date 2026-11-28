@@ -7,7 +7,7 @@ from collections.abc import Iterable
 from datetime import UTC, datetime
 from typing import Any, TypeVar
 
-from sqlalchemy import JSON, Boolean, DateTime, Integer, LargeBinary, String, func, select, update
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Integer, LargeBinary, String, func, select, update
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..ledger import Base
@@ -31,6 +31,16 @@ def _identity_v3(conn) -> None:
     for table in ("identity_sessions", "identity_passkeys"):
         if "install_id" not in {c["name"] for c in inspect(conn).get_columns(table)}:
             conn.execute(text(f"ALTER TABLE {table} ADD COLUMN install_id VARCHAR(64)"))
+
+
+@SCHEMA.step(4, "passkey sign_count: BIGINT, because the WebAuthn counter is an unsigned 32-bit number")
+def _identity_v4(conn) -> None:
+    from sqlalchemy import text
+
+    # SQLite integers are already 64-bit; only PostgreSQL has a 32-bit INTEGER to widen (a no-op if already BIGINT).
+    if conn.dialect.name == "postgresql":
+        conn.execute(text("ALTER TABLE identity_passkeys ALTER COLUMN sign_count TYPE BIGINT"))
+
 
 T = TypeVar("T", bound=Base)
 
@@ -79,7 +89,9 @@ class PasskeyRow(Base):
     user_id: Mapped[str] = mapped_column(String(40), index=True)
     label: Mapped[str] = mapped_column(String(100))
     public_key: Mapped[bytes] = mapped_column(LargeBinary)
-    sign_count: Mapped[int] = mapped_column(Integer, default=0)
+    # The WebAuthn signature counter is an unsigned 32-bit number (up to 4294967295), which a signed 32-bit
+    # INTEGER cannot hold on PostgreSQL. Identity schema v4.
+    sign_count: Mapped[int] = mapped_column(BigInteger, default=0)
     transports: Mapped[list] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(TS)
     last_used_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
