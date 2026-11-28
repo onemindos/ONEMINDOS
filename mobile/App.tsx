@@ -12,7 +12,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo } from 'react';
-import { ActivityIndicator, Image, Text, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { HubDataProvider, useHubData } from './src/data';
 import type { Alert } from './src/lib/alerts';
@@ -48,13 +48,13 @@ import { useUpdateNeeded } from './src/lib/protocol';
 import { UpdateNeededScreen } from './src/screens/UpdateNeededScreen';
 import { onForgetHub, SessionProvider, useSession, useSignedIn, type SessionDeps } from './src/session';
 import { PrefsProvider } from './src/prefs';
-import { font, useIsDark, useTheme } from './src/ui/theme';
+import { TabIcon } from './src/ui/TabIcon';
+import { useIsDark, useTheme } from './src/ui/theme';
 
 const Tab = createBottomTabNavigator<TabParams>();
 const Stack = createNativeStackNavigator<RootParams>();
 const navRef = createNavigationContainerRef<RootParams>();
 
-const MARK = { light: require('./assets/brand/mark-color-256.png'), dark: require('./assets/brand/mark-on-dark-256.png') };
 
 /** Sessions renew with this phone's device key when the box has registered it (lib/device). */
 const SESSION_DEPS: SessionDeps = { renewWithDevice };
@@ -68,8 +68,10 @@ onForgetHub(async (api, hubUrl) => {
 const linking: LinkingOptions<RootParams> = {
   prefixes: ['onemind://'],
   config: {
+    initialRouteName: 'Tabs',
     screens: {
-      Tabs: { screens: { Home: 'home', Apps: 'apps', Approvals: 'approvals', Activity: 'activity', More: 'more' } },
+      Tabs: { screens: { Home: 'home', Approvals: 'approvals', Apps: 'apps', Me: { path: 'me', alias: ['more'] } } },
+      Activity: 'activity',
       AppDetail: 'apps/:id',
       Tips: 'tips/:id?',
       Settings: 'settings',
@@ -92,19 +94,6 @@ const linking: LinkingOptions<RootParams> = {
   },
 };
 
-const ICON: Record<keyof TabParams, string> = { Home: '⌂', Apps: '▦', Approvals: '✓', Activity: '≡', More: '⋯' };
-
-function HomeTitle() {
-  const t = useTheme();
-  const scheme = useIsDark() ? 'dark' : 'light';
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-      <Image source={scheme === 'dark' ? MARK.dark : MARK.light} style={{ width: 28, height: 28 }} accessibilityIgnoresInvertColors />
-      <Text style={{ color: t.text, fontSize: font.lg, fontWeight: font.bold }}>OneMind</Text>
-    </View>
-  );
-}
-
 function Tabs() {
   const t = useTheme();
   const { pendingCount } = useHubData();
@@ -117,18 +106,19 @@ function Tabs() {
       screenOptions={({ route }) => ({
         tabBarActiveTintColor: t.accent,
         tabBarInactiveTintColor: t.muted,
+        tabBarLabelStyle: { fontSize: 12 },
+        tabBarItemStyle: { minHeight: 48, paddingVertical: 3 },
         tabBarStyle: { backgroundColor: t.card, borderTopColor: t.border },
-        tabBarBadgeStyle: { backgroundColor: t.danger, color: t.dangerText },
+        tabBarBadgeStyle: { backgroundColor: t.action, color: t.actionText, fontSize: 12 },
         headerStyle: { backgroundColor: t.card },
         headerTintColor: t.text,
-        tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 18 }}>{ICON[route.name]}</Text>,
+        tabBarIcon: ({ color }) => <TabIcon name={route.name} color={color} />,
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Home', headerTitle: () => <HomeTitle /> }} />
-      <Tab.Screen name="Apps" component={AppsScreen} />
+      <Tab.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
       <Tab.Screen name="Approvals" component={ApprovalsScreen} options={{ tabBarBadge: pendingCount || undefined }} />
-      <Tab.Screen name="Activity" component={ActivityScreen} />
-      <Tab.Screen name="More" component={MoreScreen} options={{ tabBarBadge: moreBadge }} />
+      <Tab.Screen name="Apps" component={AppsScreen} />
+      <Tab.Screen name="Me" component={MoreScreen} options={{ headerShown: false, tabBarBadge: moreBadge, tabBarButtonTestID: 'tab-me' }} />
     </Tab.Navigator>
   );
 }
@@ -138,7 +128,7 @@ function routeTo(data: Record<string, unknown> | undefined) {
   if (!navRef.isReady()) return;
   const route = data?.route;
   if (route === 'approvals') navRef.navigate('Tabs', { screen: 'Approvals' });
-  else if (route === 'activity') navRef.navigate('Tabs', { screen: 'Activity' });
+  else if (route === 'activity') navRef.navigate('Activity');
   else if (route === 'nodes') navRef.navigate('Nodes');
   else if (route === 'inbox' || parsePing(data)) navRef.navigate('Inbox');
 }
@@ -180,6 +170,7 @@ function SignedIn() {
         <NavigationContainer ref={navRef} linking={linking} theme={navTheme}>
           <Stack.Navigator screenOptions={{ headerBackTitle: 'Back', headerStyle: { backgroundColor: t.card }, headerTintColor: t.text }}>
             <Stack.Screen name="Tabs" component={Tabs} options={{ headerShown: false }} />
+            <Stack.Screen name="Activity" component={ActivityScreen} />
             <Stack.Screen name="AppDetail" component={AppDetailScreen} options={{ title: 'App' }} />
             <Stack.Screen name="Tips" component={TipsScreen} />
             <Stack.Screen name="Settings" component={SettingsScreen} />

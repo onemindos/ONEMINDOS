@@ -9,6 +9,7 @@ import { ApiError } from '../api/types';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { Load } from './parts';
+import { Windows } from './automation/Windows';
 
 type Rec = Record<string, unknown>;
 function record(value: unknown): Rec {
@@ -53,7 +54,7 @@ function LiveAutomation({ token }: { token: string }) {
   };
   const ruleName = (id: unknown) => text(rules.data?.find((r) => r.id === id)?.name, text(id));
   return <div className="dash-stack">
-    <PageHeader title="Automation" lede="Rules your hub runs on a schedule or when something happens. This page only reads; it cannot create, change or pause a rule." />
+    <PageHeader title="Automation" lede="Rules your hub runs on a schedule or when something happens. This page only reads rules; it cannot create, change or pause one. Maintenance windows below can be edited by an owner." />
     <Button onClick={() => all.forEach((r) => void r.reload())}>Refresh automation</Button>
     {all.some((r) => r.error && r.data !== undefined) && <p role="status">Could not refresh. Showing previously fetched automation data; refresh to check again.</p>}
     <Load res={state} what="Loading automation state">{(s) => <Card as="article" title="Kill switch" aside={<StatusPill tone={s.paused === true ? 'warn' : 'ok'} label={s.paused === true ? 'Paused' : 'Running'} />}>
@@ -78,5 +79,6 @@ function LiveAutomation({ token }: { token: string }) {
         {ruleName(r.rule_id)} · {text(r.fired_at)} · {text(r.outcome)}{typeof r.detail === 'string' && r.detail ? ` (${r.detail})` : ''}
       </li>)}</ul>}
     </Card>}</Load>
+    <Windows />
   </div>;
 }

@@ -86,6 +86,22 @@ export function TipsGuide({ client }: { client: OneMind }) {
   </Card>;
 }
 
+/** What changed in the running version (GET /v1/tips/whats-new), newest first as the pack lists it. */
+function WhatsNew({ client }: { client: OneMind }) {
+  const res = usePoll(() => fromHub(client.tips.whatsNew()), 0);
+  return <Card title="What’s new">
+    <Load res={res} what="Loading what’s new">{data => <>
+      <p>You are running OneMind {data.os_version}.</p>
+      {data.entries.length
+        ? <ul>{data.entries.map(entry => <li key={`${entry.version}-${entry.title}`}>
+          <strong>{entry.title}</strong> <span className="om-hint">({entry.version})</span>
+          <p>{entry.body}</p>
+        </li>)}</ul>
+        : <p>Nothing new is listed for this version.</p>}
+    </>}</Load>
+  </Card>;
+}
+
 function TipsIndex({ client }: { client: OneMind }) {
   const res = useTipPack(client);
   const [query, setQuery] = useState('');
@@ -110,6 +126,7 @@ function TipsIndex({ client }: { client: OneMind }) {
         return words.every(word => text.includes(word));
       });
       return <>
+        <WhatsNew client={client} />
         <Card title="Getting started checklist">
           <Checklist tips={data.tips} ids={data.checklist} />
           <TipSetupStatus client={client} />
