@@ -17,6 +17,7 @@ from .. import __version__
 from ..auditread import AuditReader
 from ..mcp import Catalogue, Limits, McpEndpoint, McpSettings, Services
 from ..mcp.read_tools import AreaReads
+from ..mcp.tools import requested_by_agent
 from ..surfaces.core import CORE_TOOLS
 from ..work.access import work_reader_context
 from .apps import app_rows
@@ -36,14 +37,13 @@ def register(app: FastAPI, gw: Gateway) -> None:
     actions = gw.actions
     principal = gw.principal
     reader = AuditReader(gw.settings.audit_path, gw.clock, owned_action_ids(gw))
-    own_ids = owned_action_ids(gw)
     services = Services(
         instance=lambda: {"name": gw.settings.instance_name, "version": __version__,
                           "hub_node_id": gw.settings.node_id},
         list_nodes=gw.registry.list,
         get_node=gw.registry.get,
         list_apps=lambda: app_rows(gw),
-        own_actions=lambda pid: [a for a in actions.list() if a["id"] in own_ids(pid)],
+        own_actions=lambda pid: [a for a in actions.list() if requested_by_agent(a, pid)],
         get_action=actions.get,
         request=lambda p, req, reason: actions.create(p, req, reason=reason),
         audit_list=reader.list,

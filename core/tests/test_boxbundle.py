@@ -110,8 +110,9 @@ def test_layer_bytes_are_canonical_and_never_hold_credentials(make_box):
             "backup destination dst_0123456789abcdef: auth"} <= left_out
     # Logically equal documents give the same bytes whatever the key order.
     assert manifest.canonical({"b": 1, "a": [2, {"d": 3, "c": 4}]}) == manifest.canonical({"a": [2, {"c": 4, "d": 3}], "b": 1})
-    whats = [e["what"] for e in doc["excluded"]]
-    assert "passkey private keys (they never leave the person's device)" in whats and "OneMind's release signing keys" in whats
+    exclusions = {e["what"]: e["reason"] for e in doc["excluded"]}
+    assert "gateway never holds or exports passkey private keys" in exclusions["passkey private keys"]
+    assert "OneMind's release signing keys" in exclusions
     # Same box, same settings: same bytes and checksum, whatever the bundle id or time.
     assert box_config.layer(a)[0].entry["sha256"] == doc["layers"][0]["sha256"]
 

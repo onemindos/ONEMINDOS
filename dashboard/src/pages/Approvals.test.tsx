@@ -23,7 +23,7 @@ const PLAN = { summary: 'Install Ollama.', objects: [], images: [], volumes: [{ 
 const SHA = 'sha256:plan-one';
 const future = () => new Date(Date.now() + 3600_000).toISOString();
 
-function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string; hold?: { plan: boolean; stepUp?: boolean } } = {}) {
+function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string; hold?: { plan: boolean; stepUp?: boolean }; additionalAction?: Action } = {}) {
   const calls: Array<{ id: string; body?: ApproveBody }> = [];
   const options: string[] = [];
   const api = new MockApi('owner-demo');
@@ -32,14 +32,16 @@ function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string;
     action.approval = { hold: true, hold_ms: 2000, physical: false } as Action['approval'];
     if (!opts.hold.plan) { action.plan = null; action.plan_sha256 = undefined; action.params = {}; action.type = 'machine.delete'; }
   }
+  const actions = opts.additionalAction ? [action, opts.additionalAction] : [action];
+  const byId = (id: string) => actions.find((a) => a.id === id)!;
   Object.assign(api, {
-    actions: async () => [action],
-    action: async () => action,
+    actions: async () => actions,
+    action: async (id: string) => byId(id),
     me: async () => ({ principal: { id: 'owner', kind: 'person', role: 'owner' }, token: null, session: null, passkeys: opts.passkey ? 1 : 0, scopes: [], capabilities: [], step_up: { passkeys_active: !!opts.passkey, require_passkey_approval: false } }),
-    approveOptions: async (id: string) => { options.push(id); return { challenge: 'c', action_sha256: 'a', plan_sha256: opts.hold && !opts.hold.plan ? undefined : (opts.serverSha ?? SHA), expires_at: future(), publicKey: { challenge: 'c' } }; },
+    approveOptions: async (id: string) => { options.push(id); return { challenge: 'c', action_sha256: 'a', plan_sha256: opts.serverSha ?? byId(id).plan_sha256, expires_at: future(), publicKey: { challenge: 'c' } }; },
     approve: async (id: string, body?: ApproveBody) => {
       if (opts.hold?.stepUp && !body?.webauthn) { calls.push({ id, body }); throw new ApiError(401, 'unauthenticated', 'passkey needed', 'step_up_required'); }
-      calls.push({ id, body }); return { ...action, state: 'accepted' as const }; },
+      calls.push({ id, body }); return { ...byId(id), state: 'accepted' as const }; },
     appSecrets: async () => ({ app_id: 'ollama', key_id: 'k1', missing_required: opts.secrets ? ['ollama-auth/API_KEY'] : [], secrets: opts.secrets ? [{ name: 'ollama-auth', description: 'Auth', keys: [{ key: 'API_KEY', kind: 'api-key', description: 'Key', required: true, source: 'owner', set: false, version: null, updated_at: null }] }] : [] }),
     secretsPublicKey: async () => {
       const pair = (await crypto.subtle.generateKey({ name: 'X25519' }, true, ['deriveBits'])) as CryptoKeyPair;
@@ -53,6 +55,40 @@ function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string;
 }
 
 describe('Approvals page', () => {
+  it('shows the selected configuration changes and signs the displayed plan fingerprint', async () => {
+    const patch = {
+      box: { before: { box_name: 'Old hub', time_zone: 'UTC' }, after: { box_name: 'New hub', time_zone: 'America/New_York' } },
+      updates: { before: null, after: { cool_off_hours: 48 } },
+      copy_cadence: { dst_0123456789abcdef: { before: 'manual', after: 'daily' } },
+    };
+    const action: Action = {
+      id: 'act-config', type: 'config.apply', state: 'awaiting_approval', idempotency_key: 'config',
+      params: { patch: { box: { before: { box_name: 'Unbound old value' }, after: { box_name: 'Unbound new value' } } } },
+      plan: { type: 'config.apply', params: { patch } }, plan_sha256: 'sha256:config-plan',
+      created_at: new Date().toISOString(), expires_at: future(), requested_by: { id: 'owner', kind: 'person', role: 'owner' },
+    };
+    const { calls, options, user } = setup({ passkey: true, additionalAction: action });
+    const queue = await screen.findByRole('list', { name: 'Waiting requests' }, T);
+    const initialCard = within(screen.getByRole('article')).getByRole('region', { name: 'What will happen' });
+    expect(within(initialCard).queryByText('New hub')).toBeNull();
+    await user.click(within(queue).getByRole('button', { name: /configuration|config\.apply/i }));
+    const card = within(screen.getByRole('article'));
+    const effects = within(card.getByRole('region', { name: 'What will happen' }));
+    for (const value of ['Box name', 'Old hub', 'New hub', 'UTC', 'America/New_York',
+      'Default policy', /"cool_off_hours": 48/, 'manual', 'daily', 'sha256:config-plan']) {
+      expect(effects.getByText(value)).toBeVisible();
+    }
+    expect(effects.getByText('Old hub').closest('div')).toHaveTextContent('Before');
+    expect(effects.getByText('New hub').closest('div')).toHaveTextContent('After');
+    expect(effects.queryByText(/Unbound (old|new) value/)).toBeNull();
+    expect(effects.queryByText('No changes beyond the action itself.')).toBeNull();
+    await user.click(card.getByRole('button', { name: /^Approve / }));
+    await waitFor(() => expect(calls).toEqual([{
+      id: action.id, body: { plan_sha256: action.plan_sha256, webauthn: { id: 'cred-1', type: 'public-key' } },
+    }]), T);
+    expect(options).toEqual([action.id]);
+  });
+
   it('a hold card replaces Approve with Hold to approve, and a plain click approves nothing', async () => {
     const { calls, user } = setup({ hold: { plan: true } });
     const hold = await screen.findByRole('button', { name: /^Hold to approve/ }, T);

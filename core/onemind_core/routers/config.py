@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from ..actions import FeatureAction
 from ..apimodels import Action
 from ..auth import Principal
+from ..boxbundle import CONFIG_APPLY
 from ..boxbundle.config_apply import FILES, SCHEMAS, ConfigApply, collect_all, read_documents, snapshot
 from ..boxbundle.config_export import render
 from ..boxbundle.manifest import BundleRefused, canonical, sha256
@@ -19,7 +20,6 @@ from ..errors import ApiError, error_responses
 from ..identity.scopes import register_route_scope
 
 ORDER = 290  # after backups, identity, and automation
-ACTION_TYPE = "config.apply"
 SECURITY = {"security": [{"bearer": ["*"]}]}
 register_route_scope("GET", r"/v1/config/export", ("*",))
 register_route_scope("POST", r"/v1/config/(diff|apply)", ("*",))
@@ -65,7 +65,7 @@ def documents(body: ConfigDiffBody) -> dict:
 def register(app: FastAPI, gw: Gateway) -> None:
     svc = ConfigApply(gw, app.state.backups)
     # Sensitive requests always wait for the owner and are ineligible for automation and standing approvals.
-    gw.actions.register_type(ACTION_TYPE, FeatureAction("sensitive", svc.run, check=svc.recheck, bind_plan=True))
+    gw.actions.register_type(CONFIG_APPLY, FeatureAction("sensitive", svc.run, check=svc.recheck, bind_plan=True))
 
     def owner(p: Principal = Depends(gw.principal)) -> Principal:
         if not p.is_owner:
@@ -114,11 +114,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
         key = idem or "auto:" + secrets.token_hex(16)
         existing = gw.repo.get_by_idempotency_key(key)
         if existing is not None:
-            if (existing.type != ACTION_TYPE or existing.requested_by["id"] != p.id
+            if (existing.type != CONFIG_APPLY or existing.requested_by["id"] != p.id
                     or existing.params.get("revision") != body.revision or existing.params.get("source_sha256") != digest):
                 raise ApiError(409, "conflict", "idempotency key was used for a different request")
             action, created = gw.actions.request_feature(
-                p, ACTION_TYPE, existing.params, idempotency_key=key, expires_at=existing.expires_at,
+                p, CONFIG_APPLY, existing.params, idempotency_key=key, expires_at=existing.expires_at,
             )
         else:
             result = preview(proposed)
@@ -129,7 +129,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             if not result.patch:
                 raise ApiError(409, "conflict", "configuration already matches the proposed files")
             action, created = gw.actions.request_feature(
-                p, ACTION_TYPE, {"revision": result.revision, "base_revision": result.base_revision,
+                p, CONFIG_APPLY, {"revision": result.revision, "base_revision": result.base_revision,
                                  "source_sha256": digest, "patch": result.patch},
                 idempotency_key=key, expires_at=gw.clock() + timedelta(hours=24), pending_cap=True,
             )

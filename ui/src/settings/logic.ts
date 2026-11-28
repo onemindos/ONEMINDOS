@@ -87,6 +87,7 @@ export const EFFECT_GROUPS: Array<{ title: string; kinds: EffectKind[] }> = [
   { title: 'Stores', kinds: ['volume', 'secret'] },
   { title: 'Downloads', kinds: ['image'] },
   { title: 'Interrupts', kinds: ['restart'] },
+  { title: 'Changes settings', kinds: ['configuration'] },
   { title: 'Good to know', kinds: ['note'] },
 ];
 const RISK_RANK = { low: 0, medium: 1, high: 2 } as const;

@@ -8,7 +8,7 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 
-from conftest import ADULT, OWNER
+from conftest import ADULT, AGENT, OWNER, make_client
 from onemind_core.app import create_app
 from onemind_core.automation.updatepolicy import UpdatePolicyRepository
 from onemind_core.backups.store import DestinationRow
@@ -16,6 +16,7 @@ from onemind_core.boxbundle import config_export, manifest
 from onemind_core.boxbundle.config_apply import SCHEMAS
 from onemind_core.boxbundle.config_export import render
 from test_identity import SoftAuthenticator, csrf, id_settings, register_passkey, setup_owner
+from test_mcp import call
 
 EXPORT = "/v1/config/export"
 DIFF = "/v1/config/diff"
@@ -139,6 +140,117 @@ def test_apply_is_idempotent_and_only_changes_after_bound_owner_approval(client)
     assert replay.json()["id"] == action["id"] and replay.json()["state"] == "succeeded"
     assert file_request(client, proposed(client, "other-hub"), dry_run, **key).status_code == 409
     assert len(client.get("/v1/actions", headers=OWNER).json()) == 1
+
+
+@pytest.mark.parametrize("reader", [AGENT, ADULT], ids=["agent", "adult"])
+def test_config_action_history_only_shows_the_patch_to_the_owner(client, clock, reader):
+    destination = "dst_0123456789abcdef"
+    client.app.state.backups.repo.add_destination(DestinationRow(
+        id=destination, kind="usb", label="Test USB", is_primary=True, append_only=False, config={},
+        created_at=clock.now,
+    ))
+    assert client.put(SETTINGS, headers=OWNER,
+                      json={**BODY, "backup_choice": "usb", "backup_destination_id": destination}).status_code == 200
+    files = proposed(client)
+    queued = file_request(client, files, preview(client, files))
+    assert queued.status_code == 202, queued.text
+    action = queued.json()
+    patch = action["params"]["patch"]
+    assert patch["box"]["before"]["backup_destination_id"] == destination
+    assert patch["box"]["after"]["box_name"] == "new-hub"
+    for url in ("/v1/actions", f"/v1/actions/{action['id']}"):
+        owner = client.get(url, headers=OWNER)
+        assert owner.status_code == 200, owner.text
+        row = owner.json()[0] if isinstance(owner.json(), list) else owner.json()
+        assert row["params"]["patch"] == row["plan"]["params"]["patch"] == patch
+        assert row["plan_sha256"] == action["plan_sha256"]
+        other = client.get(url, headers=reader)
+        assert other.status_code == 200, other.text
+        row = other.json()[0] if isinstance(other.json(), list) else other.json()
+        assert row["id"] == action["id"] and row["state"] == "awaiting_approval"
+        assert row["params"] == {} and row.get("plan") is None and row.get("plan_sha256") is None
+
+
+def test_config_action_is_not_an_agent_mcp_request_even_if_principal_ids_match(settings, clock, tmp_path):
+    tokens = yaml.safe_load(settings.tokens_file.read_text())
+    principals = tokens["tokens"]
+    principals[AGENT["Authorization"].removeprefix("Bearer ")]["id"] = "owner"
+    token_file = tmp_path / "tokens.yaml"
+    token_file.write_text(yaml.safe_dump(tokens))
+    with make_client(settings, clock, tokens_file=token_file) as client:
+        files = proposed(client)
+        queued = file_request(client, files, preview(client, files))
+        assert queued.status_code == 202, queued.text
+        action = queued.json()
+        listing = call(client, "list_actions")["result"]
+        assert listing["isError"] is False and listing["structuredContent"]["actions"] == []
+        detail = call(client, "get_action", {"action_id": action["id"]})["result"]
+        assert detail["isError"] is True and detail["structuredContent"]["error"] == "not_found"
+
+
+def test_config_action_audit_records_decisions_without_publishing_the_patch(client, settings, monkeypatch):
+    published = []
+    monkeypatch.setattr(client.app.state.gateway.audit, "publish", lambda _, line: published.append(json.loads(line)))
+    assert client.put(SETTINGS, headers=OWNER, json=BODY).status_code == 200
+    for decision, event in (("approve", "action.approved"), ("deny", "action.denied")):
+        files = proposed(client, f"{decision}-hub")
+        queued = file_request(client, files, preview(client, files))
+        assert queued.status_code == 202, queued.text
+        action = queued.json()
+        response = client.post(f"/v1/actions/{action['id']}/{decision}", headers=OWNER,
+                               json={"plan_sha256": action["plan_sha256"]})
+        assert response.status_code == 200, response.text
+        records = [json.loads(line) for line in settings.audit_path.read_text().splitlines()]
+        events = {row["event"]: row for row in records if row["action_id"] == action["id"]}
+        assert events["action.requested"]["principal"]["role"] == "owner"
+        assert events[event]["principal"]["role"] == "owner"
+        assert all("patch" not in row["data"].get("params", {}) for row in events.values())
+        assert [row for row in published if row["action_id"] == action["id"]] == list(events.values())
+
+
+def test_legacy_config_audit_patch_is_owner_only(client):
+    files = proposed(client)
+    queued = file_request(client, files, preview(client, files))
+    assert queued.status_code == 202, queued.text
+    action = queued.json()
+    audit = client.app.state.gateway.audit
+    # Older builds wrote the full parameters, even on denial where the action type was omitted.
+    for event, details in (("action.requested", {"type": action["type"]}), ("action.denied", {})):
+        audit.append(event, None, action["id"], {**details, "params": action["params"]})
+    url = "/v1/audit/events"
+    owner = client.get(url, headers=OWNER, params={"action_id": action["id"]})
+    assert owner.status_code == 200, owner.text
+    legacy = [row for row in owner.json() if row["principal"] is None and "params" in row["data"]]
+    assert len(legacy) == 2
+    adult = client.get(url, headers=ADULT, params={"action_id": action["id"]})
+    assert adult.status_code == 200, adult.text
+    assert {row["seq"] for row in adult.json()}.isdisjoint(row["seq"] for row in legacy)
+    for row in legacy:
+        assert client.get(f"{url}/{row['seq']}", headers=OWNER).json() == row
+        assert client.get(f"{url}/{row['seq']}", headers=ADULT).status_code == 404
+    assert client.get("/v1/audit/verify", headers=OWNER).json()["ok"]
+
+
+def test_config_update_policy_records_the_approving_owner(client):
+    files = exported(client)
+    settings = yaml.safe_load(files["settings.yaml"])
+    policy = client.get("/v1/update-policy", headers=OWNER).json()
+    settings["updates"] = {key: policy[key] for key in (
+        "window_id", "cool_off_hours", "same_major_only", "backoff_after_failures", "ai_schedule",
+    )}
+    settings["updates"]["cool_off_hours"] = 48
+    proposal = {"settings.yaml": render(settings)}
+    queued = file_request(client, proposal, preview(client, proposal))
+    assert queued.status_code == 202, queued.text
+    action = queued.json()
+    response = client.post(f"/v1/actions/{action['id']}/approve", headers=OWNER,
+                           json={"plan_sha256": action["plan_sha256"]})
+    assert response.status_code == 200 and response.json()["state"] == "succeeded", response.text
+    approver = response.json()["decided_by"]
+    assert approver["role"] == "owner"
+    updated = client.get("/v1/update-policy", headers=OWNER).json()
+    assert updated["cool_off_hours"] == 48
+    assert updated["updated_by"] == approver
 
 
 def test_revision_covers_both_proposal_and_live_configuration(client):

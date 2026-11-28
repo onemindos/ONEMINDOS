@@ -51,6 +51,7 @@ from pydantic import (
 from . import ai_policy
 from .audit import AuditLog
 from .auth import Principal, new_agent_token, token_hash
+from .boxbundle import CONFIG_APPLY
 from .catalog import APP_ID_RE, GREEN_LICENCE_CLASSES, AppEntry, Catalog
 from .errors import ApiError, SemanticValueError
 from .executors import AgentSecret, ExecResult, Executor
@@ -1019,7 +1020,7 @@ class ActionService:
         )
         if moved is None:
             raise ApiError(409, "conflict", f"action is {self._get(action_id).state}, not awaiting_approval")
-        self.audit.append("action.denied", principal.as_dict(), a.id, {"params": a.params})
+        self.audit.append("action.denied", principal.as_dict(), a.id, {"params": _audit_params(a.type, a.params)})
         self._release_feature(a)
         return moved.to_json()
 
@@ -1488,11 +1489,11 @@ class ActionService:
         pending_cap applies the per-requester limit on requests awaiting approval that POST /v1/actions
         enforces (_check_pending_cap), for routes an agent can call in a loop.
 
-        params are the feature's already-validated parameters (never secrets: they are stored and
-        audited). audit_extra adds facts to the action.requested line, e.g. credentials: provided.
+        params are the feature's already-validated parameters (never secrets: they are stored).
+        audit_extra adds facts to the action.requested line, e.g. credentials: provided.
         """
         spec = self.feature_types[action_type]
-        data = {"type": action_type, "params": params, "idempotency_key": idempotency_key}
+        data = {"type": action_type, "params": _audit_params(action_type, params), "idempotency_key": idempotency_key}
 
         def create() -> tuple[dict, bool]:
             return self._file_feature(
@@ -1581,7 +1582,7 @@ class ActionService:
                 raise ApiError(409, "conflict", "idempotency_key was already used for a different request")
             return self.expire_if_due(stored).to_json(), False
         self.audit.append("action.requested", principal.as_dict(), stored.id, {
-            "type": action_type, "params": params, "risk": risk, "expires_at": iso(exp),
+            "type": action_type, "params": _audit_params(action_type, params), "risk": risk, "expires_at": iso(exp),
             "requested_by": principal.id, **({"reason": reason} if reason else {}), **(audit_extra or {}),
             **({"tainted_by": list(taint.sources)} if taint else {}),
             **({"physical": True, "plan_sha256": plan_sha} if spec.physical else {}),
@@ -1618,8 +1619,10 @@ class ActionService:
             raise ApiError(409, "conflict", "action was decided concurrently")
         ids = {"requested_by": a.requested_by.get("id"), "approved_by": principal.id, **(standing or {})}
         self.audit.append("action.approved", principal.as_dict(), a.id,
-                          {"type": a.type, "params": a.params, "risk": a.risk or spec.risk, **ids, **(facts or {})})
-        if self.repo.transition(a.id, {"accepted"}, "dispatched", self.clock()) is None:
+                          {"type": a.type, "params": _audit_params(a.type, a.params),
+                           "risk": a.risk or spec.risk, **ids, **(facts or {})})
+        dispatched = self.repo.transition(a.id, {"accepted"}, "dispatched", self.clock())
+        if dispatched is None:
             self._mark_outcome_unknown(a, "accepted action could not move to dispatched")
             return self._get(a.id).to_json()
         self.audit.append("action.dispatched", None, a.id, {"executor": f"feature:{a.type}", **ids})
@@ -1638,7 +1641,7 @@ class ActionService:
 
         def start() -> None:
             try:
-                spec.run(a, finish)
+                spec.run(dispatched, finish)
             except Exception as exc:  # the feature could not even start: the effect is unknown
                 log.exception("feature action %s crashed", a.type)
                 finish(ExecResult("outcome_unknown", f"feature error: {exc.__class__.__name__}"))
@@ -1652,6 +1655,11 @@ class ActionService:
 
 def _params_of(req: ActionRequest) -> dict:
     return dict(req.params) if isinstance(req.params, dict) else req.params.model_dump(exclude_none=True)
+
+
+def _audit_params(action_type: str, params: dict) -> dict:
+    # Audit records can be read by adults and are published to NATS. Keep the patch in the ledger.
+    return {} if action_type == CONFIG_APPLY else params
 
 
 def _detail(v: dict) -> dict:
