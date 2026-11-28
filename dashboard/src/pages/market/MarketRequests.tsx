@@ -26,7 +26,8 @@ const STATE: Record<ActionState, { tone: Tone; label: string }> = {
 
 export function MarketRequests() {
   const hub = useHub();
-  const { principal } = useSignedIn();
+  const { account, principal } = useSignedIn();
+  const me = account ?? principal;
   const list = sortRequests(hub.actionList.filter(isAppRequest));
   const loaded = hub.actions.data !== undefined;
   return (
@@ -49,7 +50,7 @@ export function MarketRequests() {
               <li key={a.id} className="dash-mkt-request">
                 <div>
                   <a href={href.app(appId)} className="dash-mkt-request-title">{requestVerb(a)} {hub.appName(appId)}</a>
-                  <p className="om-hint">Asked by {askedBy(a, principal)} · {at}</p>
+                  <p className="om-hint">Asked by {askedBy(a, me)} · {at}</p>
                 </div>
                 <StatusPill tone={st.tone} label={st.label} />
                 {a.state === 'awaiting_approval' && <a href={href.approval(a.id)}>Review in Approvals</a>}

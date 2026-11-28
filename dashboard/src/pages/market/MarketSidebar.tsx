@@ -34,7 +34,8 @@ export function MarketSidebar({ current }: { current: MarketPlace }) {
   const installed = apps?.filter((a) => a.installed).length;
   const verified = apps?.filter((a) => a.tier === 'verified').length;
   const waiting = hub.actions.data !== undefined ? hub.actionList.filter((a) => isAppRequest(a) && a.state === 'awaiting_approval').length : undefined;
-  // Community sources are owner-only on the hub (§12.22): other roles never ask for them.
+  // Adding a source is owner-only (§12.22), so this screen lists sources to owners only. The hub itself
+  // serves GET /v1/sources to any signed-in person; showing the list to everyone is a follow-up.
   const sources = usePoll(async () => {
     if (!owner || !api.sources) return [];
     return api.sources();

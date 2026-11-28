@@ -16,14 +16,14 @@ import { formatAgo, formatIn, secondsSince } from '../../lib/time';
 import { webauthnSupported } from '../../lib/webauthn';
 import { useSignedIn } from '../../session';
 import { href } from '../../shell/routes';
-import { askedBy, ownsRequest } from './requests';
+import { askedBy, ownsRequest, type Viewer } from './requests';
 import './market.css';
 
 type StepState = 'done' | 'current' | 'todo' | 'problem';
 interface Step { title: string; detail: string; state: StepState }
 
 /** The five steps of prototype 05, from what the hub sent. Exported for tests. */
-export function waitingSteps(action: Action, app: Pick<CatalogApp, 'scan'> | undefined, now: number, me: ReturnType<typeof useSignedIn>['principal'], owner: boolean): Step[] {
+export function waitingSteps(action: Action, app: Pick<CatalogApp, 'scan'> | undefined, now: number, me: Viewer, owner: boolean, passkey = false): Step[] {
   const update = action.type === 'app.update';
   const asked = action.created_at ? formatAgo(secondsSince(action.created_at, now)) : 'time not reported';
   const scan = app?.scan ? (app.scan.result === 'pass' ? 'Scan passed' : 'Scan failed') : 'Never scanned';
@@ -37,7 +37,7 @@ export function waitingSteps(action: Action, app: Pick<CatalogApp, 'scan'> | und
       detail: planned ? `${scan}${warnings ? ` · ${warnings} warning${warnings === 1 ? '' : 's'}` : ''}` : 'The hub sent no plan',
       state: planned && app?.scan?.result !== 'fail' ? 'done' : 'problem',
     },
-    { title: owner ? 'Your approval' : 'Owner approval', detail: `Passkey · ${formatIn(action.expires_at, now) === 'expired' ? 'expired' : `ends ${formatIn(action.expires_at, now)}`}`, state: 'current' },
+    { title: owner ? 'Your approval' : 'Owner approval', detail: `${passkey ? 'Passkey · ' : ''}${formatIn(action.expires_at, now) === 'expired' ? 'expired' : `ends ${formatIn(action.expires_at, now)}`}`, state: 'current' },
     { title: update ? 'Update' : 'Install', detail: 'After approval', state: 'todo' },
     { title: 'Running', detail: 'Opens from the Market', state: 'todo' },
   ];
@@ -45,19 +45,20 @@ export function waitingSteps(action: Action, app: Pick<CatalogApp, 'scan'> | und
 
 export function AppWaitingTrack({ action, app }: { action: Action; app: CatalogApp | undefined }) {
   const hub = useHub();
-  const { api, principal } = useSignedIn();
+  const { api, account, principal } = useSignedIn();
+  const viewer = account ?? principal;
   const navigate = useNavigate();
   const toast = useToast();
   const [msg, setMsg] = useState<string>();
   const me = usePoll(() => api.me(), 0);
   const passkey = me.data?.step_up.passkeys_active === true && webauthnSupported();
   const owner = hub.canDecide === 'yes';
-  const mine = ownsRequest(action, principal);
+  const mine = ownsRequest(action, viewer);
   const expired = Date.parse(action.expires_at) <= hub.now;
   const stale = hub.freshness === 'stale' || hub.freshness === 'offline';
   const busy = hub.busy.has(action.id);
   const canAct = owner && !expired && !stale && !busy;
-  const steps = waitingSteps(action, app, hub.now, principal, owner);
+  const steps = waitingSteps(action, app, hub.now, viewer, owner, passkey);
   const name = app?.name || app?.id || 'this app';
   const toApprovals = (why: string) => {
     toast.show({ tone: 'neutral', title: 'Finish in Approvals', body: why });

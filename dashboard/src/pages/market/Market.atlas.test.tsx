@@ -32,7 +32,7 @@ function waitingAction(over: Partial<Action> = {}): Action {
   };
 }
 
-function setup(route: string, opts: { actions?: Action[]; token?: string; principal?: Principal; secrets?: boolean; licence?: boolean } = {}) {
+function setup(route: string, opts: { actions?: Action[]; token?: string; principal?: Principal; secrets?: boolean; licence?: boolean; noPrincipal?: boolean } = {}) {
   const approved: Array<{ id: string; body?: ApproveBody }> = [];
   const denied: string[] = [];
   const token = opts.token ?? 'owner-demo';
@@ -41,7 +41,7 @@ function setup(route: string, opts: { actions?: Action[]; token?: string; princi
   Object.assign(api, {
     actions: async () => list,
     action: async (id: string) => list.find((a) => a.id === id)!,
-    me: async () => ({ principal: opts.principal ?? OWNER, token: null, session: null, passkeys: 1, scopes: [], capabilities: [], step_up: { passkeys_active: true, require_passkey_approval: false } }),
+    me: async () => ({ principal: opts.principal ?? OWNER, token: null, session: null, passkeys: 1, scopes: opts.noPrincipal ? ['*'] : [], capabilities: [], step_up: { passkeys_active: true, require_passkey_approval: false } }),
     approveOptions: async () => ({ challenge: 'c', action_sha256: 'a', plan_sha256: SHA, expires_at: future(), publicKey: { challenge: 'c' } }),
     approve: async (id: string, body?: ApproveBody) => {
       if (opts.licence) throw new ApiError(409, 'stale_precondition', 'licence not accepted', 'licence_unconfirmed');
@@ -60,7 +60,7 @@ function setup(route: string, opts: { actions?: Action[]; token?: string; princi
   window.sessionStorage.setItem('onemind.token', token);
   render(
     <MemoryRouter initialEntries={[route]}>
-      <SessionProvider deps={{ mock: false, makeApi: () => api, knownPrincipal: () => opts.principal ?? OWNER }}>
+      <SessionProvider deps={{ mock: false, makeApi: () => api, knownPrincipal: () => (opts.noPrincipal ? undefined : opts.principal ?? OWNER) }}>
         <App mock={false} />
       </SessionProvider>
     </MemoryRouter>,
@@ -151,6 +151,42 @@ describe('App page waiting track', () => {
     await user.click(await within(track).findByRole('button', { name: 'Approve with passkey' }, T));
     await screen.findByRole('heading', { name: /Approvals/ }, T);
     expect(approved).toEqual([]);
+  });
+
+  it('a waiting request blocks a second Request install (the hub would file another action)', async () => {
+    setup('/market/ollama', { actions: [waitingAction()] });
+    await screen.findByRole('region', { name: /waits for your approval/ }, T);
+    expect(await screen.findByRole('button', { name: /Request install/ }, T)).toBeDisabled();
+    expect(screen.getByText('An install request for this app is already waiting for approval.')).toBeInTheDocument();
+  });
+
+  it('on a real box the viewer comes from GET /v1/me: Cancel request and "You" show without an injected principal', async () => {
+    setup('/market/ollama', { actions: [waitingAction()], noPrincipal: true });
+    const track = await screen.findByRole('region', { name: /You asked to install this/ }, T);
+    expect(await within(track).findByRole('button', { name: 'Cancel request' }, T)).toBeInTheDocument();
+    expect(within(track).getByText(/^You · /)).toBeInTheDocument();
+  });
+
+  it('a hold request is finished in Approvals, never approved here', async () => {
+    const { approved, user } = setup('/market/ollama', { actions: [waitingAction({ approval: { hold: true, hold_ms: 2000, physical: false } as Action['approval'] })] });
+    const track = await screen.findByRole('region', { name: /waits for your approval/ }, T);
+    await user.click(await within(track).findByRole('button', { name: 'Approve with passkey' }, T));
+    await screen.findByRole('heading', { name: /Approvals/ }, T);
+    expect(approved).toEqual([]);
+  });
+
+  it('a licence the hub wants accepted sends the owner to Approvals', async () => {
+    const { approved, user } = setup('/market/ollama', { actions: [waitingAction()], licence: true });
+    const track = await screen.findByRole('region', { name: /waits for your approval/ }, T);
+    await user.click(await within(track).findByRole('button', { name: 'Approve with passkey' }, T));
+    await screen.findByRole('heading', { name: /Approvals/ }, T);
+    expect(approved).toEqual([]);
+  });
+
+  it('an owner without a passkey is not told "Passkey"', () => {
+    const steps = waitingSteps(waitingAction(), { scan: null }, Date.now(), OWNER, true, false);
+    expect(steps[2]!.detail).not.toMatch(/Passkey/);
+    expect(waitingSteps(waitingAction(), { scan: null }, Date.now(), OWNER, true, true)[2]!.detail).toMatch(/^Passkey · /);
   });
 
   it('a non-owner sees the track without decision buttons', async () => {

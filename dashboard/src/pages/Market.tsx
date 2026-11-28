@@ -128,7 +128,7 @@ export function Market() {
           onRequestInstall={(a) => request('app.install', a.id)}
           onOpen={(a) => open(a.id)}
           onRetry={hub.reloadAll}
-          requestBlocked={blockedForYou}
+          requestBlocked={blockedForYou ?? (waiting ? `An ${waiting.type === 'app.update' ? 'update' : 'install'} request for this app is already waiting for approval.` : undefined)}
         />
         {appJob && appJob !== waiting && <ActionStatus action={appJob} label="App request progress" now={hub.now} />}
         {app && shell.view === "pro" && <AppMachineFit key={appId} appId={appId} />}
