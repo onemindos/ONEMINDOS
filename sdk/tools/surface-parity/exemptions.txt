@@ -155,8 +155,6 @@ cli agentbrowser.sites.remove later-agent-browser
 cli agentbrowser.sites.request later-agent-browser
 group later-sites-map issue=#1232 Later: sites, map packs and subjects have no screen or command.
 dashboard geo.create_site later-sites-map
-dashboard geo.list_sites later-sites-map
-dashboard map.packs_list later-sites-map
 dashboard subjects.check later-sites-map
 dashboard subjects.list later-sites-map
 cli geo.create_site later-sites-map
