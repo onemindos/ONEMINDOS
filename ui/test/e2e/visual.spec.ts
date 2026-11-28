@@ -34,9 +34,9 @@ const DESKTOP_LIGHT = [
   'ui-home', 'ui-apps', 'ui-app-home-assistant', 'ui-approvals', 'ui-activity', 'ui-nodes', 'ui-backups',
   'ui-updates', 'ui-notifications', 'ui-settings', 'ui-gallery', 'ui-store', 'ui-system', 'ui-shell-states',
   'ui-shell-onboarding-1', 'ui-appearance',
-  'dash-signin', 'dash-home', 'dash-nodes', 'dash-market', 'dash-market-uptime-kuma', 'dash-approvals',
+  'dash-signin', 'dash-home', 'dash-nodes', 'dash-market', 'dash-market-uptime-kuma', 'dash-approvals', 'dash-lock',
 ];
-const DESKTOP_DARK = ['ui-home', 'ui-approvals', 'ui-gallery'];
+const DESKTOP_DARK = ['ui-home', 'ui-approvals', 'ui-gallery', 'dash-lock'];
 // Phone: one screen-height shot, so the fixed tab bar sits where a person sees it.
 const PHONE = [
   { name: 'ui-home', theme: 'light' },

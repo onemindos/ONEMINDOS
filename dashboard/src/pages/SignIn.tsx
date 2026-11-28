@@ -16,7 +16,7 @@ import { TrustThisBox } from './TrustThisBox';
 
 type View = 'signin' | 'setup' | 'enrol';
 
-function Field(props: { label: string; name: string; type?: string; value: string; onChange: (v: string) => void; autoComplete?: string; describedBy?: string; invalid?: boolean }) {
+function Field(props: { label: string; name: string; type?: string; value: string; onChange: (v: string) => void; autoComplete?: string; inputMode?: 'numeric'; describedBy?: string; invalid?: boolean }) {
   return (
     <>
       <label htmlFor={props.name}>{props.label}</label>
@@ -25,6 +25,7 @@ function Field(props: { label: string; name: string; type?: string; value: strin
         name={props.name}
         type={props.type ?? 'text'}
         autoComplete={props.autoComplete}
+        inputMode={props.inputMode}
         value={props.value}
         onChange={(e) => props.onChange(e.target.value)}
         aria-invalid={props.invalid ? true : undefined}
@@ -179,17 +180,19 @@ export function SignIn({ mock, lockedBox, onReturnToLock, switchPerson }: {
             ) : (
               <p className="om-hint">{(lockedBox ? t('lock.passwordFallback') : t('signin.passkey.unsupported'))}</p>
             )}
+            {/* D-034: passkeys are optional, so the password (and authenticator code) form is a first choice too. */}
+            {passkeyOk && <p className="dash-signin-or" aria-hidden="true"><span>{t('signin.or')}</span></p>}
+            <form onSubmit={onAccount} noValidate className="dash-signin-form">
+              <h2 className="dash-signin-sub">{t('signin.account.heading')}</h2>
+              <Field label={t('signin.username')} name="username" autoComplete="username" value={username} onChange={setUsername} invalid={bad('username')} describedBy={describe('username')} />
+              <Field label={t('signin.password')} name="password" type="password" autoComplete="current-password" value={password} onChange={setPassword} />
+              <Field label={t('signin.totp')} name="totp" autoComplete="one-time-code" inputMode="numeric" value={totp} onChange={setTotp} />
+              <Button type="submit" disabled={busy}>
+                {t('signin.account.submit')}
+              </Button>
+            </form>
             <details className="dash-signin-more" open={!passkeyOk || undefined}>
               <summary>{t('signin.more')}</summary>
-              <form onSubmit={onAccount} noValidate className="dash-signin-form">
-                <h2 className="dash-signin-sub">{t('signin.account.heading')}</h2>
-                <Field label={t('signin.username')} name="username" autoComplete="username" value={username} onChange={setUsername} invalid={bad('username')} describedBy={describe('username')} />
-                <Field label={t('signin.password')} name="password" type="password" autoComplete="current-password" value={password} onChange={setPassword} />
-                <Field label={t('signin.totp')} name="totp" autoComplete="one-time-code" value={totp} onChange={setTotp} />
-                <Button type="submit" disabled={busy}>
-                  {t('signin.account.submit')}
-                </Button>
-              </form>
               <form onSubmit={onToken} noValidate className="dash-signin-form">
                 <h2 className="dash-signin-sub">{t('signin.token.heading')}</h2>
                 <Field label={t('signin.token.label')} name="token" type="password" autoComplete="off" value={token} onChange={setToken} invalid={bad('token')} describedBy={describe('token', mock && !lockedBox && !chipGone ? hintId : undefined)} />

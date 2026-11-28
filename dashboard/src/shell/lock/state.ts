@@ -5,6 +5,8 @@ import { personStorage } from '../../data/prefs';
 export interface LockSummary {
   boxName: string;
   waiting: number;
+  /** The display name of the person who locked, for "Welcome back" (never a token or an id). */
+  person?: string;
 }
 
 const storedLock = 'onemind.locked';
@@ -23,8 +25,10 @@ export function readLock(): LockSummary | null {
   try {
     const value = window.sessionStorage.getItem(storedLock);
     if (!value) return null;
-    const { boxName, waiting } = JSON.parse(value);
-    if (typeof boxName === 'string' && Number.isSafeInteger(waiting) && waiting >= 0) return { boxName, waiting };
+    const { boxName, waiting, person } = JSON.parse(value);
+    if (typeof boxName === 'string' && Number.isSafeInteger(waiting) && waiting >= 0) {
+      return typeof person === 'string' && person.trim() ? { boxName, waiting, person: person.trim().slice(0, 64) } : { boxName, waiting };
+    }
   } catch { /* No usable snapshot. */ }
   return null;
 }
