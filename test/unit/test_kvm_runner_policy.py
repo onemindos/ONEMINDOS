@@ -92,7 +92,7 @@ class KvmRunnerPolicy(unittest.TestCase):
         steps = [s for s in hosted["steps"] if "docker/login-action" not in str(s.get("uses", ""))]
         core = [s for s in kvm["steps"] if "k3d-gate" not in s.get("run", "")]
         self.assertEqual(core, steps)
-        self.assertEqual(kvm["strategy"]["max-parallel"], 12)
+        self.assertEqual(kvm["strategy"]["max-parallel"], 48)
         self.assertEqual(hosted["strategy"]["max-parallel"], 4)
         self.assertEqual(kvm["strategy"]["matrix"], hosted["strategy"]["matrix"])
         self.assertEqual(kvm["needs"], hosted["needs"])

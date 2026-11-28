@@ -41,7 +41,7 @@ it('offers only actual matching destinations and clears the binding when the cho
 
 it('places the backup recovery action inside the full-screen backup step', async () => {
   const recover = vi.fn();
-  render(<Onboarding apps={[]} initialStep={4}
+  render(<Onboarding apps={[]} initialStep={BACKUPS}
     backupRecoveryAction={<button type="button" onClick={recover}>Open recovery</button>}
     onSaveSettings={async () => {}} onFinish={() => {}} />);
   await userEvent.setup().click(screen.getByRole('button', { name: 'Open recovery' }));
@@ -69,8 +69,15 @@ it('a wizard opened with an issued, unconfirmed kit can still skip it and finish
 });
 it('continues from box name without creating another owner or requiring a passkey', async () => {
   render(<Onboarding apps={[]} ownerConfigured initial={{ boxName: 'home-hub', timeZone: 'UTC', ownerName: 'Dana' }} onSaveSettings={async () => {}} onFinish={() => {}} />);
-  expect(screen.getByRole('heading', { name: 'Name your box' })).toBeVisible();
-  await userEvent.setup().click(screen.getByRole('button', { name: 'Continue' }));
+  expect(screen.getByRole('heading', { name: 'Name your place and box' })).toBeVisible();
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Continue' }));
+  // The setup map adds Your place (address) and You decide before the look step; the owner step stays skipped.
+  expect(await screen.findByRole('heading', { name: 'Where is your place?' })).toBeVisible();
+  expect(screen.queryByRole('button', { name: 'Create the owner' })).toBeNull();
+  await user.click(screen.getByRole('button', { name: 'Skip' }));
+  expect(await screen.findByRole('heading', { name: 'AI can ask. Only you approve.' })).toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'Continue' }));
   expect(await screen.findByRole('heading', { name: 'Make it yours' })).toBeVisible();
   expect(screen.queryByRole('button', { name: 'Create the owner' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'Create passkey' })).toBeNull();
