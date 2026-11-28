@@ -34,6 +34,24 @@ function nativeDevice(): FilesDevice {
   return (require('../files/native') as typeof import('../files/native')).nativeFiles;
 }
 
+function VersionHistory({ root, path }: { root: string; path: string }) {
+  const { api } = useSignedIn();
+  const history = useLoad(() => api.filesVersions(root, path), [api, root, path]);
+
+  if (history.loading) return <Loading what="previous versions" />;
+  if (history.error) return <Notice tone="bad" text={`Could not read previous versions: ${history.error.message}`} />;
+  if (!history.data?.enabled) return <P muted small>Local versions are off on this box.</P>;
+  if (history.data.versions.length === 0) return <P muted small>No previous versions for this file.</P>;
+  return (
+    <View>
+      {history.data.versions.map((version) => (
+        <P key={version.version} small>{new Date(version.taken_at).toLocaleString()} · {formatBytes(version.size)}</P>
+      ))}
+      <P muted small>Restore a previous version from Files on the dashboard.</P>
+    </View>
+  );
+}
+
 export function FilesScreen({ device }: { device?: FilesDevice } = {}) {
   const t = useTheme();
   const { api, features } = useSignedIn();
@@ -41,6 +59,8 @@ export function FilesScreen({ device }: { device?: FilesDevice } = {}) {
   const [msg, setMsg] = useState<{ text: string; tone: 'ok' | 'bad' }>();
   const canDownload = features.has(OP.filesDownload);
   const canUpload = features.has(OP.filesUploads);
+  const canSeeVersions = features.has(OP.filesVersions);
+  const [historyTarget, setHistoryTarget] = useState<{ root: string; path: string }>();
   // The box-wide badge from the backups route (it is not per file: the hub reports no per-file state).
   const backup = useLoad(() => (features.has(OP.backupStatus) ? api.backupStatus().catch(() => undefined) : Promise.resolve(undefined)), [api]);
   const badge = backup.data?.badges?.box ? BACKUP_BADGE[backup.data.badges.box.state] : undefined;
@@ -126,8 +146,10 @@ export function FilesScreen({ device }: { device?: FilesDevice } = {}) {
       {list.loading ? <Loading what="folder" /> : null}
       {list.error ? <Notice tone="bad" text={`Could not open this folder: ${list.error.message}`} /> : null}
       {!list.loading && !list.error && (list.data ?? []).length === 0 ? <P muted>This folder is empty.</P> : null}
-      {(list.data ?? []).map((e) =>
-        e.type === 'dir' ? (
+      {(list.data ?? []).map((e) => {
+        const path = join(at.path, e.name);
+        const showingHistory = historyTarget?.root === at.root && historyTarget.path === path;
+        return e.type === 'dir' ? (
           <Pressable key={e.name} testID={`dir-${e.name}`} accessibilityRole="button" onPress={() => setAt({ root: at.root, path: join(at.path, e.name) })}>
             <Card>
               <Text style={{ color: t.text, fontSize: font.md }}>📁 {e.name}</Text>
@@ -144,9 +166,15 @@ export function FilesScreen({ device }: { device?: FilesDevice } = {}) {
                 <Button testID={`save-${e.name}`} variant="secondary" label={busy === `file-${e.name}` ? 'Fetching...' : 'Save or share'} disabled={busy !== undefined} onPress={() => void fetchFile(e.name)} />
               </View>
             ) : null}
+            {canSeeVersions && e.type === 'file' ? (
+              <View>
+                <Button variant="secondary" label={showingHistory ? 'Hide previous versions' : 'Previous versions'} onPress={() => setHistoryTarget(showingHistory ? undefined : { root: at.root, path })} />
+                {showingHistory ? <VersionHistory root={at.root} path={path} /> : null}
+              </View>
+            ) : null}
           </Card>
-        ),
-      )}
+        );
+      })}
       <H2>On the dashboard</H2>
       <P muted small>Moving, deleting and share links are done on the dashboard.</P>
     </Screen>

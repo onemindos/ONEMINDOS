@@ -38,10 +38,14 @@ class FilesSettings:
     index_watch: bool = True                          # ONEMIND_FILES_INDEX_WATCH
     # How long a deletion stays in the change feed; an older cursor gets 410 and walks the tree again.
     index_tombstone_days: int = 30                    # ONEMIND_FILES_INDEX_TOMBSTONE_DAYS
+    # Directories <number>/snapshot/files in Snapper's read-only storage timeline (BAK-04).
+    snapshots_dir: Path | None = None                 # ONEMIND_FILES_SNAPSHOTS_DIR (set by the image)
 
     def validate(self) -> None:
         if not self.root.is_absolute():
             raise ValueError("ONEMIND_FILES_ROOT must be an absolute path")
+        if self.snapshots_dir is not None and not self.snapshots_dir.is_absolute():
+            raise ValueError("ONEMIND_FILES_SNAPSHOTS_DIR must be an absolute path")
         for name in ("default_quota_bytes", "shared_quota_bytes", "min_free_bytes"):
             if getattr(self, name) < 0:
                 raise ValueError(f"ONEMIND_FILES_{name.upper()} must not be negative")

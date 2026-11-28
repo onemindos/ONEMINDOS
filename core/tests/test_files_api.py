@@ -165,6 +165,8 @@ def test_trash_empty_needs_owner_approval(fc):
     assert r.status_code == 202 and r.headers["location"].startswith("/v1/files/requests/frq_")
     req = r.json()
     assert req["state"] == "awaiting_approval" and req["risk"] == "destructive" and req["plan"]["items"] == 1
+    assert "Retained snapshots may still hold copies." in req["plan"]["summary"]
+
     assert fc.post(f"/v1/files/requests/{req['id']}/approve", headers=ADULT).status_code == 403
     assert len(ok(fc.get("/v1/files/trash", headers=ADULT))) == 1
     done = ok(fc.post(f"/v1/files/requests/{req['id']}/approve", headers=OWNER))

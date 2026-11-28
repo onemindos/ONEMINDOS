@@ -77,6 +77,7 @@ var groups = []func(a *App) []*cobra.Command{
 	natsCommands,
 	storageCommands,
 	servicesCommands,
+	snapshotCommands,
 	domainCommands,
 	bridgeCommands,
 	notifyCommands,
