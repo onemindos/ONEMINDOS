@@ -351,6 +351,13 @@ cli auth.setup cli-browser-ceremony
 group cli-visual-layout issue=#1232 A layout a person arranges on screen (Home, the dashboard card); a terminal has nothing to arrange. Founder to confirm.
 cli me.dashboard_card.save cli-visual-layout
 cli me.home.save cli-visual-layout
+group recovery-contact-phone issue=#1196 The recovery contact's own side (gateway permissions 25d) is called by that person's phone with a contact token, not by the owner's dashboard session; the phone screens and the contact-side commands are not built in this PR.
+dashboard recovery.contact.get recovery-contact-phone
+dashboard recovery.contact.notices recovery-contact-phone
+dashboard recovery.contact.resign recovery-contact-phone
+dashboard recovery.invites.accept recovery-contact-phone
+cli recovery.contact.resign recovery-contact-phone
+cli recovery.invites.accept recovery-contact-phone
 
 # ---- the phone's 1.0 scope: what the phone leaves to the dashboard (FOUNDER TO CONFIRM) --------------
 group mobile-files-browse-only issue=#1232 Mobile 1.0 scope (founder to confirm): the phone browses, downloads and uploads files and handles Send to; file requests, sharing, trash, quotas, app passwords, the office editor, and polling or cancelling an unfinished upload are dashboard-only.
