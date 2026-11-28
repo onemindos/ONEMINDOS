@@ -2,6 +2,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import axe from 'axe-core';
+import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { ActionSummary } from '../components/ApprovalCard';
 import { ToastProvider } from '../components/Toast';
@@ -253,6 +254,25 @@ describe('settings sections', () => {
 });
 
 describe('SettingsLayout', () => {
+  it('hides the no-match message when only an extra search result matches', async () => {
+    const onSearch = vi.fn();
+    const layout = (result?: ReactNode) => (
+      <SettingsLayout current="backups" explicit hrefFor={(id) => `#/s/${id}`} indexHref="#/s"
+        onSearch={onSearch} extraSearchResults={result}>
+        <p>content</p>
+      </SettingsLayout>
+    );
+    const { rerender } = render(layout());
+    const nav = within(screen.getByRole('navigation', { name: 'Settings sections' }));
+    await userEvent.type(screen.getByRole('searchbox'), 'verified restore date');
+    expect(onSearch).toHaveBeenLastCalledWith('verified restore date');
+    expect(nav.getByRole('status')).toHaveTextContent(/No setting matches/);
+
+    rerender(layout(<a href="/tips/inspect-backup">Check the verified restore date</a>));
+    expect(nav.getByRole('link', { name: 'Check the verified restore date' })).toBeInTheDocument();
+    expect(nav.queryByText(/No setting matches/)).not.toBeInTheDocument();
+  });
+
   it('marks the current section, searches by keyword, and offers a way back on phones', async () => {
     const { container } = render(
       <SettingsLayout current="backups" explicit hrefFor={(id) => `#/s/${id}`} indexHref="#/s" hints={{ backups: { tone: 'warn', label: 'Verify soon' } }}>
