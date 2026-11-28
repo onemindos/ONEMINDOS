@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -305,4 +306,103 @@ func accountCommands(a *App) []*cobra.Command {
 	root.AddCommand(recover)
 	root.AddCommand(a.accountSecurityCommands(&secretsStdin)...)
 	return []*cobra.Command{root}
+}
+
+// Sign-in methods, password and authenticator code (UI parity M1, #1232): `account show` reads GET /v1/auth/methods;
+// `password` and `totp setup|confirm|disable` (account_security.go) call POST /v1/auth/password and /v1/auth/totp/*.
+// These change your own credentials, so the gateway accepts them only from a signed-in session, never from an API
+// token; it checks the current password and audits each change. The CLI never takes a password as a flag: it asks
+// without echo, or reads --password-stdin / --secrets-stdin. D-034: passkeys are recommended and optional.
+
+type signInMethods struct {
+	Password       bool `json:"password"`
+	TOTP           bool `json:"totp"`
+	Passkeys       int  `json:"passkeys"`
+	PasskeysActive bool `json:"passkeys_active"`
+}
+
+type totpSetup struct {
+	OneTime struct {
+		Secret     string `json:"secret"`
+		OtpauthURI string `json:"otpauth_uri"`
+	} `json:"one_time"`
+}
+
+const totpFallbackNote = "Passkeys are recommended; a password alone, or with an authenticator code, also works (D-034).\n" +
+	"The box asks for the code after your password. From outside your home, sign-in needs the code or a passkey."
+
+// explainAccount adds what to do when the gateway refuses a credential change from a token. The gateway sends
+// reason=session_required; an older one sent a bare 403, which on these commands means the same thing.
+func explainAccount(err error) error {
+	var e *onemind.Error
+	if errors.As(err, &e) && e.Status == 403 && (e.Reason == "session_required" || e.Reason == "") {
+		return fmt.Errorf("%w\nChanging your sign-in needs a signed-in session, not an API token. Do it in the dashboard (Settings > Account and security)", err)
+	}
+	return explainGateway(err)
+}
+
+func accountShowCmd(a *App) *cobra.Command {
+	return &cobra.Command{
+		Use:   "show",
+		Short: "How you sign in: password, authenticator code, passkeys",
+		Args:  cobra.NoArgs,
+		RunE: func(*cobra.Command, []string) error {
+			var m signInMethods
+			raw, err := getBoth(a, "/v1/auth/methods", &m)
+			if err != nil {
+				return err
+			}
+			if a.G.JSON {
+				return printRawJSON(a, raw)
+			}
+			onOff := func(b bool) string {
+				if b {
+					return "on"
+				}
+				return "off"
+			}
+			pw := "not set (you sign in with a passkey)"
+			if m.Password {
+				pw = "set"
+			}
+			fmt.Fprintf(a.Stdout, "Passkeys:           %d\n", m.Passkeys)
+			fmt.Fprintf(a.Stdout, "Password:           %s\n", pw)
+			fmt.Fprintf(a.Stdout, "Authenticator code: %s (a fallback for password sign-in)\n", onOff(m.TOTP))
+			if m.Passkeys == 0 {
+				fmt.Fprintln(a.Stdout, "Add a passkey in the dashboard or the phone app: it is the safest way to sign in.")
+			}
+			return nil
+		},
+	}
+}
+
+// secrets reads n secrets: one line each from stdin with --password-stdin, else asked without echo.
+func (a *App) secrets(fromStdin bool, prompts ...string) ([]string, error) {
+	out := make([]string, 0, len(prompts))
+	if fromStdin {
+		r := bufio.NewReader(a.Stdin)
+		for _, p := range prompts {
+			line, _ := r.ReadString('\n') // io.EOF with a last line and no newline is fine
+			line = strings.TrimRight(line, "\r\n")
+			if line == "" {
+				return nil, exitWith(ExitUsage, "usage", fmt.Sprintf("--password-stdin: no line for %q", strings.ToLower(p)))
+			}
+			out = append(out, line)
+		}
+		return out, nil
+	}
+	f, ok := a.Stdin.(*os.File)
+	if !ok || !a.Interactive() {
+		return nil, exitWith(ExitUsage, "usage", "stdin is not a terminal: pass --password-stdin or --secrets-stdin (one line per answer)")
+	}
+	for _, p := range prompts {
+		fmt.Fprintf(a.Stderr, "%s: ", p)
+		raw, err := term.ReadPassword(int(f.Fd()))
+		fmt.Fprintln(a.Stderr)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, string(raw))
+	}
+	return out, nil
 }

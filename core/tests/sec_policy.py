@@ -184,6 +184,7 @@ POLICY |= {
     ("DELETE", "/v1/auth/authenticator-allowlist/{aaguid}"): Row(cells(403, **GONE, owner=404, **PENDING_DENY),
                                                                  w.p_static("/v1/auth/authenticator-allowlist/a1b2c3d4000040008000000000000000"),
                                                                  "D-028 owner; taking trust away needs no step-up", ID),
+    ("GET", "/v1/auth/methods"): Row(own_credentials(200), w.p_static("/v1/auth/methods"), "§12.6 own sign-in methods", ID, UNAUDITED),
     ("POST", "/v1/auth/password"): Row(own_credentials(204), w.p_password, "§12.6 own credentials", ID, UNAUDITED),
     ("POST", "/v1/auth/totp/setup"): Row(own_credentials(200), w.p_static("/v1/auth/totp/setup"), "§12.6 own credentials", ID, UNAUDITED),
     ("POST", "/v1/auth/totp/confirm"): Row(own_credentials(409), w.p_totp_confirm, "§12.6 own credentials (no setup started: 409)", ID, UNAUDITED),

@@ -6,6 +6,7 @@
 import { useState, type FormEvent } from 'react';
 import { Button, Card, PageHeader, StatusPill, Table, useToast } from '@onemind/ui';
 import { useHub } from '../data/hub';
+import { AccountSignIn } from './AccountSignIn';
 import { t } from '../i18n';
 import { usePoll } from '../lib/hooks';
 import { registerPasskey } from '../lib/registerPasskey';
@@ -14,6 +15,7 @@ import { formatAgo, secondsSince } from '../lib/time';
 import { useSignedIn } from '../session';
 import { AppPasswords } from './AppPasswords';
 import { IdentityFactors } from './IdentityFactors';
+import { MyDevices } from './MyDevices';
 import { Load, TextField, useBusy, useRun } from './parts';
 
 const ago = (iso: string | null | undefined, now: number) => (iso ? formatAgo(secondsSince(iso, now)) : t('common.never'));
@@ -111,6 +113,9 @@ export function Account() {
           }
         </Load>
       </Card>
+      {/* The Sign-in methods card above covers password and authenticator code (D-034). AccountSignIn is the
+          standalone screen for a client without those calls, so the page never shows the controls twice. */}
+      {!api.changePassword && !api.setupTotp && <AccountSignIn />}
       <Card title={t('account.sessions')}>
         <Load res={sessions} what="Loading sessions">
           {(rows) => (
@@ -138,6 +143,7 @@ export function Account() {
           )}
         </Load>
       </Card>
+      <MyDevices />
       <AppPasswords />
     </div>
   );

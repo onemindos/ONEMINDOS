@@ -108,9 +108,6 @@ function ProHome({ commandBar }: { commandBar: ReactNode }) {
     );
 
   return (
-    <>
-    <HomeHealth pro={pro} status={boxStatus} />
-    <HomeRecent />
     <HomeScreen
       data={{ ...data, boxStatus }}
       now={hub.now}
@@ -132,6 +129,9 @@ function ProHome({ commandBar }: { commandBar: ReactNode }) {
       onDeny={(a) => void decide(a, 'deny')}
       busy={hub.busy}
       commandBar={commandBar}
+      // IA §2.1: the greeting first, then box health, the widgets and the apps; recent visits last.
+      status={<HomeHealth pro={pro} status={boxStatus} />}
+      footer={<HomeRecent />}
       onOpenSearch={shell.openPalette}
       showDock={shell.layout === 'console'}
       links={{
@@ -148,6 +148,5 @@ function ProHome({ commandBar }: { commandBar: ReactNode }) {
         approval: (id) => href.approval(id),
       }}
     />
-    </>
   );
 }

@@ -13,12 +13,20 @@ export function useGateway(token: string): OneMind {
   return useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1, stepUp: getPasskey, stepUpVerification: askVerification, boxCode: askBoxCode }), [token]);
 }
 
-/** Run an SDK call; a OneMindError becomes an ApiError (401, 403 and the gateway's reason are kept). */
+/** The dashboard code for an SDK error: no answer at all (status 0) is 'network', as api/client.ts says it. */
+function codeOf(e: OneMindError): ApiError['code'] {
+  if (e.status === 0) return 'network';
+  if (e.status === 401) return 'unauthenticated';
+  if (e.status === 403) return 'permission_denied';
+  return 'unknown';
+}
+
+/** Run an SDK call; a OneMindError becomes an ApiError (no answer, 401, 403 and the gateway's reason are kept). */
 export async function viaSdk<T>(call: () => Promise<T>): Promise<T> {
   try {
     return await call();
   } catch (e) {
-    if (e instanceof OneMindError) throw new ApiError(e.status, e.status === 401 ? 'unauthenticated' : e.status === 403 ? 'permission_denied' : 'unknown', e.message, e.reason);
+    if (e instanceof OneMindError) throw new ApiError(e.status, codeOf(e), e.message, e.reason);
     throw e;
   }
 }

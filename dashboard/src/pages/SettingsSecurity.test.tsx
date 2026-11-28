@@ -37,11 +37,12 @@ it('shows an actual verified audit and distinguishes a refusal from an unknown s
 
 it('keeps box-wide security rows and reads out of adult sessions', async () => {
   state.role = 'adult';
-  const fetch = gateway({ '/v1/auth/passkeys': [{ id: 'key' }] });
+  const fetch = gateway({ '/v1/auth/passkeys': [{ id: 'key' }], '/v1/auth/methods': { password: true, totp: false, passkeys: 1, passkeys_active: true } });
   render(<MemoryRouter><SettingsSecurity /></MemoryRouter>);
   expect(await screen.findByText('1 registered · 0 proven')).toBeVisible();
+  expect(await screen.findByText('Off (a fallback; passkeys come first)')).toBeVisible();
   expect(screen.queryByText('Audit chain')).toBeNull();
-  expect(fetch.mock.calls.every(([url]) => ['/v1/auth/passkeys', '/v1/auth/sessions', '/v1/tokens', '/v1/me'].includes(new URL(url).pathname))).toBe(true);
+  expect(fetch.mock.calls.every(([url]) => ['/v1/auth/passkeys', '/v1/auth/sessions', '/v1/tokens', '/v1/auth/methods'].includes(new URL(url).pathname))).toBe(true);
 });
 
 it('shows app roles and the people returned by the access endpoint', async () => {

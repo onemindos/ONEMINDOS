@@ -51,66 +51,8 @@ func (a *App) accountSecurityCommands(stdin *bool) []*cobra.Command {
 			}
 			return a.accountResult("Email verified.", map[string]bool{"email_verified": true})
 		}}
-	password := &cobra.Command{Use: "password", Short: "Change your password and end your other sessions",
-		Args: cobra.NoArgs, RunE: func(*cobra.Command, []string) error {
-			c, err := a.selectedAccountClient(false)
-			if err != nil {
-				return err
-			}
-			current, err := a.accountSecret("Current password", *stdin)
-			if err != nil {
-				return err
-			}
-			newPassword, err := a.accountSecret("New password (at least 12 characters)", *stdin)
-			if err != nil {
-				return err
-			}
-			body := map[string]string{"current_password": current, "new_password": newPassword}
-			if err := c.Do(bg(), http.MethodPost, "/v1/auth/password", body, nil); err != nil {
-				return err
-			}
-			return a.accountResult("Password changed.", map[string]bool{"changed": true})
-		}}
-	totp := &cobra.Command{Use: "totp", Short: "Manage your authenticator app"}
-	totp.AddCommand(&cobra.Command{Use: "setup", Short: "Get the address to add to your authenticator app",
-		Args: cobra.NoArgs, RunE: func(*cobra.Command, []string) error {
-			c, err := a.selectedAccountClient(false)
-			if err != nil {
-				return err
-			}
-			var out any
-			if err := c.Do(bg(), http.MethodPost, "/v1/auth/totp/setup", nil, &out); err != nil {
-				return err
-			}
-			address := str(obj(obj(out)["one_time"])["otpauth_uri"])
-			if address == "" {
-				return fmt.Errorf("the box returned no authenticator address")
-			}
-			return a.accountResult("Add this address in your authenticator app, then run onemind account totp confirm.\n"+address, out)
-		}})
-	for _, command := range []struct{ name, description, path, field, prompt, result string }{
-		{"confirm", "Confirm the authenticator app with a fresh code", "/v1/auth/totp/confirm", "code", "Authenticator code", "Authenticator enabled."},
-		{"disable", "Turn off your authenticator app", "/v1/auth/totp/disable", "password", "Password", "Authenticator disabled."},
-	} {
-		totp.AddCommand(&cobra.Command{Use: command.name, Short: command.description,
-			Args: cobra.NoArgs, RunE: func(*cobra.Command, []string) error {
-				c, err := a.selectedAccountClient(false)
-				if err != nil {
-					return err
-				}
-				secret, err := a.accountSecret(command.prompt, *stdin)
-				if err != nil {
-					return err
-				}
-				if command.field == "code" {
-					secret = strings.TrimSpace(secret)
-				}
-				if err := c.Do(bg(), http.MethodPost, command.path, map[string]string{command.field: secret}, nil); err != nil {
-					return err
-				}
-				return a.accountResult(command.result, map[string]bool{"enabled": command.name == "confirm"})
-			}})
-	}
+	password := a.accountPasswordCmd(stdin)
+	totp := a.accountTotpCmd(stdin)
 	passkeys := &cobra.Command{Use: "passkeys", Short: "Manage your registered passkeys",
 		Long: "List or revoke your passkeys. To add one, sign in in the dashboard and open Settings > Security > Sign-in keys."}
 	passkeys.AddCommand(&cobra.Command{Use: "list", Short: "List your registered passkeys", Args: cobra.NoArgs,
@@ -144,7 +86,114 @@ func (a *App) accountSecurityCommands(stdin *bool) []*cobra.Command {
 			}
 			return a.accountResult("Passkey revoked.", map[string]bool{"revoked": true})
 		}})
-	return []*cobra.Command{email, verifyEmail, password, totp, passkeys, a.remoteAccountRecovery(stdin)}
+	return []*cobra.Command{accountShowCmd(a), email, verifyEmail, password, totp, passkeys, a.remoteAccountRecovery(stdin)}
+}
+
+// accountPasswordCmd changes your own password. Interactively it asks for the new one twice; with --password-stdin
+// or --secrets-stdin it reads two lines: the current password, then the new one. The gateway needs a signed-in
+// session, checks the current password and signs out your other sessions.
+func (a *App) accountPasswordCmd(stdin *bool) *cobra.Command {
+	var passwordStdin bool
+	c := &cobra.Command{Use: "password", Short: "Change your password and end your other sessions",
+		Long: "Asks for your current password and the new one twice, without echo. With --password-stdin (or --secrets-stdin)\n" +
+			"it reads two lines instead: the current password, then the new one. Needs a signed-in session, not an API token.",
+		Args: cobra.NoArgs, RunE: func(*cobra.Command, []string) error {
+			fromStdin := passwordStdin || *stdin
+			prompts := []string{"Current password", "New password (at least 12 characters)", "New password again"}
+			if fromStdin {
+				prompts = prompts[:2]
+			}
+			got, err := a.secrets(fromStdin, prompts...)
+			if err != nil {
+				return err
+			}
+			if !fromStdin && got[1] != got[2] {
+				return exitWith(ExitUsage, "usage", "the two new passwords are not the same; nothing was changed")
+			}
+			c, err := a.selectedAccountClient(false)
+			if err != nil {
+				return err
+			}
+			body := map[string]string{"current_password": got[0], "new_password": got[1]}
+			if err := c.Do(bg(), http.MethodPost, "/v1/auth/password", body, nil); err != nil {
+				return explainAccount(err)
+			}
+			return a.accountResult("Password changed. Your other devices were signed out.",
+				map[string]any{"schema": "onemind.cli.account/v1", "password_changed": true, "other_sessions_revoked": true})
+		}}
+	c.Flags().BoolVar(&passwordStdin, "password-stdin", false, "read the current and the new password from stdin, one per line")
+	return c
+}
+
+// accountTotpCmd manages the authenticator code (TOTP), asked after the password (D-034).
+func (a *App) accountTotpCmd(stdin *bool) *cobra.Command {
+	g := &cobra.Command{Use: "totp", Short: "Authenticator code (TOTP), asked after your password; passkeys are recommended"}
+	g.AddCommand(&cobra.Command{Use: "setup", Short: "Start setting up an authenticator code: prints the key once",
+		Args: cobra.NoArgs, RunE: func(*cobra.Command, []string) error {
+			c, err := a.selectedAccountClient(false)
+			if err != nil {
+				return err
+			}
+			var s totpSetup
+			if err := c.Do(bg(), http.MethodPost, "/v1/auth/totp/setup", nil, &s); err != nil {
+				return explainAccount(err)
+			}
+			if s.OneTime.OtpauthURI == "" {
+				return fmt.Errorf("the box returned no authenticator address")
+			}
+			if a.G.JSON {
+				return printJSON(a.Stdout, s)
+			}
+			fmt.Fprintln(a.Stderr, totpFallbackNote)
+			fmt.Fprintf(a.Stdout, "Key (shown once): %s\nLink for a QR code: %s\n", s.OneTime.Secret, s.OneTime.OtpauthURI)
+			fmt.Fprintln(a.Stderr, "Add the key to your authenticator app, then run: onemind account totp confirm <6-digit code>")
+			return nil
+		}})
+	g.AddCommand(&cobra.Command{Use: "confirm [CODE]", Short: "Turn the authenticator code on with the 6 digits your app shows now",
+		Long: "Pass the code as an argument, or leave it out to be asked for it (or read it from stdin with --secrets-stdin).",
+		Args: cobra.MaximumNArgs(1), RunE: func(_ *cobra.Command, args []string) error {
+			var code string
+			if len(args) > 0 {
+				code = args[0]
+			} else {
+				var err error
+				if code, err = a.accountSecret("Authenticator code", *stdin); err != nil {
+					return err
+				}
+			}
+			code = strings.TrimSpace(code)
+			if len(code) != 6 || strings.Trim(code, "0123456789") != "" {
+				return exitWith(ExitUsage, "usage", "the code is the 6 digits your authenticator app shows")
+			}
+			c, err := a.selectedAccountClient(false)
+			if err != nil {
+				return err
+			}
+			if err := c.Do(bg(), http.MethodPost, "/v1/auth/totp/confirm", map[string]string{"code": code}, nil); err != nil {
+				return explainAccount(err)
+			}
+			return a.accountResult("Authenticator code on. The box asks for it after your password.",
+				map[string]any{"schema": "onemind.cli.account/v1", "totp": true})
+		}})
+	var passwordStdin bool
+	disable := &cobra.Command{Use: "disable", Short: "Turn the authenticator code off (asks for your password)",
+		Args: cobra.NoArgs, RunE: func(*cobra.Command, []string) error {
+			got, err := a.secrets(passwordStdin || *stdin, "Your password")
+			if err != nil {
+				return err
+			}
+			c, err := a.selectedAccountClient(false)
+			if err != nil {
+				return err
+			}
+			if err := c.Do(bg(), http.MethodPost, "/v1/auth/totp/disable", map[string]string{"password": got[0]}, nil); err != nil {
+				return explainAccount(err)
+			}
+			return a.accountResult("Authenticator code off.", map[string]any{"schema": "onemind.cli.account/v1", "totp": false})
+		}}
+	disable.Flags().BoolVar(&passwordStdin, "password-stdin", false, "read your password from stdin")
+	g.AddCommand(disable)
+	return g
 }
 
 func (a *App) remoteAccountRecovery(stdin *bool) *cobra.Command {
