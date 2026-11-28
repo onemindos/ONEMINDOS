@@ -1,0 +1,43 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+# Prompt for Codex: build the phone app's agreed design
+
+Paste everything below the line into Codex, run from a clone of `onemindos/ONEMINDOS`.
+
+---
+
+You are building the OneMind OS phone app (`mobile/`, Expo / React Native) to match the design the founder picked on 2026-11-21. The desktop dashboard already uses it; the phone does not. Work through three issues **in order**, one branch and one PR each:
+
+1. **#1225 `phone-atlas-home`**: red buttons, the Contour background, the tab bar (Home, Approvals, Apps, Me; this supersedes IA.md §1 for the phone) and the Home screen (render `13a`). Do this first; the other two depend on it.
+2. **#1226 `phone-atlas-approvals`**: Approvals with hold to approve (render `13d`).
+3. **#1227 `phone-atlas-app-page`**: the app page with the install-waiting state (render `13c`).
+
+## Read first, in this order
+1. `CLAUDE.md` and `docs/leap/AGENT-QUEUE.md` (claiming, definition of done, sign-off).
+2. `docs/design/atlas-phone/README.md` and the renders next to it (`13a`, `13c`, `13d`, light and dark). If that folder is not on `release/next` yet, read it from branch `docs/atlas-phone-design`.
+3. The issue you are on: `gh issue view <n> -R onemindos/ONEMINDOS`.
+4. `mobile/README.md`, `mobile/src/ui/theme.ts`, `mobile/src/ui/bits.tsx`, `mobile/src/nav.ts`, `mobile/src/screens/`.
+
+## How to work
+- **Claim:** comment `claim: codex, branch feat/<key>` on the issue and add the `claimed` label.
+- **Branch from `origin/release/next`.** Set `issue_key` to the current issue's key from the list above, then run `git fetch origin release/next && git switch -c "feat/$issue_key" origin/release/next`.
+- **Colours come only from the tokens** in `mobile/src/ui/theme.ts` (generated from `ui/src/tokens/tokens.ts`). In #1225 first add `action`, `actionText` and `actionHover` to `fromRoles()` there (it maps only `accent*` today). Primary buttons use `action` (red); `accent` (teal) is for selection, focus, the active tab and toggles. Never type a raw hex value in a screen.
+- **Real data only.** Every value comes from the hub through `@onemind/sdk`. The renders' people and places ("Rivera home", Maya, Hermes, the greenhouse) are made up: copy the layout, never the data. If the hub has no data for a card, hide the card. Test fixtures stay inside tests.
+- **Approval rule for Home, Approvals and the App page (#723, D-027/D-028).** Only an approval-card object with explicit `hold: false` permits normal signed approval. For `hold: true`, a missing or null card, a legacy string, or a card without an explicit boolean, Home shows the hold note, Approvals uses the hold control, and the App page sends the owner to Approvals with **Review and decide**. Use the card's `hold_ms` with a 2,000 ms minimum and default to 2,000 ms when unavailable. A completed hold is required before signing. Deny is always one tap. Follow #1226 for the movement and hold labels and early-release cases. See `ui/src/components/HoldToApprove.tsx` and `dashboard/src/pages/Approvals.tsx` for the hold control.
+- **Held approval request (#1226).** For a held approval, fetch bound approval options before sending the request. Use the generated SDK approve body and preserve the observed `hold_ms` even when it is the only field. When the action has a plan, require the bound `plan_sha256` to match the displayed plan and send that hash. Physical approval requires both the matching plan hash and a WebAuthn assertion (`webauthn`), including with an enrolled phone approval key. The existing bound flow attaches `webauthn` or `device_signature` when it signs. Extend orchestration and transport in `mobile/src/lib/approvals.ts` and `mobile/src/api/client.ts`, preserving the plan comparison, challenge binding, approval-key signing and gateway verification.
+- **Keep every existing screen reachable.** Activity and More move under the Me tab with Settings. Do not add an empty Map tab: #656 adds Map later.
+- **Accessibility:** status by shape and word, never colour alone; 44 px minimum touch targets; nothing under 12 px; honour reduce motion; every live value shows its age.
+- **Smallest change that meets the issue's Spec list**, under about 600 changed lines. Tests for new behaviour in the same PR.
+
+## Before you open the PR (all must pass)
+- From the founder's Mac, run the current issue's `om-remote` command. It checks for Linux and Node 22 before generating the SDK, installing mobile dependencies, typechecking, running Jest and linting. Run the fragment and hygiene checks on a build worker with Git history, as the issue directs.
+- Add one change fragment `changes/<branch-with-dashes>.md` (see `changes/README.md`, `pr: pending`). Never edit `CHANGELOG.md` or `docs/leap/STATUS.md`.
+- Every commit `git commit -s`.
+- **Screenshots:** run the app on an Android emulator (or ask the founder to run it on his Samsung) in light and dark, and attach them to the PR beside the matching render. Build on a worker. A release APK needs the crash fix on branch `fix/android-workmanager-r8`. A debug build works without it.
+- Open the PR against `release/next` with `.github/pull_request_template.md` (Why / What / Tests / Not done), `Refs #<n>` (never "Closes"), labels `builder:codex` and `needs-review`. The Opus gate reviews and merges; do not merge yourself.
+
+## Stop and ask instead of building around it
+- The issue seems to need a new gateway route or a change in `core/`.
+- A design rule conflicts with a founder decision in `docs/DECISIONS.md` or with "AI never actuates without human approval".
+- The hub cannot supply data a card needs (say which card and which route is missing in the PR's "Not done").
+
+When an issue's PR is open, go to the next issue in the list. Then stop and report: each PR link, what is done, what is not, and the screenshots.
