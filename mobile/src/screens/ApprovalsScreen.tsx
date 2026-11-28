@@ -238,12 +238,12 @@ export function ApprovalsScreen({ keyNative = approvalKeyNative }: { keyNative?:
   const nav = useContext(NavigationContext);
   useLayoutEffect(() => nav?.setOptions({ headerShown: false }), [nav]);
   const route = useContext(NavigationRouteContext);
-  const reviewId = (route?.params as TabParams['Approvals'])?.id;
+  const { id: reviewId, reviewKey } = (route?.params as TabParams['Approvals']) ?? {};
   const deciding = useRef(false);
   const [busy, setBusy] = useState<string>();
   const [msg, setMsg] = useState<{ text: string; ok: boolean }>();
   const hubNow = now + (hubOffsetMs ?? 0);
-  const [selection, setSelection] = useState<{ reviewId?: string; segment: Segment; id?: string }>();
+  const [selection, setSelection] = useState<{ reviewId?: string; reviewKey?: number; segment: Segment; id?: string }>();
   const canSign = features.has(OP.approveOptions);
   const hubUrl = connection.mode === 'live' ? connection.hubUrl : undefined;
   const key = useApprovalKey(keyNative, hubUrl);
@@ -284,15 +284,16 @@ export function ApprovalsScreen({ keyNative = approvalKeyNative }: { keyNative?:
   const pending = latest.filter(isPending);
   const review = pending.find((a) => a.id === reviewId);
   const visible = review ? [review, ...pending.filter((a) => a.id !== reviewId)] : pending;
-  const selectedId = selection?.reviewId === reviewId ? selection?.id : undefined;
-  const expandedId = visible.find((a) => a.id === selectedId)?.id ?? visible[0]?.id;
-  const selectedSegment = selection?.reviewId === reviewId ? selection?.segment ?? 'Waiting' : 'Waiting';
+  const currentSelection = selection?.reviewId === reviewId && selection?.reviewKey === reviewKey ? selection : undefined;
+  const selectedId = currentSelection?.id;
+  const expandedId = visible.find((a) => a.id === selectedId)?.id ?? (reviewId ? review?.id : visible[0]?.id);
+  const selectedSegment = currentSelection?.segment ?? 'Waiting';
   const decided = latest.filter((a) => !isPending(a) && a.state !== 'requested');
   const agents = summarizeAgents(latest, undefined);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
-      <Screen key={reviewId} testID="approvals">
+      <Screen key={reviewKey ?? reviewId} testID="approvals">
         <H1>Approvals</H1>
         <View accessibilityRole="tablist" style={{
           flexDirection: 'row', padding: 2, borderRadius: 12, borderWidth: 1, borderColor: t.border, backgroundColor: t.sunken,
@@ -300,7 +301,7 @@ export function ApprovalsScreen({ keyNative = approvalKeyNative }: { keyNative?:
           {SEGMENTS.map((tab) => (
             <Pressable key={tab} testID={`segment-${tab}`} accessibilityRole="tab"
               accessibilityState={{ selected: selectedSegment === tab }}
-              onPress={() => setSelection({ reviewId, segment: tab, id: expandedId })}
+              onPress={() => setSelection({ reviewId, reviewKey, segment: tab, id: expandedId })}
               style={{ flex: 1, minHeight: touchTarget, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
                 backgroundColor: selectedSegment === tab ? t.card : t.sunken }}>
               <Text style={{ fontSize: font.sm, fontWeight: font.semibold, color: selectedSegment === tab ? t.accent : t.muted }}>
@@ -321,7 +322,7 @@ export function ApprovalsScreen({ keyNative = approvalKeyNative }: { keyNative?:
             {visible.map((a) => (
               <PendingCard key={a.id} a={a} now={hubNow} canDecide={canDecide} busy={busy !== undefined} offline={!!error}
                 keyed={!!key.signer} canSign={canSign} hasCredential={hasCredential} expanded={a.id === expandedId}
-                onExpand={() => setSelection({ reviewId, segment: 'Waiting', id: a.id })}
+                onExpand={() => setSelection({ reviewId, reviewKey, segment: 'Waiting', id: a.id })}
                 onDecide={(x, d, holdMs) => void onDecide(x, d, holdMs)} />
             ))}
             <ApprovalKeySection api={api} features={features} native={keyNative} hubUrl={hubUrl} state={key} owner={canDecide !== 'no'} />

@@ -16,6 +16,9 @@ jest.mock('expo-notifications', () => ({
   setBadgeCountAsync: jest.fn(async () => true),
   addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
   addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  getLastNotificationResponseAsync: jest.fn(async () => null),
+  clearLastNotificationResponse: jest.fn(),
+  setNotificationCategoryAsync: jest.fn(async () => null),
   getDevicePushTokenAsync: jest.fn(async () => ({ type: 'ios', data: 'test-token' })),
   unregisterForNotificationsAsync: jest.fn(async () => undefined),
   AndroidImportance: { HIGH: 4 },
@@ -35,4 +38,18 @@ jest.mock('react-native-passkey', () => ({
 }));
 jest.mock('expo-crypto', () => ({
   getRandomBytes: (n: number) => globalThis.crypto.getRandomValues(new Uint8Array(n)),
+}));
+
+// Biometrics: an enrolled phone whose person always passes; tests that need a failure override authenticateAsync.
+jest.mock('expo-local-authentication', () => ({
+  SecurityLevel: { NONE: 0, SECRET: 1, BIOMETRIC_WEAK: 2, BIOMETRIC_STRONG: 3 },
+  getEnrolledLevelAsync: jest.fn(async () => 3),
+  authenticateAsync: jest.fn(async () => ({ success: true })),
+}));
+
+jest.mock('expo-screen-capture', () => ({
+  enableAppSwitcherProtectionAsync: jest.fn(async () => undefined),
+  disableAppSwitcherProtectionAsync: jest.fn(async () => undefined),
+  preventScreenCaptureAsync: jest.fn(async () => undefined),
+  allowScreenCaptureAsync: jest.fn(async () => undefined),
 }));
