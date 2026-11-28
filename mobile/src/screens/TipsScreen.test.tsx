@@ -54,13 +54,13 @@ function mount(fetchFn: FetchLike, token = 'owner-fixture-token') {
 
 afterEach(() => jest.restoreAllMocks());
 
-it('opens Tips from More, then opens a saved tip from a cold deep link offline', async () => {
+it('opens Tips from Me, then opens a saved tip from a cold deep link offline', async () => {
   const initialUrl = jest.spyOn(Linking, 'getInitialURL').mockResolvedValue(null);
   const fetchHub = jest.fn<ReturnType<FetchLike>, Parameters<FetchLike>>(async () => (
     new Response(JSON.stringify(pack), { status: 200, headers: { 'content-type': 'application/json' } })
   ));
   const active = await mount(fetchHub);
-  await fireEvent.press(await screen.findByText('More'));
+  await fireEvent.press(await screen.findByTestId('tab-me'));
   await fireEvent.press(await screen.findByTestId('more-Tips'));
   expect(await screen.findByRole('button', { name: tip.title })).toBeTruthy();
   expect(fetchHub).toHaveBeenCalledWith(hubUrl + '/v1/tips', expect.objectContaining({ method: 'GET' }));

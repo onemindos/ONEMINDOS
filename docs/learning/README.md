@@ -54,6 +54,8 @@ Short answers to founder questions, saved so they are not lost in chat. Folder: 
 | 12 | [Clock, Secure Boot, disk and admin tools, and the `onemind` CLI](founder/12-clock-secure-boot-tools-and-the-cli.md) (Step 2 of the stable-and-live sprint, 2026-11-25) |
 | 13 | [The key ceremony, explained for a first-time OS builder](founder/13-the-key-ceremony-explained.md) (what the root keys do, why the owner holds them, YubiKeys vs USB sticks, is it required; 2026-11-25) |
 
+Also from founder questions: [First Android build: the app live on a real phone, why the nightly APK crashed and how to build, install and connect it](android-first-build.md) (2026-11-26).
+
 Also from founder questions: [umbrelOS screens and OneMind: what we have, what is built, what is missing](umbrelos-screen-gaps.md) (2026-11-20).
 
 The "On `main`?" column was checked on 2026-11-12. The leap's live state is in [`docs/leap/STATUS.md`](../leap/STATUS.md).

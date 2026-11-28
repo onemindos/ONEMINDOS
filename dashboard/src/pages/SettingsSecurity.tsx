@@ -7,6 +7,7 @@ import { ApiError } from '../api/types';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { useShell } from '../shell/Shell';
+import { AccessGrants } from './AccessGrants';
 
 const account = '/settings/account';
 const object = (value: unknown): Record<string, unknown> =>
@@ -44,9 +45,10 @@ export function SettingsSecurity() {
         const proven = data.filter((item) => ['L2', 'L3'].includes(String(object(item).level))).length;
         return `${data.length} registered · ${proven} proven`;
       })],
-      ['Authenticator code', account, summarize(get(sdk, '/v1/me'), (data) => {
+      // GET /v1/auth/methods; "Off" is not a warning: passkeys come first and the code is a fallback (D-030).
+      ['Authenticator code', account, summarize(get(sdk, '/v1/auth/methods'), (data) => {
         const totp = object(data).totp;
-        return totp === true ? 'Configured' : totp === false ? 'Not configured' : undefined;
+        return totp === true ? 'On' : totp === false ? 'Off (a fallback; passkeys come first)' : undefined;
       })],
       ['Signed-in devices', account, summarize(get(sdk, '/v1/auth/sessions'), count('sessions'))],
       ['API tokens', account, summarize(get(sdk, '/v1/tokens'), (data) => {
@@ -181,6 +183,7 @@ export function SettingsPermissions() {
       </div>
       <PermissionList key={by} sdk={sdk} by={by} />
     </Card>
+    <AccessGrants />
   </>;
 }
 
