@@ -51,17 +51,22 @@ class Versions:
             os.close(fd)
 
     @staticmethod
-    def _timeline_date(entry: int, number: str) -> datetime | None:
+    def _timeline_info(entry: int, number: str) -> tuple[datetime, int] | None:
         try:
-            fd, _ = paths.open_file_at(entry, "info.xml")
+            fd, st = paths.open_file_at(entry, "info.xml")
             with os.fdopen(fd, "rb") as info:
                 xml = ET.fromstring(info.read(65536))
             if (xml.tag == "snapshot" and xml.findtext("num") == number
                     and xml.findtext("type") == "single" and xml.findtext("cleanup") == "timeline"):
-                return datetime.strptime(xml.findtext("date", ""), "%Y-%m-%d %H:%M:%S").replace(tzinfo=UTC)
+                taken = datetime.strptime(xml.findtext("date", ""), "%Y-%m-%d %H:%M:%S").replace(tzinfo=UTC)
+                return taken, st.st_ino
         except (FilesError, OSError, ET.ParseError, ValueError):
             pass
         return None
+
+    @staticmethod
+    def _capture_parts(number: str, inode: int) -> tuple[str, str]:
+        return (".files", f"{number}-{inode}")
 
     def _snapshots(self, base: int) -> Iterator[tuple[str, datetime]]:
         with os.scandir(base) as entries:
@@ -69,12 +74,14 @@ class Versions:
                 if not re.fullmatch(NUMBER_PATTERN, entry.name):
                     continue
                 try:
-                    with paths.dir_at(base, (entry.name,)) as info, paths.dir_at(info, ("snapshot", "files")):
-                        taken = self._timeline_date(info, entry.name)
+                    with paths.dir_at(base, (entry.name,)) as info:
+                        timeline = self._timeline_info(info, entry.name)
+                        if timeline is not None:
+                            taken, inode = timeline
+                            with paths.dir_at(base, self._capture_parts(entry.name, inode)):
+                                yield entry.name, taken
                 except FilesError:
-                    continue  # cleanup, or a snapshot from before Files moved to storage
-                if taken is not None:
-                    yield entry.name, taken
+                    continue  # cleanup, or a storage snapshot taken without the Files plugin
 
     def available(self) -> bool:
         try:
@@ -89,9 +96,10 @@ class Versions:
     @contextmanager
     def _snapshot_space(self, base: int, number: str, taken: datetime, root) -> Iterator[int]:
         with paths.dir_at(base, (number,)) as info:
-            if self._timeline_date(info, number) != taken:
+            timeline = self._timeline_info(info, number)
+            if timeline is None or timeline[0] != taken:
                 raise not_found("that version is no longer available")
-            with paths.dir_at(info, ("snapshot", "files", *self._space_parts(root))) as fd:
+            with paths.dir_at(base, (*self._capture_parts(number, timeline[1]), *self._space_parts(root))) as fd:
                 yield fd
 
     @staticmethod

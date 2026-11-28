@@ -56,11 +56,16 @@ def settings(settings):
 def snapshot(files_root, snapshots, name, cleanup="timeline"):
     _, number, stamp = name.split("-")
     entry = snapshots / number
-    shutil.copytree(files_root, entry / "snapshot" / "files", symlinks=True)
+    entry.mkdir(parents=True)
     taken = datetime.strptime(stamp, "%Y%m%dT%H%M%SZ")
-    (entry / "info.xml").write_text(
+    info = entry / "info.xml"
+    info.write_text(
         f"<snapshot><type>single</type><num>{number}</num><date>{taken}</date><cleanup>{cleanup}</cleanup></snapshot>"
     )
+    capture = snapshots / ".files" / f"{number}-{info.stat().st_ino}"
+    shutil.copytree(files_root, capture, symlinks=True)
+    capture.with_suffix(".info").hardlink_to(info)
+    return capture
 
 
 def versions(c, headers, root, path):
@@ -159,7 +164,7 @@ def test_versions_off_bad_input_and_symlinks(fc, files_root, snapshots):
     assert st["versions_available"] is False
     assert restore(fc, ADULT, "home:adult", "/a.txt", YESTERDAY).status_code == 404
 
-    snapshot(files_root, snapshots, YESTERDAY)
+    capture = snapshot(files_root, snapshots, YESTERDAY)
     (snapshots / "manual-copy").mkdir()
     manual = "snapper-4-20261121T040000Z"
     snapshot(files_root, snapshots, manual, cleanup="number")
@@ -170,7 +175,7 @@ def test_versions_off_bad_input_and_symlinks(fc, files_root, snapshots):
     assert fc.get("/v1/files/versions", params={"root": "home:adult", "path": "/"}, headers=ADULT).status_code == 409
 
     # a symlink inside a snapshot is never followed out of the space
-    space = next((snapshots / "2" / "snapshot" / "files" / "home").iterdir())
+    space = next((capture / "home").iterdir())
     os.symlink("/etc/passwd", space / "link.txt")
     assert versions(fc, ADULT, "home:adult", "/link.txt")["versions"] == []
     r = restore(fc, ADULT, "home:adult", "/link.txt", YESTERDAY)
@@ -186,12 +191,16 @@ def test_household_sessions_reach_files_permissions(fc, files_root, snapshots):
         os.chown(files_root / "shared/notes.txt", 961, 961)
         # This is the ExecStart of the Debian image's scheduled service.
         subprocess.run(["/usr/lib/snapper/systemd-helper", "--timeline"], check=True)
-        entry, = snapshots.iterdir()
+        entry, = (path for path in snapshots.iterdir() if path.name.isdecimal())
         metadata = ElementTree.parse(entry / "info.xml")
         assert metadata.findtext("cleanup") == "timeline"
         subvolume = entry / "snapshot"
         assert subprocess.check_output(["btrfs", "property", "get", "-ts", subvolume, "ro"]).strip() == b"ro=true"
-        content = subprocess.check_output(["runuser", "-u", "onemind", "--", "cat", subvolume / "files/shared/notes.txt"])
+        info = entry / "info.xml"
+        capture = snapshots / ".files" / f"{entry.name}-{info.stat().st_ino}"
+        assert capture.with_suffix(".info").samefile(info)
+        assert subprocess.check_output(["btrfs", "property", "get", "-ts", capture, "ro"]).strip() == b"ro=true"
+        content = subprocess.check_output(["runuser", "-u", "onemind", "--", "cat", capture / "shared/notes.txt"])
         assert content == b"yesterday"
         taken = datetime.strptime(metadata.findtext("date"), "%Y-%m-%d %H:%M:%S")
         version = f"snapper-{entry.name}-{taken:%Y%m%dT%H%M%SZ}"
@@ -245,6 +254,18 @@ def test_equal_size_and_mtime_do_not_hide_distinct_versions(fc, files_root, snap
 def test_impossible_date_has_structured_validation_error(fc):
     r = restore(fc, ADULT, "shared", "/note.txt", "snapper-2-20260230T030000Z")
     assert r.status_code == 422 and r.json()["reason"] == "invalid_version"
+
+
+def test_reused_snapper_number_never_exposes_the_deleted_snapshot(fc, files_root, snapshots):
+    ok(upload(fc, ADULT, "shared", "/", "note.txt", b"old"), 204)
+    snapshot(files_root, snapshots, YESTERDAY)
+    # An old slot can expire a storage snapshot while its Files capture survives.
+    (snapshots / "2").rename(snapshots / "retired")
+    (snapshots / "2").mkdir()
+    shutil.copyfile(snapshots / "retired/info.xml", snapshots / "2/info.xml")
+    ok(upload(fc, ADULT, "shared", "/", "note.txt", b"new", overwrite=True), 204)
+    assert versions(fc, ADULT, "shared", "/note.txt")["versions"] == []
+    assert restore(fc, ADULT, "shared", "/note.txt", YESTERDAY).status_code == 404
 
 
 def test_restore_requires_explicit_destination_when_parent_is_missing(fc, files_root, snapshots):

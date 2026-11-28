@@ -5,16 +5,20 @@ subvolume at `/data/storage` and a separate `.snapshots` subvolume there.
 The shipped `snapper-timeline.timer` creates read-only storage snapshots hourly.
 Snapper retains up to 24 hourly, 7 daily, 4 weekly and 6 monthly restore points.
 
-On hub boot, Files uses `/data/storage/files` through a bind mount at its existing
-`/data/onemind/files` path. First boot migrates the previous Files tree before
-the gateway, Samba and backups start, preserving ownership and permissions.
-The gateway reads Snapper history through the root-owned snapshot directory,
-which grants read and traversal access to the `onemind` group. The history
-appears once a timeline snapshot contains Files.
+Files stays at `/data/onemind/files` across OS slot switches. On a btrfs hub,
+first boot prepares a subvolume at that path before the gateway, Samba and
+backups start. It preserves file contents, ownership and permissions. Older
+slots can read and write the same tree without an extra mount.
+
+A Snapper plugin pairs each storage timeline entry with a read-only snapshot
+of that Files subvolume. The capture lives under `/data/storage/.snapshots/.files`,
+outside the live tree used by off-box backups. The root-owned history directory
+grants read and traversal access to the `onemind` group. When Snapper expires an
+entry, the plugin removes its Files capture too.
 
 An ext4 hub keeps its existing Files tree and has no local history. Files,
-trash and off-box backups still work. The schedule requires no extra subvolume,
-configuration file or timer on a supported btrfs hub.
+trash and off-box backups still work. The existing Snapper timers schedule
+creation and cleanup for both storage history and its Files captures.
 
 Open a file preview and choose **Previous versions**. Restore places a copy
 beside the current file, or at its original path if the name is free. If the
@@ -24,13 +28,14 @@ emptied. Use Backups for copies that survive disk failure.
 
 On the hub, run `sudo onemind snapshots` or `sudo onemind snapshots --json` to
 list its Snapper storage timeline. Snapshot writes and retention remain managed
-by Snapper. Folder restore and a CLI restore command are deferred.
+by Snapper. Folder history, folder restore and a CLI restore command are deferred.
 
 ## Linux integration check
 
 Run from the repository root on a Linux build worker. The container creates a
-disposable loopback btrfs filesystem, runs the shipped timeline helper, and
-verifies that a signed-in household member restores the original bytes.
+disposable loopback btrfs filesystem, tests the older slot's read and write
+behavior, runs the shipped timeline helper, and verifies signed-in restore and
+capture cleanup.
 
 ```sh
 docker run --rm --privileged -v "$PWD:/work:ro" -w /work python:3.12-slim-trixie \

@@ -937,55 +937,57 @@ def run_stream(argv: list[str], env: dict, on_line) -> int:
     return proc.wait()
 
 
-def mount_files_storage(p: Paths, ids: tuple[int, int] | None) -> None:
-    """Keep the Files path stable for the gateway, Samba and restic while storing it in @storage."""
+def is_btrfs_subvolume(path: str) -> bool:
+    return os.stat(path).st_ino == 256  # Btrfs gives each subvolume root inode 256.
+
+
+def prepare_files_snapshots(p: Paths, ids: tuple[int, int] | None) -> None:
+    """Keep the live tree at the path used by old slots. Give Snapper a source it can snapshot."""
     storage = os.path.join(p.root, "data", "storage")
     history = os.path.join(storage, ".snapshots")
-    marker = os.path.join(os.path.dirname(p.files), ".files-on-storage")
     if not os.path.ismount(storage) or not os.path.isdir(history):
-        if os.path.exists(marker):
-            raise RuntimeError("the Files storage subvolume did not mount")
-        return  # ext4 and boards with no storage subvolume
+        return  # ext4, or local history is temporarily unavailable
 
-    live = os.path.join(storage, "files")
-    old = p.files + ".before-snapper"
-    stage = os.path.join(storage, ".files-migration")
-    for path in (history, live, p.files, old, stage):
+    captures = os.path.join(history, ".files")
+    stage = p.files + ".snapshot-stage"
+    staged_tree = os.path.join(stage, "files")
+    for path in (history, captures, stage, staged_tree):
         if os.path.lexists(path) and (os.path.islink(path) or not os.path.isdir(path)):
             raise RuntimeError(f"expected a real directory at {path}")
-    if ids:
-        os.chown(history, 0, ids[1])
-    os.chmod(history, 0o750)
+    os.makedirs(captures, mode=0o750, exist_ok=True)
+    for path in (history, captures):
+        if ids:
+            os.chown(path, 0, ids[1])
+        os.chmod(path, 0o750)
 
-    if os.path.exists(live) and os.path.exists(p.files) and os.path.samefile(live, p.files):
-        return
-    if not os.path.exists(live):
-        if os.path.exists(marker):
-            raise RuntimeError("the migrated Files directory is missing from storage")
-        # Restartable across a power cut: keep the original until the complete reflink copy is durable.
-        source = old if os.path.exists(old) else p.files
-        if os.path.exists(source):
-            if os.path.exists(stage):
-                shutil.rmtree(stage)
-            os.mkdir(stage, 0o700)
-            subprocess.run(["cp", "-a", "--reflink=always", "--", source, os.path.join(stage, "files")], check=True)
-            subprocess.run(["sync", "-f", storage], check=True)
-            if source == p.files:
-                os.rename(p.files, old)
-            os.rename(os.path.join(stage, "files"), live)
-            os.rmdir(stage)
-        else:
-            os.mkdir(live, 0o750)
-        subprocess.run(["sync", "-f", storage], check=True)
-
-    os.makedirs(p.files, mode=0o700, exist_ok=True)
-    if os.listdir(p.files):
-        raise RuntimeError("both the legacy Files directory and the storage copy have data")
-    write(marker, "Files uses the storage subvolume\n")
-    subprocess.run(["sync", "-f", storage], check=True)
-    subprocess.run(["mount", "--bind", live, p.files], check=True)
-    if os.path.exists(old):
-        shutil.rmtree(old)
+    if not is_btrfs_subvolume(p.files):
+        # A cut before the exchange leaves the old path authoritative, including
+        # any writes made on a rollback boot. Always rebuild an unfinished copy.
+        os.makedirs(stage, mode=0o700, exist_ok=True)
+        if os.path.exists(staged_tree):
+            subprocess.run(["btrfs", "subvolume", "delete", staged_tree], check=True)
+        source = p.files
+        # Recover data from the earlier, unreleased layout when the old path is empty.
+        marker = os.path.join(p.data, ".files-on-storage")
+        moved = os.path.join(storage, "files")
+        previous = p.files + ".before-snapper"
+        moved_files = os.path.isfile(marker) and not os.path.islink(moved) and os.path.isdir(moved)
+        if not os.listdir(p.files):
+            if moved_files:
+                source = moved
+            elif not os.path.islink(previous) and os.path.isdir(previous):
+                source = previous
+        elif moved_files and os.listdir(moved):
+            log("Files has writes at its original path. The earlier storage copy remains under /data/storage/files.")
+        subprocess.run(["btrfs", "subvolume", "create", staged_tree], check=True)
+        subprocess.run(["cp", "-a", "--reflink=always", "--", source + "/.", staged_tree], check=True)
+        subprocess.run(["sync", "-f", p.data], check=True)
+        subprocess.run(["mv", "--exchange", "--no-copy", "-T", "--", staged_tree, p.files], check=True)
+        subprocess.run(["sync", "-f", p.data], check=True)
+    if os.path.exists(stage):
+        # The exchange published the whole new tree. A cut during cleanup leaves
+        # only the old directory here, with the live tree still at the old path.
+        shutil.rmtree(stage)
 
 
 def ensure_files_root(p: Paths) -> None:
@@ -994,13 +996,13 @@ def ensure_files_root(p: Paths) -> None:
     the mount namespace is set up before any ExecStartPre= runs, even a "+" one, so the unit cannot make it
     itself. Only the folder is (re-)owned, never its contents. Every boot, so updated boxes get it too."""
     ids = onemind_ids()
-    mount_files_storage(p, ids)
     if os.path.islink(p.files):
         raise RuntimeError("expected a real Files directory")
     os.makedirs(p.files, mode=0o750, exist_ok=True)
     os.chmod(p.files, 0o750)
     if ids:
         os.chown(p.files, *ids)
+    prepare_files_snapshots(p, ids)
 
 
 # What k3s writes under its --data-dir. /data/k3s itself and /data/k3s/storage are made on every box by
