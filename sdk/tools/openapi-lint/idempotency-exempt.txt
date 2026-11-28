@@ -8,7 +8,21 @@ POST /v1/auth/login  # answers with fresh tokens, which a replay store must not 
 POST /v1/auth/refresh  # answers with fresh tokens; refresh-token rotation already rejects a replay
 DELETE /v1/auth/app-session  # clearing the caller's own cookie twice is the same as once
 POST /v1/auth/logout  # ending the caller's own session twice is the same as once
+POST /v1/auth/setup/options  # each attempt displays a scoped, short-lived screen code
+POST /v1/auth/setup/kit  # each pending kit returns a secret that a replay store must never keep
+POST /v1/auth/setup/finish  # completing an already-finished setup returns 409 and changes nothing
+POST /v1/auth/recovery/options  # each attempt displays a scoped, short-lived screen code
+POST /v1/auth/recovery/reset  # the screen and kit proofs are single-use; the replacement code is never stored in a replay cache
+POST /v1/auth/recovery/remote  # a live request is returned unchanged; retrying never shortens or restarts its wait
+DELETE /v1/auth/recovery/remote  # clearing a cancelled request leaves the same inactive state
+POST /v1/auth/email/options  # issues a short-lived, rate-limited verification challenge; no secret enters a replay store
+POST /v1/auth/email/verify  # the submitted challenge is single-use
+POST /v1/backups/kit/{action_id}/claim  # returns a one-time kit that a replay store must never keep
+POST /v1/users/invites/{action_id}/claim  # returns a one-time invitation link that a replay store must never keep
 POST /v1/auth/approver-keys  # a retry with the same public key answers 409 (already registered), so a repeat never adds a second key (#702)
+POST /v1/auth/step-up/options  # read only: returns a fresh single-use challenge, nothing changes (D-028)
+POST /v1/auth/step-up  # answers with a fresh single-use grant, which a replay store must not keep; the challenge is single use, so a repeat is refused (D-028)
+DELETE /v1/auth/authenticator-allowlist/{aaguid}  # removing a trusted model twice is the same as once: a repeat answers 404 and changes nothing (D-028)
 DELETE /v1/auth/approver-keys/{key_id}  # revoking twice is the same as once: a repeat finds no live key and changes nothing (#702)
 POST /v1/sites  # The caller supplies a unique site ID. A retry with that ID returns 409 before writing a site or a second creation audit record.
 PUT /v1/me/dashboard-card  # replaces the caller's single card; identical saves leave state and audit unchanged
@@ -44,3 +58,13 @@ PATCH /v1/work/projects/{project_id}/tasks/{task_id}  # guarded by If-Match; rep
 DELETE /v1/work/projects/{project_id}/tasks/{task_id}  # the second removal sees no task
 POST /v1/custom-apps/plan  # asking again for the same commit refreshes that revision's scan and never adds a second revision; nothing is installed
 POST /v1/custom-apps/{app_id}/rollback  # a repeat picks the same earlier revision and points the catalog at it again; the update that applies it is its own approved action
+POST /v1/approval-policies/{policy_id}/confirm  # re-enables one paused rule: a repeat finds no paused rule, answers 404 and changes nothing
+PUT /v1/agents/{name}/inputs  # replaces the whole declaration: the same body twice leaves the same state
+POST /v1/work/parse  # read only: previews quick-add text and creates nothing
+PATCH /v1/work/projects/{project_id}  # sets fields to the stated values, so a repeat changes nothing more
+DELETE /v1/work/projects/{project_id}  # the second removal sees no project
+PUT /v1/work/projects/{project_id}/members/{person_id}  # adding a member twice is the same as once
+DELETE /v1/work/projects/{project_id}/members/{person_id}  # removing a member twice is the same as once
+DELETE /v1/work/projects/{project_id}/tasks/{task_id}/comments/{comment_id}  # the second removal sees no comment
+PATCH /v1/work/projects/{project_id}/sections/{section_id}  # sets the name to the stated value, so a repeat changes nothing more
+DELETE /v1/work/projects/{project_id}/sections/{section_id}  # the second removal sees no section

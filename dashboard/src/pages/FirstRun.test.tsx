@@ -1,27 +1,49 @@
 // SPDX-License-Identifier: Apache-2.0
 import { render, screen, waitFor, act } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import userEvent from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
 import { FirstRun, useWizardPending } from './FirstRun';
 
 const h = vi.hoisted(() => ({
   get: vi.fn(), save: vi.fn(), state: vi.fn(), issue: vi.fn(), confirm: vi.fn(), plan: vi.fn(), request: vi.fn(), destinations: vi.fn(), done: vi.fn(), navigate: vi.fn(),
+  setupStatus: vi.fn(),
   props: {} as Record<string, unknown>,
 }));
 vi.mock('../session', () => {
   const api = { onboardingSettings: h.get, saveOnboardingSettings: h.save, backupDestinations: h.destinations, onboardingState: h.state,
     issueKit: h.issue, confirmKit: h.confirm, appPlan: h.plan };
-  return { useSignedIn: () => ({ api }) };
+  const anon = { setupStatus: h.setupStatus };
+  return { useSignedIn: () => ({ api, anon }) };
 });
+vi.mock('../lib/gateway', () => ({ useGateway: () => ({}) }));
+vi.mock('./SignInKeys', () => ({ RecoverRemoteApprovals: () => <div>Remote approval recovery</div> }));
 vi.mock('../data/hub', () => ({ useHub: () => ({ apps: { data: [] }, request: h.request }) }));
 vi.mock('react-router', () => ({ useNavigate: () => h.navigate }));
 vi.mock('@onemind/ui', () => ({
   useToast: () => ({ show: vi.fn() }), applyTheme: vi.fn(),
-  Onboarding: (props: Record<string, unknown>) => { h.props = props; return <div>Existing wizard</div>; },
+  Onboarding: (props: Record<string, unknown>) => {
+    h.props = props;
+    return <div>Existing wizard{props.backupRecoveryAction as ReactNode}</div>;
+  },
 }));
 const noKit = { state: 'missing', confirmed_at: null, fingerprint: null, positions: [] };
 h.state.mockResolvedValue({ complete: false, settings_saved: false, backups_enabled: true, destinations: 0, kit: noKit });
+h.setupStatus.mockResolvedValue({ state: 'ready', screen: true });
 const values = { box_name: 'home-hub', time_zone: 'UTC', backup_choice: 'usb', backup_destination_id: 'dst_0123456789abcdef' };
+
+it('opens recovery from the headless wizard when a backup kit is still required', async () => {
+  h.setupStatus.mockResolvedValueOnce({ state: 'ready', screen: false });
+  h.state.mockResolvedValueOnce({ complete: false, settings_saved: true, backups_enabled: true, destinations: 1, kit: noKit });
+  h.get.mockResolvedValueOnce({ ...values, saved: true });
+  h.destinations.mockResolvedValueOnce([{ id: values.backup_destination_id, kind: 'usb', label: 'Existing disk' }]);
+  const user = userEvent.setup();
+  render(<FirstRun onDone={h.done} />);
+  await user.click(await screen.findByRole('button', { name: 'Set up a proven key for the backup kit' }));
+  expect(screen.getByText('Remote approval recovery')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Back to setup' }));
+  expect(screen.getByText('Existing wizard')).toBeInTheDocument();
+});
 
 it('loads durable settings and actual destinations, then awaits save and verified readback before allowing completion', async () => {
   let release!: (value: unknown) => void;
@@ -31,6 +53,7 @@ it('loads durable settings and actual destinations, then awaits save and verifie
   render(<FirstRun onDone={h.done} />);
   expect(screen.getByRole('status')).toHaveTextContent(/Loading/);
   await screen.findByText('Existing wizard');
+  expect(h.props.ownerConfigured).toBe(true);
   expect(h.props.initial).toMatchObject({ boxName: 'home-hub', timeZone: 'UTC', backup: { destinationId: values.backup_destination_id, kitSaved: false } });
   expect(h.props.backupDestinations).toEqual([{ id: values.backup_destination_id, kind: 'usb', label: 'Existing disk' }]);
   const save = h.props.onSaveSettings as (d: unknown) => Promise<void>;

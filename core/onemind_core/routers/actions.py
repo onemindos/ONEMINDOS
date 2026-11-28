@@ -18,6 +18,7 @@ from ..context import Gateway
 from ..errors import error_responses
 from ..identity.approver_keys import DeviceSignature
 from ..jsonbody import JsonBody
+from .identity import PasswordTotpProof
 from ..plugins.actions import own_actions, own_action
 from ..taint import agent_answer, answer_source, rest_source
 from .apps import app_rows
@@ -46,6 +47,9 @@ class ApproveBody(JsonBody):
         "(blocked or unknown). Required to approve app.install for such an app; ignored otherwise.",
     )
     webauthn: dict | None = None
+    password_totp: PasswordTotpProof | None = None
+    box_code: str | None = Field(default=None, max_length=12, description="D-028 / N-1 b: the code the box's own "
+                                 "screen shows, when approve-options said box_code_required")
     # #702: or a phone approver key's signature over approve-options' device_payload (identity guard).
     device_signature: DeviceSignature | None = None
     # #723 hold-to-approve: how long the approve control was held, in ms (a physical action needs
@@ -77,7 +81,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def seen_by(p: Principal, rows: list[dict]) -> list[dict]:
         # aiPolicy (#165): an app's tool output reaches an agent only when the app allows app data
         # to go to an AI, the same rule as the MCP tools. People and plugins see the action as stored.
-        return actions_for_agent(rows, lambda: app_rows(gw)) if is_agent(p) else rows
+        if is_agent(p):
+            return actions_for_agent(rows, lambda: app_rows(gw))
+        for view in gw.action_views:  # identity: required_level on a request waiting for approval (D-028)
+            rows = [view(r) for r in rows]
+        return rows
 
     def postable_feature_types() -> list[str]:
         # Only a type registered with a params model is filed through POST /v1/actions; the rest
@@ -156,9 +164,13 @@ def register(app: FastAPI, gw: Gateway) -> None:
             override=body.override.model_dump() if body and body.override else None,
             accept_licence=body.accept_licence if body else None,
             webauthn=bool(body and body.webauthn),
+            verified_presence=bool(getattr(request.state, "action_bound_proof", False)),
             hold_ms=body.hold_ms if body else None,
         )
-        return actions.approve(p, action_id, body.plan_sha256 if body else None, strict, extra)
+        action = actions.approve(p, action_id, body.plan_sha256 if body else None, strict, extra)
+        for observe in gw.approval_observers:
+            observe(request, p, action)
+        return action
 
     @app.post(
         "/v1/actions/{action_id}/deny", tags=["actions"], operation_id="actions.deny",

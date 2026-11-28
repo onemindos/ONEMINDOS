@@ -59,6 +59,7 @@ type App struct {
 // groups is the registry, in help order. One line per command group.
 var groups = []func(a *App) []*cobra.Command{
 	loginCommands,
+	accountCommands,
 	statusCommands,
 	nodeCommands,
 	seriesCommands,
@@ -78,6 +79,7 @@ var groups = []func(a *App) []*cobra.Command{
 	storageCommands,
 	servicesCommands,
 	domainCommands,
+	logsCommands,
 	bridgeCommands,
 	notifyCommands,
 	workCommands,
@@ -89,8 +91,8 @@ var groups = []func(a *App) []*cobra.Command{
 	myDevicesCommands,
 	appCommands,
 	gatewayAdminCommands,
+	keysCommands,
 	usersCommands,
-	accountCommands,
 	backupCommands,
 	careCommands,
 	grantsCommands,

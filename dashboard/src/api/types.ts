@@ -271,6 +271,8 @@ export interface ActionResult {
  */
 export interface Action extends ActionRequest {
   approval?: components['schemas']['Action']['approval'];
+  /** D-028: the key level approving needs now (awaiting_approval, read by a person). */
+  required_level?: components['schemas']['Action']['required_level'];
   plan?: PlanPreview['plan'] | null;
   progress?: { step: string; pct: number } | null;
   id: string;
@@ -295,6 +297,7 @@ export type ApiErrorCode =
   | 'rate_limited'
   | 'payload_too_large'
   | 'policy_refused'
+  | 'unavailable'
   /** The hub no longer serves this dashboard's protocol generation (sdk/contracts/protocol-versions.md). */
   | 'upgrade_required';
 
@@ -310,12 +313,14 @@ export class ApiError extends Error {
   readonly status: number;
   readonly code: ApiErrorCode | 'network' | 'unknown';
   readonly reason: string | undefined;
+  readonly details?: unknown[];
 
-  constructor(status: number, code: ApiError['code'], message: string, reason?: string | null) {
+  constructor(status: number, code: ApiError['code'], message: string, reason?: string | null, details?: unknown[]) {
     super(message);
     this.reason = reason ?? undefined;
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
+    this.details = details;
   }
 }

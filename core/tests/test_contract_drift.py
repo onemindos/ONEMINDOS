@@ -13,9 +13,11 @@ from conftest import ADULT, AGENT, GUEST, OWNER, action_body
 from test_devsurface_api import _free_port, _read_events
 from test_notify import nclient, publish, svc
 from test_identity_notify import hc
-from test_identity import csrf, enrol, setup_owner
+from test_identity import SoftAuthenticator, csrf, enrol, register_passkey, setup_owner
+from test_identity_levels import approve
 from onemind_core.auditread import iter_records
 from onemind_core.eventstream import events_for_record
+from onemind_core.serve import pinned_path_app
 
 
 def domain_events(client):
@@ -41,7 +43,7 @@ def test_real_alert_and_notification_producers(nclient):
 @pytest.fixture
 def event_server(request):
     nclient = request.getfixturevalue(getattr(request, 'param', 'nclient'))
-    server = uvicorn.Server(uvicorn.Config(nclient.app, host='127.0.0.1', port=_free_port(),
+    server = uvicorn.Server(uvicorn.Config(pinned_path_app(nclient.app, 'lan'), host='127.0.0.1', port=_free_port(),
                                           log_level='warning', lifespan='off'))
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
@@ -416,12 +418,14 @@ def test_sse_app_outcomes_do_not_leak_foreign_action_ids(event_server, nclient, 
 @pytest.mark.parametrize('types', ['app.*,audit.*', 'audit.*'])
 def test_sse_app_action_scope_is_required_even_for_audit_fallback(event_server, hc, clock, action_read, types):
     setup_owner(hc)
+    authenticator = SoftAuthenticator()
+    register_passkey(hc, authenticator)
     scopes = ['events:read', 'apps:read', 'audit:read'] + (['actions:read'] if action_read else [])
     minted = hc.post('/v1/tokens', headers=csrf(hc), json={'name': 'app-reader', 'scopes': scopes})
     assert minted.status_code == 201
     headers = {'Authorization': 'Bearer ' + minted.json()['one_time']['token']}
     a = hc.post('/v1/actions', headers=OWNER, json=action_body(clock)).json()
-    assert hc.post(f"/v1/actions/{a['id']}/approve", headers=OWNER).status_code == 200
+    assert approve(hc, a['id'], authenticator).status_code == 200
     publish(hc, 'app', 'unhealthy', {'app_id': 'whoami'}, 'warning')
     records = [r for _, r in iter_records(hc.app.state.gateway.settings.audit_path)]
     final_cursor = str(next(r['seq'] for r in reversed(records) if r['event'] == 'app.unhealthy'))

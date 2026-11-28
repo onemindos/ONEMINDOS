@@ -6,6 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 import { App } from '../App';
+import { HttpApi } from '../api/client';
 import { MockApi } from '../api/mock';
 import { ApiError, type Action, type ApproveBody } from '../api/types';
 import { toActionPlan } from '../data/adapters';
@@ -23,7 +24,7 @@ const PLAN = { summary: 'Install Ollama.', objects: [], images: [], volumes: [{ 
 const SHA = 'sha256:plan-one';
 const future = () => new Date(Date.now() + 3600_000).toISOString();
 
-function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string; hold?: { plan: boolean; stepUp?: boolean } } = {}) {
+function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string; hold?: { plan: boolean; stepUp?: boolean }; levelUnmet?: boolean; level?: Action['required_level'] } = {}) {
   const calls: Array<{ id: string; body?: ApproveBody }> = [];
   const options: string[] = [];
   const api = new MockApi('owner-demo');
@@ -32,11 +33,12 @@ function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string;
     action.approval = { hold: true, hold_ms: 2000, physical: false } as Action['approval'];
     if (!opts.hold.plan) { action.plan = null; action.plan_sha256 = undefined; action.params = {}; action.type = 'machine.delete'; }
   }
+  if (opts.level) action.required_level = opts.level;
   Object.assign(api, {
     actions: async () => [action],
     action: async () => action,
     me: async () => ({ principal: { id: 'owner', kind: 'person', role: 'owner' }, token: null, session: null, passkeys: opts.passkey ? 1 : 0, scopes: [], capabilities: [], step_up: { passkeys_active: !!opts.passkey, require_passkey_approval: false } }),
-    approveOptions: async (id: string) => { options.push(id); return { challenge: 'c', action_sha256: 'a', plan_sha256: opts.hold && !opts.hold.plan ? undefined : (opts.serverSha ?? SHA), expires_at: future(), publicKey: { challenge: 'c' } }; },
+    approveOptions: async (id: string) => { options.push(id); if (opts.levelUnmet) throw new ApiError(409, 'conflict', 'this needs your proven key (L2); add one under Settings > Security > Sign-in keys', 'verification_level_unmet'); return { challenge: 'c', action_sha256: 'a', plan_sha256: opts.hold && !opts.hold.plan ? undefined : (opts.serverSha ?? SHA), expires_at: future(), publicKey: { challenge: 'c' } }; },
     approve: async (id: string, body?: ApproveBody) => {
       if (opts.hold?.stepUp && !body?.webauthn) { calls.push({ id, body }); throw new ApiError(401, 'unauthenticated', 'passkey needed', 'step_up_required'); }
       calls.push({ id, body }); return { ...action, state: 'accepted' as const }; },
@@ -53,6 +55,11 @@ function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string;
 }
 
 describe('Approvals page', () => {
+  it('a card shows the key level the request needs before the owner tries (required_level, D-028)', async () => {
+    setup({ hold: { plan: true }, level: 'L2' });
+    expect(await screen.findByText('Needs L2 · Proven key', undefined, T)).toBeVisible();
+  });
+
   it('a hold card replaces Approve with Hold to approve, and a plain click approves nothing', async () => {
     const { calls, user } = setup({ hold: { plan: true } });
     const hold = await screen.findByRole('button', { name: /^Hold to approve/ }, T);
@@ -96,6 +103,14 @@ describe('Approvals page', () => {
     expect(adv).toHaveTextContent(SHA);
   });
 
+  it('an approval that needs a proven key says so in plain words and the card shows the level', async () => {
+    const { calls, user } = setup({ passkey: true, levelUnmet: true });
+    await user.click(await screen.findByRole('button', { name: /^Approve/ }, T));
+    expect(await screen.findByText(/needs your proven key \(L2\).*Settings > Security > Sign-in keys/, {}, T)).toBeInTheDocument();
+    expect(await screen.findByText('Needs L2 · Proven key', {}, T)).toBeInTheDocument();
+    expect(calls).toEqual([]);
+  });
+
   it('with a passkey: approve-options, then approve carrying the plan hash and the signed assertion', async () => {
     const { calls, options, user } = setup({ passkey: true });
     await screen.findByText('Keeps this app\'s files and databases', {}, T);
@@ -130,9 +145,137 @@ describe('Approvals page', () => {
   });
 });
 
+describe('family invitations through Approvals', () => {
+  it.each([
+    { replacement: false, name: 'Sam', title: 'Invite Sam' },
+    { replacement: true, name: 'Alex', title: 'Replace invite for Alex' },
+  ])('shows the one-time link after the owner approves $title', async ({ replacement, name, title }) => {
+    const api = new MockApi('owner-demo');
+    const row = (await api.users()).find((p) => p.id === 'alex')!;
+    const invitePath = '/v1/users/invites/act-invite/claim';
+    const replacePath = '/v1/users/alex/invite';
+    const optsPath = '/v1/actions/act-invite/approve-options';
+    const approvePath = '/v1/actions/act-invite/approve';
+    const code = 'family-invite-fixture';
+    const link = `https://box.example/signin#enrol=${code}`;
+    const writes: Array<[string, unknown]> = [];
+    const pending = { id: 'act-invite', type: replacement ? 'users.reinvite' : 'users.invite', state: 'awaiting_approval',
+      params: replacement ? { user_id: 'alex', display_name: name, credential_revision: 2 } : { display_name: name, role: 'teen', username: null },
+      expires_at: future(), created_at: '2026-11-27T10:00:00Z', updated_at: '2026-11-27T10:00:00Z' };
+    const other = { ...pending, id: 'act-other', type: 'app.install', params: { app_id: 'ollama' }, created_at: '2026-11-27T10:01:00Z' };
+    // A queued creation from another client is already in Approvals. Replacements
+    // still originate in People because they revoke the old credentials.
+    let action = replacement ? undefined : pending;
+    const http = new HttpApi({ token: 'owner-demo', fetchFn: async (url, req) => {
+      const path = new URL(url, window.location.origin).pathname;
+      if (req?.method === 'GET' && path === '/v1/actions') return Response.json(action ? [other, action] : [other]);
+      if (req?.method === 'POST') {
+        const body = req.body ? JSON.parse(String(req.body)) : undefined;
+        writes.push([path, body]);
+        if (replacement && path === replacePath) {
+          action = pending;
+          return Response.json(pending, { status: 202 });
+        }
+        if (path === optsPath) return Response.json({ challenge: 'c', action_sha256: 'invite-fingerprint', expires_at: future(), publicKey: { challenge: 'c' }, password_totp_available: false });
+        if (path === approvePath) {
+          if (!body.webauthn) return Response.json({ error: 'unauthenticated', reason: 'step_up_required', message: 'Verify this approval.' }, { status: 401 });
+          action = { ...pending, state: 'succeeded', updated_at: '2026-11-27T10:02:00Z' };
+          return Response.json(action);
+        }
+        if (path === invitePath && action?.state === 'succeeded' && new Headers(req.headers).get('Authorization') === 'Bearer owner-demo') {
+          return Response.json({ ...row, display_name: name, one_time: { enrolment_url: link, enrolment_code: code, expires_at: future() } });
+        }
+      }
+      return Response.json({ error: 'not_found', message: 'Not found.' }, { status: 404 });
+    } });
+    Object.assign(api, {
+      actions: http.actions.bind(http), reissueInvite: http.reissueInvite,
+      claimInvite: http.claimInvite, approveOptions: http.approveOptions.bind(http), approve: http.approve.bind(http),
+    });
+    window.sessionStorage.setItem('onemind.token', 'owner-demo');
+    render(<MemoryRouter initialEntries={[replacement ? '/settings/users' : '/approvals?highlight=act-invite']}><SessionProvider deps={{ mock: false, makeApi: () => api, knownPrincipal: () => ({ id: 'owner', kind: 'person', role: 'owner' }) }}><App mock={false} /></SessionProvider></MemoryRouter>);
+    const user = userEvent.setup();
+    if (replacement) {
+      await user.click(await screen.findByRole('button', { name: `Send a new invite to ${name}` }, T));
+      await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'New invite' }));
+    }
+    const approve = await screen.findByRole('button', { name: `Approve ${title}` }, T);
+    expect(screen.getByText(replacement ? /signs this person out and clears their existing sign-in credentials/ : /Create a teen account with a one-time invitation/)).toBeVisible();
+    expect(screen.queryByText(code)).not.toBeInTheDocument();
+    const requests = replacement ? [[replacePath, undefined]] : [];
+    expect(writes).toEqual(requests);
+
+    await user.click(approve);
+    const dialog = within(await screen.findByRole('dialog', { name: 'Invite a person' }, T));
+    expect(dialog.getByLabelText('Invite link')).toHaveValue(link);
+    expect(dialog.getByText(code)).toBeVisible();
+    expect(dialog.getByRole('img', { name: 'Invite QR code' })).toBeVisible();
+    expect(writes).toEqual([...requests, [optsPath, {}], [approvePath, {}],
+      [approvePath, { webauthn: { id: 'cred-1', type: 'public-key' } }], [invitePath, undefined]]);
+    expect(JSON.stringify({ ...window.sessionStorage, ...window.localStorage })).not.toContain(code);
+    await user.click(dialog.getAllByRole('button', { name: 'Close' }).at(-1)!);
+    expect(screen.queryByText(code)).not.toBeInTheDocument();
+  });
+});
+
+it('issues an invitation directly from People after verifying the exact change', async () => {
+  const api = new MockApi('owner-demo');
+  const input = { display_name: 'Sam', role: 'teen' };
+  const operation = { op: 'users.create', target: '', body: { ...input, username: null } };
+  const code = 'one-use-invite';
+  const link = `https://box.example/signin#enrol=${code}`;
+  const writes: Array<[string, unknown, string | null]> = [];
+  const http = new HttpApi({ token: 'owner-demo', fetchFn: async (url, req) => {
+    const path = new URL(url, window.location.origin).pathname;
+    const proof = new Headers(req?.headers).get('OneMind-Step-Up');
+    writes.push([path, req?.body ? JSON.parse(String(req.body)) : undefined, proof]);
+    if (path === '/v1/auth/step-up/options') return Response.json({ challenge: 'c', publicKey: { challenge: 'c' } });
+    if (path === '/v1/auth/step-up') return Response.json({ step_up: 'verified-invite' });
+    if (path === '/v1/users' && proof === 'verified-invite') {
+      return Response.json({ id: 'sam', ...input, one_time: { enrolment_url: link, enrolment_code: code, expires_at: future() } }, { status: 201 });
+    }
+    return Response.json({ error: 'unauthenticated', reason: 'step_up_required', message: 'Confirm the invitation',
+      details: [{ step_up: { ...operation, required_level: 'L2' } }] }, { status: 401 });
+  } });
+  Object.assign(api, { createUser: http.createUser.bind(http) });
+  window.sessionStorage.setItem('onemind.token', 'owner-demo');
+  render(<MemoryRouter initialEntries={['/settings/users']}><SessionProvider deps={{ mock: false, makeApi: () => api, knownPrincipal: () => ({ id: 'owner', kind: 'person', role: 'owner' }) }}><App mock={false} /></SessionProvider></MemoryRouter>);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Invite a person' }, T));
+  const form = within(screen.getByRole('dialog', { name: 'Invite a person' }));
+  await user.type(form.getByLabelText('Name'), 'Sam');
+  await user.selectOptions(form.getByLabelText('Role'), 'teen');
+  await user.click(form.getByRole('button', { name: 'Create invite' }));
+  expect(await screen.findByLabelText('Invite link', {}, T)).toHaveValue(link);
+  expect(writes).toEqual([
+    ['/v1/users', input, null],
+    ['/v1/auth/step-up/options', operation, null],
+    ['/v1/auth/step-up', { credential: { id: 'cred-1', type: 'public-key' } }, null],
+    ['/v1/users', input, 'verified-invite'],
+  ]);
+  expect(JSON.stringify({ ...window.sessionStorage, ...window.localStorage })).not.toContain(code);
+});
+
 describe('approveWithStepUp', () => {
   const opts = { challenge: 'c', action_sha256: 'a', plan_sha256: SHA, expires_at: '', publicKey: { challenge: 'c' } };
   const act = { id: 'x', plan_sha256: SHA };
+
+  it('uses a fresh password and authenticator plus the local box code for an L2 approval without a passkey', async () => {
+    const availability = { required_level: 'L2', box_available: true, password_totp_available: true };
+    const approveOptions = vi.fn()
+      .mockRejectedValueOnce(new ApiError(409, 'conflict', 'This needs L2', 'verification_level_unmet', [{ approval_verification: availability }]))
+      .mockResolvedValueOnce({ ...opts, challenge: 'mfa-challenge', publicKey: {}, box_code_required: true });
+    const approve = vi.fn(async () => ({ id: 'x' }));
+    const sign = vi.fn();
+    const boxCode = vi.fn(async () => '482913');
+    const verification = vi.fn(async () => ({ method: 'password+totp' as const, password: 'a test passphrase', totp: '012345', atBox: true }));
+    await approveWithStepUp({ approveOptions, approve }, act, { sign, boxCode, verification });
+    expect(verification).toHaveBeenCalledWith(expect.objectContaining({ required_level: 'L2', box: 'alt' }));
+    expect(approveOptions).toHaveBeenNthCalledWith(2, 'x', { method: 'password+totp', at_box: true });
+    expect(approve).toHaveBeenCalledExactlyOnceWith('x', { plan_sha256: SHA, box_code: '482913',
+      password_totp: { challenge: 'mfa-challenge', password: 'a test passphrase', totp: '012345' } });
+    expect(sign).not.toHaveBeenCalled();
+  });
 
   it('sends a measured hold with the passkey and reviewed fingerprint', async () => {
     const approve = vi.fn(async () => ({ id: 'x' }));
@@ -142,6 +285,16 @@ describe('approveWithStepUp', () => {
     expect(approve).toHaveBeenCalledExactlyOnceWith('x', { plan_sha256: SHA, hold_ms: 2000, webauthn: { id: 'sig' } });
     await expect(approveWithStepUp(api, act, { passkey: true, hold: { ms: 2000, plan: 'old' }, sign })).rejects.toThrow('current plan');
     expect(approve).toHaveBeenCalledTimes(1);
+  });
+
+  it('during the grace (N-1 b) the code on the box\'s screen goes with the passkey', async () => {
+    const approve = vi.fn(async () => ({ id: 'x' }));
+    const sign = vi.fn(async () => ({ id: 'sig' }));
+    const boxCode = vi.fn(async () => '482913');
+    const api = { approveOptions: async () => ({ ...opts, required_level: 'L1', box_code_required: true }), approve } as never;
+    await approveWithStepUp(api, act, { passkey: true, sign, boxCode });
+    expect(boxCode).toHaveBeenCalledExactlyOnceWith('approve x');
+    expect(approve).toHaveBeenCalledExactlyOnceWith('x', { plan_sha256: SHA, box_code: '482913', webauthn: { id: 'sig' } });
   });
 
   it('a hold without a passkey goes unsigned, and is retried signed only when the gateway asks for step-up', async () => {

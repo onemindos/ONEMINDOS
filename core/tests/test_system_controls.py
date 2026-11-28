@@ -24,7 +24,7 @@ from onemind_core.executors import ExecResult
 from onemind_core.identity import IdentitySettings
 from onemind_core.identity.scopes import required_scopes
 from onemind_core.system import NoHostPath, node_pseudonym, redact
-from test_identity import ORIGIN, RP_ID, SoftAuthenticator, register_passkey, setup_owner
+from test_identity import LOCAL_PEER, ORIGIN, RP_ID, SoftAuthenticator, at_box, register_passkey, setup_owner
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -52,8 +52,9 @@ class Host:
 
 @contextmanager
 def box(settings, clock, *, passkey=False, host=None):
-    s = replace(settings, sections={"identity": IdentitySettings(rp_id=RP_ID, origins=(ORIGIN,), cookie_secure=False)})
-    with TestClient(create_app(s, clock=clock)) as c:
+    s = replace(settings, sections={"identity": IdentitySettings(rp_id=RP_ID, origins=(ORIGIN,), cookie_secure=False,
+                                                                  box_code_file=settings.audit_path.parent / "box-code.json")})
+    with TestClient(create_app(s, clock=clock), client=LOCAL_PEER) as c:
         if host is not None:
             c.app.state.system.executor = host
         if passkey:
@@ -70,7 +71,7 @@ def ask(c, typ, headers=OWNER, **extra):
 def approve_with_passkey(c, action_id):
     opts = c.post(f"/v1/actions/{action_id}/approve-options", headers=OWNER).json()
     return c.post(f"/v1/actions/{action_id}/approve", headers=OWNER,
-                  json={"webauthn": c.key.assert_(opts["challenge"], flat=True)})
+                  json={"webauthn": c.key.assert_(opts["challenge"], flat=True), **at_box(c, opts)})
 
 
 @pytest.mark.parametrize("typ", ["system.restart", "system.shutdown"])

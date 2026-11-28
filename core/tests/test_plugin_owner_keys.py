@@ -105,8 +105,8 @@ def test_generic_action_path_cannot_skip_owner_or_candidate_binding(client, cloc
 
 def test_key_changes_require_real_action_bound_passkey_when_active(settings, clock, public):
     from conftest import make_client
-    from test_identity import SoftAuthenticator, id_settings, register_passkey, setup_owner
-    with make_client(id_settings(settings, require_passkey_approval=False), clock) as client:
+    from test_identity import LOCAL_PEER, SoftAuthenticator, at_box, id_settings, register_passkey, setup_owner
+    with make_client(id_settings(settings, require_passkey_approval=False), clock, peer=LOCAL_PEER) as client:
         setup_owner(client)
         authenticator = SoftAuthenticator()
         register_passkey(client, authenticator)
@@ -117,7 +117,8 @@ def test_key_changes_require_real_action_bound_passkey_when_active(settings, clo
         assert client.post(route, headers=OWNER, json={"webauthn": {"fake": True}}).status_code == 401
         assert client.get(PATH, headers=OWNER).json() == {"keys": []}
         options = client.post(route + "-options", headers=OWNER).json()
-        response = client.post(route, headers=OWNER, json={"webauthn": authenticator.assert_(options["challenge"])})
+        response = client.post(route, headers=OWNER,
+                               json={"webauthn": authenticator.assert_(options["challenge"]), **at_box(client, options)})
         assert response.status_code == 200 and response.json()["state"] == "succeeded", response.text
 
 

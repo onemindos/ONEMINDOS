@@ -55,5 +55,6 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm test
+      # Shared runners can starve cold lazy imports when too many Vitest workers start together.
+      - run: npm test -- --maxWorkers=2
       - run: npm run build

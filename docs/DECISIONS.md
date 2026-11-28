@@ -286,3 +286,15 @@ Founder decisions. Each entry is final until Zeus changes it. Reference these ID
 - **The key holders run it with their own hands.** No AI agent ever holds, sees or types a real root key or PIN. Agents prepare and rehearse the script with throwaway keys only (YubiKey path: #1172; signed-update test: #1188; runbook: #1178).
   **Updated 2026-11-27 (Zeus, founder call):** sole key holder; three YubiKeys in three different places; a PIN is never stored with its YubiKey.
 - **Before the real run:** one rehearsal on a spare YubiKey, because the YubiKey steps are still marked UNVERIFIED until then.
+
+## D-034 · Simple sign-in with optional passkeys
+
+**Date** 2026-11-27 · **Decided by** Zeus · Refs #1232 · Refs #234
+
+This amends D-028 and point 2 of D-030. A person can choose a password, a password and an authenticator app, or a passkey. We recommend passkeys and keep the Kanidm passkey domain `onemind.local`. The separate Kanidm provisioning change must replace `credential-type-minimum = passkey` with a policy that accepts both password-only and password plus authenticator codes for new people. Check whether the `any` setting meets both requirements in the lab and rerun the credential checks in #1163.
+
+- At home, a password alone covers reading and reversible actions. From outside, including the mesh, sign-in needs an authenticator code with the password or a passkey. New passwords need at least 12 characters, with spaces allowed and no character-mix rules. The gateway keeps scrypt password hashing, limits failed attempts, and accepts each authenticator code once.
+- L1 means a fresh check with both the password and an authenticator code, or a passkey that confirmed its user. L2 means a proven key, or L1 plus the six-digit code visible on the box's own screen when confirming locally. L2 from outside still needs a proven key. L3 and action-specific safety floors stay in effect. Always ask remains the starting mode. Owners can loosen rules or approve actions once they meet the required proof, regardless of whether they enrolled a passkey.
+- On first run, the owner types the six-digit setup code from the box's screen and chooses a name and password. They can add email, an authenticator app and a passkey as optional steps. The owner downloads or prints the recovery kit and confirms they saved it before setup can finish. Family members get a one-time invitation link or QR valid for 24 hours and set their own passwords.
+- The box can send verification codes and optional notices through the owner's configured SMTP channel. Email never grants sign-in or a password reset.
+- To reset a forgotten password at the box, the owner uses the screen code and a recovery-kit code. A reset leaves the data and disk encryption intact. To recover remote high-risk approvals, an owner who can still prove L1 uses the kit code, waits 72 hours and then enrols a proven key. The remote path only restores approvals under D-028.

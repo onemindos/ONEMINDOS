@@ -16,7 +16,7 @@ from conftest import ADULT, AGENT, GUEST, OWNER
 from onemind_core.app import create_app
 from onemind_core.identity.scopes import required_scopes
 from onemind_core.machines.capability import MIN_MEMORY_MB, refusals
-from test_identity import csrf, enrol, id_settings, setup_owner
+from test_identity import LOCAL_PEER, csrf, enrol, id_settings, setup_owner
 
 PC = {"node_id": "pc0123456789", "hostname": "beelink", "role": "hub", "board": "x86_64-efi", "arch": "amd64",
       "mem_total_mb": 15_800, "kvm": True, "k3s": {"present": True, "role": "server", "ready": True}}
@@ -142,7 +142,7 @@ def test_the_routes_have_their_own_scope_rows(box):
 
 def test_household_accounts_read_the_capabilities_and_only_the_owner_enables(settings, clock, executor):
     s = id_settings(settings)
-    with TestClient(create_app(s, clock=clock, executor=executor)) as hc:
+    with TestClient(create_app(s, clock=clock, executor=executor), client=LOCAL_PEER) as hc:
         setup_owner(hc)
         adult, guest = enrol(hc, "adult", "ana"), enrol(hc, "guest", "gus")
         for who in (adult, guest):  # nodes:read: the same facts as /v1/nodes
@@ -154,7 +154,7 @@ def test_household_accounts_read_the_capabilities_and_only_the_owner_enables(set
 
 
 def test_a_narrow_owner_token_reads_but_cannot_enable(settings, clock, executor):
-    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor)) as hc:
+    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor), client=LOCAL_PEER) as hc:
         setup_owner(hc)
         pat = hc.post("/v1/tokens", headers=csrf(hc), json={"name": "n", "scopes": ["nodes:read"]}).json()["one_time"]["token"]
         bearer = {"Authorization": f"Bearer {pat}"}

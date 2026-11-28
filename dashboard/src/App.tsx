@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Route table. Signed out: the sign-in screen. Signed in: per-person appearance (CustomizeProvider),
 // one shared hub poll (HubProvider), the shell, and the screens of docs/design/IA.md.
-import { useEffect, useMemo } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { ScreenRoutes } from './shell/wm/ScreenRoutes';
 import { CustomizeProvider, ToastProvider, WallpaperLayer, clearPreferences } from '@onemind/ui';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -13,8 +13,12 @@ import { FirstRun, useWizardPending } from './pages/FirstRun';
 import { SignIn } from './pages/SignIn';
 import { LocaleProvider } from './i18n/LocaleProvider';
 import { useSession, useSignedIn } from './session';
+import { BoxCodeHost } from './lib/boxcode';
+import { VerificationHost } from './lib/verification';
 import { Shell } from './shell/Shell';
 import { LockScreen } from './shell/lock/LockScreen';
+
+const IdentitySetup = lazy(() => import('./pages/IdentitySetup').then(({ IdentitySetup }) => ({ default: IdentitySetup })));
 
 function Appearance({ children }: { children: React.ReactNode }) {
   const { person, token, api } = useSignedIn();
@@ -30,7 +34,7 @@ function Appearance({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function SignedInApp() {
+function Appliance() {
   const [wizard, setWizard] = useWizardPending();
   return (
     <HubProvider>
@@ -49,13 +53,30 @@ export function SignedInApp() {
   );
 }
 
+export function SignedInApp({ newMember, onEnrolled }: { newMember?: boolean; onEnrolled?: () => void } = {}) {
+  const { setupPending } = useSignedIn();
+  const [setupDone, setSetupDone] = useState(false);
+  const waiting = <p role="status">Checking account setup…</p>;
+  if (setupPending === undefined) return waiting;
+  const owner = setupPending && !setupDone;
+  if (owner || newMember) return <Suspense fallback={waiting}>
+    <IdentitySetup owner={owner} onDone={owner ? () => setSetupDone(true) : () => onEnrolled?.()} />
+  </Suspense>;
+  return <Appliance />;
+}
+
 export function App({ mock }: { mock: boolean }) {
   const { session, locked } = useSession();
+  const [newMember, setNewMember] = useState(false);
+  useEffect(() => { if (!session) setNewMember(false); }, [session]);
   const update = useUpdateNeeded();
   return (
     <LocaleProvider person={session?.person ?? null}>
       <ErrorBoundary>
-        <ToastProvider key={locked ? 'locked' : 'unlocked'}>{locked ? <LockScreen summary={locked} mock={mock} /> : update ? <UpdateNeeded state={update} /> : session ? <SignedInApp /> : <SignIn mock={mock} />}</ToastProvider>
+        <ToastProvider key={locked ? 'locked' : 'unlocked'}>
+          {session && <><BoxCodeHost /><VerificationHost /></>}
+          {locked ? <LockScreen summary={locked} mock={mock} /> : update ? <UpdateNeeded state={update} /> : session ? <SignedInApp key={session.token} newMember={newMember} onEnrolled={() => setNewMember(false)} /> : <SignIn mock={mock} onEnrolled={() => setNewMember(true)} />}
+        </ToastProvider>
       </ErrorBoundary>
     </LocaleProvider>
   );

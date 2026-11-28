@@ -10,7 +10,9 @@ owner changes it. While it is on, every agent principal is refused at the door, 
 
 from __future__ import annotations
 
-from fastapi import Depends, FastAPI
+from typing import Literal
+
+from fastapi import Depends, FastAPI, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ..agent_principals import MAX_BUDGET_PER_DAY, AgentPrincipals
@@ -20,8 +22,10 @@ from ..apimodels import PrincipalRef
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError, error_responses
+from ..identity import ctx_of
 from ..identity.scopes import register_route_scope
 from ..jsonbody import JsonBody
+from ..taint_store import INPUT_KINDS, MAX_ACCEPT, NAME_RE, AgentInputs, TaintStore
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
 ORDER = 155  # right after actions: its approval guard must see the actions it refuses
@@ -35,6 +39,8 @@ register_route_scope("GET,HEAD,PUT,POST", r"/v1/agents(/.*)?", ("users:admin",))
 register_route_scope("GET,HEAD", r"/v1/agents/kill-switch", ("instance:read",))
 register_route_scope("PUT", r"/v1/agents/kill-switch", ("*",))
 register_route_scope("DELETE", r"/v1/agents/[^/]+/nats-key", ("users:admin",))
+register_route_scope("GET,HEAD", r"/v1/agents/[^/]+/inputs", ("users:admin",))
+register_route_scope("PUT", r"/v1/agents/[^/]+/inputs", ("*",))  # owner only: it can loosen an agent
 
 
 class KillSwitch(BaseModel):
@@ -95,6 +101,28 @@ class NatsKeyBody(JsonBody):
     nkey: str = Field(description="the agent's NATS user public key (U...); the seed stays with the agent")
 
 
+class AgentInputsView(BaseModel):
+    """What an agent can read that the gateway cannot see, and the taint that follows from it."""
+
+    id: str
+    external_inputs: list[str] = Field(description="web, email, files, chat (a host with many chats), app, plugin or agent")
+    declared: bool = Field(description="false: the list is the default for this kind of principal (every agent and plugin is exposed until the owner declares otherwise)")
+    exposed: bool = Field(description="true when external_inputs is not empty")
+    permanently_tainted: bool = Field(description="an exposed agent is tainted all the time: no standing approval accepts its requests")
+    accept_injection_risk: list[str] = Field(description="write types the owner accepted the risk for; recorded, not yet in effect")
+    accept_injection_risk_effective: bool = Field(description="always false until the permission engine reads the flag")
+    updated_at: str | None = None
+    updated_by: str | None = None
+
+
+class AgentInputsBody(JsonBody):
+    model_config = ConfigDict(extra="forbid")
+    external_inputs: list[Literal["web", "email", "files", "chat"]] = Field(
+        max_length=len(INPUT_KINDS), description="the outside text this agent can read; empty means none (owner only)")
+    accept_injection_risk: list[str] = Field(default_factory=list, max_length=MAX_ACCEPT,
+                                             description="write action types the owner accepts the injection risk for")
+
+
 class BudgetBody(JsonBody):
     model_config = ConfigDict(extra="forbid")
     budget_per_day: int = Field(ge=0, le=MAX_BUDGET_PER_DAY)
@@ -136,6 +164,39 @@ def register(app: FastAPI, gw: Gateway) -> None:
              responses={200: {"model": AgentView}, **error_responses(401, 403, 422)})
     def get_agent(name: str, p: Principal = Depends(principal)):
         return svc.get(p, name)
+
+    inputs = AgentInputs(gw.db, gw.audit, gw.catalog, gw.clock)
+    app.state.agent_inputs = inputs
+    gw.actions.agent_forgotten = inputs.forget
+    gw.actions.taint.attach(
+        TaintStore(gw.db), inputs.exposure,
+        lambda event, pid, data: gw.audit.append(event, {"id": pid, "kind": "agent"}, None, data))
+
+    @app.get("/v1/agents/{name}/inputs", operation_id="agents.inputs.get", tags=TAGS,
+             responses={200: {"model": AgentInputsView}, **error_responses(401, 403, 422)},
+             openapi_extra={"security": [{"bearer": ["users:admin"]}]})
+    def get_inputs(name: str, p: Principal = Depends(principal)):
+        if not p.is_owner:  # an agent that could read its own rules and taint could shape requests to fit
+            gw.audit.append("authz.denied", p.as_dict(), None,
+                            {"attempted": "read agent inputs", "reason": "permission_denied"})
+            raise ApiError(403, "permission_denied", f"{p.kind}/{p.role} may not read what an agent reads")
+        return inputs.view(AgentPrincipals.principal_id(name))
+
+    @app.put("/v1/agents/{name}/inputs", operation_id="agents.inputs.set", tags=TAGS,
+             responses={200: {"model": AgentInputsView}, **error_responses(401, 403, 422)},
+             openapi_extra={"security": [{"bearer": ["*"]}]})
+    def set_inputs(name: str, body: AgentInputsBody, request: Request, p: Principal = Depends(principal)):
+        # Declaring fewer inputs loosens an agent, and accepting a risk does too: owner only, and a
+        # fresh passkey sign-in once passkeys are active, like a standing approval (F-2). Adding an
+        # input or removing an accepted risk only tightens, which stays at L0 (D-028).
+        pid = AgentPrincipals.principal_id(name)
+        ident = getattr(request.app.state, "identity", None)
+        via = None  # how the owner proved presence; only asked (and audited) when this loosens
+        if (ident is not None and p.is_owner and NAME_RE.fullmatch(pid)
+                and inputs.loosens(pid, body.external_inputs, body.accept_injection_risk)):
+            via = ident.require_step_up(ctx_of(request), p, "declare what an agent reads", op="agents.inputs.set",
+                                        target=name, body=body.model_dump(mode="json"))
+        return inputs.set(p, pid, body.external_inputs, body.accept_injection_risk, via=via)
 
     @app.put("/v1/agents/{name}/budget", operation_id="agents.budget.set", tags=TAGS,
              responses={200: {"model": AgentView}, **error_responses(401, 403, 422)})

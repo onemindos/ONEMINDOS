@@ -4,18 +4,30 @@
 // form sealed in this browser, a passkey signs the exact plan, and the gateway checks all of it.
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { ApprovalsBoard, Button, Dialog, HoldToApprove, SecretsForm, actionTitle, sealValues, useToast, type ActionPlan, type ActionSummary, type AppSecrets, type SecretsSubmission, type SettingsLoadable } from '@onemind/ui';
+import { ApprovalsBoard, Button, Dialog, HoldToApprove, SecretsForm, actionTitle, sealValues, useToast, type ActionPlan, type ActionSummary, type AppSecrets, type SecretsSubmission, type SettingsLoadable, type VerificationLevel } from '@onemind/ui';
 import { ApiError } from '../api/types';
+import type { UserCreated } from '../api/wiring';
 import { toActionPlan, toActionSummary } from '../data/adapters';
 import { errorText, subjectOf, useHub } from '../data/hub';
-import type { ApproveOpts } from '../lib/approve';
+import { t } from '../i18n';
+import { levelOf, type ApproveOpts } from '../lib/approve';
 import { usePoll } from '../lib/hooks';
 import { webauthnSupported } from '../lib/webauthn';
 import { useSignedIn } from '../session';
+import { InviteDialog } from './InviteDialog';
 
 /** Shown when the gateway computed no plan for a request. */
 export const NO_PLAN_NOTE = 'The hub has not described what this request will change. Approve it only if you know what it does.';
 export const APPROVE_HINT = 'Approving signs exactly this plan with your passkey. If the plan changes, the request has to be approved again.';
+
+function planNote(a: ActionSummary): string {
+  if (a.type === 'users.reinvite') return t('users.invite.replaceWarning');
+  if (a.type === 'users.invite' && typeof a.params.role === 'string') {
+    const note = t('users.invite.approval', { role: a.params.role });
+    return typeof a.params.username === 'string' ? `${note} ${t('users.invite.username', { username: a.params.username })}` : note;
+  }
+  return NO_PLAN_NOTE;
+}
 
 export function Approvals() {
   const hub = useHub();
@@ -24,7 +36,9 @@ export function Approvals() {
   const [params] = useSearchParams();
   const me = usePoll(() => api.me(), 0);
   const passkey = me.data?.step_up.passkeys_active === true && webauthnSupported();
-  const all = hub.actionList.map((a) => toActionSummary(a, hub.appName));
+  // D-028: the key level a request needs, once the hub has said so (approve-options' 409); the card shows it.
+  const [levels, setLevels] = useState<Record<string, VerificationLevel>>({});
+  const all = hub.actionList.map((a) => toActionSummary(a, hub.appName)).map((a) => (levels[a.id] ? { ...a, required_level: levels[a.id] } : a));
   const waiting = all.filter((a) => a.state === 'awaiting_approval');
   const decided = all.filter((a) => a.state !== 'awaiting_approval' && a.state !== 'requested').slice(0, 10);
   const stale = hub.freshness === 'stale' || hub.freshness === 'offline';
@@ -43,6 +57,7 @@ export function Approvals() {
   // What the owner just decided, followed to its end. Written in words as a status line so the
   // outcome is announced even after the request leaves the waiting list.
   const [last, setLast] = useState<{ id: string; title: string }>();
+  const [invite, setInvite] = useState<UserCreated>();
   const [practiceDone, setPracticeDone] = useState(false);
   const lastNow = last ? all.find((a) => a.id === last.id) : undefined;
   const ended = lastNow && !['requested', 'awaiting_approval', 'accepted', 'dispatched'].includes(lastNow.state);
@@ -58,9 +73,16 @@ export function Approvals() {
   };
   const decide = (a: ActionSummary, how: 'approve' | 'deny', sealed?: ApproveOpts['sealed'], acceptLicence?: string, hold?: ApproveOpts['hold']): Promise<boolean> =>
     hub.decide(a.id, how, { passkey, sealed, acceptLicence, hold }).then(
-      () => {
+      async (result) => {
         setLicence(undefined);
         setLast({ id: a.id, title: actionTitle(a) });
+        if (how === 'approve' && (a.type === 'users.invite' || a.type === 'users.reinvite')) {
+          if (result.state === 'succeeded' && api.claimInvite) {
+            try { setInvite(await api.claimInvite(a.id)); }
+            catch (e) { toast.show({ tone: 'bad', title: t('users.invite.claimError'), body: e instanceof Error ? e.message : String(e) }); }
+          }
+          return true;
+        }
         toast.show({ tone: how === 'approve' ? 'ok' : 'neutral', title: how === 'approve' ? 'Approved' : 'Denied', body: how === 'approve' ? 'The hub is applying it. Progress shows on the app page and in the tray.' : 'Nothing changes.' });
         return true;
       },
@@ -70,6 +92,8 @@ export function Approvals() {
           setLicence({ action: a, appId: a.params.app_id, message: e.message, sealed, typed: '' });
           return false;
         }
+        const level = how === 'approve' ? levelOf(e) : undefined;
+        if (level) setLevels((m) => ({ ...m, [a.id]: level }));
         fail(how, e);
         return false;
       },
@@ -118,8 +142,8 @@ export function Approvals() {
     <ApprovalsBoard
       actions={actions}
       plans={plans}
-      planNote={NO_PLAN_NOTE}
-      approveHint={passkey ? APPROVE_HINT : 'Approving uses your sign-in. Add a passkey in Account and security to have every approval signed.'}
+      planNote={planNote}
+      approveHint={passkey && me.data?.setup_pending === undefined ? APPROVE_HINT : 'Approval applies to the plan shown here. Some actions ask you to verify your identity before the box applies the change.'}
       calls={['GET /v1/actions', 'POST /v1/actions/{id}/approve-options', 'POST /v1/actions/{id}/approve', 'POST /v1/actions/{id}/deny']}
       decided={decided}
       now={hub.now}
@@ -134,10 +158,10 @@ export function Approvals() {
     />
     {hub.canDecide === 'yes' && (
       <section aria-labelledby="approval-practice-title">
-        <h2 id="approval-practice-title">Practice an approval</h2>
+        <h2 id="approval-practice-title">{t('approvals.practice.title')}</h2>
         <p>{practiceDone ? 'Practice approved.' : 'Try an approval without changing your box. Press and hold the button.'}</p>
         {practiceDone
-          ? <Button onClick={() => setPracticeDone(false)}>Try again</Button>
+          ? <Button onClick={() => setPracticeDone(false)}>{t('common.retry')}</Button>
           : <HoldToApprove label="Practice: Hold to approve" onApprove={() => setPracticeDone(true)} />}
       </section>
     )}
@@ -160,12 +184,13 @@ export function Approvals() {
         onClose={() => setLicence(undefined)}
         actions={<>
           <Button onClick={() => setLicence(undefined)}>Cancel</Button>
-          <Button variant="primary" disabled={licence.typed !== licence.appId} onClick={() => void decide(licence.action, 'approve', licence.sealed, licence.appId)}>Accept licence and approve</Button>
+          <Button variant="primary" disabled={licence.typed !== licence.appId} onClick={() => void decide(licence.action, 'approve', licence.sealed, licence.appId)}>{t('approvals.licence.accept')}</Button>
         </>}
       >
-        <label>App id <input aria-label="App id" value={licence.typed} autoComplete="off" onChange={(e) => setLicence({ ...licence, typed: e.target.value })} /></label>
+        <label>{t('approvals.licence.appId')} <input aria-label={t('approvals.licence.appId')} value={licence.typed} autoComplete="off" onChange={(e) => setLicence({ ...licence, typed: e.target.value })} /></label>
       </Dialog>
     )}
+    <InviteDialog invite={invite} onClose={() => setInvite(undefined)} />
     </>
   );
 }

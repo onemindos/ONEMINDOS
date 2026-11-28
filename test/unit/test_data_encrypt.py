@@ -5,6 +5,7 @@ passphrase. data_encrypt.py decides everything; these tests run it with a fake c
 sequence, the secrets handling and the 'never touch data that is already there' rules. The real boot (swtpm) is
 test/qemu/dataenc.py, run in CI."""
 import copy, hashlib, json, importlib.util, os, re, shutil, subprocess, sys, tempfile, unittest
+from pathlib import Path
 from unittest import mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -660,7 +661,69 @@ class Main(unittest.TestCase):
 
 
 
+class RecoveryKit(unittest.TestCase):
+    def test_handoff_stays_root_only_and_does_not_follow_links(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "unrelated"
+            target.write_text("untouched")
+            key = Path(directory) / "data-recovery-key"
+            key.symlink_to(target)
+            with mock.patch.multiple(de, RUN=directory, RECOVERY_FILE=str(key)):
+                de.keep_recovery_key(RECOVERY)
+            self.assertEqual(target.read_text(), "untouched")
+            self.assertFalse(key.is_symlink())
+            self.assertEqual(key.stat().st_uid, os.geteuid())
+            self.assertEqual(key.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(key.read_text(), RECOVERY + "\n")
+            self.assertCountEqual(Path(directory).iterdir(), [target, key])
+
+    def test_lost_ram_handoff_is_recovered_using_existing_disk_unlock(self):
+        actual_exists = os.path.exists
+        for tpm, secret in ((True, None), (False, PASSPHRASE), (False, RECOVERY)):
+            with self.subTest(tpm=tpm, passphrase=secret == PASSPHRASE), tempfile.TemporaryDirectory() as directory:
+                key = Path(directory) / "data-recovery-key"
+                runner = FakeRunner()
+                answers = {"uuid": "CRYPT-LUKS2-test", "name": "onemind-data"}
+                prompt = mock.Mock(return_value=secret)
+                with mock.patch.multiple(de, RUN=directory, RECOVERY_FILE=str(key)), \
+                     mock.patch.object(de.os, "geteuid", return_value=0), \
+                     mock.patch.object(de.sys.stdin, "isatty", return_value=True), \
+                     mock.patch.object(de.os.path, "exists", side_effect=lambda p: tpm if p == de.TPM_DEV
+                                       else actual_exists(p)), \
+                     mock.patch.object(de.os.path, "realpath", return_value="/dev/dm-0"), \
+                     mock.patch.object(de, "read_sysfs", side_effect=lambda p: answers.get(p.split("/")[-1])), \
+                     mock.patch.object(de.os, "listdir", return_value=["test-partition"]), \
+                     mock.patch("builtins.print") as printed:
+                    self.assertEqual(de.recover_kit(runner=runner, prompt=prompt), 0)
+                self.assertEqual(key.read_text().strip(), RECOVERY)
+                self.assertEqual(key.stat().st_mode & 0o777, 0o600)
+                self.assertEqual(runner.lines()[-1], "systemctl restart onemind-gateway.service")
+                if tpm:
+                    self.assertIn("--unlock-tpm2-device=auto --recovery-key /dev/test-partition", runner.lines()[0])
+                    prompt.assert_not_called()
+                else:
+                    method = "--unlock-key-file=/dev/stdin" if secret == PASSPHRASE else "--test-passphrase --key-file -"
+                    self.assertIn(method + (" --recovery-key" if secret == PASSPHRASE else "") + " /dev/test-partition",
+                                  runner.lines()[0])
+                    self.assertEqual(runner.calls[0][1], secret)
+                    prompt.assert_called_once()
+                for secret in (RECOVERY, PASSPHRASE):
+                    self.assertNotIn(secret, repr(printed.call_args_list))
+                    self.assertNotIn(secret, repr(runner.lines()))
+
+
 class Wiring(unittest.TestCase):
+    def test_gateway_alone_gets_the_open_disk_key_descriptor(self):
+        units = Path(ROOT, "os/rootfs/layers/onemind/usr/lib/systemd/system")
+        gateway = units / "onemind-gateway.service"
+        handoff = "OpenFile=/run/onemind/data-recovery-key:data-recovery-key:graceful"
+        self.assertIn(handoff, gateway.read_text())
+        self.assertIn("ONEMIND_IDENTITY_RECOVERY_DISK_STATE_FILE=/run/onemind/data-crypt.json", gateway.read_text())
+        self.assertNotIn("gateway-recovery-key", gateway.read_text())
+        for unit in units.glob("*.service"):
+            if unit != gateway:
+                self.assertNotIn("/run/onemind/data-recovery-key", unit.read_text())
+
     def test_unit_runs_before_any_mount_and_a_locked_disk_is_not_a_failed_unit(self):
         u = rd("os/rootfs/layers/base/usr/lib/systemd/system/onemind-data-encrypt.service")
         self.assertIn("Before=local-fs-pre.target", u)

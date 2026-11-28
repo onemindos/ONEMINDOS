@@ -119,6 +119,11 @@ describe('actions → approvals, progress, notifications, activity', () => {
     expect(toActionSummary({ ...actions[0]!, params: { app_id: 'ollama' } }).target_name).toBeUndefined();
   });
 
+  it('carries the key level approving needs, so the card shows it before the owner tries (D-028)', () => {
+    expect(toActionSummary({ ...actions[0]!, required_level: 'L2' }).required_level).toBe('L2');
+    expect(toActionSummary(actions[0]!).required_level).toBeUndefined();
+  });
+
   it('maps action states onto the install progress track', () => {
     expect(jobState('awaiting_approval')).toBe('awaiting_approval');
     expect(jobState('accepted')).toBe('pulling');

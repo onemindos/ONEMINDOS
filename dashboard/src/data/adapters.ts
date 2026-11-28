@@ -199,9 +199,11 @@ export function requesterKind(kind: string | undefined): 'person' | 'agent' {
 export function toActionSummary(a: Action, appName?: (id: string) => string): ActionSummary {
   const rb = a.requested_by;
   const db = a.decided_by;
-  const appId = (a.params as Record<string, unknown>).app_id;
+  const { app_id: appId, display_name: personName } = a.params as Record<string, unknown>;
+  const familyInvite = ['users.invite', 'users.reinvite'].includes(a.type);
   return {
-    target_name: appName && typeof appId === 'string' ? appName(appId) : undefined,
+    target_name: familyInvite && typeof personName === 'string' ? personName
+      : appName && typeof appId === 'string' ? appName(appId) : undefined,
     id: a.id,
     type: a.type,
     params: a.params as Record<string, unknown>,
@@ -212,6 +214,8 @@ export function toActionSummary(a: Action, appName?: (id: string) => string): Ac
     requested_by: rb ? { id: rb.id, kind: requesterKind(rb.kind), role: rb.role } : undefined,
     decided_by: db ? { id: db.id, kind: db.kind } : undefined,
     message: RESULT_MESSAGE.has(a.state) ? (a.result?.message ?? undefined) : undefined,
+    // D-028: the key level approving needs, from the hub's read model; the card shows "Needs L2" from it.
+    required_level: a.required_level ?? undefined,
   };
 }
 

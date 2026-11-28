@@ -1283,15 +1283,16 @@ def main(argv=None) -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--root", default=os.environ.get("ONEMIND_FIRSTBOOT_ROOT", "/"))
     sp = ap.add_subparsers(dest="cmd", required=True)
-    for c in ("apply", "kubeconfig", "mesh", "join"):
+    handlers = {"apply": apply, "kubeconfig": kubeconfig, "mesh": mesh, "join": join}
+    for c in handlers:
         sp.add_parser(c)
     c = sp.add_parser("configure")
     for k in KEYS:
         c.add_argument("--" + k.replace("_", "-"), required=k == "role")
     a = ap.parse_args(argv)
     p = Paths(a.root)
-    if a.cmd in ("apply", "kubeconfig", "mesh", "join"):
-        return {"apply": apply, "kubeconfig": kubeconfig, "mesh": mesh, "join": join}[a.cmd](p)
+    if a.cmd in handlers:
+        return handlers[a.cmd](p)
     if load_state(p):
         print("already configured", file=sys.stderr)
         return 2

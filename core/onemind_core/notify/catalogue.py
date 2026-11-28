@@ -106,6 +106,13 @@ _SPECS = [
          "OneMind cannot tell whether this change was applied. Check the app before retrying. {message}",
          dedupe="action:{action_id}", link="/activity/{action_id}", auto_resolve=False,
          learn_more=f"{_DOCS}/learning/09-gateway-approvals-agents-mcp.md"),
+    # ---- work (in the app only; addressed to the assignee named in person_id) -------------
+    Spec("work.task.assigned", "inbox", "automation", "info", "Assigned to you: {title}", "",
+         audience=PERSON, link="/work"),
+    Spec("work.task.due_soon", "inbox", "automation", "info", "Due soon: {title}", "Due {due_at}.",
+         audience=PERSON, link="/work"),
+    Spec("work.task.overdue", "inbox", "automation", "warning", "Overdue: {title}", "Was due {due_at}.",
+         audience=PERSON, link="/work"),
     # ---- nodes ---------------------------------------------------------------------------
     Spec("node.joined", "notify", "nodes", "info", "Node {node_id} joined",
          "The node joined as a {role}.", link="/nodes"),
@@ -142,6 +149,9 @@ _SPECS = [
          link="/storage", learn_more=_STORAGE_HELP),
     Spec("storage.disk.ok", "resolve", "storage", resolves=("storage:{node_id}:disk:{disk_key}",)),
     # ---- automation and security ---------------------------------------------------------
+    Spec("auth.remote_recovery.started", "notify", "security", "critical", "Remote approval recovery requested",
+         "A new proven key can be added after {available_at}. Cancel the request in Sign-in keys if you did not start it.",
+         link="/settings/sign-in-keys"),
     Spec("automation.breaker.opened", "open", "automation", "warning", "Automation paused: {name}",
          "{failures} requests failed. Review the rule and run a dry run before enabling it again.",
          dedupe="automation:{rule_id}:breaker", link="/automation", learn_more=f"{_DOCS}/leap/core/AUTOMATION.md"),

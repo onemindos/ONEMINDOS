@@ -124,7 +124,29 @@ def others_objects(owner: int, child: int = 404) -> dict:
 
 
 POLICY |= {
-    ("POST", "/v1/auth/setup"): Row(cells(401, owner=201), w.p_setup, "§12.6 first owner needs the install owner token", ID),
+    ("POST", "/v1/auth/setup"): Row(cells(401), w.p_setup, "D-034: screen-equipped setup requires the on-box code", ID),
+    ("GET", "/v1/auth/setup/status"): Row(OPEN, w.p_static("/v1/auth/setup/status"), "D-034 public first-run state", ID),
+    ("POST", "/v1/auth/setup/options"): Row(cells(200, child=409, expired=409), w.p_static("/v1/auth/setup/options"),
+                                             "D-034 public LAN proof; 409 once there is an owner", ID),
+    ("POST", "/v1/auth/setup/kit"): Row(own_credentials(409), w.p_static("/v1/auth/setup/kit"),
+                                         "D-034 pending owner only", ID),
+    ("POST", "/v1/auth/setup/finish"): Row(own_credentials(409), lambda world: w.Req("/v1/auth/setup/finish", json={
+        "saved": True, "method": "download", "recovery_code": "probe"}), "D-034 pending owner confirms the kit", ID),
+    ("POST", "/v1/auth/recovery/options"): Row(OPEN, w.p_recovery_options,
+                                                "D-034 public LAN proof; no account data is returned", ID),
+    ("POST", "/v1/auth/recovery/reset"): Row(cells(401), lambda world: w.Req("/v1/auth/recovery/reset", json={
+        "challenge_id": "missing", "box_code": "123456", "recovery_code": "probe", "new_password": "new local password"}),
+        "D-034 both the screen and recovery kit code are required", ID),
+    ("GET", "/v1/auth/recovery/remote"): Row(own_credentials(403), w.p_static("/v1/auth/recovery/remote"),
+                                             "D-034 a signed-in owner may read their remote recovery status", ID),
+    ("POST", "/v1/auth/recovery/remote"): Row(own_credentials(403), lambda world: w.Req("/v1/auth/recovery/remote", json={
+        "recovery_code": "probe"}), "D-034 remote recovery needs an owner session with L1 and a kit code", ID),
+    ("DELETE", "/v1/auth/recovery/remote"): Row(own_credentials(403), w.p_static("/v1/auth/recovery/remote"),
+                                                "D-034 a signed-in owner may cancel their remote recovery", ID),
+    ("POST", "/v1/auth/email/options"): Row(own_credentials(409), w.p_static("/v1/auth/email/options"),
+                                            "D-034 verify an address from its account's own session", ID),
+    ("POST", "/v1/auth/email/verify"): Row(own_credentials(401), lambda world: w.Req("/v1/auth/email/verify", json={
+        "challenge_id": "missing", "code": "123456"}), "D-034 bind address confirmation to the same session", ID),
     ("POST", "/v1/auth/login/options"): Row(OPEN, w.p_static("/v1/auth/login/options"), "§12.6 anyone", ID),
     ("POST", "/v1/auth/login"): Row(OPEN, w.p_login, "§12.6 anyone, by password", ID),
     ("POST", "/v1/auth/enrol"): Row(cells(201), w.p_enrol, "§12.6 anyone holding an enrolment code", ID),
@@ -149,6 +171,19 @@ POLICY |= {
                                            "#702 own approver keys", ID, UNAUDITED),
     ("DELETE", "/v1/auth/approver-keys/{key_id}"): Row(own_credentials(404), w.p_static("/v1/auth/approver-keys/apk_none"),
                                                        "#702 own approver keys", ID, UNAUDITED),
+    # D-028 verification levels: a person's own step-up (a session; the probe has no passkey, so 409 and 401),
+    # and the owner's verification table and trusted key models.
+    ("POST", "/v1/auth/step-up/options"): Row(own_credentials(409), lambda w_: w.Req("/v1/auth/step-up/options", json={"op": "users.update"}),
+                                              "D-028 a signed-in person's own step-up", ID, UNAUDITED),
+    ("POST", "/v1/auth/step-up"): Row(own_credentials(401), lambda w_: w.Req("/v1/auth/step-up", json={"credential": {"id": "x"}}),
+                                      "D-028 a signed-in person's own step-up (the probe's assertion is not real)", ID, UNAUDITED),
+    ("GET", "/v1/verification-requirements"): Row(ACCOUNT_ADMIN, w.p_static("/v1/verification-requirements"),
+                                                  "D-028 the owner's verification table", ID),
+    ("GET", "/v1/auth/authenticator-allowlist"): Row(ACCOUNT_ADMIN, w.p_static("/v1/auth/authenticator-allowlist"),
+                                                     "D-028 the owner's trusted key models", ID),
+    ("DELETE", "/v1/auth/authenticator-allowlist/{aaguid}"): Row(cells(403, **GONE, owner=404, **PENDING_DENY),
+                                                                 w.p_static("/v1/auth/authenticator-allowlist/a1b2c3d4000040008000000000000000"),
+                                                                 "D-028 owner; taking trust away needs no step-up", ID),
     ("GET", "/v1/auth/methods"): Row(own_credentials(200), w.p_static("/v1/auth/methods"), "§12.6 own sign-in methods", ID, UNAUDITED),
     ("POST", "/v1/auth/password"): Row(own_credentials(204), w.p_password, "§12.6 own credentials", ID, UNAUDITED),
     ("POST", "/v1/auth/totp/setup"): Row(own_credentials(200), w.p_static("/v1/auth/totp/setup"), "§12.6 own credentials", ID, UNAUDITED),
@@ -156,8 +191,17 @@ POLICY |= {
     ("POST", "/v1/auth/totp/disable"): Row(own_credentials(204), w.p_totp_disable, "§12.6 own credentials", ID, UNAUDITED),
     ("GET", "/v1/me"): Row(SIGNED_IN, w.p_static("/v1/me"), "§12.6 any principal", ID),
     ("GET", "/v1/users"): Row(ACCOUNT_ADMIN, w.p_static("/v1/users"), "§12.6 users:read is owner only", ID),
-    ("POST", "/v1/users"): Row(cells(403, **GONE, owner=201, **PENDING_DENY), w.p_user_create, "§12.6 owner", ID),
-    ("PATCH", "/v1/users/{user_id}"): Row(ACCOUNT_ADMIN, w.p_user_patch, "§12.6 owner", ID),
+    ("POST", "/v1/users"): Row(cells(403, **GONE, **PENDING_DENY), w.p_user_create,
+                              "D-034 direct invitations require a verified owner session", ID),
+    ("POST", "/v1/users/invites"): Row(cells(403, **GONE, **PENDING_DENY), lambda world: w.Req("/v1/users/invites", json={
+        "display_name": "Family", "role": "adult"}), "D-034 owner session files family invitation for approval", ID),
+    ("POST", "/v1/users/{user_id}/invite"): Row(cells(403, **GONE, **PENDING_DENY), w.p_reinvite,
+                                                 "D-034 owner session files family credential replacement for approval", ID),
+    ("POST", "/v1/users/invites/{action_id}/claim"): Row(cells(403, **GONE, **PENDING_DENY),
+                                                        w.p_static("/v1/users/invites/act_missing/claim"),
+                                                        "D-034 only the approving owner session can collect a family invitation", ID),
+    ("PATCH", "/v1/users/{user_id}"): Row(cells(403, **GONE, owner=401, **PENDING_DENY), w.p_user_patch,
+                                            "D-034 owner step-up; this probe uses a static token", ID),
     ("POST", "/v1/users/{user_id}/disable"): Row(ACCOUNT_ADMIN, w.p_user_disable, "§12.6 owner", ID),
     ("GET", "/v1/tokens"): Row(cells(200, **GONE, child=403, **PENDING_DENY), w.p_static("/v1/tokens"),
                                "§12.6 owner all, others own; a child's role defaults hold no tokens scope", ID),
@@ -285,6 +329,53 @@ POLICY |= {
     ("DELETE", "/v1/work/projects/{project_id}/tasks/{task_id}"): Row(
         cells(403, **GONE, owner=422, adult=422, child=422),
         w.p_static("/v1/work/projects/missing/tasks/missing"), "Work revision deletion is people-only"),
+    ("GET", "/v1/work/projects"): Row(cells(403, **GONE, owner=200, adult=200, child=200),
+                                       w.p_static("/v1/work/projects"), "Work lists only the caller's projects"),
+    ("GET", "/v1/work/projects/{project_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing"), "Work hides missing and other people's projects"),
+    ("PATCH", "/v1/work/projects/{project_id}"): Row(
+        cells(403, **GONE, owner=422, adult=422, child=422),
+        w.p_static("/v1/work/projects/missing"), "Work project edits are people-only and creator-only"),
+    ("DELETE", "/v1/work/projects/{project_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing"), "Work project deletion is people-only and creator-only"),
+    ("GET", "/v1/work/projects/{project_id}/members"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/members"), "Work lists members of visible projects only"),
+    ("PUT", "/v1/work/projects/{project_id}/members/{person_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=403),
+        w.p_static("/v1/work/projects/missing/members/missing"), "Work member adds are for adults; a child or teen is refused by role first"),
+    ("DELETE", "/v1/work/projects/{project_id}/members/{person_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/members/missing"), "Work member changes are people-only"),
+    ("GET", "/v1/work/projects/{project_id}/tasks/{task_id}/activity"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/tasks/missing/activity"), "Work history follows task visibility"),
+    ("POST", "/v1/work/parse"): Row(cells(403, **GONE, owner=422, adult=422, child=422),
+                                     w.p_static("/v1/work/parse"), "Work parse preview is people-only"),
+    ("GET", "/v1/work/projects/{project_id}/tasks/{task_id}/comments"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/tasks/missing/comments"), "Work comments follow task visibility"),
+    ("POST", "/v1/work/projects/{project_id}/tasks/{task_id}/comments"): Row(
+        cells(403, **GONE, owner=422, adult=422, child=422),
+        w.p_static("/v1/work/projects/missing/tasks/missing/comments"), "Work comments are people-only"),
+    ("DELETE", "/v1/work/projects/{project_id}/tasks/{task_id}/comments/{comment_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/tasks/missing/comments/missing"), "Only a comment's author deletes it"),
+    ("GET", "/v1/work/projects/{project_id}/sections"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/sections"), "Work lists sections of visible projects only"),
+    ("POST", "/v1/work/projects/{project_id}/sections"): Row(
+        cells(403, **GONE, owner=422, adult=422),
+        w.p_static("/v1/work/projects/missing/sections"), "Work section changes are for adults; a child or teen is refused by role first (#1137)"),
+    ("PATCH", "/v1/work/projects/{project_id}/sections/{section_id}"): Row(
+        cells(403, **GONE, owner=422, adult=422),
+        w.p_static("/v1/work/projects/missing/sections/missing"), "Work section changes are for adults; a child or teen is refused by role first (#1137)"),
+    ("DELETE", "/v1/work/projects/{project_id}/sections/{section_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404),
+        w.p_static("/v1/work/projects/missing/sections/missing"),
+        "Work section changes are for adults; a child or teen is refused by role first (#1137)"),
     ("GET", "/v1/series"): Row(CHILD_CANNOT, w.p_static("/v1/series?node_id=node1&metric=cpu_pct"),
                                "Node metric history, with the same monitoring:read scope as live metrics"),
     ("GET", "/v1/monitoring/summary"): Row(CHILD_CANNOT, w.p_static("/v1/monitoring/summary"),
@@ -368,6 +459,8 @@ POLICY |= {
                                            f"{_AUTOMATION}: only the owner grants a standing approval"),
     ("DELETE", "/v1/approval-policies/{policy_id}"): Row(OWNER_ONLY_404, w.p_missing("/v1/approval-policies/{policy}"),
                                                          f"{_AUTOMATION}: only the owner revokes one"),
+    ("POST", "/v1/approval-policies/{policy_id}/confirm"): Row(OWNER_ONLY_404, w.p_missing("/v1/approval-policies/{policy}/confirm"),
+                                                              f"{_AUTOMATION}: only the owner confirms a paused one"),
     ("GET", "/v1/automation/rules"): Row(READ_ANY, w.p_static("/v1/automation/rules"), f"{_AUTOMATION}: any reader"),
     ("POST", "/v1/automation/rules"): Row(grid(201, 403, 403, 403, 403), w.p_rule_create,
                                           f"{_AUTOMATION}: only the owner writes rules (an agent is refused)"),
@@ -400,6 +493,11 @@ POLICY |= {
     ("POST", "/v1/agents/{name}/resume"): Row(ONLY_OWNER, w.p_missing("/v1/agents/hermes/resume", json={}),
                                               "AIG-03: an agent never resumes itself"),
     # #627: an agent's NATS user (account AGENTS) is the owner's to add or remove; an agent never keys itself
+    ("GET", "/v1/agents/{name}/inputs"): Row(ONLY_OWNER, w.p_static("/v1/agents/agent:probe/inputs"),
+                                             "PR 6: only the owner reads what an agent can read outside"),
+    ("PUT", "/v1/agents/{name}/inputs"): Row(ONLY_OWNER, w.p_missing("/v1/agents/agent:probe/inputs",
+                                                                     json={"external_inputs": ["web"]}),
+                                             "PR 6: only the owner changes it (an agent never lowers its own taint)"),
     ("GET", "/v1/agents/{name}/nats-key"): Row(ONLY_OWNER, w.p_static("/v1/agents/agent:probe/nats-key"),
                                                "#627: only the owner reads an agent's NATS key"),
     ("PUT", "/v1/agents/{name}/nats-key"): Row(ONLY_OWNER, w.p_missing("/v1/agents/agent:probe/nats-key", json={
@@ -450,6 +548,10 @@ POLICY |= {
     ("GET", "/v1/restores/{restore_id}"): Row(HOUSEHOLD_404, w.p_missing("/v1/restores/{restore}"), f"{_BACKUPS}: household read"),
     ("GET", "/v1/backups/kit"): Row(ONLY_OWNER, w.p_static("/v1/backups/kit"), f"{_BACKUPS}: the emergency kit is owner only"),
     ("POST", "/v1/backups/kit"): Row(OFF_OWNER_ONLY, w.p_static("/v1/backups/kit"), f"{_BACKUPS}: the emergency kit is owner only"),
+    ("POST", "/v1/backups/kit/request"): Row(OFF_OWNER_ONLY, w.p_static("/v1/backups/kit/request"),
+                                             f"{_BACKUPS}: only the owner files a kit request"),
+    ("POST", "/v1/backups/kit/{action_id}/claim"): Row(OWNER_ONLY_404, w.p_static("/v1/backups/kit/act_missing/claim"),
+                                                       f"{_BACKUPS}: only the approving owner session claims the key"),
     ("POST", "/v1/backups/kit/confirm"): Row(OWNER_ONLY_404, w.p_missing("/v1/backups/kit/confirm", json={"answers": {}}),
                                              f"{_BACKUPS}: the emergency kit is owner only"),
     # ---- first-run settings (contract 12.41) ----------------------------------------------------------------
@@ -878,6 +980,11 @@ POLICY |= {
         cells(403, **GONE, owner=409, plugin=DENIED, automation=DENIED, node=DENIED),
         w.p_static("/v1/system/services/onemind-gateway.service/logs"),
         "core/onemind_core/routers/services.py: a unit's redacted journal; owner only, audited"),
+    # P-07: the whole-system journal is owner only and audited; with no host socket in this world the owner gets 409.
+    ("GET", "/v1/system/journal"): Row(
+        cells(403, **GONE, owner=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        w.p_static("/v1/system/journal"),
+        "core/onemind_core/routers/journal.py: the redacted system journal; owner only, read only, audited, rate and size limited"),
     # #636: the owner and agents pass authorization and get 409 (no host socket: nothing is filed); with a host
     # the request is filed and waits for the owner's passkey approval (tests/test_service_actions.py).
     ("POST", "/v1/system/services/{unit}/restart"): Row(

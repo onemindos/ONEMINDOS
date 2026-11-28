@@ -171,6 +171,8 @@ _R("GET,HEAD", r"/v1/apps/[^/]+/credentials", ("actions:approve",))
 # The MCP door passes that explicit scope ceiling to the catalogue before dispatch.
 _R("POST", r"/mcp", ("actions:request", "work:read"))
 _R("GET,DELETE", r"/mcp", ("actions:request",))
+# D-028: the verification table is the owner's; changes are verification.requirement.set actions.
+_R("GET,HEAD", r"/v1/verification-requirements", ("actions:approve",))
 _R("GET,HEAD", r"/v1/users", ("users:read",))
 _R("POST,PATCH", r"/v1/users(/.*)?", ("users:admin",))
 _R("GET,HEAD", r"/v1/tokens", ("tokens:read", "tokens:self", "tokens:admin"))

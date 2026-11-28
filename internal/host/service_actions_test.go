@@ -125,3 +125,37 @@ func TestServiceLogsRoute(t *testing.T) {
 		t.Fatalf("the journal was read for a refused request: %v", asked)
 	}
 }
+
+func TestSystemJournalRoute(t *testing.T) {
+	get := func(srv *Server, path string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(rec, httptest.NewRequest("GET", path, nil))
+		return rec
+	}
+	if rec := get(&Server{}, "/v1/journal"); rec.Code != http.StatusNotFound {
+		t.Fatalf("no SystemJournal: the route is off, got %d", rec.Code)
+	}
+	var asked []svcregistry.JournalQuery
+	srv := &Server{SystemJournal: func(_ context.Context, q svcregistry.JournalQuery, w io.Writer) error {
+		asked = append(asked, q)
+		_, err := io.WriteString(w, "kernel: hello\n")
+		return err
+	}}
+	rec := get(srv, "/v1/journal?unit=sshd.service&priority=err&boot=-1&lines=10")
+	if rec.Code != http.StatusOK || rec.Body.String() != "kernel: hello\n" || len(asked) != 1 ||
+		asked[0] != (svcregistry.JournalQuery{Unit: "sshd.service", Priority: "err", Boot: -1, Lines: 10}) {
+		t.Fatalf("%d %q %+v", rec.Code, rec.Body, asked)
+	}
+	if rec := get(srv, "/v1/journal"); rec.Code != http.StatusOK || asked[1].Lines != 200 || asked[1].Boot != 0 {
+		t.Fatalf("defaults: %d %+v", rec.Code, asked[1])
+	}
+	for _, q := range []string{"lines=0", "lines=2001", "lines=x", "boot=1", "boot=-99", "boot=x", "priority=9", "unit=--rotate",
+		"unit=x.service%20--vacuum-size%3D1", "boot=-1&follow=1"} {
+		if rec := get(srv, "/v1/journal?"+q); rec.Code != http.StatusBadRequest {
+			t.Fatalf("%s: %d", q, rec.Code)
+		}
+	}
+	if len(asked) != 2 {
+		t.Fatalf("journalctl was asked for a refused request: %+v", asked)
+	}
+}

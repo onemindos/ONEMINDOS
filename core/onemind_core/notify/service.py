@@ -168,6 +168,12 @@ class NotifyService:
         if spec is None:
             return
         data = dict(envelope.get("data") or {})
+        enrich = self.gw.notify_enrichers.get(str(envelope.get("type", "")).split(".", 1)[0])
+        if enrich is not None:
+            try:
+                data.update({k: v for k, v in enrich(data).items() if k not in data})
+            except Exception:
+                log.exception("notification enricher failed for %s", envelope.get("type"))
         self.ingest(spec, data, source=envelope.get("source_id") or "gateway")
 
     def on_audit_line(self, line: bytes) -> None:

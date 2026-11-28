@@ -3,7 +3,7 @@
 
 A standing approval is the owner's "yes, in advance" for a narrow set of requests:
 
-    {"allow": {"types": ["app.remove"], "requested_by": ["automation:*"],
+    {"allow": {"types": ["app.remove"], "requested_by": ["automation:update-policy"],
                "params": {"app_id": {"enum": ["whoami"]}}},
      "limits": {"per_day": 3}, "window_id": "win_nightly", "expires_at": "..."}
 
@@ -45,7 +45,14 @@ from .cron import parse_ranges, resolve_tz, window_open
 from .store import AutomationRepository, new_id
 
 MAX_POLICY_DAYS = 90
-WILDCARD_KINDS = ("automation", "person")
+# No new wildcard rule is accepted (gateway permissions PR 5, gap 18). Rules made before that keep a
+# narrow reading: `person:*` covers only an owner or an adult, and `automation:*` only an automation
+# an owner or adult wrote by hand (never one an agent proposed); legacy `automation:*` rules were
+# also paused by migration until the owner confirms them.
+WILDCARD_KINDS: tuple[str, ...] = ()
+LEGACY_WILDCARD_KINDS = ("automation", "person")
+WILDCARD_PERSON_ROLES = frozenset({"owner", "adult"})
+SYSTEM_AUTOMATIONS = frozenset({"automation:update-policy"})
 REQUESTER_RE = re.compile(r"^(automation|person|agent|plugin):([A-Za-z0-9][A-Za-z0-9_.:-]{0,79}|\*)$")
 PARAM_NAME_RE = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
 SEMVER_RE = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$")
@@ -178,6 +185,21 @@ class PolicyService:
         # Whether the gateway files requests of a type (ActionService.can_file); a rule that names
         # a type nothing files could never fire, so it is refused when made.
         self.can_file: Callable[[str], bool] = lambda _type: True
+        # Who a legacy wildcard may cover: person id -> role (identity), unknown means not covered.
+        self.person_role: Callable[[str], str | None] = lambda _pid: None
+
+    def _wildcard_covers(self, kind: str, who: str) -> bool:
+        """May a legacy `person:*` / `automation:*` entry cover this requester? Fails closed."""
+        if kind == "person":
+            return self.person_role(who.split(":", 1)[1]) in WILDCARD_PERSON_ROLES
+        if kind == "automation":
+            if who in SYSTEM_AUTOMATIONS:
+                return True
+            rule = self.repo.get_rule(who.split(":", 1)[1])
+            if rule is None or rule.proposed_by:
+                return False
+            return rule.created_by.get("kind") == "person" and rule.created_by.get("role") in WILDCARD_PERSON_ROLES
+        return False
 
     # ---- windows -------------------------------------------------------------------------------
     def window_is_open(self, window_id: str | None, at: datetime) -> bool:
@@ -215,8 +237,9 @@ class PolicyService:
                 m = REQUESTER_RE.match(r)
                 if not m:
                     raise ValueError(f"requested_by entry {r!r} must be <kind>:<id> or automation:* / person:*")
-                if m.group(2) == "*" and m.group(1) not in WILDCARD_KINDS:
-                    raise ValueError(f"{r!r}: a standing approval covers an {m.group(1)} only when it names it exactly")
+                if m.group(2) == "*":
+                    raise ValueError(f"{r!r}: a standing approval covers an {m.group(1)} only when it names it exactly"
+                                     " (wildcards are no longer accepted)")
             for name, c in body.allow.params.items():
                 _check_constraint(name, c)
             if "app.update" in body.allow.types and body.window_id is None:
@@ -230,6 +253,17 @@ class PolicyService:
             raise ApiError(422, "conflict", f"a standing approval expires at most {MAX_POLICY_DAYS} days ahead")
         if body.window_id is not None and self.repo.get_window(body.window_id) is None:
             raise ApiError(404, "not_found", f"no window {body.window_id!r}")
+
+    def confirm(self, principal: Principal, policy_id: str) -> dict:
+        """The owner re-enables a legacy rule that migration paused (it keeps its narrow reading)."""
+        if not principal.is_owner:
+            self.audit.append("authz.denied", principal.as_dict(), None,
+                              {"attempted": "confirm standing approval", "reason": "permission_denied"})
+            raise ApiError(403, "permission_denied", f"{principal.kind}/{principal.role} may not confirm standing approvals")
+        if not self.repo.confirm_policy(policy_id):
+            raise ApiError(404, "not_found", "no paused standing approval with that id")
+        self.audit.append("automation.policy.confirmed", principal.as_dict(), None, {"policy_id": policy_id})
+        return self.to_json(self.repo.get_policy(policy_id))  # type: ignore[arg-type]
 
     def create(self, principal: Principal, body: PolicyBody, approval: str = "token") -> dict:
         if not principal.is_owner:
@@ -289,7 +323,8 @@ class PolicyService:
             if utc(p["expires_at"]) <= at or action_type not in p["allow"]["types"]:
                 continue
             req = p["allow"]["requested_by"]
-            if who not in req and not (kind in WILDCARD_KINDS and f"{kind}:*" in req):
+            if who not in req and not (kind in LEGACY_WILDCARD_KINDS and f"{kind}:*" in req
+                                       and self._wildcard_covers(kind, who)):
                 continue
             if not all(_param_ok(params.get(k), c) for k, c in p["allow"]["params"].items()):
                 continue

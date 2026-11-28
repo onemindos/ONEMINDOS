@@ -25,6 +25,7 @@ from onemind_core.auth import Principal
 from onemind_core.automation import AutomationSettings
 
 from conftest import AGENT, GUEST, OWNER, action_body
+from test_identity import LOCAL_PEER, setup_bearer_owner
 
 
 def iso(dt: datetime) -> str:
@@ -79,8 +80,11 @@ def enable(client, rule_id):
     return r.json()
 
 
-def policy(client, clock, *, types=("app.restart",), requested_by=("automation:*",), params=None,
+def policy(client, clock, *, types=("app.restart",), requested_by=None, params=None,
            per_day=3, window_id=None, headers=OWNER):
+    if requested_by is None:  # wildcards are refused (PR 5): name every automation that exists now
+        rules = client.get("/v1/automation/rules", headers=OWNER).json()
+        requested_by = tuple(f"automation:{r['id']}" for r in rules) or ("automation:update-policy",)
     body = {"allow": {"types": list(types), "requested_by": list(requested_by), "params": params or {}},
             "limits": {"per_day": per_day}, "expires_at": iso(clock.now + timedelta(days=30))}
     if window_id:
@@ -274,7 +278,7 @@ def test_bad_standing_approvals_are_refused(client, clock, kw, status, needle):
 
 
 def test_standing_approval_expiry_is_bounded(client, clock):
-    body = {"allow": {"types": ["app.restart"], "requested_by": ["automation:*"]}, "limits": {"per_day": 1},
+    body = {"allow": {"types": ["app.restart"], "requested_by": ["automation:update-policy"]}, "limits": {"per_day": 1},
             "expires_at": iso(clock.now + timedelta(days=91))}
     r = client.post("/v1/approval-policies", json=body, headers=OWNER)
     assert r.status_code == 422 and "90 days" in r.json()["message"]
@@ -312,7 +316,11 @@ def test_policy_limit_is_counted_in_the_database(client, clock, auto_settings, e
 
 def test_wildcards_never_cover_agents_and_params_must_match(client, clock):
     install(client, clock)
-    policy(client, clock, requested_by=("automation:*", "person:*"))
+    for n, who in enumerate(("automation:*", "person:*")):  # written before PR 5; refused as new rules now
+        client.app.state.automation.repo.add_policy(
+            id=f"pol_old{n}", name=None, per_day=5, window_id=None, expires_at=clock.now + timedelta(days=5),
+            allow={"types": ["app.restart"], "requested_by": [who], "params": {}},
+            created_by={"id": "owner"}, created_at=clock.now)
     r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key="a1"), headers=AGENT)
     assert r.json()["state"] == "awaiting_approval"
     client.post(f"/v1/actions/{r.json()['id']}/deny", headers=OWNER)
@@ -390,9 +398,9 @@ def test_f6_patch_updates_of_verified_apps_inside_the_window(client, clock, auto
     path.write_text(yaml.safe_dump(doc))
     s = svc(client)
     s.policies.installed_version = lambda app_id: "1.10.1"
-    assert policy(client, clock, types=("app.update",), requested_by=("automation:*",),
+    assert policy(client, clock, types=("app.update",), requested_by=("automation:update-policy",),
                   window_id="win_nightly").status_code == 201
-    who = {"id": "automation:rule_x", "kind": "automation"}
+    who = {"id": "automation:update-policy", "kind": "automation"}
     night = datetime(2026, 11, 12, 3, 0, tzinfo=UTC)
     ev = s.policies.evaluate
     assert ev("app.update", {"app_id": "whoami", "to_version": "1.10.2"}, who, night, paused=False).outcome == "auto_approved"
@@ -558,20 +566,39 @@ def test_background_worker_handles_events(auto_settings, clock, executor):
         assert runs[0]["outcome"] == "requested"
 
 
-def test_standing_approvals_and_windows_need_a_passkey_once_passkeys_are_active(client, clock):
-    # F-2: with passkeys active, a password/token owner must not pre-approve agent actions.
-    ident = client.app.state.identity
-    ident.passkeys_active = lambda: True
+def test_standing_approvals_and_windows_require_verification_after_setup(client, clock):
+    # The installer can still provision an unclaimed appliance through the install token.
+    bootstrap = policy(client, clock)
+    assert bootstrap.status_code == 201, bootstrap.text
+    made = [e for e in audit_events(client) if e["event"] == "automation.policy.created"]
+    assert made and made[-1]["data"]["approval"] == "token"
+    assert client.delete(f"/v1/approval-policies/{bootstrap.json()['id']}", headers=OWNER).status_code == 204
+    home = TestClient(client.app, client=LOCAL_PEER)
+    signed_in = setup_bearer_owner(home)
+    # Following setup, neither a token nor a password-only session can pre-approve agent actions.
     r = policy(client, clock, requested_by=("agent:hermes",))
     assert r.status_code == 401 and r.json()["reason"] == "step_up_required", r.text
     assert client.get("/v1/approval-policies", headers=OWNER).json() == []
     w = client.put("/v1/windows/win_nightly", headers=OWNER,
                    json={"name": "nightly", "tz": "UTC", "ranges": [{"start": "00:00", "end": "23:59"}]})
     assert w.status_code == 401 and w.json()["reason"] == "step_up_required", w.text
+    r = policy(home, clock, requested_by=("agent:hermes",), headers=signed_in)
+    assert r.status_code == 401 and r.json()["reason"] == "step_up_required", r.text
     # An agent still gets 403, never a step-up prompt it could not answer.
     assert policy(client, clock, headers=AGENT).status_code == 403
-    # Without passkeys the owner token still works and the audit says how presence was proved.
-    ident.passkeys_active = lambda: False
-    assert policy(client, clock).status_code == 201
-    made = [e for e in audit_events(client) if e["event"] == "automation.policy.created"]
-    assert made and made[-1]["data"]["approval"] == "token"
+
+
+def test_standing_approval_answers_match_the_documented_schema(client, clock):
+    """The dashboard's standing approvals screen reads these through the generated SDK types (#1214)."""
+    from onemind_core.routers.automation import ApprovalPolicy
+
+    spec = client.get("/openapi.json").json()["paths"]
+    ref = {"$ref": "#/components/schemas/ApprovalPolicy"}
+    assert spec["/v1/approval-policies"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]["items"] == ref
+    assert spec["/v1/approval-policies"]["post"]["responses"]["201"]["content"]["application/json"]["schema"] == ref
+    assert spec["/v1/approval-policies/{policy_id}/confirm"]["post"]["responses"]["200"]["content"]["application/json"]["schema"] == ref
+    made = policy(client, clock)
+    assert made.status_code == 201, made.text
+    assert ApprovalPolicy.model_validate(made.json()).state == "active"
+    listed = client.get("/v1/approval-policies", headers=OWNER).json()
+    assert [ApprovalPolicy.model_validate(p).id for p in listed] == [made.json()["id"]]

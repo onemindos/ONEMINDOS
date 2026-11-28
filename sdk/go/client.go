@@ -98,6 +98,17 @@ func WithTokenProvider(p TokenProvider) Option { return func(c *Client) { c.toke
 // WithHTTPClient replaces the HTTP client (custom TLS roots, a pinned CA, a test server).
 func WithHTTPClient(h *http.Client) Option { return func(c *Client) { c.http = h } }
 
+// WithNoRedirects keeps credentials and request bodies on the selected gateway.
+func WithNoRedirects() Option {
+	return func(c *Client) { c.http = withoutRedirects(c.http) }
+}
+
+func withoutRedirects(client *http.Client) *http.Client {
+	h := *client
+	h.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	return &h
+}
+
 // WithGatewayCA makes the client verify the gateway's TLS certificate against the given CA
 // (PEM text) instead of the system roots, with TLS 1.2 or later. Verification stays on: this
 // narrows what is trusted to that CA. It is what FromEnv uses for ONEMIND_GATEWAY_CA (the box CA
@@ -232,17 +243,25 @@ func (c *Client) checkTransport() {
 
 // request is one logical API call.
 type request struct {
-	method  string
-	path    string // with query string
-	body    any
-	retry   bool // safe to retry (GET, or POST with an idempotency key)
-	headers map[string]string
+	method      string
+	path        string // with query string
+	body        any
+	retry       bool // safe to retry (GET, or POST with an idempotency key)
+	headers     map[string]string
+	noRedirects bool
 }
 
 // Do performs one API call and decodes a 2xx JSON body into out (which may be nil, *any or
 // *json.RawMessage to keep the gateway's bytes). It is how the CLI's --json passes bodies through.
 func (c *Client) Do(ctx context.Context, method, path string, body, out any) error {
 	_, err := c.do(ctx, request{method: method, path: path, body: body, retry: method == http.MethodGet}, out)
+	return err
+}
+
+// DoWithStepUp sends a write with a single-use proof bound to this operation.
+func (c *Client) DoWithStepUp(ctx context.Context, method, path, grant string, body, out any) error {
+	_, err := c.do(ctx, request{method: method, path: path, body: body,
+		headers: map[string]string{"OneMind-Step-Up": grant}, noRedirects: true}, out)
 	return err
 }
 
@@ -353,7 +372,11 @@ func (c *Client) once(ctx context.Context, r request, payload []byte, out any) (
 		req.Header.Set(k, v)
 	}
 	start := time.Now()
-	resp, err := c.http.Do(req)
+	client := c.http
+	if r.noRedirects {
+		client = withoutRedirects(client)
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		c.traceCall(r, 0, start)
 		return nil, 0, &Error{Code: "network", Message: redact(err.Error(), token), cause: ErrNetwork}
