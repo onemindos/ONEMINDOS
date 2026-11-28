@@ -24,6 +24,8 @@ TAGGED_IMAGE = re.compile(
     r"""^\s*(?:image:\s*|(?:-\s+)?Image=|FROM\s+(?:--platform=\S+\s+)?)[\"']?([\w./:-]+)""",
     re.IGNORECASE | re.MULTILINE,
 )
+YAML_IMAGE = re.compile(r"""^[ \t]*(?:-[ \t]+)?image:[ \t]+["']?([^\s"'#]+)""", re.MULTILINE)
+ENV_PIN = re.compile(r"""=(["']?)([A-Za-z0-9_./:@%+,-]*)\1(?:[ \t]+(?:#.*)?)?""")
 
 
 def image_repository(reference):
@@ -65,20 +67,27 @@ def string_list(value):
     return isinstance(value, list) and all(nonempty(item) for item in value)
 
 
-def has_version_selector(source, selector):
+def has_version_selector(source, selector, *, image_pin):
     content = source.read_text(encoding="utf-8")
     if source.suffix != ".env":
+        if image_pin and source.suffix in {".yaml", ".yml"}:
+            return any(selector in image for image in YAML_IMAGE.findall(content))
         return selector in content
 
-    # Read literal pin assignments without sourcing the shell file. If a
-    # variable is assigned twice, the last assignment supplies the value.
-    values = re.findall(
-        rf"^[ \t]*(?:export[ \t]+)?{re.escape(selector)}="
-        r"""("[^"\n]*"|'[^'\n]*'|[\w./:@%+,-]*)(?:[ \t]+(?:#[^\n]*)?)?$""",
+    # Find assignments before validating their values so unsupported shell
+    # syntax cannot be ignored in favor of a different assignment to this key.
+    assignments = re.findall(
+        rf"^[ \t]*(?:export[ \t]+)?{re.escape(selector)}(\+?=.*)$",
         content,
         re.MULTILINE,
     )
-    return bool(values and values[-1].strip("\"'").strip())
+    value = ""
+    for assignment in assignments:
+        literal = ENV_PIN.fullmatch(assignment)
+        if literal is None:
+            return False
+        value = literal.group(2)
+    return bool(value)
 
 
 def validate(root, register):
@@ -125,7 +134,7 @@ def validate(root, register):
             source = (root / pin["source"]).resolve()
             if not source.is_relative_to(root.resolve()) or not source.is_file():
                 errors.append(f"{engine_id}: pinned source does not exist in the repository")
-            elif not has_version_selector(source, pin["selector"]):
+            elif not has_version_selector(source, pin["selector"], image_pin=bool(repositories)):
                 errors.append(f"{engine_id}: version selector is missing from {pin['source']}")
         spdx = entry.get("spdx")
         if not nonempty(spdx):

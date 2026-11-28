@@ -60,6 +60,17 @@ class EngineRegister(unittest.TestCase):
             pinned={"source": "deploy/compose.yaml", "selector": "deleted-pin"},
         ))
 
+    def test_requires_active_image_declaration_for_manifest_pin(self):
+        manifests = self.root / "apps/offline-maps/manifests"
+        manifests.mkdir(parents=True)
+        manifest = manifests / "deployment.yaml"
+        pinned = {"source": str(manifest.relative_to(self.root)), "selector": "protomaps/go-pmtiles:"}
+        image = '    image: "docker.io/protomaps/go-pmtiles:v1.31.2"'
+        manifest.write_text(image + "\n", encoding="utf-8")
+        self.assertFalse(self.errors(pinned=pinned))
+        manifest.write_text("    # " + image.lstrip() + "\n", encoding="utf-8")
+        self.assertIn("version selector is missing", self.errors(pinned=pinned))
+
     def test_requires_active_nonempty_env_pin(self):
         pins = self.root / "deploy/pins.env"
         pinned = {"source": "deploy/pins.env", "selector": "RESTIC_VERSION"}
@@ -70,6 +81,8 @@ class EngineRegister(unittest.TestCase):
             'RESTIC_VERSION=""',
             "RESTIC_VERSION='  '",
             'RESTIC_VERSION="0.19.1"\nRESTIC_VERSION=""',
+            'RESTIC_VERSION="${UNSET_RESTIC_VERSION:-}"',
+            'RESTIC_VERSION="0.19.1"\nRESTIC_VERSION=${UNSET_RESTIC_VERSION:-}',
         ):
             with self.subTest(assignment=assignment):
                 pins.write_text(assignment + "\n", encoding="utf-8")
