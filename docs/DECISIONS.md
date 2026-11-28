@@ -287,7 +287,7 @@ Founder decisions. Each entry is final until Zeus changes it. Reference these ID
   **Updated 2026-11-27 (Zeus, founder call):** sole key holder; three YubiKeys in three different places; a PIN is never stored with its YubiKey.
 - **Before the real run:** one rehearsal on a spare YubiKey, because the YubiKey steps are still marked UNVERIFIED until then.
 
-## D-032 · OneMind's own apps: complete inside the OneMind app, foundation first, solid licences, one repo, API/CLI/MCP native
+## D-033 · OneMind's own apps: complete inside the OneMind app, foundation first, solid licences, one repo, API/CLI/MCP native
 **Date:** 2026-11-26 · **Decided by:** Zeus
 > "lets do it !!" (founder, in a Claude session on 2026-11-26), accepting the design review in [`docs/design/ONEMIND-APPS.md`](design/ONEMIND-APPS.md) (PR #1289). Earlier the same day: "these apps … will be ours forever and it'll be one of our main moats … make sure the licensing is solid … when the person uses the OneMind apps like Android, iOS and anything else they will have function and 100% use of the app within the OneMind app … confirm if they should be in the same repo which I think is the move", and "every app should be API, CLI, MCP native, period."
 - **Every OneMind app is complete inside the OneMind app on every platform** (web and desktop, Android, iOS, the headset later): it works offline, uses the device properly and never shows an engine's web page. It builds on D-003 (one app with modules); it does not change it.
