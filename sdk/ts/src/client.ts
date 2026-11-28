@@ -2,7 +2,7 @@
 // The hand-written transport over the generated types (SDK.md §3): auth, retries with one
 // idempotency key per logical call, approve read-back, typed errors, the hub clock offset.
 
-import type { components } from "./gen/schema.js";
+import type { components, operations } from "./gen/schema.js";
 import { AmbiguousResultError, errorFor, NetworkError, OneMindError, UnexpectedResponseError } from "./errors.js";
 import { EventsApi } from "./events.js";
 import { caFetch } from "./nodeca.js";
@@ -19,6 +19,7 @@ export type AuditVerify = components["schemas"]["AuditVerify"];
 export type NetworkView = components["schemas"]["NetworkView"];
 /** The box's own screen as the full-screen dashboard (`/v1/instance/kiosk`, owner only). */
 export type KioskState = components["schemas"]["KioskState"];
+export type JournalQuery = NonNullable<operations["system.journal.read"]["parameters"]["query"]>;
 
 /** One name an owner asked for under their own domain (`<app>.<domain>`); `approved` is a recorded decision only. */
 export interface DomainHost {
@@ -233,6 +234,27 @@ export class OneMind {
   };
 
   readonly network = { view: () => this.call<NetworkView>({ method: "GET", path: "/v1/network" }) };
+
+  readonly journal = {
+    /** Returns the plain text or live SSE response intact. The caller owns the stream and its abort signal. */
+    read: async (query: JournalQuery = {}, signal?: AbortSignal): Promise<Response> => {
+      const params = new URLSearchParams();
+      for (const [key, value] of Object.entries(query)) {
+        if (value != null) params.set(key, String(value));
+      }
+      this.checkTransport();
+      return this.fetchImpl(this.baseUrl + `/v1/system/journal?${params}`, {
+        method: "GET",
+        headers: {
+          Accept: query.follow ? "text/event-stream" : "text/plain",
+          [PROTOCOL_HEADER]: String(PROTOCOL_VERSION),
+          ...(await this.authHeader()),
+        },
+        cache: "no-store",
+        signal,
+      });
+    },
+  };
 
   // Tips are served by the hub. Do not follow a redirect out to a content host.
   readonly tips = {

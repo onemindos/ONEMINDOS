@@ -7,6 +7,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.exc import SQLAlchemyError
 
 from ..actions import ActionRequest, ActionRequestBody, ApprovalInput, FeatureActionRequest
 from ..agent_stop import is_agent
@@ -83,6 +84,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
     gw.principal_guards.append(taint_rest_reads)
 
     def seen_by(p: Principal, rows: list[dict]) -> list[dict]:
+        if not p.is_owner:
+            # Permission requests contain owner-only rules and input declarations.
+            rows = [a for a in rows if not a["type"].startswith("policy.")]
         # aiPolicy (#165): an app's tool output reaches an agent only when the app allows app data
         # to go to an AI, the same rule as the MCP tools. People and plugins see the action as stored.
         return actions_for_agent(rows, lambda: app_rows(gw)) if is_agent(p) else rows
@@ -146,11 +150,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def get_action(action_id: str, p: Principal = Depends(principal)):
         if p.kind == "plugin":
             return own_action(gw, p, action_id)
-        return seen_by(p, [actions.get(action_id)])[0]
+        visible = seen_by(p, [actions.get(action_id)])
+        if not visible:
+            raise ApiError(404, "not_found", "no such action")
+        return visible[0]
 
     @app.post(
         "/v1/actions/{action_id}/approve", tags=["actions"], operation_id="actions.approve",
-        responses={200: {"model": Action}, **error_responses(401, 403, 404, 409, 422)},
+        responses={200: {"model": Action}, **error_responses(401, 403, 404, 409, 422, 503)},
     )
     def approve_action(
         action_id: str, request: Request, body: ApproveBody | None = None, p: Principal = Depends(principal)
@@ -159,26 +166,39 @@ def register(app: FastAPI, gw: Gateway) -> None:
             guard(p, action_id, body.model_dump() if body else {}, request)
         # Clients that send OneMind-API-Version: 1 must name the plan they read (contract §12.4).
         strict = request.headers.get("OneMind-API-Version") == "1"
+        rule = getattr(request.state, "remember_rule", None)
+        svc = getattr(request.app.state, "automation", None)
+        if body is not None and body.remember is not None and rule is None:
+            raise ApiError(401, "unauthenticated", "approve and remember needs your passkey", reason="step_up_required")
+        on_accept = values = None
+        if rule is not None:
+            from ..automation.policies import PolicyBody
+
+            request.app.state.identity._remember_creatable(rule)
+            values = svc.policies.prepare_create(p, PolicyBody.model_validate(rule), created_from=action_id)
+
+            def on_accept(session):
+                try:
+                    svc.repo.insert_policy(session, **values)
+                    session.flush()
+                except SQLAlchemyError as exc:
+                    raise ApiError(503, "unavailable", "could not save the remembered rule; approve the action again",
+                                   reason="remember_write_failed") from exc
+
         extra = ApprovalInput(
             sealed=body.sealed.model_dump(exclude_none=True) if body and body.sealed else None,
             override=body.override.model_dump() if body and body.override else None,
             accept_licence=body.accept_licence if body else None,
             webauthn=bool(body and body.webauthn),
             hold_ms=body.hold_ms if body else None,
+            verification_level=getattr(request.state, "approval_verification_level", 0),
+            on_accept=on_accept,
         )
-        rule = getattr(request.state, "remember_rule", None)
-        svc = getattr(request.app.state, "automation", None)
-        if body is not None and body.remember is not None and rule is None:  # no guard bound it to a passkey
-            raise ApiError(401, "unauthenticated", "approve and remember needs your passkey", reason="step_up_required")
-        if rule is not None:  # checked again just before the yes, so the rule is never half made
-            request.app.state.identity._remember_creatable(rule)
         out = actions.approve(p, action_id, body.plan_sha256 if body else None, strict, extra)
-        if rule is not None and svc is not None:
-            from ..automation.policies import PolicyBody
-
-            made = svc.policies.create(p, PolicyBody.model_validate(rule), approval="passkey", created_from=action_id)
-            if isinstance(out, dict):
-                out = {**out, "remembered_policy": made["id"]}
+        if values is not None:
+            made = svc.repo.get_policy(values["id"])
+            svc.policies.record_creation(p, made, "passkey")
+            out = {**out, "remembered_policy": made["id"]}
         return out
 
     @app.post(

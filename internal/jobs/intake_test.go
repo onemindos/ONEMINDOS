@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -32,6 +33,7 @@ type fakeHub struct {
 	// onPull runs while a pull is being answered, before the job goes out (a change on the hub in
 	// between the intake's note read and the job's arrival).
 	onPull func()
+	onAck  func()
 }
 
 func startFake(t *testing.T) (*nats.Conn, *fakeHub) {
@@ -77,6 +79,9 @@ func startFake(t *testing.T) (*nats.Conn, *fakeHub) {
 	if _, err := nc.Subscribe("fake.ack", func(m *nats.Msg) {
 		h.mu.Lock()
 		h.acks = append(h.acks, string(m.Data))
+		if h.onAck != nil {
+			h.onAck()
+		}
 		h.mu.Unlock()
 		_ = m.Respond(nil)
 	}); err != nil {
@@ -281,5 +286,110 @@ func TestIntakeReadsTheStopNoteAgainRightBeforeAnActuatingJob(t *testing.T) {
 		if reports[id] != want {
 			t.Errorf("%s: %q, want %q", id, reports[id], want)
 		}
+	}
+}
+
+func TestActuatingDispatchRequiresCurrentRetainedAndLivePolicyAfterACK(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		want     string
+		retained string
+		live     string
+	}{
+		{name: "Stop during ACK", want: "stale_epoch", retained: "stop"},
+		{name: "retained note disappeared", want: "policy_unreachable", retained: "404"},
+		{name: "retained note fails verification", want: "policy_unreachable", retained: "invalid"},
+		{name: "Stop could not publish its note", want: "stale_epoch", live: "stop"},
+		{name: "replayed signed response", want: "policy_unreachable", live: "replay"},
+		{name: "current policy verified", want: ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			nc, hub := startFake(t)
+			dir := t.TempDir()
+			signer, pub, err := jobtest.New(dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			now := time.Now()
+			calm := signer.Policy("n1", 1, false, false, nil, nil, now)
+			stop := signer.Policy("n1", 2, true, false, nil, nil, now)
+			var acked, liveChecked atomic.Bool
+			hub.mu.Lock()
+			hub.onAck = func() { acked.Store(true) }
+			job, id := signer.Job("n1", "relay.set", nil, 1, now, nil)
+			hub.queue = [][]byte{job}
+			hub.mu.Unlock()
+			if _, err := nc.Subscribe(PolicyGetSubject("n1"), func(m *nats.Msg) {
+				out := nats.NewMsg(m.Reply)
+				out.Data = calm
+				if acked.Load() {
+					switch tc.retained {
+					case "stop":
+						out.Data = stop
+					case "404":
+						out.Data = nil
+						out.Header.Set("Status", "404")
+					case "invalid":
+						out.Data = []byte(`{"epoch":2}`)
+					}
+				}
+				_ = nc.PublishMsg(out)
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := nc.Subscribe(policyCheckSubject("n1"), func(m *nats.Msg) {
+				liveChecked.Store(true)
+				if !acked.Load() {
+					t.Error("live dispatch check ran before ACK")
+				}
+				challenge := string(m.Data)
+				var answer []byte
+				switch tc.live {
+				case "stop":
+					answer = signer.DispatchPolicy("n1", 2, true, false, nil, nil, now, challenge)
+				case "replay":
+					answer = signer.DispatchPolicy("n1", 1, false, false, nil, nil, now, "a different challenge")
+				default:
+					answer = signer.DispatchPolicy("n1", 1, false, false, nil, nil, now, challenge)
+				}
+				_ = m.Respond(answer)
+			}); err != nil {
+				t.Fatal(err)
+			}
+			results, err := nc.SubscribeSync(ResultSubject("n1", id))
+			if err != nil {
+				t.Fatal(err)
+			}
+			ran := false
+			in := &Intake{NC: nc, NodeID: "n1", Verifier: backup.NewNodeJobVerifier("n1", pub, dir),
+				Policy: &PolicyStore{Path: filepath.Join(dir, "policy.json"), NodeID: "n1", PubKeyFile: pub},
+				Handlers: map[string]Handler{"relay.set": func(context.Context, backup.Job) Result {
+					ran = true
+					return Result{State: StateSucceeded}
+				}}}
+			if got, err := in.PullOnce(context.Background()); !got || err != nil {
+				t.Fatalf("pull: %v %v", got, err)
+			}
+			var report Report
+			for {
+				msg, err := results.NextMsg(time.Second)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := json.Unmarshal(msg.Data, &report); err != nil {
+					t.Fatal(err)
+				}
+				if report.State != StateRunning {
+					break
+				}
+			}
+			if wantRun := tc.want == ""; ran != wantRun || report.Reason != tc.want ||
+				(report.State == StateSucceeded) != wantRun {
+				t.Fatalf("ran = %v, result = %+v, want ran = %v, reason = %q", ran, report, wantRun, tc.want)
+			}
+			if ran && !liveChecked.Load() {
+				t.Fatal("actuated without checking live gateway policy")
+			}
+		})
 	}
 }

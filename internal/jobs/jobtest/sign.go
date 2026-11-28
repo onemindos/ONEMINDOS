@@ -99,6 +99,11 @@ func (s *Signer) Sign(env map[string]any) []byte {
 // Policy signs an onemind.policy/v1 snapshot for node the way core/onemind_core/fabric_policy.py
 // sign_snapshot does.
 func (s *Signer) Policy(node string, epoch int, motionLockout, agents bool, revoked []string, allowed []string, now time.Time) []byte {
+	return s.DispatchPolicy(node, epoch, motionLockout, agents, revoked, allowed, now, "")
+}
+
+// DispatchPolicy signs a live policy answer bound to challenge.
+func (s *Signer) DispatchPolicy(node string, epoch int, motionLockout, agents bool, revoked []string, allowed []string, now time.Time, challenge string) []byte {
 	if revoked == nil {
 		revoked = []string{}
 	}
@@ -107,6 +112,9 @@ func (s *Signer) Policy(node string, epoch int, motionLockout, agents bool, revo
 		"revoked_kids": revoked, "allowed_kinds": nil}
 	if allowed != nil {
 		env["allowed_kinds"] = allowed
+	}
+	if challenge != "" {
+		env["challenge"] = challenge
 	}
 	return s.Sign(env)
 }

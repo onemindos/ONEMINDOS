@@ -24,7 +24,7 @@ from onemind_core.audit import verify
 from onemind_core.auth import Principal
 from onemind_core.automation import AutomationSettings
 
-from conftest import AGENT, GUEST, OWNER, action_body
+from conftest import AGENT, GUEST, OWNER, action_body, apply_queued_policy
 
 
 def iso(dt: datetime) -> str:
@@ -88,7 +88,7 @@ def policy(client, clock, *, types=("app.restart",), requested_by=None, params=N
             "limits": {"per_day": per_day}, "expires_at": iso(clock.now + timedelta(days=30))}
     if window_id:
         body["window_id"] = window_id
-    return client.post("/v1/approval-policies", json=body, headers=headers)
+    return apply_queued_policy(client, client.post("/v1/approval-policies", json=body, headers=headers))
 
 
 def unhealthy(client, app_id="whoami", **kw):
@@ -398,7 +398,7 @@ def test_f6_patch_updates_of_verified_apps_inside_the_window(client, clock, auto
     s = svc(client)
     s.policies.installed_version = lambda app_id: "1.10.1"
     assert policy(client, clock, types=("app.update",), requested_by=("automation:update-policy",),
-                  window_id="win_nightly").status_code == 201
+                  window_id="win_nightly").status_code == 202
     who = {"id": "automation:update-policy", "kind": "automation"}
     night = datetime(2026, 11, 12, 3, 0, tzinfo=UTC)
     ev = s.policies.evaluate
@@ -565,20 +565,27 @@ def test_background_worker_handles_events(auto_settings, clock, executor):
         assert runs[0]["outcome"] == "requested"
 
 
+@pytest.mark.real_mode_defaults
 def test_standing_approvals_and_windows_need_a_passkey_once_passkeys_are_active(client, clock):
     # F-2: with passkeys active, a password/token owner must not pre-approve agent actions.
     ident = client.app.state.identity
     ident.passkeys_active = lambda: True
-    r = policy(client, clock, requested_by=("agent:hermes",))
-    assert r.status_code == 401 and r.json()["reason"] == "step_up_required", r.text
+    r = client.post("/v1/approval-policies", headers=OWNER, json={
+        "allow": {"types": ["app.restart"], "requested_by": ["agent:hermes"]},
+        "limits": {"per_day": 1}, "expires_at": iso(clock.now + timedelta(days=30)),
+    })
+    assert r.status_code == 202 and r.json()["state"] == "awaiting_approval", r.text
+    denied = client.post(f"/v1/actions/{r.json()['id']}/approve", headers=OWNER)
+    assert denied.status_code in (401, 409) and denied.json()["reason"] in ("needs_proven_key", "step_up_required")
     assert client.get("/v1/approval-policies", headers=OWNER).json() == []
     w = client.put("/v1/windows/win_nightly", headers=OWNER,
                    json={"name": "nightly", "tz": "UTC", "ranges": [{"start": "00:00", "end": "23:59"}]})
     assert w.status_code == 401 and w.json()["reason"] == "step_up_required", w.text
     # An agent still gets 403, never a step-up prompt it could not answer.
     assert policy(client, clock, headers=AGENT).status_code == 403
-    # Without passkeys the owner token still works and the audit says how presence was proved.
+    # An owner token cannot grant a new standing approval before passkey enrollment.
     ident.passkeys_active = lambda: False
-    assert policy(client, clock).status_code == 201
+    blocked = policy(client, clock)
+    assert blocked.status_code == 409 and blocked.json()["reason"] == "no_owner_passkey"
     made = [e for e in audit_events(client) if e["event"] == "automation.policy.created"]
-    assert made and made[-1]["data"]["approval"] == "token"
+    assert made == []

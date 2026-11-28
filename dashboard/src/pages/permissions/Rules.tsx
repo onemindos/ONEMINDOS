@@ -1,40 +1,46 @@
 // SPDX-License-Identifier: Apache-2.0
 // Settings > Permissions > Rules (design §3.6, §3.6.2): the standing approvals that answer for you.
 // GET /v1/approval-policies; POST …/{id}/revoke (one tap, no passkey: ending a rule only narrows),
-// POST …/revoke-all, PATCH …/{id} (narrowing applies at once; widening asks for the passkey),
-// POST …/{id}/reconfirm (a suspended rule, passkey), POST …/{id}/keep (a forever rule's 90-day review).
+// POST …/revoke-all, PATCH …/{id} (narrowing applies at once; widening goes to Approvals),
+// POST …/{id}/reconfirm (approve re-enabling a suspended rule), POST …/{id}/keep (a forever rule's 90-day review).
 // A rule's history comes from the audit log (GET /v1/audit/events).
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { Button, Card, Dialog, StatusPill } from '@onemind/ui';
+import type { Action } from '@onemind/sdk';
 import { usePoll } from '../../lib/hooks';
-import { explain, read, usePermSdk, useStepUp } from '../../lib/permissions';
+import { explain, isApprovalRequest, read, usePermSdk, useStepUp } from '../../lib/permissions';
+import { href } from '../../shell/routes';
 import { Load } from '../parts';
 import { NOTIFY, day, history, historyLine, idleReason, lifetime, limitsLine, live, ruleLine, suspendedWhy, usesLine, type Rule } from './ruleText';
 
 const RULES = '/v1/approval-policies';
+interface RuleNotice { tone: 'ok' | 'bad'; text: string; pending?: string }
+
+function Notice({ note }: { note: RuleNotice }) {
+  return <p className={`om-note om-tone-${note.tone}`} role={note.tone === 'bad' ? 'alert' : 'status'}>
+    {note.text}{note.pending && <> <Link to={href.approval(note.pending)}>Review in Approvals</Link>.</>}
+  </p>;
+}
 
 export function Rules({ item }: { item?: string }) {
   const sdk = usePermSdk();
   const stepUp = useStepUp();
   const rules = usePoll(() => read(sdk.call<Rule[]>({ method: 'GET', path: RULES })), 0);
-  const [note, setNote] = useState<{ tone: 'ok' | 'bad'; text: string }>();
+  const [note, setNote] = useState<RuleNotice>();
   const [endAll, setEndAll] = useState(false);
 
-  const act = async (job: () => Promise<unknown>, ok: string) => {
+  const act = async (job: () => Promise<object>, ok: string) => {
     try {
-      await job();
-      setNote({ tone: 'ok', text: ok });
+      const result = await job();
+      setNote(isApprovalRequest(result) ? { tone: 'ok', text: 'Rule change requested.', pending: result.id } : { tone: 'ok', text: ok });
     } catch (e) {
       setNote({ tone: 'bad', text: explain(e) });
     }
     await rules.reload();
   };
-  const post = (id: string, verb: string, passkey = false) => {
-    const send = (client: typeof sdk) => client.call<Rule>({ method: 'POST', path: `${RULES}/${encodeURIComponent(id)}/${verb}` });
-    return passkey ? stepUp(send, sdk) : read(send(sdk));
-  };
-  const revoke = (r: Rule) => act(() => post(r.id, 'revoke'), `Revoked: ${r.name || ruleLine(r)}. It will not approve anything again.`);
+  const revoke = (r: Rule) => act(() => read(sdk.call<Rule>({ method: 'POST', path: `/v1/approval-policies/${encodeURIComponent(r.id)}/revoke` })),
+    `Revoked: ${r.name || ruleLine(r)}. It will not approve anything again.`);
 
   return (
     <Load res={rules} what="Loading rules">
@@ -42,15 +48,16 @@ export function Rules({ item }: { item?: string }) {
         const rule = item ? list.find((r) => r.id === item) : undefined;
         if (item) return rule
           ? <RuleDetail rule={rule} note={note} onRevoke={() => void revoke(rule)}
-              onReconfirm={() => void act(() => post(rule.id, 'reconfirm', true), 'Re-confirmed. The rule works again.')}
-              onKeep={() => void act(() => post(rule.id, 'keep'), 'Kept. You will be asked again in 90 days.')}
-              onNarrow={(body) => act(() => stepUp((c) => c.call<Rule>({ method: 'PATCH', path: `${RULES}/${encodeURIComponent(rule.id)}`, body: { ...body, revision: rule.revision } }), sdk), 'Saved as a new revision.')} />
+              onConfirm={() => void act(() => stepUp((c) => c.call<Rule | Action>({ method: 'POST', path: `/v1/approval-policies/${encodeURIComponent(rule.id)}/confirm` }), sdk), 'Confirmed. The rule works again.')}
+              onReconfirm={() => void act(() => stepUp((c) => c.call<Rule | Action>({ method: 'POST', path: `/v1/approval-policies/${encodeURIComponent(rule.id)}/reconfirm` }), sdk), 'Re-confirmed. The rule works again.')}
+              onKeep={() => void act(() => read(sdk.call<Rule>({ method: 'POST', path: `/v1/approval-policies/${encodeURIComponent(rule.id)}/keep` })), 'Kept. You will be asked again in 90 days.')}
+              onNarrow={(body) => act(() => stepUp((c) => c.call<Rule | Action>({ method: 'PATCH', path: `/v1/approval-policies/${encodeURIComponent(rule.id)}`, body: { ...body, revision: rule.revision } }), sdk), 'Saved as a new revision.')} />
           : <Gone note={note} />;
         const active = list.filter(live).sort((a, b) => Number(b.forever) - Number(a.forever) || a.created_at.localeCompare(b.created_at));
         const ended = list.filter((r) => !live(r));
         return (
           <>
-            {note && <p className={`om-note om-tone-${note.tone}`} role={note.tone === 'bad' ? 'alert' : 'status'}>{note.text}</p>}
+            {note && <Notice note={note} />}
             <Card title={`Rules that answer for you (${active.length})`} subtitle="A rule lets one requester do one kind of thing without asking you, within limits. Rules only work for requesters on Ask once, Auto or Headless."
               aside={active.length > 1 ? <Button size="sm" variant="secondary" onClick={() => setEndAll(true)}>Revoke all</Button> : undefined}>
               {active.length === 0 ? (
@@ -71,7 +78,7 @@ export function Rules({ item }: { item?: string }) {
             )}
             {endAll && (
               <Dialog open role="alertdialog" title="Revoke every rule?" description="Every request will wait for you again. You can make new rules from approval cards." onClose={() => setEndAll(false)}
-                actions={<><Button onClick={() => setEndAll(false)}>Cancel</Button><Button variant="primary" onClick={() => { setEndAll(false); void act(() => read(sdk.call({ method: 'POST', path: `${RULES}/revoke-all`, body: { principal: null } })), 'Every rule is revoked.'); }}>Revoke all</Button></>} />
+                actions={<><Button onClick={() => setEndAll(false)}>Cancel</Button><Button variant="primary" onClick={() => { setEndAll(false); void act(() => read(sdk.call<{ revoked: string[] }>({ method: 'POST', path: '/v1/approval-policies/revoke-all', body: { principal: null } })), 'Every rule is revoked.'); }}>Revoke all</Button></>} />
             )}
           </>
         );
@@ -84,11 +91,11 @@ export function Rules({ item }: { item?: string }) {
  * A rule page whose rule is not listed: the gateway lists only rules still in force, so it was revoked
  * or has ended. Right after Revoke on this page, the note says so instead.
  */
-function Gone({ note }: { note?: { tone: 'ok' | 'bad'; text: string } }) {
+function Gone({ note }: { note?: RuleNotice }) {
   return (
     <>
       {note
-        ? <p className={`om-note om-tone-${note.tone}`} role={note.tone === 'bad' ? 'alert' : 'status'}>{note.text}</p>
+        ? <Notice note={note} />
         : <p className="om-note om-tone-warn" role="status">This rule was revoked or has ended, so it no longer approves anything.</p>}
       <p><Link to="/settings/permissions/rules">See all rules</Link></p>
     </>
@@ -135,8 +142,8 @@ function RuleCard({ rule, onRevoke }: { rule: Rule; onRevoke: () => void }) {
 
 interface NarrowBody { limits?: { per_day?: number; max_uses?: number }; expires_at?: string }
 
-function RuleDetail({ rule, note, onRevoke, onReconfirm, onKeep, onNarrow }: {
-  rule: Rule; note?: { tone: 'ok' | 'bad'; text: string }; onRevoke: () => void; onReconfirm: () => void; onKeep: () => void; onNarrow: (b: NarrowBody) => Promise<void>;
+function RuleDetail({ rule, note, onRevoke, onConfirm, onReconfirm, onKeep, onNarrow }: {
+  rule: Rule; note?: RuleNotice; onRevoke: () => void; onConfirm: () => void; onReconfirm: () => void; onKeep: () => void; onNarrow: (b: NarrowBody) => Promise<void>;
 }) {
   const sdk = usePermSdk();
   const past = usePoll(() => read(history(sdk, rule)), 0);
@@ -156,17 +163,18 @@ function RuleDetail({ rule, note, onRevoke, onReconfirm, onKeep, onNarrow }: {
   return (
     <>
       <p><Link to="/settings/permissions/rules">All rules</Link></p>
-      {note && <p className={`om-note om-tone-${note.tone}`} role={note.tone === 'bad' ? 'alert' : 'status'}>{note.text}</p>}
+      {note && <Notice note={note} />}
       <Card title={title} subtitle={`Revision ${rule.revision} · made ${day(rule.created_at)}${rule.created_from ? ' from an approval' : ''}`} aside={<Badges rule={rule} />}
         footer={live(rule) ? <div className="dash-actions">
-          {rule.state === 'suspended' && <Button variant="primary" onClick={onReconfirm}>Re-confirm with passkey</Button>}
+          {rule.state === 'suspended' && <Button variant="primary" onClick={onReconfirm}>Request re-confirmation</Button>}
+          {rule.state === 'paused' && <Button variant="primary" onClick={onConfirm}>Confirm rule</Button>}
           {rule.review_due && <Button onClick={onKeep}>Keep this rule</Button>}
           <Button variant="secondary" onClick={onRevoke}>Revoke</Button>
         </div> : undefined}>
         <Facts rule={rule} />
       </Card>
       {live(rule) && (
-        <Card title="Change limits" subtitle="Lowering a limit or ending sooner applies at once. Anything that widens the rule asks for your passkey.">
+        <Card title="Change limits" subtitle="Lowering a limit or ending sooner applies at once. Widening the rule goes to Approvals.">
           <form onSubmit={save} className="dash-stack">
             <label>Uses per day <input type="number" min={1} max={1000} required value={perDay} onChange={(e) => setPerDay(e.target.value)} /></label>
             <label>Uses in total (optional) <input type="number" min={1} max={100000} value={maxUses} onChange={(e) => setMaxUses(e.target.value)} /></label>

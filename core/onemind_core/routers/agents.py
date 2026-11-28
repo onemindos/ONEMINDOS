@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ..agent_principals import MAX_BUDGET_PER_DAY, AgentPrincipals
@@ -22,11 +22,11 @@ from ..apimodels import PrincipalRef
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError, error_responses
-from ..identity import ctx_of
 from ..identity.scopes import register_route_scope
 from ..jsonbody import JsonBody
+from ..permissions.changes import QUEUED, register_change, request_change
 from ..principals import PrincipalRegistry
-from ..taint_store import INPUT_KINDS, MAX_ACCEPT, NAME_RE, AgentInputs, TaintStore
+from ..taint_store import INPUT_KINDS, MAX_ACCEPT, AgentInputs, TaintStore
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
 ORDER = 155  # right after actions: its approval guard must see the actions it refuses
@@ -152,7 +152,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return stop.state()
 
     @app.put("/v1/agents/kill-switch", operation_id="agents.kill_switch.set", tags=TAGS,
-             response_model=KillSwitch, responses=error_responses(401, 403, 422))
+             response_model=KillSwitch, responses=error_responses(401, 403, 422, 503))
     def set_kill_switch(body: KillSwitchBody, p: Principal = Depends(principal)):
         return stop.set(p, body.on, body.reason)
 
@@ -196,6 +196,16 @@ def register(app: FastAPI, gw: Gateway) -> None:
         TaintStore(gw.db), inputs.exposure,
         lambda event, pid, data: gw.audit.append(event, {"id": pid, "kind": "agent"}, None, data))
 
+    def gained_exposure(pid: str) -> None:
+        registry.notify(pid if ":" in pid else f"agent:{pid}", "became_exposed")
+
+    def apply_inputs(p: Principal, params: dict) -> None:
+        pid = params["principal"]
+        inputs.set(p, pid, params["external_inputs"], params["accept_injection_risk"],
+                   approved_before=params["before"], on_exposure=lambda: gained_exposure(pid))
+
+    register_change(app, gw, "policy.agent_inputs.change", apply_inputs)
+
     @app.get("/v1/agents/{name}/inputs", operation_id="agents.inputs.get", tags=TAGS,
              responses={200: {"model": AgentInputsView}, **error_responses(401, 403, 422)},
              openapi_extra={"security": [{"bearer": ["users:admin"]}]})
@@ -207,23 +217,13 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return inputs.view(AgentPrincipals.principal_id(name))
 
     @app.put("/v1/agents/{name}/inputs", operation_id="agents.inputs.set", tags=TAGS,
-             responses={200: {"model": AgentInputsView}, **error_responses(401, 403, 422)},
+             responses={200: {"model": AgentInputsView}, **QUEUED, **error_responses(401, 403, 409, 422, 429)},
              openapi_extra={"security": [{"bearer": ["*"]}]})
-    def set_inputs(name: str, body: AgentInputsBody, request: Request, p: Principal = Depends(principal)):
-        # Declaring fewer inputs loosens an agent, and accepting a risk does too: owner only, and a
-        # fresh passkey sign-in once passkeys are active, like a standing approval (F-2). Adding an
-        # input or removing an accepted risk only tightens, which stays at L0 (D-028).
+    def set_inputs(name: str, body: AgentInputsBody, p: Principal = Depends(principal)):
         pid = AgentPrincipals.principal_id(name)
-        ident = getattr(request.app.state, "identity", None)
-        via = None  # how the owner proved presence; only asked (and audited) when this loosens
-        if (ident is not None and p.is_owner and NAME_RE.fullmatch(pid)
-                and inputs.loosens(pid, body.external_inputs, body.accept_injection_risk)):
-            via = ident.require_step_up(ctx_of(request), p, "declare what an agent reads")
-        before = set(inputs.inputs(pid, "agent")) if NAME_RE.fullmatch(pid) else set()
-        out = inputs.set(p, pid, body.external_inputs, body.accept_injection_risk, via=via)
-        if set(body.external_inputs) - before:  # PR 9: it now reads more outside text: its rules are suspended
-            registry.notify(pid if ":" in pid else f"agent:{pid}", "became_exposed")
-        return out
+        return inputs.set(p, pid, body.external_inputs, body.accept_injection_risk,
+                          request_loosen=lambda params: request_change(app, gw, p, "policy.agent_inputs.change", params),
+                          on_exposure=lambda: gained_exposure(pid))
 
     @app.put("/v1/agents/{name}/budget", operation_id="agents.budget.set", tags=TAGS,
              responses={200: {"model": AgentView}, **error_responses(401, 403, 422)})

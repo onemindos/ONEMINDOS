@@ -7,6 +7,7 @@ import { OneMind, OneMindError, type operations } from '@onemind/sdk';
 import { Button, Card, Dialog } from '@onemind/ui';
 import { usePoll } from '../../lib/hooks';
 import { uuidv4 } from '../../lib/uuid';
+import { ProjectDetails } from './Details';
 
 type Task = operations['work.task_get']['responses'][200]['content']['application/json'];
 type Project = operations['work.projects_list']['responses'][200]['content']['application/json'][number];
@@ -145,6 +146,7 @@ export function Projects({ client, onChanged }: { client: OneMind; onChanged: ()
         : <><strong>{p.name}</strong> · {accessWord(p.ai_access)}{' '}
           <Button size="sm" variant="secondary" aria-label={`Edit project ${p.name}`} onClick={() => { setError(''); setEditing({ id: p.id }); }}>Edit</Button>{' '}
           <Button size="sm" variant="ghost" aria-label={`Delete project ${p.name}`} onClick={() => { setError(''); setDeleting(p); }}>Delete</Button></>}
+      <ProjectDetails client={client} project={p} onChanged={onChanged} />
     </li>)}</ul>}
     <Dialog open={!!deleting} role="alertdialog" title={`Delete the project "${deleting?.name}"?`} onClose={() => { if (!busy) setDeleting(undefined); }}
       actions={<Button disabled={busy} onClick={() => deleting && void run(() => client.call<unknown>({ method: 'DELETE', path: `/v1/work/projects/${encodeURIComponent(deleting.id)}` }), 'The project could not be deleted. You can retry.').then((ok) => { if (ok) setDeleting(undefined); })}>{busy ? 'Deleting…' : 'Yes, delete the project'}</Button>}>

@@ -105,8 +105,23 @@ it('removing one, once confirmed, signs in with the passkey when the gateway ask
   page();
   const user = userEvent.setup();
   await user.click(await screen.findByRole('button', { name: 'Remove: helper may never Deleting things (T3)' }));
-  await user.click(screen.getByRole('button', { name: 'Remove with passkey' }));
+  await user.click(screen.getByRole('button', { name: 'Request removal' }));
   expect(await screen.findByRole('status')).toHaveTextContent('Removed the rule for helper.');
   expect(calls.filter((c) => c.method === 'DELETE').map((c) => c.auth)).toEqual(['Bearer old-session', 'Bearer fresh-session']);
   expect(screen.getByText('No never rules yet.')).toBeVisible();
+});
+
+it('keeps a deny rule visible while its removal is awaiting approval', async () => {
+  const gateway = fetch;
+  vi.stubGlobal('fetch', vi.fn((url: string, init: RequestInit) => init.method === 'DELETE'
+    ? Promise.resolve(Response.json({ id: 'act_deny', requested_by: { id: 'owner' }, state: 'awaiting_approval' }, { status: 202 }))
+    : gateway(url, init)));
+  page();
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Remove: helper may never Deleting things (T3)' }));
+  await user.click(screen.getByRole('button', { name: 'Request removal' }));
+  expect(await screen.findByRole('status')).toHaveTextContent('Removal requested for helper.');
+  expect(screen.getByText(/may never: Deleting things/)).toBeVisible();
+  expect(screen.getByRole('link', { name: 'Review in Approvals' })).toHaveAttribute('href', '/approvals?highlight=act_deny');
+  expect(session.loginPasskey).not.toHaveBeenCalled();
 });

@@ -135,8 +135,9 @@ def test_refusals_are_audited_at_most_once_a_minute(client, clock, settings):
 def test_identity_issued_agent_token_is_refused(settings, clock, executor):
     with TestClient(create_app(id_settings(settings), clock=clock, executor=executor)) as idc:
         setup_owner(idc)
-        r = idc.post("/v1/tokens", json={"name": "hermes", "principal": {"kind": "agent", "id": "agent:hermes"}},
+        r = idc.post("/v1/tokens", json={"name": "helper", "principal": {"kind": "agent", "id": "agent:helper"}},
                      headers=csrf(idc))
+        assert r.status_code == 201, r.text
         h = {"Authorization": "Bearer " + r.json()["one_time"]["token"]}
         assert idc.get("/v1/nodes", headers=h).status_code == 200
         r = idc.put(PATH, json={"on": True}, headers=csrf(idc))  # the owner's session

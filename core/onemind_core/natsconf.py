@@ -97,11 +97,17 @@ def job_pull_subject(node_id: str) -> str:
 
 
 POLICY_STREAM = "ONEMIND_POLICY"  # fabric_policy.py: the newest stop and revoke snapshot per machine
+POLICY_CHECK_SUBJECT = "onemind.node.{node_id}.policycheck"
 
 
 def policy_get_subject(node_id: str) -> str:
     """Where a node reads its newest policy snapshot (internal/jobs PolicyGetSubject)."""
     return f"onemind.node.{node_id}.policyget"
+
+
+def policy_check_subject(node_id: str) -> str:
+    """Where a node asks the gateway for a live, signed policy just before dispatch."""
+    return POLICY_CHECK_SUBJECT.format(node_id=node_id)
 
 
 def policy_service(node_id: str) -> str:
@@ -273,7 +279,8 @@ def _job_imports(node_id: str) -> list[str]:
     nxt, ack = job_services(node_id)
     return [f'      {{service: {{account: "{HUB_ACCOUNT}", subject: "{nxt}"}}, to: "{job_pull_subject(node_id)}"}}',
             f'      {{service: {{account: "{HUB_ACCOUNT}", subject: "{ack}"}}}}',
-            f'      {{service: {{account: "{HUB_ACCOUNT}", subject: "{policy_service(node_id)}"}}, to: "{policy_get_subject(node_id)}"}}']
+            f'      {{service: {{account: "{HUB_ACCOUNT}", subject: "{policy_service(node_id)}"}}, to: "{policy_get_subject(node_id)}"}}',
+            f'      {{service: {{account: "{HUB_ACCOUNT}", subject: "{policy_check_subject(node_id)}"}}}}']
 
 
 # What the hub account may keep in JetStream: file storage only (no memory store: a restart must not
@@ -358,6 +365,7 @@ def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey]
         exports += [f'      {{service: "{s}", accounts: ["{n.account}"]}}' for n in nodes for s in job_services(n.node_id)]
         # D-029 N7: and reads its own stop and revoke snapshot
         exports += [f'      {{service: "{policy_service(n.node_id)}", accounts: ["{n.account}"]}}' for n in nodes]
+        exports += [f'      {{service: "{policy_check_subject(n.node_id)}", accounts: ["{n.account}"]}}' for n in nodes]
     if wire_agents:  # the gateway prompts agents and hears them; agents send requests (static or callout)
         imports += [
             f'      {{service: {{account: "{AGENTS_ACCOUNT}", subject: "agents.prompt.>"}}}}',

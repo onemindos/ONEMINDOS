@@ -61,7 +61,7 @@ func TestRenderLocalUsers(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := "authorization {\n  users: [\n" +
-		`    {nkey: "` + pub + `", permissions: {publish: {allow: ["onemind.node.3f9c2a1b7d4e.status", "onemind.node.3f9c2a1b7d4e.jobresult.>", "onemind.node.3f9c2a1b7d4e.jobpull", "onemind.node.3f9c2a1b7d4e.policyget", "$JS.ACK.ONEMIND_JOBS.node-3f9c2a1b7d4e.>", "$JS.API.STREAM.INFO.OUTBOX", "$JS.API.STREAM.CREATE.OUTBOX", "$JS.API.STREAM.UPDATE.OUTBOX", "outbox.>"]}, subscribe: {allow: ["_INBOX_onemindd.>"]}}}  # onemindd` + "\n" +
+		`    {nkey: "` + pub + `", permissions: {publish: {allow: ["onemind.node.3f9c2a1b7d4e.status", "onemind.node.3f9c2a1b7d4e.jobresult.>", "onemind.node.3f9c2a1b7d4e.jobpull", "onemind.node.3f9c2a1b7d4e.policyget", "onemind.node.3f9c2a1b7d4e.policycheck", "$JS.ACK.ONEMIND_JOBS.node-3f9c2a1b7d4e.>", "$JS.API.STREAM.INFO.OUTBOX", "$JS.API.STREAM.CREATE.OUTBOX", "$JS.API.STREAM.UPDATE.OUTBOX", "outbox.>"]}, subscribe: {allow: ["_INBOX_onemindd.>"]}}}  # onemindd` + "\n" +
 		`    {nkey: "` + pub2 + `", permissions: {publish: {allow: ["$JS.API.STREAM.INFO.OUTBOX", "$JS.API.STREAM.CREATE.OUTBOX", "$JS.API.STREAM.UPDATE.OUTBOX", "outbox.>"]}, subscribe: {allow: ["_INBOX_cli.>"]}}}  # cli` + "\n" +
 		"  ]\n}\n"
 	if !strings.HasSuffix(string(got), want) || strings.Contains(string(got), "no_auth_user") {

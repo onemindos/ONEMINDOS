@@ -22,7 +22,7 @@ from onemind_core.auth import Principal
 from onemind_core.taint import plan_taint
 from onemind_core.automation import AutomationSettings
 
-from conftest import OWNER, action_body
+from conftest import OWNER, action_body, apply_queued_policy
 
 AGENT_P = Principal(id="hermes", kind="agent", role="agent")
 OWNER_P = Principal(id="owner", kind="person", role="owner")
@@ -62,7 +62,7 @@ def iso(dt):
 def rule(client, clock, types, who="agent:hermes"):
     body = {"allow": {"types": list(types), "requested_by": [who], "params": {}}, "limits": {"per_day": 5},
             "expires_at": iso(clock.now + timedelta(days=7))}
-    return client.post("/v1/approval-policies", json=body, headers=OWNER)
+    return apply_queued_policy(client, client.post("/v1/approval-policies", json=body, headers=OWNER))
 
 
 def file_feature(client, clock, params=None, principal=AGENT_P, type_="test.sp.write"):
@@ -78,7 +78,7 @@ def audit(client):
 
 def test_a_rule_approves_a_feature_request_and_the_audit_names_it(client, clock, ran):
     pol = rule(client, clock, ["test.sp.write"])
-    assert pol.status_code == 201, pol.text
+    assert pol.status_code == 202, pol.text
     a = file_feature(client, clock)
     assert a["state"] == "succeeded", a
     assert a["decided_by"]["kind"] == "policy"
@@ -88,7 +88,7 @@ def test_a_rule_approves_a_feature_request_and_the_audit_names_it(client, clock,
 
 
 def test_a_feature_whose_params_raise_it_to_destructive_waits(client, clock, ran):
-    assert rule(client, clock, ["test.sp.write"]).status_code == 201
+    assert rule(client, clock, ["test.sp.write"]).status_code == 202
     calm = file_feature(client, clock, {"x": 1})
     assert calm["state"] == "succeeded"
     wiped = file_feature(client, clock, {"wipe": True})
@@ -98,7 +98,7 @@ def test_a_feature_whose_params_raise_it_to_destructive_waits(client, clock, ran
 
 
 def test_a_tainted_requester_waits_on_the_feature_path(client, clock, ran):
-    assert rule(client, clock, ["test.sp.write"]).status_code == 201
+    assert rule(client, clock, ["test.sp.write"]).status_code == 202
     client.app.state.actions.taint.mark("hermes", "rest:GET /v1/apps/{app_id}")
     a = file_feature(client, clock)
     assert a["state"] == "awaiting_approval"
@@ -129,7 +129,7 @@ def test_a_rule_approves_a_handler_request_and_the_audit_names_it(client, clock)
     acts = client.app.state.actions
     acts.register_handler("node.drain", h)  # a write type in the risk table that nothing else files here
     pol = rule(client, clock, ["node.drain"])
-    assert pol.status_code == 201, pol.text
+    assert pol.status_code == 202, pol.text
     a = acts.file("node.drain", {"node_id": "n1"}, {"id": "hermes", "kind": "agent"},
                   expires_at=clock.now + timedelta(minutes=10), idempotency_key="h1")
     assert a.state == "succeeded", a
@@ -142,7 +142,7 @@ def test_a_tainted_handler_request_waits_for_a_person(client, clock):
     h = Handler()
     acts = client.app.state.actions
     acts.register_handler("node.drain", h)
-    assert rule(client, clock, ["node.drain"]).status_code == 201
+    assert rule(client, clock, ["node.drain"]).status_code == 202
     acts.taint.mark("hermes", "rest:GET /v1/apps/{app_id}")
     a = acts.file("node.drain", {"node_id": "n1"}, {"id": "hermes", "kind": "agent"},
                   expires_at=clock.now + timedelta(minutes=10), idempotency_key="h2")

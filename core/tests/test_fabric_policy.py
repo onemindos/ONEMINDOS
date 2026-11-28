@@ -10,7 +10,9 @@ reconnect). internal/leaf/testdata/policy-stream.golden.json is ONEMIND_POLICY a
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -119,6 +121,37 @@ def test_publisher_republishes_every_machine_on_a_change(tmp_path):
     assert pub.published == {"nodea": 2, "nodeb": 2} and pub.epoch() == 2
 
 
+def test_a_slow_old_publication_cannot_overwrite_a_new_stop_note(tmp_path):
+    js, state = FakeJS(), {"s": fp.PolicyState()}
+    pub = fp.PolicyPublisher(key=_key, store=fp.EpochStore(tmp_path / "e.json"), state=lambda: state["s"],
+                             node_ids=lambda: ["nodea"], clock=lambda: NOW)
+    nc = SimpleNamespace(jetstream=lambda: js)
+
+    async def scenario():
+        started, release = asyncio.Event(), asyncio.Event()
+        publish = js.publish
+
+        async def interleaved_publish(subject, data, headers):
+            if json.loads(data)["epoch"] == 1:
+                started.set()
+                await release.wait()
+            await publish(subject, data, headers=headers)
+
+        js.publish = interleaved_publish
+        old = asyncio.create_task(pub.publish_on(nc, every=True))
+        await asyncio.wait_for(started.wait(), timeout=2)
+        state["s"] = fp.PolicyState(agents_stopped=True)
+        stop = asyncio.create_task(pub.publish_on(nc))
+        await asyncio.sleep(0)
+        release.set()
+        await asyncio.wait_for(asyncio.gather(old, stop), timeout=2)
+
+    asyncio.run(scenario())
+    assert [env["epoch"] for _, env, _ in js.sent] == [1, 2]
+    assert js.sent[-1][1]["stop"]["agents"]
+    assert pub.published == {"nodea": 2}
+
+
 # ------------------------------------------------------------------- #1210 review fixes
 @pytest.mark.parametrize("body", ["{not json", '{"epoch": "7", "digest": "x"}', '{"epoch": 0, "digest": "x"}',
                                   '{"digest": "x"}', "[]"])
@@ -224,6 +257,19 @@ def test_push_now_puts_the_notes_on_the_hub_before_it_returns(tmp_path):
         t.join(5)
 
 
+def test_stop_then_resume_during_broker_outage_still_invalidates_pre_stop_jobs(tmp_path):
+    state = {"value": fp.PolicyState(agents_stopped=True)}
+    store = fp.EpochStore(tmp_path / "e.json")
+    pub = fp.PolicyPublisher(key=_key, store=store, state=lambda: state["value"], node_ids=lambda: ["nodea"],
+                             clock=lambda: NOW)
+    bus = SimpleNamespace(connected=False)
+    assert pub.push_now(bus) is False
+    assert store.read() == (2, state["value"].digest())
+    state["value"] = fp.PolicyState()
+    assert pub.push_now(bus) is False
+    assert store.read() == (3, state["value"].digest())
+
+
 def test_stop_switch_pushes_and_a_failed_push_is_audited(settings, clock):
     from dataclasses import replace
 
@@ -231,12 +277,80 @@ def test_stop_switch_pushes_and_a_failed_push_is_audited(settings, clock):
                                executor=ScriptedExecutor())) as c:
         gw = c.app.state.gateway
         calls = []
-        gw.policy.push_now = lambda bus, *a, **k: calls.append("push") or False
-        assert c.put("/v1/physical/lockout", json={"locked": True}, headers=OWNER).status_code == 200
-        assert c.put("/v1/agents/kill-switch", json={"on": True}, headers=OWNER).status_code == 200
-        assert calls == ["push", "push"]
+        gw.policy.push_now = lambda bus, **options: calls.append(options.get("confirm_stop")) or False
+        for path, flag in (("/v1/physical/lockout", "locked"), ("/v1/agents/kill-switch", "on")):
+            response = c.put(path, json={flag: True}, headers=OWNER)
+            assert response.status_code == 503, response.text
+            assert response.json()["reason"] == "fabric_policy_pending"
+            assert c.get(path, headers=OWNER).json()[flag] is True
+        assert calls == [True, True]
     events = [json.loads(line).get("event") for line in settings.audit_path.read_text().splitlines() if line.strip()]
     assert events.count("fabric.policy.push_failed") == 2
+
+
+def test_live_dispatch_reports_stop_during_publication_failure_and_waits_out_old_admission(settings, clock):
+    class Connection:
+        is_connected = True
+
+        def jetstream(self):
+            return js
+
+        async def publish(self, *args, **kwargs):
+            pass  # unrelated audit and event publication
+
+        async def drain(self):
+            pass
+
+    class FailedPublication(FakeJS):
+        failing = False
+
+        async def publish(self, subject, data, headers=None):
+            if self.failing:
+                raise RuntimeError("cannot write policy stream")
+            await super().publish(subject, data, headers)
+
+    js = FailedPublication()
+    with TestClient(create_app(settings, clock=clock, executor=ScriptedExecutor())) as c:
+        gw = c.app.state.gateway
+        gw.bus.url, gw.bus.nc = "nats://configured", Connection()
+        gw.policy.node_ids, gw.policy.key = lambda: ["nodea"], _key
+        assert gw.policy.push_now(gw.bus)
+        assert js.sent[-1][1]["stop"]["motion_lockout"] is False
+
+        async def ask(_nc):
+            answers = []
+
+            async def respond(body):
+                answers.append(json.loads(body))
+
+            challenge = b"1" * 32
+            msg = SimpleNamespace(subject="onemind.node.nodea.policycheck", data=challenge, reply="inbox", respond=respond)
+            await gw.bus.policy_check(msg)
+            assert len(answers) == 1
+            env = answers[0]
+            _key().public_key().verify(base64.b64decode(env.pop("sig")), fp.canonical(env))
+            assert env["challenge"] == challenge.decode("ascii")
+            return env
+
+        path = "/v1/physical/lockout"
+        js.failing = True
+        response = c.put(path, json={"locked": True}, headers=OWNER)
+        assert response.status_code == 503, response.text
+        assert js.sent[-1][1]["epoch"] == 1  # reachable hub still returns an old permissive note
+        live = gw.bus.run_threadsafe(ask, 2)
+        assert live["epoch"] == 2 and live["stop"]["motion_lockout"] is True
+
+        js.failing = False
+        response = c.put(path, json={"locked": True}, headers=OWNER)
+        assert response.status_code == 200, response.text
+        assert js.sent[-1][1]["epoch"] == 2 and js.purged
+
+        assert c.put(path, json={"locked": False}, headers=OWNER).status_code == 200
+        assert gw.bus.run_threadsafe(ask, 2)["stop"]["motion_lockout"] is False
+        dispatch_until = gw.policy._dispatch_until
+        assert dispatch_until > time.monotonic()
+        assert c.put(path, json={"locked": True}, headers=OWNER).status_code == 200
+        assert time.monotonic() >= dispatch_until
 
 
 def test_route_lockout_raises_the_epoch_jobs_carry(settings, clock):

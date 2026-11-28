@@ -2,10 +2,9 @@
 // Logs tab of Troubleshoot (P-07): the whole box's system journal through GET /v1/system/journal.
 // Read only, so nothing waits for an approval, but the hub audits each read. The hub redacts every line
 // (tokens, passwords, keys, e-mail, IP and MAC addresses) and limits size and rate; this page shows what it
-// sends as plain text and strips terminal control characters. The SDK client speaks JSON, so this one
-// text endpoint is read with fetch and the same bearer token and protocol header.
-import { useEffect, useId, useRef, useState } from 'react';
-import { PROTOCOL_HEADER, PROTOCOL_VERSION } from '@onemind/sdk';
+// sends as plain text and strips terminal control characters.
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { OneMind } from '@onemind/sdk';
 import { Button, Card } from '@onemind/ui';
 
 const PRIORITIES = [
@@ -29,6 +28,7 @@ async function failure(res: Response): Promise<string> {
 }
 
 export function LogViewer({ token }: { token: string }) {
+  const client = useMemo(() => new OneMind({ baseUrl: window.location.origin, token }), [token]);
   const id = useId();
   const [unit, setUnit] = useState('');
   const [priority, setPriority] = useState('');
@@ -42,17 +42,14 @@ export function LogViewer({ token }: { token: string }) {
   useEffect(() => () => abort.current?.abort(), []);
 
   const unitBad = unit.trim() !== '' && !UNIT.test(unit.trim());
-  const query = (follow: boolean) => {
-    const q = new URLSearchParams({ tail, boot: follow ? '0' : boot });
-    if (unit.trim()) q.set('unit', unit.trim());
-    if (priority) q.set('priority', priority);
-    if (follow) q.set('follow', 'true');
-    return `/v1/system/journal?${q}`;
-  };
   const open = async (follow: boolean, signal: AbortSignal) => {
-    const res = await fetch(window.location.origin + query(follow), {
-      headers: { Authorization: `Bearer ${token}`, [PROTOCOL_HEADER]: String(PROTOCOL_VERSION) }, signal, cache: 'no-store',
-    });
+    const res = await client.journal.read({
+      boot: follow ? 0 : Number(boot),
+      tail: Number(tail),
+      unit: unit.trim() || undefined,
+      priority: priority || undefined,
+      follow: follow || undefined,
+    }, signal);
     if (!res.ok) throw new Error(await failure(res));
     return res;
   };

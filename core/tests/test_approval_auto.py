@@ -13,7 +13,7 @@ from datetime import timedelta
 import pytest
 from fastapi.testclient import TestClient
 
-from conftest import AGENT, OWNER, action_body
+from conftest import AGENT, OWNER, action_body, apply_queued_policy, apply_settings_change
 from onemind_core.app import create_app
 from onemind_core.notify import NotifySettings
 from onemind_core.notify import topics
@@ -40,8 +40,7 @@ def rule(c, clock, notify_after, types=("app.restart",)):
     r = c.post("/v1/approval-policies", headers=OWNER, json={
         "allow": {"types": list(types), "requested_by": ["agent:hermes"], "params": {}}, "limits": {"per_day": 50},
         "expires_at": (clock.now + timedelta(days=30)).isoformat().replace("+00:00", "Z"), "notify_after": notify_after})
-    assert r.status_code == 201, r.text
-    return r.json()["id"]
+    return apply_queued_policy(c, r).json()["id"]
 
 
 def restart(c, clock, key):
@@ -105,7 +104,7 @@ def test_an_each_rule_pauses_when_the_push_transport_fails(nc, clock, http):
     assert restart(nc, clock, "f1")["state"] == "awaiting_approval"
     # one tap re-confirms it once the owner has fixed the channel
     http.status = 200
-    assert nc.post(f"/v1/approval-policies/{pid}/reconfirm", headers=OWNER).status_code == 200
+    apply_settings_change(nc, nc.post(f"/v1/approval-policies/{pid}/reconfirm", headers=OWNER))
     assert restart(nc, clock, "f2")["state"] == "succeeded"
 
 

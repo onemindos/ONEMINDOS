@@ -15,6 +15,7 @@ import pytest
 
 from conftest import AGENT, OWNER
 from onemind_core import streams, subjects
+from onemind_core.natsconf import policy_check_subject
 
 
 @pytest.fixture(scope="module")
@@ -147,6 +148,17 @@ def test_an_agent_only_asks_under_its_own_id(reg):
 ])
 def test_every_contract_12_9_subject_is_valid_for_its_publisher(reg, subject, publisher, owner):
     assert reg.check(subject, publisher, owner).ok, reg.check(subject, publisher, owner).reason
+
+
+def test_live_policy_check_is_an_ephemeral_request_scoped_to_its_node(reg):
+    subject = policy_check_subject("aaa111")
+    verdict = reg.check(subject, "node", "aaa111")
+    assert verdict.ok, verdict.reason
+    pattern = next(p for p in reg.patterns if p.text == verdict.pattern)
+    assert pattern.stream is None and pattern.retention["policy"] == "none"
+    assert pattern.envelope == "dispatch-challenge"
+    assert not reg.check(subject, "node", "bbb222").ok
+    assert not reg.check(subject, "agent", "aaa111").ok
 
 
 # --- review of #791: real job kinds, real 12.1 ids, agent principals, one meaning of "subject" ---

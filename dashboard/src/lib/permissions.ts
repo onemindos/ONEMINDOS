@@ -3,12 +3,10 @@
 // Every call goes through @onemind/sdk with the signed-in person's token. The gateway decides who may
 // change what; this file only carries the request and, when the gateway asks for it, the passkey.
 //
-// Step-up: a loosening (a looser mode, removing a "never" rule, widening or re-confirming a rule)
-// answers 401 step_up_required unless this session signed in with a passkey in the last few minutes
-// (IdentityService.require_step_up). The page then runs the same passkey sign-in as the sign-in page,
-// adopts the fresh session and sends the change once more. No new check is invented here.
+// Current gateways send permission-increasing changes to Approvals. Older gateways may answer
+// 401 step_up_required. The page uses the same passkey sign-in as the sign-in page and retries once.
 import { useCallback, useMemo } from 'react';
-import { OneMind, OneMindError } from '@onemind/sdk';
+import { OneMind, OneMindError, type Action } from '@onemind/sdk';
 import { ApiError } from '../api/types';
 import { useSignedIn } from '../session';
 import { getPasskey, webauthnSupported } from './webauthn';
@@ -27,6 +25,10 @@ export const MODE_TEXT: Record<string, { label: string; help: string }> = {
 };
 
 export const modeLabel = (mode: string) => MODE_TEXT[mode]?.label ?? mode;
+
+/** Permission writes either apply immediately or create a request for the owner to approve. */
+export const isApprovalRequest = (value: object | void): value is Action =>
+  !!value && 'requested_by' in value && 'state' in value;
 
 /** One OneMind client per token, as the other Settings pages build it. */
 export function usePermSdk(): OneMind {

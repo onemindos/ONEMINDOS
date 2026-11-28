@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from conftest import ADULT, AGENT, OWNER, make_client
+from conftest import ADULT, AGENT, OWNER, apply_settings_change, make_client
 from onemind_core.taint import FOREVER, TTL, plan_taint
 from onemind_core.taint_store import NODE_JOIN_REQUESTER
 from test_mcp import call
@@ -92,7 +92,9 @@ def test_every_agent_and_plugin_is_exposed_by_default_and_people_are_not(tclient
     assert tclient.app.state.gateway.actions.taint.get("agent:whoami").permanent
     # the owner may declare an app's agent reads nothing outside; that is recorded
     r = tclient.put("/v1/agents/agent:whoami/inputs", json={"external_inputs": []}, headers=OWNER)
-    assert r.status_code == 200 and r.json()["exposed"] is False and r.json()["declared"] is True
+    apply_settings_change(tclient, r)
+    view = tclient.get("/v1/agents/agent:whoami/inputs", headers=OWNER).json()
+    assert view["exposed"] is False and view["declared"] is True
     assert tclient.app.state.gateway.actions.taint.get("agent:whoami") is None
 
 
@@ -113,7 +115,8 @@ def test_bad_inputs_are_refused(tclient):
 
 def test_accept_injection_risk_is_owner_only_one_write_type_and_not_yet_in_effect(tclient, clock):
     ok = tclient.put(INPUTS, json={"external_inputs": ["web"], "accept_injection_risk": ["app.restart"]}, headers=OWNER)
-    assert ok.status_code == 200, ok.text
+    apply_settings_change(tclient, ok)
+    ok = tclient.get(INPUTS, headers=OWNER)
     v = ok.json()
     assert v["accept_injection_risk"] == ["app.restart"] and v["accept_injection_risk_effective"] is False
     for types, needle in ((["app.install"], "write type"), (["backup.restore"], "write type"),
@@ -139,12 +142,15 @@ def test_an_identity_token_agent_and_the_v0_token_are_tainted_until_the_owner_de
     assert t.get("plugin:x", "plugin").permanent
     assert t.get("owner", "person") is None and t.get("automation:r1", "automation") is None
     assert agent_removes_whoami(tclient, clock, "default").json()["state"] == "awaiting_approval"
-    assert tclient.put(INPUTS, json={"external_inputs": []}, headers=OWNER).status_code == 200
+    apply_settings_change(tclient, tclient.put(INPUTS, json={"external_inputs": []}, headers=OWNER))
     assert agent_removes_whoami(tclient, clock, "declared-none").json()["state"] == "succeeded"
 
 
-def test_only_loosening_an_agents_inputs_needs_the_passkey(tclient):
+def test_only_loosening_an_agents_inputs_needs_the_passkey(tclient, monkeypatch):
+    from onemind_core.permissions import changes
+
     ident = tclient.app.state.identity
+    monkeypatch.setattr(changes, "owner_has_passkey", lambda app: ident.passkeys_active())
     ident.passkeys_active = lambda: True
     # tightening is L0: adding an input, or none -> web, needs no step-up
     assert tclient.put(INPUTS, json={"external_inputs": ["web"]}, headers=OWNER).status_code == 200
@@ -153,14 +159,33 @@ def test_only_loosening_an_agents_inputs_needs_the_passkey(tclient):
     for body in ({"external_inputs": ["web"]}, {"external_inputs": []},
                  {"external_inputs": ["web", "email"], "accept_injection_risk": ["app.restart"]}):
         r = tclient.put(INPUTS, json=body, headers=OWNER)
-        assert r.status_code == 401 and r.json()["reason"] == "step_up_required", (body, r.text)
+        assert r.status_code == 202 and r.json()["state"] == "awaiting_approval", (body, r.text)
+        refused = tclient.post(f"/v1/actions/{r.json()['id']}/approve", headers=OWNER)
+        assert refused.status_code in (401, 409) and refused.json()["reason"] in ("step_up_required", "needs_proven_key")
     assert tclient.get(INPUTS, headers=OWNER).json()["external_inputs"] == ["web", "email"]
     ident.passkeys_active = lambda: False
     ok = {"external_inputs": ["web", "email"], "accept_injection_risk": ["app.restart"]}
-    assert tclient.put(INPUTS, json=ok, headers=OWNER).status_code == 200
+    r = tclient.put(INPUTS, json=ok, headers=OWNER)
+    assert r.status_code == 409 and r.json()["reason"] == "no_owner_passkey"
     ident.passkeys_active = lambda: True
+    apply_settings_change(tclient, tclient.put(INPUTS, json=ok, headers=OWNER))
     # removing an accepted risk (same inputs) tightens again
     assert tclient.put(INPUTS, json={"external_inputs": ["web", "email"]}, headers=OWNER).status_code == 200
+
+
+def test_stale_queued_input_loosening_cannot_drop_a_concurrent_declaration(tclient):
+    from onemind_core.actions import ApprovalInput
+    from onemind_core.auth import Principal
+
+    assert tclient.put(INPUTS, json={"external_inputs": ["web", "email"]}, headers=OWNER).status_code == 200
+    queued = tclient.put(INPUTS, json={"external_inputs": ["web"]}, headers=OWNER)
+    assert queued.status_code == 202, queued.text
+    expanded = ["web", "email", "files"]
+    assert tclient.put(INPUTS, json={"external_inputs": expanded}, headers=OWNER).status_code == 200
+    out = tclient.app.state.actions.approve(Principal("owner", "person", "owner"), queued.json()["id"],
+                                            extra=ApprovalInput(verification_level=2))
+    assert out["state"] == "failed" and "inputs changed" in out["result"]["message"]
+    assert tclient.get(INPUTS, headers=OWNER).json()["external_inputs"] == expanded
 
 
 def test_a_mark_writes_the_database_outside_the_ledger_lock(clock):
@@ -213,9 +238,9 @@ SCOUT = "/v1/agents/scout/inputs"
 def test_the_inputs_audit_records_how_presence_was_proved_and_a_removed_app_forgets_its_declaration(tclient):
     assert tclient.put(SCOUT, json={"external_inputs": ["web"]}, headers=OWNER).status_code == 200
     ins = tclient.app.state.agent_inputs
-    assert tclient.put(SCOUT, json={"external_inputs": []}, headers=OWNER).status_code == 200  # loosens
+    apply_settings_change(tclient, tclient.put(SCOUT, json={"external_inputs": []}, headers=OWNER))
     e = [x for x in audit(tclient) if x["event"] == "agent.inputs.set"]
-    assert e[-1]["data"]["via"] == "token"  # the owner token, not a passkey: `in` would pass with None
+    assert e[-1]["data"]["via"] == "L2"
     # the app is removed: what the owner declared must not carry over to a new agent with that id
     from onemind_core.agent_principals import AgentPrincipals
 
@@ -232,11 +257,7 @@ def test_the_inputs_audit_records_how_presence_was_proved_and_a_removed_app_forg
 
 @pytest.mark.default_exposure
 def test_only_the_fabric_node_join_request_skips_a_nodes_exposure(tclient, clock):
-    """#1166 review: kind "node" is exposed on every path; only ActionService.file("node.join") is exempt.
-
-    POST /v1/actions and the feature path look the taint up as taint.get(principal.id, principal.kind),
-    so a node principal there now gets the default exposure.
-    """
+    """#1166 review: only ActionService.file("node.join") skips the node's exposure."""
     from datetime import timedelta
 
     actions = tclient.app.state.gateway.actions
@@ -254,6 +275,49 @@ def test_only_the_fabric_node_join_request_skips_a_nodes_exposure(tclient, clock
     other = actions.file("node.drain", {"node_id": "n1"}, req, expires_at=exp, idempotency_key="node:other")
     assert plan_taint(other.plan)["sources"] == ["input:agent"]
     assert other.state == "awaiting_approval"
+
+
+@pytest.mark.default_exposure
+def test_a_bearer_authenticated_node_files_a_tainted_action_over_http(tclient, clock):
+    from datetime import timedelta
+
+    from pydantic import BaseModel
+
+    from onemind_core.actions import FeatureAction
+    from onemind_core.auth import Principal
+
+    class DrainParams(BaseModel):
+        node_id: str
+
+    class DrainRequester(Principal):
+        @property
+        def can_request_actions(self):
+            return True
+
+        def may_request_action(self, action_type):
+            return action_type == "node.drain"
+
+    # The v0 gateway has no general node bearer issuer. Supply just the node credential and
+    # its action type at their extension points, leaving HTTP auth and action filing intact.
+    token = "fixture-" + "action-node-n1"
+    node = DrainRequester("node:n1", "node", "node")
+    gw = tclient.app.state.gateway
+    gw.authenticators.append(lambda _request, supplied: node if supplied == token else None)
+    ran = []
+    gw.actions.register_type("node.drain", FeatureAction(
+        risk="write", run=lambda action, _finish: ran.append(action.id),
+        requesters=frozenset({"node"}), params_model=DrainParams,
+    ))
+    body = {"type": "node.drain", "params": {"node_id": "n1"}, "idempotency_key": "node:drain-http",
+            "expires_at": (clock() + timedelta(minutes=10)).isoformat()}
+    assert tclient.post("/v1/actions", json=body).status_code == 401
+    r = tclient.post("/v1/actions", json=body, headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 201, r.text
+    action = r.json()
+    assert action["requested_by"] == {"id": "node:n1", "kind": "node"}
+    taint = plan_taint(action["plan"])
+    assert taint is not None and taint["sources"] == ["input:agent"]
+    assert action["state"] == "awaiting_approval" and not ran
 
 
 def test_removing_an_app_through_the_action_queue_clears_its_agent_declaration(tclient, clock):

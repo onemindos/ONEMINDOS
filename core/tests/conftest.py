@@ -262,13 +262,49 @@ def rules_may_fire(request):
     if request.node.get_closest_marker("real_mode_defaults"):
         yield
         return
-    from onemind_core.permissions import modes
-    from onemind_core.routers import permissions
+    from onemind_core.permissions import changes, modes
 
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(modes, "DEFAULT_MODE", "auto")
-        mp.setattr(permissions, "owner_has_passkey", lambda app: True)
+        mp.setattr(changes, "owner_has_passkey", lambda app: True)
         yield
+
+
+def apply_settings_change(client, response):
+    """Provision approved test state, using the real ledger with an already verified L2 proof.
+
+    Tests of authorization itself drive the WebAuthn entry point.
+    """
+    from onemind_core.actions import ApprovalInput
+    from onemind_core.auth import Principal
+
+    assert response.status_code == 202, response.text
+    action = response.json()
+    assert action["state"] == "awaiting_approval"
+    actions = client.app.state.gateway.actions
+    done = actions.approve(Principal("owner", "person", "owner"), action["id"], action["plan_sha256"],
+                           extra=ApprovalInput(verification_level=2))
+    assert done["state"] == "succeeded", done
+    return done
+
+
+class QueuedPolicy:
+    def __init__(self, response, rule):
+        self.status_code, self.text = response.status_code, response.text
+        self.rule = rule
+
+    def json(self):
+        return self.rule
+
+
+def apply_queued_policy(client, response, policy_id=None):
+    if response.status_code != 202:
+        return response
+    approved = apply_settings_change(client, response)
+    if policy_id is None:
+        policy_id = approved["result"]["steps"][0]["policy_id"]
+    svc = client.app.state.automation
+    return QueuedPolicy(response, svc.policies.to_json(svc.repo.get_policy(policy_id)))
 
 
 @pytest.fixture

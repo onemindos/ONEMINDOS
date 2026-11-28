@@ -174,6 +174,14 @@ class AppAccessRow(Base):
     updated_by: Mapped[str] = mapped_column(String(100))
 
 
+class AgentOwnerRow(Base):
+    """Permanent reservation of a personal agent's display name, including after revocation."""
+
+    __tablename__ = "identity_agent_owners"
+    principal_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    owner_user_id: Mapped[str | None] = mapped_column(String(40), nullable=True)
+
+
 class IdentityRepository(SqlRepository):
     """Small generic helpers; the rules live in service.py."""
 

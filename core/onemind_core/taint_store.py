@@ -156,10 +156,10 @@ class AgentInputs:
                           {"principal_id": pid, "was": had["external_inputs"], "reason": "identity_ended"})
         return True
 
-    def loosens(self, pid: str, external_inputs: list[str], accept: list[str]) -> bool:
+    @staticmethod
+    def loosens(before: dict, external_inputs: list[str], accept: list[str]) -> bool:
         """True when this declaration makes the agent less guarded than it is now (D-028: only that
         needs a person at the passkey; tightening stays at L0)."""
-        before = self.view(pid)
         dropped = set(before["external_inputs"]) & set(INPUT_KINDS) - set(external_inputs)
         cleared = bool(before["external_inputs"]) and not external_inputs
         return bool(dropped or cleared or set(accept) - set(before["accept_injection_risk"]))
@@ -168,7 +168,7 @@ class AgentInputs:
     def view(self, pid: str) -> dict:
         with self._lock:
             row = self._rows.get(pid)
-        names = self.inputs(pid)
+        names = tuple(row["external_inputs"]) if row is not None else self._default(pid, None)
         return {
             "id": pid,
             "external_inputs": list(names),
@@ -182,7 +182,8 @@ class AgentInputs:
         }
 
     def set(self, p: Principal, pid: str, external_inputs: list[str], accept: list[str],
-            via: str | None = None) -> dict:
+            *, request_loosen: Callable[[dict], dict] | None = None, approved_before: dict | None = None,
+            on_exposure: Callable[[], None] | None = None) -> dict:
         if not p.is_owner:
             self.audit.append("authz.denied", p.as_dict(), None,
                               {"attempted": "declare agent inputs", "principal_id": pid, "reason": "permission_denied"})
@@ -202,19 +203,28 @@ class AgentInputs:
             if not names:
                 raise ApiError(422, "conflict", "accept_injection_risk only applies to an agent that reads outside text")
         accept = sorted(set(accept))
-        before = self.view(pid)
-        now = self.clock()
-        values = {"external_inputs": names, "accept_injection_risk": accept, "updated_at": now, "updated_by": p.id}
         with self._writes:
+            before = self.view(pid)
+            if approved_before is not None and before != approved_before:
+                raise ApiError(409, "stale_precondition", "the agent's inputs changed; request the change again")
+            if approved_before is None and self.loosens(before, names, accept):
+                if request_loosen is None:
+                    raise ApiError(409, "conflict", "reducing an agent's exposure needs an approval")
+                return request_loosen({"principal": pid, "external_inputs": names, "accept_injection_risk": accept,
+                                       "before": before})
+            now = self.clock()
+            values = {"external_inputs": names, "accept_injection_risk": accept, "updated_at": now, "updated_by": p.id}
             with self.db.session.begin() as s:
                 s.execute(self.db.insert()(InputsRow).values(principal_id=pid, **values)
                           .on_conflict_do_update(index_elements=[InputsRow.principal_id], set_=values))
             with self._lock:
                 self._rows[pid] = {"external_inputs": names, "accept_injection_risk": accept,
                                    "updated_at": utc(now), "updated_by": p.id}
-        after = self.view(pid)
+            after = self.view(pid)
+            if on_exposure is not None and set(names) - set(before["external_inputs"]):
+                on_exposure()
         self.audit.append("agent.inputs.set", p.as_dict(), None,
                           {"principal_id": pid, "external_inputs": after["external_inputs"],
                            "was": before["external_inputs"], "accept_injection_risk": accept,
-                           "was_accepting": before["accept_injection_risk"], "via": via})
+                           "was_accepting": before["accept_injection_risk"], "via": "L2" if approved_before else None})
         return after

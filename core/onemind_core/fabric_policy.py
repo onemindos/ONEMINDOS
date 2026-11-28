@@ -23,9 +23,10 @@ When a stop switch changes, the switch call itself pushes the new notes to the h
 (`push_now`, a listener on the lockout and the kill switch), and, while a stop is on, purges every
 actuating job still queued in ONEMIND_JOBS. So once the owner's "Stop" call has returned, a job queued
 before it cannot actuate anything: it is gone from the queue, or the machine reads the stop note right
-before running it. If the hub cannot be reached, the call still stops everything in the gateway, the
-failure is an audit line and a warning event, and the background loop keeps retrying every 5 s. A
-machine refuses actuating jobs while it holds no verified note at all (internal/jobs/policy.go).
+before running it. At dispatch, an actuating job additionally needs a signed answer to a fresh
+challenge from the gateway, so a retained note cannot authorize dispatch during a failed push.
+A successful Stop waits for previously issued dispatch windows to expire. If the push fails, the
+switch stays on locally, the API reports incomplete enforcement, and the background loop retries.
 
 The epoch file is the one thing that must never go back: a corrupt file is an error (EpochError),
 never a silent reset to 1, which would make every machine ignore the next note and refuse every new
@@ -42,6 +43,9 @@ import hashlib
 import json
 import logging
 import os
+import re
+import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -61,6 +65,8 @@ POLICY_MAX_BYTES = 1 << 20
 ACTUATE_PREFIXES = ("physical", "robot", "actuator", "relay", "motion")
 RETRY_S = 5.0
 PUSH_TIMEOUT_S = 3.0  # how long a stop switch call waits for the hub to hold the new notes
+DISPATCH_TIMEOUT_S = 1.0  # same duration as internal/jobs/intake.go dispatchTimeout
+_CHALLENGE = re.compile(rb"[0-9a-f]{32}")
 
 
 class EpochError(RuntimeError):
@@ -93,7 +99,8 @@ class PolicyState:
         return hashlib.sha256(canonical(self.body())).hexdigest()
 
 
-def sign_snapshot(key: Ed25519PrivateKey, node_id: str, epoch: int, state: PolicyState, now: datetime) -> dict:
+def sign_snapshot(key: Ed25519PrivateKey, node_id: str, epoch: int, state: PolicyState, now: datetime,
+                  *, challenge: str | None = None) -> dict:
     """One machine's signed snapshot. internal/jobs/policy.go verifies it (shared vector)."""
     if not isinstance(node_id, str) or not NODE_ID_RE.match(node_id):
         raise ValueError("node_id is not a lowercase node id")
@@ -101,6 +108,8 @@ def sign_snapshot(key: Ed25519PrivateKey, node_id: str, epoch: int, state: Polic
         raise ValueError("epoch must be a positive integer")
     env = {"schema": POLICY_SCHEMA, "aud": f"node:{node_id}", "kid": job_kid(key.public_key()), "epoch": epoch,
            "issued_at": _iso(now), **state.body()}
+    if challenge is not None:
+        env["challenge"] = challenge
     env["sig"] = base64.b64encode(key.sign(canonical(env))).decode("ascii")
     return env
 
@@ -217,16 +226,26 @@ class PolicyPublisher:
     error: str = ""
     _seen: tuple = ()
     _purged: int = 0  # the epoch whose stop already purged ONEMIND_JOBS of actuating jobs
+    _publish_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    _epoch_lock: threading.Lock = field(default_factory=threading.Lock)
+    # A previous gateway process could have answered just before restarting.
+    _dispatch_until: float = field(default_factory=lambda: time.monotonic() + DISPATCH_TIMEOUT_S)
+
+    def _current(self) -> tuple[PolicyState, int]:
+        with self._epoch_lock:
+            state = self.state()
+            return state, self.store.advance(state.digest())
 
     def epoch(self) -> int:
         """The epoch a job signed now must carry. A switch that cannot be read counts as on (state()
         does that); an epoch file that cannot be read raises EpochError, so nothing is signed with a
         guessed epoch."""
-        try:
-            digest = self.state().digest()
-        except Exception:  # noqa: BLE001 - keep the stored epoch rather than stop signing on a read glitch
-            return self.store.read()[0]
-        return self.store.advance(digest)
+        with self._epoch_lock:
+            try:
+                digest = self.state().digest()
+            except Exception:  # noqa: BLE001 - read-only jobs can still use the stored epoch
+                return self.store.read()[0]
+            return self.store.advance(digest)
 
     def view(self) -> dict:
         """What GET /v1/fabric/policy shows. Read-only: it never writes the epoch file. `epoch` is the one
@@ -243,16 +262,23 @@ class PolicyPublisher:
         return {"schema": POLICY_SCHEMA, "epoch": epoch, **body, "published": dict(sorted(self.published.items())),
                 "error": error}
 
-    async def publish_on(self, nc, *, every: bool = False) -> None:
+    async def publish_on(self, nc, *, every: bool = False, confirm_stop: bool = False) -> bool:
         """Bring the hub's notes to the current epoch: the stream first, then each machine whose note is
         older (or all of them after a new connection); while a stop is on, purge actuating jobs from
         ONEMIND_JOBS once per epoch. Never raises: an error is kept and retried."""
+        async with self._publish_lock:
+            connection = (id(nc), (getattr(nc, "stats", None) or {}).get("reconnects", 0))
+            published = await self._publish(nc, every=every or connection != self._seen, confirm_stop=confirm_stop)
+            if published:
+                self._seen = connection
+            return published
+
+    async def _publish(self, nc, *, every: bool, confirm_stop: bool) -> bool:
         try:
             js = nc.jetstream()
             if every:
                 await ensure_stream(js)
-            state = self.state()
-            epoch = self.store.advance(state.digest())
+            state, epoch = self._current()
             for node_id in self.node_ids():
                 if not every and self.published.get(node_id) == epoch:
                     continue
@@ -263,35 +289,55 @@ class PolicyPublisher:
             if (state.motion_lockout or state.agents_stopped) and self._purged != epoch:
                 await purge_actuating_jobs(js)
                 self._purged = epoch
+            if confirm_stop:
+                # A node starts its monotonic window before sending its challenge. Waiting one
+                # window after we signed the last permissive answer also covers answers in flight.
+                await asyncio.sleep(max(0.0, self._dispatch_until - time.monotonic()))
             self.error = ""
+            return True
         except EpochError as exc:
             self.error = f"EpochError: {exc}"[:300]
             log.error("policy snapshots not published: %s", exc)
         except Exception as exc:  # noqa: BLE001 - NATS refused or dropped: keep serving, retry
             self.error = f"{exc.__class__.__name__}: {exc}"[:300]
             log.warning("policy snapshots not published (%s); retrying", self.error)
+        return False
 
-    def push_now(self, bus, timeout_s: float = PUSH_TIMEOUT_S) -> bool:
+    async def confirm_dispatch(self, msg) -> None:
+        """Prove the current gateway policy to a node at its dispatch boundary."""
+        if not _CHALLENGE.fullmatch(msg.data) or not msg.reply:
+            return
+        try:
+            node_id = msg.subject.split(".")[2]
+            if node_id not in self.node_ids():
+                return
+            state, epoch = self._current()
+            env = sign_snapshot(self.key(), node_id, epoch, state, self.clock(), challenge=msg.data.decode("ascii"))
+            if not (state.motion_lockout or state.agents_stopped):
+                self._dispatch_until = time.monotonic() + DISPATCH_TIMEOUT_S
+            await msg.respond(json.dumps(env).encode())
+        except Exception as exc:  # noqa: BLE001 - without a signed answer the node refuses dispatch
+            log.warning("policy dispatch check failed (%s)", exc.__class__.__name__)
+
+    def push_now(self, bus, timeout_s: float = PUSH_TIMEOUT_S, *, confirm_stop: bool = False) -> bool:
         """Called by a stop switch, from the request's worker thread, before the switch call returns:
         put the new notes on the hub (and purge actuating jobs while a stop is on) now, not at the next
         5 s tick. True when every machine's note on the hub is current."""
-        if not bus.connected:
-            self.error = self.error or "NATS is not connected"
-            return False
         try:
-            bus.run_threadsafe(lambda nc: self.publish_on(nc), timeout_s)
+            # Persist the transition even if the broker cannot be reached, so Stop followed
+            # by Resume during an outage still invalidates every pre-Stop job.
+            self._current()
+            if not bus.connected:
+                self.error = "NATS is not connected"
+                return False
+            return bus.run_threadsafe(lambda nc: self.publish_on(nc, confirm_stop=confirm_stop), timeout_s)
         except Exception as exc:  # noqa: BLE001 - a timeout or a closed loop: the background loop retries
             self.error = f"{exc.__class__.__name__}: {exc}"[:300] or "push timed out"
             return False
-        return not self.error
 
     async def run(self, bus, interval_s: float = RETRY_S) -> None:
         while True:
             nc = bus.nc if bus.connected else None
             if nc is not None:
-                key = (id(nc), (getattr(nc, "stats", None) or {}).get("reconnects", 0))
-                fresh = key != self._seen
-                await self.publish_on(nc, every=fresh)
-                if not self.error:
-                    self._seen = key
+                await self.publish_on(nc)
             await asyncio.sleep(interval_s)

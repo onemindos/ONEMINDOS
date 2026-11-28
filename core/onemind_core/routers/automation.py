@@ -19,6 +19,7 @@ from ..errors import ApiError, error_responses
 from ..identity import ctx_of
 from ..identity.scopes import register_route_scope
 from ..ledger import iso
+from ..permissions.changes import QUEUED, register_change, request_change
 from ..principals import BOUND_KINDS
 
 WINDOW_ID_RE = re.compile(r"^win_[a-z0-9_]{1,36}$")
@@ -177,6 +178,15 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return svc.set_paused(p, False, (body or PauseBody()).reason)
 
     # ---- standing approvals --------------------------------------------------------------------
+    register_change(app, gw, "policy.rule.create", lambda p, params: policies.create(
+        p, PolicyBody.model_validate(params["rule"]), "L2", expected_bindings=params["principals"]))
+    register_change(app, gw, "policy.rule.widen", lambda p, params: policies.revise(
+        p, params["id"], PolicyPatch.model_validate(params["patch"]), "L2", expected_bindings=params["principals"]))
+    register_change(app, gw, "policy.rule.confirm", lambda p, params: policies.confirm(
+        p, params["id"], revision=params["revision"]))
+    register_change(app, gw, "policy.rule.reconfirm", lambda p, params: policies.reconfirm(
+        p, params["id"], "L2", expected=params))
+
     @app.get("/v1/approval-policies", operation_id="approvals.policies.list", tags=tags,
              responses={200: {"model": list[ApprovalPolicy]}, **error_responses(401, 403)})
     def list_policies(p: Principal = Depends(principal)):
@@ -188,32 +198,44 @@ def register(app: FastAPI, gw: Gateway) -> None:
         policies.lapse_due(gw.clock())
         return [policies.to_json(x) for x in svc.repo.list_policies(with_paused=True)]
 
-    @app.post("/v1/approval-policies", operation_id="approvals.policies.create", tags=tags, status_code=201,
-              responses={201: {"model": ApprovalPolicy}, **error_responses(401, 403, 404, 422)})
-    def create_policy(body: PolicyBody, request: Request, p: Principal = Depends(principal)):
-        via = step_up(request, p, "create standing approval")
-        return JSONResponse(status_code=201, content=policies.create(p, body, approval=via))
+    @app.post("/v1/approval-policies", operation_id="approvals.policies.create", tags=tags, status_code=202,
+              responses={**QUEUED, **error_responses(401, 403, 404, 409, 422, 429)})
+    def create_policy(body: PolicyBody, p: Principal = Depends(principal)):
+        preview = policies.prepare_create(p, body)
+        return request_change(app, gw, p, "policy.rule.create",
+                              {"rule": body.model_dump(mode="json"), "principals": preview["principals"]})
 
     @app.post("/v1/approval-policies/{policy_id}/confirm", operation_id="approvals.policies.confirm", tags=tags,
-              responses={**ONE, **error_responses(401, 403, 404)}, openapi_extra={"security": [{"bearer": ["*"]}]})
-    def confirm_policy(policy_id: str, request: Request, p: Principal = Depends(principal)):
-        step_up(request, p, "confirm standing approval")
-        return policies.confirm(p, policy_id)
+              responses={**QUEUED, **error_responses(401, 403, 404, 409, 429)}, status_code=202,
+              openapi_extra={"security": [{"bearer": ["*"]}]})
+    def confirm_policy(policy_id: str, p: Principal = Depends(principal)):
+        policies._owner_only(p, "confirm standing approval")
+        current = policies._get(policy_id)
+        if current["state"] != "paused":
+            raise ApiError(404, "not_found", "no paused standing approval with that id")
+        return request_change(app, gw, p, "policy.rule.confirm", {"id": policy_id, "revision": current["revision"],
+                               "rule": policies._body_of(current).model_dump(mode="json")})
 
     def caller_user(request: Request) -> str | None:
         ctx = ctx_of(request)
         return ctx.user.id if ctx is not None and ctx.user is not None else None
 
     @app.patch("/v1/approval-policies/{policy_id}", operation_id="approvals.policies.update", tags=tags,
-               responses={**ONE, **error_responses(401, 403, 404, 409, 422)}, openapi_extra={"security": [{"bearer": ["*"]}]})
-    def update_policy(policy_id: str, body: PolicyPatch, request: Request, p: Principal = Depends(principal)):
-        # Narrowing applies at once: the owner editing it is the approval. Widening needs a fresh passkey
-        # (L1 today; D-028 sets L2 as the target for rules, design PR 11).
-        if not p.is_owner:
-            policies._owner_only(p, "edit standing approvals")
-        direction, _ = policies.plan_revision(policy_id, body)
-        via = step_up(request, p, "widen a standing approval") if direction == "widen" else None
-        return policies.revise(p, policy_id, body, via)
+               responses={**ONE, **QUEUED, **error_responses(401, 403, 404, 409, 422, 429)},
+               openapi_extra={"security": [{"bearer": ["*"]}]})
+    def update_policy(policy_id: str, body: PolicyPatch, p: Principal = Depends(principal)):
+        policies._owner_only(p, "edit standing approvals")
+        direction, rule, patch = policies.revision_request(policy_id, body)
+        if direction != "widen":
+            return policies.revise(p, policy_id, patch, None)
+        policies._check_loosen()
+        updated = PolicyBody.model_validate(rule)
+        policies.validate(updated)
+        if updated.forever:
+            policies._require_proven("making a rule Forever")
+        return request_change(app, gw, p, "policy.rule.widen",
+                              {"id": policy_id, "rule": rule, "patch": patch.model_dump(mode="json", exclude_unset=True),
+                               "principals": policies._bindings(updated.allow.requested_by)})
 
     @app.post("/v1/approval-policies/{policy_id}/revoke", operation_id="approvals.policies.revoke", tags=tags,
               responses={**ONE, **error_responses(401, 403, 404)}, openapi_extra={"security": [{"bearer": ["tokens:self"]}]})
@@ -231,10 +253,16 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return {"revoked": policies.revoke_all(p, body.principal, owned_agents(caller_user(request)))}
 
     @app.post("/v1/approval-policies/{policy_id}/reconfirm", operation_id="approvals.policies.reconfirm", tags=tags,
-              responses={**ONE, **error_responses(401, 403, 404, 409, 422)}, openapi_extra={"security": [{"bearer": ["*"]}]})
-    def reconfirm_policy(policy_id: str, request: Request, p: Principal = Depends(principal)):
-        via = step_up(request, p, "re-confirm a suspended standing approval")  # one tap at L1
-        return policies.reconfirm(p, policy_id, via)
+              responses={**QUEUED, **error_responses(401, 403, 404, 409, 422, 429)}, status_code=202,
+              openapi_extra={"security": [{"bearer": ["*"]}]})
+    def reconfirm_policy(policy_id: str, p: Principal = Depends(principal)):
+        policies._owner_only(p, "re-confirm standing approvals")
+        current = policies._get(policy_id)
+        if not current.get("suspended_at"):
+            raise ApiError(409, "conflict", "this rule is not suspended")
+        return request_change(app, gw, p, "policy.rule.reconfirm", {"id": policy_id, "revision": current["revision"],
+                               "rule": policies._body_of(current).model_dump(mode="json"),
+                               "principals": policies._bindings(current["allow"]["requested_by"])})
 
     @app.post("/v1/approval-policies/{policy_id}/keep", operation_id="approvals.policies.keep", tags=tags,
               responses={**ONE, **error_responses(401, 403, 404)}, openapi_extra={"security": [{"bearer": ["*"]}]})

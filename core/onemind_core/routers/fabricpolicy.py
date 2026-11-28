@@ -16,7 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from ..auth import Principal
 from ..backups.jobs import gateway_job_key_path, lazy_job_key
 from ..context import Gateway
-from ..errors import error_responses
+from ..errors import ApiError, error_responses
 from ..identity.scopes import register_route_scope
 from ..fabric_policy import EpochStore, PolicyPublisher, PolicyState
 
@@ -63,24 +63,27 @@ def register(app: FastAPI, gw: Gateway) -> None:
                           state=state, node_ids=node_ids, clock=gw.clock)
     gw.policy = pub
     app.state.fabric_policy = pub
+    gw.bus.policy_check = pub.confirm_dispatch
     task: dict[str, asyncio.Task] = {}
 
     def push(on: bool) -> None:
         """A stop switch changed: the hub holds the new notes before the switch call returns (#1210)."""
-        if not gw.bus.url:
-            return  # no NATS on this box: no machine to tell
-        if pub.push_now(gw.bus):
+        if not gw.bus.url and not pub.node_ids():
+            return  # this box has no fabric to notify
+        if pub.push_now(gw.bus, confirm_stop=on):
             return
         log.error("stop switch changed but the machines' notes are not on the hub yet (%s); retrying", pub.error)
         gw.audit.append("fabric.policy.push_failed", None, None, {"stop": on, "error": pub.error or None})
         gw.events.publish_event("fabric", "policy.not_delivered", {"stop": on, "error": pub.error or None},
                                 severity="warning", resource={"kind": "fabric", "id": "policy"},
                                 dedupe_key="fabric:policy:not_delivered")
+        raise ApiError(503, "unavailable", "The switch changed locally. Fabric policy enforcement is still pending.",
+                       reason="fabric_policy_pending")
 
     # The two stop switches (routers/physical.py and routers/agents.py, both ORDER 155, registered first).
     for switch in (getattr(app.state, "motion_lockout", None), getattr(app.state, "agent_stop", None)):
         if switch is not None:
-            switch.listeners.append(push)
+            switch.confirm_fabric = push
 
     @gw.on_startup
     async def _start() -> None:

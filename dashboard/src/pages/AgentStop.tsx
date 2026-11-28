@@ -37,9 +37,16 @@ function LiveAgentStop({ token, owner }: { token: string; owner: boolean }) {
   const run = useRun();
   const [confirm, setConfirm] = useState<boolean>();
   const [reason, setReason] = useState('');
+  const [deliveryPending, setDeliveryPending] = useState(false);
   const change = (on: boolean) =>
     void run(async () => {
-      await call(sdk, 'PUT', { on, ...(reason.trim() ? { reason: reason.trim() } : {}) });
+      setDeliveryPending(false);
+      try {
+        await call(sdk, 'PUT', { on, ...(reason.trim() ? { reason: reason.trim() } : {}) });
+      } catch (error) {
+        if (!(error instanceof ApiError) || error.reason !== 'fabric_policy_pending') throw error;
+        setDeliveryPending(true);
+      }
       setConfirm(undefined);
       setReason('');
       await state.reload();
@@ -47,11 +54,12 @@ function LiveAgentStop({ token, owner }: { token: string; owner: boolean }) {
 
   return (
     <Card title="Agent kill switch" as="article">
+      {deliveryPending && <p className="om-note om-tone-warn" role="alert">The hub changed the switch. Fabric confirmation was pending when it replied. Check Machine policy delivery for updates.</p>}
       <Load res={state} what="Loading the agent kill switch">
         {(s) => (
           <>
             <p>
-              {s.on ? <StatusPill tone="bad" label="All agents stopped" /> : <StatusPill tone="ok" label="Agents running" />}{' '}
+              {s.on ? <StatusPill tone="bad" label="Agent requests blocked at the hub" /> : <StatusPill tone="ok" label="Agent requests allowed at the hub" />}{' '}
               {s.on
                 ? 'The hub refuses every request from an AI agent, and nothing an agent asked for can be approved, until the owner resumes them.'
                 : 'Stopping refuses every AI agent at once. People keep working; it is undone with one click.'}

@@ -74,13 +74,15 @@ def test_cancel_stops_requests_and_withdraws_what_is_waiting(client, clock, sett
 
 def test_cancel_revokes_the_agents_identity_tokens(idc, clock):
     setup_owner(idc)
-    tok = idc.post("/v1/tokens", json={"name": "hermes", "principal": {"kind": "agent", "id": "agent:hermes"},
+    minted = idc.post("/v1/tokens", json={"name": "helper", "principal": {"kind": "agent", "id": "agent:helper"},
                                        "scopes": ["instance:read", "actions:request", "actions:read"]},
-                   headers=csrf(idc)).json()["one_time"]["token"]
+                      headers=csrf(idc))
+    assert minted.status_code == 201, minted.text
+    tok = minted.json()["one_time"]["token"]
     h = {"Authorization": f"Bearer {tok}"}
     assert idc.get("/v1/me", headers=h).status_code == 200
     assert idc.post("/v1/actions", json=action_body(clock), headers=h).status_code == 201
-    r = idc.post("/v1/agents/agent:hermes/cancel", headers=csrf(idc))
+    r = idc.post("/v1/agents/agent:helper/cancel", headers=csrf(idc))
     assert r.status_code == 200 and r.json()["tokens_revoked"] == 1 and r.json()["requests_cancelled"] == 1
     assert idc.get("/v1/me", headers=h).status_code == 401
 

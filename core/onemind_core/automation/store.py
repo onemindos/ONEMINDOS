@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from sqlalchemy import JSON, Boolean, DateTime, Integer, String, UniqueConstraint, delete, func, select, update
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from ..ledger import Base, utc
 from ..store import FeatureSchema, SqlRepository
@@ -338,10 +338,14 @@ class AutomationRepository(SqlRepository):
             return _plain(r) if r else None
 
     # ---- standing approvals --------------------------------------------------------------------
+    @staticmethod
+    def insert_policy(s: Session, **values) -> None:
+        s.add(PolicyRow(**{"lock_seq": 0, "state": "active", "revision": 1, "uses": 0, "forever": False,
+                           "notify_after": "digest", "accept_injection_risk": False, **values}))
+
     def add_policy(self, **values) -> dict:
         with self.db.session.begin() as s:
-            s.add(PolicyRow(**{"lock_seq": 0, "state": "active", "revision": 1, "uses": 0, "forever": False,
-                               "notify_after": "digest", "accept_injection_risk": False, **values}))
+            self.insert_policy(s, **values)
         return self.get_policy(values["id"])  # type: ignore[return-value]
 
     def get_policy(self, policy_id: str) -> dict | None:
@@ -362,11 +366,6 @@ class AutomationRepository(SqlRepository):
             # revision (reserve_use matches revision and state in one statement) can never slip in.
             return s.execute(update(PolicyRow).where(PolicyRow.id == policy_id, PolicyRow.state.in_(("active", "paused")))
                              .values(state="deleted", revision=PolicyRow.revision + 1)).rowcount == 1
-
-    def confirm_policy(self, policy_id: str) -> bool:
-        with self.db.session.begin() as s:
-            return s.execute(update(PolicyRow).where(PolicyRow.id == policy_id, PolicyRow.state == "paused")
-                             .values(state="active", revision=PolicyRow.revision + 1)).rowcount == 1
 
     def bind_principals(self, policy_id: str, principals: dict) -> None:
         with self.db.session.begin() as s:

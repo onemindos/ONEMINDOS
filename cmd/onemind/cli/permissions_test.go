@@ -193,6 +193,46 @@ func TestPermissionsModeGetSet(t *testing.T) {
 	}
 }
 
+func TestPermissionWritesReportQueuedActions(t *testing.T) {
+	isolate(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method + " " + r.URL.Path {
+		case "PUT /v1/permission-modes/agent:hermes",
+			"DELETE /v1/approval-denies/den_1",
+			"PATCH /v1/approval-policies/pol_1",
+			"POST /v1/approval-policies/pol_1/confirm",
+			"PUT /v1/agents/hermes/inputs":
+			jsonOut(w, http.StatusAccepted, map[string]any{"id": "act_1", "state": "awaiting_approval", "requested_by": map[string]string{"id": "owner"}})
+		default:
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("ONEMIND_HUB", srv.URL)
+	t.Setenv("ONEMIND_TOKEN", ownerTok)
+	for _, args := range [][]string{
+		{"permissions", "mode", "set", "agent:hermes", "auto"},
+		{"permissions", "deny", "remove", "den_1"},
+		{"permissions", "rules", "narrow", "pol_1", "--per-day", "9"},
+		{"permissions", "rules", "confirm", "pol_1"},
+		{"agents", "inputs", "set", "hermes", "--none"},
+	} {
+		t.Run(strings.Join(args, "_"), func(t *testing.T) {
+			result := run(t, "", false, args...)
+			if result.code != 0 || result.out != "Request act_1 is waiting in Approvals.\n" {
+				t.Fatalf("queued output %+v", result)
+			}
+			result = run(t, "", false, append(args, "--json")...)
+			var action map[string]any
+			if result.code != 0 || json.Unmarshal([]byte(result.out), &action) != nil ||
+				action["id"] != "act_1" || action["state"] != "awaiting_approval" || action["requested_by"] == nil {
+				t.Fatalf("queued JSON %+v", result)
+			}
+		})
+	}
+}
+
 func TestPermissionsRulesShowWithHistoryAndRevokeAll(t *testing.T) {
 	isolate(t)
 	var revokeBody map[string]any

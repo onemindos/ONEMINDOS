@@ -229,14 +229,26 @@ func (a *App) workManage() []*cobra.Command {
 		}}
 	rename.Flags().StringVar(&name, "name", "", "new name")
 	rename.Flags().StringVar(&access, "ai-access", "", "none, read or work")
-	remove := &cobra.Command{Use: "project-delete PROJECT_ID", Short: "Delete a project and its tasks (creator only)",
+	var yes bool
+	remove := &cobra.Command{Use: "project-delete PROJECT_ID", Short: "Delete a project and its tasks (creator only); asks first unless --yes",
 		Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error {
+			if !yes {
+				ok, err := a.confirm("Delete project "+args[0]+" and every task for everyone in the project? This cannot be undone.", "--yes")
+				if err != nil {
+					return err
+				}
+				if !ok {
+					fmt.Fprintln(a.Stderr, "Nothing was deleted.")
+					return nil
+				}
+			}
 			c, _, err := a.client()
 			if err != nil {
 				return err
 			}
 			return c.Work.DeleteProject(bg(), args[0])
 		}}
+	remove.Flags().BoolVar(&yes, "yes", false, "delete without asking")
 	member := func(use, short string, call func(c *onemind.Client, project, person string) error) *cobra.Command {
 		return &cobra.Command{Use: use + " PROJECT_ID PERSON_ID", Short: short, Args: cobra.ExactArgs(2),
 			RunE: func(_ *cobra.Command, args []string) error {
@@ -379,6 +391,22 @@ func (a *App) workNotes() *cobra.Command {
 			return nil
 		}}
 	secAdd.Flags().StringVar(&key, "idempotency-key", "", "send the same key again to retry without adding a second section")
+	secRename := &cobra.Command{Use: "section-rename PROJECT_ID SECTION_ID NAME", Short: "Rename a section", Args: cobra.MinimumNArgs(3),
+		RunE: func(_ *cobra.Command, args []string) error {
+			c, _, err := a.client()
+			if err != nil {
+				return err
+			}
+			section, err := c.Work.RenameSection(bg(), args[0], args[1], joinArgs(args[2:]))
+			if err != nil {
+				return err
+			}
+			if a.G.JSON {
+				return printJSON(a.Stdout, section)
+			}
+			fmt.Fprintf(a.Stdout, "Renamed %s to %s.\n", section.ID, sanitize(section.Name))
+			return nil
+		}}
 	secDel := &cobra.Command{Use: "section-delete PROJECT_ID SECTION_ID", Short: "Delete a section (its tasks stay)", Args: cobra.ExactArgs(2),
 		RunE: func(_ *cobra.Command, args []string) error {
 			c, _, err := a.client()
@@ -387,6 +415,6 @@ func (a *App) workNotes() *cobra.Command {
 			}
 			return c.Work.DeleteSection(bg(), args[0], args[1])
 		}}
-	notes.AddCommand(list, add, del, sections, secAdd, secDel)
+	notes.AddCommand(list, add, del, sections, secAdd, secRename, secDel)
 	return notes
 }

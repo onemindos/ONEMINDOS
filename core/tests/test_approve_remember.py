@@ -34,6 +34,7 @@ def box(settings, clock, executor):
 def l2(box):
     """What design PR 11 wires: the owner proved a hardware key (L2), so T1 and Forever rules may be remembered."""
     box[0].app.state.automation.policies.proven_key = lambda: True
+    box[0].app.state.identity.passkey_verification_level = lambda _credential: 2
     return box
 
 
@@ -63,6 +64,71 @@ def test_approve_and_remember_makes_the_narrowest_rule_bound_to_the_passkey(box,
     assert made["created_from"] == a["id"] and made["allow"] == rule["allow"]
     # the next request like it goes through on the rule
     assert ask(c, clock, "r1")["state"] == "succeeded"
+
+
+def test_failed_remember_insert_rolls_back_approval_and_can_be_retried(l2, clock, executor, monkeypatch):
+    from sqlalchemy.exc import OperationalError
+
+    c, key = l2
+    action = ask(c, clock, "remember-atomic")
+    url = f"/v1/actions/{action['id']}"
+    repo = c.app.state.automation.repo
+    ran = len(executor.calls)
+
+    def fail_after_insert(session, **values):
+        insert_policy(session, **values)
+        session.flush()
+        raise OperationalError("simulated write failure", {}, RuntimeError("policy store unavailable"))
+
+    def approve():
+        opts = c.post(f"{url}/approve-options", json={"remember": {}}, headers=csrf(c)).json()
+        return c.post(f"{url}/approve", headers=csrf(c), json={"webauthn": key.assert_(opts["challenge"]),
+                      "remember": {"rule": opts["remember"]["rule"]}})
+
+    insert_policy = repo.insert_policy
+    with monkeypatch.context() as mp:
+        mp.setattr(repo, "insert_policy", fail_after_insert)
+        failed = approve()
+    assert failed.status_code == 503 and failed.json()["reason"] == "remember_write_failed", failed.text
+    assert c.get(url, headers=OWNER).json()["state"] == "awaiting_approval"
+    assert c.get("/v1/approval-policies", headers=OWNER).json() == []
+    assert len(executor.calls) == ran
+    retried = approve()
+    assert retried.status_code == 200 and retried.json()["state"] == "succeeded", retried.text
+    assert len(executor.calls) == ran + 1
+    assert [rule["id"] for rule in c.get("/v1/approval-policies", headers=OWNER).json()] == [retried.json()["remembered_policy"]]
+
+
+def test_security_change_approval_requires_the_exact_change_and_l2(box, monkeypatch):
+    c, key = box
+    headers = csrf(c)
+    path = "/v1/permission-modes/agent:hermes"
+    # Use explicit initial policy state since this fixture runs with its default set to Auto.
+    assert c.put(path, headers=headers, json={"mode": "ask"}).status_code == 200
+    first = c.put(path, headers=headers, json={"mode": "remember"})
+    second = c.put(path, headers=headers, json={"mode": "auto"})
+    assert first.status_code == second.status_code == 202
+    first_url, second_url = (f"/v1/actions/{r.json()['id']}" for r in (first, second))
+    assert first.json()["params"]["mode"] == "remember" and second.json()["params"]["mode"] == "auto"
+
+    def signed(url):
+        o = c.post(f"{url}/approve-options", headers=headers)
+        assert o.status_code == 200, o.text
+        return {"webauthn": key.assert_(o.json()["challenge"])}
+
+    wrong = c.post(f"{second_url}/approve", headers=headers, json=signed(first_url))
+    assert wrong.status_code == 401 and "another action" in wrong.json()["message"], wrong.text
+    l1 = c.post(f"{first_url}/approve", headers=headers, json=signed(first_url))
+    assert l1.status_code == 409 and l1.json()["reason"] == "needs_proven_key"
+    # The L1 action assertion also creates a fresh passkey session. The session alone is insufficient.
+    session_only = c.post(f"{first_url}/approve", headers=headers)
+    assert session_only.status_code in (401, 409)
+    assert c.get(path, headers=headers).json()["mode"] == "ask"
+
+    monkeypatch.setattr(c.app.state.identity, "passkey_verification_level", lambda _credential: 2)
+    accepted = c.post(f"{first_url}/approve", headers=headers, json=signed(first_url))
+    assert accepted.status_code == 200 and accepted.json()["state"] == "succeeded", accepted.text
+    assert c.get(path, headers=headers).json()["mode"] == "remember"
 
 
 def test_a_tampered_rule_body_after_the_challenge_is_refused(box, l2, clock):

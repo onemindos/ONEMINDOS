@@ -4,6 +4,7 @@ a stand-in for `onemindd host serve` (GET /v1/journal). Owner only, read only, r
 
 from __future__ import annotations
 
+import asyncio
 import http.server
 import json
 import shutil
@@ -22,6 +23,7 @@ from fastapi.testclient import TestClient
 from conftest import ADULT, AGENT, GUEST, OWNER
 from onemind_core.app import create_app
 from onemind_core.hostlink import HostLinkSettings
+from onemind_core.hostservices import LogStream
 from onemind_core.identity.scopes import required_scopes
 from onemind_core.journalfilter import JournalRedactor
 from onemind_core.netconf import NetSettings
@@ -105,6 +107,13 @@ def box(settings, clock, sock: str):
 
 def audit(settings) -> list[dict]:
     return [json.loads(x) for x in settings.audit_path.read_text().splitlines() if x.strip()]
+
+
+def follow_scope() -> dict:
+    return {"type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1", "method": "GET", "scheme": "http",
+            "path": "/v1/system/journal", "raw_path": b"/v1/system/journal", "query_string": b"follow=true",
+            "root_path": "", "server": ("test", 80), "client": ("127.0.0.1", 1),
+            "headers": [(b"authorization", OWNER["Authorization"].encode())]}
 
 
 def test_secrets_in_the_journal_are_masked_and_line_counts_stay_true(settings, clock, host):
@@ -279,8 +288,6 @@ def test_a_read_is_cut_at_one_mebibyte_of_bytes_not_characters(settings, clock):
 def test_a_follow_slot_is_released_when_the_viewer_leaves_a_quiet_stream(settings, clock):
     """One journal line, then silence (a quiet unit filter). Each viewer leaves right after the first line. More
     viewers than the stream limit still get in, so the slots were freed at once, not after 15 minutes."""
-    import asyncio
-
     hold = threading.Event()
     h = FakeHost(["2026-11-22T10:00:00+0000 box app[7]: only line"])
     original = h.server.RequestHandlerClass.do_GET
@@ -311,11 +318,7 @@ def test_a_follow_slot_is_released_when_the_viewer_leaves_a_quiet_stream(setting
             elif msg["type"] == "http.response.body" and b"only line" in msg.get("body", b""):
                 got_line.set()
 
-        scope = {"type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1", "method": "GET", "scheme": "http",
-                 "path": "/v1/system/journal", "raw_path": b"/v1/system/journal", "query_string": b"follow=true",
-                 "root_path": "", "server": ("test", 80), "client": ("127.0.0.1", 1),
-                 "headers": [(b"authorization", OWNER["Authorization"].encode())]}
-        await asyncio.wait_for(app(scope, receive, send), 10)
+        await asyncio.wait_for(app(follow_scope(), receive, send), 10)
         return status[0]
 
     try:
@@ -326,4 +329,63 @@ def test_a_follow_slot_is_released_when_the_viewer_leaves_a_quiet_stream(setting
             assert asyncio.run(run()) == [200] * (journal_router.STREAMS_PER_PRINCIPAL + 2)
     finally:
         hold.set()
+        h.close()
+
+
+def test_a_stalled_follow_viewer_stops_reads_and_disconnect_releases_the_pump(settings, clock, monkeypatch):
+    buffer_lines = 4
+    monkeypatch.setattr(journal_router, "FOLLOW_BUFFER_LINES", buffer_lines, raising=False)
+    full, overread, pump_exited = threading.Event(), threading.Event(), threading.Event()
+    lines = LogStream.lines
+
+    def observed_lines(stream):
+        try:
+            for count, raw in enumerate(lines(stream), 1):
+                # One line is in the ASGI send and one in the gateway middleware handoff.
+                # The queue is full, and the pump holds one more line while waiting for space.
+                if count == buffer_lines + 3:
+                    full.set()
+                if count > buffer_lines + 3:
+                    overread.set()
+                yield raw
+        finally:
+            pump_exited.set()
+
+    monkeypatch.setattr(LogStream, "lines", observed_lines)
+
+    async def watch(app):
+        stalled, disconnect = asyncio.Event(), asyncio.Event()
+        sent = False
+
+        async def receive():
+            nonlocal sent
+            if not sent:
+                sent = True
+                return {"type": "http.request", "body": b"", "more_body": False}
+            await disconnect.wait()
+            return {"type": "http.disconnect"}
+
+        async def send(msg):
+            if msg["type"] == "http.response.start":
+                assert msg["status"] == 200
+            if msg["type"] == "http.response.body" and msg.get("body", b"").startswith(b"data: "):
+                stalled.set()
+                await disconnect.wait()  # the ASGI server unblocks its send when the socket closes
+
+        request = asyncio.create_task(app(follow_scope(), receive, send))
+        try:
+            await asyncio.wait_for(stalled.wait(), 5)
+            assert await asyncio.to_thread(full.wait, 5)
+            assert not await asyncio.to_thread(overread.wait, 0.25), "the pump read past the follow queue limit"
+        finally:
+            disconnect.set()
+            await asyncio.wait_for(request, 5)
+        assert await asyncio.to_thread(pump_exited.wait, 5)
+
+    h = FakeHost([f"journal entry {i}" for i in range(50)])
+    try:
+        with box(settings, clock, h.path) as c:
+            asyncio.run(watch(c.app))
+            assert c.get("/v1/system/journal?follow=true", headers=OWNER).status_code == 200
+    finally:
         h.close()

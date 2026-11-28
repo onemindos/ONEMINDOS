@@ -107,7 +107,7 @@ it('shows one rule with its own history, narrows it on the revision read, and re
   await user.click(screen.getByRole('button', { name: 'Save changes' }));
   expect(await screen.findByText('Saved as a new revision.')).toBeVisible();
   expect(calls.find((c) => c.method === 'PATCH')!.body).toEqual({ limits: { per_day: 4 }, revision: 1 });
-  await user.click(screen.getByRole('button', { name: 'Re-confirm with passkey' }));
+  await user.click(screen.getByRole('button', { name: 'Request re-confirmation' }));
   expect(await screen.findByText('Re-confirmed. The rule works again.')).toBeVisible();
   expect(calls.filter((c) => c.path.endsWith('/reconfirm')).map((c) => c.auth)).toEqual(['Bearer old-session', 'Bearer fresh-session']);
 });
@@ -131,4 +131,17 @@ it('keeps the Revoked note on the rule page after the rule leaves the list', asy
   await user.click(await screen.findByRole('button', { name: /^Revoke/ }));
   expect(await screen.findByRole('status')).toHaveTextContent('Revoked: helper may backup.run. It will not approve anything again.');
   expect(screen.queryByText(/revoked or has ended/)).toBeNull();
+});
+
+it('requests confirmation of a paused rule and reports that it is still waiting', async () => {
+  rules.push(rule('pol_paused', { state: 'paused' }));
+  answer = (c) => c.method === 'POST' && c.path === '/v1/approval-policies/pol_paused/confirm'
+    ? Response.json({ id: 'act_rule', requested_by: { id: 'owner' }, state: 'awaiting_approval' }, { status: 202 })
+    : undefined;
+  page('/settings/permissions/rules/pol_paused');
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Confirm rule' }));
+  expect(await screen.findByRole('status')).toHaveTextContent('Rule change requested.');
+  expect(screen.getByText('Paused')).toBeVisible();
+  expect(screen.getByRole('link', { name: 'Review in Approvals' })).toHaveAttribute('href', '/approvals?highlight=act_rule');
 });

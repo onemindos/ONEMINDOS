@@ -411,7 +411,7 @@ POLICY |= {
     # ---- automation, standing approvals and windows ------------------------------------------------------
     ("GET", "/v1/approval-policies"): Row(ONLY_OWNER, w.p_static("/v1/approval-policies"),
                                           f"{_AUTOMATION}: only the owner reads the rules (gateway permissions gap 3)"),
-    ("POST", "/v1/approval-policies"): Row(grid(201, 403, 403, 403, 403), w.p_policy_create,
+    ("POST", "/v1/approval-policies"): Row(grid(202, 403, 403, 403, 403), w.p_policy_create,
                                            f"{_AUTOMATION}: only the owner grants a standing approval"),
     ("DELETE", "/v1/approval-policies/{policy_id}"): Row(OWNER_ONLY_404, w.p_missing("/v1/approval-policies/{policy}"),
                                                          f"{_AUTOMATION}: only the owner revokes one"),

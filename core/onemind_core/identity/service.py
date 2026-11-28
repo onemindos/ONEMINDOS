@@ -23,6 +23,7 @@ from datetime import datetime, timedelta
 
 from fastapi import Request
 from sqlalchemy import or_, select
+from sqlalchemy.orm import Session
 
 from ..auth import Principal
 from ..context import Gateway
@@ -46,6 +47,7 @@ from .crypto import (
     verify_password,
 )
 from .models import (
+    AgentOwnerRow,
     AppAccessRow,
     ApproverKeyRow,
     ChallengeRow,
@@ -1015,12 +1017,28 @@ class IdentityService:
                      owner_user_id=user.id if user else None, scopes=wanted, source="api", created_by=p.id,
                      created_at=now, expires_at=expires_at)
         reg = self._registry() if kind == "agent" else None
-        reminted = reg is not None and reg.live(principal_id) is not None
-        self.repo.add(t)
-        if reg is not None:  # PR 7: the agent's permanent id (kept on re-mint)
-            reg.register(principal_id, source="identity", owner_user_id=t.owner_user_id)
-            if reminted:  # PR 9: a second credential for the same agent suspends its rules
+        if kind == "agent":
+            reminted = False
+
+            def persist(s: Session) -> None:
+                nonlocal reminted
+                reminted = self._reserve_agent_owner(s, t)
+                s.add(t)
+
+            try:
+                if reg is None:
+                    with self.repo.db.session.begin() as s:
+                        persist(s)
+                else:  # PR 7: the agent's permanent id (kept on re-mint)
+                    reg.register(principal_id, source="identity", owner_user_id=t.owner_user_id, persist=persist)
+            except ApiError as exc:
+                if exc.reason == "agent_id_taken":
+                    raise self._agent_id_taken(principal_id, p) from exc
+                raise
+            if reg is not None and reminted:  # PR 9: a second credential suspends its rules
                 reg.notify(principal_id, "token_reminted")
+        else:
+            self.repo.add(t)
         self.emit("auth", "token.created", {"token_id": t.id, "kind": kind, "principal_id": principal_id,
                                             "scopes": wanted, "expires_at": iso(t.expires_at)}, p)
         return {**self.token_json(t), "one_time": {"token": secret}}
@@ -1031,17 +1049,36 @@ class IdentityService:
         as that principal's. Revoked tokens count too: approval rules bound to an agent's uid
         (AutomationPolicyService._bound_ok) rely on a uid never passing to another owner."""
         app_id = principal_id.partition(":")[2]
-        taken = app_id in self.gw.catalog.load() or any(fp.id == principal_id for _, fp in self.gw.tokens.entries())
+        taken = app_id in self.gw.catalog.load() or any(
+            fp.id == principal_id or (fp.kind == "agent" and fp.id == app_id) for _, fp in self.gw.tokens.entries()
+        )
         if not taken:
             owner_id = user.id if user else None
             others = self.repo.all(select(TokenRow.owner_user_id).where(TokenRow.kind == "agent",
                                                                          TokenRow.principal_id == principal_id))
             taken = any(o != owner_id for o in others)
         if taken:
-            self.emit("authz", "denied", {"attempted": "mint agent token", "principal_id": principal_id,
-                                          "reason": "agent_id_taken"}, p, severity="warning")
-            raise ApiError(409, "conflict", f"agent id {principal_id!r} belongs to an app or another principal",
-                           reason="agent_id_taken")
+            raise self._agent_id_taken(principal_id, p)
+
+    def _agent_id_taken(self, principal_id: str, p: Principal) -> ApiError:
+        self.emit("authz", "denied", {"attempted": "mint agent token", "principal_id": principal_id,
+                                      "reason": "agent_id_taken"}, p, severity="warning")
+        return ApiError(409, "conflict", f"agent id {principal_id!r} belongs to an app or another principal",
+                        reason="agent_id_taken")
+
+    def _reserve_agent_owner(self, s: Session, token: TokenRow) -> bool:
+        name, owner = token.principal_id, token.owner_user_id
+        s.execute(self.repo.db.insert()(AgentOwnerRow).values(principal_id=name, owner_user_id=owner)
+                  .on_conflict_do_nothing(index_elements=[AgentOwnerRow.principal_id]))
+        bound = s.get(AgentOwnerRow, name, with_for_update=True)
+        # Existing boxes have credentials (including revoked ones) without reservation rows.
+        # The insert above serializes the first use of those names too.
+        credentials = list(s.execute(select(TokenRow.owner_user_id, TokenRow.revoked_at).where(
+            TokenRow.kind == "agent", TokenRow.principal_id == name)))
+        if bound is None or bound.owner_user_id != owner or any(old != owner for old, _ in credentials):
+            # The transaction is still open (and owns the SQLite write lock); audit after rollback.
+            raise ApiError(409, "conflict", f"agent id {name!r} belongs to another principal", reason="agent_id_taken")
+        return any(revoked_at is None for _, revoked_at in credentials)
 
     def _token_for_write(self, ctx: AuthContext | None, p: Principal, token_id: str, what: str) -> TokenRow:
         t = self.repo.get(TokenRow, token_id)
@@ -1282,10 +1319,19 @@ class IdentityService:
             raise self._step_up_failed(p, action_id, "passkey does not belong to an active owner")
         if ctx is not None and ctx.user is not None and ctx.user.id != owner.id:
             raise self._step_up_failed(p, action_id, "passkey belongs to another account")
+        level = self.passkey_verification_level(cred)
+        if remember is not None and rm.required_level(request.state.remember_rule) == "L2" and level < 2:
+            raise ApiError(409, "conflict", "this remembered rule needs an action-bound approval with a proven key (L2)",
+                           reason="needs_proven_key")
+        request.state.approval_verification_level = level
         if ctx is not None and ctx.session is not None:
             self.repo.update(SessionRow, [SessionRow.id == ctx.session.id], {"passkey_at": self.now()})
         self.emit("auth", "step_up.succeeded", {"action_id": action_id, "credential_id": cred.id,
                                                 "passkey_user_id": owner.id, "approval": "passkey"}, p)
+
+    def passkey_verification_level(self, credential: PasskeyRow) -> int:
+        # Registration has no trusted attestation yet. Device user verification proves only L1.
+        return 1
 
     def _check_bound(self, p: Principal, action_id: str, row: ChallengeRow, body: dict) -> None:
         """The claimed challenge was made for this action, and neither the action nor its plan changed."""

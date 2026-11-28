@@ -60,6 +60,11 @@ func workHub(t *testing.T) *[]string {
 		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/sections"):
 			w.WriteHeader(201)
 			_, _ = w.Write([]byte(`{"id":"sec_1","project_id":"prj_1","name":"Later","position":0}`))
+		case r.Method == http.MethodPatch && r.URL.Path == "/v1/work/projects/prj_1/sections/sec_1":
+			var body map[string]string
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			*seen = append(*seen, "section name "+body["name"])
+			_, _ = w.Write([]byte(`{"id":"sec_1","project_id":"prj_1","name":"Next week","position":0}`))
 		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/sections"):
 			_, _ = w.Write([]byte(`[{"id":"sec_1","project_id":"prj_1","name":"Later","position":0}]`))
 		default:
@@ -131,13 +136,43 @@ func TestWorkProjectsParseActivityAndMembers(t *testing.T) {
 	if r := run(t, "", false, "work", "activity", "prj_1", "tsk_1"); r.code != 0 || !strings.Contains(r.out, "completed") {
 		t.Fatalf("activity %+v", r)
 	}
-	for _, args := range [][]string{{"member-add", "prj_1", "ana"}, {"project-delete", "prj_1"}} {
+	for _, args := range [][]string{{"member-add", "prj_1", "ana"}, {"project-delete", "prj_1", "--yes"}} {
 		if r := run(t, "", false, append([]string{"work"}, args...)...); r.code != 0 {
 			t.Fatalf("%v %+v", args, r)
 		}
 	}
 	if got := strings.Join(*seen, "\n"); !strings.Contains(got, "PUT /v1/work/projects/prj_1/members/ana") ||
 		!strings.Contains(got, "DELETE /v1/work/projects/prj_1 ") {
+		t.Fatalf("requests %s", got)
+	}
+}
+
+func TestWorkProjectDeleteAsksFirst(t *testing.T) {
+	seen := workHub(t)
+	if r := run(t, "", false, "work", "project-delete", "prj_1"); r.code != ExitUsage || !strings.Contains(r.errOut, "--yes") {
+		t.Fatalf("no tty %+v", r)
+	}
+	if r := run(t, "n\n", true, "work", "project-delete", "prj_1"); r.code != 0 || !strings.Contains(r.errOut, "Nothing was deleted") {
+		t.Fatalf("answered no %+v", r)
+	}
+	if len(*seen) != 0 {
+		t.Fatalf("no request expected, got %v", *seen)
+	}
+	if r := run(t, "y\n", true, "work", "project-delete", "prj_1"); r.code != 0 {
+		t.Fatalf("answered yes %+v", r)
+	}
+	if len(*seen) != 1 || !strings.HasPrefix((*seen)[0], "DELETE /v1/work/projects/prj_1 ") {
+		t.Fatalf("expected project deletion, got %v", *seen)
+	}
+}
+
+func TestWorkSectionRenameUsesPatch(t *testing.T) {
+	seen := workHub(t)
+	result := run(t, "", false, "work", "notes", "section-rename", "prj_1", "sec_1", "Next", "week", "--json")
+	if result.code != 0 || !strings.Contains(result.out, `"name": "Next week"`) {
+		t.Fatalf("rename %+v", result)
+	}
+	if got := strings.Join(*seen, "\n"); !strings.Contains(got, "PATCH /v1/work/projects/prj_1/sections/sec_1 ") || !strings.Contains(got, "section name Next week") {
 		t.Fatalf("requests %s", got)
 	}
 }

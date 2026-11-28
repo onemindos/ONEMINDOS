@@ -10577,7 +10577,7 @@
         "type": "object"
       },
       "PermissionMode": {
-        "description": "A principal's permission mode (design §3.5). `own: false` means it follows the household default.",
+        "description": "A principal's permission mode (design §3.5). `own: false` means it has no individual setting.",
         "properties": {
           "household_default": {
             "title": "Household Default",
@@ -18302,6 +18302,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "summary": "Approve Action",
@@ -19267,6 +19277,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "summary": "Set Kill Switch",
@@ -19593,6 +19613,16 @@
             },
             "description": "Successful Response"
           },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Change awaiting the owner's action-bound approval"
+          },
           "401": {
             "content": {
               "application/json": {
@@ -19613,6 +19643,16 @@
             },
             "description": "The principal may not do this (permission_denied)"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
           "413": {
             "content": {
               "application/json": {
@@ -19632,6 +19672,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
           }
         },
         "security": [
@@ -20470,8 +20520,15 @@
           }
         ],
         "responses": {
-          "204": {
-            "description": "Successful Response"
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Change awaiting the owner's action-bound approval"
           },
           "401": {
             "content": {
@@ -20503,6 +20560,16 @@
             },
             "description": "No such resource (not_found)"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -20512,6 +20579,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
           }
         },
         "security": [
@@ -20584,15 +20661,15 @@
           "required": true
         },
         "responses": {
-          "201": {
+          "202": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApprovalPolicy"
+                  "$ref": "#/components/schemas/Action"
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Change awaiting the owner's action-bound approval"
           },
           "401": {
             "content": {
@@ -20624,6 +20701,16 @@
             },
             "description": "No such resource (not_found)"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
           "413": {
             "content": {
               "application/json": {
@@ -20643,6 +20730,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
           }
         },
         "summary": "Create Policy",
@@ -20827,6 +20924,16 @@
             },
             "description": "Successful Response"
           },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Change awaiting the owner's action-bound approval"
+          },
           "401": {
             "content": {
               "application/json": {
@@ -20886,6 +20993,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
           }
         },
         "security": [
@@ -20916,15 +21033,15 @@
           }
         ],
         "responses": {
-          "200": {
+          "202": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApprovalPolicy"
+                  "$ref": "#/components/schemas/Action"
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Change awaiting the owner's action-bound approval"
           },
           "401": {
             "content": {
@@ -20956,6 +21073,16 @@
             },
             "description": "No such resource (not_found)"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -20965,6 +21092,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
           }
         },
         "security": [
@@ -21074,15 +21211,15 @@
           }
         ],
         "responses": {
-          "200": {
+          "202": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApprovalPolicy"
+                  "$ref": "#/components/schemas/Action"
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Change awaiting the owner's action-bound approval"
           },
           "401": {
             "content": {
@@ -21133,6 +21270,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
           }
         },
         "security": [
@@ -37454,6 +37601,16 @@
             },
             "description": "Successful Response"
           },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Change awaiting the owner's action-bound approval"
+          },
           "401": {
             "content": {
               "application/json": {
@@ -37503,6 +37660,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
           }
         },
         "security": [
@@ -37620,6 +37787,16 @@
             },
             "description": "Successful Response"
           },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Change awaiting the owner's action-bound approval"
+          },
           "401": {
             "content": {
               "application/json": {
@@ -37669,6 +37846,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
           }
         },
         "security": [
@@ -38705,6 +38892,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "summary": "Set Lockout",

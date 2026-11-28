@@ -44,6 +44,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal, Protocol
 
+from sqlalchemy.orm import Session
+
 from pydantic import (
     AwareDatetime, BaseModel, ConfigDict, Discriminator, Field, Tag, ValidationError, field_validator, model_validator,
 )
@@ -122,6 +124,8 @@ class ApprovalInput:
     # How long the owner held the approve control, in ms (hold-to-approve). A physical action needs
     # at least HOLD_MIN_MS; the passkey assertion, not this number, is the proof of presence.
     hold_ms: int | None = None
+    verification_level: int = 0  # set by the identity guard after checking the action-bound assertion
+    on_accept: Callable[[Session], None] | None = None
 
 
 def _fingerprinted(plan: dict) -> tuple[dict, str]:
@@ -426,6 +430,7 @@ class FeatureAction:
     claim: Callable[["Action"], str | None] | None = None
     release: Callable[["Action"], None] | None = None
     background: bool = False
+    approval_level: int = 0  # minimum verification for a sensitive settings change
     # A feature may derive risk from its immutable request; approval must match it.
     risk_for: Callable[[dict], str] | None = None
     # #723: it moves or switches something physical. Fixed at registration, independent of risk:
@@ -1093,6 +1098,11 @@ class ActionService:
         if a.type in self.feature_types:
             spec = self.feature_types[a.type]
             facts = None
+            if spec.approval_level:
+                if standing is not None or extra.verification_level < spec.approval_level:
+                    raise ApiError(409, "conflict", "this change needs an action-bound approval with a proven key (L2)",
+                                   reason="needs_proven_key")
+                facts = {"approval": f"L{extra.verification_level}"}
             if spec.physical:
                 self._check_physical_approval(principal, a, spec, plan_sha256, extra, standing)
                 facts = {"physical": True, "hold_ms": extra.hold_ms, "approval": "passkey", "plan_sha256": a.plan_sha256}
@@ -1100,12 +1110,12 @@ class ActionService:
                 fresh = None if spec.physical else feature_plan(a.type, a.params)[1]
                 self._check_tainted_approval(a, plan_sha256, standing, fresh)
                 facts = {**(facts or {}), "tainted": True, "plan_sha256": a.plan_sha256}
-            return self._approve_feature(principal, a, spec, standing, facts)
+            return self._approve_feature(principal, a, spec, standing, facts, extra.on_accept)
         handler = self.handlers.get(a.type)
         if handler is not None:
             if plan_taint(a.plan):
                 self._check_tainted_approval(a, plan_sha256, standing, feature_plan(a.type, a.params)[1])
-            return self._approve_handled(principal, a, handler, standing)
+            return self._approve_handled(principal, a, handler, standing, extra.on_accept)
         if a.type not in APP_CLAIMS:
             raise ApiError(409, "conflict", f"no handler for action type {a.type!r} is running")
 
@@ -1170,7 +1180,7 @@ class ActionService:
         elif extra.sealed is not None:
             raise ApiError(422, "conflict", "this gateway has no secret store")
         outcome = "stale" if app is None else self.repo.accept_and_claim(
-            a.id, now, principal.as_dict(), app_id, claim, set(allowed), allow_absent
+            a.id, now, principal.as_dict(), app_id, claim, set(allowed), allow_absent, on_accept=extra.on_accept
         )
         if outcome == "conflict":  # someone else decided first (compare-and-swap lost)
             raise ApiError(409, "conflict", "action was decided concurrently")
@@ -1225,13 +1235,14 @@ class ActionService:
         self.audit.append("app.licence_accepted", principal.as_dict(), a.id, {"app_id": app.id, "licence_class": cls})
 
     def _approve_handled(self, principal: Principal, a: Action, handler: ActionHandler,
-                         standing: dict | None = None) -> dict:
+                         standing: dict | None = None, on_accept: Callable[[Session], None] | None = None) -> dict:
         problem = handler.recheck(a)
         if problem:
             raise ApiError(409, "stale_precondition", problem)
         now = self.clock()
         accepted = self.repo.transition(
-            a.id, {"awaiting_approval"}, "accepted", now, decided_by=principal.as_dict(), decided_at=now
+            a.id, {"awaiting_approval"}, "accepted", now, on_transition=on_accept,
+            decided_by=principal.as_dict(), decided_at=now
         )
         if accepted is None:
             raise ApiError(409, "conflict", "action was decided concurrently")
@@ -1615,7 +1626,7 @@ class ActionService:
             if plan is None:
                 plan, plan_sha = feature_plan(action_type, params)
             plan = {**plan, PLAN_KEY: taint.note()}
-        if plan is None and self._rule_could_cover(action_type, params, risk):
+        if plan is None and (spec.approval_level or self._rule_could_cover(action_type, params, risk)):
             plan, plan_sha = feature_plan(action_type, params)  # an approval by rule is bound to these params
         self._gate({"id": principal.id, "kind": principal.kind}, action_type, params, risk,
                    physical=spec.physical, plan=plan)
@@ -1646,7 +1657,7 @@ class ActionService:
 
     def _approve_feature(
         self, principal: Principal, a: Action, spec: FeatureAction, standing: dict | None = None,
-        facts: dict | None = None,
+        facts: dict | None = None, on_accept: Callable[[Session], None] | None = None,
     ) -> dict:
         if spec.risk_for and a.risk != spec.risk_for(a.params):
             raise ApiError(409, "stale_precondition", "the action risk changed after the request")
@@ -1657,17 +1668,23 @@ class ActionService:
         if problem:  # the action stays awaiting_approval; the owner may deny it or let it expire
             raise ApiError(409, "stale_precondition", problem)
         now = self.clock()
-        accepted = self.repo.transition(
-            a.id, {"awaiting_approval"}, "accepted", now, decided_by=principal.as_dict(), decided_at=now,
-            approved_by=principal.id,
-        )
+        try:
+            accepted = self.repo.transition(
+                a.id, {"awaiting_approval"}, "accepted", now, on_transition=on_accept,
+                decided_by=principal.as_dict(), decided_at=now, approved_by=principal.id,
+            )
+        except Exception:
+            if spec.claim is not None:
+                self._release_feature(a)
+            raise
         if accepted is None:
             self._release_feature(a)
             raise ApiError(409, "conflict", "action was decided concurrently")
         ids = {"requested_by": a.requested_by.get("id"), "approved_by": principal.id, **(standing or {})}
         self.audit.append("action.approved", principal.as_dict(), a.id,
                           {"type": a.type, "params": a.params, "risk": a.risk or spec.risk, **ids, **(facts or {})})
-        if self.repo.transition(a.id, {"accepted"}, "dispatched", self.clock()) is None:
+        dispatched = self.repo.transition(a.id, {"accepted"}, "dispatched", self.clock())
+        if dispatched is None:
             self._mark_outcome_unknown(a, "accepted action could not move to dispatched")
             return self._get(a.id).to_json()
         self.audit.append("action.dispatched", None, a.id, {"executor": f"feature:{a.type}", **ids})
@@ -1686,7 +1703,7 @@ class ActionService:
 
         def start() -> None:
             try:
-                spec.run(a, finish)
+                spec.run(dispatched, finish)
             except Exception as exc:  # the feature could not even start: the effect is unknown
                 log.exception("feature action %s crashed", a.type)
                 finish(ExecResult("outcome_unknown", f"feature error: {exc.__class__.__name__}"))

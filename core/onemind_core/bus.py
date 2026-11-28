@@ -10,10 +10,12 @@ import asyncio
 import base64
 import contextlib
 import logging
+from collections.abc import Awaitable, Callable
 
 from nats.aio.client import Client
+from nats.aio.msg import Msg
 
-from .natsconf import load_seed
+from .natsconf import load_seed, policy_check_subject
 from .nodes import NodeRegistry
 
 log = logging.getLogger("onemind.bus")
@@ -42,6 +44,7 @@ class NatsBus:
         self.nkey_seed = nkey_seed  # path of the gateway's NATS seed file, or None
         self.registry = registry
         self.nc = None
+        self.policy_check: Callable[[Msg], Awaitable[None]] | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
         self._task: asyncio.Task | None = None
         self._stop = asyncio.Event()
@@ -76,6 +79,8 @@ class NatsBus:
                     name="onemind-gateway",
                 )
                 await nc.subscribe(HEARTBEAT_SUBJECT, cb=self._on_msg)
+                if self.policy_check is not None:
+                    await nc.subscribe(policy_check_subject("*"), cb=self.policy_check)
                 self.nc = nc
                 log.info("connected to NATS")
                 await self._stop.wait()

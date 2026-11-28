@@ -36,9 +36,17 @@ func stepUpHint(err error, what string) error {
 	return err
 }
 
+func (a *App) printPendingPermission(out map[string]any) bool {
+	if out["state"] != "awaiting_approval" || out["requested_by"] == nil {
+		return false
+	}
+	fmt.Fprintf(a.Stdout, "Request %s is waiting in Approvals.\n", sanitize(fmt.Sprint(out["id"])))
+	return true
+}
+
 // permissionsDenyCommands is `onemind permissions deny` (PR 8): a per-principal "never" the gateway
 // checks before any rule could say yes. Adding one only tightens (owner, or the person who owns
-// that agent); removing one loosens (owner only, with a passkey).
+// that agent). Removing one goes to the owner's approval queue.
 func permissionsDenyCommands(a *App) *cobra.Command {
 	root := &cobra.Command{Use: "deny", Short: "Deny rules: a principal may never have a type (or tier) approved without you"}
 	const path = "/v1/approval-denies"
@@ -94,7 +102,7 @@ func permissionsDenyCommands(a *App) *cobra.Command {
 				return err
 			}
 			var out map[string]any
-			if err := c.Do(bg(), http.MethodPost, path, body, &out); err != nil {
+			if err := c.Do(bg(), http.MethodPost, "/v1/approval-denies", body, &out); err != nil {
 				return err
 			}
 			if a.G.JSON {
@@ -106,14 +114,23 @@ func permissionsDenyCommands(a *App) *cobra.Command {
 	add.Flags().StringVar(&actionType, "type", "", "the action type it may never have approved, e.g. app.install")
 	add.Flags().StringVar(&tier, "tier", "", "T0 read, T1 write, T2 sensitive, T3 destructive, T4 actuate or P physical")
 	add.Flags().StringVar(&reason, "reason", "", "why, for the owner and the audit record")
-	remove := &cobra.Command{Use: "remove <deny-id>", Short: "Remove a deny rule (owner only; loosens, so it needs your passkey)", Args: cobra.ExactArgs(1),
+	remove := &cobra.Command{Use: "remove <deny-id>", Short: "Request approval to remove a deny rule (owner only)", Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			c, _, err := a.client()
 			if err != nil {
 				return err
 			}
-			if err := c.Do(bg(), http.MethodDelete, path+"/"+url.PathEscape(args[0]), nil, nil); err != nil {
+			var out map[string]any
+			if err := c.Do(bg(), http.MethodDelete, "/v1/approval-denies/"+url.PathEscape(args[0]), nil, &out); err != nil {
 				return stepUpHint(err, "removing a deny rule")
+			}
+			if out != nil {
+				if a.G.JSON {
+					return printJSON(a.Stdout, out)
+				}
+				if a.printPendingPermission(out) {
+					return nil
+				}
 			}
 			if a.G.JSON {
 				return printJSON(a.Stdout, map[string]any{"removed": args[0]})
@@ -126,10 +143,9 @@ func permissionsDenyCommands(a *App) *cobra.Command {
 }
 
 // permissionsRulesCommands is `onemind permissions rules` (PR 9): the owner's standing approvals.
-// Revoking is one step and needs no passkey (it only narrows); narrowing applies at once; anything
-// that widens a rule is done in the dashboard, where the passkey binds the change.
+// Revoking and narrowing apply at once. Widening requests the owner's approval.
 func permissionsRulesCommands(a *App) *cobra.Command {
-	root := &cobra.Command{Use: "rules", Short: "Standing approvals: list, revoke, narrow, re-confirm, keep"}
+	root := &cobra.Command{Use: "rules", Short: "Standing approvals: list, revoke, narrow, confirm, re-confirm, keep"}
 	const path = "/v1/approval-policies"
 	line := func(p map[string]any) {
 		life := "until " + fmt.Sprint(p["expires_at"])
@@ -153,7 +169,8 @@ func permissionsRulesCommands(a *App) *cobra.Command {
 			return nil, err
 		}
 		var out map[string]any
-		return out, c.Do(bg(), method, p, body, &out)
+		err = c.Do(bg(), method, p, body, &out)
+		return out, err
 	}
 	print1 := func(out map[string]any, err error, what string) error {
 		if err != nil {
@@ -161,6 +178,9 @@ func permissionsRulesCommands(a *App) *cobra.Command {
 		}
 		if a.G.JSON {
 			return printJSON(a.Stdout, out)
+		}
+		if a.printPendingPermission(out) {
+			return nil
 		}
 		line(out)
 		return nil
@@ -190,10 +210,10 @@ func permissionsRulesCommands(a *App) *cobra.Command {
 			}
 			return nil
 		}}
-	one := func(use, short, suffix, what string) *cobra.Command {
+	one := func(use, short, what string, send func(string) (map[string]any, error)) *cobra.Command {
 		return &cobra.Command{Use: use + " <rule-id>", Short: short, Args: cobra.ExactArgs(1),
 			RunE: func(_ *cobra.Command, args []string) error {
-				out, err := call(http.MethodPost, path+"/"+url.PathEscape(args[0])+"/"+suffix, nil)
+				out, err := send(url.PathEscape(args[0]))
 				return print1(out, err, what)
 			}}
 	}
@@ -218,7 +238,7 @@ func permissionsRulesCommands(a *App) *cobra.Command {
 			if len(limits) > 0 {
 				body["limits"] = limits // the gateway keeps the limits left out
 			}
-			out, err := call(http.MethodPatch, path+"/"+url.PathEscape(args[0]), body)
+			out, err := call(http.MethodPatch, "/v1/approval-policies/"+url.PathEscape(args[0]), body)
 			return print1(out, err, "this change widens the rule, so it")
 		}}
 	narrow.Flags().IntVar(&perDay, "per-day", 0, "a lower number of uses per 24 hours")
@@ -274,7 +294,7 @@ func permissionsRulesCommands(a *App) *cobra.Command {
 			if only != "" {
 				body["principal"] = only
 			}
-			out, err := call(http.MethodPost, path+"/revoke-all", body)
+			out, err := call(http.MethodPost, "/v1/approval-policies/revoke-all", body)
 			if err != nil {
 				return err
 			}
@@ -287,9 +307,18 @@ func permissionsRulesCommands(a *App) *cobra.Command {
 		}}
 	revokeAll.Flags().StringVar(&only, "principal", "", "only rules naming this principal, e.g. agent:notes-helper")
 	root.AddCommand(list, show, revokeAll,
-		one("revoke", "End a rule now (one step; no passkey needed)", "revoke", "revoking"),
-		one("reconfirm", "Re-confirm a suspended rule after its agent changed (owner; passkey)", "reconfirm", "re-confirming a rule"),
-		one("keep", "Keep a forever rule at its 90-day review", "keep", "keeping a rule"),
+		one("revoke", "End a rule now (one step; no passkey needed)", "revoking", func(id string) (map[string]any, error) {
+			return call(http.MethodPost, "/v1/approval-policies/"+id+"/revoke", nil)
+		}),
+		one("confirm", "Confirm a paused rule (owner only)", "confirming a rule", func(id string) (map[string]any, error) {
+			return call(http.MethodPost, "/v1/approval-policies/"+id+"/confirm", nil)
+		}),
+		one("reconfirm", "Re-confirm a suspended rule after its agent changed (owner only)", "re-confirming a rule", func(id string) (map[string]any, error) {
+			return call(http.MethodPost, "/v1/approval-policies/"+id+"/reconfirm", nil)
+		}),
+		one("keep", "Keep a forever rule at its 90-day review", "keeping a rule", func(id string) (map[string]any, error) {
+			return call(http.MethodPost, "/v1/approval-policies/"+id+"/keep", nil)
+		}),
 		narrow)
 	return root
 }
@@ -312,19 +341,14 @@ func permissionsModeCommands(a *App) *cobra.Command {
 			label = fmt.Sprint(m["mode"])
 		}
 		fmt.Fprintf(a.Stdout, "%s: %s", sanitize(who), sanitize(label))
-		if own, _ := m["own"].(bool); !own && m["principal"] != "*" {
+		if own, _ := m["own"].(bool); !own && m["principal"] != "*" &&
+			(m["household_default"] == nil || m["mode"] == m["household_default"]) {
 			fmt.Fprint(a.Stdout, " (household default)")
 		}
 		fmt.Fprintln(a.Stdout)
 		if pk, ok := m["owner_passkey"].(bool); ok && !pk {
 			fmt.Fprintln(a.Stdout, "No owner passkey yet: every mode behaves as Always ask, and nothing can be loosened (F-8).")
 		}
-	}
-	at := func(who string) string {
-		if who == "default" {
-			return path
-		}
-		return path + "/" + url.PathEscape(who)
 	}
 	get := &cobra.Command{Use: "get <principal|default>", Short: "Show a principal's mode (an agent may read its own)", Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
@@ -361,7 +385,7 @@ func permissionsModeCommands(a *App) *cobra.Command {
 			return nil
 		}}
 	var reason string
-	set := &cobra.Command{Use: "set <principal|default> <locked|ask|remember|auto|headless>", Short: "Set a mode (loosening: owner, passkey)", Args: cobra.ExactArgs(2),
+	set := &cobra.Command{Use: "set <principal|default> <locked|ask|remember|auto|headless>", Short: "Set a mode (loosening requires the owner's approval)", Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if _, ok := names[args[1]]; !ok {
 				return usageErr(cmd, "mode is one of locked, ask, remember, auto, headless")
@@ -375,7 +399,12 @@ func permissionsModeCommands(a *App) *cobra.Command {
 				return err
 			}
 			var out map[string]any
-			if err := c.Do(bg(), http.MethodPut, at(args[0]), body, &out); err != nil {
+			if args[0] == "default" {
+				err = c.Do(bg(), http.MethodPut, "/v1/permission-modes", body, &out)
+			} else {
+				err = c.Do(bg(), http.MethodPut, "/v1/permission-modes/"+url.PathEscape(args[0]), body, &out)
+			}
+			if err != nil {
 				var ge *onemind.Error
 				if errors.As(err, &ge) && ge.Reason == "no_owner_passkey" {
 					return exitWith(ExitUsage, "usage", "add a passkey first: nothing is loosened before the owner has one (Settings, Security, Sign-in keys)")
@@ -384,6 +413,9 @@ func permissionsModeCommands(a *App) *cobra.Command {
 			}
 			if a.G.JSON {
 				return printJSON(a.Stdout, out)
+			}
+			if a.printPendingPermission(out) {
+				return nil
 			}
 			show(out)
 			return nil

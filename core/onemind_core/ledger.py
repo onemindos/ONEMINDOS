@@ -9,6 +9,7 @@ so two approvals racing for one action cannot both dispatch it.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -18,7 +19,7 @@ from sqlalchemy import JSON, DateTime, Integer, String, create_engine, delete, e
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from .approvalcard import approval_card
 
@@ -120,11 +121,12 @@ class ActionRepository(Protocol):
     def get_by_idempotency_key(self, key: str) -> Action | None: ...
     def list(self, states: set[str] | None = None) -> list[Action]: ...
     def transition(
-        self, action_id: str, from_states: set[str], to_state: str, now: datetime, **fields
+        self, action_id: str, from_states: set[str], to_state: str, now: datetime, *,
+        on_transition: Callable[[Session], None] | None = None, **fields
     ) -> Action | None: ...
     def accept_and_claim(
         self, action_id: str, now: datetime, decided_by: dict, app_id: str,
-        claim: str, allowed: set[str], allow_absent: bool,
+        claim: str, allowed: set[str], allow_absent: bool, *, on_accept: Callable[[Session], None] | None = None,
     ) -> str: ...
     def set_progress(self, action_id: str, progress: dict, now: datetime) -> None: ...
     def get_runtime(self, app_id: str) -> "AppRuntime | None": ...
@@ -312,7 +314,8 @@ class SqlActionRepository:
             return [_to_action(r) for r in rows]
 
     def transition(
-        self, action_id: str, from_states: set[str], to_state: str, now: datetime, **fields
+        self, action_id: str, from_states: set[str], to_state: str, now: datetime, *,
+        on_transition: Callable[[Session], None] | None = None, **fields
     ) -> Action | None:
         """Compare-and-swap: move to to_state only if the action is still in one of from_states."""
         for f in from_states:
@@ -326,6 +329,8 @@ class SqlActionRepository:
             )
             if res.rowcount != 1:
                 return None
+            if on_transition is not None:
+                on_transition(s)
         return self.get(action_id)
 
     def _insert(self):
@@ -333,7 +338,7 @@ class SqlActionRepository:
 
     def accept_and_claim(
         self, action_id: str, now: datetime, decided_by: dict, app_id: str,
-        claim: str, allowed: set[str], allow_absent: bool,
+        claim: str, allowed: set[str], allow_absent: bool, *, on_accept: Callable[[Session], None] | None = None,
     ) -> str:
         """In one transaction: move the action awaiting_approval -> accepted and claim its app.
 
@@ -377,6 +382,8 @@ class SqlActionRepository:
                     claimed = res.first() is not None
                 if not claimed:
                     raise _Lost  # roll back the accepted transition too
+                if on_accept is not None:
+                    on_accept(s)
         except _Lost:
             return "stale"
         return "accepted"

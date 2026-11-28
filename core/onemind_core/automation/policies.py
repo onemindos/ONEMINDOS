@@ -354,15 +354,13 @@ class PolicyService:
     def _bound_ok(self, p: dict, who: str) -> bool:
         """Is the live identity of `who` the one this rule was bound to? Persons and automations need no binding.
 
-        Only the uid is compared, not owner_user_id. That is safe because uids are never reused and
-        IdentityService._check_agent_id refuses an agent name another person has ever minted (revoked
-        tokens included), so one uid can never move to a different owner. If that check is ever relaxed,
-        compare owner_user_id here too."""
+        Personal agent names have a permanent database owner reservation, even after revocation."""
         if not bound_kind(who):
             return True
         want = (p.get("principals") or {}).get(who)
         live = self.principals.live(who) if self.principals is not None else None
-        return bool(want and live and want.get("uid") == live["uid"])
+        return bool(want and live and want.get("uid") == live["uid"]
+                    and want.get("owner_user_id") == live["owner_user_id"])
 
     def adopt_unbound(self) -> int:
         """At start: bind rules made before PR 7 to the identity that holds each id now, so live rules
@@ -503,11 +501,11 @@ class PolicyService:
             raise ApiError(409, "conflict", f"{what} needs a proven key (L2, D-028), which arrives with gateway "
                                             "permissions PR 11; it is refused until then", reason="needs_proven_key")
 
-    def confirm(self, principal: Principal, policy_id: str) -> dict:
+    def confirm(self, principal: Principal, policy_id: str, *, revision: int | None = None) -> dict:
         """The owner re-enables a legacy rule that migration paused (it keeps its narrow reading)."""
         self._owner_only(principal, "confirm standing approvals")
         self._check_loosen()  # re-enabling a paused rule loosens (F-8)
-        if not self.repo.confirm_policy(policy_id):
+        if not self.repo.set_policy(policy_id, expect_revision=revision, states=("paused",), state="active"):
             raise ApiError(404, "not_found", "no paused standing approval with that id")
         self.audit.append("automation.policy.confirmed", principal.as_dict(), None, {"policy_id": policy_id})
         return self.to_json(self.repo.get_policy(policy_id))  # type: ignore[arg-type]
@@ -522,17 +520,24 @@ class PolicyService:
                 "target": body.target.model_dump() if body.target else None,
                 "accept_injection_risk": body.accept_injection_risk}
 
-    def create(self, principal: Principal, body: PolicyBody, approval: str = "token", *,
-               created_from: str | None = None) -> dict:
+    def prepare_create(self, principal: Principal, body: PolicyBody, *, created_from: str | None = None) -> dict:
         self._owner_only(principal, "create standing approvals")
         self._check_loosen()
         self.validate(body)
         if body.forever:
             self._require_proven("a Forever rule")
-        bindings = self._bindings(body.allow.requested_by)
-        now = self.clock()
-        p = self.repo.add_policy(id=new_id("pol_"), created_by=principal.as_dict(), created_at=now, principals=bindings,
-                                 created_from=created_from, **self._columns(body))
+        return {"id": new_id("pol_"), "created_by": principal.as_dict(), "created_at": self.clock(),
+                "principals": self._bindings(body.allow.requested_by), "created_from": created_from, **self._columns(body)}
+
+    def create(self, principal: Principal, body: PolicyBody, approval: str = "token", *,
+               created_from: str | None = None, expected_bindings: dict | None = None) -> dict:
+        values = self.prepare_create(principal, body, created_from=created_from)
+        if expected_bindings is not None and values["principals"] != expected_bindings:
+            raise ApiError(409, "stale_precondition", "a principal changed; request the rule again")
+        p = self.repo.add_policy(**values)
+        return self.record_creation(principal, p, approval)
+
+    def record_creation(self, principal: Principal, p: dict, approval: str) -> dict:
         # F-2: the route has already required identity step-up (a fresh passkey once passkeys are
         # active); `approval` records how the owner proved presence. Only an owner reaches here.
         out = self.to_json(p)
@@ -541,8 +546,8 @@ class PolicyService:
                            "window_id": p["window_id"], "expires_at": out["expires_at"], "forever": out["forever"],
                            "limits": out["limits"], "notify_after": out["notify_after"],
                            "lapse_unused_days": out["lapse_unused_days"], "target": out["target"],
-                           "approval": approval, "principals": bindings,
-                           **({"created_from": created_from} if created_from else {})})
+                           "approval": approval, "principals": p["principals"],
+                           **({"created_from": p["created_from"]} if p["created_from"] else {})})
         return out
 
     def delete(self, principal: Principal, policy_id: str) -> None:
@@ -626,11 +631,16 @@ class PolicyService:
             note("target", widens)
         return ("widen" if wider else "narrow"), changed
 
-    def plan_revision(self, policy_id: str, patch: PolicyPatch) -> tuple[str, list[str]]:
+    def revision_request(self, policy_id: str, patch: PolicyPatch) -> tuple[str, dict, PolicyPatch]:
         p = self._get(policy_id)
-        return self.classify(self._body_of(p), self._merged(p, patch))
+        if patch.revision is not None and patch.revision != p["revision"]:
+            raise ApiError(409, "conflict", f"the rule is at revision {p['revision']} now; read it again")
+        new = self._merged(p, patch)
+        direction, _ = self.classify(self._body_of(p), new)
+        return direction, new.model_dump(mode="json"), patch.model_copy(update={"revision": p["revision"]})
 
-    def revise(self, principal: Principal, policy_id: str, patch: PolicyPatch, approval: str | None) -> dict:
+    def revise(self, principal: Principal, policy_id: str, patch: PolicyPatch, approval: str | None,
+               *, expected_bindings: dict | None = None) -> dict:
         """PATCH: a new revision. The route has asked for a passkey when this widens."""
         self._owner_only(principal, "edit standing approvals")
         p = self._get(policy_id)
@@ -647,6 +657,8 @@ class PolicyService:
         self.validate(new)
         if new.forever and not old.forever:
             self._require_proven("making a rule Forever")
+        if expected_bindings is not None and self._bindings(new.allow.requested_by) != expected_bindings:
+            raise ApiError(409, "stale_precondition", "a principal changed; request the rule again")
         cols = self._columns(new)
         cols["principals"] = {**(p.get("principals") or {}), **self._bindings(
             [w for w in new.allow.requested_by if w not in (p.get("principals") or {})])}
@@ -714,15 +726,18 @@ class PolicyService:
         self.audit.append("approval.policy.paused", None, None, {"policy_id": policy_id, "reason": reason[:80]})
         return True
 
-    def reconfirm(self, principal: Principal, policy_id: str, approval: str) -> dict:
-        """One tap (L1): the approver accepts what changed; the rule binds to the identity live now."""
+    def reconfirm(self, principal: Principal, policy_id: str, approval: str, *, expected: dict | None = None) -> dict:
+        """The approver accepts what changed; the rule binds to the identity live now."""
         self._owner_only(principal, "re-confirm standing approvals")
         self._check_loosen()
         p = self._get(policy_id)
         if not p.get("suspended_at"):
             raise ApiError(409, "conflict", "this rule is not suspended")
         bindings = self._bindings(p["allow"]["requested_by"])
-        if not self.repo.set_policy(policy_id, states=("active",), suspended_at=None, suspended_reason=None,
+        if expected is not None and (p["revision"] != expected["revision"] or bindings != expected["principals"]):
+            raise ApiError(409, "stale_precondition", "the rule or its principals changed; request it again")
+        if not self.repo.set_policy(policy_id, expect_revision=p["revision"], states=("active",),
+                                    suspended_at=None, suspended_reason=None,
                                     principals=bindings, reviewed_at=self.clock()):
             raise ApiError(409, "conflict", "the rule changed meanwhile; read it again")
         self.audit.append("approval.policy.reconfirmed", principal.as_dict(), None,

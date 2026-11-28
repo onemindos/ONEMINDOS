@@ -12,7 +12,7 @@ from datetime import timedelta
 
 import pytest
 
-from conftest import ADULT, AGENT, OWNER, action_body
+from conftest import ADULT, AGENT, OWNER, action_body, apply_settings_change
 from onemind_core.auth import Principal
 from onemind_core.errors import ApiError
 from test_automation import auto_settings, client, install, iso, policy  # noqa: F401  (fixtures)
@@ -23,8 +23,8 @@ pytestmark = pytest.mark.real_mode_defaults
 @pytest.fixture
 def passkey(monkeypatch):
     """The owner has enrolled a passkey (F-8 met); step-up itself stays off, as for an owner token."""
-    from onemind_core.routers import permissions
-    monkeypatch.setattr(permissions, "owner_has_passkey", lambda app: True)
+    from onemind_core.permissions import changes
+    monkeypatch.setattr(changes, "owner_has_passkey", lambda app: True)
 
 
 def restart(client, clock, key, headers=AGENT):
@@ -32,7 +32,13 @@ def restart(client, clock, key, headers=AGENT):
 
 
 def mode(client, who, m, headers=OWNER, **kw):
-    return client.put(f"/v1/permission-modes/{who}", headers=headers, json={"mode": m, **kw})
+    path = f"/v1/permission-modes/{who}"
+    set_path = "/v1/permission-modes" if who == "default" else path
+    r = client.put(set_path, headers=headers, json={"mode": m, **kw})
+    if r.status_code == 202:
+        apply_settings_change(client, r)
+        return client.get(path, headers=headers)
+    return r
 
 
 def audit(client) -> list[dict]:
@@ -51,7 +57,7 @@ def test_with_no_owner_passkey_every_loosening_gets_409(client, clock):
 
 def test_every_new_agent_starts_on_always_ask(client, clock, passkey):
     install(client, clock)
-    assert policy(client, clock, requested_by=("agent:hermes",)).status_code == 201
+    assert policy(client, clock, requested_by=("agent:hermes",)).status_code == 202
     view = client.get("/v1/permission-modes/agent:hermes", headers=OWNER).json()
     assert (view["mode"], view["own"], view["household_default"]) == ("ask", False, "ask")
     assert restart(client, clock, "a0").json()["state"] == "awaiting_approval"  # the rule is ignored
@@ -61,6 +67,31 @@ def test_every_new_agent_starts_on_always_ask(client, clock, passkey):
     changed = [e for e in audit(client) if e["event"] == "permission.mode.changed"]
     d = changed[-1]["data"]
     assert (d["from"], d["to"], d["direction"], d["reason"]) == ("ask", "auto", "loosen", "trusted helper")
+
+
+def test_new_agent_starts_on_ask_in_an_auto_household(client, clock, passkey):
+    assert mode(client, "default", "auto").status_code == 200
+    assert client.get("/v1/permission-modes/agent:hermes", headers=OWNER).json()["mode"] == "auto"
+    name = "agent:newcomer"
+    r = client.post("/v1/tokens", headers=OWNER, json={"name": "new agent", "principal": {"kind": "agent", "id": name}})
+    assert r.status_code == 201, r.text
+    view = client.get(f"/v1/permission-modes/{name}", headers=OWNER).json()
+    assert (view["mode"], view["household_default"], view["own"]) == ("ask", "auto", False)
+
+
+def test_queued_mode_change_cannot_overwrite_a_new_inherited_lock(client, passkey):
+    from onemind_core.actions import ApprovalInput
+
+    path = "/v1/permission-modes/agent:hermes"
+    r = client.put(path, headers=OWNER, json={"mode": "auto"})
+    assert r.status_code == 202 and r.json()["params"]["before"]["mode"] == "ask"
+    assert client.put("/v1/permission-modes", headers=OWNER, json={"mode": "locked"}).status_code == 200
+    queued = r.json()
+    outcome = client.app.state.actions.approve(Principal("owner", "person", "owner"), queued["id"],
+                                                extra=ApprovalInput(verification_level=2))
+    assert outcome["state"] == "failed" and "permission mode changed" in outcome["result"]["message"]
+    view = client.get(path, headers=OWNER).json()
+    assert view["mode"] == "locked" and not view["own"]
 
 
 def test_remember_uses_rules_and_waits_for_the_rest(client, clock, passkey):
@@ -128,11 +159,13 @@ def test_an_agent_reads_only_its_own_mode_and_never_changes_one(client, passkey)
 
 def test_loosening_needs_a_fresh_passkey_and_tightening_does_not(client, passkey):
     client.app.state.identity.passkeys_active = lambda: True
-    r = mode(client, "agent:hermes", "auto")
-    assert r.status_code == 401 and r.json()["reason"] == "step_up_required"
+    r = client.put("/v1/permission-modes/agent:hermes", headers=OWNER, json={"mode": "auto"})
+    assert r.status_code == 202 and r.json()["state"] == "awaiting_approval"
+    refusal = client.post(f"/v1/actions/{r.json()['id']}/approve", headers=OWNER)
+    assert refusal.status_code in (401, 409) and refusal.json()["reason"] in ("step_up_required", "needs_proven_key")
     assert mode(client, "agent:hermes", "locked").status_code == 200
     r = client.put("/v1/permission-modes", headers=OWNER, json={"mode": "auto"})
-    assert r.status_code == 401
+    assert r.status_code == 202 and r.json()["state"] == "awaiting_approval"
 
 
 def test_live_rules_keep_firing_after_the_upgrade(client, clock, passkey):
@@ -172,13 +205,13 @@ def test_the_owner_cannot_lock_themselves_out(client, clock, passkey):
 @pytest.mark.parametrize("default", ["locked", "headless"])
 def test_a_locked_or_headless_household_default_never_touches_the_owner(client, clock, passkey, default):
     install(client, clock)
-    assert client.put("/v1/permission-modes", headers=OWNER, json={"mode": default}).status_code == 200
+    assert mode(client, "default", default).status_code == 200
     r = restart(client, clock, "h0", headers=OWNER)
     assert r.status_code in (200, 201), r.text  # the owner's own request runs as before modes
     r = restart(client, clock, "h1")  # an agent on the default is refused (locked; headless with no rule)
     assert r.status_code == 403
     # and the owner can always put the default back
-    assert client.put("/v1/permission-modes", headers=OWNER, json={"mode": "ask"}).status_code == 200
+    assert mode(client, "default", "ask").status_code == 200
 
 
 def test_the_migration_lists_wildcard_rules_it_could_not_move(client, clock, passkey):

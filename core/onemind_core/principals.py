@@ -29,7 +29,7 @@ from collections.abc import Callable
 from datetime import datetime
 
 from sqlalchemy import DateTime, String, select, update
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from .audit import AuditLog
 from .ledger import Base, iso, utc
@@ -94,21 +94,26 @@ class PrincipalRegistry:
                           .order_by(PrincipalRow.created_at.desc())).first()
             return _json(r) if r else None
 
-    def register(self, name: str, *, source: str, owner_user_id: str | None = None) -> dict:
-        """The live record of `name`, made now if there is none. Idempotent for a live identity."""
+    def register(self, name: str, *, source: str, owner_user_id: str | None = None,
+                 persist: Callable[[Session], None] | None = None) -> dict:
+        """Register the live identity and optionally persist its credential in the same transaction."""
         from .automation.store import new_id  # the same prefixed ULIDs as the rule ids
+        from .errors import ApiError
 
-        with self._lock:
-            found = self.live(name)
+        with self._lock, self.db.session.begin() as s:
+            if persist is not None:
+                persist(s)
+            found = s.scalars(select(PrincipalRow).where(PrincipalRow.name == name, PrincipalRow.retired_at.is_(None))
+                              .order_by(PrincipalRow.created_at.desc())).first()
             if found is not None:
-                return found
-            now = self.clock()
+                if source == "identity" and (found.source != source or found.owner_user_id != owner_user_id):
+                    raise ApiError(409, "conflict", f"agent id {name!r} belongs to another principal",
+                                   reason="agent_id_taken")
+                return _json(found)
             row = PrincipalRow(uid=new_id("prn_"), name=name, kind=name.partition(":")[0],
-                               owner_user_id=owner_user_id, source=source, created_at=now)
-            with self.db.session.begin() as s:
-                s.add(row)
-            out = self.live(name)
-        assert out is not None
+                               owner_user_id=owner_user_id, source=source, created_at=self.clock())
+            s.add(row)
+        out = _json(row)
         self.audit.append("principal.registered", None, None,
                           {"principal_id": name, "uid": out["uid"], "source": source, "owner_user_id": owner_user_id})
         return out

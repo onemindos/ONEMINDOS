@@ -69,7 +69,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return lockout.state()
 
     @app.put("/v1/physical/lockout", tags=tags, operation_id="physical.lockout.set",
-             response_model=MotionLockoutState, responses=error_responses(401, 403, 422))
+             response_model=MotionLockoutState, responses=error_responses(401, 403, 422, 503))
     def set_lockout(body: MotionLockoutChange, request: Request, p: Principal = Depends(principal)):
         """Turn the motion lockout on (at once) or off (with a fresh passkey once passkeys are active)."""
         lockout.owner_only(p, "set the motion lockout")

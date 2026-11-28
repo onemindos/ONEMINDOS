@@ -37,6 +37,7 @@ function gateway(put: (c: Call) => Response) {
     calls.push(call);
     if (call.method === 'PUT') return put(call);
     if (path === '/v1/permission-modes') return Response.json(modes);
+    if (path === '/v1/permission-modes/person%3Au-kid') return Response.json(mode('person:u-kid', 'ask', false));
     if (path === '/v1/agents') return Response.json([{ id: 'notes-helper', budget_per_day: 50, used_24h: 0, pending_approvals: 0, cancelled: false }]);
     if (path === '/v1/users') return Response.json([{ id: 'u-owner', display_name: 'Sam', role: 'owner' }, { id: 'u-kid', display_name: 'Robin', role: 'child' }]);
     return Response.json({ error: 'not_found', message: 'no' }, { status: 404 });
@@ -93,7 +94,7 @@ it('loosening asks for the passkey only when the gateway does, then sends it aga
   const user = userEvent.setup();
   await user.selectOptions(await screen.findByLabelText('Mode for notes-helper'), 'auto');
   expect(screen.getByText(/do more without asking you/)).toBeVisible();
-  await user.click(screen.getByRole('button', { name: 'Confirm with passkey' }));
+  await user.click(screen.getByRole('button', { name: 'Request mode change' }));
   expect(await screen.findByText('notes-helper is now on Auto within rules.')).toBeVisible();
   const puts = calls.filter((c) => c.method === 'PUT');
   expect(puts.map((c) => c.auth)).toEqual(['Bearer old-session', 'Bearer fresh-session']);
@@ -108,7 +109,7 @@ it('explains a refusal in plain words and keeps the dialog open', async () => {
   expect(await screen.findByText(/No owner passkey yet/)).toBeVisible();
   const user = userEvent.setup();
   await user.selectOptions(screen.getByLabelText('Mode for Robin'), 'auto');
-  await user.click(screen.getByRole('button', { name: 'Confirm with passkey' }));
+  await user.click(screen.getByRole('button', { name: 'Request mode change' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Add a passkey first');
 });
 
@@ -124,7 +125,7 @@ it('never switches this tab to another person when their passkey is used', async
   page();
   const user = userEvent.setup();
   await user.selectOptions(await screen.findByLabelText('Mode for notes-helper'), 'auto');
-  await user.click(screen.getByRole('button', { name: 'Confirm with passkey' }));
+  await user.click(screen.getByRole('button', { name: 'Request mode change' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('That passkey belongs to another account.');
   expect(session.signIn).not.toHaveBeenCalled();
   expect(calls.filter((c) => c.method === 'PUT')).toHaveLength(1);
@@ -145,7 +146,7 @@ it.each([['adult'], ['child'], [undefined]])('offers a non-owner (%s) only tight
   const user = userEvent.setup();
   await user.selectOptions(agent, 'locked');
   expect(screen.getByRole('button', { name: 'Change mode' })).toBeVisible();
-  expect(screen.queryByRole('button', { name: 'Confirm with passkey' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Request mode change' })).toBeNull();
 });
 
 it('offers the owner every mode, the household default included', async () => {
@@ -154,4 +155,19 @@ it('offers the owner every mode, the household default included', async () => {
   const select = await screen.findByLabelText('Mode for Household default');
   expect(within(select).getAllByRole('option').map((o) => o.getAttribute('value'))).toEqual(['locked', 'ask', 'remember', 'auto', 'headless']);
   expect(within(screen.getByLabelText('Mode for notes-helper')).getAllByRole('option')).toHaveLength(5);
+});
+
+it('shows the effective mode returned for a new person and links a requested change to its approval', async () => {
+  modes = [mode('*', 'auto')];
+  gateway(() => Response.json({ id: 'act_mode', requested_by: { id: 'u-owner' }, state: 'awaiting_approval' }, { status: 202 }));
+  page();
+  const person = await screen.findByLabelText('Mode for Robin');
+  expect(person).toHaveValue('ask');
+  expect(calls).toContainEqual(expect.objectContaining({ method: 'GET', path: '/v1/permission-modes/person%3Au-kid' }));
+  const user = userEvent.setup();
+  await user.selectOptions(person, 'auto');
+  await user.click(screen.getByRole('button', { name: 'Request mode change' }));
+  expect(await screen.findByRole('status')).toHaveTextContent('Mode change requested.');
+  expect(screen.getByRole('link', { name: 'Review in Approvals' })).toHaveAttribute('href', '/approvals?highlight=act_mode');
+  expect(person).toHaveValue('ask');
 });

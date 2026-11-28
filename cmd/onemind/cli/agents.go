@@ -138,12 +138,15 @@ func agentInputsCommands(a *App) *cobra.Command {
 			}
 			var raw map[string]any
 			body := map[string]any{"external_inputs": inputs, "accept_injection_risk": append([]string{}, accept...)}
-			if err := c.Do(bg(), http.MethodPut, path(args[0]), body, &raw); err != nil {
+			if err := c.Do(bg(), http.MethodPut, "/v1/agents/"+url.PathEscape(args[0])+"/inputs", body, &raw); err != nil {
 				var ge *onemind.Error
 				if errors.As(err, &ge) && ge.Reason == "step_up_required" {
 					return exitWith(ExitUsage, "usage", "loosening an agent needs a fresh passkey sign-in: sign in with your passkey in the dashboard, then run this again")
 				}
 				return err
+			}
+			if !a.G.JSON && a.printPendingPermission(raw) {
+				return nil
 			}
 			return show(raw)
 		}}

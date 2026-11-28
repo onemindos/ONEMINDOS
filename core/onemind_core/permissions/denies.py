@@ -7,8 +7,7 @@ before anything that could say yes, so a standing approval can never open it.
 
 - Adding one only tightens: the owner, or the person who owns that agent's token, may add it, with
   no step-up (D-028: every tightening stays at L0).
-- Removing one loosens: the owner only, with the passkey step-up the gateway has today (L1). D-028
-  sets L2 as the target for permission rules; the verification levels arrive with design PR 11.
+- Removing one loosens: the owner only, with action-bound L2 approval (D-028).
 - An agent never adds or removes a deny, its own included.
 
 Table `permissions_denies` (feature "permissions"; new table, so create_all adds it at this shape).
@@ -95,6 +94,13 @@ class DenyStore:
             return rows
         mine = self.owned_by(user_id) if user_id else set()
         return [r for r in rows if r["principal"] in mine]
+
+    def get(self, deny_id: str) -> dict:
+        with self.db.session() as s:
+            row = s.get(DenyRow, deny_id)
+            if row is None:
+                raise ApiError(404, "not_found", "no such deny rule")
+            return _json(row)
 
     def add(self, p: Principal, user_id: str | None, principal: str, action_type: str | None, tier: str | None,
             reason: str | None) -> dict:

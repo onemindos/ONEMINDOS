@@ -17,7 +17,7 @@
 // job key pinned at join, addressed to this node, not expired, not older than
 // the newest policy epoch, and a job id never seen before. The verifier writes
 // the job id to its done-list on disk before Verify returns, and only then is
-// the job acknowledged and run. So a job runs at most once: a redelivery (the
+// the job acknowledged and eligible for dispatch. So a job runs at most once: a redelivery (the
 // acknowledgement was lost, or the machine crashed mid-job) is refused as
 // "replayed" and acknowledged without running again. A refused job is
 // terminated (never redelivered) and reported failed with the refusal code.
@@ -28,6 +28,8 @@ package jobs
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -50,6 +52,9 @@ const (
 	// DefaultRetry is the pause after the hub could not be asked (link down).
 	DefaultRetry = 5 * time.Second
 	ackTimeout   = 5 * time.Second
+	// This window starts before sending the challenge, and must match the one the gateway
+	// waits out before confirming Stop (fabric_policy.py DISPATCH_TIMEOUT_S).
+	dispatchTimeout = time.Second
 )
 
 // Job states in a job result (contract §12.9).
@@ -60,8 +65,9 @@ const (
 )
 
 var (
-	nodeIDRe = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
-	jobIDRe  = regexp.MustCompile(`^job_[A-Za-z0-9]{8,64}$`) // backup.jobIDRe
+	nodeIDRe         = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+	jobIDRe          = regexp.MustCompile(`^job_[A-Za-z0-9]{8,64}$`) // backup.jobIDRe
+	errPolicyMissing = errors.New("policy snapshot: missing on the hub")
 )
 
 // PullSubject is where node nodeID asks the hub for its next job
@@ -182,9 +188,9 @@ func (in *Intake) PullOnce(ctx context.Context) (bool, error) {
 	if err := in.defaults(); err != nil {
 		return false, err
 	}
-	// The newest stop and revoke snapshot always wins over a queued job: no job is taken while the
-	// snapshot cannot be read (fail closed), only while the hub has none for this machine yet.
-	if err := in.refreshPolicy(ctx); err != nil {
+	// Read-only work can be pulled before a machine gets its first policy. Actuation
+	// requires a verified policy at dispatch, even while a cached note remains on disk.
+	if err := in.refreshPolicy(ctx, false); err != nil && !errors.Is(err, errPolicyMissing) {
 		return false, err
 	}
 	in.warnUnverifiedPolicy()
@@ -230,45 +236,91 @@ func (in *Intake) handle(ctx context.Context, msg *nats.Msg) {
 		return
 	}
 	code := in.Policy.current().Check(j)
-	if code == "" && Actuates(j.Kind) {
-		// Read the newest snapshot once more right before something moves: a stop pressed while
-		// this job was on its way is on the hub before the gateway's stop call returns
-		// (fabric_policy.py push_now). Not reachable now means not run (fail closed).
-		if err := in.refreshPolicy(ctx); err != nil {
-			code = "policy_unreachable"
-			in.Log.Warn("policy snapshot not readable before an actuating job", "err", err)
-		} else {
-			code = in.Policy.current().Check(j)
-		}
+	h := in.Handlers[j.Kind]
+	var dispatchBy time.Time
+	ackFirst := code == "" && h != nil && Actuates(j.Kind)
+	if ackFirst {
+		// Retire the job from the queue first. Never wait for the hub's ACK after the
+		// final policy check: a Stop may happen while the ACK sits in flight.
+		in.ack(msg, "+ACK")
+		dispatchBy, code = in.checkDispatch(ctx, j)
 	}
 	if code != "" {
 		// Signed and meant for us, but the newest snapshot says no (D-029: it only ever adds a no).
-		in.ack(msg, "+TERM")
-		in.count(func(s *Stats) { s.Refused++ })
-		in.Log.Warn("job refused by the policy snapshot", "code", code, "job_id", j.ID, "kind", j.Kind)
-		in.report(Report{JobID: j.ID, State: StateFailed, Summary: "refused by node-" + in.NodeID + "'s policy snapshot", Reason: code})
+		if !ackFirst {
+			in.ack(msg, "+TERM")
+		}
+		in.refusePolicy(j, code)
 		return
 	}
 	// Recorded in the done-list: acknowledge before running, so the hub stops redelivering.
-	in.ack(msg, "+ACK")
-	in.count(func(s *Stats) { s.Ran++ })
-	h := in.Handlers[j.Kind]
+	if !ackFirst {
+		in.ack(msg, "+ACK")
+	}
 	if h == nil {
+		in.count(func(s *Stats) { s.Ran++ })
 		in.report(Report{JobID: j.ID, State: StateFailed, Summary: "this machine does not run " + j.Kind, Reason: "unsupported_kind"})
 		return
 	}
 	in.report(Report{JobID: j.ID, State: StateRunning, Summary: j.Kind})
+	if !dispatchBy.IsZero() {
+		now := time.Now()
+		// On some systems the monotonic clock pauses in suspend. Reject if either
+		// clock says the dispatch window expired.
+		if ctx.Err() != nil || !now.Before(dispatchBy) || !now.UTC().Before(dispatchBy.UTC()) {
+			in.refusePolicy(j, "policy_unreachable")
+			return
+		}
+	}
 	res := h(ctx, j)
+	in.count(func(s *Stats) { s.Ran++ })
 	if res.State != StateSucceeded {
 		res.State = StateFailed
 	}
 	in.report(Report{JobID: j.ID, State: res.State, Summary: res.Summary, Reason: res.Reason})
 }
 
-// refreshPolicy reads this machine's newest snapshot from the hub and keeps it when it verifies and
-// is newer; the one on disk stays otherwise. An error (the hub's snapshot service is not reachable)
-// means no job is pulled this round; "no snapshot yet" (404) is not an error.
-func (in *Intake) refreshPolicy(ctx context.Context) error {
+func (in *Intake) refusePolicy(j backup.Job, code string) {
+	in.count(func(s *Stats) { s.Refused++ })
+	in.Log.Warn("job refused by the policy snapshot", "code", code, "job_id", j.ID, "kind", j.Kind)
+	in.report(Report{JobID: j.ID, State: StateFailed, Summary: "refused by node-" + in.NodeID + "'s policy snapshot", Reason: code})
+}
+
+func (in *Intake) checkDispatch(ctx context.Context, j backup.Job) (time.Time, string) {
+	if err := in.refreshPolicy(ctx, true); err != nil {
+		in.Log.Warn("policy snapshot not readable before an actuating job", "err", err)
+		return time.Time{}, "policy_unreachable"
+	}
+	if code := in.Policy.Current().Check(j); code != "" {
+		return time.Time{}, code
+	}
+	// JetStream may still hold a permissive note while publishing Stop is failing.
+	// Only a signature over this fresh challenge proves the gateway's live policy.
+	var nonce [16]byte
+	if _, err := rand.Read(nonce[:]); err != nil {
+		return time.Time{}, "policy_unreachable"
+	}
+	challenge := hex.EncodeToString(nonce[:])
+	rctx, cancel := context.WithTimeout(ctx, dispatchTimeout)
+	defer cancel()
+	msg, err := in.NC.RequestWithContext(rctx, policyCheckSubject(in.NodeID), []byte(challenge))
+	if err == nil {
+		_, err = in.Policy.apply(msg.Data, challenge, true)
+	}
+	if err != nil {
+		in.Log.Warn("live policy could not be verified before an actuating job", "err", err)
+		return time.Time{}, "policy_unreachable"
+	}
+	p := in.Policy.Current()
+	if j.PolicyEpoch > p.Epoch {
+		return time.Time{}, "policy_unreachable"
+	}
+	deadline, _ := rctx.Deadline()
+	return deadline, p.Check(j)
+}
+
+// refreshPolicy verifies the hub's current retained note before using it.
+func (in *Intake) refreshPolicy(ctx context.Context, requireCurrent bool) error {
 	if in.Policy == nil {
 		return nil
 	}
@@ -281,14 +333,15 @@ func (in *Intake) refreshPolicy(ctx context.Context) error {
 	switch st := msg.Header.Get("Status"); st {
 	case "":
 	case "404":
-		return nil
+		return errPolicyMissing
 	default:
 		return fmt.Errorf("policy snapshot: hub status %s %s", st, msg.Header.Get("Description"))
 	}
-	changed, err := in.Policy.Apply(msg.Data)
+	changed, err := in.Policy.apply(msg.Data, "", requireCurrent)
 	switch {
 	case err != nil:
 		in.Log.Warn("policy snapshot refused", "err", err)
+		return err
 	case changed:
 		p := in.Policy.Current()
 		in.Log.Info("policy snapshot applied", "epoch", p.Epoch, "motion_lockout", p.Stop.MotionLockout, "agents_stopped", p.Stop.Agents)

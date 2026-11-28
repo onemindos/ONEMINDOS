@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from conftest import OWNER, action_body
+from conftest import OWNER, action_body, apply_settings_change
 from onemind_core.identity.crypto import new_secret, sha256_hex
 from onemind_core.identity.models import TokenRow
 from test_automation import auto_settings, client, iso, policy  # noqa: F401  (fixtures)
@@ -37,7 +37,7 @@ def audit(client) -> list[str]:
 def test_a_rule_binds_to_the_agents_permanent_id(client, clock):
     tok = mint(client)
     r = policy(client, clock, requested_by=("agent:notes",))
-    assert r.status_code == 201, r.text
+    assert r.status_code == 202, r.text
     uid = r.json()["principals"]["agent:notes"]["uid"]
     assert uid.startswith("prn_")
     assert client.get("/v1/agents/agent:notes", headers=OWNER).json()["principal_uid"] == uid
@@ -46,9 +46,57 @@ def test_a_rule_binds_to_the_agents_permanent_id(client, clock):
     # credential suspends the rule until the owner re-confirms it, and the binding stays the same
     mint(client)
     assert covered(client, clock) == "needs_approval"
-    assert client.post(f"/v1/approval-policies/{r.json()['id']}/reconfirm", headers=OWNER).status_code == 200
+    apply_settings_change(client, client.post(f"/v1/approval-policies/{r.json()['id']}/reconfirm", headers=OWNER))
     assert covered(client, clock) == "auto_approved"
     assert "principal.registered" in audit(client) and tok["principal_id"] == "agent:notes"
+
+
+def test_competing_agent_tokens_cannot_share_an_owner_binding(client, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+    from types import SimpleNamespace
+
+    from sqlalchemy import select
+
+    from onemind_core.auth import Principal
+    from onemind_core.errors import ApiError
+    from onemind_core.identity.service import AuthContext
+
+    ident = client.app.state.identity
+    name = "agent:concurrent"
+    both_checked = Barrier(2)
+    check = ident._check_agent_id
+
+    def synchronized_check(*args):
+        check(*args)
+        both_checked.wait(timeout=10)
+
+    monkeypatch.setattr(ident, "_check_agent_id", synchronized_check)
+
+    def issue(owner):
+        p = Principal(owner, "person", "owner")
+        ctx = AuthContext(p, frozenset({"*"}), user=SimpleNamespace(id=owner))
+        try:
+            return 201, ident.create_token(ctx, p, "test credential", {"kind": "agent", "id": name}, None, None)
+        except ApiError as exc:
+            return exc.status, exc.reason
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        outcomes = sorted(pool.map(issue, ["usr_first", "usr_second"]), key=lambda result: result[0])
+    assert [status for status, _ in outcomes] == [201, 409]
+    assert outcomes[1][1] == "agent_id_taken"
+    owner = outcomes[0][1]["owner_user_id"]
+    rows = ident.repo.all(select(TokenRow).where(TokenRow.principal_id == name))
+    assert [row.owner_user_id for row in rows] == [owner]
+    from onemind_core.identity.models import AgentOwnerRow
+
+    assert ident.repo.get(AgentOwnerRow, name).owner_user_id == owner
+    assert client.app.state.actions.principals.live(name)["owner_user_id"] == owner
+
+
+def test_a_personal_agent_cannot_claim_the_static_agents_display_name(client):
+    r = client.post("/v1/tokens", headers=OWNER, json={"name": "duplicate", "principal": {"kind": "agent", "id": "agent:hermes"}})
+    assert r.status_code == 409 and r.json()["reason"] == "agent_id_taken", r.text
 
 
 def test_a_rule_stops_when_its_token_is_revoked(client, clock):
@@ -79,7 +127,7 @@ def test_a_rule_for_an_agent_nobody_holds_is_refused(client, clock):
 
 def test_a_static_file_agent_binds_too(client, clock):
     r = policy(client, clock, requested_by=("agent:hermes",))
-    assert r.status_code == 201
+    assert r.status_code == 202
     assert r.json()["principals"]["agent:hermes"]["uid"].startswith("prn_")
     assert covered(client, clock, {"id": "hermes", "kind": "agent"}) == "auto_approved"
 
@@ -111,7 +159,7 @@ def test_a_reinstalled_app_does_not_inherit_the_old_installs_rules(client, clock
 
     run("app.install", "i1")
     who = {"id": "agent:hermes-like", "kind": "agent"}
-    assert policy(client, clock, requested_by=("agent:hermes-like",)).status_code == 201
+    assert policy(client, clock, requested_by=("agent:hermes-like",)).status_code == 202
     assert covered(client, clock, who) == "auto_approved"
     run("app.remove", "r1")
     assert covered(client, clock, who) == "needs_approval"

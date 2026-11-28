@@ -14,7 +14,7 @@ from onemind_core.automation import store as astore
 from test_automation import (  # noqa: F401  (fixtures)
     auto_settings, client, create_rule, iso, policy, remove_rule,
 )
-from conftest import AGENT, GUEST, OWNER
+from conftest import AGENT, GUEST, OWNER, apply_queued_policy
 
 AT_NOON = None
 
@@ -92,8 +92,8 @@ def test_migration_pauses_old_automation_wildcards_until_the_owner_confirms(clie
     who = {"id": f"automation:{rule['id']}", "kind": "automation"}
     assert pol.evaluate("app.restart", {"app_id": "whoami"}, who, clock.now, paused=False).outcome == "needs_approval"
     assert client.post(f"/v1/approval-policies/{pid}/confirm", headers=AGENT).status_code == 403
-    r = client.post(f"/v1/approval-policies/{pid}/confirm", headers=OWNER)
-    assert r.status_code == 200 and r.json()["state"] == "active" and r.json()["revision"] == 2
+    r = apply_queued_policy(client, client.post(f"/v1/approval-policies/{pid}/confirm", headers=OWNER), pid)
+    assert r.status_code == 202 and r.json()["state"] == "active" and r.json()["revision"] == 2
     assert pol.evaluate("app.restart", {"app_id": "whoami"}, who, clock.now, paused=False).outcome == "auto_approved"
     assert client.post(f"/v1/approval-policies/{pid}/confirm", headers=OWNER).status_code == 404
 
@@ -118,5 +118,5 @@ def test_a_new_rule_never_approves_a_request_already_waiting(client, clock):
     install(client, clock)
     r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key="pend1"), headers=AGENT)
     assert r.json()["state"] == "awaiting_approval"
-    assert policy(client, clock, requested_by=("agent:hermes",)).status_code == 201
+    assert policy(client, clock, requested_by=("agent:hermes",)).status_code == 202
     assert client.get(f"/v1/actions/{r.json()['id']}", headers=OWNER).json()["state"] == "awaiting_approval"

@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { OneMind, OneMindError, type operations } from '@onemind/sdk';
+import { OneMind, OneMindError, type components, type operations } from '@onemind/sdk';
 import { Button, Card, PageHeader } from '@onemind/ui';
 import { usePoll } from '../lib/hooks';
 import { uuidv4 } from '../lib/uuid';
 import { useSignedIn } from '../session';
 import { Projects, TaskTools } from './work/Manage';
+import { TaskDetails } from './work/Details';
 
 type Task = operations['work.task_get']['responses'][200]['content']['application/json'];
 type QuickAdd = operations['work.quick_add']['requestBody']['content']['application/json'];
@@ -81,6 +82,7 @@ function WorkList({ client, refresh = 0 }: { client: OneMind; refresh?: number }
   const [key, setKey] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState('');
+  const [preview, setPreview] = useState<components['schemas']['ParsedLine']>();
   const tasks = usePoll(async () => {
     try {
       const rows = await client.call<Task[]>({ method: 'GET', path: `/v1/work/tasks?view=${view}&tz=${encodeURIComponent(zoneName)}` });
@@ -105,6 +107,7 @@ function WorkList({ client, refresh = 0 }: { client: OneMind; refresh?: number }
       await client.call<Task>({ method: 'POST', path: '/v1/work/quick-add', body, headers: { 'Idempotency-Key': attempt } });
       setText('');
       setKey(undefined);
+      setPreview(undefined);
       await tasks.reload();
     } catch (error) {
       setProblem(error instanceof OneMindError && error.status === 403 ? 'Your account cannot save Work tasks.'
@@ -113,6 +116,19 @@ function WorkList({ client, refresh = 0 }: { client: OneMind; refresh?: number }
     } finally {
       setSaving(false);
     }
+  }
+
+  async function previewLine() {
+    if (saving || !text.trim()) return;
+    setSaving(true);
+    setProblem('');
+    try {
+      setPreview(await client.call<components['schemas']['ParsedLine']>({
+        method: 'POST', path: '/v1/work/parse', body: { text: text.trim(), tz: zoneName },
+      }));
+    } catch {
+      setProblem('The line could not be previewed. Check the project name and the date.');
+    } finally { setSaving(false); }
   }
 
   async function finish(task: Task) {
@@ -137,9 +153,15 @@ function WorkList({ client, refresh = 0 }: { client: OneMind; refresh?: number }
     <Card title="Tasks">
       <form className="dash-actions" onSubmit={(event) => void add(event)}>
         <label>Quick add <input value={text} maxLength={400} required disabled={saving} placeholder="Pay rent tomorrow at 5pm #Home @bills p1"
-          onChange={(event) => { setText(event.target.value); setKey(undefined); }} /></label>
+          onChange={(event) => { setText(event.target.value); setKey(undefined); setPreview(undefined); }} /></label>
         <Button type="submit" disabled={saving || !text.trim()}>Add</Button>
+        <Button type="button" disabled={saving || !text.trim()} onClick={() => void previewLine()}>Preview</Button>
       </form>
+      {preview && <p role="status">
+        {preview.title}{preview.project && ` · ${preview.project}${preview.project_found ? '' : ' (project not found)'}`}
+        {preview.due_at && ` · due ${when(preview.due_at)}`}{preview.priority && ` · p${preview.priority}`}
+        {preview.labels.length > 0 && ` · ${preview.labels.map((l) => `@${l}`).join(' ')}`}
+      </p>}
       <div role="group" aria-label="Task view" className="dash-actions">
         {VIEWS.map((v) => (
           <Button key={v.id} type="button" aria-pressed={v.id === view} onClick={() => setView(v.id)}>{v.label}</Button>
@@ -159,6 +181,7 @@ function WorkList({ client, refresh = 0 }: { client: OneMind; refresh?: number }
             {task.labels.length > 0 && <> · {task.labels.map((l) => `@${l}`).join(' ')}</>}
             {task.status === 'done' ? ' · Done' : <> <Button type="button" onClick={() => void finish(task)}>Done</Button></>}
             <TaskTools client={client} task={task} onChanged={tasks.reload} />
+            <TaskDetails client={client} task={task} />
           </li>
         ))}</ul>
       )}

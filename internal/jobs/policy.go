@@ -32,7 +32,8 @@ import (
 // A job that actuates something (ActuatePrefixes) is refused while this
 // machine holds no verified note at all ("no_policy"): before the first one,
 // when the hub has none for it yet, or when the one on disk does not verify.
-// So a missing or broken note never means "no stop" for those kinds.
+// Even with a cached note, those kinds require a verified current retained
+// note and live confirmation from the gateway before dispatch (intake.go).
 
 // PolicySchema is the snapshot envelope.
 const PolicySchema = "onemind.policy/v1"
@@ -45,6 +46,9 @@ var ActuatePrefixes = []string{"physical", "robot", "actuator", "relay", "motion
 // PolicyGetSubject is where node nodeID reads its newest snapshot
 // (core/onemind_core/natsconf.py policy_get_subject).
 func PolicyGetSubject(nodeID string) string { return "onemind.node." + nodeID + ".policyget" }
+
+// policyCheckSubject is the gateway's live dispatch check, separate from retained notes.
+func policyCheckSubject(nodeID string) string { return "onemind.node." + nodeID + ".policycheck" }
 
 // Policy is a verified snapshot.
 type Policy struct {
@@ -74,6 +78,10 @@ type PolicyStore struct {
 func (s *PolicyStore) Current() *Policy {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.load()
+}
+
+func (s *PolicyStore) load() *Policy {
 	if s.cur == nil {
 		b, err := os.ReadFile(s.Path)
 		switch {
@@ -82,7 +90,7 @@ func (s *PolicyStore) Current() *Policy {
 		case err != nil:
 			s.loadErr = fmt.Errorf("policy: reading %s: %w", s.Path, err)
 		default:
-			if p, err := s.verify(b); err == nil {
+			if p, err := s.verify(b, ""); err == nil {
 				s.cur, s.loadErr = p, nil
 			} else {
 				s.loadErr = fmt.Errorf("policy: the snapshot on disk (%s) does not verify: %w", s.Path, err)
@@ -115,14 +123,20 @@ func (s *PolicyStore) current() *Policy {
 // It reports whether the held snapshot changed. An older or equal epoch is
 // ignored (a snapshot never goes back).
 func (s *PolicyStore) Apply(body []byte) (bool, error) {
-	p, err := s.verify(body)
+	return s.apply(body, "", false)
+}
+
+func (s *PolicyStore) apply(body []byte, challenge string, requireCurrent bool) (bool, error) {
+	p, err := s.verify(body, challenge)
 	if err != nil {
 		return false, err
 	}
-	cur := s.Current()
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if cur != nil && p.Epoch <= cur.Epoch {
+	if cur := s.load(); cur != nil && p.Epoch <= cur.Epoch {
+		if requireCurrent && p.Epoch < cur.Epoch {
+			return false, errors.New("policy: hub returned an older epoch")
+		}
 		return false, nil
 	}
 	if err := os.MkdirAll(filepath.Dir(s.Path), 0o700); err != nil {
@@ -147,7 +161,7 @@ func (s *PolicyStore) Apply(body []byte) (bool, error) {
 	return true, nil
 }
 
-func (s *PolicyStore) verify(body []byte) (*Policy, error) {
+func (s *PolicyStore) verify(body []byte, challenge string) (*Policy, error) {
 	d := json.NewDecoder(bytes.NewReader(body))
 	d.UseNumber()
 	var env map[string]any
@@ -177,6 +191,8 @@ func (s *PolicyStore) verify(body []byte) (*Policy, error) {
 		return nil, errors.New("policy: schema must be " + PolicySchema)
 	case str("aud") != "node:"+s.NodeID:
 		return nil, fmt.Errorf("policy: for %q, this machine is node:%s", str("aud"), s.NodeID)
+	case challenge != "" && str("challenge") != challenge:
+		return nil, errors.New("policy: response does not match the dispatch challenge")
 	}
 	n, ok := env["epoch"].(json.Number)
 	if !ok {

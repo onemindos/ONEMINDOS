@@ -15,7 +15,7 @@ import pytest
 from hypothesis import given, settings as hsettings
 from hypothesis import strategies as st
 
-from conftest import ADULT, AGENT, OWNER, action_body
+from conftest import ADULT, AGENT, OWNER, action_body, apply_settings_change
 from onemind_core.automation.registry import RISKS
 from onemind_core.permissions.decide import MODES, Facts, decide
 from onemind_core.permissions.floor import GRANTS_ACCESS
@@ -117,7 +117,7 @@ def restart(client, clock, key, headers=AGENT):
 
 def test_a_deny_rule_beats_a_standing_approval_until_the_owner_removes_it(client, clock):
     install(client, clock)
-    assert policy(client, clock, requested_by=("agent:hermes",)).status_code == 201
+    assert policy(client, clock, requested_by=("agent:hermes",)).status_code == 202
     assert restart(client, clock, "d0").json()["state"] == "succeeded"
     r = client.post("/v1/approval-denies", headers=OWNER,
                     json={"principal": "agent:hermes", "action_type": "app.restart", "reason": "too noisy"})
@@ -128,13 +128,23 @@ def test_a_deny_rule_beats_a_standing_approval_until_the_owner_removes_it(client
     refused = [e for e in audit(client) if e["event"] == "authz.denied" and e["data"].get("reason") == "denied_by_rule"]
     assert refused and refused[-1]["data"]["deny_id"] == deny["id"] and refused[-1]["data"]["step"] == 3
     # a tier deny covers every write type
-    client.delete(f"/v1/approval-denies/{deny['id']}", headers=OWNER)
+    apply_settings_change(client, client.delete(f"/v1/approval-denies/{deny['id']}", headers=OWNER))
     client.post("/v1/approval-denies", headers=OWNER, json={"principal": "agent:hermes", "tier": "T1"})
     assert restart(client, clock, "d2").status_code == 403
     for d in client.get("/v1/approval-denies", headers=OWNER).json():
-        assert client.delete(f"/v1/approval-denies/{d['id']}", headers=OWNER).status_code == 204
+        apply_settings_change(client, client.delete(f"/v1/approval-denies/{d['id']}", headers=OWNER))
     assert restart(client, clock, "d3").json()["state"] == "succeeded"
     assert {"approval.deny.added", "approval.deny.removed"} <= {e["event"] for e in audit(client)}
+
+
+@pytest.mark.real_mode_defaults
+def test_deny_removal_refuses_setup_owner_until_a_passkey_exists(client):
+    r = client.post("/v1/approval-denies", headers=OWNER, json={"principal": "agent:hermes", "tier": "T1"})
+    assert r.status_code == 201, r.text
+    url = f"/v1/approval-denies/{r.json()['id']}"
+    blocked = client.delete(url, headers=OWNER)
+    assert blocked.status_code == 409 and blocked.json()["reason"] == "no_owner_passkey"
+    assert client.get("/v1/approval-denies", headers=OWNER).json() == [r.json()]
 
 
 def test_agents_and_other_people_cannot_manage_deny_rules(client, clock):

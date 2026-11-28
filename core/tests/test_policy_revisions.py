@@ -14,7 +14,7 @@ from datetime import timedelta
 
 import pytest
 
-from conftest import AGENT, OWNER, action_body
+from conftest import AGENT, OWNER, action_body, apply_queued_policy, apply_settings_change
 from onemind_core.actions import FeatureAction
 from onemind_core.auth import Principal
 from onemind_core.executors import ExecResult
@@ -37,7 +37,7 @@ def body(clock, **kw) -> dict:
 
 
 def make(client, clock, **kw):
-    return client.post("/v1/approval-policies", json=body(clock, **kw), headers=OWNER)
+    return apply_queued_policy(client, client.post("/v1/approval-policies", json=body(clock, **kw), headers=OWNER))
 
 
 def restart(client, clock, key):
@@ -56,16 +56,19 @@ def test_narrowing_applies_at_once_and_widening_needs_a_passkey(client, clock):
     for widen in ({"limits": {"per_day": 3}}, {"expires_at": iso(clock.now + timedelta(days=60))}, {"forever": True},
                   {"lapse_unused_days": None}, {"allow": {"types": ["app.restart", "backup.run"], "requested_by": ["agent:hermes"]}}):
         r = client.patch(f"/v1/approval-policies/{pol['id']}", headers=OWNER, json=widen)
-        assert r.status_code == 401 and r.json()["reason"] == "step_up_required", (widen, r.text)
+        if widen.get("forever"):
+            assert r.status_code == 409 and r.json()["reason"] == "needs_proven_key", r.text
+        else:
+            assert r.status_code == 202 and r.json()["state"] == "awaiting_approval", (widen, r.text)
     assert client.get("/v1/approval-policies", headers=OWNER).json()[0]["revision"] == 2
     # a stale revision is refused; an agent never edits
     assert client.patch(f"/v1/approval-policies/{pol['id']}", headers=OWNER, json={"revision": 1, "name": "x"}).status_code == 409
     assert client.patch(f"/v1/approval-policies/{pol['id']}", headers=AGENT, json={"name": "x"}).status_code == 403
     revised = [e for e in audit(client) if e["event"] == "approval.policy.revised"]
     assert revised[0]["data"]["direction"] == "narrow" and revised[0]["data"]["changed"] == ["limits.per_day"]
-    client.app.state.identity.passkeys_active = lambda: False  # owner token, no passkeys yet: widening is allowed
-    r = client.patch(f"/v1/approval-policies/{pol['id']}", headers=OWNER, json={"limits": {"per_day": 3}})
-    assert r.status_code == 200 and r.json()["revision"] == 3
+    r = apply_queued_policy(client, client.patch(f"/v1/approval-policies/{pol['id']}", headers=OWNER,
+                            json={"limits": {"per_day": 3}}), pol["id"])
+    assert r.status_code == 202 and r.json()["revision"] == 3
 
 
 def test_max_uses_one_approves_once_then_the_rule_ends(client, clock):
@@ -133,7 +136,7 @@ def note(gw, clock, key, path="Agent Inbox/a.md", size=10):
 
 def test_byte_caps_hold(client, clock, notes):
     gw, _ = notes
-    assert make(client, clock, types=["test.note.write"], bytes_per_day=100, items_per_day=5).status_code == 201
+    assert make(client, clock, types=["test.note.write"], bytes_per_day=100, items_per_day=5).status_code == 202
     assert note(gw, clock, "b0", size=60) == "succeeded"
     assert note(gw, clock, "b1", size=60) == "awaiting_approval"  # 120 bytes would pass the cap
     assert note(gw, clock, "b2", size=40) == "succeeded"  # exactly 100
@@ -143,7 +146,7 @@ def test_byte_caps_hold(client, clock, notes):
 def test_a_target_rule_matches_only_inside_its_locations(client, clock, notes):
     gw, _ = notes
     r = make(client, clock, types=["test.note.write"], target={"type": "notes", "locations": ["vault:u1/Agent Inbox/**"]})
-    assert r.status_code == 201, r.text
+    assert r.status_code == 202, r.text
     assert note(gw, clock, "t0", "Agent Inbox/today.md") == "succeeded"
     assert note(gw, clock, "t1", "Diary/today.md") == "awaiting_approval"
     assert note(gw, clock, "t2", "Agent Inbox/../Diary/x.md") == "awaiting_approval"
@@ -159,7 +162,7 @@ def test_forever_rules_are_fenced(client, clock):
     assert make(client, clock, types=["app.install"], forever=True, expires_at=None).status_code == 422
     assert make(client, clock, forever=True).status_code == 422  # forever has no expires_at
     assert make(client, clock, expires_at=iso(clock.now + timedelta(days=181))).status_code == 422
-    assert make(client, clock, expires_at=iso(clock.now + timedelta(days=180))).status_code == 201
+    assert make(client, clock, expires_at=iso(clock.now + timedelta(days=180))).status_code == 202
     assert make(client, clock, notify_after="silent").status_code == 422  # silent is for read-only rules
     # D-028: any Forever rule needs a proven key (L2), which design PR 11 brings; refused until then
     r = make(client, clock, forever=True, expires_at=None, lapse_unused_days=None, types=["backup.run"])
@@ -170,7 +173,7 @@ def test_forever_rules_are_fenced(client, clock):
     assert next(p for p in client.get("/v1/approval-policies", headers=OWNER).json() if p["id"] == pid)["forever"] is False
     client.app.state.automation.policies.proven_key = lambda: True  # what PR 11 wires
     r = make(client, clock, forever=True, expires_at=None, lapse_unused_days=None, types=["backup.run"])
-    assert r.status_code == 201 and r.json()["forever"] is True and r.json()["expires_at"] is None
+    assert r.status_code == 202 and r.json()["forever"] is True and r.json()["expires_at"] is None
 
 
 def test_forever_rules_get_a_90_day_review_that_ends_nothing(client, clock):
@@ -208,8 +211,8 @@ def test_rotating_the_agents_token_suspends_its_rules_until_reconfirmed(client, 
     assert (v.outcome, v.reason) == ("needs_approval", "rule_suspended")
     row = client.get("/v1/approval-policies", headers=OWNER).json()[0]
     assert row["state"] == "suspended" and row["suspended_reason"] == "token_rotated"
-    r = client.post(f"/v1/approval-policies/{pid}/reconfirm", headers=OWNER)
-    assert r.status_code == 200 and r.json()["state"] == "active"
+    r = apply_queued_policy(client, client.post(f"/v1/approval-policies/{pid}/reconfirm", headers=OWNER), pid)
+    assert r.status_code == 202 and r.json()["state"] == "active"
     assert covered(client, clock).outcome == "auto_approved"
     events = {e["event"] for e in audit(client)}
     assert {"approval.policy.suspended", "approval.policy.reconfirmed"} <= events
@@ -217,7 +220,8 @@ def test_rotating_the_agents_token_suspends_its_rules_until_reconfirmed(client, 
 
 def test_an_agent_that_starts_reading_outside_text_has_its_rules_suspended(client, clock):
     mint(client)
-    client.put("/v1/agents/agent:notes/inputs", headers=OWNER, json={"external_inputs": [], "accept_injection_risk": []})
+    apply_settings_change(client, client.put("/v1/agents/agent:notes/inputs", headers=OWNER,
+                                             json={"external_inputs": [], "accept_injection_risk": []}))
     pid = make(client, clock, requested_by=["agent:notes"]).json()["id"]
     r = client.put("/v1/agents/agent:notes/inputs", headers=OWNER, json={"external_inputs": ["web"], "accept_injection_risk": []})
     assert r.status_code == 200, r.text
@@ -231,8 +235,8 @@ def test_a_revoked_token_suspends_and_reconfirm_binds_the_new_identity(client, c
     client.delete(f"/v1/tokens/{tok['id']}", headers=OWNER)
     assert client.post(f"/v1/approval-policies/{pid}/reconfirm", headers=OWNER).status_code == 422  # nobody holds it now
     mint(client)
-    r = client.post(f"/v1/approval-policies/{pid}/reconfirm", headers=OWNER)
-    assert r.status_code == 200
+    r = apply_queued_policy(client, client.post(f"/v1/approval-policies/{pid}/reconfirm", headers=OWNER), pid)
+    assert r.status_code == 202
     assert covered(client, clock).outcome == "auto_approved"
 
 
@@ -264,9 +268,9 @@ def test_rule_routes_document_the_fields_the_rules_screen_reads(client, clock):
     ref = "#/components/schemas/ApprovalPolicy"
     ok = lambda op, code="200": spec["paths"][op[0]][op[1]]["responses"][code]["content"]["application/json"]["schema"]  # noqa: E731
     assert ok(("/v1/approval-policies", "get"))["items"]["$ref"] == ref
-    for path in ("/v1/approval-policies/{policy_id}/revoke", "/v1/approval-policies/{policy_id}/reconfirm",
-                 "/v1/approval-policies/{policy_id}/keep"):
+    for path in ("/v1/approval-policies/{policy_id}/revoke", "/v1/approval-policies/{policy_id}/keep"):
         assert ok((path, "post"))["$ref"] == ref
+    assert ok(("/v1/approval-policies/{policy_id}/reconfirm", "post"), "202")["$ref"] == "#/components/schemas/Action"
     assert ok(("/v1/approval-policies/{policy_id}", "patch"))["$ref"] == ref
     revoked = client.post(f"/v1/approval-policies/{pol['id']}/revoke", headers=OWNER).json()
     assert ApprovalPolicy.model_validate(revoked).state == "revoked"

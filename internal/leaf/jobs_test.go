@@ -432,3 +432,44 @@ func TestStopSnapshotWinsOverQueuedJobsAfterReconnect(t *testing.T) {
 		t.Fatalf("snapshot not kept on disk: %v %s", err, raw)
 	}
 }
+
+func TestLivePolicyAcrossLeafRejectsAJobWhileRetainedStopPublicationFails(t *testing.T) {
+	t.Parallel()
+	l := newJobsLab(t)
+	results := l.results(t)
+	now := time.Now()
+	l.publishPolicy(t, l.signer.Policy("aaa111", 1, false, false, nil, nil, now))
+	var stopped atomic.Bool
+	if _, err := l.hubNC.Subscribe("onemind.node.aaa111.policycheck", func(m *nats.Msg) {
+		on := stopped.Load()
+		epoch := 1
+		if on {
+			epoch++
+		}
+		_ = m.Respond(l.signer.DispatchPolicy("aaa111", epoch, on, false, nil, nil, now, string(m.Data)))
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.hubNC.Flush(); err != nil {
+		t.Fatal(err)
+	}
+	var ran atomic.Int32
+	in := l.intakeA(t, &ran)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	for _, want := range []jobs.Report{{State: jobs.StateSucceeded}, {State: jobs.StateFailed, Reason: "stale_epoch"}} {
+		body, id := l.signer.Job("aaa111", "relay.set", nil, 1, now, nil)
+		l.publishKind(t, "aaa111", "relay.set", body, id)
+		if got, err := in.PullOnce(ctx); !got || err != nil {
+			t.Fatalf("pull: %v %v", got, err)
+		}
+		waitUntil(t, 5*time.Second, want.State+" result at hub", func() bool {
+			r := last(results()[id])
+			return r.State == want.State && r.Reason == want.Reason
+		})
+		stopped.Store(true) // the gateway has stopped, but JetStream still serves the old note
+	}
+	if n := ran.Load(); n != 100 {
+		t.Fatalf("expected one relay dispatch, handler count = %d", n)
+	}
+}

@@ -15,10 +15,13 @@ import asyncio
 import threading
 import time
 from collections import defaultdict, deque
+from collections.abc import AsyncGenerator
+from concurrent.futures import CancelledError, Future
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Query, Request
 from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
+from starlette.types import Send
 
 from ..auth import Principal
 from ..context import Gateway
@@ -34,6 +37,7 @@ MAX_LINES = 2000
 MAX_BOOTS_BACK = 50
 MAX_BYTES = 1 << 20          # one non-follow read
 MAX_FOLLOW_BYTES = 8 << 20   # one follow stream
+FOLLOW_BUFFER_LINES = 16   # each host line is already capped by LogStream
 FOLLOW_MAX_S = 15 * 60
 FOLLOW_BEAT_S = 15  # a quiet stream sends a comment this often, so the slot and the host stream end soon after the viewer leaves
 STREAMS_PER_PRINCIPAL = 3
@@ -43,6 +47,18 @@ PRIORITY_RE = r"^(?:[0-7]|emerg|alert|crit|err|warning|notice|info|debug)$"
 register_route_scope("GET,HEAD", r"/v1/system/journal", ("system:admin",))  # owner only, like /v1/system/controls
 
 now = time.monotonic  # the tests move it
+
+
+class JournalFollowResponse(StreamingResponse):
+    body_iterator: AsyncGenerator[str, None]
+
+    async def stream_response(self, send: Send) -> None:
+        try:
+            await super().stream_response(send)
+        finally:
+            # If disconnect cancels the send, the generator is suspended at its last yield.
+            # Close it here so the host pump and the follow slot are freed immediately.
+            await self.body_iterator.aclose()
 
 
 def register(app: FastAPI, gw: Gateway) -> None:
@@ -143,23 +159,30 @@ def register(app: FastAPI, gw: Gateway) -> None:
             # at once (the response is cancelled), and `finally` closes the host connection, which ends the
             # thread's blocked read: the slot is not held until the next journal line shows up.
             loop = asyncio.get_running_loop()
-            queue: asyncio.Queue = asyncio.Queue()
-            done = object()
-            stop = threading.Event()
+            queue: asyncio.Queue[str | None] = asyncio.Queue(maxsize=FOLLOW_BUFFER_LINES)
+            handoff = threading.Lock()
+            pending: Future[None] | None = None
+            closed = False
+
+            def enqueue(raw: str | None) -> bool:
+                nonlocal pending
+                with handoff:
+                    if closed:
+                        return False
+                    put = pending = asyncio.run_coroutine_threadsafe(queue.put(raw), loop)
+                try:
+                    put.result()  # stop reading the host socket while the viewer is behind
+                except CancelledError:
+                    return False
+                return True
 
             def pump() -> None:
                 try:
                     for raw in stream.lines():
-                        if stop.is_set():
+                        if not enqueue(raw):
                             return
-                        loop.call_soon_threadsafe(queue.put_nowait, raw)
-                except RuntimeError:  # the event loop is already closed
-                    return
                 finally:
-                    try:
-                        loop.call_soon_threadsafe(queue.put_nowait, done)
-                    except RuntimeError:
-                        pass
+                    enqueue(None)
 
             threading.Thread(target=pump, daemon=True, name="journal-follow").start()
             size = 0
@@ -172,7 +195,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
                             return
                         yield ": keep-alive\n\n"
                         continue
-                    if raw is done:
+                    if raw is None:
                         yield "event: end\ndata: stream closed\n\n"
                         return
                     line = r.line(raw)
@@ -182,9 +205,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
                         return
                     yield f"data: {line}\n\n"
             finally:
-                stop.set()
+                with handoff:
+                    closed = True
+                    if pending is not None:
+                        pending.cancel()
                 stream.close()
                 release(p, True)
 
-        return StreamingResponse(gen(), media_type="text/event-stream",
-                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+        return JournalFollowResponse(gen(), media_type="text/event-stream",
+                                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

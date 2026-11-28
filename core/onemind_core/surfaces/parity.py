@@ -30,7 +30,7 @@ FLEET = "fleet"
 CONSOLE = "console"
 
 REASONS: dict[str, str] = {
-    OVERSIGHT: "Approving, denying, approval policies, the motion lockout, confirming what a found radio is and "
+    OVERSIGHT: "Approving, denying, approval policies, fabric enforcement status, the motion lockout, confirming what a found radio is and "
                "the controls over agents are a person's alone; no agent tool exists for them.",
     CREDENTIAL: "Sign-in, sessions, tokens, passkeys, keys, secrets, join tickets and device trust never pass "
                 "through an agent.",
@@ -187,6 +187,7 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/backups/kit": CREDENTIAL,
     "POST /v1/backups/kit/confirm": CREDENTIAL,
     "POST /v1/fabric/join-requests": CREDENTIAL,
+    "GET /v1/fabric/policy": OVERSIGHT,
     "GET /v1/fabric/join-requests/{request_id}": CREDENTIAL,
     "GET /v1/fabric/join-tickets": CREDENTIAL,
     "POST /v1/fabric/join-tickets": CREDENTIAL,

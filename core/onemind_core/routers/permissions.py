@@ -5,8 +5,8 @@ Routes (gateway permissions design §3.12):
 - GET /v1/approval-denies: the owner sees every deny rule; a person sees those on agents they own.
 - POST /v1/approval-denies: add a "never" for one principal and one type or tier. It only tightens,
   so the owner or the person who owns that agent may add one, with no step-up (D-028: L0).
-- DELETE /v1/approval-denies/{deny_id}: removing one loosens: the owner only, behind the passkey
-  step-up (L1 today; D-028 sets L2 as the target, which arrives with design PR 11).
+- DELETE /v1/approval-denies/{deny_id}: file an owner-only request to remove a deny. Applying it
+  needs an action-bound L2 approval (D-028).
 
 Agents never reach these routes: deny rules are about them, and an agent that could read its own
 denies could shape its requests around them.
@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import Depends, FastAPI, Request, Response
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
@@ -28,6 +28,8 @@ from ..errors import error_responses
 from ..identity import ctx_of
 from ..identity.scopes import register_route_scope
 from ..jsonbody import JsonBody
+from ..permissions import changes
+from ..permissions.changes import QUEUED, register_change, request_change
 from ..permissions.clock import ClockGuard
 from ..permissions.denies import DenyStore
 from ..permissions.engine import PermissionEngine
@@ -58,7 +60,7 @@ class ApprovalDeny(BaseModel):
 
 
 class PermissionMode(BaseModel):
-    """A principal's permission mode (design §3.5). `own: false` means it follows the household default."""
+    """A principal's permission mode (design §3.5). `own: false` means it has no individual setting."""
 
     principal: str
     mode: str = Field(description="locked, ask (Always ask), remember, auto (Auto within rules), headless or bypass")
@@ -74,13 +76,6 @@ class PermissionModeBody(JsonBody):
     model_config = ConfigDict(extra="forbid")
     mode: Literal["locked", "ask", "remember", "auto", "headless", "bypass"]
     reason: str | None = Field(default=None, max_length=200, description="why, for the audit record")
-
-
-def owner_has_passkey(app: FastAPI) -> bool:
-    """F-8: has any active owner a passkey? Without identity (static tokens only) there is no passkey to add,
-    so nothing can be loosened either."""
-    ident = getattr(app.state, "identity", None)
-    return bool(ident is not None and ident.passkeys_active())
 
 
 class ApprovalDenyBody(JsonBody):
@@ -142,7 +137,26 @@ def register(app: FastAPI, gw: Gateway) -> None:
     # ---- PR 10: modes --------------------------------------------------------------------------
     modes = ModeStore(gw.db, gw.audit, gw.clock)
     modes.owned_by = owned_by
-    modes.owner_passkey = lambda: owner_has_passkey(app)
+    modes.owner_passkey = lambda: changes.owner_has_passkey(app)
+
+    def household_members() -> set[str]:
+        from ..identity.models import TokenRow
+        from ..ledger import AgentTokenRow
+        from ..principals import PrincipalRow
+
+        names = {display_key(fp.as_dict()) for _, fp in gw.tokens.entries()}
+        names.update(f"person:{pid}" for source in gw.people_sources for pid in source())
+        with gw.db.session() as s:
+            names.update(s.scalars(select(TokenRow.principal_id).where(
+                TokenRow.kind.in_(("agent", "plugin")), TokenRow.revoked_at.is_(None))))
+            names.update(s.scalars(select(AgentTokenRow.principal_id).where(AgentTokenRow.revoked_at.is_(None))))
+            names.update(s.scalars(select(PrincipalRow.name).where(PrincipalRow.retired_at.is_(None))))
+        return {name for name in names if len(name) <= 100}
+
+    modes.household_members = household_members
+    gw.on_startup(modes.migrate_inheritance)
+    register_change(app, gw, "policy.mode.change", modes.apply_requested)
+    register_change(app, gw, "policy.deny.remove", lambda p, params: denies.remove(p, params["id"], "L2"))
 
     def cancel_pending(name: str, by: Principal) -> int:
         """Locked: the principal's requests waiting for a person are cancelled (as an agent cancel does)."""
@@ -172,7 +186,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     engine.modes = modes
 
     def no_rule_before_a_passkey() -> str | None:  # F-8: creating or widening a rule loosens too
-        return None if owner_has_passkey(app) else "no_owner_passkey"
+        return None if changes.owner_has_passkey(app) else "no_owner_passkey"
 
     svc = getattr(app.state, "automation", None)
     if svc is not None:
@@ -224,21 +238,17 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return modes.view(name)
 
     def put(name: str, body: PermissionModeBody, request: Request, p: Principal):
-        direction = modes.check_change(p, name, body.mode, user_id(request))
-        via = None
-        if direction == "loosen":
-            ident = getattr(app.state, "identity", None)
-            via = ident.require_step_up(ctx_of(request), p, "loosen a permission mode") if ident is not None else "token"
-        return modes.set(p, name, body.mode, body.reason, direction, via)
+        return modes.change(p, name, body.mode, body.reason, user_id(request),
+                            lambda params: request_change(app, gw, p, "policy.mode.change", params))
 
     @app.put("/v1/permission-modes", operation_id="permissions.modes.set_default", tags=TAGS,
-             responses={200: {"model": PermissionMode}, **error_responses(401, 403, 409, 422)},
+             responses={200: {"model": PermissionMode}, **QUEUED, **error_responses(401, 403, 409, 422, 429)},
              openapi_extra={"security": [{"bearer": ["tokens:self"]}]})
     def set_default_mode(body: PermissionModeBody, request: Request, p: Principal = Depends(gw.principal)):
         return put(HOUSEHOLD, body, request, p)
 
     @app.put("/v1/permission-modes/{principal}", operation_id="permissions.modes.set", tags=TAGS,
-             responses={200: {"model": PermissionMode}, **error_responses(401, 403, 409, 422)},
+             responses={200: {"model": PermissionMode}, **QUEUED, **error_responses(401, 403, 409, 422, 429)},
              openapi_extra={"security": [{"bearer": ["tokens:self"]}]})
     def set_mode(principal: str, body: PermissionModeBody, request: Request, p: Principal = Depends(gw.principal)):
         return put(name_of(principal), body, request, p)
@@ -258,12 +268,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
         out = denies.add(p, user_id(request), body.principal, body.action_type, body.tier, body.reason)
         return JSONResponse(status_code=201, content=out)
 
-    @app.delete("/v1/approval-denies/{deny_id}", operation_id="approvals.denies.delete", tags=TAGS, status_code=204,
-                responses=error_responses(401, 403, 404), openapi_extra={"security": [{"bearer": ["*"]}]})
-    def delete_deny(deny_id: str, request: Request, p: Principal = Depends(gw.principal)):
+    @app.delete("/v1/approval-denies/{deny_id}", operation_id="approvals.denies.delete", tags=TAGS, status_code=202,
+                responses={**QUEUED, **error_responses(401, 403, 404, 409, 429)}, openapi_extra={"security": [{"bearer": ["*"]}]})
+    def delete_deny(deny_id: str, p: Principal = Depends(gw.principal)):
         if not p.is_owner:
             denies._denied(p, "remove a deny rule")
-        ident = getattr(app.state, "identity", None)
-        via = ident.require_step_up(ctx_of(request), p, "remove a deny rule") if ident is not None else "token"
-        denies.remove(p, deny_id, via)
-        return Response(status_code=204)
+        return request_change(app, gw, p, "policy.deny.remove", denies.get(deny_id))

@@ -7,13 +7,13 @@ conflict, reason motion_lockout). Only an owner reads or changes the switch: age
 plugins and machines get 403, and the route scope `physical:admin` is minted to no one. Turning it
 on is one call; turning it off again needs a fresh passkey sign-in once passkeys are active. Every
 change is an audit line. A lockout that cannot be read counts as on (actions.ActionService._locked).
-Every change also runs `listeners` (fabric_policy.py: push the new stop note to every machine before
-the call returns); a listener that fails is an audit line and never undoes the switch.
+Every change confirms fabric enforcement before acknowledging it. A failed confirmation leaves the
+local switch in effect and sends an error to the caller.
 """
 
 from __future__ import annotations
 
-import logging
+import threading
 from collections.abc import Callable
 from datetime import datetime
 
@@ -27,8 +27,6 @@ from .errors import ApiError
 from .jsonbody import JsonBody
 from .ledger import Base, iso, utc
 from .store import Database, FeatureSchema, SqlRepository
-
-log = logging.getLogger("onemind.physical")
 
 SCHEMA = FeatureSchema("physical")
 
@@ -79,7 +77,8 @@ class MotionLockout:
         self.repo = MotionLockoutRepository(db)
         self.audit = audit
         self.clock = clock
-        self.listeners: list[Callable[[bool], None]] = []  # called with the new state after every change
+        self._changes = threading.Lock()
+        self.confirm_fabric: Callable[[bool], None] | None = None
 
     def locked(self) -> bool:
         """For ActionService.motion_lockout. Raises when the store cannot be read (the service fails closed)."""
@@ -100,14 +99,10 @@ class MotionLockout:
 
     def set(self, p: Principal, locked: bool, reason: str | None, via: str = "token") -> dict:
         self.owner_only(p, "set the motion lockout")
-        self.repo.set(locked, p.as_dict(), self.clock(), reason)
-        self.audit.append("physical.lockout.on" if locked else "physical.lockout.off", p.as_dict(), None,
-                          {"reason": reason, "step_up": via})
-        for listener in list(self.listeners):
-            try:
-                listener(locked)
-            except Exception as exc:  # noqa: BLE001 - the lockout itself already holds in the gateway
-                log.warning("motion lockout listener failed: %s", exc.__class__.__name__)
-                self.audit.append("physical.lockout.listener_failed", p.as_dict(), None,
-                                  {"locked": locked, "error": f"{exc.__class__.__name__}: {exc}"[:300]})
-        return self.state()
+        with self._changes:
+            self.repo.set(locked, p.as_dict(), self.clock(), reason)
+            self.audit.append("physical.lockout.on" if locked else "physical.lockout.off", p.as_dict(), None,
+                              {"reason": reason, "step_up": via})
+            if self.confirm_fabric is not None:
+                self.confirm_fabric(locked)
+            return self.state()

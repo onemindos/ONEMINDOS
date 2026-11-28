@@ -20,7 +20,7 @@ from onemind_core.app import create_app
 from onemind_core.automation import AutomationSettings
 from onemind_core.ledger import Action
 
-from conftest import ADULT, AGENT, OWNER, action_body
+from conftest import ADULT, AGENT, OWNER, action_body, apply_settings_change
 
 NIGHT = datetime(2026, 11, 12, 2, 0, tzinfo=UTC)  # the next opening of win_nightly (02:00-05:00 UTC)
 
@@ -169,7 +169,7 @@ def test_a_held_update_waits_for_a_person_even_with_a_standing_approval(client, 
     offer(auto_settings, released=NIGHT - timedelta(hours=1))
     body = {"allow": {"types": ["app.update"], "requested_by": ["automation:update-policy"]}, "limits": {"per_day": 3},
             "window_id": "win_nightly", "expires_at": iso(clock.now + timedelta(days=30))}
-    assert client.post("/v1/approval-policies", json=body, headers=OWNER).status_code == 201
+    apply_settings_change(client, client.post("/v1/approval-policies", json=body, headers=OWNER))
     pol = client.app.state.automation.policies
     who = {"id": "automation:update-policy", "kind": "automation"}
     params = {"app_id": "whoami", "to_version": "1.10.2"}
@@ -192,7 +192,7 @@ def test_dry_run_says_what_would_update_tonight(client, clock, auto_settings):
     assert (item["outcome"], item["reason"]) == ("needs_approval", "no_policy")  # nobody said yes in advance
     body = {"allow": {"types": ["app.update"], "requested_by": ["automation:update-policy"]}, "limits": {"per_day": 3},
             "window_id": "win_nightly", "expires_at": iso(clock.now + timedelta(days=30))}
-    assert client.post("/v1/approval-policies", json=body, headers=OWNER).status_code == 201
+    apply_settings_change(client, client.post("/v1/approval-policies", json=body, headers=OWNER))
     [item] = client.get("/v1/update-policy/dry-run", headers=OWNER).json()["apps"]
     assert item["outcome"] == "would_update"
     offer(auto_settings, released=NIGHT - timedelta(hours=1))

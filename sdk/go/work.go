@@ -183,12 +183,12 @@ func (s *WorkService) DeleteProject(ctx context.Context, id string) error {
 
 // AddMember is operation work.member_add (the project creator only).
 func (s *WorkService) AddMember(ctx context.Context, project, person string) error {
-	return s.c.Do(ctx, http.MethodPut, projectPath(project)+"/members/"+url.PathEscape(person), nil, nil)
+	return s.c.Do(ctx, http.MethodPut, "/v1/work/projects/"+url.PathEscape(project)+"/members/"+url.PathEscape(person), nil, nil)
 }
 
 // RemoveMember is operation work.member_remove (the project creator only).
 func (s *WorkService) RemoveMember(ctx context.Context, project, person string) error {
-	return s.c.Do(ctx, http.MethodDelete, projectPath(project)+"/members/"+url.PathEscape(person), nil, nil)
+	return s.c.Do(ctx, http.MethodDelete, "/v1/work/projects/"+url.PathEscape(project)+"/members/"+url.PathEscape(person), nil, nil)
 }
 
 // Parse is operation work.parse: a preview of quick-add.
@@ -227,14 +227,14 @@ func (s *WorkService) Comments(ctx context.Context, project, task string) ([]Wor
 // AddComment is operation work.comment_add. A retry with the same key returns the same comment.
 func (s *WorkService) AddComment(ctx context.Context, project, task, body, key string) (*WorkComment, error) {
 	var c WorkComment
-	_, err := s.c.do(ctx, request{method: http.MethodPost, path: taskPath(project, task) + "/comments",
+	_, err := s.c.do(ctx, request{method: http.MethodPost, path: "/v1/work/projects/" + url.PathEscape(project) + "/tasks/" + url.PathEscape(task) + "/comments",
 		body: map[string]string{"body": body}, retry: true, headers: keyed(key)}, &c)
 	return &c, err
 }
 
 // DeleteComment is operation work.comment_delete (the author only).
 func (s *WorkService) DeleteComment(ctx context.Context, project, task, id string) error {
-	return s.c.Do(ctx, http.MethodDelete, taskPath(project, task)+"/comments/"+url.PathEscape(id), nil, nil)
+	return s.c.Do(ctx, http.MethodDelete, "/v1/work/projects/"+url.PathEscape(project)+"/tasks/"+url.PathEscape(task)+"/comments/"+url.PathEscape(id), nil, nil)
 }
 
 // Sections is operation work.sections_list.
@@ -246,14 +246,21 @@ func (s *WorkService) Sections(ctx context.Context, project string) ([]WorkSecti
 // AddSection is operation work.section_create.
 func (s *WorkService) AddSection(ctx context.Context, project, name, key string) (*WorkSection, error) {
 	var v WorkSection
-	_, err := s.c.do(ctx, request{method: http.MethodPost, path: projectPath(project) + "/sections",
+	_, err := s.c.do(ctx, request{method: http.MethodPost, path: "/v1/work/projects/" + url.PathEscape(project) + "/sections",
 		body: map[string]string{"name": name}, retry: true, headers: keyed(key)}, &v)
 	return &v, err
 }
 
+// RenameSection is operation work.section_update.
+func (s *WorkService) RenameSection(ctx context.Context, project, id, name string) (*WorkSection, error) {
+	var section WorkSection
+	return &section, s.c.Do(ctx, http.MethodPatch, "/v1/work/projects/"+url.PathEscape(project)+"/sections/"+url.PathEscape(id),
+		map[string]string{"name": name}, &section)
+}
+
 // DeleteSection is operation work.section_delete. Its tasks stay in the project.
 func (s *WorkService) DeleteSection(ctx context.Context, project, id string) error {
-	return s.c.Do(ctx, http.MethodDelete, projectPath(project)+"/sections/"+url.PathEscape(id), nil, nil)
+	return s.c.Do(ctx, http.MethodDelete, "/v1/work/projects/"+url.PathEscape(project)+"/sections/"+url.PathEscape(id), nil, nil)
 }
 
 // CreateProject is operation work.project_create. aiAccess is "none", "read" or "work" (empty means

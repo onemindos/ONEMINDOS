@@ -21,6 +21,8 @@ Rules:
   rewritten without the AGENTS account, so NATS cuts every agent already on the bus at the reload
   (D-029 "Stop everything also cuts AI agents off the bus"; natsconf.render_accounts). A listener
   that fails is logged and audited (`agents.stop_listener_failed`) and never undoes the switch;
+- captured work on the fabric is confirmed separately. Failed confirmation sends an error to the
+  caller while the gateway's switch stays in effect;
 - a refused agent request writes at most one `agents.refused` audit line a minute, with the count
   of refusals suppressed since the previous line, so a looping agent cannot flood the log;
 - enforcement state (the switch's in-memory copy and the refusal throttle) is per process: correct
@@ -90,10 +92,12 @@ class AgentStop:
         self.gw = gw
         self.repo = AgentStopRepository(db or gw.db)
         self._lock = threading.Lock()
+        self._changes = threading.Lock()
         self._on = bool(self.repo.state()["on"])  # read once at start: the switch survives a restart
         self._refused: dict[str, Any] = {"last": None, "suppressed": 0}
         # Called with the new state after every change (routers/agents.py: rewrite the NATS accounts).
         self.listeners: list[Callable[[bool], None]] = []
+        self.confirm_fabric: Callable[[bool], None] | None = None
 
     # ---- state -----------------------------------------------------------------------------
     @property
@@ -112,22 +116,25 @@ class AgentStop:
                                   "reason": "permission_denied"})
             raise ApiError(403, "permission_denied",
                            f"{principal.kind}/{principal.role} may not change the agent kill switch; only the owner can")
-        with self._lock:
-            self.repo.set(on, principal.as_dict(), self.gw.clock(), reason)
-            self._on = on
-        self.gw.events.publish_event(
-            "agents", "stopped" if on else "resumed", {"reason": reason},
-            principal=principal.as_dict(), severity="warning" if on else "info",
-            resource={"kind": "agents", "id": "all"}, dedupe_key="agents:kill_switch",
-        )
-        for listener in list(self.listeners):
-            try:
-                listener(on)
-            except Exception as exc:  # noqa: BLE001 - the switch itself already holds in the gateway
-                log.warning("agent kill switch listener failed: %s", exc.__class__.__name__)
-                self.gw.audit.append("agents.stop_listener_failed", principal.as_dict(), None,
-                                     {"on": on, "error": f"{exc.__class__.__name__}: {exc}"[:300]})
-        return self.state()
+        with self._changes:
+            with self._lock:
+                self.repo.set(on, principal.as_dict(), self.gw.clock(), reason)
+                self._on = on
+            self.gw.events.publish_event(
+                "agents", "stopped" if on else "resumed", {"reason": reason},
+                principal=principal.as_dict(), severity="warning" if on else "info",
+                resource={"kind": "agents", "id": "all"}, dedupe_key="agents:kill_switch",
+            )
+            for listener in list(self.listeners):
+                try:
+                    listener(on)
+                except Exception as exc:  # noqa: BLE001 - the switch itself already holds in the gateway
+                    log.warning("agent kill switch listener failed: %s", exc.__class__.__name__)
+                    self.gw.audit.append("agents.stop_listener_failed", principal.as_dict(), None,
+                                         {"on": on, "error": f"{exc.__class__.__name__}: {exc}"[:300]})
+            if self.confirm_fabric is not None:
+                self.confirm_fabric(on)
+            return self.state()
 
     # ---- enforcement -----------------------------------------------------------------------
     def _refuse(self, principal: Principal, what: dict, *, throttle: bool = True) -> ApiError:

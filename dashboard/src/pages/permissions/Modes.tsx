@@ -3,7 +3,7 @@
 // handled. GET /v1/permission-modes, GET /v1/agents, GET /v1/users; PUT /v1/permission-modes[/{principal}].
 //
 // Who may change a mode is the gateway's call, never this page's: tightening (toward Locked) needs no
-// passkey; loosening is the owner's, with a fresh passkey, and never before the owner has one (F-8).
+// passkey. Loosening goes to the owner's approval queue after the owner has enrolled a passkey (F-8).
 // The owner's own requests run directly and have no mode. Every new agent and person starts on
 // Always ask (F-7).
 //
@@ -14,10 +14,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { Button, Card, Dialog, StatusPill } from '@onemind/ui';
-import type { components as api } from '@onemind/sdk';
+import type { Action, components as api } from '@onemind/sdk';
 import { usePoll } from '../../lib/hooks';
 import { useShell } from '../../shell/Shell';
-import { MODE_TEXT, MODES, agentKey, explain, modeLabel, read, usePermSdk, useStepUp, type Mode } from '../../lib/permissions';
+import { href } from '../../shell/routes';
+import { MODE_TEXT, MODES, agentKey, explain, isApprovalRequest, modeLabel, read, usePermSdk, useStepUp, type Mode } from '../../lib/permissions';
 import { Load } from '../parts';
 
 type PermissionMode = api['schemas']['PermissionMode'];
@@ -46,18 +47,30 @@ export function Modes() {
       optional(sdk.call<AgentView[]>({ method: 'GET', path: '/v1/agents' })),
       optional(sdk.call<Person[]>({ method: 'GET', path: '/v1/users' })),
     ]);
-    return { modes, agents, people };
+    const listed = new Set(modes.map((m) => m.principal));
+    const principals = [
+      ...(agents ?? []).map((a) => agentKey(a.id)),
+      ...(people ?? []).filter((p) => !p.disabled && p.role !== 'owner').map((p) => `person:${p.id}`),
+    ];
+    const inherited = await Promise.all(principals.filter((p) => !listed.has(p)).map((p) =>
+      optional(sdk.call<PermissionMode>({ method: 'GET', path: `/v1/permission-modes/${encodeURIComponent(p)}` }))));
+    return { modes: [...modes, ...inherited.filter((m) => m !== null)], agents, people };
   }, 0);
   const [change, setChange] = useState<{ row: Row; to: Mode; reason: string; busy?: boolean; error?: string }>();
   const [done, setDone] = useState<string>();
+  const [pending, setPending] = useState<Action>();
 
   const save = async () => {
     if (!change) return;
     setChange({ ...change, busy: true, error: undefined });
-    const path = change.row.key === '*' ? '/v1/permission-modes' : `/v1/permission-modes/${encodeURIComponent(change.row.key)}`;
+    const body = { mode: change.to, ...(change.reason.trim() ? { reason: change.reason.trim() } : {}) };
     try {
-      await stepUp((client) => client.call<PermissionMode>({ method: 'PUT', path, body: { mode: change.to, ...(change.reason.trim() ? { reason: change.reason.trim() } : {}) } }), sdk);
-      setDone(`${change.row.name} is now on ${modeLabel(change.to)}.`);
+      const result = await stepUp((client) => change.row.key === '*'
+        ? client.call<PermissionMode | Action>({ method: 'PUT', path: '/v1/permission-modes', body })
+        : client.call<PermissionMode | Action>({ method: 'PUT', path: `/v1/permission-modes/${encodeURIComponent(change.row.key)}`, body }), sdk);
+      const queued = isApprovalRequest(result);
+      setPending(queued ? result : undefined);
+      setDone(queued ? undefined : `${change.row.name} is now on ${modeLabel(change.to)}.`);
       setChange(undefined);
       await data.reload();
     } catch (e) {
@@ -88,6 +101,7 @@ export function Modes() {
         return (
           <>
             {done && <p className="om-note om-tone-ok" role="status">{done}</p>}
+            {pending && <p className="om-note om-tone-info" role="status">Mode change requested. <Link to={href.approval(pending.id)}>Review in Approvals</Link>.</p>}
             {noPasskey && (
               <p className="om-note om-tone-warn" role="status">
                 No owner passkey yet, so every requester is treated as Always ask and nothing can be loosened. <Link to="/settings/account">Add a passkey</Link>
@@ -96,16 +110,16 @@ export function Modes() {
             <Card
               title="How requests are handled"
               subtitle={isOwner
-                ? 'Moving toward Locked needs no passkey. Loosening is for the owner and asks for your passkey. The owner’s own requests run directly.'
+                ? 'Moving toward Locked applies immediately. Loosening goes to Approvals for the owner. The owner’s own requests run directly.'
                 : 'You can move a requester you look after toward Locked. Only the owner can loosen a mode or change the household default.'}
             >
               <ul className="dash-list" aria-label="Permission modes">
                 {household && <ModeRow row={{ key: '*', name: 'Household default', kind: 'Everyone without their own mode' }} current={household.mode} readOnly={!isOwner} onPick={(to) => setChange({ row: { key: '*', name: 'The household default', kind: '' }, to, reason: '' })} />}
                 {rows.map((r) => (
-                  <ModeRow key={r.key} row={r} current={r.mode?.mode ?? fallback} tighterOnly={!isOwner} followsDefault={!r.owner && !r.mode?.own} onPick={(to) => setChange({ row: r, to, reason: '' })} />
+                  <ModeRow key={r.key} row={r} current={r.mode?.mode ?? fallback} tighterOnly={!isOwner} followsDefault={!r.owner && !r.mode?.own && (!r.mode || r.mode.mode === fallback)} onPick={(to) => setChange({ row: r, to, reason: '' })} />
                 ))}
               </ul>
-              {rows.length === 0 && <p className="om-hint">No agents or people have a mode of their own yet. They all follow the household default.</p>}
+              {rows.length === 0 && <p className="om-hint">No agents or people have a mode of their own yet.</p>}
             </Card>
             {change && (
               <Dialog
@@ -116,10 +130,10 @@ export function Modes() {
                 onClose={() => (change.busy ? undefined : setChange(undefined))}
                 actions={<>
                   <Button onClick={() => setChange(undefined)} disabled={change.busy}>Cancel</Button>
-                  <Button variant="primary" busy={change.busy} onClick={() => void save()}>{loosens(currentOf(change.row, household), change.to) ? 'Confirm with passkey' : 'Change mode'}</Button>
+                  <Button variant="primary" busy={change.busy} onClick={() => void save()}>{loosens(currentOf(change.row, household), change.to) ? 'Request mode change' : 'Change mode'}</Button>
                 </>}
               >
-                {loosens(currentOf(change.row, household), change.to) && <p>This lets {change.row.name} do more without asking you. Your passkey confirms it.</p>}
+                {loosens(currentOf(change.row, household), change.to) && <p>This lets {change.row.name} do more without asking you. Review the change in Approvals.</p>}
                 <label>Why (optional, kept in the activity log)
                   <input value={change.reason} maxLength={200} onChange={(e) => setChange({ ...change, reason: e.target.value })} />
                 </label>
@@ -132,7 +146,6 @@ export function Modes() {
     </Load>
   );
 }
-
 function currentOf(row: Row, household?: PermissionMode): string {
   return row.key === '*' ? household?.mode ?? 'ask' : row.mode?.mode ?? household?.mode ?? 'ask';
 }
@@ -168,4 +181,3 @@ function ModeRow({ row, current, followsDefault, readOnly, tighterOnly = false, 
     </li>
   );
 }
-
