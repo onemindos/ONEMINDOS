@@ -150,11 +150,17 @@
       }
     },
     "backup": {
-      "description": "The App spec.backup block with its units field required: every built-in names at least one unit; removing them fails the conformance test.",
+      "description": "The App spec.backup block with its units field required. An empty list requires an explicit reason.",
       "type": "object",
       "additionalProperties": false,
       "required": ["units"],
-      "properties": {"units": {"type": "array", "minItems": 1, "maxItems": 40, "items": {"$ref": "#/$defs/backupUnit"}}}
+      "properties": {
+        "units": {"type": "array", "maxItems": 40, "items": {"$ref": "#/$defs/backupUnit"}},
+        "none": {"type": "string", "pattern": "\\S"}
+      },
+      "if": {"properties": {"units": {"maxItems": 0}}},
+      "then": {"required": ["none"]},
+      "else": {"not": {"required": ["none"]}}
     },
     "dataClass": {"enum": ["public", "owner", "private", "location", "activity"]},
     "data": {

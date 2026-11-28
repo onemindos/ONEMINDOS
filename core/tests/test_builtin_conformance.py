@@ -56,8 +56,8 @@ def problems(d: builtins.Descriptor, others: list[builtins.Descriptor], tables: 
     for unit in d.spec["backup"]["units"]:
         if unit["kind"] == "table" and unit["name"] not in tables:
             out.append(f"{d.id} backs up table {unit['name']}, which the gateway does not have")
-    if not d.spec["backup"]["units"]:
-        out.append(f"{d.id} declares no backup unit")
+    if not d.spec["backup"]["units"] and not d.spec["backup"].get("none", "").strip():
+        out.append(f"{d.id} declares no backup unit or reason")
     for a in d.spec.get("actions", []):
         if a["type"] not in types:
             out.append(f"{d.id} declares action {a['type']}, which the gateway has not registered")
@@ -110,6 +110,7 @@ def test_every_descriptor_agrees_with_the_running_gateway(c):
 
 def test_the_signed_list_holds_the_wave_1_built_ins_and_the_never_off_set():
     assert {"files", "approvals", "settings", "market", "updates", "backups", "notifications", "photos"} <= SIGNED.ids()
+    assert {"work", "dashboards", "search"} <= SIGNED.ids()
     for app_id in ("updates", "backups", "notifications"):
         assert app_id in systemlist.NEVER_DISABLE and not SIGNED.get(app_id).can_disable
     assert SIGNED.get("photos").can_disable
@@ -122,6 +123,23 @@ def test_removing_a_backup_unit_fails(tmp_path):
     doc["spec"]["backup"]["units"] = []
     found, errors = load_one(tmp_path, "files", doc)
     assert "files" not in found and any("backup" in e for e in errors["files"])
+
+
+def test_empty_backup_units_with_a_reason_pass(tmp_path):
+    doc = doc_of("search")
+    assert doc["spec"]["backup"] == {
+        "units": [], "none": "index is rebuilt from providers; excluded from backups on purpose",
+    }
+    found, errors = load_one(tmp_path, "search", doc)
+    assert set(found) == {"search"} and errors == {}
+
+
+@pytest.mark.parametrize("reason", ["", " \t "])
+def test_empty_backup_units_with_a_blank_reason_fail(tmp_path, reason):
+    doc = doc_of("search")
+    doc["spec"]["backup"]["none"] = reason
+    found, errors = load_one(tmp_path, "search", doc)
+    assert "search" not in found and any("backup/none" in e for e in errors["search"])
 
 
 def test_dropping_the_backup_block_fails(tmp_path):
@@ -176,26 +194,45 @@ def owned_operations(prefix: str):
                     yield method, path.replace("{", "").replace("}", "")
 
 
-def test_a_switched_off_built_in_answers_409_on_every_route_and_leaves_every_list(c, clock):
-    before = c.get("/v1/builtins", headers=OWNER).json()
-    assert "photos" in {a["id"] for a in before["apps"]}
-    assert any(u["app_id"] == "photos" for u in before["backup_units"])
-    assert run(c, clock, "app.disable", {"app_id": "photos"}).json()["state"] == "succeeded"
+def surface_tools_under(c, prefix: str) -> list[str]:
+    """Names of the tools GET /v1/surfaces lists whose route is under the app's prefix."""
+    out = c.get("/v1/surfaces", headers=OWNER).json()
+    return [t["name"] for t in out["tools"] if t["route"] and builtins.under(t["route"].split(" ", 1)[1], prefix)]
 
-    ops = list(owned_operations("/v1/photos"))
-    assert len(ops) >= 5
+
+@pytest.mark.parametrize(("app_id", "prefix", "min_ops", "probe", "has_backup"), [
+    ("photos", "/v1/photos", 5, "/v1/photos/library", True),
+    ("work", "/v1/work", 7, "/v1/work/tasks", True),
+    ("dashboards", "/v1/me/dashboard-card", 3, "/v1/me/dashboard-card", True),
+    ("search", "/v1/search", 1, "/v1/search?q=test", False),
+])
+def test_a_switched_off_built_in_answers_409_on_every_route_and_leaves_every_list(
+    c, clock, app_id, prefix, min_ops, probe, has_backup,
+):
+    before = c.get("/v1/builtins", headers=OWNER).json()
+    assert app_id in {a["id"] for a in before["apps"]}
+    assert any(u["app_id"] == app_id for u in before["backup_units"]) == has_backup
+    tools_before = len(surface_tools_under(c, prefix))
+    if app_id == "work":
+        assert tools_before >= 2  # work_tasks_list and work_task_get are core tools on /v1/work
+    assert run(c, clock, "app.disable", {"app_id": app_id}).json()["state"] == "succeeded"
+
+    ops = list(owned_operations(prefix))
+    assert len(ops) >= min_ops
     for method, path in ops:
         r = c.request(method.upper(), path, headers=OWNER)
         assert r.status_code == 409 and r.json()["reason"] == "app_disabled", (method, path, r.text)
-    assert c.get("/v1/photos/library").status_code == 401  # no sign-in: not told it is off
+    assert c.get(probe).status_code == 401  # no sign-in: not told it is off
 
     after = c.get("/v1/builtins", headers=OWNER).json()
-    assert "photos" not in {a["id"] for a in after["apps"]}
-    assert not any(u["app_id"] == "photos" for u in after["backup_units"])
+    assert app_id not in {a["id"] for a in after["apps"]}
+    assert not any(u["app_id"] == app_id for u in after["backup_units"])
+    assert not surface_tools_under(c, prefix)
 
-    assert run(c, clock, "app.enable", {"app_id": "photos"}).json()["state"] == "succeeded"
-    assert "photos" in {a["id"] for a in c.get("/v1/builtins", headers=OWNER).json()["apps"]}
-    assert c.get("/v1/photos/library", headers=OWNER).status_code != 409
+    assert run(c, clock, "app.enable", {"app_id": app_id}).json()["state"] == "succeeded"
+    assert app_id in {a["id"] for a in c.get("/v1/builtins", headers=OWNER).json()["apps"]}
+    assert c.get(probe, headers=OWNER).status_code != 409
+    assert len(surface_tools_under(c, prefix)) == tools_before
 
 
 def test_builtins_lists_settings_pages_backup_units_and_tools(c):
@@ -310,6 +347,8 @@ def test_a_market_app_may_not_declare_backup_units():
     validator = Draft202012Validator(APP_SCHEMA)
     assert list(validator.iter_errors(manifest)) == []
     manifest["spec"].setdefault("backup", {})["units"] = [{"kind": "table", "name": "actions"}]
+    assert any("system" in e.message for e in validator.iter_errors(manifest))
+    manifest["spec"]["backup"].update(units=[], none="rebuildable cache")
     assert any("system" in e.message for e in validator.iter_errors(manifest))
 
 
