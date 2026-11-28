@@ -7,6 +7,12 @@
 # x-systemd.growfs: after mounting, systemd-growfs makes the filesystem (and a LUKS2 volume under it) as big as the
 # device under it, which is how /data fills a partition that cloud-init's growpart or data_extend.py just enlarged.
 PARTLABEL=onemind-esp   /boot/efi  vfat  umask=0077                          0 1
+# No delayed allocation on /data (VM 501 bug 1, CRITERIA-FIRSTBOOT.md F17): a power cut must never leave files that are
+# named on the disk but whose data is not (0-byte k3s certificates, torn binaries of freshly unpacked images that then
+# crash with SIGSEGV for good). The option depends on the filesystem and this line is "auto", which refuses an option
+# the filesystem does not know (btrfs refuses nodelalloc, ext4 refuses flushoncommit: /data would not mount at all).
+# So onemind-data-durable, run by onemind-data-layout.service before the binds and services that write to /data, remounts
+# it with nodelalloc on ext4 or flushoncommit on btrfs.
 PARTLABEL=onemind-data  /data      auto  defaults,noatime,nofail,x-systemd.growfs,x-systemd.device-timeout=30s  0 2
 # Writable state lives on onemind-data and is bind-mounted over the read-only root.
 # "nofail" on /data and every bind from it: a dead data disk must not fail local-fs.target (that

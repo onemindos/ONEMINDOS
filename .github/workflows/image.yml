@@ -187,6 +187,9 @@ jobs:
       # because `make firstboot` removes the work disk it copied, and this copies the fixture disk again.
       - name: Boot menu lock (B1-B6)
         run: make bootlock BOARD=x86_64-efi TOOLS=onemind-tools:ci
+      # Power cut in the first minute (F17, CRITERIA-FIRSTBOOT.md section 12; VM 501 bug 1): own VM, own work dir.
+      - name: Power cut in the first minute (F17)
+        run: make powercut BOARD=x86_64-efi TOOLS=onemind-tools:ci
       # Go back to the previous OS version (RB0-RB4, test/qemu/CRITERIA-ROLLBACK.md, P-16): a good update, then an
       # approved os-rollback through the host service boots slot A again and the gate commits it. Copies the fixture disk.
       - name: Go back to the previous version (RB0-RB4)
