@@ -46,7 +46,7 @@ export function AppManagement({ appId }: { appId: string }) {
       <Button disabled={disabled || !present || app.status === 'stopped'} onClick={() => void shell.requestApp('app.update', appId)}>Review update</Button>
       <Button disabled={disabled || !present} onClick={() => void shell.requestApp('app.remove', appId)}>Remove…</Button>
     </div>
-    <p className="om-hint">Open uses the app’s own port on this host, not behind the OneMind sign-in. Removal keeps app data; deleting data is a separate operation.</p>
+    <p className="om-hint">Open goes through the OneMind sign-in: it opens the app at its own name on this box, and only people who may use the app get in. Removal keeps app data; deleting data is a separate operation.</p>
     {job && <p role="status">{job.type}: {job.state.replace(/_/g, ' ')}{job.progress ? ` — ${job.progress.step} (${job.progress.pct}%)` : ''}{job.result?.message ? ` — ${job.result.message}` : ''}</p>}
     {busy && <p role="status">A request for this app is in progress.</p>}
     <section aria-label="App settings">

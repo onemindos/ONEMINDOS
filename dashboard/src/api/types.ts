@@ -39,6 +39,8 @@ export interface NodeHeartbeat {
   uptime_s: number;
   agent_version: string;
   observed_at: string;
+  /** Live load from the node agent (contract 12.10): each figure is null when the node cannot read it (CPU is null on the first heartbeat after a start). Absent from older agents. */
+  metrics?: { cpu_pct?: number | null; load1?: number | null; temp_c?: number | null };
 }
 
 /** §3 freshness computed by the gateway: stale after 30 s, offline after 120 s. */

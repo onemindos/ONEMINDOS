@@ -265,7 +265,14 @@ func storageCommands(a *App) []*cobra.Command {
 		Use:                "storage disks|health|status|plan ...",
 		Short:              "List disks, check their health and print storage plans (read-only); request and operation use the gateway",
 		DisableFlagParsing: true,
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			args, err := takeLeadingGlobals(cmd, args)
+			if err != nil {
+				return err
+			}
+			if a.G.JSON { // the global --json (typed before the command) means the same as the local one
+				args = insertJSON(args, 1)
+			}
 			return storageCmd(args, a.Stdout)
 		},
 	}

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest';
 import { makeActions, makeApps, makeNodes } from '../api/fixtures';
-import type { Action } from '../api/types';
+import type { Action, NodeRecord } from '../api/types';
 import { toRoute } from '../shell/routes';
-import { activityFrom, categorySlug, deployClass, NO_APP_NAME_NOTE, iconOf, jobState, notificationsFrom, openUrl, runState, toActionPlan, toActionSummary, principalNamer, toInstalled, toJob, toStoreApp } from './adapters';
+import { activityFrom, categorySlug, deployClass, NO_APP_NAME_NOTE, iconOf, jobState, notificationsFrom, openUrl, runState, toActionPlan, toActionSummary, principalNamer, toInstalled, toJob, toStoreApp, toHomeNode } from './adapters';
 import { personKey, personStorage } from './prefs';
 
 const NOW = Date.parse('2026-11-12T12:00:00Z');
@@ -255,5 +255,18 @@ describe('names on approvals', () => {
     expect(s.requested_by).toMatchObject({ id: 'usr_1', name: 'Alex' });
     expect(s.decided_by).toMatchObject({ id: 'usr_1', name: 'Alex' });
     expect(toActionSummary(a).requested_by?.name).toBeUndefined();
+  });
+});
+
+describe('node heartbeat → Home node (CPU and temperature)', () => {
+  const [base] = makeNodes(NOW) as [NodeRecord];
+  it('lifts the heartbeat metrics object into the flat fields Home reads', () => {
+    const n = toHomeNode({ ...base, metrics: { cpu_pct: 37.5, load1: 0.4, temp_c: 51 } });
+    expect(n.cpu_percent).toBe(37.5);
+    expect(n.temp_c).toBe(51);
+  });
+  it('keeps a figure the node did not report null, never 0', () => {
+    expect(toHomeNode({ ...base, metrics: { cpu_pct: null, temp_c: null } })).toMatchObject({ cpu_percent: null, temp_c: null });
+    expect(toHomeNode({ ...base, metrics: undefined })).toMatchObject({ cpu_percent: null, temp_c: null });
   });
 });
