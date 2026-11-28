@@ -29,7 +29,7 @@ on:
       dry_run: {type: boolean, default: true, description: 'Never publish, even with keys and the switch on'}
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths: ['os/update/**', '.github/workflows/security-nightly.yml']
+    paths: ['os/update/**', 'scripts/tuf-bootstrap-root.sh', 'scripts/ceremony-guide.py', '.github/workflows/security-nightly.yml']
 permissions:
   contents: read
 concurrency:
