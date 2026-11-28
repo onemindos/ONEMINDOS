@@ -6,13 +6,14 @@
 //   accent >= 4.5:1 on bg, surface, surface-raised and accent-soft;
 //   accent-text >= 4.5:1 on accent and on accent-hover.
 import { brand } from '../tokens/brand.generated.ts';
-import { dark, light } from '../tokens/tokens';
+import { dark, light, palette } from '../tokens/tokens';
 import { contrast, hexToOklch, mix, normalizeHex, withLightness } from './color';
 
 export type ThemeName = 'light' | 'dark';
 
-/** Curated presets. The first, `onemind`, is the brand accent (OneMind Red from brand/brand.json)
- * and remains available. Other violet, red, amber and green hues are left out on purpose: they are
+/** Curated presets. The first, `onemind`, is OneMind Red: the final design's red for text
+ * (#B8141F light, #FF6A6F dark), which passes AA on the stone and night surfaces where the logo
+ * red #FF333A cannot. It remains available. Other violet, red, amber and green hues are left out on purpose: they are
  * reserved for the agent tone and the status tones (PRINCIPLES P3), so an accent never
  * reads as "an agent did this" or "this failed". The brand red is the one exception, by
  * founder decision; status tones always carry an icon and a label, never colour alone. */
@@ -31,8 +32,8 @@ export interface AccentPreset {
 export const DEFAULT_ACCENT: AccentId = 'teal';
 
 export const ACCENTS: Record<AccentId, AccentPreset> = {
-  onemind: { id: 'onemind', name: brand.accent.name, light: brand.accent.light.accent, dark: brand.accent.dark.accent },
-  teal: { id: 'teal', name: 'Teal', light: '#1f6a66', dark: '#6db8b0' },
+  onemind: { id: 'onemind', name: brand.accent.name, light: palette.signal[700], dark: palette.signal[300] },
+  teal: { id: 'teal', name: 'Teal', light: palette.teal[600], dark: palette.teal[300] },
   lagoon: { id: 'lagoon', name: 'Lagoon', light: '#0b6283', dark: '#6cc0e0' },
   ink: { id: 'ink', name: 'Ink', light: '#34488f', dark: '#a6b6ec' },
   graphite: { id: 'graphite', name: 'Graphite', light: '#3f4b55', dark: '#bcc7cf' },

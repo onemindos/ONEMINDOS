@@ -43,7 +43,7 @@ Not in `sdk/contracts/poc-v0.md` yet; `ApiPreferencesStore` implements this prop
 | `PUT /v1/me/preferences` | the same person | body `{"appearance": …}` → the stored document. Validated like `normalizePreferences()` |
 | `GET` / `PUT` / `DELETE /v1/me/wallpaper` | the same person | `{"data_url": "data:image/jpeg;base64,…"}`, ≤ 2560 px edge, size limit set by the gateway |
 
-- Agents get **403**: appearance is personal and never an agent scope. It changes nothing on the box, so it is **not an action** and needs no approval (P1 concerns box state). It is still headless: the screen shows the exact `PUT` body; CLI verb `onemind me appearance set …` is planned.
+- Agents get **403**: appearance is personal and never an agent scope. It changes nothing on the box, so it is **not an action** and needs no approval (P1 concerns box state). It is still headless: the screen shows the exact `PUT` body; CLI verb `onemind look set …` is planned.
 - Until §12 ships, the provider uses `LocalPreferencesStore` and says "Saved on this browser"; with a hub store it falls back to the local copy and says "Not synced … copy saved on this browser N ago".
 
 ## Using it

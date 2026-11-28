@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 import { renderApp } from '../test/helpers';
 import { preferenceStores } from '../data/prefs';
@@ -19,9 +19,9 @@ it('opens the command palette and only offers chat for an installed agent with a
   expect(screen.queryByRole('link')).toBeNull();
 });
 
-it('restores the Home command bar from the signed-in person’s appearance choice', async () => {
+it('restores the run bar from the signed-in person’s appearance choice: in the dock on the desktop (final design 09)', async () => {
   const appearance = renderApp({ token: 'owner-demo', route: '/settings/appearance' });
-  const toggle = await screen.findByRole('checkbox', { name: 'Show the Home command bar' });
+  const toggle = await screen.findByRole('switch', { name: 'Show the run bar (Alt R)' });
   expect(toggle).not.toBeChecked();
   fireEvent.click(toggle);
   const { store } = preferenceStores('owner', { token: 'owner-demo' });
@@ -30,7 +30,19 @@ it('restores the Home command bar from the signed-in person’s appearance choic
   renderApp({ token: 'owner-demo', route: '/' });
   // The desktop restores the open Settings window across sessions. Close it to return Home.
   fireEvent.click(await screen.findByRole('button', { name: 'Close Settings' }));
+  // On the desktop the bar lives in the dock, not on Home (no second copy of it).
+  const bar = await screen.findByRole('search', { name: 'Run bar' });
+  expect(screen.queryByRole('group', { name: 'Home commands' })).toBeNull();
+  const input = within(bar).getByRole('textbox', { name: 'Run a command or ask an agent' });
+  fireEvent.change(input, { target: { value: 'nodes' } });
+  fireEvent.submit(bar);
+  expect(await screen.findByRole('region', { name: 'Nodes' })).toBeInTheDocument();
+  // The Console view (sidebar) has no dock: there the bar stays on Home and opens the palette.
+  fireEvent.click(screen.getByRole('button', { name: /Account/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Console view' }));
+  fireEvent.click((await screen.findAllByRole('link', { name: /^Home$/ }))[0]!);
   expect(await screen.findByRole('group', { name: 'Home commands' })).toBeVisible();
+  expect(screen.queryByRole('search', { name: 'Run bar' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Run a command' }));
   expect(await screen.findByRole('combobox')).toBeVisible();
 });
@@ -39,4 +51,5 @@ it('keeps the Search button on Pro Home while the command bar is off', async () 
   renderApp({ token: 'owner-demo', route: '/' });
   expect(await screen.findByRole('button', { name: /Search apps, nodes and settings/ })).toBeVisible();
   expect(screen.queryByRole('group', { name: 'Home commands' })).toBeNull();
+  expect(screen.queryByRole('search', { name: 'Run bar' })).toBeNull(); // off by default (#501)
 });

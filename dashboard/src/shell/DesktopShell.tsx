@@ -2,13 +2,14 @@
 // The desktop frame (D-016): no sidebar. "/" is the wallpaper desktop (Home); every other screen
 // opens as a window over the wallpaper, with a back button for nested pages, a close button and
 // Esc back to the desktop. A slim menu bar carries the OneMind mark, the hub clock and state,
-// search, the bell and the person menu. The dock holds the everyday screens and pinned apps;
-// Launchpad (the grid button, or Ctrl/⌘ + /) shows every screen and app with a search field.
+// search, the bell and the person menu, plus the Atlas status strip: fresh/stale/offline machine counts and the
+// needs-you chip (StatusStrip.tsx). The dock (dock.ts) starts with the OneMind logo tile, which opens the launcher
+// (Launchpad.tsx, or Ctrl/⌘ + /), then the pinned places, running windows, pinned apps and the optional run bar.
 // Pattern studied in umbrelOS 2.0.1 (PolyForm NC: no code, asset or text copied;
-// docs/learning/umbrelos-2-teardown.md). OneMind's own look: brand mark, signature wallpaper,
-// one colour per screen, approvals first.
+// docs/learning/umbrelos-2-teardown.md). OneMind's own look (founder picks 2026-11-21): today's logo, Atlas's
+// muted tiles, status first, approvals one click away.
 // Links are plain anchors: Shell's click handler routes them without a page reload.
-import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router';
 import { flushSync } from 'react-dom';
 import { WindowFrame } from './wm/WindowFrame';
@@ -19,8 +20,17 @@ import { useKeymap } from './keys/useKeymap';
 import { ShortcutSheet } from './keys/ShortcutSheet';
 import { routeFor } from './wm/ScreenRoutes';
 import './wm/wm.css';
-import { AppIcon, BrandMark, Icon, type NavItem } from '@onemind/ui';
-import { DOCK_ORDER, HUES } from '../screens/registry';
+import { BrandMark, Icon, useOptionalCustomize, type NavItem, type PaletteCommand } from '@onemind/ui';
+import { Launchpad } from './Launchpad';
+import type { LauncherMachine } from './launcher';
+import { dockOrder, dockSplit } from './dock';
+import { orderDock } from './dockOrder';
+import { DockApps } from './DockApps';
+import { RunBar, type WaitingRequest } from './RunBar';
+import { FleetCountsView, NeedsYouChip, type FleetCounts } from './StatusStrip';
+import { overlayOpen } from './overlay';
+import { Badge, ScreenTile } from './tiles';
+export { dockSplit } from './dock';
 import { formatDate } from '../i18n';
 import './desktop.css';
 import { trackBarHeight } from './trackBarHeight';
@@ -48,8 +58,24 @@ export interface DesktopShellProps {
   current: string;
   /** Apps pinned on Home, in the dock after the screens. */
   pinned?: DockApp[];
-  /** Installed apps, listed in Launchpad. */
+  /** Installed apps, listed in the launcher. */
   apps?: DockApp[];
+  /** Machine counts by state for the strip; undefined until GET /v1/nodes answers (nothing is drawn). */
+  fleet?: FleetCounts;
+  /** Requests awaiting a decision, for the needs-you chip; undefined until GET /v1/actions answers. */
+  waiting?: number;
+  /** Machines for the launcher (empty when this person cannot see Nodes). */
+  machines?: LauncherMachine[];
+  /** The palette's commands, for the launcher's command lines and the run bar. */
+  commands?: PaletteCommand[];
+  /** Run a palette command: open its screen or file its reviewed request. */
+  onRunCommand?: (c: PaletteCommand) => void;
+  /** Open an in-app link (the run bar's "already waiting" request). */
+  onOpen?: (href: string) => void;
+  /** The run bar in the dock (Settings > Appearance; off by default). */
+  runBar?: boolean;
+  /** Requests already waiting, so the run bar opens one instead of filing it twice. */
+  waitingRequests?: WaitingRequest[];
   /** Hub clock (ms) and time zone, for the menu-bar clock. */
   now: number;
   timeZone: string;
@@ -64,67 +90,13 @@ export interface DesktopShellProps {
   children: ReactNode;
 }
 
-/** Screens that stay in the dock (each screen's `dock` position); everything else is one click away in Launchpad. */
-export const DOCK_IDS = DOCK_ORDER;
-
-/** One colour per screen (each screen's `hue`), so a place is recognised before its name is read. White glyph on each. */
-export const SCREEN_HUES = HUES;
-
 /** Short screens (a few facts and one action) open in a narrow window instead of a wide, mostly empty one. */
 export const COMPACT_WINDOWS: ReadonlySet<string> = new Set(['storage', 'backups']);
-const FALLBACK_HUE = ['#7d8794', '#3a414b'] as const;
-
-export function tileStyle(id: string): CSSProperties {
-  const [a, b] = SCREEN_HUES[id] ?? FALLBACK_HUE;
-  return { '--dsk-tile-a': a, '--dsk-tile-b': b } as CSSProperties;
-}
-
-/** Split the nav into dock items (fixed order) and Launchpad-only items (nav order). */
-export function dockSplit(nav: NavItem[]): { dock: NavItem[]; more: NavItem[] } {
-  const dock = DOCK_IDS.flatMap((id) => nav.filter((n) => n.id === id));
-  const more = nav.filter((n) => !DOCK_IDS.includes(n.id));
-  return { dock, more };
-}
 
 /** A path one level up inside the same screen ("/market/x" → "/market"), or null at the top. */
 export function parentPath(pathname: string): string | null {
   const parts = pathname.split('/').filter(Boolean);
   return parts.length > 1 ? `/${parts.slice(0, -1).join('/')}` : null;
-}
-
-/**
- * Esc belongs to something else: a modal dialog or the palette, or a popover opened from the
- * menu bar (the bell, the account menu: their triggers say aria-expanded). Expandable sections
- * inside a page do not count.
- */
-function overlayOpen(except?: Element | null): boolean {
-  return [...document.querySelectorAll('[aria-modal="true"], dialog[open], .dsk-bar [aria-expanded="true"]')].some((e) => e !== except);
-}
-
-function ScreenTile({ id, icon, size = 44 }: { id: string; icon: NavItem['icon']; size?: number }) {
-  return (
-    <span className="dsk-tile" style={{ ...tileStyle(id), width: size, height: size }} aria-hidden="true">
-      <Icon name={icon} size={Math.round(size * 0.48)} />
-    </span>
-  );
-}
-
-function Badge({ item }: { item: NavItem }) {
-  if (!item.badge) return null;
-  return (
-    <span className="dsk-badge">
-      <span aria-hidden="true">{item.badge}</span>
-      <span className="om-visually-hidden">{item.badgeLabel ?? `${item.badge} new`}</span>
-    </span>
-  );
-}
-
-function GridGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
-      {[5, 12, 19].flatMap((y) => [5, 12, 19].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r="2" fill="currentColor" />))}
-    </svg>
-  );
 }
 
 function Clock({ now, timeZone }: { now: number; timeZone: string }) {
@@ -212,100 +184,9 @@ function PersonMenu({ person, displayName, demo, onConsoleView, onSignOut, onLoc
   );
 }
 
-function Launchpad({ nav, apps, onClose, onShortcuts }: { nav: NavItem[]; apps: DockApp[]; onClose: () => void; onShortcuts: () => void }) {
-  const [q, setQ] = useState('');
-  const ref = useRef<HTMLDivElement>(null);
-  const title = useId();
-  const input = useRef<HTMLInputElement>(null);
-  // The latest onClose without re-running the effect: the shell re-renders on every hub poll,
-  // and re-running would pull focus back to the search field each time.
-  const closeRef = useRef(onClose);
-  closeRef.current = onClose;
-  useEffect(() => {
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    input.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !overlayOpen(ref.current)) {
-        e.preventDefault();
-        closeRef.current();
-        return;
-      }
-      // Keep Tab inside Launchpad while it is open (aria-modal).
-      if (e.key === 'Tab' && ref.current) {
-        const items = [...ref.current.querySelectorAll<HTMLElement>('a[href], button, input, [tabindex]:not([tabindex="-1"])')];
-        const first = items[0];
-        const last = items[items.length - 1];
-        if (!first || !last) return;
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      // Back to whatever opened it (the dock's All button), if it is still on the page.
-      if (opener?.isConnected) opener.focus();
-    };
-  }, []);
-  const needle = q.trim().toLowerCase();
-  const screens = nav.filter((n) => !needle || n.label.toLowerCase().includes(needle));
-  const shownApps = apps.filter((a) => !needle || a.name.toLowerCase().includes(needle));
-  return (
-    <div className="dsk-launchpad" role="dialog" aria-modal="true" aria-labelledby={title} ref={ref} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="dsk-launchpad-inner">
-        <h2 id={title} className="om-visually-hidden">
-          Launchpad
-        </h2>
-        <label className="dsk-launchpad-search">
-          <Icon name="search" size={18} />
-          <span className="om-visually-hidden">Find a screen or app</span>
-          <input ref={input} type="search" placeholder="Find a screen or app" value={q} onChange={(e) => setQ(e.target.value)} />
-        </label>
-        {shownApps.length > 0 && (
-          <section aria-label="Your apps">
-            <h3 className="dsk-launchpad-head">Your apps</h3>
-            <ul className="dsk-launchpad-grid dsk-launchpad-big">
-              {shownApps.map((a) => (
-                <li key={a.id}>
-                  <a href={a.href} className="dsk-launchpad-item" onClick={onClose}>
-                    <AppIcon app={a} size={84} />
-                    <span className="dsk-launchpad-label">{a.name}</span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-        <section aria-label="Screens">
-          <h3 className="dsk-launchpad-head">Screens</h3>
-          <ul className="dsk-launchpad-grid dsk-launchpad-small">
-            {screens.map((n) => (
-              <li key={n.id}>
-                <a href={n.href} className="dsk-launchpad-item" onClick={onClose}>
-                  <ScreenTile id={n.id} icon={n.icon} size={44} />
-                  <span className="dsk-launchpad-label">{n.label}</span>
-                  <Badge item={n} />
-                </a>
-              </li>
-            ))}
-          </ul>
-        </section>
-        <button type="button" className="dsk-launchpad-keys" onClick={onShortcuts}>
-          <Icon name="settings" size={16} /> Keyboard shortcuts
-        </button>
-        {screens.length === 0 && shownApps.length === 0 && <p className="dsk-launchpad-none">Nothing matches “{q}”. Try the search (Ctrl K) for settings and actions.</p>}
-      </div>
-    </div>
-  );
-}
-
 export function DesktopShell(props: DesktopShellProps) {
   const { boxName, status, bell, nav, current, pinned = [], apps = [], now, timeZone, person, displayName, demo, onSearch, onConsoleView, onSignOut, onLock, children } = props;
+  const { fleet, waiting, machines = [], commands = [], onRunCommand, onOpen, runBar = false, waitingRequests = [] } = props;
   const location = useLocation();
   const atHome = current === 'home';
   const wm = useWindows();
@@ -320,12 +201,15 @@ export function DesktopShell(props: DesktopShellProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLElement>(null);
   const [launchpad, setLaunchpad] = useState(false);
-  const { dock, more } = useMemo(() => dockSplit(nav), [nav]);
+  const dockPreference = useOptionalCustomize()?.prefs.dockOrder;
+  const { dock, more } = useMemo(() => dockSplit(nav, orderDock(dockOrder(), dockPreference)), [nav, dockPreference]);
   const openExtras = onWorkspace(wm.windows, wm.workspace).filter(w => !dock.some(item => item.id === w.id)).map(w => {
     const screen = routeFor(w.path)!.screen;
     return { id: w.id, label: screen.title, icon: screen.icon, href: w.path } as NavItem;
   });
   const moreBadge = more.reduce((s, n) => s + (n.badge ?? 0), 0);
+  const runBarOn = runBar && !!onRunCommand;
+  const runRef = useRef<HTMLInputElement>(null);
 
   // The window starts under the menu bar, which can wrap on phones: track its height.
   useEffect(() => {
@@ -340,6 +224,7 @@ export function DesktopShell(props: DesktopShellProps) {
   const busy = () => launchpad || sheet || overlayOpen();
   useKeymap({
     launchpad: () => setLaunchpad((o) => !o),
+    'run-bar': () => (runBarOn && runRef.current ? runRef.current.focus() : false),
     close: () => (wm.active && !busy() ? closeWindow(wm.active) : false),
     shortcuts: () => (busy() ? false : setSheet(true)),
     'cycle-next': () => wm.cycle(1),
@@ -362,6 +247,7 @@ export function DesktopShell(props: DesktopShellProps) {
           <span className="dsk-box">{boxName}</span>
         </a>
         <div className="dsk-status">
+          {fleet && <FleetCountsView counts={fleet} />}
           {status}
           {demo && (
             <span className="dsk-demo" title="This screen shows sample data, not a real box">
@@ -372,6 +258,7 @@ export function DesktopShell(props: DesktopShellProps) {
             </span>
           )}
         </div>
+        {waiting !== undefined && <NeedsYouChip waiting={waiting} />}
         <Clock now={now} timeZone={timeZone} />
         <div className="dsk-actions">
           <div className="wm-spaces" role="group" aria-label="Workspaces">
@@ -410,6 +297,20 @@ export function DesktopShell(props: DesktopShellProps) {
       </main>
 
       <nav className="dsk-dock" aria-label="Main">
+        <button type="button" className="dsk-dock-item dsk-dock-launcher" aria-haspopup="dialog" aria-expanded={launchpad} onClick={() => setLaunchpad(true)} title="OneMind launcher: every screen, app and command (Ctrl /)">
+          <span className="dsk-tile dsk-tile-mark" aria-hidden="true">
+            <BrandMark size={30} />
+          </span>
+          <span className="dsk-dock-label">OneMind</span>
+          <span className="om-visually-hidden">launcher: all screens and apps</span>
+          {moreBadge > 0 && (
+            <span className="dsk-badge">
+              <span aria-hidden="true">{moreBadge}</span>
+              <span className="om-visually-hidden">{`${moreBadge} new in other screens`}</span>
+            </span>
+          )}
+        </button>
+        <span className="dsk-dock-sep" aria-hidden="true" />
         <ul className="dsk-dock-group">
           {[...dock, ...openExtras].map((item) => (
             <li key={item.id}>
@@ -421,38 +322,16 @@ export function DesktopShell(props: DesktopShellProps) {
             </li>
           ))}
         </ul>
-        {pinned.length > 0 && (
+        <DockApps apps={pinned} runBar={runBarOn} onMore={() => setLaunchpad(true)} />
+        {runBarOn && (
           <>
             <span className="dsk-dock-sep" aria-hidden="true" />
-            <ul className="dsk-dock-group" aria-label="Pinned apps">
-              {pinned.map((a) => (
-                <li key={a.id}>
-                  <a href={a.href} className="dsk-dock-item dsk-dock-app">
-                    <AppIcon app={a} size={44} />
-                    <span className="dsk-dock-label">{a.name}</span>
-                  </a>
-                </li>
-              ))}
-            </ul>
+            <RunBar ref={runRef} commands={commands} waiting={waitingRequests} onRun={onRunCommand!} onOpen={(href) => onOpen?.(href)} />
           </>
         )}
-        <span className="dsk-dock-sep" aria-hidden="true" />
-        <button type="button" className="dsk-dock-item" aria-haspopup="dialog" aria-expanded={launchpad} onClick={() => setLaunchpad(true)} title="All screens and apps (Ctrl /)">
-          <span className="dsk-tile dsk-tile-launch" aria-hidden="true">
-            <GridGlyph />
-          </span>
-          <span className="dsk-dock-label">All</span>
-          <span className="om-visually-hidden">screens and apps</span>
-          {moreBadge > 0 && (
-            <span className="dsk-badge">
-              <span aria-hidden="true">{moreBadge}</span>
-              <span className="om-visually-hidden">{`${moreBadge} new in other screens`}</span>
-            </span>
-          )}
-        </button>
       </nav>
 
-      {launchpad && <Launchpad nav={nav} apps={apps} onClose={() => setLaunchpad(false)} onShortcuts={() => { setLaunchpad(false); setSheet(true); }} />}
+      {launchpad && <Launchpad nav={nav} apps={apps} machines={machines} commands={commands} onRun={onRunCommand} onClose={() => setLaunchpad(false)} onShortcuts={() => { setLaunchpad(false); setSheet(true); }} />}
       <ShortcutSheet open={sheet} onClose={() => setSheet(false)} />
     </div>
   );

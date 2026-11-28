@@ -44,15 +44,6 @@ export const KNOWN_A11Y: KnownFinding[] = [
     why: 'the palette close button shows "esc" but is named "Close" (WCAG 2.5.3 Label in Name)',
   },
   {
-    id: 'A11Y-3',
-    rule: 'color-contrast',
-    target: '.oms-dimmed-more > .d-list > li',
-    screens: ['ui-shell-states'],
-    widths: ['desktop', 'phone'],
-    themes: ['light'],
-    why: 'StateView offline dimming (opacity 0.75 + grayscale, ui/src/shell/shell.css) drops body text below 4.5:1',
-  },
-  {
     id: 'A11Y-4',
     rule: 'scrollable-region-focusable',
     target: '.om-store-shots-list',

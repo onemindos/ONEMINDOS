@@ -57,25 +57,26 @@ function mount(store: PreferencesStore, cache?: PreferencesStore) {
 afterEach(() => clearPreferences());
 
 describe('AppearanceSettings', () => {
-  it('starts in Contour with the Home command bar off and applies a pack without resetting text size', async () => {
+  it('starts in Contour with the run bar off and applies a pack without resetting text size', async () => {
     const store = new MemoryStore('local', saved({ fontScale: 1.25 }));
     mount(store);
-    const bar = await screen.findByRole('checkbox', { name: 'Show the Home command bar' });
+    const bar = await screen.findByRole('switch', { name: 'Show the run bar (Alt R)' });
     expect(bar).not.toBeChecked();
     expect(DEFAULT_PREFERENCES.wallpaper).toBe('contour');
     await userEvent.click(bar);
     await userEvent.click(screen.getByRole('button', { name: 'Harbor pack' }));
     await waitFor(() => expect(store.saved.at(-1)).toMatchObject({
-      wallpaper: 'tide', accentPreset: 'copper', theme: 'dark', commandBar: true, fontScale: 1.25,
+      wallpaper: 'signal', accentPreset: 'copper', theme: 'dark', commandBar: true, fontScale: 1.25,
     }));
   });
 
   it('offers every Atlas and Console pack', async () => {
     mount(new MemoryStore('local', saved({})));
-    for (const n of ['Atlas Night', 'Atlas Day', 'Night Watch', 'Greenhouse', 'Harbor', 'Console Default', 'Console Light', 'Field', 'Village', 'Mono']) {
+    for (const n of ['Atlas Night', 'Atlas Day', 'Night Watch', 'Greenhouse', 'Harbor', 'OneMind', 'OneMind Light', 'Field', 'Village', 'Mono']) {
       expect(await screen.findByRole('button', { name: `${n} pack` })).toBeInTheDocument();
     }
     expect(screen.queryByRole('button', { name: 'Paper pack' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Console Default pack' })).toBeNull();
   });
 
   it('shows a labelled loading state', () => {
@@ -103,7 +104,7 @@ describe('AppearanceSettings', () => {
     const user = userEvent.setup();
     const store = new MemoryStore('local', saved());
     const { container } = mount(store);
-    await screen.findByRole('heading', { name: 'Accent colour' });
+    await screen.findByRole('heading', { name: 'Highlight colour' });
     await noAxeViolations(container);
 
     await user.click(screen.getByRole('radio', { name: 'Copper' }));
@@ -181,5 +182,46 @@ describe('AppearanceSettings', () => {
     expect(screen.getByText(/Kept on this browser for now/)).toBeInTheDocument();
     await act(async () => undefined);
     expect(local.saved.at(-1)?.accentPreset).toBe('ink');
+  });
+
+  it('groups the ten packs under Atlas and Console with a preview each', async () => {
+    const { container } = mount(new MemoryStore('local', saved({})));
+    const atlas = await screen.findByRole('group', { name: 'From Atlas' });
+    const consolePacks = screen.getByRole('group', { name: 'From Console' });
+    expect(atlas.querySelectorAll('.om-cz-pack')).toHaveLength(5);
+    expect(consolePacks.querySelectorAll('.om-cz-pack')).toHaveLength(5);
+    expect(container.querySelectorAll('.om-cz-pack-mini')).toHaveLength(10);
+  });
+
+  it('writes the highlight colour as the accent tokens and keeps buttons red until switched off', async () => {
+    const user = userEvent.setup();
+    const store = new MemoryStore('local', saved());
+    mount(store);
+    const css = () => document.getElementById(STYLE_ID)?.textContent ?? '';
+    await screen.findByRole('radio', { name: 'Copper' });
+    expect(css()).not.toContain('--om-color-accent:');
+    await user.click(screen.getByRole('radio', { name: 'Copper' }));
+    await waitFor(() => expect(css()).toContain(`--om-color-accent: ${ACCENTS.copper.light}`));
+    expect(css()).not.toContain('--om-color-action:');
+    await user.click(screen.getByRole('switch', { name: 'Buttons stay signal red' }));
+    await waitFor(() => expect(css()).toContain('--om-color-action:'));
+    await waitFor(() => expect(store.saved.at(-1)).toMatchObject({ buttonsRed: false }));
+  });
+
+  it('shows the look command and undoes the last change', async () => {
+    const user = userEvent.setup();
+    mount(new MemoryStore('local', saved()));
+    const undo = await screen.findByRole('button', { name: 'Undo last change' });
+    expect(undo).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Harbor pack' }));
+    expect(document.querySelector('.om-cz-cmdline')).toHaveTextContent('onemind look set --pack harbor');
+    await user.click(screen.getByRole('button', { name: 'Undo last change' }));
+    expect(screen.getByRole('button', { name: 'Harbor pack' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Undo last change' })).toBeDisabled();
+  });
+
+  it('says plainly that the light-mode wallpaper has a veil', async () => {
+    mount(new MemoryStore('local', saved()));
+    expect(await screen.findByText(/in light mode a veil of the page colour sits over the wallpaper/)).toBeInTheDocument();
   });
 });

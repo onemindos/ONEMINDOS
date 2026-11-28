@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -36,7 +36,8 @@ it('searches the hub, groups the hits by kind and links them inside the app', as
   expect(await screen.findByText('Tax 2025.pdf')).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'Files' })).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: 'Backups' })).toHaveAttribute('href', '/apps/settings/backups');
+  // Inside the Search window: the dock has its own Backups place.
+  expect(within(screen.getByRole('region', { name: 'Search' })).getByRole('link', { name: 'Backups' })).toHaveAttribute('href', '/apps/settings/backups');
   expect(screen.getByText(/2 results for "tax"/)).toBeInTheDocument();
   const call = fetch.mock.calls.map(([url]) => new URL(String(url))).find((x) => x.pathname === '/v1/search')!;
   expect(call.searchParams.get('q')).toBe('tax');
