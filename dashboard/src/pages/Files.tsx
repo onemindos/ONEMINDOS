@@ -11,6 +11,7 @@ import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { useShell } from '../shell/Shell';
 import { FilesQuotas } from './FilesQuotas';
+import { FilesDropZone, FilesFooter, FilesLayout } from './files/FilesAtlas';
 import { Load, TextField, useRun } from './parts';
 
 type Tab = 'files' | 'trash' | 'sharing' | 'quotas';
@@ -43,12 +44,9 @@ function LiveFiles({ token, person, role }: { token: string; person?: string; ro
       {(['files', ...(canUseTrash ? ['trash'] : []), 'sharing', ...(owner ? ['quotas'] : [])] as Tab[]).map((t) => <Button key={t} variant={tab === t ? 'primary' : 'secondary'} aria-pressed={tab === t} onClick={() => setTab(t)}>{t === 'files' ? 'Files' : t === 'trash' ? 'Trash' : t === 'sharing' ? 'Sharing' : 'Storage limits'}</Button>)}
     </div>
     <Load res={roots} what="Loading your spaces">{(rs) => rs.length === 0 ? <p>No space is available to this account.</p> : <>
-      {tab === 'files' && <>
-        <div role="group" aria-label="Spaces">
-          {rs.map((r) => <Button key={r.root} variant={r.root === current?.root ? 'primary' : 'secondary'} aria-pressed={r.root === current?.root} onClick={() => setRoot(r)}>{r.name}</Button>)}
-        </div>
+      {tab === 'files' && <FilesLayout roots={rs} current={current} onPick={setRoot}>
         {current && <Browser key={current.root} api={api} space={current} run={run} canShare={canShare} onChanged={() => void roots.reload()} />}
-      </>}
+      </FilesLayout>}
       {tab === 'trash' && canUseTrash && <TrashTab api={api} run={run} canUseSharedTrash={canUseSharedTrash} owner={owner} />}
       {tab === 'quotas' && owner && <FilesQuotas api={api} run={run} />}
       {tab === 'sharing' && <Sharing api={api} run={run} person={person} roots={rs} canShare={canShare} owner={owner} />}
@@ -136,6 +134,8 @@ function Browser({ api, space, run, canShare, onChanged }: { api: FilesApi; spac
           {space.writable && <Button size="sm" variant="secondary" aria-label={`Move ${e.name} to trash`} onClick={() => setDoomed(e)}>Move to trash</Button>}</td>
       </tr>)}</tbody>
     </table>}</Load>
+    {files.length > 0 && <FilesFooter entries={files} />}
+    {space.writable && <FilesDropZone busy={!!progress} onFiles={(f) => void upload(f)} />}
     {seen && <Card as="article" title={`Preview: ${seen.entry.name}`} variant="sunken" aside={<Button size="sm" variant="ghost" onClick={() => setSeen(undefined)}>Close preview</Button>}>
       {seen.error ? <p role="alert">{seen.error}</p> : !seen.preview ? <p role="status">Loading preview…</p> : <>
         <dl className="om-facts"><div><dt>Type</dt><dd>{seen.preview.mime}</dd></div><div><dt>Size</dt><dd>{human(seen.preview.size)}</dd></div>

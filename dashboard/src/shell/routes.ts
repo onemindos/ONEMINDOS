@@ -29,6 +29,7 @@ export const href = {
   storage: '/storage',
   library: '/library',
   backups: '/backups',
+  photos: '/photos',
   troubleshoot: '/troubleshoot',
   automation: '/automation',
   updates: '/updates',
