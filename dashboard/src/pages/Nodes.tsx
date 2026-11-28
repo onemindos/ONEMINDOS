@@ -9,6 +9,7 @@ import { useHub } from '../data/hub';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
+import { Radios } from './nodes/Radios';
 
 type WakeRequest = components['schemas']['FeatureActionRequest'];
 const pending = new Map<string, WakeRequest>();
@@ -100,6 +101,7 @@ export function Nodes() {
           </ul>
         </>
       )}
+      <Radios />
     </>
   );
 }

@@ -2,6 +2,7 @@
 import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router';
 import { OneMind } from '@onemind/sdk';
+import { Card } from '@onemind/ui';
 import { useHub } from '../data/hub';
 import { RECENT_UPDATED } from '../data/homeRecent';
 import { usePoll } from '../lib/hooks';
@@ -31,10 +32,11 @@ export function HomeRecent() {
     const app = kind === 'app' && hub.apps.data?.find((a) => a.id === key);
     return app ? [{ id, label: app.name ?? app.id, path: app.installed ? href.manage(app.id) : href.app(app.id) }] : [];
   });
-  return <section aria-label="Recent">
-    <h2>Recent</h2>
-    {loading ? <p>Loading recent visits…</p> : error || !data ? <p>Recent visits are unavailable.</p> : items.length
-      ? <ul>{items.map((item) => <li key={item.id}><Link to={item.path}>{item.label}</Link></li>)}</ul>
-      : <p>No recent visits.</p>}
-  </section>;
+  return (
+    <Card title="Recent" level={2} className="dash-recent">
+      {loading ? <p className="om-hint">Loading recent visits…</p> : error || !data ? <p className="om-hint">Recent visits are unavailable.</p> : items.length
+        ? <ul className="dash-recent-list">{items.map((item) => <li key={item.id}><Link to={item.path}>{item.label}</Link></li>)}</ul>
+        : <p className="om-hint">No recent visits.</p>}
+    </Card>
+  );
 }

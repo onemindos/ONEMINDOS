@@ -1,0 +1,5 @@
+# 2026-11-25T11:36:47Z PK-6: a host name UNDER the canonical domain (https://mesh.idm.onemind.test:8443)
++ W nsm signin https://mesh.idm.onemind.test:8443 owner owner.cred ok
+{"origin": "https://mesh.idm.onemind.test:8443", "page": "Kanidm idm.onemind.test | Username | Remember My Username | Begin | Powered by Kanidm", "step": "login_page"}
+{"browser_console": [], "credential_fp": "91bb8de03044ddc5", "ok": true, "origin": "https://mesh.idm.onemind.test:8443", "page": "Kanidm idm.onemind.test | Applications | Profile | Sign out | Applications | No linked applications available |  | Powered by Kanidm", "profile": "Kanidm idm.onemind.test | Applications | Profile | Sign out | Profile | Credentials | Enrol Device | RADIUS | Profile | Name | Display Name | Email addresses | ", "result": "signed-in", "sign_count_after": [5], "sign_count_before": [4], "step": "signin", "url": "https://mesh.idm.onemind.test:8443/ui/apps"}
+  (exit 0)
