@@ -29,6 +29,8 @@ jest.mock('../data', () => ({
   useNow: () => Date.now(),
 }));
 
+const snap = (count: number, state = 'ready') => ({ schema: 'onemind.event/v1', id: 's', type: 'stream.snapshot', ts: '', data: { count, state } });
+
 const val = (id: string, field: string, revision: number, value: unknown, ageS: number, extra: object = {}) => ({
   schema: 'onemind.event/v1',
   id: `asset:${revision}`,
@@ -53,14 +55,76 @@ it('subscribes to asset.* only, through the gateway', async () => {
   await act(async () => {});
 });
 
-it('says so when nothing exists, with no sample data', async () => {
+it('says nothing exists only after a ready, empty snapshot on an open stream', async () => {
   await render(<MapScreen />);
   await act(async () => {
-    streams[0]!.onState?.('open');
-    streams[0]!.onEvent({ schema: 'onemind.event/v1', id: 's', type: 'stream.snapshot', ts: '', data: { count: 0 } });
+    streams[0]!.onState?.('connecting');
+  });
+  expect(screen.queryByTestId('map-empty')).toBeNull();
+  await act(async () => {
+    streams[0]!.onState?.('open'); // open, no snapshot yet: still loading
+  });
+  expect(screen.queryByTestId('map-empty')).toBeNull();
+  await act(async () => {
+    streams[0]!.onEvent(snap(0, 'pending')); // the box's asset store is not ready
+  });
+  expect(screen.queryByTestId('map-empty')).toBeNull();
+  expect(screen.getByText(/asset store is still starting/)).toBeTruthy();
+  await act(async () => {
+    streams[0]!.onEvent(snap(0, 'error'));
+  });
+  expect(screen.queryByTestId('map-empty')).toBeNull();
+  expect(screen.getByText(/asset store isn't available/)).toBeTruthy();
+  await act(async () => {
+    streams[0]!.onEvent(snap(0, 'ready'));
   });
   expect(screen.getByTestId('map-empty')).toBeTruthy();
   expect(screen.queryByTestId('map-plan')).toBeNull();
+});
+
+it.each(['forbidden', 'unsupported', 'unauthenticated'])('gives one notice and no empty card when the stream is %s', async (st) => {
+  await render(<MapScreen />);
+  await act(async () => {
+    streams[0]!.onState?.(st);
+  });
+  expect(screen.queryByTestId('map-empty')).toBeNull();
+  expect(screen.queryByText(/Nothing on the map yet/)).toBeNull();
+  expect(screen.getAllByText(/box|allowed|connected/i).length).toBe(1); // exactly one notice
+});
+
+it('drops an asset removed while the phone was disconnected, once the new snapshot arrives', async () => {
+  jest.useFakeTimers();
+  await render(<MapScreen />);
+  await act(async () => {
+    streams[0]!.onState?.('open');
+    streams[0]!.onEvent(val('air', 'temperature', 1, 20, 3));
+    streams[0]!.onEvent(val('door', 'locked', 2, true, 3, { unit: undefined }));
+    streams[0]!.onEvent(snap(2));
+  });
+  await fireEvent.press(screen.getByTestId('view-list'));
+  expect(screen.getByTestId('row-sensor.door')).toBeTruthy();
+  await act(async () => {
+    streams[0]!.onState?.('retrying'); // dropped: the last map stays
+  });
+  expect(screen.getByTestId('row-sensor.door')).toBeTruthy();
+  await act(async () => {
+    streams[0]!.onState?.('open');
+    streams[0]!.onEvent(val('air', 'temperature', 3, 21, 1)); // smaller snapshot: the door is gone
+    streams[0]!.onEvent(snap(1));
+  });
+  expect(screen.queryByTestId('row-sensor.door')).toBeNull();
+  expect(screen.getByTestId('row-sensor.air')).toBeTruthy();
+  jest.useRealTimers();
+});
+
+it('warns when the snapshot count does not match the values received', async () => {
+  await render(<MapScreen />);
+  await act(async () => {
+    streams[0]!.onState?.('open');
+    streams[0]!.onEvent(val('air', 'temperature', 1, 20, 3));
+    streams[0]!.onEvent(snap(2));
+  });
+  expect(screen.getByText(/Some values may be missing/)).toBeTruthy();
 });
 
 it('shows each asset with its value and age, counts by state, and opens its card', async () => {
@@ -70,6 +134,7 @@ it('shows each asset with its value and age, counts by state, and opens its card
     streams[0]!.onState?.('open');
     streams[0]!.onEvent(val('air', 'temperature', 1, 31.8, 8, { position: { lat: 40.0, lon: -74.0 } }));
     streams[0]!.onEvent(val('door', 'locked', 2, true, 7200, { unit: undefined }));
+    streams[0]!.onEvent(snap(2));
     jest.advanceTimersByTime(300);
   });
   expect(screen.getByText('1 fresh')).toBeTruthy();
@@ -93,6 +158,7 @@ it('keeps the last map when the connection drops and says so', async () => {
   await act(async () => {
     streams[0]!.onState?.('open');
     streams[0]!.onEvent(val('air', 'temperature', 1, 20, 3, { position: { lat: 40.0, lon: -74.0 } }));
+    streams[0]!.onEvent(snap(1));
     jest.advanceTimersByTime(300);
     streams[0]!.onState?.('retrying');
   });

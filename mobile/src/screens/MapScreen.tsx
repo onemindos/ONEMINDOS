@@ -3,7 +3,7 @@
 // a card for the selected asset, and a list fallback. Everything comes from the hub: sites over `GET /v1/sites`, asset
 // values over the `asset.*` event stream (#606). No sample data: with nothing on the box the tab says so.
 import { useMemo, useState } from 'react';
-import { Dimensions, Pressable, Text, View } from 'react-native';
+import { Pressable, useWindowDimensions, Text, View } from 'react-native';
 import Svg, { G, Path, Rect, Circle, Line, Text as SvgText } from 'react-native-svg';
 import { OP } from '../api/client';
 import type { GeoSite } from '../api/types';
@@ -25,7 +25,7 @@ import {
   type Asset,
   type Freshness,
 } from '../lib/map';
-import { useAssets } from '../lib/useAssets';
+import { useAssets, type AssetFeed } from '../lib/useAssets';
 import { useLoad } from '../lib/useLoad';
 import { useSignedIn } from '../session';
 import { Card, H1, H2, Loading, Notice, P, Screen } from '../ui/bits';
@@ -75,6 +75,12 @@ function summary(a: Asset, now: number): string {
 
 const label = (a: Asset) => a.id;
 
+/** The tile's words: id, newest value, age, and the state word when it is not fresh (shape and word, never colour alone). */
+function tileText(a: Asset, f: Freshness, now: number): string {
+  const n = newestField(a);
+  return `${label(a)} · ${summary(a, now)}${f === 'fresh' ? '' : ` · ${FRESH_WORD[f]}`}${n?.[1].quality === 'simulated' ? ' · simulated' : ''}`;
+}
+
 function Chip({ text, on, onPress, testID, icon }: { text: string; on: boolean; onPress: () => void; testID?: string; icon?: Freshness }) {
   const t = useTheme();
   return (
@@ -103,7 +109,7 @@ function Chip({ text, on, onPress, testID, icon }: { text: string; on: boolean; 
 
 function Plan({ assets, sites, now, selected, onSelect }: { assets: Asset[]; sites: GeoSite[]; now: number; selected?: string; onSelect: (k: string) => void }) {
   const t = useTheme();
-  const width = Dimensions.get('window').width - 2 * space.lg;
+  const width = useWindowDimensions().width - 2 * space.lg;
   const placed = assets.map((a) => ({ a, p: positionOf(a) })).filter((x): x is { a: Asset; p: { lat: number; lon: number } } => !!x.p);
   const anchors = sites.flatMap((s) => s.anchors.map((x) => ({ lat: x.lat, lon: x.lon })));
   const b = boundsOf([...anchors, ...placed.map((x) => x.p)]);
@@ -119,7 +125,7 @@ function Plan({ assets, sites, now, selected, onSelect }: { assets: Asset[]; sit
         return (
           <G key={s.id}>
             <Rect x={a.x} y={a.y} width={Math.max(z.x - a.x, 1)} height={Math.max(z.y - a.y, 1)} fill="none" stroke={t.borderStrong} strokeDasharray="6 4" />
-            <SvgText x={a.x + 6} y={a.y + 14} fill={t.muted} fontSize={12}>
+            <SvgText x={a.x + 6} y={a.y + 14} fill={t.muted} fontSize={font.xs}>
               {s.name}
             </SvgText>
           </G>
@@ -128,14 +134,14 @@ function Plan({ assets, sites, now, selected, onSelect }: { assets: Asset[]; sit
       {placed.map(({ a, p }) => {
         const f = freshness(a, now);
         const { x, y } = project(p);
-        const text = `${label(a)} · ${summary(a, now)}`;
+        const text = tileText(a, f, now);
         const w = Math.min(text.length * 6.4 + 12, width - 8);
         const lx = Math.min(Math.max(x - w / 2, 4), width - w - 4);
         const on = selected === a.key;
         return (
-          <G key={a.key} testID={`plan-${a.key}`} onPress={() => onSelect(a.key)}>
+          <G key={a.key} testID={`plan-${a.key}`} accessible accessibilityRole="button" accessibilityLabel={`${a.id}, ${FRESH_WORD[f]}, ${summary(a, now)}`} onPress={() => onSelect(a.key)}>
             <Rect x={lx} y={y + 12} width={w} height={20} rx={6} fill={t.card} stroke={on ? t.accent : t.border} strokeWidth={on ? 2 : 1} />
-            <SvgText x={lx + 6} y={y + 26} fill={t.text} fontSize={12}>
+            <SvgText x={lx + 6} y={y + 26} fill={t.text} fontSize={font.xs}>
               {text.length * 6.4 + 12 > w ? `${text.slice(0, Math.floor((w - 12) / 6.4) - 1)}…` : text}
             </SvgText>
             <Circle cx={x} cy={y} r={on ? 14 : 12} fill={t.card} stroke={on ? t.accent : t.border} strokeWidth={on ? 2 : 1} />
@@ -205,6 +211,30 @@ function AssetRow({ a, now, on, onPress }: { a: Asset; now: number; on: boolean;
   );
 }
 
+type Gate = 'loading' | 'empty' | 'blocked';
+
+/** What an empty map means. "Nothing on the map yet" only when the box said its asset store is ready and the snapshot was empty. */
+function gate(f: AssetFeed): Gate {
+  if (f.state === 'open') {
+    if (!f.ready) return 'loading';
+    return f.store === 'ready' && !f.incomplete ? 'empty' : 'blocked';
+  }
+  return f.state === 'connecting' || f.state === 'retrying' ? 'loading' : 'blocked';
+}
+
+/** One notice for the one thing that is going on; never two contradictory cards. */
+function notice(f: AssetFeed, count: number) {
+  if (f.state === 'off' || f.state === 'unsupported') return <Notice tone="warn" text="This box does not stream live values, so there is nothing to draw yet." />;
+  if (f.state === 'forbidden') return <Notice tone="warn" text="You are not allowed to see device values on this box. Ask the owner." />;
+  if (f.state === 'unauthenticated' || f.state === 'stopped') return <Notice tone="warn" text="The phone is not connected to the box. Sign in again or check the connection." />;
+  if ((f.state === 'retrying' || f.state === 'connecting') && count > 0) return <Notice tone="warn" text="Reconnecting. This is the last map the phone saw; every age keeps counting." />;
+  if (f.state === 'open' && f.ready && f.store !== 'ready') {
+    return <Notice tone="warn" text={f.store === 'pending' ? "The box's asset store is still starting. Values will appear when it is ready." : "The box's asset store isn't available, so the map cannot show values."} />;
+  }
+  if (f.state === 'open' && f.ready && f.incomplete) return <Notice tone="warn" text="Some values may be missing from this map." />;
+  return null;
+}
+
 export function MapScreen() {
   const t = useTheme();
   const now0 = useNow();
@@ -249,23 +279,19 @@ export function MapScreen() {
         )}
       </View>
 
-      {feed.state === 'off' || feed.state === 'unsupported' ? (
-        <Notice tone="warn" text="This box does not stream live values, so there is nothing to draw yet." />
-      ) : feed.state === 'forbidden' ? (
-        <Notice tone="warn" text="You are not allowed to see device values on this box. Ask the owner." />
-      ) : feed.state === 'retrying' || feed.state === 'connecting' ? (
-        all.length > 0 ? <Notice tone="warn" text="Reconnecting. This is the last map the phone saw; every age keeps counting." /> : null
-      ) : null}
+      {notice(feed, all.length)}
 
-      {!feed.ready && all.length === 0 && (feed.state === 'connecting' || feed.state === 'retrying') ? (
-        <Loading what="the map" />
-      ) : all.length === 0 ? (
-        <Card testID="map-empty">
-          <H2>Nothing on the map yet</H2>
-          <P muted>
-            When a sensor, camera, lock or machine reports to your box it appears here with the age of its last value. Add one from Apps, or ask the box owner.
-          </P>
-        </Card>
+      {all.length === 0 ? (
+        gate(feed) === 'loading' ? (
+          <Loading what="the map" />
+        ) : gate(feed) === 'empty' ? (
+          <Card testID="map-empty">
+            <H2>Nothing on the map yet</H2>
+            <P muted>
+              When a sensor, camera, lock or machine reports to your box it appears here with the age of its last value. Add one from Apps, or ask the box owner.
+            </P>
+          </Card>
+        ) : null
       ) : (
         <>
           {sites.length > 0 && (
