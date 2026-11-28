@@ -175,7 +175,7 @@ jobs:
   # Scan artifacts must be available even when validation detects stale committed scans.
   plan:
     if: ${{ !github.event.pull_request.draft }}
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (vars.KVM_RUNNER == 'on' && (contains(fromJSON('["push","schedule","workflow_dispatch","merge_group"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && fromJSON('["self-hosted","onemind-kvm"]') || 'ubuntu-24.04' }}
     timeout-minutes: 5
     outputs:
       apps: ${{ steps.changed.outputs.apps }}
