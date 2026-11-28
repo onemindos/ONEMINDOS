@@ -11,6 +11,10 @@ Tools for packaging OneMind apps. The binding contract is [`sdk/contracts/poc-v0
 
 `python3 -I sdk/tools/subject-lint` fails when Python, Go or TypeScript code names a NATS subject that is not in the one subject tree, [`sdk/schema/onemind.subjects.json`](../schema/onemind.subjects.json) (`onemind.<kind>.<scope>.<id>.<field>`, contract §12.9). It uses the gateway's own checker (`core/onemind_core/subjects.py`), and `make lint` runs it. The gateway serves the same tree at `GET /v1/subjects` and answers "may this publisher send here?" with a reason at `GET /v1/subjects/check`.
 
+## surface-parity (#1232)
+
+`python3 -I sdk/tools/surface-parity` keeps the API and the screens and commands people use 1:1 (BUILDER-BRIEFING item 6). For every operation in `sdk/openapi/onemind-v1.json` it finds the callers in the dashboard (`dashboard/src`, `ui/src`), the `onemind` command (`cmd/onemind/cli` and the `internal/` packages it imports) and the phone app (`mobile/src`): through an `@onemind/sdk` or Go SDK method, or a call whose HTTP method it can read. A path it finds without a readable method (kept in a table and sent by a helper) is not a caller by itself, since it would stand for every method on that path; it counts only for an operation named in an `indirect <surface> <operationId> <reason>` line, which fails once a method-aware caller appears or the path disappears. A path that is only compared (`===`, `!==`) is not a caller. Every operation needs a dashboard caller, every write a command, and every operation in the phone's scope a phone caller, or a line in [`surface-parity/exemptions.txt`](surface-parity/exemptions.txt) with a reason and an owner issue. A stale line fails, so the list only shrinks. `test/unit/test_surface_parity.py` runs it in CI's unit job; `--report` prints the whole matrix.
+
 ## validate-apps
 
 `validate-apps` checks every app directory `apps/<id>/` against the contract. It skips directories whose names start with `_` (such as `apps/_intake`) or `.`. It is the local version of the checks that `.github/workflows/ci-apps.yml` runs on every pull request that touches `apps/` or `sdk/`.
