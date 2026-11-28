@@ -8,9 +8,11 @@ from __future__ import annotations
 import hashlib
 import json
 import struct
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
-from threading import Event
+from threading import Barrier, Event
+from time import monotonic
 
 import cbor2
 import pytest
@@ -19,6 +21,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 
 from conftest import OWNER, action_body
 from onemind_core.app import create_app
@@ -971,12 +974,131 @@ def test_pending_first_passkey_options_cannot_enrol_a_later_proven_key(lvc, root
     assert set(keys(lvc)) == {"first key"}
 
 
-def test_promotion_rechecks_keys_after_step_up(lvc, root, clock, monkeypatch):
+def test_only_one_owner_can_use_the_first_passkey_exception(lvc, root, monkeypatch):
+    from test_identity import enrol
+
+    setup_owner(lvc)
+    bea = enrol(lvc, "owner", "bea")
+    bea_id = bea.get("/v1/me").json()["principal"]["id"]
+    identity = lvc.app.state.identity
+    engine = identity.repo.db.engine
+    postgres = engine.dialect.name == "postgresql"
+    ready = Barrier(2, timeout=15)
+    checked, commit = Event(), Event()
+    lock_user = identity.repo.lock_user
+    verification_active = identity._owner_verification_active
+    first_pid = None
+
+    @contextmanager
+    def queue_registration(user_id):
+        # Both requests have consumed their challenges before either starts its write transaction.
+        ready.wait()
+        if user_id == bea_id:
+            assert checked.wait(timeout=15)
+        with lock_user(user_id) as locked:
+            yield locked
+
+    def hold_first_registration(session=None):
+        nonlocal first_pid
+        active = verification_active(session)
+        if session is not None and not checked.is_set():
+            assert active is False
+            if postgres:
+                first_pid = session.scalar(text("SELECT pg_backend_pid()"))
+            checked.set()
+            assert commit.wait(timeout=15)
+        return active
+
+    def register(c, credential):
+        return c.post("/v1/auth/passkeys/register", json={"credential": credential}, headers=csrf(c))
+
+    credentials = []
+    for c in (lvc, bea):
+        opts = c.post("/v1/auth/passkeys/register/options", headers=csrf(c))
+        assert opts.status_code == 200 and opts.json()["box_code_if_proven"] is False, opts.text
+        credentials.append(AttestedAuthenticator(root).register(opts.json()))
+
+    monkeypatch.setattr(identity.repo, "lock_user", queue_registration)
+    monkeypatch.setattr(identity, "_owner_verification_active", hold_first_registration)
+    with ThreadPoolExecutor(max_workers=2) as clients:
+        first = clients.submit(register, lvc, credentials[0])
+        second = clients.submit(register, bea, credentials[1])
+        try:
+            assert checked.wait(timeout=15)
+            if postgres:
+                # Let the second transaction reach the database lock while the first still holds it.
+                # Without serialization the second finishes while the first is paused.
+                blocked = text("SELECT EXISTS (SELECT FROM pg_stat_activity WHERE datname = current_database() "
+                               "AND :first_pid = ANY(pg_blocking_pids(pid)))")
+                deadline = monotonic() + 10
+                with engine.connect() as monitor:
+                    while not second.done() and not monitor.scalar(blocked, {"first_pid": first_pid}):
+                        assert monotonic() < deadline, "second registration neither blocked nor completed"
+                        wait([second], timeout=0.02)
+        finally:
+            commit.set()
+        accepted, rejected = first.result(timeout=15), second.result(timeout=15)
+    assert accepted.status_code == 201 and accepted.json()["level"] == "L2", accepted.text
+    assert rejected.status_code == 409 and rejected.json()["reason"] == "registration_options_stale", rejected.text
+    assert keys(bea) == {}
+
+
+@pytest.fixture
+def keyless_recovery(lvc, root, clock):
+    from test_identity import PASSWORD, enrol
+
+    _, bio = _household_with_a_proven_key(lvc, root)
+    aid = file_action(lvc, clock, "verification.requirement.set", {"key": "admin.high_risk", "level": "L1"}, "hr-zero")
+    assert approve(lvc, aid, bio).status_code == 200
+    bea = enrol(lvc, "owner", "bea")
+    ana = enrol(lvc, "adult", "ana")
+    assert add_key(ana, AttestedAuthenticator(root), "ana key", at_box=False)["level"] == "L2"
+    r = bea.post("/v1/auth/login", json={"username": "bea", "password": PASSWORD})
+    assert r.status_code == 200, r.text
+    assert bea.get("/v1/me").json()["session"]["auth_method"] == "password"
+    me = lvc.get("/v1/me").json()["principal"]["id"]
+    r = bea.post(f"/v1/users/{me}/disable", headers=csrf(bea))
+    assert r.status_code == 200 and r.json()["disabled"] is True, r.text
+    assert lvc.get("/v1/me").status_code == 401
+    table = bea.get("/v1/verification-requirements").json()
+    assert (table["grace"], table["recovery_needed"], table["household_level"]) == (False, True, None)
+    return bea, ana.get("/v1/me").json()["principal"]["id"]
+
+
+def test_keyless_recovery_preserves_the_promotion_floor(keyless_recovery, root):
+    bea, ana_id = keyless_recovery
+    body = {"display_name": None, "role": "owner"}
+    step = step_up_of(bea.patch(f"/v1/users/{ana_id}", json=body, headers=csrf(bea)))
+    assert (step["op"], step["required_level"], step["box"]) == ("users.update", "L2", "alt")
+
+    recovered = AttestedAuthenticator(root)
+    assert add_key(bea, recovered, "recovered at the box")["level"] == "L2"
+    assert bea.get("/v1/verification-requirements").json()["recovery_needed"] is False
+    g = grant_from(bea, recovered, step)
+    r = bea.patch(f"/v1/users/{ana_id}", json=body, headers={**csrf(bea), "OneMind-Step-Up": g})
+    assert r.status_code == 200 and r.json()["role"] == "owner", r.text
+
+
+def test_keyless_recovery_preserves_the_approval_level(keyless_recovery, clock):
+    bea, _ = keyless_recovery
+    aid = _wipe_by(bea, clock, "keyless-recovery")
+    r = bea.post(f"/v1/actions/{aid}/approve", headers=csrf(bea))
+    assert r.status_code == 401 and r.json()["reason"] == "step_up_required", r.text
+    r = bea.post(f"/v1/actions/{aid}/approve-options", headers=csrf(bea))
+    assert r.status_code == 409 and r.json()["reason"] == "verification_level_unmet", r.text
+    action = bea.get(f"/v1/actions/{aid}").json()
+    assert (action["state"], action["required_level"]) == ("awaiting_approval", "L2")
+
+
+@pytest.mark.parametrize("keyless", [False, True], ids=["active-owner-keys", "keyless-recovery"])
+def test_promotion_rechecks_keys_after_step_up(lvc, root, clock, monkeypatch, keyless):
     from test_identity import enrol
 
     phone, bio = _household_with_a_proven_key(lvc, root)
     aid = file_action(lvc, clock, "verification.requirement.set", {"key": "admin.high_risk", "level": "L1"}, "hr-race")
     assert approve(lvc, aid, bio).status_code == 200
+    bea = enrol(lvc, "owner", "bea") if keyless else None
+    me = lvc.get("/v1/me").json()["principal"]["id"]
     ana = enrol(lvc, "adult", "ana")
     ana_id = ana.get("/v1/me").json()["principal"]["id"]
     body = {"display_name": None, "role": "owner"}
@@ -999,6 +1121,9 @@ def test_promotion_rechecks_keys_after_step_up(lvc, root, clock, monkeypatch):
                                   headers={**csrf(lvc), "OneMind-Step-Up": g})
         try:
             assert checked.wait(timeout=15)
+            if bea is not None:
+                r = bea.post(f"/v1/users/{me}/disable", headers=csrf(bea))
+                assert r.status_code == 200 and not identity.passkeys_active() and identity.levels.latched(), r.text
             assert add_key(ana, AttestedAuthenticator(root), "ana key", at_box=False)["level"] == "L2"
         finally:
             resume.set()

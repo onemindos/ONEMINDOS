@@ -231,10 +231,13 @@ class IdentityRepository(SqlRepository):
 
     @contextmanager
     def lock_user(self, user_id: str) -> Iterator[tuple[Session, UserRow | None]]:
-        """Serialise role promotion and passkey enrolment for the same account."""
+        """Serialise promotion and enrolment, including the household-wide first-owner-key check."""
         with self.db.session.begin() as s:
             if self.db.engine.dialect.name == "sqlite":
                 s.execute(text("BEGIN IMMEDIATE"))  # SQLite has no SELECT FOR UPDATE
+            else:
+                # One identity household per database. Acquire its transaction lock before the user row.
+                s.execute(text("SELECT pg_advisory_xact_lock(:namespace, 1)"), {"namespace": 0x4F4D4944})  # OMID
             yield s, s.get(UserRow, user_id, with_for_update=True)
 
     def get(self, cls: type[T], key: Any) -> T | None:

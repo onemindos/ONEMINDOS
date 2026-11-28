@@ -196,10 +196,14 @@ class IdentityService:
         return {u.id: u.role for u in self.repo.all(select(UserRow).where(UserRow.disabled.is_(False)))}
 
     def passkeys_active(self, session: Session | None = None) -> bool:
-        """F-2: once any active owner has a passkey, owner approvals and administration need one."""
+        """Whether any active owner currently holds a passkey."""
         owner_key = select(PasskeyRow.id).join(UserRow, UserRow.id == PasskeyRow.user_id).where(
             UserRow.role == "owner", UserRow.disabled.is_(False)).limit(1)
         return (session.scalar(owner_key) if session is not None else self.repo.one(owner_key)) is not None
+
+    def _owner_verification_active(self, session: Session | None = None) -> bool:
+        """Once latched, owner verification survives the loss of every active owner's key."""
+        return self.passkeys_active(session) or self.levels.latched(session)
 
     def rp(self, request: Request) -> tuple[str, list[str]]:
         host = request.headers.get("host") or (request.url.hostname or "localhost")
@@ -636,7 +640,9 @@ class IdentityService:
         in again. Either way the 401 names the step-up in `details` ({"step_up": {op, target, body,
         required_level, box}}), so a client can make it in place and repeat the request with the
         OneMind-Step-Up header (SDK `completeStepUp`)."""
-        if not self.passkeys_active():
+        requires_passkey = (self._owner_verification_active() if p.is_owner and op in lv.STEP_UP_ROWS
+                            else self.passkeys_active())
+        if not requires_passkey:
             return "token" if ctx is None or ctx.session is None else ctx.session.auth_method
         need, box, inplace = 1, "", op is not None and (p.is_owner or op in lv.FRESH_OPS)
         if inplace:
@@ -886,7 +892,7 @@ class IdentityService:
         # Only an owner's key counts for the household's level, so only an owner's enrolment needs this; a
         # member's proven key meets the same floor when they are made an owner (_op_rule, users.update).
         # Before any owner has a passkey (the first one at setup) nothing can vouch and nothing needs to.
-        box = user.role == "owner" and not vouched and (self.passkeys_active() or self.levels.latched())
+        box = user.role == "owner" and not vouched and self._owner_verification_active()
         data, shown = {"role": user.role, "box_for_proven": box, "vouched": vouched or None}, False
         if box and self.presence.available:
             try:
@@ -946,7 +952,7 @@ class IdentityService:
             # A promotion may land while registration is pending. Only an owner who is still adding
             # the first owner passkey may finish a proven registration without a vouch or a code.
             if (proven and current.role == "owner" and not (needs_code or vouched)
-                    and (row.data.get("role") != "owner" or self.passkeys_active(s) or self.levels.latched(s))):
+                    and (row.data.get("role") != "owner" or self._owner_verification_active(s))):
                 raise ApiError(409, "conflict", "verification requirements changed; request new passkey "
                                "registration options", reason="registration_options_stale")
             s.add(PasskeyRow(id=v["id"], user_id=user.id, label=label, public_key=v["public_key"],
@@ -1181,7 +1187,7 @@ class IdentityService:
             with self.repo.lock_user(u.id) as (s, _):
                 # A member may finish enrolling a proven key after the promotion's step-up was checked.
                 if (not self._vouch(via) and s.scalar(self._member_proven_key(u.id)) is not None
-                        and self.passkeys_active(s)):
+                        and self._owner_verification_active(s)):
                     raise ApiError(409, "conflict", "this person enrolled a proven key; retry the role change",
                                    reason="promotion_verification_changed")
                 s.execute(update(UserRow).where(UserRow.id == u.id).values(**values))
@@ -1452,10 +1458,11 @@ class IdentityService:
         # Only keys that meet the level are offered (design 3.11), so a phone with an L1 passkey is told
         # plainly instead of failing after the prompt. An empty list would let any passkey answer.
         allow = self._keys_meeting(allow_users, need)
-        if self.passkeys_active() and not allow:
+        verify = self._owner_verification_active()
+        if verify and not allow:
             raise self._level_unmet(p, f"approve {action.get('type')}", need)
         data = {"action_sha256": a_sha, "plan_sha256": p_sha or None, "need": need}
-        box = eased and self.passkeys_active()  # N-1 = b: the grace's L1 approval also needs the box's code
+        box = eased and verify  # N-1 = b: the grace's L1 approval also needs the box's code
         if box:
             data["box_sha256"] = self.presence.issue(f"approve {action.get('type')}", self.now() + CHALLENGE_TTL)
         row, _ = self._new_challenge("approve", user_id=user_id, action_id=action_id, data=data, raw=raw)
@@ -1471,7 +1478,7 @@ class IdentityService:
         """required_level on a request waiting for approval (D-028), so a card shows "Needs L2" before the
         owner tries. It is the table's level: during the grace an L1 key plus the box's code stands in for
         L2, and approve-options says so (box_code_required)."""
-        if row.get("state") != "awaiting_approval" or not self.passkeys_active():
+        if row.get("state") != "awaiting_approval" or not self._owner_verification_active():
             return row
         need = self.levels.for_action(row)[0]
         return {**row, "required_level": lv.name(max(need, 1))}
@@ -1486,7 +1493,7 @@ class IdentityService:
                 raise ApiError(422, "conflict", "send a passkey assertion or a device signature, not both")
             return self._approve_with_device_key(p, ctx, action_id, body)
         if assertion is None:
-            if self.cfg.require_passkey_approval and self.passkeys_active():
+            if self.cfg.require_passkey_approval and self._owner_verification_active():
                 self.emit("auth", "step_up.required", {"attempted": "approve", "action_id": action_id}, p,
                           severity="warning")
                 raise ApiError(401, "unauthenticated", "approvals need a passkey on this box", reason="step_up_required")
