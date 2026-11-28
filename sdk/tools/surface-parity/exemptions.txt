@@ -166,18 +166,10 @@ cli users.update s8-cli-groups
 
 # ---- later (report section 4) ------------------------------------------------------------------------
 group later-agent-browser issue=#1232 Later: the agent browser (sessions and allowed sites) has no owner screen or command.
-dashboard agentbrowser.sessions.end later-agent-browser
-dashboard agentbrowser.sessions.list later-agent-browser
 dashboard agentbrowser.sessions.start later-agent-browser
 dashboard agentbrowser.sessions.visit later-agent-browser
-dashboard agentbrowser.sites.list later-agent-browser
-dashboard agentbrowser.sites.remove later-agent-browser
-dashboard agentbrowser.sites.request later-agent-browser
-cli agentbrowser.sessions.end later-agent-browser
 cli agentbrowser.sessions.start later-agent-browser
 cli agentbrowser.sessions.visit later-agent-browser
-cli agentbrowser.sites.remove later-agent-browser
-cli agentbrowser.sites.request later-agent-browser
 group later-sites-map issue=#1232 Later: sites, map packs and subjects have no screen or command.
 dashboard geo.create_site later-sites-map
 dashboard geo.list_sites later-sites-map

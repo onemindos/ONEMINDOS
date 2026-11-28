@@ -84,10 +84,10 @@ describe('screen registry', () => {
 });
 
 describe('settings registry', () => {
-  it('has exactly one page for each @onemind/ui settings section, each with a page, a link to its own screen or a coming note', () => {
+  it('has exactly one page for each @onemind/ui settings section, each with a page or a link to its own screen', () => {
     expect(Object.values(SETTINGS_FILES).length).toBe(SETTINGS_PAGES.size);
     expect([...SETTINGS_PAGES.keys()].sort()).toEqual(SETTINGS_SECTIONS.map((s) => s.id).sort());
-    for (const p of SETTINGS_PAGES.values()) expect([p.load, p.to, p.coming].filter(Boolean)).toHaveLength(1);
+    for (const p of SETTINGS_PAGES.values()) expect([p.load, p.to].filter(Boolean)).toHaveLength(1);
   });
 
   it('links each section that has its own screen to the path that screen redirects from /settings/<id>', () => {

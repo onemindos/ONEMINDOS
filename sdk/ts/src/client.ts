@@ -13,6 +13,10 @@ export type StatusView = components["schemas"]["StatusView"];
 export type Node = components["schemas"]["Node"];
 export type CatalogApp = components["schemas"]["CatalogApp"];
 export type Action = components["schemas"]["Action"];
+export type AgentBrowserSite = components["schemas"]["AgentBrowserSite"];
+export type AgentBrowserSession = components["schemas"]["AgentBrowserSession"];
+export type AgentBrowserSiteBody = components["schemas"]["SiteBody"];
+export type AgentBrowserSiteRemoved = components["schemas"]["SiteRemoved"];
 export type AuditRecord = components["schemas"]["AuditRecord"];
 export type AuditVerify = components["schemas"]["AuditVerify"];
 /** This box's interfaces, gateway, DNS and listening ports, read only (`/v1/network`, owner only). */
@@ -282,6 +286,26 @@ export class OneMind {
 
   readonly apps = {
     list: () => this.call<CatalogApp[]>({ method: "GET", path: "/v1/apps" }),
+  };
+
+  /**
+   * The agent browser (#694): the sites an AI agent may visit and its browsing sessions. The owner reads everything and can
+   * take a site away or end a session at once. Adding a site only FILES a request (`agentbrowser.site.allow`) that the owner
+   * approves in the approval queue; nothing here approves it.
+   */
+  readonly agentBrowser = {
+    sites: () => this.call<AgentBrowserSite[]>({ method: "GET", path: "/v1/agent-browser/sites" }),
+    /**
+     * Files the request. Always keyed (a fresh key when none is given), so the SDK's own retry after a lost reply replays
+     * the first request instead of filing a second one; pass the same key again to make a manual retry safe too.
+     */
+    requestSite: (body: AgentBrowserSiteBody, idempotencyKey: string = uuid4()) =>
+      this.call<Action>({ method: "POST", path: "/v1/agent-browser/sites", body, retry: true, headers: { "Idempotency-Key": idempotencyKey } }),
+    removeSite: (id: string) =>
+      this.call<AgentBrowserSiteRemoved>({ method: "DELETE", path: `/v1/agent-browser/sites/${encodeURIComponent(id)}` }),
+    sessions: () => this.call<AgentBrowserSession[]>({ method: "GET", path: "/v1/agent-browser/sessions" }),
+    endSession: (id: string) =>
+      this.call<AgentBrowserSession>({ method: "DELETE", path: `/v1/agent-browser/sessions/${encodeURIComponent(id)}` }),
   };
 
   readonly actions = {

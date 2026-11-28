@@ -319,6 +319,32 @@ describe("protocol generation (sdk/contracts/protocol-versions.md)", () => {
   });
 });
 
+describe("agentBrowser", () => {
+  it("reads sites and sessions, and a site request is a keyed POST that only files an action", async () => {
+    const { om, calls } = client((url, init) => {
+      if (init.method === "POST") return json(201, action("awaiting_approval"));
+      if (url.endsWith("/sites/s%2F1")) return json(200, { removed: true, id: "s/1" });
+      return json(200, []);
+    });
+    expect(await om.agentBrowser.sites()).toEqual([]);
+    expect(await om.agentBrowser.sessions()).toEqual([]);
+    const a = await om.agentBrowser.requestSite({ entry: "example.org", agent: "hermes" }, "key-1");
+    expect(a.state).toBe("awaiting_approval");
+    expect(await om.agentBrowser.removeSite("s/1")).toEqual({ removed: true, id: "s/1" });
+    const post = calls.find((c) => c.init.method === "POST")!;
+    expect(post.url).toBe("http://localhost:8080/v1/agent-browser/sites");
+    expect((post.init.headers as Record<string, string>)["Idempotency-Key"]).toBe("key-1");
+    expect(JSON.parse(String(post.init.body))).toEqual({ entry: "example.org", agent: "hermes" });
+  });
+
+  it("keys a site request even when the caller gives no key", async () => {
+    const { om, calls } = client(() => json(201, action("awaiting_approval")));
+    await om.agentBrowser.requestSite({ entry: "example.org", agent: "hermes" });
+    const key = (calls[0]!.init.headers as Record<string, string>)["Idempotency-Key"];
+    expect(key).toMatch(/^[0-9a-f-]{36}$/);
+  });
+});
+
 describe("domains hosts and tips.whatsNew", () => {
   it("sends the typed confirmation, escapes names, and refuses redirects for what's new", async () => {
     const { om, calls } = client((url, init) => {
