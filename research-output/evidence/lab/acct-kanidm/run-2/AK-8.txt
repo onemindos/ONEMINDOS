@@ -1,0 +1,55 @@
+# 2026-11-25T11:57:04Z AK-8: TOTP replay (adult2 has password + TOTP, enrolled in AK-3)
++ $PY totp-replay adult2
+{"algo": "sha256", "first": "success (mech passwordmfa)", "first_ok": true, "same_time_step": true, "second": "success (mech passwordmfa)", "second_ok": true, "step": "totp_replay", "step_s": 30, "user": "adult2"}
+  (exit 1)
+# 2026-11-25T11:57:55Z AK-8b: credential-type-minimum = passkey on onemind_adults (adult2 only has password + TOTP)
++ admin_relogin
+idm_admin login ok
+  (exit 0)
++ k group account-policy enable onemind_adults
+Group enabled for account policy.
+  (exit 0)
++ k group account-policy credential-type-minimum onemind_adults passkey
+Updated credential type minimum.
+  (exit 0)
++ k group get onemind_adults | grep -iE 'name|member|credential|policy' 
+class: account_policy
+credential_type_minimum: passkey
+member: adult2@idm.onemind.test
+name: onemind_adults
+  (exit 0)
++ $PY signin adult2 passwordmfa refused
+{"detail": "success (mech passwordmfa)", "mech": "passwordmfa", "ok": true, "step": "signin", "user": "adult2", "whoami": "adult2@idm.onemind.test"}
+  (exit 1)
+# control: adult1 (passkey) was removed from the group in AK-10; child1 (other group, password+TOTP) is not affected by this policy
++ $PY signin child1 passwordmfa
+{"detail": "success (mech passwordmfa)", "mech": "passwordmfa", "ok": true, "step": "signin", "user": "child1", "whoami": "child1@idm.onemind.test"}
+  (exit 0)
+# 2026-11-25T11:58:10Z AK-8c: with credential-type-minimum = passkey, can a member of onemind_adults enrol password + TOTP?
++ admin_relogin
+idm_admin login ok
+  (exit 0)
++ k person create adult3 'Adult Three'
+Successfully created display_name="Adult Three" username=adult3
+  (exit 0)
++ k group add-members onemind_adults adult3
+Successfully added ["adult3"] to group "onemind_adults"
+  (exit 0)
++ reset_token adult3 adult3.reset
+reset link issued for adult3 (link and token kept in the secrets dir, not printed)
+This token will expire at: 2026-11-25T12:58:11Z
+  (exit 0)
++ $PY enrol adult3 adult3.reset password+totp
+{"ok": true, "status": {"can_commit": false, "mfaregstate": "None", "passkeys": [], "primary": null, "warnings": ["NoValidCredentials"]}, "step": "exchange_intent", "user": "adult3"}
+{"ok": false, "status": "\"accessdenied\"", "step": "set_password", "user": "adult3"}
+  (exit 1)
++ reset_token adult3 adult3.reset2
+reset link issued for adult3 (link and token kept in the secrets dir, not printed)
+This token will expire at: 2026-11-25T12:58:11Z
+  (exit 0)
++ $PY enrol adult3 adult3.reset2 passkey
+{"ok": true, "status": {"can_commit": false, "mfaregstate": "None", "passkeys": [], "primary": null, "warnings": ["NoValidCredentials"]}, "step": "exchange_intent", "user": "adult3"}
+{"attestation": "none", "ok": true, "rp_id": "idm.onemind.test", "step": "passkey_init", "user": "adult3", "user_verification": "required"}
+{"credential_fp": "7db46396da0a1529", "http": 200, "ok": true, "status": {"can_commit": true, "mfaregstate": "None", "passkeys": ["lab-virtual-authenticator"], "primary": null, "warnings": []}, "step": "passkey_finish", "user": "adult3"}
+{"http": 200, "ok": true, "step": "commit", "user": "adult3"}
+  (exit 0)

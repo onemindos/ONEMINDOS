@@ -5,7 +5,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { Linking } from 'react-native';
 import { Features, OP } from '../api/client';
-import { makeApps } from '../api/fixtures';
+import { makeActions, makeApps } from '../api/fixtures';
 import { ApiError, type CatalogApp } from '../api/types';
 import { HubDataProvider } from '../data';
 import { SessionProvider, useSession, type SessionDeps } from '../session';
@@ -14,7 +14,10 @@ import { v0Api } from '../test/fakes';
 import status from '../test/status.recorded.json';
 import { AppDetailScreen } from './AppDetailScreen';
 import { AppsScreen } from './AppsScreen';
-import { HealthCard } from './HomeScreen';
+import { Button } from '../ui/bits';
+import { setThemeChoice } from '../ui/theme';
+import { tokens } from '../ui/tokens.generated';
+import { HealthCard, HomeScreen } from './HomeScreen';
 
 type Opts = { onEvent: (e: unknown) => void; onState?: (s: string) => void };
 const streams: Opts[] = [];
@@ -71,6 +74,48 @@ const kuma = (over: Partial<CatalogApp> = {}): CatalogApp => ({ ...makeApps().fi
 beforeEach(() => {
   streams.length = 0;
   jest.spyOn(Linking, 'openURL').mockResolvedValue();
+});
+
+it.each(['light', 'dark'] as const)('uses the action token for the primary button in %s', async (mode) => {
+  setThemeChoice(mode);
+  try {
+    await render(<Button testID="primary" label="Continue" onPress={() => undefined} />);
+    expect(screen.getByTestId('primary')).toHaveStyle({ backgroundColor: tokens[mode].action });
+  } finally {
+    await act(() => setThemeChoice('system'));
+  }
+});
+
+it('shows the hub request and hides the sensor card when the hub has no readings', async () => {
+  await mount(<HomeScreen />, {
+    actions: async () => [{ ...makeActions(Date.now())[0]!, risk: 'actuate' }],
+    nodeMetrics: async () => ({ node_id: 'hub', source: 'heartbeat', samples: [] }),
+  }, [OP.me, OP.nodeMetrics]);
+  const card = await screen.findByTestId('pending-card');
+  expect(card).toHaveTextContent(/Install Ollama/i);
+  expect(card).toHaveTextContent(/agent ops-agent/);
+  expect(card).toHaveTextContent(/Hold to approve on the next screen/);
+  expect(screen.queryByTestId('live-temperature')).toBeNull();
+});
+
+it('shows a fresh hub temperature with its age', async () => {
+  const now = Date.now();
+  const makeSample = (offset: number, temp_c: number) => ({
+    at: new Date(now - offset).toISOString(), temp_c,
+    cpu_pct: null, mem_used_mb: null, mem_total_mb: null, disk_free_gb: null, disk_total_gb: null, load1: null,
+  });
+  await mount(<HomeScreen />, {
+    nodeMetrics: async () => ({ node_id: 'hub', source: 'heartbeat', samples: [makeSample(20_000, 43), makeSample(8000, 45.2)] }),
+  }, [OP.me, OP.nodeMetrics]);
+  const card = await screen.findByTestId('live-temperature');
+  expect(card).toHaveTextContent(/45\.2 °C/);
+  expect(card).toHaveTextContent(/Live · \d+s ago/);
+});
+
+it('omits the Needs you card when no hub request waits', async () => {
+  await mount(<HomeScreen />);
+  await screen.findByText('0 requests need a decision.');
+  expect(screen.queryByTestId('pending-card')).toBeNull();
 });
 
 describe('Home health card', () => {

@@ -120,3 +120,75 @@ func TestDomainAddRefusedWhileTheFeatureIsOff(t *testing.T) {
 		t.Fatalf("add without a domain is refused: %+v", r)
 	}
 }
+
+// A gateway for `onemind domain host`: it records each call and answers like routers/domains.py.
+func startDomainHostHub(t *testing.T) *[]string {
+	t.Helper()
+	isolate(t)
+	var calls []string
+	var mu sync.Mutex
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		b, _ := io.ReadAll(r.Body)
+		calls = append(calls, r.Method+" "+r.URL.Path+" "+string(b))
+		host := map[string]any{"hostname": "ntfy.example.org", "app_id": "ntfy", "state": "requested", "requested_by": "owner", "approved_by": nil, "updated_at": nil, "public": false}
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/domains/example.org/hosts":
+			jsonOut(w, 201, host)
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/domains/hosts/ntfy.example.org/approve":
+			host["state"], host["approved_by"] = "approved", "owner"
+			jsonOut(w, 200, host)
+		case r.Method == http.MethodDelete && r.URL.Path == "/v1/domains/hosts/ntfy.example.org":
+			w.WriteHeader(204)
+		default:
+			jsonOut(w, 404, map[string]string{"error": "not_found", "message": r.URL.Path})
+		}
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("ONEMIND_HUB", srv.URL)
+	t.Setenv("ONEMIND_TOKEN", ownerTok)
+	return &calls
+}
+
+func TestDomainHostRequestApproveRemove(t *testing.T) {
+	calls := startDomainHostHub(t)
+	r := run(t, "", false, "domain", "host", "request", "example.org", "ntfy")
+	if r.code != 0 || !strings.Contains(r.out, "Asked for ntfy.example.org") || !strings.Contains(r.out, "--confirm ntfy.example.org") {
+		t.Fatalf("request %+v", r)
+	}
+	r = run(t, "", false, "domain", "host", "approve", "ntfy.example.org", "--confirm", "NTFY.example.org")
+	if r.code != 0 || !strings.Contains(r.out, "Approved ntfy.example.org") || !strings.Contains(r.out, "nothing is served") {
+		t.Fatalf("approve %+v", r)
+	}
+	if r = run(t, "", false, "domain", "host", "remove", "ntfy.example.org"); r.code == 0 || !strings.Contains(r.errOut, "--yes") {
+		t.Fatalf("remove without --yes must be refused before any call: %+v", r)
+	}
+	r = run(t, "", false, "domain", "host", "remove", "ntfy.example.org", "--yes")
+	if r.code != 0 || !strings.Contains(r.out, "Removed ntfy.example.org") {
+		t.Fatalf("remove %+v", r)
+	}
+	want := []string{
+		`POST /v1/domains/example.org/hosts {"app_id":"ntfy"}`,
+		`POST /v1/domains/hosts/ntfy.example.org/approve {"confirm":"NTFY.example.org"}`,
+		`DELETE /v1/domains/hosts/ntfy.example.org `,
+	}
+	if strings.Join(*calls, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("calls %q", *calls)
+	}
+}
+
+func TestDomainHostApproveNeedsTheNameTypedInFull(t *testing.T) {
+	calls := startDomainHostHub(t)
+	for _, args := range [][]string{
+		{"domain", "host", "approve", "ntfy.example.org"},
+		{"domain", "host", "approve", "ntfy.example.org", "--confirm", "ntfy"},
+	} {
+		if r := run(t, "", false, args...); r.code == 0 {
+			t.Fatalf("%v must be refused: %+v", args, r)
+		}
+	}
+	if len(*calls) != 0 {
+		t.Fatalf("nothing may reach the gateway without the confirmation: %q", *calls)
+	}
+}

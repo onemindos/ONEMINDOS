@@ -11,6 +11,7 @@ import { Load } from './parts';
 import { object, read, rows, text } from './backups/shared';
 import { RestoreSection } from './backups/Restore';
 import { DestinationForm } from './backups/Destinations';
+import { ContentSection, VerificationsSection } from './backups/Content';
 
 type PendingBackup = { key: string; body: components['schemas']['RunBody'] };
 // In-tab navigation must not turn a lost reply into a second logical request. No tokens here.
@@ -25,12 +26,12 @@ function backupStatus(value: unknown) {
 }
 
 export function Backups() {
-  const { token, person, mock } = useSignedIn();
+  const { token, person, mock, principal } = useSignedIn();
   // The same empty state as Home's Backups widget; "Set up backups" leads to the Backups settings page.
   if (mock) return <><PageHeader title="Backups" lede="Backup health and destinations reported by your hub." /><EmptyState icon="backups" title="No backup proved yet" action={<Link className="om-btn om-btn-primary" to={href.setting('backups')}>Set up backups</Link>}>A backup counts once a restore test has passed. Demo mode has no backup data; connect a real hub to set one up.</EmptyState></>;
-  return <LiveBackups key={person} token={token} person={person} />;
+  return <LiveBackups key={person} token={token} person={person} owner={principal?.role === 'owner'} />;
 }
-function LiveBackups({ token, person }: { token: string; person: string }) {
+function LiveBackups({ token, person, owner }: { token: string; person: string; owner: boolean }) {
   const sdk = useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1 }), [token]);
   const status = usePoll(async () => backupStatus(await read(sdk, '/v1/backups/status')), 30_000);
   const targets = usePoll(async () => rows(await read(sdk, '/v1/backups/destinations')), 30_000);
@@ -103,6 +104,8 @@ function LiveBackups({ token, person }: { token: string; person: string }) {
       <DestinationForm sdk={sdk} token={token} />
     </Card>}</Load>
     <RestoreSection sdk={sdk} token={token} />
+    <VerificationsSection sdk={sdk} token={token} />
+    <ContentSection sdk={sdk} token={token} owner={owner} />
     <Load res={runs} what="Loading backup runs">{(items) => <Card title="Backup runs">
       {items.length === 0 ? <p>No backup runs reported.</p> : <ul>{items.map((r) => <li key={text(r.id)}><strong>{text(r.id)}</strong> — {text(r.state)}{typeof r.finished_at === 'string' ? ` · finished ${r.finished_at}` : ''}{typeof r.error === 'string' ? ` · ${r.error}` : ''}</li>)}</ul>}
     </Card>}</Load>

@@ -5,6 +5,7 @@ package onemind
 import (
 	"context"
 	"net/http"
+	"net/url"
 )
 
 // DomainHost is one name an owner asked for under their own domain (<app>.<domain>). State "approved"
@@ -59,4 +60,22 @@ func (s *DomainsService) List(ctx context.Context) (*DomainsSummary, error) {
 func (s *DomainsService) Add(ctx context.Context, domain string) (*Domain, error) {
 	var v Domain
 	return &v, s.c.Do(ctx, http.MethodPost, "/v1/domains", map[string]string{"domain": domain}, &v)
+}
+
+// RequestHost is operation domains.host_request: ask for <app>.<domain>. It waits for the owner to approve it.
+func (s *DomainsService) RequestHost(ctx context.Context, domain, appID string) (*DomainHost, error) {
+	var v DomainHost
+	return &v, s.c.Do(ctx, http.MethodPost, "/v1/domains/"+url.PathEscape(domain)+"/hosts", map[string]string{"app_id": appID}, &v)
+}
+
+// ApproveHost is operation domains.host_approve. confirm must be the hostname typed in full; approving
+// records a decision only, nothing is served yet.
+func (s *DomainsService) ApproveHost(ctx context.Context, hostname, confirm string) (*DomainHost, error) {
+	var v DomainHost
+	return &v, s.c.Do(ctx, http.MethodPost, "/v1/domains/hosts/"+url.PathEscape(hostname)+"/approve", map[string]string{"confirm": confirm}, &v)
+}
+
+// RemoveHost is operation domains.host_remove: withdraw a requested or approved name.
+func (s *DomainsService) RemoveHost(ctx context.Context, hostname string) error {
+	return s.c.Do(ctx, http.MethodDelete, "/v1/domains/hosts/"+url.PathEscape(hostname), nil, nil)
 }
