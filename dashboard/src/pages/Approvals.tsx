@@ -8,7 +8,7 @@ import { ApprovalsBoard, Button, Dialog, HoldToApprove, SecretsForm, actionTitle
 import { ApiError } from '../api/types';
 import { toActionPlan, toActionSummary } from '../data/adapters';
 import { errorText, subjectOf, useHub } from '../data/hub';
-import type { ApproveOpts } from '../lib/approve';
+import { PASSKEY_NOT_USED, PASSKEY_UNAVAILABLE, type ApproveOpts } from '../lib/approve';
 import { usePoll } from '../lib/hooks';
 import { DesktopAppRequests } from './DesktopAppRequests';
 import { webauthnSupported } from '../lib/webauthn';
@@ -54,24 +54,58 @@ export function Approvals() {
   // #173: the gateway refused an install whose licence is not green until the owner types the app id.
   const [licence, setLicence] = useState<{ action: ActionSummary; appId: string; message: string; sealed?: ApproveOpts['sealed']; typed: string }>();
 
+  // The gateway wants a passkey (a password sign-in cannot approve this). Ask for it with a button, which
+  // also gives the browser the tap it needs to open the passkey prompt.
+  const [stepUp, setStepUp] = useState<{ action: ActionSummary; sealed?: ApproveOpts['sealed']; acceptLicence?: string; hold?: ApproveOpts['hold']; busy: boolean }>();
+
   const fail = (how: string, e: unknown) => {
     const { code, message } = errorText(e);
     toast.show({ tone: 'bad', title: `Could not ${how}`, body: `${message} (${code})` });
   };
-  const decide = (a: ActionSummary, how: 'approve' | 'deny', sealed?: ApproveOpts['sealed'], acceptLicence?: string, hold?: ApproveOpts['hold']): Promise<boolean> =>
-    hub.decide(a.id, how, { passkey, sealed, acceptLicence, hold }).then(
+  const decide = (a: ActionSummary, how: 'approve' | 'deny', sealed?: ApproveOpts['sealed'], acceptLicence?: string, hold?: ApproveOpts['hold'], forcePasskey = false): Promise<boolean> =>
+    hub.decide(a.id, how, { passkey: passkey || forcePasskey, sealed, acceptLicence, hold }).then(
       () => {
         setLicence(undefined);
+        setStepUp(undefined);
+        setForm(undefined);
         setLast({ id: a.id, title: actionTitle(a) });
         toast.show({ tone: how === 'approve' ? 'ok' : 'neutral', title: how === 'approve' ? 'Approved' : 'Denied', body: how === 'approve' ? 'The hub is applying it. Progress shows on the app page and in the tray.' : 'Nothing changes.' });
         return true;
       },
-      (e: unknown) => {
+      async (e: unknown) => {
         if (how === 'approve' && e instanceof ApiError && e.reason === 'licence_unconfirmed' && typeof a.params.app_id === 'string') {
+          setStepUp(undefined);
           setForm(undefined);
           setLicence({ action: a, appId: a.params.app_id, message: e.message, sealed, typed: '' });
           return false;
         }
+        // The hub needs a passkey and this browser cannot make one: say so in words, whatever the pass.
+        if (how === 'approve' && e instanceof ApiError && e.reason === PASSKEY_UNAVAILABLE) {
+          setStepUp(undefined);
+          toast.show({ tone: 'bad', title: 'This approval needs a passkey', body: 'This browser cannot use a passkey. Open the dashboard in a browser that supports passkeys (on a secure https address) and approve again.' });
+          return false;
+        }
+        // Only "the browser produced no passkey" opens the prompt. A step_up_required that reaches here means a
+        // signed request was refused by the hub, so its own message is shown (fail below), not a false "not used".
+        const needsPasskey = how === 'approve' && e instanceof ApiError && e.code === 'unauthenticated' && e.reason === PASSKEY_NOT_USED;
+        if (needsPasskey && !forcePasskey) {
+          setLicence(undefined);
+          // This person's own passkey count decides (passkeys_active is true once any owner has one). When /v1/me
+          // has not answered yet, ask it now rather than guess.
+          const mine = me.data ?? await api.me().catch(() => undefined);
+          if (mine && (mine.passkeys === 0 || mine.step_up.passkeys_active === false)) {
+            toast.show({ tone: 'bad', title: 'This approval needs a passkey', body: 'You signed in with a password, and the hub needs a passkey to approve this. You have no passkey yet. Add one in Account and security, then sign in with it and approve again.' });
+          } else {
+            setStepUp({ action: a, sealed, acceptLicence, hold, busy: false });
+          }
+          return false;
+        }
+        if (needsPasskey) {
+          toast.show({ tone: 'bad', title: 'Your passkey was not used', body: `Nothing was approved. Press Approve again and use your passkey when your device asks.` });
+          setStepUp(undefined);
+          return false;
+        }
+        setStepUp(undefined);
         fail(how, e);
         return false;
       },
@@ -152,8 +186,24 @@ export function Approvals() {
       </details>
     ))}
     {form && (
-      <Dialog open title={`Secrets for ${form.name}`} description="Typed here, encrypted in this browser to your hub, and sent with your approval. They are never shown again." size="lg" onClose={() => (sealing ? undefined : setForm(undefined))}>
+      <Dialog open title={`Secrets for ${form.name}`} description="Typed here, encrypted in this browser to your hub, and sent with your approval. They are never shown again." size="lg" onClose={() => (sealing || stepUp ? undefined : setForm(undefined))}>
         <SecretsForm app={{ id: form.appId, name: form.name }} secrets={form.secrets} mode="install" submitLabel="Approve and install" busy={sealing} error={form.error} onSubmit={(s) => void submitSecrets(s)} onCancel={() => setForm(undefined)} />
+      </Dialog>
+    )}
+    {stepUp && (
+      <Dialog
+        open role="alertdialog" title="Use your passkey to approve"
+        description="This approval needs your passkey, not just your password. Press the button, then use your passkey when your device asks. Nothing is approved until you do."
+        onClose={() => (stepUp.busy ? undefined : setStepUp(undefined))}
+        actions={<>
+          <Button onClick={() => setStepUp(undefined)} disabled={stepUp.busy}>Cancel</Button>
+          <Button variant="primary" disabled={stepUp.busy} onClick={() => {
+            setStepUp({ ...stepUp, busy: true });
+            void decide(stepUp.action, 'approve', stepUp.sealed, stepUp.acceptLicence, stepUp.hold, true);
+          }}>Use your passkey</Button>
+        </>}
+      >
+        <p>{actionTitle(stepUp.action)}</p>
       </Dialog>
     )}
     {licence && (
