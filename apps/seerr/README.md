@@ -8,7 +8,7 @@ Open-source media request and discovery manager for Jellyfin, Plex and Emby.
 | | |
 |---|---|
 | Version | 3.5.2 (upstream release `3.5.2`, published 2026-11-12) |
-| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-21) |
+| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-28) |
 | Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | media |
 | GitHub | <https://github.com/seerr-team/seerr> |
@@ -65,10 +65,10 @@ From the upstream documentation, https://docs.seerr.dev:
 
 ## Latest security scan
 
-Scanned 2026-11-21T15:56:21Z by `sdk/tools/app-gate`: **pass**. Licence `MIT` class L1; smoke test pass.
+Scanned 2026-11-28T16:53:18Z by `sdk/tools/app-gate`: **pass**. Licence `MIT` class L1; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `ghcr.io/seerr-team/seerr:v3.5.2@sha256:aadee014b40e28cf9aa4928bc9d1183a6eb08f8c44d543cddc9efdcb16549be2` | amd64, arm64 | 0 (0) | 16 | 0 infected (daily-28190) | 0 | unsigned |
+| `ghcr.io/seerr-team/seerr:v3.5.2@sha256:aadee014b40e28cf9aa4928bc9d1183a6eb08f8c44d543cddc9efdcb16549be2` | amd64, arm64 | 0 (0) | 16 | 0 infected (daily-28194) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

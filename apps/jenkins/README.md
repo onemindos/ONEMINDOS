@@ -8,7 +8,7 @@ The leading open source automation server: build, test and deploy projects with 
 | | |
 |---|---|
 | Version | 2.590 (upstream release `2.590`, published 2026-11-10) |
-| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-21) |
+| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-28) |
 | Tier | `community` (set by CI: sdk/tools/app-gate) |
 | Category | developer |
 | GitHub | <https://github.com/jenkinsci/jenkins> |
@@ -68,10 +68,10 @@ From the upstream documentation, https://www.jenkins.io/doc/book/installing/dock
 
 ## Latest security scan
 
-Scanned 2026-11-21T14:09:17Z by `sdk/tools/app-gate`: **fail**. Licence `MIT` class L1; smoke test fail.
+Scanned 2026-11-28T15:59:59Z by `sdk/tools/app-gate`: **fail**. Licence `MIT` class L1; smoke test fail.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `docker.io/jenkins/jenkins:2.590-jdk21@sha256:1b8068fd8b82518be3bb2e89560efa44f67f5fbc1ab3a9b59826c7f8f70f2260` | amd64, arm64 | 1 (0) | 135 | 0 infected (daily-28190) | 0 | unsigned |
+| `docker.io/jenkins/jenkins:2.590-jdk21@sha256:1b8068fd8b82518be3bb2e89560efa44f67f5fbc1ab3a9b59826c7f8f70f2260` | amd64, arm64 | 1 (0) | 139 | 0 infected (daily-28194) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

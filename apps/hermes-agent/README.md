@@ -8,7 +8,7 @@ Self-hosted AI agent with memory, skills and messaging gateways, by Nous Researc
 | | |
 |---|---|
 | Version | 0.23.0 (upstream release `v0.23.0`, published 2026-11-05) |
-| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-21) |
+| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-28) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | ai |
 | GitHub | <https://github.com/NousResearch/hermes-agent> |
@@ -84,10 +84,10 @@ The last scan of this image failed (see below), so the gateway refuses to instal
 
 ## Latest security scan
 
-Scanned 2026-11-21T14:14:10Z by `sdk/tools/app-gate`: **fail**. Licence `MIT` class L1; smoke test pass.
+Scanned 2026-11-28T16:19:07Z by `sdk/tools/app-gate`: **fail**. Licence `MIT` class L1; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `docker.io/nousresearch/hermes-agent:v0.23.0@sha256:adb7890916de63245523492be8f68f9d2095fecbec4e2a6dab7960381f0fc002` | amd64, arm64 | 4 (2) | 337 | 0 infected (daily-28190) | 0 | unsigned |
+| `docker.io/nousresearch/hermes-agent:v0.23.0@sha256:adb7890916de63245523492be8f68f9d2095fecbec4e2a6dab7960381f0fc002` | amd64, arm64 | 4 (2) | 342 | 0 infected (daily-28194) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

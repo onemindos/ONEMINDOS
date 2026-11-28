@@ -8,7 +8,7 @@ Offline Wikipedia and other reference libraries (ZIM files), with a library mana
 | | |
 |---|---|
 | Version | 3.8.2 (upstream release `3.8.2`, published 2026-03-02) |
-| Licence | `GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
+| Licence | `GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-28) |
 | Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | learning |
 | GitHub | <https://github.com/kiwix/kiwix-tools> |
@@ -88,10 +88,10 @@ Take it out of the **Books** setting, which stops serving it. Then delete the fi
 
 ## Latest security scan
 
-Scanned 2026-11-21T14:01:20Z by `sdk/tools/app-gate`: **pass**. Licence `GPL-3.0` class L2; smoke test pass.
+Scanned 2026-11-28T15:56:25Z by `sdk/tools/app-gate`: **pass**. Licence `GPL-3.0` class L2; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `ghcr.io/kiwix/kiwix-serve:3.8.2@sha256:e478554a9920412eeb5ce1d73f24e4b28445ebed233187cdd03c623c32be46a5` | amd64, arm64 | 0 (0) | 5 | 0 infected (daily-28190) | 0 | unsigned |
+| `ghcr.io/kiwix/kiwix-serve:3.8.2@sha256:e478554a9920412eeb5ce1d73f24e4b28445ebed233187cdd03c623c32be46a5` | amd64, arm64 | 0 (0) | 7 | 0 infected (daily-28194) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

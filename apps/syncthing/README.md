@@ -8,7 +8,7 @@ Open Source Continuous File Synchronization
 | | |
 |---|---|
 | Version | 2.1.7 (upstream release `v2.1.7`, published 2026-10-21) |
-| Licence | `MPL-2.0`, Market class **L1** (licence gate, scan of 2026-11-21) |
+| Licence | `MPL-2.0`, Market class **L1** (licence gate, scan of 2026-11-28) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | files |
 | GitHub | <https://github.com/syncthing/syncthing> |
@@ -95,10 +95,10 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 
 ## Latest security scan
 
-Scanned 2026-11-21T15:45:42Z by `sdk/tools/app-gate`: **fail**. Licence `MPL-2.0` class L1; smoke test pass.
+Scanned 2026-11-28T16:47:35Z by `sdk/tools/app-gate`: **fail**. Licence `MPL-2.0` class L1; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `docker.io/syncthing/syncthing:2.1.7@sha256:2b71da7c0d0a91a6ae5285ad079226fecc0a365d08b27720e1f7037b018f7546` | amd64, arm64 | 1 (1) | 9 | 0 infected (daily-28190) | 0 | unsigned |
+| `docker.io/syncthing/syncthing:2.1.7@sha256:2b71da7c0d0a91a6ae5285ad079226fecc0a365d08b27720e1f7037b018f7546` | amd64, arm64 | 1 (1) | 8 | 0 infected (daily-28194) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

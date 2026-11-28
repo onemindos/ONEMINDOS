@@ -8,7 +8,7 @@ Monitoring and statistics for a Plex Media Server: who watched what, and when.
 | | |
 |---|---|
 | Version | 2.19.1 (upstream release `v2.19.1`, published 2026-11-10) |
-| Licence | `GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
+| Licence | `GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-28) |
 | Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | media |
 | GitHub | <https://github.com/Tautulli/Tautulli> |
@@ -75,10 +75,10 @@ Source: [Tautulli wiki, Installation](https://github.com/Tautulli/Tautulli/wiki/
 
 ## Latest security scan
 
-Scanned 2026-11-21T15:49:28Z by `sdk/tools/app-gate`: **pass**. Licence `GPL-3.0` class L2; smoke test pass.
+Scanned 2026-11-28T16:50:01Z by `sdk/tools/app-gate`: **pass**. Licence `GPL-3.0` class L2; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `docker.io/tautulli/tautulli:v2.19.1@sha256:239cd6dbc429a0eb441bdf88a7a015871e2d4d6e02b6e6039af30c0487528a8e` | amd64, arm64 | 0 (0) | 112 | 0 infected (daily-28190) | 0 | unsigned |
+| `docker.io/tautulli/tautulli:v2.19.1@sha256:239cd6dbc429a0eb441bdf88a7a015871e2d4d6e02b6e6039af30c0487528a8e` | amd64, arm64 | 0 (0) | 116 | 0 infected (daily-28194) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

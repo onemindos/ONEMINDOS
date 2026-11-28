@@ -8,7 +8,7 @@ Privacy-focused website analytics without cookies.
 | | |
 |---|---|
 | Version | 3.5.0 (upstream release `v3.5.0`, published 2026-11-12) |
-| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-21) |
+| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-28) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | monitoring |
 | GitHub | <https://github.com/umami-software/umami> |
@@ -97,11 +97,11 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 
 ## Latest security scan
 
-Scanned 2026-11-21T16:01:43Z by `sdk/tools/app-gate`: **fail**. Licence `MIT` class L1; smoke test pass.
+Scanned 2026-11-28T16:58:21Z by `sdk/tools/app-gate`: **fail**. Licence `MIT` class L1; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `ghcr.io/umami-software/umami:3.5.0@sha256:b64f40400d77bcadd39cf5c62a1e368c99524ca442024f96e1133355a19a5dbc` | amd64, arm64 | 0 (0) | 5 | 0 infected (daily-28190) | 0 | unsigned |
-| `docker.io/library/postgres:15.19-alpine@sha256:eab009ce9447a891d9482702d370bbf132c18563bb87cfdcc2b815c6d3b0372f` | amd64, arm64 | 1 (1) | 46 | 0 infected (daily-28190) | 0 | unsigned |
+| `ghcr.io/umami-software/umami:3.5.0@sha256:b64f40400d77bcadd39cf5c62a1e368c99524ca442024f96e1133355a19a5dbc` | amd64, arm64 | 0 (0) | 5 | 0 infected (daily-28194) | 0 | unsigned |
+| `docker.io/library/postgres:15.19-alpine@sha256:eab009ce9447a891d9482702d370bbf132c18563bb87cfdcc2b815c6d3b0372f` | amd64, arm64 | 1 (1) | 51 | 0 infected (daily-28194) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

@@ -8,7 +8,7 @@ Prowlarr is an indexer manager/proxy built on the popular *arr .net/reactjs base
 | | |
 |---|---|
 | Version | 2.7.0.5723 (upstream release `v2.7.0.5723`, published 2026-10-27) |
-| Licence | `GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
+| Licence | `GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-28) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | media |
 | GitHub | <https://github.com/Prowlarr/Prowlarr> |
@@ -77,10 +77,10 @@ To unblock: the startup failure is fixed above (rerun the gate to confirm); move
 
 ## Latest security scan
 
-Scanned 2026-11-21T15:37:23Z by `sdk/tools/app-gate`: **fail**. Licence `GPL-3.0` class L2; smoke test pass.
+Scanned 2026-11-28T16:43:57Z by `sdk/tools/app-gate`: **fail**. Licence `GPL-3.0` class L2; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `ghcr.io/linuxserver/prowlarr:2.7.0.5723-ls168@sha256:6660787a99b2e58203539583663c973b48979fc00ff2cb78dc0ea17429e1f6ef` | amd64, arm64 | 4 (4) | 43 | 0 infected (daily-28190) | 0 | unsigned |
+| `ghcr.io/linuxserver/prowlarr:2.7.0.5723-ls168@sha256:6660787a99b2e58203539583663c973b48979fc00ff2cb78dc0ea17429e1f6ef` | amd64, arm64 | 4 (4) | 49 | 0 infected (daily-28194) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

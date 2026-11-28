@@ -8,7 +8,7 @@ The task manager you actually own: lists, kanban boards, gantt and table views, 
 | | |
 |---|---|
 | Version | 2.8.0 (upstream release `2.8.0`, published 2026-11-05) |
-| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
+| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-28) |
 | Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | productivity |
 | GitHub | <https://github.com/go-vikunja/vikunja> |
@@ -67,10 +67,10 @@ From the upstream documentation, https://vikunja.io/docs/:
 
 ## Latest security scan
 
-Scanned 2026-11-21T15:56:02Z by `sdk/tools/app-gate`: **pass**. Licence `AGPL-3.0` class L2; smoke test pass.
+Scanned 2026-11-28T16:55:37Z by `sdk/tools/app-gate`: **pass**. Licence `AGPL-3.0` class L2; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `docker.io/vikunja/vikunja:2.8.0@sha256:35d937baf3b5d5803bed6b9e11d007448b7b536df9e4346dc35551e1072636c3` | amd64, arm64 | 0 (0) | 1 | 0 infected (daily-28190) | 0 | unsigned |
+| `docker.io/vikunja/vikunja:2.8.0@sha256:35d937baf3b5d5803bed6b9e11d007448b7b536df9e4346dc35551e1072636c3` | amd64, arm64 | 0 (0) | 0 | 0 infected (daily-28194) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

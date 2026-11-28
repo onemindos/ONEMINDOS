@@ -8,7 +8,7 @@ Design and prototyping platform for teams, working with open standards (SVG, CSS
 | | |
 |---|---|
 | Version | 2.19.1 (upstream release `2.19.1`, published 2026-11-11) |
-| Licence | `MPL-2.0`, Market class **L1** (licence gate, scan of 2026-11-21) |
+| Licence | `MPL-2.0`, Market class **L1** (licence gate, scan of 2026-11-28) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | developer |
 | GitHub | <https://github.com/penpot/penpot> |
@@ -105,14 +105,14 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 
 ## Latest security scan
 
-Scanned 2026-11-21T15:51:09Z by `sdk/tools/app-gate`: **fail**. Licence `MPL-2.0` class L1; smoke test pass.
+Scanned 2026-11-28T16:58:06Z by `sdk/tools/app-gate`: **fail**. Licence `MPL-2.0` class L1; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `docker.io/penpotapp/backend:2.19.1@sha256:bc26c263b33f107a63868ed298bebd9089f252c3799872c31ec1266fef321d29` | amd64, arm64 | 0 (0) | 1 | 0 infected (daily-28190) | 0 | unsigned |
-| `docker.io/library/postgres:15.19-alpine@sha256:eab009ce9447a891d9482702d370bbf132c18563bb87cfdcc2b815c6d3b0372f` | amd64, arm64 | 1 (1) | 46 | 0 infected (daily-28190) | 0 | unsigned |
-| `docker.io/valkey/valkey:8.1.11-trixie@sha256:8f836008e0986c36adf50da714c7060cf689dbb335f61fe077939d90fa650809` | amd64, arm64 | 0 (0) | 51 | 0 infected (daily-28190) | 0 | unsigned |
-| `docker.io/penpotapp/frontend:2.19.1@sha256:b5b363a4bd38bf2aa781c6255e5208b4b305fa3f12fae1170abeb705ce510032` | amd64, arm64 | 2 (0) | 41 | 0 infected (daily-28190) | 0 | unsigned |
-| `docker.io/penpotapp/exporter:2.19.1@sha256:bb25e0ee63ec37228848c714c7b60998d9c9d07f998ab7aebe2e3281d39b2962` | amd64, arm64 | 1 (0) | 158 | 0 infected (daily-28190) | 0 | unsigned |
+| `docker.io/penpotapp/backend:2.19.1@sha256:bc26c263b33f107a63868ed298bebd9089f252c3799872c31ec1266fef321d29` | amd64, arm64 | 0 (0) | 1 | 0 infected (daily-28194) | 0 | unsigned |
+| `docker.io/library/postgres:15.19-alpine@sha256:eab009ce9447a891d9482702d370bbf132c18563bb87cfdcc2b815c6d3b0372f` | amd64, arm64 | 1 (1) | 51 | 0 infected (daily-28194) | 0 | unsigned |
+| `docker.io/valkey/valkey:8.1.11-trixie@sha256:8f836008e0986c36adf50da714c7060cf689dbb335f61fe077939d90fa650809` | amd64, arm64 | 0 (0) | 54 | 0 infected (daily-28194) | 0 | unsigned |
+| `docker.io/penpotapp/frontend:2.19.1@sha256:b5b363a4bd38bf2aa781c6255e5208b4b305fa3f12fae1170abeb705ce510032` | amd64, arm64 | 2 (0) | 45 | 0 infected (daily-28194) | 0 | unsigned |
+| `docker.io/penpotapp/exporter:2.19.1@sha256:bb25e0ee63ec37228848c714c7b60998d9c9d07f998ab7aebe2e3281d39b2962` | amd64, arm64 | 1 (0) | 164 | 0 infected (daily-28194) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

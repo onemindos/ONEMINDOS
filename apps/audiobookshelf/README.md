@@ -8,7 +8,7 @@ Self-hosted audiobook and podcast server
 | | |
 |---|---|
 | Version | 2.37.2 (upstream release `v2.37.2`, published 2026-10-23) |
-| Licence | `GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
+| Licence | `GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-28) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | media |
 | GitHub | <https://github.com/advplyr/audiobookshelf> |
@@ -78,10 +78,10 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 
 ## Latest security scan
 
-Scanned 2026-11-21T13:19:46Z by `sdk/tools/app-gate`: **fail**. Licence `GPL-3.0` class L2; smoke test pass.
+Scanned 2026-11-28T15:02:01Z by `sdk/tools/app-gate`: **fail**. Licence `GPL-3.0` class L2; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `ghcr.io/advplyr/audiobookshelf:2.37.2@sha256:b897c33f05972fb1bf484f7487bc878fa91ec8691335c1db6e2929c3a7658efa` | amd64, arm64 | 4 (4) | 58 | 0 infected (daily-28190) | 0 | unsigned |
+| `ghcr.io/advplyr/audiobookshelf:2.37.2@sha256:b897c33f05972fb1bf484f7487bc878fa91ec8691335c1db6e2929c3a7658efa` | amd64, arm64 | 4 (4) | 64 | 0 infected (daily-28194) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

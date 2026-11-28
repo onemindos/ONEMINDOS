@@ -8,7 +8,7 @@ Self-hosted AI chat with agents, MCP, model switching and message search, for lo
 | | |
 |---|---|
 | Version | 0.8.8 (upstream release `v0.8.8`, published 2026-10-01) |
-| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-21) |
+| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-28) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | ai |
 | GitHub | <https://github.com/LibreChat-AI/LibreChat> |
@@ -107,12 +107,12 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 
 ## Latest security scan
 
-Scanned 2026-11-21T15:12:24Z by `sdk/tools/app-gate`: **fail**. Licence `MIT` class L1; smoke test pass.
+Scanned 2026-11-28T16:45:28Z by `sdk/tools/app-gate`: **fail**. Licence `MIT` class L1; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `registry.librechat.ai/librechat-ai/librechat:v0.8.8@sha256:5b706bcee1ca154a1e2987303aaeca0eb27f97919cccee4bb604226c2f8abf61` | amd64, arm64 | 5 (5) | 55 | 0 infected (daily-28190) | 1 | unsigned |
-| `ghcr.io/ferretdb/postgres-documentdb:17-0.107.0-ferretdb-2.7.0@sha256:2386795ec2aa7ae559304361979f1dc5708d383ee9020ae63dadc2940dfe58f7` | amd64, arm64 | 34 (28) | 1125 | 0 infected (daily-28190) | 0 | unsigned |
-| `ghcr.io/ferretdb/ferretdb:2.7.0@sha256:5706414241eb84f0515512c37b46db0f1b1eac9e5ceb7e4c2523211c184b1985` | amd64, arm64 | 4 (4) | 56 | 0 infected (daily-28190) | 0 | unsigned |
+| `registry.librechat.ai/librechat-ai/librechat:v0.8.8@sha256:5b706bcee1ca154a1e2987303aaeca0eb27f97919cccee4bb604226c2f8abf61` | amd64, arm64 | 5 (5) | 55 | 0 infected (daily-28194) | 1 | unsigned |
+| `ghcr.io/ferretdb/postgres-documentdb:17-0.107.0-ferretdb-2.7.0@sha256:2386795ec2aa7ae559304361979f1dc5708d383ee9020ae63dadc2940dfe58f7` | amd64, arm64 | 34 (29) | 1115 | 0 infected (daily-28194) | 0 | unsigned |
+| `ghcr.io/ferretdb/ferretdb:2.7.0@sha256:5706414241eb84f0515512c37b46db0f1b1eac9e5ceb7e4c2523211c184b1985` | amd64, arm64 | 4 (4) | 55 | 0 infected (daily-28194) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

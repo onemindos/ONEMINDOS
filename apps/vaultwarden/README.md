@@ -8,7 +8,7 @@ Unofficial Bitwarden compatible server written in Rust, formerly known as bitwar
 | | |
 |---|---|
 | Version | 1.37.5 (upstream release `1.37.5`, published 2026-11-01) |
-| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
+| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-28) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | passwords |
 | GitHub | <https://github.com/dani-garcia/vaultwarden> |
@@ -77,10 +77,10 @@ Source: the upstream [README](https://github.com/dani-garcia/vaultwarden/blob/1.
 
 ## Latest security scan
 
-Scanned 2026-11-21T15:56:44Z by `sdk/tools/app-gate`: **fail**. Licence `AGPL-3.0` class L2; smoke test pass.
+Scanned 2026-11-28T16:55:52Z by `sdk/tools/app-gate`: **fail**. Licence `AGPL-3.0` class L2; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `docker.io/vaultwarden/server:1.37.5@sha256:4fe17f415f90087377d37c755e0ea3cf189dcc6794e49cdd2a9adbb4937d9e1f` | amd64, arm64 | 4 (4) | 170 | 0 infected (daily-28190) | 0 | unsigned |
+| `docker.io/vaultwarden/server:1.37.5@sha256:4fe17f415f90087377d37c755e0ea3cf189dcc6794e49cdd2a9adbb4937d9e1f` | amd64, arm64 | 4 (4) | 174 | 0 infected (daily-28194) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

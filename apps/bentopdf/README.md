@@ -8,7 +8,7 @@ A privacy-first PDF toolkit: merge, split, compress, convert and edit PDFs in th
 | | |
 |---|---|
 | Version | 2.8.11 (upstream release `2.8.11`, published 2026-10-31) |
-| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
+| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-28) |
 | Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | productivity |
 | GitHub | <https://github.com/alam00000/bentopdf> |
@@ -61,10 +61,10 @@ Images:
 
 ## Latest security scan
 
-Scanned 2026-11-21T13:12:53Z by `sdk/tools/app-gate`: **pass**. Licence `AGPL-3.0` class L2; smoke test pass.
+Scanned 2026-11-28T14:56:40Z by `sdk/tools/app-gate`: **pass**. Licence `AGPL-3.0` class L2; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `ghcr.io/alam00000/bentopdf:v2.8.11@sha256:b107c37d9f1f27b7edae28d262e526d8e225541a7cc26005b84dbab42c904105` | amd64, arm64 | 0 (0) | 0 | 0 infected (daily-28190) | 0 | unsigned |
+| `ghcr.io/alam00000/bentopdf:v2.8.11@sha256:b107c37d9f1f27b7edae28d262e526d8e225541a7cc26005b84dbab42c904105` | amd64, arm64 | 0 (0) | 0 | 0 infected (daily-28194) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

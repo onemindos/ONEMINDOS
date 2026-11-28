@@ -8,7 +8,7 @@ AI-Powered Photos App 🌈💎✨
 | | |
 |---|---|
 | Version | 261029-963b58c50 (upstream release `261029-963b58c50`, published 2026-10-29) |
-| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
+| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-28) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | files |
 | GitHub | <https://github.com/photoprism/photoprism> |
@@ -89,11 +89,11 @@ To unblock: the crash loop is fixed above (rerun the gate to confirm); move the 
 
 ## Latest security scan
 
-Scanned 2026-11-21T15:40:53Z by `sdk/tools/app-gate`: **fail**. Licence `AGPL-3.0` class L2; smoke test pass.
+Scanned 2026-11-28T16:43:32Z by `sdk/tools/app-gate`: **fail**. Licence `AGPL-3.0` class L2; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `docker.io/photoprism/photoprism:261029@sha256:9409cf8e5a6ebcbe3170d14537556cbc20997aaa307096d6eeedbfc5eeef6719` | amd64, arm64 | 8 (5) | 132 | 0 infected (daily-28190) | 0 | unsigned |
-| `docker.io/library/mariadb:12.3.3@sha256:4ebbcf100a3ba320766dfa0e1af008df12261301db6ef72798c7650f70794aed` | amd64, arm64 | 1 (1) | 26 | 0 infected (daily-28190) | 0 | unsigned |
+| `docker.io/photoprism/photoprism:261029@sha256:9409cf8e5a6ebcbe3170d14537556cbc20997aaa307096d6eeedbfc5eeef6719` | amd64, arm64 | 18 (5) | 245 | 0 infected (daily-28194) | 0 | unsigned |
+| `docker.io/library/mariadb:12.3.3@sha256:4ebbcf100a3ba320766dfa0e1af008df12261301db6ef72798c7650f70794aed` | amd64, arm64 | 1 (1) | 25 | 0 infected (daily-28194) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

@@ -8,7 +8,7 @@ Bookmark manager that saves a copy of every page you keep.
 | | |
 |---|---|
 | Version | 2.17.0 (upstream release `v2.17.0`, published 2026-11-10) |
-| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
+| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-28) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | notes |
 | GitHub | <https://github.com/linkwarden/linkwarden> |
@@ -97,11 +97,11 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 
 ## Latest security scan
 
-Scanned 2026-11-21T15:08:49Z by `sdk/tools/app-gate`: **fail**. Licence `AGPL-3.0` class L2; smoke test pass.
+Scanned 2026-11-28T16:36:21Z by `sdk/tools/app-gate`: **fail**. Licence `AGPL-3.0` class L2; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `ghcr.io/linkwarden/linkwarden:v2.17.0@sha256:7c11fde57d1a0c819b6de0079966eba3a33584d718464af7dacde22bd470ae46` | amd64, arm64 | 5 (1) | 196 | 0 infected (daily-28190) | 0 | unsigned |
-| `docker.io/library/postgres:16.15-trixie@sha256:f9a7b9ebf6f56201f949db745e47bc423c0f0f8294bafe991cc10bf74b029657` | amd64, arm64 | 2 (1) | 150 | 0 infected (daily-28190) | 1 | unsigned |
+| `ghcr.io/linkwarden/linkwarden:v2.17.0@sha256:7c11fde57d1a0c819b6de0079966eba3a33584d718464af7dacde22bd470ae46` | amd64, arm64 | 5 (1) | 196 | 0 infected (daily-28194) | 0 | unsigned |
+| `docker.io/library/postgres:16.15-trixie@sha256:f9a7b9ebf6f56201f949db745e47bc423c0f0f8294bafe991cc10bf74b029657` | amd64, arm64 | 2 (1) | 154 | 0 infected (daily-28194) | 1 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

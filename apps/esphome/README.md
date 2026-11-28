@@ -8,7 +8,7 @@ ESPHome is a system to control your ESP32, ESP8266, BK72xx, RP2040 by simple yet
 | | |
 |---|---|
 | Version | 2026.10.2 (upstream release `2026.10.2`, published 2026-11-02) |
-| Licence | `MIT AND GPL-3.0`, Market class **blocked** (licence gate, scan of 2026-11-21) |
+| Licence | `MIT AND GPL-3.0`, Market class **blocked** (licence gate, scan of 2026-11-28) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | home |
 | GitHub | <https://github.com/esphome/esphome> |
@@ -93,10 +93,10 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 
 ## Latest security scan
 
-Scanned 2026-11-21T13:37:07Z by `sdk/tools/app-gate`: **fail**. Licence `MIT AND GPL-3.0` class blocked; smoke test pass.
+Scanned 2026-11-28T15:46:04Z by `sdk/tools/app-gate`: **fail**. Licence `MIT AND GPL-3.0` class blocked; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `ghcr.io/esphome/esphome:2026.10.2@sha256:4a918585150e95e7675be84a347384ff308fde1bd32d0e4472666e1252cc0e8f` | amd64, arm64 | 23 (22) | 665 | 0 infected (daily-28190) | 0 | unsigned |
+| `ghcr.io/esphome/esphome:2026.10.2@sha256:4a918585150e95e7675be84a347384ff308fde1bd32d0e4472666e1252cc0e8f` | amd64, arm64 | 23 (22) | 671 | 0 infected (daily-28194) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.
