@@ -50,6 +50,9 @@ group m7-approver-keys issue=#1213 M7: proven approver keys: the Sign-in keys sc
 dashboard auth.approver_keys.list m7-approver-keys
 dashboard auth.approver_keys.register m7-approver-keys
 dashboard auth.approver_keys.revoke m7-approver-keys
+dashboard auth.trusted_models.list m7-approver-keys
+dashboard auth.trusted_models.remove m7-approver-keys
+dashboard verification.requirements.get m7-approver-keys
 cli auth.approver_keys.revoke m7-approver-keys
 
 # ---- should-have gaps named in the report (#1232 S-rows) ---------------------------------------------
@@ -126,7 +129,6 @@ dashboard windows.list s7-windows
 group s8-cli-groups issue=#1232 S8: these settings have a dashboard screen but no `onemind` command group yet (automation, alerts, family, onboarding, files, sharing, plugins and others).
 cli alerts.ack s8-cli-groups
 cli alerts.resolve s8-cli-groups
-cli auth.passkeys.delete s8-cli-groups
 cli automation.pause s8-cli-groups
 cli automation.resume s8-cli-groups
 cli automation.rules.disable s8-cli-groups
@@ -351,6 +353,11 @@ cli auth.setup cli-browser-ceremony
 group cli-visual-layout issue=#1232 A layout a person arranges on screen (Home, the dashboard card); a terminal has nothing to arrange. Founder to confirm.
 cli me.dashboard_card.save cli-visual-layout
 cli me.home.save cli-visual-layout
+group sdk-step-up issue=#1214 The step-up ceremony (D-028) runs inside the SDK (sdk/ts/src/stepup.ts) when any owner change answers 401 step_up_required, so no screen names its two routes; the CLI cannot answer a passkey challenge (it tells the owner to sign in with the passkey in the dashboard).
+dashboard auth.step_up.options sdk-step-up
+dashboard auth.step_up.verify sdk-step-up
+cli auth.step_up.options cli-browser-ceremony
+cli auth.step_up.verify cli-browser-ceremony
 
 # ---- the phone's 1.0 scope: what the phone leaves to the dashboard (FOUNDER TO CONFIRM) --------------
 group mobile-files-browse-only issue=#1232 Mobile 1.0 scope (founder to confirm): the phone browses, downloads and uploads files and handles Send to; file requests, sharing, trash, quotas, app passwords, the office editor, and polling or cancelling an unfinished upload are dashboard-only.
